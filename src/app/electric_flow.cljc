@@ -117,9 +117,9 @@
                           :width (str size "px")
                           :height (str size "px")
                           :fill "red"}})
-      (dom/on "wheel" (fn [e]
+      (dom/on "wheel" (e/fn [e]
                         (js/console.log e)
-                        (let [delta (.deltaY e)
+                        (let [delta (.-deltaY e)
                               factor (if (< delta 0) 1.25 0.85)]
                           (println "delta" delta)
                           (println "factor" factor)
