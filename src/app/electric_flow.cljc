@@ -16,6 +16,8 @@
       (dom/props {:id "dotted-pattern"
                   :width "20"
                   :height "20"
+                  :x 0
+                  :y 0
                   :patternUnits "userSpaceOnUse"})
       (svg/circle
         (dom/props {:cx "10"
@@ -30,63 +32,80 @@
        :height "100%"
        :fill "url(#dotted-pattern)"})))
 
+#?(:cljs (def !transform-m (atom '(1 0 0 1 0 0))))
+#?(:cljs (def !zoom-e (atom 0)))
 
-(defn set-on-zoom [e]
+(e/def transform-m (e/watch !transform-m))
 
-  (let [delta (.-deltaY e)
-        factor (if (< delta 0) 1.1 0.9)
+(defn calc [factor matrix]
+  (reduce
+    (fn [l [idx v]]
+      (let [cx 125
+            cy 75
+            new-val (cond
+                      (= idx 4) (+ v
+                                  (* (- 1 factor)
+                                    cx))
+                      (= idx 5) (+ v
+                                  (* (- 1 factor)
+                                    cy))
+                      :else      (* v factor))]
+        (println "idx" idx "val " v)
+        (conj l new-val)))
+    []
+    (map-indexed (fn [idx v] [idx v]) matrix)))
+
+(calc 1.25 '(1 0 0 1 0 0))
+
+(defn round-to-2-decimals [n]
+  (float (/ (Math/round (* n 100.0)) 100.0)))
+
+(defn set-on-zoom [factor]
+  (println "factor" factor)
+  (let [;delta (.-deltaY e)
+        ;factor 1.25 ;(if (< delta 0) 1.1 0.9)
         sv (.getElementById  js/document "sv")
         vbox (-> sv
                (.getAttribute  "viewBox")
                (str/split #" ")
                (js->clj :keywordize-keys true))
-        [x y width height] (into-array
-                             (map #(js/parseInt %) vbox))
+        cx (/ (nth vbox 2) 2)
+        cy (/ (nth vbox 3) 2)
+        indxed-matrix (map-indexed
+                        (fn [idx val]
+                          [idx val])
+                        @!transform-m)
+        new-matrix (reverse (reduce
+                              (fn [l [idx v]]
+                                (let [new-val (cond
+                                                (= idx 4) (+ v
+                                                            (* (- 1 factor)
+                                                              cx))
+                                                (= idx 5) (+ v
+                                                            (* (- 1 factor)
+                                                              cy))
+                                                :else      (round-to-2-decimals (* v factor)))]
+                                  (println "idx" idx "val " v)
+                                  (conj l new-val)))
+                              ()
+                              indxed-matrix))]
 
-        new-width  (min (max (* width factor)
-                          (* 0.1 width))
-                        width)
-        new-height (min (max (* height factor)
-                          (* 0.1 height))
-                     height)
-        xf         (- (.-clientX e)
-                     (/ (.-left (.getBoundingClientRect sv))
-                       (.-width (.getBoundingClientRect sv))))
-
-        yf         (- (.-clientY e)
-                     (/ (.-top (.getBoundingClientRect sv))
-                       (.-height (.getBoundingClientRect sv))))
-        dx         (* xf
-                     (- new-width width))
-        dy         (* yf
-                     (- new-height height))
-        new-x      (- dx x)
-        new-y      (- dy y)
-        new-viewbox (str
-                      new-x " "
-                      new-y " "
-                      new-width " "
-                      new-height)]
     (println "vbox" vbox)
-    (println "new viewbox" new-viewbox)
-    (.setAttribute sv "viewBox" new-viewbox)
+    (println "cx" cx "cy" cy)
+    (println "transform-m" !transform-m)
+    (println "indexed matrix" indxed-matrix)
+    (println "new matrix" new-matrix)
+    (reset! !zoom-e (+ 1 @!zoom-e))
+    (println "zoom-e" @!zoom-e)
+    (reset! !transform-m  new-matrix)
+    (println "transform m" transform-m)
+    #_(reset! transform-m new-matrix)
     #_(.setAttribute (.getElementById js/document "dotted-pattern") "width" new-width)
    #_ (.setAttribute (.getElementById js/document "dotted-pattern") "height" new-height)))
 
-(defn on-zoom [e]
- (js/console.log "wheel" (.-deltaY e) e))
 
 
 (e/defn view [size]
-  (let [>zoom (m/observe (fn mount [emit!]
-                           (let [f (fn [e]
-                                     (let [delta (.-deltaY e)]
-                                        (println "calling zoom" delta)
-                                        (emit! e)))]
-                             (.addEventListener dom/node "wheel" f)
-                             (fn unmount []
-                               (.removeEventListener dom/node "wheel" f)))))
-        zoom  (new (m/reductions {} nil >zoom))]
     (svg/svg
       (dom/props {:id      "sv"
                   :viewBox (str "0 " "0 " size " " size)
@@ -98,24 +117,41 @@
                           :width (str size "px")
                           :height (str size "px")
                           :fill "red"}})
-      (when zoom
-        (js/console.log "zoom" zoom)
-        (set-on-zoom zoom))
-      (background.))))
+      (dom/on "wheel" (fn [e]
+                        (js/console.log e)
+                        (let [delta (.deltaY e)
+                              factor (if (< delta 0) 1.25 0.85)]
+                          (println "delta" delta)
+                          (println "factor" factor)
+                          (set-on-zoom factor))))
+
+
+      (svg/g
+        (dom/props {:id "matrix-group"
+                    :transform (str "matrix" transform-m)})
+        (println "transform-m" (str "matrix"  transform-m))
+        (background.))))
 
 (e/defn main []
-  (view. 1000)
-  #_(dom/div
-      (dom/props {:style {:height "100%"
-                          :width "100%"
-                          :display "flex"
-                          :flex-direction "row"}})
-
-      #_(dom/div
-          (dom/props {:style {:display "flex"
-                              :height "100%"
-                              :width "80%"}})
-          (view. 40000))
+  (e/client
+    (dom/div
+      (dom/props {:style {:display "flex"
+                          :flex-direction "column"}})
       (dom/div
-        (dom/text "Hello world"))))
+       (dom/props {:class "hover"
+                   :style {:height "90px"
+                           :position "absolute"
+                           :background-color "red"
+                           :width "90px"}})
+       (dom/on "click" (set-on-zoom 1.25))
+       (dom/text "click me"))
+      (dom/div
+        (dom/props {:class "hover"
+                    :style {:height "30px"
+                            :position "absolute"
+                            :background-color "black"
+                            :width "90px"}})
+        (dom/on "click" (set-on-zoom 0.85))
+        (dom/text "de click me")))
+   (view. 10000)))
 
