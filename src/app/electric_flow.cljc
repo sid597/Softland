@@ -89,28 +89,6 @@
 
     (reset! !transform-m  new-matrix)))
 
-#?(:cljs (defn pinch-state> [pinchable]
-           (m/observe
-             (fn [!]
-               (let [sample (fn [e]
-                              (! (when (.-ctrlKey e)
-                                   (.preventDefault e)
-                                   (let [delta (.-deltaY e)
-                                         factor (if (< delta 0) 1.25 0.85)]
-                                     ;(println "factor fro state" factor)
-                                     factor))))]
-
-                 (println "sample" sample)
-                 (.addEventListener pinchable "wheel" sample #js {"passive" false})
-                 #(.removeEventListener pinchable "wheel" sample))))))
-
-#?(:cljs (defn pinch-state< [pinchable]
-           (->> (pinch-state> pinchable)
-             (e/throttle 0) ; RAF interval
-             (m/reductions {} 1)))) ; What's the significance of passing empty map as `rf` here?
-             ;(m/relieve +)
-             ;(m/latest identity))))
-
 
 (e/defn view [size]
   (dom/div
@@ -125,9 +103,7 @@
                               :width (str size "px")
                               :height (str size "px")
                               :fill "red"}})
-
           (dom/on "wheel" (e/fn [e]
-
                             (js/console.log e)
                             (let [delta (.-deltaY e)
                                   factor (if (< delta 0) 1.01 0.99)]
@@ -154,7 +130,7 @@
                             :position "absolute"
                             :background-color "red"
                             :width "90px"}})
-        (dom/on "click" (set-on-zoom 1.05))
+        (dom/on "click" (set-on-zoom 1.01))
         (dom/text "click me"))
       (dom/div
         (dom/props {:class "hover"
