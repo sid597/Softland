@@ -33,7 +33,6 @@
        :fill "url(#dotted-pattern)"})))
 
 #?(:cljs (def !transform-m (atom '(1 0 0 1 0 0))))
-#?(:cljs (def !zoom-e (atom 0)))
 
 (e/def transform-m (e/watch !transform-m))
 
@@ -50,7 +49,6 @@
                                   (* (- 1 factor)
                                     cy))
                       :else      (* v factor))]
-        (println "idx" idx "val " v)
         (conj l new-val)))
     []
     (map-indexed (fn [idx v] [idx v]) matrix)))
@@ -85,65 +83,65 @@
                                       new-val (if in-range?
                                                 new-mag
                                                 v)]
-                                  (println "idx" idx "val " v "new-val" new-val)
                                   (conj l new-val)))
                               ()
                               indxed-matrix))]
 
-    (println "vbox" vbox)
-    (println "cx" cx "cy" cy)
-    (println "transform-m" !transform-m)
-    (println "indexed matrix" indxed-matrix)
-    (println "new matrix" new-matrix)
-    (reset! !zoom-e (+ 1 @!zoom-e))
-    (println "zoom-e" @!zoom-e)
-    (reset! !transform-m  new-matrix)
-    (println "transform m" transform-m)))
+    (reset! !transform-m  new-matrix)))
 
 #?(:cljs (defn pinch-state> [pinchable]
            (m/observe
              (fn [!]
-               (let [sample (fn [e] (! (when (.-ctrlKey e)
-                                         (.preventDefault e)
-                                         (.-deltaY e))))]
+               (let [sample (fn [e]
+                              (! (when (.-ctrlKey e)
+                                   (.preventDefault e)
+                                   (let [delta (.-deltaY e)
+                                         factor (if (< delta 0) 1.25 0.85)]
+                                     ;(println "factor fro state" factor)
+                                     factor))))]
+
+                 (println "sample" sample)
                  (.addEventListener pinchable "wheel" sample #js {"passive" false})
                  #(.removeEventListener pinchable "wheel" sample))))))
 
 #?(:cljs (defn pinch-state< [pinchable]
            (->> (pinch-state> pinchable)
-             (e/throttle 16) ; RAF interval
-             (m/reductions {} 0) ; What's the significance of passing empty map as `rf` here?
-             (m/relieve +)
-             (m/latest identity))))
+             (e/throttle 0) ; RAF interval
+             (m/reductions {} 1)))) ; What's the significance of passing empty map as `rf` here?
+             ;(m/relieve +)
+             ;(m/latest identity))))
+
 
 (e/defn view [size]
-    (svg/svg
-      (dom/props {:id      "sv"
-                  :viewBox (str "0 " "0 " size " " size)
-                  :style {:top "0"
-                          ;:background-color "black"
-                          :left "0"
-                          ;:stroke "blue"
-                          :stroke-width "5px"
-                          :width (str size "px")
-                          :height (str size "px")
-                          :fill "red"}})
+  (dom/div
+      (svg/svg
+          (dom/props {:id      "sv"
+                      :viewBox (str "0 " "0 " size " " size)
+                      :style {:top "0"
+                              ;:background-color "black"
+                              :left "0"
+                              ;:stroke "blue"
+                              :stroke-width "5px"
+                              :width (str size "px")
+                              :height (str size "px")
+                              :fill "red"}})
 
-      (dom/on "wheel" (e/fn [e]
+          (dom/on "wheel" (e/fn [e]
 
-                        (js/console.log e)
-                        (let [delta (.-deltaY e)
-                              factor (if (< delta 0) 1.25 0.85)]
-                          (println "delta" delta)
-                          (println "factor" factor)
-                          (set-on-zoom factor))))
+                            (js/console.log e)
+                            (let [delta (.-deltaY e)
+                                  factor (if (< delta 0) 1.01 0.99)]
+                              (println "delta" delta)
+                              (println "factor" factor)
+                              (set-on-zoom factor))))
 
-
-      (svg/g
-        (dom/props {:id "matrix-group"
-                    :transform (str "matrix" transform-m)})
-        (println "transform-m" (str "matrix"  transform-m))
-        (background.))))
+        (let [res (new (pinch-state< dom/node))] ; What's the significance of passing empty map as `rf` here?
+          (println "pinch state res" res)
+          (svg/g
+              (dom/props {:id "matrix-group"
+                          :transform (str "matrix" transform-m)})
+              (println "transform-m" (str "matrix"  transform-m))
+              (background.))))))
 
 (e/defn main []
   (e/client
@@ -151,20 +149,20 @@
       (dom/props {:style {:display "flex"
                           :flex-direction "column"}})
       (dom/div
-       (dom/props {:class "hover"
-                   :style {:height "90px"
-                           :position "absolute"
-                           :background-color "red"
-                           :width "90px"}})
-       (dom/on "click" (set-on-zoom 1.25))
-       (dom/text "click me"))
+        (dom/props {:class "hover"
+                    :style {:height "90px"
+                            :position "absolute"
+                            :background-color "red"
+                            :width "90px"}})
+        (dom/on "click" (set-on-zoom 1.05))
+        (dom/text "click me"))
       (dom/div
         (dom/props {:class "hover"
                     :style {:height "30px"
                             :position "absolute"
                             :background-color "black"
                             :width "90px"}})
-        (dom/on "click" (set-on-zoom 0.85))
+        (dom/on "click" (set-on-zoom 0.99))
         (dom/text "de click me")))
-   (view. 1000)))
+    (view. 1000)))
 
