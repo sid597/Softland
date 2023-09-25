@@ -77,15 +77,15 @@
                         @!transform-m)
         new-matrix (reverse (reduce
                               (fn [l [idx v]]
-                                (let [new-val (cond
-                                                (= idx 4) (+ v
-                                                            (* (- 1 factor)
-                                                              cx))
-                                                (= idx 5) (+ v
-                                                            (* (- 1 factor)
-                                                              cy))
-                                                :else      (round-to-2-decimals (* v factor)))]
-                                  (println "idx" idx "val " v)
+                                (let [new-mag (round-to-2-decimals (* v factor))
+                                      in-range? (if (and (>= new-mag 0.25)
+                                                      (<= new-mag 11.11))
+                                                  true
+                                                  false)
+                                      new-val (if in-range?
+                                                new-mag
+                                                v)]
+                                  (println "idx" idx "val " v "new-val" new-val)
                                   (conj l new-val)))
                               ()
                               indxed-matrix))]
@@ -98,12 +98,23 @@
     (reset! !zoom-e (+ 1 @!zoom-e))
     (println "zoom-e" @!zoom-e)
     (reset! !transform-m  new-matrix)
-    (println "transform m" transform-m)
-    #_(reset! transform-m new-matrix)
-    #_(.setAttribute (.getElementById js/document "dotted-pattern") "width" new-width)
-   #_ (.setAttribute (.getElementById js/document "dotted-pattern") "height" new-height)))
+    (println "transform m" transform-m)))
 
+#?(:cljs (defn pinch-state> [pinchable]
+           (m/observe
+             (fn [!]
+               (let [sample (fn [e] (! (when (.-ctrlKey e)
+                                         (.preventDefault e)
+                                         (.-deltaY e))))]
+                 (.addEventListener pinchable "wheel" sample #js {"passive" false})
+                 #(.removeEventListener pinchable "wheel" sample))))))
 
+#?(:cljs (defn pinch-state< [pinchable]
+           (->> (pinch-state> pinchable)
+             (e/throttle 16) ; RAF interval
+             (m/reductions {} 0) ; What's the significance of passing empty map as `rf` here?
+             (m/relieve +)
+             (m/latest identity))))
 
 (e/defn view [size]
     (svg/svg
@@ -117,7 +128,9 @@
                           :width (str size "px")
                           :height (str size "px")
                           :fill "red"}})
+
       (dom/on "wheel" (e/fn [e]
+
                         (js/console.log e)
                         (let [delta (.-deltaY e)
                               factor (if (< delta 0) 1.25 0.85)]
@@ -153,5 +166,5 @@
                             :width "90px"}})
         (dom/on "click" (set-on-zoom 0.85))
         (dom/text "de click me")))
-   (view. 10000)))
+   (view. 1000)))
 
