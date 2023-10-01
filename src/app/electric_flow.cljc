@@ -10,27 +10,7 @@
 
 
 
-(e/defn background []
-  (svg/defs
-    (svg/pattern
-      (dom/props {:id "dotted-pattern"
-                  :width "20"
-                  :height "20"
-                  :x 0
-                  :y 0
-                  :patternUnits "userSpaceOnUse"})
-      (svg/circle
-        (dom/props {:cx "10"
-                    :cy "10"
-                    :r "1"
-                    :fill "black"
-                    ;:stroke "grey"
-                    #_#_:stroke-width "1"}))))
-  (svg/rect
-    (dom/props
-      {:width "100%"
-       :height "100%"
-       :fill "url(#dotted-pattern)"})))
+
 
 (defn round-to-2-decimals [n]
   (float (/ (Math/round (* n 100.0)) 100.0)))
@@ -56,7 +36,9 @@
 #?(:cljs (def !translate-y (atom 0)))
 #?(:cljs (def !svg-pan (atom {:x 0 :y 0 :sx 1 :sy 1})))
 #?(:cljs (def !last-position (atom {:x 0 :y 0})))
+#?(:cljs (def !zoom-level (atom 1)))
 
+(e/def zoom-level (e/watch !zoom-level))
 (e/def translate-x (e/watch !translate-x))
 (e/def translate-y (e/watch !translate-y))
 (e/def is-dragging (e/watch is-dragging?))
@@ -124,7 +106,7 @@
       (translate-to x y)
       (translate-to (- x)  (- y)))))
 
-#?(:cljs (def !view-box (atom [0 0 1400 1400])))
+#?(:cljs (def !view-box (atom [00 00 1400 1400])))
 
 (e/def view-box (e/watch !view-box))
 
@@ -155,12 +137,43 @@
     [svg-x svg-y]))
 
 
+(e/defn background []
+  (let [scaled-gap (* 20 zoom-level)
+        scaled-size (* 1 zoom-level)
+        scaled-size-offset (/ scaled-size 2)]
+    (println "scaled-gap" scaled-gap "scaled-size" scaled-size "scaled-size-offset" scaled-size-offset)
+    (svg/defs
+     (svg/pattern
+       (dom/props {:id "dotted-pattern"
+                   :x (mod (first view-box) scaled-gap)
+                   :y (mod (second view-box) scaled-gap)
+                   :width scaled-gap
+                   :height scaled-gap
+                   :patternTransform (str "translate(" scaled-size-offset " " scaled-size-offset ")")
+                   :patternUnits "userSpaceOnUse"})
+       (svg/circle
+         (dom/props {:cx scaled-size-offset
+                     :cy scaled-size-offset
+                     :r  scaled-size-offset
+                     :fill "black"}))))
+    (svg/rect
+       (dom/props
+         {:x  (first view-box)
+          :y  (second view-box)
+          :width "100%"
+          :height "100%"
+          :fill "url(#dotted-pattern)"}))))
+
+
+
 (e/defn view []
   (dom/div
     (svg/svg
      (dom/props {:id    "sv"
-                 ;:width 1400
-                 ;:height 400
+                 :style {:width "100%"
+                         :height "100%"
+                         :top 0
+                         :left 0}
                  :viewBox (clojure.string/join " " view-box)})
      (dom/on "mousemove" (e/fn [e]
                            (when @is-dragging?
@@ -178,52 +191,33 @@
      (dom/on "wheel" (e/fn [e]
                        (.preventDefault e)
                        (let [coords (browser-to-svg-coords e (.getElementById js/document "sv"))
-                             wheel   (if (> (.-deltaY e) 0) 1  -1)
+                             wheel   (if (< (.-deltaY e) 0)
+                                       1.01
+                                       0.99)
                              zoom-factor  (round-to-2-decimals (js/Math.exp (* wheel 0.01)))
-                             ;zoom-factor (if (> (.-deltaY e) 0) 1.1 0.9)  ; assuming zoom-in for positive deltaY
-                             new-view-box (direct-calculation @!view-box zoom-factor coords)]
+                             new-view-box (direct-calculation view-box wheel coords)]
+                         (reset! !zoom-level (* zoom-level wheel))
+                         (println "zoom-level" (.-deltaY e) "--" wheel "--"(* zoom-level wheel) "new-view-box" new-view-box)
                          (reset! !view-box new-view-box))))
-     (svg/g
-       (background.)
-       (svg/circle
-         (dom/props {:id "sc"
-                     :cx 700
-                     :cy 200
-                     :r  8
-                     :fill "red"}))))))
 
-
+     (background.)
+     (svg/circle
+       (dom/props {:id "sc"
+                   :cx 700
+                   :cy 200
+                   :r  8
+                   :fill "red"}))
+     (svg/circle
+       (dom/props {:id "sc"
+                   :cx 900
+                   :cy 200
+                   :r  8
+                   :fill "green"})))))
 
 
 
 (e/defn main []
   (e/client
-    (dom/div
-      (dom/props {:style {:display "flex"
-                          :flex-direction "column"}})
-      (dom/div
-        (dom/props {:class "hover"
-                    :style {:height "60px"
-                            :position "absolute"
-                            :background-color "red"
-                            :padding "10px"
-                            :width "auto"}})
-        (dom/on "click"
-          (scale-by (round-to-2-decimals (js/Math.exp (* 1 0.01)))))
-
-        (dom/text "translate x"))
-      (dom/div
-        (dom/props {:class "hover"
-                    :style {:height "60px"
-                            :position "absolute"
-                            :background-color "grey"
-                            :margin-top "60px"
-                            :padding "10px"
-                            :width "auto"}})
-        (dom/on "click"
-            (scale-by 0.5))
-        (dom/text "translate -x")))
-
    (view.)))
 
 
