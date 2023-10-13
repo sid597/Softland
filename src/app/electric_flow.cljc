@@ -137,32 +137,27 @@
     [svg-x svg-y]))
 
 
-(e/defn background []
-  (let [scaled-gap (* 20 zoom-level)
-        scaled-size (* 1 zoom-level)
-        scaled-size-offset (/ scaled-size 2)]
-    (println "scaled-gap" scaled-gap "scaled-size" scaled-size "scaled-size-offset" scaled-size-offset)
-    (svg/defs
-     (svg/pattern
-       (dom/props {:id "dotted-pattern"
-                   :x (mod (first view-box) scaled-gap)
-                   :y (mod (second view-box) scaled-gap)
-                   :width scaled-gap
-                   :height scaled-gap
-                   :patternTransform (str "translate(" scaled-size-offset " " scaled-size-offset ")")
-                   :patternUnits "userSpaceOnUse"})
-       (svg/circle
-         (dom/props {:cx scaled-size-offset
-                     :cy scaled-size-offset
-                     :r  scaled-size-offset
-                     :fill "black"}))))
-    (svg/rect
-       (dom/props
-         {:x  (first view-box)
-          :y  (second view-box)
-          :width "100%"
-          :height "100%"
-          :fill "url(#dotted-pattern)"}))))
+(e/defn dot-background [color]
+  (svg/defs
+   (svg/pattern
+     (dom/props {:id "dotted-pattern"
+                 :width 20
+                 :height 20
+                 :patternUnits "userSpaceOnUse"})
+     (svg/circle
+       (dom/props {:cx 1
+                   :cy 1
+                   :r  1
+                   :fill color}))))
+
+  (svg/rect
+    (dom/props
+      {:x (first view-box)
+       :y (second view-box)
+       :width (nth view-box 2)
+       :height (nth view-box 3)
+       :fill "url(#dotted-pattern)"})))
+
 
 
 
@@ -170,24 +165,24 @@
   (dom/div
     (svg/svg
      (dom/props {:id    "sv"
-                 :style {:width "100%"
-                         :height "100%"
-                         :top 0
-                         :left 0}
-                 :viewBox (clojure.string/join " " view-box)})
-     (dom/on "mousemove" (e/fn [e]
-                           (when @is-dragging?
-                             (let [dx (- (.-clientX e) (:x @!last-position))
-                                   dy (- (.-clientY e) (:y @!last-position))]
-                               (swap! !svg-pan update :x + dx)
-                               (swap! !svg-pan update :y + dy)
-                               (reset! !last-position {:x (.-clientX e) :y (.-clientY e)})))))
-     (dom/on "mousedown" (e/fn [e]
-                              (reset! !last-position {:x (.-clientX e) :y (.-clientY e)})
-                              (reset! is-dragging? true)))
-     (dom/on "mouseup" (e/fn [e]
-                         (println "svg pan end ===================>" @!svg-pan)
-                         (reset! is-dragging? false)))
+                 :viewBox (clojure.string/join " " view-box)
+                 :style {:min-width "1000px"
+                             :min-height "1000px"
+                             :top 0
+                             :left 0}})
+     (dom/on "pointermove" (e/fn [e]
+                             (when @is-dragging?
+                               (let [dx (- (.-clientX e) (:x @!last-position))
+                                     dy (- (.-clientY e) (:y @!last-position))]
+                                 (swap! !svg-pan update :x + dx)
+                                 (swap! !svg-pan update :y + dy)
+                                 (reset! !last-position {:x (.-clientX e) :y (.-clientY e)})))))
+     (dom/on "pointerdown" (e/fn [e]
+                                (reset! !last-position {:x (.-clientX e) :y (.-clientY e)})
+                                (reset! is-dragging? true)))
+     (dom/on "pointerup" (e/fn [e]
+                           (println "svg pan end ===================>" @!svg-pan)
+                           (reset! is-dragging? false)))
      (dom/on "wheel" (e/fn [e]
                        (.preventDefault e)
                        (let [coords (browser-to-svg-coords e (.getElementById js/document "sv"))
@@ -200,19 +195,20 @@
                          (println "zoom-level" (.-deltaY e) "--" wheel "--"(* zoom-level wheel) "new-view-box" new-view-box)
                          (reset! !view-box new-view-box))))
 
-     (background.)
+     (dot-background. "black")
+
      (svg/circle
-       (dom/props {:id "sc"
-                   :cx 700
-                   :cy 200
-                   :r  8
-                   :fill "red"}))
+        (dom/props {:id "sc"
+                    :cx 700
+                    :cy 200
+                    :r  8
+                    :fill "red"}))
      (svg/circle
-       (dom/props {:id "sc"
-                   :cx 900
-                   :cy 200
-                   :r  8
-                   :fill "green"})))))
+        (dom/props {:id "sc"
+                    :cx 900
+                    :cy 200
+                    :r  8
+                    :fill "green"})))))
 
 
 
