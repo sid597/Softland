@@ -76,7 +76,19 @@
        :height (nth view-box 3)
        :fill "url(#dotted-pattern)"})))
 
-
+(defn find-new-coordintates [e]
+  (let [svg (.getElementById js/document "sv")
+        cw  (.-clientWidth svg)
+        ch  (.-clientHeight svg)
+        xf  (/ cw (nth @!view-box 2))
+        yf  (/ ch (nth @!view-box 3))
+        dx  (/ (- (.-clientX e) (:x @!last-position))
+              xf)
+        dy  (/ (- (.-clientY e) (:y @!last-position))
+              yf)
+        nx  (- (first @!view-box) dx)
+        ny  (- (second @!view-box) dy)]
+    [nx ny]))
 
 
 (e/defn view []
@@ -88,25 +100,22 @@
                              :min-height "100%"
                              :top 0
                              :left 0}})
-     (dom/on "pointermove" (e/fn [e]
-                             (when @is-dragging?
-                               (let [svg (.getElementById js/document "sv")
-                                     dx (/ (- (.-clientX e) (:x @!last-position))
-                                           (.-clientWidth svg))
-                                     dy (/ (- (.-clientY e) (:y @!last-position))
-                                          (.-clientHeight svg))
-                                     ny  (- (second @!view-box) dy)
-                                     nx  (- (first @!view-box) dx)]
-                                 (swap! !view-box assoc 0 nx)
-                                 (swap! !view-box assoc 1 ny)
-                                 (reset! !last-position {:x (.-clientX e) :y (.-clientY e)})))))
+     (dom/on "mousemove" (e/fn [e]
+                           (println "pointer move")
+                           (when @is-dragging?
+                             (let [[nx ny] (find-new-coordintates e)]
+                               (swap! !view-box assoc 0 nx)
+                               (swap! !view-box assoc 1 ny)
+                               (reset! !last-position {:x (.-clientX e) :y (.-clientY e)})))))
      (dom/on "pointerdown" (e/fn [e]
-                                (reset! !last-position {:x (.-clientX e) :y (.-clientY e)})
-                                (reset! is-dragging? true)))
+                             (println "pointer down")
+                             (reset! !last-position {:x (.-clientX e) :y (.-clientY e)})
+                             (reset! is-dragging? true)))
      (dom/on "pointerup" (e/fn [e]
                            (reset! is-dragging? false)))
      (dom/on "wheel" (e/fn [e]
                        (.preventDefault e)
+                       (println "on wheel")
                        (let [coords (browser-to-svg-coords e (.getElementById js/document "sv"))
                              wheel   (if (< (.-deltaY e) 0)
                                        1.01
