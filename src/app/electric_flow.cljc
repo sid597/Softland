@@ -15,98 +15,16 @@
 (defn round-to-2-decimals [n]
   (float (/ (Math/round (* n 100.0)) 100.0)))
 
-
-
-#?(:cljs (def wheel-count (atom 0)))
-#?(:cljs (def !h (atom 0)))
-#?(:cljs (def !w (atom 0)))
-#?(:cljs (def base-matrix '(1 0 0 1 0 0)))
-#?(:cljs (def !transform-m (atom base-matrix)))
-#?(:cljs (def mouse-x (atom nil)))
-#?(:cljs (def mouse-y (atom nil)))
-
-#?(:cljs (def !cx (atom 500)))
-#?(:cljs (def !cy (atom 500)))
-
-
-#?(:cljs (def start-x (atom 0)))
-#?(:cljs (def start-y (atom 0)))
 #?(:cljs (def is-dragging? (atom false)))
-#?(:cljs (def !translate-x (atom 0)))
-#?(:cljs (def !translate-y (atom 0)))
-#?(:cljs (def !svg-pan (atom {:x 0 :y 0 :sx 1 :sy 1})))
 #?(:cljs (def !last-position (atom {:x 0 :y 0})))
 #?(:cljs (def !zoom-level (atom 1)))
 
 (e/def zoom-level (e/watch !zoom-level))
-(e/def translate-x (e/watch !translate-x))
-(e/def translate-y (e/watch !translate-y))
-(e/def is-dragging (e/watch is-dragging?))
-(e/def svg-pan (e/watch !svg-pan))
-(e/def mx  (e/watch mouse-x))
-(e/def my (e/watch mouse-y))
-(e/def cx (round-to-2-decimals (e/watch !cx)))
-(e/def cy (round-to-2-decimals (e/watch !cy)))
 
-(e/def transform-m (e/watch !transform-m))
+#?(:cljs (def initial-viewbox [0 0 3400 3400]))
+#?(:cljs (def !view-box (atom initial-viewbox)))
 
 
-(defn scale-by [factor]
-  (let [x (-> (:sx @!svg-pan)
-             (* factor)
-             (round-to-2-decimals))
-        y (-> (:sy @!svg-pan)
-            (* factor)
-            (round-to-2-decimals))]
-    (swap! !svg-pan assoc :sx x :sy y)))
-
-
-(defn translate-to [x y]
-  (let [x-scale (:sx @!svg-pan)
-        y-scale (:sy @!svg-pan)
-        cx (:x @!svg-pan)
-        cy (:y @!svg-pan)
-        dx  (round-to-2-decimals (* x (- 1 x-scale)))
-        dy  (round-to-2-decimals (* y (- 1 y-scale)))]
-    (println "dx" dx "dy" dy "pan " @!svg-pan)
-    #_(swap! !svg-pan assoc :x dx :y dy)
-    (swap! !svg-pan update :x + dx)
-    (swap! !svg-pan update :y + dy)))
-
-(defn circle-coordinates
-  []
-  (let [tx (nth @!transform-m 4)
-        ty (nth @!transform-m 5)
-        xs  (first @!transform-m)
-        xy  (nth @!transform-m 3)
-        x' (round-to-2-decimals (+ (* xs 500) tx))
-        y' (round-to-2-decimals (+ (* xy 500) ty))]
-    (println "--> current matrix" @!transform-m "---x---" x' "---y---" y')
-    (reset! !cx x')
-    (reset! !cy y')))
-
-(defn get-mouse-position [e]
-  (let [ex (.-clientX e)
-        ey (.-clientY e)
-        ctm (.getScreenCTM (.getElementById js/document "sv"))
-        x  (/ (- ex (.-e ctm))
-              (.-a ctm))
-        y  (/ (- ey (.-f ctm))
-              (.-d ctm))]
-    [x y]))
-
-(defn apply-transform [wheel]
-  (let [factor  (round-to-2-decimals (js/Math.exp (* wheel 0.01)))
-        svg     (.getElementById js/document "sv")
-        x       (- (.-clientX e) (.-left (.getBoundingClientRect svg)))
-        y       (- (.-clientY e) (.-top (.getBoundingClientRect svg)))]
-    (println "factor" factor)
-    (scale-by factor)
-    (if (< wheel 0)
-      (translate-to x y)
-      (translate-to (- x)  (- y)))))
-
-#?(:cljs (def !view-box (atom [00 00 1400 1400])))
 
 (e/def view-box (e/watch !view-box))
 
@@ -166,22 +84,26 @@
     (svg/svg
      (dom/props {:id    "sv"
                  :viewBox (clojure.string/join " " view-box)
-                 :style {:min-width "1000px"
-                             :min-height "1000px"
+                 :style {:min-width "100%"
+                             :min-height "100%"
                              :top 0
                              :left 0}})
      (dom/on "pointermove" (e/fn [e]
                              (when @is-dragging?
-                               (let [dx (- (.-clientX e) (:x @!last-position))
-                                     dy (- (.-clientY e) (:y @!last-position))]
-                                 (swap! !svg-pan update :x + dx)
-                                 (swap! !svg-pan update :y + dy)
+                               (let [svg (.getElementById js/document "sv")
+                                     dx (/ (- (.-clientX e) (:x @!last-position))
+                                           (.-clientWidth svg))
+                                     dy (/ (- (.-clientY e) (:y @!last-position))
+                                          (.-clientHeight svg))
+                                     ny  (- (second @!view-box) dy)
+                                     nx  (- (first @!view-box) dx)]
+                                 (swap! !view-box assoc 0 nx)
+                                 (swap! !view-box assoc 1 ny)
                                  (reset! !last-position {:x (.-clientX e) :y (.-clientY e)})))))
      (dom/on "pointerdown" (e/fn [e]
                                 (reset! !last-position {:x (.-clientX e) :y (.-clientY e)})
                                 (reset! is-dragging? true)))
      (dom/on "pointerup" (e/fn [e]
-                           (println "svg pan end ===================>" @!svg-pan)
                            (reset! is-dragging? false)))
      (dom/on "wheel" (e/fn [e]
                        (.preventDefault e)
@@ -189,14 +111,10 @@
                              wheel   (if (< (.-deltaY e) 0)
                                        1.01
                                        0.99)
-                             zoom-factor  (round-to-2-decimals (js/Math.exp (* wheel 0.01)))
                              new-view-box (direct-calculation view-box wheel coords)]
                          (reset! !zoom-level (* zoom-level wheel))
-                         (println "zoom-level" (.-deltaY e) "--" wheel "--"(* zoom-level wheel) "new-view-box" new-view-box)
                          (reset! !view-box new-view-box))))
-
      (dot-background. "black")
-
      (svg/circle
         (dom/props {:id "sc"
                     :cx 700
