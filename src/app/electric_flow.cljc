@@ -70,13 +70,55 @@
 
   (svg/rect
     (dom/props
-      {:x (first view-box)
+      {:id "background"
+       :x (first view-box)
        :y (second view-box)
        :width (nth view-box 2)
        :height (nth view-box 3)
        :fill "url(#dotted-pattern)"})))
 
-(defn find-new-coordintates [e]
+(defn element-new-coordinates1 [e id]
+  (let [el (.getElementById js/document id)
+        ctm (.getScreenCTM el)
+        dx (/ (- (.-clientX e) (.-e ctm))
+             (.-a ctm))
+        dy (/ (- (.-clientY e) (.-f ctm))
+             (.-d ctm))]
+    ;(println "dx" dx "dy" dy)
+    [dx dy]))
+
+
+(e/defn circle [x y r id draggable? color]
+  (let [!cx (atom x)
+        !cy (atom y)
+        cx (e/watch !cx)
+        cy (e/watch !cy)
+        el-is-dragging? (atom false)]
+   (svg/circle
+       (dom/props {:id id
+                   :cx cx
+                   :cy cy
+                   :r  r
+                   :fill color})
+     (when draggable?
+      (let [node (.getElementById js/document id)]
+        (dom/on!  node "pointermove" (fn [e]
+                                       (.preventDefault e)
+                                       (when @el-is-dragging?
+                                         (println "dragging element")
+                                         (let [[x y]   (element-new-coordinates1 e "sc")]
+                                           (reset! !cx x)
+                                           (reset! !cy y)))))
+        (dom/on! node "pointerdown" (fn [e]
+                                      (println "pointerdown element")
+                                      (reset! el-is-dragging? true)))
+        (dom/on! node "pointerup" (fn [e]
+                                    (println "pointerup element")
+                                    (reset! el-is-dragging? false))))))))
+
+
+
+(defn find-new-coordinates [e]
   (let [svg (.getElementById js/document "sv")
         cw  (.-clientWidth svg)
         ch  (.-clientHeight svg)
@@ -90,6 +132,7 @@
         ny  (- (second @!view-box) dy)]
     [nx ny]))
 
+#?(:cljs (def current-selection (atom nil)))
 
 (e/defn view []
   (dom/div
@@ -100,22 +143,27 @@
                              :min-height "100%"
                              :top 0
                              :left 0}})
-     (dom/on "mousemove" (e/fn [e]
-                           (println "pointer move")
-                           (when @is-dragging?
-                             (let [[nx ny] (find-new-coordintates e)]
-                               (swap! !view-box assoc 0 nx)
-                               (swap! !view-box assoc 1 ny)
-                               (reset! !last-position {:x (.-clientX e) :y (.-clientY e)})))))
+     (dom/on "pointermove" (e/fn [e]
+                             (when (and @is-dragging?
+                                        (= "background" (:selection @current-selection))
+                                        (:movable? @current-selection))
+                               (let [[nx ny] (find-new-coordinates e)]
+                                 (swap! !view-box assoc 0 nx)
+                                 (swap! !view-box assoc 1 ny)
+                                 (reset! !last-position {:x (.-clientX e) :y (.-clientY e)})))))
      (dom/on "pointerdown" (e/fn [e]
-                             (println "pointer down")
+                             (.preventDefault e)
+                             (println "pointerdown svg")
+                             (reset! current-selection {:selection (.-id (.-target e))
+                                                        :movable? true})
                              (reset! !last-position {:x (.-clientX e) :y (.-clientY e)})
                              (reset! is-dragging? true)))
      (dom/on "pointerup" (e/fn [e]
+                           (.preventDefault e)
+                           (println "pointerup svg")
                            (reset! is-dragging? false)))
      (dom/on "wheel" (e/fn [e]
                        (.preventDefault e)
-                       (println "on wheel")
                        (let [coords (browser-to-svg-coords e (.getElementById js/document "sv"))
                              wheel   (if (< (.-deltaY e) 0)
                                        1.01
@@ -124,12 +172,9 @@
                          (reset! !zoom-level (* zoom-level wheel))
                          (reset! !view-box new-view-box))))
      (dot-background. "black")
-     (svg/circle
-        (dom/props {:id "sc"
-                    :cx 700
-                    :cy 200
-                    :r  8
-                    :fill "red"}))
+     (circle. 700 100 80 "sv-circle" true "red")
+     (circle. 900 300 60 "sv-circle1" true "green")
+
      (svg/circle
         (dom/props {:id "sc"
                     :cx 900
