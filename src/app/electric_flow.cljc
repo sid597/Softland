@@ -106,7 +106,7 @@
                                        (.preventDefault e)
                                        (when @el-is-dragging?
                                          (println "dragging element")
-                                         (let [[x y]   (element-new-coordinates1 e "sc")]
+                                         (let [[x y]   (element-new-coordinates1 e id)]
                                            (reset! !cx x)
                                            (reset! !cy y)))))
         (dom/on! node "pointerdown" (fn [e]
@@ -173,15 +173,7 @@
                          (reset! !view-box new-view-box))))
      (dot-background. "black")
      (circle. 700 100 80 "sv-circle" true "red")
-     (circle. 900 300 60 "sv-circle1" true "green")
-
-     (svg/circle
-        (dom/props {:id "sc"
-                    :cx 900
-                    :cy 200
-                    :r  8
-                    :fill "green"})))))
-
+     (circle. 900 300 60 "sv-circle1" true "green"))))
 
 
 (e/defn main []
