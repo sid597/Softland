@@ -5,6 +5,7 @@
             [hyperfiddle.electric :as e]
             [hyperfiddle.electric-ui5 :as ui5]
             [hyperfiddle.electric-dom2 :as dom]
+            [applied-science.js-interop :as j]
             [hyperfiddle.electric-ui4 :as ui]
             [missionary.core :as m]))
 
@@ -21,9 +22,9 @@
 
 (e/def zoom-level (e/watch !zoom-level))
 
-#?(:cljs (def initial-viewbox [0 0 3400 3400]))
+#?(:cljs (def initial-viewbox [446 -115 761 761]))
 #?(:cljs (def !view-box (atom initial-viewbox)))
-
+#?(:cljs (def !border-drag? (atom false)))
 
 
 (e/def view-box (e/watch !view-box))
@@ -87,8 +88,9 @@
     ;(println "dx" dx "dy" dy)
     [dx dy]))
 
+#?(:cljs (def border-origin (atom nil)))
 
-(e/defn circle [x y r id draggable? color]
+(e/defn circle [{:keys [x y r id draggable? color]}]
   (let [!cx (atom x)
         !cy (atom y)
         cx (e/watch !cx)
@@ -114,8 +116,47 @@
                                       (reset! el-is-dragging? true)))
         (dom/on! node "pointerup" (fn [e]
                                     (println "pointerup element")
-                                    (reset! el-is-dragging? false))))))))
+                                    (reset! el-is-dragging? false))))))
+   (svg/circle
+     (dom/props {:id (str id "-border")
+                 :cx cx
+                 :cy cy
+                 :r   r
+                 :stroke-width 18
+                 :stroke "lightblue"
+                 :fill "none"
+                 :pointer-events "stroke"})
+     (when draggable?
+       (let [node (.getElementById js/document (str id "-border"))]
+         (dom/on!  node "pointermove" (fn [e]
+                                        (.preventDefault e)
+                                        (when @!border-drag?
+                                          (println "dragging border"))))
+         (dom/on! node "pointerdown" (fn [e]
+                                       (let [point (js/DOMPoint. (.-clientX e) (.-clientY e))
+                                             ctm (.matrixTransform point (.inverse (.getScreenCTM node)))]
+                                         (js/console.log "pointerdown border" ctm)
+                                         (reset! !border-drag? true))))
+         (dom/on! node "pointerup" (fn [e]
+                                     (println "pointerup border")
+                                     (reset! !border-drag? false))))))))
 
+(e/defn line [{:keys [x1 y1 x2 y2 id color to from]}]
+  (let [!to (.getElementById js/document to)
+        !tx (atom (.getAttribute !to "cx"))
+        !ty (atom (.getAttribute !to "cy"))
+        !from  (.getElementById js/document from)
+        !fx (atom (.getAttribute !from "cx"))
+        !fy (atom (.getAttribute !from "cy"))]
+    (js/console.log "to" to "from" from "tx" !tx "ty" !ty "fx" !fx "fy" !fy)
+    (svg/line
+      (dom/props {:id id
+                  :x1 (e/watch !fx)
+                  :y1 (e/watch !fy)
+                  :x2 (e/watch !tx)
+                  :y2 (e/watch !ty)
+                  :stroke color
+                  :stroke-width 4}))))
 
 
 (defn find-new-coordinates [e]
@@ -133,6 +174,34 @@
     [nx ny]))
 
 #?(:cljs (def current-selection (atom nil)))
+#?(:cljs (def !nodes (atom [{:id "sv-circle"
+                             :draggable? true
+                             :x 700
+                             :y 100
+                             :r 80
+                             :type "circle"
+                             :color "red"}
+                            {:id "sv-circle1"
+                             :draggable? true
+                             :x 900
+                             :y 300
+                             :r 60
+                             :type "circle"
+                             :color "green"}
+                            ])))
+
+#?(:cljs (def !edges (atom [{:id "sv-line"
+                             :x1 900
+                             :y1 300
+                             :x2 700
+                             :y2 100
+                             :type "line"
+                             :to   "sv-circle"
+                             :from "sv-circle1"
+                             :color "black"}])))
+
+(e/def nodes (e/watch !nodes))
+(e/def edges (e/watch !edges))
 
 (e/defn view []
   (dom/div
@@ -144,13 +213,18 @@
                              :top 0
                              :left 0}})
      (dom/on "pointermove" (e/fn [e]
-                             (when (and @is-dragging?
-                                        (= "background" (:selection @current-selection))
-                                        (:movable? @current-selection))
-                               (let [[nx ny] (find-new-coordinates e)]
-                                 (swap! !view-box assoc 0 nx)
-                                 (swap! !view-box assoc 1 ny)
-                                 (reset! !last-position {:x (.-clientX e) :y (.-clientY e)})))))
+                             (cond
+                               (and @is-dragging?
+                                    (= "background"
+                                      (:selection
+                                        @current-selection))
+                                    (:movable?
+                                      @current-selection))    (let [[nx ny] (find-new-coordinates e)]
+                                                                (println "gg")
+                                                                (swap! !view-box assoc 0 nx)
+                                                                (swap! !view-box assoc 1 ny)
+                                                                (reset! !last-position {:x (.-clientX e) :y (.-clientY e)}))
+                               @!border-drag? (println "border draging"))))
      (dom/on "pointerdown" (e/fn [e]
                              (.preventDefault e)
                              (println "pointerdown svg")
@@ -161,7 +235,10 @@
      (dom/on "pointerup" (e/fn [e]
                            (.preventDefault e)
                            (println "pointerup svg")
-                           (reset! is-dragging? false)))
+                           (reset! is-dragging? false)
+                           (when @!border-drag?
+                             (println "border draging up >>>")
+                             (reset! !border-drag? false))))
      (dom/on "wheel" (e/fn [e]
                        (.preventDefault e)
                        (let [coords (browser-to-svg-coords e (.getElementById js/document "sv"))
@@ -172,8 +249,15 @@
                          (reset! !zoom-level (* zoom-level wheel))
                          (reset! !view-box new-view-box))))
      (dot-background. "black")
-     (circle. 700 100 80 "sv-circle" true "red")
-     (circle. 900 300 60 "sv-circle1" true "green"))))
+     ;; Render nodes before the edges because edges depend on nodes
+     (e/for [n nodes]
+       (js/console.log "n" n identity)
+       (circle. n))
+     (e/for [ed edges]
+        (js/console.log "ed" ed identity)
+        (line. ed)))))
+     #_(circle. 700 100 80 "sv-circle" true "red")
+     #_(circle. 900 300 60 "sv-circle1" true "green")
 
 
 (e/defn main []
