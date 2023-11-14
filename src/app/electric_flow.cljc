@@ -17,9 +17,10 @@
   (e/client
       (dom/div (dom/text "TXT "
                  (e/server nod)))
-      (e/for [msg msgs]
+    (e/server
+      (e/for-by identity [msg msgs]
         (e/client
-         (dom/div (dom/text msg))))))
+         (dom/div (dom/text msg)))))))
 
 (e/defn main []
     (TwoClocks.))
