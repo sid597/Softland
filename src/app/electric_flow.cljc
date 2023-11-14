@@ -17,7 +17,22 @@
 
 (e/def edges (e/server (e/watch data/!edges)))
 
-(e/def nodes (e/server (e/watch data/!nodes)))
+#?(:clj (def !nodes (atom {:sv-circle {:id "sv-circle"
+                                       :draggable? true
+                                       :x 700
+                                       :y 100
+                                       :r 80
+                                       :type "circle"
+                                       :color "red"}
+                           :sv-circle1 {:id "sv-circle1"
+                                        :draggable? true
+                                        :x 900
+                                        :y 300
+                                        :r 60
+                                        :type "circle"
+                                        :color "green"}})))
+
+(e/def nodes (e/server (e/watch !nodes)))
 
 (e/defn TwoClocks []
   (println "nod " nod msgs)
@@ -34,11 +49,8 @@
                           :cy y
                           :r  r
                           :fill color})
-              (let [nd (.getElementById js/document id)]
-                 (dom/on  nd "click" (e/fn [e]
-                                       (.preventDefault e)
-                                       (println "dragging element" k (e/server data/!nodes))
-                                       (e/server (swap! data/!nodes assoc-in  [k :r] (+ r 4)))))))))))))
+              (dom/on  "click" (e/fn [e]
+                                 (e/server (swap! !nodes assoc-in  [k :r] (+ r 4))))))))))))
 
 
 (e/defn main []
