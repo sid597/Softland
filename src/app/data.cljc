@@ -1,13 +1,13 @@
 (ns app.data)
 
-#?(:clj (def !nodes (atom {:sv-circle {:id "sv-circle"
+#?(:clj (def !nodes (atom {:sv-circle {:id :sv-circle
                                        :draggable? true
                                        :x 700
                                        :y 100
                                        :r 80
                                        :type "circle"
                                        :color "red"}
-                           :sv-circle1 {:id "sv-circle1"
+                           :sv-circle1 {:id :sv-circle1
                                         :draggable? true
                                         :x 900
                                         :y 300
