@@ -3,6 +3,7 @@
     app.todo-list
     app.painter
     app.electric-flow
+    app.tst
     hyperfiddle.electric
     hyperfiddle.electric-dom2))
 
@@ -11,7 +12,8 @@
     (binding [hyperfiddle.electric-dom2/node js/document.body]
       #_(app.painter/ReagentInterop.)
       (app.electric-flow/main.)
-      #_(app.todo-list/Todo-list.))))
+      #_(app.tst/Chat.)
+      #_(app.todo-list/Chat.))))
 
 (defonce reactor nil)
 
