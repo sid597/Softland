@@ -12,7 +12,7 @@
 
 
 
-#?(:cljs (def !last-position (atom {:x 0 :y 0})))
+
 (defn direct-calculation [viewBox zoom-factor focus-point]
   (let [new-width (* (nth viewBox 2) zoom-factor)
         new-height (* (nth viewBox 3) zoom-factor)
@@ -49,16 +49,16 @@
     [dx dy]))
 
 
-(defn find-new-coordinates [e]
+(defn find-new-coordinates [e !last-position viewbox]
   (let [svg (.getElementById js/document "sv")
         cw  (.-clientWidth svg)
         ch  (.-clientHeight svg)
-        xf  (/ cw (nth @!view-box 2))
-        yf  (/ ch (nth @!view-box 3))
+        xf  (/ cw (nth viewbox 2))
+        yf  (/ ch (nth viewbox 3))
         dx  (/ (- (.-clientX e) (:x @!last-position))
               xf)
         dy  (/ (- (.-clientY e) (:y @!last-position))
               yf)
-        nx  (- (first @!view-box) dx)
-        ny  (- (second @!view-box) dy)]
+        nx  (- (first viewbox) dx)
+        ny  (- (second viewbox) dy)]
     [nx ny]))

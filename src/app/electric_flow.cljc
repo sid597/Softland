@@ -6,6 +6,7 @@
             [hyperfiddle.electric-dom2 :as dom]
             [app.data :as data]
             [app.background :as bg]
+            [app.flow-calc :as fc]
             [hyperfiddle.electric-ui4 :as ui]))
 
 #?(:clj (def !edges (atom [{:id :sv-line
@@ -39,6 +40,9 @@
 
 #?(:clj (def !viewbox (atom [0 0 3000 2000])))
 (e/def viewbox (e/server (e/watch !viewbox)))
+
+
+#?(:cljs (def !last-position (atom {:x 0 :y 0})))
 
 
 (e/defn circle [node]
@@ -81,19 +85,52 @@
                   :stroke color
                   :stroke-width 4}))))
 
+(e/defn pointermove [e])
+
+
 (e/defn view []
-  (e/client
-    (svg/svg
-      (dom/props {:viewBox (clojure.string/join " " viewbox)
-                  :style {:min-width "100%"
-                          :min-height "100%"
-                          :top 0
-                          :left 0}})
-      (bg/dot-background. "black" viewbox)
-      (e/for-by identity [node nodes]
-        (circle. node))
-      (e/for-by identity [edge edges]
-        (line. edge)))))
+  (let [is-dragging? (atom false)
+        current-selection (atom nil)]
+    (e/client
+      (svg/svg
+        (dom/props {:viewBox (clojure.string/join " " viewbox)
+                    :id "sv"
+                    :style {:min-width "100%"
+                            :min-height "100%"
+                            :top 0
+                            :left 0}})
+        (dom/on "pointermove" (e/fn [e]
+                                (cond
+                                  (and @is-dragging?
+                                    (= "background"
+                                      (:selection
+                                        @current-selection))
+                                    (:movable?
+                                      @current-selection))    (let [[nx ny] (fc/find-new-coordinates e !last-position viewbox)]
+                                                                (println "gg")
+                                                                (e/server (swap! !viewbox assoc 0 nx))
+                                                                (e/server (swap! !viewbox assoc 1 ny))
+                                                                (reset! !last-position {:x (.-clientX e) :y (.-clientY e)}))
+                                  #_#_@!border-drag? (println "border draging"))))
+        (dom/on "pointerdown" (e/fn [e]
+                                (.preventDefault e)
+                                (println "pointerdown svg")
+                                (reset! current-selection {:selection (.-id (.-target e))
+                                                           :movable? true})
+                                (reset! !last-position {:x (.-clientX e) :y (.-clientY e)})
+                                (reset! is-dragging? true)))
+        (dom/on "pointerup" (e/fn [e]
+                              (.preventDefault e)
+                              (println "pointerup svg")
+                              (reset! is-dragging? false)
+                              #_(when @!border-drag?
+                                  (println "border draging up >>>")
+                                  (reset! !border-drag? false))))
+        (bg/dot-background. "black" viewbox)
+        (e/for-by identity [node nodes]
+          (circle. node))
+        (e/for-by identity [edge edges]
+          (line. edge))))))
 
 (e/defn main []
     (view.))
