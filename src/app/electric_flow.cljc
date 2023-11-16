@@ -31,6 +31,19 @@
 #?(:clj (def !viewbox (atom [0 0 3000 2000])))
 (e/def viewbox (e/server (e/watch !viewbox)))
 
+
+(e/defn circle [node]
+  (let [[k {:keys [id x y r color draggable?]}] node]
+    (println "node" node id x y r color draggable?)
+    (svg/circle
+      (dom/props {:id id
+                  :cx x
+                  :cy y
+                  :r  r
+                  :fill color})
+      (dom/on  "click" (e/fn [e]
+                         (e/server (swap! !nodes assoc-in  [k :r] (+ r 4))))))))
+
 (e/defn view []
   (e/client
     (svg/svg
@@ -40,16 +53,9 @@
                           :top 0
                           :left 0}})
       (bg/dot-background. "black" viewbox)
-      #_(svg/circle
-          (dom/props {:id id
-                      :cx x
-                      :cy y
-                      :r  r
-                      :fill color})
-          (dom/on  "click" (e/fn [e]
-                             (e/server (swap! !nodes assoc-in  [k :r] (+ r 4)))))))))
+      (e/for-by identity [node nodes]
+        (circle. node)))))
 
 (e/defn main []
     (view.))
-
 
