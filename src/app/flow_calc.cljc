@@ -37,7 +37,7 @@
     [svg-x svg-y]))
 
 (defn element-new-coordinates1 [e id]
-  (let [el  (.getElementById js/document id)
+  (let [el  (.getElementById js/document (name id))
         ctm (.getScreenCTM el)
         dx  (/ (- (.-clientX e) (.-e ctm))
               (.-a ctm))

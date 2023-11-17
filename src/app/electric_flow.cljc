@@ -10,10 +10,6 @@
             [hyperfiddle.electric-ui4 :as ui]))
 
 #?(:clj (def !edges (atom [{:id :sv-line
-                            :x1 900
-                            :y1 300
-                            :x2 700
-                            :y2 100
                             :type "line"
                             :to   :sv-circle
                             :from :sv-circle1
@@ -51,7 +47,8 @@
 
 
 (e/defn circle [node]
-  (let [[k {:keys [id x y r color draggable?]}] node]
+  (let [[k {:keys [id x y r color draggable?]}] node
+        el-is-dragging? (atom false)]
     (println "node" node id x y r color draggable?)
     (svg/circle
       (dom/props {:id id
@@ -59,8 +56,22 @@
                   :cy y
                   :r  r
                   :fill color})
-      (dom/on  "click" (e/fn [e]
-                         (e/server (swap! !nodes assoc-in  [k :r] (+ r 4))))))))
+      (when draggable?
+        (dom/on  "click"     (e/fn [e]
+                               (e/server (swap! !nodes assoc-in  [k :r] (+ r 4)))))
+        (dom/on  "mousemove" (e/fn [e]
+                               (.preventDefault e)
+                               (when @el-is-dragging?
+                                (println "dragging element")
+                                (let [[x y]   (fc/element-new-coordinates1 e id)]
+                                  (e/server (swap! !nodes assoc-in [k :x] x))
+                                  (e/server (swap! !nodes assoc-in [k :y] y))))))
+        (dom/on "mousedown"  (e/fn [e]
+                               (println "pointerdown element")
+                               (reset! el-is-dragging? true)))
+        (dom/on "mouseup"    (e/fn [e]
+                               (println "pointerup element")
+                               (reset! el-is-dragging? false)))))))
 
 (e/defn line [{:keys [id color to from]}]
   (let [r1 (-> nodes
@@ -90,7 +101,6 @@
                   :stroke color
                   :stroke-width 4}))))
 
-(e/defn pointermove [e])
 
 
 (e/defn view []
