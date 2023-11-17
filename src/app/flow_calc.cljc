@@ -49,15 +49,15 @@
     [dx dy]))
 
 
-(defn find-new-coordinates [e !last-position viewbox]
+(defn find-new-coordinates [e last-position viewbox]
   (let [svg (.getElementById js/document "sv")
         cw  (.-clientWidth svg)
         ch  (.-clientHeight svg)
         xf  (/ cw (nth viewbox 2))
         yf  (/ ch (nth viewbox 3))
-        dx  (/ (- (.-clientX e) (:x @!last-position))
+        dx  (/ (- (.-clientX e) (:x last-position))
               xf)
-        dy  (/ (- (.-clientY e) (:y @!last-position))
+        dy  (/ (- (.-clientY e) (:y last-position))
               yf)
         nx  (- (first viewbox) dx)
         ny  (- (second viewbox) dy)]

@@ -42,8 +42,8 @@
 (e/def viewbox (e/server (e/watch !viewbox)))
 
 
-#?(:cljs (def !last-position (atom {:x 0 :y 0})))
-
+#?(:clj (def !last-position (atom {:x 0 :y 0})))
+(e/def last-position (e/server (e/watch !last-position)))
 
 (e/defn circle [node]
   (let [[k {:keys [id x y r color draggable?]}] node]
@@ -106,18 +106,20 @@
                                       (:selection
                                         @current-selection))
                                     (:movable?
-                                      @current-selection))    (let [[nx ny] (fc/find-new-coordinates e !last-position viewbox)]
+                                      @current-selection))    (let [[nx ny] (fc/find-new-coordinates e last-position viewbox)]
                                                                 (println "gg")
                                                                 (e/server (swap! !viewbox assoc 0 nx))
                                                                 (e/server (swap! !viewbox assoc 1 ny))
-                                                                (reset! !last-position {:x (.-clientX e) :y (.-clientY e)}))
+                                                                (e/server (reset! !last-position {:x (e/client (.-clientX e))
+                                                                                                  :y (e/client (.-clientY e))})))
                                   #_#_@!border-drag? (println "border draging"))))
         (dom/on "pointerdown" (e/fn [e]
                                 (.preventDefault e)
                                 (println "pointerdown svg")
                                 (reset! current-selection {:selection (.-id (.-target e))
                                                            :movable? true})
-                                (reset! !last-position {:x (.-clientX e) :y (.-clientY e)})
+                                (e/server (reset! !last-position {:x (e/client (.-clientX e))
+                                                                  :y (e/client (.-clientY e))}))
                                 (reset! is-dragging? true)))
         (dom/on "pointerup" (e/fn [e]
                               (.preventDefault e)
