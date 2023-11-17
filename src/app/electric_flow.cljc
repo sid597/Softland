@@ -45,6 +45,11 @@
 #?(:clj (def !last-position (atom {:x 0 :y 0})))
 (e/def last-position (e/server (e/watch !last-position)))
 
+#?(:clj (def !zoom-level (atom 1)))
+(e/def zoom-level (e/server (e/watch !zoom-level)))
+
+
+
 (e/defn circle [node]
   (let [[k {:keys [id x y r color draggable?]}] node]
     (println "node" node id x y r color draggable?)
@@ -125,6 +130,16 @@
                                 (e/server (reset! !last-position {:x ex
                                                                   :y ey}))
                                 (reset! is-dragging? true))))
+        (dom/on "wheel" (e/fn [e]
+                          (.preventDefault e)
+                          (let [coords (fc/browser-to-svg-coords e (.getElementById js/document "sv") viewbox)
+                                wheel   (if (< (.-deltaY e) 0)
+                                          1.01
+                                          0.99)
+                                new-view-box (fc/direct-calculation viewbox wheel coords)
+                                new-zoom-level (* zoom-level wheel)]
+                            (e/server (reset! !zoom-level new-zoom-level))
+                            (e/server (reset! !viewbox new-view-box)))))
         (dom/on "mouseup" (e/fn [e]
                             (.preventDefault e)
                             (println "pointerup svg")
