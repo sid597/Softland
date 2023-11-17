@@ -18,14 +18,14 @@
 (e/def edges (e/server (e/watch !edges)))
 
 #?(:clj (def !nodes (atom {:sv-circle {:id :sv-circle
-                                       :draggable? true
+                                       :dragging? false
                                        :x 700
                                        :y 100
                                        :r 80
                                        :type "circle"
                                        :color "red"}
                            :sv-circle1 {:id :sv-circle1
-                                        :draggable? true
+                                        :dragging? false
                                         :x 900
                                         :y 300
                                         :r 60
@@ -44,34 +44,45 @@
 #?(:clj (def !zoom-level (atom 1)))
 (e/def zoom-level (e/server (e/watch !zoom-level)))
 
+#?(:clj (def !is-dragging? (atom false)))
+(e/def is-dragging? (e/server (e/watch !is-dragging?)))
 
 
 (e/defn circle [node]
-  (let [[k {:keys [id x y r color draggable?]}] node
-        el-is-dragging? (atom false)]
-    (println "node" node id x y r color draggable?)
+  (let [[k {:keys [id x y r color dragging?]}] node]
     (svg/circle
       (dom/props {:id id
                   :cx x
                   :cy y
                   :r  r
                   :fill color})
-      (when draggable?
-        (dom/on  "click"     (e/fn [e]
-                               (e/server (swap! !nodes assoc-in  [k :r] (+ r 4)))))
-        (dom/on  "mousemove" (e/fn [e]
+      (dom/on  "mousemove" (e/fn [e]
                                (.preventDefault e)
-                               (when @el-is-dragging?
+                               (when dragging?
                                 (println "dragging element")
                                 (let [[x y]   (fc/element-new-coordinates1 e id)]
                                   (e/server (swap! !nodes assoc-in [k :x] x))
                                   (e/server (swap! !nodes assoc-in [k :y] y))))))
-        (dom/on "mousedown"  (e/fn [e]
-                               (println "pointerdown element")
-                               (reset! el-is-dragging? true)))
-        (dom/on "mouseup"    (e/fn [e]
+      (dom/on "mousedown"  (e/fn [e]
+                             (.preventDefault e)
+                             (.stopPropagation e)
+                             (println "pointerdown element")
+                             (e/server (swap! !nodes assoc-in [k :dragging?] true))))
+      (dom/on "mouseup"    (e/fn [e]
+                               (.preventDefault e)
+                               (.stopPropagation e)
                                (println "pointerup element")
-                               (reset! el-is-dragging? false)))))))
+                               (e/server (swap! !nodes assoc-in [k :dragging?] false))))
+      (dom/on "mouseleave"    (e/fn [e]
+                                (.preventDefault e)
+                                (.stopPropagation e)
+                                (println "mouseleave element")
+                                (e/server (swap! !nodes assoc-in [k :dragging?] false))))
+      (dom/on "mouseout"    (e/fn [e]
+                              (.preventDefault e)
+                              (.stopPropagation e)
+                              (println "mouseout element")
+                              (e/server (swap! !nodes assoc-in [k :dragging?] false)))))))
 
 (e/defn line [{:keys [id color to from]}]
   (let [r1 (-> nodes
@@ -104,8 +115,7 @@
 
 
 (e/defn view []
-  (let [is-dragging? (atom false)
-        current-selection (atom nil)]
+  (let [current-selection (atom nil)]
     (e/client
       (svg/svg
         (dom/props {:viewBox (clojure.string/join " " viewbox)
@@ -116,7 +126,7 @@
                             :left 0}})
         (dom/on "mousemove" (e/fn [e]
                               (cond
-                                (and @is-dragging?
+                                (and is-dragging?
                                   (= "background"
                                     (:selection
                                       @current-selection))
@@ -139,7 +149,7 @@
                                                            :movable? true})
                                 (e/server (reset! !last-position {:x ex
                                                                   :y ey}))
-                                (reset! is-dragging? true))))
+                                (e/server (reset! !is-dragging? true)))))
         (dom/on "wheel" (e/fn [e]
                           (.preventDefault e)
                           (let [coords (fc/browser-to-svg-coords e (.getElementById js/document "sv") viewbox)
@@ -153,7 +163,7 @@
         (dom/on "mouseup" (e/fn [e]
                             (.preventDefault e)
                             (println "pointerup svg")
-                            (reset! is-dragging? false)
+                            (e/server (reset! !is-dragging? false))
                             #_(when @!border-drag?
                                 (println "border draging up >>>")
                                 (reset! !border-drag? false))))
