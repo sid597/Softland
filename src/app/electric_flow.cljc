@@ -38,7 +38,7 @@
 
 (e/def nodes (e/server (e/watch !nodes)))
 
-#?(:clj (def !viewbox (atom [0 0 3000 2000])))
+#?(:clj (def !viewbox (atom [0 0 1000 1000])))
 (e/def viewbox (e/server (e/watch !viewbox)))
 
 
@@ -78,10 +78,10 @@
                :y)]
     (svg/line
       (dom/props {:id id
-                  :x1 (+ r1 tx)
-                  :y1 (+ r1 ty)
-                  :x2 (+ r2 fx)
-                  :y2 (+ r2 fy)
+                  :x1  tx
+                  :y1  ty
+                  :x2  fx
+                  :y2  fy
                   :stroke color
                   :stroke-width 4}))))
 
@@ -99,35 +99,39 @@
                             :min-height "100%"
                             :top 0
                             :left 0}})
-        (dom/on "pointermove" (e/fn [e]
-                                (cond
-                                  (and @is-dragging?
-                                    (= "background"
-                                      (:selection
-                                        @current-selection))
-                                    (:movable?
-                                      @current-selection))    (let [[nx ny] (fc/find-new-coordinates e last-position viewbox)]
-                                                                (println "gg")
-                                                                (e/server (swap! !viewbox assoc 0 nx))
-                                                                (e/server (swap! !viewbox assoc 1 ny))
-                                                                (e/server (reset! !last-position {:x (e/client (.-clientX e))
-                                                                                                  :y (e/client (.-clientY e))})))
-                                  #_#_@!border-drag? (println "border draging"))))
-        (dom/on "pointerdown" (e/fn [e]
-                                (.preventDefault e)
+        (dom/on "mousemove" (e/fn [e]
+                              (cond
+                                (and @is-dragging?
+                                  (= "background"
+                                    (:selection
+                                      @current-selection))
+                                  (:movable?
+                                    @current-selection))    (let [[nx ny] (fc/find-new-coordinates e last-position viewbox)
+                                                                  ex      (.-clientX e)
+                                                                  ey      (.-clientY e)]
+                                                              (println "gg")
+                                                              (e/server (swap! !viewbox assoc 0 nx))
+                                                              (e/server (swap! !viewbox assoc 1 ny))
+                                                              (e/server (reset! !last-position {:x ex
+                                                                                                :y ey})))
+                                #_#_@!border-drag? (println "border draging"))))
+        (dom/on "mousedown" (e/fn [e]
+                              (.preventDefault e)
+                              (let [ex (e/client (.-clientX e))
+                                    ey (e/client (.-clientY e))]
                                 (println "pointerdown svg")
                                 (reset! current-selection {:selection (.-id (.-target e))
                                                            :movable? true})
-                                (e/server (reset! !last-position {:x (e/client (.-clientX e))
-                                                                  :y (e/client (.-clientY e))}))
-                                (reset! is-dragging? true)))
-        (dom/on "pointerup" (e/fn [e]
-                              (.preventDefault e)
-                              (println "pointerup svg")
-                              (reset! is-dragging? false)
-                              #_(when @!border-drag?
-                                  (println "border draging up >>>")
-                                  (reset! !border-drag? false))))
+                                (e/server (reset! !last-position {:x ex
+                                                                  :y ey}))
+                                (reset! is-dragging? true))))
+        (dom/on "mouseup" (e/fn [e]
+                            (.preventDefault e)
+                            (println "pointerup svg")
+                            (reset! is-dragging? false)
+                            #_(when @!border-drag?
+                                (println "border draging up >>>")
+                                (reset! !border-drag? false))))
         (bg/dot-background. "black" viewbox)
         (e/for-by identity [node nodes]
           (circle. node))
