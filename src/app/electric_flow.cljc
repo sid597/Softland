@@ -48,8 +48,7 @@
 (e/def is-dragging? (e/server (e/watch !is-dragging?)))
 
 
-(e/defn circle [node]
-  (let [[k {:keys [id x y r color dragging?]}] node]
+(e/defn circle [[k {:keys [id x y r color dragging?]}]]
     (svg/circle
       (dom/props {:id id
                   :cx x
@@ -61,7 +60,7 @@
                                (when dragging?
                                 (println "dragging element")
                                 (let [[x y]   (fc/element-new-coordinates1 e id)]
-                                  (e/server (swap! !nodes assoc-in [k :x] x))
+                                  (e/server (swap! !nodes assoc-in [k :x]  x))
                                   (e/server (swap! !nodes assoc-in [k :y] y))))))
       (dom/on "mousedown"  (e/fn [e]
                              (.preventDefault e)
@@ -82,18 +81,12 @@
                               (.preventDefault e)
                               (.stopPropagation e)
                               (println "mouseout element")
-                              (e/server (swap! !nodes assoc-in [k :dragging?] false)))))))
+                              (e/server (swap! !nodes assoc-in [k :dragging?] false))))))
 
 (e/defn line [{:keys [id color to from]}]
-  (let [r1 (-> nodes
-               to
-               :r)
-        r2 (-> nodes
-               from
-               :r)
-        tx (-> nodes
-               to
-               :x)
+  (let [tx (-> nodes
+                to
+                :x)
         ty (-> nodes
                to
                :y)
@@ -111,8 +104,6 @@
                   :y2  fy
                   :stroke color
                   :stroke-width 4}))))
-
-
 
 (e/defn view []
   (let [current-selection (atom nil)]
@@ -168,10 +159,13 @@
                                 (println "border draging up >>>")
                                 (reset! !border-drag? false))))
         (bg/dot-background. "black" viewbox)
-        (e/for-by identity [node nodes]
-          (circle. node))
-        (e/for-by identity [edge edges]
-          (line. edge))))))
+        (e/server
+          (e/for-by identity [node nodes]
+            (e/client
+             (circle. node)))
+          (e/for-by identity [edge edges]
+            (e/client
+             (line. edge))))))))
 
 (e/defn main []
     (view.))

@@ -43,7 +43,6 @@
               (.-a ctm))
         dy  (/ (- (.-clientY e) (.-f ctm))
               (.-d ctm))]
-    ;(println "dx" dx "dy" dy)
     [dx dy]))
 
 
