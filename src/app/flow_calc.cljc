@@ -1,15 +1,6 @@
 (ns app.flow-calc
   (:require contrib.str
-           #?(:cljs [clojure.string :as str])
-           [hyperfiddle.electric-svg :as svg]
-           [hyperfiddle.electric :as e]
-           [hyperfiddle.electric-dom2 :as dom]
-           [hyperfiddle.electric-ui4 :as ui]))
-
-#?(:cljs (def initial-viewbox [446 -115 761 761]))
-#?(:cljs (def !view-box (atom initial-viewbox)))
-(e/def view-box (e/watch !view-box))
-
+           #?(:cljs [clojure.string :as str])))
 
 
 

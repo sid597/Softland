@@ -7,7 +7,7 @@
             [hyperfiddle.electric-ui4 :as ui]
             [app.background :as bg :refer [dot-background]]
             [app.data :as data :refer [!nodes]]
-            [app.flow-calc :as fc :refer [!last-position find-new-coordinates direct-calculation browser-to-svg-coords element-new-coordinates1 view-box initial-viewbox !view-box]]))
+            [app.flow-calc :as fc :refer [!last-position find-new-coordinates direct-calculation browser-to-svg-coords element-new-coordinates1 ]]))
 
 
 #?(:cljs (def !border-drag? (atom false)))

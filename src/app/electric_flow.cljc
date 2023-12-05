@@ -7,6 +7,7 @@
             [app.data :as data]
             [app.background :as bg]
             [app.flow-calc :as fc]
+            [app.electric-codemirror :as cm]
             [hyperfiddle.electric-ui4 :as ui]))
 
 #?(:clj (def !edges (atom [{:id :sv-line
@@ -21,31 +22,31 @@
                                        :dragging? false
                                        :x 700
                                        :y 100
-                                       :r 80
+                                       :r 100
                                        :type "circle"
                                        :color "red"}
                            :sv-circle1 {:id :sv-circle1
                                         :dragging? false
                                         :x 900
                                         :y 300
-                                        :r 60
+                                        :r 100
                                         :type "circle"
                                         :color "green"}})))
 
 (e/def nodes (e/server (e/watch !nodes)))
 
-#?(:clj (def !viewbox (atom [0 0 1000 1000])))
-(e/def viewbox (e/server (e/watch !viewbox)))
+#?(:cljs (def !viewbox (atom [0 0 2000 2000])))
+(e/def viewbox (e/watch !viewbox))
 
 
-#?(:clj (def !last-position (atom {:x 0 :y 0})))
-(e/def last-position (e/server (e/watch !last-position)))
+#?(:cljs (def !last-position (atom {:x 0 :y 0})))
+(e/def last-position (e/watch !last-position))
 
-#?(:clj (def !zoom-level (atom 1)))
-(e/def zoom-level (e/server (e/watch !zoom-level)))
+#?(:cljs (def !zoom-level (atom 1)))
+(e/def zoom-level (e/watch !zoom-level))
 
-#?(:clj (def !is-dragging? (atom false)))
-(e/def is-dragging? (e/server (e/watch !is-dragging?)))
+#?(:cljs (def !is-dragging? (atom false)))
+(e/def is-dragging? (e/watch !is-dragging?))
 
 
 (e/defn circle [[k {:keys [id x y r color dragging?]}]]
@@ -84,16 +85,16 @@
                               (e/server (swap! !nodes assoc-in [k :dragging?] false))))))
 
 (e/defn line [{:keys [id color to from]}]
-  (let [tx (-> nodes
+  (let [tx (->  (e/server nodes)
                 to
                 :x)
-        ty (-> nodes
+        ty (-> (e/server nodes)
                to
                :y)
-        fx (-> nodes
+        fx (-> (e/server nodes)
                from
                :x)
-        fy (-> nodes
+        fy (-> (e/server nodes)
                from
                :y)]
     (svg/line
@@ -126,10 +127,10 @@
                                                                   ex      (.-clientX e)
                                                                   ey      (.-clientY e)]
                                                               (println "gg")
-                                                              (e/server (swap! !viewbox assoc 0 nx))
-                                                              (e/server (swap! !viewbox assoc 1 ny))
-                                                              (e/server (reset! !last-position {:x ex
-                                                                                                :y ey})))
+                                                              (swap! !viewbox assoc 0 nx)
+                                                              (swap! !viewbox assoc 1 ny)
+                                                              (reset! !last-position {:x ex
+                                                                                      :y ey}))
                                 #_#_@!border-drag? (println "border draging"))))
         (dom/on "mousedown" (e/fn [e]
                               (.preventDefault e)
@@ -138,9 +139,9 @@
                                 (println "pointerdown svg")
                                 (reset! current-selection {:selection (.-id (.-target e))
                                                            :movable? true})
-                                (e/server (reset! !last-position {:x ex
-                                                                  :y ey}))
-                                (e/server (reset! !is-dragging? true)))))
+                                (reset! !last-position {:x ex
+                                                        :y ey})
+                                (reset! !is-dragging? true))))
         (dom/on "wheel" (e/fn [e]
                           (.preventDefault e)
                           (let [coords (fc/browser-to-svg-coords e (.getElementById js/document "sv") viewbox)
@@ -149,12 +150,12 @@
                                           0.99)
                                 new-view-box (fc/direct-calculation viewbox wheel coords)
                                 new-zoom-level (* zoom-level wheel)]
-                            (e/server (reset! !zoom-level new-zoom-level))
-                            (e/server (reset! !viewbox new-view-box)))))
+                            (reset! !zoom-level new-zoom-level)
+                            (reset! !viewbox new-view-box))))
         (dom/on "mouseup" (e/fn [e]
                             (.preventDefault e)
                             (println "pointerup svg")
-                            (e/server (reset! !is-dragging? false))
+                            (reset! !is-dragging? false)
                             #_(when @!border-drag?
                                 (println "border draging up >>>")
                                 (reset! !border-drag? false))))
@@ -168,5 +169,6 @@
              (line. edge))))))))
 
 (e/defn main []
-    (view.))
+  (println "server viewbox val" viewbox)
+  (view.))
 

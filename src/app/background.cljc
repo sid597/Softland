@@ -4,7 +4,6 @@
             [hyperfiddle.electric-svg :as svg]
             [hyperfiddle.electric :as e]
             [hyperfiddle.electric-dom2 :as dom]
-            [app.flow-calc :as fc :refer [ view-box]]
             [hyperfiddle.electric-ui4 :as ui]))
 
 (e/defn dot-background [color view-box]
