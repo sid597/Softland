@@ -31,7 +31,15 @@
                                         :y 300
                                         :r 100
                                         :type "circle"
-                                        :color "green"}})))
+                                        :color "green"}
+                           :rect       {:id :rect
+                                        :x 500
+                                        :y 600
+                                        :width 400
+                                        :height 800
+                                        :type "rect"
+                                        :fill "lightblue"}})))
+
 
 (e/def nodes (e/server (e/watch !nodes)))
 
@@ -106,6 +114,27 @@
                   :stroke color
                   :stroke-width 4}))))
 
+
+(e/defn rect [[_ {:keys [x y width height fill]}]]
+  (svg/g
+   (svg/rect
+     (dom/props {:x x
+                 :y y
+                 :width width
+                 :height height
+                 :fill fill}))
+   (svg/foreignObject
+     (dom/props {:x x
+                 :y y
+                 :height (- height 10)
+                 :width  (- width 10)
+                 :fill "black"})
+     (dom/div
+       (dom/props {:style {
+                           :padding "10px"
+                           :height "100%"}})
+       (new cm/string "GM")))))
+
 (e/defn view []
   (let [current-selection (atom nil)]
     (e/client
@@ -162,13 +191,19 @@
         (bg/dot-background. "black" viewbox)
         (e/server
           (e/for-by identity [node nodes]
-            (e/client
-             (circle. node)))
+            (let [[_ {:keys [type]}] node]
+              (e/client
+                (println "type" type (= "circle" type))
+
+                (cond
+                      (= "circle" type)  (circle. node)
+                      (= "rect" type)    (rect. node)))))
           (e/for-by identity [edge edges]
             (e/client
              (line. edge))))))))
 
 (e/defn main []
   (println "server viewbox val" viewbox)
+  (println "gg")
   (view.))
 

@@ -16,18 +16,20 @@
 
 #?(:cljs
    (def theme
-     (.theme EditorView (clj->js {#_#_".cm-content"             {:white-space "pre-wrap"
-                                                                 :padding     "10px 0"}
-                                  "&.cm-focused"            {:outline "none"}
-                                  #_#_".cm-line"                {:padding     "0 0.5rem"
-                                                                 :line-height "1.6"
-                                                                 :font-size   "16px"
-                                                                 :font-family "var(--code-font)"}
-                                  ".cm-matchingBracket"     {:border-bottom "1px solid var(--teal-color)"
-                                                             :color         "inherit"}
-                                  ".cm-gutters"             {:background "transparent"
-                                                             :border     "none"}
-                                  ".cm-gutterElement"       {:margin-left "5px"}
+     (.theme EditorView (clj->js {".cm-content" {:white-space "pre-wrap"
+                                                 :padding "10px 0"
+                                                 :flex "1 1 0"}
+
+                                  "&.cm-focused" {:outline "0 !important"}
+                                  ".cm-line" {:padding "0 9px"
+                                              :line-height "1.6"
+                                              :font-size "16px"
+                                              :font-family "var(--code-font)"}
+                                  ".cm-matchingBracket" {:border-bottom "1px solid var(--teal-color)"
+                                                         :color "inherit"}
+                                  ".cm-gutters" {:background "transparent"
+                                                 :border "none"}
+                                  ".cm-gutterElement" {:margin-left "5px"}
                                   ;; only show cursor when focused
                                   ".cm-cursor"              {:visibility "hidden"}
                                   "&.cm-focused .cm-cursor" {:visibility "visible"}}))))
@@ -39,8 +41,8 @@
        (history)
        (language/syntaxHighlighting language/defaultHighlightStyle)
        (view/drawSelection #js{:cursorBlinkRate 0})
-       ;; cm-clj/default-extensions
-       ;; (.of view/keymap cm-clj/complete-keymap)
+       cm-clj/default-extensions
+       (.of view/keymap cm-clj/complete-keymap)
        (cm-clj/syntax)
        (.of view/keymap historyKeymap))))
 
