@@ -203,10 +203,8 @@
                                 (let [[x y] (fc/element-new-coordinates1 e "sv")]
                                   (println "border draging" x y)
                                   (e/server
-                                   (swap! !edges (fn [x]
-                                                   (-> (:raw x)
-                                                     (assoc :x2 x)
-                                                     (assoc :y2 y)))))))
+                                   (swap! !edges assoc-in [:raw :x2] x)
+                                   (swap! !edges assoc-in [:raw :y2] y))))
 
                               (cond
                                 (and is-dragging?
@@ -269,8 +267,8 @@
                 (cond
                   (and
                     (= "raw" type)
-                    (some? [x2 y2]))   (new-line-el. edge)
-                  :else                (line. edge))))))))))
+                    (not-every? nil? [x2 y2])) (new-line-el. edge)
+                  (= "line" type)              (line. edge))))))))))
 
 (e/defn main []
   (println "server viewbox val" viewbox)
