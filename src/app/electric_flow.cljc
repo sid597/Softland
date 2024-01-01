@@ -1,25 +1,27 @@
 (ns app.electric-flow
   (:require contrib.str
             #?(:cljs [clojure.string :as str])
+            [clojure.edn :as edn]
+            [clojure.pprint :as pprint]
             [hyperfiddle.electric :as e]
             [hyperfiddle.electric-svg :as svg]
             [hyperfiddle.electric-dom2 :as dom]
+            [applied-science.js-interop :as j]
             [app.data :as data]
             [app.background :as bg]
             [app.flow-calc :as fc]
             [app.electric-codemirror :as cm]
             [hyperfiddle.electric-ui4 :as ui]))
 
-#?(:clj (def !edges (atom [{:id :sv-line
-                            :type "line"
-                            :to   :sv-circle
-                            :from :sv-circle1
-                            :color "black"}])))
+#?(:clj (def !edges (atom {:sv-line {:id :sv-line
+                                     :type "line"
+                                     :to   :sv-circle
+                                     :from :sv-circle1
+                                     :color "black"}})))
 
 (e/def edges (e/server (e/watch !edges)))
 
-#?(:clj (def !nodes (atom {:sv-circle {:id :sv-circle
-                                       :dragging? false
+#?(:clj (def !nodes (atom {:sv-circle {:id :sv-circle :dragging? false
                                        :x 700
                                        :y 100
                                        :r 100
@@ -43,19 +45,22 @@
 
 (e/def nodes (e/server (e/watch !nodes)))
 
-#?(:cljs (def !viewbox (atom [0 0 2000 2000])))
+
+(def !new-line (atom {:start nil
+                      :end   nil}))
+(def !border-drag? (atom false))
+(def !is-dragging? (atom false))
+(def !zoom-level (atom 1))
+(def !last-position (atom {:x 0 :y 0}))
+(def !viewbox (atom [0 0 2000 2000]))
+
+
+
 (e/def viewbox (e/watch !viewbox))
-
-
-#?(:cljs (def !last-position (atom {:x 0 :y 0})))
 (e/def last-position (e/watch !last-position))
-
-#?(:cljs (def !zoom-level (atom 1)))
 (e/def zoom-level (e/watch !zoom-level))
-
-#?(:cljs (def !is-dragging? (atom false)))
 (e/def is-dragging? (e/watch !is-dragging?))
-
+(e/def new-line (e/watch !new-line))
 
 (e/defn circle [[k {:keys [id x y r color dragging?]}]]
     (svg/circle
@@ -92,7 +97,7 @@
                               (println "mouseout element")
                               (e/server (swap! !nodes assoc-in [k :dragging?] false))))))
 
-(e/defn line [{:keys [id color to from]}]
+(e/defn line [[k {:keys [id color to from]}]]
   (let [tx (->  (e/server nodes)
                 to
                 :x)
@@ -115,25 +120,73 @@
                   :stroke-width 4}))))
 
 
+
 (e/defn rect [[_ {:keys [x y width height fill]}]]
-  (svg/g
-   (svg/rect
-     (dom/props {:x x
-                 :y y
-                 :width width
-                 :height height
-                 :fill fill}))
-   (svg/foreignObject
-     (dom/props {:x x
-                 :y y
-                 :height (- height 10)
-                 :width  (- width 10)
-                 :fill "black"})
-     (dom/div
-       (dom/props {:style {
-                           :padding "10px"
-                           :height "100%"}})
-       (new cm/string "GM")))))
+  (let [read (fn [edn-str]
+               (println "Read string:" edn-str)
+               (try (edn/read-string edn-str)
+                    (catch #?(:clj Throwable :cljs :default) t
+                      #?(:clj (clojure.tools.logging/error t)
+                         :cljs (js/console.warn t)) nil)))
+        write (fn [edn] (with-out-str (pprint/pprint edn)))]
+   (svg/g
+    (svg/rect
+      (dom/props {:id "rect"
+                  :x x
+                  :y y
+                  :width width
+                  :height height
+                  :fill "black"})
+      (dom/on "click" (e/fn [e]
+                        (println "clicked the rect.")))
+
+      (dom/on "mousedown" (e/fn [e]
+                            (println "mousedown the rect.")
+                            (let [[x y] (fc/element-new-coordinates1 e "rect")]
+                              (e/server
+                                (swap! !edges assoc :raw {:id :raw
+                                                          :type "raw"
+                                                          :x1 x
+                                                          :y1 y
+                                                          :x2 nil
+                                                          :y2 nil
+                                                          :stroke "blue"
+                                                          :stroke-width 4})))
+                            (reset! !border-drag? true)))
+      (dom/on "mouseup" (e/fn [e]
+                          (println "mouseup the rect.")
+                          (reset! !border-drag? false))))
+
+
+    (svg/foreignObject
+      (dom/props {:x (+  x 5)
+                  :y (+  y 5)
+                  :height (- height 10)
+                  :width  (- width 10)
+                  :fill "black"
+                  :style {:display "flex"
+                          :flex-direction "column"}})
+
+      (dom/div
+          (dom/props {:style {:background-color fill
+                              :height "100%"}})
+          (dom/div
+            (new cm/CodeMirror {:parent dom/node} read write "GM"))
+          #_(ui/button
+              read
+              (dom/text "save")))))))
+
+(e/defn new-line-el [[k {:keys [id x1 y1 x2 y2 stroke stroke-width]}]]
+  (println "dom props")
+  (svg/line
+    (dom/props {:id "draw"
+                :x1  x1
+                :y1  y1
+                :x2  x2
+                :y2  y2
+                :stroke "blue"
+                :stroke-width 4})))
+
 
 (e/defn view []
   (let [current-selection (atom nil)]
@@ -146,6 +199,15 @@
                             :top 0
                             :left 0}})
         (dom/on "mousemove" (e/fn [e]
+                              (when @!border-drag?
+                                (let [[x y] (fc/element-new-coordinates1 e "sv")]
+                                  (println "border draging" x y)
+                                  (e/server
+                                   (swap! !edges (fn [x]
+                                                   (-> (:raw x)
+                                                     (assoc :x2 x)
+                                                     (assoc :y2 y)))))))
+
                               (cond
                                 (and is-dragging?
                                   (= "background"
@@ -185,9 +247,11 @@
                             (.preventDefault e)
                             (println "pointerup svg")
                             (reset! !is-dragging? false)
+                            (reset! !border-drag? false)
                             #_(when @!border-drag?
                                 (println "border draging up >>>")
                                 (reset! !border-drag? false))))
+
         (bg/dot-background. "black" viewbox)
         (e/server
           (e/for-by identity [node nodes]
@@ -199,8 +263,14 @@
                       (= "circle" type)  (circle. node)
                       (= "rect" type)    (rect. node)))))
           (e/for-by identity [edge edges]
-            (e/client
-             (line. edge))))))))
+            (let [[_ {:keys [type x2 y2]}] edge]
+              (e/client
+                (println "edge type" type edge)
+                (cond
+                  (and
+                    (= "raw" type)
+                    (some? [x2 y2]))   (new-line-el. edge)
+                  :else                (line. edge))))))))))
 
 (e/defn main []
   (println "server viewbox val" viewbox)
