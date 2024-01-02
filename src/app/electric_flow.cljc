@@ -121,17 +121,19 @@
 
 
 
-(e/defn rect [[_ {:keys [x y width height fill]}]]
+(e/defn rect [[_ {:keys [x y width height fill id]}]]
   (let [read (fn [edn-str]
                (println "Read string:" edn-str)
                (try (edn/read-string edn-str)
                     (catch #?(:clj Throwable :cljs :default) t
                       #?(:clj (clojure.tools.logging/error t)
                          :cljs (js/console.warn t)) nil)))
-        write (fn [edn] (with-out-str (pprint/pprint edn)))]
+        write (fn [edn] (with-out-str (pprint/pprint edn)))
+        dom-id (str "dom-id-" id)]
+
    (svg/g
     (svg/rect
-      (dom/props {:id "rect"
+      (dom/props {:id  dom-id
                   :x x
                   :y y
                   :width width
@@ -142,7 +144,7 @@
 
       (dom/on "mousedown" (e/fn [e]
                             (println "mousedown the rect.")
-                            (let [[x y] (fc/element-new-coordinates1 e "rect")]
+                            (let [[x y] (fc/element-new-coordinates1 e dom-id)]
                               (e/server
                                 (swap! !edges assoc :raw {:id :raw
                                                           :type "raw"
@@ -187,53 +189,114 @@
                 :stroke "blue"
                 :stroke-width 4})))
 
+(def !context-menu? (atom nil))
+(e/def context-menu? (e/watch !context-menu?))
+
+(e/defn context-menu []
+  (println "called context menu" (:x context-menu?) (:y context-menu?))
+  (let [x (:x context-menu?)
+        y (:y context-menu?)]
+    (println "context menu" x y)
+   (dom/div
+     (dom/props {:style {:position "absolute"
+                         :z-index "1000"
+                         :top  y
+                         :left x
+                         :background-color "yellow"
+                         :height "100px"
+                         :width "100px"}
+                 :id "context-menu"})
+     (dom/div
+       (dom/props {:style {:background-color "red"
+                           :height "50px"
+                           :width "50px"}})
+       (dom/button
+        (dom/text "delete")
+        (dom/on "click" (e/fn [e]
+                          (println "gg clicked")
+                          (let [id (:keyword (random-uuid))
+                                [cx cy] (fc/browser-to-svg-coords e viewbox)]
+                           (e/server
+                             (swap! !nodes assoc
+                               id {:id id
+                                   :x cx
+                                   :y cy
+                                   :width 400
+                                   :height 800
+                                   :type "rect"
+                                   :fill "brown"}))
+                           (reset! !context-menu? nil)))))))))
+
+
+(defn reset-global-vals []
+  (cond
+    (some? @!context-menu?) (reset! !context-menu? nil)))
+
+
+
 
 (e/defn view []
   (let [current-selection (atom nil)]
     (e/client
+      (when (some? context-menu?)
+        (println "context menu is " @!context-menu? (some? @!context-menu?))
+        (context-menu.))
       (svg/svg
         (dom/props {:viewBox (clojure.string/join " " viewbox)
                     :id "sv"
                     :style {:min-width "100%"
                             :min-height "100%"
+                            :z-index 1
                             :top 0
                             :left 0}})
-        (dom/on "mousemove" (e/fn [e]
-                              (when @!border-drag?
-                                (let [[x y] (fc/element-new-coordinates1 e "sv")]
-                                  (println "border draging" x y)
-                                  (e/server
-                                   (swap! !edges assoc-in [:raw :x2] x)
-                                   (swap! !edges assoc-in [:raw :y2] y))))
+        (dom/on "contextmenu" (e/fn [e]
+                                (println "contextmenu" @!context-menu?)
+                                (reset! !context-menu? {:x (str (.-clientX e) "px")
+                                                         :y (str (.-clientY e) "px")})
+                                (.preventDefault e)
+                                (println "contextmenu" @!context-menu?)))
 
-                              (cond
-                                (and is-dragging?
-                                  (= "background"
-                                    (:selection
-                                      @current-selection))
-                                  (:movable?
-                                    @current-selection))    (let [[nx ny] (fc/find-new-coordinates e last-position viewbox)
-                                                                  ex      (.-clientX e)
-                                                                  ey      (.-clientY e)]
-                                                              (println "gg")
-                                                              (swap! !viewbox assoc 0 nx)
-                                                              (swap! !viewbox assoc 1 ny)
-                                                              (reset! !last-position {:x ex
-                                                                                      :y ey}))
-                                #_#_@!border-drag? (println "border draging"))))
+        (dom/on "mousemove" (e/fn [e]
+                              (when (= 0
+                                      (.-button e))
+                                (when @!border-drag?
+                                  (let [[x y] (fc/element-new-coordinates1 e "sv")]
+                                    (println "border draging" x y)
+                                    (e/server
+                                     (swap! !edges assoc-in [:raw :x2] x)
+                                     (swap! !edges assoc-in [:raw :y2] y))))
+
+                                (cond
+                                  (and is-dragging?
+                                    (= "background"
+                                      (:selection
+                                        @current-selection))
+                                    (:movable?
+                                      @current-selection))    (let [[nx ny] (fc/find-new-coordinates e last-position viewbox)
+                                                                    ex      (.-clientX e)
+                                                                    ey      (.-clientY e)]
+                                                                (println "gg")
+                                                                (swap! !viewbox assoc 0 nx)
+                                                                (swap! !viewbox assoc 1 ny)
+                                                                (reset! !last-position {:x ex
+                                                                                        :y ey}))
+                                  #_#_@!border-drag? (println "border draging")))))
         (dom/on "mousedown" (e/fn [e]
                               (.preventDefault e)
-                              (let [ex (e/client (.-clientX e))
-                                    ey (e/client (.-clientY e))]
-                                (println "pointerdown svg")
-                                (reset! current-selection {:selection (.-id (.-target e))
-                                                           :movable? true})
-                                (reset! !last-position {:x ex
-                                                        :y ey})
-                                (reset! !is-dragging? true))))
+                              (when (= 0
+                                      (.-button e))
+                                (let [ex (e/client (.-clientX e))
+                                      ey (e/client (.-clientY e))]
+                                  (println "pointerdown svg")
+                                  (reset! current-selection {:selection (.-id (.-target e))
+                                                             :movable? true})
+                                  (reset! !last-position {:x ex
+                                                          :y ey})
+                                  (reset! !is-dragging? true)
+                                  (reset-global-vals)))))
         (dom/on "wheel" (e/fn [e]
                           (.preventDefault e)
-                          (let [coords (fc/browser-to-svg-coords e (.getElementById js/document "sv") viewbox)
+                          (let [coords (fc/browser-to-svg-coords e  viewbox)
                                 wheel   (if (< (.-deltaY e) 0)
                                           1.01
                                           0.99)
@@ -243,12 +306,15 @@
                             (reset! !viewbox new-view-box))))
         (dom/on "mouseup" (e/fn [e]
                             (.preventDefault e)
-                            (println "pointerup svg")
-                            (reset! !is-dragging? false)
-                            (reset! !border-drag? false)
+                            (when (= 0
+                                    (.-button e))
+                              (println "pointerup svg")
+                              (reset! !is-dragging? false)
+                              (reset! !border-drag? false))
                             #_(when @!border-drag?
                                 (println "border draging up >>>")
                                 (reset! !border-drag? false))))
+
 
         (bg/dot-background. "black" viewbox)
         (e/server
@@ -269,6 +335,7 @@
                     (= "raw" type)
                     (not-every? nil? [x2 y2])) (new-line-el. edge)
                   (= "line" type)              (line. edge))))))))))
+
 
 (e/defn main []
   (println "server viewbox val" viewbox)
