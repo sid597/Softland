@@ -17,8 +17,9 @@
      new-height]))
 
 
-(defn browser-to-svg-coords [event svg-element viewbox]
-  (let [bbox            (.getBoundingClientRect svg-element)
+(defn browser-to-svg-coords [event  viewbox]
+  (let [svg-element     (.getElementById js/document "sv")
+        bbox            (.getBoundingClientRect svg-element)
         view-box-width  (nth viewbox 2)
         view-box-height (nth viewbox 3)
         ratio-x         (/ view-box-width (.-width bbox))

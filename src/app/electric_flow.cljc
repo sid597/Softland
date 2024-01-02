@@ -37,6 +37,7 @@
                            :rect       {:id :rect
                                         :x 500
                                         :y 600
+                                        :text "GM"
                                         :width 400
                                         :height 800
                                         :type "rect"
@@ -50,9 +51,9 @@
                       :end   nil}))
 (def !border-drag? (atom false))
 (def !is-dragging? (atom false))
-(def !zoom-level (atom 1))
+(def !zoom-level (atom 1.5))
 (def !last-position (atom {:x 0 :y 0}))
-(def !viewbox (atom [0 0 2000 2000]))
+(def !viewbox (atom [0 0 1000 2000]))
 
 
 
@@ -121,9 +122,12 @@
 
 
 
-(e/defn rect [[_ {:keys [x y width height fill id]}]]
-  (let [read (fn [edn-str]
-               (println "Read string:" edn-str)
+(e/defn rect [[_ {:keys [x y width height fill id text]}]]
+  (let [!cm-text (atom nil)
+        cm-text  (e/watch !cm-text)
+        read (fn [edn-str]
+               (println "Read string:" (edn/read-string edn-str))
+               (reset! !cm-text (str edn-str))
                (try (edn/read-string edn-str)
                     (catch #?(:clj Throwable :cljs :default) t
                       #?(:clj (clojure.tools.logging/error t)
@@ -158,8 +162,6 @@
       (dom/on "mouseup" (e/fn [e]
                           (println "mouseup the rect.")
                           (reset! !border-drag? false))))
-
-
     (svg/foreignObject
       (dom/props {:x (+  x 5)
                   :y (+  y 5)
@@ -168,15 +170,22 @@
                   :fill "black"
                   :style {:display "flex"
                           :flex-direction "column"}})
-
       (dom/div
           (dom/props {:style {:background-color fill
                               :height "100%"}})
           (dom/div
-            (new cm/CodeMirror {:parent dom/node} read write "GM"))
-          #_(ui/button
-              read
-              (dom/text "save")))))))
+            (dom/props {:id (str "cm-" dom-id)})
+            (new cm/CodeMirror {:parent dom/node} read identity text))
+          (dom/button
+            (dom/props {:style {:background-color "red"
+                                :height "50px"
+                                :width "50px"}})
+            read
+            (dom/text "save")
+            (dom/on "click" (e/fn [e]
+                              (when (some? cm-text)
+                                (println "cm-text -->" cm-text)
+                                (e/server (swap! !nodes assoc-in [(keyword (str id)) :text] cm-text)))))))))))
 
 (e/defn new-line-el [[k {:keys [id x1 y1 x2 y2 stroke stroke-width]}]]
   (println "dom props")
@@ -214,17 +223,19 @@
         (dom/text "delete")
         (dom/on "click" (e/fn [e]
                           (println "gg clicked")
-                          (let [id (:keyword (random-uuid))
+                          (let [id (random-uuid)
                                 [cx cy] (fc/browser-to-svg-coords e viewbox)]
-                           (e/server
-                             (swap! !nodes assoc
-                               id {:id id
-                                   :x cx
-                                   :y cy
-                                   :width 400
-                                   :height 800
-                                   :type "rect"
-                                   :fill "brown"}))
+                            (println "id" id)
+                            (e/server
+                              (swap! !nodes assoc
+                                (keyword (str id)) {:id id
+                                                    :x cx
+                                                    :y cy
+                                                    :width 400
+                                                    :height 800
+                                                    :type "rect"
+                                                    :text "gm"
+                                                    :fill "lightblue"}))
                            (reset! !context-menu? nil)))))))))
 
 
