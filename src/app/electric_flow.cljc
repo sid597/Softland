@@ -1,6 +1,5 @@
 (ns app.electric-flow
   (:require contrib.str
-            #?(:cljs [clojure.string :as str])
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
             [hyperfiddle.electric :as e]
@@ -11,7 +10,14 @@
             [app.background :as bg]
             [app.flow-calc :as fc]
             [app.electric-codemirror :as cm]
-            [hyperfiddle.electric-ui4 :as ui]))
+            [hyperfiddle.electric-ui4 :as ui]
+            [app.env :as env :refer [oai-key]]
+            #?@(:cljs
+                [[clojure.string :as str]]
+                :clj
+                [[wkok.openai-clojure.api :as api]
+                 [clojure.core.async :as a :refer [<! >! go]]])))
+
 
 #?(:clj (def !edges (atom {:sv-line {:id :sv-line
                                      :type "line"
@@ -43,7 +49,6 @@
                                         :type "rect"
                                         :fill "lightblue"}})))
 
-
 (e/def nodes (e/server (e/watch !nodes)))
 
 
@@ -55,13 +60,35 @@
 (def !last-position (atom {:x 0 :y 0}))
 (def !viewbox (atom [0 0 1000 2000]))
 
-
-
 (e/def viewbox (e/watch !viewbox))
 (e/def last-position (e/watch !last-position))
 (e/def zoom-level (e/watch !zoom-level))
 (e/def is-dragging? (e/watch !is-dragging?))
 (e/def new-line (e/watch !new-line))
+
+#?(:clj (def !res (atom nil)))
+
+#?(:clj
+   (defn chat-complete [{:keys [messages]}]
+     (println "chat-complete" messages)
+     (let [events (api/create-chat-completion
+                    {:model "gpt-3.5-turbo"
+                     :messages messages
+                     :stream true}
+                    {:api-key oai-key})]
+
+       (go
+         (loop []
+           (let [event (<! events)]
+             (when (not= :done event)
+               (clojure.pprint/pprint @!res)
+               (swap! !res str (-> event
+                                     :choices
+                                     first
+                                     :delta
+                                     :content))
+               (recur))))))))
+
 
 (e/defn circle [[k {:keys [id x y r color dragging?]}]]
     (svg/circle
@@ -119,8 +146,6 @@
                   :y2  fy
                   :stroke color
                   :stroke-width 4}))))
-
-
 
 (e/defn rect [[_ {:keys [x y width height fill id text]}]]
   (let [!cm-text (atom nil)
@@ -180,12 +205,16 @@
             (dom/props {:style {:background-color "red"
                                 :height "50px"
                                 :width "50px"}})
-            read
             (dom/text "save")
             (dom/on "click" (e/fn [e]
                               (when (some? cm-text)
                                 (println "cm-text -->" cm-text)
-                                (e/server (swap! !nodes assoc-in [(keyword (str id)) :text] cm-text)))))))))))
+                                (e/server
+                                  (do
+                                   (println "server called")
+                                   (swap! !nodes assoc-in [(keyword (str id)) :text] cm-text)
+                                   (chat-complete
+                                     {:messages [{:role "user" :content "GM"}]}))))))))))))
 
 (e/defn new-line-el [[k {:keys [id x1 y1 x2 y2 stroke stroke-width]}]]
   (println "dom props")
@@ -200,6 +229,7 @@
 
 (def !context-menu? (atom nil))
 (e/def context-menu? (e/watch !context-menu?))
+
 
 (e/defn context-menu []
   (println "called context menu" (:x context-menu?) (:y context-menu?))
@@ -225,17 +255,17 @@
                           (println "gg clicked")
                           (let [id (random-uuid)
                                 [cx cy] (fc/browser-to-svg-coords e viewbox)]
-                            (println "id" id)
-                            (e/server
-                              (swap! !nodes assoc
-                                (keyword (str id)) {:id id
-                                                    :x cx
-                                                    :y cy
-                                                    :width 400
-                                                    :height 800
-                                                    :type "rect"
-                                                    :text "gm"
-                                                    :fill "lightblue"}))
+                             (println "id" id)
+                             (e/server
+                               (swap! !nodes assoc
+                                 (keyword (str id)) {:id id
+                                                     :x cx
+                                                     :y cy
+                                                     :width 400
+                                                     :height 800
+                                                     :type "rect"
+                                                     :text "gm"
+                                                     :fill "lightblue"}))
                            (reset! !context-menu? nil)))))))))
 
 
