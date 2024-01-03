@@ -71,11 +71,6 @@
 
 #?(:clj
    (defn chat-complete [{:keys [messages render-uid]}]
-
-     (println "chat-complete" messages render-uid (-> @!nodes
-                                                    render-uid
-                                                    :text))
-     (clojure.pprint/pprint @!nodes)
      (let [events (api/create-chat-completion
                     {:model "gpt-3.5-turbo"
                      :messages messages
@@ -94,7 +89,7 @@
                      cur-val (-> @!nodes
                                  render-uid
                                  :text)]
-                (println "res" res cur-val)
+                ;(println "res" res cur-val)
                 (swap!
                   !nodes
                   update-in
@@ -109,8 +104,7 @@
 
 (e/defn circle [[k {:keys [id x y r color dragging?]}]]
     (svg/circle
-      (dom/props {:style {:z-index 1}
-                  :id id
+      (dom/props {:id id
                   :cx x
                   :cy y
                   :r  r
@@ -144,9 +138,6 @@
                               (e/server (swap! !nodes assoc-in [k :dragging?] false))))))
 
 (e/defn line [[k {:keys [id color to from]}]]
-  (println "++++++++++++" id to from)
-  (clojure.pprint/pprint (e/server nodes))
-  (clojure.pprint/pprint (e/server edges))
   (let [{tw :width
          th :height
          tx :x
@@ -189,11 +180,9 @@
                     :to   child-uid
                     :type "line"
                     :color "black"}]
-    (println "edge props -->" edge-props)
     (e/server
      (swap! !nodes assoc child-uid rect-props)
      (swap! !edges assoc edge-id edge-props)
-     (println "server called")
      (swap! !nodes assoc-in [parent-id :text] cm-text)
      (chat-complete
         {:messages [{:role "user" :content "GM"}]
