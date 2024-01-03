@@ -18,6 +18,8 @@
                 [[wkok.openai-clojure.api :as api]
                  [clojure.core.async :as a :refer [<! >! go]]])))
 
+(defn new-uuid []
+  (keyword (str (random-uuid))))
 
 #?(:clj (def !edges (atom {:sv-line {:id :sv-line
                                      :type "line"
@@ -43,7 +45,7 @@
                            :rect       {:id :rect
                                         :x 500
                                         :y 600
-                                        :text "GM"
+                                        :text "GM Hello"
                                         :width 400
                                         :height 800
                                         :type "rect"
@@ -58,7 +60,7 @@
 (def !is-dragging? (atom false))
 (def !zoom-level (atom 1.5))
 (def !last-position (atom {:x 0 :y 0}))
-(def !viewbox (atom [0 0 1000 2000]))
+(def !viewbox (atom [0 0 2000 2000]))
 
 (e/def viewbox (e/watch !viewbox))
 (e/def last-position (e/watch !last-position))
@@ -66,11 +68,14 @@
 (e/def is-dragging? (e/watch !is-dragging?))
 (e/def new-line (e/watch !new-line))
 
-#?(:clj (def !res (atom nil)))
 
 #?(:clj
-   (defn chat-complete [{:keys [messages]}]
-     (println "chat-complete" messages)
+   (defn chat-complete [{:keys [messages render-uid]}]
+
+     (println "chat-complete" messages render-uid (-> @!nodes
+                                                    render-uid
+                                                    :text))
+     (clojure.pprint/pprint @!nodes)
      (let [events (api/create-chat-completion
                     {:model "gpt-3.5-turbo"
                      :messages messages
@@ -81,18 +86,31 @@
          (loop []
            (let [event (<! events)]
              (when (not= :done event)
-               (clojure.pprint/pprint @!res)
-               (swap! !res str (-> event
-                                     :choices
-                                     first
-                                     :delta
-                                     :content))
+               (let [res (-> event
+                           :choices
+                           first
+                           :delta
+                           :content)
+                     cur-val (-> @!nodes
+                                 render-uid
+                                 :text)]
+                (println "res" res cur-val)
+                (swap!
+                  !nodes
+                  update-in
+                  [render-uid :text]
+                  (constantly
+                    (str
+                     cur-val
+                     res))))
+
                (recur))))))))
 
 
 (e/defn circle [[k {:keys [id x y r color dragging?]}]]
     (svg/circle
-      (dom/props {:id id
+      (dom/props {:style {:z-index 1}
+                  :id id
                   :cx x
                   :cy y
                   :r  r
@@ -126,26 +144,61 @@
                               (e/server (swap! !nodes assoc-in [k :dragging?] false))))))
 
 (e/defn line [[k {:keys [id color to from]}]]
-  (let [tx (->  (e/server nodes)
-                to
-                :x)
-        ty (-> (e/server nodes)
-               to
-               :y)
-        fx (-> (e/server nodes)
-               from
-               :x)
-        fy (-> (e/server nodes)
-               from
-               :y)]
+  (println "++++++++++++" id to from)
+  (clojure.pprint/pprint (e/server nodes))
+  (clojure.pprint/pprint (e/server edges))
+  (let [{tw :width
+         th :height
+         tx :x
+         ty :y} (to (e/server nodes))
+        {fh :height
+         fw :width
+         fx :x
+         fy :y} (from (e/server nodes))]
     (svg/line
-      (dom/props {:id id
-                  :x1  tx
-                  :y1  ty
-                  :x2  fx
-                  :y2  fy
+      (dom/props {:style {:z-index -1}
+                  :id id
+                  :x1  (if tw
+                         (+ tx (/ tw 2))
+                         tx)
+                  :y1  (if th
+                         (+ ty (/ th 2))
+                         ty)
+                  :x2  (if fw
+                         (+ fx (/ fw 2))
+                         fx)
+                  :y2  (if fh
+                         (+ fy (/ fh 2))
+                         fy)
                   :stroke color
                   :stroke-width 4}))))
+
+
+(e/defn create-new-child-node [parent-id child-uid x y cm-text]
+  (let [edge-id (new-uuid)
+        rect-props {:id child-uid
+                    :x x
+                    :y y
+                    :width 400
+                    :height 800
+                    :type "rect"
+                    :text "what "
+                    :fill "lightblue"}
+        edge-props {:id   edge-id
+                    :from parent-id
+                    :to   child-uid
+                    :type "line"
+                    :color "black"}]
+    (println "edge props -->" edge-props)
+    (e/server
+     (swap! !nodes assoc child-uid rect-props)
+     (swap! !edges assoc edge-id edge-props)
+     (println "server called")
+     (swap! !nodes assoc-in [parent-id :text] cm-text)
+     (chat-complete
+        {:messages [{:role "user" :content "GM"}]
+         :render-uid child-uid}))))
+
 
 (e/defn rect [[_ {:keys [x y width height fill id text]}]]
   (let [!cm-text (atom nil)
@@ -158,7 +211,7 @@
                       #?(:clj (clojure.tools.logging/error t)
                          :cljs (js/console.warn t)) nil)))
         write (fn [edn] (with-out-str (pprint/pprint edn)))
-        dom-id (str "dom-id-" id)]
+        dom-id (str "dom-id-" (str id))]
 
    (svg/g
     (svg/rect
@@ -207,14 +260,11 @@
                                 :width "50px"}})
             (dom/text "save")
             (dom/on "click" (e/fn [e]
-                              (when (some? cm-text)
-                                (println "cm-text -->" cm-text)
-                                (e/server
-                                  (do
-                                   (println "server called")
-                                   (swap! !nodes assoc-in [(keyword (str id)) :text] cm-text)
-                                   (chat-complete
-                                     {:messages [{:role "user" :content "GM"}]}))))))))))))
+                              (let [child-uid (new-uuid)]
+                                (when (some? cm-text)
+                                  (println "cm-text -->" cm-text)
+                                  (create-new-child-node. id child-uid (+ x 600) y cm-text)))))))))))
+
 
 (e/defn new-line-el [[k {:keys [id x1 y1 x2 y2 stroke stroke-width]}]]
   (println "dom props")
@@ -253,19 +303,18 @@
         (dom/text "delete")
         (dom/on "click" (e/fn [e]
                           (println "gg clicked")
-                          (let [id (random-uuid)
+                          (let [id (new-uuid)
                                 [cx cy] (fc/browser-to-svg-coords e viewbox)]
                              (println "id" id)
                              (e/server
-                               (swap! !nodes assoc
-                                 (keyword (str id)) {:id id
-                                                     :x cx
-                                                     :y cy
-                                                     :width 400
-                                                     :height 800
-                                                     :type "rect"
-                                                     :text "gm"
-                                                     :fill "lightblue"}))
+                               (swap! !nodes assoc id {:id id
+                                                       :x cx
+                                                       :y cy
+                                                       :width 400
+                                                       :height 800
+                                                       :type "rect"
+                                                       :text "gm"
+                                                       :fill "lightblue"}))
                            (reset! !context-menu? nil)))))))))
 
 
