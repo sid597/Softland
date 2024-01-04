@@ -18,33 +18,73 @@
                 [[wkok.openai-clojure.api :as api]
                  [clojure.core.async :as a :refer [<! >! go]]])))
 
-(defn log [message & args]
-  (js/console.log message args))
+#_(defn log [message & args]
+    (js/console.log message args))
+
+#?(:clj (def !ui-mode (atom :dark)))
+(e/def ui-mode (e/server (e/watch !ui-mode)))
+
+
+(def dark-mode
+  {:svg-background "#0D141F"
+   :svg-dots "#1B537B"
+   :editor-background "#111A27"
+   :editor-text "#75c9f3"
+   :editor-border "#113555"
+   :button-background "#112840"
+   :button-border "#3C2E69"
+   :button-text "#2BADFE8B"
+   :button-div "#33255B"
+   :edge-color "#71FF8F4B"
+   :context-menu "#111a29"
+   :context-menu-text "#75c8f2"})
+
+
+(def light-mode
+  {:svg-background "#f5f5f5"
+   :svg-dots "#b9bdc4"
+   :editor-background "#1184fc33"
+   :editor-text "#75c9f3"
+   :editor-border "#28A5FF72"
+   :button-background "#845FFD5F"
+   :button-border "#977DFEA8"
+   :button-text "#BAA7FF"
+   :button-div "#FEBB0036"
+   :edge-color "#71FF8F4B"
+   :context-menu "#111a29"
+   :context-menu-text "#75c8f2"})
+
+(defn theme [mode]
+  (case mode
+    :dark dark-mode
+    :light light-mode))
+
+
 
 (defn new-uuid []
   (keyword (str (random-uuid))))
 
-#?(:clj (def !edges (atom {:sv-line {:id :sv-line
-                                     :type "line"
-                                     :to   :sv-circle
-                                     :from :sv-circle1
-                                     :color "black"}})))
+#?(:clj (def !edges (atom {#_#_:sv-line {:id :sv-line
+                                         :type "line"
+                                         :to   :sv-circle
+                                         :from :sv-circle1
+                                         :color "black"}})))
 
 (e/def edges (e/server (e/watch !edges)))
 
-#?(:clj (def !nodes (atom {:sv-circle {:id :sv-circle :dragging? false
-                                       :x 700
-                                       :y 100
-                                       :r 100
-                                       :type "circle"
-                                       :color "red"}
-                           :sv-circle1 {:id :sv-circle1
-                                        :dragging? false
-                                        :x 900
-                                        :y 300
-                                        :r 100
-                                        :type "circle"
-                                        :color "green"}
+#?(:clj (def !nodes (atom {#_#_:sv-circle {:id :sv-circle :dragging? false
+                                           :x 700
+                                           :y 100
+                                           :r 100
+                                           :type "circle"
+                                           :color "red"}
+                           #_#_:sv-circle1 {:id :sv-circle1
+                                            :dragging? false
+                                            :x 900
+                                            :y 300
+                                            :r 100
+                                            :type "circle"
+                                            :color "green"}
                            :rect       {:id :rect
                                         :x 500
                                         :y 600
@@ -52,7 +92,7 @@
                                         :width 400
                                         :height 800
                                         :type "rect"
-                                        :fill "lightblue"}})))
+                                        :fill "#111A27"}})))
 
 (e/def nodes (e/server (e/watch !nodes)))
 
@@ -178,20 +218,19 @@
                     :height 800
                     :type "rect"
                     :text " "
-                    :fill "lightblue"}
+                    :fill (:editor-background (theme ui-mode))}
         edge-props {:id   edge-id
                     :from parent-id
                     :to   child-uid
                     :type "line"
-                    :color "black"}]
+                    :color (:edge-color (theme ui-mode))}]
     (e/server
      (swap! !nodes assoc child-uid rect-props)
      (swap! !edges assoc edge-id edge-props)
      (swap! !nodes assoc-in [parent-id :text] cm-text)
      (chat-complete
         {:messages [{:role "user" :content cm-text}]
-         :render-uid child-uid}))
-    (clojure.pprint/pprint nodes)))
+         :render-uid child-uid}))))
 
 
 (e/defn rect [[_ {:keys [x y width height fill id text]}]]
@@ -214,7 +253,7 @@
                   :y y
                   :width width
                   :height height
-                  :fill "black"})
+                  :fill (:editor-border (theme ui-mode))})
       (dom/on "click" (e/fn [e]
                         (println "clicked the rect.")))
 
@@ -229,7 +268,7 @@
                                                           :y1 y
                                                           :x2 nil
                                                           :y2 nil
-                                                          :stroke "blue"
+                                                          :stroke (:edge-color (theme ui-mode))
                                                           :stroke-width 4})))
                             (reset! !border-drag? true)))
       (dom/on "mouseup" (e/fn [e]
@@ -258,13 +297,18 @@
                                 :width "100%"}})
             (new cm/CodeMirror {:parent dom/node} read identity text))
           (dom/div
-           (dom/props {:style {:background-color "blue"
-                               :padding "5px"}})
            (dom/button
-             (dom/props {:style {:background-color "red"
+             (dom/props {:style {:background-color (:button-background (theme ui-mode))
+                                 :border "none"
+                                 :padding "5px"
+                                 :border-width "5px"
+                                 :font-size "18px"
+                                 :color (:button-text (theme ui-mode))
                                  :height "50px"
-                                 :width "50px"}})
-             (dom/text "save")
+                                 :width "100%"}})
+             (dom/text
+               "Save")
+
              (dom/on "click" (e/fn [e]
                                (let [child-uid (new-uuid)]
                                  (when (some? cm-text)
@@ -280,7 +324,7 @@
                 :y1  y1
                 :x2  x2
                 :y2  y2
-                :stroke "blue"
+                :stroke (:edge-color (theme ui-mode))
                 :stroke-width 4})))
 
 (def !context-menu? (atom nil))
@@ -297,16 +341,24 @@
                          :z-index "1000"
                          :top  y
                          :left x
-                         :background-color "yellow"
+                         :background-color (:context-menu (theme ui-mode))
                          :height "100px"
+                         :padding "5px"
                          :width "100px"}
                  :id "context-menu"})
      (dom/div
-       (dom/props {:style {:background-color "red"
-                           :height "50px"
-                           :width "50px"}})
        (dom/button
-        (dom/text "delete")
+         (dom/props {:style {:background-color (:button-background (theme ui-mode))
+                             :color (:button-text (theme ui-mode))
+                             :border "none"
+                             :border-width "5px"
+                             :font-size "1em"
+                             :height "40px"
+                             :width "100%"}})
+        (dom/text
+          (dom/props {:style {:color (:button-text (theme ui-mode))
+                              :font-size "36px"}})
+          "New node")
         (dom/on "click" (e/fn [e]
                           (println "gg clicked")
                           (let [id (new-uuid)
@@ -320,7 +372,7 @@
                                                        :height 800
                                                        :type "rect"
                                                        :text "gm"
-                                                       :fill "lightblue"}))
+                                                       :fill (:editor-background (theme ui-mode))}))
                            (reset! !context-menu? nil)))))))))
 
 
@@ -329,11 +381,31 @@
     (some? @!context-menu?) (reset! !context-menu? nil)))
 
 
+(e/defn theme-toggle []
+
+  (dom/button
+    (dom/props
+      {:top "100px"
+       :left "1000px"
+       :style {:background-color (:button-background (theme ui-mode))
+               :color (:button-text (theme ui-mode))
+               :border "none"
+               :margin "0px"
+               :font-size "10px"
+               :height "20px"
+               :width "100%"}})
+    (dom/text "Theme")
+    (dom/on "click" (e/fn [e]
+                      (e/server
+                       (reset! !ui-mode (if (= :dark @!ui-mode)
+                                          :light
+                                          :dark)))))))
 
 
 (e/defn view []
   (let [current-selection (atom nil)]
     (e/client
+      (theme-toggle.)
       (when (some? context-menu?)
         (println "context menu is " @!context-menu? (some? @!context-menu?))
         (context-menu.))
@@ -343,6 +415,7 @@
                     :style {:min-width "100%"
                             :min-height "100%"
                             :z-index 1
+                            :background-color (:svg-background (theme ui-mode))
                             :top 0
                             :left 0}})
         (dom/on "contextmenu" (e/fn [e]
@@ -393,7 +466,6 @@
         (dom/on "wheel" (e/fn [e]
                           (when (= (j/get-in e [:target :id])
                                   "background")
-                            (log "wheel" e)
                             (.preventDefault e)
                             (let [coords (fc/browser-to-svg-coords e  viewbox)
                                   wheel   (if (< (.-deltaY e) 0)
@@ -415,7 +487,7 @@
                                 (reset! !border-drag? false))))
 
 
-        (bg/dot-background. "black" viewbox)
+        (bg/dot-background. (:svg-dots (theme ui-mode)) viewbox)
         (e/server
           (e/for-by identity [node nodes]
             (let [[_ {:keys [type]}] node]
@@ -437,6 +509,6 @@
 
 
 (e/defn main []
-  (println "gg")
+  (println "gg" ui-mode (theme ui-mode))
   (view.))
 
