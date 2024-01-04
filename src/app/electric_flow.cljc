@@ -25,53 +25,6 @@
 (e/def ui-mode (e/server (e/watch !ui-mode)))
 
 
-#_(def dark-mode
-    {:svg-background "#0D141F"
-     :svg-dots "#1B537B"
-     :editor-background "#111A27"
-     :editor-text "#75c9f3"
-     :editor-border "#113555"
-     :button-background "#112840"
-     :button-border "#3C2E69"
-     :button-text "#2BADFE8B"
-     :button-div "#33255B"
-     :edge-color "#71FF8F4B"
-     :context-menu "#111a29"
-     :context-menu-text "#75c8f2"})
-
-
-;; Gold
-#_(def dark-mode
-    {:svg-background "#121211"
-     :svg-dots "#5A4C47"
-     :editor-background "#1B1A17"
-     :editor-text "#CBB99F"
-     :editor-border "#2D2B26"
-     :button-background "#24231F"
-     :button-border "#3C2E69"
-     :button-text "#FFEDCD48"
-     :button-div "#33255B"
-     :edge-color "#71FF8F4B"
-     :context-menu "#1B1A17"
-     :context-menu-text "#1B1A17"})
-
-
-;; purple
-#_(def dark-mode
-    {:svg-background "#18111B"
-     :svg-dots "#8E4EC6"
-     :editor-background "#1E1523"
-     :editor-text "#D19DFF"
-     :editor-border "#3D224E"
-     :button-background "#301C3B"
-     :button-border "#3C2E69"
-     :button-text "#FFEDCD48"
-     :button-div "#33255B"
-     :edge-color "#71FF8F4B"
-     :context-menu "#1B1A17"
-     :context-menu-text "#1B1A17"})
-
-;; grey
 (def dark-mode
   {:svg-background "#111110"
    :svg-dots "#3B3A37"
