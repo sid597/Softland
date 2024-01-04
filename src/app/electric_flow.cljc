@@ -25,19 +25,66 @@
 (e/def ui-mode (e/server (e/watch !ui-mode)))
 
 
+#_(def dark-mode
+    {:svg-background "#0D141F"
+     :svg-dots "#1B537B"
+     :editor-background "#111A27"
+     :editor-text "#75c9f3"
+     :editor-border "#113555"
+     :button-background "#112840"
+     :button-border "#3C2E69"
+     :button-text "#2BADFE8B"
+     :button-div "#33255B"
+     :edge-color "#71FF8F4B"
+     :context-menu "#111a29"
+     :context-menu-text "#75c8f2"})
+
+
+;; Gold
+#_(def dark-mode
+    {:svg-background "#121211"
+     :svg-dots "#5A4C47"
+     :editor-background "#1B1A17"
+     :editor-text "#CBB99F"
+     :editor-border "#2D2B26"
+     :button-background "#24231F"
+     :button-border "#3C2E69"
+     :button-text "#FFEDCD48"
+     :button-div "#33255B"
+     :edge-color "#71FF8F4B"
+     :context-menu "#1B1A17"
+     :context-menu-text "#1B1A17"})
+
+
+;; purple
+#_(def dark-mode
+    {:svg-background "#18111B"
+     :svg-dots "#8E4EC6"
+     :editor-background "#1E1523"
+     :editor-text "#D19DFF"
+     :editor-border "#3D224E"
+     :button-background "#301C3B"
+     :button-border "#3C2E69"
+     :button-text "#FFEDCD48"
+     :button-div "#33255B"
+     :edge-color "#71FF8F4B"
+     :context-menu "#1B1A17"
+     :context-menu-text "#1B1A17"})
+
+;; grey
 (def dark-mode
-  {:svg-background "#0D141F"
-   :svg-dots "#1B537B"
-   :editor-background "#111A27"
-   :editor-text "#75c9f3"
-   :editor-border "#113555"
-   :button-background "#112840"
+  {:svg-background "#111110"
+   :svg-dots "#3B3A37"
+   :editor-background "#111110" #_"#191919"
+   :editor-text "#6F6D66"
+   :editor-border "#2A2A28"
+   :button-background "#222221"
    :button-border "#3C2E69"
-   :button-text "#2BADFE8B"
+   :button-text "#6F6D66"
    :button-div "#33255B"
    :edge-color "#71FF8F4B"
-   :context-menu "#111a29"
-   :context-menu-text "#75c8f2"})
+   :context-menu "#1B1A17"
+   :context-menu-text "#1B1A17"})
 
 
 (def light-mode
@@ -58,7 +105,6 @@
   (case mode
     :dark dark-mode
     :light light-mode))
-
 
 
 (defn new-uuid []
@@ -92,7 +138,7 @@
                                         :width 400
                                         :height 800
                                         :type "rect"
-                                        :fill "#111A27"}})))
+                                        :fill "#111110" #_"#1E1523" #_"#1B1A17" #_"#111A27"}})))
 
 (e/def nodes (e/server (e/watch !nodes)))
 
@@ -391,6 +437,7 @@
                :color (:button-text (theme ui-mode))
                :border "none"
                :margin "0px"
+               :padding "0px"
                :font-size "10px"
                :height "20px"
                :width "100%"}})

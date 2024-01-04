@@ -24,7 +24,7 @@
                                   ".cm-line" {:padding "0 9px"
                                               :line-height "1.6"
                                               :font-size "16px"
-                                              :color "#197CAE"
+                                              :color "#6F6D66" #_"#978365" #_"#197CAE"
                                               :font-family "var(--code-font)"}
                                   ".cm-matchingBracket" {:border-bottom "1px solid var(--teal-color)"
                                                          :color "inherit"}
