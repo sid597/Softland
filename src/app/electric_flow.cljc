@@ -18,6 +18,9 @@
                 [[wkok.openai-clojure.api :as api]
                  [clojure.core.async :as a :refer [<! >! go]]])))
 
+(defn log [message & args]
+  (js/console.log message args))
+
 (defn new-uuid []
   (keyword (str (random-uuid))))
 
@@ -71,6 +74,7 @@
 
 #?(:clj
    (defn chat-complete [{:keys [messages render-uid]}]
+     (println "render uid " render-uid)
      (let [events (api/create-chat-completion
                     {:model "gpt-3.5-turbo"
                      :messages messages
@@ -173,7 +177,7 @@
                     :width 400
                     :height 800
                     :type "rect"
-                    :text "what "
+                    :text " "
                     :fill "lightblue"}
         edge-props {:id   edge-id
                     :from parent-id
@@ -185,8 +189,9 @@
      (swap! !edges assoc edge-id edge-props)
      (swap! !nodes assoc-in [parent-id :text] cm-text)
      (chat-complete
-        {:messages [{:role "user" :content "GM"}]
-         :render-uid child-uid}))))
+        {:messages [{:role "user" :content cm-text}]
+         :render-uid child-uid}))
+    (clojure.pprint/pprint nodes)))
 
 
 (e/defn rect [[_ {:keys [x y width height fill id text]}]]
@@ -213,6 +218,7 @@
       (dom/on "click" (e/fn [e]
                         (println "clicked the rect.")))
 
+
       (dom/on "mousedown" (e/fn [e]
                             (println "mousedown the rect.")
                             (let [[x y] (fc/element-new-coordinates1 e dom-id)]
@@ -236,23 +242,34 @@
                   :width  (- width 10)
                   :fill "black"
                   :style {:display "flex"
-                          :flex-direction "column"}})
+                          :flex-direction "column"
+                          :overflow "scroll"}})
       (dom/div
           (dom/props {:style {:background-color fill
-                              :height "100%"}})
+                              :height "100%"
+                              :display "flex"
+                              :overflow "scroll"
+                              :flex-direction "column"}})
+
           (dom/div
-            (dom/props {:id (str "cm-" dom-id)})
+            (dom/props {:id (str "cm-" dom-id)
+                        :style {:height "100%"
+                                :overflow "scroll"
+                                :width "100%"}})
             (new cm/CodeMirror {:parent dom/node} read identity text))
-          (dom/button
-            (dom/props {:style {:background-color "red"
-                                :height "50px"
-                                :width "50px"}})
-            (dom/text "save")
-            (dom/on "click" (e/fn [e]
-                              (let [child-uid (new-uuid)]
-                                (when (some? cm-text)
-                                  (println "cm-text -->" cm-text)
-                                  (create-new-child-node. id child-uid (+ x 600) y cm-text)))))))))))
+          (dom/div
+           (dom/props {:style {:background-color "blue"
+                               :padding "5px"}})
+           (dom/button
+             (dom/props {:style {:background-color "red"
+                                 :height "50px"
+                                 :width "50px"}})
+             (dom/text "save")
+             (dom/on "click" (e/fn [e]
+                               (let [child-uid (new-uuid)]
+                                 (when (some? cm-text)
+                                   (println "cm-text -->" cm-text)
+                                   (create-new-child-node. id child-uid (+ x 600) y cm-text))))))))))))
 
 
 (e/defn new-line-el [[k {:keys [id x1 y1 x2 y2 stroke stroke-width]}]]
@@ -374,22 +391,25 @@
                                   (reset! !is-dragging? true)
                                   (reset-global-vals)))))
         (dom/on "wheel" (e/fn [e]
-                          (.preventDefault e)
-                          (let [coords (fc/browser-to-svg-coords e  viewbox)
-                                wheel   (if (< (.-deltaY e) 0)
-                                          1.01
-                                          0.99)
-                                new-view-box (fc/direct-calculation viewbox wheel coords)
-                                new-zoom-level (* zoom-level wheel)]
-                            (reset! !zoom-level new-zoom-level)
-                            (reset! !viewbox new-view-box))))
-        (dom/on "mouseup" (e/fn [e]
+                          (when (= (j/get-in e [:target :id])
+                                  "background")
+                            (log "wheel" e)
                             (.preventDefault e)
-                            (when (= 0
-                                    (.-button e))
-                              (println "pointerup svg")
-                              (reset! !is-dragging? false)
-                              (reset! !border-drag? false))
+                            (let [coords (fc/browser-to-svg-coords e  viewbox)
+                                  wheel   (if (< (.-deltaY e) 0)
+                                            1.01
+                                            0.99)
+                                  new-view-box (fc/direct-calculation viewbox wheel coords)
+                                  new-zoom-level (* zoom-level wheel)]
+                              (reset! !zoom-level new-zoom-level)
+                              (reset! !viewbox new-view-box)))))
+        (dom/on "mouseup" (e/fn [e]
+                             (.preventDefault e)
+                             (when (= 0
+                                     (.-button e))
+                               (println "pointerup svg")
+                               (reset! !is-dragging? false)
+                               (reset! !border-drag? false))
                             #_(when @!border-drag?
                                 (println "border draging up >>>")
                                 (reset! !border-drag? false))))
@@ -417,7 +437,6 @@
 
 
 (e/defn main []
-  (println "server viewbox val" viewbox)
   (println "gg")
   (view.))
 
