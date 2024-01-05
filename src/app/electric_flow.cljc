@@ -21,7 +21,7 @@
 #_(defn log [message & args]
     (js/console.log message args))
 
-#?(:clj (def !ui-mode (atom :dark)))
+#?(:clj (def !ui-mode (atom :light)))
 (e/def ui-mode (e/server (e/watch !ui-mode)))
 
 
@@ -43,12 +43,12 @@
 (def light-mode
   {:svg-background "#f5f5f5"
    :svg-dots "#b9bdc4"
-   :editor-background "#1184fc33"
+   :editor-background "lightblue"
    :editor-text "#75c9f3"
    :editor-border "#28A5FF72"
-   :button-background "#845FFD5F"
+   :button-background "#1184FC33"
    :button-border "#977DFEA8"
-   :button-text "#BAA7FF"
+   :button-text "#0D141F"
    :button-div "#FEBB0036"
    :edge-color "#71FF8F4B"
    :context-menu "#111a29"
@@ -91,7 +91,7 @@
                                         :width 400
                                         :height 800
                                         :type "rect"
-                                        :fill "#111110" #_"#1E1523" #_"#1B1A17" #_"#111A27"}})))
+                                        :fill (:editor-background (theme ui-mode)) #_"#111110" #_"#1E1523" #_"#1B1A17" #_"#111A27"}})))
 
 (e/def nodes (e/server (e/watch !nodes)))
 
