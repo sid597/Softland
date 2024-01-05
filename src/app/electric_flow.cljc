@@ -13,7 +13,10 @@
             [hyperfiddle.electric-ui4 :as ui]
             [app.env :as env :refer [oai-key]]
             #?@(:cljs
-                [[clojure.string :as str]]
+                [[clojure.string :as str]
+                 [reagent.core :as r]
+                 ["react-dom/client" :as ReactDom]
+                 ["@radix-ui/themes" :as Theme]]
                 :clj
                 [[wkok.openai-clojure.api :as api]
                  [clojure.core.async :as a :refer [<! >! go]]])))
@@ -91,7 +94,7 @@
                                         :width 400
                                         :height 800
                                         :type "rect"
-                                        :fill (:editor-background (theme ui-mode)) #_"#111110" #_"#1E1523" #_"#1B1A17" #_"#111A27"}})))
+                                        :fill  "lightblue" #_"#111110" #_"#1E1523" #_"#1B1A17" #_"#111A27"}})))
 
 (e/def nodes (e/server (e/watch !nodes)))
 
