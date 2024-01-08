@@ -1,7 +1,8 @@
 (ns app.rama-module
   (:use [com.rpl.rama]
        [com.rpl.rama.path])
-  (:require [com.rpl.rama :as r :refer [defmodule
+  (:require [com.rpl.rama :as r :refer [<<sources
+                                        defmodule
                                         declare-depot
                                         defpath
                                         fixed-keys-schema
@@ -16,7 +17,7 @@
 ;; a set of interfaces and can have fields. Records in Clojure are a way to create
 ;; data structures that are more efficient and structured than general maps, while
 ;; still behaving like maps.
-(defrecord app-state [!viewbox !username])
+(defrecord app-state [viewbox username])
 
 ;; Module
 ;; This defines the module, whose body is a regular Clojure function implementation. All depots, ETLs,
@@ -26,6 +27,7 @@
 
 ;; If you want to change how an ETL topology updates PStates or add new functionality, you simply
 ;; (update the module) [https://redplanetlabs.com/docs/~/operating-rama.html#_updating_modules].
+
 ;; Additionally, the integration of PStates, depots, and topologies onto the same set of processes/threads
 ;; means there’s very little cost to the additional step of new data going to a depot first.
 
@@ -43,7 +45,7 @@
   ;; This depot takes in app-state objects. The second argument is a "depot partitioner" that controls
   ;; how appended data is partitioned across the depot, affecting on which task each piece of data begins
   ;; processing in ETLs.
-  (declare-depot setup *app-state (hash-by :!username))
+  (declare-depot setup *app-state (hash-by :username))
   ;; Stream topologies process appended data within a few milliseconds and guarantee all data will be fully processed.
   ;; Their low latency makes them appropriate for a use case like this.
   (let [s      (stream-topology topologies "state")
@@ -64,10 +66,21 @@
     ;; Reads and writes to PStates go to disk and are not purely in-memory operations.
     (declare-pstate s $$app-state {Long ; user ID
                                    (fixed-keys-schema {:username String
-                                                       :viewbox  (vector-schema Long)})})))
+                                                       :viewbox  (vector-schema Long)})})
 
     ;; ETL
     ;; <<sources defines the ETL logic as Rama dataflow code. Rama's dataflow API works differently than Clojure, but it has
-    ;; the same expressiveness as any general purpose language while also being able to seamlessly distribute computation.))
+    ;; the same expressiveness as any general purpose language while also being able to seamlessly distribute computation.
+    (<<sources s
+      ;; This describes the ETL to *app-state depot. The :> meyword seperates the inputs and outputs of the form. The output
+      ;; here is destructured to capture the fielts "viewbox", "username" to Rama variables of the same name.
+      ;; Because the depot partitioner on the *app-state, computation starts on the same task where app-state info is stored
+      ;; for that username in the $$app-state Pstate.
+      (source> *app-state :> {:keys [*viewbox *username]})
+      ;; This is where we write the server logic code, for e.g is the user already registered? if so get the data for this user
+      ;; and then update its state?
+
+
+      ())))
 
 
