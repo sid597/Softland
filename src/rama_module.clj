@@ -1,12 +1,16 @@
-(ns app.rama-module
+(ns rama-module
   (:use [com.rpl.rama]
        [com.rpl.rama.path])
   (:require [com.rpl.rama :as r :refer [<<sources
-                                        ack-return>
+                                        close!
                                         defmodule
                                         declare-depot
-                                        defpath
+                                        foreign-append!
+                                        foreign-depot
+                                        foreign-pstate
                                         fixed-keys-schema
+                                        foreign-select-one
+                                        get-module-name
                                         hash-by
                                         local-select>
                                         local-transform>
@@ -14,6 +18,7 @@
                                         stream-topology]]
 
             [com.rpl.rama.aggs :as aggs]
+            [com.rpl.rama.test :as rtest]
             [com.rpl.rama.ops :as ops]
             [com.rpl.rama.path :as path :refer [termval
                                                 multi-path
@@ -48,17 +53,17 @@
 ;; In Postgres or MySQL, for example, they only tell you that a particular row/column changed.
 
 
-(defmodule MyModule
+(defmodule rfModule
   [setup topologies]
   ;; Declare a depot so we can attach data to this depot
   ;; *my-depot is used to make a depot name.
   ;; This depot takes in app-state objects. The second argument is a "depot partitioner" that controls
   ;; how appended data is partitioned across the depot, affecting on which task each piece of data begins
   ;; processing in ETLs.
-  (declare-depot setup *app-state (hash-by :username))
+  (declare-depot setup *app-state-depot :random #_(hash-by :uuid))
   ;; Stream topologies process appended data within a few milliseconds and guarantee all data will be fully processed.
   ;; Their low latency makes them appropriate for a use case like this.
-  (let [s      (stream-topology topologies "state") ;; ---Extract--
+  (let [s      (stream-topology topologies "app-state-topology") ;; ---Extract--
         ;; ModuleUniqueIdPState is a small utility from rama-helpers that abstracts away the pattern of generating
         ;; unique 64-bit IDs. 64-bit IDs are preferable to UUIDs because they take half the space, but since they're
         ;; smaller generating them randomly has too high a chance of not being globally unique. ModuleUniqueIdPState
@@ -74,18 +79,29 @@
 
     ;; PStates are durable and replicated datastores and are represented as an arbitrary combination of data structures.
     ;; Reads and writes to PStates go to disk and are not purely in-memory operations.
-    (declare-pstate s $$app-state {Long ; user ID
-                                   (map-keys {:username String
-                                              :viewbox  (vector-schema Long)})})
+
+
+    ;; This is just a map saying the key has type Long and the value is a fixed key schema for viewbox and username
+    ;; we could also have gone with a simple map-schema where we just mention the type of the key and value.
+    ;; Example f the map-schema is
+    ;; The following schema means there is a map where each long has a map which is long  key and string value type
+    ;; (declare-pstate s $$app-state-pstate {Long (map-schema Long String})
+    ;; ==>
+    ;; {1 {2 "hello"}
+    ;; 3 {4 "world"}}
+
+    (declare-pstate s $$app-state-pstate {Long ; username
+                                          (fixed-keys-schema {:viewbox  (vector-schema Long)
+                                                              :username String})})
 
     ;;   This PState is used to assign a userId to every registered username. It also prevents race conditions in the case
     ;; of multiple concurrent registrations of the same username. Every registration contains a UUID that uniquely identifies
     ;; the registration request. The first registration records its UUID along with the generated 64-bit userId in this PState.
     ;; A registration request is known to be successful if the UUID used for registration is recorded in this PState.
     ;; Further details are described below with the ETL definition.
-    (declare-pstate s $$username->registration {String ; Username
-                                                {fixed-keys-schema {:user-id Long
-                                                                    :uuid String}}})
+    #_(declare-pstate s $$username->registration {String ; Username
+                                                  {fixed-keys-schema {:user-id Long
+                                                                      :uuid String}}})
 
     ;; ETL
     ;; <<sources defines the ETL logic as Rama dataflow code. Rama's dataflow API works differently than Clojure, but it has
@@ -95,7 +111,11 @@
       ;; here is destructured to capture the fielts "viewbox", "username" to Rama variables of the same name.
       ;; Because the depot partitioner on the *app-state, computation starts on the same task where app-state info is stored
       ;; for that username in the $$app-state Pstate.
-      (source> *app-state :> {:keys [*viewbox *username]})
+
+      (source> *app-state-depot :> {:keys [*viewbox *username *uuid]})
+
+      ;; We can just print the value to see what they are.
+      (println "username" *username "viewbox" *viewbox "-->" *uuid)
       ;; This is where we write the server logic code, for e.g is the user already registered? if so get the data for this user
       ;; and then update its state?
 
@@ -110,7 +130,10 @@
       ;; Get the values, think of this as `let` statement.
       ;; NOTE:`{*curr-uuid :uuid :as *curr-info}` this basically means bind :uuid to *curr-uuid and bind the whole incoming
       ;; value to *curr-info. Neat this is just clojure nothing else.
-      (local-select> (keypath *username) $$username->registration :> {*curr-uuid :uuid :as *curr-info})
+
+      ;; The basic operation for reading from a PState is local-select>. This reads from the PState partition colocated
+      ;; on the executing event’s current task.
+      #_(local-select> (keypath *username) $$username->registration :> {*curr-uuid :uuid :as *curr-info})
 
       ;; If *curr-info is null it means, what? nothing I think in my case because I can initialise default values of these
       ;; username and viewbox, right??
@@ -120,12 +143,17 @@
 
 
       ;; Apparently this is how we update the values I don't get it as of now what is going on.
+      ;; The basic operation for writing to a PState is local-transform>. Transform paths for this operation are like
+      ;; transform paths for multi-transform in open-source Specter. Terminal navigators in the path must be either term,
+      ;; termval, or NONE>.)
 
+      ;; How to do this in one line???
       (local-transform>
-        [(keypath *username)
-         (multi-path [:username (termval *username)
-                      :viewbox (termval *viewbox)])]
-        $$app-state)
+        [(keypath *uuid) :username (termval *username)]
+        $$app-state-pstate)
+      (local-transform>
+        [(keypath *uuid) :viewbox (termval *viewbox)]
+        $$app-state-pstate)
 
 
       ;; Stream topologies can return information back to depot append clients with "ack returns". The client
@@ -133,7 +161,7 @@
       ;; topology name to value. Here, the ack return is used to let the client know the user ID for their
       ;; newly registered username. If the ack return is nil, then the client knows the username registration
       ;; failed.
-      (ack-return> *user-id))))
+      #_(r/ack-return> *user-id))))
 
 
 
@@ -149,3 +177,40 @@
 ;; Finally return information back to depot append cleints with "ack returns"
 
 
+
+;; Now coming to how to query the Pstates
+
+
+(comment
+ ;; launch the cluster and test ??
+ (do
+  (def ipc (rtest/create-ipc))
+  (rtest/launch-module! ipc rfModule {:tasks 4 :threads 2})
+
+ ;; foreign-depot: Retrieve a client for a depot
+ ;; The term `foreign` refers to Rama objects that live outside of Modules
+
+  (def app-state-depot (foreign-depot ipc (get-module-name rfModule) "*app-state-depot"))
+  (def app-state-pstate (foreign-pstate ipc (get-module-name rfModule) "$$app-state-pstate"))
+
+ ;; Append data to depot
+
+  (foreign-append! app-state-depot (->app-state [0 0 3000 3000] "sid" 1))
+  (foreign-append! app-state-depot (->app-state [0 0 2030 3300] "sid2" 2)))
+
+ ;; foreign-select-one queries Pstate with path. Path must navigate to exactly one value
+
+ (foreign-select (keypath 1) app-state-pstate)
+ (foreign-select (keypath 2) app-state-pstate)
+  
+ (close! ipc))
+
+(defn -main [& args]
+  (println "Hello world" args))
+
+
+;; so the steps to doing this are
+
+;; Decide what is the schema of the pstate
+;; Then based on the schema we declare the depot inside which we mention how we hash the event by
+;; Q: What if we don't hash by and use a :random?
