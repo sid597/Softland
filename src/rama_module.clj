@@ -90,7 +90,7 @@
     ;; {1 {2 "hello"}
     ;; 3 {4 "world"}}
 
-    (declare-pstate s $$app-state-pstate {Long ; username
+    (declare-pstate s $$app-state-pstate {Long ; uuid
                                           (fixed-keys-schema {:viewbox  (vector-schema Long)
                                                               :username String})})
 
@@ -200,9 +200,12 @@
 
  ;; foreign-select-one queries Pstate with path. Path must navigate to exactly one value
 
+ (foreign-append! app-state-depot (->app-state [0 0 2030 3300] "sid2" 2))
+
  (foreign-select (keypath 1) app-state-pstate)
  (foreign-select (keypath 2) app-state-pstate)
-  
+
+
  (close! ipc))
 
 (defn -main [& args]
@@ -212,5 +215,18 @@
 ;; so the steps to doing this are
 
 ;; Decide what is the schema of the pstate
-;; Then based on the schema we declare the depot inside which we mention how we hash the event by
-;; Q: What if we don't hash by and use a :random?
+;; - Then based on the schema we declare the depot inside which we mention how we
+;;   hash the event by or we can just make it :random.
+;; - After declaring the depot we declare a few stream topologies
+;; - Then we go on to describe the pstate along with its schema
+;; - After the pstate we can go into streaming the events from the depot.
+;; - For each of the even we can then get the data out of the stream using (local-select>)...
+;; - Then we can use the data from the event to transform it, do some calculation on it
+;;   and then store the results in another variable
+;; - After the transformation we can store the results in the pstate according to its
+;;   schema, NOTE: currently I don't know how to update multiple paths in the schema.
+;; - Then comes the outside part, where we initialise the ipc, module and get the
+;;   pointers to the pstate and depots,
+;; - Then we append data to the pstate which is basically a simulation of what we excpect
+;;   the client to append.   `foreign-append!`
+;; - Once data is appended we can query the pstate for data that is present on it. `foreign-select`
