@@ -105,7 +105,7 @@
 (def !is-dragging? (atom false))
 (def !zoom-level (atom 1.5))
 (def !last-position (atom {:x 0 :y 0}))
-(def !viewbox (atom [0 0 2000 2000]))
+(def !viewbox (atom [0 0 2000 3000]))
 
 (e/def viewbox (e/watch !viewbox))
 (e/def last-position (e/watch !last-position))
