@@ -230,3 +230,99 @@
 ;; - Then we append data to the pstate which is basically a simulation of what we excpect
 ;;   the client to append.   `foreign-append!`
 ;; - Once data is appended we can query the pstate for data that is present on it. `foreign-select`
+
+;; What is the minimum data required for an event?
+;; What has to be done?
+;; New data related to this action?
+;; Who is doing it?
+;; Path to where this action will take place?
+;; I Think this can be handled using specter?
+
+
+;; If I mention path then I am making the client and server
+;; dependent on the ineer workings, is it a good or a bad thing?
+;; what are and might be the consequences?
+;; maybe not the question to ask right now
+
+;; I think the best way to make the events would be just like rama
+;; have correspoding data for ETL i.e
+;;
+;; extract-path
+;; data to be transformed
+;; transform logic
+;; load path
+;; generally extract and load path will be the same??
+;;
+
+;; More close to how "setval" is defined
+;; "setval": (setval path value data-to-transform)
+;; e.g (setval [MAP-KEYS NAMESPACE] (str *ns*) any-map)
+
+(defrecord events [event-data extract-path transform-data transform-action load-path])
+;(defrecord edges [extract-path edge-id edge-data action])
+
+(def keyword (clojure.lang.Keyword))
+
+(defmodule nodes [setup topologies]
+  (declare-depot setup *events-depot :random)
+  (let [n (stream-topology topologies "events-topology")]
+    (declare-pstate n $$nodes-pstate {keyword ;; node-id
+                                      (fixed-keys-schema
+                                        {:id                 keyword
+                                         :x                  Long
+                                         :y                  Long
+                                         :type-specific-data (map-schema keyword Object)
+                                         :type               String
+                                         :color              String})})
+    (declare-pstate n $$edges-pstate {keyword ;; node-id
+                                      (fixed-keys-schema
+                                        {:id                 keyword
+                                         :type-specific-data (map-schema keyword Object)
+                                         :type               String
+                                         :color              String})})
+
+    (<<sources n
+      ;; So how does this work?
+      ;; what happens from the client side?
+      ;; I modify a node's parameter say text wor a editor in rect node.
+      ;; What expect to happen is to update the text aprameter on the server when that happens
+      ;; I want to listen to he chaneges in the ui related to the text itself.
+      ;; So what event fwill be sent to the server?
+      ;; I think it would be node-id, and the pair of new values that have to be updated ??
+
+      (source> *events-depot :> {:keys [event-data extract-path transform-data transform-action load-path]})
+      (println "event-data" event-data "extract-path" extract-path "transform-action" transform-action "load-path" load-path))))
+
+;; how much to do in 1 event? how big should 1 event be?
+
+(comment
+  (do
+    (def ipc (rtest/create-ipc))
+    (rtest/launch-module! ipc rfModule {:tasks 4 :threads 2})
+
+    ;; foreign-depot: Retrieve a client for a depot
+    ;; The term `foreign` refers to Rama objects that live outside of Modules
+
+    (def events-depot (foreign-depot ipc (get-module-name rfModule) "*events-depot"))
+    (def nodes-pstate (foreign-pstate ipc (get-module-name rfModule) "$$nodes-pstate"))
+    (def edges-pstate (foreign-pstate ipc (get-module-name rfModule) "$$edges-pstate"))
+
+    ;; Append data to depot
+
+    ;; different type of actions that we can do on the nodes:
+    ;; - add new nodes
+    ;; - delete a node
+    ;; - update a node
+    ;; -- multi-update
+    ;; -- single-update
+
+    (foreign-append! events-depot (->events
+                                    {:event-id 1
+                                     :username "sid"}
+                                    [:node-id]
+                                    [[:x]
+                                     [:y]]
+                                    [:multi-update]))
+
+
+    (foreign-append! events-depot (->app [0 0 2030 3300] "sid2" 2))))
