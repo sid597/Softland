@@ -16,7 +16,7 @@
                                         local-transform>
                                         source>
                                         stream-topology]]
-
+            [com.rpl.specter :as s]
             [com.rpl.rama.aggs :as aggs]
             [com.rpl.rama.test :as rtest]
             [com.rpl.rama.ops :as ops]
@@ -261,23 +261,22 @@
 (defrecord events [event-data extract-path transform-data transform-action load-path])
 ;(defrecord edges [extract-path edge-id edge-data action])
 
-(def keyword (clojure.lang.Keyword))
 
 (defmodule nodes [setup topologies]
   (declare-depot setup *events-depot :random)
   (let [n (stream-topology topologies "events-topology")]
-    (declare-pstate n $$nodes-pstate {keyword ;; node-id
+    (declare-pstate n $$nodes-pstate {clojure.lang.Keyword ;; node-id
                                       (fixed-keys-schema
-                                        {:id                 keyword
+                                        {:id                 clojure.lang.Keyword
                                          :x                  Long
                                          :y                  Long
-                                         :type-specific-data (map-schema keyword Object)
+                                         :type-specific-data (map-schema clojure.lang.Keyword Object)
                                          :type               String
                                          :color              String})})
-    (declare-pstate n $$edges-pstate {keyword ;; node-id
+    (declare-pstate n $$edges-pstate {clojure.lang.Keyword ;; node-id
                                       (fixed-keys-schema
-                                        {:id                 keyword
-                                         :type-specific-data (map-schema keyword Object)
+                                        {:id                 clojure.lang.Keyword
+                                         :type-specific-data (map-schema clojure.lang.Keyword Object)
                                          :type               String
                                          :color              String})})
 
@@ -290,8 +289,12 @@
       ;; So what event fwill be sent to the server?
       ;; I think it would be node-id, and the pair of new values that have to be updated ??
 
-      (source> *events-depot :> {:keys [event-data extract-path transform-data transform-action load-path]})
-      (println "event-data" event-data "extract-path" extract-path "transform-action" transform-action "load-path" load-path))))
+      (source> *events-depot :> {:keys [*event-data
+                                        *extract-path
+                                        *transform-data
+                                        *transform-action
+                                        *load-path]})
+      (println "event-data" *event-data "extract-path" *extract-path "transform-action" *transform-action "load-path" *load-path))))
 
 ;; how much to do in 1 event? how big should 1 event be?
 
@@ -322,7 +325,52 @@
                                     [:node-id]
                                     [[:x]
                                      [:y]]
-                                    [:multi-update]))
+                                    [:multi-update]))))
+
+(def data
+  {"sid" {:nodes {:sv-circle {:id :sv-circle
+                              :x 700
+                              :y 100
+                              :type-specific-data {:r 100
+                                                   :dragging? false}
+                              :type "circle"
+                              :color "red"}
+                  :rect       {:id :rect
+                               :x 500
+                               :y 600
+                               :type-specific-data {:text "GM Hello"
+                                                    :width 400
+                                                    :height 800}
+                               :type "rect"
+                               :fill  "lightblue"}}}})
 
 
-    (foreign-append! events-depot (->app [0 0 2030 3300] "sid2" 2))))
+
+(s/select-one (s/keypath "sid" :nodes :rect) data)
+(s/select-one ["sid" :nodes :rect] data)
+(s/select (s/multi-path
+            ["sid" :nodes :rect :y]
+            ["sid" :nodes :rect :x]) data)
+(s/select (s/multi-path
+            (s/keypath "sid" :nodes :rect :y)
+            ["sid" :nodes :rect :x]) data)
+(s/setval
+  (s/multi-path
+    (s/keypath "sid" :nodes :rect :y)
+    ["sid" :nodes :rect :x])
+  10
+  data)
+(s/setval
+  (s/multi-path
+    ["sid" :nodes :rect :y]
+    ["sid" :nodes :rect :x])
+  [10 100]
+  data)
+
+;; This is how we update multiple values
+(s/multi-transform
+    ["sid" :nodes :rect (s/multi-path
+                          [:x (s/terminal-val 1)]
+                          [:y (s/terminal-val 3)]
+                          [:type-specific-data :text (s/terminal-val "NGMI")])]
+  data)
