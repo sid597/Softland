@@ -312,20 +312,80 @@
 
     ;; Append data to depot
 
+    ;; --------- NODES --------------
     ;; different type of actions that we can do on the nodes:
-    ;; - add new nodes
-    ;; - delete a node
-    ;; - update a node
-    ;; -- multi-update
-    ;; -- single-update
+    ;; --- add new nodes ---
+    ;; append list of node-maps (id and its data)
+    (foreign-append! events-depot (-> node-events
+                                    :new-node
+                                    [{:rect {:id :rect
+                                             :x 500
+                                             :y 600
+                                             :type-specific-data [:text "GM Hello"
+                                                                  :width 400
+                                                                  :height 800]
+                                             :type "rect"
+                                             :fill  "lightblue"}}]
+                                    {:username "sid"
+                                     :event-id "1"}))
+    ;; --- delete a node ---
+    ;; append a list of node-ids that are to be deleted
+    (foreign-append! events-depot (-> node-events
+                                    :delete-node
+                                    [:rect]
+                                    {:username "sid"
+                                     :event-id "2"}))
+    ;; --- update a node ---
+    ;; list of path to the value to be updated and the new value
+    ;; data agnostic
+    (foreign-append! events-depot (-> node-events
+                                    :update-node
+                                    [[:rect :type-specific-data :width] 200]
+                                    {:username "sid"
+                                     :event-id "1"}))
+    ;; data aware
+    (foreign-append! events-depot (-> node-events
+                                    :update-node
+                                    {:rect {:width 200}}
+                                    {:username "sid"
+                                     :event-id "1"}))
 
-    (foreign-append! events-depot (->events
-                                    {:event-id 1
-                                     :username "sid"}
-                                    [:node-id]
-                                    [[:x]
-                                     [:y]]
-                                    [:multi-update]))))
+    ;; --- multi-update ---
+
+    ;; Assuming agnostic
+    (foreign-append! events-depot (-> node-events
+                                    :update-node
+                                    [[[:rect :type-specific-data :width] 200]
+                                     [[:rect :type-specific-data :text] "NGMI WORLD TOUR"]
+                                     [[:rect :x] 300]]
+                                    {:username "sid"
+                                     :event-id "1"}))
+
+    (foreign-append! events-depot (-> node-events
+                                    :update-node
+                                    [[:rect [:type-specific-data
+                                             [:width
+                                              :text]
+                                             :x]]
+                                     [200 "NGMI WORLD TOUR" 300]]
+                                    {:username "sid"
+                                     :event-id "1"}))
+    (foreign-append! events-depot (-> node-events
+                                    :update-node
+                                    {:rect {:type-specific-data {:width 200
+                                                                 :text "NGMI WORLD TOUR"}
+                                            :x 300}}
+                                    {:username "sid"
+                                     :event-id "1"}))
+
+    ;; assuming being aware
+    (foreign-append! events-depot (-> node-events
+                                    :update-node
+                                    {:rect {:x 200
+                                            :text "Hello world"}}
+                                    {:username "sid"
+                                     :event-id "1"}))))
+
 
 (def data
   {"sid" {:nodes {:sv-circle {:id :sv-circle
