@@ -6,13 +6,17 @@
         {:mvn/version "0.14.3" ; (Jetty 9) is Java 8 compatible;
          ;:mvn/version "0.17.7" ; (Jetty 10) is NOT Java 8 compatible
          :exclusions [org.slf4j/slf4j-api info.sunng/ring-jetty9-adapter-http3]} ; no need
-        org.clojure/clojure {:mvn/version "1.12.0-alpha4"}
+        org.clojure/clojure {:mvn/version "1.11.1"}
         org.clojure/clojurescript {:mvn/version "1.11.60"}
         org.clojure/tools.logging {:mvn/version "1.2.4"}
         ch.qos.logback/logback-classic {:mvn/version "1.2.11"}
         datascript/datascript {:mvn/version "1.5.2"}
+        com.rpl/rama {:mvn/version "0.10.0"}
+        com.rpl/rama-helpers {:mvn/version "0.9.1"}
+        com.rpl/specter {:mvn/version "1.1.4"}
         ring-basic-authentication/ring-basic-authentication {:mvn/version "1.1.1"}}
- :aliases {:dev
+ :aliases {;; electric
+           :dev
            {:extra-deps
             {binaryage/devtools {:mvn/version "1.0.6"}
              net.clojars.wkok/openai-clojure {:mvn/version "0.14.0"}
@@ -25,8 +29,17 @@
             ["-Xss2m" ; https://github.com/hyperfiddle/photon/issues/11
              "-XX:-OmitStackTraceInFastThrow"] ;; RCF
 
-            :exec-fn user/main
+            :exec-fn rama-module/main
             :exec-args {}}
+
+           ;; nrepl
+           :nrepl
+           {:extra-deps
+            {cider/cider-nrepl {:mvn/version "0.29.0"}}
+            :main-opts
+            ["-m" "nrepl.cmdline"
+             "--port" "9001"]}
+
            :build
            {:extra-paths ["src-build"]
             :ns-default build
