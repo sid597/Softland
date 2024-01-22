@@ -3,6 +3,7 @@
        [com.rpl.rama.path])
   (:require [com.rpl.rama :as r :refer [<<sources
                                         <<cond
+                                        NONE>
                                         case>
                                         close!
                                         defmodule
@@ -324,12 +325,26 @@
     (<<sources n
       (source> *node-events-depot :> {:keys [*action-type *node-data *event-data]})
       (println "action type" *action-type "node data" *node-data "event data" *event-data)
-      (println "key" (keypath (ffirst *node-data)) "--" (val (first *node-data)))
+      (println "==========" (local-select> (first *node-data) $$nodes-pstate))
+
       (<<cond
+        ;; Add nodes
         (case> (= :new-node *action-type))
         (local-transform>
                   [(keypath (ffirst *node-data)) (termval (val (first *node-data)))]
                   $$nodes-pstate)
+
+        ;; Delete nodes
+        (case> (= :delete-node *action-type))
+        (local-transform>
+          [(keypath (first *node-data)) NONE>]
+          $$nodes-pstate)
+
+        ;; Update nodes
+        (case> (= :update-node *action-type))
+        (local-transform>
+          [(first *node-data) (termval (second *node-data))]
+          $$nodes-pstate)
 
         ;;
         (default>) (println "FALSE" *action-type)))))
@@ -411,7 +426,7 @@
   ;; append a list of node-ids that are to be deleted
   (foreign-append! events-depot (->node-events
                                   :delete-node
-                                  [:rect]
+                                  [:rect5]
                                   {:username "sid"
                                    :event-id "2"}))
 
@@ -419,8 +434,8 @@
   ;; list of path to the value to be updated and the new value
   ;; data agnostic
   (foreign-append! events-depot (->node-events
-                                  :single-update-node-0
-                                  [[:rect :type-specific-data :width] 200]
+                                  :update-node
+                                  [[:rect :type-specific-data :width ] 200]
                                   {:username "sid"
                                    :event-id "1"}))
   ;; data aware
