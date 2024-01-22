@@ -2,28 +2,37 @@
   (:use [com.rpl.rama]
        [com.rpl.rama.path])
   (:require [com.rpl.rama :as r :refer [<<sources
+                                        <<cond
+                                        NONE>
+                                        case>
                                         close!
                                         defmodule
                                         declare-depot
                                         foreign-append!
                                         foreign-depot
                                         foreign-pstate
+                                        foreign-proxy
                                         fixed-keys-schema
                                         foreign-select-one
                                         get-module-name
                                         hash-by
                                         local-select>
                                         local-transform>
+                                        <<query-topology
                                         source>
                                         stream-topology]]
             [com.rpl.specter :as s]
-            [com.rpl.rama.aggs :as aggs]
+            [com.rpl.rama.aggs :as aggs :refer [+merge +map-agg]]
             [com.rpl.rama.test :as rtest]
             [com.rpl.rama.ops :as ops]
             [com.rpl.rama.path :as path :refer [termval
+                                                ALL
+                                                MAP-KEYS
+                                                MAP-VALS
                                                 multi-path
                                                 keypath]])
-  (:import [com.rpl.rama.helpers ModuleUniqueIdPState]))
+  (:import (clojure.lang Keyword)
+           [com.rpl.rama.helpers ModuleUniqueIdPState]))
 
 
 ;; In Clojure, defrecord is a macro used to define a new record type that implements
@@ -258,119 +267,284 @@
 ;; "setval": (setval path value data-to-transform)
 ;; e.g (setval [MAP-KEYS NAMESPACE] (str *ns*) any-map)
 
-(defrecord events [event-data extract-path transform-data transform-action load-path])
+#_(defrecord events [event-data extract-path transform-data transform-action load-path])
 ;(defrecord edges [extract-path edge-id edge-data action])
 
 
-(defmodule nodes [setup topologies]
-  (declare-depot setup *events-depot :random)
-  (let [n (stream-topology topologies "events-topology")]
-    (declare-pstate n $$nodes-pstate {clojure.lang.Keyword ;; node-id
-                                      (fixed-keys-schema
-                                        {:id                 clojure.lang.Keyword
-                                         :x                  Long
-                                         :y                  Long
-                                         :type-specific-data (map-schema clojure.lang.Keyword Object)
-                                         :type               String
-                                         :color              String})})
-    (declare-pstate n $$edges-pstate {clojure.lang.Keyword ;; node-id
-                                      (fixed-keys-schema
-                                        {:id                 clojure.lang.Keyword
-                                         :type-specific-data (map-schema clojure.lang.Keyword Object)
-                                         :type               String
-                                         :color              String})})
+#_(defmodule events [setup topologies]
+    (declare-depot setup *events-depot :random)
+    (let [n (stream-topology topologies "events-topology")]
+      (declare-pstate n $$nodes-pstate {Keyword ;; node-id
+                                        (fixed-keys-schema
+                                          {:id                 Keyword
+                                           :x                  Long
+                                           :y                  Long
+                                           :type-specific-data (map-schema Keyword Object)
+                                           :type               String
+                                           :color              String})})
+      (declare-pstate n $$edges-pstate {Keyword ;; node-id
+                                        (fixed-keys-schema
+                                          {:id                 Keyword
+                                           :type-specific-data (map-schema Keyword Object)
+                                           :type               String
+                                           :color              String})})
 
-    (<<sources n
-      ;; So how does this work?
-      ;; what happens from the client side?
-      ;; I modify a node's parameter say text wor a editor in rect node.
-      ;; What expect to happen is to update the text aprameter on the server when that happens
-      ;; I want to listen to he chaneges in the ui related to the text itself.
-      ;; So what event fwill be sent to the server?
-      ;; I think it would be node-id, and the pair of new values that have to be updated ??
+      (<<sources n
+        ;; So how does this work?
+        ;; what happens from the client side?
+        ;; I modify a node's parameter say text wor a editor in rect node.
+        ;; What expect to happen is to update the text aprameter on the server when that happens
+        ;; I want to listen to he chaneges in the ui related to the text itself.
+        ;; So what event fwill be sent to the server?
+        ;; I think it would be node-id, and the pair of new values that have to be updated ??
 
-      (source> *events-depot :> {:keys [*event-data
-                                        *extract-path
-                                        *transform-data
-                                        *transform-action
-                                        *load-path]})
-      (println "event-data" *event-data "extract-path" *extract-path "transform-action" *transform-action "load-path" *load-path))))
+        (source> *events-depot :> {:keys [*event-data
+                                          *extract-path
+                                          *transform-data
+                                          *transform-action
+                                          *load-path]})
+        (println "event-data" *event-data "extract-path" *extract-path "transform-action" *transform-action "load-path" *load-path))))
 
 ;; how much to do in 1 event? how big should 1 event be?
+
+(defrecord node-events [action-type node-data event-data])
+
+(defmodule node-events-module [setup topologies]
+  (declare-depot setup *node-events-depot :random)
+  (let [n (stream-topology topologies "events-topology")]
+    (declare-pstate n $$nodes-pstate { Keyword ;; node-id
+                                       (fixed-keys-schema
+                                         {:id                 Keyword
+                                          :x                  Long
+                                          :y                  Long
+                                          :type-specific-data (map-schema Keyword Object)
+                                          :type               String
+                                          :fill               String})}
+      #_{:global? true})
+
+    (<<sources n
+      (source> *node-events-depot :> {:keys [*action-type *node-data *event-data]})
+      (println "action type" *action-type "node data" *node-data "event data" *event-data)
+      (println "==========" (local-select> (first *node-data) $$nodes-pstate))
+
+      (<<cond
+        ;; Add nodes
+        (case> (= :new-node *action-type))
+        (local-transform>
+                  [(keypath (ffirst *node-data)) (termval (val (first *node-data)))]
+                  $$nodes-pstate)
+
+        ;; Delete nodes
+        (case> (= :delete-node *action-type))
+        (local-transform>
+          [(keypath (first *node-data)) NONE>]
+          $$nodes-pstate)
+
+        ;; Update nodes
+        (case> (= :update-node *action-type))
+        (local-transform>
+          [(first *node-data) (termval (second *node-data))]
+          $$nodes-pstate)
+
+        ;;
+        (default>) (println "FALSE" *action-type)))))
+
+
+
 
 (comment
   (do
     (def ipc (rtest/create-ipc))
-    (rtest/launch-module! ipc rfModule {:tasks 4 :threads 2})
+    (rtest/launch-module! ipc node-events-module {:tasks 4 :threads 2})
 
     ;; foreign-depot: Retrieve a client for a depot
     ;; The term `foreign` refers to Rama objects that live outside of Modules
 
-    (def events-depot (foreign-depot ipc (get-module-name rfModule) "*events-depot"))
-    (def nodes-pstate (foreign-pstate ipc (get-module-name rfModule) "$$nodes-pstate"))
-    (def edges-pstate (foreign-pstate ipc (get-module-name rfModule) "$$edges-pstate"))
+    (def events-depot (foreign-depot ipc (get-module-name node-events-module) "*node-events-depot"))
+    (def nodes-pstate (foreign-pstate ipc (get-module-name node-events-module) "$$nodes-pstate")))
 
+  (close! ipc)
     ;; Append data to depot
 
+    ;; --------- NODES --------------
     ;; different type of actions that we can do on the nodes:
-    ;; - add new nodes
-    ;; - delete a node
-    ;; - update a node
-    ;; -- multi-update
-    ;; -- single-update
+    ;; --- add new nodes ---
+    ;; append list of node-maps (id and its data)
+  (foreign-append! events-depot (->node-events
+                                  :new-node
+                                  {:rect {:id :rect
+                                          :x 500
+                                          :y 600
+                                          :type-specific-data {:text "GM Hello"
+                                                               :width 400
+                                                               :height 800}
+                                          :type "rect"
+                                          :fill  "lightblue"}}
+                                  {})
+    :append-ack)
 
-    (foreign-append! events-depot (->events
-                                    {:event-id 1
-                                     :username "sid"}
-                                    [:node-id]
-                                    [[:x]
-                                     [:y]]
-                                    [:multi-update]))))
+  (foreign-append! events-depot (->node-events
+                                  :new-node
+                                  {:rect3 {:id :rect3
+                                           :x 500
+                                           :y 600
+                                           :type-specific-data {:text "GM Hello"
+                                                                :width 400
+                                                                :height 800}
+                                           :type "rect"
+                                           :fill  "lightblue"}}
+                                  {})
+    :append-ack)
+  (foreign-append! events-depot (->node-events
+                                  :new-node
+                                  {:rect4 {:id :rect4
+                                           :x 500
+                                           :y 600
+                                           :type-specific-data {:text "GM Hello"
+                                                                :width 400
+                                                                :height 800}
+                                           :type "rect"
+                                           :fill  "lightblue"}}
+                                  {})
+    :append-ack)
+  (foreign-append! events-depot (->node-events
+                                 :new-node
+                                 {:rect5 {:id :rect5
+                                          :x 500
+                                          :y 600
+                                          :type-specific-data {:text "GM Hello"
+                                                               :width 400
+                                                               :height 800}
+                                          :type "rect"
+                                          :fill  "lightblue"}}
+                                 {})
+    :append-ack)
 
-(def data
-  {"sid" {:nodes {:sv-circle {:id :sv-circle
-                              :x 700
-                              :y 100
-                              :type-specific-data {:r 100
-                                                   :dragging? false}
-                              :type "circle"
-                              :color "red"}
-                  :rect       {:id :rect
-                               :x 500
-                               :y 600
-                               :type-specific-data {:text "GM Hello"
-                                                    :width 400
-                                                    :height 800}
-                               :type "rect"
-                               :fill  "lightblue"}}}})
+  (foreign-select ALL nodes-pstate {:pkey :rect})
+
+  ;; --- delete a node ---
+  ;; append a list of node-ids that are to be deleted
+  (foreign-append! events-depot (->node-events
+                                  :delete-node
+                                  [:rect5]
+                                  {:username "sid"
+                                   :event-id "2"}))
+
+  ;; --- update a node ---
+  ;; list of path to the value to be updated and the new value
+  ;; data agnostic
+  (foreign-append! events-depot (->node-events
+                                  :update-node
+                                  [[:rect :type-specific-data :width ] 200]
+                                  {:username "sid"
+                                   :event-id "1"}))
+  ;; data aware
+  (foreign-append! events-depot (->node-events
+                                  :single-update-node-1
+                                  {:rect {:width 200}}
+                                  {:username "sid"
+                                   :event-id "1"}))
+
+  ;; --- multi-update ---
+
+  ;; Assuming agnostic
+  (foreign-append! events-depot (->node-events
+                                  :update-nodes-0
+                                  [[[:rect :type-specific-data :width] 200]
+                                   [[:rect :type-specific-data :text] "NGMI WORLD TOUR"]
+                                   [[:rect :x] 300]]
+                                  {:username "sid"
+                                   :event-id "1"}))
+
+  (foreign-append! events-depot (->node-events
+                                  :update-nodes-1
+                                  [[:rect [:type-specific-data
+                                           [:width
+                                            :text]
+                                           :x]]
+                                   [200 "NGMI WORLD TOUR" 300]]
+                                  {:username "sid"
+                                   :event-id "1"}))
+  (foreign-append! events-depot (->node-events
+                                  :update-nodes-2
+                                  {:rect {:type-specific-data {:width 200
+                                                               :text "NGMI WORLD TOUR"}
+                                          :x 300}}
+                                  {:username "sid"
+                                   :event-id "1"}))
+
+  ;; assuming being aware
+  (foreign-append! events-depot (->node-events
+                                  :update-nodes-3
+                                  {:rect {:x 200
+                                          :text "Hello world"}}
+                                  {:username "sid"
+                                   :event-id "1"}))
+  ;; query data
+
+    ;;close ipc
+  (close! ipc))
 
 
 
-(s/select-one (s/keypath "sid" :nodes :rect) data)
-(s/select-one ["sid" :nodes :rect] data)
-(s/select (s/multi-path
-            ["sid" :nodes :rect :y]
-            ["sid" :nodes :rect :x]) data)
-(s/select (s/multi-path
-            (s/keypath "sid" :nodes :rect :y)
-            ["sid" :nodes :rect :x]) data)
-(s/setval
-  (s/multi-path
-    (s/keypath "sid" :nodes :rect :y)
-    ["sid" :nodes :rect :x])
-  10
-  data)
-(s/setval
-  (s/multi-path
-    ["sid" :nodes :rect :y]
-    ["sid" :nodes :rect :x])
-  [10 100]
-  data)
+(comment
 
-;; This is how we update multiple values
-(s/multi-transform
-    ["sid" :nodes :rect (s/multi-path
+  (def data
+    {"sid" {:nodes {:sv-circle {:id :sv-circle
+                                :x 700
+                                :y 100
+                                :type-specific-data {:r 100
+                                                     :dragging? false}
+                                :type "circle"
+                                :color "red"}
+                    :rect       {:id :rect
+                                 :x 500
+                                 :y 600
+                                 :type-specific-data {:text "GM Hello"
+                                                      :width 400
+                                                      :height 800}
+                                 :type "rect"
+                                 :fill  "lightblue"}}}})
+
+  (println (s/select s/ALL data))
+
+  (s/select-one (s/keypath "sid" :nodes :rect) data)
+  (s/select-one ["sid" :nodes :rect] data)
+  (s/select (s/multi-path
+              ["sid" :nodes :rect :y]
+              ["sid" :nodes :rect :x]) data)
+  (s/select (s/multi-path
+              (s/keypath "sid" :nodes :rect :y)
+              ["sid" :nodes :rect :x]) data)
+  (s/setval
+    (s/multi-path
+      (s/keypath "sid" :nodes :rect :y)
+      ["sid" :nodes :rect :x])
+    10
+    data)
+  (s/setval
+    (s/multi-path
+      ["sid" :nodes :rect :y]
+      ["sid" :nodes :rect :x])
+    [10 100]
+    data)
+
+  (s/setval
+    []
+    {:rect {:id :rect
+                 :x 500
+                 :y 600
+                 :type-specific-data [:text "GM Hello"
+                                      :width 400
+                                      :height 800]
+                 :type "rect"
+                 :fill  "lightblue"}}
+    data)
+
+  ;; This is how we update multiple values
+  (s/multi-transform
+     ["sid" :nodes :rect (s/multi-path
                           [:x (s/terminal-val 1)]
                           [:y (s/terminal-val 3)]
                           [:type-specific-data :text (s/terminal-val "NGMI")])]
-  data)
+    data))
