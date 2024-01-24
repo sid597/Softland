@@ -13,14 +13,47 @@
             [hyperfiddle.electric-ui4 :as ui]
             [app.env :as env :refer [oai-key]]
             #?@(:cljs
-                [[clojure.string :as str]
-                 [reagent.core :as r]
-                 ["react-dom/client" :as ReactDom]
-                 ["@radix-ui/themes" :as Theme]]
+                [[clojure.string :as str]]
+
                 :clj
-                [[wkok.openai-clojure.api :as api]
+                [[missionary.core :as m]
+                 [wkok.openai-clojure.api :as api]
+                 [com.rpl.rama :as r]
+                 [com.rpl.rama.path :as rpath]
+                 [rama-module :as rmod :refer [node-events-module]]
+                 [com.rpl.rama.test :as rtest :refer [create-ipc launch-module!]]
                  [clojure.core.async :as a :refer [<! >! go]]])))
 
+;; ====== RAMA ======
+
+#?(:clj (defonce ipc
+          (do
+            (let [c (create-ipc)]
+              (println "R: Start ipc, launch module")
+              (launch-module! c node-events-module {:tasks 4 :threads 2})))))
+
+;; Define clj defs
+
+(e/def event-depot (r/foreign-depot ipc (r/get-module-name node-events-module) "*node-events-depot"))
+(e/def nodes-pstate (r/foreign-pstate ipc (r/get-module-name node-events-module) "$$node-pstate"))
+
+
+
+(defn subscribe []
+  (->> (m/observe
+         (fn [!]
+           (let [proxy (r/foreign-proxy rpath/ALL nodes-pstate
+                         {:callback (fn [new-val diff old-val]
+                                      (println "R: nodes-pstate callback" new-val diff old-val)
+                                      (! new-val))
+                          :pkey :rect})]
+             #(.close @proxy))))
+    ; discard stale values, DOM doesn't support backpressure
+    (m/relieve {})))
+
+
+
+;; ====== ELECTRIC ======
 #_(defn log [message & args]
     (js/console.log message args))
 
