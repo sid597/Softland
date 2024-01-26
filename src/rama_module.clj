@@ -383,42 +383,43 @@
                                   {})
     :append-ack)
 
-  (foreign-append! events-depot (->node-events
-                                  :new-node
-                                  {:rect3 {:id :rect3
-                                           :x 500
-                                           :y 600
-                                           :type-specific-data {:text "GM Hello"
-                                                                :width 400
-                                                                :height 800}
-                                           :type "rect"
-                                           :fill  "lightblue"}}
-                                  {})
-    :append-ack)
-  (foreign-append! events-depot (->node-events
-                                  :new-node
-                                  {:rect4 {:id :rect4
-                                           :x 500
-                                           :y 600
-                                           :type-specific-data {:text "GM Hello"
-                                                                :width 400
-                                                                :height 800}
-                                           :type "rect"
-                                           :fill  "lightblue"}}
-                                  {})
-    :append-ack)
-  (foreign-append! events-depot (->node-events
-                                 :new-node
-                                 {:rect5 {:id :rect5
-                                          :x 500
-                                          :y 600
-                                          :type-specific-data {:text "GM Hello"
-                                                               :width 400
-                                                               :height 800}
-                                          :type "rect"
-                                          :fill  "lightblue"}}
-                                 {})
-    :append-ack)
+  (comment
+    (foreign-append! events-depot (->node-events
+                                    :new-node
+                                    {:rect3 {:id :rect3
+                                             :x 500
+                                             :y 600
+                                             :type-specific-data {:text "GM Hello"
+                                                                  :width 400
+                                                                  :height 800}
+                                             :type "rect"
+                                             :fill  "lightblue"}}
+                                    {})
+      :append-ack)
+    (foreign-append! events-depot (->node-events
+                                    :new-node
+                                    {:rect4 {:id :rect4
+                                             :x 500
+                                             :y 600
+                                             :type-specific-data {:text "GM Hello"
+                                                                  :width 400
+                                                                  :height 800}
+                                             :type "rect"
+                                             :fill  "lightblue"}}
+                                    {})
+      :append-ack)
+    (foreign-append! events-depot (->node-events
+                                   :new-node
+                                   {:rect5 {:id :rect5
+                                            :x 500
+                                            :y 600
+                                            :type-specific-data {:text "GM Hello"
+                                                                 :width 400
+                                                                 :height 800}
+                                            :type "rect"
+                                            :fill  "lightblue"}}
+                                   {})
+      :append-ack))
 
   (foreign-select ALL nodes-pstate {:pkey :rect})
 
@@ -438,16 +439,7 @@
                                   [[:rect :type-specific-data :width ] 200]
                                   {:username "sid"
                                    :event-id "1"}))
-  ;; data aware
-  (foreign-append! events-depot (->node-events
-                                  :single-update-node-1
-                                  {:rect {:width 200}}
-                                  {:username "sid"
-                                   :event-id "1"}))
-
   ;; --- multi-update ---
-
-  ;; Assuming agnostic
   (foreign-append! events-depot (->node-events
                                   :update-nodes-0
                                   [[[:rect :type-specific-data :width] 200]
@@ -455,32 +447,6 @@
                                    [[:rect :x] 300]]
                                   {:username "sid"
                                    :event-id "1"}))
-
-  (foreign-append! events-depot (->node-events
-                                  :update-nodes-1
-                                  [[:rect [:type-specific-data
-                                           [:width
-                                            :text]
-                                           :x]]
-                                   [200 "NGMI WORLD TOUR" 300]]
-                                  {:username "sid"
-                                   :event-id "1"}))
-  (foreign-append! events-depot (->node-events
-                                  :update-nodes-2
-                                  {:rect {:type-specific-data {:width 200
-                                                               :text "NGMI WORLD TOUR"}
-                                          :x 300}}
-                                  {:username "sid"
-                                   :event-id "1"}))
-
-  ;; assuming being aware
-  (foreign-append! events-depot (->node-events
-                                  :update-nodes-3
-                                  {:rect {:x 200
-                                          :text "Hello world"}}
-                                  {:username "sid"
-                                   :event-id "1"}))
-  ;; query data
 
     ;;close ipc
   (close! ipc))
