@@ -26,30 +26,32 @@
 
 ;; ====== RAMA ======
 
-#?(:clj (defonce ipc
-          (do
-            (let [c (create-ipc)]
-              (println "R: Start ipc, launch module")
-              (launch-module! c node-events-module {:tasks 4 :threads 2})))))
+(e/def ipc
+  (e/server
+    (do
+      (let [c (create-ipc)]
+        (println "R: Start ipc, launch module")
+        (launch-module! c node-events-module {:tasks 4 :threads 2})))))
 
 ;; Define clj defs
 
-(e/def event-depot (r/foreign-depot ipc (r/get-module-name node-events-module) "*node-events-depot"))
-(e/def nodes-pstate (r/foreign-pstate ipc (r/get-module-name node-events-module) "$$node-pstate"))
+(e/def event-depot (e/server (r/foreign-depot ipc (r/get-module-name node-events-module) "*node-events-depot")))
+(e/def nodes-pstate (e/server (r/foreign-pstate ipc (r/get-module-name node-events-module) "$$node-pstate")))
 
 
 
-(defn subscribe []
-  (->> (m/observe
-         (fn [!]
-           (let [proxy (r/foreign-proxy rpath/ALL nodes-pstate
-                         {:callback (fn [new-val diff old-val]
-                                      (println "R: nodes-pstate callback" new-val diff old-val)
-                                      (! new-val))
-                          :pkey :rect})]
-             #(.close @proxy))))
-    ; discard stale values, DOM doesn't support backpressure
-    (m/relieve {})))
+#_(e/defn subscribe []
+      (->> (m/observe
+             (fn [!]
+               (let [proxy (e/server
+                             (r/foreign-proxy rpath/ALL nodes-pstate
+                               {:callback (fn [new-val diff old-val]
+                                            (println "R: nodes-pstate callback" new-val diff old-val)
+                                            (! new-val))
+                                :pkey :rect}))]
+                 #(.close @proxy))))
+        ; discard stale values, DOM doesn't support backpressure
+        (m/relieve {})))
 
 
 
