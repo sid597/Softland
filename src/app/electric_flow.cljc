@@ -74,8 +74,6 @@
    :edge-color "#71FF8F4B"
    :context-menu "#1B1A17"
    :context-menu-text "#1B1A17"})
-
-
 (def light-mode
   {:svg-background "#f5f5f5"
    :svg-dots "#b9bdc4"
@@ -371,44 +369,45 @@
   (let [x (:x context-menu?)
         y (:y context-menu?)]
     (println "context menu" x y)
-   (dom/div
-     (dom/props {:style {:position "absolute"
-                         :z-index "1000"
-                         :top  y
-                         :left x
-                         :background-color (:context-menu (theme ui-mode))
-                         :height "100px"
-                         :padding "5px"
-                         :width "100px"}
-                 :id "context-menu"})
+   (e/client
      (dom/div
-       (dom/button
-         (dom/props {:style {:background-color (:button-background (theme ui-mode))
-                             :color (:button-text (theme ui-mode))
-                             :border "none"
-                             :border-width "5px"
-                             :font-size "1em"
-                             :height "40px"
-                             :width "100%"}})
-        (dom/text
-          (dom/props {:style {:color (:button-text (theme ui-mode))
-                              :font-size "36px"}})
-          "New node")
-        (dom/on "click" (e/fn [e]
-                          (println "gg clicked")
-                          (let [id (new-uuid)
-                                [cx cy] (fc/browser-to-svg-coords e viewbox)]
-                             (println "id" id)
-                             (e/server
-                               (swap! !nodes assoc id {:id id
-                                                       :x cx
-                                                       :y cy
-                                                       :width 400
-                                                       :height 800
-                                                       :type "rect"
-                                                       :text "gm"
-                                                       :fill (:editor-background (theme ui-mode))}))
-                           (reset! !context-menu? nil)))))))))
+       (dom/props {:style {:position "absolute"
+                           :z-index "1000"
+                           :top  y
+                           :left x
+                           :background-color (:context-menu (theme ui-mode))
+                           :height "100px"
+                           :padding "5px"
+                           :width "100px"}
+                   :id "context-menu"})
+       (dom/div
+         (dom/button
+           (dom/props {:style {:background-color (:button-background (theme ui-mode))
+                               :color (:button-text (theme ui-mode))
+                               :border "none"
+                               :border-width "5px"
+                               :font-size "1em"
+                               :height "40px"
+                               :width "100%"}})
+          (dom/text
+            (dom/props {:style {:color (:button-text (theme ui-mode))
+                                :font-size "36px"}})
+            "New node")
+          (dom/on "click" (e/fn [e]
+                            (println "gg clicked")
+                            (let [id (new-uuid)
+                                  [cx cy] (fc/browser-to-svg-coords e viewbox)]
+                               (println "id" id)
+                               (e/server
+                                 (swap! !nodes assoc id {:id id
+                                                         :x cx
+                                                         :y cy
+                                                         :width 400
+                                                         :height 800
+                                                         :type "rect"
+                                                         :text "gm"
+                                                         :fill (:editor-background (theme ui-mode))}))
+                             (reset! !context-menu? nil))))))))))
 
 
 (defn reset-global-vals []
@@ -417,25 +416,25 @@
 
 
 (e/defn theme-toggle []
-
-  (dom/button
-    (dom/props
-      {:top "100px"
-       :left "1000px"
-       :style {:background-color (:button-background (theme ui-mode))
-               :color (:button-text (theme ui-mode))
-               :border "none"
-               :margin "0px"
-               :padding "0px"
-               :font-size "10px"
-               :height "20px"
-               :width "100%"}})
-    (dom/text "Theme")
-    (dom/on "click" (e/fn [e]
-                      (e/server
-                       (reset! !ui-mode (if (= :dark @!ui-mode)
-                                          :light
-                                          :dark)))))))
+  (e/client
+    (dom/button
+      (dom/props
+        {:top "100px"
+         :left "1000px"
+         :style {:background-color (:button-background (theme ui-mode))
+                 :color (:button-text (theme ui-mode))
+                 :border "none"
+                 :margin "0px"
+                 :padding "0px"
+                 :font-size "10px"
+                 :height "20px"
+                 :width "100%"}})
+      (dom/text "Theme")
+      (dom/on "click" (e/fn [e]
+                        (e/server
+                         (reset! !ui-mode (if (= :dark @!ui-mode)
+                                            :light
+                                            :dark))))))))
 
 
 (e/defn view []
@@ -507,7 +506,7 @@
                                   wheel   (if (< (.-deltaY e) 0)
                                             1.01
                                             0.99)
-                                  new-view-box (fc/direct-calculation viewbox wheel coords)
+                                  new-view-box  (fc/direct-calculation viewbox wheel coords)
                                   new-zoom-level (* zoom-level wheel)]
                               (reset! !zoom-level new-zoom-level)
                               (reset! !viewbox new-view-box)))))
@@ -544,7 +543,8 @@
                   (= "line" type)              (line. edge))))))))))
 
 
-(e/defn main []
-  (println "gg" ui-mode (theme ui-mode))
-  (view.))
+(e/defn main [ring-request]
+  (e/client
+    (binding [dom/node js/document.body]
+      (view.))))
 

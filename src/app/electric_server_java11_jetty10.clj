@@ -68,7 +68,7 @@
       ;; index.html file not found on classpath
       (next-handler ring-req))))
 
-(def ^:const VERSION (not-empty (System/getProperty "HYPERFIDDLE_ELECTRIC_SERVER_VERSION"))) ; see Dockerfile
+(def ^:const VERSION (not-empty (System/getProperty "ELECTRIC_USER_VERSION"))) ; see Dockerfile
 
 (defn wrap-reject-stale-client
   "Intercept websocket UPGRADE request and check if client and server versions matches.
@@ -77,42 +77,42 @@
   [next-handler]
   (fn [ring-req]
     (if (ring/ws-upgrade-request? ring-req)
-      (let [client-version (get-in ring-req [:query-params "HYPERFIDDLE_ELECTRIC_CLIENT_VERSION"])]
+      (let [client-version (get-in ring-req [:query-params "ELECTRIC_USER_VERSION"])]
         (cond
           (nil? VERSION)             (next-handler ring-req)
           (= client-version VERSION) (next-handler ring-req)
-          :else (adapter/reject-websocket-handler 1008 "stale client") ; https://www.rfc-editor.org/rfc/rfc6455#section-7.4.1
-          ))
+          :else (adapter/reject-websocket-handler 1008 "stale client"))) ; https://www.rfc-editor.org/rfc/rfc6455#section-7.4.1
+
       (next-handler ring-req))))
 
-(defn wrap-electric-websocket [next-handler]
+(defn wrap-electric-websocket [next-handler entrypoint]
   (fn [ring-request]
     (if (ring/ws-upgrade-request? ring-request)
       (let [authenticated-request    (auth/basic-authentication-request ring-request authenticate) ; optional
-            electric-message-handler (partial adapter/electric-ws-message-handler authenticated-request)] ; takes the ring request as first arg - makes it available to electric program
+            electric-message-handler (partial adapter/electric-ws-message-handler authenticated-request entrypoint)] ; takes the ring request as first arg - makes it available to electric program
         (ring/ws-upgrade-response (adapter/electric-ws-adapter electric-message-handler)))
       (next-handler ring-request))))
 
-(defn electric-websocket-middleware [next-handler]
-  (-> (wrap-electric-websocket next-handler) ; 4. connect electric client
+(defn electric-websocket-middleware [next-handler entrypoint]
+  (-> (wrap-electric-websocket next-handler entrypoint) ; 4. connect electric client
     (cookies/wrap-cookies) ; 3. makes cookies available to Electric app
     (wrap-reject-stale-client) ; 2. reject stale electric client
-    (wrap-params) ; 1. parse query params
-    ))
+    (wrap-params))) ; 1. parse query params
+
 
 (defn not-found-handler [_ring-request]
   (-> (res/not-found "Not found")
     (res/content-type "text/plain")))
 
-(defn http-middleware [resources-path manifest-path]
+(defn http-middleware [resources-path manifest-path entrypoint]
   ;; these compose as functions, so are applied bottom up
-  (-> not-found-handler
-    (wrap-index-page resources-path manifest-path) ; 5. otherwise fallback to default page file
-    (wrap-resource resources-path) ; 4. serve static file from classpath
-    (wrap-content-type) ; 3. detect content (e.g. for index.html)
-    (wrap-demo-router) ; 2. route
-    (electric-websocket-middleware) ; 1. intercept electric websocket
-    ))
+ (-> not-found-handler
+   (wrap-index-page resources-path manifest-path) ; 5. otherwise fallback to default page file
+   (wrap-resource resources-path) ; 4. serve static file from classpath
+   (wrap-content-type) ; 3. detect content (e.g. for index.html)
+   (wrap-demo-router) ; 2. route
+   (electric-websocket-middleware entrypoint))) ; 1. intercept electric websocket
+
 
 (defn- add-gzip-handler
   "Makes Jetty server compress responses. Optional but recommended."
@@ -123,13 +123,14 @@
       (.setMinGzipSize 1024)
       (.setHandler (.getHandler server)))))
 
-(defn start-server! [{:keys [port resources-path manifest-path]
-                                   :or   {port            8080
-                                          resources-path "public"
-                                          manifest-path  "public/js/manifest.edn"}
-                                   :as   config}]
+(defn start-server! [entrypoint
+                     {:keys [port resources-path manifest-path]
+                      :or   {port            8080
+                             resources-path "public"
+                             manifest-path  "public/js/manifest.edn"}
+                      :as   config}]
   (try
-    (let [server (ring/run-jetty (http-middleware resources-path manifest-path)
+    (let [server (ring/run-jetty (http-middleware resources-path manifest-path entrypoint)
                    (merge {:port port
                            :join? false
                            :configurator add-gzip-handler}
@@ -141,6 +142,6 @@
     (catch IOException err
       (if (instance? BindException (ex-cause err))  ; port is already taken, retry with another one
         (do (log/warn "Port" port "was not available, retrying with" (inc port))
-            (start-server! (update config :port inc)))
+            (start-server! entrypoint (update config :port inc)))
         (throw err)))))
 

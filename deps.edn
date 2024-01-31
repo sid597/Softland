@@ -1,12 +1,11 @@
-{:mvn/repos {"nexus-releases" {:url "https://nexus.redplanetlabs.com/repository/maven-public-releases"}}
- :paths ["src" "resources"]
- :deps {com.hyperfiddle/electric {:mvn/version "v2-alpha-422-g96e5c0a5"}
+{:paths ["src" "resources"]
+ :deps {com.hyperfiddle/electric {:mvn/version "v2-alpha-536-g0c582f78"}
+        org.clojure/data.xml {:mvn/version "0.2.0-alpha8"}
         com.hyperfiddle/rcf {:mvn/version "20220926-202227"}
         info.sunng/ring-jetty9-adapter
         {:mvn/version "0.14.3" ; (Jetty 9) is Java 8 compatible;
-         ;:mvn/version "0.17.7" ; (Jetty 10) is NOT Java 8 compatible
          :exclusions [org.slf4j/slf4j-api info.sunng/ring-jetty9-adapter-http3]} ; no need
-        org.clojure/clojure {:mvn/version "1.11.1"}
+        org.clojure/clojure {:mvn/version "1.12.0-alpha4"}
         org.clojure/clojurescript {:mvn/version "1.11.60"}
         org.clojure/tools.logging {:mvn/version "1.2.4"}
         ch.qos.logback/logback-classic {:mvn/version "1.2.11"}
@@ -14,9 +13,9 @@
         com.rpl/rama {:mvn/version "0.10.0"}
         com.rpl/rama-helpers {:mvn/version "0.9.1"}
         com.rpl/specter {:mvn/version "1.1.4"}
+        io.github.nextjournal/clojure-mode {:git/tag "v0.3.0" :git/sha "694abc7"}
         ring-basic-authentication/ring-basic-authentication {:mvn/version "1.1.1"}}
- :aliases {;; electric
-           :dev
+ :aliases {:dev
            {:extra-deps
             {binaryage/devtools {:mvn/version "1.0.6"}
              net.clojars.wkok/openai-clojure {:mvn/version "0.14.0"}
@@ -29,7 +28,7 @@
             ["-Xss2m" ; https://github.com/hyperfiddle/photon/issues/11
              "-XX:-OmitStackTraceInFastThrow"] ;; RCF
 
-            :exec-fn rama-module/main
+            :exec-fn user/main
             :exec-args {}}
 
            ;; nrepl
