@@ -1,5 +1,5 @@
 (ns app.electric-codemirror
-  #?(:cljs (:require-macros contrib.electric-codemirror))
+  #?(:cljs (:require-macros app.electric-codemirror))
   (:require
     [clojure.edn :as edn]
     [clojure.pprint :as pprint]
@@ -88,6 +88,7 @@
               >cm-v])))) ; this is discrete. Don't accidentally damage this by giving it a nil initial value
 
 (e/defn CodeMirror [props readf writef controlled-value]
+ (e/client
   (when-some [[!cm >cm-v] (new (codemirror props))] ; stable through cv changes
     (some-> !cm (cm-set! (writef controlled-value))) ; guard "when true" bug causing NPE in certain tutorials
     (doto (new
@@ -97,7 +98,7 @@
                 #(readf %2)
                 controlled-value
                 >cm-v))) ; reduction rebuilt if cv changes, which is fine
-      (as-> $ (println 'cm-v (hash $))))))
+      (as-> $ (println 'cm-v (hash $)))))))
 
 (defn read-edn [edn-str]
   (try (edn/read-string edn-str)

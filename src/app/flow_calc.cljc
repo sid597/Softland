@@ -1,10 +1,11 @@
 (ns app.flow-calc
   (:require contrib.str
-           #?(:cljs [clojure.string :as str])))
+            [hyperfiddle.electric :as e]
+            #?(:cljs [clojure.string :as str])))
 
 
 
-(defn direct-calculation [viewBox zoom-factor focus-point]
+(e/defn direct-calculation [viewBox zoom-factor focus-point]
   (let [new-width  (* (nth viewBox 2) zoom-factor)
         new-height (* (nth viewBox 3) zoom-factor)
         dx         (* (- (nth viewBox 2) new-width)
@@ -17,8 +18,8 @@
      new-height]))
 
 
-(defn browser-to-svg-coords [event  viewbox]
-  (let [svg-element     (.getElementById js/document "sv")
+(e/defn browser-to-svg-coords [event  viewbox]
+  (let [svg-element     (e/client (.getElementById js/document "sv"))
         bbox            (.getBoundingClientRect svg-element)
         view-box-width  (nth viewbox 2)
         view-box-height (nth viewbox 3)
@@ -28,8 +29,8 @@
         svg-y           (+ (* (- (.-clientY event) (.-top bbox)) ratio-y) (nth viewbox 1))]
     [svg-x svg-y]))
 
-(defn element-new-coordinates1 [e id]
-  (let [el  (.getElementById js/document (name id))
+(e/defn element-new-coordinates1 [e id]
+  (let [el  (e/client (.getElementById js/document (name id)))
         ctm (.getScreenCTM el)
         dx  (/ (- (.-clientX e) (.-e ctm))
               (.-a ctm))
@@ -38,8 +39,8 @@
     [dx dy]))
 
 
-(defn find-new-coordinates [e last-position viewbox]
-  (let [svg (.getElementById js/document "sv")
+(e/defn find-new-coordinates [e last-position viewbox]
+  (let [svg (e/client (.getElementById js/document "sv"))
         cw  (.-clientWidth svg)
         ch  (.-clientHeight svg)
         xf  (/ cw (nth viewbox 2))
