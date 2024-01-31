@@ -1,6 +1,5 @@
 (ns boot
   (:require
-    app.test
     app.electric-flow
     [hyperfiddle.electric :as e]))
 
