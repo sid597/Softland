@@ -15,7 +15,9 @@
 
                 :clj
                 [[missionary.core :as m]
-                 #_[app.rama :as rama :refer [subscribe]]
+                 [com.rpl.rama :as r]
+                 [com.rpl.rama.path :as path]
+                 [app.rama :as rama :refer [subscribe]]
                  [wkok.openai-clojure.api :as api]
                  [clojure.core.async :as a :refer [<! >! go]]])))
 
@@ -23,7 +25,7 @@
 #_(defn log [message & args]
     (js/console.log message args))
 
-#?(:clj (def !ui-mode (atom :light)))
+#?(:clj (def !ui-mode (atom :dark)))
 (e/def ui-mode (e/server (e/watch !ui-mode)))
 
 
@@ -520,15 +522,40 @@
 
 
 
-#_(e/defn []
-    (e/server
-      (e/for-by identity [res (new (subscribe))]
-        (e/client
-          (dom/div
-            (dom/text res))))))
+(e/defn tt []
+  (e/client
+    (dom/div
+      (dom/text "Scroeboard:")
+      (e/server
+        (e/for-by identity [res (new (subscribe))]
+          (e/client
+            (println "res" res)
+           (dom/div
+             (dom/text "===================")
+             (dom/text (str "hloo" res))
+             (dom/text "==================="))))))))
+
+
+(e/defn click-to-query []
+  (e/client
+    (let [res (atom nil)]
+      (dom/div
+        (dom/button
+          (dom/props
+            (dom/on "click" (e/fn [e]
+                              (println "button clicked")
+                              (reset! res (e/server (rama/qry-res)))
+                              (println "res  -->" @res)
+                              (println (e/server (rama/qry-res))))))
+          (dom/text "CLICK ME"))
+        (dom/div
+          (dom/text (e/client (e/watch res))))))))
+
 
 (e/defn main [ring-request]
   (e/client
     (binding [dom/node js/document.body]
-      (view.))))
+      (view.)
+      (tt.)
+      (click-to-query.))))
 

@@ -34,6 +34,7 @@
                                                 keypath]]
             [missionary.core :as m])
   (:import (clojure.lang Keyword)
+           [hyperfiddle.electric Failure Pending]
            [com.rpl.rama.helpers ModuleUniqueIdPState]))
 
 
@@ -55,7 +56,6 @@
     (<<sources n
       (source> *node-events-depot :> {:keys [*action-type *node-data *event-data]})
       (println "action type" *action-type "node data" *node-data "event data" *event-data)
-      (println "==========" (local-select> (first *node-data) $$nodes-pstate))
 
       (<<cond
         ;; Add nodes
@@ -75,11 +75,8 @@
         (local-transform>
           [(first *node-data) (termval (second *node-data))]
           $$nodes-pstate)
-
         ;;
         (default>) (println "FALSE" *action-type)))))
-
-
 
 ;; ====== RAMA ======
 
@@ -98,29 +95,80 @@
 (def nodes-pstate (r/foreign-pstate @!rama-ipc (r/get-module-name node-events-module) "$$nodes-pstate"))
 
 
+(defn proxy-callback [f]
+  (fn [new-val diff old-val]
+    (println "R: nodes-pstate callback" new-val diff old-val)
+    (f new-val)))
+
+
 (defn subscribe []
+  (println "---R---: SUBSCRIBE")
   (->> (m/observe
          (fn [!]
-           (let [proxy (r/foreign-proxy ALL nodes-pstate
-                         {:callback (fn [new-val diff old-val]
-                                      (println "R: nodes-pstate callback" new-val diff old-val)
-                                      (! new-val))
+           (println "SUBSCRIBE")
+           ;; check https://clojurians.slack.com/archives/CL85MBPEF/p1698064128506939?thread_ts=1698062851.851949&cid=CL85MBPEF
+           (! (Failure. (Pending.)))
+           ;; using subselect because foreign-procxy takes exactly one path
+           (let [proxy (r/foreign-proxy-async (subselect ALL) nodes-pstate
+                         {:callback-fn (proxy-callback !)
                           :pkey :rect})]
              #(.close @proxy))))
     ; discard stale values, DOM doesn't support backpressure
     (m/relieve {})))
 
+
 (comment
   (r/close! @!rama-ipc)
   (foreign-append! event-depot (->node-events
                                  :new-node
-                                 {:rect3 {:id :rect3
-                                          :x 500
-                                          :y 600
-                                          :type-specific-data {:text "GM Hello"
-                                                               :width 400
-                                                               :height 800}
-                                          :type "rect"
-                                          :fill  "lightblue"}}
+                                 {:rect {:id :rect
+                                         :x 500
+                                         :y 600
+                                         :type-specific-data {:text "GM Hello"
+                                                              :width 400
+                                                              :height 800}
+                                         :type "rect"
+                                         :fill  "lightblue"}}
                                  {})
-    :append-ack))
+    :append-ack)
+  (comment
+    (foreign-append! event-depot (->node-events
+                                   :new-node
+                                   {:rect3 {:id :rect3
+                                            :x 500
+                                            :y 600
+                                            :type-specific-data {:text "GM Hello"
+                                                                 :width 400
+                                                                 :height 800}
+                                            :type "rect"
+                                            :fill  "lightblue"}}
+                                   {})
+      :append-ack)
+    (foreign-append! event-depot (->node-events
+                                   :new-node
+                                   {:rect4 {:id :rect4
+                                            :x 500
+                                            :y 600
+                                            :type-specific-data {:text "GM Hello"
+                                                                 :width 400
+                                                                 :height 800}
+                                            :type "rect"
+                                            :fill  "lightblue"}}
+                                   {})
+      :append-ack)
+    (foreign-append! event-depot (->node-events
+                                   :new-node
+                                   {:rect5 {:id :rect5
+                                            :x 500
+                                            :y 600
+                                            :type-specific-data {:text "GM Hello"
+                                                                 :width 400
+                                                                 :height 800}
+                                            :type "rect"
+                                            :fill  "lightblue"}}
+                                   {})
+      :append-ack))
+  (foreign-select ALL nodes-pstate {:pkey :rect}))
+(defn qry-res [] (foreign-select ALL nodes-pstate {:pkey :rect}))
+
+(qry-res)

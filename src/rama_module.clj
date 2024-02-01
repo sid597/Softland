@@ -325,7 +325,6 @@
     (<<sources n
       (source> *node-events-depot :> {:keys [*action-type *node-data *event-data]})
       (println "action type" *action-type "node data" *node-data "event data" *event-data)
-      (println "==========" (local-select> (first *node-data) $$nodes-pstate))
 
       (<<cond
         ;; Add nodes
@@ -345,7 +344,6 @@
         (local-transform>
           [(first *node-data) (termval (second *node-data))]
           $$nodes-pstate)
-
         ;;
         (default>) (println "FALSE" *action-type)))))
 
@@ -380,9 +378,11 @@
                                                                :height 800}
                                           :type "rect"
                                           :fill  "lightblue"}}
-                                  {})
-    :append-ack)
+                                  {}))
 
+  (foreign-select :rect nodes-pstate)
+  (foreign-select ALL nodes-pstate {:pkey :rect})
+  (foreign-select ALL nodes-pstate)
   (comment
     (foreign-append! events-depot (->node-events
                                     :new-node
@@ -421,13 +421,14 @@
                                    {})
       :append-ack))
 
+  (foreign-select :rect5  nodes-pstate)
   (foreign-select ALL nodes-pstate {:pkey :rect})
 
   ;; --- delete a node ---
   ;; append a list of node-ids that are to be deleted
   (foreign-append! events-depot (->node-events
                                   :delete-node
-                                  [:rect5]
+                                  [:rect]
                                   {:username "sid"
                                    :event-id "2"}))
 
