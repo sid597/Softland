@@ -6,7 +6,13 @@
         info.sunng/ring-jetty9-adapter
         {:mvn/version "0.14.3" ; (Jetty 9) is Java 8 compatible;
          :exclusions [org.slf4j/slf4j-api info.sunng/ring-jetty9-adapter-http3]} ; no need
-        org.clojure/clojure {:mvn/version "1.12.0-alpha4"}
+
+        ;; Electric IC version requires 1.12 but rama is fixed on 1.11.1 so I have included the newer changes
+        ;; by importing data.xml above according to this comment
+        ;; https://clojurians.slack.com/archives/C7Q9GSHFV/p1704475238085959?thread_ts=1704210542.998019&cid=C7Q9GSHFV
+
+        ;org.clojure/clojure {:mvn/version "1.12.0-alpha4"}
+        org.clojure/clojure {:mvn/version "1.11.1"}
         org.clojure/clojurescript {:mvn/version "1.11.60"}
         org.clojure/tools.logging {:mvn/version "1.2.4"}
         ch.qos.logback/logback-classic {:mvn/version "1.2.11"}
