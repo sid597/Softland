@@ -47,8 +47,8 @@
     (declare-pstate n $$nodes-pstate {Keyword (map-schema
                                                 Keyword (fixed-keys-schema
                                                            {:id                 Keyword
-                                                            :x                  Long
-                                                            :y                  Long
+                                                            :x                  Double
+                                                            :y                  Double
                                                             :type-specific-data (map-schema Keyword Object)
                                                             :type               String
                                                             :fill               String}))}
@@ -87,6 +87,58 @@
 
 
 (defonce !rama-ipc (atom nil))
+
+
+(def ipc
+  (let [c (create-ipc)]
+    (println "--R--: Start ipc, launch module")
+    (reset! !rama-ipc c)
+    (launch-module! c node-events-module {:tasks 4 :threads 2})))
+
+;; Define clj defs
+
+(def event-depot (r/foreign-depot @!rama-ipc (r/get-module-name node-events-module) "*node-events-depot"))
+(def nodes-pstate (r/foreign-pstate @!rama-ipc (r/get-module-name node-events-module) "$$nodes-pstate"))
+
+
+(defn proxy-callback [f]
+  (fn [new-val diff old-val]
+    (println "R: nodes-pstate callback" new-val diff old-val)
+    (f new-val)))
+
+
+(defn !subscribe [path pstate]
+  (println "---R---: SUBSCRIBE")
+  (->> (m/observe
+         (fn [!]
+           (println "SUBSCRIBE")
+           ;; check https://clojurians.slack.com/archives/CL85MBPEF/p1698064128506939?thread_ts=1698062851.851949&cid=CL85MBPEF
+           (! (Failure. (Pending.)))
+           ;; using subselect because foreign-procxy takes exactly one path
+           (let [proxy (r/foreign-proxy-async path pstate
+                         {:callback-fn (proxy-callback !)
+                          :pkey :rect})]
+             #(.close @proxy))))
+    ; discard stale values, DOM doesn't support backpressure
+    (m/relieve {})))
+
+
+(defn qry-res [] (foreign-select ALL nodes-pstate {:pkey :rect}))
+#_(qry-res)
+
+
+(defn add-new-node [node-map event-data]
+  (println "node map" node-map "event data" event-data)
+  (foreign-append! event-depot (->node-events
+                                 :new-node
+                                 node-map
+                                 event-data)
+    :append-ack))
+
+
+(defn get-path-data [path pstate]
+  (foreign-select path pstate {:pkey :rect}))
+
 (comment
   (do
     (def ipc
@@ -106,8 +158,8 @@
   (foreign-append! event-depot (->node-events
                                  :new-node
                                  {:rect {:id :rect
-                                         :x 500
-                                         :y 600
+                                         :x 50.99
+                                         :y 60.0
                                          :type-specific-data {:text "GM Hello"
                                                               :width 400
                                                               :height 800}
@@ -116,16 +168,20 @@
                                  {:graph-name :main})
     :append-ack)
 
-  (foreign-select [ALL FIRST] nodes-pstate {:pkey :rect})
-  (foreign-select [:main :react] nodes-pstate {:pkey :rect})
+  (foreign-select [:main ALL FIRST ] nodes-pstate {:pkey :rect})
+  (foreign-select [:main :rect :x] nodes-pstate {:pkey :rect})
+  (foreign-select-one [:main ] nodes-pstate {:pkey :rect})
+  (foreign-select-one [:main FIRST ] nodes-pstate {:pkey :rect})
+  ;(foreign-select-one [:main :cc61a1a9-663e-4d70-9347-bb9571588eb6 FIRST ] nodes-pstate {:pkey :rect})
+  (foreign-select-one [:main ALL] nodes-pstate {:pkey :rect})
 
 
   (do
     (foreign-append! event-depot (->node-events
                                    :new-node
                                    {:rect3 {:id :rect3
-                                            :x 500
-                                            :y 600
+                                            :x 500.032452345
+                                            :y 600.989070
                                             :type-specific-data {:text "GM Hello"
                                                                  :width 400
                                                                  :height 800}
@@ -160,43 +216,4 @@
   (foreign-select (keypath ["main" ALL]) nodes-pstate {:pkey :rect})
 
 
-  (foreign-select ALL nodes-pstate {:pkey :rect})
-
-
-  (defn qry-res [] (foreign-select ALL nodes-pstate {:pkey :rect}))
-
-  (qry-res))
-#_(def ipc
-    (let [c (create-ipc)]
-      (println "--R--: Start ipc, launch module")
-      (reset! !rama-ipc c)
-      (launch-module! c node-events-module {:tasks 4 :threads 2})))
-
-;; Define clj defs
-
-#_(def event-depot (r/foreign-depot @!rama-ipc (r/get-module-name node-events-module) "*node-events-depot"))
-#_(def nodes-pstate (r/foreign-pstate @!rama-ipc (r/get-module-name node-events-module) "$$nodes-pstate"))
-
-
-#_(defn proxy-callback [f]
-    (fn [new-val diff old-val]
-      (println "R: nodes-pstate callback" new-val diff old-val)
-      (f new-val)))
-
-
-#_(defn subscribe []
-    (println "---R---: SUBSCRIBE")
-    (->> (m/observe
-           (fn [!]
-             (println "SUBSCRIBE")
-             ;; check https://clojurians.slack.com/archives/CL85MBPEF/p1698064128506939?thread_ts=1698062851.851949&cid=CL85MBPEF
-             (! (Failure. (Pending.)))
-             ;; using subselect because foreign-procxy takes exactly one path
-             (let [proxy (r/foreign-proxy-async (subselect ALL) nodes-pstate
-                           {:callback-fn (proxy-callback !)
-                            :pkey :rect})]
-               #(.close @proxy))))
-      ; discard stale values, DOM doesn't support backpressure
-      (m/relieve {})))
-
-
+  (foreign-select ALL nodes-pstate {:pkey :rect}))
