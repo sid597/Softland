@@ -25,7 +25,7 @@
 #_(defn log [message & args]
     (js/console.log message args))
 
-#?(:clj (def !ui-mode (atom :dark)))
+#?(:clj (def !ui-mode (atom :light)))
 (e/def ui-mode (e/server (e/watch !ui-mode)))
 
 
@@ -148,59 +148,67 @@
 
                (recur))))))))
 
+(e/defn subscribe [path]
+  (e/server (new (!subscribe path nodes-pstate))))
 
 (e/defn circle [[k {:keys [id x y r color dragging?]}]]
-  (e/client
-    (svg/circle
-      (dom/props {:id id
-                  :cx x
-                  :cy y
-                  :r  r
-                  :fill color})
-      (dom/on  "mousemove" (e/fn [e]
-                               (.preventDefault e)
-                               (when dragging?
-                                (println "dragging element")
-                                (let [el      (.getElementById js/document (name id))
-                                      [x y]   (fc/element-new-coordinates1 e el)]
-                                  (e/server (swap! !nodes assoc-in [k :x]  x))
-                                  (e/server (swap! !nodes assoc-in [k :y] y))))))
-      (dom/on "mousedown"  (e/fn [e]
-                             (.preventDefault e)
-                             (.stopPropagation e)
-                             (println "pointerdown element")
-                             (e/server (swap! !nodes assoc-in [k :dragging?] true))))
-      (dom/on "mouseup"    (e/fn [e]
+  (let [x-p          [:main id :x]
+        y-p          [:main id :y]
+        r-p          [:main id :type-specific-data :r]
+        color-p      [:main id :type-specific-data :color]
+        dragging?-p  [:main id :type-specific-data :dragging?]]
+    (e/client
+      (svg/circle
+        (dom/props {:id id
+                    :cx (subscribe. x-p)
+                    :cy (subscribe. y-p)
+                    :r  (subscribe. r-p)
+                    :fill (subscribe. color-p)})
+        (dom/on  "mousemove" (e/fn [e]
+                                 (.preventDefault e)
+                                 (when dragging?
+                                  (println "dragging element")
+                                  (let [el      (.getElementById js/document (name id))
+                                        [x y]   (fc/element-new-coordinates1 e el)]
+                                    (e/server (swap! !nodes assoc-in [k :x]  x))
+                                    (e/server (swap! !nodes assoc-in [k :y] y))))))
+        (dom/on "mousedown"  (e/fn [e]
                                (.preventDefault e)
                                (.stopPropagation e)
-                               (println "pointerup element")
-                               (e/server (swap! !nodes assoc-in [k :dragging?] false))))
-      (dom/on "mouseleave"    (e/fn [e]
+                               (println "pointerdown element")
+                               (e/server (swap! !nodes assoc-in [k :dragging?] true))))
+        (dom/on "mouseup"    (e/fn [e]
+                                 (.preventDefault e)
+                                 (.stopPropagation e)
+                                 (println "pointerup element")
+                                 (e/server (swap! !nodes assoc-in [k :dragging?] false))))
+        (dom/on "mouseleave"    (e/fn [e]
+                                  (.preventDefault e)
+                                  (.stopPropagation e)
+                                  (println "mouseleave element")
+                                  (e/server (swap! !nodes assoc-in [k :dragging?] false))))
+        (dom/on "mouseout"    (e/fn [e]
                                 (.preventDefault e)
                                 (.stopPropagation e)
-                                (println "mouseleave element")
-                                (e/server (swap! !nodes assoc-in [k :dragging?] false))))
-      (dom/on "mouseout"    (e/fn [e]
-                              (.preventDefault e)
-                              (.stopPropagation e)
-                              (println "mouseout element")
-                              (e/server (swap! !nodes assoc-in [k :dragging?] false)))))))
+                                (println "mouseout element")
+                                (e/server (swap! !nodes assoc-in [k :dragging?] false))))))))
+
 
 (e/defn line [[k {:keys [id color to from]}]]
   (e/client
-    (let [{tw :width
-           th :height
-           tx :x
-           ty :y} (to (e/server nodes))
-          {fh :height
-           fw :width
-           fx :x
-           fy :y} (from (e/server nodes))]
+    (let [tw (subscribe. [:main to :width])
+          th (subscribe. [:main to :height])
+          fw (subscribe. [:main from :width])
+          fh (subscribe. [:main from :height])
+          tx (subscribe. [:main to :x])
+          ty (subscribe. [:main to :y])
+          fx (subscribe. [:main from :x])
+          fy (subscribe. [:main from :y])]
       (svg/line
         (dom/props {:style {:z-index -1}
                     :id id
-                    :x1  (if tw
-                           (+ tx (/ tw 2))
+                    :x1  (if  tw
+                           (+  tx) (/ tw 2)
                            tx)
                     :y1  (if th
                            (+ ty (/ th 2))
@@ -239,8 +247,7 @@
           {:messages [{:role "user" :content cm-text}]
            :render-uid child-uid})))))
 
-(e/defn subscribe [path]
-  (e/server (new (!subscribe path nodes-pstate))))
+
 
 (e/defn rect [id]
   (e/server
@@ -400,16 +407,7 @@
                                 (println "id" id)
                                 (println "node data" cx cy)
                                 (e/server
-                                  (do
-                                    (swap! !nodes assoc id {:id id
-                                                            :x cx
-                                                            :y cy
-                                                            :width 400
-                                                            :height 800
-                                                            :type "rect"
-                                                            :text "gm"
-                                                            :fill (:editor-background (theme. ui-mode))})
-                                   (rama/add-new-node node-data event-data)))
+                                   (rama/add-new-node node-data event-data))
 
                               (reset! !context-menu? nil))))))))))
 
