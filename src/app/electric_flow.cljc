@@ -16,7 +16,7 @@
                 :clj
                 [[missionary.core :as m]
                  [com.rpl.rama :as r]
-                 [com.rpl.rama.path :as path :refer [subselect ALL FIRST]]
+                 [com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
                  [app.rama :as rama :refer [!subscribe nodes-pstate]]
                  [wkok.openai-clojure.api :as api]
                  [clojure.core.async :as a :refer [<! >! go]]])))
@@ -149,14 +149,16 @@
                (recur))))))))
 
 (e/defn subscribe [path]
-  (e/server (new (!subscribe path nodes-pstate))))
+  (e/server (new (!subscribe (concat [(keypath :main)]
+                               path)
+                   nodes-pstate))))
 
 (e/defn circle [[k {:keys [id x y r color dragging?]}]]
-  (let [x-p          [:main id :x]
-        y-p          [:main id :y]
-        r-p          [:main id :type-specific-data :r]
-        color-p      [:main id :type-specific-data :color]
-        dragging?-p  [:main id :type-specific-data :dragging?]]
+  (let [x-p          [ id :x]
+        y-p          [ id :y]
+        r-p          [ id :type-specific-data :r]
+        color-p      [ id :type-specific-data :color]
+        dragging?-p  [ id :type-specific-data :dragging?]]
     (e/client
       (svg/circle
         (dom/props {:id id
@@ -196,14 +198,14 @@
 
 (e/defn line [[k {:keys [id color to from]}]]
   (e/client
-    (let [tw (subscribe. [:main to :width])
-          th (subscribe. [:main to :height])
-          fw (subscribe. [:main from :width])
-          fh (subscribe. [:main from :height])
-          tx (subscribe. [:main to :x])
-          ty (subscribe. [:main to :y])
-          fx (subscribe. [:main from :x])
-          fy (subscribe. [:main from :y])]
+    (let [tw (subscribe. [ to :width])
+          th (subscribe. [ to :height])
+          fw (subscribe. [ from :width])
+          fh (subscribe. [ from :height])
+          tx (subscribe. [ to :x])
+          ty (subscribe. [ to :y])
+          fx (subscribe. [ from :x])
+          fy (subscribe. [ from :y])]
       (svg/line
         (dom/props {:style {:z-index -1}
                     :id id
@@ -265,12 +267,12 @@
                                    :cljs (js/console.warn t)) nil)))
               write    (fn [edn] (with-out-str (pprint/pprint edn)))
               dom-id   (str "dom-id-" (str id))
-              x-p      [:main id :x]
-              y-p      [:main id :y]
-              text-p   [:main id :type-specific-data :text]
-              width-p  [:main id :type-specific-data :width]
-              height-p [:main id :type-specific-data :height]
-              fill-p   [:main id :fill]]
+              x-p      [ id :x]
+              y-p      [ id :y]
+              text-p   [ id :type-specific-data :text]
+              width-p  [ id :type-specific-data :width]
+              height-p [ id :type-specific-data :height]
+              fill-p   [ id :fill]]
          (svg/g
           (svg/rect
             (dom/props {:id     dom-id
@@ -532,14 +534,14 @@
         (bg/dot-background. (:svg-dots (theme. ui-mode)) viewbox)
 
         (e/server
-          (e/for-by identity [node-id (subscribe. (subselect [:main ALL FIRST]))]
-            (let [type (subscribe. [:main node-id :type])]
-              (e/client
-                (println "type" type (= "circle" type))
-                (rect. node-id)
-                #_(cond
-                        (= "circle" type)  (circle. node-id)
-                        (= "rect" type)    (rect. node-id nodes-pstate)))))
+          (e/for-by identity [node-id (new (!subscribe (keypath :main) nodes-pstate))]
+            (let [type (subscribe. [:main (first node-id) :type])]
+             (e/client
+               (println "type" type (= "circle" type))
+               (rect. (first node-id))
+               #_(cond
+                       (= "circle" type)  (circle. node-id)
+                       (= "rect" type)    (rect. node-id nodes-pstate)))))
           #_(e/for-by identity [edge edges]
               (let [[_ {:keys [type x2 y2]}] edge]
                 (e/client
@@ -552,19 +554,19 @@
 
 
 
-(e/defn tt []
-  (e/client
-    (dom/div
-      (dom/text "Scroeboard:")
-      (e/server
-        (e/for-by identity [res (new (!subscribe (subselect [:main ALL FIRST]) nodes-pstate))]
-          (let [type (new (!subscribe [:main res :type] nodes-pstate))]
-           (e/client
-            (println "res" type)
-            (dom/div
-              (dom/text "===================")
-              (dom/text (str "hloo" type))
-              (dom/text "===================")))))))))
+#_(e/defn tt []
+    (e/client
+      (dom/div
+        (dom/text "Scroeboard:")
+        (e/server
+          (e/for-by identity [res (new (!subscribe [] nodes-pstate))]
+            (let [type (new (!subscribe [ res :type] nodes-pstate))]
+             (e/client
+              (println "res" type)
+              (dom/div
+                (dom/text "===================")
+                (dom/text (str "hloo" type))
+                (dom/text "===================")))))))))
 
 
 (e/defn click-to-query []
@@ -598,6 +600,6 @@
   (e/client
     (binding [dom/node js/document.body]
       (view.)
-      (tt.)
+      #_(tt.)
       (click-to-query.))))
 
