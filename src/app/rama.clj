@@ -22,9 +22,8 @@
                                         source>
                                         stream-topology]]
             [com.rpl.specter :as s]
-            [com.rpl.rama.test :as rtest :refer [create-ipc launch-module!]]
+            [com.rpl.rama.test :as rtest :refer [create-ipc launch-module! gen-hashing-index-keys]]
             [com.rpl.rama.aggs :as aggs :refer [+merge +map-agg]]
-            [com.rpl.rama.test :as rtest]
             [com.rpl.rama.ops :as ops]
             [com.rpl.rama.path :as path :refer [termval
                                                 ALL
@@ -38,6 +37,7 @@
            [com.rpl.rama.helpers ModuleUniqueIdPState]))
 
 ;; Each node-pstate is a map of graph-id and its nodes
+
 
 (defrecord node-events [action-type node-data event-data])
 
@@ -57,17 +57,22 @@
     (<<sources n
       (source> *node-events-depot :> {:keys [*action-type *node-data *event-data]})
       (local-select> (keypath :graph-name) *event-data :> *graph-name)
-      (println "graph name" *graph-name "action type" *action-type "node data" *node-data "event data" (local-select> (keypath :graph-name) *event-data))
+      (|hash *graph-name)
+      (println "R: PROCESSING EVENT" (= :new-node *action-type))
 
 
       (<<cond
         ;; Add nodes
         (case> (= :new-node *action-type))
+        (println "----------------------------------------------------")
+        (println "R: ADDING NODE" *node-data)
         (local-transform>
           [*graph-name
            (keypath (ffirst *node-data))
            (termval (val (first *node-data)))]
           $$nodes-pstate)
+        (println "R: NODE ADDED?" (local-select> ALL $$nodes-pstate))
+        (println "----------------------------------------------------")
 
         ;; Delete nodes
         (case> (= :delete-node *action-type))
@@ -116,15 +121,14 @@
            (! (Failure. (Pending.)))
            ;; using subselect because foreign-procxy takes exactly one path
            (let [proxy (r/foreign-proxy-async path pstate
-                         {:callback-fn (proxy-callback !)
-                          :pkey :rect})]
+                         {:callback-fn (proxy-callback !)})]
              #(.close @proxy))))
     ; discard stale values, DOM doesn't support backpressure
     (m/relieve {})))
 
 
-(defn qry-res [] (foreign-select ALL nodes-pstate {:pkey :rect}))
-#_(qry-res)
+(defn qry-res [] (foreign-select ALL nodes-pstate {:pkey :main}))
+(qry-res)
 
 
 (defn add-new-node [node-map event-data]
@@ -157,19 +161,23 @@
 
   (foreign-append! event-depot (->node-events
                                  :new-node
-                                 {:rect {:id :rect
-                                         :x 50.99
-                                         :y 60.0
-                                         :type-specific-data {:text "GM Hello"
-                                                              :width 400
-                                                              :height 800}
-                                         :type "rect"
-                                         :fill  "lightblue"}}
+                                 {:rect11 {:id :rect11
+                                           :x 50.99
+                                           :y 60.0
+                                           :type-specific-data {:text "GM Hello"
+                                                                :width 400
+                                                                :height 800}
+                                           :type "rect"
+                                           :fill  "lightblue"}}
                                  {:graph-name :main})
     :append-ack)
 
-  (foreign-select [:main ALL FIRST ] nodes-pstate {:pkey :rect})
-  (foreign-select [:main :rect :x] nodes-pstate {:pkey :rect})
+  (foreign-select [(keypath :main) ALL FIRST ] nodes-pstate)
+  (foreign-select-one [(keypath :main) ALL FIRST ] nodes-pstate)
+
+  (foreign-select  ALL  nodes-pstate {:pkey 4})
+  (foreign-select  [(keypath :main) ALL]  nodes-pstate {:pkey :rect})
+  (foreign-select [:main :6f818232-b41d-405f-9e2f-df2c66c9181f :x] nodes-pstate {:pkey :rect})
   (foreign-select-one [:main ] nodes-pstate {:pkey :rect})
   (foreign-select-one [:main FIRST ] nodes-pstate {:pkey :rect})
   ;(foreign-select-one [:main :cc61a1a9-663e-4d70-9347-bb9571588eb6 FIRST ] nodes-pstate {:pkey :rect})
@@ -192,8 +200,8 @@
     (foreign-append! event-depot (->node-events
                                    :new-node
                                    {:rect4 {:id :rect4
-                                            :x 500
-                                            :y 600
+                                            :x 500.2
+                                            :y 600.3
                                             :type-specific-data {:text "GM Hello"
                                                                  :width 400
                                                                  :height 800}
@@ -204,8 +212,8 @@
     (foreign-append! event-depot (->node-events
                                    :new-node
                                    {:rect5 {:id :rect5
-                                            :x 500
-                                            :y 600
+                                            :x 500.44
+                                            :y 600.223
                                             :type-specific-data {:text "GM Hello"
                                                                  :width 400
                                                                  :height 800}
