@@ -1,36 +1,11 @@
 (ns app.rama
   (:use [com.rpl.rama]
        [com.rpl.rama.path])
-  (:require [com.rpl.rama :as r :refer [<<sources
-                                        <<cond
-                                        NONE>
-                                        case>
-                                        close!
-                                        defmodule
-                                        declare-depot
-                                        foreign-append!
-                                        foreign-depot
-                                        foreign-pstate
-                                        foreign-proxy
-                                        fixed-keys-schema
-                                        foreign-select-one
-                                        get-module-name
-                                        hash-by
-                                        local-select>
-                                        local-transform>
-                                        <<query-topology
-                                        source>
-                                        stream-topology]]
-            [com.rpl.specter :as s]
+  (:require [com.rpl.specter :as s]
+            [app.file :refer [save-event load-events]]
             [com.rpl.rama.test :as rtest :refer [create-ipc launch-module! gen-hashing-index-keys]]
             [com.rpl.rama.aggs :as aggs :refer [+merge +map-agg]]
             [com.rpl.rama.ops :as ops]
-            [com.rpl.rama.path :as path :refer [termval
-                                                ALL
-                                                MAP-KEYS
-                                                MAP-VALS
-                                                multi-path
-                                                keypath]]
             [missionary.core :as m])
   (:import (clojure.lang Keyword)
            [hyperfiddle.electric Failure Pending]
@@ -102,8 +77,8 @@
 
 ;; Define clj defs
 
-(def event-depot (r/foreign-depot @!rama-ipc (r/get-module-name node-events-module) "*node-events-depot"))
-(def nodes-pstate (r/foreign-pstate @!rama-ipc (r/get-module-name node-events-module) "$$nodes-pstate"))
+(def event-depot (foreign-depot @!rama-ipc (get-module-name node-events-module) "*node-events-depot"))
+(def nodes-pstate (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$nodes-pstate"))
 
 
 (defn proxy-callback [f]
@@ -120,7 +95,7 @@
            ;; check https://clojurians.slack.com/archives/CL85MBPEF/p1698064128506939?thread_ts=1698062851.851949&cid=CL85MBPEF
            (! (Failure. (Pending.)))
            ;; using subselect because foreign-procxy takes exactly one path
-           (let [proxy (r/foreign-proxy-async path pstate
+           (let [proxy (foreign-proxy-async path pstate
                          {:callback-fn (proxy-callback !)})]
              #(.close @proxy))))
     ; discard stale values, DOM doesn't support backpressure
@@ -133,15 +108,20 @@
 
 (defn add-new-node [node-map event-data]
   (println "node map" node-map "event data" event-data)
-  (foreign-append! event-depot (->node-events
-                                 :new-node
-                                 node-map
-                                 event-data)
-    :append-ack))
+  (do
+   (save-event "add-new-node" [node-map event-data])
+   (foreign-append! event-depot (->node-events
+                                  :new-node
+                                  node-map
+                                  event-data)
+     :append-ack)))
 
 
 (defn get-path-data [path pstate]
   (foreign-select path pstate {:pkey :rect}))
+
+(load-events) ;; THIS IS A HACK: Will not work when we move away from ipc.
+
 
 (comment
   (do

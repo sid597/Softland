@@ -1,4 +1,5 @@
 (ns app.electric-flow
+  (:import [hyperfiddle.electric Failure Pending])
   (:require contrib.str
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
@@ -25,7 +26,7 @@
 #_(defn log [message & args]
     (js/console.log message args))
 
-#?(:clj (def !ui-mode (atom :light)))
+#?(:clj (def !ui-mode (atom :dark)))
 (e/def ui-mode (e/server (e/watch !ui-mode)))
 
 
@@ -569,37 +570,12 @@
                 (dom/text "===================")))))))))
 
 
-(e/defn click-to-query []
-  (e/client
-    (let [res (atom nil)]
-      (dom/div
-        (dom/button
-          (dom/props
-            (dom/on "click" (e/fn [e]
-                              (println "button clicked")
-                              (reset! res (e/server (rama/qry-res)))
-                              (println "res  -->" @res)
-                              (e/server
-                                (rama/add-new-node
-                                  {:rect3 {:id :rect3
-                                           :x 50.99
-                                           :y 60.0
-                                           :type-specific-data {:text "GM Hello"
-                                                                :width 400
-                                                                :height 800}
-                                           :type "rect"
-                                           :fill  "lightblue"}}
-                                  {:graph-name :main}))
-                              (println (e/server (rama/qry-res))))))
-          (dom/text "CLICK ME"))
-        (dom/div
-          (dom/text (e/client (e/watch res))))))))
 
 
 (e/defn main [ring-request]
   (e/client
     (binding [dom/node js/document.body]
-      (view.)
-      #_(tt.)
-      (click-to-query.))))
+      (view.))))
+
+
 
