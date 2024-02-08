@@ -112,7 +112,7 @@
       (.setHandler (.getHandler server)))))
 
 (defn start-server! [entrypoint {:keys [port resources-path manifest-path]
-                                 :or {port 8080
+                                 :or {port 8081
                                       resources-path "public"
                                       manifest-path "public/js/manifest.edn"}
                                  :as config}]
