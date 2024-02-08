@@ -18,7 +18,7 @@
                 [[missionary.core :as m]
                  [com.rpl.rama :as r]
                  [com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
-                 [app.rama :as rama :refer [!subscribe nodes-pstate]]
+                 [app.rama :as rama :refer [!subscribe nodes-pstate get-event-id add-new-node]]
                  [wkok.openai-clojure.api :as api]
                  [clojure.core.async :as a :refer [<! >! go]]])))
 
@@ -395,24 +395,30 @@
            (dom/text
              "New node")
            (dom/on "click" (e/fn [e]
-                             (println "gg clicked")
-                             (let [id (new-uuid)
-                                   [cx cy] (fc/browser-to-svg-coords e viewbox (.getElementById js/document "sv"))
-                                   node-data {id {:id id
-                                                  :x cx
-                                                  :y cy
-                                                  :type-specific-data {:text "GM Hello"
-                                                                       :width 400
-                                                                       :height 800}
-                                                  :type "rect"
-                                                  :fill  "lightblue"}}
-                                   event-data  {:graph-name :main}]
-                                (println "id" id)
-                                (println "node data" cx cy)
-                                (e/server
-                                   (rama/add-new-node node-data event-data))
+                             (e/client
+                              (println "gg clicked")
+                              (let [id (new-uuid)
+                                    [cx cy] (fc/browser-to-svg-coords e viewbox (.getElementById js/document "sv"))
+                                    node-data {id {:id id
+                                                   :x cx
+                                                   :y cy
+                                                   :type-specific-data {:text "GM Hello"
+                                                                        :width 400
+                                                                        :height 800}
+                                                   :type "rect"
+                                                   :fill  "lightblue"}}]
+                                 (println "id" id)
+                                 (println "node data" cx cy)
+                                 (e/server
+                                   (let [event-data {:graph-name  :main
+                                                     :event-id    (get-event-id)
+                                                     :create-time (System/currentTimeMillis)}]
+                                     (add-new-node node-data
+                                                   event-data
+                                                   true
+                                                   true)))
 
-                              (reset! !context-menu? nil))))))))))
+                               (reset! !context-menu? nil)))))))))))
 
 
 (e/defn reset-global-vals []

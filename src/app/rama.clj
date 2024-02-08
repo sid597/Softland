@@ -28,6 +28,8 @@
                                                             :type               String
                                                             :fill               String}))}
       #_{:global? true})
+    (declare-pstate n $$event-id-pstate Long {:global? true
+                                              :initial-value 0})
 
     (<<sources n
       (source> *node-events-depot :> {:keys [*action-type *node-data *event-data]})
@@ -60,7 +62,15 @@
         (local-transform>
           [(first *node-data) (termval (second *node-data))]
           $$nodes-pstate)
-        ;;
+
+        ;; update event id
+        (case> (= :update-event-id *action-type))
+        (println "R: UPDATING EVENT ID")
+        (local-select> [] $$event-id-pstate :> *event-id)
+        (println "R: EVENT ID" *event-id (inc *event-id))
+        (local-transform> [(termval (inc *event-id))] $$event-id-pstate)
+
+
         (default>) (println "FALSE" *action-type)))))
 
 ;; ====== RAMA ======
@@ -79,6 +89,17 @@
 
 (def event-depot (foreign-depot @!rama-ipc (get-module-name node-events-module) "*node-events-depot"))
 (def nodes-pstate (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$nodes-pstate"))
+(def event-id-pstate (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$event-id-pstate"))
+
+(defn update-event-id []
+  (foreign-append! event-depot (->node-events
+                                 :update-event-id
+                                 {}
+                                 {})
+    :append-ack))
+
+(defn get-event-id []
+  (first (foreign-select [] event-id-pstate)))
 
 
 (defn proxy-callback [f]
@@ -102,20 +123,29 @@
     (m/relieve {})))
 
 
-(defn qry-res [] (foreign-select ALL nodes-pstate {:pkey :main}))
-(qry-res)
 
 
-(defn add-new-node [node-map event-data]
-  (println "node map" node-map "event data" event-data)
-  (do
-   (save-event "add-new-node" [node-map event-data])
-   (foreign-append! event-depot (->node-events
-                                  :new-node
-                                  node-map
-                                  event-data)
-     :append-ack)))
+(defn add-new-node
+  ([node-map event-data]
+   (add-new-node node-map event-data false false))
+  ([node-map event-data save?]
+   (add-new-node node-map event-data save? false))
+  ([node-map event-data save? update?]
+   (do
+     (foreign-append! event-depot (->node-events
+                                         :new-node
+                                         node-map
+                                         event-data)
+            :append-ack)
+    (when save?
+      (save-event "add-new-node" [node-map event-data]))
+    (when (or update?
+            (some? (:event-id event-data)))
+      (update-event-id)))))
 
+
+(defn test []
+  (println "test"))
 
 (defn get-path-data [path pstate]
   (foreign-select path pstate {:pkey :rect}))
@@ -138,6 +168,13 @@
 
   (r/close! @!rama-ipc)
 
+  (foreign-select [] event-id-pstate)
+
+  (foreign-append! event-depot (->node-events
+                                 :update-event-id
+                                 {}
+                                 {}))
+
 
   (foreign-append! event-depot (->node-events
                                  :new-node
@@ -153,6 +190,7 @@
     :append-ack)
 
   (foreign-select [(keypath :main) ALL FIRST ] nodes-pstate)
+  (foreign-select [(keypath :main) ] nodes-pstate)
   (foreign-select-one [(keypath :main) ALL FIRST ] nodes-pstate)
 
   (foreign-select  ALL  nodes-pstate {:pkey 4})
