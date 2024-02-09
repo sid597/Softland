@@ -1,0 +1,61 @@
+(ns app.client.shapes.circle
+  (:require contrib.str
+            #?(:cljs [clojure.string :as str])
+            [hyperfiddle.electric-svg :as svg]
+            [hyperfiddle.electric :as e]
+            [hyperfiddle.electric-dom2 :as dom]
+            [app.flow-calc :as fc]
+
+            #?@(:clj
+                [[com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
+                 [app.server.rama :as rama :refer [!subscribe nodes-pstate get-event-id add-new-node]]])))
+
+
+(def !nodes (atom nil))
+
+(e/defn subscribe [path]
+  (e/server (new (!subscribe (concat [(keypath :main)]
+                               path)
+                   nodes-pstate))))
+
+(e/defn circle [[k {:keys [id x y r color dragging?]}]]
+  (let [x-p          [ id :x]
+        y-p          [ id :y]
+        r-p          [ id :type-specific-data :r]
+        color-p      [ id :type-specific-data :color]
+        dragging?-p  [ id :type-specific-data :dragging?]]
+    (e/client
+      (svg/circle
+        (dom/props {:id id
+                    :cx (subscribe. x-p)
+                    :cy (subscribe. y-p)
+                    :r  (subscribe. r-p)
+                    :fill (subscribe. color-p)})
+        (dom/on  "mousemove" (e/fn [e]
+                               (.preventDefault e)
+                               (when dragging?
+                                 (println "dragging element"
+                                   (let [el      (.getElementById js/document (name id))
+                                         [x y]   (fc/element-new-coordinates1 e el)]
+                                     (e/server (swap! !nodes assoc-in [k :x]  x))
+                                     (e/server (swap! !nodes assoc-in [k :y] y)))))))
+        (dom/on "mousedown"  (e/fn [e]
+                               (.preventDefault e)
+                               (.stopPropagation e)
+                               (println "pointerdown element")
+                               (e/server (swap! !nodes assoc-in [k :dragging?] true))))
+        (dom/on "mouseup"    (e/fn [e]
+                               (.preventDefault e)
+                               (.stopPropagation e)
+                               (println "pointerup element")
+                               (e/server (swap! !nodes assoc-in [k :dragging?] false))))
+        (dom/on "mouseleave"    (e/fn [e]
+                                  (.preventDefault e)
+                                  (.stopPropagation e)
+                                  (println "mouseleave element")
+                                  (e/server (swap! !nodes assoc-in [k :dragging?] false))))
+        (dom/on "mouseout"    (e/fn [e]
+                                (.preventDefault e)
+                                (.stopPropagation e)
+                                (println "mouseout element")
+                                (e/server (swap! !nodes assoc-in [k :dragging?] false))))))))
