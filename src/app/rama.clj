@@ -15,10 +15,17 @@
 
 
 (defrecord node-events [action-type node-data event-data])
+;; uuid is unique generate using (java.util.UUID/randomUUID)
+(defrecord registration [uuid username])
+(defrecord update-user-graph-settings [user-id graph-name settings-data event-data])
+
 
 (defmodule node-events-module [setup topologies]
   (declare-depot setup *node-events-depot :random)
-  (let [n (stream-topology topologies "events-topology")]
+  (declare-depot setup *user-registration-depot (hash-by :username))
+  (declare-depot setup *user-graph-settings-depot (hash-by :user-id))
+  (let [n      (stream-topology topologies "events-topology")
+        id-gen (ModuleUniqueIdPState. "$$id")]
     (declare-pstate n $$nodes-pstate {Keyword (map-schema
                                                 Keyword (fixed-keys-schema
                                                            {:id                 Keyword
@@ -30,13 +37,51 @@
       #_{:global? true})
     (declare-pstate n $$event-id-pstate Long {:global? true
                                               :initial-value 0})
+    (declare-pstate n $$user-registration-pstate {String ; username
+                                                  (fixed-keys-schema {:user-id Long
+                                                                      :uuid String})})
+    (declare-pstate n $$user-graph-settings-pstate {Long ;user-id
+                                                    (map-schema
+                                                      Keyword
+                                                       (fixed-keys-schema {:ui-mode Keyword
+                                                                           :viewbox (vector-schema Long)}))})
+    (.declarePState id-gen n)
 
     (<<sources n
+      ;; Source from user-graph-settings-depot
+      (source> *user-graph-settings-depot :> {:keys [*user-id *graph-name *settings-data *event-data]})
+      (|hash *user-id)
+      (local-transform> [(keypath *user-id)
+                         *graph-name
+                         (first *settings-data) (termval (second *settings-data))]
+        $$user-graph-settings-pstate)
+
+
+      ;; Source from user-registration-depot
+      (source> *user-registration-depot :> {:keys [*username *uuid]})
+      (local-select> (keypath *username) $$user-registration-pstate :> {*curr-uuid :uuid :as *curr-info})
+      (<<if (or> (nil? *curr-info)
+              (= *curr-uuid *uuid))
+        (java-macro! (.genId id-gen "*user-id"))
+        (println "R: -- user id--" *user-id)
+        (local-transform> [(keypath *username)
+                           (multi-path [:user-id (termval *user-id)]
+                             [:uuid (termval *uuid)])]
+          $$user-registration-pstate)
+        (|hash *user-id)
+        ;; by default new user gets access to :main graph
+        (local-transform> [(keypath *user-id)
+                           :main
+                           (multi-path [:ui-mode (termval :dark)]
+                                       [:viewbox (termval [0 0 2000 2000])])]
+          $$user-graph-settings-pstate))
+
+
+      ;; Source from node-events-depot
       (source> *node-events-depot :> {:keys [*action-type *node-data *event-data]})
       (local-select> (keypath :graph-name) *event-data :> *graph-name)
       (|hash *graph-name)
       (println "R: PROCESSING EVENT" (= :new-node *action-type))
-
 
       (<<cond
         ;; Add nodes
@@ -65,9 +110,7 @@
 
         ;; update event id
         (case> (= :update-event-id *action-type))
-        (println "R: UPDATING EVENT ID")
         (local-select> [] $$event-id-pstate :> *event-id)
-        (println "R: EVENT ID" *event-id (inc *event-id))
         (local-transform> [(termval (inc *event-id))] $$event-id-pstate)
 
 
@@ -85,11 +128,17 @@
     (reset! !rama-ipc c)
     (launch-module! c node-events-module {:tasks 4 :threads 2})))
 
+
 ;; Define clj defs
 
-(def event-depot (foreign-depot @!rama-ipc (get-module-name node-events-module) "*node-events-depot"))
-(def nodes-pstate (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$nodes-pstate"))
-(def event-id-pstate (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$event-id-pstate"))
+(def event-depot                  (foreign-depot  @!rama-ipc (get-module-name node-events-module) "*node-events-depot"))
+(def nodes-pstate                 (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$nodes-pstate"))
+(def event-id-pstate              (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$event-id-pstate"))
+(def user-registration-pstate     (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$user-registration-pstate"))
+(def user-registration-depot      (foreign-depot @!rama-ipc (get-module-name node-events-module) "*user-registration-depot"))
+(def  user-graph-settings-pstate  (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$user-graph-settings-pstate"))
+(def  user-graph-settings-depot   (foreign-depot @!rama-ipc (get-module-name node-events-module) "*user-graph-settings-depot"))
+
 
 (defn update-event-id []
   (foreign-append! event-depot (->node-events
@@ -100,6 +149,42 @@
 
 (defn get-event-id []
   (first (foreign-select [] event-id-pstate)))
+
+(defn get-user-id [username]
+  (first (foreign-select [username] user-registration-pstate)))
+
+
+(defn get-user-graph-settings [user-id graph-name]
+  (foreign-select [(keypath user-id) graph-name :ui-mode] user-graph-settings-pstate))
+
+
+(defn update-user-setting [settings-data event-data save? update?]
+  (let [user-id (get-user-id (:username event-data))
+        graph-name (:graph-name event-data)]
+    (do (foreign-append! user-graph-settings-depot (->update-user-graph-settings
+                                                     user-id
+                                                     graph-name
+                                                     settings-data
+                                                     event-data))
+        (when save? (save-event "update-user-setting" [settings-data event-data]))
+        (when (or update?
+                  (some? (:event-id event-data)))
+          (update-event-id)))))
+
+(defn register-user
+  ([username event-data]
+   (register-user username event-data false false))
+  ([username event-data save? update?]
+   (let [uuid (str (java.util.UUID/randomUUID))]
+     (do
+      (foreign-append! user-registration-depot (->registration
+                                                uuid
+                                                username)
+        :append-ack)
+      (when save? (save-event "register-user" [username]))
+      (when (or update?
+               (some? (:event-id event-data)))
+         (update-event-id))))))
 
 
 (defn proxy-callback [f]
@@ -123,8 +208,6 @@
     (m/relieve {})))
 
 
-
-
 (defn add-new-node
   ([node-map event-data]
    (add-new-node node-map event-data false false))
@@ -144,9 +227,6 @@
       (update-event-id)))))
 
 
-(defn test []
-  (println "test"))
-
 (defn get-path-data [path pstate]
   (foreign-select path pstate {:pkey :rect}))
 
@@ -163,10 +243,10 @@
 
     ;; Define clj defs
 
-    (def event-depot (r/foreign-depot @!rama-ipc (r/get-module-name node-events-module) "*node-events-depot"))
-    (def nodes-pstate (r/foreign-pstate @!rama-ipc (r/get-module-name node-events-module) "$$nodes-pstate")))
+    (def event-depot (foreign-depot @!rama-ipc (get-module-name node-events-module) "*node-events-depot"))
+    (def nodes-pstate (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$nodes-pstate")))
 
-  (r/close! @!rama-ipc)
+  (close! @!rama-ipc)
 
   (foreign-select [] event-id-pstate)
 
