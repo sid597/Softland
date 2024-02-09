@@ -9,17 +9,20 @@
             [app.background :as bg]
             [app.flow-calc :as fc]
             [app.electric-codemirror :as cm]
-            [app.env :as env :refer [oai-key]]
+            [app.client.shapes.circle :refer [circle]]
+            [app.client.shapes.rect :refer [rect]]
+            [app.mode :refer [theme]]
+            [app.client.shapes.util :as sutil :refer [new-line-el]]
             #?@(:cljs
                 [[clojure.string :as str]
-                 [missionary.core :as m]
-                 [app.mode :as th :refer [dark-mode light-mode theme]]]
+                 [missionary.core :as m]]
+
                 :clj
                 [[missionary.core :as m]
                  [com.rpl.rama :as r]
+                 [app.server.llm :as llm :refer [chat-complete]]
                  [com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
-                 [app.rama :as rama :refer [!subscribe nodes-pstate get-event-id add-new-node]]
-                 [wkok.openai-clojure.api :as api]
+                 [app.server.rama :as rama :refer [!subscribe nodes-pstate get-event-id add-new-node]]
                  [clojure.core.async :as a :refer [<! >! go]]])))
 
 
@@ -28,12 +31,14 @@
 #_(defn log [message & args]
     (js/console.log message args))
 
+
 #?(:clj (def !ui-mode (atom :dark)))
 (e/def ui-mode (e/server (e/watch !ui-mode)))
 
-
 (defn new-uuid []
   (keyword (str (random-uuid))))
+
+
 
 #?(:clj (def !edges (atom {#_#_:sv-line {:id :sv-line
                                          :type "line"
@@ -65,7 +70,7 @@
                                         :type "rect"
                                         :fill  "lightblue" #_"#111110" #_"#1E1523" #_"#1B1A17" #_"#111A27"}})))
 
-(e/def nodes (e/server (e/watch !nodes)))
+(e/def nodes (e/server (e/watch {})))
 
 
 #?(:cljs (def !new-line (atom {:start nil
@@ -83,252 +88,15 @@
 (e/def new-line (e/client (e/watch !new-line)))
 
 
-#?(:clj
-   (defn chat-complete [{:keys [messages render-uid]}]
-     (println "render uid " render-uid)
-     (let [events (api/create-chat-completion
-                    {:model "gpt-3.5-turbo"
-                     :messages messages
-                     :stream true}
-                    {:api-key oai-key})]
 
-       (go
-         (loop []
-           (let [event (<! events)]
-             (when (not= :done event)
-               (let [res (-> event
-                           :choices
-                           first
-                           :delta
-                           :content)
-                     cur-val (-> @!nodes
-                                 render-uid
-                                 :text)]
-                ;(println "res" res cur-val)
-                (swap!
-                  !nodes
-                  update-in
-                  [render-uid :text]
-                  (constantly
-                    (str
-                     cur-val
-                     res))))
-
-               (recur))))))))
 
 (e/defn subscribe [path]
   (e/server (new (!subscribe (concat [(keypath :main)]
                                path)
                    nodes-pstate))))
 
-(e/defn circle [[k {:keys [id x y r color dragging?]}]]
-  (let [x-p          [ id :x]
-        y-p          [ id :y]
-        r-p          [ id :type-specific-data :r]
-        color-p      [ id :type-specific-data :color]
-        dragging?-p  [ id :type-specific-data :dragging?]]
-    (e/client
-      (svg/circle
-        (dom/props {:id id
-                    :cx (subscribe. x-p)
-                    :cy (subscribe. y-p)
-                    :r  (subscribe. r-p)
-                    :fill (subscribe. color-p)})
-        (dom/on  "mousemove" (e/fn [e]
-                                 (.preventDefault e)
-                                 (when dragging?
-                                  (println "dragging element")
-                                  (let [el      (.getElementById js/document (name id))
-                                        [x y]   (fc/element-new-coordinates1 e el)]
-                                    (e/server (swap! !nodes assoc-in [k :x]  x))
-                                    (e/server (swap! !nodes assoc-in [k :y] y))))))
-        (dom/on "mousedown"  (e/fn [e]
-                               (.preventDefault e)
-                               (.stopPropagation e)
-                               (println "pointerdown element")
-                               (e/server (swap! !nodes assoc-in [k :dragging?] true))))
-        (dom/on "mouseup"    (e/fn [e]
-                                 (.preventDefault e)
-                                 (.stopPropagation e)
-                                 (println "pointerup element")
-                                 (e/server (swap! !nodes assoc-in [k :dragging?] false))))
-        (dom/on "mouseleave"    (e/fn [e]
-                                  (.preventDefault e)
-                                  (.stopPropagation e)
-                                  (println "mouseleave element")
-                                  (e/server (swap! !nodes assoc-in [k :dragging?] false))))
-        (dom/on "mouseout"    (e/fn [e]
-                                (.preventDefault e)
-                                (.stopPropagation e)
-                                (println "mouseout element")
-                                (e/server (swap! !nodes assoc-in [k :dragging?] false))))))))
 
 
-(e/defn line [[k {:keys [id color to from]}]]
-  (e/client
-    (let [tw (subscribe. [ to :width])
-          th (subscribe. [ to :height])
-          fw (subscribe. [ from :width])
-          fh (subscribe. [ from :height])
-          tx (subscribe. [ to :x])
-          ty (subscribe. [ to :y])
-          fx (subscribe. [ from :x])
-          fy (subscribe. [ from :y])]
-      (svg/line
-        (dom/props {:style {:z-index -1}
-                    :id id
-                    :x1  (if  tw
-                           (+  tx) (/ tw 2)
-                           tx)
-                    :y1  (if th
-                           (+ ty (/ th 2))
-                           ty)
-                    :x2  (if fw
-                           (+ fx (/ fw 2))
-                           fx)
-                    :y2  (if fh
-                           (+ fy (/ fh 2))
-                           fy)
-                    :stroke color
-                    :stroke-width 4})))))
-
-
-(e/defn create-new-child-node [parent-id child-uid x y cm-text]
-  (e/client
-    (let [edge-id (new-uuid)
-          rect-props {:id child-uid
-                      :x x
-                      :y y
-                      :width 400
-                      :height 800
-                      :type "rect"
-                      :text " "
-                      :fill (:editor-background (theme. ui-mode))}
-          edge-props {:id   edge-id
-                      :from parent-id
-                      :to   child-uid
-                      :type "line"
-                      :color (:edge-color (theme. ui-mode))}]
-      (e/server
-       (swap! !nodes assoc child-uid rect-props)
-       (swap! !edges assoc edge-id edge-props)
-       (swap! !nodes assoc-in [parent-id :text] cm-text)
-       (chat-complete
-          {:messages [{:role "user" :content cm-text}]
-           :render-uid child-uid})))))
-
-
-
-(e/defn rect [id]
-  (e/server
-    (let [pstate nodes-pstate]
-      (e/client
-        (println "id" id "pstate" pstate)
-        (let [!cm-text (atom nil)
-              cm-text  (e/watch !cm-text)
-              read     (fn [edn-str]
-                         (println "Read string:" (edn/read-string edn-str))
-                         (reset! !cm-text (str edn-str))
-                         (try (edn/read-string edn-str)
-                              (catch #?(:clj Throwable :cljs :default) t
-                                #?(:clj (clojure.tools.logging/error t)
-                                   :cljs (js/console.warn t)) nil)))
-              write    (fn [edn] (with-out-str (pprint/pprint edn)))
-              dom-id   (str "dom-id-" (str id))
-              x-p      [ id :x]
-              y-p      [ id :y]
-              text-p   [ id :type-specific-data :text]
-              width-p  [ id :type-specific-data :width]
-              height-p [ id :type-specific-data :height]
-              fill-p   [ id :fill]]
-         (svg/g
-          (svg/rect
-            (dom/props {:id     dom-id
-                        :x      (subscribe. x-p)
-                        :y      (subscribe. y-p)
-                        :width  (subscribe. width-p)
-                        :height (subscribe. height-p)
-                        :fill   (:editor-border (theme. ui-mode))})
-            (dom/on "click" (e/fn [e]
-                              (println "clicked the rect.")))
-            (dom/on "mousedown" (e/fn [e]
-                                  (println "mousedown the rect.")
-                                  (let [el    (.getElementById js/document (name dom-id))
-                                        [x y] (fc/element-new-coordinates1 e  el)]
-                                    (e/server
-                                      (swap! !edges assoc :raw {:id :raw
-                                                                :type "raw"
-                                                                :x1 x
-                                                                :y1 y
-                                                                :x2 nil
-                                                                :y2 nil
-                                                                :stroke (:edge-color (theme. ui-mode))
-                                                                :stroke-width 4})))
-                                  (reset! !border-drag? true)))
-            (dom/on "mouseup" (e/fn [e]
-                                (println "mouseup the rect.")
-                                (reset! !border-drag? false))))
-          (svg/foreignObject
-            (dom/props {:x      (+  (subscribe. x-p) 5)
-                        :y      (+  (subscribe. y-p)  5)
-                        :height (-  (subscribe. height-p)  10)
-                        :width  (-  (subscribe. width-p)   10)
-                        :fill   "black"
-                        :style {:display "flex"
-                                :flex-direction "column"
-                                :overflow "scroll"}})
-            (dom/div
-                (dom/props {:style {:background-color (subscribe. fill-p)
-                                    :height           "100%"
-                                    :display          "flex"
-                                    :overflow         "scroll"
-                                    :flex-direction   "column"}})
-
-                (dom/div
-                  (dom/props {:id    (str "cm-" dom-id)
-                              :style {:height   "100%"
-                                      :overflow "scroll"
-                                      :width    "100%"}})
-                  (new cm/CodeMirror
-                    {:parent dom/node}
-                    read
-                    identity
-                    (subscribe. text-p)))
-
-
-                (dom/div
-                 (dom/button
-                   (dom/props {:style {:background-color (:button-background (theme. ui-mode))
-                                       :border           "none"
-                                       :padding          "5px"
-                                       :border-width     "5px"
-                                       :font-size        "18px"
-                                       :color            (:button-text (theme. ui-mode))
-                                       :height           "50px"
-                                       :width            "100%"}})
-                   (dom/text
-                     "Save")
-
-                   (dom/on "click" (e/fn [e]
-                                     (let [child-uid (new-uuid)
-                                           x         (e/server (rama/get-path-data x-p pstate))
-                                           y         (e/server (rama/get-path-data y-p pstate))]
-                                       (when (some? cm-text)
-                                         (println "cm-text -->" cm-text)
-                                         (create-new-child-node. id child-uid (+ x 600) y cm-text)))))))))))))))
-
-
-(e/defn new-line-el [[k {:keys [id x1 y1 x2 y2 stroke stroke-width]}]]
-  (e/client
-    (println "dom props")
-    (svg/line
-      (dom/props {:id "draw"
-                  :x1  x1
-                  :y1  y1
-                  :x2  x2
-                  :y2  y2
-                  :stroke (:edge-color (theme. ui-mode))
-                  :stroke-width 4}))))
 
 #?(:cljs (def !context-menu? (atom nil)))
 (e/def context-menu? (e/client (e/watch !context-menu?)))
@@ -527,28 +295,7 @@
                     (= "line" type)              (line. edge))))))))))
 
 
-
-#_(e/defn tt []
-    (e/client
-      (dom/div
-        (dom/text "Scroeboard:")
-        (e/server
-          (e/for-by identity [res (new (!subscribe [] nodes-pstate))]
-            (let [type (new (!subscribe [ res :type] nodes-pstate))]
-             (e/client
-              (println "res" type)
-              (dom/div
-                (dom/text "===================")
-                (dom/text (str "hloo" type))
-                (dom/text "===================")))))))))
-
-
-
-
 (e/defn main [ring-request]
   (e/client
     (binding [dom/node js/document.body]
       (view.))))
-
-
-
