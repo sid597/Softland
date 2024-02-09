@@ -5,18 +5,17 @@
             [hyperfiddle.electric :as e]
             [hyperfiddle.electric-dom2 :as dom]
             [app.flow-calc :as fc]
+            [app.client.utils :refer [ ui-mode edges nodes
+                                      is-dragging?  zoom-level last-position subscribe
+                                      viewbox  context-menu? reset-global-vals]]
 
             #?@(:clj
                 [[com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
+                 [app.client.utils :refer [!ui-mode !edges !nodes]]
                  [app.server.rama :as rama :refer [!subscribe nodes-pstate get-event-id add-new-node]]])))
 
 
-(def !nodes (atom nil))
 
-(e/defn subscribe [path]
-  (e/server (new (!subscribe (concat [(keypath :main)]
-                               path)
-                   nodes-pstate))))
 
 (e/defn circle [[k {:keys [id x y r color dragging?]}]]
   (let [x-p          [ id :x]
