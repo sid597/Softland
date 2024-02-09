@@ -1,4 +1,4 @@
-(ns app.rama
+(ns app.server.rama
   (:use [com.rpl.rama]
        [com.rpl.rama.path])
   (:require [com.rpl.specter :as s]
