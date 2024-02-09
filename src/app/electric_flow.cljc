@@ -13,7 +13,7 @@
             #?@(:cljs
                 [[clojure.string :as str]
                  [missionary.core :as m]
-                 [app.mode :as th :refer [dark-mode light-mode]]]
+                 [app.mode :as th :refer [dark-mode light-mode theme]]]
                 :clj
                 [[missionary.core :as m]
                  [com.rpl.rama :as r]
@@ -21,6 +21,8 @@
                  [app.rama :as rama :refer [!subscribe nodes-pstate get-event-id add-new-node]]
                  [wkok.openai-clojure.api :as api]
                  [clojure.core.async :as a :refer [<! >! go]]])))
+
+
 
 
 #_(defn log [message & args]
