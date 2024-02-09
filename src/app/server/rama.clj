@@ -2,7 +2,7 @@
   (:use [com.rpl.rama]
        [com.rpl.rama.path])
   (:require [com.rpl.specter :as s]
-            [app.file :refer [save-event load-events]]
+            [app.server.file :refer [save-event load-events]]
             [com.rpl.rama.test :as rtest :refer [create-ipc launch-module! gen-hashing-index-keys]]
             [com.rpl.rama.aggs :as aggs :refer [+merge +map-agg]]
             [com.rpl.rama.ops :as ops]

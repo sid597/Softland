@@ -1,4 +1,4 @@
-(ns app.mode
+(ns app.client.mode
   (:require [hyperfiddle.electric :as e]))
 
 #?(:cljs (def dark-mode

@@ -2,13 +2,12 @@
   (:require contrib.str
             #?(:cljs [clojure.string :as str])
             [hyperfiddle.electric-svg :as svg]
-            [app.electric-codemirror :as cm]
             [hyperfiddle.electric :as e]
             [hyperfiddle.electric-dom2 :as dom]
-            [app.flow-calc :as fc]
+            [app.client.flow-calc :as fc]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
-            [app.mode :refer [theme]]
+            [app.client.mode :refer [theme]]
             [app.client.utils :refer [ ui-mode edges nodes
                                       is-dragging?  zoom-level last-position subscribe
                                       viewbox  context-menu? reset-global-vals new-uuid]]

@@ -1,4 +1,4 @@
-(ns app.flow-calc
+(ns app.client.flow-calc
   (:require contrib.str
             [hyperfiddle.electric :as e]
             #?(:cljs [clojure.string :as str])))

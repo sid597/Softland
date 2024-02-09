@@ -1,5 +1,5 @@
-(ns app.electric-codemirror
-  #?(:cljs (:require-macros app.electric-codemirror))
+(ns app.client.electric-codemirror
+  #?(:cljs (:require-macros app.client.electric-codemirror))
   (:require
     [clojure.edn :as edn]
     [clojure.pprint :as pprint]

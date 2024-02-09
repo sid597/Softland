@@ -4,7 +4,7 @@
             [hyperfiddle.electric-svg :as svg]
             [hyperfiddle.electric :as e]
             [hyperfiddle.electric-dom2 :as dom]
-            [app.flow-calc :as fc]
+            [app.client.flow-calc :as fc]
             [app.client.utils :refer [ ui-mode edges nodes
                                       is-dragging?  zoom-level last-position subscribe
                                       viewbox  context-menu? reset-global-vals]]

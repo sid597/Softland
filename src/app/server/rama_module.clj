@@ -1,4 +1,4 @@
-(ns rama-module
+(ns app.server.rama-module
   (:use [com.rpl.rama]
        [com.rpl.rama.path])
   (:require [com.rpl.rama :as r :refer [<<sources

@@ -1,4 +1,4 @@
-(ns app.background
+(ns app.client.background
   (:require contrib.str
             #?(:cljs [clojure.string :as str])
             [hyperfiddle.electric-svg :as svg]
