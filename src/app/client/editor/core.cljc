@@ -37,10 +37,10 @@
           (set! (.-width (.-style el)) (str (.-width rect) "px"))
           (set! (.-height (.-style el)) (str (.-height rect) "px"))
           (println "canvas width" (.-width el))
-          ;(blinker-cursor. (.getContext (.getElementById js/document id) "2d"))
+          (blinker-cursor. (.getContext (.getElementById js/document id) "2d") sx sy)
           (dom/on "click" (e/fn [e]
                             (on-click. e sx sy)))
           (dom/on "keydown" (e/fn [e]
-                              (on-keydown. e ctx))))))))
+                              (on-keydown. e ctx sx sy))))))))
 
 

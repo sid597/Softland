@@ -7,16 +7,17 @@
             [app.client.utils :refer [viewbox ui-mode subscribe]]))
 
 
-(e/defn blinker-cursor [ctx]
+(e/defn blinker-cursor [ctx sx sy]
   (e/client
-    (let [x (first pos)
-          y (second pos)]
+    (let [x  (Math/round (first pos))
+          y (Math/round (second pos))
+          rect-width (*  1 sx)]
       (println "x" x "y" y "d" (- x 3))
       (when (= 0 (int (mod e/system-time-secs 2)))
-        (.fillRect ctx x y 1 20)
+        (.fillRect ctx x y rect-width 20)
         (e/on-unmount #(do
                          (println "unmount" x y)
-                         (.clearRect ctx x y 2 20)))))))
+                         (.clearRect ctx  x  y rect-width 20)))))))
 
 
 (e/defn on-click [e sx sy]

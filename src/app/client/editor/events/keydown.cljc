@@ -16,14 +16,14 @@
       (.fillText ctx text x y)))
 
 
-(e/defn on-keydown [e ctx]
+(e/defn on-keydown [e ctx sx sy]
   (e/client
     (let [key (.-key e)
           code (.-code e)
           pos (e/client (e/watch !pos))
-          key-width  (+ 1 (Math/round (.-width (.measureText ctx key))))
-          x (first pos)
-          y (second pos)
+          key-width  (* sx (Math/round (.-width (.measureText ctx key))))
+          x (* sx (first pos))
+          y (* sy (second pos))
           res (atom {})]
      (println "keydown the canvas." key "--" key-width)
      (js/console.log (.measureText ctx key))
@@ -37,5 +37,4 @@
                            (println "1---- x y" x y pos @!pos)
                            (add-text-at-pos. (+  x key-width) y ctx key)
                            (reset! !pos [(+  x key-width)  y])
-                           (println "1---- x y" x y pos @!pos))))))
-
+                           (println "2---- x y" x y pos @!pos))))))
