@@ -2,51 +2,45 @@
   (:require [hyperfiddle.electric :as e]
             [hyperfiddle.electric-dom2 :as dom]
             [app.client.flow-calc :as fc]
-            [app.client.utils :refer [viewbox ui-mode subscribe]]))
-
-
-(e/defn blinker-cursor [pos ctx]
-  (println "pos is " pos)
-  (e/client
-    (let [x (first pos)
-          y (second pos)]
-      (println "x" x "y" y)
-      (when (= 0 (int (mod e/system-time-secs 2)))
-        (.fillRect ctx x y 2 20)
-        (e/on-unmount #(do (println 'component-will-unmount)
-                           (.clearRect ctx x y 2 20)))))))
-
+            [app.client.editor.events.keydown :refer [on-keydown]]
+            [app.client.editor.events.click :refer [on-click blinker-cursor]]
+            [app.client.utils :refer [viewbox ui-mode subscribe]]
+            [app.client.editor.events.utils :refer [pos]]
+            #?(:cljs [app.client.editor.events.utils :refer [!pos]])))
 
 (e/defn canvas [id]
   (e/client
-    (let [id (str "canvas-"id)
-          pos (atom [100 100])]
+    (let [id  (str "canvas-"id)
+          dpr (or (.-devicePixelRatio js/window) 1)]
+      (println "pos" pos "dpr" dpr)
+
       (dom/canvas
         (dom/props {:id id
                     :height 800
                     :width 400
-                    :style {:border "1px solid black"}})
-        (blinker-cursor. (e/client (e/watch pos)) (.getContext (.getElementById js/document id) "2d"))
-        (dom/on "click" (e/fn [e]
-                          (e/client
-                            (println "clicked the canvas.")
-                            (js/console.log e)
-                            (let [rect (.getBoundingClientRect (.-currentTarget e))
-                                  rl (.-left rect)
-                                  rt (.-top rect)
-                                  dx  (- (.-clientX e) rl)
-                                  dy  (- (.-clientY e) rt)
-                                  el (.getElementById js/document id)
-                                  ctx (.getContext el "2d")]
-                              (reset! pos [dx dy])
-                              (println "pos" pos)))))))))
+                    :tabIndex 0
+                    :style {:border "1px solid black"
+                            :background-color "beige"}})
+        (let [!text (atom "")
+              text  (e/watch !text)
+              el    (.getElementById js/document id)
+              ctx   (.getContext el "2d")
+              rect  (.getBoundingClientRect el)
+              width  (* dpr  (.-width rect))
+              height (* dpr  (.-height rect))
+              sx     (/ (.-width el) (.-width rect))
+              sy    (/ (.-height el) (.-height rect))]
+          (set! (.-webkitFontSmoothing (.-style el)) "antialiased")
+          (set! (.-height el) height)
+          (set! (.-width el) width)
+          (.scale ctx dpr dpr)
+          (set! (.-width (.-style el)) (str (.-width rect) "px"))
+          (set! (.-height (.-style el)) (str (.-height rect) "px"))
+          (println "canvas width" (.-width el))
+          ;(blinker-cursor. (.getContext (.getElementById js/document id) "2d"))
+          (dom/on "click" (e/fn [e]
+                            (on-click. e sx sy)))
+          (dom/on "keydown" (e/fn [e]
+                              (on-keydown. e ctx))))))))
 
 
-
-
-#_(e/defn canvas [id]
-    (e/client
-      (dom/canvas
-        (dom/props {:id id :height 800 :width 400 :style {:border "1px solid black" :z-index 3}})
-        (if (= 0 (int (mod e/system-time-secs 2)))
-          (BlinkerComponent. id (.getContext (.getElementById js/document id) "2d"))))))

@@ -13,6 +13,7 @@
             [app.client.utils :refer [ ui-mode edges nodes
                                       is-dragging?  zoom-level last-position subscribe
                                       viewbox  context-menu? reset-global-vals]]
+            [app.client.editor.core :refer [canvas]]
 
             #?@(:cljs
                 [[app.client.utils :refer [!border-drag? !is-dragging? !zoom-level !last-position !viewbox !context-menu?]]]
@@ -93,11 +94,12 @@
                               :style {:height   "100%"
                                       :overflow "scroll"
                                       :width    "100%"}})
-                  (new cm/CodeMirror
-                    {:parent dom/node}
-                    read
-                    identity
-                    (subscribe. text-p)))
+                  (canvas. dom-id)
+                  #_(new cm/CodeMirror
+                      {:parent dom/node}
+                      read
+                      identity
+                      (subscribe. text-p)))
 
 
                 (dom/div
