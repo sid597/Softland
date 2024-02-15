@@ -33,5 +33,3 @@
                (println "onclick --> dx" dx "dy" dy)
                (reset! !pos [dx dy])
                (println "pos" !pos))))
-
-(e/defn tt [ctx sx sy] "test ss")
