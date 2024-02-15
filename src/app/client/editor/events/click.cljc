@@ -2,17 +2,17 @@
   (:require [hyperfiddle.electric :as e]
             [hyperfiddle.electric-dom2 :as dom]
             [app.client.flow-calc :as fc]
-            [app.client.editor.events.utils :refer [pos]]
+            [app.client.editor.events.utils :refer [pos s-x s-y ctx c-x c-y]]
             #?(:cljs [app.client.editor.events.utils :refer [!pos]])
             [app.client.utils :refer [viewbox ui-mode subscribe]]))
 
 
-(e/defn blinker-cursor [ctx sx sy]
+(e/defn blinker-cursor []
   (e/client
-    (let [x  (Math/round (first pos))
-          y (Math/round (second pos))
-          rect-width (*  1 sx)]
-      (println "rect width-->" rect-width "x" x "y" y)
+    (let [x  (Math/round c-x)
+          y (Math/round c-y)
+          rect-width (*  1 s-x)]
+      (println "rect width-->" rect-width "x" x "y" y "ctx" ctx)
       ;(println "x" x "y" y "d" (- x 3))
       (when (= 0 (int (mod e/system-time-secs 2)))
         (.fillRect ctx x y rect-width 20)
