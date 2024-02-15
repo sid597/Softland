@@ -12,24 +12,20 @@
       (println "add-text-at-pos" x y)
       (set! (.-font ctx) "16px roboto")
       (set! (.-textAlign ctx) "end")
-      (set! (.-textBaseline ctx) "top")
+      (set! (.-textBaseline ctx) "hanging")
       (.fillText ctx text x y)))
 
 
 (e/defn on-keydown [e ctx sx sy]
   (e/client
-    (let [key (.-key e)
-          code (.-code e)
-          pos (e/client (e/watch !pos))
-          key-width  (* sx (Math/round (.-width (.measureText ctx key))))
-          x (* sx (first pos))
-          y (* sy (second pos))
-          res (atom {})]
+    (let [key        (.-key e)
+          code       (.-code e)
+          pos        (e/client (e/watch !pos))
+          key-width  (Math/round (.-width (.measureText ctx key)))
+          x          (* sx (first pos))
+          y          (* sy (second pos))]
      (println "keydown the canvas." key "--" key-width)
      (js/console.log (.measureText ctx key))
-
-     (println "res" @res)
-
      (cond
        (= "Enter" code)  (reset! !pos [x (+ y 20)])
        (= "Space" code)  (reset! !pos [(+ x key-width) y])
