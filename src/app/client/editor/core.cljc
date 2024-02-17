@@ -5,7 +5,7 @@
             [app.client.editor.events.keydown :refer [on-keydown]]
             [app.client.editor.events.click :refer [blinker-cursor]]
             [app.client.utils :refer [viewbox ui-mode subscribe]]
-            [app.client.editor.events.utils :refer [pos]]
+            [app.client.editor.events.utils :refer [c-x c-y pos]]
             #?@(:cljs [[app.client.editor.events.utils :refer [!pos initialise-canvas]]
                        [app.client.editor.events.click :refer [on-click]]])))
 
@@ -32,9 +32,10 @@
               ctx    (.getContext el "2d")
               rect   (.getBoundingClientRect el)]
           (initialise-canvas el rect dpr ctx)
-          (blinker-cursor.)
+          #_(blinker-cursor.)
           (dom/on! "click" (fn [e]
-                             (println "clicked canvas")
+                             (println "4. clicked canvas")
+                             (.fillRect ctx c-x c-y 1 14)
                              #_(on-click. e)))
           (dom/on "keydown" (e/fn [e]
                               (on-keydown. e))))))))

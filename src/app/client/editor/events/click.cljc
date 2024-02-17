@@ -2,8 +2,9 @@
   (:require [hyperfiddle.electric :as e]
             [hyperfiddle.electric-dom2 :as dom]
             [app.client.flow-calc :as fc]
-            [app.client.editor.events.utils :refer [pos s-x s-y ctx c-x c-y]]
-            #?(:cljs [app.client.editor.events.utils :refer [!pos]])
+            [app.client.editor.events.keydown :refer [on-keydown]]
+            [app.client.editor.events.utils :refer [pos cursor-height cursor-width rc s-x s-y ctx c-x c-y]]
+            #?(:cljs [app.client.editor.events.utils :refer [!pos settings]])
             [app.client.utils :refer [viewbox ui-mode subscribe]]))
 
 
