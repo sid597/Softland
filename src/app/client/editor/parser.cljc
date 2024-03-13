@@ -84,14 +84,6 @@
 
 
 
-(comment
-  (nested-bold "**This is **bold** also**, but **not** this * *or** *t*his**.")
-  (re-find #"(\*\*)(.*?)\1#" "this is **bold**")
-  (re-seq #"(?:(\*\*|__)(.+?)\1)" "**this is **bold** and __italic__**"))
-
-
-
-
 (defn paragraph [text]
   (let [stack (atom [])
         ctr   (atom 0)
