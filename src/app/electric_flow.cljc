@@ -12,6 +12,7 @@
             [app.client.shapes.circle :refer [circle]]
             [app.client.shapes.rect :refer [rect]]
             [app.client.mode :refer [theme]]
+            [app.client.editor.core :refer [canvas]]
             [app.client.shapes.util :as sutil :refer [new-line-el]]
             [app.client.playground.actions :refer [context-menu theme-toggle]]
             [app.client.utils :refer [ ui-mode edges nodes
@@ -89,9 +90,10 @@
                                         (.-button e))
                                   (let [ex (e/client (.-clientX e))
                                         ey (e/client (.-clientY e))]
-                                    (println "pointerdown svg")
                                     (reset! current-selection {:selection (.-id (.-target e))
                                                                :movable? true})
+                                    (println "pointerdown svg" @current-selection)
+                                    (println "pointerdown svg" (fc/browser-to-svg-coords e viewbox (.getElementById js/document "sv")))
                                     (reset! !last-position {:x ex
                                                             :y ey})
                                     (reset! !is-dragging? true)
@@ -142,8 +144,8 @@
                       (not-every? nil? [x2 y2])) (new-line-el. edge)
                     (= "line" type)              (line. edge))))))))))
 
-
 (e/defn main [ring-request]
   (e/client
     (binding [dom/node js/document.body]
-      (view.))))
+      (canvas. "canvas-id")
+      #_(view.))))

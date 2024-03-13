@@ -21,6 +21,11 @@
             :cursor-width  (atom 1)
             :cursor-height (atom 14)}))
 
+#?(:cljs (def !editor-text (atom "")))
+
+#?(:cljs (def !letter-width {}))
+
+(e/def editor-text (e/client (e/watch !editor-text)))
 (e/def c-width  (e/client (e/watch (:c-width settings))))
 (e/def c-height (e/client (e/watch (:c-height settings))))
 (e/def d-width (e/client (e/watch (:d-width settings))))
@@ -33,6 +38,8 @@
 (e/def rc       (e/client (e/watch (:rc settings))))
 (e/def cursor-height (e/client (e/watch (:cursor-height settings))))
 (e/def cursor-width (e/client (e/watch (:cursor-width settings))))
+(e/def letter-width (e/client (e/watch !letter-width)))
+
 
 #?(:cljs (defn initialise-canvas [el rect dpr ctx]
            (let [dw     (.-width rect)
@@ -57,7 +64,10 @@
              (set! (.-width el) height)
              (.scale ctx dpr dpr)
              (set! (.-width (.-style el)) (str (.-width rect) "px"))
-             (set! (.-height (.-style el)) (str (.-height rect) "px")))))
+             (set! (.-height (.-style el)) (str (.-height rect) "px"))
+             (set! (.-font ctx) "17px IA writer Quattro S")
+             (set! (.-textBaseline ctx) "hanging")
+             #_(println "+++++++++" (get-valid-char.)))))
 
 
 
@@ -87,3 +97,52 @@
           ny        (if new-line? (+ c-y 20) c-y)]
       (println "6. calc-new-position" c-x c-y new-line? nx ny)
       [nx ny])))
+
+(e/defn calc-line-position [text-width]
+  (e/client
+    (let [[cx cy]    @!curr-pos
+          new-line?  (> (+ 20 text-width) d-width)
+          nx         (if new-line? 20 text-width)
+          ny         (if new-line? (+ text-width 20) 20)]
+      [nx ny])))
+
+
+(e/defn add-plain-text-at-pos [x y  text]
+  (e/client
+    (set! (.-font ctx) "17px IA writer Quattro S")
+    ;(set! (.-textAlign ctx) "left")
+    (set! (.-textBaseline ctx) "hanging")
+
+    (println "add plain text at x y" x y text)
+    (.fillText ctx text x y)))
+
+(e/defn add-bold-text-at-pos [x y  text]
+  (e/client
+    (set! (.-font ctx) "bold 17px IA writer Quattro S")
+    ;(set! (.-textAlign ctx) "left")
+    (set! (.-textBaseline ctx) "hanging")
+    (println "add bold text at x y" x y text)
+    (.fillText ctx text x y)))
+
+
+(e/defn add-text [ox oy text type]
+  (e/client
+    (let [text-width (Math/round (.-width (.measureText ctx text)))
+          [nx ny]    (calc-line-position. text-width)]
+      (do
+        #_(.clearRect ctx ox  oy 1 14)
+        (cond
+          (= type
+            :bold) (add-bold-text-at-pos. ox oy text)
+          :else (add-plain-text-at-pos. ox oy text))
+        #_(.fillRect ctx nx ny 1 14))
+      (reset! !curr-pos [nx ny]))))
+
+
+(e/defn add-char-action [ox oy nx ny text]
+  (e/client
+    (do
+      (.clearRect ctx ox  oy 1 14)
+      (add-plain-text-at-pos.  ox oy text)
+      (.fillRect ctx nx ny 1 14)
+      (reset! !curr-pos [nx ny]))))

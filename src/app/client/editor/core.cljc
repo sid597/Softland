@@ -3,10 +3,12 @@
             [hyperfiddle.electric-dom2 :as dom]
             [app.client.flow-calc :as fc]
             [app.client.editor.events.keydown :refer [on-keydown]]
+            [app.client.editor.parser :refer [parse-doc parse-text]]
             [app.client.editor.events.click :refer [blinker-cursor]]
             [app.client.utils :refer [viewbox ui-mode subscribe]]
             [app.client.editor.events.utils :refer [c-x c-y pos]]
             #?@(:cljs [[app.client.editor.events.utils :refer [!pos initialise-canvas]]
+
                        [app.client.editor.events.click :refer [on-click]]])))
 
 
@@ -32,7 +34,9 @@
               ctx    (.getContext el "2d")
               rect   (.getBoundingClientRect el)]
           (initialise-canvas el rect dpr ctx)
+          #_(parse-doc.)
           #_(blinker-cursor.)
+          (parse-text.)
           (dom/on! "click" (fn [e]
                              (println "4. clicked canvas")
                              (.fillRect ctx c-x c-y 1 14)
