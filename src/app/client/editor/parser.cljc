@@ -4,7 +4,7 @@
             [hyperfiddle.electric-dom2 :as dom]
             [app.client.flow-calc :as fc]
             [hyperfiddle.rcf :refer [tests tap %]]
-            [app.client.editor.events.utils :refer [c-width c-height calc-line-position editor-text add-text rc cursor-width cursor-height pos new-line-pos s-x s-y ctx calc-new-position c-x c-y]]
+            [app.client.editor.events.utils :refer [d-width letter-width c-width c-height calc-line-position editor-text add-text rc cursor-width cursor-height pos new-line-pos s-x s-y ctx calc-new-position c-x c-y]]
             #?(:cljs [app.client.editor.events.utils :refer [!editor-text !pos !curr-pos settings]])
             [app.client.utils :refer [viewbox ui-mode subscribe]]))
 
@@ -107,6 +107,34 @@
             (swap! ctr + 1)))))
     (swap! bold-map conj {:para @ns})
     @bold-map))
+
+(defn parsed->canvas-text [parsed-text ctx settings]
+  (let [canvas-text (atom [])
+        current-x   (atom 20)
+        current-y   (atom 20)]
+    (println "parsed->canvas-text" parsed-text)
+    (doseq [node parsed-text]
+      (println "node: " node)
+      (let [content (str (:content node))
+            type    (:type    node)]
+        (cond
+          (= :text  type) (set! (.-font ctx) "200  17px IA writer Quattro S")
+          (= :bold  type) (set! (.-font ctx) "bold 17px IA writer Quattro S"))
+        (doseq [ch content]
+          (let [char-width (Math/round (.-width (.measureText ctx (str ch))))
+                new-line?  (> (+ @current-x char-width) @(:d-width settings))
+                new-x      (if new-line? 20 (+ @current-x char-width))
+                new-y      (if new-line? (+ @current-y 20) @current-y)]
+            (println "char-width" char-width "new-x" new-x "new-y" new-y "ch" ch "type" type)
+            (swap! canvas-text conj {:x @current-x
+                                     :y @current-y
+                                     :text ch
+                                     :type type})
+            (reset! current-x new-x)
+            (reset! current-y new-y)))))
+    (println "canvas text-->" @canvas-text)
+    @canvas-text))
+
 
 #_(paragraph tex)
 
