@@ -8,7 +8,7 @@
             #?(:cljs [app.client.editor.events.utils :refer [!editor-text !pos !curr-pos settings]])
             [app.client.utils :refer [viewbox ui-mode subscribe]]))
 
-(def tex "An h1 header\n============\n\nParagraphs are separated by a blank line.\n\n2nd paragraph. *Italic*, **bold**, and `monospace`. Itemized lists\nlook like:\n\n  * this one\n  * that one\n  * the other one\n\nNote that --- not considering the asterisk --- the actual text\ncontent starts at 4-columns in.\n\n> Block quotes are\n> written like so.\n>\n> They can span multiple paragraphs,\n> if you like.\n\nUse 3 dashes for an em-dash. Use 2 dashes for ranges (ex., \"it's all\nin chapters 12--14\"). Three dots ... will be converted to an ellipsis.\nUnicode is supported. ☺\n\n\n\nAn h2 header\n------------\n\nHere's a numbered list:\n\n 1. first item\n 2. second item\n 3. third item\n\nNote again how the actual text starts at 4 columns in (4 characters\nfrom the left side). Here's a code sample:\n\n    # Let me re-iterate ...\n    for i in 1 .. 10 { do-something(i) }\n\nAs you probably guessed, indented 4 spaces. By the way, instead of\nindenting the block, you can use delimited blocks, if you like:")
+(def example-text "An h1 header\n============\n\nParagraphs are separated by a blank line.\n\n2nd paragraph. *Italic*, **bold**, and `monospace`. Itemized lists\nlook like:\n\n  * this one\n  * that one\n  * the other one\n\nNote that --- not considering the asterisk --- the actual text\ncontent starts at 4-columns in.\n\n> Block quotes are\n> written like so.\n>\n> They can span multiple paragraphs,\n> if you like.\n\nUse 3 dashes for an em-dash. Use 2 dashes for ranges (ex., \"it's all\nin chapters 12--14\"). Three dots ... will be converted to an ellipsis.\nUnicode is supported. ☺\n\n\n\nAn h2 header\n------------\n\nHere's a numbered list:\n\n 1. first item\n 2. second item\n 3. third item\n\nNote again how the actual text starts at 4 columns in (4 characters\nfrom the left side). Here's a code sample:\n\n    # Let me re-iterate ...\n    for i in 1 .. 10 { do-something(i) }\n\nAs you probably guessed, indented 4 spaces. By the way, instead of\nindenting the block, you can use delimited blocks, if you like:")
 
 
 (defn nested-bold [text]
@@ -128,29 +128,26 @@
     (println (find-markdown-bold sample-text)))
 
 
+
 (e/defn parse-text []
   (e/client
-
     (let [lx (atom 0)
-          tex "  Shift**testingShift** looks bad very bad too mBackspaceba d ShiftI would say."
-          ly (atom 0)
+          ly (atom 20)
           cw (into {} (map (fn [char]
-                             [char (.-width (.measureText ctx (str char)))])
+                             [char (Math/round (.-width (.measureText ctx (str char))))])
                         (apply str (map char (range 32 127)))))
           calculate-width (fn [text]
                             (reduce + (map (fn [char]
                                              (cw char))
                                            text)))]
-      (println "------>" (nested-bold tex) cw)
-      (doseq [tnode (nested-bold tex #_editor-text)]
-        (let [text (str (:content tnode))
-              type (:type    tnode)
-              ny   20
-              ;nx   (.-width (.measureText ctx text))
-              nx (calculate-width text)]
-          (println "add bold text " text @lx nx ny)
-          (cond
-           (= :text type) (add-text. @lx ny  text  :text)
-           (= :bold type) (add-text. @lx ny text :bold))
-          (swap! lx + nx)
-          (swap! ly + ny))))))
+      (println "nested text" @!editor-text)
+      (add-text. lx ly editor-text :text)
+      #_(e/for-by key [tnode editor-text #_(nested-bold editor-text)]
+          (println "tnode" tnode)
+          #_(let [text (str (:content tnode))
+                  type (:type    tnode)]
+              (cond
+               (= :text type) (add-text. lx ly text :text)
+               (= :bold type) (add-text. lx ly text :bold)))))))
+          ;(swap! lx + nx)
+          ; (swap! ly + ny)))))))
