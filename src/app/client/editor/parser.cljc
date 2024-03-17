@@ -2,7 +2,6 @@
   (:require [clojure.string :as str]
             [hyperfiddle.electric :as e]
             [hyperfiddle.electric-dom2 :as dom]
-            [app.client.editor.data-schema :refer [long-text]]
             [app.client.flow-calc :as fc]
             [hyperfiddle.rcf :refer [tests tap %]]
             [app.client.editor.events.utils :refer [d-width letter-width c-width c-height calc-line-position editor-text add-text rc cursor-width cursor-height pos new-line-pos s-x s-y ctx calc-new-position c-x c-y]]
