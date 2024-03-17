@@ -2,14 +2,13 @@
   (:require [clojure.string :as str]
             [hyperfiddle.electric :as e]
             [hyperfiddle.electric-dom2 :as dom]
-            [app.client.editor.data-schema :refer [long-text]]
             [app.client.flow-calc :as fc]
             [hyperfiddle.rcf :refer [tests tap %]]
             [app.client.editor.events.utils :refer [d-width letter-width c-width c-height calc-line-position editor-text add-text rc cursor-width cursor-height pos new-line-pos s-x s-y ctx calc-new-position c-x c-y]]
             #?(:cljs [app.client.editor.events.utils :refer [!editor-text !pos !curr-pos settings]])
             [app.client.utils :refer [viewbox ui-mode subscribe]]))
 
-(def example-text "An h1 header\n============\n\nParagraphs are separated by a blank line.\n\n2nd paragraph. *Italic*, **bold**, and `monospace`. Itemized lists\nlook like:\n\n  * this one\n  * that one\n  * the other one\n\nNote that --- not considering the asterisk --- the actual text\ncontent starts at 4-columns in.\n\n> Block quotes are\n> written like so.\n>\n> They can span multiple paragraphs,\n> if you like.\n\nUse 3 dashes for an em-dash. Use 2 dashes for ranges (ex., \"it's all\nin chapters 12--14\"). Three dots ... will be converted to an ellipsis.\nUnicode is supported. ☺\n\n\n\nAn h2 header\n------------\n\nHere's a numbered list:\n\n 1. first item\n 2. second item\n 3. third item\n\nNote again how the actual text starts at 4 columns in (4 characters\nfrom the left side). Here's a code sample:\n\n    # Let me re-iterate ...\n    for i in 1 .. 10 { do-something(i) }\n\nAs you probably guessed, indented 4 spaces. By the way, instead of\nindenting the block, you can use delimited blocks, if you like:")
+(def example-text "AAAAn h1 header\\\\\\\\n============\\\\\\\\n\\\\\\\\nParagraphs are separated by a blank line.\\\\\\\\n\\\\\\\\n2nd paragraph. *Italic*, **bold**, and `monospace`. Itemized lists\\\\\\\\nlook like:\\\\\\\\n\\\\\\\\n  * this one\\\\\\\\n  * that one\\\\\\\\n  * the other one\\\\\\\\n\\\\\\\\nNote that --- not considering the asterisk --- the actual text\\\\\\\\ncontent starts at 4-columns in.\\\\\\\\n\\\\\\\\n> Block quotes are\\\\\\\\n> written like so.\\\\\\\\n>\\\\\\\\n> They can span multiple paragraphs,\\\\\\\\n> if you like.\\\\\\\\n\\\\\\\\nUse 3 dashes for an em-dash. Use 2 dashes for ranges (ex., \\\\\\\\\\\\\\\"it's all\\\\\\\\nin chapters 12--14\\\\\\\\\\\\\\\"). Three dots ... will be converted to an ellipsis.\\\\\\\\nUnicode is supported. ☺\\\\\\\\n\\\\\\\\n\\\\\\\\n\\\\\\\\nAn h2 header\\\\\\\\n------------\\\\\\\\n\\\\\\\\nHere's a numbered list:\\\\\\\\n\\\\\\\\n 1. first item\\\\\\\\n 2. second item\\\\\\\\n 3. third item\\\\\\\\n\\\\\\\\nNote again how the actual text starts at 4 columns in (4 characters\\\\\\\\nfrom the left side). Here's a code sample:\\\\\\\\n\\\\\\\\n    # Let me re-iterate ...\\\\\\\\n    for i in 1 .. 10 { do-something(i) }\\\\\\\\n\\\\\\\\nAs you probably guessed, indented 4 spaces. By the way, instead of\\\\\\\\nindenting the block, you can use delimited blocks, if you like:n h1 header\\\\n============\\\\n\\\\nParagraphs are separated by a blank line.\\\\n\\\\n2nd paragraph. *Italic*, **bold**, and `monospace`. Itemized lists\\\\nlook like:\\\\n\\\\n  * this one\\\\n  * that one\\\\n  * the other one\\\\n\\\\nNote that --- not considering the asterisk --- the actual text\\\\ncontent starts at 4-columns in.\\\\n\\\\n> Block quotes are\\\\n> written like so.\\\\n>\\\\n> They can span multiple paragraphs,\\\\n> if you like.\\\\n\\\\nUse 3 dashes for an em-dash. Use 2 dashes for ranges (ex., \\\\\\\"it's all\\\\nin chapters 12--14\\\\\\\"). Three dots ... will be converted to an ellipsis.\\\\nUnicode is supported. ☺\\\\n\\\\n\\\\n\\\\nAn h2 header\\\\n------------\\\\n\\\\nHere's a numbered list:\\\\n\\\\n 1. first item\\\\n 2. second item\\\\n 3. third item\\\\n\\\\nNote again how the actual text starts at 4 columns in (4 characters\\\\nfrom the left side). Here's a code sample:\\\\n\\\\n    # Let me re-iterate ...\\\\n    for i in 1 .. 10 { do-something(i) }\\\\n\\\\nAs you probably guessed, indented 4 spaces. By the way, instead of\\\\nindenting the block, you can use delimited blocks, if you like:An h1 header\\\\n============\\\\n\\\\nParagraphs are separated by a blank line.\\\\n\\\\n2nd paragraph. *Italic*, **bold**, and `monospace`. Itemized lists\\\\nlook like:\\\\n\\\\n  * this one\\\\n  * that one\\\\n  * the other one\\\\n\\\\nNote that --- not considering the asterisk --- the actual text\\\\ncontent starts at 4-columns in.\\\\n\\\\n> Block quotes are\\\\n> written like so.\\\\n>\\\\n> They can span multiple paragraphs,\\\\n> if you like.\\\\n\\\\nUse 3 dashes for an em-dash. Use 2 dashes for ranges (ex., \\\\\\\"it's all\\\\nin chapters 12--14\\\\\\\"). Three dots ... will be converted to an ellipsis.\\\\nUnicode is supported. ☺\\\\n\\\\n\\\\n\\\\nAn h2 header\\\\n------------\\\\n\\\\nHere's a numbered list:\\\\n\\\\n 1. first item\\\\n 2. second item\\\\n 3. third item\\\\n\\\\nNote again how the actual text starts at 4 columns in (4 characters\\\\nfrom the left side). Here's a code sample:\\\\n\\\\n    # Let me re-iterate ...\\\\n    for i in 1 .. 10 { do-something(i) }\\\\n\\\\nAs you probably guessed, indented 4 spaces. By the way, instead of\\\\nindenting the block, you can use delimited blocks, if you like:n h1 header\\n============\\n\\nParagraphs are separated by a blank line.\\n\\n2nd paragraph. *Italic*, **bold**, and `monospace`. Itemized lists\\nlook like:\\n\\n  * this one\\n  * that one\\n  * the other one\\n\\nNote that --- not considering the asterisk --- the actual text\\ncontent starts at 4-columns in.\\n\\n> Block quotes are\\n> written like so.\\n>\\n> They can span multiple paragraphs,\\n> if you like.\\n\\nUse 3 dashes for an em-dash. Use 2 dashes for ranges (ex., \\\"it's all\\nin chapters 12--14\\\"). Three dots ... will be converted to an ellipsis.\\nUnicode is supported. ☺\\n\\n\\n\\nAn h2 header\\n------------\\n\\nHere's a numbered list:\\n\\n 1. first item\\n 2. second item\\n 3. third item\\n\\nNote again how the actual text starts at 4 columns in (4 characters\\nfrom the left side). Here's a code sample:\\n\\n    # Let me re-iterate ...\\n    for i in 1 .. 10 { do-something(i) }\\n\\nAs you probably guessed, indented 4 spaces. By the way, instead of\\nindenting the block, you can use delimited blocks, if you like:AAn h1 header\\\\n============\\\\n\\\\nParagraphs are separated by a blank line.\\\\n\\\\n2nd paragraph. *Italic*, **bold**, and `monospace`. Itemized lists\\\\nlook like:\\\\n\\\\n  * this one\\\\n  * that one\\\\n  * the other one\\\\n\\\\nNote that --- not considering the asterisk --- the actual text\\\\ncontent starts at 4-columns in.\\\\n\\\\n> Block quotes are\\\\n> written like so.\\\\n>\\\\n> They can span multiple paragraphs,\\\\n> if you like.\\\\n\\\\nUse 3 dashes for an em-dash. Use 2 dashes for ranges (ex., \\\\\\\"it's all\\\\nin chapters 12--14\\\\\\\"). Three dots ... will be converted to an ellipsis.\\\\nUnicode is supported. ☺\\\\n\\\\n\\\\n\\\\nAn h2 header\\\\n------------\\\\n\\\\nHere's a numbered list:\\\\n\\\\n 1. first item\\\\n 2. second item\\\\n 3. third item\\\\n\\\\nNote again how the actual text starts at 4 columns in (4 characters\\\\nfrom the left side). Here's a code sample:\\\\n\\\\n    # Let me re-iterate ...\\\\n    for i in 1 .. 10 { do-something(i) }\\\\n\\\\nAs you probably guessed, indented 4 spaces. By the way, instead of\\\\nindenting the block, you can use delimited blocks, if you like:n h1 header\\n============\\n\\nParagraphs are separated by a blank line.\\n\\n2nd paragraph. *Italic*, **bold**, and `monospace`. Itemized lists\\nlook like:\\n\\n  * this one\\n  * that one\\n  * the other one\\n\\nNote that --- not considering the asterisk --- the actual text\\ncontent starts at 4-columns in.\\n\\n> Block quotes are\\n> written like so.\\n>\\n> They can span multiple paragraphs,\\n> if you like.\\n\\nUse 3 dashes for an em-dash. Use 2 dashes for ranges (ex., \\\"it's all\\nin chapters 12--14\\\"). Three dots ... will be converted to an ellipsis.\\nUnicode is supported. ☺\\n\\n\\n\\nAn h2 header\\n------------\\n\\nHere's a numbered list:\\n\\n 1. first item\\n 2. second item\\n 3. third item\\n\\nNote again how the actual text starts at 4 columns in (4 characters\\nfrom the left side). Here's a code sample:\\n\\n    # Let me re-iterate ...\\n    for i in 1 .. 10 { do-something(i) }\\n\\nAs you probably guessed, indented 4 spaces. By the way, instead of\\nindenting the block, you can use delimited blocks, if you like:An h1 header\\n============\\n\\nParagraphs are separated by a blank line.\\n\\n2nd paragraph. *Italic*, **bold**, and `monospace`. Itemized lists\\nlook like:\\n\\n  * this one\\n  * that one\\n  * the other one\\n\\nNote that --- not considering the asterisk --- the actual text\\ncontent starts at 4-columns in.\\n\\n> Block quotes are\\n> written like so.\\n>\\n> They can span multiple paragraphs,\\n> if you like.\\n\\nUse 3 dashes for an em-dash. Use 2 dashes for ranges (ex., \\\"it's all\\nin chapters 12--14\\\"). Three dots ... will be converted to an ellipsis.\\nUnicode is supported. ☺\\n\\n\\n\\nAn h2 header\\n------------\\n\\nHere's a numbered list:\\n\\n 1. first item\\n 2. second item\\n 3. third item\\n\\nNote again how the actual text starts at 4 columns in (4 characters\\nfrom the left side). Here's a code sample:\\n\\n    # Let me re-iterate ...\\n    for i in 1 .. 10 { do-something(i) }\\n\\nAs you probably guessed, indented 4 spaces. By the way, instead of\\nindenting the block, you can use delimited blocks, if you like:n h1 header\n============\n\nParagraphs are separated by a blank line.\n\n2nd paragraph. *Italic*, **bold**, and `monospace`. Itemized lists\nlook like:\n\n  * this one\n  * that one\n  * the other one\n\nNote that --- not considering the asterisk --- the actual text\ncontent starts at 4-columns in.\n\n> Block quotes are\n> written like so.\n>\n> They can span multiple paragraphs,\n> if you like.\n\nUse 3 dashes for an em-dash. Use 2 dashes for ranges (ex., \"it's all\nin chapters 12--14\"). Three dots ... will be converted to an ellipsis.\nUnicode is supported. ☺\n\n\n\nAn h2 header\n------------\n\nHere's a numbered list:\n\n 1. first item\n 2. second item\n 3. third item\n\nNote again how the actual text starts at 4 columns in (4 characters\nfrom the left side). Here's a code sample:\n\n    # Let me re-iterate ...\n    for i in 1 .. 10 { do-something(i) }\n\nAs you probably guessed, indented 4 spaces. By the way, instead of\nindenting the block, you can use delimited blocks, if you like:")
 
 
 (defn nested-bold [text]
@@ -84,6 +83,35 @@
                                                                                    {:type :text, :content "**."}])
 
 
+(defn parse-markdown [s]
+  (let [bold-pattern #"\*\*(.*?)\*\*"
+        bold-matches (re-seq bold-pattern s)]
+    (loop [result []
+           start-index 0
+           remaining-matches bold-matches]
+      (if (seq remaining-matches)
+        (let [[match bold-text] (first remaining-matches)
+              match-start (str/index-of s match start-index)
+              match-end (+ match-start (count match))]
+          (recur
+            (cond-> result
+              (< start-index match-start) (conj {:type :plain, :text (subs s start-index match-start)})
+              true (conj {:type :bold, :text match}))
+            match-end
+            (rest remaining-matches)))
+        (cond-> result
+          (< start-index (count s)) (conj {:type :plain, :text (subs s start-index)}))))))
+
+(comment
+  (time (parse-markdown "This is a **bold** text and **another bold** text."))
+
+  ; "Elapsed time: 1.225833 msecs"Elapsed time: 0.546791 msecs""Elapsed time: 0.585667 msecs""
+  ;(time (parse-bold example-text #_"This is a *bold* text and *another bold* text."))
+  ;"Elapsed time: 19.161625 msecs"Elapsed time: 18.487416 msecs""Elapsed time: 17.329375 msecs"
+  (time (nested-bold example-text #_"This is a *bold* text and *another bold* text."))
+  ;"Elapsed time: 0.570291 msecs"Elapsed time: 0.286459 msecs""Elapsed time: 0.458958 msecs""
+  (time (parse-markdown example-text)))
+
 
 (defn paragraph [text]
   (let [stack (atom [])
@@ -148,10 +176,10 @@
     ;(println "parsed->canvas-text" parsed-text)
     (doseq [node parsed-text]
     ;  (println "node: " node)
-      (let [content (str (:content node))
+      (let [content (str (:text node))
             type    (:type    node)]
         (cond
-          (= :text  type) (set! (.-font ctx) "200  17px IA writer Quattro S")
+          (= :plain  type) (set! (.-font ctx) "200  17px IA writer Quattro S")
           (= :bold  type) (set! (.-font ctx) "bold 17px IA writer Quattro S"))
         (doseq [ch content]
           (let [char-width (Math/round (.-width (.measureText ctx (str ch))))

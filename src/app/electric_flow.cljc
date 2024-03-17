@@ -123,25 +123,25 @@
                                   (println "border draging up >>>")
                                   (reset! !border-drag? false))))
 
-          (bg/dot-background. (:svg-dots (theme. ui-mode)) viewbox)
+          (bg/dot-background. (:svg-dots (theme. ui-mode)) viewbox
 
-          (e/server
-            (e/for-by identity [node-id (new (!subscribe (keypath :main) nodes-pstate))]
-              (let [type (subscribe. [:main (first node-id) :type])]
-               (e/client
-                 (println "type" type (= "circle" type))
-                 (rect. (first node-id))
-                 #_(cond
-                         (= "circle" type)  (circle. node-id)
-                         (= "rect" type)    (rect. node-id nodes-pstate)))))
-            #_(e/for-by identity [edge edges]
-                (let [[_ {:keys [type x2 y2]}] edge]
-                  (e/client
-                    (println "edge type" type edge)
-                    (cond
-                      (and
-                        (= "raw" type)
-                        (not-every? nil? [x2 y2])) (new-line-el. edge)
+            (e/server
+              (e/for-by identity [node-id (new (!subscribe (keypath :main) nodes-pstate))]
+                (let [type (subscribe. [:main (first node-id) :type])]
+                 (e/client
+                   (println "type" type (= "circle" type))
+                   (rect. (first node-id))
+                   #_(cond
+                           (= "circle" type)  (circle. node-id)
+                           (= "rect" type)    (rect. node-id nodes-pstate)))))
+              #_(e/for-by identity [edge edges]
+                  (let [[_ {:keys [type x2 y2]}] edge]
+                    (e/client
+                      (println "edge type" type edge)
+                      (cond
+                        (and
+                          (= "raw" type)
+                          (not-every? nil? [x2 y2])) (new-line-el. edge))
                       (= "line" type)              (line. edge))))))))))
 
 (e/defn main [ring-request]
