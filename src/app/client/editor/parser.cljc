@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperfiddle.electric :as e]
             [hyperfiddle.electric-dom2 :as dom]
+            [app.client.editor.data-schema :refer [long-text]]
             [app.client.flow-calc :as fc]
             [hyperfiddle.rcf :refer [tests tap %]]
             [app.client.editor.events.utils :refer [d-width letter-width c-width c-height calc-line-position editor-text add-text rc cursor-width cursor-height pos new-line-pos s-x s-y ctx calc-new-position c-x c-y]]
@@ -58,9 +59,9 @@
                     cnt (if (not= lc "**")
                           (str @ns lc)
                           @ns)]
-                (println  "lc" lc)
-                (println "ns" @ns)
-                (println "cnt" (not-empty cnt))
+                ;(println  "lc" lc)
+                ;(println "ns" @ns)
+                ;(println "cnt" (not-empty cnt))
                 (if (not-empty cnt)
                   (conj x {:type :text
                            :content cnt})
@@ -83,6 +84,7 @@
                                                                                    {:type :text, :content "**."}])
 
 
+(nested-bold long-text)
 
 (defn paragraph [text]
   (let [stack (atom [])
@@ -108,13 +110,45 @@
     (swap! bold-map conj {:para @ns})
     @bold-map))
 
+#_(e/defn parsed->canvas-text [parsed-text ctx settings canvas-text]
+    (let [;canvas-text (atom [])
+          current-x   (atom 20)
+          current-y   (atom 20)]
+      (println "parsed->canvas-text" parsed-text)
+      (doseq [node (reverse parsed-text)]
+        (println "node: " node)
+        (let [content (reverse (str (:content node)))
+              type    (:type    node)]
+          (cond
+            (= :text  type) (set! (.-font ctx) "200  17px IA writer Quattro S")
+            (= :bold  type) (set! (.-font ctx) "bold 17px IA writer Quattro S"))
+          (e/for-by (fn [x]
+                      (println "----" x)
+                      (str (first x) "--" (second x) "--" type))
+            [mi  (map-indexed vector content)]
+            (let [ch         (second mi)
+                  char-width (Math/round (.-width (.measureText ctx (str ch))))
+                  new-line?  (> (+ @current-x char-width) @(:d-width settings))
+                  new-x      (if new-line? 20 (+ @current-x char-width))
+                  new-y      (if new-line? (+ @current-y 20) @current-y)]
+              (println "char-width" char-width "new-x" new-x "new-y" new-y "ch" ch "type" type)
+              (swap! canvas-text conj {:x @current-x
+                                       :y @current-y
+                                       :text ch
+                                       :type type})
+              (reset! current-x new-x)
+              (reset! current-y new-y)))))
+      (println "canvas text-->" @canvas-text)
+      @canvas-text))
+
+
 (defn parsed->canvas-text [parsed-text ctx settings]
   (let [canvas-text (atom [])
         current-x   (atom 20)
         current-y   (atom 20)]
-    (println "parsed->canvas-text" parsed-text)
+    ;(println "parsed->canvas-text" parsed-text)
     (doseq [node parsed-text]
-      (println "node: " node)
+    ;  (println "node: " node)
       (let [content (str (:content node))
             type    (:type    node)]
         (cond
@@ -125,14 +159,14 @@
                 new-line?  (> (+ @current-x char-width) @(:d-width settings))
                 new-x      (if new-line? 20 (+ @current-x char-width))
                 new-y      (if new-line? (+ @current-y 20) @current-y)]
-            (println "char-width" char-width "new-x" new-x "new-y" new-y "ch" ch "type" type)
+            ;(println "char-width" char-width "new-x" new-x "new-y" new-y "ch" ch "type" type)
             (swap! canvas-text conj {:x @current-x
                                      :y @current-y
                                      :text ch
                                      :type type})
             (reset! current-x new-x)
             (reset! current-y new-y)))))
-    (println "canvas text-->" @canvas-text)
+    ;(println "canvas text-->" @canvas-text)
     @canvas-text))
 
 

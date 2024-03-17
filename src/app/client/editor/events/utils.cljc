@@ -23,7 +23,7 @@
 
 #?(:cljs (def !editor-text (atom "")))
 
-#?(:cljs (def !letter-width {}))
+
 
 (e/def editor-text (e/client (e/watch !editor-text)))
 (e/def c-width  (e/client (e/watch (:c-width settings))))
@@ -38,8 +38,9 @@
 (e/def rc       (e/client (e/watch (:rc settings))))
 (e/def cursor-height (e/client (e/watch (:cursor-height settings))))
 (e/def cursor-width (e/client (e/watch (:cursor-width settings))))
-(e/def letter-width (e/client (e/watch !letter-width)))
 
+
+(def letter-width (atom {}))
 
 #?(:cljs (defn initialise-canvas [el rect dpr ctx]
            (let [dw     (.-width rect)
@@ -58,14 +59,20 @@
              (reset! (:rc settings) (atom true))
              (reset! (:cursor-height settings) 14)
              (reset! (:cursor-width settings) 1)
+             (reset! !editor-text "abcdefghijklmnopqrstuvwxyz")
+             (reset! letter-width (into {}
+                                    (map (fn [char]
+                                           [char (Math/round (.-width (.measureText ctx (str char))))])
+                                      (apply str (map char (range 32 127))))))
              (println "1. Initialise canvas: ""sx" sx "sy" sy "width" width "height" height "dpr" dpr "dw" dw "dh" dh)
+
              (set! (.-webkitFontSmoothing (.-style el)) "antialiased")
              (set! (.-height el) width)
              (set! (.-width el) height)
              (.scale ctx dpr dpr)
              (set! (.-width (.-style el)) (str (.-width rect) "px"))
              (set! (.-height (.-style el)) (str (.-height rect) "px"))
-             (set! (.-font ctx) "17px IA writer Quattro S")
+             (set! (.-font ctx) "200 17px IA writer Quattro S")
              (set! (.-textBaseline ctx) "hanging")
              #_(println "+++++++++" (get-valid-char.)))))
 
@@ -100,25 +107,40 @@
 
 (e/defn calc-line-position [text-width]
   (e/client
-    (let [[cx cy]    @!curr-pos
-          new-line?  (> (+ 20 text-width) d-width)
+    (let [new-line?  (> (+ 20 text-width) d-width)
           nx         (if new-line? 20 text-width)
           ny         (if new-line? (+ text-width 20) 20)]
       [nx ny])))
 
 
-(e/defn add-plain-text-at-pos [x y  text]
+(e/defn add-plain-text-at-pos [x y text]
   (e/client
-    (set! (.-font ctx) "17px IA writer Quattro S")
-    ;(set! (.-textAlign ctx) "left")
-    (set! (.-textBaseline ctx) "hanging")
-
-    (println "add plain text at x y" x y text)
-    (.fillText ctx text x y)))
+    (let [width (atom @x)
+          cur-y (atom @y)]
+      (println "text is-->" text)
+      (e/for-by identity [cur text]
+        (println "cur" cur)
+        (let [char-w    (@letter-width cur)
+              new-line? (> (+ 20 @width char-w) d-width)
+              nx        (if new-line? 20 (+ @width char-w))
+              ny        (if new-line? (+ @cur-y 20) @cur-y)]
+          #_(println "00---00" cur char-w
+              new-line? nx ny "--" (+ 20 @width char-w)
+              d-width)
+          (set! (.-font ctx) "200 white 17px IA writer Quattro S")
+          (set! (.-textAlign ctx) "end")
+          (set! (.-textBaseline ctx) "hanging")
+          ;(println "add plain text at x y" nx ny cur)
+          (.fillText ctx cur nx ny)
+          (println "--cur--" cur "--" (Math/round (.-width (.measureText ctx cur))) "==" char-w "-" (.-actualBoundingBoxRight (.measureText ctx cur)))
+          (reset! width nx)
+          (reset! cur-y ny)))
+      (reset! x @width)
+      (reset! y @cur-y))))
 
 (e/defn add-bold-text-at-pos [x y  text]
   (e/client
-    (set! (.-font ctx) "bold 17px IA writer Quattro S")
+    (set! (.-font ctx) "bold white 17px IA writer Quattro S")
     ;(set! (.-textAlign ctx) "left")
     (set! (.-textBaseline ctx) "hanging")
     (println "add bold text at x y" x y text)
@@ -127,16 +149,20 @@
 
 (e/defn add-text [ox oy text type]
   (e/client
-    (let [text-width (Math/round (.-width (.measureText ctx text)))
-          [nx ny]    (calc-line-position. text-width)]
-      (do
-        #_(.clearRect ctx ox  oy 1 14)
-        (cond
-          (= type
-            :bold) (add-bold-text-at-pos. ox oy text)
-          :else (add-plain-text-at-pos. ox oy text))
-        #_(.fillRect ctx nx ny 1 14))
-      (reset! !curr-pos [nx ny]))))
+    (cond
+      (= type
+        :bold) (add-bold-text-at-pos. ox oy text)
+      :else (add-plain-text-at-pos. ox oy text))
+    #_(let [text-width (Math/round (.-width (.measureText ctx text)))
+            [nx ny]    (calc-line-position. text-width)]
+        (do
+          #_(.clearRect ctx ox  oy 1 14)
+          (cond
+            (= type
+              :bold) (add-bold-text-at-pos. ox oy text)
+            :else (add-plain-text-at-pos. ox oy text))
+          #_(.fillRect ctx nx ny 1 14))
+        #_(reset! !curr-pos [nx ny]))))
 
 
 (e/defn add-char-action [ox oy nx ny text]
