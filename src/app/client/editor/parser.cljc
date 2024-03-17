@@ -84,7 +84,6 @@
                                                                                    {:type :text, :content "**."}])
 
 
-(nested-bold long-text)
 
 (defn paragraph [text]
   (let [stack (atom [])

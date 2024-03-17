@@ -110,8 +110,7 @@
                                                                  (reset! !text (subs @!text 0 (dec (count @!text)))))
                                                                  ;(println "text after " @!text))
                                     (some? (@letter-width key)) (do
-                                                                  (println "text before " @!text)
                                                                   (swap! !text str key #_(fn [s]
-                                                                                           (str (subs s 0 1 ) "--" key (subs s 1 (count s)))))
-                                                                  (println "text after " @!text))))))))))))
+                                                                                           (str (subs s 0 1 ) "--" key (subs s 1 (count s))))))))))))))))
+
 
