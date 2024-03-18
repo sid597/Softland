@@ -41,3 +41,16 @@ which I think is the first layer of abstraction over "here are cursors of all th
 software are considered to be bad, yes they are by current definition at the current level of abstraction. If the abstraction
 layer is higher conflicts are good for progress. 
 
+---
+
+Random thoughts:
+Creation is a distributed process? Can it be centralised? Its a team sport?
+Learning is a centralised process? Can it be decentralised? Its an individual sport?
+Standing on shoulder of giants, needs giants, but each one of us has to climb stand on their own.
+
+For a long time people were able to stand on all the previous giants and become a giant's giant?
+Now its possible on a subset of all the giants, maybe because the number and size of each giant have grown,
+knowledge is an inverted triangle, why become a giant when you can try to make one etc. I can think of many semi-pointless
+analogies which would make reader wonder if I am high and still make a bit of sense to a human.
+
+Are midwits making the midwit meme as an observer? How to overthink midwit meme? 
