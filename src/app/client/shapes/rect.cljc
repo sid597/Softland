@@ -14,7 +14,7 @@
                                       is-dragging?  zoom-level last-position subscribe
                                       viewbox  context-menu? reset-global-vals]]
             [app.client.editor.core :refer [canvas]]
-            [app.client.style-components.svg-icons :refer [close-icon close-small-icon]]
+            [app.client.style-components.svg-icons :refer [close-icon maximise-icon drag-pan-icon close-small-icon]]
             [app.client.style-components.buttons :refer [icon-button]]
             [hyperfiddle.electric-ui4 :as ui]
             #?@(:cljs
@@ -32,21 +32,22 @@
                   :style {:background-color "white"
                           :display "flex"
                           :flex-direction "row"
+                          :align-items "center"
+                          :gap "8px"
+                          :justify-content "space-between"
+                          :float "right"
                           :padding "5px"}})
-      (icon-button. close-small-icon)
+      (dom/div
+        (dom/style {:display "flex"})
+        (icon-button. drag-pan-icon))
 
-      (dom/button
-        (dom/props {:style {:background "none"
-                            :border "1px solid black"
-                            :border-radius "3px"}})
-        (close-small-icon.))
-      (ui/button
-       (e/fn []
-         (e/client (println "clicked ui button")))
-       (dom/props {:style {:background "grey"
-                           :border "1px solid black"
-                           :border-radius "0.2rem"}})
-       (dom/text "world")))))
+      (dom/div
+        (dom/style {:display "flex"
+                    :gap "8px"})
+        (icon-button. maximise-icon)
+        (icon-button. close-small-icon)))))
+
+
 
 (e/defn rect [id]
   (e/server

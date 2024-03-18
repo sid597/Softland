@@ -17,8 +17,9 @@
       (dom/button
         (dom/style (merge {:background "none"
                            :border "none" ;"1px solid black"
-                           :padding "0px"
-                           :height "17px"
+                           :padding "3px"
+                           :align-items "center"
+                           :display "flex"
                            :border-radius "3px"}
                      (when hovered {:background "#efefef"})))
         (dom/on "mouseenter" (e/fn [e] (do (reset! !hovered true)
