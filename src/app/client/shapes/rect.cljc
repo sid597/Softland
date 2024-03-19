@@ -14,7 +14,9 @@
                                       is-dragging?  zoom-level last-position subscribe
                                       viewbox  context-menu? reset-global-vals]]
             [app.client.editor.core :refer [canvas]]
-
+            [app.client.style-components.svg-icons :refer [close-icon close-small-icon]]
+            [app.client.style-components.buttons :refer [icon-button]]
+            [hyperfiddle.electric-ui4 :as ui]
             #?@(:cljs
                 [[app.client.utils :refer [!border-drag? !is-dragging? !zoom-level !last-position !viewbox !context-menu?]]]
                 :clj
@@ -23,6 +25,28 @@
                  [app.server.rama :as rama :refer [!subscribe nodes-pstate get-event-id add-new-node]]])))
 
 
+(e/defn card-topbar [id]
+  (e/client
+    (dom/div
+      (dom/props {:id  (str "card-topbar-" id)
+                  :style {:background-color "white"
+                          :display "flex"
+                          :flex-direction "row"
+                          :padding "5px"}})
+      (icon-button. close-small-icon)
+
+      (dom/button
+        (dom/props {:style {:background "none"
+                            :border "1px solid black"
+                            :border-radius "3px"}})
+        (close-small-icon.))
+      (ui/button
+       (e/fn []
+         (e/client (println "clicked ui button")))
+       (dom/props {:style {:background "grey"
+                           :border "1px solid black"
+                           :border-radius "0.2rem"}})
+       (dom/text "world")))))
 
 (e/defn rect [id]
   (e/server
@@ -53,7 +77,8 @@
                           :y      (subscribe. y-p)
                           :width  (subscribe. width-p)
                           :height (subscribe. height-p)
-                          :fill   (:editor-border (theme. ui-mode))})
+                          :rx     "10"
+                          #_#_:fill   (:editor-border (theme. ui-mode))})
               (dom/on "click" (e/fn [e]
                                 (println "clicked the rect.")))
               (dom/on "mousedown" (e/fn [e]
@@ -74,13 +99,15 @@
                                   (println "mouseup the rect.")
                                   (reset! !border-drag? false))))
             (svg/foreignObject
-              (dom/props {:x      (+  (subscribe. x-p) 5)
-                          :y      (+  (subscribe. y-p)  5)
-                          :height (-  (subscribe. height-p)  10)
-                          :width  (-  (subscribe. width-p)   10)
+              (dom/props {:x      (subscribe. x-p)     ;(+  (subscribe. x-p) 5)
+                          :y      (subscribe. y-p)     ;(+  (subscribe. y-p)  5)
+                          :height (subscribe. height-p);(-  (subscribe. height-p)  10)
+                          :width  (subscribe. width-p) ;(-  (subscribe. width-p)   10)
                           :fill   "black"
                           :style {:display "flex"
                                   :flex-direction "column"
+                                  :border "1px solid black"
+                                  :border-radius "10px"
                                   :overflow "scroll"}})
               (dom/div
                 (dom/props {:style {:background-color (subscribe. fill-p)
@@ -88,18 +115,19 @@
                                     :display          "flex"
                                     :overflow         "scroll"
                                     :flex-direction   "column"}})
+                (card-topbar. id)
 
                 (dom/div
                   (dom/props {:id    (str "cm-" dom-id)
                               :style {:height   "100%"
                                       :overflow "scroll"
                                       :width    "100%"}})
-                  (canvas. dom-id)
-                  #_(new cm/CodeMirror
-                      {:parent dom/node}
-                      read
-                      identity
-                      (subscribe. text-p)))
+                  #_(canvas. dom-id)
+                  (new cm/CodeMirror
+                    {:parent dom/node}
+                    read
+                    identity
+                    (subscribe. text-p)))
 
 
                 (dom/div
