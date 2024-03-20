@@ -19,12 +19,12 @@
      (.theme EditorView (clj->js {".cm-content" {:white-space "pre-wrap"
                                                  :padding "10px 0"
                                                  :flex "1 1 0"}
-
+                                  "&.cm-editor" {:height "100% !important"}
                                   "&.cm-focused" {:outline "0 !important"}
                                   ".cm-line" {:padding "0 9px"
                                               :line-height "1.6"
                                               :font-size "16px"
-                                              :color "#6F6D66" #_"#978365" #_"#197CAE"
+                                              :color "black" #_"#6F6D66" #_"#978365" #_"#197CAE"
                                               :font-family "var(--code-font)"}
                                   ".cm-matchingBracket" {:border-bottom "1px solid var(--teal-color)"
                                                          :color "inherit"}
@@ -41,7 +41,7 @@
        theme
        (history)
        (language/syntaxHighlighting language/defaultHighlightStyle)
-       (view/drawSelection #js{:cursorBlinkRate 0})
+       (view/drawSelection #js{:cursorBlinkRate 1500})
        cm-clj/default-extensions
        (.of view/keymap cm-clj/complete-keymap)
        (cm-clj/syntax)

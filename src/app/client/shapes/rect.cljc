@@ -14,7 +14,6 @@
                                       is-dragging?  zoom-level last-position subscribe
                                       viewbox  context-menu? reset-global-vals]]
             [app.client.editor.core :refer [canvas]]
-            [app.client.style-components.svg-icons :refer [close-icon maximise-icon drag-pan-icon close-small-icon]]
             [app.client.style-components.buttons :refer [icon-button]]
             [hyperfiddle.electric-ui4 :as ui]
             #?@(:cljs
@@ -35,18 +34,63 @@
                           :align-items "center"
                           :gap "8px"
                           :justify-content "space-between"
-                          :float "right"
+                          :border-bottom "1px solid black"
                           :padding "5px"}})
       (dom/div
-        (dom/style {:display "flex"})
-        (icon-button. drag-pan-icon))
+        (dom/style {:display "flex"
+                    :gap "8px"})
+        (icon-button. :drag-pan-icon)
+        (icon-button. :closed-lock-icon))
 
       (dom/div
         (dom/style {:display "flex"
                     :gap "8px"})
-        (icon-button. maximise-icon)
-        (icon-button. close-small-icon)))))
+        (icon-button. :maximise-icon)
+        (icon-button. :close-small-icon)))))
 
+(e/defn outlined-button [name]
+  (e/client
+    (dom/button
+      (dom/props {:class "outlined-button"
+                  :style {:background "white"
+                          :padding "2px 5px"
+                          :font-size "14px"
+                          :border "none"
+                          :font "200  13px IA writer Quattro S"
+                          :display "flex"}})
+      (dom/text name))))
+
+(e/defn button-bar []
+  (e/client
+
+    (dom/div
+      #_(dom/props {:class "button-sep"
+                    :style {:display "flex"
+                            :flex-direction "column"
+                            :color "black"
+                            :padding "5px"
+                            :border "1px solid black"
+                            :height "400px"
+                            :border-radius "10px"
+                            :font "200  17px IA writer Quattro S"}})
+      #_(dom/text "Strategy: ")
+      (dom/div
+        (dom/props {:class "button-bar"
+                    :style {:display "flex"
+                            :flex-direction "row"
+                            :gap "8px"
+                            :justify-content "space-between"
+                            :padding "5px"
+                            :color "black"
+                            :font "200  17px IA writer Quattro S"
+                            :overflow-x "auto"}})
+        (outlined-button. "1")
+        (outlined-button. "2")
+        (outlined-button. "3")
+        (outlined-button. "4")
+        (outlined-button. "5")
+        (outlined-button. "6")
+        (outlined-button. "7")))))
 
 
 (e/defn rect [id]
@@ -77,7 +121,7 @@
                           :x      (subscribe. x-p)
                           :y      (subscribe. y-p)
                           :width  (subscribe. width-p)
-                          :height (subscribe. height-p)
+                          :height 400;(subscribe. height-p)
                           :rx     "10"
                           #_#_:fill   (:editor-border (theme. ui-mode))})
               (dom/on "click" (e/fn [e]
@@ -102,53 +146,66 @@
             (svg/foreignObject
               (dom/props {:x      (subscribe. x-p)     ;(+  (subscribe. x-p) 5)
                           :y      (subscribe. y-p)     ;(+  (subscribe. y-p)  5)
-                          :height (subscribe. height-p);(-  (subscribe. height-p)  10)
+                          :height 400 ;(subscribe. height-p);(-  (subscribe. height-p)  10)
                           :width  (subscribe. width-p) ;(-  (subscribe. width-p)   10)
-                          :fill   "black"
+                          ;:fill   "black"
                           :style {:display "flex"
                                   :flex-direction "column"
                                   :border "1px solid black"
                                   :border-radius "10px"
                                   :overflow "scroll"}})
               (dom/div
-                (dom/props {:style {:background-color (subscribe. fill-p)
+                (dom/props {:style {:background-color "white"
                                     :height           "100%"
+                                    :width            "100%"
                                     :display          "flex"
                                     :overflow         "scroll"
                                     :flex-direction   "column"}})
                 (card-topbar. id)
 
                 (dom/div
-                  (dom/props {:id    (str "cm-" dom-id)
-                              :style {:height   "100%"
-                                      :overflow "scroll"
-                                      :width    "100%"}})
-                  #_(canvas. dom-id)
-                  (new cm/CodeMirror
-                    {:parent dom/node}
-                    read
-                    identity
-                    (subscribe. text-p)))
+                  (dom/props {:class "middle-earth"
+                              :style {:padding "5px"
+                                      :background "whi}te"
+                                      :display "flex"
+                                      :flex-direction "column"
+                                      :height "100%"}})
+                  (dom/div
+                    (dom/props {:id    (str "cm-" dom-id)
+                                :style {:height   "100%"
+                                        :overflow "scroll"
+                                        :background "white"
+                                        :box-shadow "black 0px 0px 2px 1px"
+                                        ;:border "1px solid black"
+                                        ;:border-radius "10px"
+                                        :margin-bottom           "10px"}})
+                    #_(canvas. dom-id)
+                    (new cm/CodeMirror
+                      {:parent dom/node}
+                      read
+                      identity
+                      (subscribe. text-p)))
+                 (button-bar.))
 
 
-                (dom/div
-                  (dom/button
-                    (dom/props {:style {:background-color (:button-background (theme. ui-mode))
-                                        :border           "none"
-                                        :padding          "5px"
-                                        :border-width     "5px"
-                                        :font-size        "18px"
-                                        :color            (:button-text (theme. ui-mode))
-                                        :height           "50px"
-                                        :width            "100%"}})
-                    (dom/text
-                      "Save")
+                #_(dom/div
+                    (dom/button
+                      (dom/props {:style {:background-color "white"
+                                          :border           "none"
+                                          :padding          "5px"
+                                          :border-width     "5px"
+                                          :font-size        "18px"
+                                          :color            (:button-text (theme. ui-mode))
+                                          :height           "50px"
+                                          :width            "100%"}})
+                      (dom/text
+                        "Save")
 
-                    #_(dom/on "click" (e/fn [e]
-                                        (let [child-uid (new-uuid)
-                                              x         (e/server (rama/get-path-data x-p pstate))
-                                              y         (e/server (rama/get-path-data y-p pstate))]
-                                          (when (some? cm-text)
-                                            (println "cm-text -->" cm-text)
-                                            (create-new-child-node. id child-uid (+ x 600) y cm-text)))))))))))))))
+                      #_(dom/on "click" (e/fn [e]
+                                          (let [child-uid (new-uuid)
+                                                x         (e/server (rama/get-path-data x-p pstate))
+                                                y         (e/server (rama/get-path-data y-p pstate))]
+                                            (when (some? cm-text)
+                                              (println "cm-text -->" cm-text)
+                                              (create-new-child-node. id child-uid (+ x 600) y cm-text)))))))))))))))
 

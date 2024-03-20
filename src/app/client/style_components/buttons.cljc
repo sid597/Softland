@@ -6,6 +6,7 @@
             [hyperfiddle.electric-dom2 :as dom]
             [hyperfiddle.electric-ui4 :as ui]
             [clojure.pprint :as pprint]
+            [app.client.style-components.svg-icons :refer [get-icon]]
             [app.client.mode :refer [theme]]))
 
 
@@ -27,4 +28,4 @@
                                            (reset! !hovered true))))
         (dom/on "mouseleave" (e/fn [e] (do (reset! !hovered false)
                                            (println "mouse leave hovered" @!hovered))))
-        (new icon-name)))))
+        (get-icon. icon-name)))))
