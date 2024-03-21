@@ -41,6 +41,7 @@ which I think is the first layer of abstraction over "here are cursors of all th
 software are considered to be bad, yes they are by current definition at the current level of abstraction. If the abstraction
 layer is higher conflicts are good for progress. 
 
+
 ---
 
 Random thoughts:
@@ -54,3 +55,20 @@ knowledge is an inverted triangle, why become a giant when you can try to make o
 analogies which would make reader wonder if I am high and still make a bit of sense to a human.
 
 Are midwits making the midwit meme as an observer? How to overthink midwit meme? 
+
+---
+
+UI's require too much interaction to the point that its distracting, limiting the capability and capacity of thinking. 
+
+- Imagine the meme with orange jacket guy: Interactive at the right abstraction layer yes, current interactive tft no. 
+
+If llms or any ai for that matter has to become a true collaborator to a human then it should be highly malleable, can't 
+expect the same linear chat ui to be used for creation, brainstorming, synthesising, do some task, collaborate.
+Paper is used differently while in different phases of work. 
+
+![img.png](img.png)
+Currently the answer is too quick, I want to ask question async, I generally expect the answer to be present but not 
+distracted by this thread right now. I want to continue reading the rest, synthesis the current text. Once I am done, I
+want to think and mull over it, add my comments, see if and how my thinking has changed, explore some threads but maybe
+in my brain, make some connections or maybe not. And then see replies to my quoted questions. 
+
