@@ -56,6 +56,14 @@ analogies which would make reader wonder if I am high and still make a bit of se
 
 Are midwits making the midwit meme as an observer? How to overthink midwit meme? 
 
+What is the equivalent of os/browser for distributed knowledge? What is the rewind equivalent? Maybe what I am doing?? 
+
+Watched Interstellar again and was again taken to the humbleness, curiosity, the longing, adventure, urge to explore one feels in the vastness of the universe, beauty of 
+nature, the sheer magnitude. How do I feel the same by manipulating mathematical characters or by natural language? 
+Not talking about deliberating (here mixed deliberate+thinking somehow) thinking, I can emulate the feeling but the difference
+here is that I already have the outcome in mind. Whereas what I refer as "pure feeling" is: it happens 
+first and then you get a word in you mind. 
+
 ---
 
 UI's require too much interaction to the point that its distracting, limiting the capability and capacity of thinking. 
@@ -72,3 +80,11 @@ distracted by this thread right now. I want to continue reading the rest, synthe
 want to think and mull over it, add my comments, see if and how my thinking has changed, explore some threads but maybe
 in my brain, make some connections or maybe not. And then see replies to my quoted questions. 
 
+
+what's the eqivalent of putting pen/pencil in mouth with a mouse? maybe grab a pen leave the mouse/
+
+Maybe the essence of the system should be how you want to feel while interacting with it and long after the interaction is done.
+Maybe its more about the feelings that the action, how to emulate "pure feelings" in these systems, I mean we should be able to
+because we can with "art" which in itself is a communication system. 
+
+The system should be viewed as an art one can engage with, I think one strong litmus test would be "have you used it in your dreams?"
