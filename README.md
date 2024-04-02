@@ -6,6 +6,7 @@ I only write to get thoughts of my head, and connect with people who find this w
 
 discourse graphs: https://network-goods.notion.site/The-Discourse-Graph-starter-pack-312374c813b24ec6b4d53a054371ee5a
 ologs: https://arxiv.org/pdf/1102.1889.pdf
+collective intelligence:https://topos.site/work/collective-intelligence/
 
 ---
 
