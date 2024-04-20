@@ -5,8 +5,14 @@ the correct context.
 I only write to get thoughts of my head, and connect with people who find this worth engaging :)
 
 discourse graphs: https://network-goods.notion.site/The-Discourse-Graph-starter-pack-312374c813b24ec6b4d53a054371ee5a
+
 ologs: https://arxiv.org/pdf/1102.1889.pdf
+
 collective intelligence:https://topos.site/work/collective-intelligence/
+
+applied-category-theory:https://arxiv.org/pdf/1803.05316.pdf  
+
+
 
 ---
 
@@ -43,6 +49,9 @@ in the software space just mean here are cursors of all the people. CRDT is the 
 which I think is the first layer of abstraction over "here are cursors of all the people". Conflicts in a collaborative 
 software are considered to be bad, yes they are by current definition at the current level of abstraction. If the abstraction
 layer is higher conflicts are good for progress. 
+
+My very strong intuition as of april 14 is that category-theory is THE missing piece I have been looking since the starting
+of this project as a mere thought. I think so because would provide me with the tool that lets me think about the structure and coherence.
 
 
 ---

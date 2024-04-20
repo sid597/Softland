@@ -146,7 +146,7 @@
             (svg/foreignObject
               (dom/props {:x      (subscribe. x-p)     ;(+  (subscribe. x-p) 5)
                           :y      (subscribe. y-p)     ;(+  (subscribe. y-p)  5)
-                          :height 400 ;(subscribe. height-p);(-  (subscribe. height-p)  10)
+                          :height 398 ;(subscribe. height-p);(-  (subscribe. height-p)  10)
                           :width  (subscribe. width-p) ;(-  (subscribe. width-p)   10)
                           ;:fill   "black"
                           :style {:display "flex"
@@ -160,7 +160,8 @@
                                     :width            "100%"
                                     :display          "flex"
                                     :overflow         "scroll"
-                                    :flex-direction   "column"}})
+                                    :flex-direction   "column"
+                                    :border-radius    "10px"}})
                 (card-topbar. id)
 
                 (dom/div
