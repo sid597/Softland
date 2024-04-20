@@ -1,21 +1,15 @@
-{:deps {:aliases [:dev]}
- :nrepl {:port 9002}
+{:nrepl {:port 9002}
  :builds
- {:dev
-  {:target :browser
-   :devtools {:watch-dir "resources/public" ; live reload CSS
-              :hud #{:errors :progress}
-              :ignore-warnings true} ; warnings don't prevent hot-reload
-   :output-dir "resources/public/js"
-   :asset-path "/js"
-   :modules {:main {:entries [user]
-                    :init-fn user/start!}}
-   :build-hooks [(hyperfiddle.electric.shadow-cljs.hooks/reload-clj)
-                 (shadow.cljs.build-report/hook {:output-to "target/build_report.html"})
-                 (user/rcf-shadow-hook)]}
-  :prod
-  {:target :browser
-   :output-dir "resources/public/js"
-   :asset-path "/js"
-   :module-hash-names true
-   :modules {:main {:entries [user] :init-fn user/start!}}}}}
+ {:dev  {:target :browser
+         :devtools {:watch-dir "resources/public"
+                    :loader-mode :default}
+         :output-dir "resources/public/js"
+         :asset-path "/js"
+         :modules {:main {:entries [dev]
+                          :init-fn dev/start!}}
+         :build-hooks [(hyperfiddle.electric.shadow-cljs.hooks/reload-clj)]}
+  :prod {:target :browser
+         :output-dir "resources/public/js"
+         :asset-path "/js"
+         :module-hash-names true
+         :modules {:main {:entries [prod] :init-fn prod/start!}}}}}

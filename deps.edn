@@ -1,59 +1,43 @@
-{:paths ["src" "resources"]
+{:paths     ["src" "resources"]
  :mvn/repos {"nexus-releases" {:url "https://nexus.redplanetlabs.com/repository/maven-public-releases"}}
- :deps {com.hyperfiddle/electric {:mvn/version "v2-alpha-536-g0c582f78"}
-        org.clojure/data.xml {:mvn/version "0.2.0-alpha8"}
-        com.hyperfiddle/rcf {:mvn/version "20220926-202227"}
-        info.sunng/ring-jetty9-adapter
-        {:mvn/version "0.14.3" ; (Jetty 9) is Java 8 compatible;
-         :exclusions [org.slf4j/slf4j-api info.sunng/ring-jetty9-adapter-http3]} ; no need
+ :deps      {com.hyperfiddle/electric           {:git/url "https://github.com/hyperfiddle/electric" :git/sha "b32ac98df7d7ec87f225d47354671be172ffa87e"}
+             com.hyperfiddle/rcf                {:mvn/version "20220926-202227"}
+             ring/ring                          {:mvn/version "1.11.0"} ; comes with Jetty
 
-        ;; Electric IC version requires 1.12 but rama is fixed on 1.11.1 so I have included the newer changes
-        ;; by importing data.xml above according to this comment
-        ;; https://clojurians.slack.com/archives/C7Q9GSHFV/p1704475238085959?thread_ts=1704210542.998019&cid=C7Q9GSHFV
+             ;; Electric IC version requires 1.12 but rama is fixed on 1.11.1 so I have included the newer changes
+             ;; by importing data.xml above according to this comment
+             ;; https://clojurians.slack.com/archives/C7Q9GSHFV/p1704475238085959?thread_ts=1704210542.998019&cid=C7Q9GSHFV
+             com.google.guava/guava            {:mvn/version "33.1.0-jre"}
 
-        ;org.clojure/clojure {:mvn/version "1.12.0-alpha4"}
-        org.clojure/clojure {:mvn/version "1.11.1"}
-        org.clojure/clojurescript {:mvn/version "1.11.60"}
-        org.clojure/tools.logging {:mvn/version "1.2.4"}
-        ch.qos.logback/logback-classic {:mvn/version "1.2.11"}
-        datascript/datascript {:mvn/version "1.5.2"}
-        com.rpl/rama {:mvn/version "0.11.9"}
-        com.rpl/rama-helpers {:mvn/version "0.9.3"}
-        com.rpl/specter {:mvn/version "1.1.4"}
-        io.github.nextjournal/clojure-mode {:git/tag "v0.3.0" :git/sha "694abc7"}
-        ring-basic-authentication/ring-basic-authentication {:mvn/version "1.1.1"}}
- :aliases {:dev
-           {:extra-deps
-            {binaryage/devtools {:mvn/version "1.0.6"}
-             net.clojars.wkok/openai-clojure {:mvn/version "0.14.0"}
-             io.github.nextjournal/clojure-mode {:git/tag "v0.3.0" :git/sha "694abc7"}
-             reagent/reagent {:mvn/version "1.2.0"}
-             com.rpl/rama {:mvn/version "0.10.0"}
-             com.rpl/rama-helpers {:mvn/version "0.9.1"}
-             thheller/shadow-cljs {:mvn/version "2.25.2"}}
-            :jvm-opts
-            ["-Xss2m" ; https://github.com/hyperfiddle/photon/issues/11
-             "-XX:-OmitStackTraceInFastThrow"] ;; RCF
+             org.clojure/data.xml               {:mvn/version "0.2.0-alpha8"}
+             org.clojure/clojure                {:mvn/version "1.11.1"}
+             org.clojure/clojurescript          {:mvn/version "1.11.60"}
+             org.clojure/tools.logging          {:mvn/version "1.2.4"}
+             ch.qos.logback/logback-classic     {:mvn/version "1.2.11"}
+             datascript/datascript              {:mvn/version "1.5.2"}
+             com.rpl/rama                       {:mvn/version "0.12.1"}
+             com.rpl/rama-helpers               {:mvn/version "0.9.3"}
+             com.rpl/specter                    {:mvn/version "1.1.4"}
+             net.clojars.wkok/openai-clojure    {:mvn/version "0.14.0"}
+             io.github.nextjournal/clojure-mode {:git/tag "v0.3.0" :git/sha "694abc7"}}
+ :aliases  {:dev   {:extra-paths ["src-dev"]
+                    :extra-deps {io.github.clojure/tools.build {:mvn/version "0.9.6"
+                                                                 :exclusions  [com.google.guava/guava  ; Guava version conflict between tools.build and clojurescript.
+                                                                               org.slf4j/slf4j-nop]}   ; clashes with app logger}
+                                 thheller/shadow-cljs            {:mvn/version "2.25.2"}}}
 
-            :exec-fn user/main
-            :exec-args {}}
+            :nrepl {:extra-deps
+                    {cider/cider-nrepl {:mvn/version "0.29.0"}}
+                    :main-opts
+                    ["-m" "nrepl.cmdline"
+                     "--port" "9001"]}
 
-           ;; nrepl
-           :nrepl
-           {:extra-deps
-            {cider/cider-nrepl {:mvn/version "0.29.0"}}
-            :main-opts
-            ["-m" "nrepl.cmdline"
-             "--port" "9001"]}
+            :prod {:extra-paths ["src-prod"]}
 
-           :build
-           {:extra-paths ["src-build"]
-            :ns-default build
-            :extra-deps {io.github.clojure/tools.build {:mvn/version "0.9.5" :exclusions [com.google.guava/guava]}
-                         io.github.seancorfield/build-clj {:git/tag "v0.8.0" :git/sha "9bd8b8a"}
-                         com.rpl/rama {:mvn/version "0.10.0"}
-                         com.rpl/rama-helpers {:mvn/version "0.9.1"}
-                         net.clojars.wkok/openai-clojure {:mvn/version "0.14.0"}
-                         io.github.nextjournal/clojure-mode {:git/sha "694abc7"}
-                         thheller/shadow-cljs {:mvn/version "2.25.2"}}
-            :jvm-opts ["-Xss2m"]}}}
+            ; use `clj -X:build build-client`, NOT -T! build/app classpath contamination cannot be prevented
+            :build {:extra-paths ["src-build"]
+                    :ns-default build
+                    :extra-deps {io.github.clojure/tools.build {:mvn/version "0.9.6"
+                                                                 :exclusions  [com.google.guava/guava  ; Guava version conflict between tools.build and clojurescript.
+                                                                               org.slf4j/slf4j-nop]}   ; clashes with app logger}
+                                 thheller/shadow-cljs {:mvn/version "2.25.2"}}}}}
