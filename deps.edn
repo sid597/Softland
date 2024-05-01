@@ -8,7 +8,6 @@
              ;; by importing data.xml above according to this comment
              ;; https://clojurians.slack.com/archives/C7Q9GSHFV/p1704475238085959?thread_ts=1704210542.998019&cid=C7Q9GSHFV
              com.google.guava/guava            {:mvn/version "33.1.0-jre"}
-
              org.clojure/data.xml               {:mvn/version "0.2.0-alpha8"}
              org.clojure/clojure                {:mvn/version "1.11.1"}
              org.clojure/clojurescript          {:mvn/version "1.11.60"}
@@ -19,7 +18,8 @@
              com.rpl/rama-helpers               {:mvn/version "0.9.3"}
              com.rpl/specter                    {:mvn/version "1.1.4"}
              net.clojars.wkok/openai-clojure    {:mvn/version "0.14.0"}
-             io.github.nextjournal/clojure-mode {:git/tag "v0.3.0" :git/sha "694abc7"}}
+             io.github.nextjournal/clojure-mode {:git/tag "v0.3.0" :git/sha "694abc7"}
+             org.apache.logging.log4j/log4j-slf4j2-impl {:mvn/version "2.23.1"}}
  :aliases  {:dev   {:extra-paths ["src-dev"]
                     :extra-deps {io.github.clojure/tools.build {:mvn/version "0.9.6"
                                                                  :exclusions  [com.google.guava/guava  ; Guava version conflict between tools.build and clojurescript.

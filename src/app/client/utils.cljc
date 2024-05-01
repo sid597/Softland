@@ -86,11 +86,11 @@
 
 
 
-#?(:clj (def !edges (atom {#_#_:sv-line {:id :sv-line
-                                         :type "line"
-                                         :to   :sv-circle
-                                         :from :sv-circle1
-                                         :color "black"}})))
+#?(:clj (def !edges (atom {:sv-line {:id :sv-line
+                                     :type "line"
+                                     :to   :83696284-4eb1-481e-bbb7-b8d555495b76
+                                     :from :08fe4616-4a43-4b5c-9d77-87fc7dc462c5
+                                     :color "black"}})))
 
 (e/def edges (e/server (e/watch !edges)))
 
@@ -138,6 +138,7 @@
 
 
 (e/defn subscribe [path]
+  (println "SUBSCRIBE PATH: " path)
   (e/server (new (!subscribe (concat [(keypath :main)]
                                path)
                    nodes-pstate))))
