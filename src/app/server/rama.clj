@@ -35,6 +35,7 @@
                                                             :type               String
                                                             :fill               String}))}
       #_{:global? true})
+    (declare-pstate n $$node-ids-pstate {Keyword (vector-schema Keyword)})
     (declare-pstate n $$event-id-pstate Long {:global? true
                                               :initial-value 0})
     (declare-pstate n $$user-registration-pstate {String ; username
@@ -86,21 +87,27 @@
       (<<cond
         ;; Add nodes
         (case> (= :new-node *action-type))
-        (println "----------------------------------------------------")
         (println "R: ADDING NODE" *node-data)
         (local-transform>
           [*graph-name
            (keypath (ffirst *node-data))
            (termval (val (first *node-data)))]
           $$nodes-pstate)
-        (println "R: NODE ADDED?" (local-select> ALL $$nodes-pstate))
-        (println "----------------------------------------------------")
+        (local-transform>
+          [(keypath *graph-name)
+           AFTER-ELEM
+           (termval (ffirst *node-data))]
+          $$node-ids-pstate)
 
         ;; Delete nodes
-        (case> (= :delete-node *action-type))
+        #_#_#_(case> (= :delete-node *action-type))
         (local-transform>
-          [(keypath (first *node-data)) NONE>]
+          [*graph-name (keypath (first *node-data)) NONE>]
           $$nodes-pstate)
+        (local-transform>
+          [*graph-name
+           [ALL (= % (first *node-data))] NONE>]
+          $$node-ids-pstate)
 
         ;; Update nodes
         (case> (= :update-node *action-type))
@@ -137,6 +144,7 @@
 
 (def event-depot                  (foreign-depot  @!rama-ipc (get-module-name node-events-module) "*node-events-depot"))
 (def nodes-pstate                 (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$nodes-pstate"))
+(def node-ids-pstate              (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$node-ids-pstate"))
 (def event-id-pstate              (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$event-id-pstate"))
 (def user-registration-pstate     (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$user-registration-pstate"))
 (def user-registration-depot      (foreign-depot @!rama-ipc (get-module-name node-events-module) "*user-registration-depot"))
@@ -338,7 +346,5 @@
                                             :fill  "lightblue"}}
                                    {:graph-name :level-1})
       :append-ack))
-  (foreign-select (keypath ["main" ALL]) nodes-pstate {:pkey :rect})
+ foreign-select (keypath ["main" ALL]) nodes-pstate {:pkey :rect})
 
-
-  (foreign-select ALL nodes-pstate {:pkey :rect}))

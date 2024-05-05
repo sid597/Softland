@@ -27,7 +27,7 @@
                  [app.server.llm :as llm :refer [chat-complete]]
                  [app.client.utils :refer [!ui-mode !edges !nodes]]
                  [com.rpl.rama.path :as path :refer [subselect ALL FIRST STAY MAP-KEYS keypath select]]
-                 [app.server.rama :as rama :refer [!subscribe nodes-pstate get-event-id add-new-node]]
+                 [app.server.rama :as rama :refer [!subscribe nodes-pstate node-ids-pstate get-event-id add-new-node]]
                  [clojure.core.async :as a :refer [<! >! go]]])))
 
 
@@ -129,18 +129,10 @@
         (bg/dot-background. (:svg-dots (theme. ui-mode)) viewbox)
 
         (e/server
-            (e/for-by identity [node-id (new (!subscribe [:main ] nodes-pstate))]
+            (e/for-by identity [node-id (new (!subscribe [:main ] node-ids-pstate))]
               (e/client
                (println "NODE ID" node-id)
-               (let [type (-> node-id second :type)]
-                  (println "type" type (= "circle" type))
-                  (println "node" node-id)
-                  #_(circle. (first node-id))
-                  (when (= "rect" type)
-                    (rect. node-id)) ;(first node-id) (second node-id))
-                  #_(cond
-                          (= "circle" type)  (circle. node-id)
-                          (= "rect" type)    (rect. node-id nodes-pstate)))))
+               (rect. node-id)))
             (e/for-by identity [edge edges]
               (let [[_ {:keys [type x2 y2]}] edge]
                 (e/client

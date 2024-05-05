@@ -37,11 +37,14 @@
   (e/client
     (let [tw (int (subscribe. [ to :type-specific-data :width]))
           th (int (subscribe. [ to :type-specific-data :height]))
+          fw (int (subscribe. [ from :type-specific-data :width]))
+          fh (int (subscribe. [ from :type-specific-data :height]))
           tx (int (subscribe. [to :x]))
           ty (int (subscribe. [to :y]))
           fx (int (subscribe. [from :x]))
           fy (int (subscribe. [from :y]))
-          [xx yy] (attributes tx ty th tw fx fy)]
+          [xx yy] (attributes tx ty th tw fx fy)
+          [fxx fyy] (attributes fx fy fh fw xx yy)]
       (svg/line
         (dom/props {:style {:z-index -1}
                     :id id
@@ -51,7 +54,7 @@
                     :y1  yy #_(if th
                                 (+ ty (/ th 2))
                                 ty)
-                    :x2  fx
-                    :y2  fy
+                    :x2  fxx
+                    :y2  fyy
                     :stroke color
                     :stroke-width 4})))))

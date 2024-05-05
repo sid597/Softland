@@ -20,6 +20,7 @@
             [hyperfiddle.electric-ui4 :as ui]
             #?@(:cljs
                 [[app.client.utils :refer [!border-drag? !is-dragging? !zoom-level !last-position !viewbox !context-menu?]]]
+
                 :clj
                 [[com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
                  [app.client.utils :refer [!ui-mode !edges !nodes]]
@@ -95,7 +96,7 @@
         (outlined-button. "7")))))
 
 
-(e/defn rect [[id {:keys [y x type id type-specific-data]}]]
+(e/defn rect [id]
   (e/client
     (let [#_#_!cm-text (atom nil)
           #_#_cm-text  (e/watch !cm-text)
@@ -114,8 +115,16 @@
           width-p  [ id :type-specific-data :width]
           height-p [ id :type-specific-data :height]
           dragging? (atom false)
-          h (:height type-specific-data)
-          w (:width type-specific-data)]
+          !xx (atom (subscribe. x-p))
+          xx (e/watch !xx)
+          !yy (atom (subscribe. y-p))
+          yy (e/watch !yy)
+          !hh (atom (subscribe. height-p))
+          hh (e/watch !hh)
+          !ww (atom (subscribe. width-p))
+          ww (e/watch !ww)
+          !text (atom (subscribe. text-p))
+          block-text (e/watch !text)]
 
       #_(svg/g
           #_(svg/rect
@@ -145,12 +154,11 @@
               #_(dom/on "mouseup" (e/fn [e]
                                     (println "mouseup the rect.")
                                     (reset! !border-drag? false)))))
-     (when (and (some? x)(some? y)(some? h)(some? w))
-      (svg/foreignObject
-        (dom/props {:x      x;(subscribe. x-p)     ;(+  (subscribe. x-p) 5)
-                    :y      y ;(subscribe. y-p)     ;(+  (subscribe. y-p)  5)
-                    :height h ;(subscribe. height-p);(-  (subscribe. height-p)  10)
-                    :width  w ; (subscribe. width-p) ;(-  (subscribe. width-p)   10)
+      (svg/rect
+        (dom/props {:x      xx;(subscribe. x-p)     ;(+  (subscribe. x-p) 5)
+                    :y      yy ;(subscribe. y-p)     ;(+  (subscribe. y-p)  5)
+                    :height hh ;(subscribe. height-p);(-  (subscribe. height-p)  10)
+                    :width  ww ; (subscribe. width-p) ;(-  (subscribe. width-p)   10)
                     :fill   "white"
                     :id     id
                     :style {:display "flex"
@@ -168,8 +176,7 @@
                                 :font-size        "23px"
                                 :padding          "20px"
                                 :border-radius    "10px"}})
-
-            (dom/div (dom/text (:text type-specific-data))))
+            (dom/div (dom/text block-text)))
         (dom/on "mousemove" (e/fn [e]
                               (e/client
                                 (.preventDefault e)
@@ -178,33 +185,29 @@
                                   ;(println "////////" "&&&&&7" (fc/browser-to-svg-coords e viewbox (.getElementById js/document (name id))))
                                   ;(js/console.log "--**" (.getElementById js/document (name id)))
                                   (let [[cx cy] (fc/element-new-coordinates1 e (.getElementById js/document (name id)))
-                                        new-x  (- cx (/ w 2))
-                                        new-y  (- cy (/ h 2))]
+                                        new-x  (- cx (/ @!ww 2))
+                                        new-y  (- cy (/ @!hh 2))]
                                     ;(println "new x " new-x "ox" x "new y " new-y "oy" y)
                                     (when (and (some? new-x)
                                             (some? new-y))
                                       ;(println "NOT NIL new x " new-x "new y " new-y)
+                                     ; (reset! !xx new-x)
+                                     ; (reset! !yy new-y)
+
                                       (e/server
-                                         (update-node
-                                           [text-p "HELLO WORLD"]
-                                           {:graph-name  :main
-                                            :event-id    (get-event-id)
-                                            :create-time (System/currentTimeMillis)}
-                                           true
-                                           false)
                                         (update-node
                                           [x-p new-x]
                                           {:graph-name  :main
                                            :event-id    (get-event-id)
                                            :create-time (System/currentTimeMillis)}
-                                          true
+                                          false
                                           false)
                                         (update-node
                                           [y-p new-y]
                                           {:graph-name  :main
                                            :event-id    (get-event-id)
                                            :create-time (System/currentTimeMillis)}
-                                          true
+                                          false
                                           true))))))))
 
 
@@ -276,7 +279,7 @@
                                             y         (e/server (rama/get-path-data y-p pstate))]
                                         (when (some? cm-text)
                                           (println "cm-text -->" cm-text)
-                                          (create-new-child-node. id child-uid (+ x 600) y cm-text)))))))))))))
+                                          (create-new-child-node. id child-uid (+ x 600) y cm-text))))))))))))
 
 #_(update-node
     [[:08fe4616-4a43-4b5c-9d77-87fc7dc462c5 :x] 2000]
