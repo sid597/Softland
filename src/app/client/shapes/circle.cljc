@@ -17,7 +17,8 @@
 
 
 
-(e/defn circle [[k {:keys [id x y r color dragging?]}]]
+(e/defn circle [id]
+  (println "cirtle id" id)
   (let [x-p          [ id :x]
         y-p          [ id :y]
         r-p          [ id :type-specific-data :r]
@@ -26,35 +27,36 @@
     (e/client
       (svg/circle
         (dom/props {:id id
-                    :cx (subscribe. x-p)
-                    :cy (subscribe. y-p)
-                    :r  (subscribe. r-p)
-                    :fill (subscribe. color-p)})
-        (dom/on  "mousemove" (e/fn [e]
-                               (.preventDefault e)
-                               (when dragging?
-                                 (println "dragging element"
-                                   (let [el      (.getElementById js/document (name id))
-                                         [x y]   (fc/element-new-coordinates1 e el)]
-                                     (e/server (swap! !nodes assoc-in [k :x]  x))
-                                     (e/server (swap! !nodes assoc-in [k :y] y)))))))
-        (dom/on "mousedown"  (e/fn [e]
-                               (.preventDefault e)
-                               (.stopPropagation e)
-                               (println "pointerdown element")
-                               (e/server (swap! !nodes assoc-in [k :dragging?] true))))
-        (dom/on "mouseup"    (e/fn [e]
-                               (.preventDefault e)
-                               (.stopPropagation e)
-                               (println "pointerup element")
-                               (e/server (swap! !nodes assoc-in [k :dragging?] false))))
-        (dom/on "mouseleave"    (e/fn [e]
+                    :cx (subscribe. x-p) ;(+ 100 (rand-int 1000)) ;
+                    :cy  (subscribe. y-p) ;(+ 400 (rand-int 300));
+                    :r  (+ 2 (rand-int 30)) ;(subscribe. r-p)
+                    :fill "brown"}) ;(subscribe. color-p)})
+        #_(dom/on  "mousemove" (e/fn [e]
+                                 (.preventDefault e)
+                                 (when dragging?
+                                   (println "dragging element"
+                                     (let [el      (.getElementById js/document (name id))
+                                           [x y]   (fc/element-new-coordinates1 e el)]
+                                       (e/server (swap! !nodes assoc-in [k :x]  x))
+                                       (e/server (swap! !nodes assoc-in [k :y] y)))))))
+        #_(dom/on "mousedown"  (e/fn [e]
+                                 (.preventDefault e)
+                                 (.stopPropagation e)
+                                 (println "pointerdown element")
+                                 (e/server (swap! !nodes assoc-in [k :dragging?] true))))
+        #_(dom/on "mouseup"    (e/fn [e]
+                                 (.preventDefault e)
+                                 (.stopPropagation e)
+                                 (println "pointerup element")
+                                 (e/server (swap! !nodes assoc-in [k :dragging?] false))))
+        #_(dom/on "mouseleave"    (e/fn [e]
+                                    (.preventDefault e)
+                                    (.stopPropagation e)
+                                    (println "mouseleave element")
+                                    (e/server (swap! !nodes assoc-in [k :dragging?] false))))
+        #_(dom/on "mouseout"    (e/fn [e]
                                   (.preventDefault e)
                                   (.stopPropagation e)
-                                  (println "mouseleave element")
-                                  (e/server (swap! !nodes assoc-in [k :dragging?] false))))
-        (dom/on "mouseout"    (e/fn [e]
-                                (.preventDefault e)
-                                (.stopPropagation e)
-                                (println "mouseout element")
-                                (e/server (swap! !nodes assoc-in [k :dragging?] false))))))))
+                                  (println "mouseout element")
+                                  (e/server (swap! !nodes assoc-in [k :dragging?] false))))))))
+

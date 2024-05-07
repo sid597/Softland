@@ -81,7 +81,7 @@
       (source> *node-events-depot :> {:keys [*action-type *node-data *event-data]})
       (local-select> (keypath :graph-name) *event-data :> *graph-name)
       (|hash *graph-name)
-      (println "R: PROCESSING EVENT" (= :new-node *action-type))
+      (println "R: PROCESSING EVENT" *action-type)
 
       (<<cond
         ;; Add nodes
@@ -104,9 +104,13 @@
 
         ;; Update nodes
         (case> (= :update-node *action-type))
+        (println "----------------------------------------------------")
+        (println "R: UPDATING NODE" *node-data)
         (local-transform>
-          [(first *node-data) (termval (second *node-data))]
+          [*graph-name (first *node-data) (termval (second *node-data))]
           $$nodes-pstate)
+        (println "R: NODE UPDATED" (local-select> ALL $$nodes-pstate))
+        (println "----------------------------------------------------")
 
         ;; update event id
         (case> (= :update-event-id *action-type))
@@ -226,6 +230,21 @@
             (some? (:event-id event-data)))
       (update-event-id)))))
 
+(defn update-node
+  ([node-map event-data]
+   (update-node node-map event-data false false))
+  ([node-map event-data save? update?]
+   (do
+    (foreign-append! event-depot (->node-events
+                                   :update-node
+                                   node-map
+                                   event-data)
+      :append-ack)
+    (when save?
+      (save-event "update-node" [node-map event-data]))
+    (when (or update?
+            (some? (:event-id event-data)))
+      (update-event-id)))))
 
 (defn get-path-data [path pstate]
   (foreign-select path pstate {:pkey :rect}))

@@ -3,7 +3,7 @@
             [clojure.java.io :as io]))
 
 
-(defonce file-location "/Users/bharatyadav/Documents/Softland-files/softland.edn")
+(defonce file-location "/Users/sid597/Documents/Softland-files/softland.edn")
 
 ;; --------- Serialize and save event to file ------------
 (defn save-event [function-name args]
