@@ -19,8 +19,8 @@
             [app.client.style-components.buttons :refer [icon-button]]
             [hyperfiddle.electric-ui4 :as ui]
             #?@(:cljs
-                [[app.client.utils :refer [!border-drag? !is-dragging? !zoom-level !last-position !viewbox !context-menu?]]]
-
+                [[app.client.utils :refer [!border-drag? !is-dragging? !zoom-level !last-position !viewbox !context-menu?]]
+                 [missionary.core :as m]]
                 :clj
                 [[com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
                  [app.client.utils :refer [!ui-mode !edges !nodes]]
@@ -95,6 +95,33 @@
         (outlined-button. "6")
         (outlined-button. "7")))))
 
+#?(:cljs
+   (defn el-mouse-move-state> [movable]
+     (m/observe
+       (fn [!]
+         (let [sample (fn [e]
+                        (! (do
+                             (.preventDefault e)
+                             [(.-clientX e)
+                              (.-clientY e)])))]
+           (.addEventListener movable "mousemove" sample #js {"passive" false})
+           #(.removeEventListener movable "mousemove" sample))))))
+
+
+#?(:cljs (defn el-mouse-move-state< [movable]
+           (->> (el-mouse-move-state> movable)
+             (e/throttle 1)
+             (m/reductions {} [0 0])
+             (m/relieve {})
+             (m/latest (fn [[cx cy]]
+                         (let [ctm (.getScreenCTM movable)
+                               dx  (/ (- cx (.-e ctm))
+                                     (.-a ctm))
+                               dy  (/ (- cy (.-f ctm))
+                                     (.-d ctm))]
+                           [dx dy]))))))
+
+
 
 (e/defn rect [id]
   (e/client
@@ -114,7 +141,8 @@
           text-p   [ id :type-specific-data :text]
           width-p  [ id :type-specific-data :width]
           height-p [ id :type-specific-data :height]
-          dragging? (atom false)
+          !dragging? (atom false)
+          dragging? (e/watch !dragging?)
           !xx (atom (subscribe. x-p))
           xx (e/watch !xx)
           !yy (atom (subscribe. y-p))
@@ -124,113 +152,95 @@
           !ww (atom (subscribe. width-p))
           ww (e/watch !ww)
           !text (atom (subscribe. text-p))
-          block-text (e/watch !text)]
+          block-text (e/watch !text)
+          !fx (atom nil)
+          !fy (atom nil)]
 
-      #_(svg/g
-          #_(svg/rect
-              (dom/props {:id     dom-id
-                          :x      (subscribe. x-p)
-                          :y      (subscribe. y-p)
-                          :width  (subscribe. width-p)
-                          :height 400;(subscribe. height-p)
-                          :rx     "10"
-                          #_#_:fill   (:editor-border (theme. ui-mode))})
-              (dom/on "click" (e/fn [e]
-                                (println "clicked the rect.")))
-              #_(dom/on "mousedown" (e/fn [e]
-                                      (println "mousedown the rect.")
-                                      (let [el    (.getElementById js/document (name dom-id))
-                                            [x y] (fc/element-new-coordinates1 e  el)]
-                                        (e/server
-                                          (swap! !edges assoc :raw {:id :raw
-                                                                    :type "raw"
-                                                                    :x1 x
-                                                                    :y1 y
-                                                                    :x2 nil
-                                                                    :y2 nil
-                                                                    :stroke (:edge-color (theme. ui-mode))
-                                                                    :stroke-width 4})))
-                                      (reset! !border-drag? true)))
-              #_(dom/on "mouseup" (e/fn [e]
-                                    (println "mouseup the rect.")
-                                    (reset! !border-drag? false)))))
-      (svg/rect
-        (dom/props {:x      xx;(subscribe. x-p)     ;(+  (subscribe. x-p) 5)
-                    :y      yy ;(subscribe. y-p)     ;(+  (subscribe. y-p)  5)
-                    :height hh ;(subscribe. height-p);(-  (subscribe. height-p)  10)
-                    :width  ww ; (subscribe. width-p) ;(-  (subscribe. width-p)   10)
-                    :fill   "white"
-                    :id     id
-                    :style {:display "flex"
-                            :flex-direction "column"
-                            :border "1px solid black"
-                            :border-radius "10px"
-                            :background-color "white"
-                            :overflow "scroll"}})
-        #_(dom/div
-            (dom/props {:style {:background-color "white"
-                                :display          "flex"
-                                :overflow         "scroll"
-                                :color            "black"
-                                :flex-direction   "column"
-                                :font-size        "23px"
-                                :padding          "20px"
-                                :border-radius    "10px"}})
-            (dom/div (dom/text block-text)))
-        (dom/on "mousemove" (e/fn [e]
-                              (e/client
-                                (.preventDefault e)
-                                (when @dragging?
-                                  (println "MOUSE MOVE element")
-                                  ;(println "////////" "&&&&&7" (fc/browser-to-svg-coords e viewbox (.getElementById js/document (name id))))
-                                  ;(js/console.log "--**" (.getElementById js/document (name id)))
-                                  (let [[cx cy] (fc/element-new-coordinates1 e (.getElementById js/document (name id)))
-                                        new-x  (- cx (/ @!ww 2))
-                                        new-y  (- cy (/ @!hh 2))]
-                                    ;(println "new x " new-x "ox" x "new y " new-y "oy" y)
-                                    (when (and (some? new-x)
-                                            (some? new-y))
-                                      ;(println "NOT NIL new x " new-x "new y " new-y)
-                                     ; (reset! !xx new-x)
-                                     ; (reset! !yy new-y)
+      (svg/g
+        (svg/rect
+          (dom/props {:x      xx;(subscribe. x-p)     ;(+  (subscribe. x-p) 5)
+                      :y      yy ;(subscribe. y-p)     ;(+  (subscribe. y-p)  5)
+                      :height hh ;(subscribe. height-p);(-  (subscribe. height-p)  10)
+                      :width  ww ; (subscribe. width-p) ;(-  (subscribe. width-p)   10)
+                      :fill   "white"
+                      :id     id
+                      :style {:display "flex"
+                              :flex-direction "column"
+                              :border "1px solid black"
+                              :border-radius "10px"
+                              :background-color "white"
+                              :overflow "scroll"}})
+          #_(dom/div
+              (dom/props {:style {:background-color "white"
+                                  :display          "flex"
+                                  :overflow         "scroll"
+                                  :color            "black"
+                                  :flex-direction   "column"
+                                  :font-size        "23px"
+                                  :padding          "20px"
+                                  :border-radius    "10px"}})
+              (dom/div (dom/text block-text)))
+          (let [[dx dy] (new (el-mouse-move-state< dom/node))]
+            (when dragging?
+              ;; why does it not work if I fut the new-x in above let?
+              (let [new-x (+ @!xx (- dx @!fx))
+                    new-y (+ @!yy (- dy @!fy))]
+                (reset! !xx new-x)
+                (reset! !yy new-y)
+                #_(e/server
+                    (update-node
+                      [x-p new-x]
+                      {:graph-name  :main
+                       :event-id    (get-event-id)
+                       :create-time (System/currentTimeMillis)}
+                      false
+                      false)
+                    (update-node
+                      [y-p new-y]
+                      {:graph-name  :main
+                       :event-id    (get-event-id)
+                       :create-time (System/currentTimeMillis)}
+                      false
+                      true)))))
 
-                                      (e/server
-                                        (update-node
-                                          [x-p new-x]
-                                          {:graph-name  :main
-                                           :event-id    (get-event-id)
-                                           :create-time (System/currentTimeMillis)}
-                                          false
-                                          false)
-                                        (update-node
-                                          [y-p new-y]
-                                          {:graph-name  :main
-                                           :event-id    (get-event-id)
-                                           :create-time (System/currentTimeMillis)}
-                                          false
-                                          true))))))))
-
-
-        (dom/on "mousedown"  (e/fn [e]
-                               (.preventDefault e)
-                               (.stopPropagation e)
-                               (println "MOUSEDOWN element")
-                               (reset! dragging? true)))
-        (dom/on "mouseup"    (e/fn [e]
-                               (.preventDefault e)
-                               (.stopPropagation e)
-                               (println "pointerup element")
-                               (reset! dragging? false)))
-        #_(dom/on "mouseleave"    (e/fn [e]
-                                    (.preventDefault e
-                                      (.stopPropagation e)
-                                      (println "mouseleave element")
-                                      (reset! dragging? false))))
-        #_(dom/on "mouseout"    (e/fn [e]
+          (dom/on "mousedown"  (e/fn [e]
+                                 (.preventDefault e)
+                                 (.stopPropagation e)
+                                 (let [cx (.-clientX e)
+                                       cy (.-clientY e)
+                                       ctm (.getScreenCTM dom/node)
+                                       dx  (/ (- cx (.-e ctm))
+                                              (.-a ctm))
+                                       dy  (/ (- cy (.-f ctm))
+                                             (.-d ctm))]
+                                     (reset! !fx dx)
+                                     (reset! !fy dy)
+                                     (println "MOUSEDOWN " {:fx @!fx :fy @!fy
+                                                            :xx xx :yy yy
+                                                            :dx dx :dy dy
+                                                            :cx cx :cy cy})
+                                     (reset! !dragging? true))))
+          (dom/on "mouseup"    (e/fn [e]
+                                 (.preventDefault e)
+                                 (.stopPropagation e)
+                                 (println "pointerup element" @!dragging?)
+                                 (reset! !fx 0)
+                                 (reset! !fy 0)
+                                 (reset! !dragging? false)))
+          (dom/on "mouseleave"    (e/fn [e]
+                                    (.preventDefault e)
+                                    (.stopPropagation e)
+                                    (println "mouseleave element")
+                                    (reset! !fx 0)
+                                    (reset! !fy 0)
+                                    (reset! !dragging? false)))
+          (dom/on "mouseout"    (e/fn [e]
                                   (.preventDefault e)
                                   (.stopPropagation e)
                                   (println "mouseout element")
-                                  (reset! dragging? false))
+                                  (reset! !fx 0)
+                                  (reset! !fy 0)
+                                  (reset! !dragging? false))
 
             #_(card-topbar. id)
 
@@ -279,7 +289,7 @@
                                             y         (e/server (rama/get-path-data y-p pstate))]
                                         (when (some? cm-text)
                                           (println "cm-text -->" cm-text)
-                                          (create-new-child-node. id child-uid (+ x 600) y cm-text))))))))))))
+                                          (create-new-child-node. id child-uid (+ x 600) y cm-text)))))))))))))
 
 #_(update-node
     [[:08fe4616-4a43-4b5c-9d77-87fc7dc462c5 :x] 2000]
