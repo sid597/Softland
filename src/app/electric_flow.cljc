@@ -4,9 +4,13 @@
             [hyperfiddle.electric :as e]
             [hyperfiddle.electric-svg :as svg]
             [hyperfiddle.electric-dom2 :as dom]
+            [app.client.shapes.rect :refer [rect]]
             #?@(:cljs
                 [[clojure.string :as str]
-                 [missionary.core :as m]])))
+                 [missionary.core :as m]]
+                :clj
+                [[missionary.core :as m]
+                 [app.server.rama :as rama :refer [!subscribe nodes-pstate get-event-id add-new-node]]])))
 
 
 (e/defn event-to-map [e viewbox]
@@ -94,9 +98,9 @@
                  #(.removeEventListener pinchable "wheel" sample))))))
 
 #?(:cljs (defn latest-wheel [e !viewbox]
-           (println "----" e)
+           ;(println "----" e)
            (when-let [{:keys [delta clientX clientY left top width height]} e]
-             (println "WHEEL" e)
+             ;(println "WHEEL" e)
              (let [[vx vy vw vh]   @!viewbox
                    scale           (if (< delta 0)
                                      1.06
@@ -116,8 +120,8 @@
                                     new-width
                                     new-height]]
                (do
-                 (println "prev box" @!viewbox)
-                 (println "new-box" new-box)
+                 ;(println "prev box" @!viewbox)
+                 ;(println "new-box" new-box)
                  [new-box scale])))))
 
 
@@ -151,9 +155,9 @@
           !zoom-level (atom 1.5)
           zoom-level (e/watch !zoom-level)]
 
-      (dom/on js/document "mousemove" (e/fn [e]
-                                        (println "mouse move on document")
-                                        (reset! !cpos (event-to-map. e viewbox))))
+      #_(dom/on js/document "mousemove" (e/fn [e]
+                                          (println "mouse move on document")
+                                          (reset! !cpos (event-to-map. e viewbox))))
      (dom/div
        (dom/props {:style {:display "flex"
                            :height "100%"
@@ -238,14 +242,14 @@
                                      (reset! !last-position {:x ex
                                                              :y ey})
                                      (reset! !is-dragging? true)
-                                     (println "DOWN" is-dragging?)
+                                     ;(println "DOWN" is-dragging?)
                                      (.preventDefault e)))))
 
            (dom/on "mouseup" (e/fn [e]
                                (.preventDefault e)
                                (when (= 0
                                        (.-button e))
-                                 (println "pointerup svg")
+                                 ;(println "pointerup svg")
                                  (reset! !is-dragging? false))))
            (svg/defs
               (svg/pattern
@@ -266,18 +270,12 @@
                  :width (nth viewbox 2)
                  :height (nth viewbox 3)
                  :fill "url(#dotted-pattern)"}))
-          (svg/foreignObject
-              (dom/props {:x 500
-                          :y 600
-                          :fill "blue"
-                          :width 1000
-                          :height 200})
-             (dom/div
-               (dom/props {:style {:height "90px"
-                                   :width "100px"
-                                   :color "black"
-                                   :padding "10px"
-                                   :background-color "white"}})))))))))
+
+           (e/server
+             (e/for-by identity [n (new (!subscribe [:main ] nodes-pstate))]
+               (e/client
+                 (println "NODE " n)
+                 (rect. (first n)))))))))))
 
 
 
