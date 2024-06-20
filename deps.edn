@@ -14,7 +14,7 @@
              org.clojure/tools.logging          {:mvn/version "1.2.4"}
              ch.qos.logback/logback-classic     {:mvn/version "1.2.11"}
              datascript/datascript              {:mvn/version "1.5.2"}
-             com.rpl/rama                       {:mvn/version "0.12.1"}
+             com.rpl/rama                       {:mvn/version "0.16.1"}
              com.rpl/rama-helpers               {:mvn/version "0.9.3"}
              com.rpl/specter                    {:mvn/version "1.1.4"}
              net.clojars.wkok/openai-clojure    {:mvn/version "0.14.0"}
