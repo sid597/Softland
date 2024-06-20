@@ -123,7 +123,7 @@
 
 
 
-(e/defn rect [id]
+(e/defn rect [id node]
   (e/client
     (let [#_#_!cm-text (atom nil)
           #_#_cm-text  (e/watch !cm-text)
@@ -143,18 +143,44 @@
           height-p [ id :type-specific-data :height]
           !dragging? (atom false)
           dragging? (e/watch !dragging?)
-          !xx (atom (subscribe. x-p))
+          extra-data (:type-specific-data node)
+          _ (println "extra data" extra-data)
+          !xx (atom (:x node) #_(subscribe. x-p))
           xx (e/watch !xx)
-          !yy (atom (subscribe. y-p))
+          !yy (atom (:y node) #_(subscribe. y-p))
           yy (e/watch !yy)
-          !hh (atom (subscribe. height-p))
+          !hh (atom (:height extra-data) #_(subscribe. height-p))
           hh (e/watch !hh)
-          !ww (atom (subscribe. width-p))
+          !ww (atom (:width extra-data) #_(subscribe. width-p))
           ww (e/watch !ww)
-          !text (atom (subscribe. text-p))
+          !text (atom (:text extra-data) #_(subscribe. text-p))
           block-text (e/watch !text)
           !fx (atom nil)
-          !fy (atom nil)]
+          !fy (atom nil)
+          reset-after-drag (e/fn [msg]
+                             (e/client
+                               (when @!dragging?
+                                 (do
+                                   (println msg @!dragging?)
+                                   (reset! !fx 0)
+                                   (reset! !fy 0)
+                                   (e/server
+                                     (update-node
+                                       [x-p (e/client @!xx)]
+                                       {:graph-name  :main
+                                        :event-id    (get-event-id)
+                                        :create-time (System/currentTimeMillis)}
+                                       false
+                                       false)
+                                     (update-node
+                                       [y-p (e/client @!yy)]
+                                       {:graph-name  :main
+                                        :event-id    (get-event-id)
+                                        :create-time (System/currentTimeMillis)}
+                                       false
+                                       true))
+                                   (reset! !dragging? false)))))]
+
 
       (svg/g
         (svg/rect
@@ -182,26 +208,12 @@
               (dom/div (dom/text block-text)))
           (let [[dx dy] (new (el-mouse-move-state< dom/node))]
             (when dragging?
-              ;; why does it not work if I fut the new-x in above let?
+              ;; why does it not work if I put the new-x in above let?
               (let [new-x (+ @!xx (- dx @!fx))
                     new-y (+ @!yy (- dy @!fy))]
                 (reset! !xx new-x)
-                (reset! !yy new-y)
-                #_(e/server
-                    (update-node
-                      [x-p new-x]
-                      {:graph-name  :main
-                       :event-id    (get-event-id)
-                       :create-time (System/currentTimeMillis)}
-                      false
-                      false)
-                    (update-node
-                      [y-p new-y]
-                      {:graph-name  :main
-                       :event-id    (get-event-id)
-                       :create-time (System/currentTimeMillis)}
-                      false
-                      true)))))
+                (reset! !yy new-y))))
+
 
           (dom/on "mousedown"  (e/fn [e]
                                  (.preventDefault e)
@@ -223,24 +235,16 @@
           (dom/on "mouseup"    (e/fn [e]
                                  (.preventDefault e)
                                  (.stopPropagation e)
-                                 (println "pointerup element" @!dragging?)
-                                 (reset! !fx 0)
-                                 (reset! !fy 0)
-                                 (reset! !dragging? false)))
+                                 (reset-after-drag. "mouseup on element")))
+
           (dom/on "mouseleave"    (e/fn [e]
                                     (.preventDefault e)
                                     (.stopPropagation e)
-                                    (println "mouseleave element")
-                                    (reset! !fx 0)
-                                    (reset! !fy 0)
-                                    (reset! !dragging? false)))
+                                    (reset-after-drag. "mouseleave on element")))
           (dom/on "mouseout"    (e/fn [e]
                                   (.preventDefault e)
                                   (.stopPropagation e)
-                                  (println "mouseout element")
-                                  (reset! !fx 0)
-                                  (reset! !fy 0)
-                                  (reset! !dragging? false))
+                                  (reset-after-drag. "mouseout element"))
 
             #_(card-topbar. id)
 
