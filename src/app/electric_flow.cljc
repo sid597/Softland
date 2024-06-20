@@ -10,7 +10,8 @@
                  [missionary.core :as m]]
                 :clj
                 [[missionary.core :as m]
-                 [app.server.rama :as rama :refer [!subscribe nodes-pstate get-event-id add-new-node]]])))
+                 [com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
+                 [app.server.rama :as rama :refer [!subscribe get-path-data nodes-pstate node-ids-pstate]]])))
 
 
 (e/defn event-to-map [e viewbox]
@@ -272,13 +273,12 @@
                  :fill "url(#dotted-pattern)"}))
 
            (e/server
-             (e/for-by identity [n (new (!subscribe [:main ] nodes-pstate))]
-               (e/client
-                 (println "NODE " n)
-                 (rect. (first n)))))))))))
-
-
-
+             (e/for-by identity [id (new (!subscribe [:main ] node-ids-pstate))]
+               (let [node (first (get-path-data [(keypath :main) id ] nodes-pstate))]
+                 (e/client
+                   (println "---> NODE DATA <----" node)
+                   (println "NODE " id)
+                   (rect. id node)))))))))))
 
 (e/defn main [ring-request]
   (e/client
