@@ -255,7 +255,7 @@
       (update-event-id)))))
 
 (defn get-path-data [path pstate]
-  (foreign-select path pstate {:pkey :rect}))
+  (foreign-select path pstate))
 
 (load-events) ;; THIS IS A HACK: Will not work when we move away from ipc.
 
