@@ -24,7 +24,7 @@
                 :clj
                 [[com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
                  [app.client.utils :refer [!ui-mode !edges !nodes]]
-                 [app.server.rama :as rama :refer [!subscribe nodes-pstate get-event-id add-new-node update-node]]])))
+                 [app.server.rama :as rama :refer [!subscribe nodes-pstate get-path-data get-event-id add-new-node update-node]]])))
 
 
 (e/defn card-topbar [id]
@@ -161,27 +161,26 @@
                              (e/client
                                (when @!dragging?
                                  (do
-                                   (println msg @!dragging?)
                                    (reset! !fx 0)
                                    (reset! !fy 0)
-                                   (e/server
-                                     (update-node
-                                       [x-p (e/client @!xx)]
-                                       {:graph-name  :main
-                                        :event-id    (get-event-id)
-                                        :create-time (System/currentTimeMillis)}
-                                       false
-                                       false)
-                                     (update-node
-                                       [y-p (e/client @!yy)]
-                                       {:graph-name  :main
-                                        :event-id    (get-event-id)
-                                        :create-time (System/currentTimeMillis)}
-                                       false
-                                       true))
+                                   (when (not= (e/server (first (get-path-data [(keypath :main) id :x] nodes-pstate)))
+                                           @!xx)
+                                     (e/server
+                                       (update-node
+                                         [x-p (e/client @!xx)]
+                                         {:graph-name  :main
+                                          :event-id    (get-event-id)
+                                          :create-time (System/currentTimeMillis)}
+                                         false
+                                         false)
+                                       (update-node
+                                         [y-p (e/client @!yy)]
+                                         {:graph-name  :main
+                                          :event-id    (get-event-id)
+                                          :create-time (System/currentTimeMillis)}
+                                         false
+                                         true)))
                                    (reset! !dragging? false)))))]
-
-
       (svg/g
         (svg/rect
           (dom/props {:x      xx;(subscribe. x-p)     ;(+  (subscribe. x-p) 5)

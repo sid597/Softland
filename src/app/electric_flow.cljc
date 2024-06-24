@@ -238,13 +238,14 @@
            (dom/on "mousedown" (e/fn [e]
                                  (when (= 0
                                          (.-button e))
+                                   (.preventDefault e)
                                    (let [ex (e/client (.-clientX e))
                                          ey (e/client (.-clientY e))]
                                      (reset! !last-position {:x ex
                                                              :y ey})
-                                     (reset! !is-dragging? true)
+                                     (reset! !is-dragging? true)))))
                                      ;(println "DOWN" is-dragging?)
-                                     (.preventDefault e)))))
+
 
            (dom/on "mouseup" (e/fn [e]
                                (.preventDefault e)
