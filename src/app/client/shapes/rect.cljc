@@ -95,32 +95,46 @@
         (outlined-button. "6")
         (outlined-button. "7")))))
 
+
+#?(:cljs (def !global-atom (atom nil)))
+#?(:cljs (defn global-client-flow []
+           (m/latest
+            (fn [x]
+              (println "3. GLOVAL FLOW NEW X" x)
+              x)
+            (m/watch !global-atom))))
+
 #?(:cljs
-   (defn el-mouse-move-state> [movable]
+   (defn el-mouse-move-state> [movable id]
      (m/observe
        (fn [!]
          (let [sample (fn [e]
                         (! (do
                              (.preventDefault e)
-                             [(.-clientX e)
-                              (.-clientY e)])))]
+                             (println "1. OBSERVE MOUSE STATE")
+                             {:id id
+                              :cord [(.-clientX e)
+                                     (.-clientY e)]})))]
+
            (.addEventListener movable "mousemove" sample #js {"passive" false})
            #(.removeEventListener movable "mousemove" sample))))))
 
 
-#?(:cljs (defn el-mouse-move-state< [movable]
-           (->> (el-mouse-move-state> movable)
-             (e/throttle 1)
+
+#?(:cljs (defn el-mouse-move-state< [movable id]
+           (->> (el-mouse-move-state> movable id)
+             (e/throttle 16)
              (m/reductions {} [0 0])
              (m/relieve {})
-             (m/latest (fn [[cx cy]]
-                         (let [ctm (.getScreenCTM movable)
-                               dx  (/ (- cx (.-e ctm))
-                                     (.-a ctm))
-                               dy  (/ (- cy (.-f ctm))
-                                     (.-d ctm))]
-                           [dx dy]))))))
-
+             (m/latest (fn [new-data]
+                         (println "2. CX CY" new-data)
+                         (reset! !global-atom new-data)
+                         #_(let [ctm (.getScreenCTM movable)
+                                 dx  (/ (- cx (.-e ctm))
+                                       (.-a ctm))
+                                 dy  (/ (- cy (.-f ctm))
+                                       (.-d ctm))]
+                             [dx dy]))))))
 
 
 (e/defn rect [id node]
@@ -205,13 +219,17 @@
                                   :padding          "20px"
                                   :border-radius    "10px"}})
               (dom/div (dom/text block-text)))
-          (let [[dx dy] (new (el-mouse-move-state< dom/node))]
-            (when dragging?
-              ;; why does it not work if I put the new-x in above let?
-              (let [new-x (+ @!xx (- dx @!fx))
-                    new-y (+ @!yy (- dy @!fy))]
-                (reset! !xx new-x)
-                (reset! !yy new-y))))
+          (new (el-mouse-move-state< dom/node id))
+          (let [data (new (global-client-flow))]
+            (when (= id (:id data))
+              (println "4. data " data " ----------------------"))
+            #_(when dragging?
+                (println "DRAGGING")
+                ;; why does it not work if I put the new-x in above let?
+                (let [new-x (+ @!xx (- dx @!fx))
+                      new-y (+ @!yy (- dy @!fy))]
+                  (reset! !xx new-x)
+                  (reset! !yy new-y))))
 
 
           (dom/on "mousedown"  (e/fn [e]
