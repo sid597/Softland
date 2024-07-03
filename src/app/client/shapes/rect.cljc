@@ -113,25 +113,26 @@
             (m/watch !global-atom))))
 
 #?(:cljs
-   (defn el-mouse-move-state> [movable id]
+   (defn el-mouse-move-state> [movable id dragging?]
      (m/observe
        (fn [!]
          (let [sample (fn [e]
-                        (! (do
-                             (.preventDefault e)
-                             ;(println "1. OBSERVE MOUSE STATE")
-                             {:id                           id
-                              :1 (current-time-ms)
-                              :cord                         [(.-clientX e)
-                                                             (.-clientY e)]})))]
+                        (when dragging?
+                         (! (do
+                              (.preventDefault e)
+                              ;(println "1. OBSERVE MOUSE STATE")
+                              {:id   id
+                               :1    (current-time-ms)
+                               :cord [(.-clientX e)
+                                      (.-clientY e)]}))))]
 
            (.addEventListener movable "mousemove" sample #js {"passive" false})
            #(.removeEventListener movable "mousemove" sample))))))
 
 
 
-#?(:cljs (defn el-mouse-move-state< [movable id]
-           (->> (el-mouse-move-state> movable id)
+#?(:cljs (defn el-mouse-move-state< [movable id dragging?]
+           (->> (el-mouse-move-state> movable id dragging?)
              (e/throttle 10)
              (m/reductions {} {:cord [0 0]
                                :reduction-time (current-time-ms)})
@@ -140,6 +141,17 @@
                          ;(println "2. CX CY" new-data (current-time-ms))
                          (reset! !global-atom (assoc new-data :2 (current-time-ms)
                                                               :2-1 (- (current-time-ms) (:1 new-data)))))))))
+
+#?(:cljs (defn server-update []
+           (->> (global-client-flow)
+             (e/throttle 3000)
+             (m/reductions {} {:cord [0 0]
+                               :reduction-time (current-time-ms)})
+             (m/relieve {})
+             (m/latest (fn [new-data]
+                         (println "----- SERVER -----" new-data)
+                         new-data)))))
+
 
 
 
@@ -184,22 +196,8 @@
                                    (reset! !fx 0)
                                    (reset! !fy 0)
                                    (when (not= (e/server (first (get-path-data [(keypath :main) id :x] nodes-pstate)))
-                                           @!xx)
-                                     (e/server
-                                       (update-node
-                                         [x-p (e/client @!xx)]
-                                         {:graph-name  :main
-                                          :event-id    (get-event-id)
-                                          :create-time (System/currentTimeMillis)}
-                                         false
-                                         false)
-                                       (update-node
-                                         [y-p (e/client @!yy)]
-                                         {:graph-name  :main
-                                          :event-id    (get-event-id)
-                                          :create-time (System/currentTimeMillis)}
-                                         false
-                                         true)))
+                                           @!xx))
+
                                    (reset! !dragging? false)))))]
       (svg/g
         (svg/rect
@@ -224,108 +222,134 @@
                                   :font-size        "23px"
                                   :padding          "20px"
                                   :border-radius    "10px"}})
-              (dom/div (dom/text block-text)))
-          (new (el-mouse-move-state< dom/node id))
-          (let [new-data (new (global-client-flow))]
-            (when (and (= id (:id new-data))
-                      dragging?)
-                (cljs.pprint/pprint (assoc new-data :4 (current-time-ms)
-                                                    :4-3 (- (current-time-ms) (:3 new-data))
-                                                    :4-2 (- (current-time-ms) (:2 new-data))
-                                                    :4-1 (- (current-time-ms) (:1 new-data))))
+              (dom/div (dom/text "GM: "@!xx)))
+          (new (el-mouse-move-state< dom/node id dragging?))
+          (let [server-data (new (server-update))
+                [cx cy] (:cord server-data)]
+            (when (= id (:id server-data))
+              (let [ctm      (.getScreenCTM dom/node)
+                    dx       (/ (- cx (.-e ctm))
+                              (.-a ctm))
+                    dy       (/ (- cy (.-f ctm))
+                              (.-d ctm))]
+                (let [new-x (+ @!xx (- dx @!fx))
+                      new-y (+ @!yy (- dy @!fy))]
+                  (println "***** SERVER DATA***** " new-x new-y)
+                  (e/server
+                   (update-node
+                       [x-p new-x]
+                       {:graph-name  :main
+                          :event-id    (get-event-id)
+                          :create-time (System/currentTimeMillis)}
+                       false
+                       false)
+                   (update-node
+                       [y-p new-y]
+                       {:graph-name  :main
+                          :event-id    (get-event-id)
+                          :create-time (System/currentTimeMillis)}
+                       false
+                       true))))))
+         (let [new-data (new (global-client-flow))]
+           (when  (= id (:id new-data))
+               #_(cljs.pprint/pprint (assoc new-data :4 (current-time-ms)
+                                                     :4-3 (- (current-time-ms) (:3 new-data))
+                                                     :4-2 (- (current-time-ms) (:2 new-data))
+                                                     :4-1 (- (current-time-ms) (:1 new-data))))
 
-                (let [[cx cy]  (:cord new-data)
-                      ctm      (.getScreenCTM dom/node)
-                      dx       (/ (- cx (.-e ctm))
-                                  (.-a ctm))
-                      dy       (/ (- cy (.-f ctm))
-                                  (.-d ctm))]
-                   ;(println "DRAGGING")
-                   ;; why does it not work if I put the new-x in above let?)
-                   (let [new-x (+ @!xx (- dx @!fx))
-                         new-y (+ @!yy (- dy @!fy))]
-                     (reset! !xx new-x)
-                     (reset! !yy new-y)))))
+               (let [[cx cy]  (:cord new-data)
+                     ctm      (.getScreenCTM dom/node)
+                     dx       (/ (- cx (.-e ctm))
+                                 (.-a ctm))
+                     dy       (/ (- cy (.-f ctm))
+                                 (.-d ctm))]
+                  ;(println "DRAGGING")
+                  ;; why does it not work if I put the new-x in above let?)
+                  (let [new-x (+ @!xx (- dx @!fx))
+                        new-y (+ @!yy (- dy @!fy))]
+                    (println "NEW X NEW Y" new-x new-y)
+                    (reset! !xx new-x)
+                    (reset! !yy new-y)))))
 
-          (dom/on "mousedown"  (e/fn [e]
+         (dom/on "mousedown"  (e/fn [e]
+                                (.preventDefault e)
+                                (.stopPropagation e)
+                                (let [cx (.-clientX e)
+                                      cy (.-clientY e)
+                                      ctm (.getScreenCTM dom/node)
+                                      dx  (/ (- cx (.-e ctm))
+                                             (.-a ctm))
+                                      dy  (/ (- cy (.-f ctm))
+                                            (.-d ctm))]
+                                    (reset! !fx dx)
+                                    (reset! !fy dy)
+                                    #_(println "MOUSEDOWN " {:fx @!fx :fy @!fy
+                                                             :xx xx :yy yy
+                                                             :dx dx :dy dy
+                                                             :cx cx :cy cy})
+                                    (reset! !dragging? true))))
+         (dom/on "mouseup"    (e/fn [e]
+                                (.preventDefault e)
+                                (.stopPropagation e)
+                                (reset-after-drag. "mouseup on element")))
+
+         (dom/on "mouseleave"    (e/fn [e]
+                                   (.preventDefault e)
+                                   (.stopPropagation e)
+                                   (reset-after-drag. "mouseleave on element")))
+         (dom/on "mouseout"    (e/fn [e]
                                  (.preventDefault e)
                                  (.stopPropagation e)
-                                 (let [cx (.-clientX e)
-                                       cy (.-clientY e)
-                                       ctm (.getScreenCTM dom/node)
-                                       dx  (/ (- cx (.-e ctm))
-                                              (.-a ctm))
-                                       dy  (/ (- cy (.-f ctm))
-                                             (.-d ctm))]
-                                     (reset! !fx dx)
-                                     (reset! !fy dy)
-                                     #_(println "MOUSEDOWN " {:fx @!fx :fy @!fy
-                                                              :xx xx :yy yy
-                                                              :dx dx :dy dy
-                                                              :cx cx :cy cy})
-                                     (reset! !dragging? true))))
-          (dom/on "mouseup"    (e/fn [e]
-                                 (.preventDefault e)
-                                 (.stopPropagation e)
-                                 (reset-after-drag. "mouseup on element")))
+                                 (reset-after-drag. "mouseout element"))
 
-          (dom/on "mouseleave"    (e/fn [e]
-                                    (.preventDefault e)
-                                    (.stopPropagation e)
-                                    (reset-after-drag. "mouseleave on element")))
-          (dom/on "mouseout"    (e/fn [e]
-                                  (.preventDefault e)
-                                  (.stopPropagation e)
-                                  (reset-after-drag. "mouseout element"))
+           #_(card-topbar. id)
 
-            #_(card-topbar. id)
-
-            #_(dom/div
-                (dom/props {:class "middle-earth"
-                            :style {:padding "5px"
-                                    :background "whi}te"
-                                    :display "flex"
-                                    :flex-direction "column"
-                                    :height "100%"}})
-                (dom/div
-                  (dom/props {:id    (str "cm-" dom-id)
-                              :style {:height   "100%"
-                                      :overflow "scroll"
-                                      :background "white"
-                                      :box-shadow "black 0px 0px 2px 1px"
-                                      ;:border "1px solid black"
-                                      ;:border-radius "10px"
-                                      :margin-bottom           "10px"}})
-                  #_(canvas. dom-id)
-                  (dom/textarea (dom/text (subscribe.  text-p)))
-                  #_(new cm/CodeMirror
-                      {:parent dom/node}
-                      read
-                      identity
-                      (subscribe. text-p)))
-               #_(button-bar.))
+           #_(dom/div
+               (dom/props {:class "middle-earth"
+                           :style {:padding "5px"
+                                   :background "whi}te"
+                                   :display "flex"
+                                   :flex-direction "column"
+                                   :height "100%"}})
+               (dom/div
+                 (dom/props {:id    (str "cm-" dom-id)
+                             :style {:height   "100%"
+                                     :overflow "scroll"
+                                     :background "white"
+                                     :box-shadow "black 0px 0px 2px 1px"
+                                     ;:border "1px solid black"
+                                     ;:border-radius "10px"
+                                     :margin-bottom           "10px"}})
+                 #_(canvas. dom-id)
+                 (dom/textarea (dom/text (subscribe.  text-p)))
+                 #_(new cm/CodeMirror
+                     {:parent dom/node}
+                     read
+                     identity
+                     (subscribe. text-p)))
+              #_(button-bar.))
 
 
-            #_(dom/div
-                (dom/button
-                  (dom/props {:style {:background-color "white"
-                                      :border           "none"
-                                      :padding          "5px"
-                                      :border-width     "5px"
-                                      :font-size        "18px"
-                                      :color            (:button-text (theme. ui-mode))
-                                      :height           "50px"
-                                      :width            "100%"}})
-                  (dom/text
-                    "Save")
+           #_(dom/div
+               (dom/button
+                 (dom/props {:style {:background-color "white"
+                                     :border           "none"
+                                     :padding          "5px"
+                                     :border-width     "5px"
+                                     :font-size        "18px"
+                                     :color            (:button-text (theme. ui-mode))
+                                     :height           "50px"
+                                     :width            "100%"}})
+                 (dom/text
+                   "Save")
 
-                  #_(dom/on "click" (e/fn [e]
-                                      (let [child-uid (new-uuid)
-                                            x         (e/server (rama/get-path-data x-p pstate))
-                                            y         (e/server (rama/get-path-data y-p pstate))]
-                                        (when (some? cm-text)
-                                          (println "cm-text -->" cm-text)
-                                          (create-new-child-node. id child-uid (+ x 600) y cm-text)))))))))))))
+                 #_(dom/on "click" (e/fn [e]
+                                     (let [child-uid (new-uuid)
+                                           x         (e/server (rama/get-path-data x-p pstate))
+                                           y         (e/server (rama/get-path-data y-p pstate))]
+                                       (when (some? cm-text)
+                                         (println "cm-text -->" cm-text)
+                                         (create-new-child-node. id child-uid (+ x 600) y cm-text)))))))))))))
 
 #_(update-node
     [[:08fe4616-4a43-4b5c-9d77-87fc7dc462c5 :x] 2000]
