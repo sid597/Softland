@@ -96,12 +96,20 @@
         (outlined-button. "7")))))
 
 
+#?(:cljs (defn current-time-ms []
+           (js/Date.now)))
+
+
 #?(:cljs (def !global-atom (atom nil)))
 #?(:cljs (defn global-client-flow []
            (m/latest
             (fn [x]
-              (println "3. GLOVAL FLOW NEW X" x)
-              x)
+              (let [c (current-time-ms)
+                    nx (assoc x :3 c
+                                :3-2 (- c (:2 x))
+                                :3-1 (- c (:1 x)))]
+                ;(println "3. GLOVAL FLOW NEW X" nx)
+                nx))
             (m/watch !global-atom))))
 
 #?(:cljs
@@ -111,10 +119,11 @@
          (let [sample (fn [e]
                         (! (do
                              (.preventDefault e)
-                             (println "1. OBSERVE MOUSE STATE")
-                             {:id id
-                              :cord [(.-clientX e)
-                                     (.-clientY e)]})))]
+                             ;(println "1. OBSERVE MOUSE STATE")
+                             {:id                           id
+                              :1 (current-time-ms)
+                              :cord                         [(.-clientX e)
+                                                             (.-clientY e)]})))]
 
            (.addEventListener movable "mousemove" sample #js {"passive" false})
            #(.removeEventListener movable "mousemove" sample))))))
@@ -123,18 +132,15 @@
 
 #?(:cljs (defn el-mouse-move-state< [movable id]
            (->> (el-mouse-move-state> movable id)
-             (e/throttle 16)
-             (m/reductions {} [0 0])
+             (e/throttle 10)
+             (m/reductions {} {:cord [0 0]
+                               :reduction-time (current-time-ms)})
              (m/relieve {})
              (m/latest (fn [new-data]
-                         (println "2. CX CY" new-data)
-                         (reset! !global-atom new-data)
-                         #_(let [ctm (.getScreenCTM movable)
-                                 dx  (/ (- cx (.-e ctm))
-                                       (.-a ctm))
-                                 dy  (/ (- cy (.-f ctm))
-                                       (.-d ctm))]
-                             [dx dy]))))))
+                         ;(println "2. CX CY" new-data (current-time-ms))
+                         (reset! !global-atom (assoc new-data :2 (current-time-ms)
+                                                              :2-1 (- (current-time-ms) (:1 new-data)))))))))
+
 
 
 (e/defn rect [id node]
@@ -158,7 +164,7 @@
           !dragging? (atom false)
           dragging? (e/watch !dragging?)
           extra-data (:type-specific-data node)
-          _ (println "extra data" extra-data)
+          ;_ (println "extra data" extra-data)
           !xx (atom (:x node) #_(subscribe. x-p))
           xx (e/watch !xx)
           !yy (atom (:y node) #_(subscribe. y-p))
@@ -220,17 +226,26 @@
                                   :border-radius    "10px"}})
               (dom/div (dom/text block-text)))
           (new (el-mouse-move-state< dom/node id))
-          (let [data (new (global-client-flow))]
-            (when (= id (:id data))
-              (println "4. data " data " ----------------------"))
-            #_(when dragging?
-                (println "DRAGGING")
-                ;; why does it not work if I put the new-x in above let?
-                (let [new-x (+ @!xx (- dx @!fx))
-                      new-y (+ @!yy (- dy @!fy))]
-                  (reset! !xx new-x)
-                  (reset! !yy new-y))))
+          (let [new-data (new (global-client-flow))]
+            (when (and (= id (:id new-data))
+                      dragging?)
+                (cljs.pprint/pprint (assoc new-data :4 (current-time-ms)
+                                                    :4-3 (- (current-time-ms) (:3 new-data))
+                                                    :4-2 (- (current-time-ms) (:2 new-data))
+                                                    :4-1 (- (current-time-ms) (:1 new-data))))
 
+                (let [[cx cy]  (:cord new-data)
+                      ctm      (.getScreenCTM dom/node)
+                      dx       (/ (- cx (.-e ctm))
+                                  (.-a ctm))
+                      dy       (/ (- cy (.-f ctm))
+                                  (.-d ctm))]
+                   ;(println "DRAGGING")
+                   ;; why does it not work if I put the new-x in above let?)
+                   (let [new-x (+ @!xx (- dx @!fx))
+                         new-y (+ @!yy (- dy @!fy))]
+                     (reset! !xx new-x)
+                     (reset! !yy new-y)))))
 
           (dom/on "mousedown"  (e/fn [e]
                                  (.preventDefault e)
@@ -244,10 +259,10 @@
                                              (.-d ctm))]
                                      (reset! !fx dx)
                                      (reset! !fy dy)
-                                     (println "MOUSEDOWN " {:fx @!fx :fy @!fy
-                                                            :xx xx :yy yy
-                                                            :dx dx :dy dy
-                                                            :cx cx :cy cy})
+                                     #_(println "MOUSEDOWN " {:fx @!fx :fy @!fy
+                                                              :xx xx :yy yy
+                                                              :dx dx :dy dy
+                                                              :cx cx :cy cy})
                                      (reset! !dragging? true))))
           (dom/on "mouseup"    (e/fn [e]
                                  (.preventDefault e)
