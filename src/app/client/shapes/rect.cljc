@@ -102,15 +102,16 @@
 
 #?(:cljs (def !global-atom (atom nil)))
 #?(:cljs (defn global-client-flow []
-           (m/latest
-            (fn [x]
-              (let [c (current-time-ms)
-                    nx (assoc x :3 c
-                                :3-2 (- c (:2 x))
-                                :3-1 (- c (:1 x)))]
-                ;(println "3. GLOVAL FLOW NEW X" nx)
-                nx))
-            (m/watch !global-atom))))
+           (m/signal ;; https://clojurians.slack.com/archives/C7Q9GSHFV/p1691599800774709?thread_ts=1691570620.457499&cid=C7Q9GSHFV
+             (m/latest
+              (fn [x]
+                (let [c (current-time-ms)
+                      nx (assoc x :3 c
+                                  :3-2 (- c (:2 x))
+                                  :3-1 (- c (:1 x)))]
+                  ;(println "3. GLOVAL FLOW NEW X" nx)
+                  nx))
+              (m/watch !global-atom)))))
 
 #?(:cljs
    (defn el-mouse-move-state> [movable id dragging?]
@@ -122,7 +123,7 @@
                               (.preventDefault e)
                               ;(println "1. OBSERVE MOUSE STATE")
                               {:id   id
-                               :1    (current-time-ms)
+                               :time (current-time-ms)
                                :cord [(.-clientX e)
                                       (.-clientY e)]}))))]
 
@@ -135,10 +136,10 @@
            (->> (el-mouse-move-state> movable id dragging?)
              (e/throttle 10)
              (m/reductions {} {:cord [0 0]
-                               :reduction-time (current-time-ms)})
+                               :time (current-time-ms)})
              (m/relieve {})
              (m/latest (fn [new-data]
-                         ;(println "2. CX CY" new-data (current-time-ms))
+                         (println "2. CX CY" new-data (current-time-ms))
                          (reset! !global-atom (assoc new-data :2 (current-time-ms)
                                                               :2-1 (- (current-time-ms) (:1 new-data)))))))))
 
@@ -149,7 +150,7 @@
                                :reduction-time (current-time-ms)})
              (m/relieve {})
              (m/latest (fn [new-data]
-                         (println "----- SERVER -----" new-data)
+                         ;(println "----- SERVER -----" new-data)
                          new-data)))))
 
 
@@ -177,14 +178,18 @@
           dragging? (e/watch !dragging?)
           extra-data (:type-specific-data node)
           ;_ (println "extra data" extra-data)
-          !xx (atom (:x node) #_(subscribe. x-p))
-          xx (e/watch !xx)
-          !yy (atom (:y node) #_(subscribe. y-p))
-          yy (e/watch !yy)
-          !hh (atom (:height extra-data) #_(subscribe. height-p))
-          hh (e/watch !hh)
-          !ww (atom (:width extra-data) #_(subscribe. width-p))
-          ww (e/watch !ww)
+          !xx (atom {:pos (:x node)
+                     :time (:time node)})
+          xx (:pos (e/watch !xx))
+          !yy (atom {:pos (:y node)
+                     :time (:time node)})
+          yy (:pos (e/watch !yy))
+          !hh (atom {:height (:height extra-data)
+                     :time (:time node)})
+          hh  (:height (e/watch !hh))
+          !ww (atom {:width (:width extra-data)
+                     :time (:time node)})
+          ww  (:width (e/watch !ww))
           !text (atom (:text extra-data) #_(subscribe. text-p))
           block-text (e/watch !text)
           !fx (atom nil)
@@ -203,7 +208,7 @@
         (svg/rect
           (dom/props {:x      xx;(subscribe. x-p)     ;(+  (subscribe. x-p) 5)
                       :y      yy ;(subscribe. y-p)     ;(+  (subscribe. y-p)  5)
-                      :height hh ;(subscribe. height-p);(-  (subscribe. height-p)  10)
+                      :height hh;(subscribe. height-p);(-  (subscribe. height-p)  10)
                       :width  ww ; (subscribe. width-p) ;(-  (subscribe. width-p)   10)
                       :fill   "white"
                       :id     id
@@ -227,29 +232,24 @@
           (let [server-data (new (server-update))
                 [cx cy] (:cord server-data)]
             (when (= id (:id server-data))
-              (let [ctm      (.getScreenCTM dom/node)
-                    dx       (/ (- cx (.-e ctm))
-                              (.-a ctm))
-                    dy       (/ (- cy (.-f ctm))
-                              (.-d ctm))]
-                (let [new-x (+ @!xx (- dx @!fx))
-                      new-y (+ @!yy (- dy @!fy))]
-                  (println "***** SERVER DATA***** " new-x new-y)
-                  (e/server
-                   (update-node
-                       [x-p new-x]
-                       {:graph-name  :main
-                          :event-id    (get-event-id)
-                          :create-time (System/currentTimeMillis)}
-                       false
-                       false)
-                   (update-node
-                       [y-p new-y]
-                       {:graph-name  :main
-                          :event-id    (get-event-id)
-                          :create-time (System/currentTimeMillis)}
-                       false
-                       true))))))
+              (let [new-x @!xx
+                    new-y @!yy]
+                (println "***** SERVER DATA***** " server-data "::" cx)
+                (e/server
+                 (update-node
+                     [x-p (:pos new-x)]
+                     {:graph-name  :main
+                        :event-id    (get-event-id)
+                        :create-time (System/currentTimeMillis)}
+                     false
+                     false)
+                 (update-node
+                     [y-p (:pos new-y)]
+                     {:graph-name  :main
+                        :event-id    (get-event-id)
+                        :create-time (System/currentTimeMillis)}
+                     false
+                     true)))))
          (let [new-data (new (global-client-flow))]
            (when  (= id (:id new-data))
                #_(cljs.pprint/pprint (assoc new-data :4 (current-time-ms)
@@ -258,19 +258,19 @@
                                                      :4-1 (- (current-time-ms) (:1 new-data))))
 
                (let [[cx cy]  (:cord new-data)
+                     time     (:time new-data)
                      ctm      (.getScreenCTM dom/node)
                      dx       (/ (- cx (.-e ctm))
                                  (.-a ctm))
                      dy       (/ (- cy (.-f ctm))
-                                 (.-d ctm))]
-                  ;(println "DRAGGING")
-                  ;; why does it not work if I put the new-x in above let?)
-                  (let [new-x (+ @!xx (- dx @!fx))
-                        new-y (+ @!yy (- dy @!fy))]
-                    (println "NEW X NEW Y" new-x new-y)
-                    (reset! !xx new-x)
-                    (reset! !yy new-y)))))
-
+                                 (.-d ctm))
+                     cur-x (:pos @!xx)
+                     cur-y (:pos @!yy)
+                     new-x (+ cur-x (- dx @!fx))
+                     new-y (+ cur-y (- dy @!fy))]
+                 ;(println "NEW X NEW Y" @!xx "::" new-x)
+                 (reset! !xx {:pos new-x :time time})
+                 (reset! !yy {:pos new-y :time time}))))
          (dom/on "mousedown"  (e/fn [e]
                                 (.preventDefault e)
                                 (.stopPropagation e)
