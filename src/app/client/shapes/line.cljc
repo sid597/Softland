@@ -5,7 +5,10 @@
             [hyperfiddle.electric-dom2 :as dom]
             [app.client.utils :refer [ ui-mode edges nodes
                                       is-dragging?  zoom-level last-position subscribe
-                                      viewbox  context-menu? reset-global-vals]]))
+                                      viewbox  context-menu? reset-global-vals]]
+            #?@(:cljs
+                [[app.client.shapes.rect :refer [node-pos-flow current-time-ms]]
+                 [missionary.core :as m]])))
 (defn attributes [x y height width a b]
   (let [xmin x
         ymin y
@@ -31,23 +34,51 @@
   (attributes 0 0 100 100 51 -51)
   (attributes 0 0 100 100 51 -21))
 
-(e/defn line [[k {:keys [id color to from]}]]
-  (println "--->" k id color to from)
-  (println "--"[to :y])
+
+#?(:cljs (defn edge-update []
+           (->> (node-pos-flow)
+             (e/throttle 10)
+             (m/reductions {} {:id 0
+                               :x 0
+                               :y 0})
+             (m/relieve {})
+             (m/latest (fn [new-data]
+                         ;(println "----- SERVER -----" new-data)
+                         new-data)))))
+
+
+(e/defn line [from to edge]
   (e/client
-    (let [tw (int (subscribe. [ to :type-specific-data :width]))
-          th (int (subscribe. [ to :type-specific-data :height]))
-          fw (int (subscribe. [ from :type-specific-data :width]))
-          fh (int (subscribe. [ from :type-specific-data :height]))
-          tx (int (subscribe. [to :x]))
-          ty (int (subscribe. [to :y]))
-          fx (int (subscribe. [from :x]))
-          fy (int (subscribe. [from :y]))
+    (let [tw (int (-> to :type-specific-data :width))
+          th (int (-> to :type-specific-data :height))
+          fw (int (-> from :type-specific-data :width))
+          fh (int (-> from :type-specific-data :height))
+          !tx (atom (-> to :x))
+          tx (int (e/watch !tx))
+          !ty (atom (-> to :y))
+          ty (int (e/watch !ty))
+          !fx (atom (-> from :x))
+          fx (int (e/watch !fx))
+          !fy (atom (-> from :y))
+          fy (int (e/watch !fy))
           [xx yy] (attributes tx ty th tw fx fy)
           [fxx fyy] (attributes fx fy fh fw xx yy)]
+      (println "fxx fyy" fxx fyy)
+      (let [sd (new (edge-update))
+            nid (:id sd)
+            nx (:x sd)
+            ny (:y sd)]
+        (println "--sd--" sd)
+        (if (= (:id from) nid)
+          (do
+           (reset! !fx nx)
+           (reset! !fy ny))
+          (do
+            (reset! !tx nx)
+            (reset! !ty ny))))
       (svg/line
         (dom/props {:style {:z-index -1}
-                    :id id
+                    :id (:id edge)
                     :x1  xx #_(if  tw
                                 (+  tx) (/ tw 2)
                                 tx)
@@ -56,5 +87,34 @@
                                 ty)
                     :x2  fxx
                     :y2  fyy
-                    :stroke color
+                    :stroke (:color edge)
                     :stroke-width 4})))))
+
+
+#_(e/defn line [[k {:keys [id color to from]}]]
+    (println "--->" k id color to from)
+    (println "--"[to :y])
+    (e/client
+      (let [tw (int (subscribe. [ to :type-specific-data :width]))
+            th (int (subscribe. [ to :type-specific-data :height]))
+            fw (int (subscribe. [ from :type-specific-data :width]))
+            fh (int (subscribe. [ from :type-specific-data :height]))
+            tx (int (subscribe. [to :x]))
+            ty (int (subscribe. [to :y]))
+            fx (int (subscribe. [from :x]))
+            fy (int (subscribe. [from :y]))
+            [xx yy] (attributes tx ty th tw fx fy)
+            [fxx fyy] (attributes fx fy fh fw xx yy)]
+        (svg/line
+          (dom/props {:style {:z-index -1}
+                      :id id
+                      :x1  xx #_(if  tw
+                                  (+  tx) (/ tw 2)
+                                  tx)
+                      :y1  yy #_(if th
+                                  (+ ty (/ th 2))
+                                  ty)
+                      :x2  fxx
+                      :y2  fyy
+                      :stroke color
+                      :stroke-width 4})))))

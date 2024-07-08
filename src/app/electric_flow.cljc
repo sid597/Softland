@@ -5,6 +5,7 @@
             [hyperfiddle.electric-svg :as svg]
             [hyperfiddle.electric-dom2 :as dom]
             [app.client.shapes.rect :refer [rect]]
+            [app.client.shapes.line :refer [line]]
             #?@(:cljs
                 [[clojure.string :as str]
                  [missionary.core :as m]]
@@ -55,6 +56,13 @@
        :context-menu-text "#75c8f2"})))
 
 
+#?(:clj (def !edges (atom {:sv-line {:id :sv-line
+                                     :type "line"
+                                     :to   :83696284-4eb1-481e-bbb7-b8d555495b76
+                                     :from :08fe4616-4a43-4b5c-9d77-87fc7dc462c5
+                                     :color "black"}})))
+
+(e/def edges (e/server (e/watch !edges)))
 
 #?(:cljs
    (defn mouse-move-state> [movable]
@@ -279,7 +287,20 @@
                  (e/client
                    (println "---> NODE DATA <----" node)
                    (println "NODE " id)
-                   (rect. id node)))))))))))
+                   (rect. id node))))
+             (e/for-by identity [edge edges]
+               (let [[k v] edge
+                     target-node (first (get-path-data
+                                          [(keypath :main) (:to v)]
+                                          nodes-pstate))
+                     source-node (first (get-path-data
+                                          [(keypath :main) (:from v)]
+                                          nodes-pstate))]
+                 (e/client
+                   (println "edge " v)
+                   (println "target node" target-node)
+                   (line. source-node target-node v)))))))))))
+
 
 (e/defn main [ring-request]
   (e/client

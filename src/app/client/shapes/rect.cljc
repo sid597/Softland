@@ -113,6 +113,17 @@
                   nx))
               (m/watch !global-atom)))))
 
+
+#?(:cljs (def !node-pos-atom (atom nil)))
+#?(:cljs (defn node-pos-flow []
+           (m/signal ;; https://clojurians.slack.com/archives/C7Q9GSHFV/p1691599800774709?thread_ts=1691570620.457499&cid=C7Q9GSHFV
+             (m/latest
+               (fn [x]
+                 x)
+               (m/watch !node-pos-atom)))))
+
+
+
 #?(:cljs
    (defn el-mouse-move-state> [movable id dragging?]
      (m/observe
@@ -269,6 +280,9 @@
                      new-x (+ cur-x (- dx @!fx))
                      new-y (+ cur-y (- dy @!fy))]
                  ;(println "NEW X NEW Y" @!xx "::" new-x)
+                 (reset! !node-pos-atom {:x new-x
+                                         :y new-y
+                                         :id id})
                  (reset! !xx {:pos new-x :time time})
                  (reset! !yy {:pos new-y :time time}))))
          (dom/on "mousedown"  (e/fn [e]
