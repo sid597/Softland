@@ -29,8 +29,12 @@
     (declare-pstate n $$nodes-pstate {Keyword (map-schema
                                                 Keyword (fixed-keys-schema
                                                            {:id                 Keyword
-                                                            :x                  Double
-                                                            :y                  Double
+                                                            :x                  (fixed-keys-schema
+                                                                                   {:pos Double
+                                                                                    :time Long})
+                                                            :y                  (fixed-keys-schema
+                                                                                   {:pos Double
+                                                                                    :time Long})
                                                             :type-specific-data (map-schema Keyword Object)
                                                             :type               String
                                                             :fill               String}))}
@@ -255,6 +259,7 @@
       (update-event-id)))))
 
 (defn get-path-data [path pstate]
+  (println "FOREIGN SELECT")
   (foreign-select path pstate))
 
 (load-events) ;; THIS IS A HACK: Will not work when we move away from ipc.

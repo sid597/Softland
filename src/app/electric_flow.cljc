@@ -60,7 +60,7 @@
                                      :type "line"
                                      :to   :83696284-4eb1-481e-bbb7-b8d555495b76
                                      :from :08fe4616-4a43-4b5c-9d77-87fc7dc462c5
-                                     :color "black"}})))
+                                     :color "red"}})))
 
 (e/def edges (e/server (e/watch !edges)))
 
@@ -283,23 +283,24 @@
 
            (e/server
              (e/for-by identity [id (new (!subscribe [:main ] node-ids-pstate))]
+               (println "ID" id)
                (let [node (first (get-path-data [(keypath :main) id ] nodes-pstate))]
                  (e/client
                    (println "---> NODE DATA <----" node)
                    (println "NODE " id)
                    (rect. id node))))
-             (e/for-by identity [edge edges]
-               (let [[k v] edge
-                     target-node (first (get-path-data
-                                          [(keypath :main) (:to v)]
-                                          nodes-pstate))
-                     source-node (first (get-path-data
-                                          [(keypath :main) (:from v)]
-                                          nodes-pstate))]
-                 (e/client
-                   (println "edge " v)
-                   (println "target node" target-node)
-                   (line. source-node target-node v)))))))))))
+             #_(e/for-by identity [edge edges]
+                 (let [[k v] edge
+                       target-node (first (get-path-data
+                                            [(keypath :main) (:to v)]
+                                            nodes-pstate))
+                       source-node (first (get-path-data
+                                            [(keypath :main) (:from v)]
+                                            nodes-pstate))]
+                   (e/client
+                     (println "edge " v)
+                     (println "target node" target-node)
+                     (line. source-node target-node v)))))))))))
 
 
 (e/defn main [ring-request]

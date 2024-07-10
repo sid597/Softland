@@ -71,11 +71,15 @@
         (println "--sd--" sd)
         (if (= (:id from) nid)
           (do
-           (reset! !fx nx)
-           (reset! !fy ny))
+            (when (some? nx)
+             (reset! !fx nx))
+            (when (some? ny)
+              (reset! !fy ny)))
           (do
-            (reset! !tx nx)
-            (reset! !ty ny))))
+            (when (some? nx)
+              (reset! !tx nx))
+            (when (some? ny)
+              (reset! !ty ny)))))
       (svg/line
         (dom/props {:style {:z-index -1}
                     :id (:id edge)
