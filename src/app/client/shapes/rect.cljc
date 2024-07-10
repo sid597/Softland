@@ -324,20 +324,22 @@
                      ;; Only happen for server based updates
                      (some? (:x new-data))   (let [ct (:time @!xx)
                                                    nt (-> new-data :x :time)
-                                                   nx (-> new-data :x :pos)]
+                                                   nx (-> new-data :x :pos)
+                                                   new-x {:pos nx :time nt}]
                                                ;(println "9.1 Data from server for X" new-data "::" @!xx)
                                                (when (> (- nt ct) 0)
-                                                 (reset! !xx {:pos nx :time nt})
-                                                 #_(reset! !node-pos-atom {:x nx
-                                                                           :id id})))
+                                                 (reset! !xx new-x)
+                                                 (reset! !node-pos-atom {:x new-x
+                                                                         :id id})))
                      (some? (:y new-data))   (let [ct (:time @!yy)
                                                    nt  (-> new-data :y :time)
-                                                   ny (-> new-data :y :pos)]
+                                                   ny (-> new-data :y :pos)
+                                                   new-y {:pos ny :time nt}]
                                                ;(println "9.2 Data from server for Y" new-data "::" @!yy)
                                                (when (> (- nt ct) 0)
-                                                 (reset! !yy {:pos ny :time nt})
-                                                 #_(reset! !node-pos-atom {:y ny
-                                                                           :id id})))
+                                                 (reset! !yy new-y)
+                                                 (reset! !node-pos-atom {:y new-y
+                                                                         :id id})))
                      :else                   (println "THIS IS SOME OTHER TYPE OF DATA: " new-data))))
 
          (dom/on "mousedown"  (e/fn [e]

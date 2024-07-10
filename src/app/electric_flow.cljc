@@ -289,18 +289,18 @@
                    (println "---> NODE DATA <----" node)
                    (println "NODE " id)
                    (rect. id node))))
-             #_(e/for-by identity [edge edges]
-                 (let [[k v] edge
-                       target-node (first (get-path-data
-                                            [(keypath :main) (:to v)]
-                                            nodes-pstate))
-                       source-node (first (get-path-data
-                                            [(keypath :main) (:from v)]
-                                            nodes-pstate))]
-                   (e/client
-                     (println "edge " v)
-                     (println "target node" target-node)
-                     (line. source-node target-node v)))))))))))
+             (e/for-by identity [edge edges]
+               (let [[k v] edge
+                     target-node (first (get-path-data
+                                          [(keypath :main) (:to v)]
+                                          nodes-pstate))
+                     source-node (first (get-path-data
+                                          [(keypath :main) (:from v)]
+                                          nodes-pstate))]
+                 (e/client
+                   (println "edge " v)
+                   (println "target node" target-node)
+                   (line. source-node target-node v)))))))))))
 
 
 (e/defn main [ring-request]

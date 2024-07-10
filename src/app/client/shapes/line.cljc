@@ -6,8 +6,9 @@
             [app.client.utils :refer [ ui-mode edges nodes
                                       is-dragging?  zoom-level last-position subscribe
                                       viewbox  context-menu? reset-global-vals]]
+            [app.client.shapes.rect :refer [watch-server-update]]
             #?@(:cljs
-                [[app.client.shapes.rect :refer [node-pos-flow current-time-ms]]
+                [[app.client.shapes.rect :refer [node-pos-flow  current-time-ms]]
                  [missionary.core :as m]])))
 (defn attributes [x y height width a b]
   (let [xmin x
@@ -43,8 +44,9 @@
                                :y 0})
              (m/relieve {})
              (m/latest (fn [new-data]
-                         ;(println "----- SERVER -----" new-data)
+                         (println "----- EDGE NEW DATA -----" new-data)
                          new-data)))))
+
 
 
 (e/defn line [from to edge]
@@ -53,21 +55,21 @@
           th (int (-> to :type-specific-data :height))
           fw (int (-> from :type-specific-data :width))
           fh (int (-> from :type-specific-data :height))
-          !tx (atom (-> to :x))
+          !tx (atom (-> to :x :pos))
           tx (int (e/watch !tx))
-          !ty (atom (-> to :y))
+          !ty (atom (-> to :y :pos))
           ty (int (e/watch !ty))
-          !fx (atom (-> from :x))
+          !fx (atom (-> from :x :pos))
           fx (int (e/watch !fx))
-          !fy (atom (-> from :y))
+          !fy (atom (-> from :y :pos))
           fy (int (e/watch !fy))
           [xx yy] (attributes tx ty th tw fx fy)
           [fxx fyy] (attributes fx fy fh fw xx yy)]
       (println "fxx fyy" fxx fyy)
       (let [sd (new (edge-update))
             nid (:id sd)
-            nx (:x sd)
-            ny (:y sd)]
+            nx  (-> sd :x :pos)
+            ny  (-> sd :y :pos)]
         (println "--sd--" sd)
         (if (= (:id from) nid)
           (do
