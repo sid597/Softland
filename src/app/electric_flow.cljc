@@ -342,7 +342,9 @@
                  (e/client
                    (println "---> NODE DATA <----" node)
                    (println "NODE " id)
-                   (rect. id node))))
+                   (if (= "rect" (:type node))
+                    (rect. id node :rect)
+                    (rect. id node :img)))))
              #_(e/for-by identity [edge edges]
                  (let [[k v] edge
                        target-node (first (get-path-data

@@ -182,7 +182,7 @@
 
 
 
-(e/defn rect [id node]
+(e/defn rect [id node type]
   (e/client
     (println "RECT --" id "--" node)
     (let [#_#_!cm-text (atom nil)
@@ -242,44 +242,43 @@
                       :y      (:pos yy) ;(subscribe. y-p)     ;(+  (subscribe. y-p)  5)
                       :height hh;(subscribe. height-p);(-  (subscribe. height-p)  10)
                       :width  ww ; (subscribe. width-p) ;(-  (subscribe. width-p)   10)
-                      :fill   "red"
+                      ;:fill   "red"
                       :id     id
                       :style {:display "flex"
                               :flex-direction "column"
                               :border "1px solid black"
                               :border-radius "10px"
                               :background-color "red"
-                              :overflow "scroll"}})
-          #_(dom/div
-              (dom/props {:style {:background-color "white"
-                                  :display          "flex"
-                                  :overflow         "scroll"
-                                  :color            "black"
-                                  :flex-direction   "column"
-                                  :font-size        "23px"
-                                  :padding          "20px"
-                                  :border-radius    "10px"}})
-              (dom/div (dom/text "GM: "@!xx)))
-          (new (el-mouse-move-state< dom/node id dragging?))
-          (let [{:keys [x y nid]} (new (server-update))]
-            (when (= nid id)
-                ;(println (:time x) " 7. SERVER DATA UPDATE "  x "::" y)
-                (e/server
-                 (update-node
-                     [x-p x]
-                     {:graph-name  :main
-                        :event-id    (get-event-id)
-                        :create-time (System/currentTimeMillis)}
-                     false
-                     false)
-                 (update-node
-                     [y-p y]
-                     {:graph-name  :main
-                        :event-id    (get-event-id)
-                        :create-time (System/currentTimeMillis)}
-                     false
-                     true))))
-         (let [{:keys [nid cords x y]} (new (global-client-flow))
+                              :overflow "scroll"}}))
+        (when (= :img type)
+          (svg/image
+            (dom/props
+              {:x (:pos xx)
+               :y (:pos yy)
+               :width (+ ww 10)
+               :height (+ hh 10)
+               :href (-> extra-data :path)
+               :preserveAspectRatio true})))
+       (new (el-mouse-move-state< dom/node id dragging?))
+       (let [{:keys [x y nid]} (new (server-update))]
+           (when (= nid id)
+               ;(println (:time x) " 7. SERVER DATA UPDATE "  x "::" y)
+               (e/server
+                (update-node
+                    [x-p x]
+                    {:graph-name  :main
+                       :event-id    (get-event-id)
+                       :create-time (System/currentTimeMillis)}
+                    false
+                    false)
+                (update-node
+                    [y-p y]
+                    {:graph-name  :main
+                       :event-id    (get-event-id)
+                       :create-time (System/currentTimeMillis)}
+                    false
+                    true))))
+       (let [{:keys [nid cords x y]} (new (global-client-flow))
                [cx cy] cords]
            (do
             (when  (= id nid)
@@ -326,7 +325,7 @@
                                                               :id id})))
                       :else         (println "THIS IS SOME OTHER TYPE OF DATA: " cx cy x y nid)))))
 
-         (dom/on "mousedown"  (e/fn [e]
+       (dom/on "mousedown"  (e/fn [e]
                                 (.preventDefault e)
                                 (.stopPropagation e)
                                 (let [cx (.-clientX e)
@@ -344,71 +343,17 @@
                                                              :cx cx :cy cy})
                                     (println "** Updatae fx" @!fx @!fy)
                                     (reset! !dragging? true))))
-         (dom/on "mouseup"    (e/fn [e]
+       (dom/on "mouseup"    (e/fn [e]
                                 (.preventDefault e)
                                 (.stopPropagation e)
                                 (reset-after-drag. "mouseup on element")))
 
-         (dom/on "mouseleave"    (e/fn [e]
+       (dom/on "mouseleave"    (e/fn [e]
                                    (.preventDefault e)
                                    (.stopPropagation e)
                                    (reset-after-drag. "mouseleave on element")))
-         (dom/on "mouseout"    (e/fn [e]
+       (dom/on "mouseout"    (e/fn [e]
                                  (.preventDefault e)
                                  (.stopPropagation e)
-                                 (reset-after-drag. "mouseout element"))
+                                 (reset-after-drag. "mouseout element")))))))
 
-           #_(card-topbar. id)
-
-           #_(dom/div
-               (dom/props {:class "middle-earth"
-                           :style {:padding "5px"
-                                   :background "whi}te"
-                                   :display "flex"
-                                   :flex-direction "column"
-                                   :height "100%"}})
-               (dom/div
-                 (dom/props {:id    (str "cm-" dom-id)
-                             :style {:height   "100%"
-                                     :overflow "scroll"
-                                     :background "white"
-                                     :box-shadow "black 0px 0px 2px 1px"
-                                     ;:border "1px solid black"
-                                     ;:border-radius "10px"
-                                     :margin-bottom           "10px"}})
-                 #_(canvas. dom-id)
-                 (dom/textarea (dom/text (subscribe.  text-p)))
-                 #_(new cm/CodeMirror
-                     {:parent dom/node}
-                     read
-                     identity
-                     (subscribe. text-p)))
-              #_(button-bar.))
-
-
-           #_(dom/div
-               (dom/button
-                 (dom/props {:style {:background-color "white"
-                                     :border           "none"
-                                     :padding          "5px"
-                                     :border-width     "5px"
-                                     :font-size        "18px"
-                                     :color            (:button-text (theme. ui-mode))
-                                     :height           "50px"
-                                     :width            "100%"}})
-                 (dom/text
-                   "Save")
-
-                 #_(dom/on "click" (e/fn [e]
-                                     (let [child-uid (new-uuid)
-                                           x         (e/server (rama/get-path-data x-p pstate))
-                                           y         (e/server (rama/get-path-data y-p pstate))]
-                                       (when (some? cm-text)
-                                         (println "cm-text -->" cm-text)
-                                         (create-new-child-node. id child-uid (+ x 600) y cm-text)))))))))))))
-
-#_(update-node
-    [[:08fe4616-4a43-4b5c-9d77-87fc7dc462c5 :x] 2000]
-    {:graph-name  :main
-     :event-id    (get-event-id)
-     :create-time (System/currentTimeMillis)})
