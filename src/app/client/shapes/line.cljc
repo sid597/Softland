@@ -17,7 +17,7 @@
         ymax (+ y height)
         rx (atom nil)
         ry (atom nil)]
-    (println "xmin" xmin "xmax" xmax "ymin" ymin "ymax" ymax "a " a "b" b)
+    ;(println "xmin" xmin "xmax" xmax "ymin" ymin "ymax" ymax "a " a "b" b)
     (cond
       (<= a xmin) (reset! rx xmin)
       (>= a xmax) (reset! rx xmax)
@@ -44,8 +44,9 @@
                                :y 0})
              (m/relieve {})
              (m/latest (fn [new-data]
-                         (println "----- EDGE NEW DATA -----" new-data)
-                         new-data)))))
+                         ;(println "----- EDGE NEW DATA -----" new-data)
+                         new-data))
+             (m/signal))))
 
 
 
@@ -65,12 +66,11 @@
           fy (int (e/watch !fy))
           [xx yy] (attributes tx ty th tw fx fy)
           [fxx fyy] (attributes fx fy fh fw xx yy)]
-      (println "fxx fyy" fxx fyy)
+      ;(println "fxx fyy" fxx fyy)
       (let [sd (new (edge-update))
             nid (:id sd)
             nx  (-> sd :x :pos)
             ny  (-> sd :y :pos)]
-        (println "--sd--" sd)
         (if (= (:id from) nid)
           (do
             (when (some? nx)

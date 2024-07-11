@@ -120,7 +120,8 @@
         (local-transform>
           [*graph-name (first *node-data) (termval (second *node-data))]
           $$nodes-pstate)
-        (println "R: NODE UPDATED" (local-select> ALL $$nodes-pstate))
+        (println "R: NODE UPDATED")
+        (clojure.pprint/pprint (local-select> ALL $$nodes-pstate))
         (println "----------------------------------------------------")
 
         ;; update event id

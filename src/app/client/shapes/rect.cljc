@@ -117,12 +117,10 @@
                         (when dragging?
                          (! (do
                               (.preventDefault e)
-                              (let [res {:id   id
-                                         :time (current-time-ms)
-                                         :cord [(.-clientX e)
-                                                (.-clientY e)]}]
-                                ;(println "1. OBSERVE MOUSE STATE" res)
-                                res)))))]
+                             {:nid   id
+                              :cords [(.-clientX e)
+                                      (.-clientY e)]}))))]
+
 
            (.addEventListener movable "mousemove" sample #js {"passive" false})
            #(.removeEventListener movable "mousemove" sample))))))
@@ -131,13 +129,11 @@
 #?(:cljs (def !global-atom (atom nil)))
 #?(:cljs (defn global-client-flow []
            (m/signal ;; https://clojurians.slack.com/archives/C7Q9GSHFV/p1691599800774709?thread_ts=1691570620.457499&cid=C7Q9GSHFV
-             (m/latest
-               (fn [x]
-                 (swap! !counter inc)
-                 (println "3. Global client flow" x "-c-" @!counter)
-                 (assoc x :c @!counter))
-
-               (m/watch !global-atom)))))
+            (m/latest
+              (fn [x]
+                (println x)
+                x)
+              (m/watch !global-atom)))))
 
 #?(:cljs (defn el-mouse-move-state< [movable id dragging?]
            (->> (el-mouse-move-state> movable id dragging?)
@@ -145,21 +141,18 @@
              (m/reductions {} {:cord [0 0]
                                :time (current-time-ms)})
              (m/relieve {})
-             (m/latest (fn [new-data]
-                         ;(println "2. Throttled mouse state" new-data)
-                         (reset! !global-atom new-data))))))
+             (m/latest (fn [cords]
+                         (reset! !global-atom cords)))
+             (m/signal))))
 
 
 #?(:cljs (def !node-pos-atom (atom nil)))
 #?(:cljs (defn node-pos-flow []
            (m/signal ;; https://clojurians.slack.com/archives/C7Q9GSHFV/p1691599800774709?thread_ts=1691570620.457499&cid=C7Q9GSHFV
-             (m/latest
-               (fn [x]
-                 (let [nd (assoc x :c @!counter)]
-                   ;(println "5. Node pos flow " nd)
-                   nd))
-
-               (m/watch !node-pos-atom)))))
+            (m/latest
+              (fn [x]
+                  x)
+              (m/watch !node-pos-atom)))))
 
 
 
@@ -169,22 +162,23 @@
              (m/reductions {} {:x 0 :y 0 :id 0})
              (m/relieve {})
              (m/latest (fn [new-data]
-                         ;(println "6. SERVER " new-data)
-                         new-data)))))
+                         ;(println "6. Send to SERVER " new-data)
+                         new-data))
+             (m/signal))))
+
 
 (e/defn watch-server-update [path]
   (e/client
+    (println "SETUP WATCH : " path)
     (let [x? (= :x (second path))
-          y? (= :y (second path))
           new-data (subscribe. path)]
-      (println "8. WATCH SERVER UPDATE" new-data "-c-" @!counter)
-      ;(println "-- NEW DATA FROM SERVER --" new-data "--" path)
+      ;(println "8. WATCH SERVER UPDATE" new-data "-c-" @!counter)
+      ;(println (:time new-data) " -- NEW DATA FROM SERVER --" new-data "--" path)
       (if x?
-        (reset! !global-atom {:id (first path)
+        (reset! !global-atom {:nid (first path)
                               :x new-data})
-        (reset! !global-atom {:id (first path)
+        (reset! !global-atom {:nid (first path)
                               :y new-data})))))
-
 
 
 
@@ -215,10 +209,10 @@
           ;_ (println "extra data" extra-data)
           !xx (atom {:pos (-> node :x :pos)
                      :time (-> node :x :time)})
-          xx (:pos (e/watch !xx))
+          xx (e/watch !xx)
           !yy (atom {:pos (-> node :y :pos)
                      :time (-> node :y :time)})
-          yy (:pos (e/watch !yy))
+          yy (e/watch !yy)
           !hh (atom {:height (:height extra-data)
                      :time (:time node)})
           hh  (:height (e/watch !hh))
@@ -228,14 +222,14 @@
           !text (atom (:text extra-data) #_(subscribe. text-p))
           block-text (e/watch !text)
           !fx (atom nil)
+          fx (e/watch !fx)
           !fy (atom nil)
+          fy (e/watch !fy)
           reset-after-drag (e/fn [msg]
                              (e/client
                                (when @!dragging?
                                  (do
-                                   (println "RESET AFTER DRAG")
-                                   (reset! !fx 0)
-                                   (reset! !fy 0)
+                                   ;(println "RESET AFTER DRAG")
                                    (when (not= (e/server (first (get-path-data [(keypath :main) id :x] nodes-pstate)))
                                            @!xx))
 
@@ -244,17 +238,17 @@
       (watch-server-update. y-p)
       (svg/g
         (svg/rect
-          (dom/props {:x      xx;(subscribe. x-p)     ;(+  (subscribe. x-p) 5)
-                      :y      yy ;(subscribe. y-p)     ;(+  (subscribe. y-p)  5)
+          (dom/props {:x      (:pos xx);(subscribe. x-p)     ;(+  (subscribe. x-p) 5)
+                      :y      (:pos yy) ;(subscribe. y-p)     ;(+  (subscribe. y-p)  5)
                       :height hh;(subscribe. height-p);(-  (subscribe. height-p)  10)
                       :width  ww ; (subscribe. width-p) ;(-  (subscribe. width-p)   10)
-                      :fill   "white"
+                      :fill   "red"
                       :id     id
                       :style {:display "flex"
                               :flex-direction "column"
                               :border "1px solid black"
                               :border-radius "10px"
-                              :background-color "white"
+                              :background-color "red"
                               :overflow "scroll"}})
           #_(dom/div
               (dom/props {:style {:background-color "white"
@@ -267,80 +261,70 @@
                                   :border-radius    "10px"}})
               (dom/div (dom/text "GM: "@!xx)))
           (new (el-mouse-move-state< dom/node id dragging?))
-          (let [server-data (new (server-update))
-                nid (:id server-data)
-                nx (:x server-data)
-                ny (:y server-data)]
-
+          (let [{:keys [x y nid]} (new (server-update))]
             (when (= nid id)
-                ;(println "7. SERVER DATA UPDATE "  server-data)
+                ;(println (:time x) " 7. SERVER DATA UPDATE "  x "::" y)
                 (e/server
                  (update-node
-                     [x-p nx]
+                     [x-p x]
                      {:graph-name  :main
                         :event-id    (get-event-id)
                         :create-time (System/currentTimeMillis)}
                      false
                      false)
                  (update-node
-                     [y-p ny]
+                     [y-p y]
                      {:graph-name  :main
                         :event-id    (get-event-id)
                         :create-time (System/currentTimeMillis)}
                      false
                      true))))
-         (let [new-data (new (global-client-flow))]
-           (when  (= id (:id new-data))
-               #_(cljs.pprint/pprint (assoc new-data :4 (current-time-ms)
-                                                     :4-3 (- (current-time-ms) (:3 new-data))
-                                                     :4-2 (- (current-time-ms) (:2 new-data))
-                                                     :4-1 (- (current-time-ms) (:1 new-data))))
-               ;(println "global flow --" new-data)
-               (cond (and (some? (:cord new-data))
-                       (not= cord-x (:x (:cord new-data)))
-                       (not= cord-y (:y (:cord new-data)))) (let [[cx cy]  (:cord new-data)
-                                                                  time     (:time new-data)
-                                                                  ctm      (.getScreenCTM dom/node)
-                                                                  dx       (/ (- cx (.-e ctm))
-                                                                              (.-a ctm))
-                                                                  dy       (/ (- cy (.-f ctm))
-                                                                              (.-d ctm))
-                                                                  cur-x (:pos @!xx)
-                                                                  cur-y (:pos @!yy)
-                                                                  x (+ cur-x (- dx @!fx))
-                                                                  y (+ cur-y (- dy @!fy))
-                                                                  new-x {:pos x :time time}
-                                                                  new-y {:pos y :time time}]
-                                                              ;(println "4. Client side update: " new-x "::" new-y "::" new-data)
-                                                              (reset! !node-pos-atom {:x new-x
-                                                                                      :y new-y
-                                                                                      :id id})
-                                                              (println " --XX-- " new-x "::" @!xx "::::" new-data "::" cur-x @!fx dx)
-                                                              (reset! cord-x cx)
-                                                              (reset! cord-y cy)
-                                                              ;(println " -------YY----- UPDATING ----------------" new-y "::" @!yy "::::" new-data)
-                                                              (reset! !xx new-x)
-                                                              (reset! !yy new-y))
-                     ;; Only happen for server based updates
-                     (some? (:x new-data))   (let [ct (:time @!xx)
-                                                   nt (-> new-data :x :time)
-                                                   nx (-> new-data :x :pos)
-                                                   new-x {:pos nx :time nt}]
-                                               ;(println "9.1 Data from server for X" new-data "::" @!xx)
-                                               (when (> (- nt ct) 0)
-                                                 (reset! !xx new-x)
-                                                 (reset! !node-pos-atom {:x new-x
-                                                                         :id id})))
-                     (some? (:y new-data))   (let [ct (:time @!yy)
-                                                   nt  (-> new-data :y :time)
-                                                   ny (-> new-data :y :pos)
-                                                   new-y {:pos ny :time nt}]
-                                               ;(println "9.2 Data from server for Y" new-data "::" @!yy)
-                                               (when (> (- nt ct) 0)
-                                                 (reset! !yy new-y)
-                                                 (reset! !node-pos-atom {:y new-y
-                                                                         :id id})))
-                     :else                   (println "THIS IS SOME OTHER TYPE OF DATA: " new-data))))
+         (let [{:keys [nid cords x y]} (new (global-client-flow))
+               [cx cy] cords]
+           (do
+            (when  (= id nid)
+                (cond (and cx cy
+                        (not= @cord-x cx)
+                        (not= @cord-y cy)) (let [ctm      (.getScreenCTM dom/node)
+                                                 dx       (/ (- cx (.-e ctm))
+                                                            (.-a ctm))
+                                                 dy       (/ (- cy (.-f ctm))
+                                                             (.-d ctm))]
+                                             (do
+                                              (swap! !xx update-in [:pos] (fn [curx]
+                                                                           (+ curx (- dx fx))))
+                                              (swap! !xx update-in [:time]  current-time-ms)
+                                              (swap! !yy update-in [:time] current-time-ms)
+                                              (swap! !yy update-in [:pos] (fn [cury]
+                                                                           (+ cury (- dy fy))))
+                                              (swap! !fx (constantly dx))
+                                              (swap! !fy (constantly dy))
+                                              (reset! cord-x cx)
+                                              (reset! cord-y cy)
+                                              (reset! !node-pos-atom {:x xx
+                                                                      :y yy
+                                                                      :nid id})))
+
+                      ;; Only happen for server based updates
+                      (some? x)   (let [ct (:time @!xx)
+                                        nt (-> x :time)
+                                        nx (-> x :pos)
+                                        new-x {:pos nx :time nt}]
+                                    (when (> (- nt ct) 0)
+                                      (println "server " cx nx  cy)
+                                      (reset! !xx new-x)
+                                      (reset! !node-pos-atom {:x new-x
+                                                              :id id})))
+                      (some? y)   (let [ct (:time @!yy)
+                                        nt  (-> y :time)
+                                        ny (-> y :pos)
+                                        new-y {:pos ny :time nt}]
+                                    (when (> (- nt ct) 0)
+                                      (println "server " cx cy ny)
+                                      (reset! !yy new-y)
+                                      (reset! !node-pos-atom {:y new-y
+                                                              :id id})))
+                      :else         (println "THIS IS SOME OTHER TYPE OF DATA: " cx cy x y nid)))))
 
          (dom/on "mousedown"  (e/fn [e]
                                 (.preventDefault e)

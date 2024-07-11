@@ -8,6 +8,8 @@
             [app.client.shapes.line :refer [line]]
             #?@(:cljs
                 [[clojure.string :as str]
+                 [app.client.shapes.line :refer [edge-update]]
+                 [app.client.shapes.rect :refer [server-update]]
                  [missionary.core :as m]]
                 :clj
                 [[missionary.core :as m]
@@ -148,6 +150,24 @@
              (m/latest (fn [e]
                          (latest-wheel e !viewbox))))))
 
+(e/defn ccc [x y c r t]
+  (e/client
+   (svg/g
+     (svg/circle
+        (dom/props {:cx x
+                    :cy y
+                    :r r
+                    :fill c}))
+     (svg/text
+       (dom/props {:x x
+                   :y (- y (rand-int 15))  ;; Adjust y position to place text above the circle
+                   :fill "white"
+                   :font-family "Arial"
+                   :font-size 1
+                   :text-anchor "middle"})
+       (dom/text (str t))))))
+
+
 (e/defn view []
   (e/client
     (pprint-str "IN THE VIEW")
@@ -162,7 +182,13 @@
           !last-position (atom {:x 0 :y 0})
           last-position (e/watch !last-position)
           !zoom-level (atom 1.5)
-          zoom-level (e/watch !zoom-level)]
+          zoom-level (e/watch !zoom-level)
+          !s-circles (atom [])
+          s-circles (e/watch !s-circles)
+          !circles (atom [])
+          circles (e/watch !circles)
+          !ctr (atom 0)
+          ctr (e/watch !ctr)]
 
       #_(dom/on js/document "mousemove" (e/fn [e]
                                           (println "mouse move on document")
@@ -243,6 +269,33 @@
                (reset! !viewbox new-box)
                (reset! !zoom-level (* @!zoom-level scale))))
 
+
+           #_(let [n (new (server-update))
+                   cx (-> n :x :pos)
+                   cy (-> n :y :pos)
+                   t  (-> n :y :time)]
+               ;(println t "@@@@" n cx cy)
+               (when (some? cx)
+                (swap! !s-circles conj [cx cy t])))
+
+           #_(let [n (new (edge-update))
+                   cx (-> n :x :pos)
+                   cy (-> n :y :pos)
+                   t  (-> n :x :time)]
+               ;(println t "###" n cx cy)
+               (when (some? cx)
+                 (swap!  !circles conj [cx cy t])))
+
+           #_(e/for-by identity [[x y t]  circles]
+               (println ctr " cc" x y t)
+               (swap! !ctr inc)
+               (ccc. x y "green" 1.2 t))
+
+           #_(e/for-by identity [[x y t]  s-circles]
+               ;(println t " scc" x y)
+               (ccc. x y "yellow" 1 t))
+
+
            (dom/on "mousedown" (e/fn [e]
                                  (when (= 0
                                          (.-button e))
@@ -281,6 +334,7 @@
                  :height (nth viewbox 3)
                  :fill "url(#dotted-pattern)"}))
 
+
            (e/server
              (e/for-by identity [id (new (!subscribe [:main ] node-ids-pstate))]
                (println "ID" id)
@@ -289,18 +343,18 @@
                    (println "---> NODE DATA <----" node)
                    (println "NODE " id)
                    (rect. id node))))
-             (e/for-by identity [edge edges]
-               (let [[k v] edge
-                     target-node (first (get-path-data
-                                          [(keypath :main) (:to v)]
-                                          nodes-pstate))
-                     source-node (first (get-path-data
-                                          [(keypath :main) (:from v)]
-                                          nodes-pstate))]
-                 (e/client
-                   (println "edge " v)
-                   (println "target node" target-node)
-                   (line. source-node target-node v)))))))))))
+             #_(e/for-by identity [edge edges]
+                 (let [[k v] edge
+                       target-node (first (get-path-data
+                                            [(keypath :main) (:to v)]
+                                            nodes-pstate))
+                       source-node (first (get-path-data
+                                            [(keypath :main) (:from v)]
+                                            nodes-pstate))]
+                   (e/client
+                     (println "edge " v)
+                     (println "target node" target-node)
+                     (line. source-node target-node v)))))))))))
 
 
 (e/defn main [ring-request]
