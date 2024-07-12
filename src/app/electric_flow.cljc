@@ -15,6 +15,7 @@
                 [[missionary.core :as m]
                  [com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
                  [app.server.rama :as rama :refer [!subscribe get-path-data nodes-pstate node-ids-pstate]]])))
+(hyperfiddle.rcf/enable!)
 
 
 (e/defn event-to-map [e viewbox]

@@ -11,6 +11,7 @@
             [app.client.flow-calc :as fc]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
+            [hyperfiddle.rcf :refer [tests tap with %]]
             [app.client.mode :refer [theme]]
             [app.client.shapes.util :as sutil :refer [create-new-child-node]]
             [app.client.utils :refer [ ui-mode edges nodes
@@ -24,8 +25,27 @@
                  [missionary.core :as m]]
                 :clj
                 [[com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
+                 [image-resizer.resize :refer :all]
+                 [image-resizer.core :refer :all]
+                 [image-resizer.format :as format]
+                 [image-resizer.scale-methods :refer :all]
+                 [clojure.java.io :refer :all]
                  [app.client.utils :refer [!ui-mode !edges !nodes]]
                  [app.server.rama :as rama :refer [!subscribe nodes-pstate get-path-data get-event-id add-new-node update-node]]])))
+
+
+#_(tests
+    "GM"
+    #?(:clj (doseq [x (range 2251 2327)]
+                 (println  (str "/Users/sid597/Softland/resources/public/img/resized/" x ".jpeg"))
+                 (format/as-file
+                   ((resize-fn 2048 2048 ultra-quality)
+                    (file (str "/Users/sid597/Softland/resources/public/img/DSCF" x ".JPG")))
+                   (str "/Users/sid597/Softland/resources/public/img/resized/" x ".jpeg")
+                   :verbatim))))
+
+
+
 
 
 (e/defn card-topbar [id]
@@ -237,28 +257,30 @@
       (watch-server-update. x-p)
       (watch-server-update. y-p)
       (svg/g
-        (svg/rect
-          (dom/props {:x      (:pos xx);(subscribe. x-p)     ;(+  (subscribe. x-p) 5)
-                      :y      (:pos yy) ;(subscribe. y-p)     ;(+  (subscribe. y-p)  5)
-                      :height hh;(subscribe. height-p);(-  (subscribe. height-p)  10)
-                      :width  ww ; (subscribe. width-p) ;(-  (subscribe. width-p)   10)
-                      ;:fill   "red"
-                      :id     id
-                      :style {:display "flex"
-                              :flex-direction "column"
-                              :border "1px solid black"
-                              :border-radius "10px"
-                              :background-color "red"
-                              :overflow "scroll"}}))
+        (when (= :rect type)
+          (svg/rect
+            (dom/props {:x      (:pos xx);(subscribe. x-p)     ;(+  (subscribe. x-p) 5)
+                        :y      (:pos yy) ;(subscribe. y-p)     ;(+  (subscribe. y-p)  5)
+                        :height hh;(subscribe. height-p);(-  (subscribe. height-p)  10)
+                        :width  ww ; (subscribe. width-p) ;(-  (subscribe. width-p)   10)
+                        :fill   "red"
+                        :id     id
+                        :style {:display "flex"
+                                :flex-direction "column"
+                                :border "1px solid black"
+                                :border-radius "10px"
+                                :background-color "red"
+                                :overflow "scroll"}})))
         (when (= :img type)
           (svg/image
             (dom/props
-              {:x (:pos xx)
+              {:id (:id node)
+               :x (:pos xx)
                :y (:pos yy)
                :width (+ ww 10)
                :height (+ hh 10)
                :href (-> extra-data :path)
-               :preserveAspectRatio true})))
+               :preserveAspectRatio "xMinYMin meet"})))
        (new (el-mouse-move-state< dom/node id dragging?))
        (let [{:keys [x y nid]} (new (server-update))]
            (when (= nid id)
@@ -357,3 +379,29 @@
                                  (.stopPropagation e)
                                  (reset-after-drag. "mouseout element")))))))
 
+#_(tests
+    "hello"
+   (println "new add") := ""
+   (let [y (atom 0.1111111122)
+         x (atom 0.1111111122)
+         st (atom 2251)
+         res (atom [])]
+      (for [i (range 76)]
+        (let [nx (+ @x (* i 2))
+              ny (+ @y (* i 2))
+              id (keyword (str (random-uuid)))]
+         (println (pr-str {:function-name "add-new-node",
+                           :args [{id
+                                   {:y {:time 100000 :pos ny},
+                                    :fill "lightblue",
+                                    :type "img",
+                                    :id id
+                                    :x {:time 100000 :pos nx},
+                                    :type-specific-data {:path (str "/img/resized/" @st ".jpeg")
+                                                         :width 400,
+                                                         :height 400,
+                                                         :text "GM Hello"}}}
+                                  {:graph-name :main}]}))
+         (swap! st inc)
+         (swap! y + 210)
+         (swap! x + 210)))))
