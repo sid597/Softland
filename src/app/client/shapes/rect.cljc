@@ -151,7 +151,6 @@
            (m/signal ;; https://clojurians.slack.com/archives/C7Q9GSHFV/p1691599800774709?thread_ts=1691570620.457499&cid=C7Q9GSHFV
             (m/latest
               (fn [x]
-                (println x)
                 x)
               (m/watch !global-atom)))))
 
@@ -200,6 +199,115 @@
         (reset! !global-atom {:nid (first path)
                               :y new-data})))))
 
+(e/defn setup-actions [{:keys [node id dragging? !dragging? x-p y-p cord-x cord-y !xx !yy !fx !fy fx fy xx yy]}]
+  (e/client
+    (let [reset-after-drag (e/fn [msg]
+                             (e/client
+                               (when @!dragging?
+                                 (do
+                                   ;(println "RESET AFTER DRAG")
+                                   (when (not= (e/server (first (get-path-data [(keypath :main) id :x] nodes-pstate)))
+                                           @!xx))
+
+                                   (reset! !dragging? false)))))]
+      (new (el-mouse-move-state< node id dragging?))
+      (let [{:keys [x y nid]} (new (server-update))]
+        (when (= nid id)
+          ;(println (:time x) " 7. SERVER DATA UPDATE "  x "::" y)
+          (e/server
+            (update-node
+              [x-p x]
+              {:graph-name  :main
+               :event-id    (get-event-id)
+               :create-time (System/currentTimeMillis)}
+              false
+              false)
+            (update-node
+              [y-p y]
+              {:graph-name  :main
+               :event-id    (get-event-id)
+               :create-time (System/currentTimeMillis)}
+              false
+              true))))
+      (let [{:keys [nid cords x y]} (new (global-client-flow))
+              [cx cy] cords]
+          (do
+           (when  (= id nid)
+            (cond (and cx cy
+                   (not= @cord-x cx)
+                   (not= @cord-y cy)) (let [ctm      (.getScreenCTM node)
+                                            dx       (/ (- cx (.-e ctm))
+                                                      (.-a ctm))
+                                            dy       (/ (- cy (.-f ctm))
+                                                      (.-d ctm))]
+                                       (do
+                                        (swap! !xx update-in [:pos] (fn [curx]
+                                                                     (+ curx (- dx fx))))
+                                        (swap! !xx update-in [:time]  current-time-ms)
+                                        (swap! !yy update-in [:time] current-time-ms)
+                                        (swap! !yy update-in [:pos] (fn [cury]
+                                                                     (+ cury (- dy fy))))
+                                        (swap! !fx (constantly dx))
+                                        (swap! !fy (constantly dy))
+                                        (reset! cord-x cx)
+                                        (reset! cord-y cy)
+                                        (reset! !node-pos-atom {:x xx
+                                                                :y yy
+                                                                :nid id})))
+
+                  ;; Only happen for server based updates
+                  (some? x)   (let [ct (:time @!xx)
+                                    nt (-> x :time)
+                                    nx (-> x :pos)
+                                    new-x {:pos nx :time nt}]
+                                (when (> (- nt ct) 0)
+                                  (println "server " cx nx  cy)
+                                  (reset! !xx new-x)
+                                  (reset! !node-pos-atom {:x new-x
+                                                          :id id})))
+                  (some? y)   (let [ct (:time @!yy)
+                                    nt  (-> y :time)
+                                    ny (-> y :pos)
+                                    new-y {:pos ny :time nt}]
+                                (when (> (- nt ct) 0)
+                                  (println "server " cx cy ny)
+                                  (reset! !yy new-y)
+                                  (reset! !node-pos-atom {:y new-y
+                                                          :id id})))
+                  :else         (println "THIS IS SOME OTHER TYPE OF DATA: " cx cy x y nid)))))
+
+      (dom/on node "mousedown"  (e/fn [e]
+                                  (.preventDefault e)
+                                  (.stopPropagation e)
+                                  (let [cx (.-clientX e)
+                                        cy (.-clientY e)
+                                        ctm (.getScreenCTM dom/node)
+                                        dx  (/ (- cx (.-e ctm))
+                                              (.-a ctm))
+                                        dy  (/ (- cy (.-f ctm))
+                                              (.-d ctm))]
+                                    (reset! !fx dx)
+                                    (reset! !fy dy)
+                                    #_(println "MOUSEDOWN " {:fx @!fx :fy @!fy
+                                                             :xx xx :yy yy
+                                                             :dx dx :dy dy
+                                                             :cx cx :cy cy})
+                                    (println "** Updatae fx" @!fx @!fy)
+                                   (reset! !dragging? true))))
+
+     (dom/on node "mouseup"    (e/fn [e]
+                                 (.preventDefault e)
+                                 (.stopPropagation e)
+                                 (reset-after-drag. "mouseup on element")))
+
+     (dom/on node "mouseleave"    (e/fn [e]
+                                    (.preventDefault e)
+                                    (.stopPropagation e)
+                                    (reset-after-drag. "mouseleave on element")))
+     (dom/on node "mouseout"    (e/fn [e]
+                                  (.preventDefault e)
+                                  (.stopPropagation e)
+                                  (reset-after-drag. "mouseout element"))))))
 
 
 (e/defn rect [id node type]
@@ -244,25 +352,36 @@
           !fx (atom nil)
           fx (e/watch !fx)
           !fy (atom nil)
-          fy (e/watch !fy)
-          reset-after-drag (e/fn [msg]
-                             (e/client
-                               (when @!dragging?
-                                 (do
-                                   ;(println "RESET AFTER DRAG")
-                                   (when (not= (e/server (first (get-path-data [(keypath :main) id :x] nodes-pstate)))
-                                           @!xx))
-
-                                   (reset! !dragging? false)))))]
+          fy (e/watch !fy)]
       (watch-server-update. x-p)
       (watch-server-update. y-p)
       (svg/g
-        (when (= :rect type)
+        (let [rh (+ 200 hh)
+              x (:pos xx)
+              y (:pos yy)
+              !rotation (atom 0)
+              rotation (e/watch !rotation)]
+          (setup-actions. {:node dom/node
+                                   :id id
+                                   :!dragging? !dragging?
+                                   :dragging? dragging?
+                                   :x-p x-p
+                                   :y-p y-p
+                                   :cord-x cord-x
+                                   :cord-y cord-y
+                                   :!xx !xx
+                                   :!yy !yy
+                                   :!fx !fx
+                                   :!fy !fy
+                                   :fx fx
+                                   :fy fy
+                                   :xx xx
+                                   :yy yy})
           (svg/rect
-            (dom/props {:x      (:pos xx);(subscribe. x-p)     ;(+  (subscribe. x-p) 5)
-                        :y      (:pos yy) ;(subscribe. y-p)     ;(+  (subscribe. y-p)  5)
-                        :height hh;(subscribe. height-p);(-  (subscribe. height-p)  10)
-                        :width  ww ; (subscribe. width-p) ;(-  (subscribe. width-p)   10)
+            (dom/props {:x      x
+                        :y      y
+                        :height rh
+                        :width  ww
                         :fill   "red"
                         :id     id
                         :style {:display "flex"
@@ -270,114 +389,49 @@
                                 :border "1px solid black"
                                 :border-radius "10px"
                                 :background-color "red"
-                                :overflow "scroll"}})))
-        (when (= :img type)
-          (svg/image
+                                :overflow "scroll"}}))
+         (when (= :img type)
+           (svg/image
+             (dom/props
+               {:id (str id "-image")
+                :x x
+                :y y
+                :width ww
+                :transform (str "rotate(" rotation "," (+ x (/ ww 2))  "," (+ y (/ hh  2)) ")")
+                :height hh
+                :href (-> extra-data :path)
+                :preserveAspectRatio "xMidYMid meet"})))
+         (let [bx (+ 10 x)
+               by (+ hh y 10)
+               tx (+ 5 bx)
+               ty (+ 10 by)]
+           (svg/rect
+            (dom/props {:x bx
+                        :y  by
+                        :height 20
+                        :width 80
+                        :fill "green"}))
+
+          (svg/text
             (dom/props
-              {:id (:id node)
-               :x (:pos xx)
-               :y (:pos yy)
-               :width (+ ww 10)
-               :height (+ hh 10)
-               :href (-> extra-data :path)
-               :preserveAspectRatio "xMinYMin meet"})))
-       (new (el-mouse-move-state< dom/node id dragging?))
-       (let [{:keys [x y nid]} (new (server-update))]
-           (when (= nid id)
-               ;(println (:time x) " 7. SERVER DATA UPDATE "  x "::" y)
-               (e/server
-                (update-node
-                    [x-p x]
-                    {:graph-name  :main
-                       :event-id    (get-event-id)
-                       :create-time (System/currentTimeMillis)}
-                    false
-                    false)
-                (update-node
-                    [y-p y]
-                    {:graph-name  :main
-                       :event-id    (get-event-id)
-                       :create-time (System/currentTimeMillis)}
-                    false
-                    true))))
-       (let [{:keys [nid cords x y]} (new (global-client-flow))
-               [cx cy] cords]
-           (do
-            (when  (= id nid)
-                (cond (and cx cy
-                        (not= @cord-x cx)
-                        (not= @cord-y cy)) (let [ctm      (.getScreenCTM dom/node)
-                                                 dx       (/ (- cx (.-e ctm))
-                                                            (.-a ctm))
-                                                 dy       (/ (- cy (.-f ctm))
-                                                             (.-d ctm))]
-                                             (do
-                                              (swap! !xx update-in [:pos] (fn [curx]
-                                                                           (+ curx (- dx fx))))
-                                              (swap! !xx update-in [:time]  current-time-ms)
-                                              (swap! !yy update-in [:time] current-time-ms)
-                                              (swap! !yy update-in [:pos] (fn [cury]
-                                                                           (+ cury (- dy fy))))
-                                              (swap! !fx (constantly dx))
-                                              (swap! !fy (constantly dy))
-                                              (reset! cord-x cx)
-                                              (reset! cord-y cy)
-                                              (reset! !node-pos-atom {:x xx
-                                                                      :y yy
-                                                                      :nid id})))
+              {:x tx
+               :y ty})
+            (dom/on "click" (e/fn [e]
+                              (.preventDefault e)
+                              (swap! !rotation (fn [old-r]
+                                                 (+ old-r 90)))))
 
-                      ;; Only happen for server based updates
-                      (some? x)   (let [ct (:time @!xx)
-                                        nt (-> x :time)
-                                        nx (-> x :pos)
-                                        new-x {:pos nx :time nt}]
-                                    (when (> (- nt ct) 0)
-                                      (println "server " cx nx  cy)
-                                      (reset! !xx new-x)
-                                      (reset! !node-pos-atom {:x new-x
-                                                              :id id})))
-                      (some? y)   (let [ct (:time @!yy)
-                                        nt  (-> y :time)
-                                        ny (-> y :pos)
-                                        new-y {:pos ny :time nt}]
-                                    (when (> (- nt ct) 0)
-                                      (println "server " cx cy ny)
-                                      (reset! !yy new-y)
-                                      (reset! !node-pos-atom {:y new-y
-                                                              :id id})))
-                      :else         (println "THIS IS SOME OTHER TYPE OF DATA: " cx cy x y nid)))))
 
-       (dom/on "mousedown"  (e/fn [e]
-                                (.preventDefault e)
-                                (.stopPropagation e)
-                                (let [cx (.-clientX e)
-                                      cy (.-clientY e)
-                                      ctm (.getScreenCTM dom/node)
-                                      dx  (/ (- cx (.-e ctm))
-                                             (.-a ctm))
-                                      dy  (/ (- cy (.-f ctm))
-                                            (.-d ctm))]
-                                    (reset! !fx dx)
-                                    (reset! !fy dy)
-                                    #_(println "MOUSEDOWN " {:fx @!fx :fy @!fy
-                                                             :xx xx :yy yy
-                                                             :dx dx :dy dy
-                                                             :cx cx :cy cy})
-                                    (println "** Updatae fx" @!fx @!fy)
-                                    (reset! !dragging? true))))
-       (dom/on "mouseup"    (e/fn [e]
-                                (.preventDefault e)
-                                (.stopPropagation e)
-                                (reset-after-drag. "mouseup on element")))
 
-       (dom/on "mouseleave"    (e/fn [e]
-                                   (.preventDefault e)
-                                   (.stopPropagation e)
-                                   (reset-after-drag. "mouseleave on element")))
-       (dom/on "mouseout"    (e/fn [e]
-                                 (.preventDefault e)
-                                 (.stopPropagation e)
-                                 (reset-after-drag. "mouseout element")))))))
+            (dom/text "Rotate"))))))))
+
+
+
+
+
+
+
+
 
 #_(tests
     "hello"
