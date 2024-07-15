@@ -341,12 +341,10 @@
           !yy (atom {:pos (-> node :y :pos)
                      :time (-> node :y :time)})
           yy (e/watch !yy)
-          !hh (atom {:height (:height extra-data)
-                     :time (:time node)})
-          hh  (:height (e/watch !hh))
-          !ww (atom {:width (:width extra-data)
-                     :time (:time node)})
-          ww  (:width (e/watch !ww))
+          !hh (atom (:height extra-data))
+          hh  (e/watch !hh)
+          !ww (atom (:width extra-data))
+          ww  (e/watch !ww)
           !text (atom (:text extra-data) #_(subscribe. text-p))
           block-text (e/watch !text)
           !fx (atom nil)
@@ -391,39 +389,51 @@
                                 :background-color "red"
                                 :overflow "scroll"}}))
          (when (= :img type)
-           (svg/image
-             (dom/props
-               {:id (str id "-image")
-                :x x
-                :y y
-                :width ww
-                :transform (str "rotate(" rotation "," (+ x (/ ww 2))  "," (+ y (/ hh  2)) ")")
-                :height hh
-                :href (-> extra-data :path)
-                :preserveAspectRatio "xMidYMid meet"})))
-         (let [bx (+ 10 x)
-               by (+ hh y 10)
-               tx (+ 5 bx)
-               ty (+ 10 by)]
-           (svg/rect
-            (dom/props {:x bx
-                        :y  by
-                        :height 20
-                        :width 80
-                        :fill "green"}))
+            (let [!w      (atom @!ww)
+                  w       (e/watch !w)
+                  !ratio  (atom nil)
+                  ratio   (e/watch !ratio)
+                  !h      (atom nil)
+                  h       (e/watch !h)
+                  img-src (-> extra-data :path)
+                  ima     (js/Image.)]
+              (do
+                (set! (.-onload ima) #(do
+                                        (let [wid (.-width ima)
+                                              hig (.-height ima)]
+                                          (reset! !ratio (/ hig wid))
+                                          (reset! !h (* @!ww @!ratio))
+                                          (js/console.log "******" ima "-" @!ww "-" @!ratio "-" @!h))))
+                (set! (.-src ima) img-src)
+                (println " --" w h ratio ww hh (* hh ratio) (/ ww w) (* ww ratio (/ hh w))))
+              (svg/image
+                (dom/props
+                  {:id (str id "-image")
+                   :x x
+                   :y y
+                   :width w
+                   :height h
+                   :href img-src
+                   :preserveAspectRatio "xMaxYMax meet"}))
+             (let [bx  (+ 10 x)
+                    by (+ w y 10)
+                   tx  (+ 10 bx)
+                   ty  (+ by 15)]
+               (svg/rect
+                (dom/props {:x bx
+                            :y  by
+                            :height 20
+                            :width 80
+                            :fill "green"}))
 
-          (svg/text
-            (dom/props
-              {:x tx
-               :y ty})
-            (dom/on "click" (e/fn [e]
-                              (.preventDefault e)
-                              (swap! !rotation (fn [old-r]
-                                                 (+ old-r 90)))))
-
-
-
-            (dom/text "Rotate"))))))))
+              (svg/text
+                (dom/props
+                  {:x tx
+                   :y ty})
+                (dom/on "click"(e/fn [e]
+                                 (.preventDefault e)
+                                 (println "BUtton clicked")))
+                (dom/text "Extract"))))))))))
 
 
 
