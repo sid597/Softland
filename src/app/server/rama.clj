@@ -6,12 +6,16 @@
             [com.rpl.rama.test :as rtest :refer [create-ipc launch-module! gen-hashing-index-keys]]
             [com.rpl.rama.aggs :as aggs :refer [+merge +map-agg]]
             [com.rpl.rama.ops :as ops]
+            [clj-http.client :as http]
+            [cheshire.core :as json]
             [missionary.core :as m])
   (:import (clojure.lang Keyword)
            [hyperfiddle.electric Failure Pending]
+           [com.rpl.rama.integration TaskGlobalObject]
            [com.rpl.rama.helpers ModuleUniqueIdPState]))
 
 ;; Each node-pstate is a map of graph-id and its nodes
+
 
 
 (defrecord node-events [action-type node-data event-data])
@@ -19,11 +23,56 @@
 (defrecord registration [uuid username])
 (defrecord update-user-graph-settings [user-id graph-name settings-data event-data])
 
+(defprotocol FetchTaskGlobalClient
+  (task-global-client [this]))
+
+(deftype CljHttpTaskGlobal []
+  TaskGlobalObject
+  (prepareForTask [this task-id task-global-context])
+  (close [this])
+
+  FetchTaskGlobalClient
+  (task-global-client [this]
+    {:http-get http/get
+     :http-post http/post}))
+
+(defn http-get-future [client url]
+  (future
+    (try
+      (:body ((:http-get client) url))
+      (catch Exception e
+        (str "GET Error: " (.getMessage e))))))
+
+(defn http-post-future [client data]
+  (future
+    (try
+      (let [{:keys
+             [url
+              model
+              messages
+              temperature
+              max-tokens]} data
+            oai-key            "xyz"
+            body           (json/generate-string
+                             {:model      model
+                              :messages   messages
+                              :temperature temperature
+                              :max_tokens max-tokens})
+            headers        {"Content-Type" "application/json"
+                            "Authorization" (str "Bearer " oai-key)}]
+       (:body ((:http-post client) url {:headers headers
+                                        :body body
+                                        :content-type :json
+                                        :as :json
+                                        :throw-exceptions false})))
+      (catch Exception e
+        (str "POST Error: " (.getMessage e))))))
 
 (defmodule node-events-module [setup topologies]
   (declare-depot setup *node-events-depot :random)
   (declare-depot setup *user-registration-depot (hash-by :username))
   (declare-depot setup *user-graph-settings-depot (hash-by :user-id))
+  (declare-object setup *http-client (CljHttpTaskGlobal.))
   (let [n      (stream-topology topologies "events-topology")
         id-gen (ModuleUniqueIdPState. "$$id")]
     (declare-pstate n $$nodes-pstate {Keyword (map-schema
@@ -89,6 +138,29 @@
       (println "R: PROCESSING EVENT" *action-type)
 
       (<<cond
+        ;; llm request
+        (case> (= :llm-request *action-type))
+        (println "R: GOT LLM REQUEST")
+        ;; request data attached to event data
+        (local-select> (keypath :request-data) *event-data :> *request-data)
+        ;; Send the data to post function
+        ;; which takes the data and posts it open ai
+        ;; givens response all at once
+        ;; have to figure out how to do streaming
+        (completable-future>
+          (http-post-future (task-global-client *http-client) *request-data)
+          :> *response-body)
+        ;; find whats the current value at the given data path
+        (first *node-data :> *data-path)
+        (local-select> [*graph-name *data-path] $$nodes-pstate :> *cur-val)
+        (println "R: CURRENT VALUE LLM WILL REPLACE:  " *cur-val)
+        ;; Update the response at the given path
+        (local-transform>
+          [*graph-name
+           *data-path (termval *response-body)]
+          $$nodes-pstate)
+
+
         ;; Add nodes
         (case> (= :new-node *action-type))
         (println "R: ADDING NODE" *node-data)
@@ -121,7 +193,7 @@
           [*graph-name (first *node-data) (termval (second *node-data))]
           $$nodes-pstate)
         (println "R: NODE UPDATED")
-        (clojure.pprint/pprint (local-select> ALL $$nodes-pstate))
+        ;(clojure.pprint/pprint (local-select> ALL $$nodes-pstate))
         (println "----------------------------------------------------")
 
         ;; update event id

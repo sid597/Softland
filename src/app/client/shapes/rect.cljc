@@ -432,14 +432,8 @@
                    :y ty})
                 (dom/on "click"(e/fn [e]
                                  (.preventDefault e)
-                                 (println "BUtton clicked")))
+                                 (println "Button clicked")))
                 (dom/text "Extract"))))))))))
-
-
-
-
-
-
 
 
 
