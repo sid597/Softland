@@ -46,17 +46,20 @@
       (catch Exception e
         (str "GET Error: " (.getMessage e))))))
 
-(defn http-post-future [client data]
+(declare update-node)
+
+(defn http-post-future [client path event-data]
   (CompletableFuture/supplyAsync
     (reify Supplier
       (get [this]
         (try
-          (let [{:keys
+          (let [{:keys [request-data graph-name event-id create-time]} event-data
+                {:keys
                  [url
                   model
                   messages
                   temperature
-                  max-tokens]} data
+                  max-tokens]} request-data
                 body           (json/generate-string
                                  {:model      model
                                   :messages   messages
@@ -69,9 +72,13 @@
                                                                     :body body
                                                                     :content-type :json
                                                                     :as :json
-                                                                    :throw-exceptions false})]
+                                                                    :throw-exceptions false})
+                llm-reply     (-> response :body :choices first :message :content str)]
             (println "GOT RESPONSE" response)
-            (-> response :body :choices first :message :content))
+
+            (update-node [path llm-reply] {:graph-name  graph-name
+                                           :event-id    event-id
+                                           :create-time create-time} true false))
 
           (catch Exception e
             (str "POST Error: " (.getMessage e))))))))
@@ -156,19 +163,19 @@
         ;; givens response all at once
         ;; have to figure out how to do streaming
         (completable-future>
-          (http-post-future (task-global-client *http-client) *request-data)
+          (http-post-future (task-global-client *http-client) (first *node-data) *event-data)
           :> *response-body)
         ;; find whats the current value at the given data path
-        (println "R: RESPONSE-->" *response-body)
-        (first *node-data :> *data-path)
-        (local-select> [*graph-name *data-path] $$nodes-pstate :> *cur-val)
-        (println "R: CURRENT VALUE LLM WILL REPLACE:  " *cur-val)
+        #_(println "R: RESPONSE-->" *response-body)
+        #_(first *node-data :> *data-path)
+        #_(local-select> [*graph-name *data-path] $$nodes-pstate :> *cur-val)
+        #_(println "R: CURRENT VALUE LLM WILL REPLACE:  " *cur-val)
         ;; Update the response at the given path
-        (local-transform>
-          [*graph-name
-           *data-path (termval *response-body)]
-          $$nodes-pstate)
-        (println "R: UPDATED VALUE" (local-select> *data-path $$nodes-pstate))
+        #_(local-transform>
+            [*graph-name
+             *data-path (termval *response-body)]
+            $$nodes-pstate)
+        #_(println "R: UPDATED VALUE" (local-select> *data-path $$nodes-pstate))
 
 
         ;; Add nodes
