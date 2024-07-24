@@ -8,10 +8,13 @@
             [com.rpl.rama.ops :as ops]
             [clj-http.client :as http]
             [cheshire.core :as json]
+            [app.server.env :refer [oai-key]]
             [missionary.core :as m])
   (:import (clojure.lang Keyword)
            [hyperfiddle.electric Failure Pending]
            [com.rpl.rama.integration TaskGlobalObject]
+           [java.util.concurrent CompletableFuture]
+           [java.util.function Supplier]
            [com.rpl.rama.helpers ModuleUniqueIdPState]))
 
 ;; Each node-pstate is a map of graph-id and its nodes
@@ -44,29 +47,34 @@
         (str "GET Error: " (.getMessage e))))))
 
 (defn http-post-future [client data]
-  (future
-    (try
-      (let [{:keys
-             [url
-              model
-              messages
-              temperature
-              max-tokens]} data
-            oai-key            "xyz"
-            body           (json/generate-string
-                             {:model      model
-                              :messages   messages
-                              :temperature temperature
-                              :max_tokens max-tokens})
-            headers        {"Content-Type" "application/json"
-                            "Authorization" (str "Bearer " oai-key)}]
-       (:body ((:http-post client) url {:headers headers
-                                        :body body
-                                        :content-type :json
-                                        :as :json
-                                        :throw-exceptions false})))
-      (catch Exception e
-        (str "POST Error: " (.getMessage e))))))
+  (CompletableFuture/supplyAsync
+    (reify Supplier
+      (get [this]
+        (try
+          (let [{:keys
+                 [url
+                  model
+                  messages
+                  temperature
+                  max-tokens]} data
+                body           (json/generate-string
+                                 {:model      model
+                                  :messages   messages
+                                  :temperature temperature
+                                  :max_tokens max-tokens})
+                headers        {"Content-Type" "application/json"
+                                "Authorization" (str "Bearer " oai-key)}
+                _             (println "R: POST REQUEST DATA ")
+                response      ((:http-post client) url {:headers headers
+                                                                    :body body
+                                                                    :content-type :json
+                                                                    :as :json
+                                                                    :throw-exceptions false})]
+            (println "GOT RESPONSE" response)
+            (-> response :body :choices first :message :content))
+
+          (catch Exception e
+            (str "POST Error: " (.getMessage e))))))))
 
 (defmodule node-events-module [setup topologies]
   (declare-depot setup *node-events-depot :random)
@@ -140,9 +148,9 @@
       (<<cond
         ;; llm request
         (case> (= :llm-request *action-type))
-        (println "R: GOT LLM REQUEST")
         ;; request data attached to event data
         (local-select> (keypath :request-data) *event-data :> *request-data)
+        (println "R: GOT LLM REQUEST: " *request-data)
         ;; Send the data to post function
         ;; which takes the data and posts it open ai
         ;; givens response all at once
@@ -151,6 +159,7 @@
           (http-post-future (task-global-client *http-client) *request-data)
           :> *response-body)
         ;; find whats the current value at the given data path
+        (println "R: RESPONSE-->" *response-body)
         (first *node-data :> *data-path)
         (local-select> [*graph-name *data-path] $$nodes-pstate :> *cur-val)
         (println "R: CURRENT VALUE LLM WILL REPLACE:  " *cur-val)
@@ -159,6 +168,7 @@
           [*graph-name
            *data-path (termval *response-body)]
           $$nodes-pstate)
+        (println "R: UPDATED VALUE" (local-select> *data-path $$nodes-pstate))
 
 
         ;; Add nodes
@@ -330,6 +340,15 @@
     (when (or update?
             (some? (:event-id event-data)))
       (update-event-id)))))
+
+(defn send-llm-request
+  [node-map event-data]
+  (println "SEND LLM REQUEST: " event-data)
+  (foreign-append! event-depot (->node-events
+                                 :llm-request
+                                 node-map
+                                 event-data)
+    :append-ack))
 
 (defn get-path-data [path pstate]
   (println "FOREIGN SELECT")

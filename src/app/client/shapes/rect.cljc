@@ -31,7 +31,9 @@
                  [image-resizer.scale-methods :refer :all]
                  [clojure.java.io :refer :all]
                  [app.client.utils :refer [!ui-mode !edges !nodes]]
-                 [app.server.rama :as rama :refer [!subscribe nodes-pstate get-path-data get-event-id add-new-node update-node]]])))
+                 [app.server.rama :as rama :refer [!subscribe nodes-pstate get-path-data get-event-id
+                                                   send-llm-request
+                                                   add-new-node update-node]]])))
 
 
 #_(tests
@@ -430,9 +432,22 @@
                 (dom/props
                   {:x tx
                    :y ty})
-                (dom/on "click"(e/fn [e]
-                                 (.preventDefault e)
-                                 (println "Button clicked")))
+                (dom/on "click" (e/fn [e]
+                                  (.preventDefault e)
+                                  (println "Button clicked")
+                                  (e/server
+                                    (println "SENDING LLM REQUEST CALL")
+                                    (send-llm-request
+                                      [text-p]
+                                      {:graph-name :main
+                                       :event-id (get-event-id)
+                                       :create-time (System/currentTimeMillis)
+                                       :request-data {:url "https://api.openai.com/v1/chat/completions"
+                                                      :model "gpt-4o-mini"
+                                                      :messages [{:role "user"
+                                                                  :content "Heya! GM"}]
+                                                      :temperature 0.1
+                                                      :max-tokens 200}}))))
                 (dom/text "Extract"))))))))))
 
 
