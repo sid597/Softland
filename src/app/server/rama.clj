@@ -6,12 +6,19 @@
             [com.rpl.rama.test :as rtest :refer [create-ipc launch-module! gen-hashing-index-keys]]
             [com.rpl.rama.aggs :as aggs :refer [+merge +map-agg]]
             [com.rpl.rama.ops :as ops]
+            [clj-http.client :as http]
+            [cheshire.core :as json]
+            [app.server.env :refer [oai-key]]
             [missionary.core :as m])
   (:import (clojure.lang Keyword)
            [hyperfiddle.electric Failure Pending]
+           [com.rpl.rama.integration TaskGlobalObject]
+           [java.util.concurrent CompletableFuture]
+           [java.util.function Supplier]
            [com.rpl.rama.helpers ModuleUniqueIdPState]))
 
 ;; Each node-pstate is a map of graph-id and its nodes
+
 
 
 (defrecord node-events [action-type node-data event-data])
@@ -19,22 +26,85 @@
 (defrecord registration [uuid username])
 (defrecord update-user-graph-settings [user-id graph-name settings-data event-data])
 
+(defprotocol FetchTaskGlobalClient
+  (task-global-client [this]))
+
+(deftype CljHttpTaskGlobal []
+  TaskGlobalObject
+  (prepareForTask [this task-id task-global-context])
+  (close [this])
+
+  FetchTaskGlobalClient
+  (task-global-client [this]
+    {:http-get http/get
+     :http-post http/post}))
+
+(defn http-get-future [client url]
+  (future
+    (try
+      (:body ((:http-get client) url))
+      (catch Exception e
+        (str "GET Error: " (.getMessage e))))))
+
+(declare update-node)
+
+(defn http-post-future [client path event-data]
+  (CompletableFuture/supplyAsync
+    (reify Supplier
+      (get [this]
+        (try
+          (let [{:keys [request-data graph-name event-id create-time]} event-data
+                {:keys
+                 [url
+                  model
+                  messages
+                  temperature
+                  max-tokens]} request-data
+                body           (json/generate-string
+                                 {:model      model
+                                  :messages   messages
+                                  :temperature temperature
+                                  :max_tokens max-tokens})
+                headers        {"Content-Type" "application/json"
+                                "Authorization" (str "Bearer " oai-key)}
+                _             (println "R: POST REQUEST DATA ")
+                response      ((:http-post client) url {:headers headers
+                                                                    :body body
+                                                                    :content-type :json
+                                                                    :as :json
+                                                                    :throw-exceptions false})
+                llm-reply     (-> response :body :choices first :message :content str)]
+            (println "GOT RESPONSE" response)
+
+            (update-node [path llm-reply] {:graph-name  graph-name
+                                           :event-id    event-id
+                                           :create-time create-time} true false))
+
+          (catch Exception e
+            (str "POST Error: " (.getMessage e))))))))
 
 (defmodule node-events-module [setup topologies]
   (declare-depot setup *node-events-depot :random)
   (declare-depot setup *user-registration-depot (hash-by :username))
   (declare-depot setup *user-graph-settings-depot (hash-by :user-id))
+  (declare-object setup *http-client (CljHttpTaskGlobal.))
   (let [n      (stream-topology topologies "events-topology")
         id-gen (ModuleUniqueIdPState. "$$id")]
     (declare-pstate n $$nodes-pstate {Keyword (map-schema
                                                 Keyword (fixed-keys-schema
                                                            {:id                 Keyword
-                                                            :x                  Double
-                                                            :y                  Double
+                                                            :x                  (fixed-keys-schema
+                                                                                   {:pos Double
+                                                                                    :time Long})
+                                                            :y                  (fixed-keys-schema
+                                                                                   {:pos Double
+                                                                                    :time Long})
                                                             :type-specific-data (map-schema Keyword Object)
                                                             :type               String
                                                             :fill               String}))}
       #_{:global? true})
+    (declare-pstate n $$components-pstate {Keyword (map-schema Keyword Object)})
+    (declare-pstate n $$node-ids-pstate {Keyword (vector-schema Keyword)})
     (declare-pstate n $$event-id-pstate Long {:global? true
                                               :initial-value 0})
     (declare-pstate n $$user-registration-pstate {String ; username
@@ -84,23 +154,54 @@
       (println "R: PROCESSING EVENT" *action-type)
 
       (<<cond
+        ;; llm request
+        (case> (= :llm-request *action-type))
+        ;; request data attached to event data
+        (local-select> (keypath :request-data) *event-data :> *request-data)
+        (println "R: GOT LLM REQUEST: " *request-data)
+        ;; Send the data to post function
+        ;; which takes the data and posts it open ai
+        ;; givens response all at once
+        ;; have to figure out how to do streaming
+        (completable-future>
+          (http-post-future (task-global-client *http-client) (first *node-data) *event-data)
+          :> *response-body)
+        ;; find whats the current value at the given data path
+        #_(println "R: RESPONSE-->" *response-body)
+        #_(first *node-data :> *data-path)
+        #_(local-select> [*graph-name *data-path] $$nodes-pstate :> *cur-val)
+        #_(println "R: CURRENT VALUE LLM WILL REPLACE:  " *cur-val)
+        ;; Update the response at the given path
+        #_(local-transform>
+            [*graph-name
+             *data-path (termval *response-body)]
+            $$nodes-pstate)
+        #_(println "R: UPDATED VALUE" (local-select> *data-path $$nodes-pstate))
+
+
         ;; Add nodes
         (case> (= :new-node *action-type))
-        (println "----------------------------------------------------")
         (println "R: ADDING NODE" *node-data)
         (local-transform>
           [*graph-name
            (keypath (ffirst *node-data))
            (termval (val (first *node-data)))]
           $$nodes-pstate)
-        (println "R: NODE ADDED?" (local-select> ALL $$nodes-pstate))
-        (println "----------------------------------------------------")
+        (local-transform>
+          [(keypath *graph-name)
+           AFTER-ELEM
+           (termval (ffirst *node-data))]
+          $$node-ids-pstate)
 
         ;; Delete nodes
-        (case> (= :delete-node *action-type))
+        #_#_#_(case> (= :delete-node *action-type))
         (local-transform>
-          [(keypath (first *node-data)) NONE>]
+          [*graph-name (keypath (first *node-data)) NONE>]
           $$nodes-pstate)
+        (local-transform>
+          [*graph-name
+           [ALL (= % (first *node-data))] NONE>]
+          $$node-ids-pstate)
 
         ;; Update nodes
         (case> (= :update-node *action-type))
@@ -109,7 +210,8 @@
         (local-transform>
           [*graph-name (first *node-data) (termval (second *node-data))]
           $$nodes-pstate)
-        (println "R: NODE UPDATED" (local-select> ALL $$nodes-pstate))
+        (println "R: NODE UPDATED")
+        ;(clojure.pprint/pprint (local-select> ALL $$nodes-pstate))
         (println "----------------------------------------------------")
 
         ;; update event id
@@ -137,6 +239,7 @@
 
 (def event-depot                  (foreign-depot  @!rama-ipc (get-module-name node-events-module) "*node-events-depot"))
 (def nodes-pstate                 (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$nodes-pstate"))
+(def node-ids-pstate              (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$node-ids-pstate"))
 (def event-id-pstate              (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$event-id-pstate"))
 (def user-registration-pstate     (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$user-registration-pstate"))
 (def user-registration-depot      (foreign-depot @!rama-ipc (get-module-name node-events-module) "*user-registration-depot"))
@@ -246,8 +349,18 @@
             (some? (:event-id event-data)))
       (update-event-id)))))
 
+(defn send-llm-request
+  [node-map event-data]
+  (println "SEND LLM REQUEST: " event-data)
+  (foreign-append! event-depot (->node-events
+                                 :llm-request
+                                 node-map
+                                 event-data)
+    :append-ack))
+
 (defn get-path-data [path pstate]
-  (foreign-select path pstate {:pkey :rect}))
+  (println "FOREIGN SELECT")
+  (foreign-select path pstate))
 
 (load-events) ;; THIS IS A HACK: Will not work when we move away from ipc.
 
@@ -338,7 +451,5 @@
                                             :fill  "lightblue"}}
                                    {:graph-name :level-1})
       :append-ack))
-  (foreign-select (keypath ["main" ALL]) nodes-pstate {:pkey :rect})
+ foreign-select (keypath ["main" ALL]) nodes-pstate {:pkey :rect})
 
-
-  (foreign-select ALL nodes-pstate {:pkey :rect}))

@@ -14,10 +14,12 @@
              org.clojure/tools.logging          {:mvn/version "1.2.4"}
              ch.qos.logback/logback-classic     {:mvn/version "1.2.11"}
              datascript/datascript              {:mvn/version "1.5.2"}
-             com.rpl/rama                       {:mvn/version "0.12.1"}
+             com.rpl/rama                       {:mvn/version "0.17.0"}
              com.rpl/rama-helpers               {:mvn/version "0.9.3"}
              com.rpl/specter                    {:mvn/version "1.1.4"}
              net.clojars.wkok/openai-clojure    {:mvn/version "0.14.0"}
+              image-resizer/image-resizer       {:mvn/version "0.1.10"}
+             clj-http/clj-http                  {:mvn/version "3.12.3"}
              io.github.nextjournal/clojure-mode {:git/tag "v0.3.0" :git/sha "694abc7"}
              org.apache.logging.log4j/log4j-slf4j2-impl {:mvn/version "2.23.1"}}
  :aliases  {:dev   {:extra-paths ["src-dev"]

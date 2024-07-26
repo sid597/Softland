@@ -1,4 +1,5 @@
 (ns app.client.shapes.rect
+  (:import (missionary Cancelled))
   (:require contrib.str
             #?(:cljs [clojure.string :as str])
             [hyperfiddle.electric-svg :as svg]
@@ -10,6 +11,7 @@
             [app.client.flow-calc :as fc]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
+            [hyperfiddle.rcf :refer [tests tap with %]]
             [app.client.mode :refer [theme]]
             [app.client.shapes.util :as sutil :refer [create-new-child-node]]
             [app.client.utils :refer [ ui-mode edges nodes
@@ -19,11 +21,34 @@
             [app.client.style-components.buttons :refer [icon-button]]
             [hyperfiddle.electric-ui4 :as ui]
             #?@(:cljs
-                [[app.client.utils :refer [!border-drag? !is-dragging? !zoom-level !last-position !viewbox !context-menu?]]]
+                [[app.client.utils :refer [!border-drag? !is-dragging? !zoom-level !last-position !viewbox !context-menu?]]
+                 [missionary.core :as m]
+                 [global-flow :refer [!global-atom global-client-flow current-time-ms debounce]]]
                 :clj
                 [[com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
+                 [image-resizer.resize :refer :all]
+                 [image-resizer.core :refer :all]
+                 [image-resizer.format :as format]
+                 [image-resizer.scale-methods :refer :all]
+                 [clojure.java.io :refer :all]
                  [app.client.utils :refer [!ui-mode !edges !nodes]]
-                 [app.server.rama :as rama :refer [!subscribe nodes-pstate get-event-id add-new-node update-node]]])))
+                 [app.server.rama :as rama :refer [!subscribe nodes-pstate get-path-data get-event-id
+                                                   send-llm-request
+                                                   add-new-node update-node]]])))
+
+
+#_(tests
+    "GM"
+    #?(:clj (doseq [x (range 2251 2327)]
+                 (println  (str "/Users/sid597/Softland/resources/public/img/resized/" x ".jpeg"))
+                 (format/as-file
+                   ((resize-fn 2048 2048 ultra-quality)
+                    (file (str "/Users/sid597/Softland/resources/public/img/DSCF" x ".JPG")))
+                   (str "/Users/sid597/Softland/resources/public/img/resized/" x ".jpeg")
+                   :verbatim))))
+
+
+
 
 
 (e/defn card-topbar [id]
@@ -95,8 +120,190 @@
         (outlined-button. "7")))))
 
 
-(e/defn rect [[id {:keys [y x type id type-specific-data]}]]
+
+#?(:cljs
+   (defn el-mouse-move-state> [movable id dragging?]
+     (m/observe
+       (fn [!]
+         (let [sample (fn [e]
+                        (when dragging?
+                         (! (do
+                              (.preventDefault e)
+                             {:nid   id
+                              :type  :node-update
+                              :cords [(.-clientX e)
+                                      (.-clientY e)]}))))]
+
+
+           (.addEventListener movable "mousemove" sample #js {"passive" false})
+           #(.removeEventListener movable "mousemove" sample))))))
+
+
+#?(:cljs (defn el-mouse-move-state< [movable id dragging?]
+           (->> (el-mouse-move-state> movable id dragging?)
+             (e/throttle 10)
+             (m/reductions {} {:cord [0 0]
+                               :type :node-update
+                               :time (current-time-ms)})
+             (m/relieve {})
+             (m/latest (fn [cords]
+                         (reset! !global-atom cords)))
+             (m/signal))))
+
+
+#?(:cljs (def !node-pos-atom (atom nil)))
+#?(:cljs (defn node-pos-flow []
+           (m/signal ;; https://clojurians.slack.com/archives/C7Q9GSHFV/p1691599800774709?thread_ts=1691570620.457499&cid=C7Q9GSHFV
+            (m/latest
+              (fn [x]
+                  x)
+              (m/watch !node-pos-atom)))))
+
+
+
+#?(:cljs (defn server-update []
+           (->> (node-pos-flow)
+             (debounce 100)
+             (m/reductions {} {:x 0 :y 0 :id 0})
+             (m/relieve {})
+             (m/latest (fn [new-data]
+                         ;(println "6. Send to SERVER " new-data)
+                         new-data))
+             (m/signal))))
+
+
+(e/defn watch-server-update [path]
   (e/client
+    (println "SETUP WATCH : " path)
+    (let [x? (= :x (second path))
+          new-data (subscribe. path)]
+      ;(println "8. WATCH SERVER UPDATE" new-data "-c-" @!counter)
+      ;(println (:time new-data) " -- NEW DATA FROM SERVER --" new-data "--" path)
+      (if x?
+        (reset! !global-atom {:nid (first path)
+                              :type :node-update
+                              :x new-data})
+        (reset! !global-atom {:nid (first path)
+                              :type :node-update
+                              :y new-data})))))
+
+(e/defn setup-actions [{:keys [node id dragging? !dragging? x-p y-p cord-x cord-y !xx !yy !fx !fy fx fy xx yy]}]
+  (e/client
+    (let [reset-after-drag (e/fn [msg]
+                             (e/client
+                               (when @!dragging?
+                                 (do
+                                   ;(println "RESET AFTER DRAG")
+                                   (when (not= (e/server (first (get-path-data [(keypath :main) id :x] nodes-pstate)))
+                                           @!xx))
+
+                                   (reset! !dragging? false)))))]
+      (new (el-mouse-move-state< node id dragging?))
+      (let [{:keys [x y nid]} (new (server-update))]
+        (when (= nid id)
+          ;(println (:time x) " 7. SERVER DATA UPDATE "  x "::" y)
+          (e/server
+            (update-node
+              [x-p x]
+              {:graph-name  :main
+               :event-id    (get-event-id)
+               :create-time (System/currentTimeMillis)}
+              false
+              false)
+            (update-node
+              [y-p y]
+              {:graph-name  :main
+               :event-id    (get-event-id)
+               :create-time (System/currentTimeMillis)}
+              false
+              true))))
+      (let [{:keys [nid cords x y type]} (new (global-client-flow))
+              [cx cy] cords]
+
+          (println "type" type)
+          (do
+           (when (and (= type :node-update)
+                      (= id nid))
+            (cond (and cx cy
+                   (not= @cord-x cx)
+                   (not= @cord-y cy)) (let [ctm      (.getScreenCTM node)
+                                            dx       (/ (- cx (.-e ctm))
+                                                      (.-a ctm))
+                                            dy       (/ (- cy (.-f ctm))
+                                                      (.-d ctm))]
+                                       (do
+                                        (swap! !xx update-in [:pos] (fn [curx]
+                                                                     (+ curx (- dx fx))))
+                                        (swap! !xx update-in [:time]  current-time-ms)
+                                        (swap! !yy update-in [:time] current-time-ms)
+                                        (swap! !yy update-in [:pos] (fn [cury]
+                                                                     (+ cury (- dy fy))))
+                                        (swap! !fx (constantly dx))
+                                        (swap! !fy (constantly dy))
+                                        (reset! cord-x cx)
+                                        (reset! cord-y cy)
+                                        (reset! !node-pos-atom {:x xx
+                                                                :y yy
+                                                                :nid id})))
+
+                  ;; Only happen for server based updates
+                  (some? x)   (let [ct (:time @!xx)
+                                    nt (-> x :time)
+                                    nx (-> x :pos)
+                                    new-x {:pos nx :time nt}]
+                                (when (> (- nt ct) 0)
+                                  (println "server " cx nx  cy)
+                                  (reset! !xx new-x)
+                                  (reset! !node-pos-atom {:x new-x
+                                                          :id id})))
+                  (some? y)   (let [ct (:time @!yy)
+                                    nt  (-> y :time)
+                                    ny (-> y :pos)
+                                    new-y {:pos ny :time nt}]
+                                (when (> (- nt ct) 0)
+                                  (println "server " cx cy ny)
+                                  (reset! !yy new-y)
+                                  (reset! !node-pos-atom {:y new-y
+                                                          :id id})))
+                  :else         (println "THIS IS SOME OTHER TYPE OF DATA: " cx cy x y nid)))))
+
+      (dom/on node "mousedown"  (e/fn [e]
+                                  (.preventDefault e)
+                                  (.stopPropagation e)
+                                  (let [cx (.-clientX e)
+                                        cy (.-clientY e)
+                                        ctm (.getScreenCTM dom/node)
+                                        dx  (/ (- cx (.-e ctm))
+                                              (.-a ctm))
+                                        dy  (/ (- cy (.-f ctm))
+                                              (.-d ctm))]
+                                    (reset! !fx dx)
+                                    (reset! !fy dy)
+                                    #_(println "MOUSEDOWN " {:fx @!fx :fy @!fy
+                                                             :xx xx :yy yy
+                                                             :dx dx :dy dy
+                                                             :cx cx :cy cy})
+                                    (println "** Updatae fx" @!fx @!fy)
+                                   (reset! !dragging? true))))
+
+     (dom/on node "mouseup"    (e/fn [e]
+                                 (.preventDefault e)
+                                 (.stopPropagation e)
+                                 (reset-after-drag. "mouseup on element")))
+
+     (dom/on node "mouseleave"    (e/fn [e]
+                                    (.preventDefault e)
+                                    (.stopPropagation e)
+                                    (reset-after-drag. "mouseleave on element")))
+     (dom/on node "mouseout"    (e/fn [e]
+                                  (.preventDefault e)
+                                  (.stopPropagation e)
+                                  (reset-after-drag. "mouseout element"))))))
+
+
+(e/defn rect [id node type]
+  (e/client
+    (println "RECT --" id "--" node)
     (let [#_#_!cm-text (atom nil)
           #_#_cm-text  (e/watch !cm-text)
           #_#_read     (fn [edn-str]
@@ -113,173 +320,159 @@
           text-p   [ id :type-specific-data :text]
           width-p  [ id :type-specific-data :width]
           height-p [ id :type-specific-data :height]
-          dragging? (atom false)
-          h (:height type-specific-data)
-          w (:width type-specific-data)]
+          !dragging? (atom false)
+          dragging? (e/watch !dragging?)
+          extra-data (:type-specific-data node)
+          cord-x (atom nil)
+          cord-y (atom nil)
+          ;_ (println "extra data" extra-data)
+          !xx (atom {:pos (-> node :x :pos)
+                     :time (-> node :x :time)})
+          xx (e/watch !xx)
+          !yy (atom {:pos (-> node :y :pos)
+                     :time (-> node :y :time)})
+          yy (e/watch !yy)
+          !hh (atom (:height extra-data))
+          hh  (e/watch !hh)
+          !ww (atom (:width extra-data))
+          ww  (e/watch !ww)
+          block-text (subscribe. text-p) #_(atom (:text extra-data))
+          ;block-text (e/watch !text)
+          !fx (atom nil)
+          fx (e/watch !fx)
+          !fy (atom nil)
+          fy (e/watch !fy)]
+      (watch-server-update. x-p)
+      (watch-server-update. y-p)
+      (svg/g
+        (let [rh (+ 200 hh)
+              x (:pos xx)
+              y (:pos yy)
+              !rotation (atom 0)
+              rotation (e/watch !rotation)]
+          (setup-actions. {:node dom/node
+                                   :id id
+                                   :!dragging? !dragging?
+                                   :dragging? dragging?
+                                   :x-p x-p
+                                   :y-p y-p
+                                   :cord-x cord-x
+                                   :cord-y cord-y
+                                   :!xx !xx
+                                   :!yy !yy
+                                   :!fx !fx
+                                   :!fy !fy
+                                   :fx fx
+                                   :fy fy
+                                   :xx xx
+                                   :yy yy})
+          (svg/rect
+            (dom/props {:x      x
+                        :y      y
+                        :height rh
+                        :width  ww
+                        :fill   "red"
+                        :id     id
+                        :style {:display "flex"
+                                :flex-direction "column"
+                                :border "1px solid black"
+                                :border-radius "10px"
+                                :background-color "red"
+                                :overflow "scroll"}}))
+          ;; BELOW IS CUSTOM HAVE TO MOVE OUT
+         (when (= :img type)
+            (let [!w      (atom @!ww)
+                  w       (e/watch !w)
+                  !ratio  (atom nil)
+                  ratio   (e/watch !ratio)
+                  !h      (atom nil)
+                  h       (e/watch !h)
+                  img-src (-> extra-data :path)
+                  ima     (js/Image.)]
+              (do
+                (set! (.-onload ima) #(do
+                                        (let [wid (.-width ima)
+                                              hig (.-height ima)]
+                                          (reset! !ratio (/ hig wid))
+                                          (reset! !h (* @!ww @!ratio))
+                                          (js/console.log "******" ima "-" @!ww "-" @!ratio "-" @!h))))
+                (set! (.-src ima) img-src)
+                (println " --" w h ratio ww hh (* hh ratio) (/ ww w) (* ww ratio (/ hh w))))
+              (svg/image
+                (dom/props
+                  {:id (str id "-image")
+                   :x x
+                   :y y
+                   :width w
+                   :height h
+                   :href img-src
+                   :preserveAspectRatio "xMaxYMax meet"}))
+             (let [bx  (+ 10 x)
+                    by (+ w y 10)
+                   tx  (+ 10 bx)
+                   ty  (+ by 15)]
+               (svg/rect
+                (dom/props {:x bx
+                            :y  by
+                            :height 20
+                            :width 80
+                            :fill "green"}))
 
-      #_(svg/g
-          #_(svg/rect
-              (dom/props {:id     dom-id
-                          :x      (subscribe. x-p)
-                          :y      (subscribe. y-p)
-                          :width  (subscribe. width-p)
-                          :height 400;(subscribe. height-p)
-                          :rx     "10"
-                          #_#_:fill   (:editor-border (theme. ui-mode))})
-              (dom/on "click" (e/fn [e]
-                                (println "clicked the rect.")))
-              #_(dom/on "mousedown" (e/fn [e]
-                                      (println "mousedown the rect.")
-                                      (let [el    (.getElementById js/document (name dom-id))
-                                            [x y] (fc/element-new-coordinates1 e  el)]
-                                        (e/server
-                                          (swap! !edges assoc :raw {:id :raw
-                                                                    :type "raw"
-                                                                    :x1 x
-                                                                    :y1 y
-                                                                    :x2 nil
-                                                                    :y2 nil
-                                                                    :stroke (:edge-color (theme. ui-mode))
-                                                                    :stroke-width 4})))
-                                      (reset! !border-drag? true)))
-              #_(dom/on "mouseup" (e/fn [e]
-                                    (println "mouseup the rect.")
-                                    (reset! !border-drag? false)))))
-     (when (and (some? x)(some? y)(some? h)(some? w))
-      (svg/foreignObject
-        (dom/props {:x      x;(subscribe. x-p)     ;(+  (subscribe. x-p) 5)
-                    :y      y ;(subscribe. y-p)     ;(+  (subscribe. y-p)  5)
-                    :height h ;(subscribe. height-p);(-  (subscribe. height-p)  10)
-                    :width  w ; (subscribe. width-p) ;(-  (subscribe. width-p)   10)
-                    :fill   "white"
-                    :id     id
-                    :style {:display "flex"
-                            :flex-direction "column"
-                            :border "1px solid black"
-                            :border-radius "10px"
-                            :background-color "white"
-                            :overflow "scroll"}})
-        #_(dom/div
-            (dom/props {:style {:background-color "white"
-                                :display          "flex"
-                                :overflow         "scroll"
-                                :color            "black"
-                                :flex-direction   "column"
-                                :font-size        "23px"
-                                :padding          "20px"
-                                :border-radius    "10px"}})
-
-            (dom/div (dom/text (:text type-specific-data))))
-        (dom/on "mousemove" (e/fn [e]
-                              (e/client
-                                (.preventDefault e)
-                                (when @dragging?
-                                  (println "MOUSE MOVE element")
-                                  ;(println "////////" "&&&&&7" (fc/browser-to-svg-coords e viewbox (.getElementById js/document (name id))))
-                                  ;(js/console.log "--**" (.getElementById js/document (name id)))
-                                  (let [[cx cy] (fc/element-new-coordinates1 e (.getElementById js/document (name id)))
-                                        new-x  (- cx (/ w 2))
-                                        new-y  (- cy (/ h 2))]
-                                    ;(println "new x " new-x "ox" x "new y " new-y "oy" y)
-                                    (when (and (some? new-x)
-                                            (some? new-y))
-                                      ;(println "NOT NIL new x " new-x "new y " new-y)
-                                      (e/server
-                                         (update-node
-                                           [text-p "HELLO WORLD"]
-                                           {:graph-name  :main
-                                            :event-id    (get-event-id)
-                                            :create-time (System/currentTimeMillis)}
-                                           true
-                                           false)
-                                        (update-node
-                                          [x-p new-x]
-                                          {:graph-name  :main
-                                           :event-id    (get-event-id)
-                                           :create-time (System/currentTimeMillis)}
-                                          true
-                                          false)
-                                        (update-node
-                                          [y-p new-y]
-                                          {:graph-name  :main
-                                           :event-id    (get-event-id)
-                                           :create-time (System/currentTimeMillis)}
-                                          true
-                                          true))))))))
-
-
-        (dom/on "mousedown"  (e/fn [e]
-                               (.preventDefault e)
-                               (.stopPropagation e)
-                               (println "MOUSEDOWN element")
-                               (reset! dragging? true)))
-        (dom/on "mouseup"    (e/fn [e]
-                               (.preventDefault e)
-                               (.stopPropagation e)
-                               (println "pointerup element")
-                               (reset! dragging? false)))
-        #_(dom/on "mouseleave"    (e/fn [e]
-                                    (.preventDefault e
-                                      (.stopPropagation e)
-                                      (println "mouseleave element")
-                                      (reset! dragging? false))))
-        #_(dom/on "mouseout"    (e/fn [e]
+              (svg/text
+                (dom/props
+                  {:x tx
+                   :y ty})
+                (dom/on "click" (e/fn [e]
                                   (.preventDefault e)
-                                  (.stopPropagation e)
-                                  (println "mouseout element")
-                                  (reset! dragging? false))
-
-            #_(card-topbar. id)
-
-            #_(dom/div
-                (dom/props {:class "middle-earth"
-                            :style {:padding "5px"
-                                    :background "whi}te"
-                                    :display "flex"
-                                    :flex-direction "column"
-                                    :height "100%"}})
-                (dom/div
-                  (dom/props {:id    (str "cm-" dom-id)
-                              :style {:height   "100%"
-                                      :overflow "scroll"
-                                      :background "white"
-                                      :box-shadow "black 0px 0px 2px 1px"
-                                      ;:border "1px solid black"
-                                      ;:border-radius "10px"
-                                      :margin-bottom           "10px"}})
-                  #_(canvas. dom-id)
-                  (dom/textarea (dom/text (subscribe.  text-p)))
-                  #_(new cm/CodeMirror
-                      {:parent dom/node}
-                      read
-                      identity
-                      (subscribe. text-p)))
-               #_(button-bar.))
+                                  (println "Button clicked")
+                                  (e/server
+                                    (println "SENDING LLM REQUEST CALL")
+                                    (send-llm-request
+                                      [text-p]
+                                      {:graph-name :main
+                                       :event-id (get-event-id)
+                                       :create-time (System/currentTimeMillis)
+                                       :request-data {:url "https://api.openai.com/v1/chat/completions"
+                                                      :model "gpt-4o-mini"
+                                                      :messages [{:role "user"
+                                                                  :content "Heya! GM"}]
+                                                      :temperature 0.1
+                                                      :max-tokens 200}}))))
+                (dom/text "Extract"))
+              (svg/text
+                (dom/props
+                  {:x tx
+                   :y (+ 20 ty)})
+                (dom/text block-text))))))))))
 
 
-            #_(dom/div
-                (dom/button
-                  (dom/props {:style {:background-color "white"
-                                      :border           "none"
-                                      :padding          "5px"
-                                      :border-width     "5px"
-                                      :font-size        "18px"
-                                      :color            (:button-text (theme. ui-mode))
-                                      :height           "50px"
-                                      :width            "100%"}})
-                  (dom/text
-                    "Save")
 
-                  #_(dom/on "click" (e/fn [e]
-                                      (let [child-uid (new-uuid)
-                                            x         (e/server (rama/get-path-data x-p pstate))
-                                            y         (e/server (rama/get-path-data y-p pstate))]
-                                        (when (some? cm-text)
-                                          (println "cm-text -->" cm-text)
-                                          (create-new-child-node. id child-uid (+ x 600) y cm-text)))))))))))))
 
-#_(update-node
-    [[:08fe4616-4a43-4b5c-9d77-87fc7dc462c5 :x] 2000]
-    {:graph-name  :main
-     :event-id    (get-event-id)
-     :create-time (System/currentTimeMillis)})
+
+
+#_(tests
+    "hello"
+   (println "new add") := ""
+   (let [y (atom 0.1111111122)
+         x (atom 0.1111111122)
+         st (atom 2251)
+         res (atom [])]
+      (for [i (range 76)]
+        (let [nx (+ @x (* i 2))
+              ny (+ @y (* i 2))
+              id (keyword (str (random-uuid)))]
+         (println (pr-str {:function-name "add-new-node",
+                           :args [{id
+                                   {:y {:time 100000 :pos ny},
+                                    :fill "lightblue",
+                                    :type "img",
+                                    :id id
+                                    :x {:time 100000 :pos nx},
+                                    :type-specific-data {:path (str "/img/resized/" @st ".jpeg")
+                                                         :width 400,
+                                                         :height 400,
+                                                         :text "GM Hello"}}}
+                                  {:graph-name :main}]}))
+         (swap! st inc)
+         (swap! y + 210)
+         (swap! x + 210)))))
