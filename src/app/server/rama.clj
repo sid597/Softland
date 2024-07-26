@@ -103,6 +103,7 @@
                                                             :type               String
                                                             :fill               String}))}
       #_{:global? true})
+    (declare-pstate n $$components-pstate {Keyword (map-schema Keyword Object)})
     (declare-pstate n $$node-ids-pstate {Keyword (vector-schema Keyword)})
     (declare-pstate n $$event-id-pstate Long {:global? true
                                               :initial-value 0})

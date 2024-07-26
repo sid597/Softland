@@ -5,11 +5,14 @@
             [hyperfiddle.electric-svg :as svg]
             [hyperfiddle.electric-dom2 :as dom]
             [app.client.shapes.rect :refer [rect]]
+            [app.client.shapes.draw-rect :refer [draw-rect]]
             [app.client.shapes.line :refer [line]]
             #?@(:cljs
                 [[clojure.string :as str]
                  [app.client.shapes.line :refer [edge-update]]
+                 [global-flow :refer [global-client-flow !global-atom current-time-ms]]
                  [app.client.shapes.rect :refer [server-update]]
+                 [app.client.flow-calc :refer [browser-to-svg-coords]]
                  [missionary.core :as m]]
                 :clj
                 [[missionary.core :as m]
@@ -172,9 +175,20 @@
 (e/defn view []
   (e/client
     (pprint-str "IN THE VIEW")
-    (let [current-selection (atom nil)
+    (let [!current-selection (atom nil)
+          current-selection (e/watch !current-selection)
+          !tx (atom nil)
+          tx (e/watch !tx)
+          !ty (atom nil)
+          ty (e/watch !ty)
+          !th (atom nil)
+          th (e/watch !th)
+          !tw (atom nil)
+          tw (e/watch !tw)
+          !test-rect (atom nil)
+          test-rect (e/watch !test-rect)
           !cpos (atom nil)
-          !viewbox (atom [150 300 1000 1000])
+          !viewbox (atom [-2028 61 1331 1331])
           viewbox (e/watch !viewbox)
           !ui-mode (atom :dark)
           ui-mode (e/watch !ui-mode)
@@ -234,6 +248,12 @@
                                      :padding "10px"}})
                  (dom/text (e/watch !cpos))))
 
+       (draw-rect.)
+       (let [{:keys [type action time ]} (new (global-client-flow))]
+         (println "-->" type action time)
+         (when (= type :draw-rect)
+           (reset! !current-selection action)))
+
        (dom/div
          (dom/props {:style {:display "flex"
                              :flex 1}})
@@ -257,6 +277,20 @@
                        yf)
                  nx  (Math/round (- vx dx))
                  ny  (Math/round (- vy dy))]
+             (when (= :start-drawing current-selection)
+                (let [bbox            (.getBoundingClientRect dom/node)
+                      view-box-width  (nth viewbox 2)
+                      view-box-height (nth viewbox 3)
+                      ratio-x         (/ view-box-width (.-width bbox))
+                      ratio-y         (/ view-box-height (.-height bbox))
+                      svg-x           (+ (* (- clientX (.-left bbox)) ratio-x) (nth viewbox 0))
+                      svg-y           (+ (* (- clientY (.-top bbox)) ratio-y) (nth viewbox 1))
+                      dx (Math/abs (- svg-x tx))
+                      dy (Math/abs (- svg-y ty))]
+                  (println "==" th tw tx ty)
+                  (reset! !tw dx)
+                  (reset! !th dy)))
+
              (when is-dragging?
                (do
                  (swap! !viewbox assoc 0  nx)
@@ -270,50 +304,42 @@
                (reset! !viewbox new-box)
                (reset! !zoom-level (* @!zoom-level scale))))
 
-
-           #_(let [n (new (server-update))
-                   cx (-> n :x :pos)
-                   cy (-> n :y :pos)
-                   t  (-> n :y :time)]
-               ;(println t "@@@@" n cx cy)
-               (when (some? cx)
-                (swap! !s-circles conj [cx cy t])))
-
-           #_(let [n (new (edge-update))
-                   cx (-> n :x :pos)
-                   cy (-> n :y :pos)
-                   t  (-> n :x :time)]
-               ;(println t "###" n cx cy)
-               (when (some? cx)
-                 (swap!  !circles conj [cx cy t])))
-
-           #_(e/for-by identity [[x y t]  circles]
-               (println ctr " cc" x y t)
-               (swap! !ctr inc)
-               (ccc. x y "green" 1.2 t))
-
-           #_(e/for-by identity [[x y t]  s-circles]
-               ;(println t " scc" x y)
-               (ccc. x y "yellow" 1 t))
-
-
            (dom/on "mousedown" (e/fn [e]
                                  (when (= 0
                                          (.-button e))
                                    (.preventDefault e)
+                                   (println "mousedown")
                                    (let [ex (e/client (.-clientX e))
                                          ey (e/client (.-clientY e))]
-                                     (reset! !last-position {:x ex
-                                                             :y ey})
-                                     (reset! !is-dragging? true)))))
+                                     (do
+                                       (reset! !last-position {:x ex
+                                                               :y ey})
+                                       (cond
+                                         (= :start-drawing
+                                            current-selection) (let [[nx ny] (browser-to-svg-coords e viewbox dom/node)]
+                                                                  (println "NEED TO DRAW RECT" ex ey)
+                                                                  (reset! !tx nx)
+                                                                  (reset! !ty ny)
+                                                                  (reset! !th 0)
+                                                                  (reset! !tw 0))
+                                        :else                 (reset! !is-dragging? true)))))))
                                      ;(println "DOWN" is-dragging?)
-
+           (when (some? tx)
+            (svg/rect
+              (dom/props {:x tx :y ty :height th :width tw :fill "lightblue"})))
 
            (dom/on "mouseup" (e/fn [e]
                                (.preventDefault e)
                                (when (= 0
                                        (.-button e))
-                                 ;(println "pointerup svg")
+                                 (println "pointerup svg 1" current-selection)
+                                 (reset! !global-atom {:type :draw-rect
+                                                       :action :stop-drawing
+                                                       :time (current-time-ms)})
+                                 (reset! !tx nil)
+                                 (reset! !ty nil)
+                                 (reset! !th nil)
+                                 (reset! !tw nil)
                                  (reset! !is-dragging? false))))
            (svg/defs
               (svg/pattern
@@ -336,28 +362,30 @@
                  :fill "url(#dotted-pattern)"}))
 
 
-           (e/server
-             (e/for-by identity [id (new (!subscribe [:main ] node-ids-pstate))]
-               (println "ID" id)
-               (let [node (first (get-path-data [(keypath :main) id ] nodes-pstate))]
-                 (e/client
-                   (println "---> NODE DATA <----" node)
-                   (println "NODE " id)
-                   (if (= "rect" (:type node))
-                    (rect. id node :rect)
-                    (rect. id node :img)))))
-             #_(e/for-by identity [edge edges]
-                 (let [[k v] edge
-                       target-node (first (get-path-data
-                                            [(keypath :main) (:to v)]
-                                            nodes-pstate))
-                       source-node (first (get-path-data
-                                            [(keypath :main) (:from v)]
-                                            nodes-pstate))]
+           #_(e/server
+               (e/for-by identity [id (new (!subscribe [:main ] node-ids-pstate))]
+                 (println "ID" id)
+                 (let [node (first (get-path-data [(keypath :main) id ] nodes-pstate))]
                    (e/client
-                     (println "edge " v)
-                     (println "target node" target-node)
-                     (line. source-node target-node v)))))))))))
+                     (println "---> NODE DATA <----" node)
+                     (println "NODE " id)
+                     (if (= "rect" (:type node))
+                      (rect. id node :rect)
+                      (rect. id node :img)))))
+               #_(e/for-by identity [edge edges]
+                   (let [[k v] edge
+                         target-node (first (get-path-data
+                                              [(keypath :main) (:to v)]
+                                              nodes-pstate))
+                         source-node (first (get-path-data
+                                              [(keypath :main) (:from v)]
+                                              nodes-pstate))]
+                     (e/client
+                       (println "edge " v)
+                       (println "target node" target-node)
+                       (line. source-node target-node v)))))))))))
+
+
 
 
 (e/defn main [ring-request]

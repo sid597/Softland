@@ -22,7 +22,8 @@
             [hyperfiddle.electric-ui4 :as ui]
             #?@(:cljs
                 [[app.client.utils :refer [!border-drag? !is-dragging? !zoom-level !last-position !viewbox !context-menu?]]
-                 [missionary.core :as m]]
+                 [missionary.core :as m]
+                 [global-flow :refer [!global-atom global-client-flow current-time-ms debounce]]]
                 :clj
                 [[com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
                  [image-resizer.resize :refer :all]
@@ -119,18 +120,7 @@
         (outlined-button. "7")))))
 
 
-#?(:cljs (defn current-time-ms []
-           (js/Date.now)))
-#?(:cljs (def !counter
-           (atom 0)))
 
-
-#?(:cljs (defn debounce [dur >in]
-           (m/ap
-             (let [x (m/?< >in)]
-               (try (m/? (m/sleep dur x))
-                    (catch Cancelled e
-                      (m/amb)))))))
 #?(:cljs
    (defn el-mouse-move-state> [movable id dragging?]
      (m/observe
@@ -140,6 +130,7 @@
                          (! (do
                               (.preventDefault e)
                              {:nid   id
+                              :type  :node-update
                               :cords [(.-clientX e)
                                       (.-clientY e)]}))))]
 
@@ -148,18 +139,11 @@
            #(.removeEventListener movable "mousemove" sample))))))
 
 
-#?(:cljs (def !global-atom (atom nil)))
-#?(:cljs (defn global-client-flow []
-           (m/signal ;; https://clojurians.slack.com/archives/C7Q9GSHFV/p1691599800774709?thread_ts=1691570620.457499&cid=C7Q9GSHFV
-            (m/latest
-              (fn [x]
-                x)
-              (m/watch !global-atom)))))
-
 #?(:cljs (defn el-mouse-move-state< [movable id dragging?]
            (->> (el-mouse-move-state> movable id dragging?)
              (e/throttle 10)
              (m/reductions {} {:cord [0 0]
+                               :type :node-update
                                :time (current-time-ms)})
              (m/relieve {})
              (m/latest (fn [cords]
@@ -197,8 +181,10 @@
       ;(println (:time new-data) " -- NEW DATA FROM SERVER --" new-data "--" path)
       (if x?
         (reset! !global-atom {:nid (first path)
+                              :type :node-update
                               :x new-data})
         (reset! !global-atom {:nid (first path)
+                              :type :node-update
                               :y new-data})))))
 
 (e/defn setup-actions [{:keys [node id dragging? !dragging? x-p y-p cord-x cord-y !xx !yy !fx !fy fx fy xx yy]}]
@@ -231,10 +217,13 @@
                :create-time (System/currentTimeMillis)}
               false
               true))))
-      (let [{:keys [nid cords x y]} (new (global-client-flow))
+      (let [{:keys [nid cords x y type]} (new (global-client-flow))
               [cx cy] cords]
+
+          (println "type" type)
           (do
-           (when  (= id nid)
+           (when (and (= type :node-update)
+                      (= id nid))
             (cond (and cx cy
                    (not= @cord-x cx)
                    (not= @cord-y cy)) (let [ctm      (.getScreenCTM node)
@@ -347,8 +336,8 @@
           hh  (e/watch !hh)
           !ww (atom (:width extra-data))
           ww  (e/watch !ww)
-          !text (atom (:text extra-data) #_(subscribe. text-p))
-          block-text (e/watch !text)
+          block-text (subscribe. text-p) #_(atom (:text extra-data))
+          ;block-text (e/watch !text)
           !fx (atom nil)
           fx (e/watch !fx)
           !fy (atom nil)
@@ -390,6 +379,7 @@
                                 :border-radius "10px"
                                 :background-color "red"
                                 :overflow "scroll"}}))
+          ;; BELOW IS CUSTOM HAVE TO MOVE OUT
          (when (= :img type)
             (let [!w      (atom @!ww)
                   w       (e/watch !w)
@@ -448,7 +438,15 @@
                                                                   :content "Heya! GM"}]
                                                       :temperature 0.1
                                                       :max-tokens 200}}))))
-                (dom/text "Extract"))))))))))
+                (dom/text "Extract"))
+              (svg/text
+                (dom/props
+                  {:x tx
+                   :y (+ 20 ty)})
+                (dom/text block-text))))))))))
+
+
+
 
 
 
