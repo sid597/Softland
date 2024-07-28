@@ -8,8 +8,7 @@
                                       viewbox  context-menu? reset-global-vals]]
             [app.client.shapes.rect :refer [watch-server-update]]
             #?@(:cljs
-                [[app.client.shapes.rect :refer [node-pos-flow]]
-                 [global-flow :refer [current-time-ms]]
+                [[global-flow :refer [current-time-ms node-pos-flow]]
                  [missionary.core :as m]])))
 (defn attributes [x y height width a b]
   (let [xmin x
