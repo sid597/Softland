@@ -166,7 +166,7 @@
     (println "SETUP WATCH : " path)
     (let [new-data (subscribe. path)]
       ;(println "8. WATCH SERVER UPDATE" new-data "-c-" @!counter)
-      (println (:time new-data) " -- NEW DATA FROM SERVER --" new-data "--" path)
+      (println  "8. -- NEW DATA FROM SERVER --" new-data "--" path)
       (case f
         :x (reset! !global-atom {:nid (first path)
                                  :type :node-update
@@ -193,9 +193,10 @@
 
                                    (reset! !dragging? false)))))]
       (new (el-mouse-move-state< node id dragging?))
-      (let [{:keys [x y nid width height ]} (new (server-update))]
-        (println  " 7. SERVER DATA UPDATE " nid "::"  x "::" y "::::" width "::" height)
-        (when (= nid id)
+      (let [{:keys [x y nid width height from]} (new (server-update))]
+        (println  " 7. SERVER DATA UPDATE " from "::" nid "::"  x "::" y "::::" width "::" height)
+        (when (and (= nid id)
+                (= :client from))
           (cond (some? x)      (e/server
                                  (update-node
                                    [x-p x]
@@ -242,13 +243,17 @@
 
                                   (reset! !hh h)
                                   (reset! !ww w)
-                                  (reset! !node-pos-atom  {:width w :height h :nid nid})))
+                                  (reset! !node-pos-atom  {:width w
+                                                           :from :client
+                                                           :height h :nid nid})))
               (some? px) (let [uy {:time (current-time-ms) :pos py}
                                ux {:time (current-time-ms) :pos px}]
                            (do (println "XXX" px py)
                                (reset! !yy uy)
                                (reset! !xx ux)
-                               (reset! !node-pos-atom  {:x ux :y uy :nid nid})))
+                               (reset! !node-pos-atom  {:x ux
+                                                        :from :client
+                                                        :y uy :nid nid})))
               (and cx cy
                (not= @cord-x cx)
                (not= @cord-y cy)) (let [ctm      (.getScreenCTM node)
@@ -269,6 +274,7 @@
                                     (reset! cord-y cy)
                                     (reset! !node-pos-atom {:x xx
                                                             :y yy
+                                                            :from :client
                                                             :nid id})))
 
 
@@ -281,7 +287,9 @@
                                   (println "server " cx nx  cy)
                                   (reset! !xx new-x)
                                   (reset! !node-pos-atom {:x new-x
+                                                          :from :server
                                                           :nid id})))
+
                   (some? y)   (let [ct (:time @!yy)
                                     nt  (-> y :time)
                                     ny (-> y :pos)
@@ -290,6 +298,7 @@
                                   (println "server " cx cy ny)
                                   (reset! !yy new-y)
                                   (reset! !node-pos-atom {:y new-y
+                                                          :from :server
                                                           :nid id})))
                   (some? h)   (let [ct (:time @!hh)
                                     nt  (-> h :time)
@@ -299,6 +308,7 @@
                                   (println "server h" nh)
                                   (reset! !hh new-h)
                                   (reset! !node-pos-atom {:h new-h
+                                                          :from :server
                                                           :nid id})))
                   (some? w)   (let [ct (:time @!ww)
                                     nt  (-> w :time)
@@ -308,6 +318,7 @@
                                   (println "server w " nw)
                                   (reset! !ww new-w)
                                   (reset! !node-pos-atom {:h new-w
+                                                          :from :server
                                                           :nid id})))
 
                   :else         (println "THIS IS SOME OTHER TYPE OF DATA: " cx cy x y nid)))))
