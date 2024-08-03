@@ -362,7 +362,7 @@
   (println "FOREIGN SELECT")
   (foreign-select path pstate))
 
-;(load-events) ;; THIS IS A HACK: Will not work when we move away from ipc.
+(load-events) ;; THIS IS A HACK: Will not work when we move away from ipc.
 
 
 (comment

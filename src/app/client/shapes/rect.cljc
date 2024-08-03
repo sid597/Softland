@@ -166,7 +166,7 @@
     (println "SETUP WATCH : " path)
     (let [new-data (subscribe. path)]
       ;(println "8. WATCH SERVER UPDATE" new-data "-c-" @!counter)
-      (println  "8. -- NEW DATA FROM SERVER --" new-data "--" path)
+      ;(println  "8. -- NEW DATA FROM SERVER --" new-data "--" path)
       (case f
         :x (reset! !global-atom {:nid (first path)
                                  :type :node-update
@@ -194,7 +194,7 @@
                                    (reset! !dragging? false)))))]
       (new (el-mouse-move-state< node id dragging?))
       (let [{:keys [x y nid width height from]} (new (server-update))]
-        (println  " 7. SERVER DATA UPDATE " from "::" nid "::"  x "::" y "::::" width "::" height)
+        ;(println  " 7. SERVER DATA UPDATE " from "::" nid "::"  x "::" y "::::" width "::" height)
         (when (and (= nid id)
                 (= :client from))
           (cond (some? x)      (e/server
@@ -227,101 +227,117 @@
                                     :create-time (System/currentTimeMillis)}
                                    false
                                    true)))))
-      (let [{:keys [nid cords x y width height type px py w h]} (new (global-client-flow))
-              [cx cy] cords]
-
+      (let [{:keys [nid x-min time  x-max y-min y-max cords x y width height type px py w h]} (new (global-client-flow))
+              [cx cy] cords
+            xpos (:pos xx)
+            ypos (:pos yy)
+            rand-doub (fn [time mn mx]
+                        (println "mn mx" time mn mx)
+                        (+ mn (* (Math/abs (- mx mn)) (rand))))]
           (do
-           (when (and (= type :node-update)
-                      (= id nid))
-            ;(println ">=====>" nid width height xx yy)
-            (cond
+            (println id " :: " x-min x-max y-min y-max  "::" xpos ypos)
+            (when (and time (= type :randomise) (> ypos y-min) (< ypos y-max) (> xpos x-min) (< xpos x-max))
+              (doall
+               (println "******************" id time" :: " x-min x-max y-min y-max  "::" xpos ypos)
+               (let [rx {:pos (rand-doub time x-min x-max)
+                         :time time}
+                     ry {:pos (rand-doub time y-min y-max)
+                         :time time}]
+                 (println "RX" rx ry)
+                 (reset! !xx rx)
+                 (reset! !yy ry))))
 
-              (some? width) (let [t (current-time-ms)
-                                  h {:time t :pos (Math/abs (- height (:pos yy)))}
-                                  w {:time t :pos  (Math/abs (- width (:pos xx)))}]
-                              (do ;(println "WWW" (- (:pos yy) height) (:pos yy) height  "--" (- (:pos xx) width) (:pos xx) width)
+            (when (and (= type :node-update)
+                       (= id nid))
+             ;(println ">=====>" nid width height xx yy)
+              (cond
 
-                                  (reset! !hh h)
-                                  (reset! !ww w)
-                                  (reset! !node-pos-atom  {:width w
-                                                           :from :client
-                                                           :height h :nid nid})))
-              (some? px) (let [uy {:time (current-time-ms) :pos py}
-                               ux {:time (current-time-ms) :pos px}]
-                           (do (println "XXX" px py)
-                               (reset! !yy uy)
-                               (reset! !xx ux)
-                               (reset! !node-pos-atom  {:x ux
-                                                        :from :client
-                                                        :y uy :nid nid})))
-              (and cx cy
-               (not= @cord-x cx)
-               (not= @cord-y cy)) (let [ctm      (.getScreenCTM node)
-                                        dx       (/ (- cx (.-e ctm))
-                                                  (.-a ctm))
-                                        dy       (/ (- cy (.-f ctm))
-                                                  (.-d ctm))]
-                                   (do
-                                    (swap! !xx update-in [:pos] (fn [curx]
-                                                                 (+ curx (- dx fx))))
-                                    (swap! !xx update-in [:time]  current-time-ms)
-                                    (swap! !yy update-in [:time] current-time-ms)
-                                    (swap! !yy update-in [:pos] (fn [cury]
-                                                                 (+ cury (- dy fy))))
-                                    (swap! !fx (constantly dx))
-                                    (swap! !fy (constantly dy))
-                                    (reset! cord-x cx)
-                                    (reset! cord-y cy)
-                                    (reset! !node-pos-atom {:x xx
-                                                            :y yy
-                                                            :from :client
+                (some? width) (let [t (current-time-ms)
+                                    h {:time t :pos (Math/abs (- height (:pos yy)))}
+                                    w {:time t :pos  (Math/abs (- width (:pos xx)))}]
+                                (do ;(println "WWW" (- (:pos yy) height) (:pos yy) height  "--" (- (:pos xx) width) (:pos xx) width)
+
+                                    (reset! !hh h)
+                                    (reset! !ww w)
+                                    (reset! !node-pos-atom  {:width w
+                                                             :from :client
+                                                             :height h :nid nid})))
+                (some? px) (let [uy {:time (current-time-ms) :pos py}
+                                 ux {:time (current-time-ms) :pos px}]
+                             (do (println "XXX" px py)
+                                 (reset! !yy uy)
+                                 (reset! !xx ux)
+                                 (reset! !node-pos-atom  {:x ux
+                                                          :from :client
+                                                          :y uy :nid nid})))
+                (and cx cy
+                 (not= @cord-x cx)
+                 (not= @cord-y cy)) (let [ctm      (.getScreenCTM node)
+                                          dx       (/ (- cx (.-e ctm))
+                                                    (.-a ctm))
+                                          dy       (/ (- cy (.-f ctm))
+                                                    (.-d ctm))]
+                                     (do
+                                      (swap! !xx update-in [:pos] (fn [curx]
+                                                                   (+ curx (- dx fx))))
+                                      (swap! !xx update-in [:time]  current-time-ms)
+                                      (swap! !yy update-in [:time] current-time-ms)
+                                      (swap! !yy update-in [:pos] (fn [cury]
+                                                                   (+ cury (- dy fy))))
+                                      (swap! !fx (constantly dx))
+                                      (swap! !fy (constantly dy))
+                                      (reset! cord-x cx)
+                                      (reset! cord-y cy)
+                                      (reset! !node-pos-atom {:x xx
+                                                              :y yy
+                                                              :from :client
+                                                              :nid id})))
+
+
+                    ;; Only happen for server based updates
+                    (some? x)   (let [ct (:time @!xx)
+                                      nt (-> x :time)
+                                      nx (-> x :pos)
+                                      new-x {:pos nx :time nt}]
+                                  (when (> (- nt ct) 0)
+                                    (println "server " cx nx  cy)
+                                    (reset! !xx new-x)
+                                    (reset! !node-pos-atom {:x new-x
+                                                            :from :server
                                                             :nid id})))
 
+                    (some? y)   (let [ct (:time @!yy)
+                                      nt  (-> y :time)
+                                      ny (-> y :pos)
+                                      new-y {:pos ny :time nt}]
+                                  (when (> (- nt ct) 0)
+                                    (println "server " cx cy ny)
+                                    (reset! !yy new-y)
+                                    (reset! !node-pos-atom {:y new-y
+                                                            :from :server
+                                                            :nid id})))
+                    (some? h)   (let [ct (:time @!hh)
+                                      nt  (-> h :time)
+                                      nh (-> h :pos)
+                                      new-h {:pos nh :time nt}]
+                                  (when (> (- nt ct) 0)
+                                    (println "server h" nh)
+                                    (reset! !hh new-h)
+                                    (reset! !node-pos-atom {:h new-h
+                                                            :from :server
+                                                            :nid id})))
+                    (some? w)   (let [ct (:time @!ww)
+                                      nt  (-> w :time)
+                                      nw (-> w :pos)
+                                      new-w {:pos nw :time nt}]
+                                  (when (> (- nt ct) 0)
+                                    (println "server w " nw)
+                                    (reset! !ww new-w)
+                                    (reset! !node-pos-atom {:h new-w
+                                                            :from :server
+                                                            :nid id})))
 
-                  ;; Only happen for server based updates
-                  (some? x)   (let [ct (:time @!xx)
-                                    nt (-> x :time)
-                                    nx (-> x :pos)
-                                    new-x {:pos nx :time nt}]
-                                (when (> (- nt ct) 0)
-                                  (println "server " cx nx  cy)
-                                  (reset! !xx new-x)
-                                  (reset! !node-pos-atom {:x new-x
-                                                          :from :server
-                                                          :nid id})))
-
-                  (some? y)   (let [ct (:time @!yy)
-                                    nt  (-> y :time)
-                                    ny (-> y :pos)
-                                    new-y {:pos ny :time nt}]
-                                (when (> (- nt ct) 0)
-                                  (println "server " cx cy ny)
-                                  (reset! !yy new-y)
-                                  (reset! !node-pos-atom {:y new-y
-                                                          :from :server
-                                                          :nid id})))
-                  (some? h)   (let [ct (:time @!hh)
-                                    nt  (-> h :time)
-                                    nh (-> h :pos)
-                                    new-h {:pos nh :time nt}]
-                                (when (> (- nt ct) 0)
-                                  (println "server h" nh)
-                                  (reset! !hh new-h)
-                                  (reset! !node-pos-atom {:h new-h
-                                                          :from :server
-                                                          :nid id})))
-                  (some? w)   (let [ct (:time @!ww)
-                                    nt  (-> w :time)
-                                    nw (-> w :pos)
-                                    new-w {:pos nw :time nt}]
-                                (when (> (- nt ct) 0)
-                                  (println "server w " nw)
-                                  (reset! !ww new-w)
-                                  (reset! !node-pos-atom {:h new-w
-                                                          :from :server
-                                                          :nid id})))
-
-                  :else         (println "THIS IS SOME OTHER TYPE OF DATA: " cx cy x y nid)))))
+                    :else         (println "THIS IS SOME OTHER TYPE OF DATA: " cx cy x y nid)))))
 
       (dom/on node "mousedown"  (e/fn [e]
                                   (.preventDefault e)
@@ -388,11 +404,11 @@
           !yy (atom {:pos (-> node :y :pos)
                      :time (-> node :y :time)})
           yy (e/watch !yy)
-          !hh (atom {:height (-> extra-data :height :pos)
-                     :time (-> extra-data :height :time)})
+          !hh (atom {:pos (if (some? (-> extra-data :height :pos)) (-> extra-data :height :pos)(-> extra-data :height))
+                     :time (if (some? (-> extra-data :height :time)) (-> extra-data :height :time)(current-time-ms))})
           hh  (e/watch !hh)
-          !ww (atom {:width (-> extra-data :width :pos)
-                     :time (-> extra-data :width :time)})
+          !ww (atom {:pos (if (some? (-> extra-data :width :pos)) (-> extra-data :width :pos) (-> extra-data :width))
+                     :time (if (some? (-> extra-data :width :time)) (-> extra-data :width :time) (current-time-ms))})
           ww  (e/watch !ww)
           block-text (subscribe. text-p) #_(atom (:text extra-data))
           ;block-text (e/watch !text)
@@ -411,6 +427,7 @@
               w (:pos ww)
               !rotation (atom 0)
               rotation (e/watch !rotation)]
+          (println "00 ------ 00 ----- " x y h w)
 
           (setup-actions. {:node dom/node
                            :width-p width-p

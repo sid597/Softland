@@ -53,7 +53,7 @@
                               (e/client
                                  (println "gg clicked")
                                  (let [id (new-uuid)
-                                       [cx cy] (fc/browser-to-svg-coords e viewbox (.getElementById js/document "sv"))
+                                       [cx cy] (fc/browser-to-svg-coords e viewbox (.getElementById js/document "svg-parent-div"))
                                         node-data {id {:id id
                                                        :x cx
                                                        :y cy

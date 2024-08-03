@@ -17,7 +17,7 @@
                 :clj
                 [[missionary.core :as m]
                  [com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
-                 [app.server.rama :as rama :refer [!subscribe get-path-data nodes-pstate node-ids-pstate]]])))
+                 [app.server.rama :as rama :refer [!subscribe get-path-data nodes-pstate update-node get-event-id node-ids-pstate]]])))
 (hyperfiddle.rcf/enable!)
 
 
@@ -97,7 +97,7 @@
                (let [sample (fn [e] (! (when (= "background" (.-id (.-target e)))
                                          (do
                                           (.preventDefault e)
-                                          (let [rect (.getBoundingClientRect (.getElementById js/document "sv"))
+                                          (let [rect (.getBoundingClientRect (.getElementById js/document "svg-parent-div"))
                                                 left (.-left rect)
                                                 top (.-top rect)
                                                 width (.-width rect)
@@ -180,7 +180,7 @@
           !draw? (atom false)
           draw? (e/watch !draw?)
           !cpos (atom nil)
-          !viewbox (atom [-2028 61 1331 1331])
+          !viewbox (atom [-2028 61 1331 331])
           viewbox (e/watch !viewbox)
           !ui-mode (atom :dark)
           ui-mode (e/watch !ui-mode)
@@ -226,6 +226,34 @@
                                                  :light
                                                  :dark))))))
        (dom/div
+         (dom/button
+           (dom/props
+             {:top "100px"
+              :left "1000px"
+              :style {:background-color (:button-background (theme. ui-mode))
+                      :color (:button-text (theme. ui-mode))
+                      :border "none"
+                      :margin "0px"
+                      :padding "0px"
+                      :font-size "10px"
+                      :height "20px"
+                      :width "100%"}})
+           (dom/text "randomise")
+           (dom/on "click" (e/fn [e]
+                             (println "RANDOMISE CLICKED")
+                             (let [ch (- (nth viewbox 3) 200)
+                                    cw (nth viewbox 2)
+                                    cx (first viewbox)
+                                    cy (second viewbox)]
+                                 (reset!
+                                   !global-atom
+                                   {:type :randomise
+                                    :time (current-time-ms)
+                                    :x-min  cx
+                                    :x-max (+ cw cx)
+                                    :y-min  cy
+                                    :y-max (+ ch cy)}))))))
+       (dom/div
          (dom/props
            {:style {:background-color (:button-background (theme. ui-mode))
                     :color (:button-text (theme. ui-mode))
@@ -248,8 +276,10 @@
            (reset! !is-dragging? false)))
 
        (dom/div
-         (dom/props {:style {:display "flex"
+         (dom/props {:id "svg-parent-div"
+                     :style {:display "flex"
                              :flex 1}})
+         (reset! !viewbox [0 0 (.-clientWidth dom/node) (.-clientHeight dom/node)])
          (svg/svg
            (dom/props {:viewBox (clojure.string/join " " viewbox)
                        :id "sv"
@@ -259,7 +289,8 @@
                                :left 0}})
            (let [[clientX clientY ] (new (mouse-move-state< dom/node))
                  [vx vy vw vh] viewbox
-                 svg (.getElementById js/document "sv")
+                 svg (.getElementById js/document "svg-parent-div")
+                 sg (.getElementById js/document "sv")
                  cw  (.-clientWidth svg)
                  ch  (.-clientHeight svg)
                  xf  (/ cw vw)
