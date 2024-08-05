@@ -426,7 +426,7 @@
                      (do
                        (println "---> NODE DATA <----" node-data)
                        (println "NODE " id mx my)
-                       (when (> @min-x ) (reset! min-x x))
+                       (when (> @min-x x ) (reset! min-x x))
                        (when (< @max-x mx) (reset! max-x mx))
                        (when (> @min-y y) (reset! min-y y))
                        (when (< @max-y my) (reset! max-y my))
