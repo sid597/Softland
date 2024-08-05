@@ -23,7 +23,7 @@
             #?@(:cljs
                 [[app.client.utils :refer [!border-drag? !is-dragging? !zoom-level !last-position !viewbox !context-menu?]]
                  [missionary.core :as m]
-                 [global-flow :refer [!node-pos-atom node-pos-flow !global-atom global-client-flow current-time-ms debounce]]]
+                 [global-flow :refer [!node-pos-atom  node-pos-flow !global-atom global-client-flow current-time-ms debounce]]]
                 :clj
                 [[com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
                  [image-resizer.resize :refer :all]
@@ -227,21 +227,27 @@
                                     :create-time (System/currentTimeMillis)}
                                    false
                                    true)))))
-      (let [{:keys [nid x-min time  x-max y-min y-max cords x y width height type px py w h]} (new (global-client-flow))
+      (let [{:keys [nid x-min time  x-max y-min y-max cords x y width height type px py w h type-specific-data]} (new (global-client-flow))
               [cx cy] cords
             xpos (:pos xx)
             ypos (:pos yy)
             rand-doub (fn [time mn mx]
                         (println "mn mx" time mn mx)
                         (+ mn (* (Math/abs (- mx mn)) (rand))))]
+
           (do
             (println id " :: " x-min x-max y-min y-max  "::" xpos ypos)
-            (when (and time (= type :randomise) (> ypos y-min) (< ypos y-max) (> xpos x-min) (< xpos x-max))
+            (when (and time
+                    (= type :randomise)
+                    (> ypos y-min)
+                    (< ypos y-max)
+                    (> xpos x-min)
+                    (< xpos x-max))
               (doall
                (println "******************" id time" :: " x-min x-max y-min y-max  "::" xpos ypos)
-               (let [rx {:pos (rand-doub time x-min x-max)
+               (let [rx {:pos (rand-doub time (/  x-min 100) (/  x-max 100))
                          :time time}
-                     ry {:pos (rand-doub time y-min y-max)
+                     ry {:pos (rand-doub time (/ y-min 100)  (/ y-max 100))
                          :time time}]
                  (println "RX" rx ry)
                  (reset! !xx rx)
@@ -260,14 +266,16 @@
                       :event-id    (get-event-id)
                       :create-time (System/currentTimeMillis)}
                      false
-                     true))
-                 #_(reset! !node-pos-atom  {:x rx
-                                            :from :client
-                                            :y ry
-                                            :nid id}))))
+                     true)))))
+
+
+
+
+
 
             (when (and (= type :node-update)
                        (= id nid))
+
              ;(println ">=====>" nid width height xx yy)
               (cond
 
@@ -448,7 +456,7 @@
               w (:pos ww)
               !rotation (atom 0)
               rotation (e/watch !rotation)]
-          (println "00 ------ 00 ----- " x y h w)
+          ;(println "00 ------ 00 ----- " x y h w)
 
           (setup-actions. {:node dom/node
                            :width-p width-p

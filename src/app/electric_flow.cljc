@@ -6,12 +6,14 @@
             [hyperfiddle.electric-dom2 :as dom]
             [app.client.shapes.rect :refer [rect]]
             [app.client.shapes.draw-rect :refer [draw-rect]]
+            [app.client.quad-tree :refer [total-forces]]
             [app.client.shapes.line :refer [line]]
             #?@(:cljs
                 [[clojure.string :as str]
                  [app.client.shapes.line :refer [edge-update]]
-                 [global-flow :refer [global-client-flow !node-pos-atom node-pos-flow !global-atom current-time-ms]]
+                 [global-flow :refer [!all-nodes !quad-tree global-client-flow !node-pos-atom node-pos-flow !global-atom current-time-ms]]
                  [app.client.shapes.rect :refer [server-update]]
+                 [app.client.quad-tree :refer [build-quad-tree approximate-force total-forces]]
                  [app.client.flow-calc :refer [browser-to-svg-coords]]
                  [missionary.core :as m]]
                 :clj
@@ -280,7 +282,29 @@
                                  (swap! !viewbox assoc 0 (- @min-x 900))
                                  (swap! !viewbox assoc 1 (- @min-y 900))
                                  (swap! !viewbox assoc 2 (+ 1900 (- @max-x @min-x)))
-                                 (swap! !viewbox assoc 3 (+ 1900 (- @max-y @min-y)))))))))
+                                 (swap! !viewbox assoc 3 (+ 1900 (- @max-y @min-y))))))))
+         (dom/div
+           (dom/button
+             (dom/props
+               {:top "100px"
+                :left "1000px"
+                :style {:background-color (:button-background (theme. ui-mode))
+                        :color (:button-text (theme. ui-mode))
+                        :border "none"
+                        :margin "0px"
+                        :padding "0px"
+                        :font-size "10px"
+                        :height "20px"
+                        :width "100%"}})
+             (dom/text "Build quad tree")
+             (dom/on "click" (e/fn [e]
+                               (reset! !global-atom {:type :build-quad-tree
+                                                     :time (current-time-ms)
+                                                     :type-specific-data {:min-x @min-x
+                                                                          :min-y @min-y
+                                                                          :max-x @max-x
+                                                                          :max-y @max-y}}))))))
+
        (dom/div
          (dom/props
            {:style {:background-color (:button-background (theme. ui-mode))
@@ -297,11 +321,21 @@
                  (dom/text (e/watch !cpos))))
 
        (draw-rect.)
-       (let [{:keys [type action time nid ]} (new (global-client-flow))]
+       (let [{:keys [type action time nid type-specific-data ]} (new (global-client-flow))]
          (println "-->" type action time)
          (when (= type :draw-rect)
            (reset! !proto-node-id nid)
-           (reset! !is-dragging? false)))
+           (reset! !is-dragging? false))
+
+        (when (= type :build-quad-tree)
+              (println "TICK TICK" time type-specific-data)
+              (reset! !quad-tree (build-quad-tree (e/watch !all-nodes)
+                                   (- @min-x 900)
+                                   (- @min-x 900)
+                                   (+ (- @max-x @min-x) 1900)
+                                   (+ (- @max-y @min-y) 1900)))))
+
+
 
        (dom/div
          (dom/props {:id "svg-parent-div"
@@ -393,13 +427,13 @@
            (svg/defs
               (svg/pattern
                 (dom/props {:id "dotted-pattern"
-                            :width 20
-                            :height 20
+                            :width 60
+                            :height 60
                             :patternUnits "userSpaceOnUse"})
                 (svg/circle
-                  (dom/props {:cx 1
-                              :cy 1
-                              :r 0.5
+                  (dom/props {:cx 3
+                              :cy 3
+                              :r 3
                               :fill "#91919a"}))))
            (svg/rect
               (dom/props
@@ -426,6 +460,7 @@
                      (do
                        (println "---> NODE DATA <----" node-data)
                        (println "NODE " id mx my)
+                       (swap! !all-nodes conj node-data)
                        (when (> @min-x x ) (reset! min-x x))
                        (when (< @max-x mx) (reset! max-x mx))
                        (when (> @min-y y) (reset! min-y y))
