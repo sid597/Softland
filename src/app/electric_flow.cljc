@@ -195,7 +195,11 @@
           !circles (atom [])
           circles (e/watch !circles)
           !ctr (atom 0)
-          ctr (e/watch !ctr)]
+          ctr (e/watch !ctr)
+          max-x (atom 0)
+          min-x (atom 10000000)
+          min-y (atom 10000000)
+          max-y (atom 0)]
 
       #_(dom/on js/document "mousemove" (e/fn [e]
                                           (println "mouse move on document")
@@ -226,33 +230,57 @@
                                                  :light
                                                  :dark))))))
        (dom/div
-         (dom/button
-           (dom/props
-             {:top "100px"
-              :left "1000px"
-              :style {:background-color (:button-background (theme. ui-mode))
-                      :color (:button-text (theme. ui-mode))
-                      :border "none"
-                      :margin "0px"
-                      :padding "0px"
-                      :font-size "10px"
-                      :height "20px"
-                      :width "100%"}})
-           (dom/text "randomise")
-           (dom/on "click" (e/fn [e]
-                             (println "RANDOMISE CLICKED")
-                             (let [ch (- (nth viewbox 3) 200)
-                                    cw (nth viewbox 2)
-                                    cx (first viewbox)
-                                    cy (second viewbox)]
-                                 (reset!
-                                   !global-atom
-                                   {:type :randomise
-                                    :time (current-time-ms)
-                                    :x-min  cx
-                                    :x-max (+ cw cx)
-                                    :y-min  cy
-                                    :y-max (+ ch cy)}))))))
+         (dom/props {:id "action-buttons"
+                     :style {:flex "row"}})
+         (dom/div
+           (dom/button
+             (dom/props
+               {:top "100px"
+                :left "1000px"
+                :style {:background-color (:button-background (theme. ui-mode))
+                        :color (:button-text (theme. ui-mode))
+                        :border "none"
+                        :margin "0px"
+                        :padding "0px"
+                        :font-size "10px"
+                        :height "20px"
+                        :width "100%"}})
+             (dom/text "randomise")
+             (dom/on "click" (e/fn [e]
+                               (println "RANDOMISE CLICKED")
+                               (let [ch (- (nth viewbox 3) 1400)
+                                      cw (- (nth viewbox 2) 1400)
+                                      cx (+ 200 (first viewbox))
+                                      cy (+ 200 (second viewbox))]
+                                   (reset!
+                                     !global-atom
+                                     {:type :randomise
+                                      :time (current-time-ms)
+                                      :x-min  cx
+                                      :x-max (+ cw cx)
+                                      :y-min  cy
+                                      :y-max (+ ch cy)}))))))
+         (dom/div
+           (dom/button
+             (dom/props
+               {:top "100px"
+                :left "1000px"
+                :style {:background-color (:button-background (theme. ui-mode))
+                        :color (:button-text (theme. ui-mode))
+                        :border "none"
+                        :margin "0px"
+                        :padding "0px"
+                        :font-size "10px"
+                        :height "20px"
+                        :width "100%"}})
+             (dom/text "zoom out")
+             (dom/on "click" (e/fn [e]
+                               (e/client
+                                 (println "ZOOM OUT CLICKED" "MAX-MIN " @min-x @min-y @max-y @max-x)
+                                 (swap! !viewbox assoc 0 (- @min-x 900))
+                                 (swap! !viewbox assoc 1 (- @min-y 900))
+                                 (swap! !viewbox assoc 2 (+ 1900 (- @max-x @min-x)))
+                                 (swap! !viewbox assoc 3 (+ 1900 (- @max-y @min-y)))))))))
        (dom/div
          (dom/props
            {:style {:background-color (:button-background (theme. ui-mode))
@@ -386,13 +414,25 @@
            (e/server
              (e/for-by identity [id (new (!subscribe [:main ] node-ids-pstate))]
                (println "ID" id)
-               (let [node (first (get-path-data [(keypath :main) id ] nodes-pstate))]
+               (let [node-data (first (get-path-data [(keypath :main) id ] nodes-pstate))]
                  (e/client
-                   (println "---> NODE DATA <----" node)
-                   (println "NODE " id)
-                   (cond
-                     (= "img" (:type node)) (rect. id node :img)
-                    :else (rect. id node :rect)))))
+                   (let [x (-> node-data :x :pos)
+                         y (-> node-data :y :pos)
+                         w (-> node-data :type-specific-data :width :pos)
+                         h (-> node-data :type-specific-data :height :pos)
+                         mx (+ x w)
+                         my (+ y h)
+                         type (-> node-data :type)]
+                     (do
+                       (println "---> NODE DATA <----" node-data)
+                       (println "NODE " id mx my)
+                       (when (> @min-x ) (reset! min-x x))
+                       (when (< @max-x mx) (reset! max-x mx))
+                       (when (> @min-y y) (reset! min-y y))
+                       (when (< @max-y my) (reset! max-y my))
+                       (cond
+                         (= "img" type) (rect. id node-data :img)
+                          :else (rect. id node-data :rect)))))))
              #_(e/for-by identity [edge edges]
                  (let [[k v] edge
                        target-node (first (get-path-data
