@@ -166,7 +166,7 @@
     (println "SETUP WATCH : " path)
     (let [new-data (subscribe. path)]
       ;(println "8. WATCH SERVER UPDATE" new-data "-c-" @!counter)
-      ;(println  "8. -- NEW DATA FROM SERVER --" new-data "--" path)
+      (println  "8. -- NEW DATA FROM SERVER --" new-data "--" path)
       (case f
         :x (reset! !global-atom {:nid (first path)
                                  :type :node-update
@@ -194,7 +194,7 @@
                                    (reset! !dragging? false)))))]
       (new (el-mouse-move-state< node id dragging?))
       (let [{:keys [x y nid width height from]} (new (server-update))]
-        ;(println  " 7. SERVER DATA UPDATE " from "::" nid "::"  x "::" y "::::" width "::" height)
+        (println  " 7. SERVER DATA UPDATE " from "::" nid "::"  x "::" y "::::" width "::" height)
         (when (and (= nid id)
                 (= :client from))
           (cond (some? x)      (e/server
@@ -245,7 +245,26 @@
                          :time time}]
                  (println "RX" rx ry)
                  (reset! !xx rx)
-                 (reset! !yy ry))))
+                 (reset! !yy ry)
+                 (e/server
+                   (update-node
+                     [x-p rx]
+                     {:graph-name  :main
+                      :event-id    (get-event-id)
+                      :create-time (System/currentTimeMillis)}
+                     false
+                     false)
+                   (update-node
+                     [y-p ry]
+                     {:graph-name  :main
+                      :event-id    (get-event-id)
+                      :create-time (System/currentTimeMillis)}
+                     false
+                     true))
+                 #_(reset! !node-pos-atom  {:x rx
+                                            :from :client
+                                            :y ry
+                                            :nid id}))))
 
             (when (and (= type :node-update)
                        (= id nid))
@@ -261,7 +280,9 @@
                                     (reset! !ww w)
                                     (reset! !node-pos-atom  {:width w
                                                              :from :client
-                                                             :height h :nid nid})))
+                                                             :loss false
+                                                             :height h
+                                                             :nid nid})))
                 (some? px) (let [uy {:time (current-time-ms) :pos py}
                                  ux {:time (current-time-ms) :pos px}]
                              (do (println "XXX" px py)
