@@ -23,7 +23,8 @@
             #?@(:cljs
                 [[app.client.utils :refer [!border-drag? !is-dragging? !zoom-level !last-position !viewbox !context-menu?]]
                  [missionary.core :as m]
-                 [global-flow :refer [!node-pos-atom  node-pos-flow !global-atom global-client-flow current-time-ms debounce]]]
+                 [app.client.quad-tree :refer [approximate-force]]
+                 [global-flow :refer [!quad-tree !node-pos-atom  node-pos-flow !global-atom global-client-flow current-time-ms debounce]]]
                 :clj
                 [[com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
                  [image-resizer.resize :refer :all]
@@ -141,7 +142,7 @@
 
 #?(:cljs (defn el-mouse-move-state< [movable id dragging?]
            (->> (el-mouse-move-state> movable id dragging?)
-             (e/throttle 10)
+             (e/throttle 1)
              (m/reductions {} {:cord [0 0]
                                :type :node-update
                                :time (current-time-ms)})
@@ -245,9 +246,9 @@
                     (< xpos x-max))
               (doall
                (println "******************" id time" :: " x-min x-max y-min y-max  "::" xpos ypos)
-               (let [rx {:pos (rand-doub time (/  x-min 100) (/  x-max 100))
+               (let [rx {:pos (rand-doub time (/  x-min 1.0) (/  x-max 1.0))
                          :time time}
-                     ry {:pos (rand-doub time (/ y-min 100)  (/ y-max 100))
+                     ry {:pos (rand-doub time (/ y-min 1.0)  (/ y-max 1.0))
                          :time time}]
                  (println "RX" rx ry)
                  (reset! !xx rx)
@@ -268,7 +269,26 @@
                      false
                      true)))))
 
+            (when (and (= :tick type)
+                     time)
+              (let [{:keys [fx fy]} (approximate-force {:x @!xx :y @!yy} @!quad-tree 0.5)]
+               (println "TICK TICK" id time fx fy (approximate-force {:x @!xx :y @!yy} @!quad-tree 0.5))
+               (swap! !yy update-in [:time] current-time-ms)
+               (swap! !yy update-in [:pos] (fn [cury]
+                                             (println "CURX" cury)
+                                             (+ cury fy)))
+               (swap! !xx update-in [:time] current-time-ms)
+               (swap! !xx update-in [:pos] (fn [cury]
+                                             (println "CURY" cury)
+                                             (+ cury fx)))
+               #_(reset! !global-atom {:type :new-sim-pos
+                                       :time (current-time-ms)
+                                       :nid id
+                                       :type-specific-data  (approximate-force {:x @!xx :y @!yy} @!quad-tree 0.5)})))
 
+
+            (when (and (= :new-sim-pos type) (= id nid) time)
+                 (println "NEW SIM POS" id "::"(current-time-ms) "" type-specific-data "xpos" xpos))
 
 
 

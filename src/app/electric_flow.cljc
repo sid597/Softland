@@ -11,10 +11,11 @@
             #?@(:cljs
                 [[clojure.string :as str]
                  [app.client.shapes.line :refer [edge-update]]
-                 [global-flow :refer [!all-nodes !quad-tree global-client-flow !node-pos-atom node-pos-flow !global-atom current-time-ms]]
+                 [global-flow :refer [!all-nodes-map debounce !quad-tree global-client-flow !node-pos-atom node-pos-flow !global-atom current-time-ms]]
                  [app.client.shapes.rect :refer [server-update]]
                  [app.client.quad-tree :refer [build-quad-tree approximate-force total-forces]]
                  [app.client.flow-calc :refer [browser-to-svg-coords]]
+                 [contrib.electric-contrib :refer-macros [after]]
                  [missionary.core :as m]]
                 :clj
                 [[missionary.core :as m]
@@ -173,6 +174,49 @@
                    :text-anchor "middle"})
        (dom/text (str t))))))
 
+#?(:cljs
+   (defn delayed [ms >in]
+          (m/sp (let [v (m/?< >in)]
+                  (m/? (m/sleep ms v))))))
+
+#?(:cljs (defn tick [nodes min-x min-y max-x max-y n]
+           (println "TIMES: " n)
+           (let [qt (build-quad-tree (into [] (vals @!all-nodes-map))
+                      (- @min-x 900)
+                      (- @min-x 900)
+                      (+ (- @max-x @min-x) 1900)
+                      (+ (- @max-y @min-y) 1900))]
+             (doseq [n  nodes]
+               (debounce 100  (reset! !global-atom {:type :new-sim-pos
+                                                    :time (current-time-ms)
+                                                    :nid (:id n)
+                                                    :type-specific-data (approximate-force {:x (:x n) :y (:y n)} qt 0.5)}))))))
+#?(:cljs (defn delay-each [delay input]
+           (m/ap
+             (let [node (m/?> input)
+                   res {:id (:id node)
+                        :res (approximate-force {:x (:x node) :y (:y node)} @!quad-tree 0.5)}]
+                (m/? (m/sleep delay res))))))
+
+#?(:cljs (defn start-seeding [nodes min-x min-y max-x max-y]
+           (->> (into [] (vals @!all-nodes-map)) ;[1 2 3 4 5 6 7 78 23 3 33 4 54 5 3 2 4 56 6 7 8 5 3 2]
+             (m/seed)
+             (delay-each 10)
+             (m/reductions
+               (fn [x y]
+                 (println "X" x y)
+                 y)
+               {})
+             (m/relieve {})
+             (m/latest (fn [x] (println "Y" x) x))
+             #_(m/signal)
+
+             ;(m/latest (fn [x] (println "X" x) x))
+             ;(m/signal)
+             #_(tick nodes min-x min-y max-x max-y n))))
+
+
+
 
 (e/defn view []
   (e/client
@@ -298,12 +342,51 @@
                         :width "100%"}})
              (dom/text "Build quad tree")
              (dom/on "click" (e/fn [e]
-                               (reset! !global-atom {:type :build-quad-tree
-                                                     :time (current-time-ms)
-                                                     :type-specific-data {:min-x @min-x
-                                                                          :min-y @min-y
-                                                                          :max-x @max-x
-                                                                          :max-y @max-y}}))))))
+                               (e/client (reset! !quad-tree (build-quad-tree (into [] (vals @!all-nodes-map))
+                                                              (- @min-x 900)
+                                                              (- @min-x 900)
+                                                              (+ (- @max-x @min-x) 1900)
+                                                              (+ (- @max-y @min-y) 1900))))))))
+         (dom/div
+           (dom/button
+             (dom/props
+               {:top "100px"
+                :left "1000px"
+                :style {:background-color (:button-background (theme. ui-mode))
+                        :color (:button-text (theme. ui-mode))
+                        :border "none"
+                        :margin "0px"
+                        :padding "0px"
+                        :font-size "10px"
+                        :height "20px"
+                        :width "100%"}})
+             (dom/text "RUN SIM")
+             (dom/on "click" (e/fn [e]
+                               (reset! !global-atom {:type :start-seeding})
+                               #_(let [x]
+                                   (println "GM" x))
+                               #_(e/client
+                                   (let [qt (build-quad-tree (into [] (vals @!all-nodes-map))
+                                              (- @min-x 900)
+                                              (- @min-x 900)
+                                              (+ (- @max-x @min-x) 1900)
+                                              (+ (- @max-y @min-y) 1900))
+                                         _ (println "run sim")
+                                         res (->> [1 2 3]
+                                               (m/seed)
+                                               (m/reduce +))]
+                                     (println "DONE")
+
+                                     (println "___" (m/? res))
+                                     #_(m/?
+                                         (m/reductions (fn [x]
+                                                         (println "XXX" x)
+                                                         (reset! !global-atom {:type :sim-update :nid (:id x)}))
+                                           nil
+                                           (m/seed (vals @!all-nodes-map))))))
+                               #_(e/client (reset! !global-atom {:type :tick :time (current-time-ms)})))))))
+
+
 
        (dom/div
          (dom/props
@@ -326,16 +409,9 @@
          (when (= type :draw-rect)
            (reset! !proto-node-id nid)
            (reset! !is-dragging? false))
-
-        (when (= type :build-quad-tree)
-              (println "TICK TICK" time type-specific-data)
-              (reset! !quad-tree (build-quad-tree (e/watch !all-nodes)
-                                   (- @min-x 900)
-                                   (- @min-x 900)
-                                   (+ (- @max-x @min-x) 1900)
-                                   (+ (- @max-y @min-y) 1900)))))
-
-
+        (when (= type :start-seeding)
+           (let [res (new (start-seeding (into [] (vals @!all-nodes-map)) min-x min-y max-x max-y))]
+             (println "START SEEDING RES" res))))
 
        (dom/div
          (dom/props {:id "svg-parent-div"
@@ -446,7 +522,7 @@
 
 
            (e/server
-             (e/for-by identity [id (new (!subscribe [:main ] node-ids-pstate))]
+             (e/for-by identity [id  (take 4 (new (!subscribe [:main ] node-ids-pstate)))]
                (println "ID" id)
                (let [node-data (first (get-path-data [(keypath :main) id ] nodes-pstate))]
                  (e/client
@@ -460,7 +536,7 @@
                      (do
                        (println "---> NODE DATA <----" node-data)
                        (println "NODE " id mx my)
-                       (swap! !all-nodes conj node-data)
+                       (swap! !all-nodes-map assoc id node-data)
                        (when (> @min-x x ) (reset! min-x x))
                        (when (< @max-x mx) (reset! max-x mx))
                        (when (> @min-y y) (reset! min-y y))

@@ -25,6 +25,7 @@
      :se (filterv #(within-bounds? % mid-x mid-y hw hh) nodes)}))
 
 (defn build-quad-tree [nodes min-x min-y width height]
+  (println "Build quad tree")
   (let [max-nodes 4
         nodes (filterv #(within-bounds? % min-x min-y width height) nodes)]
     (if (<= (count nodes) max-nodes)
