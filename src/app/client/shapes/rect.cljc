@@ -182,7 +182,7 @@
                                  :type :node-update
                                  :h new-data})))))
 
-(e/defn setup-actions [{:keys [!hh !ww node id dragging? !dragging? x-p y-p width-p height-p cord-x cord-y !xx !yy !fx !fy fx fy xx yy]}]
+(e/defn setup-actions [{:keys [ !hh !ww node id dragging? !dragging? x-p y-p width-p height-p cord-x cord-y !xx !yy !fx !fy fx fy xx yy]}]
   (e/client
     (let [reset-after-drag (e/fn [msg]
                              (e/client
@@ -228,7 +228,7 @@
                                     :create-time (System/currentTimeMillis)}
                                    false
                                    true)))))
-      (let [{:keys [nid x-min time  x-max y-min y-max cords x y width height type px py w h type-specific-data]} (new (global-client-flow))
+      (let [{:keys [nid x-min time new-node-pos x-max y-min y-max cords x y width height type px py w h type-specific-data]} (new (global-client-flow))
               [cx cy] cords
             xpos (:pos xx)
             ypos (:pos yy)
@@ -246,9 +246,9 @@
                     (< xpos x-max))
               (doall
                (println "******************" id time" :: " x-min x-max y-min y-max  "::" xpos ypos)
-               (let [rx {:pos (rand-doub time (/  x-min 1.0) (/  x-max 1.0))
+               (let [rx {:pos (rand-doub time (/  x-min 10) (/  x-max 10))
                          :time time}
-                     ry {:pos (rand-doub time (/ y-min 1.0)  (/ y-max 1.0))
+                     ry {:pos (rand-doub time (/ y-min 10)  (/ y-max 10))
                          :time time}]
                  (println "RX" rx ry)
                  (reset! !xx rx)
@@ -271,16 +271,14 @@
 
             (when (and (= :tick type)
                      time)
-              (let [{:keys [fx fy]} (approximate-force {:x @!xx :y @!yy} @!quad-tree 0.5)]
-               (println "TICK TICK" id time fx fy (approximate-force {:x @!xx :y @!yy} @!quad-tree 0.5))
-               (swap! !yy update-in [:time] current-time-ms)
-               (swap! !yy update-in [:pos] (fn [cury]
-                                             (println "CURX" cury)
-                                             (+ cury fy)))
-               (swap! !xx update-in [:time] current-time-ms)
-               (swap! !xx update-in [:pos] (fn [cury]
-                                             (println "CURY" cury)
-                                             (+ cury fx)))
+              (let [cur-data (id new-node-pos)
+                    new-y (:pos (:y cur-data))
+                    new-x (:pos (:x cur-data))]
+                (println "UPDATE: " id "::" new-x "::" new-y "::")
+               (swap! !yy assoc-in [:time] current-time-ms)
+               (swap! !yy assoc-in [:pos] new-y)
+               (swap! !xx assoc-in [:time] current-time-ms)
+               (swap! !xx assoc-in [:pos] new-x)
                #_(reset! !global-atom {:type :new-sim-pos
                                        :time (current-time-ms)
                                        :nid id

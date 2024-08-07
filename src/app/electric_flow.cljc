@@ -215,7 +215,28 @@
              ;(m/signal)
              #_(tick nodes min-x min-y max-x max-y n))))
 
-
+#?(:cljs (defn start-seeding0 [min-x min-y max-x max-y]
+           (let [nodes-list (atom @!all-nodes-map)]
+             (dotimes [n 10000]
+               ;(println "OUTER: " n)
+               (let [qt (build-quad-tree (vals @nodes-list)
+                           (- @min-x 900)
+                           (- @min-x 900)
+                           (+ (- @max-x @min-x) 1900)
+                           (+ (- @max-y @min-y) 1900))]
+                 (doseq [node (vals @nodes-list)]
+                   (let [nx (:pos (:x node))
+                         ny (:pos (:y node))
+                         id (:id node)
+                         {:keys [fx fy]} (approximate-force {:x (:x node) :y (:y node)} qt 0.5)
+                         time (current-time-ms)]
+                     ;(println "INNER: " id "::" fx fy "::" nx ny)
+                     (swap! nodes-list assoc-in [id :x :pos] (+ nx fx))
+                     (swap! nodes-list assoc-in [id :x :time] time)
+                     (swap! nodes-list assoc-in [id :y :pos] (+ ny fy))
+                     (swap! nodes-list assoc-in [id :y :time] time)))))
+             (reset! !global-atom {:type :tick :time (current-time-ms)
+                                   :new-node-pos @nodes-list}))))
 
 
 (e/defn view []
@@ -362,30 +383,8 @@
                         :width "100%"}})
              (dom/text "RUN SIM")
              (dom/on "click" (e/fn [e]
-                               (reset! !global-atom {:type :start-seeding})
-                               #_(let [x]
-                                   (println "GM" x))
-                               #_(e/client
-                                   (let [qt (build-quad-tree (into [] (vals @!all-nodes-map))
-                                              (- @min-x 900)
-                                              (- @min-x 900)
-                                              (+ (- @max-x @min-x) 1900)
-                                              (+ (- @max-y @min-y) 1900))
-                                         _ (println "run sim")
-                                         res (->> [1 2 3]
-                                               (m/seed)
-                                               (m/reduce +))]
-                                     (println "DONE")
-
-                                     (println "___" (m/? res))
-                                     #_(m/?
-                                         (m/reductions (fn [x]
-                                                         (println "XXX" x)
-                                                         (reset! !global-atom {:type :sim-update :nid (:id x)}))
-                                           nil
-                                           (m/seed (vals @!all-nodes-map))))))
-                               #_(e/client (reset! !global-atom {:type :tick :time (current-time-ms)})))))))
-
+                               (reset! !global-atom {:type :start-seeding :time (current-time-ms)
+                                                     :all-nodes (e/server (get-path-data [(keypath :main)] nodes-pstate))}))))))
 
 
        (dom/div
@@ -404,14 +403,15 @@
                  (dom/text (e/watch !cpos))))
 
        (draw-rect.)
-       (let [{:keys [type action time nid type-specific-data ]} (new (global-client-flow))]
-         (println "-->" type action time)
+
+       (let [{:keys [type action time nid type-specific-data ] :as inp} (new (global-client-flow))]
          (when (= type :draw-rect)
            (reset! !proto-node-id nid)
            (reset! !is-dragging? false))
-        (when (= type :start-seeding)
-           (let [res (new (start-seeding (into [] (vals @!all-nodes-map)) min-x min-y max-x max-y))]
-             (println "START SEEDING RES" res))))
+
+
+        (when (and time (= type :start-seeding))
+          (start-seeding0  min-x min-y max-x max-y)))
 
        (dom/div
          (dom/props {:id "svg-parent-div"
@@ -522,7 +522,7 @@
 
 
            (e/server
-             (e/for-by identity [id  (take 4 (new (!subscribe [:main ] node-ids-pstate)))]
+             (e/for-by identity [id  (take 6 (new (!subscribe [:main ] node-ids-pstate)))]
                (println "ID" id)
                (let [node-data (first (get-path-data [(keypath :main) id ] nodes-pstate))]
                  (e/client
