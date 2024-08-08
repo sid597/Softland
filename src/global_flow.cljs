@@ -20,5 +20,18 @@
   (m/signal ;; https://clojurians.slack.com/archives/C7Q9GSHFV/p1691599800774709?thread_ts=1691570620.457499&cid=C7Q9GSHFV
     (m/latest
       (fn [x]
+        ;(println "X" x)
         x)
       (m/watch !global-atom))))
+
+(def !node-pos-atom (atom nil))
+(defn node-pos-flow []
+  (m/signal ;; https://clojurians.slack.com/archives/C7Q9GSHFV/p1691599800774709?thread_ts=1691570620.457499&cid=C7Q9GSHFV
+    (m/latest
+      (fn [x]
+        (println "NODE POS UPDATE" x)
+        x)
+      (m/watch !node-pos-atom))))
+
+(def !all-nodes-map (atom {}))
+(def !quad-tree (atom nil))

@@ -1,16 +1,11 @@
-NOTE: This readme is a work in progress, there might be incoherent, out of place thoughts, bad takes, delusional, ill or
-not thought out ideas, might seem like rambling, use loose terms which might be totally different from what they mean in 
-the correct context. 
 
-I only write to get thoughts of my head, and connect with people who find this worth engaging :)
+Discourse graphs: https://network-goods.notion.site/The-Discourse-Graph-starter-pack-312374c813b24ec6b4d53a054371ee5a
 
-discourse graphs: https://network-goods.notion.site/The-Discourse-Graph-starter-pack-312374c813b24ec6b4d53a054371ee5a
+Ontological logs: https://arxiv.org/pdf/1102.1889.pdf
 
-ologs: https://arxiv.org/pdf/1102.1889.pdf
+Collective intelligence:https://topos.site/work/collective-intelligence/
 
-collective intelligence:https://topos.site/work/collective-intelligence/
-
-applied-category-theory:https://arxiv.org/pdf/1803.05316.pdf  
+Applied category theory:https://arxiv.org/pdf/1803.05316.pdf  
 
 
 
@@ -53,34 +48,9 @@ layer is higher conflicts are good for progress.
 My very strong intuition as of april 14 is that category-theory is THE missing piece I have been looking since the starting
 of this project as a mere thought. I think so because would provide me with the tool that lets me think about the structure and coherence.
 
-
 ---
 
-Random thoughts:
-Creation is a distributed process? Can it be centralised? Its a team sport?
-Learning is a centralised process? Can it be decentralised? Its an individual sport?
-Standing on shoulder of giants, needs giants, but each one of us has to climb stand on their own.
-
-For a long time people were able to stand on all the previous giants and become a giant's giant?
-Now its possible on a subset of all the giants, maybe because the number and size of each giant have grown,
-knowledge is an inverted triangle, why become a giant when you can try to make one etc. I can think of many semi-pointless
-analogies which would make reader wonder if I am high and still make a bit of sense to a human.
-
-Are midwits making the midwit meme as an observer? How to overthink midwit meme? 
-
-What is the equivalent of os/browser for distributed knowledge? What is the rewind equivalent? Maybe what I am doing?? 
-
-Watched Interstellar again and was again taken to the humbleness, curiosity, the longing, adventure, urge to explore one feels in the vastness of the universe, beauty of 
-nature, the sheer magnitude. How do I feel the same by manipulating mathematical characters or by natural language? 
-Not talking about deliberating (here mixed deliberate+thinking somehow) thinking, I can emulate the feeling but the difference
-here is that I already have the outcome in mind. Whereas what I refer as "pure feeling" is: it happens 
-first and then you get a word in you mind. 
-
----
-
-UI's require too much interaction to the point that its distracting, limiting the capability and capacity of thinking. 
-
-- Imagine the meme with orange jacket guy: Interactive at the right abstraction layer yes, current interactive tft no. 
+Random musings on how things should be: 
 
 If llms or any ai for that matter has to become a true collaborator to a human then it should be highly malleable, can't 
 expect the same linear chat ui to be used for creation, brainstorming, synthesising, do some task, collaborate.
@@ -92,8 +62,6 @@ distracted by this thread right now. I want to continue reading the rest, synthe
 want to think and mull over it, add my comments, see if and how my thinking has changed, explore some threads but maybe
 in my brain, make some connections or maybe not. And then see replies to my quoted questions. 
 
-
-what's the eqivalent of putting pen/pencil in mouth with a mouse? maybe grab a pen leave the mouse/
 
 Maybe the essence of the system should be how you want to feel while interacting with it and long after the interaction is done.
 Maybe its more about the feelings that the action, how to emulate "pure feelings" in these systems, I mean we should be able to

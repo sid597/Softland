@@ -6,18 +6,21 @@
             [hyperfiddle.electric-dom2 :as dom]
             [app.client.shapes.rect :refer [rect]]
             [app.client.shapes.draw-rect :refer [draw-rect]]
+            [app.client.quad-tree :refer [total-forces]]
             [app.client.shapes.line :refer [line]]
             #?@(:cljs
                 [[clojure.string :as str]
                  [app.client.shapes.line :refer [edge-update]]
-                 [global-flow :refer [global-client-flow !global-atom current-time-ms]]
+                 [global-flow :refer [!all-nodes-map debounce !quad-tree global-client-flow !node-pos-atom node-pos-flow !global-atom current-time-ms]]
                  [app.client.shapes.rect :refer [server-update]]
+                 [app.client.quad-tree :refer [build-quad-tree approximate-force total-forces]]
                  [app.client.flow-calc :refer [browser-to-svg-coords]]
+                 [contrib.electric-contrib :refer-macros [after]]
                  [missionary.core :as m]]
                 :clj
                 [[missionary.core :as m]
                  [com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
-                 [app.server.rama :as rama :refer [!subscribe get-path-data nodes-pstate node-ids-pstate]]])))
+                 [app.server.rama :as rama :refer [!subscribe get-path-data nodes-pstate update-node get-event-id node-ids-pstate]]])))
 (hyperfiddle.rcf/enable!)
 
 
@@ -97,7 +100,7 @@
                (let [sample (fn [e] (! (when (= "background" (.-id (.-target e)))
                                          (do
                                           (.preventDefault e)
-                                          (let [rect (.getBoundingClientRect (.getElementById js/document "sv"))
+                                          (let [rect (.getBoundingClientRect (.getElementById js/document "svg-parent-div"))
                                                 left (.-left rect)
                                                 top (.-top rect)
                                                 width (.-width rect)
@@ -171,24 +174,80 @@
                    :text-anchor "middle"})
        (dom/text (str t))))))
 
+#?(:cljs
+   (defn delayed [ms >in]
+          (m/sp (let [v (m/?< >in)]
+                  (m/? (m/sleep ms v))))))
+
+#?(:cljs (defn tick [nodes min-x min-y max-x max-y n]
+           (println "TIMES: " n)
+           (let [qt (build-quad-tree (into [] (vals @!all-nodes-map))
+                      (- @min-x 900)
+                      (- @min-x 900)
+                      (+ (- @max-x @min-x) 1900)
+                      (+ (- @max-y @min-y) 1900))]
+             (doseq [n  nodes]
+               (debounce 100  (reset! !global-atom {:type :new-sim-pos
+                                                    :time (current-time-ms)
+                                                    :nid (:id n)
+                                                    :type-specific-data (approximate-force {:x (:x n) :y (:y n)} qt 0.5)}))))))
+#?(:cljs (defn delay-each [delay input]
+           (m/ap
+             (let [node (m/?> input)
+                   res {:id (:id node)
+                        :res (approximate-force {:x (:x node) :y (:y node)} @!quad-tree 0.5)}]
+                (m/? (m/sleep delay res))))))
+
+#?(:cljs (defn start-seeding [nodes min-x min-y max-x max-y]
+           (->> (into [] (vals @!all-nodes-map)) ;[1 2 3 4 5 6 7 78 23 3 33 4 54 5 3 2 4 56 6 7 8 5 3 2]
+             (m/seed)
+             (delay-each 10)
+             (m/reductions
+               (fn [x y]
+                 (println "X" x y)
+                 y)
+               {})
+             (m/relieve {})
+             (m/latest (fn [x] (println "Y" x) x))
+             #_(m/signal)
+
+             ;(m/latest (fn [x] (println "X" x) x))
+             ;(m/signal)
+             #_(tick nodes min-x min-y max-x max-y n))))
+
+#?(:cljs (defn start-seeding0 [min-x min-y max-x max-y]
+           (let [nodes-list (atom @!all-nodes-map)]
+             (dotimes [n 10000]
+               ;(println "OUTER: " n)
+               (let [qt (build-quad-tree (vals @nodes-list)
+                           (- @min-x 900)
+                           (- @min-x 900)
+                           (+ (- @max-x @min-x) 1900)
+                           (+ (- @max-y @min-y) 1900))]
+                 (doseq [node (vals @nodes-list)]
+                   (let [nx (:pos (:x node))
+                         ny (:pos (:y node))
+                         id (:id node)
+                         {:keys [fx fy]} (approximate-force {:x (:x node) :y (:y node)} qt 0.5)
+                         time (current-time-ms)]
+                     ;(println "INNER: " id "::" fx fy "::" nx ny)
+                     (swap! nodes-list assoc-in [id :x :pos] (+ nx fx))
+                     (swap! nodes-list assoc-in [id :x :time] time)
+                     (swap! nodes-list assoc-in [id :y :pos] (+ ny fy))
+                     (swap! nodes-list assoc-in [id :y :time] time)))))
+             (reset! !global-atom {:type :tick :time (current-time-ms)
+                                   :new-node-pos @nodes-list}))))
+
 
 (e/defn view []
   (e/client
     (pprint-str "IN THE VIEW")
-    (let [!current-selection (atom nil)
-          current-selection (e/watch !current-selection)
-          !tx (atom nil)
-          tx (e/watch !tx)
-          !ty (atom nil)
-          ty (e/watch !ty)
-          !th (atom nil)
-          th (e/watch !th)
-          !tw (atom nil)
-          tw (e/watch !tw)
-          !test-rect (atom nil)
-          test-rect (e/watch !test-rect)
+    (let [!proto-node-id  (atom nil)
+          proto-node-id  (e/watch !proto-node-id)
+          !draw? (atom false)
+          draw? (e/watch !draw?)
           !cpos (atom nil)
-          !viewbox (atom [-2028 61 1331 1331])
+          !viewbox (atom [-2028 61 1331 331])
           viewbox (e/watch !viewbox)
           !ui-mode (atom :dark)
           ui-mode (e/watch !ui-mode)
@@ -203,7 +262,11 @@
           !circles (atom [])
           circles (e/watch !circles)
           !ctr (atom 0)
-          ctr (e/watch !ctr)]
+          ctr (e/watch !ctr)
+          max-x (atom 0)
+          min-x (atom 10000000)
+          min-y (atom 10000000)
+          max-y (atom 0)]
 
       #_(dom/on js/document "mousemove" (e/fn [e]
                                           (println "mouse move on document")
@@ -234,6 +297,97 @@
                                                  :light
                                                  :dark))))))
        (dom/div
+         (dom/props {:id "action-buttons"
+                     :style {:flex "row"}})
+         (dom/div
+           (dom/button
+             (dom/props
+               {:top "100px"
+                :left "1000px"
+                :style {:background-color (:button-background (theme. ui-mode))
+                        :color (:button-text (theme. ui-mode))
+                        :border "none"
+                        :margin "0px"
+                        :padding "0px"
+                        :font-size "10px"
+                        :height "20px"
+                        :width "100%"}})
+             (dom/text "randomise")
+             (dom/on "click" (e/fn [e]
+                               (println "RANDOMISE CLICKED")
+                               (let [ch (- (nth viewbox 3) 1400)
+                                      cw (- (nth viewbox 2) 1400)
+                                      cx (+ 200 (first viewbox))
+                                      cy (+ 200 (second viewbox))]
+                                   (reset!
+                                     !global-atom
+                                     {:type :randomise
+                                      :time (current-time-ms)
+                                      :x-min  cx
+                                      :x-max (+ cw cx)
+                                      :y-min  cy
+                                      :y-max (+ ch cy)}))))))
+         (dom/div
+           (dom/button
+             (dom/props
+               {:top "100px"
+                :left "1000px"
+                :style {:background-color (:button-background (theme. ui-mode))
+                        :color (:button-text (theme. ui-mode))
+                        :border "none"
+                        :margin "0px"
+                        :padding "0px"
+                        :font-size "10px"
+                        :height "20px"
+                        :width "100%"}})
+             (dom/text "zoom out")
+             (dom/on "click" (e/fn [e]
+                               (e/client
+                                 (println "ZOOM OUT CLICKED" "MAX-MIN " @min-x @min-y @max-y @max-x)
+                                 (swap! !viewbox assoc 0 (- @min-x 900))
+                                 (swap! !viewbox assoc 1 (- @min-y 900))
+                                 (swap! !viewbox assoc 2 (+ 1900 (- @max-x @min-x)))
+                                 (swap! !viewbox assoc 3 (+ 1900 (- @max-y @min-y))))))))
+         (dom/div
+           (dom/button
+             (dom/props
+               {:top "100px"
+                :left "1000px"
+                :style {:background-color (:button-background (theme. ui-mode))
+                        :color (:button-text (theme. ui-mode))
+                        :border "none"
+                        :margin "0px"
+                        :padding "0px"
+                        :font-size "10px"
+                        :height "20px"
+                        :width "100%"}})
+             (dom/text "Build quad tree")
+             (dom/on "click" (e/fn [e]
+                               (e/client (reset! !quad-tree (build-quad-tree (into [] (vals @!all-nodes-map))
+                                                              (- @min-x 900)
+                                                              (- @min-x 900)
+                                                              (+ (- @max-x @min-x) 1900)
+                                                              (+ (- @max-y @min-y) 1900))))))))
+         (dom/div
+           (dom/button
+             (dom/props
+               {:top "100px"
+                :left "1000px"
+                :style {:background-color (:button-background (theme. ui-mode))
+                        :color (:button-text (theme. ui-mode))
+                        :border "none"
+                        :margin "0px"
+                        :padding "0px"
+                        :font-size "10px"
+                        :height "20px"
+                        :width "100%"}})
+             (dom/text "RUN SIM")
+             (dom/on "click" (e/fn [e]
+                               (reset! !global-atom {:type :start-seeding :time (current-time-ms)
+                                                     :all-nodes (e/server (get-path-data [(keypath :main)] nodes-pstate))}))))))
+
+
+       (dom/div
          (dom/props
            {:style {:background-color (:button-background (theme. ui-mode))
                     :color (:button-text (theme. ui-mode))
@@ -249,14 +403,21 @@
                  (dom/text (e/watch !cpos))))
 
        (draw-rect.)
-       (let [{:keys [type action time ]} (new (global-client-flow))]
-         (println "-->" type action time)
+
+       (let [{:keys [type action time nid type-specific-data ] :as inp} (new (global-client-flow))]
          (when (= type :draw-rect)
-           (reset! !current-selection action)))
+           (reset! !proto-node-id nid)
+           (reset! !is-dragging? false))
+
+
+        (when (and time (= type :start-seeding))
+          (start-seeding0  min-x min-y max-x max-y)))
 
        (dom/div
-         (dom/props {:style {:display "flex"
+         (dom/props {:id "svg-parent-div"
+                     :style {:display "flex"
                              :flex 1}})
+         (reset! !viewbox [0 0 (.-clientWidth dom/node) (.-clientHeight dom/node)])
          (svg/svg
            (dom/props {:viewBox (clojure.string/join " " viewbox)
                        :id "sv"
@@ -266,7 +427,8 @@
                                :left 0}})
            (let [[clientX clientY ] (new (mouse-move-state< dom/node))
                  [vx vy vw vh] viewbox
-                 svg (.getElementById js/document "sv")
+                 svg (.getElementById js/document "svg-parent-div")
+                 sg (.getElementById js/document "sv")
                  cw  (.-clientWidth svg)
                  ch  (.-clientHeight svg)
                  xf  (/ cw vw)
@@ -277,19 +439,16 @@
                        yf)
                  nx  (Math/round (- vx dx))
                  ny  (Math/round (- vy dy))]
-             (when (= :start-drawing current-selection)
+             (when (and (some? proto-node-id) draw?)
                 (let [bbox            (.getBoundingClientRect dom/node)
                       view-box-width  (nth viewbox 2)
                       view-box-height (nth viewbox 3)
                       ratio-x         (/ view-box-width (.-width bbox))
                       ratio-y         (/ view-box-height (.-height bbox))
                       svg-x           (+ (* (- clientX (.-left bbox)) ratio-x) (nth viewbox 0))
-                      svg-y           (+ (* (- clientY (.-top bbox)) ratio-y) (nth viewbox 1))
-                      dx (Math/abs (- svg-x tx))
-                      dy (Math/abs (- svg-y ty))]
-                  (println "==" th tw tx ty)
-                  (reset! !tw dx)
-                  (reset! !th dy)))
+                      svg-y           (+ (* (- clientY (.-top bbox)) ratio-y) (nth viewbox 1))]
+                  (println "==" proto-node-id)
+                  (reset! !global-atom {:width svg-x :height svg-y :nid @!proto-node-id :type :node-update})))
 
              (when is-dragging?
                (do
@@ -308,49 +467,49 @@
                                  (when (= 0
                                          (.-button e))
                                    (.preventDefault e)
-                                   (println "mousedown")
+                                   (println "mousedown" proto-node-id)
                                    (let [ex (e/client (.-clientX e))
                                          ey (e/client (.-clientY e))]
                                      (do
                                        (reset! !last-position {:x ex
                                                                :y ey})
-                                       (cond
-                                         (= :start-drawing
-                                            current-selection) (let [[nx ny] (browser-to-svg-coords e viewbox dom/node)]
-                                                                  (println "NEED TO DRAW RECT" ex ey)
-                                                                  (reset! !tx nx)
-                                                                  (reset! !ty ny)
-                                                                  (reset! !th 0)
-                                                                  (reset! !tw 0))
-                                        :else                 (reset! !is-dragging? true)))))))
+                                       (when (some? proto-node-id)
+                                         (let [[nx ny] (browser-to-svg-coords e viewbox dom/node)]
+                                           (println "DRAWING SO UPDATING" nx ny proto-node-id)
+                                           (reset! !draw? true)
+                                           (reset! !global-atom {:px nx :py ny :type :node-update :nid @!proto-node-id})))
+                                      (when (nil? proto-node-id)
+                                        (do
+                                          (println "DRAGGING? " is-dragging?)
+                                          (reset! !is-dragging? true))))))))
                                      ;(println "DOWN" is-dragging?)
-           (when (some? tx)
-            (svg/rect
-              (dom/props {:x tx :y ty :height th :width tw :fill "lightblue"})))
+           #_(when (some? tx))
+
 
            (dom/on "mouseup" (e/fn [e]
                                (.preventDefault e)
                                (when (= 0
                                        (.-button e))
-                                 (println "pointerup svg 1" current-selection)
-                                 (reset! !global-atom {:type :draw-rect
-                                                       :action :stop-drawing
-                                                       :time (current-time-ms)})
-                                 (reset! !tx nil)
-                                 (reset! !ty nil)
-                                 (reset! !th nil)
-                                 (reset! !tw nil)
-                                 (reset! !is-dragging? false))))
+                                 (println "pointerup svg " proto-node-id is-dragging?)
+                                 (when (some? proto-node-id)
+                                  (do
+                                   (reset! !proto-node-id nil)
+                                   (reset! !draw? false)))
+                                 (when (and is-dragging?
+                                         (nil? proto-node-id))
+                                   (reset! !is-dragging? false))
+
+                                 #_(swap! !is-dragging? not))))
            (svg/defs
               (svg/pattern
                 (dom/props {:id "dotted-pattern"
-                            :width 20
-                            :height 20
+                            :width 60
+                            :height 60
                             :patternUnits "userSpaceOnUse"})
                 (svg/circle
-                  (dom/props {:cx 1
-                              :cy 1
-                              :r 0.5
+                  (dom/props {:cx 3
+                              :cy 3
+                              :r 3
                               :fill "#91919a"}))))
            (svg/rect
               (dom/props
@@ -362,28 +521,41 @@
                  :fill "url(#dotted-pattern)"}))
 
 
-           #_(e/server
-               (e/for-by identity [id (new (!subscribe [:main ] node-ids-pstate))]
-                 (println "ID" id)
-                 (let [node (first (get-path-data [(keypath :main) id ] nodes-pstate))]
+           (e/server
+             (e/for-by identity [id  (take 6 (new (!subscribe [:main ] node-ids-pstate)))]
+               (println "ID" id)
+               (let [node-data (first (get-path-data [(keypath :main) id ] nodes-pstate))]
+                 (e/client
+                   (let [x (-> node-data :x :pos)
+                         y (-> node-data :y :pos)
+                         w (-> node-data :type-specific-data :width :pos)
+                         h (-> node-data :type-specific-data :height :pos)
+                         mx (+ x w)
+                         my (+ y h)
+                         type (-> node-data :type)]
+                     (do
+                       (println "---> NODE DATA <----" node-data)
+                       (println "NODE " id mx my)
+                       (swap! !all-nodes-map assoc id node-data)
+                       (when (> @min-x x ) (reset! min-x x))
+                       (when (< @max-x mx) (reset! max-x mx))
+                       (when (> @min-y y) (reset! min-y y))
+                       (when (< @max-y my) (reset! max-y my))
+                       (cond
+                         (= "img" type) (rect. id node-data :img)
+                          :else (rect. id node-data :rect)))))))
+             #_(e/for-by identity [edge edges]
+                 (let [[k v] edge
+                       target-node (first (get-path-data
+                                            [(keypath :main) (:to v)]
+                                            nodes-pstate))
+                       source-node (first (get-path-data
+                                            [(keypath :main) (:from v)]
+                                            nodes-pstate))]
                    (e/client
-                     (println "---> NODE DATA <----" node)
-                     (println "NODE " id)
-                     (if (= "rect" (:type node))
-                      (rect. id node :rect)
-                      (rect. id node :img)))))
-               #_(e/for-by identity [edge edges]
-                   (let [[k v] edge
-                         target-node (first (get-path-data
-                                              [(keypath :main) (:to v)]
-                                              nodes-pstate))
-                         source-node (first (get-path-data
-                                              [(keypath :main) (:from v)]
-                                              nodes-pstate))]
-                     (e/client
-                       (println "edge " v)
-                       (println "target node" target-node)
-                       (line. source-node target-node v)))))))))))
+                     (println "edge " v)
+                     (println "target node" target-node)
+                     (line. source-node target-node v)))))))))))
 
 
 
