@@ -191,52 +191,48 @@
                                                     :time (current-time-ms)
                                                     :nid (:id n)
                                                     :type-specific-data (approximate-force {:x (:x n) :y (:y n)} qt 0.5)}))))))
-#?(:cljs (defn delay-each [delay input]
-           (m/ap
-             (let [node (m/?> input)
-                   res {:id (:id node)
-                        :res (approximate-force {:x (:x node) :y (:y node)} @!quad-tree 0.5)}]
-                (m/? (m/sleep delay res))))))
 
-#?(:cljs (defn start-seeding [nodes min-x min-y max-x max-y]
-           (->> (into [] (vals @!all-nodes-map)) ;[1 2 3 4 5 6 7 78 23 3 33 4 54 5 3 2 4 56 6 7 8 5 3 2]
-             (m/seed)
-             (delay-each 10)
-             (m/reductions
-               (fn [x y]
-                 (println "X" x y)
-                 y)
-               {})
-             (m/relieve {})
-             (m/latest (fn [x] (println "Y" x) x))
-             #_(m/signal)
+#?(:cljs (defn start-seeding [nodes-list qt]
+           (m/sp
+             (loop [nodes (vals @nodes-list)]
+               (if (seq nodes)
+                 (let [node (first nodes)
+                       id (:id node)
+                       {:keys [fx fy]} (approximate-force {:x (:x node) :y (:y node)} qt 0.5)
+                       new-x (+ fx (:pos (:x node)))
+                       new-y (+ fy (:pos (:y node)))
+                       time (current-time-ms)
+                       res {:type :tick
+                            :nid id
+                            :time time
+                            :new-node-pos {:new-x new-x
+                                           :new-y new-y}}]
+                    (println  id " FORCE ::" new-x new-y "::" fx fy)
+                    (m/? (m/sleep 10 (reset! !global-atom res)))
+                    (println "DONE RESET" @!global-atom)
+                    (swap! nodes-list update id assoc
+                      :x {:pos new-x :time time}
+                      :y {:pos new-y :time time})
 
-             ;(m/latest (fn [x] (println "X" x) x))
-             ;(m/signal)
-             #_(tick nodes min-x min-y max-x max-y n))))
+                   (recur (rest nodes)))
+                 @nodes-list)))))
 
-#?(:cljs (defn start-seeding0 [min-x min-y max-x max-y]
-           (let [nodes-list (atom @!all-nodes-map)]
-             (dotimes [n 10000]
-               ;(println "OUTER: " n)
-               (let [qt (build-quad-tree (vals @nodes-list)
-                           (- @min-x 900)
-                           (- @min-x 900)
-                           (+ (- @max-x @min-x) 1900)
-                           (+ (- @max-y @min-y) 1900))]
-                 (doseq [node (vals @nodes-list)]
-                   (let [nx (:pos (:x node))
-                         ny (:pos (:y node))
-                         id (:id node)
-                         {:keys [fx fy]} (approximate-force {:x (:x node) :y (:y node)} qt 0.5)
-                         time (current-time-ms)]
-                     ;(println "INNER: " id "::" fx fy "::" nx ny)
-                     (swap! nodes-list assoc-in [id :x :pos] (+ nx fx))
-                     (swap! nodes-list assoc-in [id :x :time] time)
-                     (swap! nodes-list assoc-in [id :y :pos] (+ ny fy))
-                     (swap! nodes-list assoc-in [id :y :time] time)))))
-             (reset! !global-atom {:type :tick :time (current-time-ms)
-                                   :new-node-pos @nodes-list}))))
+#?(:cljs (defn start-seeding0 [all-nodes min-x min-y max-x max-y]
+             (m/sp
+              (let [nodes-list (atom all-nodes)]
+                (println "SP")
+                (dotimes [n 300]
+                  (println "+==========++++++++++===========+++++++++++==")
+                  (let [qt (build-quad-tree (vals @nodes-list)
+                             (- @min-x 900)
+                             (- @min-x 900)
+                             (+ (- @max-x @min-x) 1900)
+                             (+ (- @max-y @min-y) 1900))
+                        _ (cljs.pprint/pprint @nodes-list)
+                        updated-nodes (m/? (start-seeding nodes-list qt))]
+                    (println "Iteration" n "completed")))
+                @nodes-list))))
+
 
 
 (e/defn view []
@@ -384,7 +380,7 @@
              (dom/text "RUN SIM")
              (dom/on "click" (e/fn [e]
                                (reset! !global-atom {:type :start-seeding :time (current-time-ms)
-                                                     :all-nodes (e/server (get-path-data [(keypath :main)] nodes-pstate))}))))))
+                                                     #_#_:all-nodes (e/server (get-path-data [(keypath :main)] nodes-pstate))}))))))
 
 
        (dom/div
@@ -411,7 +407,9 @@
 
 
         (when (and time (= type :start-seeding))
-          (start-seeding0  min-x min-y max-x max-y)))
+          ((start-seeding0 @!all-nodes-map min-x min-y max-x max-y)
+           (fn [r] (println "SUCCESS SEEDING: " r))
+           (fn [e] (println "ERROR SEEDING: " e)))))
 
        (dom/div
          (dom/props {:id "svg-parent-div"
@@ -522,7 +520,7 @@
 
 
            (e/server
-             (e/for-by identity [id  (take 6 (new (!subscribe [:main ] node-ids-pstate)))]
+             (e/for-by identity [id  (new (!subscribe [:main ] node-ids-pstate))]
                (println "ID" id)
                (let [node-data (first (get-path-data [(keypath :main) id ] nodes-pstate))]
                  (e/client

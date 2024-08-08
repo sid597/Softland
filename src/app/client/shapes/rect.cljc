@@ -269,16 +269,17 @@
                      false
                      true)))))
 
-            (when (and (= :tick type)
-                     time)
-              (let [cur-data (id new-node-pos)
-                    new-y (:pos (:y cur-data))
-                    new-x (:pos (:x cur-data))]
+            (when (and
+                    (= nid id)
+                    (= :tick type)
+                    time)
+              (let [{:keys [new-x new-y]} new-node-pos]
                 (println "UPDATE: " id "::" new-x "::" new-y "::")
-               (swap! !yy assoc-in [:time] current-time-ms)
-               (swap! !yy assoc-in [:pos] new-y)
-               (swap! !xx assoc-in [:time] current-time-ms)
-               (swap! !xx assoc-in [:pos] new-x)
+                (when (some? new-x)
+                  (swap! !yy assoc-in [:time] current-time-ms)
+                  (swap! !yy assoc-in [:pos] new-y)
+                  (swap! !xx assoc-in [:time] current-time-ms)
+                  (swap! !xx assoc-in [:pos] new-x))
                #_(reset! !global-atom {:type :new-sim-pos
                                        :time (current-time-ms)
                                        :nid id
