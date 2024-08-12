@@ -17,7 +17,7 @@
                 :clj
                 [[com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
                  [app.client.utils :refer [!ui-mode !edges !nodes]]
-                 [app.server.rama :as rama :refer [!subscribe nodes-pstate get-event-id add-new-node]]])))
+                 [app.server.rama.util-fns :as rama :refer [!subscribe nodes-pstate get-event-id add-new-node]]])))
 
 
 

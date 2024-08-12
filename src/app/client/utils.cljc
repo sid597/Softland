@@ -2,7 +2,7 @@
   (:require [hyperfiddle.electric :as e]
             #?@(:clj
                  [
-                  [app.server.rama :as rama :refer [!subscribe nodes-pstate get-event-id add-new-node]]
+                  [app.server.rama.util-fns :as rama :refer [!subscribe nodes-pstate get-event-id add-new-node]]
                   [com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]]
                 :cljs [[cljs.reader :as reader]])))
 

@@ -13,7 +13,6 @@
             [clojure.pprint :as pprint]
             [hyperfiddle.rcf :refer [tests tap with %]]
             [app.client.mode :refer [theme]]
-            [app.client.shapes.util :as sutil :refer [create-new-child-node]]
             [app.client.utils :refer [ ui-mode edges nodes
                                       is-dragging?  zoom-level last-position subscribe
                                       viewbox  context-menu? reset-global-vals]]
@@ -24,7 +23,7 @@
                 [[app.client.utils :refer [!border-drag? !is-dragging? !zoom-level !last-position !viewbox !context-menu?]]
                  [missionary.core :as m]
                  [app.client.quad-tree :refer [approximate-force]]
-                 [global-flow :refer [!quad-tree !node-pos-atom  node-pos-flow !global-atom global-client-flow current-time-ms debounce]]]
+                 [global-flow :refer [ctr !quad-tree !node-pos-atom  node-pos-flow !global-atom global-client-flow current-time-ms debounce]]]
                 :clj
                 [[com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
                  [image-resizer.resize :refer :all]
@@ -33,9 +32,7 @@
                  [image-resizer.scale-methods :refer :all]
                  [clojure.java.io :refer :all]
                  [app.client.utils :refer [!ui-mode !edges !nodes]]
-                 [app.server.rama :as rama :refer [!subscribe nodes-pstate get-path-data get-event-id
-                                                   send-llm-request
-                                                   add-new-node update-node]]])))
+                 [app.server.rama.util-fns :refer :all]])))
 
 
 #_(tests
@@ -47,79 +44,6 @@
                     (file (str "/Users/sid597/Softland/resources/public/img/DSCF" x ".JPG")))
                    (str "/Users/sid597/Softland/resources/public/img/resized/" x ".jpeg")
                    :verbatim))))
-
-
-
-
-
-(e/defn card-topbar [id]
-  (e/client
-    (dom/div
-      (dom/props {:id  (str "card-topbar-" id)
-                  :style {:background-color "white"
-                          :display "flex"
-                          :flex-direction "row"
-                          :align-items "center"
-                          :gap "8px"
-                          :justify-content "space-between"
-                          :border-bottom "1px solid black"
-                          :padding "5px"}})
-      (dom/div
-        (dom/style {:display "flex"
-                    :gap "8px"})
-        (icon-button. :drag-pan-icon)
-        (icon-button. :closed-lock-icon))
-
-      (dom/div
-        (dom/style {:display "flex"
-                    :gap "8px"})
-        (icon-button. :maximise-icon)
-        (icon-button. :close-small-icon)))))
-
-(e/defn outlined-button [name]
-  (e/client
-    (dom/button
-      (dom/props {:class "outlined-button"
-                  :style {:background "white"
-                          :padding "2px 5px"
-                          :font-size "14px"
-                          :border "none"
-                          :font "200  13px IA writer Quattro S"
-                          :display "flex"}})
-      (dom/text name))))
-
-(e/defn button-bar []
-  (e/client
-
-    (dom/div
-      #_(dom/props {:class "button-sep"
-                    :style {:display "flex"
-                            :flex-direction "column"
-                            :color "black"
-                            :padding "5px"
-                            :border "1px solid black"
-                            :height "400px"
-                            :border-radius "10px"
-                            :font "200  17px IA writer Quattro S"}})
-      #_(dom/text "Strategy: ")
-      (dom/div
-        (dom/props {:class "button-bar"
-                    :style {:display "flex"
-                            :flex-direction "row"
-                            :gap "8px"
-                            :justify-content "space-between"
-                            :padding "5px"
-                            :color "black"
-                            :font "200  17px IA writer Quattro S"
-                            :overflow-x "auto"}})
-        (outlined-button. "1")
-        (outlined-button. "2")
-        (outlined-button. "3")
-        (outlined-button. "4")
-        (outlined-button. "5")
-        (outlined-button. "6")
-        (outlined-button. "7")))))
-
 
 
 #?(:cljs
@@ -237,7 +161,7 @@
                         (+ mn (* (Math/abs (- mx mn)) (rand))))]
 
           (do
-            (println id " :: " x-min x-max y-min y-max  "::" xpos ypos)
+            ;(println id " :: " x-min x-max y-min y-max  "::" xpos ypos)
             (when (and time
                     (= type :randomise)
                     (> ypos y-min)
@@ -246,13 +170,16 @@
                     (< xpos x-max))
               (doall
                (println "******************" id time" :: " x-min x-max y-min y-max  "::" xpos ypos)
-               (let [rx {:pos (rand-doub time (/  x-min 10) (/  x-max 10))
+               (let [row (quot @ctr 9)
+                     col (rem @ctr 9)
+                     rx {:pos (rand-doub time (/  x-min 50) (/  x-max 50))
                          :time time}
-                     ry {:pos (rand-doub time (/ y-min 10)  (/ y-max 10))
+                     ry {:pos (rand-doub time (/ y-min 50)  (/ y-max 50))
                          :time time}]
                  (println "RX" rx ry)
                  (reset! !xx rx)
                  (reset! !yy ry)
+                 (swap! ctr inc)
                  (e/server
                    (update-node
                      [x-p rx]
@@ -274,7 +201,7 @@
                     (= :tick type)
                     time)
               (let [{:keys [new-x new-y]} new-node-pos]
-                (println "UPDATE: " id "::" new-x "::" new-y "::")
+                ;(println "UPDATE: " id "::" new-x "::" new-y "::")
                 (when (some? new-x)
                   (swap! !yy assoc-in [:time] current-time-ms)
                   (swap! !yy assoc-in [:pos] new-y)
@@ -501,8 +428,8 @@
           (svg/rect
             (dom/props {:x      x
                         :y      y
-                        :height h
-                        :width  w
+                        :height 3
+                        :width  3
                         :fill   "red"
                         :id     id
                         :style {:display "flex"

@@ -10,7 +10,7 @@
             #?@(:cljs [[clojure.string :as str]
                        [app.client.utils :refer [new-uuid]]
                        [global-flow :refer [!global-atom current-time-ms]]])
-            #?@(:clj [[app.server.rama :refer [add-new-node get-event-id]]])))
+            #?@(:clj [[app.server.rama.util-fns :refer [add-new-node get-event-id]]])))
 
 
 (e/defn draw-rect []
