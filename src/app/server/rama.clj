@@ -7,8 +7,9 @@
             [com.rpl.rama.aggs :as aggs :refer [+merge +map-agg]]
             [com.rpl.rama.ops :as ops]
             [clj-http.client :as http]
+            [com.roamresearch.sdk.backend :as b]
             [cheshire.core :as json]
-            [app.server.env :refer [oai-key]]
+            [app.server.env :refer [oai-key roam-api-key roam-graph-name]]
             [missionary.core :as m])
   (:import (clojure.lang Keyword)
            [hyperfiddle.electric Failure Pending]
@@ -83,11 +84,43 @@
           (catch Exception e
             (str "POST Error: " (.getMessage e))))))))
 
+(defn query-roam-req [client query &args]
+  (CompletableFuture/supplyAsync
+    (reify Supplier
+      (get [this]
+        (try
+          (do
+            (println "trying to query" client query)
+            (b/q client query &args))
+         (catch Exception e
+           (str "ROAM QUERY POST ERROR: " (.getMessage e))))))))
+
+
+(defprotocol fetch-roam-client
+  (roam-client [this]))
+
+
+;; Define a task global to manage the Roam client
+(deftype roam-task-global [token graph]
+  TaskGlobalObject
+  (prepareForTask [this task-id task-global-context]
+    (println "Preparing Roam client for task" task-id))
+  (close [this]
+    (println "Closing Roam client"))
+
+  fetch-roam-client
+  (roam-client [this] {:token token
+                       :graph graph}))
+
+
 (defmodule node-events-module [setup topologies]
   (declare-depot setup *node-events-depot :random)
   (declare-depot setup *user-registration-depot (hash-by :username))
   (declare-depot setup *user-graph-settings-depot (hash-by :user-id))
   (declare-object setup *http-client (CljHttpTaskGlobal.))
+  (declare-object setup *roam-client (roam-task-global.
+                                       roam-api-key
+                                       roam-graph-name))
   (let [n      (stream-topology topologies "events-topology")
         id-gen (ModuleUniqueIdPState. "$$id")]
     (declare-pstate n $$nodes-pstate {Keyword (map-schema
@@ -177,6 +210,19 @@
              *data-path (termval *response-body)]
             $$nodes-pstate)
         #_(println "R: UPDATED VALUE" (local-select> *data-path $$nodes-pstate))
+
+
+        ;; Query roam
+        (case> (= :roam-query *action-type))
+        (completable-future>
+          (query-roam-req
+            (roam-client *roam-client)
+            "[:find (pull ?e [:block/string :block/children])
+              :in $ ?uid
+              :where [?e :block/uid ?uid]]"
+            "8y9teILyV")
+          :> *query-result)
+        (println "R: ** QUERY RESULT **" *query-result)
 
 
         ;; Add nodes
@@ -354,6 +400,16 @@
   (println "SEND LLM REQUEST: " event-data)
   (foreign-append! event-depot (->node-events
                                  :llm-request
+                                 node-map
+                                 event-data)
+    :append-ack))
+
+
+(defn roam-query-request
+  [node-map event-data]
+  (println "SEND roam query REQUEST: " event-data)
+  (foreign-append! event-depot (->node-events
+                                 :roam-query
                                  node-map
                                  event-data)
     :append-ack))
