@@ -2,8 +2,9 @@
   (:use [com.rpl.rama]
         [com.rpl.rama.path])
   (:require [com.rpl.rama.test :as rtest :refer [create-ipc launch-module! gen-hashing-index-keys]]
-            [app.server.file :refer [save-event load-events]]
+            [app.server.file :refer [save-event dg-nodes-edn dg-edges-edn load-events dg-page-data-edn]]
             [missionary.core :as m]
+            [app.server.rama.roam-ns :refer [roam-readers]]
             [app.server.rama.core :refer [node-events-module]])
   (:import (clojure.lang Keyword)
            [hyperfiddle.electric Failure Pending]
@@ -129,6 +130,24 @@
              (some? (:event-id event-data)))
        (update-event-id)))))
 
+(defn add-dg-page-data [data]
+  (->node-events
+    :add-dg-page-data
+    data
+    {:graph-name :main}))
+
+(defn add-dg-nodes [data]
+  (->node-events
+    :add-dg-nodes
+    data
+    {:graph-name :main}))
+
+(defn add-dg-edges [data]
+  (->node-events
+    :add-dg-edges
+    data
+    {:graph-name :main}))
+
 (defn update-node
   ([node-map event-data]
    (update-node node-map event-data false false))
@@ -168,8 +187,14 @@
   (println "FOREIGN SELECT")
   (foreign-select path pstate))
 
-(load-events) ;; THIS IS A HACK: Will not work when we move away from ipc.
-
+(clojure.pprint/pprint roam-readers)
+;(load-events softland-edn deserialize-and-execute false) ;; THIS IS A HACK: Will not work when we move away from ipc.
+(println "------ ADDING DG PAGES------")
+(load-events dg-page-data-edn add-dg-page-data) ;; THIS IS A HACK: Will not work when we move away from ipc.
+(println "------ ADDING DG NODES------")
+(load-events dg-nodes-edn add-dg-nodes) ;; THIS IS A HACK: Will not work when we move away from ipc.
+(println "------ ADDING DG EDGES------")
+(load-events dg-edges-edn add-dg-edges) ;; THIS IS A HACK: Will not work when we move away from ipc.
 
 
 

@@ -1,13 +1,17 @@
 (ns app.server.file
   (:require [clojure.edn :as edn]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [clojure.string :as str]))
 
 
-(defonce file-location "/Users/sid597/Documents/Softland-files/softland.edn")
+(defonce softland-edn "/Users/sid597/Documents/Softland-files/softland.edn")
+(defonce dg-page-data-edn "/Users/sid597/Downloads/dg-pages-all-data.edn")
+(defonce dg-nodes-edn "/Users/sid597/Downloads/dg-nodes-matsulab.edn")
+(defonce dg-edges-edn "/Users/sid597/Downloads/dg-edges-matsulab.edn")
 
 ;; --------- Serialize and save event to file ------------
 (defn save-event [function-name args]
-  (let [file (io/file file-location)
+  (let [file (io/file softland-edn)
         event {:function-name function-name
                :args          args}]
     (with-open [writer (io/writer file :append true)]
@@ -22,13 +26,39 @@
       (apply resolved-function args)))
 
 
-(defn load-events []
-  (let [events (atom nil)]
-   (with-open [r (io/reader file-location)]
-     (doall (reset! events (map edn/read-string (line-seq r)))))
-   (doseq [event @events]
-     (deserialize-and-execute event))
-   true))
+(defn load-events [file-location sfn]
+  (let [events (atom nil)
+        read-fn (fn [x]
+                    (let [ppp (-> x
+                                (str/replace  #"::" ":")
+                                (str/replace
+                                  #"(\{|,)\s*:https://(\S+?)(\s|,|\})"
+                                  (fn [[_ prefix url suffix]]
+                                    (str prefix " \"https://" url "\"" suffix)))
+
+                                #_(str/replace #":https://(\S+)"  ; New step to handle URL keywords
+                                    (fn [[_ url]]
+                                      (-> (str "\"https://" url "\"")
+                                        (str/replace  #"(https://[^\"]+)"
+                                          (fn [[_ url]]
+                                            (-> url
+                                              (str/replace "=" "%3D")
+                                              (str/replace "?" "%3F")
+                                              (str/replace "&" "%26")
+                                              (str/replace "," "%2C")
+                                              (str/replace "-" "%2D"))))))))]
+
+                      (edn/read-string ppp)))]
+    (with-open [r (io/reader file-location)]
+      (doall (reset! events (map read-fn (line-seq r)))))
+    (doseq [[index event] (map-indexed vector @events)]
+      (println "Processing event #" (inc index))
+      #_(println "event:::: " event)
+      (sfn event))
+    #_(doseq [event @events]
+        (println "event:::: " event)
+        (sfn event))
+    true))
 
 (comment (load-events))
 

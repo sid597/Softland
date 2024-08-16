@@ -19,7 +19,7 @@ how far have they got? what are all the explored directions? how can I understan
 We need a place to get the best view for the current state of things, and contribute our part.
 
 How can I start from 60k feet view and get to 30k? Maybe read a book, listen to some lectures, podcast etc. I have tried
-they don't work, it feels like its working but for me, I have realised over time its more of insight porn than anything else.
+they don't work, it feels like its working but for me, I have realised over time its more of insight porn (for me) than anything else.
 
 There is no REPL, no visual model I can break, play, or engage with. For 60k feet view of biology in 2024 I would expect a 3d interactive
 model of Caenorhabditis elegans (C. elegans). 
@@ -27,8 +27,6 @@ model of Caenorhabditis elegans (C. elegans).
 Time travel should be possible in 2024, atleast for recorded knowledge. I should be able to ask how we got here?
 We need a massive interactive "God created the integers" for all knowledge. I should be able to start 2-3000 years back
 and rediscover for myself. 
-
-Define knowledge. 
 
 A scientific paper should not only be a paper with text written on it and the reader develops the model in their brain. 
 We should be able to upload a paper and see what is the diff from the current model, we should be able to replicate it 

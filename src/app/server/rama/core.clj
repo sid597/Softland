@@ -34,6 +34,9 @@
                                                             :type               String
                                                             :fill               String}))}
       #_{:global? true})
+    (declare-pstate n $$dg-pages-pstate {Keyword (map-schema Keyword Object {:subindex? true})})
+    (declare-pstate n $$dg-nodes-pstate {Keyword (map-schema Keyword Object {:subindex? true})})
+    (declare-pstate n $$dg-edges-pstate {Keyword (map-schema Keyword Object {:subindex? true})})
     (declare-pstate n $$components-pstate {Keyword (map-schema Keyword Object)})
     (declare-pstate n $$node-ids-pstate {Keyword (vector-schema Keyword)})
     (declare-pstate n $$event-id-pstate Long {:global? true
@@ -123,6 +126,21 @@
         (println "R: ** QUERY RESULT **" *query-result)
 
 
+        ;; Add roam node
+        (case> (= :add-dg-page-data *action-type))
+        (local-transform>
+          [*graph-name (termval *node-data)]
+          $$dg-pages-pstate)
+
+        (case> (= :add-dg-nodes *action-type))
+        (local-transform>
+          [*graph-name (termval *node-data)]
+          $$dg-nodes-pstate)
+
+        (case> (= :add-dg-edges *action-type))
+        (local-transform>
+          [*graph-name (termval *node-data)]
+          $$dg-edges-pstate)
         ;; Add nodes
         (case> (= :new-node *action-type))
         (println "R: ADDING NODE" *node-data)
