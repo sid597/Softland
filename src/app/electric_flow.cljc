@@ -19,8 +19,15 @@
                  [missionary.core :as m]]
                 :clj
                 [[missionary.core :as m]
-                 [com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
-                 [app.server.rama.util-fns :refer[roam-query-request !subscribe get-path-data nodes-pstate update-node get-event-id node-ids-pstate]]])))
+                 [app.server.file :refer [dg-nodes-file-edn]]
+                 [com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select MAP-VALS]]
+                 [app.server.rama.util-fns :refer[roam-query-request !subscribe get-path-data nodes-pstate
+                                                  update-node get-event-id node-ids-pstate
+                                                  add-new-node
+                                                  dg-node-ids-pstate
+                                                  dg-pages-pstate
+                                                  dg-nodes-pstate
+                                                  dg-edges-pstate]]])))
 (hyperfiddle.rcf/enable!)
 
 
@@ -391,7 +398,48 @@
              (dom/text "RUN SIM")
              (dom/on "click" (e/fn [e]
                                (reset! !global-atom {:type :start-seeding :time (current-time-ms)
-                                                     :all-nodes (e/server (first (get-path-data [(keypath :main)] nodes-pstate)))}))))))
+                                                     :all-nodes (e/server (first (get-path-data [(keypath :main)] nodes-pstate)))})))))
+         #_(dom/div
+             (dom/button
+               (dom/props
+                 {:top "100px"
+                  :left "1000px"
+                  :style {:background-color (:button-background (theme. ui-mode))
+                          :color (:button-text (theme. ui-mode))
+                          :border "none"
+                          :margin "0px"
+                          :padding "0px"
+                          :font-size "10px"
+                          :height "20px"
+                          :width "100%"}})
+               (dom/text "Load dg nodes")
+               (dom/on "click" (e/fn [e]
+                                 (println "LOAD DG NODES" (count (e/server (get-path-data [(keypath :main) MAP-VALS ] dg-nodes-pstate))))
+                                 #_(e/server
+                                     (let [ctr (atom 0)]
+                                       (doseq [{:keys [title id uid]} (get-path-data [(keypath :main) MAP-VALS ] dg-nodes-pstate)]
+                                         (do
+                                           (println "*****IDX *****" ctr)
+                                           (add-new-node
+                                             {(keyword uid) {:y {:pos (+ 0.00000201 (rand-int 400))
+                                                                 :time 0}
+                                                             :fill "lightblue",
+                                                             :type "dg-node-rect",
+                                                             :id (keyword uid)
+                                                             :x {:pos (+ 0.00000201 (rand-int 400))
+                                                                 :time 0}
+                                                             :type-specific-data {:db/id id
+                                                                                  :width 20
+                                                                                  :height 20
+                                                                                  :text title}}}
+                                             {:graph-name :main
+                                              :event-id (get-event-id)
+                                              :create-time 0}
+                                             true
+                                             false
+                                             dg-nodes-file-edn)
+                                           (swap! ctr inc))))))))))
+
 
 
        (dom/div
@@ -427,7 +475,7 @@
          (dom/props {:id "svg-parent-div"
                      :style {:display "flex"
                              :flex 1}})
-         (reset! !viewbox [0 0 (.-clientWidth dom/node) (.-clientHeight dom/node)])
+         (reset! !viewbox [0 0 500 500 #_#_(.-clientWidth dom/node) (.-clientHeight dom/node)])
          (svg/svg
            (dom/props {:viewBox (clojure.string/join " " viewbox)
                        :id "sv"
@@ -493,7 +541,6 @@
                                           (println "DRAGGING? " is-dragging?)
                                           (reset! !is-dragging? true))))))))
                                      ;(println "DOWN" is-dragging?)
-           #_(when (some? tx))
 
 
            (dom/on "mouseup" (e/fn [e]
@@ -530,43 +577,77 @@
                  :height (nth viewbox 3)
                  :fill "url(#dotted-pattern)"}))
 
+           #_(e/for-by identity [i (range 389)]
+               (svg/g
+                 (svg/rect
+                   (dom/props {:x      (rand-int 400)
+                               :y     (rand-int 400)
+                               :height 3
+                               :width  3
+                               :fill   "black"
+                               :style {:display "flex"
+                                       :flex-direction "column"
+                                       :border "1px solid black"
+                                       :border-radius "10px"
+                                       :background-color "red"
+                                       :overflow "scroll"}}))))
 
+           (println "------------" (e/server (count (first (get-path-data [:main] node-ids-pstate)))))
            (e/server
-             (e/for-by identity [id  (new (!subscribe [:main ] node-ids-pstate))]
-               (println "ID" id)
-               (let [node-data (first (get-path-data [(keypath :main) id ] nodes-pstate))]
-                 (e/client
-                   (let [x (-> node-data :x :pos)
-                         y (-> node-data :y :pos)
-                         w (-> node-data :type-specific-data :width :pos)
-                         h (-> node-data :type-specific-data :height :pos)
-                         mx (+ x 3)
-                         my (+ y 3)
-                         type (-> node-data :type)]
-                     (do
-                       (println "---> NODE DATA <----" node-data)
-                       (println "NODE " id mx my)
-                       (swap! !all-nodes-map conj node-data)
-                       (when (> @min-x x ) (reset! min-x x))
-                       (when (< @max-x mx) (reset! max-x mx))
-                       (when (> @min-y y) (reset! min-y y))
-                       (when (< @max-y my) (reset! max-y my))
-                       (cond
-                         (= "img" type) (rect. id node-data :img)
-                          :else (rect. id node-data :rect)))))))
-             #_(e/for-by identity [edge edges]
-                 (let [[k v] edge
-                       target-node (first (get-path-data
-                                            [(keypath :main) (:to v)]
-                                            nodes-pstate))
-                       source-node (first (get-path-data
-                                            [(keypath :main) (:from v)]
-                                            nodes-pstate))]
-                   (e/client
-                     (println "edge " v)
-                     (println "target node" target-node)
-                     (line. source-node target-node v)))))))))))
+             (e/for-by identity [{:keys [title id uid]} (get-path-data [(keypath :main) MAP-VALS ] dg-nodes-pstate)]
+               (e/client
+                 (do
+                   (println "*****IDX *****" id)
+                   (svg/rect
+                     (dom/props {:x      (rand-int 400)
+                                 :y     (rand-int 400)
+                                 :height 3
+                                 :width  3
+                                 :fill   "black"
+                                 :style {:display "flex"
+                                         :flex-direction "column"
+                                         :border "1px solid black"
+                                         :border-radius "10px"
+                                         :background-color "red"
+                                         :overflow "scroll"}}))))))
 
+
+
+           #_(e/server
+               (e/for-by identity [id  (new (!subscribe [:main ] node-ids-pstate))]
+                 (println "ID" id)
+                 (let [node-data (first (get-path-data [(keypath :main) id ] nodes-pstate))]
+                   (e/client
+                     (let [x (-> node-data :x :pos)
+                           y (-> node-data :y :pos)
+                           w (-> node-data :type-specific-data :width :pos)
+                           h (-> node-data :type-specific-data :height :pos)
+                           mx (+ x 3)
+                           my (+ y 3)
+                           type (-> node-data :type)]
+                       (do
+                         (println "---> NODE DATA <----" node-data)
+                         (println "NODE " id mx my)
+                         (swap! !all-nodes-map conj node-data)
+                         (when (> @min-x x ) (reset! min-x x))
+                         (when (< @max-x mx) (reset! max-x mx))
+                         (when (> @min-y y) (reset! min-y y))
+                         (when (< @max-y my) (reset! max-y my))
+                         (cond
+                           (= "img" type) (rect. id node-data :img)
+                            :else (rect. id node-data :rect)))))))
+               #_(e/for-by identity [edge edges]
+                   (let [[k v] edge
+                         target-node (first (get-path-data
+                                              [(keypath :main) (:to v)]
+                                              nodes-pstate))
+                         source-node (first (get-path-data
+                                              [(keypath :main) (:from v)]
+                                              nodes-pstate))]
+                     (e/client
+                       (println "edge " v)
+                       (println "target node" target-node)
+                       (line. source-node target-node v)))))))))))
 
 
 

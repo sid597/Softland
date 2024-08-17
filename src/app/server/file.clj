@@ -5,13 +5,15 @@
 
 
 (defonce softland-edn "/Users/sid597/Documents/Softland-files/softland.edn")
+(defonce dg-nodes-file-edn "/Users/sid597/Documents/Softland-files/dg-nodes.edn")
+(defonce dg-edges-file-edn-edn "/Users/sid597/Documents/Softland-files/dg-edges.edn")
 (defonce dg-page-data-edn "/Users/sid597/Downloads/dg-pages-all-data.edn")
 (defonce dg-nodes-edn "/Users/sid597/Downloads/dg-nodes-matsulab.edn")
 (defonce dg-edges-edn "/Users/sid597/Downloads/dg-edges-matsulab.edn")
 
 ;; --------- Serialize and save event to file ------------
-(defn save-event [function-name args]
-  (let [file (io/file softland-edn)
+(defn save-event [function-name args file-name]
+  (let [file (io/file file-name)
         event {:function-name function-name
                :args          args}]
     (with-open [writer (io/writer file :append true)]

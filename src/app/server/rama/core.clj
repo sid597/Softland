@@ -34,9 +34,10 @@
                                                             :type               String
                                                             :fill               String}))}
       #_{:global? true})
-    (declare-pstate n $$dg-pages-pstate {Keyword (map-schema Keyword Object {:subindex? true})})
-    (declare-pstate n $$dg-nodes-pstate {Keyword (map-schema Keyword Object {:subindex? true})})
-    (declare-pstate n $$dg-edges-pstate {Keyword (map-schema Keyword Object {:subindex? true})})
+    (declare-pstate n $$dg-node-ids-pstate {Keyword (vector-schema String)})
+    (declare-pstate n $$dg-pages-pstate {Keyword (map-schema String Object {:subindex? true})})
+    (declare-pstate n $$dg-nodes-pstate {Keyword (map-schema String Object {:subindex? true})})
+    (declare-pstate n $$dg-edges-pstate {Keyword (vector-schema Object {:subindex? true})})
     (declare-pstate n $$components-pstate {Keyword (map-schema Keyword Object)})
     (declare-pstate n $$node-ids-pstate {Keyword (vector-schema Keyword)})
     (declare-pstate n $$event-id-pstate Long {:global? true
@@ -84,6 +85,7 @@
       ;; Source from node-events-depot
       (source> *node-events-depot :> {:keys [*action-type *node-data *event-data]})
       (local-select> (keypath :graph-name) *event-data :> *graph-name)
+      (local-select> (keypath :uid) *node-data :> *uid)
       (|hash *graph-name)
       (println "R: PROCESSING EVENT" *action-type)
 
@@ -129,18 +131,32 @@
         ;; Add roam node
         (case> (= :add-dg-page-data *action-type))
         (local-transform>
-          [*graph-name (termval *node-data)]
+          [*graph-name
+           *uid
+           (termval *node-data)]
           $$dg-pages-pstate)
 
         (case> (= :add-dg-nodes *action-type))
+        (println "NODE DATA: " *uid)
         (local-transform>
-          [*graph-name (termval *node-data)]
+          [*graph-name
+           *uid
+           (termval *node-data)]
           $$dg-nodes-pstate)
+
+        (local-transform>
+          [*graph-name
+           AFTER-ELEM
+           (termval *uid)]
+          $$dg-node-ids-pstate)
 
         (case> (= :add-dg-edges *action-type))
         (local-transform>
-          [*graph-name (termval *node-data)]
+          [*graph-name AFTER-ELEM (termval *node-data)]
           $$dg-edges-pstate)
+
+
+
         ;; Add nodes
         (case> (= :new-node *action-type))
         (println "R: ADDING NODE" *node-data)
