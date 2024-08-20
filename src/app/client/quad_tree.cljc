@@ -4,7 +4,7 @@
             #?@(:cljs [[global-flow :refer [!node-pos-atom  node-pos-flow !global-atom global-client-flow current-time-ms debounce]]]
                 :clj [[missionary.core :as m]
                       [com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
-                      [app.server.rama :as rama :refer [!subscribe get-path-data nodes-pstate update-node get-event-id node-ids-pstate]]])))
+                      [app.server.rama.util-fns :refer[!subscribe get-path-data nodes-pstate update-node get-event-id node-ids-pstate]]])))
 
 (defrecord QuadTree [min-x min-y width height nodes nw ne sw se])
 
@@ -40,30 +40,38 @@
 (defn distance-squared [x1 y1 x2 y2]
   (+ (Math/pow (- x2 x1) 2) (Math/pow (- y2 y1) 2)))
 
-(defonce G 10.0)
-(defonce m 100.0)
+(defonce G 1.00)
+(defonce m 4.00)
+(defonce epsilon 0.0000000000001)
 
 (defn calculate-force-components [node1 node2]
-  (let [x1 (get-in node1 [:x :pos])
-        y1 (get-in node1 [:y :pos])
-        x2 (get-in node2 [:x :pos])
-        y2 (get-in node2 [:y :pos])
-        epsilon 0.001  ;; Small value to prevent division by zero
-        dx (- x2 x1)
-        dy (- y2 y1)
-        r-sq (+ (distance-squared x1 y1 x2 y2) epsilon)
-        force (/ (* G m m) r-sq)
-        r (Math/sqrt r-sq)]
-    ;(println "FFF" force "::" r-sq "::" x1 y1 x2 y2)
-    {:fx (* force (/ dx r))
-     :fy (* force (/ dy r))}))
+  (if (= (:id node1) (:id node2))
+    {:fx 0 :fy 0}
+    (let [x1 (get-in node1 [:x :pos])
+          y1 (get-in node1 [:y :pos])
+          x2 (get-in node2 [:x :pos])
+          y2 (get-in node2 [:y :pos])
+          dx (- x2 x1)
+          dy (- y2 y1)
+          r-sq (distance-squared x1 y1 x2 y2)
+          force (/ (* G m m) r-sq)
+          r (Math/sqrt r-sq)]
+      (println "CALC FORCE: " force "::" r-sq "::" x1 y1 x2 y2 "::" (:id node2))
+      (if (= 0 r-sq)
+        {:fx 100000
+         :fy 100000}
+        {:fx (* force (/ dx r))
+         :fy (* force (/ dy r))}))))
 
 (defn center-of-mass [nodes]
   (let [total-mass (count nodes)
         sum-x (reduce + (map #(get-in % [:x :pos]) nodes))
         sum-y (reduce + (map #(get-in % [:y :pos]) nodes))]
-    {:x (/ sum-x total-mass)
-     :y (/ sum-y total-mass)}))
+    (println "CENTER OF MASS: " total-mass sum-x sum-y)
+    (if (zero? total-mass)
+      {:x 0.0 :y 0.0}
+      {:x (/ sum-x total-mass)
+       :y (/ sum-y total-mass)})))
 
 (defn sum-forces [forces]
   (let [res (reduce
@@ -78,27 +86,42 @@
 
 
 (defn approximate-force [node quad-tree theta]
-  (if (and (nil? (:nw quad-tree)) (nil? (:ne quad-tree)) (nil? (:sw quad-tree)) (nil? (:se quad-tree)))
-    ;; If the current node is a leaf
-    (sum-forces (map #(calculate-force-components node %) (:nodes quad-tree)))
+  ;(println "START APPROXIMATE FORCE" (:id node) (count (:nodes quad-tree)))
+  (cond
+    (and (empty? (:nodes quad-tree))
+      (nil? (:nw quad-tree))
+      (nil? (:ne quad-tree))
+      (nil? (:sw quad-tree))
+      (nil? (:se quad-tree)))   {:fx 0.0 :fy 0.0}
+
+   ;; If the current node is a leaf
+   (and
+     (nil? (:nw quad-tree))
+     (nil? (:ne quad-tree))
+     (nil? (:sw quad-tree))
+     (nil? (:se quad-tree))) (sum-forces (map #(calculate-force-components node %) (:nodes quad-tree)))
     ;; If the current node is an internal node
-    (let [x1 (get-in node [:x :pos])
-          y1 (get-in node [:y :pos])
-          {:keys [x y]} (center-of-mass (:nodes quad-tree))
-          dx (- x x1)
-          dy (- y y1)
-          r-sq (+ (distance-squared x1 y1 x y) 0.001)
-          r (Math/sqrt r-sq)
-          s (:width quad-tree)]
-      (if (< s (/ r theta))
-        ;; If the current node can be treated as a single body
-        (let [force  (/ (* G m m) r-sq)
-              fx (* force (/ dx r))
-              fy (* force (/ dy r))]
-          {:fx fx :fy fy})
-        ;; Otherwise, recurse into the children
-        (sum-forces (map #(approximate-force node % theta)
-                      [(:nw quad-tree) (:ne quad-tree) (:sw quad-tree) (:se quad-tree)]))))))
+    :else                    (let [x1 (get-in node [:x :pos])
+                                   y1 (get-in node [:y :pos])
+                                   {:keys [x y]} (center-of-mass (:nodes quad-tree))
+                                   dx (- x x1)
+                                   dy (- y y1)
+                                   r-sq (distance-squared x1 y1 x y)
+                                   r (Math/sqrt r-sq)
+                                   s (:width quad-tree)]
+                               (println "INTERNAL NODE: " x1 y1 x y dx dy r-sq r s)
+                               (if (< (/ s r)  theta)
+                                 ;; If the current node can be treated as a single body
+                                 (let [force  (/ (* G m m) r-sq)
+                                       fx (* force (/ dx r))
+                                       fy (* force (/ dy r))]
+                                   (println "SINGLE BODY: " force fx fy)
+                                   {:fx fx :fy fy})
+                                 ;; Otherwise, recurse into the children
+                                 (sum-forces (map (fn [x]
+                                                    (println "RECURSE TO CHILDREN")
+                                                    (approximate-force node x theta))
+                                               [(:nw quad-tree) (:ne quad-tree) (:sw quad-tree) (:se quad-tree)]))))))
 
 ;; WORK IN PROGRESS
 

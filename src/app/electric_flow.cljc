@@ -7,7 +7,7 @@
             [app.client.shapes.rect :refer [rect]]
             [app.client.shapes.draw-rect :refer [draw-rect]]
             [app.client.quad-tree :refer [total-forces]]
-            [app.client.shapes.line :refer [line]]
+            [app.client.shapes.line :refer [line draw-edges]]
             #?@(:cljs
                 [[clojure.string :as str]
                  [app.client.shapes.line :refer [edge-update]]
@@ -19,8 +19,15 @@
                  [missionary.core :as m]]
                 :clj
                 [[missionary.core :as m]
-                 [com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select]]
-                 [app.server.rama :as rama :refer [!subscribe get-path-data nodes-pstate update-node get-event-id node-ids-pstate]]])))
+                 [app.server.file :refer [dg-nodes-file-edn]]
+                 [com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select MAP-VALS]]
+                 [app.server.rama.util-fns :refer[roam-query-request !subscribe get-path-data nodes-pstate
+                                                  update-node get-event-id node-ids-pstate
+                                                  add-new-node
+                                                  dg-node-ids-pstate
+                                                  dg-pages-pstate
+                                                  dg-nodes-pstate
+                                                  dg-edges-pstate]]])))
 (hyperfiddle.rcf/enable!)
 
 
@@ -179,64 +186,64 @@
           (m/sp (let [v (m/?< >in)]
                   (m/? (m/sleep ms v))))))
 
-#?(:cljs (defn tick [nodes min-x min-y max-x max-y n]
-           (println "TIMES: " n)
-           (let [qt (build-quad-tree (into [] (vals @!all-nodes-map))
-                      (- @min-x 900)
-                      (- @min-x 900)
-                      (+ (- @max-x @min-x) 1900)
-                      (+ (- @max-y @min-y) 1900))]
-             (doseq [n  nodes]
-               (debounce 100  (reset! !global-atom {:type :new-sim-pos
-                                                    :time (current-time-ms)
-                                                    :nid (:id n)
-                                                    :type-specific-data (approximate-force {:x (:x n) :y (:y n)} qt 0.5)}))))))
-#?(:cljs (defn delay-each [delay input]
-           (m/ap
-             (let [node (m/?> input)
-                   res {:id (:id node)
-                        :res (approximate-force {:x (:x node) :y (:y node)} @!quad-tree 0.5)}]
-                (m/? (m/sleep delay res))))))
 
-#?(:cljs (defn start-seeding [nodes min-x min-y max-x max-y]
-           (->> (into [] (vals @!all-nodes-map)) ;[1 2 3 4 5 6 7 78 23 3 33 4 54 5 3 2 4 56 6 7 8 5 3 2]
-             (m/seed)
-             (delay-each 10)
-             (m/reductions
-               (fn [x y]
-                 (println "X" x y)
-                 y)
-               {})
-             (m/relieve {})
-             (m/latest (fn [x] (println "Y" x) x))
-             #_(m/signal)
+#?(:cljs (defn start-seeding [nodes-list qt]
+           (m/sp
+             (cljs.pprint/pprint qt)
+             (loop [nodes nodes-list]
+               (if (seq nodes)
+                 (let [node (first nodes)
+                       id (:id node)
+                       _   (println "***************** " id " ***************************")
 
-             ;(m/latest (fn [x] (println "X" x) x))
-             ;(m/signal)
-             #_(tick nodes min-x min-y max-x max-y n))))
+                       initial-params {:theta 0.1 :min-distance 0.1 :force-scale 0.1}
+                       {:keys [fx fy]} (approximate-force
+                                         {:x (:x node)
+                                          :y (:y node)
+                                          :id (:id node)}
+                                         qt
+                                         0.5)
+                                         ;initial-params)
+                       new-x (+ fx (:pos (:x node)))
+                       new-y (+ fy (:pos (:y node)))
+                       time (current-time-ms)
+                       res {:type :tick
+                            :nid id
+                            :time time
+                            :new-node-pos {:new-x new-x
+                                           :new-y new-y}}]
+                    (println  " TOTAL FORCE ::" id "::" fx fy)
+                    (m/? (m/sleep 10 (reset! !global-atom res)))
+                    ;(println "DONE RESET" @!global-atom)
+                    #_(swap! nodes-list update id assoc
+                        :x {:pos new-x :time time}
+                        :y {:pos new-y :time time})
+                   (recur (rest nodes)))
+                 nodes-list)))))
 
-#?(:cljs (defn start-seeding0 [min-x min-y max-x max-y]
-           (let [nodes-list (atom @!all-nodes-map)]
-             (dotimes [n 10000]
-               ;(println "OUTER: " n)
-               (let [qt (build-quad-tree (vals @nodes-list)
-                           (- @min-x 900)
-                           (- @min-x 900)
-                           (+ (- @max-x @min-x) 1900)
-                           (+ (- @max-y @min-y) 1900))]
-                 (doseq [node (vals @nodes-list)]
-                   (let [nx (:pos (:x node))
-                         ny (:pos (:y node))
-                         id (:id node)
-                         {:keys [fx fy]} (approximate-force {:x (:x node) :y (:y node)} qt 0.5)
-                         time (current-time-ms)]
-                     ;(println "INNER: " id "::" fx fy "::" nx ny)
-                     (swap! nodes-list assoc-in [id :x :pos] (+ nx fx))
-                     (swap! nodes-list assoc-in [id :x :time] time)
-                     (swap! nodes-list assoc-in [id :y :pos] (+ ny fy))
-                     (swap! nodes-list assoc-in [id :y :time] time)))))
-             (reset! !global-atom {:type :tick :time (current-time-ms)
-                                   :new-node-pos @nodes-list}))))
+#?(:cljs (defn start-seeding0 [nodes-list]
+             (m/sp
+              (let [;nodes-list (atom all-nodes)
+                    xl (mapv #(:pos (:x %)) nodes-list)
+                    yl (mapv #(:pos (:x %)) nodes-list)
+                    min-x (apply min xl)
+                    max-x (apply max xl)
+                    min-y (apply min yl)
+                    max-y (apply max yl)]
+                (println "SP" xl)
+                (dotimes [n 1]
+                  (println "+==========++++++++++===========+++++++++++==" min-x min-y max-x max-y)
+                  (let [qt (build-quad-tree nodes-list
+                             min-x
+                             min-y
+                             (+ 5 (- max-x min-x))
+                             (+ 5 (- max-y min-y)))
+                        _ (cljs.pprint/pprint nodes-list)
+                       ; _ (cljs.pprint/pprint qt)
+                        updated-nodes (m/? (start-seeding nodes-list qt))]
+                    (println "Iteration" n "completed")))
+                @nodes-list))))
+
 
 
 (e/defn view []
@@ -249,7 +256,7 @@
           !cpos (atom nil)
           !viewbox (atom [-2028 61 1331 331])
           viewbox (e/watch !viewbox)
-          !ui-mode (atom :dark)
+          !ui-mode (atom :light)
           ui-mode (e/watch !ui-mode)
           !is-dragging? (atom false)
           is-dragging? (e/watch !is-dragging?)
@@ -266,7 +273,9 @@
           max-x (atom 0)
           min-x (atom 10000000)
           min-y (atom 10000000)
-          max-y (atom 0)]
+          max-y (atom 0)
+          loaded-ids (atom nil)]
+
 
       #_(dom/on js/document "mousemove" (e/fn [e]
                                           (println "mouse move on document")
@@ -344,10 +353,10 @@
              (dom/on "click" (e/fn [e]
                                (e/client
                                  (println "ZOOM OUT CLICKED" "MAX-MIN " @min-x @min-y @max-y @max-x)
-                                 (swap! !viewbox assoc 0 (- @min-x 900))
-                                 (swap! !viewbox assoc 1 (- @min-y 900))
-                                 (swap! !viewbox assoc 2 (+ 1900 (- @max-x @min-x)))
-                                 (swap! !viewbox assoc 3 (+ 1900 (- @max-y @min-y))))))))
+                                 (swap! !viewbox assoc 0 0 #_(- @min-x 900))
+                                 (swap! !viewbox assoc 1 0 #_(- @min-y 900))
+                                 (swap! !viewbox assoc 2 500 #_(+ 1900 (- @max-x @min-x)))
+                                 (swap! !viewbox assoc 3 500 #_(+ 1900 (- @max-y @min-y))))))))
          (dom/div
            (dom/button
              (dom/props
@@ -363,11 +372,18 @@
                         :width "100%"}})
              (dom/text "Build quad tree")
              (dom/on "click" (e/fn [e]
-                               (e/client (reset! !quad-tree (build-quad-tree (into [] (vals @!all-nodes-map))
-                                                              (- @min-x 900)
-                                                              (- @min-x 900)
-                                                              (+ (- @max-x @min-x) 1900)
-                                                              (+ (- @max-y @min-y) 1900))))))))
+                               (e/server
+                                 (println "SENDING LLM REQUEST CALL")
+                                 (roam-query-request
+                                   []
+                                   {:graph-name :main
+                                    :event-id (get-event-id)
+                                    :create-time (System/currentTimeMillis)}))
+                               #_(e/client (reset! !quad-tree (build-quad-tree (into [] (vals @!all-nodes-map))
+                                                                (- @min-x 900)
+                                                                (- @min-x 900)
+                                                                (+ (- @max-x @min-x) 1900)
+                                                                (+ (- @max-y @min-y) 1900))))))))
          (dom/div
            (dom/button
              (dom/props
@@ -384,7 +400,48 @@
              (dom/text "RUN SIM")
              (dom/on "click" (e/fn [e]
                                (reset! !global-atom {:type :start-seeding :time (current-time-ms)
-                                                     :all-nodes (e/server (get-path-data [(keypath :main)] nodes-pstate))}))))))
+                                                     :all-nodes (e/server (first (get-path-data [(keypath :main)] nodes-pstate)))})))))
+         #_(dom/div
+             (dom/button
+               (dom/props
+                 {:top "100px"
+                  :left "1000px"
+                  :style {:background-color (:button-background (theme. ui-mode))
+                          :color (:button-text (theme. ui-mode))
+                          :border "none"
+                          :margin "0px"
+                          :padding "0px"
+                          :font-size "10px"
+                          :height "20px"
+                          :width "100%"}})
+               (dom/text "Load dg nodes")
+               (dom/on "click" (e/fn [e]
+                                 (println "LOAD DG NODES" (count (e/server (get-path-data [(keypath :main) MAP-VALS ] dg-nodes-pstate))))
+                                 #_(e/server
+                                     (let [ctr (atom 0)]
+                                       (doseq [{:keys [title id uid]} (get-path-data [(keypath :main) MAP-VALS ] dg-nodes-pstate)]
+                                         (do
+                                           (println "*****IDX *****" ctr)
+                                           (add-new-node
+                                             {(keyword uid) {:y {:pos (+ 0.00000201 (rand-int 400))
+                                                                 :time 0}
+                                                             :fill "lightblue",
+                                                             :type "dg-node-rect",
+                                                             :id (keyword uid)
+                                                             :x {:pos (+ 0.00000201 (rand-int 400))
+                                                                 :time 0}
+                                                             :type-specific-data {:db/id id
+                                                                                  :width 20
+                                                                                  :height 20
+                                                                                  :text title}}}
+                                             {:graph-name :main
+                                              :event-id (get-event-id)
+                                              :create-time 0}
+                                             true
+                                             false
+                                             dg-nodes-file-edn)
+                                           (swap! ctr inc))))))))))
+
 
 
        (dom/div
@@ -411,13 +468,16 @@
 
 
         (when (and time (= type :start-seeding))
-          (start-seeding0  min-x min-y max-x max-y)))
+          (println "ALL " @!all-nodes-map)
+          ((start-seeding0  @!all-nodes-map #_(:all-nodes inp))
+           (fn [r] (println "SUCCESS SEEDING: " r))
+           (fn [e] (println "ERROR SEEDING: " e)))))
 
        (dom/div
          (dom/props {:id "svg-parent-div"
                      :style {:display "flex"
                              :flex 1}})
-         (reset! !viewbox [0 0 (.-clientWidth dom/node) (.-clientHeight dom/node)])
+         (reset! !viewbox [169 218 125 125 #_#_(.-clientWidth dom/node) (.-clientHeight dom/node)])
          (svg/svg
            (dom/props {:viewBox (clojure.string/join " " viewbox)
                        :id "sv"
@@ -483,7 +543,6 @@
                                           (println "DRAGGING? " is-dragging?)
                                           (reset! !is-dragging? true))))))))
                                      ;(println "DOWN" is-dragging?)
-           #_(when (some? tx))
 
 
            (dom/on "mouseup" (e/fn [e]
@@ -503,14 +562,14 @@
            (svg/defs
               (svg/pattern
                 (dom/props {:id "dotted-pattern"
-                            :width 60
-                            :height 60
+                            :width 2
+                            :height 2
                             :patternUnits "userSpaceOnUse"})
                 (svg/circle
-                  (dom/props {:cx 3
-                              :cy 3
-                              :r 3
-                              :fill "#91919a"}))))
+                  (dom/props {:cx 1
+                              :cy 1
+                              :r 0.1
+                              :fill "black"}))))
            (svg/rect
               (dom/props
                 {:id "background"
@@ -520,9 +579,32 @@
                  :height (nth viewbox 3)
                  :fill "url(#dotted-pattern)"}))
 
+           ;; To test the memory performance with simple svg rectangles
+           #_(e/for-by identity [i (range 389)]
+               (svg/g
+                 (svg/rect
+                   (dom/props {:x      (rand-int 400)
+                               :y     (rand-int 400)
+                               :height 3
+                               :width  3
+                               :fill   "black"
+                               :style {:display "flex"
+                                       :flex-direction "column"
+                                       :border "1px solid black"
+                                       :border-radius "10px"
+                                       :background-color "red"
+                                       :overflow "scroll"}}))))
+
+           (println "------------" (e/server (count (first (get-path-data [:main] node-ids-pstate)))))
+
+           (reset! loaded-ids (e/server (into #{} (take 400 (first (get-path-data [(keypath :main)] node-ids-pstate))))))
 
            (e/server
-             (e/for-by identity [id  (take 6 (new (!subscribe [:main ] node-ids-pstate)))]
+             (e/for-by identity [id  (take 400 (new (!subscribe [:main ] node-ids-pstate)))]
+                 (e/client
+                   (draw-edges. id loaded-ids)))
+
+             (e/for-by identity [id  (take 400 (new (!subscribe [:main ] node-ids-pstate)))]
                (println "ID" id)
                (let [node-data (first (get-path-data [(keypath :main) id ] nodes-pstate))]
                  (e/client
@@ -530,13 +612,13 @@
                          y (-> node-data :y :pos)
                          w (-> node-data :type-specific-data :width :pos)
                          h (-> node-data :type-specific-data :height :pos)
-                         mx (+ x w)
-                         my (+ y h)
+                         mx (+ x 3)
+                         my (+ y 3)
                          type (-> node-data :type)]
                      (do
                        (println "---> NODE DATA <----" node-data)
                        (println "NODE " id mx my)
-                       (swap! !all-nodes-map assoc id node-data)
+                       (swap! !all-nodes-map conj node-data)
                        (when (> @min-x x ) (reset! min-x x))
                        (when (< @max-x mx) (reset! max-x mx))
                        (when (> @min-y y) (reset! min-y y))
@@ -544,19 +626,19 @@
                        (cond
                          (= "img" type) (rect. id node-data :img)
                           :else (rect. id node-data :rect)))))))
-             #_(e/for-by identity [edge edges]
-                 (let [[k v] edge
+             #_(e/for-by identity [edge (new (!subscribe [:main] dg-edges-pstate))]
+                 (let [[s typ t] edge
                        target-node (first (get-path-data
-                                            [(keypath :main) (:to v)]
+                                            [(keypath :main) (keyword (:uid t))]
                                             nodes-pstate))
                        source-node (first (get-path-data
-                                            [(keypath :main) (:from v)]
+                                            [(keypath :main) (keyword (:uid s))]
                                             nodes-pstate))]
                    (e/client
-                     (println "edge " v)
-                     (println "target node" target-node)
-                     (line. source-node target-node v)))))))))))
-
+                     (println "edge KTV " s typ t)
+                     (println "target node" (keyword (:uid t))target-node)
+                     (println "source node" (keyword (:uid s))source-node)
+                     (line. source-node target-node typ)))))))))))
 
 
 

@@ -12,7 +12,7 @@
            (catch Cancelled e
              (m/amb))))))
 
-
+(def ctr (atom 0))
 
 (def !global-atom (atom nil))
 
@@ -33,5 +33,5 @@
         x)
       (m/watch !node-pos-atom))))
 
-(def !all-nodes-map (atom {}))
+(def !all-nodes-map (atom []))
 (def !quad-tree (atom nil))
