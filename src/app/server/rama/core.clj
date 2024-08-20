@@ -37,7 +37,7 @@
     (declare-pstate n $$dg-node-ids-pstate {Keyword (vector-schema String)})
     (declare-pstate n $$dg-pages-pstate {Keyword (map-schema String Object {:subindex? true})})
     (declare-pstate n $$dg-nodes-pstate {Keyword (map-schema String Object {:subindex? true})})
-    (declare-pstate n $$dg-edges-pstate {Keyword (vector-schema Object {:subindex? true})})
+    (declare-pstate n $$dg-edges-pstate {Keyword (map-schema Keyword (vector-schema Object) #_{:subindex? true})})
     (declare-pstate n $$components-pstate {Keyword (map-schema Keyword Object)})
     (declare-pstate n $$node-ids-pstate {Keyword (vector-schema Keyword)})
     (declare-pstate n $$event-id-pstate Long {:global? true
@@ -138,8 +138,8 @@
 
         (case> (= :add-dg-nodes *action-type))
         (assoc *node-data
-          :width 20
-          :height 20
+          :width 80
+          :height 4
           :> *updated-node)
         (identity (keyword *uid) :> *kuid)
         (identity {:id *kuid
@@ -168,7 +168,6 @@
            AFTER-ELEM
            (termval *kuid)]
           $$node-ids-pstate)
-
         (local-transform>
           [*graph-name
            AFTER-ELEM
@@ -176,9 +175,24 @@
           $$dg-node-ids-pstate)
 
         (case> (= :add-dg-edges *action-type))
+        (local-select> [(keypath :edges) FIRST] *node-data :> *edges)
+        (local-select> [FIRST  (keypath :uid)] *edges :> *suid)
+        (identity (keyword *suid) :> *ksuid)
+        (println "Ksuid ::" *ksuid)
+        (identity {:to (last *edges)
+                   :relation (second *edges)}
+          :> *edge-map)
+        (println "EDGE::::" *edges)
         (local-transform>
-          [*graph-name AFTER-ELEM (termval *node-data)]
+          [*graph-name
+           *ksuid
+           AFTER-ELEM
+           (termval *edge-map)]
           $$dg-edges-pstate)
+
+        #_(local-transform>
+            [*graph-name AFTER-ELEM (termval *edges)]
+            $$dg-edges-pstate)
 
 
 

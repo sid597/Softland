@@ -159,13 +159,15 @@
 
 
 (defn add-dg-edges [data]
-    (foreign-append!
-      event-depot
-      (->node-events
-        :add-dg-edges
-        data
-        {:graph-name :main})
-      :append-ack))
+  (println "DATA ** " data)
+
+  (foreign-append!
+    event-depot
+    (->node-events
+      :add-dg-edges
+      data
+      {:graph-name :main})
+    :append-ack))
 
 (defn update-node
   ([node-map event-data]
@@ -237,9 +239,22 @@
 (println "------ ADDING DG NODES------")
 (load-events dg-nodes-edn add-dg-nodes) ;; THIS IS A HACK: Will not work when we move away from ipc.
 (println "------ ADDING DG EDGES------")
-#_(load-events dg-edges-edn add-dg-edges) ;; THIS IS A HACK: Will not work when we move away from ipc.
+(load-events dg-edges-edn add-dg-edges) ;; THIS IS A HACK: Will not work when we move away from ipc.
 
 
 #_(load-events dg-nodes-file-edn deserialize-and-execute)
 
+#_{:nodes {"[[ISS]] - According to literature, look into how much integrin expression do WTC-11 cells have."
+           {:uid "kPsqOOAaS"
+            :title "[[ISS]] - According to literature, look into how much integrin expression do WTC-11 cells have."
+            :type :ISS},
+           "[[HYP]] - Depending on the ECM substrate, we can vary the dynamics and relative abundance of the type of endocytosis in cells."
+           {:uid "y384RFx3P"
+            :title "[[HYP]] - Depending on the ECM substrate, we can vary the dynamics and relative abundance of the type of endocytosis in cells."
+            :type :HYP}}
+   :edges ([{:uid "kPsqOOAaS"
+             :title "[[ISS]] - According to literature, look into how much integrin expression do WTC-11 cells have."}
+            "InformedBy"
+            {:uid "y384RFx3P"
+             :title "[[HYP]] - Depending on the ECM substrate, we can vary the dynamics and relative abundance of the type of endocytosis in cells."}])}
 

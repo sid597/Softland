@@ -53,7 +53,7 @@
                       (edn/read-string ppp)))]
     (with-open [r (io/reader file-location)]
       (doall (reset! events (map read-fn (line-seq r)))))
-    (doseq [[index event] (map-indexed vector @events)]
+    (doseq [[index event] (map-indexed vector (take 400 @events))]
       (println "Processing event #" (inc index))
       #_(println "event:::: " event)
       (sfn event))

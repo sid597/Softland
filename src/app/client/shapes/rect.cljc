@@ -424,20 +424,33 @@
                            :fy fy
                            :xx xx
                            :yy yy})
+          (println "++++<" (.-getBoundingClientRect (-> node :type-specific-data :title)))
 
           (svg/rect
             (dom/props {:x      x
                         :y      y
-                        :height 3
-                        :width  3
-                        :fill   "red"
+                        :height 4
+                        :width  60
+                        :fill   "#f5f5f5"
                         :id     id
+                        :stroke "black"
+                        :stroke-width "0.1px"
                         :style {:display "flex"
                                 :flex-direction "column"
                                 :border "1px solid black"
                                 :border-radius "10px"
                                 :background-color "red"
                                 :overflow "scroll"}}))
+
+         (svg/text
+           (dom/props {:x   (+ 1 x)
+                       :y (+ 2 y)
+                       :fill "black"
+                       :style {:font-size "1px"
+                               :fontcolor "lightgrey"}})
+           (dom/text (-> node :type-specific-data :title)))
+
+
           ;; BELOW IS CUSTOM HAVE TO MOVE OUT
          #_(when (= :img type)
               (let [!w      (atom @!ww)

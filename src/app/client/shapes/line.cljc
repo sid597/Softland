@@ -9,7 +9,17 @@
             [app.client.shapes.rect :refer [watch-server-update]]
             #?@(:cljs
                 [[global-flow :refer [current-time-ms node-pos-flow]]
-                 [missionary.core :as m]])))
+                 [missionary.core :as m]]
+                :clj [[com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select MAP-VALS]]
+                      [app.server.rama.util-fns :refer [roam-query-request !subscribe get-path-data nodes-pstate
+                                                        update-node get-event-id node-ids-pstate
+                                                        add-new-node
+                                                        dg-node-ids-pstate
+                                                        dg-pages-pstate
+                                                        dg-nodes-pstate
+                                                        dg-edges-pstate]]])))
+
+
 (defn attributes [x y height width a b]
   (let [xmin x
         ymin y
@@ -48,6 +58,52 @@
                          new-data))
              (m/signal))))
 
+(e/defn draw-edges [suid all-nodes]
+  (println "draw edges")
+  (e/server
+    (let [edges (first (get-path-data [(keypath :main) suid] dg-edges-pstate))]
+      (when (some? edges)
+        (e/for-by identity [edge edges]
+          (e/client
+            (let [tuid (keyword (-> edge :to :uid))]
+              (println "^^^ Drawing edge: "
+                suid
+                tuid
+                (contains? @all-nodes suid)
+                (contains? @all-nodes tuid)
+                #_@all-nodes)
+              (when (and
+                      (contains? @all-nodes suid)
+                      (contains? @all-nodes tuid))
+                (let [to (e/server (first (get-path-data
+                                            [(keypath :main) (keyword tuid)]
+                                            nodes-pstate)))
+                      from (e/server (first (get-path-data
+                                              [(keypath :main) (keyword suid)]
+                                              nodes-pstate)))
+                      tw (int (-> to :type-specific-data :width))
+                      th (int (-> to :type-specific-data :height))
+                      fw (int (-> from :type-specific-data :width))
+                      fh (int (-> from :type-specific-data :height))
+                      !tx (atom (-> to :x :pos))
+                      tx (int (e/watch !tx))
+                      !ty (atom (-> to :y :pos))
+                      ty (int (e/watch !ty))
+                      !fx (atom (-> from :x :pos))
+                      fx (int (e/watch !fx))
+                      !fy (atom (-> from :y :pos))
+                      fy (int (e/watch !fy))
+                      [xx yy] (attributes tx ty th tw fx fy)
+                      [fxx fyy] (attributes fx fy fh fw xx yy)]
+                  (svg/line
+                    (dom/props {:style {:z-index -1}
+                                :id (str suid "-" tuid)
+                                :x1  xx
+                                :y1  yy
+                                :x2  fxx
+                                :y2  fyy
+                                :stroke "black"
+                                :stroke-width 0.1})))))))))))
 
 
 (e/defn line [from to edge]
@@ -66,35 +122,36 @@
           fy (int (e/watch !fy))
           [xx yy] (attributes tx ty th tw fx fy)
           [fxx fyy] (attributes fx fy fh fw xx yy)]
-      ;(println "fxx fyy" fxx fyy)
-      (let [sd (new (edge-update))
-            nid (:id sd)
-            nx  (-> sd :x :pos)
-            ny  (-> sd :y :pos)]
-        (if (= (:id from) nid)
-          (do
-            (when (some? nx)
-             (reset! !fx nx))
-            (when (some? ny)
-              (reset! !fy ny)))
-          (do
-            (when (some? nx)
-              (reset! !tx nx))
-            (when (some? ny)
-              (reset! !ty ny)))))
-      (svg/line
-        (dom/props {:style {:z-index -1}
-                    :id (:id edge)
-                    :x1  xx #_(if  tw
-                                (+  tx) (/ tw 2)
-                                tx)
-                    :y1  yy #_(if th
-                                (+ ty (/ th 2))
-                                ty)
-                    :x2  fxx
-                    :y2  fyy
-                    :stroke (:color edge)
-                    :stroke-width 4})))))
+      (println "fxx fyy" fxx fyy xx yy)
+      #_(let [sd (new (edge-update))
+              nid (:id sd)
+              nx  (-> sd :x :pos)
+              ny  (-> sd :y :pos)]
+          (if (= (:id from) nid)
+            (do
+              (when (some? nx)
+               (reset! !fx nx))
+              (when (some? ny)
+                (reset! !fy ny)))
+            (do
+              (when (some? nx)
+                (reset! !tx nx))
+              (when (some? ny)
+                (reset! !ty ny)))))
+      (when-not (some zero? [fxx fyy xx yy])
+        (svg/line
+          (dom/props {:style {:z-index -1}
+                      :id (:id edge)
+                      :x1  xx #_(if  tw
+                                  (+  tx) (/ tw 2)
+                                  tx)
+                      :y1  yy #_(if th
+                                  (+ ty (/ th 2))
+                                  ty)
+                      :x2  fxx
+                      :y2  fyy
+                      :stroke "black"
+                      :stroke-width 0.1}))))))
 
 
 #_(e/defn line [[k {:keys [id color to from]}]]

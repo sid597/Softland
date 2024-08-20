@@ -7,7 +7,7 @@
             [app.client.shapes.rect :refer [rect]]
             [app.client.shapes.draw-rect :refer [draw-rect]]
             [app.client.quad-tree :refer [total-forces]]
-            [app.client.shapes.line :refer [line]]
+            [app.client.shapes.line :refer [line draw-edges]]
             #?@(:cljs
                 [[clojure.string :as str]
                  [app.client.shapes.line :refer [edge-update]]
@@ -256,7 +256,7 @@
           !cpos (atom nil)
           !viewbox (atom [-2028 61 1331 331])
           viewbox (e/watch !viewbox)
-          !ui-mode (atom :dark)
+          !ui-mode (atom :light)
           ui-mode (e/watch !ui-mode)
           !is-dragging? (atom false)
           is-dragging? (e/watch !is-dragging?)
@@ -273,7 +273,9 @@
           max-x (atom 0)
           min-x (atom 10000000)
           min-y (atom 10000000)
-          max-y (atom 0)]
+          max-y (atom 0)
+          loaded-ids (atom nil)]
+
 
       #_(dom/on js/document "mousemove" (e/fn [e]
                                           (println "mouse move on document")
@@ -475,7 +477,7 @@
          (dom/props {:id "svg-parent-div"
                      :style {:display "flex"
                              :flex 1}})
-         (reset! !viewbox [0 0 500 500 #_#_(.-clientWidth dom/node) (.-clientHeight dom/node)])
+         (reset! !viewbox [169 218 125 125 #_#_(.-clientWidth dom/node) (.-clientHeight dom/node)])
          (svg/svg
            (dom/props {:viewBox (clojure.string/join " " viewbox)
                        :id "sv"
@@ -560,14 +562,14 @@
            (svg/defs
               (svg/pattern
                 (dom/props {:id "dotted-pattern"
-                            :width 6
-                            :height 6
+                            :width 2
+                            :height 2
                             :patternUnits "userSpaceOnUse"})
                 (svg/circle
                   (dom/props {:cx 1
                               :cy 1
-                              :r 0.5
-                              :fill "#91919a"}))))
+                              :r 0.1
+                              :fill "black"}))))
            (svg/rect
               (dom/props
                 {:id "background"
@@ -577,6 +579,7 @@
                  :height (nth viewbox 3)
                  :fill "url(#dotted-pattern)"}))
 
+           ;; To test the memory performance with simple svg rectangles
            #_(e/for-by identity [i (range 389)]
                (svg/g
                  (svg/rect
@@ -593,61 +596,49 @@
                                        :overflow "scroll"}}))))
 
            (println "------------" (e/server (count (first (get-path-data [:main] node-ids-pstate)))))
+
+           (reset! loaded-ids (e/server (into #{} (take 400 (first (get-path-data [(keypath :main)] node-ids-pstate))))))
+
            (e/server
-             (e/for-by identity [{:keys [title id uid]} (get-path-data [(keypath :main) MAP-VALS ] dg-nodes-pstate)]
-               (e/client
-                 (do
-                   (println "*****IDX *****" id)
-                   (svg/rect
-                     (dom/props {:x      (rand-int 400)
-                                 :y     (rand-int 400)
-                                 :height 3
-                                 :width  3
-                                 :fill   "black"
-                                 :style {:display "flex"
-                                         :flex-direction "column"
-                                         :border "1px solid black"
-                                         :border-radius "10px"
-                                         :background-color "red"
-                                         :overflow "scroll"}}))))))
+             (e/for-by identity [id  (take 400 (new (!subscribe [:main ] node-ids-pstate)))]
+                 (e/client
+                   (draw-edges. id loaded-ids)))
 
-
-
-           #_(e/server
-               (e/for-by identity [id  (new (!subscribe [:main ] node-ids-pstate))]
-                 (println "ID" id)
-                 (let [node-data (first (get-path-data [(keypath :main) id ] nodes-pstate))]
+             (e/for-by identity [id  (take 400 (new (!subscribe [:main ] node-ids-pstate)))]
+               (println "ID" id)
+               (let [node-data (first (get-path-data [(keypath :main) id ] nodes-pstate))]
+                 (e/client
+                   (let [x (-> node-data :x :pos)
+                         y (-> node-data :y :pos)
+                         w (-> node-data :type-specific-data :width :pos)
+                         h (-> node-data :type-specific-data :height :pos)
+                         mx (+ x 3)
+                         my (+ y 3)
+                         type (-> node-data :type)]
+                     (do
+                       (println "---> NODE DATA <----" node-data)
+                       (println "NODE " id mx my)
+                       (swap! !all-nodes-map conj node-data)
+                       (when (> @min-x x ) (reset! min-x x))
+                       (when (< @max-x mx) (reset! max-x mx))
+                       (when (> @min-y y) (reset! min-y y))
+                       (when (< @max-y my) (reset! max-y my))
+                       (cond
+                         (= "img" type) (rect. id node-data :img)
+                          :else (rect. id node-data :rect)))))))
+             #_(e/for-by identity [edge (new (!subscribe [:main] dg-edges-pstate))]
+                 (let [[s typ t] edge
+                       target-node (first (get-path-data
+                                            [(keypath :main) (keyword (:uid t))]
+                                            nodes-pstate))
+                       source-node (first (get-path-data
+                                            [(keypath :main) (keyword (:uid s))]
+                                            nodes-pstate))]
                    (e/client
-                     (let [x (-> node-data :x :pos)
-                           y (-> node-data :y :pos)
-                           w (-> node-data :type-specific-data :width :pos)
-                           h (-> node-data :type-specific-data :height :pos)
-                           mx (+ x 3)
-                           my (+ y 3)
-                           type (-> node-data :type)]
-                       (do
-                         (println "---> NODE DATA <----" node-data)
-                         (println "NODE " id mx my)
-                         (swap! !all-nodes-map conj node-data)
-                         (when (> @min-x x ) (reset! min-x x))
-                         (when (< @max-x mx) (reset! max-x mx))
-                         (when (> @min-y y) (reset! min-y y))
-                         (when (< @max-y my) (reset! max-y my))
-                         (cond
-                           (= "img" type) (rect. id node-data :img)
-                            :else (rect. id node-data :rect)))))))
-               #_(e/for-by identity [edge edges]
-                   (let [[k v] edge
-                         target-node (first (get-path-data
-                                              [(keypath :main) (:to v)]
-                                              nodes-pstate))
-                         source-node (first (get-path-data
-                                              [(keypath :main) (:from v)]
-                                              nodes-pstate))]
-                     (e/client
-                       (println "edge " v)
-                       (println "target node" target-node)
-                       (line. source-node target-node v)))))))))))
+                     (println "edge KTV " s typ t)
+                     (println "target node" (keyword (:uid t))target-node)
+                     (println "source node" (keyword (:uid s))source-node)
+                     (line. source-node target-node typ)))))))))))
 
 
 
