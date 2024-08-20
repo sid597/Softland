@@ -137,12 +137,37 @@
           $$dg-pages-pstate)
 
         (case> (= :add-dg-nodes *action-type))
-        (println "NODE DATA: " *uid)
+        (assoc *node-data
+          :width 20
+          :height 20
+          :> *updated-node)
+        (identity (keyword *uid) :> *kuid)
+        (identity {:id *kuid
+                   :x {:pos (+ 0.0009 (rand-int 400))
+                       :time 0}
+                   :y {:pos (+ 0.00009 (rand-int 400))
+                       :time 0}
+                   :type-specific-data *updated-node
+                   :type "rect"
+                   :fill "lightblue"}
+          :> *d)
+        (println "NODE DATA: " *d #_{:uid *uid})
+
         (local-transform>
           [*graph-name
            *uid
            (termval *node-data)]
           $$dg-nodes-pstate)
+        (local-transform>
+          [*graph-name
+           (keypath *kuid)
+           (termval *d)]
+          $$nodes-pstate)
+        (local-transform>
+          [(keypath *graph-name)
+           AFTER-ELEM
+           (termval *kuid)]
+          $$node-ids-pstate)
 
         (local-transform>
           [*graph-name
