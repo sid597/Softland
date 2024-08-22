@@ -1,6 +1,8 @@
 (ns app.server.rama.core
   (:use [com.rpl.rama]
-       [com.rpl.rama.path])
+       [com.rpl.rama.path]
+       [com.rpl.rama.ops]
+       [com.rpl.rama.aggs])
   (:require [app.server.env :refer [oai-key roam-api-key roam-graph-name]]
             [app.server.rama.objects :refer [http-post-future query-roam-req task-global-client roam-client]])
   (:import (clojure.lang Keyword)
@@ -40,6 +42,7 @@
     (declare-pstate n $$dg-edges-pstate {Keyword (map-schema Keyword (vector-schema Object) #_{:subindex? true})})
     (declare-pstate n $$components-pstate {Keyword (map-schema Keyword Object)})
     (declare-pstate n $$node-ids-pstate {Keyword (vector-schema Keyword)})
+    (declare-pstate n $$node-ids-inview-pstate {Keyword (vector-schema Keyword)})
     (declare-pstate n $$event-id-pstate Long {:global? true
                                               :initial-value 0})
     (declare-pstate n $$user-registration-pstate {String ; username
@@ -51,6 +54,33 @@
                                                        (fixed-keys-schema {:ui-mode Keyword
                                                                            :viewbox (vector-schema Long)}))})
     (.declarePState id-gen n)
+
+    (<<query-topology topologies "get-in-view-nodeids"
+      [*cx *cy *ch *cw *graph-name *path :> *in-view-ids]
+      (println " QUERY topology start")
+      (|hash *graph-name)
+      (local-select> *path $$nodes-pstate :> *all-nodes)
+      (println "selected all nodes" *all-nodes)
+      (explode-map *all-nodes :> *nuid *ndata)
+      (println "NODE: " *ndata)
+      (local-select> [:x :pos] *ndata :> *nx)
+      (local-select> [:y :pos] *ndata :> *ny)
+      (identity (and> (>= *nx *cx)
+                  (< *nx (+ *cx *ch))
+                  (>= *ny *cy)
+                  (< *ny (+ *cy *ch))) :> *t?)
+
+      (println "local select" *nuid *nx *ny *t? *cx *cy *ch *cw)
+      (<<cond
+        (case> *t?)
+        (println "TRUE")
+        (identity *nuid :> *x-uid))
+
+      (|origin)
+      (+vec-agg *x-uid :> *in-view-ids))
+
+
+
 
     (<<sources n
       ;; Source from user-graph-settings-depot
@@ -90,7 +120,7 @@
       (println "R: PROCESSING EVENT" *action-type)
 
       (<<cond
-        ;; llm request
+        ;; ========llm request========
         (case> (= :llm-request *action-type))
         ;; request data attached to event data
         (local-select> (keypath :request-data) *event-data :> *request-data)
@@ -115,7 +145,7 @@
         #_(println "R: UPDATED VALUE" (local-select> *data-path $$nodes-pstate))
 
 
-        ;; Query roam
+        ;; ========Query roam========
         (case> (= :roam-query *action-type))
         (completable-future>
           (query-roam-req
@@ -128,7 +158,7 @@
         (println "R: ** QUERY RESULT **" *query-result)
 
 
-        ;; Add roam node
+        ;; ======== Add roam node ========
         (case> (= :add-dg-page-data *action-type))
         (local-transform>
           [*graph-name
@@ -136,6 +166,8 @@
            (termval *node-data)]
           $$dg-pages-pstate)
 
+
+        ;; ======== add dg nodes ========
         (case> (= :add-dg-nodes *action-type))
         (assoc *node-data
           :width 80
@@ -174,6 +206,7 @@
            (termval *uid)]
           $$dg-node-ids-pstate)
 
+        ;; ========Add dg edges========
         (case> (= :add-dg-edges *action-type))
         (local-select> [(keypath :edges) FIRST] *node-data :> *edges)
         (local-select> [FIRST  (keypath :uid)] *edges :> *suid)
@@ -196,7 +229,7 @@
 
 
 
-        ;; Add nodes
+        ;; ========Add nodes========
         (case> (= :new-node *action-type))
         (println "R: ADDING NODE" *node-data)
         (local-transform>
@@ -210,7 +243,7 @@
            (termval (ffirst *node-data))]
           $$node-ids-pstate)
 
-        ;; Delete nodes
+        ;; ========Delete nodes========
         #_#_#_(case> (= :delete-node *action-type))
         (local-transform>
           [*graph-name (keypath (first *node-data)) NONE>]
@@ -220,7 +253,7 @@
            [ALL (= % (first *node-data))] NONE>]
           $$node-ids-pstate)
 
-        ;; Update nodes
+        ;; ========Update nodes========
         (case> (= :update-node *action-type))
         (println "----------------------------------------------------")
         (println "R: UPDATING NODE" *node-data)
@@ -231,7 +264,7 @@
         ;(clojure.pprint/pprint (local-select> ALL $$nodes-pstate))
         (println "----------------------------------------------------")
 
-        ;; update event id
+        ;; ========update event id========
         (case> (= :update-event-id *action-type))
         (local-select> [] $$event-id-pstate :> *event-id)
         (local-transform> [(termval (inc *event-id))] $$event-id-pstate)

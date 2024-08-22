@@ -47,6 +47,7 @@
 (def user-registration-depot      (foreign-depot @!rama-ipc (get-module-name node-events-module) "*user-registration-depot"))
 (def  user-graph-settings-pstate  (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$user-graph-settings-pstate"))
 (def  user-graph-settings-depot   (foreign-depot @!rama-ipc (get-module-name node-events-module) "*user-graph-settings-depot"))
+(def get-in-view-nodes-query  (foreign-query @!rama-ipc (get-module-name node-events-module) "get-in-view-nodeids"))
 
 
 (defn update-event-id []
@@ -207,6 +208,9 @@
 (defn get-path-data [path pstate]
   (println "FOREIGN SELECT")
   (foreign-select path pstate))
+
+(defn get-query-top [x y h w gn path]
+  (foreign-invoke-query get-in-view-nodes-query x y h w gn path))
 
 
 (defn save-dg [node]
