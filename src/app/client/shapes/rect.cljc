@@ -90,8 +90,6 @@
   (e/client
     (println "SETUP WATCH : " path)
     (let [new-data (subscribe. path)]
-      ;(println "8. WATCH SERVER UPDATE" new-data "-c-" @!counter)
-      (println  "8. -- NEW DATA FROM SERVER --" new-data "--" path)
       (case f
         :x (reset! !global-atom {:nid (first path)
                                  :type :node-update
@@ -119,7 +117,6 @@
                                    (reset! !dragging? false)))))]
       (new (el-mouse-move-state< node id dragging?))
       (let [{:keys [x y nid width height from]} (new (server-update))]
-        (println  " 7. SERVER DATA UPDATE " from "::" nid "::"  x "::" y "::::" width "::" height)
         (when (and (= nid id)
                 (= :client from))
           (cond (some? x)      (e/server
@@ -161,20 +158,20 @@
                         (+ mn (* (Math/abs (- mx mn)) (rand))))]
 
           (do
-            ;(println id " :: " x-min x-max y-min y-max  "::" xpos ypos)
+            (println id " :: " x-min x-max y-min y-max  "::" xpos ypos)
             (when (and time
                     (= type :randomise)
-                    (> ypos y-min)
-                    (< ypos y-max)
-                    (> xpos x-min)
-                    (< xpos x-max))
+                    #_(> ypos y-min)
+                    #_(< ypos y-max)
+                    #_(> xpos x-min)
+                    #_(< xpos x-max))
               (doall
                (println "******************" id time" :: " x-min x-max y-min y-max  "::" xpos ypos)
                (let [row (quot @ctr 9)
                      col (rem @ctr 9)
-                     rx {:pos (rand-doub time (/  x-min 50) (/  x-max 50))
+                     rx {:pos (rand-doub time (/  x-min 5) (/  x-max 5))
                          :time time}
-                     ry {:pos (rand-doub time (/ y-min 50)  (/ y-max 50))
+                     ry {:pos (rand-doub time (/ y-min 5)  (/ y-max 5))
                          :time time}]
                  (println "RX" rx ry)
                  (reset! !xx rx)
@@ -424,14 +421,13 @@
                            :fy fy
                            :xx xx
                            :yy yy})
-          (println "++++<" (.-getBoundingClientRect (-> node :type-specific-data :title)))
 
           (svg/rect
             (dom/props {:x      x
                         :y      y
-                        :height 4
-                        :width  60
-                        :fill   "#f5f5f5"
+                        :height h
+                        :width  w
+                        :fill   "aliceblue"
                         :id     id
                         :stroke "black"
                         :stroke-width "0.1px"

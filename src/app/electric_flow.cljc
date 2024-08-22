@@ -293,7 +293,7 @@
              {:top "100px"
               :left "1000px"
               :style {:background-color (:button-background (theme. ui-mode))
-                      :color (:button-text (theme. ui-mode))
+                      :color "white"
                       :border "none"
                       :margin "0px"
                       :padding "0px"
@@ -314,7 +314,7 @@
                {:top "100px"
                 :left "1000px"
                 :style {:background-color (:button-background (theme. ui-mode))
-                        :color (:button-text (theme. ui-mode))
+                        :color "white"
                         :border "none"
                         :margin "0px"
                         :padding "0px"
@@ -322,27 +322,28 @@
                         :height "20px"
                         :width "100%"}})
              (dom/text "randomise")
-             (dom/on "click" (e/fn [e]
-                               (println "RANDOMISE CLICKED")
-                               (let [ch (- (nth viewbox 3) 1400)
-                                      cw (- (nth viewbox 2) 1400)
-                                      cx (+ 200 (first viewbox))
-                                      cy (+ 200 (second viewbox))]
-                                   (reset!
-                                     !global-atom
-                                     {:type :randomise
-                                      :time (current-time-ms)
-                                      :x-min  cx
-                                      :x-max (+ cw cx)
-                                      :y-min  cy
-                                      :y-max (+ ch cy)}))))))
+             (dom/on! "click" (fn [e]
+                                (do
+                                  (let [ch (- (nth viewbox 3) 1400)
+                                         cw (- (nth viewbox 2) 1400)
+                                         cx (+ 200 (first viewbox))
+                                         cy (+ 200 (second viewbox))]
+                                      (println "RANDOMISE CLICKED")
+                                      (reset!
+                                        !global-atom
+                                        {:type :randomise
+                                         :time (current-time-ms)
+                                         :x-min  cx
+                                         :x-max (+ cw cx)
+                                         :y-min  cy
+                                         :y-max (+ ch cy)})))))))
          (dom/div
            (dom/button
              (dom/props
                {:top "100px"
                 :left "1000px"
                 :style {:background-color (:button-background (theme. ui-mode))
-                        :color (:button-text (theme. ui-mode))
+                        :color "white"
                         :border "none"
                         :margin "0px"
                         :padding "0px"
@@ -363,7 +364,7 @@
                {:top "100px"
                 :left "1000px"
                 :style {:background-color (:button-background (theme. ui-mode))
-                        :color (:button-text (theme. ui-mode))
+                        :color "white"
                         :border "none"
                         :margin "0px"
                         :padding "0px"
@@ -390,7 +391,7 @@
                {:top "100px"
                 :left "1000px"
                 :style {:background-color (:button-background (theme. ui-mode))
-                        :color (:button-text (theme. ui-mode))
+                        :color "white"
                         :border "none"
                         :margin "0px"
                         :padding "0px"
