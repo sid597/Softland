@@ -1,7 +1,8 @@
 (ns dev
   (:require
     app.electric-flow
-    [hyperfiddle.electric :as e]
+    [hyperfiddle.electric-de :as e]
+    #?(:cljs hyperfiddle.electric-client-de)
     #?(:clj [app.server-jetty :as jetty])
     #?(:clj [shadow.cljs.devtools.api :as shadow])
     #?(:clj [shadow.cljs.devtools.server :as shadow-server])
@@ -35,14 +36,12 @@
 
 #?(:cljs ;; Client Entrypoint
    (do
-     (def electric-entrypoint (e/boot-client {} app.electric-flow/main nil))
-
      (defonce reactor nil)
 
      (defn ^:dev/after-load ^:export start! []
-       (set! reactor (electric-entrypoint
-                       #(js/console.log "Reactor success:" %)
-                       #(js/console.error "Reactor failure:" %))))
+       (set! reactor ((e/boot-client {} app.electric-flow/main nil)
+                      #(js/console.log "Reactor success:" %)
+                      #(js/console.error "Reactor failure:" %))))
 
      (defn ^:dev/before-load stop! []
        (when reactor (reactor)) ; stop the reactor
