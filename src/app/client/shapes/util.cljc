@@ -6,6 +6,8 @@
             [hyperfiddle.electric-dom2 :as dom]
             [app.client.flow-calc :as fc]
             [clojure.edn :as edn]
+            [app.client.shapes.rect :refer [rect]]
+            [app.client.shapes.circle :refer [circle]]
             [clojure.pprint :as pprint]
             [app.client.mode :refer [theme]]
             [app.client.utils :refer [ ui-mode edges nodes
@@ -54,3 +56,12 @@
                   :y2  y2
                   :stroke (:edge-color (theme. ui-mode))
                   :stroke-width 4}))))
+
+(e/defn shape-selector [id node-count]
+  (let [cnc (e/watch node-count)
+        color (nth ["red" "blue" "green" "yellow" "purple"
+                    "orange" "pink" "teal" "indigo" "cyan"] (rand-int 9))]
+    (if (<= (count cnc ) 12)
+      ;(rect. id :rect)
+      (circle. id 4 color)
+      (circle. id 1 color))))

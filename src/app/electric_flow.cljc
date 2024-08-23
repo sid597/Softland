@@ -5,7 +5,9 @@
             [hyperfiddle.electric-svg :as svg]
             [hyperfiddle.electric-dom2 :as dom]
             [app.client.shapes.rect :refer [rect]]
+            [app.client.shapes.circle :refer [circle]]
             [app.client.shapes.draw-rect :refer [draw-rect]]
+            [app.client.shapes.util :refer [shape-selector]]
             [app.client.quad-tree :refer [total-forces]]
             [app.client.shapes.line :refer [line draw-edges]]
             #?@(:cljs
@@ -21,7 +23,7 @@
                 [[missionary.core :as m]
                  [app.server.file :refer [dg-nodes-file-edn]]
                  [com.rpl.rama.path :as path :refer [subselect ALL FIRST keypath select MAP-VALS]]
-                 [app.server.rama.util-fns :refer[roam-query-request !subscribe get-path-data nodes-pstate
+                 [app.server.rama.util-fns :refer[roam-query-request !subscribe get-query-top get-path-data nodes-pstate
                                                   update-node get-event-id node-ids-pstate
                                                   add-new-node
                                                   dg-node-ids-pstate
@@ -274,7 +276,9 @@
           min-x (atom 10000000)
           min-y (atom 10000000)
           max-y (atom 0)
-          loaded-ids (atom nil)]
+          loaded-ids (atom nil)
+          !current-nodes (atom [])]
+
 
 
       #_(dom/on js/document "mousemove" (e/fn [e]
@@ -400,8 +404,11 @@
                         :width "100%"}})
              (dom/text "RUN SIM")
              (dom/on "click" (e/fn [e]
-                               (reset! !global-atom {:type :start-seeding :time (current-time-ms)
-                                                     :all-nodes (e/server (first (get-path-data [(keypath :main)] nodes-pstate)))})))))
+                               (println "QUERY GRAPH TOPOLOGY"
+                                 (e/server (get-query-top 0 0 200 200 :main
+                                             [(keypath :main)])))
+                               #_(reset! !global-atom {:type :start-seeding :time (current-time-ms)
+                                                       :all-nodes (e/server (first (get-path-data [(keypath :main)] nodes-pstate)))})))))
          #_(dom/div
              (dom/button
                (dom/props
@@ -521,8 +528,14 @@
            (let [[new-box scale] (new (pinch-state< dom/node !viewbox))]
              (when (and (some? new-box)
                      (some? scale))
-               (reset! !viewbox new-box)
-               (reset! !zoom-level (* @!zoom-level scale))))
+               (let [[nx ny nh nw] new-box
+                     res (e/server (get-query-top nx ny nh nw :main
+                                     [(keypath :main)]))]
+                 (println "PINCH " nx ny nh nw)
+                 (reset! !viewbox new-box)
+                 (reset! !current-nodes res)
+                 (reset! !zoom-level (* @!zoom-level scale))
+                 (println "PINCH RES: " (count res) "--" zoom-level))))
 
            (dom/on "mousedown" (e/fn [e]
                                  (when (= 0
@@ -596,37 +609,14 @@
                                        :background-color "red"
                                        :overflow "scroll"}}))))
 
-           (println "------------" (e/server (count (first (get-path-data [:main] node-ids-pstate)))))
-
-           (reset! loaded-ids (e/server (into #{} (take 400 (first (get-path-data [(keypath :main)] node-ids-pstate))))))
 
            (e/server
-             (e/for-by identity [id  (take 400 (new (!subscribe [:main ] node-ids-pstate)))]
+             (e/for-by identity [id (e/client (e/watch !current-nodes) #_(take 400 (new (!subscribe [:main ] node-ids-pstate))))]
                  (e/client
-                   (draw-edges. id loaded-ids)))
-
-             (e/for-by identity [id  (take 400 (new (!subscribe [:main ] node-ids-pstate)))]
-               (println "ID" id)
-               (let [node-data (first (get-path-data [(keypath :main) id ] nodes-pstate))]
-                 (e/client
-                   (let [x (-> node-data :x :pos)
-                         y (-> node-data :y :pos)
-                         w (-> node-data :type-specific-data :width :pos)
-                         h (-> node-data :type-specific-data :height :pos)
-                         mx (+ x 3)
-                         my (+ y 3)
-                         type (-> node-data :type)]
-                     (do
-                       (println "---> NODE DATA <----" node-data)
-                       (println "NODE " id mx my)
-                       (swap! !all-nodes-map conj node-data)
-                       (when (> @min-x x ) (reset! min-x x))
-                       (when (< @max-x mx) (reset! max-x mx))
-                       (when (> @min-y y) (reset! min-y y))
-                       (when (< @max-y my) (reset! max-y my))
-                       (cond
-                         (= "img" type) (rect. id node-data :img)
-                          :else (rect. id node-data :rect)))))))
+                   ;; create shape, takes in id, and current nodes based on the no.of nodes
+                   ;; changes the appearence.
+                   (println "COUNT" (<= (count @!current-nodes) 12))
+                   (shape-selector. id !current-nodes)))
              #_(e/for-by identity [edge (new (!subscribe [:main] dg-edges-pstate))]
                  (let [[s typ t] edge
                        target-node (first (get-path-data

@@ -345,9 +345,9 @@
                                   (reset-after-drag. "mouseout element"))))))
 
 
-(e/defn rect [id node type]
+(e/defn rect [id type]
   (e/client
-    (println "RECT --" id "--" node)
+    (println "RECT --" id "--")
     (let [#_#_!cm-text (atom nil)
           #_#_cm-text  (e/watch !cm-text)
           #_#_read     (fn [edn-str]
@@ -357,6 +357,7 @@
                               (catch #?(:clj Throwable :cljs :default) t
                                 #?(:clj (clojure.tools.logging/error t)
                                    :cljs (js/console.warn t)) nil)))
+          node     (e/server (first (get-path-data [(keypath :main) id ] nodes-pstate)))
           write    (fn [edn] (with-out-str (pprint/pprint edn)))
           dom-id   (str "dom-id-" (str id))
           x-p      [ id :x]
@@ -388,39 +389,37 @@
           fx (e/watch !fx)
           !fy (atom nil)
           fy (e/watch !fy)]
-      (watch-server-update. x-p :x)
-      (watch-server-update. y-p :y)
-      (watch-server-update. width-p :w)
-      (watch-server-update. height-p :h)
+      ;(watch-server-update. x-p :x)
+      ;(watch-server-update. y-p :y)
+      ;(watch-server-update. width-p :w)
+      ;(watch-server-update. height-p :h)
       (svg/g
         (let [x (:pos xx)
               y (:pos yy)
               h (:pos hh)
-              w (:pos ww)
-              !rotation (atom 0)
-              rotation (e/watch !rotation)]
+              w (:pos ww)]
           ;(println "00 ------ 00 ----- " x y h w)
 
-          (setup-actions. {:node dom/node
-                           :width-p width-p
-                           :height-p height-p
-                           :!hh !hh
-                           :!ww !ww
-                           :id id
-                           :!dragging? !dragging?
-                           :dragging? dragging?
-                           :x-p x-p
-                           :y-p y-p
-                           :cord-x cord-x
-                           :cord-y cord-y
-                           :!xx !xx
-                           :!yy !yy
-                           :!fx !fx
-                           :!fy !fy
-                           :fx fx
-                           :fy fy
-                           :xx xx
-                           :yy yy})
+          #_(setup-actions. {:node dom/node
+                             :width-p width-p
+                             :height-p height-p
+                             :!hh !hh
+                             :!ww !ww
+                             :id id
+                             :!dragging? !dragging?
+                             :dragging? dragging?
+                             :x-p x-p
+                             :y-p y-p
+                             :cord-x cord-x
+                             :cord-y cord-y
+                             :!xx !xx
+                             :!yy !yy
+                             :!fx !fx
+                             :!fy !fy
+                             :fx fx
+                             :fy fy
+                             :xx xx
+                             :yy yy})
 
           (svg/rect
             (dom/props {:x      x

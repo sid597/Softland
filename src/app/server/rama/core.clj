@@ -57,12 +57,12 @@
 
     (<<query-topology topologies "get-in-view-nodeids"
       [*cx *cy *ch *cw *graph-name *path :> *in-view-ids]
-      (println " QUERY topology start")
+      ;(println " QUERY topology start")
       (|hash *graph-name)
       (local-select> *path $$nodes-pstate :> *all-nodes)
-      (println "selected all nodes" *all-nodes)
+      ;(println "selected all nodes" *all-nodes)
       (explode-map *all-nodes :> *nuid *ndata)
-      (println "NODE: " *ndata)
+      ;(println "NODE: " *ndata)
       (local-select> [:x :pos] *ndata :> *nx)
       (local-select> [:y :pos] *ndata :> *ny)
       (identity (and> (>= *nx *cx)
@@ -70,10 +70,10 @@
                   (>= *ny *cy)
                   (< *ny (+ *cy *ch))) :> *t?)
 
-      (println "local select" *nuid *nx *ny *t? *cx *cy *ch *cw)
+      ;(println "local select" *nuid *nx *ny *t? *cx *cy *ch *cw)
       (<<cond
         (case> *t?)
-        (println "TRUE")
+        ;(println "TRUE")
         (identity *nuid :> *x-uid))
 
       (|origin)
