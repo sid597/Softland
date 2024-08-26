@@ -1,58 +1,90 @@
 (ns app.electric-flow
+  (:import (hyperfiddle.electric Failure Pending FailureInfo))
   (:require [hyperfiddle.electric-de :as e :refer [$]]
             [missionary.core :as m]
             [hyperfiddle.electric-dom3 :as dom]))
 
 (hyperfiddle.rcf/enable!)
 
-#?(:cljs
-   (defn resize-observer [node]
-     (do
-       (println "resize observer")
-       (m/relieve {}
-         (m/observe (fn [!] (! [(.-clientHeight node)
-                                (.-clientWidth node)])
-                      (let [obs (new js/ResizeObserver
-                                  (fn [entries]
-                                    (let [content-box-size (-> entries (aget 0) .-contentBoxSize (aget 0))]
-                                      (! [(.-blockSize content-box-size)
-                                          (.-inlineSize content-box-size)]))))]
-                        (.observe obs node) #(.unobserve obs))))))))
+(defn await-promise
+  "Returns a task completing with the result of given promise"
+  [p]
+  (let [v (m/dfv)]
+    (.then p
+      #(v (fn [] %))
+      #(v (fn [] (throw %))))
+    (m/absolve v)))
 
-#?(:cljs
-   (do
-     (defonce !body (atom nil))
-     (defonce !canvas (atom nil))
-     (defonce !canvas-h (atom nil))
-     (defonce !canvas-w (atom nil))
-     (defonce !ctx (atom nil))))
 
-(e/defn view []
+#?(:cljs (defonce !canvas (atom nil)))
+#?(:cljs (defonce !device (atom nil)))
+#?(:cljs (defonce !context (atom nil)))
+#?(:cljs (defonce !gpu (atom nil)))
+#?(:cljs (defonce !config (atom nil)))
+
+(e/defn init-webgpu []
   (e/client
-    (dom/canvas
-      (dom/props {:id "top-canvas"
-                  :width (e/watch !canvas-w)
-                  :height (e/watch !canvas-h)
-                  :style {:height (e/watch !canvas-h)
-                          :width (e/watch !canvas-w)
-                          :background-color "red"}})
-      (reset! !canvas dom/node))))
+    (when (some? (e/watch !canvas))
+      (let [gpu      js/navigator.gpu
+            adapter  ($ e/Task (await-promise (.requestAdapter gpu)))
+            device   ($ e/Task (await-promise (.requestDevice adapter)))]
+        (reset! !device device)
+        (reset! !config {:format (.getPreferredCanvasFormat gpu)
+                         :device device
+                         :alphaMode "opaque"
+                         :usage js/GPUTextureUsage.RENDER_ATTACHMENT})))))
 
-(e/defn init []
-  (let [[h w] (e/input (resize-observer (e/watch !body)))
-        canvas (e/watch !canvas)
-        dpr (.-devicePixelRatio js/window)]
-    (reset! !canvas-h (* h dpr))
-    (reset! !canvas-w (* w dpr))
-    (reset! !ctx (.getContext canvas "2d"))))
+#?(:cljs
+   (defn run-webgpu [context device config canvas]
+     (.configure context (clj->js config))
+     (let [color-texture (.getCurrentTexture context)
+           color-texture-view (.createView color-texture)
+           color-attachment (clj->js {:view color-texture-view
+                                      :clearValue (clj->js {:r 1 :g 0 :b 0 :a 1})
+                                      :loadOp "clear"
+                                      :storeOp "store"})
+           render-pass-desc (clj->js {:colorAttachments (clj->js [color-attachment])})
+           command-encoder (.createCommandEncoder device)
+           pass-encoder (.beginRenderPass command-encoder render-pass-desc)]
+       (println "color texture" color-texture)
+       (.setViewport pass-encoder 0 0 (.-width canvas) (.-height canvas) 0 1)
+       (.end pass-encoder)
+       (.submit (.-queue device) [(.finish command-encoder)]))))
 
+(e/defn setup-webgpu []
+  (let [canvas (e/watch !canvas)
+        context (e/watch !context)
+        device (e/watch  !device)
+        config (e/watch !config)]
+    (when canvas
+       (js/console.log canvas)
+       (reset! !context (.getContext canvas "webgpu")))
+    (when context
+      (js/console.log context)
+      ($ init-webgpu))
+    (when (and config device context)
+      (run-webgpu context device config canvas))))
 
-
+(e/defn canvas-view []
+  (dom/canvas
+    (dom/props {:id "top-canvas"
+                :width 700
+                :height 800
+                :style {:width "700px"  ; Change this
+                        :height "800px" ; And this
+                        :border "1px solid black"}})
+    (reset! !canvas dom/node)))
 
 (e/defn main [ring-request]
   (e/client
     (binding [dom/node js/document.body]
-      (reset! !body dom/node)
-      (println "HELLO WORLD! ")
-      ($ view)
-      ($ init))))
+         ($ canvas-view)
+         ($ setup-webgpu))))
+
+
+
+
+
+
+
+
