@@ -2,15 +2,17 @@
 
 
 
-(defonce vertices (js/Float32Array. (clj->js [ -0.8, -0.8,
-                                              0.8, -0.8,
-                                              0.8,  0.8,
-                                              -0.8, -0.8,
-                                              0.8,  0.8,
-                                              -0.8,  0.8,])))
+(defonce vertices (js/Float32Array. (clj->js [-0.3, -0.3,
+                                               0.3, -0.3,
+                                               0.3,  0.3,
+                                              -0.3, -0.3,
+                                               0.3,  0.3,
+                                              -0.3,  0.3,])))
+(defonce grid-size 256)
+(defonce uniform-array (js/Float32Array. (clj->js [grid-size grid-size])))
 
 ;; First create the array of all the vertices to be rendered in a buffer
-(defn buffer-data [device]
+(def buffer-data
   (clj->js {:label "Cell vertices"
             :size (.-byteLength vertices)
             :usage (bit-or js/GPUBufferUsage.VERTEX
@@ -36,15 +38,21 @@
 (def shader-data
   (clj->js
     {:label "cell shader"
-     :code "@vertex
-             fn vertexMain(@location(0) pos: vec2f) ->
+     :code "@group(0) @binding(0) var<uniform> grid: vec2f;
+             @vertex
+             fn vertexMain(@location(0) pos: vec2f,
+                           @builtin(instance_index) instance: u32) ->
                @builtin(position) vec4f {
-               return vec4f(pos, 0, 1);
+               let i = f32(instance);
+               let cell = vec2f(i % grid.x, floor(i / grid.x));\n
+               let cellOffset = cell / grid * 2;
+               let gridPos = (pos + 1) / grid - 1 + cellOffset;
+               return vec4f(gridPos, 0, 1);
              }
 
              @fragment
              fn fragmentMain() -> @location(0) vec4f {
-               return vec4f(1, 0, 0, 1);
+               return vec4f(0.3, 0.3, 0.3, 1);
              }"}))
 
 
@@ -55,7 +63,7 @@
 ;; like which shaders are used, how to interpret data in vertex buffers, which kind of geometry should be rendered
 ;; (lines, points, triangles...), and more!
 
-
+:w
 (defn render-pipeline [shader-module cformat]
   (clj->js
     {:label "cell pipeline"
@@ -69,27 +77,42 @@
                   :entryPoint "fragmentMain"
                   :targets (clj->js [{:format cformat}])})}))
 
+(def uniform-buffer-data
+  (clj->js {:label "grid uniform"
+            :size (.-byteLength uniform-array)
+            :usage (bit-or js/GPUBufferUsage.UNIFORM
+                     js/GPUBufferUsage.COPY_DST)}))
 
+(defn bind-group-data [pipeline uniform-buffer]
+  (clj->js {:label "cell renderer bind group"
+            :layout (.getBindGroupLayout pipeline 0)
+            :entries (clj->js [{:binding 0
+                                :resource (clj->js
+                                            {:buffer uniform-buffer})}])}))
 
 (defn run-webgpu [context device canvas cformat]
-  (let [bdata               (buffer-data device)
-        vertex-buffer       (.createBuffer device bdata)
+  (let [vertex-buffer      (.createBuffer device buffer-data)
+        uniform-buffer     (.createBuffer device uniform-buffer-data)
         cell-shader-module (.createShaderModule device shader-data)
         pipeline-data      (render-pipeline cell-shader-module cformat)
         cell-pipeline      (.createRenderPipeline device pipeline-data)
+        bind-group         (.createBindGroup device
+                             (bind-group-data cell-pipeline uniform-buffer))
         encoder            (.createCommandEncoder device)
         pass               (.beginRenderPass
                              encoder
                              (clj->js {:colorAttachments
                                        (clj->js [{:view (.createView (.getCurrentTexture context))
-                                                  :clearValue (clj->js {:r 0 :g 0 :b 0.4 :a 1})
+                                                  ;:clearValue (clj->js {:r 1 :g 1 :b 1 :a 1})
                                                   :loadOp "clear"
                                                   :storeOp "store"}])}))]
 
     (.writeBuffer (.-queue device) vertex-buffer 0 vertices)
+    (.writeBuffer (.-queue device) uniform-buffer 0 uniform-array)
     (.setPipeline pass cell-pipeline)
     (.setVertexBuffer pass 0 vertex-buffer)
-    (.draw pass 6)
+    (.setBindGroup pass 0 bind-group)
+    (.draw pass (/ (.-length vertices) 2) (* grid-size grid-size))
     (.end pass)
     (.submit (.-queue device) [(.finish encoder)])))
 

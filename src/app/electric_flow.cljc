@@ -1,5 +1,4 @@
 (ns app.electric-flow
-  (:import (hyperfiddle.electric Failure Pending FailureInfo))
   (:require [hyperfiddle.electric-de :as e :refer [$]]
             [missionary.core :as m]
             [hyperfiddle.electric-dom3 :as dom]
@@ -37,8 +36,8 @@
 (e/defn canvas-view []
   (dom/canvas
     (dom/props {:id "top-canvas"
-                :width 512
-                :height 512})
+                :width 2048
+                :height 2048})
     (reset! !canvas dom/node)))
 
 (e/defn main [ring-request]
