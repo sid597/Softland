@@ -7,7 +7,7 @@
          :asset-path "/js"
          :modules {:main {:entries [dev]
                           :init-fn dev/start!}}
-         :build-hooks [(hyperfiddle.electric.shadow-cljs.hooks/reload-clj)]}
+         :build-hooks [(hyperfiddle.electric.shadow-cljs.hooks-de/reload-clj)]}
   :prod {:target :browser
          :output-dir "resources/public/js"
          :asset-path "/js"

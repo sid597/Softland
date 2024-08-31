@@ -17,20 +17,21 @@
 
 
 
-(e/defn circle [id]
+(e/defn circle [id size color]
   (println "cirtle id" id)
-  (let [x-p          [ id :x]
-        y-p          [ id :y]
+  (let [x-p          [ id :x :pos]
+        y-p          [ id :y :pos]
         r-p          [ id :type-specific-data :r]
         color-p      [ id :type-specific-data :color]
         dragging?-p  [ id :type-specific-data :dragging?]]
     (e/client
+      (println "SELECT: ")
       (svg/circle
         (dom/props {:id id
                     :cx (subscribe. x-p) ;(+ 100 (rand-int 1000)) ;
                     :cy  (subscribe. y-p) ;(+ 400 (rand-int 300));
-                    :r  (+ 2 (rand-int 30)) ;(subscribe. r-p)
-                    :fill "brown"}) ;(subscribe. color-p)})
+                    :r  size ;(subscribe. r-p)
+                    :fill color}) ;(subscribe. color-p)})
         #_(dom/on  "mousemove" (e/fn [e]
                                  (.preventDefault e)
                                  (when dragging?

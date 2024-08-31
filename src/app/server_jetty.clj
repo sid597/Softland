@@ -6,7 +6,7 @@
     [clojure.string :as str]
     [clojure.tools.logging :as log]
     [contrib.assert :refer [check]]
-    [hyperfiddle.electric-ring-adapter :as electric-ring]
+    [hyperfiddle.electric-ring-adapter-de :as electric-ring]
     [ring.adapter.jetty :as ring]
     [ring.middleware.content-type :refer [wrap-content-type]]
     [ring.middleware.cookies :as cookies]
@@ -78,8 +78,8 @@ information."
   (-> not-found-handler
     (wrap-index-page config) ; 3. otherwise fallback to default page file
     (wrap-resource (:resources-path config)) ; 2. serve static file from classpath
-    (wrap-content-type) ; 1. detect content (e.g. for index.html)
-    ))
+    (wrap-content-type))) ; 1. detect content (e.g. for index.html)
+
 
 (defn middleware [config entrypoint]
   (-> (http-middleware config)  ; 2. otherwise, serve regular http content
@@ -102,8 +102,8 @@ information."
       (accept [_this _servletContext wsContainer]
         (.setIdleTimeout wsContainer (java.time.Duration/ofSeconds 60))
         (.setMaxBinaryMessageSize wsContainer (* 100 1024 1024)) ; 100M - temporary
-        (.setMaxTextMessageSize wsContainer (* 100 1024 1024))   ; 100M - temporary
-        ))))
+        (.setMaxTextMessageSize wsContainer (* 100 1024 1024))))))   ; 100M - temporary
+
 
 (defn start-server! [entrypoint
                      {:keys [port host]
