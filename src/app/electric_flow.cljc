@@ -2,7 +2,7 @@
   (:require [hyperfiddle.electric-de :as e :refer [$]]
             [missionary.core :as m]
             [hyperfiddle.electric-dom3 :as dom]
-            #?@(:cljs [;[app.client.webgpu.core :as wcore :refer [run-webgpu render-new-vertices run-compute-pipeline]]
+            #?@(:cljs [[app.client.webgpu.core :as wcore :refer [run-webgpu render-new-vertices]]
                        [app.client.webgpu.data :refer [!rects]]])))
 
 (hyperfiddle.rcf/enable!)
@@ -40,9 +40,9 @@
                      @compute @workgroup_size(64)
                      fn main(@builtin(global_invocation_id) global_id: vec3<u32>){
                       let index = global_id.x;
-                      //if (index >= arrayLength(&rectangles) / 4) {
-                      //                      return;}
-                      let base_index = index ;
+                      if (index >= arrayLength(&rectangles) / 4) {
+                                            return;}
+                      let base_index = index * 4 ;
                       let x = rectangles[base_index];
                       let y = rectangles[base_index + 1];
                       let height = rectangles[base_index + 2];
@@ -52,7 +52,7 @@
                       let left = (x / 1920) * 2 - 1;
                       let right = ((x + width) / 1920) * 2 - 1;
                       let top = 1 - (y / 1080) * 2 ;
-                      let bottom = 1 -((y + height) / 1080) * 2 ;
+                      let bottom = 1 - ((y + height) / 1080) * 2 ;
 
 
                       // Create 6 vertices for two triangles (12 float values)
@@ -96,6 +96,8 @@
                                    (clj->js {:label "output buffer"
                                              :size output-size
                                              :usage (bit-or js/GPUBufferUsage.STORAGE
+                                                      js/GPUBufferUsage.VERTEX
+                                                      js/GPUBufferUsage.COPY_DST
                                                       js/GPUBufferUsage.COPY_SRC)}))
            output-read-buffer    (.createBuffer
                                    device
@@ -130,9 +132,8 @@
                                              :compute (clj->js {:module compute-shader-module
                                                                 :entryPoint "main"})}))
            compute-pass          (.beginComputePass encoder)]
-       (println "Varray" varray)
        (-> (.getCompilationInfo compute-shader-module)
-         (.then (fn [info] (js/console.log "shader info:" info))))
+         (.then (fn [info] (js/console.log "compute shader info:" info))))
        (.writeBuffer        (.-queue device) input-buffer 0 varray)
        (.setPipeline        compute-pass compute-pipeline)
        (.setBindGroup       compute-pass 0 bind-group)
@@ -143,12 +144,13 @@
 (e/defn rnd [rc]
   (let [res (atom [])]
     (doseq [i (range rc)]
-      (let [height (* (rand) 500)
-            width (* (rand) 500)
-            y (* (rand) 100)
-            x (* (rand) 100)]
-        (println "xx" x y @res)
+      (let [height (* (rand) 10)
+            width (* (rand) 10)
+            y (* (rand) 1920)
+            x (* (rand) 1080)]
+        ;(println "xx" x y @res)
         (swap! res concat [x y height width])))
+    (println "DONE" (e/watch res) rc)
     res))
 
 
@@ -161,32 +163,48 @@
               adapter  ($ e/Task (await-promise (.requestAdapter gpu (clj->js {:requiredFeatures ["validation"]}))))
               device   ($ e/Task (await-promise (.requestDevice adapter)))
               cformat  (.getPreferredCanvasFormat gpu)
-              config   {:format cformat
-                        :device device}
+              config   (clj->js {:format cformat
+                                 :device device})
               encoder (.createCommandEncoder device)
-              nos 100
-              rnd ($ rnd nos)
-              [ob orb ] (run-compute-pipeline
-                          (into [] (e/watch rnd))
-                          device
-                          encoder)]
-          (println "rnd" (e/watch rnd))
-          (when (some? ob)
-            (case
-              ($ e/Task (m/sleep 1))  (.copyBufferToBuffer encoder ob 0 orb 0 (* 12 4 nos)))
-            (case
-              ($ e/Task (m/sleep 25)) (let [command-buffer (.finish encoder)]
-                                        (.submit (.-queue device) (clj->js [command-buffer]))))
-            (case
-              ($ e/Task (m/sleep 36)) (let [maped ($ e/Task (await-promise (.mapAsync orb 1)))
-                                            output-buffer-map ($ e/Task (await-promise (.onSubmittedWorkDone (.-queue device))))]
-                                        (when (and (nil? maped) (nil? output-buffer-map))
-                                          (println "--" maped output-buffer-map)
-                                          (let [array-buffer (.getMappedRange orb)
-                                                rray (js/Float32Array. array-buffer)
-                                                js-array (into-array rray)]
-                                            (.unmap orb)
-                                            (js/console.log "array buffer" js-array))))))
+              nos 201
+              !rnd ($ rnd nos)
+              rnd  (into [] (e/watch !rnd))]
+          ;(println "rnd" (e/watch rnd))
+          (.configure context config)
+          (when (some? rnd)
+            (println "RND" rnd)
+            (let [[ob orb] (run-compute-pipeline
+                              rnd
+                              #_[100.0 100.0 100.0 200.0
+                                 600.0 300.0 100.0 200.0]
+                              device
+                              encoder)
+                  !oaray (atom nil)
+                  oraay (e/watch !oaray)]
+              (when (some? ob)
+                (case
+                  ($ e/Task (m/sleep 1))  (.copyBufferToBuffer encoder ob 0 orb 0 (* 12 4 nos)))
+                (case
+                  ($ e/Task (m/sleep 25)) (let [command-buffer (.finish encoder)]
+                                            (.submit (.-queue device) (clj->js [command-buffer]))))
+                (case
+                  ($ e/Task (m/sleep 36)) (let [maped ($ e/Task (await-promise (.mapAsync orb 1)))
+                                                output-buffer-map ($ e/Task (await-promise (.onSubmittedWorkDone (.-queue device))))]
+                                            (when (and (nil? maped) (nil? output-buffer-map))
+                                              (println "--" maped output-buffer-map)
+                                              (let [array-buffer (.getMappedRange orb)
+                                                    rray (js/Float32Array. array-buffer)
+                                                    js-array (into-array rray)]
+                                                (.unmap orb)
+                                                (reset! !oaray js-array)
+                                                (js/console.log "array buffer" oraay)
+                                                (case ($ e/Task (m/sleep 40)) (render-new-vertices
+                                                                                context
+                                                                                oraay
+                                                                                device
+                                                                                cformat
+                                                                                nos
+                                                                                ob)))))))))
 
 
 
