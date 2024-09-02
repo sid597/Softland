@@ -33,47 +33,48 @@
 #?(:cljs (def vertices-compute-shader
            (clj->js {:label "vertices compute shader descriptor"
                      :code"
-
                      // Constants for screen dimensions
-                     @group(0) @binding(0) var<storage, read> rectangles: array<u32>;     // Flattened input array
-                     @group(0) @binding(1) var<storage, read_write> vertices: array<u32>; // Output vertices
-
+                     @group(0) @binding(0) var<storage, read> rectangles: array<f32>;     // Flattened input array
+                     @group(0) @binding(1) var<storage, read_write> vertices: array<f32>; // Output vertices
 
                      @compute @workgroup_size(64)
-                     fn main() {
-                                let index = 0;
-                                let base_index = index ;
-                                let x = rectangles[base_index];
-                                let y = rectangles[base_index + 1];
-                                let height = rectangles[base_index + 2];
-                                let width = rectangles[base_index + 3];
+                     fn main(@builtin(global_invocation_id) global_id: vec3<u32>){
+                      let index = global_id.x;
+                      //if (index >= arrayLength(&rectangles) / 4) {
+                      //                      return;}
+                      let base_index = index ;
+                      let x = rectangles[base_index];
+                      let y = rectangles[base_index + 1];
+                      let height = rectangles[base_index + 2];
+                      let width = rectangles[base_index + 3];
 
-                                // Calculate the four corners of the rectangle in clip space
-                                let left = (x / 1920) * 2 - 1;
-                                let right = ((x + width) / 1920) * 2 - 1;
-                                let top = 1 - (y / 1080) * 2 ;
-                                let bottom = 1 -((y + height) / 1080) * 2 ;
+                      // Calculate the four corners of the rectangle in clip space
+                      let left = (x / 1920) * 2 - 1;
+                      let right = ((x + width) / 1920) * 2 - 1;
+                      let top = 1 - (y / 1080) * 2 ;
+                      let bottom = 1 -((y + height) / 1080) * 2 ;
 
 
-                                // Create 6 vertices for two triangles (12 float values)
-                                let vertex_index = index * 12;  // 6 vertices * 2 components each
+                      // Create 6 vertices for two triangles (12 float values)
+                      let vertex_index = index * 12;  // 6 vertices * 2 components each
 
-                                // Triangle 1
-                                vertices[vertex_index + 0] = left;
-                                vertices[vertex_index + 1] = top;
-                                vertices[vertex_index + 2] = right;
-                                vertices[vertex_index + 3] = top;
-                                vertices[vertex_index + 4] = left;
-                                vertices[vertex_index + 5] = bottom;
 
-                                // Triangle 2
-                                vertices[vertex_index + 6] = right;
-                                vertices[vertex_index + 7] = top;
-                                vertices[vertex_index + 8] = right;
-                                vertices[vertex_index + 9] = bottom;
-                                vertices[vertex_index + 10] = left;
-                                vertices[vertex_index + 11] = bottom;
-                                }
+                      // Triangle 1
+                      vertices[vertex_index + 0] = left;
+                      vertices[vertex_index + 1] = top;
+                      vertices[vertex_index + 2] = right;
+                      vertices[vertex_index + 3] = top;
+                      vertices[vertex_index + 4] = left;
+                      vertices[vertex_index + 5] = bottom;
+
+                      // Triangle 2
+                      vertices[vertex_index + 6] = right;
+                      vertices[vertex_index + 7] = top;
+                      vertices[vertex_index + 8] = right;
+                      vertices[vertex_index + 9] = bottom;
+                      vertices[vertex_index + 10] = left;
+                      vertices[vertex_index + 11] = bottom;
+                     }
                      "})))
 
 
@@ -128,18 +129,27 @@
                                              :label "compute pipeline"
                                              :compute (clj->js {:module compute-shader-module
                                                                 :entryPoint "main"})}))
-
            compute-pass          (.beginComputePass encoder)]
-         (-> (.getCompilationInfo compute-shader-module)
-           (.then (fn [info] (js/console.log "shader info:" info))))
-         (.writeBuffer (.-queue device) input-buffer 0 varray)
-         (.setPipeline compute-pass compute-pipeline)
-         (.setBindGroup compute-pass 0 bind-group)
-         (.dispatchWorkgroups compute-pass  1)
-         (.end compute-pass)
+       (println "Varray" varray)
+       (-> (.getCompilationInfo compute-shader-module)
+         (.then (fn [info] (js/console.log "shader info:" info))))
+       (.writeBuffer        (.-queue device) input-buffer 0 varray)
+       (.setPipeline        compute-pass compute-pipeline)
+       (.setBindGroup       compute-pass 0 bind-group)
+       (.dispatchWorkgroups compute-pass   (/ (count data)  64))
+       (.end                compute-pass)
+      [output-buffer output-read-buffer])))
 
-        [output-buffer output-read-buffer])))
-
+(e/defn rnd [rc]
+  (let [res (atom [])]
+    (doseq [i (range rc)]
+      (let [height (* (rand) 500)
+            width (* (rand) 500)
+            y (* (rand) 100)
+            x (* (rand) 100)]
+        (println "xx" x y @res)
+        (swap! res concat [x y height width])))
+    res))
 
 
 (e/defn setup-webgpu []
@@ -154,23 +164,26 @@
               config   {:format cformat
                         :device device}
               encoder (.createCommandEncoder device)
-              [ob orb] (run-compute-pipeline
-                         [0 0 1 1]
-                         device
-                         encoder)]
+              nos 100
+              rnd ($ rnd nos)
+              [ob orb ] (run-compute-pipeline
+                          (into [] (e/watch rnd))
+                          device
+                          encoder)]
+          (println "rnd" (e/watch rnd))
           (when (some? ob)
             (case
-              ($ e/Task (m/sleep 1))  (.copyBufferToBuffer encoder ob 0 orb 0 48))
+              ($ e/Task (m/sleep 1))  (.copyBufferToBuffer encoder ob 0 orb 0 (* 12 4 nos)))
             (case
               ($ e/Task (m/sleep 25)) (let [command-buffer (.finish encoder)]
                                         (.submit (.-queue device) (clj->js [command-buffer]))))
             (case
-              ($ e/Task (m/sleep 26)) (let [maped ($ e/Task (await-promise (.mapAsync orb 1)))
+              ($ e/Task (m/sleep 36)) (let [maped ($ e/Task (await-promise (.mapAsync orb 1)))
                                             output-buffer-map ($ e/Task (await-promise (.onSubmittedWorkDone (.-queue device))))]
                                         (when (and (nil? maped) (nil? output-buffer-map))
                                           (println "--" maped output-buffer-map)
                                           (let [array-buffer (.getMappedRange orb)
-                                                rray (js/Uint32Array. array-buffer)
+                                                rray (js/Float32Array. array-buffer)
                                                 js-array (into-array rray)]
                                             (.unmap orb)
                                             (js/console.log "array buffer" js-array))))))
