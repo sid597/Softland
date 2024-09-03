@@ -6,7 +6,7 @@
                                               storage-buffer-descriptor]]
             [app.client.webgpu.pipeline :refer [base-square-pipeline-descriptor]]
             [app.client.webgpu.data :refer [uniform-array vertices grid-size]]
-            [app.client.webgpu.shader :refer [shader-descriptor]]))
+            [app.client.webgpu.shader :refer [shader-descriptor add-new-rects-shader-descriptor]]))
 
 
 
@@ -95,4 +95,107 @@
    (.submit (.-queue device) [(.finish encoder)])))
 
 
+(defn upload-vertices [data device fformat context]
+  (let [varray                (js/Float32Array. (clj->js data))
+        num-rectangles        (count data)
+        output-size           (* num-rectangles 12)
+        shader-module         (.createShaderModule device add-new-rects-shader-descriptor)
+        input-buffer          (.createBuffer
+                                device
+                                (clj->js {:label "input buffer"
+                                          :size (.-byteLength varray)
+                                          :usage (bit-or js/GPUBufferUsage.STORAGE
+                                                   js/GPUBufferUsage.COPY_DST)}))
+        output-buffer         (.createBuffer
+                                device
+                                (clj->js {:label "output buffer"
+                                          :size output-size
+                                          :usage (bit-or js/GPUBufferUsage.STORAGE
+                                                   js/GPUBufferUsage.VERTEX
+                                                   js/GPUBufferUsage.COPY_DST
+                                                   js/GPUBufferUsage.COPY_SRC)}))
+        binding-group-layout (.createBindGroupLayout
+                              device
+                              (clj->js {:label "compute bind group layout"
+                                        :entries (clj->js [{:binding 0
+                                                            :visibility js/GPUShaderStage.COMPUTE
+                                                            :buffer {:type "read-only-storage"}}
+                                                           {:binding 1
+                                                            :visibility js/GPUShaderStage.COMPUTE
+                                                            :buffer {:type "storage"}}])}))
+        bind-group            (.createBindGroup
+                                device
+                                (clj->js {:layout binding-group-layout
+                                          :entries (clj->js [{:binding 0
+                                                              :resource {:buffer input-buffer}}
+                                                             {:binding 1
+                                                              :resource {:buffer output-buffer}}])}))
 
+        pipeline-layout       (.createPipelineLayout
+                                device
+                                (clj->js {:label "compute pipeline layout"
+                                          :bindGroupLayouts [binding-group-layout]}))
+        compute-pipeline      (.createComputePipeline
+                                device
+                                (clj->js {:layout pipeline-layout
+                                          :label "compute pipeline"
+                                          :compute (clj->js {:module shader-module
+                                                             :entryPoint "main"})}))
+        render-binding-group-layout  (.createBindGroupLayout
+                                       device
+                                       (clj->js {:label "render bind group layout"
+                                                 :entries (clj->js [{:binding 1
+                                                                      :visibility js/GPUShaderStage.VERTEX
+                                                                      :buffer {:type "read-only-storage"}}])}))
+
+
+        render-bind-group            (.createBindGroup
+                                       device
+                                       (clj->js {:layout render-binding-group-layout
+                                                 :entries (clj->js [{:binding 1
+                                                                      :resource {:buffer output-buffer}}])}))
+        render-pipeline-layout (.createPipelineLayout
+                                 device
+                                 (clj->js {:label "compute pipeline layout"
+                                           :bindGroupLayouts [render-binding-group-layout]}))
+
+        render-pipeline       (.createRenderPipeline
+                                device
+                                (clj->js {:label "vertices render pipeline"
+                                          :layout render-pipeline-layout
+                                          :vertex (clj->js
+                                                    {:module shader-module
+                                                     :entryPoint "renderVertices"
+                                                     :layout "auto"
+                                                     :buffers (clj->js [])})
+                                          :fragment (clj->js
+                                                      {:module shader-module
+                                                       :entryPoint "renderVerticesFragment"
+                                                       :targets (clj->js [{:format fformat}])})}))]
+
+    (-> (.getCompilationInfo shader-module)
+      (.then (fn [info] (js/console.log "compute shader info:" info))))
+    (.writeBuffer        (.-queue device) input-buffer 0 varray)
+    (let [encoder (.createCommandEncoder device)
+          compute-pass  (.beginComputePass encoder)]
+       ;; Compute pipeline
+       (.setPipeline        compute-pass compute-pipeline)
+       (.setBindGroup       compute-pass 0 bind-group)
+       (.dispatchWorkgroups compute-pass (/ num-rectangles  64))
+       (.end                compute-pass)
+       (.submit       (.-queue device) [(.finish encoder)]))
+
+    ;; Render pipeline
+    (let [encoder (.createCommandEncoder device)
+          render-pass  (.beginRenderPass
+                         encoder
+                         (clj->js {:colorAttachments (clj->js [{:view (.createView (.getCurrentTexture context))
+                                                                :clearValue (clj->js {:r 1.0 :g 1.0 :b 1.0 :a 1})
+                                                                :loadOp "clear"
+                                                                :storeOp "store"}])
+                                   :label "render parss"}))]
+       (.setPipeline  render-pass render-pipeline)
+       (.setBindGroup render-pass 0 render-bind-group)
+       (.draw         render-pass (* num-rectangles 2))
+       (.end          render-pass)
+       (.submit       (.-queue device) [(.finish encoder)]))))

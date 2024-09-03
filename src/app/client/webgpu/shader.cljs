@@ -22,11 +22,91 @@
                return vec4f(0.1, 0.1, 0.1, 1);
              }"}))
 
-(def add-new-rect-shader-descriptor
-  (clj->js
-    {:label "add rect shader"
-     :code "
-     struct Rect {x: f32; y: f32;width: f32;height: f32;};
-     @group(1) @binding(0) var<storage, read> rect: array<Rect>
-     @vertex
-     fn drawRect() -> @builtin(position): vec4f "}))
+(def add-new-rects-shader-descriptor
+  (clj->js {:label "vertices compute shader descriptor"
+            :code  "
+                     // Constants for screen dimensions
+                     @group(0) @binding(0) var<storage, read> rectangles: array<f32>;     // Flattened input array
+                     @group(0) @binding(1) var<storage, read_write> vertices: array<f32>; // Output vertices
+
+                     @compute @workgroup_size(64)
+                     fn main(@builtin(global_invocation_id) global_id: vec3<u32>){
+                      let index = global_id.x;
+                      if (index >= arrayLength(&rectangles) / 4) {
+                                            return;}
+                      let base_index = index * 4 ;
+                      let x = rectangles[base_index];
+                      let y = rectangles[base_index + 1];
+                      let height = rectangles[base_index + 2];
+                      let width = rectangles[base_index + 3];
+
+                      // Calculate the four corners of the rectangle in clip space
+                      let left = (x / 1920) * 2 - 1;
+                      let right = ((x + width) / 1920) * 2 - 1;
+                      let top = 1 - (y / 1080) * 2 ;
+                      let bottom = 1 - ((y + height) / 1080) * 2 ;
+
+
+                      // Create 6 vertices for two triangles (12 float values)
+                      let vertex_index = index * 12;  // 6 vertices * 2 components each
+
+
+                      // Triangle 1
+                      vertices[vertex_index + 0] = left;
+                      vertices[vertex_index + 1] = top;
+                      vertices[vertex_index + 2] = right;
+                      vertices[vertex_index + 3] = top;
+                      vertices[vertex_index + 4] = left;
+                      vertices[vertex_index + 5] = bottom;
+
+                      // Triangle 2
+                      vertices[vertex_index + 6] = right;
+                      vertices[vertex_index + 7] = top;
+                      vertices[vertex_index + 8] = right;
+                      vertices[vertex_index + 9] = bottom;
+                      vertices[vertex_index + 10] = left;
+                      vertices[vertex_index + 11] = bottom;
+                      }
+
+                      struct VertexOutput {
+                      @builtin(position) position: vec4f,
+                      @location(0) fragPos: vec2f
+                      }
+
+                      @group(0) @binding(1) var<storage, read> vertex_buffer: array<f32>; // Changed to read-only\n
+
+                      @vertex
+                      fn renderVertices(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
+                         let index = vertexIndex * 2;
+                         let px = vertex_buffer[index];
+                         let py = vertex_buffer[index + 1];
+                         // Pass position to the fragment shader
+                        var output: VertexOutput;
+                        output.position = vec4f(px, py, 0.0, 1.0);
+                        output.fragPos = vec2f(px, py);
+                        return output;
+                      }
+
+                      @fragment
+                      fn renderVerticesFragment(@location(0) fragPos: vec2<f32>) -> @location(0) vec4<f32> {
+                          // Use both x and y coordinates for more varied colors
+                          let r = sin(fragPos.x * 3.14159) * 0.3 + 0.9;
+                          let g = cos(fragPos.y * 3.14159) * 0.3 + 0.5;
+                          let b = sin((fragPos.x + fragPos.y) * 3.14159) * 0.3 + 0.5;
+
+
+                          // Add some randomness to the color
+                          let random = fract(sin(dot(fragPos, vec2(12.898, 78.233))) * 43758.5453);
+
+                          // Mix the gradient colors with the random value
+                          let color = mix(
+                          vec4<f32>(r, g, b, 1.0),
+                          vec4<f32>(random, random, random, 1.0),
+                          0.1  // Adjust this value to control the amount of randomness (0.0 to 1.0)
+                          );
+
+                          return color;
+                      }
+
+
+                     "}))

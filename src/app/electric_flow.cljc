@@ -2,7 +2,7 @@
   (:require [hyperfiddle.electric-de :as e :refer [$]]
             [missionary.core :as m]
             [hyperfiddle.electric-dom3 :as dom]
-            #?@(:cljs [[app.client.webgpu.core :as wcore :refer [run-webgpu render-new-vertices]]
+            #?@(:cljs [[app.client.webgpu.core :as wcore :refer [run-webgpu upload-vertices render-new-vertices]]
                        [app.client.webgpu.data :refer [!rects]]])))
 
 (hyperfiddle.rcf/enable!)
@@ -137,20 +137,20 @@
        (.writeBuffer        (.-queue device) input-buffer 0 varray)
        (.setPipeline        compute-pass compute-pipeline)
        (.setBindGroup       compute-pass 0 bind-group)
-       (.dispatchWorkgroups compute-pass   (/ (count data)  64))
+       (.dispatchWorkgroups compute-pass   10 #_(/ (count data)  64))
        (.end                compute-pass)
       [output-buffer output-read-buffer])))
 
 (e/defn rnd [rc]
   (let [res (atom [])]
     (doseq [i (range rc)]
-      (let [height (* (rand) 10)
-            width (* (rand) 10)
-            y (* (rand) 1920)
-            x (* (rand) 1080)]
+      (let [height (* (rand) 200)
+            width (* (rand) 200)
+            y (* (rand) 1000)
+            x (* (rand) 1000)]
         ;(println "xx" x y @res)
         (swap! res concat [x y height width])))
-    (println "DONE" (e/watch res) rc)
+    ;(println "DONE" (e/watch res) rc)
     res))
 
 
@@ -166,45 +166,46 @@
               config   (clj->js {:format cformat
                                  :device device})
               encoder (.createCommandEncoder device)
-              nos 201
+              nos 16
               !rnd ($ rnd nos)
               rnd  (into [] (e/watch !rnd))]
           ;(println "rnd" (e/watch rnd))
           (.configure context config)
           (when (some? rnd)
-            (println "RND" rnd)
-            (let [[ob orb] (run-compute-pipeline
-                              rnd
-                              #_[100.0 100.0 100.0 200.0
-                                 600.0 300.0 100.0 200.0]
-                              device
-                              encoder)
-                  !oaray (atom nil)
-                  oraay (e/watch !oaray)]
-              (when (some? ob)
-                (case
-                  ($ e/Task (m/sleep 1))  (.copyBufferToBuffer encoder ob 0 orb 0 (* 12 4 nos)))
-                (case
-                  ($ e/Task (m/sleep 25)) (let [command-buffer (.finish encoder)]
-                                            (.submit (.-queue device) (clj->js [command-buffer]))))
-                (case
-                  ($ e/Task (m/sleep 36)) (let [maped ($ e/Task (await-promise (.mapAsync orb 1)))
-                                                output-buffer-map ($ e/Task (await-promise (.onSubmittedWorkDone (.-queue device))))]
-                                            (when (and (nil? maped) (nil? output-buffer-map))
-                                              (println "--" maped output-buffer-map)
-                                              (let [array-buffer (.getMappedRange orb)
-                                                    rray (js/Float32Array. array-buffer)
-                                                    js-array (into-array rray)]
-                                                (.unmap orb)
-                                                (reset! !oaray js-array)
-                                                (js/console.log "array buffer" oraay)
-                                                (case ($ e/Task (m/sleep 40)) (render-new-vertices
-                                                                                context
-                                                                                oraay
-                                                                                device
-                                                                                cformat
-                                                                                nos
-                                                                                ob)))))))))
+            ;(println "RND" rnd)
+            (upload-vertices rnd device cformat context)
+            #_(let [[ob orb] (run-compute-pipeline
+                                rnd
+                                #_[100.0 100.0 100.0 200.0
+                                   600.0 300.0 100.0 200.0]
+                                device
+                                encoder)
+                    !oaray (atom nil)
+                    oraay (e/watch !oaray)]
+                (when (some? ob)
+                  (case
+                    ($ e/Task (m/sleep 1))  (.copyBufferToBuffer encoder ob 0 orb 0 (* 12 4 nos)))
+                  (case
+                    ($ e/Task (m/sleep 25)) (let [command-buffer (.finish encoder)]
+                                              (.submit (.-queue device) (clj->js [command-buffer]))))
+                  (case
+                    ($ e/Task (m/sleep 36)) (let [maped ($ e/Task (await-promise (.mapAsync orb 1)))
+                                                  output-buffer-map ($ e/Task (await-promise (.onSubmittedWorkDone (.-queue device))))]
+                                              (when (and (nil? maped) (nil? output-buffer-map))
+                                                (println "--" maped output-buffer-map)
+                                                (let [array-buffer (.getMappedRange orb)
+                                                      rray (js/Float32Array. array-buffer)
+                                                      js-array (into-array rray)]
+                                                  (.unmap orb)
+                                                  (reset! !oaray js-array)
+                                                  (js/console.log "array buffer" oraay)
+                                                  (case ($ e/Task (m/sleep 40)) (render-new-vertices
+                                                                                  context
+                                                                                  oraay
+                                                                                  device
+                                                                                  cformat
+                                                                                  nos
+                                                                                  ob)))))))))
 
 
 
