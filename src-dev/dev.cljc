@@ -1,8 +1,8 @@
 (ns dev
   (:require
     app.electric-flow
-    [hyperfiddle.electric-de :as e]
-    #?(:cljs hyperfiddle.electric-client-de)
+    [hyperfiddle.electric3 :as e]
+    #?(:cljs hyperfiddle.electric-client3)
     #?(:clj [app.server-jetty :as jetty])
     #?(:clj [shadow.cljs.devtools.api :as shadow])
     #?(:clj [shadow.cljs.devtools.server :as shadow-server])

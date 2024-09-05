@@ -1,5 +1,5 @@
 (ns app.electric-flow
-  (:require [hyperfiddle.electric-de :as e :refer [$]]
+  (:require [hyperfiddle.electric3 :as e]
             [missionary.core :as m]
             [hyperfiddle.electric-dom3 :as dom]
             #?@(:cljs [[app.client.webgpu.core :as wcore :refer [upload-vertices]]
@@ -23,7 +23,7 @@
 (hyperfiddle.rcf/enable!)
 
 
-(e/defn create-random-rects [rc]
+(e/defn Create-random-rects [rc]
   (let [res (atom [])]
     (doseq [i (range rc)]
       (let [height (+ 20.0 (rand-int  40))
@@ -36,7 +36,7 @@
     res))
 
 
-(e/defn setup-webgpu []
+(e/defn Setup-webgpu []
   (e/client
     (let [canvas (e/watch !canvas)
           canvas-x (e/watch !canvas-x)
@@ -47,14 +47,14 @@
       (when canvas
         (let [context (.getContext canvas "webgpu")
               gpu      js/navigator.gpu
-              adapter  ($ e/Task (await-promise (.requestAdapter gpu (clj->js {:requiredFeatures ["validation"]}))))
-              device   ($ e/Task (await-promise (.requestDevice adapter)))
+              adapter  (e/Task (await-promise (.requestAdapter gpu (clj->js {:requiredFeatures ["validation"]}))))
+              device   (e/Task (await-promise (.requestDevice adapter)))
               cformat  (.getPreferredCanvasFormat gpu)
               config   (clj->js {:format cformat
                                  :device device})
               encoder (.createCommandEncoder device)
               nos 16
-              rnd  ($ create-random-rects nos)
+              rnd  (Create-random-rects nos)
               all-rects  (e/watch !all-rects)]
           ;(println "rnd" (e/watch rnd))
           (reset! !all-rects @rnd)
@@ -71,10 +71,10 @@
             (reset! !command-encoder encoder)))))))
 
 
-(e/defn mouse-down-cords [node] (e/input (mouse-down?> node)))
+(e/defn Mouse-down-cords [node] (e/input (mouse-down?> node)))
 
 
-(e/defn canvas-view []
+(e/defn Canvas-view []
   (let [canvas (e/watch !canvas)
         canvas-x (e/watch !canvas-x)
         canvas-y (e/watch !canvas-y)
@@ -86,23 +86,23 @@
         all-rects  (into [] (e/watch !all-rects))
         [off-x off-y] (e/watch !offset)]
     (e/client
-      (dom/canvas
+       (dom/canvas
         (dom/props {:id "top-canvas"
                     :height (e/watch !height)
                     :width (e/watch !width)})
         (reset! !canvas dom/node)
-        (when-some [[start-x start-y] ($ mouse-down-cords dom/node)]
-          (when-some [[end-x end-y] ($ dom/On "mousemove" (fn [e] [(.-clientX e) (.-clientY e)]))]
+        (when-some [[start-x start-y] (Mouse-down-cords dom/node)]
+          (when-some [[end-x end-y] (dom/On "mousemove" (fn [e] [(.-clientX e) (.-clientY e)]))]
              (let [dx (* 2 (/ (- end-x start-x) width))
                    dy (* 2 (/ (- end-y start-y) height))]
                (println 'start-x start-x start-y end-x end-y dx dy)
                (println 'start-y start-x start-y end-x end-y dx dy)
-               #_(upload-vertices
-                    all-rects
-                    device
-                    cformat
-                    context
-                    [canvas-x canvas-y width height dx dy]))))))))
+               (upload-vertices
+                  all-rects
+                  device
+                  cformat
+                  context
+                  [canvas-x canvas-y width height dx dy]))))))))
 
 
 
@@ -116,5 +116,5 @@
          (reset! !height (.-clientHeight dom/node))
          (reset! !canvas-x 0)
          (reset! !canvas-y 0)
-         ($ canvas-view)
-         ($ setup-webgpu)))))
+         (Canvas-view)
+         (Setup-webgpu)))))
