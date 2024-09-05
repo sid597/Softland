@@ -52,6 +52,7 @@
 (def !canvas-y (atom nil))
 (def !canvas-x (atom nil))
 (def !offset (atom [0 0]))
+(def !zoom-factor (atom 1.0))
 
 
 (defn mouse-down?> [node]
@@ -60,6 +61,9 @@
          (m/observe (fn [!] (dom/with-listener node "mouseup" (fn [_] (! nil))))))
     (m/reductions {} nil)
     (m/relieve {})))
+
+
+
 
 (defn await-promise
   "Returns a task completing with the result of given promise"

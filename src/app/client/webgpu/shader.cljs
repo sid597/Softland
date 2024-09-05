@@ -29,7 +29,8 @@
                             width: f32,
                             height: f32,
                             panX: f32,
-                            panY: f32
+                            panY: f32,
+                            zoomFactor: f32,
                      }
                      // Constants for screen dimensions
                      @group(0) @binding(0) var<storage, read> rectangles: array<f32>;     // Flattened input array
@@ -87,8 +88,8 @@
                       @vertex
                       fn renderVertices(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
                          let index = vertexIndex * 2;
-                         let px = vertex_buffer[index] + can_settings.panX;
-                         let py = vertex_buffer[index + 1] - can_settings.panY;
+                         let px = vertex_buffer[index] * can_settings.zoomFactor + can_settings.panX;
+                         let py = vertex_buffer[index + 1] * can_settings.zoomFactor + can_settings.panY;
 
                          // Pass position to the fragment shader
                         var output: VertexOutput;
@@ -120,51 +121,3 @@
 
 
                      "}))
-
-
-(defn transform-vertices []
-  "
-  struct Uniforms
-  {
-   color: vec3<f32>,
-   viewbox: vec4<f32>, // x, y, width, height}
-
-
-  @group(0) @binding(0) var<uniform> uniforms: Uniforms;
-  @group(0) @binding(1) var<storage, read> vertex_buffer: array<f32>;
-
-
-  struct VertexOutput
-  {
-   @builtin(position) position: vec4f,
-   @location(0) fragPos: vec2f}
-
-
-  @vertex
-  fn renderVertices(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput
-  {
-   let index = vertexIndex * 2;
-   let px = vertex_buffer[index];
-   let py = vertex_buffer[index + 1];
-
-   // Apply viewbox transformation
-   let x = (px - uniforms.viewbox.x) / uniforms.viewbox.z * 2.0 - 1.0;
-   let y = 1.0 - (py - uniforms.viewbox.y) / uniforms.viewbox.w * 2.0;
-
-   var output: VertexOutput;
-   output.position = vec4f(x, y, 0.0, 1.0);
-   output.fragPos = vec2f(px, py);  // Keep original position for color calculation
-   return output};
-
-
-  @fragment
-  fn renderVerticesFragment(@location(0) fragPos: vec2<f32>) -> @location(0) vec4<f32>
-  {
-   let baseColor = uniforms.color;
-
-   let r = baseColor.r * (sin(fragPos.x * 3.14159) * 0.2 + 0.8);
-   let g = baseColor.g * (cos(fragPos.y * 3.14159) * 0.2 + 0.8);
-   let b = baseColor.b * (sin((fragPos.x + fragPos.y) * 3.14159) * 0.2 + 0.8);
-
-   return vec4<f32>(r, g, b, 1.0)});
- ")

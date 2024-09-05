@@ -4,10 +4,8 @@
 
 
 (defn upload-vertices [data device fformat context config]
-  (println "config" config)
-  (let [[x y width height off-x off-y] config
-        varray                (js/Float32Array. (clj->js data))
-        settings-array         (js/Float32Array. (clj->js [width height off-x off-y]))
+  (let [varray                (js/Float32Array. (clj->js data))
+        settings-array         (js/Float32Array. (clj->js config))
         num-rectangles        (count data)
         output-size           (* num-rectangles 12)
         shader-module         (.createShaderModule device add-new-rects-shader-descriptor)
