@@ -1,6 +1,8 @@
 (ns global-flow
   (:import (missionary Cancelled))
-  (:require [missionary.core :as m]))
+  (:require [missionary.core :as m]
+            [hyperfiddle.electric-dom3 :as dom]
+            [contrib.missionary-contrib :as mx]))
 
 (defn current-time-ms []
   (js/Date.now))
@@ -35,3 +37,35 @@
 
 (def !all-nodes-map (atom []))
 (def !quad-tree (atom nil))
+
+
+(def !canvas (atom nil))
+(def !squares (atom nil))
+(def !adapter (atom nil))
+(def !device (atom nil))
+(def !context (atom nil))
+(def !format (atom nil))
+(def !command-encoder (atom nil))
+(def !all-rects (atom nil))
+(def !width (atom nil))
+(def !height (atom nil))
+(def !canvas-y (atom nil))
+(def !canvas-x (atom nil))
+(def !offset (atom [0 0]))
+
+
+(defn mouse-down?> [node]
+  (->> (mx/mix (m/observe (fn [!] (dom/with-listener node "mousedown"
+                                    (fn [e] (.preventDefault e) (! [(.-clientX e) (.-clientY e)])))))
+         (m/observe (fn [!] (dom/with-listener node "mouseup" (fn [_] (! nil))))))
+    (m/reductions {} nil)
+    (m/relieve {})))
+
+(defn await-promise
+  "Returns a task completing with the result of given promise"
+  [p]
+  (let [v (m/dfv)]
+    (.then p
+      #(v (fn [] %))
+      #(v (fn [] (throw %))))
+    (m/absolve v)))
