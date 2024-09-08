@@ -51,6 +51,7 @@
         (js/console.log "xx" x y)
         (swap! res concat [x y height width])))
     ;(println "DONE" (e/watch res) rc)
+    (println "total rects" (count @res))
     res))
 
 
@@ -76,10 +77,11 @@
           (let [ronce (e/snapshot all-rects)
                 rheight (e/snapshot height)
                 rwidth (e/snapshot width)
-                rzoom  (e/snapshot zoom-factor)]
-            (println "ronce" ronce rheight rwidth)
-            (upload-vertices ronce device cformat context
-              [rwidth rheight 0 0 rzoom 0 0])))))))
+                rzoom  (e/snapshot zoom-factor)
+                [off-x off-y] (e/snapshot offset)]
+            (println "ronce" (count ronce) rheight rwidth rzoom)
+            (upload-vertices "initial" ronce device cformat context
+              [rwidth rheight off-x off-y rzoom])))))))
 
 
 
@@ -87,42 +89,55 @@
 
 (e/defn Add-panning []
   (when-some [[start-x start-y] (Mouse-down-cords canvas)]
-    (when-some [[end-x end-y] (dom/On "mousemove" (fn [e] [(.-clientX e) (.-clientY e)]))]
-      (let [dx (* 2 (/ (- end-x start-x) width))
-            dy (* 2 (/ (- end-y start-y) height))]
-        (println '0 'start-x start-x start-y end-x end-y dx dy)
-        (println '1 'start-y start-x start-y end-x end-y dx dy)
-        (println '2 'start-y start-x start-y end-x end-y dx dy)
-        #_(upload-vertices
+    (let [[off-x off-y] (e/snapshot offset)]
+      (when-some [[end-x end-y] (dom/On "mousemove" (fn [e]
+                                                      (.preventDefault e)
+                                                      (let [clip-x (fn [x] (- (* 2 (/ x width)) 1))
+                                                            clip-y (fn [y] (- 1 (* 2 (/ y height))))
+                                                            end-x (.-clientX e)
+                                                            end-y (.-clientY e)
+                                                            start-clip-x  (clip-x start-x)
+                                                            start-clip-y  (clip-y start-y)
+                                                            end-clip-x  (clip-x end-x)
+                                                            end-clip-y  (clip-y end-y)
+                                                            new-pan-x   (+ off-x (- end-clip-x start-clip-x))
+                                                            new-pan-y   (+ off-y (- end-clip-y start-clip-y))]
+                                                        (reset! !offset [new-pan-x new-pan-y])
+                                                        [new-pan-x new-pan-y])))]
+          (upload-vertices
+            "panning"
             all-rects
             device
             format
             context
-            [width height dx dy 1])))))
+            [width height end-x end-y zoom-factor])))))
 
 (e/defn Add-wheel []
-  (when-some [[zf cx cy] (dom/On "wheel" (fn [e] (.preventDefault e)
-                                             (let [delta (.-deltaY e)
-                                                   rect (.getBoundingClientRect (.-target e))
-                                                   cursor-x (- (.-clientX e) (.-left rect))
-                                                   cursor-y  (- (.-clientY e) (.-top rect))
-                                                   scale (if (< delta 0)
-                                                           1.06
-                                                           0.95)
-                                                   new-zoom (* zoom-factor scale)
-                                                   [off-x off-y] offset
-                                                   canvas-x (/ (- cursor-x off-x) zoom-factor)
-                                                   canvas-y (/ (- cursor-y off-y) zoom-factor)
-                                                   pan-x  (- cursor-x (* canvas-x new-zoom))
-                                                   pan-y  (- cursor-y (* canvas-y new-zoom))
-                                                   clip-pan-x (- (* 2 (/ pan-x width)) 1)
-                                                   clip-pan-y (- 1 (* 2 (/ pan-y height)))]
-                                               (reset! !zoom-factor new-zoom)
-                                               (reset! !offset [pan-x pan-y])
-                                               [new-zoom clip-pan-x clip-pan-y]))
-                             nil {:passive false})]
-    (upload-vertices all-rects device format context
-      [width height cx cy zf])))
+  (when-some [[zf cx cy ] (dom/On "wheel" (fn [e] (.preventDefault e)
+                                              (let [delta         (.-deltaY e)
+                                                    rect          (.getBoundingClientRect (.-target e))
+                                                    cursor-x      (- (.-clientX e) (.-left rect))
+                                                    cursor-y      (- (.-clientY e) (.-top rect))
+                                                    scale         (if (< delta 0) 1.06 0.95)
+                                                    new-zoom      (* zoom-factor scale)
+                                                    [off-x off-y] offset
+                                                    clip-cursor-x (- (* 2 (/ cursor-x width)) 1)
+                                                    clip-cursor-y (- 1 (* 2 (/ cursor-y height)))
+                                                    pan-zoom      (- 1 scale)
+                                                    current-pan-x (* clip-cursor-x pan-zoom)
+                                                    current-pan-y (* clip-cursor-y pan-zoom)
+                                                    prev-pan-x    (* off-x scale)
+                                                    prev-pan-y    (* off-y scale)
+                                                    total-pan-x   (+ prev-pan-x current-pan-x)
+                                                    total-pan-y   (+ prev-pan-y current-pan-y)]
+                                                (reset! !offset [total-pan-x total-pan-y])
+                                                (reset! !zoom-factor new-zoom)
+                                                [new-zoom  total-pan-x total-pan-y]
+
+                                                #_[new-zoom clip-pan-x clip-pan-y cursor-x cursor-y]))
+                              nil {:passive false})]
+        (upload-vertices "zoom" all-rects device format context
+          [width height cx cy zf])))
 
 
 (e/defn Canvas-view []
@@ -131,7 +146,7 @@
       (dom/props {:id "top-canvas"
                   :height height
                   :width width})
-      (case (reset! !canvas dom/node)))))
+      (reset! !canvas dom/node))))
 
 
 
@@ -154,14 +169,17 @@
         (reset! !height (.-clientHeight dom/node))
         (reset! !canvas-x 0)
         (reset! !canvas-y 0)
+        (reset! !offset [0 0])
+        (reset! !zoom-factor 1.0)
         (Canvas-view)
        (when-not (some nil? [canvas height width])
-         (let [nos     16
+         (let [nos     200
                rnd     (Create-random-rects nos height width)]
            (reset! !all-rects @rnd)
            (when (some? all-rects)
+             (println "total rncts" (count all-rects))
              (do
-               (js/console.log "success canvase" canvas all-rects)
+               (js/console.log "success canvas" canvas all-rects)
                (Setup-webgpu)
                (Add-panning)
                (Add-wheel)))))))))

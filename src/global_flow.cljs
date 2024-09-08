@@ -51,8 +51,8 @@
 (def !height (atom nil))
 (def !canvas-y (atom nil))
 (def !canvas-x (atom nil))
-(def !offset (atom [0 0]))
-(def !zoom-factor (atom 1.0))
+(defonce !offset (atom nil))
+(defonce !zoom-factor (atom nil))
 
 
 (defn mouse-down?> [node]
@@ -63,8 +63,6 @@
     (m/relieve {})))
 
 
-
-
 (defn await-promise
   "Returns a task completing with the result of given promise"
   [p]
@@ -73,3 +71,4 @@
       #(v (fn [] %))
       #(v (fn [] (throw %))))
     (m/absolve v)))
+

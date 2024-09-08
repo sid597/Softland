@@ -3,7 +3,8 @@
 
 
 
-(defn upload-vertices [data device fformat context config]
+(defn upload-vertices [from data device fformat context config]
+  (println "upload vertices ::" from "::" config)
   (let [varray                (js/Float32Array. (clj->js data))
         settings-array         (js/Float32Array. (clj->js config))
         num-rectangles        (count data)
@@ -118,7 +119,7 @@
           render-pass  (.beginRenderPass
                          encoder
                          (clj->js {:colorAttachments (clj->js [{:view (.createView (.getCurrentTexture context))
-                                                                :clearValue (clj->js {:r 1.0 :g 1.0 :b 1.0 :a 1})
+                                                                :clearValue (clj->js {:r 0.0 :g 0.0 :b 0.0 :a 1})
                                                                 :loadOp "clear"
                                                                 :storeOp "store"}])
                                    :label "render parss"}))]
