@@ -1,6 +1,7 @@
 {:paths     ["src" "resources"]
  :mvn/repos {"nexus-releases" {:url "https://nexus.redplanetlabs.com/repository/maven-public-releases"}}
- :deps      {com.hyperfiddle/electric           {:git/url "https://github.com/hyperfiddle/electric" :git/sha "7479809e7cbb5ae5a980282715dc8331da24ff59"}
+ :deps      {com.hyperfiddle/electric           {:git/url "https://github.com/hyperfiddle/electric"
+                                                 :git/sha "b554893875e9f63d3e33bc9eea1852afa18215ad"}
              com.hyperfiddle/rcf                {:mvn/version "20220926-202227"}
              ring/ring                          {:mvn/version "1.11.0"} ; comes with Jetty
 
