@@ -33,9 +33,11 @@
                             zoomFactor: f32,
                      }
                      // Constants for screen dimensions
-                     @group(0) @binding(0) var<storage, read> rectangles: array<f32>;     // Flattened input array
+                     @group(0) @binding(0) var<storage, read>       rectangles: array<f32>;     // Flattened input array
                      @group(0) @binding(1) var<storage, read_write> vertices: array<f32>; // Output vertices
-                     @group(0) @binding(2) var<uniform> canvas_settings: CanvasSettings;  // Canvas settings uniform\n
+                     @group(0) @binding(2) var<uniform>             canvas_settings: CanvasSettings;  // Canvas settings uniform\n
+                     @group(0) @binding(3) var<storage, read>       id_buffer: array<u32>;
+                     @group(0) @binding(4) var<storage, read_write> rendered_ids: array<atomic<u32>>;
 
 
                      @compute @workgroup_size(64)
@@ -50,52 +52,57 @@
                       let width = rectangles[base_index + 3];
 
                       // Calculate the four corners of the rectangle in clip space
-                      let left = (x / canvas_settings.width ) * 2 - 1 ;
-                      let right = ((x + width) / canvas_settings.width  ) * 2 - 1;
-                      let top = 1 - (y / canvas_settings.height ) * 2 ;
-                      let bottom = 1 - ((y + height) / canvas_settings.height ) * 2  ;
+                      let left = ((x / canvas_settings.width ) * 2 - 1)               * canvas_settings.zoomFactor + canvas_settings.panX;
+                      let right = (((x + width) / canvas_settings.width  ) * 2 - 1)   * canvas_settings.zoomFactor + canvas_settings.panX;
+                      let top = (1 - (y / canvas_settings.height ) * 2)               * canvas_settings.zoomFactor + canvas_settings.panY ;
+                      let bottom = (1 - ((y + height) / canvas_settings.height ) * 2) * canvas_settings.zoomFactor + canvas_settings.panY ;
 
 
-                      // Create 6 vertices for two triangles (12 float values)
-                      let vertex_index = index * 12;  // 6 vertices * 2 components each
+                      if (max(left, right) >= -1.0 && min(left, right) <= 1.0 && max(top, bottom) >= -1.0 && min(top, bottom) <= 1.0) {\n
+                         let rect_id = id_buffer[index];
+                         let pos = atomicAdd(&rendered_ids[0], 1u);
+                         atomicStore(&rendered_ids[pos], rect_id);
 
 
-                      // Triangle 1
-                      vertices[vertex_index + 0] = left;
-                      vertices[vertex_index + 1] = top;
-                      vertices[vertex_index + 2] = right;
-                      vertices[vertex_index + 3] = top;
-                      vertices[vertex_index + 4] = left;
-                      vertices[vertex_index + 5] = bottom;
+                         // Create 6 vertices for two triangles (12 float values)
+                         let vertex_index = index * 12;  // 6 vertices * 2 components each
 
-                      // Triangle 2
-                      vertices[vertex_index + 6] = right;
-                      vertices[vertex_index + 7] = top;
-                      vertices[vertex_index + 8] = right;
-                      vertices[vertex_index + 9] = bottom;
-                      vertices[vertex_index + 10] = left;
-                      vertices[vertex_index + 11] = bottom;
-                      }
+
+                         // Triangle 1
+                         vertices[vertex_index + 0] = left;
+                         vertices[vertex_index + 1] = top;
+                         vertices[vertex_index + 2] = right;
+                         vertices[vertex_index + 3] = top;
+                         vertices[vertex_index + 4] = left;
+                         vertices[vertex_index + 5] = bottom;
+
+                         // Triangle 2
+                         vertices[vertex_index + 6] = right;
+                         vertices[vertex_index + 7] = top;
+                         vertices[vertex_index + 8] = right;
+                         vertices[vertex_index + 9] = bottom;
+                         vertices[vertex_index + 10] = left;
+                         vertices[vertex_index + 11] = bottom;
+                      }}
 
                       struct VertexOutput {
                       @builtin(position) position: vec4f,
                       @location(0) fragPos: vec2f
                       }
 
-                      @group(0) @binding(1) var<storage, read> vertex_buffer: array<f32>; // Changed to read-only\n
-                      @group(0) @binding(2) var<uniform> can_settings: CanvasSettings;  // Canvas settings uniform\\n\n
+                      @group(0) @binding(1) var<storage, read>       vertex_buffer: array<f32>; // Changed to read-only
+
 
                       @vertex
                       fn renderVertices(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
                          let index = vertexIndex * 2;
-                         let px = vertex_buffer[index] * can_settings.zoomFactor + can_settings.panX;
-                         let py = vertex_buffer[index + 1] * can_settings.zoomFactor + can_settings.panY;
+                         let px = vertex_buffer[index] ;
+                         let py = vertex_buffer[index + 1];
 
-                         // Pass position to the fragment shader
-                        var output: VertexOutput;
-                        output.position = vec4f(px, py, 0.0, 1.0);
-                        output.fragPos = vec2f(px, py);
-                        return output;
+                         var output: VertexOutput;
+                         output.position = vec4f(px, py, 0.0, 1.0);
+                         output.fragPos = vec2f(px, py);
+                         return output;
                       }
 
                       @fragment

@@ -53,6 +53,9 @@
 (def !canvas-x (atom nil))
 (defonce !offset (atom nil))
 (defonce !zoom-factor (atom nil))
+(def !visible-rects (atom nil))
+(def !old-visible-rects (atom nil))
+(def !global-event (atom nil))
 
 
 (defn mouse-down?> [node]
@@ -61,6 +64,7 @@
          (m/observe (fn [!] (dom/with-listener node "mouseup" (fn [_] (! nil))))))
     (m/reductions {} nil)
     (m/relieve {})))
+
 
 
 (defn await-promise
