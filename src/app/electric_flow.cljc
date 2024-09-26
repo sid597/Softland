@@ -2,6 +2,11 @@
   (:require [hyperfiddle.electric3 :as e]
             [missionary.core :as m]
             [hyperfiddle.electric-dom3 :as dom]
+            [hyperfiddle.electric-svg3]
+            [hyperfiddle.domlike :as dl]
+            [hyperfiddle.kvs :as kvs]
+            [hyperfiddle.incseq :as i]
+            [hyperfiddle.incseq.mount-impl :refer [mount]]
             #?@(:cljs [[app.client.webgpu.core :as wcore :refer [upload-vertices]]
                        [global-flow :refer [await-promise
                                             mouse-down?>
@@ -15,11 +20,12 @@
                                             !width
                                             !height
                                             !canvas-y
+                                            !visible-rects
                                             !canvas-x
                                             !zoom-factor
                                             !offset]]
-
                        [app.client.webgpu.data :refer [!rects]]])))
+
 
 (hyperfiddle.rcf/enable!)
 
@@ -38,6 +44,8 @@
 (declare canvas-x)
 (declare offset)
 (declare zoom-factor)
+(declare rect-ids)
+(declare visible-rects)
 
 
 
@@ -48,7 +56,7 @@
             width (+ 25.0 (rand-int 40))
             y (+ 0.1 (rand-int ch))
             x (+ 0.1 (rand-int cw))]
-        (js/console.log "xx" x y)
+        ;(js/console.log "xx" x y)
         (swap! res concat [x y height width])))
     ;(println "DONE" (e/watch res) rc)
     (println "total rects" (count @res))
@@ -81,7 +89,8 @@
                 [off-x off-y] (e/snapshot offset)]
             (println "ronce" (count ronce) rheight rwidth rzoom)
             (upload-vertices "initial" ronce device cformat context
-              [rwidth rheight off-x off-y rzoom])))))))
+              [rwidth rheight off-x off-y rzoom]
+              rect-ids)))))))
 
 
 
@@ -110,7 +119,8 @@
             device
             format
             context
-            [width height end-x end-y zoom-factor])))))
+            [width height end-x end-y zoom-factor]
+            rect-ids)))))
 
 (e/defn Add-wheel []
   (when-some [[zf cx cy ] (dom/On "wheel" (fn [e] (.preventDefault e)
@@ -137,7 +147,9 @@
                                                 #_[new-zoom clip-pan-x clip-pan-y cursor-x cursor-y]))
                               nil {:passive false})]
         (upload-vertices "zoom" all-rects device format context
-          [width height cx cy zf])))
+          [width height cx cy zf]
+          rect-ids)))
+
 
 
 (e/defn Canvas-view []
@@ -146,7 +158,33 @@
       (dom/props {:id "top-canvas"
                   :height height
                   :width width})
-      (reset! !canvas dom/node))))
+      (reset! !canvas dom/node)
+      (let [mp        (e/mount-point)
+            mount-at  (fn [kvs k v]
+                        (m/observe
+                          (fn [!]
+                            (! (i/empty-diff 0))
+                            (kvs/insert! kvs k v)
+                            #(kvs/remove! kvs k))))
+            key (js/Symbol.for "hyperfiddle.dom3.mount-point")
+            mount-items (mount
+                          (fn [element child]          (println "append child" element child))
+                          (fn [element child previous] (println "replace child" element child previous))
+                          (fn [element child sibling]  (println "insert child" element child sibling))
+                          (fn [element child]         (println "remove child" element child))
+                          (fn [element i]             {}#_(println "NODES child" element i)))
+            diff       (e/diff-by identity visible-rects)]
+        ;(println "Diff" diff "by" (e/as-vec (e/input(e/pure diff))))
+        (println "MP: " (e/as-vec(e/join mp)))
+        (mount-items visible-rects (e/input(e/pure diff)))
+        (e/for-by identity [id visible-rects]
+            (println "Id" id)
+          (let [data {:id id
+                      :data {:x (rand-int (+ id 200))}}]
+            (e/join (mount-at mp (e/tag) data))))))))
+            
+
+
 
 
 
@@ -163,18 +201,23 @@
               context (e/watch !context)
               all-rects (e/watch !all-rects)
               offset    (e/watch !offset)
-              zoom-factor (e/watch !zoom-factor)]
+              zoom-factor (e/watch !zoom-factor)
+              rect-ids     (vec (range 1 201))
+              visible-rects (e/watch !visible-rects)]
+
       (let [dpr (.-devicePixelRatio js/window)]
         (reset! !width (.-clientWidth dom/node))
         (reset! !height (.-clientHeight dom/node))
         (reset! !canvas-x 0)
         (reset! !canvas-y 0)
         (reset! !offset [0 0])
-        (reset! !zoom-factor 1.0)
+        (reset! !zoom-factor 3.2)
         (Canvas-view)
+        (println "rects " rect-ids)
        (when-not (some nil? [canvas height width])
-         (let [nos     200
+         (let [nos     40
                rnd     (Create-random-rects nos height width)]
+
            (reset! !all-rects @rnd)
            (when (some? all-rects)
              (println "total rncts" (count all-rects))
