@@ -50,6 +50,7 @@
 (declare visible-rects)
 (declare old-visible-rects)
 (declare data-spine)
+(declare global-atom)
 
 
 (e/defn Create-random-rects [rc ch cw]
@@ -153,51 +154,65 @@
           [width height cx cy zf]
           rect-ids)))
 
+(e/defn On-node-add [id]
+  ;; signature 
+  ;; on add need to ad to spine then create the watchers etc. or do I even need to add to the spine? 
+  ;; not sure but this seems the right place to do such thing. 
+  ;; how?   
+  ;; I think I am thinking ahead adding is easy but how do I remove? 
+  ;; I think the task and flow pattern would come in handy like there is a on success and on cancel 
+  ;; think. If its canceled then the thing is gone. 
+  ;; I need to find how to do that
+  (println id "nf" global-atom visible-rects))
+    
 
 
 (e/defn Canvas-view []
-  (e/client
+ (e/client
     (dom/canvas
       (dom/props {:id "top-canvas"
                   :height height
                   :width width})
       (reset! !canvas dom/node)
-      (println "NEW SPINE"
-                (count visible-rects)
-                (e/input (i/count data-spine))
-                (count old-visible-rects)
+      (when-some [down (Mouse-down-cords dom/node)]
+        (println "DOWN")
+        (reset! !global-atom {:cords down}))
+      (e/for-by identity [node (e/as-vec (e/input (e/join (i/items data-spine))))]
 
-                visible-rects 
-                ;; Find all the elements in a data spine and show them in a vec representation.
-                (e/as-vec (e/input (e/join (i/items data-spine))))
-                old-visible-rects)
-                
-                 
+                 (println node global-atom) 
+                 #_(On-node-add node))
+      #_(println "NEW SPINE"
+                  (count visible-rects)
+                  (e/input (i/count data-spine))
+                  (count old-visible-rects)
 
-
-      (let [
-            mount-items (mount
+                  visible-rects 
+                  ;; Find all the elements in a data spine and show them in a vec representation.
+                  (e/as-vec (e/input (e/join (i/items data-spine))))
+                  old-visible-rects)
+      (let [mount-items (mount
                           (fn [element child]          (do 
-                                                          (println "append child" element "::" child)
+                                                          ;(println "append child" element "::" child)
                                                           (data-spine 
                                                            child 
                                                            (fn [old new]
-                                                             (println "S: append OLD" old "new" new)
+                                                             #_(println "S: append OLD" old "new" new)
                                                              new)
-                                                           {(keyword (str child)) (str child "-Hello")})))
+                                                           ;(fn ll [] (println "I AM RUNNING" child))
+                                                           child)))
                                                            
-                          (fn [element child previous] (do (println "replace child" element "::" child "::" previous)))
+                          (fn [element child previous] ()#_(do (println "replace child" element "::" child "::" previous)))
                                                            
-                          (fn [element child sibling]  (do (println "insert child" element "::" child "::" sibling)))
+                          (fn [element child sibling]  ()) ;(do (println "insert child" element "::" child "::" sibling)))
                                                            
-                          (fn [element child]          (do (println "remove child" element "::" child)
+                          (fn [element child]          (do ;(println "remove child" element "::" child)
                                                            (data-spine
                                                                 child 
                                                                 (fn [old new]
-                                                                  (println "S: remove child" child "OLD" old "NEW" new)
+                                                                  ;(println "S: remove child" child "OLD" old "NEW" new)
                                                                   new)
                                                                 nil)))
-                          (fn [element i]            (do (println "NODES child" i "::" element "::" (nth element i nil)) 
+                          (fn [element i]            (do ;(println "NODES child" i "::" element "::" (nth element i nil)) 
                                                          (nth element i nil))))
 
 
@@ -213,8 +228,9 @@
 
             diff       (e/input (e/pure (e/diff-by identity visible-rects)))]
 
-        (println "Diff" visible-rects "by" diff)
-        (println "--VISIBLE--" visible-rects "::" old-visible-rects)
+        ;(println "Diff" visible-rects "by" diff)
+        ;(println "--VISIBLE--" visible-rects "::" old-visible-rects)
+
 
         ;; Learning: This is how to use a non-reactive value with a reactive one. 
         ;; xy problem in this case is: if there is a new diff run mount items function
@@ -248,7 +264,8 @@
               rect-ids     (vec (range 1000 1201))
               visible-rects (e/watch !visible-rects)
               old-visible-rects (e/watch !old-visible-rects)
-              data-spine   (i/spine)]
+              data-spine   (i/spine)
+              global-atom (e/watch !global-atom)]
 
       (let [dpr (.-devicePixelRatio js/window)]
         (reset! !width (.-clientWidth dom/node))
