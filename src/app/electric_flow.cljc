@@ -3,15 +3,16 @@
             [missionary.core :as m]
             [hyperfiddle.electric-dom3 :as dom]
             [hyperfiddle.electric-svg3]
-            [hyperfiddle.domlike :as dl]
+            [hyperfiddle.incseq.mount-impl :refer [mount]]
             [hyperfiddle.kvs :as kvs]
             [hyperfiddle.incseq :as i]
-            [hyperfiddle.incseq.mount-impl :refer [mount]]
             #?@(:cljs [[app.client.webgpu.core :as wcore :refer [upload-vertices]]
                        [global-flow :refer [await-promise
                                             mouse-down?>
                                             !canvas
+                                            global-client-flow
                                             !adapter
+                                            !global-atom
                                             !device
                                             !context
                                             !command-encoder
@@ -21,6 +22,7 @@
                                             !height
                                             !canvas-y
                                             !visible-rects
+                                            !old-visible-rects
                                             !canvas-x
                                             !zoom-factor
                                             !offset]]
@@ -46,7 +48,8 @@
 (declare zoom-factor)
 (declare rect-ids)
 (declare visible-rects)
-
+(declare old-visible-rects)
+(declare data-spine)
 
 
 (e/defn Create-random-rects [rc ch cw]
@@ -145,7 +148,7 @@
                                                 [new-zoom  total-pan-x total-pan-y]
 
                                                 #_[new-zoom clip-pan-x clip-pan-y cursor-x cursor-y]))
-                              nil {:passive false})]
+                                  nil {:passive false})]
         (upload-vertices "zoom" all-rects device format context
           [width height cx cy zf]
           rect-ids)))
@@ -159,31 +162,71 @@
                   :height height
                   :width width})
       (reset! !canvas dom/node)
-      (let [mp        (e/mount-point)
-            mount-at  (fn [kvs k v]
-                        (m/observe
-                          (fn [!]
-                            (! (i/empty-diff 0))
-                            (kvs/insert! kvs k v)
-                            #(kvs/remove! kvs k))))
-            key (js/Symbol.for "hyperfiddle.dom3.mount-point")
-            mount-items (mount
-                          (fn [element child]          (println "append child" element child))
-                          (fn [element child previous] (println "replace child" element child previous))
-                          (fn [element child sibling]  (println "insert child" element child sibling))
-                          (fn [element child]         (println "remove child" element child))
-                          (fn [element i]             {}#_(println "NODES child" element i)))
-            diff       (e/diff-by identity visible-rects)]
-        ;(println "Diff" diff "by" (e/as-vec (e/input(e/pure diff))))
-        (println "MP: " (e/as-vec(e/join mp)))
-        (mount-items visible-rects (e/input(e/pure diff)))
-        (e/for-by identity [id visible-rects]
-            (println "Id" id)
-          (let [data {:id id
-                      :data {:x (rand-int (+ id 200))}}]
-            (e/join (mount-at mp (e/tag) data))))))))
-            
+      (println "NEW SPINE"
+                (count visible-rects)
+                (e/input (i/count data-spine))
+                (count old-visible-rects)
 
+                visible-rects 
+                ;; Find all the elements in a data spine and show them in a vec representation.
+                (e/as-vec (e/input (e/join (i/items data-spine))))
+                old-visible-rects)
+                
+                 
+
+
+      (let [
+            mount-items (mount
+                          (fn [element child]          (do 
+                                                          (println "append child" element "::" child)
+                                                          (data-spine 
+                                                           child 
+                                                           (fn [old new]
+                                                             (println "S: append OLD" old "new" new)
+                                                             new)
+                                                           {(keyword (str child)) (str child "-Hello")})))
+                                                           
+                          (fn [element child previous] (do (println "replace child" element "::" child "::" previous)))
+                                                           
+                          (fn [element child sibling]  (do (println "insert child" element "::" child "::" sibling)))
+                                                           
+                          (fn [element child]          (do (println "remove child" element "::" child)
+                                                           (data-spine
+                                                                child 
+                                                                (fn [old new]
+                                                                  (println "S: remove child" child "OLD" old "NEW" new)
+                                                                  new)
+                                                                nil)))
+                          (fn [element i]            (do (println "NODES child" i "::" element "::" (nth element i nil)) 
+                                                         (nth element i nil))))
+
+
+            ;; My understanding of whats going on here is that 
+            ;; we create diffs (not from the inseq ns) but from the electric ns. Theses diffs are returned as a vec 
+            ;; but we want to know the actual diff that was produced not the reconsiled version of it. So we use other 
+            ;; functison from electric ns and undo the work being done by e/diff-by. So we use e/pure to get the pure 
+            ;; version of each output of e/diff-by then use e/input to read the value returned.
+
+
+            ;; What is a table? 
+
+
+            diff       (e/input (e/pure (e/diff-by identity visible-rects)))]
+
+        (println "Diff" visible-rects "by" diff)
+        (println "--VISIBLE--" visible-rects "::" old-visible-rects)
+
+        ;; Learning: This is how to use a non-reactive value with a reactive one. 
+        ;; xy problem in this case is: if there is a new diff run mount items function
+        ;; with the old visible rects and the diff. Note that we need old version of the rects array
+        ;; because diff is calculated based on old vs new value of the array. Since the array changes we 
+        ;; get a diff on that array so we need to have access to the old array in the mount to let us know which item 
+        ;; was deleted. 
+
+        ((fn [] (when (some? diff) 
+                   (mount-items @!old-visible-rects diff))))))))
+        
+            
 
 
 
@@ -202,8 +245,10 @@
               all-rects (e/watch !all-rects)
               offset    (e/watch !offset)
               zoom-factor (e/watch !zoom-factor)
-              rect-ids     (vec (range 1 201))
-              visible-rects (e/watch !visible-rects)]
+              rect-ids     (vec (range 1000 1201))
+              visible-rects (e/watch !visible-rects)
+              old-visible-rects (e/watch !old-visible-rects)
+              data-spine   (i/spine)]
 
       (let [dpr (.-devicePixelRatio js/window)]
         (reset! !width (.-clientWidth dom/node))
