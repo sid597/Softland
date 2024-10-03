@@ -165,7 +165,11 @@
   ;; I need to find how to do that
   (println id "nf" global-atom visible-rects))
     
-
+(e/defn Tap-diffs
+  ([f! x] 
+   (f! (e/input (e/pure x)))
+   x)
+  ([x] (Tap-diffs prn x)))
 
 (e/defn Canvas-view []
  (e/client
@@ -177,7 +181,7 @@
       (when-some [down (Mouse-down-cords dom/node)]
         (println "DOWN")
         (reset! !global-atom {:cords down}))
-      (e/for-by identity [node (e/as-vec (e/input (e/join (i/items data-spine))))]
+     #_ (e/for-by identity [node (e/as-vec (e/input (e/join (i/items data-spine))))]
 
                  (println node global-atom) 
                  #_(On-node-add node))
@@ -225,6 +229,11 @@
 
             ;; What is a table? 
 
+            ;; its a width-1 diff for e.g any value type e.g "hello" or a vector
+
+            ;; I think I can use fixed_impl/flow as an inspiration for my long lived flow functions?? 
+            ;; and manage the termination with the help of diff-by and spine?? 
+
 
             diff       (e/input (e/pure (e/diff-by identity visible-rects)))]
 
@@ -238,11 +247,33 @@
         ;; because diff is calculated based on old vs new value of the array. Since the array changes we 
         ;; get a diff on that array so we need to have access to the old array in the mount to let us know which item 
         ;; was deleted. 
-
+        ;(Tap-diffs diff)
+        (println "==" (e/input (e/pure "HELLO" ))"::"(e/input (e/pure zoom-factor)))
+        (println "===" (e/input (m/watch (atom "hello"))))
+        (println "====" (e/join (e/pure visible-rects)))
+        ;; create flow of diffs for the value vieible-rects
+        (println "==0-0" (e/join (i/fixed (e/pure visible-rects))))
+        (println "==s" (e/pure visible-rects)
+          (e/join (i/fixed (e/pure visible-rects)))
+         "::" #_(e/input (e/pure visible-rects)))
+        (println "TT" (->> (e/pure visible-rects)
+                           (m/reductions (fn [x d]
+                                           (do
+                                             (println "patch vec" x d)
+                                             (i/patch-vec)))
+                                         )
+                           (m/latest (fn [c]
+                                      (do (println "CC" c)
+                                        (eduction cat c))))
+                           (i/diff-by identity)
+                           (e/join)
+                           (e/pure)
+                           (e/input)) 
+                 "::" visible-rects)
+                           
         ((fn [] (when (some? diff) 
                    (mount-items @!old-visible-rects diff))))))))
         
-            
 
 
 
@@ -273,11 +304,11 @@
         (reset! !canvas-x 0)
         (reset! !canvas-y 0)
         (reset! !offset [0 0])
-        (reset! !zoom-factor 3.2)
+        (reset! !zoom-factor 3)
         (Canvas-view)
         (println "rects " rect-ids)
        (when-not (some nil? [canvas height width])
-         (let [nos     40
+         (let [nos     200
                rnd     (Create-random-rects nos height width)]
 
            (reset! !all-rects @rnd)
