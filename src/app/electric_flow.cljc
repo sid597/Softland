@@ -13,6 +13,7 @@
                                             global-client-flow
                                             !adapter
                                             !global-atom
+                                            current-time-ms
                                             !device
                                             !context
                                             !command-encoder
@@ -117,6 +118,8 @@
                                                             new-pan-y   (+ off-y (- end-clip-y start-clip-y))]
                                                         (reset! !offset [new-pan-x new-pan-y])
                                                         [new-pan-x new-pan-y])))]
+        (do
+          (swap! !old-visible-rects (constantly @!visible-rects))
           (upload-vertices
             "panning"
             all-rects
@@ -124,7 +127,7 @@
             format
             context
             [width height end-x end-y zoom-factor]
-            rect-ids)))))
+            rect-ids))))))
 
 (e/defn Add-wheel []
   (when-some [[zf cx cy ] (dom/On "wheel" (fn [e] (.preventDefault e)
@@ -146,13 +149,15 @@
                                                     total-pan-y   (+ prev-pan-y current-pan-y)]
                                                 (reset! !offset [total-pan-x total-pan-y])
                                                 (reset! !zoom-factor new-zoom)
+                                                (swap! !old-visible-rects (constantly @!visible-rects))
                                                 [new-zoom  total-pan-x total-pan-y]
+
 
                                                 #_[new-zoom clip-pan-x clip-pan-y cursor-x cursor-y]))
                                   nil {:passive false})]
-        (upload-vertices "zoom" all-rects device format context
-          [width height cx cy zf]
-          rect-ids)))
+      (upload-vertices "zoom" all-rects device format context
+        [width height cx cy zf]
+        rect-ids)))
 
 (e/defn On-node-add [id]
   ;; signature 
@@ -171,6 +176,10 @@
    x)
   ([x] (Tap-diffs prn x)))
 
+(e/defn Get-diffs [x]
+  (println "DIFFS FOR" x)
+  [x (e/input (e/pure (e/diff-by identity x)))])
+
 (e/defn Canvas-view []
  (e/client
     (dom/canvas
@@ -178,22 +187,27 @@
                   :height height
                   :width width})
       (reset! !canvas dom/node)
-      (when-some [down (Mouse-down-cords dom/node)]
-        (println "DOWN")
-        (reset! !global-atom {:cords down}))
+      #_(when-some [down (Mouse-down-cords dom/node)]
+          (println "DOWN")
+          (reset! !global-atom {:cords down}))
      #_ (e/for-by identity [node (e/as-vec (e/input (e/join (i/items data-spine))))]
 
-                 (println node global-atom) 
-                 #_(On-node-add node))
-      #_(println "NEW SPINE"
-                  (count visible-rects)
-                  (e/input (i/count data-spine))
-                  (count old-visible-rects)
+                  (println node global-atom) 
+                  #_(On-node-add node))
+     (let [spine-count (e/input (i/count data-spine))
+           spine-el 
+                      (e/as-vec (e/input (e/join (i/items data-spine))))]
+      ((fn [] (when (some? spine-el)
+                (do (println (current-time-ms)
+                             "NEW SPINE"
+                             (count @!visible-rects)
+                             (count spine-el)
+                             (count @!old-visible-rects)
 
-                  visible-rects 
-                  ;; Find all the elements in a data spine and show them in a vec representation.
-                  (e/as-vec (e/input (e/join (i/items data-spine))))
-                  old-visible-rects)
+                             @!visible-rects 
+                             spine-el
+                              ;; Find all the elements in a data spine and show them in a vec representation.
+                             @!old-visible-rects)))))
       (let [mount-items (mount
                           (fn [element child]          (do 
                                                           ;(println "append child" element "::" child)
@@ -205,18 +219,18 @@
                                                            ;(fn ll [] (println "I AM RUNNING" child))
                                                            child)))
                                                            
-                          (fn [element child previous] ()#_(do (println "replace child" element "::" child "::" previous)))
+                          (fn [element child previous] (do (println "replace child" element "::" child "::" previous)))
                                                            
-                          (fn [element child sibling]  ()) ;(do (println "insert child" element "::" child "::" sibling)))
+                          (fn [element child sibling]  (println "insert child" element "::" child "::" sibling))
                                                            
-                          (fn [element child]          (do ;(println "remove child" element "::" child)
+                          (fn [element child]          (do (println (current-time-ms)   "remove child" element "::" child)
                                                            (data-spine
                                                                 child 
                                                                 (fn [old new]
                                                                   ;(println "S: remove child" child "OLD" old "NEW" new)
                                                                   new)
                                                                 nil)))
-                          (fn [element i]            (do ;(println "NODES child" i "::" element "::" (nth element i nil)) 
+                          (fn [element i]            (do (println "NODES child" i "::" element "::" (nth element i nil)) 
                                                          (nth element i nil))))
 
 
@@ -234,8 +248,15 @@
             ;; I think I can use fixed_impl/flow as an inspiration for my long lived flow functions?? 
             ;; and manage the termination with the help of diff-by and spine?? 
 
+            diff (e/input (e/pure (e/diff-by identity visible-rects)))]
 
-            diff       (e/input (e/pure (e/diff-by identity visible-rects)))]
+         ((fn [] (when (some? diff) 
+                   (do
+                    (println (current-time-ms) "DIFF" diff @!visible-rects)
+                    (mount-items @!old-visible-rects diff)
+                    (swap! !old-visible-rects (constantly @!visible-rects))))))
+                                  
+      
 
         ;(println "Diff" visible-rects "by" diff)
         ;(println "--VISIBLE--" visible-rects "::" old-visible-rects)
@@ -248,31 +269,30 @@
         ;; get a diff on that array so we need to have access to the old array in the mount to let us know which item 
         ;; was deleted. 
         ;(Tap-diffs diff)
-        (println "==" (e/input (e/pure "HELLO" ))"::"(e/input (e/pure zoom-factor)))
-        (println "===" (e/input (m/watch (atom "hello"))))
-        (println "====" (e/join (e/pure visible-rects)))
-        ;; create flow of diffs for the value vieible-rects
-        (println "==0-0" (e/join (i/fixed (e/pure visible-rects))))
-        (println "==s" (e/pure visible-rects)
-          (e/join (i/fixed (e/pure visible-rects)))
-         "::" #_(e/input (e/pure visible-rects)))
-        (println "TT" (->> (e/pure visible-rects)
-                           (m/reductions (fn [x d]
-                                           (do
-                                             (println "patch vec" x d)
-                                             (i/patch-vec)))
-                                         )
-                           (m/latest (fn [c]
-                                      (do (println "CC" c)
-                                        (eduction cat c))))
-                           (i/diff-by identity)
-                           (e/join)
-                           (e/pure)
-                           (e/input)) 
-                 "::" visible-rects)
+        ;(println "==" (e/input (e/pure "HELLO" ))"::"(e/input (e/pure zoom-factor)))
+        ;(println "===" (e/input (m/watch (atom "hello"))))
+        ;(println "====" (e/join (e/pure visible-rects)))
+        ;;; create flow of diffs for the value vieible-rects
+        ;(println "==0-0" (e/join (i/fixed (e/pure visible-rects))))
+        ;(println "==s" (e/pure visible-rects)
+        ;  (e/join (i/fixed (e/pure visible-rects)))
+        ; "::" #_(e/input (e/pure visible-rects))
+        #_(println "TT" (->> (e/pure visible-rects)
+                             (m/reductions (fn [x d]
+                                             (do
+                                               (println "patch vec" x d)
+                                               (i/patch-vec))))
+                                         
+                             (m/latest (fn [c]
+                                        (do (println "CC" c)
+                                          (eduction cat c))))
+                             (i/diff-by identity)
+                             (e/join)
+                             (e/pure)
+                             (e/input)) 
+                   "::" visible-rects))))))
                            
-        ((fn [] (when (some? diff) 
-                   (mount-items @!old-visible-rects diff))))))))
+        
         
 
 
@@ -308,12 +328,12 @@
         (Canvas-view)
         (println "rects " rect-ids)
        (when-not (some nil? [canvas height width])
-         (let [nos     200
+         (let [nos     20
                rnd     (Create-random-rects nos height width)]
 
            (reset! !all-rects @rnd)
            (when (some? all-rects)
-             (println "total rncts" (count all-rects))
+             (println "total rncts" (count all-rects) @rnd)
              (do
                (js/console.log "success canvas" canvas all-rects)
                (Setup-webgpu)

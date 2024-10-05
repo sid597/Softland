@@ -157,12 +157,7 @@
                            num-rendered (js/Float32Array. mapped-range)
                            rendered-ids (sort (into-array num-rendered))
                            new-rects    (js->clj (into-array (filter (complement zero?) rendered-ids)))]
-                       (if (= "initial" from)
                          (swap! !visible-rects (constantly new-rects))
-                         (do 
-                           (when-not (= new-rects @!visible-rects)
-                             (swap! !old-visible-rects (constantly @!visible-rects)))
-                           (swap! !visible-rects (constantly new-rects))))
                        (.unmap staging-buffer)))))))
 
 
