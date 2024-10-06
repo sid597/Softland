@@ -1,146 +1,82 @@
-
-
 (ns app.server.ttf
-  (:import [org.apache.fontbox.ttf TTFParser]
-           [org.apache.pdfbox.io RandomAccessReadBufferedFile]
-           [java.io File])
-  (:gen-class))
+  (:require [clojure.data.json :as json]
+            [clojure.pprint :refer [pprint]]
+            [clojure.java.io :as io]))
 
-(defn parse-ttf [file-path]
-  (println "Attempting to parse file:" file-path)
-  (try
-    (let [parser (TTFParser.)
-          _ (println "Created TTFParser instance")
-          raf (RandomAccessReadBufferedFile. file-path)
-          _ (println "Created RandomAccessReadBufferedFile instance")
-          font (.parse parser raf)
-          _ (println "Successfully parsed font file")
-          head-table (.getHeader font)
-          maxp-table (.getMaximumProfile font)
-          hhea-table (.getHorizontalHeader font)
-          vhea-table (.getVerticalHeader font)
-          hmtx-table (.getHorizontalMetrics font)
-          vmtx-table (.getVerticalMetrics font)
-          cmap-table (.getCmap font)
-          loca-table (.getIndexToLocation font)
-          glyf-table (.getGlyph font)
-          gpos-table (.getGsub font)
+(def atlas-data (json/read-str
+                  (slurp "/Users/sid597/Softland/resources/public/font_atlas.json")
+                  :key-fn keyword))
 
-          ;; Extract the number of glyphs
-          num-glyphs (.getNumGlyphs maxp-table)
+(defn shape-text [msdf-atlas text font-size]
+  (let [atlas          (:atlas msdf-atlas)
+        atlas-width    (:width atlas)
+        atlas-height   (:height atlas)
+        metrics        (:metrics msdf-atlas)
+        line-height    (:lineHeight metrics)
+        glyphs        (reduce (fn [acc glyph]
+                                (assoc acc (:unicode glyph)
+                                           glyph))
+                        {}
+                        (:glyphs msdf-atlas))]
+    (println "--" (take 2 glyphs) "=============" (get glyphs 72))
 
-          glyphs (mapv (fn [gid] 
-                         {:gid gid 
-                          :glyph-data (.getGlyph glyf-table gid)})
-                      (range num-glyphs))
+    (loop [chars (seq text)
+           x     0
+           y     0
+           acc   []]
+      (if (empty? chars)
+        acc
+        (let [ch        (first chars)
+              codepoint (int ch)]
+          (if (= ch \newline)
+            ;; Handle newlines by resetting x and adjusting y
+            (recur (rest chars)
+              0
+              (- y (* font-size line-height))
+              acc)
+            (let [glyph (get glyphs codepoint)]
+              (println 'glyph glyph)
+              (if glyph
+                (let [advance        (* font-size (:advance glyph))
+                      plane-bounds   (:planeBounds glyph)
+                      atlas-bounds   (:atlasBounds glyph)
+                      _ (println "advance" advance plane-bounds atlas-bounds)
+                      ;; Scale plane bounds by font size
+                      pl             (+ x (* font-size (get plane-bounds :left)))
+                      pb             (+ y (* font-size (get plane-bounds :bottom)))
+                      pr             (+ x (* font-size (get plane-bounds :right)))
+                      pt             (+ y (* font-size (get plane-bounds :top)))
+                      positions      [[pl pb] [pr pb] [pr pt] [pl pt]]
+                      _ (println "--" positions)
+                      ;; Calculate texture coordinates
+                      al             (/ (get atlas-bounds :left) atlas-width)
+                      ab             (/ (get atlas-bounds :bottom) atlas-height)
+                      ar             (/ (get atlas-bounds :right) atlas-width)
+                      at             (/ (get atlas-bounds :top) atlas-height)
+                      uvs            [[al ab] [ar ab] [ar at] [al at]]]
+                  (recur (rest chars)
+                    (+ x advance)
+                    y
+                    (conj acc {:codepoint codepoint
+                               :positions positions
+                               :uvs uvs})))
+                ;; Skip character if glyph not found
+                (recur (rest chars)
+                  x
+                  y
+                  acc)))))))))
 
-          horizontal-metrics (mapv (fn [gid]
-                                    {:gid gid
-                                     :advance-width (.getAdvanceWidth hmtx-table gid)
-                                     :left-side-bearing (.getLeftSideBearing hmtx-table gid)})
-                                  (range num-glyphs))
-          vertical-metrics (when (some? vmtx-table) 
-                             (mapv (fn [gid]
-                                      {:gid gid
-                                       :advance-height (.getAdvanceHeight vmtx-table gid)
-                                       :left-side-bearing (.getLeftSideBearing vmtx-table gid)})
-                                  (range num-glyphs)))] 
+(pprint  (shape-text atlas-data "Hello,World!" 48))
 
-      {:name (.getName font)
-       :font-version (.getVersion font)
-       :num-glyphs num-glyphs
-       :units-per-em (.getUnitsPerEm head-table)
-       :bbox (.getFontBBox font)
-       :head {:checkSumAdjustment (.getCheckSumAdjustment head-table)
-                 :created (.getCreated head-table)
-                 :flags (.getFlags head-table)
-                 :fontDirectionHint (.getFontDirectionHint head-table)
-                 :fontRevision (.getFontRevision head-table)
-                 :glyphDataFormat (.getGlyphDataFormat head-table)
-                 :indexToLocFormat (.getIndexToLocFormat head-table)
-                 :lowestRecPPEM (.getLowestRecPPEM head-table)
-                 :macStyle (.getMacStyle head-table)
-                 :magicNumber (.getMagicNumber head-table)
-                 :modified (.getModified head-table)
-                 :unitsPerEm (.getUnitsPerEm head-table)
-                 :version (.getVersion head-table)
-                 :xMax (.getXMax head-table)
-                 :xMin (.getXMin head-table)
-                 :yMax (.getYMax head-table)
-                 :yMin (.getYMin head-table)}
-       :hhea {:advanceWidthMax (.getAdvanceWidthMax hhea-table)
-                :ascender (.getAscender hhea-table)
-                :caretSlopeRise (.getCaretSlopeRise hhea-table)
-                :caretSlopeRun (.getCaretSlopeRun hhea-table)
-                :descender (.getDescender hhea-table)
-                :lineGap (.getLineGap hhea-table)
-                :metricDataFormat (.getMetricDataFormat hhea-table)
-                :minLeftSideBearing (.getMinLeftSideBearing hhea-table)
-                :minRightSideBearing (.getMinRightSideBearing hhea-table)
-                :numberOfHMetrics (.getNumberOfHMetrics hhea-table)
-                :reserved1 (.getReserved1 hhea-table)
-                :reserved2 (.getReserved2 hhea-table)
-                :reserved3 (.getReserved3 hhea-table)
-                :reserved4 (.getReserved4 hhea-table)
-                :reserved5 (.getReserved5 hhea-table)
-                :version (.getVersion hhea-table)
-                :xMaxExtent (.getXMaxExtent hhea-table)}
-       :hmtx {:metrics horizontal-metrics} 
-       :vhea (when (some? vhea-table) 
-               {:advanceHeightMax (.getAdvanceHeightMax vhea-table)
-                   :ascender (.getAscender vhea-table)
-                   :caretOffset (.getCaretOffset vhea-table)
-                   :caretSlopeRise (.getCaretSlopeRise vhea-table)
-                   :caretSlopeRun (.getCaretSlopeRun vhea-table)
-                   :descender (.getDescender vhea-table)
-                   :lineGap (.getLineGap vhea-table)
-                   :metricDataFormat (.getMetricDataFormat vhea-table)
-                   :minBottomSideBearing (.getMinBottomSideBearing vhea-table)
-                   :minTopSideBearing (.getMinTopSideBearing vhea-table)
-                   :numberOfVMetrics (.getNumberOfVMetrics vhea-table)
-                   :reserved1 (.getReserved1 vhea-table)
-                   :reserved2 (.getReserved2 vhea-table)
-                   :reserved3 (.getReserved3 vhea-table)
-                   :reserved4 (.getReserved4 vhea-table)
-                   :version (.getVersion vhea-table)
-                   :yMaxExtent (.getYMaxExtent vhea-table)})
-       :vmtx {:metrics vertical-metrics}
-       :maxp {:maxComponentDepth (.getMaxComponentDepth maxp-table)
-                 :maxComponentElements (.getMaxComponentElements maxp-table)
-                 :maxCompositeContours (.getMaxCompositeContours maxp-table)
-                 :maxCompositePoints (.getMaxCompositePoints maxp-table)
-                 :maxContours (.getMaxContours maxp-table)
-                 :maxFunctionDefs (.getMaxFunctionDefs maxp-table)
-                 :maxInstructionDefs (.getMaxInstructionDefs maxp-table)
-                 :maxPoints (.getMaxPoints maxp-table)
-                 :maxSizeOfInstructions (.getMaxSizeOfInstructions maxp-table)
-                 :maxStackElements (.getMaxStackElements maxp-table)
-                 :maxStorage (.getMaxStorage maxp-table)
-                 :maxTwilightPoints (.getMaxTwilightPoints maxp-table)
-                 :maxZones (.getMaxZones maxp-table)
-                 :numGlyphs (.getNumGlyphs maxp-table)
-                 :version (.getVersion maxp-table)}
-       :cmap {:cmap-tables (vec (.getCmaps cmap-table))}
-       :loca {:num-locations (.getOffsets loca-table)}
-       :glyphs glyphs ; A vector of glyphs (just the first 5 for demonstration)
-       :gpos  (.getGsubData gpos-table)})
 
-    (catch Exception e
-      (println "Error parsing font file:" (.getMessage e))
-      (.printStackTrace e)
-      nil)))
-
-(defn -main [& args]
-  (println "Starting main function")
-  (if (empty? args)
-    (println "Please provide a path to a TTF file as an argument.")
-    (let [file-path (first args)
-          _ (println "Received file path:" file-path)
-          font-data (parse-ttf file-path)]
-      (if font-data
-        font-data
-        (println "Failed to parse font data")))))
-
-(println "Script loaded. Calling -main function:")
-(apply -main *command-line-args*)
+#_{"unicode":33,
+   "advance":0.59999999999999998,
+   "planeBounds":{"left":0.19665441176470588,
+                  "bottom":-0.009765625,
+                  "right":0.41540441176470588,
+                  "top":0.736328125},
+   "atlasBounds":{"left":5854.5,
+                  "bottom":5415.5,
+                  "right":5910.5,
+                  "top":5606.5}}
 
