@@ -9,22 +9,47 @@
 (def atlas-data (json/read-str
                   (slurp "/Users/sid597/Softland/resources/public/font_atlas.json")
                   :key-fn keyword))
-
-(:metrics atlas-data)
-(:atlas atlas-data)
-(first (:glyphs atlas-data))
-(println
-  (get (reduce 
-        (fn [acc glyph]
-         (assoc acc (:unicode glyph)
-                    glyph))
-        {}
-        (:glyphs atlas-data)) 
-       33))
+(comment
+  (println atlas-data)
+  (:metrics atlas-data)
+  (:atlas atlas-data)
+  (first (:glyphs atlas-data))
+  (println
+    (get (reduce 
+          (fn [acc glyph]
+           (assoc acc (:unicode glyph)
+                      glyph))
+          {}
+          (:glyphs atlas-data)) 
+         33))
+  {:atlas {:type "msdf",
+           :distanceRange 2,
+           :distanceRangeMiddle 0,
+           :size 256,
+           :width 8192,
+           :height 8192,
+           :yOrigin "bottom"}
+   :metrics {:emSize 1,
+              :lineHeight 1.32,
+              :ascender 1.02,
+              :descender -0.3,
+              :underlineY -0.18,
+              :underlineThickness 0.05}
+   :glyphs [{:unicode 33,
+              :advance 0.6,
+              :planeBounds {:left 0.19665441176470588,
+                            :bottom -0.009765625,
+                            :right 0.4154044117647059,
+                            :top 0.736328125},
+              :atlasBounds {:left 5854.5,
+                            :bottom 5415.5,
+                            :right 5910.5,
+                            :top 5606.5}}]})
          
 
-(defn shape-text [msdf-atlas text fsize]
-  (let [atlas          (:atlas msdf-atlas)
+(defn shape-text [text fsize]
+  (let [msdf-atlas     atlas-data
+        atlas          (:atlas msdf-atlas)
         atlas-width    (:width atlas)
         atlas-height   (:height atlas)
         metrics        (:metrics msdf-atlas)
@@ -83,12 +108,12 @@
                   y
                   acc)))))))))
 
-(pprint  (shape-text atlas-data "Hello,World!" 48))
+#_(pprint  (shape-text "Hello,World!" 48))
 
 (defn png-to-bitmap
   "Reads a PNG file and returns a map containing the bitmap data and dimensions"
-  [file-path]
-  (let [^BufferedImage img (ImageIO/read (File. file-path))
+  []
+  (let [^BufferedImage img (ImageIO/read (File.  "/Users/sid597/Softland/resources/public/sfont_atlas.png"))
         width (.getWidth img)
         height (.getHeight img)
         bitmap (int-array (* width height))]
@@ -97,16 +122,22 @@
      :height height
      :bitmap bitmap}))
 
-(png-to-bitmap "/Users/sid597/Softland/resources/public/font_atlas.png")
+(def atlas-file-path  "/Users/sid597/Softland/resources/public/sfont_atlas.png")
 
-{:codepoint 33,
- :positions
- [[326.23941176470595 -0.46875]
-  [336.73941176470595 -0.46875]
-  [336.73941176470595 35.34375]
-  [326.23941176470595 35.34375]],
- :uvs
- [[0.71466064453125 0.66107177734375]
-  [0.72149658203125 0.66107177734375]
-  [0.72149658203125 0.68438720703125]
-  [0.71466064453125 0.68438720703125]]}
+(defn load-png []
+  (ImageIO/read (File. atlas-file-path)))
+
+(png-to-bitmap)
+
+(comment 
+  {:codepoint 33,
+   :positions
+   [[326.23941176470595 -0.46875]
+    [336.73941176470595 -0.46875]
+    [336.73941176470595 35.34375]
+    [326.23941176470595 35.34375]],
+   :uvs
+   [[0.71466064453125 0.66107177734375]
+    [0.72149658203125 0.66107177734375]
+    [0.72149658203125 0.68438720703125]
+    [0.71466064453125 0.68438720703125]]})
