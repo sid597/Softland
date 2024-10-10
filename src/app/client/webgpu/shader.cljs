@@ -22,6 +22,71 @@
                return vec4f(0.1, 0.1, 0.1, 1);
              }"}))
 
+
+(def text-vertex-shader 
+  (clj->js {:label "text vertex shader"
+            :code "// vertex.wgsl
+            // VertexInput example: [x1 y1 u1 v1] 
+            // - [x1,y1] represent the coords in clipspace for triangle.
+            // - [u1,v1] represent the coords in font atlas  
+
+            struct VertexInput { 
+               @location(0) position: vec2<f32>,
+               @location(1) uv: vec2<f32>,
+            };
+
+            // Outputting: the position of the vertices and uv coords but why?
+
+            struct VertexOutput {
+               @builtin(position) position: vec4<f32>,
+               @location(0) uv: vec2<f32>,
+            };
+
+            @vertex
+            fn main(input: VertexInput) -> VertexOutput {
+               var output: VertexOutput;
+               output.position = vec4<f32>(input.position, 0.0, 1.0);
+               output.uv = input.uv;
+               return output;
+               }
+            "}))
+
+(def text-fragment-shader
+  (clj->js {:label "text fragment shader"
+            :code "// fragment.wgsl
+            @group(0) @binding(0)
+            var sampler0: sampler;
+
+            @group(0) @binding(1)
+            var texture0: texture_2d<f32>;
+
+            fn median(a: f32, b: f32, c: f32) -> f32 {
+                return max(min(a, b), min(max(a, b), c));
+            }
+
+            @fragment
+            fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> 
+            {
+             let msd = textureSample(texture0, sampler0, uv).rgb;
+             let sd = median(msd.r, msd.g, msd.b);
+
+             let pxRange = 16.0; // Default pixel range
+             let atlasSize = 256.0; // The size used in atlas generation
+             let renderSize = 20.0; // The size you're rendering at
+             
+             let screenPxRange = pxRange * (renderSize / atlasSize);
+             
+             let screenPxDistance = screenPxRange * (sd - 0.5);
+             let opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
+             
+             let fgColor = vec4<f32>(0.0, 0.0, 0.0, 0.0); // Transparent background
+             let bgColor = vec4<f32>(1.0, 1.0, 1.0, 1.0); // White text
+             
+             return mix(bgColor, fgColor, opacity);
+            }
+            "}))
+
+
 (def add-new-rects-shader-descriptor
   (clj->js {:label "vertices compute shader descriptor"
             :code  "
@@ -125,6 +190,4 @@
 
                           return color;
                       }
-
-
                      "}))
