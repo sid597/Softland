@@ -60,6 +60,15 @@
             @group(0) @binding(1)
             var texture0: texture_2d<f32>;
 
+            @group(0) @binding(2) var<uniform> sizes:sizing;
+
+            struct sizing {
+              pxRange: f32,
+              atlasSize: f32,
+              renderSize: f32,
+            }
+
+
             fn median(a: f32, b: f32, c: f32) -> f32 {
                 return max(min(a, b), min(max(a, b), c));
             }
@@ -70,11 +79,11 @@
              let msd = textureSample(texture0, sampler0, uv).rgb;
              let sd = median(msd.r, msd.g, msd.b);
 
-             let pxRange = 16.0; // Default pixel range
-             let atlasSize = 256.0; // The size used in atlas generation
-             let renderSize = 20.0; // The size you're rendering at
+             let pxRange = sizes.pxRange; 
+             let atlasSize = sizes.atlasSize; 
+             let renderSize = sizes.renderSize; 
              
-             let screenPxRange = pxRange * (renderSize / atlasSize);
+             let screenPxRange = max(pxRange * (renderSize / atlasSize), 1.0);
              
              let screenPxDistance = screenPxRange * (sd - 0.5);
              let opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);

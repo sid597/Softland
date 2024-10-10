@@ -90,10 +90,10 @@
         (reset! !format cformat)
         (when (some? atlas-data)
           (let [satlas-data (e/snapshot atlas-data)
-                sbitmap     (e/snapshot font-bitmap)]
-            (do
-              (println "ATLAS DATA RUN" sbitmap)
-              (render-text device cformat context "Hello world!" 32 satlas-data sbitmap))))
+                sbitmap     (e/snapshot font-bitmap)
+                text "Hello, World!"]     
+                          
+              (render-text device cformat context 16 32 satlas-data sbitmap text)))
         (when (some? all-rects)
           (let [ronce (e/snapshot all-rects)
                 rheight (e/snapshot height)
@@ -281,7 +281,6 @@
                (.then #(.blob %))
                (.then #(js/createImageBitmap %))
                (.then (fn [img]
-                         (println "GOT BITMAP IMAGE" img)
                          (reset! !font-bitmap img))))))
                             
 #?(:cljs
@@ -326,10 +325,6 @@
         (read-json-file)
         (Canvas-view)
         (println "rects " rect-ids)
-        (println "ATLAS DATA" atlas-data)
-        (println "FONT BITMAP" font-bitmap)
-        (when (some? font-bitmap)
-           (js/console.log "png to bitmap" (clj->js font-bitmap)))
         (when-not (some nil? [canvas height width])
           (let [nos     200
                 rnd     (Create-random-rects nos height width)]

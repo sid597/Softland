@@ -9,9 +9,7 @@
   (map #(.charCodeAt % 0) s))
 
 (defn shape-text [text fsize msdf-atlas]
-  (let [
-        _ (println "MSDF ATLAS" msdf-atlas)
-        atlas          (:atlas msdf-atlas)
+  (let [atlas          (:atlas msdf-atlas)
         atlas-width    (:width atlas)
         atlas-height   (:height atlas)
         metrics        (:metrics msdf-atlas)
@@ -22,7 +20,6 @@
                          {}
                          (:glyphs msdf-atlas))
         font-size      (* (/ 1 (:size atlas)) fsize)]
-    (println "--" font-size (:size atlas) (first (seq "c")) "=============" (get glyphs 72))
 
     (loop [chars (seq text)
            x     0
@@ -32,26 +29,30 @@
         acc
         (let [ch        (first chars)
               codepoint (.charCodeAt ch 0)]
-          (if (= ch \newline)
-            ;; Handle newlines by resetting x and adjusting y
-            (recur (rest chars)
-              0
-              (- y (* font-size line-height))
-              acc)
+          (cond
+           
+            (= ch \newline)   (recur (rest chars)
+                                 0
+                                 (- y (* font-size line-height))
+                                 acc)
+            (= ch \space)    (recur (rest chars)
+                                (+ x (* font-size 0.5))
+                                y
+                                acc)
+
+            :else
             (let [glyph (get glyphs codepoint)]
               (println 'glyph ch codepoint glyph)
               (if glyph
                 (let [advance        (* font-size (:advance glyph))
                       plane-bounds   (:planeBounds glyph)
                       atlas-bounds   (:atlasBounds glyph)
-                      _ (println "advance" advance plane-bounds atlas-bounds)
                       ;; Scale plane bounds by font size
                       pl             (+ x (* font-size (get plane-bounds :left)))
                       pb             (+ y (* font-size (get plane-bounds :bottom)))
                       pr             (+ x (* font-size (get plane-bounds :right)))
                       pt             (+ y (* font-size (get plane-bounds :top)))
                       positions      [[pl pb] [pr pb] [pr pt] [pl pt]]
-                      _ (println "--" positions)
                       ;; Calculate texture coordinates
                       al             (/ (get atlas-bounds :left) atlas-width)
                       ab             (/ (get atlas-bounds :bottom) atlas-height)
@@ -70,47 +71,6 @@
                   x
                   y
                   acc)))))))))
-
-
-(defn to-clip-space [x y canvas-width canvas-height]
-  (let [x-ndc (- (* (/ x canvas-width) 2.0) 1.0)
-        y-ndc (- 1.0 (* (/ y canvas-height) 2.0))] ; Flip y-axis if necessary
-    [x-ndc y-ndc]))
-
-
-(defn prepare-vertex-data1 [shaped-text canvas-width canvas-height]
-  (println "prepare vertext data" canvas-height canvas-width)
-  (let [vertices (atom [])
-        indices  (atom [])
-        index    (atom 0)]
-    (doseq [glyph shaped-text]
-      (let [[[x0 y0] [x1 y1] [x2 y2] [x3 y3]] (:positions glyph)
-            [[u0 v0] [u1 v1] [u2 v2] [u3 v3]] (:uvs glyph)
-            idx @index
-            ;; Map positions to clip space coordinates
-            [x0' y0'] (to-clip-space x0 y0 canvas-width canvas-height)
-            [x1' y1'] (to-clip-space x1 y1 canvas-width canvas-height)
-            [x2' y2'] (to-clip-space x2 y2 canvas-width canvas-height)
-            [x3' y3'] (to-clip-space x3 y3 canvas-width canvas-height)]
-        ;; Add transformed vertices (position and UVs)
-        (swap! vertices conj
-               x0' y0' u0 v0
-               x1' y1' u1 v1
-               x2' y2' u2 v2
-               x3' y3' u3 v3)
-        ;; Add indices for two triangles
-        (swap! indices conj
-               idx
-               (+ 1 idx)
-               (+ 2 idx)
-               idx
-               (+ 2 idx)
-               (+ 3 idx))
-        ;; Increment index
-        (swap! index + 4)))
-    {:vertex-data (js/Float32Array. (clj->js @vertices))
-     :index-data  (js/Uint16Array. (clj->js @indices))}))
-
 
 
 (defn prepare-vertex-data [shaped-text]
@@ -141,16 +101,12 @@
      :index-data  (js/Uint16Array. (clj->js @indices))}))
 
 
-(defn render-text [device format context text font-size atlas font-bitmap]
+(defn render-text [device format context px-range font-size atlas font-bitmap text]
   (println "render text ")
-  (let [canvas-width             (.-width (.-canvas context))
-        canvas-height            (.-height (.-canvas context))
+  (let [sizes                    (js/Float32Array. (clj->js [px-range (:size (:atlas atlas)) font-size]))
         shaped-text              (shape-text text font-size atlas)
         {:keys [vertex-data
-                index-data]}     (prepare-vertex-data shaped-text )
-        #_#_{:keys [vertex-data
-                index-data]}     (prepare-vertex-data shaped-text canvas-width canvas-height)
-        _ (println 'shaped-text 'vertex-data vertex-data 'index-data index-data)
+                index-data]}     (prepare-vertex-data shaped-text)
         num-indices              (.-length index-data)
         shader-module-vertex     (.createShaderModule 
                                    device 
@@ -166,6 +122,11 @@
                                    (clj->js {:size (.-byteLength index-data)
                                              :usage (bit-or js/GPUBufferUsage.INDEX
                                                             js/GPUBufferUsage.COPY_DST)}))
+        size-buffer              (.createBuffer 
+                                   device 
+                                   (clj->js {:size (.-byteLength sizes)
+                                             :usage (bit-or js/GPUBufferUsage.UNIFORM 
+                                                             js/GPUBufferUsage.COPY_DST)}))
         bitmap-height            (.-height font-bitmap)
         bitmap-width             (.-width font-bitmap)
         texture                  (.createTexture device
@@ -178,7 +139,7 @@
                                                            js/GPUTextureUsage.COPY_DST)}))
         sampler                  (.createSampler device (clj->js {:minFilter "linear"
                                                                   :magFilter "linear"
-                                                                  :mipmapFilter "nearest"}))
+                                                                  :mipmapFilter "linear"}))
         texture-view             (.createView texture)
         _                        (println "texture view")
         bind-group-layout        (.createBindGroupLayout
@@ -189,14 +150,20 @@
                                                         :sampler {:type "filtering"}}
                                                        {:binding 1
                                                         :visibility js/GPUShaderStage.FRAGMENT
-                                                        :texture {:sampleType "float"}}]})) 
+                                                        :texture {:sampleType "float"}}
+                                                       {:binding 2 
+                                                        :visibility js/GPUShaderStage.FRAGMENT
+                                                        :buffer {:type "uniform"}}]}))
+                                                         
         bind-group               (.createBindGroup device
                                   (clj->js {:layout bind-group-layout
                                             :entries (clj->js
                                                        [{:binding 0
                                                          :resource sampler}
                                                         {:binding 1
-                                                         :resource texture-view}])}))
+                                                         :resource texture-view}
+                                                        {:binding 2 
+                                                         :resource {:buffer size-buffer}}])}))
         _ (println "bind group done")
         pipeline-layout          (.createPipelineLayout
                                    device 
@@ -213,11 +180,14 @@
                                                        :entryPoint "main"
                                                        :targets [{:format format}]}}))
         encoder                  (.createCommandEncoder device)
+
+        bbg {:r 0.0 :g 0.0 :b 0.0 :a 1.0}
+        wbg {:r 1.0 :g 1.0 :b 1.0 :a 1.0}
         render-pass              (.beginRenderPass
                                    encoder
                                    (clj->js {:colorAttachments 
                                              (clj->js [{:view (.createView (.getCurrentTexture context))
-                                                        :clearValue (clj->js {:r 1.0 :g 1.0 :b 1.0 :a 1.0})
+                                                        :clearValue (clj->js wbg)
                                                         :loadOp "clear"
                                                         :storeOp "store"}])
                                              :label "render parss"}))
@@ -238,6 +208,7 @@
     (println "COPIED")
     (.writeBuffer (.-queue device) vertex-buffer 0 vertex-data)
     (.writeBuffer (.-queue device) index-buffer 0 index-data)
+    (.writeBuffer (.-queue device) size-buffer 0 sizes)
     (.setPipeline render-pass pipeline)
     (.setBindGroup render-pass 0 bind-group)
     (.setVertexBuffer render-pass 0 vertex-buffer)
