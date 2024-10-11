@@ -8,6 +8,10 @@
 (defn string->ints [s]
   (map #(.charCodeAt % 0) s))
 
+
+(defn text-space->clip-space [x]
+  (- (* 2 x) 1))
+
 (defn shape-text [text fsize msdf-atlas]
   (let [atlas          (:atlas msdf-atlas)
         atlas-width    (:width atlas)
@@ -22,8 +26,15 @@
         font-size      (* (/ 1 (:size atlas)) fsize)]
 
     (loop [chars (seq text)
-           x     0
-           y     0
+           ;; Here we are setting the intial position of the x,y coords for the text to rendered
+           ;; why 0 and 1? because in text-space 0,1 refers to the top left corner and that's where 
+           ;; I wanted to initialise the text for this test. 
+           ;; So keep in mind to use text space here because later we will convert it to clip space
+           ;; but using text space makes it easier to reason here. 
+
+
+           x     0  
+           y     (+ 1 (/ 9 256)) 
            acc   []]
       (if (empty? chars)
         acc
@@ -48,10 +59,10 @@
                       plane-bounds   (:planeBounds glyph)
                       atlas-bounds   (:atlasBounds glyph)
                       ;; Scale plane bounds by font size
-                      pl             (+ x (* font-size (get plane-bounds :left)))
-                      pb             (+ y (* font-size (get plane-bounds :bottom)))
-                      pr             (+ x (* font-size (get plane-bounds :right)))
-                      pt             (+ y (* font-size (get plane-bounds :top)))
+                      pl             (text-space->clip-space (+ x (* font-size (get plane-bounds :left))))
+                      pb             (text-space->clip-space (+ y (* font-size (get plane-bounds :bottom))))
+                      pr             (text-space->clip-space (+ x (* font-size (get plane-bounds :right))))
+                      pt             (text-space->clip-space (+ y (* font-size (get plane-bounds :top))))
                       positions      [[pl pb] [pr pb] [pr pt] [pl pt]]
                       ;; Calculate texture coordinates
                       al             (/ (get atlas-bounds :left) atlas-width)
