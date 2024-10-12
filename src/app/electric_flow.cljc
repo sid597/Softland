@@ -28,8 +28,7 @@
                                             !canvas-x
                                             !zoom-factor
                                             !offset]]
-                       [app.client.webgpu.data :refer [!rects]]]
-                 :clj [[app.server.ttf :refer [load-png]]])))
+                       [app.client.webgpu.data :refer [!rects]]])))
 
 
 (hyperfiddle.rcf/enable!)
@@ -121,7 +120,6 @@
                                (let [[x y dh dw] data
                                      left (- (* 2 (+ off-x (* szoom (/ x swidth))) ) 1)
                                      top (- 1 (* 2 (+ off-y (* szoom (/ y sheight)))))]
-                                (println 'id id swidth sheight szoom off-x off-y "::" (int (* szoom x)) (int (* szoom y)) "::::" left top "::::" visible-rects)
                                 (conj acc {:x  left
                                            :y  top
                                            :text (str "GM-" (name id))})))
