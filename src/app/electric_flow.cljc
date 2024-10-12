@@ -58,18 +58,19 @@
 (declare atlas-data)
 
 
-(e/defn Create-random-rects [rc ch cw]
-  (let [res (atom [])]
-    (doseq [i (range rc)]
-      (let [height (+ 20.0 (rand-int  40))
-            width (+ 25.0 (rand-int 40))
+(defn create-random-rects [rects ch cw]
+ (let [res (atom {})]
+   ;(println "RAND" @res rc ch cw)
+   (doseq [i rects]
+    (let [height (+ 20.0 (rand-int  40))
+            width (+ 45.0 (rand-int 40))
             y (+ 0.1 (rand-int ch))
             x (+ 0.1 (rand-int cw))]
         ;(js/console.log "xx" x y)
-        (swap! res concat [x y height width])))
-    ;(println "DONE" (e/watch res) rc)
-    (println "total rects" (count @res))
-    res))
+        ;(println i 'Create-random-rects (keyword (str i)) [x y height width])
+        (swap! res assoc (keyword (str i)) [x y height width])))
+   (println "all RECTS" @res)
+   res))
 
 
 (e/defn Setup-webgpu []
@@ -88,22 +89,46 @@
         (reset! !device device)
         (reset! !context context)
         (reset! !format cformat)
+
+        (let [ronce (e/snapshot all-rects)
+              rects-data (flatten (into [](vals ronce)))
+              rects-ids (into [](keys ronce))
+              rheight (e/snapshot height)
+              rwidth (e/snapshot width)
+              rzoom  (e/snapshot zoom-factor)
+              [off-x off-y] (e/snapshot offset)]
+            (println "ronce" (count ronce) ronce rheight rwidth rzoom)
+            (println "DATA_____" rects-data)
+            (println "ids" rects-ids)
+            (upload-vertices
+              "initial"
+              rects-data
+              device
+              cformat
+              context
+              [rwidth rheight off-x off-y rzoom]
+              rects-ids))
         (when (some? atlas-data)
-          (let [satlas-data (e/snapshot atlas-data)
-                sbitmap     (e/snapshot font-bitmap)
-                text "Hello, World!"]     
-                          
-              (render-text device cformat context 16 32 satlas-data sbitmap text)))
-        (when (some? all-rects)
-          (let [ronce (e/snapshot all-rects)
-                rheight (e/snapshot height)
-                rwidth (e/snapshot width)
-                rzoom  (e/snapshot zoom-factor)
-                [off-x off-y] (e/snapshot offset)]
-            (println "ronce" (count ronce) rheight rwidth rzoom)
-            #_(upload-vertices "initial" ronce device cformat context
-                [rwidth rheight off-x off-y rzoom]
-                rect-ids)))))))
+         (let [satlas-data (e/snapshot atlas-data)
+               sbitmap     (e/snapshot font-bitmap)
+               srects      (e/snapshot all-rects)
+               sheight     (e/snapshot height)  
+               swidth      (e/snapshot width)
+               szoom       (e/snapshot zoom-factor)
+               [off-x off-y] (e/snapshot offset)
+               texts       (reduce
+                             (fn [acc [id data]]
+                               (let [[x y dh dw] data
+                                     left (- (* 2 (+ off-x (* szoom (/ x swidth))) ) 1)
+                                     top (- 1 (* 2 (+ off-y (* szoom (/ y sheight)))))]
+                                (println 'id id swidth sheight szoom off-x off-y "::" (int (* szoom x)) (int (* szoom y)) "::::" left top "::::" visible-rects)
+                                (conj acc {:x  left
+                                           :y  top
+                                           :text (str "GM-" (name id))})))
+                            []
+                            srects)]
+           (render-text device cformat context 16 14 satlas-data sbitmap texts)))))))
+       
 
 
 (e/defn Mouse-down-cords [node] (e/input (mouse-down?> node)))
@@ -306,10 +331,10 @@
               all-rects (e/watch !all-rects)
               offset    (e/watch !offset)
               zoom-factor (e/watch !zoom-factor)
-              rect-ids     (vec (range 1000 1201))
               visible-rects (e/watch !visible-rects)
               old-visible-rects (e/watch !old-visible-rects)
               data-spine   (i/spine)
+              rect-ids (vec (range 2))
               global-atom (e/watch !global-atom)
               font-bitmap (e/watch !font-bitmap)
               atlas-data (e/watch !atlas-data)]
@@ -320,19 +345,18 @@
         (reset! !canvas-x 0)
         (reset! !canvas-y 0)
         (reset! !offset [0 0])
-        (reset! !zoom-factor 3)
+        (reset! !zoom-factor 1)
         (load-bitmap-file)
         (read-json-file)
         (Canvas-view)
-        (println "rects " rect-ids)
         (when-not (some nil? [canvas height width])
-          (let [nos     200
-                rnd     (Create-random-rects nos height width)]
+          (let [rnd     (create-random-rects rect-ids height width)]
+            (println "RND" @rnd)
             (reset! !all-rects @rnd)
             (when (and (some? font-bitmap) (some? all-rects))
-              (println "total rncts" (count all-rects))
               (do
-                (js/console.log "success canvas" canvas all-rects)
-                (Setup-webgpu)
-                #_(Add-panning)
-                #_(Add-wheel)))))))))
+               (println "total rncts" all-rects)
+               (println "success canvas" canvas all-rects)
+               (Setup-webgpu)
+               #_(Add-panning)
+               #_(Add-wheel)))))))))
