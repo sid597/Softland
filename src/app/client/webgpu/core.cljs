@@ -52,7 +52,6 @@
                                           ar             (/ (get atlas-bounds :right) atlas-width)
                                           at             (/ (get atlas-bounds :top) atlas-height)
                                           uvs [[al (- 1.0 ab)] [ar (- 1.0 ab)] [ar (- 1.0 at)] [al (- 1.0 at)]]]
-                                      (println "FONT" "::" pl pr pt pb "EE" (* font-size advance))
                                       (do
                                        (reset! !x (+ @!x (/ advance 2)))
                                        (swap! res conj {:codepoint codepoint
@@ -182,7 +181,6 @@
                                    encoder
                                    (clj->js {:colorAttachments 
                                              (clj->js [{:view (.createView (.getCurrentTexture context))
-                                                        :clearValue (clj->js wbg)
                                                         :loadOp "load"
                                                         :storeOp "store"}])
                                              :label "render parss"}))
@@ -217,11 +215,12 @@
  
 
 (defn upload-vertices [from data device fformat context config ids]
-  (println 'uplaod-vertices data ":::::::" ids)
+  ;(println 'uplaod-vertices data ":::::::" ids)
+  ;(println 'config config)
           
   (let [varray                (js/Float32Array. (clj->js data))
         ids-array             (js/Uint32Array.  (clj->js ids))
-        _ (println "IDS ARRAY" ids-array)
+        ;_ (println "IDS ARRAY" ids-array)
         ids-array-length      (.-byteLength ids-array)
         settings-array        (js/Float32Array. (clj->js config))
         num-rectangles        (count data)
@@ -355,7 +354,7 @@
        (let [staging-buffer (.createBuffer
                               device
                               (clj->js {:label "staging buffer"
-                                        :size (* 3 ids-array-length)
+                                        :size  ids-array-length
                                         :usage (bit-or js/GPUBufferUsage.MAP_READ
                                                  js/GPUBufferUsage.COPY_DST)}))]
          (.copyBufferToBuffer encoder rendered-ids-buffer 0 staging-buffer 0 ids-array-length)
@@ -369,7 +368,7 @@
                            num-rendered (js/Uint32Array. mapped-range)
                            rendered-ids (sort (into-array num-rendered))
                            new-rects    (js->clj (into-array (filter (complement zero?) rendered-ids)))]
-                       (println 'rendered-ids num-rendered)
+                       ;(println 'rendered-ids num-rendered new-rects)
                        (if (= "initial" from)
                          (swap! !visible-rects (constantly new-rects))
                          (do 
@@ -384,7 +383,7 @@
           render-pass  (.beginRenderPass
                          encoder
                          (clj->js {:colorAttachments (clj->js [{:view (.createView (.getCurrentTexture context))
-                                                                :clearValue (clj->js {:r 1.0 :g 1.0 :b 1.0 :a 1})
+                                                                :clearValue (clj->js {:r 0.0 :g 0.0 :b 0.0 :a 1})
                                                                 :loadOp "clear"
                                                                 :storeOp "store"}])
                                    :label "render parss"}))]

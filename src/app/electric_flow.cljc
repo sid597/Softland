@@ -76,7 +76,7 @@
   (e/client
     (when (some? canvas)
       (js/console.log canvas)
-      (let [context (.getContext canvas "webgpu")
+      (let [context (.getContext canvas "webgpu" (clj->js {:alpha true}))
             gpu      js/navigator.gpu
             adapter  (e/Task (await-promise (.requestAdapter gpu (clj->js {:requiredFeatures ["validation"]}))))
             device   (e/Task (await-promise (.requestDevice adapter)))
@@ -118,45 +118,49 @@
                texts       (reduce
                              (fn [acc [id data]]
                                (let [[x y dh dw] data
-                                     left (- (* 2 (+ off-x (* szoom (/ x swidth))) ) 1)
-                                     top (- 1 (* 2 (+ off-y (* szoom (/ y sheight)))))]
+                                     left (- (* 2 (+ off-x (* szoom (/ (+ 7 x) swidth))) ) 1)
+                                     top (- 1 (* 2 (+ off-y (* szoom (/ (+ 7 y) sheight)))))]
                                 (conj acc {:x  left
                                            :y  top
-                                           :text (str "GM-" (name id))})))
+                                           :text (str (name id))})))
                             []
                             srects)]
-           (render-text device cformat context 16 14 satlas-data sbitmap texts)))))))
+           (render-text device cformat context 16 (* szoom 14) satlas-data sbitmap texts)))))))
        
 
 
 (e/defn Mouse-down-cords [node] (e/input (mouse-down?> node)))
 
+#?(:cljs (defn clip-x [x w] (- (* 2 (/ x w)) 1)))
+#?(:cljs (defn clip-y [y h] (- 1 (* 2 (/ y h)))))
 
 (e/defn Add-panning []
   (when-some [[start-x start-y] (Mouse-down-cords canvas)]
     (let [[off-x off-y] (e/snapshot offset)]
       (when-some [[end-x end-y] (dom/On "mousemove" (fn [e]
                                                       (.preventDefault e)
-                                                      (let [clip-x (fn [x] (- (* 2 (/ x width)) 1))
-                                                            clip-y (fn [y] (- 1 (* 2 (/ y height))))
+                                                      (let [
                                                             end-x (.-clientX e)
                                                             end-y (.-clientY e)
-                                                            start-clip-x  (clip-x start-x)
-                                                            start-clip-y  (clip-y start-y)
-                                                            end-clip-x  (clip-x end-x)
-                                                            end-clip-y  (clip-y end-y)
+                                                            start-clip-x  (clip-x start-x width)
+                                                            start-clip-y  (clip-y start-y height)
+                                                            end-clip-x  (clip-x end-x width)
+                                                            end-clip-y  (clip-y end-y height)
                                                             new-pan-x   (+ off-x (- end-clip-x start-clip-x))
                                                             new-pan-y   (+ off-y (- end-clip-y start-clip-y))]
                                                         (reset! !offset [new-pan-x new-pan-y])
+                                                        (println "pan" new-pan-x new-pan-y)
                                                         [new-pan-x new-pan-y])))]
-          (upload-vertices
-            "panning"
-            all-rects
-            device
-            format
-            context
-            [width height end-x end-y zoom-factor]
-            rect-ids)))))
+        (let [rects-data (flatten (into [] (vals all-rects)))
+              rects-ids (into [] (keys all-rects))]
+           (upload-vertices
+             "panning"
+             rects-data
+             device
+             format
+             context
+             [width height end-x end-y zoom-factor]
+             rects-ids))))))
 
 (e/defn Add-wheel []
   (when-some [[zf cx cy ] (dom/On "wheel" (fn [e] (.preventDefault e)
@@ -167,8 +171,8 @@
                                                     scale         (if (< delta 0) 1.06 0.95)
                                                     new-zoom      (* zoom-factor scale)
                                                     [off-x off-y] offset
-                                                    clip-cursor-x (- (* 2 (/ cursor-x width)) 1)
-                                                    clip-cursor-y (- 1 (* 2 (/ cursor-y height)))
+                                                    clip-cursor-x (clip-x cursor-x width)
+                                                    clip-cursor-y (clip-y cursor-y height)
                                                     pan-zoom      (- 1 scale)
                                                     current-pan-x (* clip-cursor-x pan-zoom)
                                                     current-pan-y (* clip-cursor-y pan-zoom)
@@ -178,13 +182,18 @@
                                                     total-pan-y   (+ prev-pan-y current-pan-y)]
                                                 (reset! !offset [total-pan-x total-pan-y])
                                                 (reset! !zoom-factor new-zoom)
-                                                [new-zoom  total-pan-x total-pan-y]
-
-                                                #_[new-zoom clip-pan-x clip-pan-y cursor-x cursor-y]))
+                                                [new-zoom  total-pan-x total-pan-y]))
                                   nil {:passive false})]
-        (upload-vertices "zoom" all-rects device format context
+       (let [rects-data (flatten (into [] (vals all-rects)))
+             rects-ids (into [] (keys all-rects))]
+        (upload-vertices 
+          "zoom"
+          rects-data
+          device
+          format
+          context
           [width height cx cy zf]
-          rect-ids)))
+          rects-ids))))
 
     
 (e/defn Tap-diffs
@@ -332,7 +341,7 @@
               visible-rects (e/watch !visible-rects)
               old-visible-rects (e/watch !old-visible-rects)
               data-spine   (i/spine)
-              rect-ids (vec (range 2))
+              rect-ids (vec (range 20))
               global-atom (e/watch !global-atom)
               font-bitmap (e/watch !font-bitmap)
               atlas-data (e/watch !atlas-data)]
@@ -349,12 +358,13 @@
         (Canvas-view)
         (when-not (some nil? [canvas height width])
           (let [rnd     (create-random-rects rect-ids height width)]
-            (println "RND" @rnd)
+            ;(println "RND" @rnd)
             (reset! !all-rects @rnd)
+            (println "all-rects" all-rects)
             (when (and (some? font-bitmap) (some? all-rects))
               (do
                (println "total rncts" all-rects)
                (println "success canvas" canvas all-rects)
                (Setup-webgpu)
-               #_(Add-panning)
-               #_(Add-wheel)))))))))
+               (Add-panning)
+               (Add-wheel)))))))))
