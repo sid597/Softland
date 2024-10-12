@@ -9,10 +9,8 @@
   (map #(.charCodeAt % 0) s))
 
 
-(defn text-space->clip-space [x]
-  (- (* 2 x) 1))
 
-(defn shape-text [text fsize msdf-atlas]
+(defn shape-text [texts fsize msdf-atlas]
   (let [atlas          (:atlas msdf-atlas)
         atlas-width    (:width atlas)
         atlas-height   (:height atlas)
@@ -23,75 +21,58 @@
                                             glyph))
                          {}
                          (:glyphs msdf-atlas))
-        font-size      (* (/ 1 (:size atlas)) fsize)]
+        font-size      (* (/ 1 (:size atlas)) fsize)
+        res            (atom [])]
+    (doseq [txt texts]
+      (let [{:keys [text x y]} txt
+            !x (atom x)
+            !y (atom y)]
+        ;(println "shape text" x y txt)
+        (doseq [ch (seq text)]
+          (let [codepoint (.charCodeAt ch 0)]
+            (cond
+              (= ch \newline)   (reset! !y (- @!y (* font-size line-height)))
+              (= ch \space)     (reset! !x (+ @!x (* font-size 0.5)))
+              :else             (let [glyph (get glyphs codepoint)]
+                                  (when glyph
+                                    (let [advance        (* font-size (:advance glyph))
+                                          plane-bounds   (:planeBounds glyph)
+                                          atlas-bounds   (:atlasBounds glyph)
+                                          fw             (/ (* font-size (- (get plane-bounds :right) (get plane-bounds :left))) 2)
+                                          fh             (/ (* font-size (- (get plane-bounds :top) (get plane-bounds :bottom))) 2)
+                                          ;; Scale plane bounds by font size
+                                          pl            @!x
+                                          pb            (- @!y fh) 
+                                          pr            (+ @!x fw) 
+                                          pt            @!y 
+                                          positions     [[pl pb] [pr pb] [pr pt] [pl pt]]
+                                          ;; Calculate texture coordinates
+                                          al             (/ (get atlas-bounds :left) atlas-width)
+                                          ab             (/ (get atlas-bounds :bottom) atlas-height)
+                                          ar             (/ (get atlas-bounds :right) atlas-width)
+                                          at             (/ (get atlas-bounds :top) atlas-height)
+                                          uvs [[al (- 1.0 ab)] [ar (- 1.0 ab)] [ar (- 1.0 at)] [al (- 1.0 at)]]]
+                                      (println "FONT" "::" pl pr pt pb "EE" (* font-size advance))
+                                      (do
+                                       (reset! !x (+ @!x (/ advance 2)))
+                                       (swap! res conj {:codepoint codepoint
+                                                        :positions positions
+                                                        :uvs uvs}))))))))))
+    @res))
 
-    (loop [chars (seq text)
-           ;; Here we are setting the intial position of the x,y coords for the text to rendered
-           ;; why 0 and 1? because in text-space 0,1 refers to the top left corner and that's where 
-           ;; I wanted to initialise the text for this test. 
-           ;; So keep in mind to use text space here because later we will convert it to clip space
-           ;; but using text space makes it easier to reason here. 
-
-
-           x     0  
-           y     (+ 1 (/ 9 256)) 
-           acc   []]
-      (if (empty? chars)
-        acc
-        (let [ch        (first chars)
-              codepoint (.charCodeAt ch 0)]
-          (cond
-           
-            (= ch \newline)   (recur (rest chars)
-                                 0
-                                 (- y (* font-size line-height))
-                                 acc)
-            (= ch \space)    (recur (rest chars)
-                                (+ x (* font-size 0.5))
-                                y
-                                acc)
-
-            :else
-            (let [glyph (get glyphs codepoint)]
-              (println 'glyph ch codepoint glyph)
-              (if glyph
-                (let [advance        (* font-size (:advance glyph))
-                      plane-bounds   (:planeBounds glyph)
-                      atlas-bounds   (:atlasBounds glyph)
-                      ;; Scale plane bounds by font size
-                      pl             (text-space->clip-space (+ x (* font-size (get plane-bounds :left))))
-                      pb             (text-space->clip-space (+ y (* font-size (get plane-bounds :bottom))))
-                      pr             (text-space->clip-space (+ x (* font-size (get plane-bounds :right))))
-                      pt             (text-space->clip-space (+ y (* font-size (get plane-bounds :top))))
-                      positions      [[pl pb] [pr pb] [pr pt] [pl pt]]
-                      ;; Calculate texture coordinates
-                      al             (/ (get atlas-bounds :left) atlas-width)
-                      ab             (/ (get atlas-bounds :bottom) atlas-height)
-                      ar             (/ (get atlas-bounds :right) atlas-width)
-                      at             (/ (get atlas-bounds :top) atlas-height)
-                      uvs [[al (- 1.0 ab)] [ar (- 1.0 ab)] [ar (- 1.0 at)] [al (- 1.0 at)]]]
-
-                  (recur (rest chars)
-                    (+ x advance)
-                    y
-                    (conj acc {:codepoint codepoint
-                               :positions positions
-                               :uvs uvs})))
-                ;; Skip character if glyph not found
-                (recur (rest chars)
-                  x
-                  y
-                  acc)))))))))
 
 
 (defn prepare-vertex-data [shaped-text]
   (let [vertices (atom [])
         indices  (atom [])
         index    (atom 0)]
+    ;(doseq [shaped-text shaped-texts])
     (doseq [glyph shaped-text]
+      ;(println 'shaped-text-1 glyph)
       (let [[[x0 y0] [x1 y1] [x2 y2] [x3 y3]] (:positions glyph)
             [[u0 v0] [u1 v1] [u2 v2] [u3 v3]] (:uvs glyph)
             idx @index]
+        ;(println 'positions (:positions glyph))
         ;; Add vertices (position and UVs)
         (swap! vertices conj
                x0 y0 u0 v0
@@ -102,22 +83,25 @@
         (swap! indices conj
                idx
                (+ 1 idx)
-               (+ 2 idx) 
-               idx 
-               (+ 2 idx) 
-               (+ 3 idx)) 
+               (+ 2 idx)
+               idx
+               (+ 2 idx)
+               (+ 3 idx))
         ;; Increment index
         (swap! index + 4)))
     {:vertex-data (js/Float32Array. (clj->js @vertices))
      :index-data  (js/Uint16Array. (clj->js @indices))}))
 
 
-(defn render-text [device format context px-range font-size atlas font-bitmap text]
+(defn render-text [device format context px-range font-size atlas font-bitmap texts]
   (println "render text ")
   (let [sizes                    (js/Float32Array. (clj->js [px-range (:size (:atlas atlas)) font-size]))
-        shaped-text              (shape-text text font-size atlas)
+        shaped-texts              (shape-text texts font-size atlas)
+       ; _ (println "shaped texts" shaped-texts)
         {:keys [vertex-data
-                index-data]}     (prepare-vertex-data shaped-text)
+                index-data]}     (prepare-vertex-data shaped-texts)
+        ;_ (println 'vertex-data vertex-data)
+        ;_ (println 'index-data index-data)
         num-indices              (.-length index-data)
         shader-module-vertex     (.createShaderModule 
                                    device 
@@ -199,7 +183,7 @@
                                    (clj->js {:colorAttachments 
                                              (clj->js [{:view (.createView (.getCurrentTexture context))
                                                         :clearValue (clj->js wbg)
-                                                        :loadOp "clear"
+                                                        :loadOp "load"
                                                         :storeOp "store"}])
                                              :label "render parss"}))
         _ (println "num indexes" num-indices)]
@@ -233,9 +217,11 @@
  
 
 (defn upload-vertices [from data device fformat context config ids]
-  ;(println "upload vertices ::" from "::" config "")
+  (println 'uplaod-vertices data ":::::::" ids)
+          
   (let [varray                (js/Float32Array. (clj->js data))
-        ids-array             (js/Float32Array.  (clj->js ids))
+        ids-array             (js/Uint32Array.  (clj->js ids))
+        _ (println "IDS ARRAY" ids-array)
         ids-array-length      (.-byteLength ids-array)
         settings-array        (js/Float32Array. (clj->js config))
         num-rectangles        (count data)
@@ -363,13 +349,13 @@
        ;; Compute pipeline
        (.setPipeline        compute-pass compute-pipeline)
        (.setBindGroup       compute-pass 0 bind-group)
-       (.dispatchWorkgroups compute-pass (/ num-rectangles  64))
+       (.dispatchWorkgroups compute-pass (max 1 (/ num-rectangles  64)))
        (.end                compute-pass)
        ;(.submit (.-queue device) [(.finish encoder)])
        (let [staging-buffer (.createBuffer
                               device
                               (clj->js {:label "staging buffer"
-                                        :size ids-array-length
+                                        :size (* 3 ids-array-length)
                                         :usage (bit-or js/GPUBufferUsage.MAP_READ
                                                  js/GPUBufferUsage.COPY_DST)}))]
          (.copyBufferToBuffer encoder rendered-ids-buffer 0 staging-buffer 0 ids-array-length)
@@ -380,9 +366,10 @@
          (-> (.mapAsync staging-buffer js/GPUMapMode.READ)
             (.then (fn []
                      (let [mapped-range (.getMappedRange staging-buffer)
-                           num-rendered (js/Float32Array. mapped-range)
+                           num-rendered (js/Uint32Array. mapped-range)
                            rendered-ids (sort (into-array num-rendered))
                            new-rects    (js->clj (into-array (filter (complement zero?) rendered-ids)))]
+                       (println 'rendered-ids num-rendered)
                        (if (= "initial" from)
                          (swap! !visible-rects (constantly new-rects))
                          (do 
@@ -397,7 +384,7 @@
           render-pass  (.beginRenderPass
                          encoder
                          (clj->js {:colorAttachments (clj->js [{:view (.createView (.getCurrentTexture context))
-                                                                :clearValue (clj->js {:r 0.0 :g 0.0 :b 0.0 :a 1})
+                                                                :clearValue (clj->js {:r 1.0 :g 1.0 :b 1.0 :a 1})
                                                                 :loadOp "clear"
                                                                 :storeOp "store"}])
                                    :label "render parss"}))]
