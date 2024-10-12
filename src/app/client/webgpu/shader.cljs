@@ -1,26 +1,6 @@
 (ns app.client.webgpu.shader)
 
 
-(def shader-descriptor
-  (clj->js
-    {:label "cell shader"
-     :code "@group(0) @binding(0) var<uniform> grid: vec2f;
-             @vertex
-             fn vertexMain(@location(0) pos: vec2f,
-                           @builtin(instance_index) instance: u32) ->
-               @builtin(position) vec4f {
-               let i = f32(instance);
-               let cell = vec2f(i % grid.x, floor(i / grid.x));\n
-               let cellOffset = cell / grid * 2;
-               let gridPos = (pos / 16 + 1) / grid - 1 + cellOffset;
-               //return vec4f(gridPos, 0, 1);
-               return vec4f(pos, 0, 1);
-             }
-
-             @fragment
-             fn fragmentMain() -> @location(0) vec4f {
-               return vec4f(0.1, 0.1, 0.1, 1);
-             }"}))
 
 
 (def text-vertex-shader 
@@ -126,15 +106,15 @@
                       let width = rectangles[base_index + 3];
 
                       // Calculate the four corners of the rectangle in clip space
-                      let left = ((x / canvas_settings.width ) * 2 - 1)               * canvas_settings.zoomFactor + canvas_settings.panX;
-                      let right = (((x + width) / canvas_settings.width  ) * 2 - 1)   * canvas_settings.zoomFactor + canvas_settings.panX;
-                      let top = (1 - (y / canvas_settings.height ) * 2)               * canvas_settings.zoomFactor + canvas_settings.panY ;
-                      let bottom = (1 - ((y + height) / canvas_settings.height ) * 2) * canvas_settings.zoomFactor + canvas_settings.panY ;
+                      let left = (((x / canvas_settings.width ) * canvas_settings.zoomFactor + canvas_settings.panX) * 2.0) - 1.0;
+                      let right = ((((x + width) / canvas_settings.width  ) * canvas_settings.zoomFactor + canvas_settings.panX) * 2.0) - 1.0;
+                      let top = 1.0 - (((y / canvas_settings.height) * canvas_settings.zoomFactor + canvas_settings.panY) * 2.0);
+                      let bottom = 1.0 - ((((y + height) / canvas_settings.height ) * canvas_settings.zoomFactor + canvas_settings.panY ) * 2.0); 
 
 
-                      if (max(left, right) >= -1.0 && min(left, right) <= 1.0 && max(top, bottom) >= -1.0 && min(top, bottom) <= 1.0) {\n
+                      if ((left >= -1.0 && left <= 1.0) && (top >= -1.0 && top <= 1.0)) {
                          let rect_id = id_buffer[index];
-                         let pos = atomicAdd(&rendered_ids[0], 1u);
+                         let pos = atomicAdd(&rendered_ids[0], 1u) * 4;
                          atomicStore(&rendered_ids[pos], rect_id);
 
 
