@@ -6,15 +6,17 @@
             [hyperfiddle.incseq.mount-impl :refer [mount]]
             [hyperfiddle.kvs :as kvs]
             [hyperfiddle.incseq :as i]
-            #?@(:cljs [[app.client.webgpu.core :as wcore :refer [upload-vertices]]
+            #?@(:cljs [[app.client.webgpu.core :as wcore :refer [upload-vertices shape-text render-text]]
                        [global-flow :refer [await-promise
                                             mouse-down?>
                                             !canvas
+                                            !font-bitmap
                                             global-client-flow
                                             !adapter
                                             !global-atom
                                             !device
                                             !context
+                                            !atlas-data
                                             !command-encoder
                                             !format
                                             !all-rects
@@ -51,20 +53,23 @@
 (declare old-visible-rects)
 (declare data-spine)
 (declare global-atom)
+(declare font-bitmap)
+(declare atlas-data)
 
 
-(e/defn Create-random-rects [rc ch cw]
-  (let [res (atom [])]
-    (doseq [i (range rc)]
-      (let [height (+ 20.0 (rand-int  40))
-            width (+ 25.0 (rand-int 40))
+(defn create-random-rects [rects ch cw]
+ (let [res (atom {})]
+   ;(println "RAND" @res rc ch cw)
+   (doseq [i rects]
+    (let [height (+ 20.0 (rand-int  40))
+            width (+ 45.0 (rand-int 40))
             y (+ 0.1 (rand-int ch))
             x (+ 0.1 (rand-int cw))]
         ;(js/console.log "xx" x y)
-        (swap! res concat [x y height width])))
-    ;(println "DONE" (e/watch res) rc)
-    (println "total rects" (count @res))
-    res))
+        ;(println i 'Create-random-rects (keyword (str i)) [x y height width])
+        (swap! res assoc (keyword (str i)) [x y height width])))
+   (println "all RECTS" @res)
+   res))
 
 
 (e/defn Setup-webgpu []
@@ -78,27 +83,54 @@
             cformat  (.getPreferredCanvasFormat gpu)
             config   (clj->js {:format cformat
                                :device device})]
-
-        ;(println "rnd" (e/watch rnd))
         (.configure context config)
         (reset! !adapter adapter)
         (reset! !device device)
         (reset! !context context)
         (reset! !format cformat)
-        (when (some? all-rects)
-          (let [ronce (e/snapshot all-rects)
-                rheight (e/snapshot height)
-                rwidth (e/snapshot width)
-                rzoom  (e/snapshot zoom-factor)
-                [off-x off-y] (e/snapshot offset)]
-            (println "ronce" (count ronce) rheight rwidth rzoom)
-            (upload-vertices "initial" ronce device cformat context
-              [rwidth rheight off-x off-y rzoom]
-              rect-ids)))))))
 
+        (let [ronce (e/snapshot all-rects)
+              rects-data (flatten (into [](vals ronce)))
+              rects-ids (into [](keys ronce))
+              rheight (e/snapshot height)
+              rwidth (e/snapshot width)
+              rzoom  (e/snapshot zoom-factor)
+              [off-x off-y] (e/snapshot offset)]
+            (println "ronce" (count ronce) ronce rheight rwidth rzoom)
+            (println "DATA_____" rects-data)
+            (println "ids" rects-ids)
+            (upload-vertices
+              "initial"
+              rects-data
+              device
+              cformat
+              context
+              [rwidth rheight off-x off-y rzoom]
+              rects-ids))
+        (when (some? atlas-data)
+         (let [satlas-data (e/snapshot atlas-data)
+               sbitmap     (e/snapshot font-bitmap)
+               srects      (e/snapshot all-rects)
+               sheight     (e/snapshot height)  
+               swidth      (e/snapshot width)
+               szoom       (e/snapshot zoom-factor)
+               [off-x off-y] (e/snapshot offset)
+               texts       (reduce
+                             (fn [acc [id data]]
+                               (let [[x y dh dw] data
+                                     left (- (* 2 (+ off-x (* szoom (/ x swidth))) ) 1)
+                                     top (- 1 (* 2 (+ off-y (* szoom (/ y sheight)))))]
+                                (conj acc {:x  left
+                                           :y  top
+                                           :text (str "GM-" (name id))})))
+                            []
+                            srects)]
+           (render-text device cformat context 16 14 satlas-data sbitmap texts)))))))
+       
 
 
 (e/defn Mouse-down-cords [node] (e/input (mouse-down?> node)))
+
 
 (e/defn Add-panning []
   (when-some [[start-x start-y] (Mouse-down-cords canvas)]
@@ -154,16 +186,6 @@
           [width height cx cy zf]
           rect-ids)))
 
-(e/defn On-node-add [id]
-  ;; signature 
-  ;; on add need to ad to spine then create the watchers etc. or do I even need to add to the spine? 
-  ;; not sure but this seems the right place to do such thing. 
-  ;; how?   
-  ;; I think I am thinking ahead adding is easy but how do I remove? 
-  ;; I think the task and flow pattern would come in handy like there is a on success and on cancel 
-  ;; think. If its canceled then the thing is gone. 
-  ;; I need to find how to do that
-  (println id "nf" global-atom visible-rects))
     
 (e/defn Tap-diffs
   ([f! x] 
@@ -178,9 +200,9 @@
                   :height height
                   :width width})
       (reset! !canvas dom/node)
-      (when-some [down (Mouse-down-cords dom/node)]
-        (println "DOWN")
-        (reset! !global-atom {:cords down}))
+      #_(when-some [down (Mouse-down-cords dom/node)]
+          (println "DOWN")
+          (reset! !global-atom {:cords down}))
      #_ (e/for-by identity [node (e/as-vec (e/input (e/join (i/items data-spine))))]
 
                  (println node global-atom) 
@@ -194,88 +216,103 @@
                   ;; Find all the elements in a data spine and show them in a vec representation.
                   (e/as-vec (e/input (e/join (i/items data-spine))))
                   old-visible-rects)
-      (let [mount-items (mount
-                          (fn [element child]          (do 
-                                                          ;(println "append child" element "::" child)
-                                                          (data-spine 
-                                                           child 
-                                                           (fn [old new]
-                                                             #_(println "S: append OLD" old "new" new)
-                                                             new)
-                                                           ;(fn ll [] (println "I AM RUNNING" child))
-                                                           child)))
+      #_(let [mount-items (mount
+                             (fn [element child]          (do 
+                                                           ;(println "append child" element "::" child)
+                                                           (data-spine 
+                                                            child 
+                                                            (fn [old new]
+                                                              #_(println "S: append OLD" old "new" new)
+                                                              new)
+                                                            ;(fn ll [] (println "I AM RUNNING" child))
+                                                            child)))
                                                            
-                          (fn [element child previous] ()#_(do (println "replace child" element "::" child "::" previous)))
+                             (fn [element child previous] ()#_(do (println "replace child" element "::" child "::" previous)))
                                                            
-                          (fn [element child sibling]  ()) ;(do (println "insert child" element "::" child "::" sibling)))
+                             (fn [element child sibling]  ()) ;(do (println "insert child" element "::" child "::" sibling)))
                                                            
-                          (fn [element child]          (do ;(println "remove child" element "::" child)
-                                                           (data-spine
-                                                                child 
-                                                                (fn [old new]
-                                                                  ;(println "S: remove child" child "OLD" old "NEW" new)
-                                                                  new)
-                                                                nil)))
-                          (fn [element i]            (do ;(println "NODES child" i "::" element "::" (nth element i nil)) 
-                                                         (nth element i nil))))
+                             (fn [element child]          (do ;(println "remove child" element "::" child)
+                                                              (data-spine
+                                                                   child 
+                                                                   (fn [old new]
+                                                                     ;(println "S: remove child" child "OLD" old "NEW" new)
+                                                                     new)
+                                                                   nil)))
+                             (fn [element i]            (do ;(println "NODES child" i "::" element "::" (nth element i nil)) 
+                                                            (nth element i nil))))
 
 
-            ;; My understanding of whats going on here is that 
-            ;; we create diffs (not from the inseq ns) but from the electric ns. Theses diffs are returned as a vec 
-            ;; but we want to know the actual diff that was produced not the reconsiled version of it. So we use other 
-            ;; functison from electric ns and undo the work being done by e/diff-by. So we use e/pure to get the pure 
-            ;; version of each output of e/diff-by then use e/input to read the value returned.
+               ;; My understanding of whats going on here is that 
+               ;; we create diffs (not from the inseq ns) but from the electric ns. Theses diffs are returned as a vec 
+               ;; but we want to know the actual diff that was produced not the reconsiled version of it. So we use other 
+               ;; functison from electric ns and undo the work being done by e/diff-by. So we use e/pure to get the pure 
+               ;; version of each output of e/diff-by then use e/input to read the value returned.
 
 
-            ;; What is a table? 
+               ;; What is a table? 
 
-            ;; its a width-1 diff for e.g any value type e.g "hello" or a vector
+               ;; its a width-1 diff for e.g any value type e.g "hello" or a vector
 
-            ;; I think I can use fixed_impl/flow as an inspiration for my long lived flow functions?? 
-            ;; and manage the termination with the help of diff-by and spine?? 
-
-
-            diff       (e/input (e/pure (e/diff-by identity visible-rects)))]
-
-        ;(println "Diff" visible-rects "by" diff)
-        ;(println "--VISIBLE--" visible-rects "::" old-visible-rects)
+               ;; I think I can use fixed_impl/flow as an inspiration for my long lived flow functions?? 
+               ;; and manage the termination with the help of diff-by and spine?? 
 
 
-        ;; Learning: This is how to use a non-reactive value with a reactive one. 
-        ;; xy problem in this case is: if there is a new diff run mount items function
-        ;; with the old visible rects and the diff. Note that we need old version of the rects array
-        ;; because diff is calculated based on old vs new value of the array. Since the array changes we 
-        ;; get a diff on that array so we need to have access to the old array in the mount to let us know which item 
-        ;; was deleted. 
-        ;(Tap-diffs diff)
-        (println "==" (e/input (e/pure "HELLO" ))"::"(e/input (e/pure zoom-factor)))
-        (println "===" (e/input (m/watch (atom "hello"))))
-        (println "====" (e/join (e/pure visible-rects)))
-        ;; create flow of diffs for the value vieible-rects
-        (println "==0-0" (e/join (i/fixed (e/pure visible-rects))))
-        (println "==s" (e/pure visible-rects)
-          (e/join (i/fixed (e/pure visible-rects)))
-         "::" #_(e/input (e/pure visible-rects)))
-        (println "TT" (->> (e/pure visible-rects)
-                           (m/reductions (fn [x d]
-                                           (do
-                                             (println "patch vec" x d)
-                                             (i/patch-vec)))
-                                         )
-                           (m/latest (fn [c]
-                                      (do (println "CC" c)
-                                        (eduction cat c))))
-                           (i/diff-by identity)
-                           (e/join)
-                           (e/pure)
-                           (e/input)) 
-                 "::" visible-rects)
+               diff       (e/input (e/pure (e/diff-by identity visible-rects)))]
+
+           ;(println "Diff" visible-rects "by" diff)
+           ;(println "--VISIBLE--" visible-rects "::" old-visible-rects)
+
+
+           ;; Learning: This is how to use a non-reactive value with a reactive one. 
+           ;; xy problem in this case is: if there is a new diff run mount items function
+           ;; with the old visible rects and the diff. Note that we need old version of the rects array
+           ;; because diff is calculated based on old vs new value of the array. Since the array changes we 
+           ;; get a diff on that array so we need to have access to the old array in the mount to let us know which item 
+           ;; was deleted. 
+           ;(Tap-diffs diff)
+           (println "==" (e/input (e/pure "HELLO" ))"::"(e/input (e/pure zoom-factor)))
+           (println "===" (e/input (m/watch (atom "hello"))))
+           (println "====" (e/join (e/pure visible-rects)))
+           ;; create flow of diffs for the value vieible-rects
+           (println "==0-0" (e/join (i/fixed (e/pure visible-rects))))
+           (println "==s" (e/pure visible-rects)
+             (e/join (i/fixed (e/pure visible-rects)))
+            "::" #_(e/input (e/pure visible-rects)))
+           (println "TT" (->> (e/pure visible-rects)
+                              (m/reductions (fn [x d]
+                                              (do
+                                                (println "patch vec" x d)
+                                                (i/patch-vec))))
+                                         
+                              (m/latest (fn [c]
+                                         (do (println "CC" c)
+                                           (eduction cat c))))
+                              (i/diff-by identity)
+                              (e/join)
+                              (e/pure)
+                              (e/input)) 
+                    "::" visible-rects)
                            
-        ((fn [] (when (some? diff) 
-                   (mount-items @!old-visible-rects diff))))))))
+           ((fn [] (when (some? diff) 
+                      (mount-items @!old-visible-rects diff))))))))
         
 
 
+#?(:cljs (defn load-bitmap-file []
+           (println "Load bitmap file")
+           (-> (js/fetch   "/font_atlas.png")
+               (.then #(.blob %))
+               (.then #(js/createImageBitmap %))
+               (.then (fn [img]
+                         (reset! !font-bitmap img))))))
+                            
+#?(:cljs
+   (defn read-json-file []
+     (-> (js/fetch "/font_atlas.json")
+         (.then (fn [response]
+                  (.json response)))
+         (.then (fn [data]
+                  (reset! !atlas-data (js->clj data :keywordize-keys true)))))))
 
 
 (e/defn main [ring-request]
@@ -292,11 +329,13 @@
               all-rects (e/watch !all-rects)
               offset    (e/watch !offset)
               zoom-factor (e/watch !zoom-factor)
-              rect-ids     (vec (range 1000 1201))
               visible-rects (e/watch !visible-rects)
               old-visible-rects (e/watch !old-visible-rects)
               data-spine   (i/spine)
-              global-atom (e/watch !global-atom)]
+              rect-ids (vec (range 2))
+              global-atom (e/watch !global-atom)
+              font-bitmap (e/watch !font-bitmap)
+              atlas-data (e/watch !atlas-data)]
 
       (let [dpr (.-devicePixelRatio js/window)]
         (reset! !width (.-clientWidth dom/node))
@@ -304,18 +343,18 @@
         (reset! !canvas-x 0)
         (reset! !canvas-y 0)
         (reset! !offset [0 0])
-        (reset! !zoom-factor 3)
+        (reset! !zoom-factor 1)
+        (load-bitmap-file)
+        (read-json-file)
         (Canvas-view)
-        (println "rects " rect-ids)
-       (when-not (some nil? [canvas height width])
-         (let [nos     200
-               rnd     (Create-random-rects nos height width)]
-
-           (reset! !all-rects @rnd)
-           (when (some? all-rects)
-             (println "total rncts" (count all-rects))
-             (do
-               (js/console.log "success canvas" canvas all-rects)
+        (when-not (some nil? [canvas height width])
+          (let [rnd     (create-random-rects rect-ids height width)]
+            (println "RND" @rnd)
+            (reset! !all-rects @rnd)
+            (when (and (some? font-bitmap) (some? all-rects))
+              (do
+               (println "total rncts" all-rects)
+               (println "success canvas" canvas all-rects)
                (Setup-webgpu)
-               (Add-panning)
-               (Add-wheel)))))))))
+               #_(Add-panning)
+               #_(Add-wheel)))))))))
