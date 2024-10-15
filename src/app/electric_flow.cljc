@@ -9,6 +9,7 @@
             #?@(:cljs [[app.client.webgpu.core :as wcore :refer [upload-vertices shape-text render-text]]
                        [global-flow :refer [await-promise
                                             mouse-down?>
+                                            debounce
                                             !canvas
                                             !font-bitmap
                                             global-client-flow
@@ -79,7 +80,7 @@
   (e/client
     (when (some? canvas)
       (js/console.log canvas)
-      (let [context (.getContext canvas "webgpu" (clj->js {:alpha true}))
+      (let [context  (.getContext canvas "webgpu" (clj->js {:alpha true}))
             gpu      js/navigator.gpu
             adapter  (e/Task (await-promise (.requestAdapter gpu (clj->js {:requiredFeatures ["validation"]}))))
             device   (e/Task (await-promise (.requestDevice adapter)))
@@ -90,45 +91,7 @@
         (reset! !adapter adapter)
         (reset! !device device)
         (reset! !context context)
-        (reset! !format cformat)
-
-        (let [ronce (e/snapshot all-rects)
-              rects-data (flatten (into [](vals ronce)))
-              rects-ids (into [](keys ronce))
-              rheight (e/snapshot height)
-              rwidth (e/snapshot width)
-              rzoom  (e/snapshot zoom-factor)
-              [off-x off-y] (e/snapshot offset)]
-            (println "ronce" (count ronce) ronce rheight rwidth rzoom)
-            (println "DATA_____" rects-data)
-            (println "ids" rects-ids)
-            (upload-vertices
-              "initial"
-              rects-data
-              device
-              cformat
-              context
-              [rwidth rheight off-x off-y rzoom]
-              rects-ids))
-        (when (some? atlas-data)
-         (let [satlas-data (e/snapshot atlas-data)
-               sbitmap     (e/snapshot font-bitmap)
-               srects      (e/snapshot all-rects)
-               sheight     (e/snapshot height)  
-               swidth      (e/snapshot width)
-               szoom       (e/snapshot zoom-factor)
-               [off-x off-y] (e/snapshot offset)
-               texts       (reduce
-                             (fn [acc [id data]]
-                               (let [[x y dh dw] data
-                                     left (+ (* (clip-x (+ 7 x) width) szoom) off-x)
-                                     top  (+ (* (clip-y (+ 7 y) height) szoom) off-y)]
-                                (conj acc {:x  left
-                                           :y  top
-                                           :text (str (name id))})))
-                            []
-                            srects)]
-           (render-text device cformat context 16 (* szoom 14) satlas-data sbitmap texts)))))))
+        (reset! !format cformat)))))
        
 
 
@@ -138,92 +101,93 @@
 (e/defn Add-panning []
   (when-some [[start-x start-y] (Mouse-down-cords canvas)]
     (let [[off-x off-y] (e/snapshot offset)]
-      (when-some [[end-x end-y] (dom/On "mousemove" (fn [e]
-                                                      (.preventDefault e)
-                                                      (let [
-                                                            end-x (.-clientX e)
-                                                            end-y (.-clientY e)
-                                                            start-clip-x  (clip-x start-x width)
-                                                            start-clip-y  (clip-y start-y height)
-                                                            end-clip-x  (clip-x end-x width)
-                                                            end-clip-y  (clip-y end-y height)
-                                                            new-pan-x   (+ off-x (- end-clip-x start-clip-x))
-                                                            new-pan-y   (+ off-y (- end-clip-y start-clip-y))]
-                                                        (reset! !offset [new-pan-x new-pan-y])
-                                                        [new-pan-x new-pan-y])))]
-        (let [rects-data (flatten (into [] (vals all-rects)))
-              rects-ids (into [] (keys all-rects))
-              texts (reduce
-                      (fn [acc [id data]]
-                        (let [[x y dh dw] data
-                              left (+ (* (clip-x (+ 7 x) width) zoom-factor) end-x)
-                              top  (+ (* (clip-y (+ 7 y) height) zoom-factor) end-y)]
-                          (conj acc {:x  left
-                                     :y  top
-                                     :text (str (name id))})))
-                      []
-                      all-rects)]
-          (do
-           (upload-vertices
-             "panning"
-             rects-data
-             device
-             format
-             context
-             [width height end-x end-y zoom-factor]
-             rects-ids)
-           (when (some? texts)
-             (println "panning")
-             (render-text device format context 16 (* zoom-factor 14) atlas-data font-bitmap texts))))))))
-           
+      (dom/On "mousemove" 
+              (fn [e]
+                (.preventDefault e)
+                (let [
+                      end-x (.-clientX e)
+                      end-y (.-clientY e)
+                      start-clip-x  (clip-x start-x width)
+                      start-clip-y  (clip-y start-y height)
+                      end-clip-x  (clip-x end-x width)
+                      end-clip-y  (clip-y end-y height)
+                      new-pan-x   (+ off-x (- end-clip-x start-clip-x))
+                      new-pan-y   (+ off-y (- end-clip-y start-clip-y))]
+                  (reset! !offset [new-pan-x new-pan-y])
+                  [new-pan-x new-pan-y]))))))
+
+
 
 (e/defn Add-wheel []
-  (when-some [[zf cx cy ] (dom/On "wheel" (fn [e] (.preventDefault e)
-                                              (let [delta         (.-deltaY e)
-                                                    rect          (.getBoundingClientRect (.-target e))
-                                                    cursor-x      (- (.-clientX e) (.-left rect))
-                                                    cursor-y      (- (.-clientY e) (.-top rect))
-                                                    scale         (if (< delta 0) 1.06 0.95)
-                                                    new-zoom      (* zoom-factor scale)
-                                                    [off-x off-y] offset
-                                                    clip-cursor-x (clip-x cursor-x width)
-                                                    clip-cursor-y (clip-y cursor-y height)
-                                                    pan-zoom      (- 1 scale)
-                                                    current-pan-x (* clip-cursor-x pan-zoom)
-                                                    current-pan-y (* clip-cursor-y pan-zoom)
-                                                    prev-pan-x    (* off-x scale)
-                                                    prev-pan-y    (* off-y scale)
-                                                    total-pan-x   (+ prev-pan-x current-pan-x)
-                                                    total-pan-y   (+ prev-pan-y current-pan-y)]
-                                                (reset! !offset [total-pan-x total-pan-y])
-                                                (reset! !zoom-factor new-zoom)
-                                                [new-zoom  total-pan-x total-pan-y]))
-                                  nil {:passive false})]
-       (let [rects-data (flatten (into [] (vals all-rects)))
-             rects-ids (into [] (keys all-rects))
-             texts (reduce
-                      (fn [acc [id data]]
-                        (let [[x y dh dw] data
-                              left (+ (* (clip-x (+ 7 x) width) zoom-factor) cx)
-                              top  (+ (* (clip-y (+ 7 y) height) zoom-factor) cy)]
-                          (conj acc {:x  left
-                                     :y  top
-                                     :text (str (name id))})))
-                      []
-                      all-rects)
-             zof (max 14 (* (/ 1 zoom-factor) 14))]
-        (upload-vertices 
-          "zoom"
-          rects-data
-          device
-          format
-          context
-          [width height cx cy zf]
-          rects-ids)
-        (when (some? texts)
-             (println "add wheel texts")
-             (render-text device format context 16 zof atlas-data font-bitmap texts)))))
+  (dom/On "wheel"
+          (fn [e] (.preventDefault e)
+            (let [delta         (.-deltaY e)
+                  rect          (.getBoundingClientRect (.-target e))
+                  cursor-x      (- (.-clientX e) (.-left rect))
+                  cursor-y      (- (.-clientY e) (.-top rect))
+                  scale         (if (< delta 0) 1.06 0.95)
+                  new-zoom      (* zoom-factor scale)
+                  [off-x off-y] offset
+                  clip-cursor-x (clip-x cursor-x width)
+                  clip-cursor-y (clip-y cursor-y height)
+                  pan-zoom      (- 1 scale)
+                  current-pan-x (* clip-cursor-x pan-zoom)
+                  current-pan-y (* clip-cursor-y pan-zoom)
+                  prev-pan-x    (* off-x scale)
+                  prev-pan-y    (* off-y scale)
+                  total-pan-x   (+ prev-pan-x current-pan-x)
+                  total-pan-y   (+ prev-pan-y current-pan-y)]
+              (reset! !offset [total-pan-x total-pan-y])
+              (reset! !zoom-factor new-zoom)
+              [new-zoom  total-pan-x total-pan-y]))
+          nil {:passive false}))
 
+
+(e/defn Render-with-webgpu []
+  (let [nu    (e/watch !offset)
+        spend (e/Token nu)
+        dv (e/snapshot device)
+        con (e/snapshot context)
+        fmat (e/snapshot format)]
+    (when (and (some? atlas-data)
+               (some? device)
+               (some? font-bitmap)
+               (some? context)
+               (some? format))
+      (when (some? spend)
+        (let [rects-data    (flatten (into [] (vals all-rects)))
+              rects-ids     (into [] (keys all-rects))
+              [cx cy]       nu
+              [off-x off-y] (spend (e/Task (m/sleep 25 nu)))
+              texts         (reduce
+                              (fn [acc [id data]]
+                                (let [[x y dh dw] data
+                                      left (+ (* (clip-x (+ 7 x) width)  zoom-factor) off-x)
+                                      top  (+ (* (clip-y (+ 7 y) height) zoom-factor) off-y)]
+                                  (conj acc {:x  left
+                                             :y  top
+                                             :text (str (name id))})))
+                              []
+                              all-rects)
+              zof           (max 14 (* (/ 1 zoom-factor) 14))]
+          (upload-vertices
+            "zoom"
+            rects-data
+            dv
+            fmat
+            con
+            [width height cx cy zoom-factor]
+            rects-ids)
+          (render-text
+            dv
+            fmat
+            con
+            16
+            zof
+            atlas-data
+            font-bitmap
+            texts))))))
+  
     
 (e/defn Tap-diffs
   ([f! x] 
@@ -238,6 +202,8 @@
                   :height height
                   :width width})
       (reset! !canvas dom/node)
+      (Render-with-webgpu)
+            
       #_(when-some [down (Mouse-down-cords dom/node)]
           (println "DOWN")
           (reset! !global-atom {:cords down}))
