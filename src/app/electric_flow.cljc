@@ -72,6 +72,9 @@
    res))
 
 
+#?(:cljs (defn clip-x [x w] (- (* 2 (/ x w)) 1)))
+#?(:cljs (defn clip-y [y h] (- 1 (* 2 (/ y h)))))
+
 (e/defn Setup-webgpu []
   (e/client
     (when (some? canvas)
@@ -118,8 +121,8 @@
                texts       (reduce
                              (fn [acc [id data]]
                                (let [[x y dh dw] data
-                                     left (- (* 2 (+ off-x (* szoom (/ (+ 7 x) swidth))) ) 1)
-                                     top (- 1 (* 2 (+ off-y (* szoom (/ (+ 7 y) sheight)))))]
+                                     left (+ (* (clip-x (+ 7 x) width) szoom) off-x)
+                                     top  (+ (* (clip-y (+ 7 y) height) szoom) off-y)]
                                 (conj acc {:x  left
                                            :y  top
                                            :text (str (name id))})))
@@ -131,8 +134,6 @@
 
 (e/defn Mouse-down-cords [node] (e/input (mouse-down?> node)))
 
-#?(:cljs (defn clip-x [x w] (- (* 2 (/ x w)) 1)))
-#?(:cljs (defn clip-y [y h] (- 1 (* 2 (/ y h)))))
 
 (e/defn Add-panning []
   (when-some [[start-x start-y] (Mouse-down-cords canvas)]
@@ -149,10 +150,20 @@
                                                             new-pan-x   (+ off-x (- end-clip-x start-clip-x))
                                                             new-pan-y   (+ off-y (- end-clip-y start-clip-y))]
                                                         (reset! !offset [new-pan-x new-pan-y])
-                                                        (println "pan" new-pan-x new-pan-y)
                                                         [new-pan-x new-pan-y])))]
         (let [rects-data (flatten (into [] (vals all-rects)))
-              rects-ids (into [] (keys all-rects))]
+              rects-ids (into [] (keys all-rects))
+              texts (reduce
+                      (fn [acc [id data]]
+                        (let [[x y dh dw] data
+                              left (+ (* (clip-x (+ 7 x) width) zoom-factor) end-x)
+                              top  (+ (* (clip-y (+ 7 y) height) zoom-factor) end-y)]
+                          (conj acc {:x  left
+                                     :y  top
+                                     :text (str (name id))})))
+                      []
+                      all-rects)]
+          (do
            (upload-vertices
              "panning"
              rects-data
@@ -160,7 +171,11 @@
              format
              context
              [width height end-x end-y zoom-factor]
-             rects-ids))))))
+             rects-ids)
+           (when (some? texts)
+             (println "panning")
+             (render-text device format context 16 (* zoom-factor 14) atlas-data font-bitmap texts))))))))
+           
 
 (e/defn Add-wheel []
   (when-some [[zf cx cy ] (dom/On "wheel" (fn [e] (.preventDefault e)
@@ -185,7 +200,18 @@
                                                 [new-zoom  total-pan-x total-pan-y]))
                                   nil {:passive false})]
        (let [rects-data (flatten (into [] (vals all-rects)))
-             rects-ids (into [] (keys all-rects))]
+             rects-ids (into [] (keys all-rects))
+             texts (reduce
+                      (fn [acc [id data]]
+                        (let [[x y dh dw] data
+                              left (+ (* (clip-x (+ 7 x) width) zoom-factor) cx)
+                              top  (+ (* (clip-y (+ 7 y) height) zoom-factor) cy)]
+                          (conj acc {:x  left
+                                     :y  top
+                                     :text (str (name id))})))
+                      []
+                      all-rects)
+             zof (max 14 (* (/ 1 zoom-factor) 14))]
         (upload-vertices 
           "zoom"
           rects-data
@@ -193,7 +219,10 @@
           format
           context
           [width height cx cy zf]
-          rects-ids))))
+          rects-ids)
+        (when (some? texts)
+             (println "add wheel texts")
+             (render-text device format context 16 zof atlas-data font-bitmap texts)))))
 
     
 (e/defn Tap-diffs
