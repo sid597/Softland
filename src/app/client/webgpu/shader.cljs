@@ -68,10 +68,9 @@
              let screenPxDistance = screenPxRange * (sd - 0.5);
              let opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
              
-             let fgColor = vec4<f32>(0.0, 0.0, 0.0, 0.0); // Transparent background
-             let bgColor = vec4<f32>(1.0, 1.0, 1.0, 1.0); // White text
-             
-             return mix(bgColor, fgColor, opacity);
+             let text = vec4<f32>(0.0, 0.0, 0.0, opacity); // Transparent background how??
+
+             return text;
             }
             "}))
 
@@ -105,16 +104,16 @@
                       let height = rectangles[base_index + 2];
                       let width = rectangles[base_index + 3];
 
-                      // Calculate the four corners of the rectangle in clip space
-                      let left = (((x / canvas_settings.width ) * canvas_settings.zoomFactor + canvas_settings.panX) * 2.0) - 1.0;
-                      let right = ((((x + width) / canvas_settings.width  ) * canvas_settings.zoomFactor + canvas_settings.panX) * 2.0) - 1.0;
-                      let top = 1.0 - (((y / canvas_settings.height) * canvas_settings.zoomFactor + canvas_settings.panY) * 2.0);
-                      let bottom = 1.0 - ((((y + height) / canvas_settings.height ) * canvas_settings.zoomFactor + canvas_settings.panY ) * 2.0); 
+                      let left = ((x / canvas_settings.width ) * 2 - 1)               * canvas_settings.zoomFactor + canvas_settings.panX;
+                      let right = (((x + width) / canvas_settings.width  ) * 2 - 1)   * canvas_settings.zoomFactor + canvas_settings.panX;
+                      let top = (1 - (y / canvas_settings.height ) * 2)               * canvas_settings.zoomFactor + canvas_settings.panY ;
+                      let bottom = (1 - ((y + height) / canvas_settings.height ) * 2) * canvas_settings.zoomFactor + canvas_settings.panY ;
 
 
-                      if ((left >= -1.0 && left <= 1.0) && (top >= -1.0 && top <= 1.0)) {
+
+                      if (max(left, right) >= -1.0 && min(left, right) <= 1.0 && max(top, bottom) >= -1.0 && min(top, bottom) <= 1.0) {
                          let rect_id = id_buffer[index];
-                         let pos = atomicAdd(&rendered_ids[0], 1u) * 4;
+                         let pos = atomicAdd(&rendered_ids[0], 1u);
                          atomicStore(&rendered_ids[pos], rect_id);
 
 

@@ -46,7 +46,7 @@
 (defonce !context (atom nil))
 (defonce !format (atom nil))
 (defonce !command-encoder (atom nil))
-(defonce !all-rects (atom nil))
+(defonce !all-rects (atom {:0 [680 350 50.5 50 ], :1 [730.5 400 50 50]}))
 (defonce !width (atom nil))
 (defonce !height (atom nil))
 (defonce !canvas-y (atom nil))
