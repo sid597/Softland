@@ -159,16 +159,18 @@
               rects-ids     (into [] (keys all-rects))
               [cx cy]       nu
               [off-x off-y] (spend (e/Task (m/sleep 25 nu)))
+              rx            (e/amb cx off-x)
+              ry            (e/amb cy off-y)
               texts         (reduce
-                              (fn [acc [id data]]
-                                (let [[x y dh dw] data
-                                      left (+ (* (clip-x (+ 7 x) width)  zoom-factor) off-x)
-                                      top  (+ (* (clip-y (+ 7 y) height) zoom-factor) off-y)]
-                                  (conj acc {:x  left
-                                             :y  top
-                                             :text (str (name id))})))
-                              []
-                              all-rects)
+                             (fn [acc [id data]]
+                               (let [[x y dh dw] data
+                                     left (+ (* (clip-x (+ 7 x) width)  zoom-factor) off-x)
+                                     top  (+ (* (clip-y (+ 7 y) height) zoom-factor) off-y)]
+                                 (conj acc {:x  left
+                                            :y  top
+                                            :text (str (name id))})))
+                             []
+                             all-rects)
               zof           (max 14 (* (/ 1 zoom-factor) 14))]
           (upload-vertices
             "zoom"
@@ -176,7 +178,7 @@
             dv
             fmat
             con
-            [width height cx cy zoom-factor]
+            [width height rx ry zoom-factor]
             rects-ids)
           (render-text
             dv
