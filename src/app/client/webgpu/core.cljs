@@ -167,12 +167,20 @@
                                   (clj->js {:layout pipeline-layout
                                             :vertex {:module shader-module-vertex
                                                      :entryPoint "main"
-                                                     :buffers [{:arrayStride (* 4 4)
-                                                                :attributes [{:shaderLocation 0 :offset 0 :format "float32x2"}
-                                                                             {:shaderLocation 1 :offset 8 :format "float32x2"}]}]}
-                                            :fragment {:module shader-module-fragment
-                                                       :entryPoint "main"
-                                                       :targets [{:format format}]}}))
+                                                     :buffers (clj->js [{:arrayStride (* 4 4)
+                                                                         :attributes (clj->js
+                                                                                      [{:shaderLocation 0 :offset 0 :format "float32x2"}
+                                                                                       {:shaderLocation 1 :offset 8 :format "float32x2"}])}])}
+                                            :fragment (clj->js 
+                                                        {:module shader-module-fragment
+                                                         :entryPoint "main"
+                                                         :targets (clj->js 
+                                                                    [{:format format
+                                                                      :blend (clj->js {:color (clj->js {:srcFactor "src-alpha"
+                                                                                                        :dstFactor "one-minus-src-alpha"})
+                                                                                       :alpha (clj->js {:srcFactor "src-alpha"
+                                                                                                        :dstFactor "one-minus-src-alpha"})})}])})}))
+                                                                                             
         encoder                  (.createCommandEncoder device)
 
         bbg {:r 0.0 :g 0.0 :b 0.0 :a 1.0}
@@ -334,7 +342,12 @@
                                           :fragment (clj->js
                                                       {:module shader-module
                                                        :entryPoint "renderVerticesFragment"
-                                                       :targets (clj->js [{:format fformat}])})}))]
+                                                       :targets (clj->js 
+                                                                    [{:format fformat
+                                                                      :blend (clj->js {:color (clj->js {:srcFactor "src-alpha"
+                                                                                                        :dstFactor "one-minus-src-alpha"})
+                                                                                       :alpha (clj->js {:srcFactor "src-alpha"
+                                                                                                        :dstFactor "one-minus-src-alpha"})})}])})}))]
 
     #_(-> (.getCompilationInfo shader-module)
         (.then (fn [info] (js/console.log "compute shader info:" info))))

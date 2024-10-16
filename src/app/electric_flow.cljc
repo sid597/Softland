@@ -171,7 +171,7 @@
                                             :text (str (name id))})))
                              []
                              all-rects)
-              zof           (max 14 (* (/ 1 zoom-factor) 14))]
+              zof           (max 17 (* (/ 1 zoom-factor) 14))]
           (upload-vertices
             "zoom"
             rects-data
@@ -181,14 +181,14 @@
             [width height rx ry zoom-factor]
             rects-ids)
           (render-text
-            dv
-            fmat
-            con
-            16
-            zof
-            atlas-data
-            font-bitmap
-            texts))))))
+           dv
+           fmat
+           con
+           16
+           zof
+           atlas-data
+           font-bitmap
+           texts))))))
   
     
 (e/defn Tap-diffs
@@ -338,7 +338,7 @@
               visible-rects (e/watch !visible-rects)
               old-visible-rects (e/watch !old-visible-rects)
               data-spine   (i/spine)
-              rect-ids (vec (range 20))
+              rect-ids (vec (range 200))
               global-atom (e/watch !global-atom)
               font-bitmap (e/watch !font-bitmap)
               atlas-data (e/watch !atlas-data)]

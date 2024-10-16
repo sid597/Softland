@@ -68,10 +68,9 @@
              let screenPxDistance = screenPxRange * (sd - 0.5);
              let opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
              
-             let bgColor = vec4<f32>(0.0, 0.0, 0.0, 1.0); // Transparent background how??
-             let fgColor = vec4<f32>(1.0, 1.0, 1.0, 1.0); // White text
-             
-             return mix(fgColor, bgColor, opacity);
+             let text = vec4<f32>(0.0, 0.0, 0.0, opacity); // Transparent background how??
+
+             return text;
             }
             "}))
 
