@@ -93,7 +93,7 @@
 
 
 (defn render-text [device format context px-range font-size atlas font-bitmap texts]
-  (println "render text ")
+  ;(println "render text ")
   (let [sizes                    (js/Float32Array. (clj->js [px-range (:size (:atlas atlas)) font-size]))
         shaped-texts              (shape-text texts font-size atlas)
        ; _ (println "shaped texts" shaped-texts)
@@ -135,7 +135,7 @@
                                                                   :magFilter "linear"
                                                                   :mipmapFilter "linear"}))
         texture-view             (.createView texture)
-        _                        (println "texture view")
+        ;_                        (println "texture view")
         bind-group-layout        (.createBindGroupLayout
                                    device
                                    (clj->js {:label "bind group layout"
@@ -158,7 +158,7 @@
                                                          :resource texture-view}
                                                         {:binding 2 
                                                          :resource {:buffer size-buffer}}])}))
-        _ (println "bind group done")
+        ;_ (println "bind group done")
         pipeline-layout          (.createPipelineLayout
                                    device 
                                    (clj->js {:label "pipeline layout"
@@ -191,9 +191,9 @@
                                              (clj->js [{:view (.createView (.getCurrentTexture context))
                                                         :loadOp "load"
                                                         :storeOp "store"}])
-                                             :label "render parss"}))
-        _ (println "num indexes" num-indices)]
-    (println "COMPILING")
+                                             :label "render parss"}))]
+        ;_ (println "num indexes" num-indices)]
+    ;(println "COMPILING")
     (-> (.getCompilationInfo shader-module-vertex)
         (.then (fn [info] (js/console.log "compute shader info:" info))))
     (-> (.getCompilationInfo shader-module-fragment)
@@ -206,7 +206,7 @@
       (clj->js {:width bitmap-width
                 :height bitmap-height
                 :depthOrArrayLayers 1}))
-    (println "COPIED")
+    ;(println "COPIED")
     (.writeBuffer (.-queue device) vertex-buffer 0 vertex-data)
     (.writeBuffer (.-queue device) index-buffer 0 index-data)
     (.writeBuffer (.-queue device) size-buffer 0 sizes)
@@ -214,7 +214,7 @@
     (.setBindGroup render-pass 0 bind-group)
     (.setVertexBuffer render-pass 0 vertex-buffer)
     (.setIndexBuffer render-pass index-buffer "uint16")
-    (println "pipeline and buffers set")
+    ;(println "pipeline and buffers set")
     (.drawIndexed render-pass num-indices)
     (.end render-pass)
     (.submit (.-queue device) [(.finish encoder)])))
@@ -222,7 +222,7 @@
 
  
 
-(defn upload-vertices [from data device fformat context config ids]
+(defn render-rect [from data device fformat context config ids]
   ;(println 'uplaod-vertices data ":::::::" ids)
   ;(println 'config config)
           
