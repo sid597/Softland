@@ -5,8 +5,9 @@
             [hyperfiddle.electric-svg3]
             [hyperfiddle.incseq.mount-impl :refer [mount]]
             [hyperfiddle.kvs :as kvs]
+            [hyperfiddle.domlike :as dl]
             [hyperfiddle.incseq :as i]
-            #?@(:cljs [[app.client.webgpu.core :as wcore :refer [upload-vertices shape-text render-text]]
+            #?@(:cljs [[app.client.webgpu.core :as wcore :refer [render-rect render-text]]
                        [global-flow :refer [await-promise
                                             mouse-down?>
                                             debounce
@@ -62,10 +63,10 @@
  (let [res (atom {})]
    ;(println "RAND" @res rc ch cw)
    (doseq [i rects]
-    (let [height (+ 20.0 (rand-int  40))
-            width (+ 45.0 (rand-int 40))
-            y (+ 0.1 (rand-int ch))
-            x (+ 0.1 (rand-int cw))]
+    (let [height (+ 20.0 (rand-int  60))
+          width (+ 145.0 (rand-int 60))
+          y (+ 0.1 (rand-int ch))
+          x (+ 0.1 (rand-int cw))]
         ;(js/console.log "xx" x y)
         ;(println i 'Create-random-rects (keyword (str i)) [x y height width])
         (swap! res assoc (keyword (str i)) [x y height width])))
@@ -172,7 +173,7 @@
                              []
                              all-rects)
               zof           (max 17 (* (/ 1 zoom-factor) 14))]
-          (upload-vertices
+          (render-rect
             "zoom"
             rects-data
             dv
@@ -206,101 +207,55 @@
       (reset! !canvas dom/node)
       (Render-with-webgpu)
             
-      #_(when-some [down (Mouse-down-cords dom/node)]
-          (println "DOWN")
-          (reset! !global-atom {:cords down}))
-     #_ (e/for-by identity [node (e/as-vec (e/input (e/join (i/items data-spine))))]
+      (when-some [down (Mouse-down-cords dom/node)]
+        (println "DOWN")
+        (reset! !global-atom {:cords down}))
+     #_(e/for-by identity [node (e/as-vec (e/input (e/join (i/items data-spine))))]
 
-                 (println node global-atom) 
-                 #_(On-node-add node))
-      #_(println "NEW SPINE"
-                  (count visible-rects)
-                  (e/input (i/count data-spine))
-                  (count old-visible-rects)
+                (println node global-atom) 
+                #_(On-node-add node))
+      (println "NEW SPINE"
+                (count visible-rects)
+                (e/input (i/count data-spine))
+                visible-rects 
+                (e/as-vec (e/input (e/join (i/items data-spine)))))
+      (let [mount-items (mount
+                           (fn [element child]          (do 
+                                                          (data-spine 
+                                                           child 
+                                                           (fn [_ new]
+                                                             new)
+                                                           child)
+                                                          (.push element child)
+                                                         element))
+                           (fn [element child previous] (do 
+                                                          (let [idx (.indexOf element previous)]
+                                                            (when (>= idx 0)
+                                                              (aset element idx child)))
+                                                          element))
+                           (fn [element child sibling]  (do
+                                                          (let [idx (.indexOf element sibling)]
+                                                            (if (>= idx 0)
+                                                              (.splice element idx 0 child)
+                                                              (.push element child)))
+                                                          element))
+                           (fn [element child]          (do 
+                                                          (data-spine
+                                                               child 
+                                                               (fn [_ new]
+                                                                 new)
+                                                               nil)
+                                                          (let [idx (.indexOf element child)]
+                                                            (when (>= idx 0)
+                                                              (.splice element idx  1)))
+                                                          element))
+                           (fn [element i]              (do 
+                                                          (aget element i))))
 
-                  visible-rects 
-                  ;; Find all the elements in a data spine and show them in a vec representation.
-                  (e/as-vec (e/input (e/join (i/items data-spine))))
-                  old-visible-rects)
-      #_(let [mount-items (mount
-                             (fn [element child]          (do 
-                                                           ;(println "append child" element "::" child)
-                                                           (data-spine 
-                                                            child 
-                                                            (fn [old new]
-                                                              #_(println "S: append OLD" old "new" new)
-                                                              new)
-                                                            ;(fn ll [] (println "I AM RUNNING" child))
-                                                            child)))
-                                                           
-                             (fn [element child previous] ()#_(do (println "replace child" element "::" child "::" previous)))
-                                                           
-                             (fn [element child sibling]  ()) ;(do (println "insert child" element "::" child "::" sibling)))
-                                                           
-                             (fn [element child]          (do ;(println "remove child" element "::" child)
-                                                              (data-spine
-                                                                   child 
-                                                                   (fn [old new]
-                                                                     ;(println "S: remove child" child "OLD" old "NEW" new)
-                                                                     new)
-                                                                   nil)))
-                             (fn [element i]            (do ;(println "NODES child" i "::" element "::" (nth element i nil)) 
-                                                            (nth element i nil))))
+             diff       (e/input (e/pure (e/diff-by identity visible-rects)))]
 
-
-               ;; My understanding of whats going on here is that 
-               ;; we create diffs (not from the inseq ns) but from the electric ns. Theses diffs are returned as a vec 
-               ;; but we want to know the actual diff that was produced not the reconsiled version of it. So we use other 
-               ;; functison from electric ns and undo the work being done by e/diff-by. So we use e/pure to get the pure 
-               ;; version of each output of e/diff-by then use e/input to read the value returned.
-
-
-               ;; What is a table? 
-
-               ;; its a width-1 diff for e.g any value type e.g "hello" or a vector
-
-               ;; I think I can use fixed_impl/flow as an inspiration for my long lived flow functions?? 
-               ;; and manage the termination with the help of diff-by and spine?? 
-
-
-               diff       (e/input (e/pure (e/diff-by identity visible-rects)))]
-
-           ;(println "Diff" visible-rects "by" diff)
-           ;(println "--VISIBLE--" visible-rects "::" old-visible-rects)
-
-
-           ;; Learning: This is how to use a non-reactive value with a reactive one. 
-           ;; xy problem in this case is: if there is a new diff run mount items function
-           ;; with the old visible rects and the diff. Note that we need old version of the rects array
-           ;; because diff is calculated based on old vs new value of the array. Since the array changes we 
-           ;; get a diff on that array so we need to have access to the old array in the mount to let us know which item 
-           ;; was deleted. 
-           ;(Tap-diffs diff)
-           (println "==" (e/input (e/pure "HELLO" ))"::"(e/input (e/pure zoom-factor)))
-           (println "===" (e/input (m/watch (atom "hello"))))
-           (println "====" (e/join (e/pure visible-rects)))
-           ;; create flow of diffs for the value vieible-rects
-           (println "==0-0" (e/join (i/fixed (e/pure visible-rects))))
-           (println "==s" (e/pure visible-rects)
-             (e/join (i/fixed (e/pure visible-rects)))
-            "::" #_(e/input (e/pure visible-rects)))
-           (println "TT" (->> (e/pure visible-rects)
-                              (m/reductions (fn [x d]
-                                              (do
-                                                (println "patch vec" x d)
-                                                (i/patch-vec))))
-                                         
-                              (m/latest (fn [c]
-                                         (do (println "CC" c)
-                                           (eduction cat c))))
-                              (i/diff-by identity)
-                              (e/join)
-                              (e/pure)
-                              (e/input)) 
-                    "::" visible-rects)
-                           
-           ((fn [] (when (some? diff) 
-                      (mount-items @!old-visible-rects diff))))))))
+         ((fn [] (when (some? diff) 
+                   (mount-items (object-array @!old-visible-rects) diff))))))))
         
 
 
