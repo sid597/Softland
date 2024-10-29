@@ -91,6 +91,15 @@
                      @group(0) @binding(2) var<uniform>             canvas_settings: CanvasSettings;  // Canvas settings uniform\n
                      @group(0) @binding(3) var<storage, read>       id_buffer: array<u32>;
                      @group(0) @binding(4) var<storage, read_write> rendered_ids: array<atomic<u32>>;
+                      
+                     fn clipX(x: f32, width: f32) -> f32 {
+                         return (x / width) * 2.0 - 1.0;
+                     }
+                     
+                     // Convert screen space Y coordinate to clip space
+                     fn clipY(y: f32, height: f32) -> f32 {
+                         return -((y / height) * 2.0 - 1.0); // Negative to flip Y axis
+                     }
 
 
                      @compute @workgroup_size(64)
@@ -99,15 +108,22 @@
                       if (index >= arrayLength(&rectangles) / 4) {
                                             return;}
                       let base_index = index * 4 ;
-                      let x = rectangles[base_index];
-                      let y = rectangles[base_index + 1];
-                      let height = rectangles[base_index + 2];
-                      let width = rectangles[base_index + 3];
+                      let x = rectangles[base_index]          * canvas_settings.zoomFactor;
+                      let y = rectangles[base_index + 1]      * canvas_settings.zoomFactor;
+                      let height = rectangles[base_index + 2] * canvas_settings.zoomFactor;
+                      let width = rectangles[base_index + 3]  * canvas_settings.zoomFactor;
+                      let cwidth = canvas_settings.width;
+                      let cheight = canvas_settings.height;
 
-                      let left = ((x / canvas_settings.width ) * 2 - 1)               * canvas_settings.zoomFactor + canvas_settings.panX;
-                      let right = (((x + width) / canvas_settings.width  ) * 2 - 1)   * canvas_settings.zoomFactor + canvas_settings.panX;
-                      let top = (1 - (y / canvas_settings.height ) * 2)               * canvas_settings.zoomFactor + canvas_settings.panY ;
-                      let bottom = (1 - ((y + height) / canvas_settings.height ) * 2) * canvas_settings.zoomFactor + canvas_settings.panY ;
+                      let l = x + canvas_settings.panX;
+                      let r = x + width + canvas_settings.panX;
+                      let t = y + canvas_settings.panY;
+                      let b = y + width + canvas_settings.panY;
+
+                      let left   = clipX(l, cwidth)  ; 
+                      let right  = clipX(r, cwidth)  ;
+                      let top    = clipY(t, cheight) ; 
+                      let bottom = clipY(b, cheight) ; 
 
 
 

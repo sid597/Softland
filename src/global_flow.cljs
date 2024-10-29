@@ -14,7 +14,7 @@
            (catch Cancelled e
              (m/amb))))))
 
-(def ctr (atom 0))
+(def !ctr (atom 0))
 
 (def !global-atom (atom nil))
 
@@ -46,9 +46,12 @@
 (defonce !context (atom nil))
 (defonce !format (atom nil))
 (defonce !command-encoder (atom nil))
-(defonce !all-rects (atom {:0 [680 350 50.5 50 ], :1 [730.5 400 50 50]}))
+(defonce !all-rects (atom {:1 [680.0 358.0 50.5 50.0 ],
+                           #_#_:0 [730.5 400 50 50]}))
 (defonce !width (atom nil))
 (defonce !height (atom nil))
+(defonce !wwidth (atom nil))
+(defonce !wheight (atom nil))
 (defonce !canvas-y (atom nil))
 (defonce !canvas-x (atom nil))
 (defonce !offset (atom nil))
@@ -58,10 +61,15 @@
 (defonce !global-event (atom nil))
 (defonce !font-bitmap (atom nil))
 (defonce !atlas-data (atom nil))
+(defonce !dpr (atom nil))
 
 (defn mouse-down?> [node]
   (->> (mx/mix (m/observe (fn [!] (dom/with-listener node "mousedown"
-                                    (fn [e] (.preventDefault e) (! [(.-clientX e) (.-clientY e)])))))
+                                    (fn [e] (.preventDefault e) 
+                                      (do
+                                       (js/console.log e)
+                                       (println "md" (.-clientX e)(.-clientY e)) 
+                                       (! [(.-clientX e) (.-clientY e)]))))))
          (m/observe (fn [!] (dom/with-listener node "mouseup" (fn [_] (! nil))))))
     (m/reductions {} nil)
     (m/relieve {})))

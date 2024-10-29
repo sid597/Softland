@@ -224,7 +224,7 @@
 
 (defn render-rect [from data device fformat context config ids]
   ;(println 'uplaod-vertices data ":::::::" ids)
-  ;(println 'config config)
+  (println 'config config)
           
   (let [varray                (js/Float32Array. (clj->js data))
         ids-array             (js/Uint32Array.  (clj->js ids))
