@@ -26,6 +26,7 @@
                                             !height
                                             !canvas-y
                                             !visible-rects
+                                            !dpr
                                             !old-visible-rects
                                             !canvas-x
                                             !zoom-factor
@@ -57,6 +58,7 @@
 (declare global-atom)
 (declare font-bitmap)
 (declare atlas-data)
+(declare dpr)
 
 
 (defn create-random-rects [rects ch cw]
@@ -73,6 +75,8 @@
    (println "all RECTS" @res)
    res))
 
+#?(:cljs (defn format-float [inp]
+           (js/Number (.toFixed inp 3))))
 
 #?(:cljs (defn clip-x [x w] (- (* 2 (/ x w)) 1)))
 #?(:cljs (defn clip-y [y h] (- 1 (* 2 (/ y h)))))
@@ -108,12 +112,8 @@
                 (let [
                       end-x (.-clientX e)
                       end-y (.-clientY e)
-                      start-clip-x  (clip-x start-x width)
-                      start-clip-y  (clip-y start-y height)
-                      end-clip-x  (clip-x end-x width)
-                      end-clip-y  (clip-y end-y height)
-                      new-pan-x   (+ off-x (- end-clip-x start-clip-x))
-                      new-pan-y   (+ off-y (- end-clip-y start-clip-y))]
+                      new-pan-x   (+ off-x (- end-x start-x))
+                      new-pan-y   (+ off-y (- end-y start-y))]
                   (reset! !offset [new-pan-x new-pan-y])
                   [new-pan-x new-pan-y]))))))
 
@@ -124,20 +124,19 @@
           (fn [e] (.preventDefault e)
             (let [delta         (.-deltaY e)
                   rect          (.getBoundingClientRect (.-target e))
-                  cursor-x      (- (.-clientX e) (.-left rect))
-                  cursor-y      (- (.-clientY e) (.-top rect))
-                  scale         (if (< delta 0) 1.06 0.95)
+                  cursor-x      (- (* dpr (.-clientX e)) (.-left rect))
+                  cursor-y      (- (* dpr (.-clientY e)) (.-top rect))
+                  scale         (if (< delta 0) 1.05 0.95)
                   new-zoom      (* zoom-factor scale)
                   [off-x off-y] offset
-                  clip-cursor-x (clip-x cursor-x width)
-                  clip-cursor-y (clip-y cursor-y height)
                   pan-zoom      (- 1 scale)
-                  current-pan-x (* clip-cursor-x pan-zoom)
-                  current-pan-y (* clip-cursor-y pan-zoom)
+                  current-pan-x (* cursor-x pan-zoom)
+                  current-pan-y (* cursor-y pan-zoom)
                   prev-pan-x    (* off-x scale)
                   prev-pan-y    (* off-y scale)
                   total-pan-x   (+ prev-pan-x current-pan-x)
                   total-pan-y   (+ prev-pan-y current-pan-y)]
+              (println "Wheel" total-pan-x total-pan-y new-zoom)
               (reset! !offset [total-pan-x total-pan-y])
               (reset! !zoom-factor new-zoom)
               [new-zoom  total-pan-x total-pan-y]))
@@ -198,12 +197,41 @@
    x)
   ([x] (Tap-diffs prn x)))
 
+
+
+(e/defn On-node-add [id]
+  (when-some [[x y h w] (id all-rects)]
+   ((fn []
+     (let [gx       (-> global-atom :cords first)
+           gy       (-> global-atom :cords second)
+           [ox oy zf] offset
+           cgx      (-  (clip-x gx width) ox)
+           cgy      (-  (clip-y gy height) oy)
+           cl       (clip-x x width)
+           cr       (clip-x (+ x w) width)
+           ct       (clip-y y height)
+           cb       (clip-y (+ y h) height)
+           zff      (or zf zoom-factor)
+           clicked? (and (<= cgx cr) (>= cgx cl)
+                         (<= cgy ct) (>= cgy cb))]
+       (println
+              id
+              gx gy
+              zoom-factor
+              offset
+              ":R:"
+              [x y h w]
+              (format-float (+ ox (* zff cl)))
+              (format-float (+ oy (* zff ct)))))))))
+
 (e/defn Canvas-view []
  (e/client
     (dom/canvas
       (dom/props {:id "top-canvas"
                   :height height
-                  :width width})
+                  :width width
+                  :style {:height (str (/ height dpr) "px")
+                          :width (str (/ width dpr) "px")}})
       (reset! !canvas dom/node)
       (Render-with-webgpu)
             
@@ -214,7 +242,7 @@
 
                 (println node global-atom) 
                 #_(On-node-add node))
-      (println "NEW SPINE"
+      #_(println "NEW SPINE"
                 (count visible-rects)
                 (e/input (i/count data-spine))
                 visible-rects 
@@ -224,7 +252,7 @@
                                                           (data-spine 
                                                            child 
                                                            (fn [_ new]
-                                                             new)
+                                                             (keyword (str new)))
                                                            child)
                                                           (.push element child)
                                                          element))
@@ -243,7 +271,7 @@
                                                           (data-spine
                                                                child 
                                                                (fn [_ new]
-                                                                 new)
+                                                                 (keyword (str new)))
                                                                nil)
                                                           (let [idx (.indexOf element child)]
                                                             (when (>= idx 0)
@@ -293,14 +321,15 @@
               visible-rects (e/watch !visible-rects)
               old-visible-rects (e/watch !old-visible-rects)
               data-spine   (i/spine)
-              rect-ids (vec (range 200))
+              rect-ids (vec (range 1 30))
               global-atom (e/watch !global-atom)
               font-bitmap (e/watch !font-bitmap)
-              atlas-data (e/watch !atlas-data)]
+              atlas-data (e/watch !atlas-data)
+              dpr (e/watch !dpr)]
 
-      (let [dpr (.-devicePixelRatio js/window)]
-        (reset! !width (.-clientWidth dom/node))
-        (reset! !height (.-clientHeight dom/node))
+        (reset! !dpr (.-devicePixelRatio js/window))
+        (reset! !width (* dpr (.-clientWidth dom/node)))
+        (reset! !height (* dpr (.-clientHeight dom/node)))
         (reset! !canvas-x 0)
         (reset! !canvas-y 0)
         (reset! !offset [0 0])
@@ -319,4 +348,4 @@
                (println "success canvas" canvas all-rects)
                (Setup-webgpu)
                (Add-panning)
-               (Add-wheel)))))))))
+               (Add-wheel))))))))
