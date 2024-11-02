@@ -99,6 +99,7 @@
                      // Convert screen space Y coordinate to clip space
                      fn clipY(y: f32, height: f32) -> f32 {
                          return -((y / height) * 2.0 - 1.0); // Negative to flip Y axis
+
                      }
 
 
@@ -108,22 +109,26 @@
                       if (index >= arrayLength(&rectangles) / 4) {
                                             return;}
                       let base_index = index * 4 ;
-                      let x = rectangles[base_index]          * canvas_settings.zoomFactor;
-                      let y = rectangles[base_index + 1]      * canvas_settings.zoomFactor;
-                      let height = rectangles[base_index + 2] * canvas_settings.zoomFactor;
-                      let width = rectangles[base_index + 3]  * canvas_settings.zoomFactor;
-                      let cwidth = canvas_settings.width;
-                      let cheight = canvas_settings.height;
+                      let x          = rectangles[base_index]    ;
+                      let y          = rectangles[base_index + 1];
+                      let height     = rectangles[base_index + 2];
+                      let width      = rectangles[base_index + 3];
+                      let cwidth     = canvas_settings.width;
+                      let cheight    = canvas_settings.height;
 
-                      let l = x + canvas_settings.panX;
-                      let r = x + width + canvas_settings.panX;
-                      let t = y + canvas_settings.panY;
-                      let b = y + width + canvas_settings.panY;
+                      let z          = canvas_settings.zoomFactor;
+                      let panX       = canvas_settings.panX;
+                      let panY       = canvas_settings.panY;
 
-                      let left   = clipX(l, cwidth)  ; 
-                      let right  = clipX(r, cwidth)  ;
-                      let top    = clipY(t, cheight) ; 
-                      let bottom = clipY(b, cheight) ; 
+                      let l          = (x          * z) + panX;
+                      let r          = ((x + width)  * z) + panX;
+                      let t          = (y          * z) + panY;
+                      let b          = ((y + height) * z) + panY;
+
+                      let left       = clipX(l,  cwidth);  
+                      let right      = clipX(r,  cwidth); 
+                      let top        = clipY(t, cheight);
+                      let bottom     = clipY(b, cheight);
 
 
 
