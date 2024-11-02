@@ -109,11 +109,10 @@
       (dom/On "mousemove" 
               (fn [e]
                 (.preventDefault e)
-                (let [
-                      end-x (.-clientX e)
-                      end-y (.-clientY e)
-                      new-pan-x   (+ off-x (- end-x start-x))
-                      new-pan-y   (+ off-y (- end-y start-y))]
+                (let [end-x  (.-clientX e)
+                      end-y  (.-clientY e)
+                      new-pan-x   (+ off-x (* dpr (- end-x start-x)))
+                      new-pan-y   (+ off-y (* dpr (- end-y start-y)))]
                   (reset! !offset [new-pan-x new-pan-y])
                   [new-pan-x new-pan-y]))))))
 
@@ -124,22 +123,19 @@
           (fn [e] (.preventDefault e)
             (let [delta         (.-deltaY e)
                   rect          (.getBoundingClientRect (.-target e))
-                  cursor-x      (- (* dpr (.-clientX e)) (.-left rect))
-                  cursor-y      (- (* dpr (.-clientY e)) (.-top rect))
-                  scale         (if (< delta 0) 1.05 0.95)
+                  cursor-x      (* dpr (- (.-clientX e) (.-left rect)))
+                  cursor-y      (* dpr (- (.-clientY e) (.-top rect)))
+                  scale         (if (< delta 0) 1.02 0.98)
                   new-zoom      (* zoom-factor scale)
                   [off-x off-y] offset
                   pan-zoom      (- 1 scale)
-                  current-pan-x (* cursor-x pan-zoom)
-                  current-pan-y (* cursor-y pan-zoom)
-                  prev-pan-x    (* off-x scale)
-                  prev-pan-y    (* off-y scale)
-                  total-pan-x   (+ prev-pan-x current-pan-x)
-                  total-pan-y   (+ prev-pan-y current-pan-y)]
-              (println "Wheel" total-pan-x total-pan-y new-zoom)
+                  current-pan-x (* (- cursor-x off-x) pan-zoom)
+                  current-pan-y (* (- cursor-y off-y) pan-zoom)
+                  total-pan-x   (+ off-x current-pan-x)
+                  total-pan-y   (+ off-y current-pan-y)]
+              (println "Wheel" total-pan-x total-pan-y new-zoom 1)
               (reset! !offset [total-pan-x total-pan-y])
-              (reset! !zoom-factor new-zoom)
-              [new-zoom  total-pan-x total-pan-y]))
+              (reset! !zoom-factor new-zoom)))
           nil {:passive false}))
 
 
@@ -164,8 +160,13 @@
               texts         (reduce
                              (fn [acc [id data]]
                                (let [[x y dh dw] data
-                                     left (+ (* (clip-x (+ 7 x) width)  zoom-factor) off-x)
-                                     top  (+ (* (clip-y (+ 7 y) height) zoom-factor) off-y)]
+
+                                     left (clip-x 
+                                            (+ (* (+ 7 x) zoom-factor) off-x)
+                                            width)
+                                     top  (clip-y 
+                                            (+ (* (+ 7 y) zoom-factor) off-y)
+                                            height)]
                                  (conj acc {:x  left
                                             :y  top
                                             :text (str (name id))})))
