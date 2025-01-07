@@ -194,10 +194,10 @@
                                              :label "render parss"}))]
         ;_ (println "num indexes" num-indices)]
     ;(println "COMPILING")
-    (-> (.getCompilationInfo shader-module-vertex)
-        (.then (fn [info] (js/console.log "compute shader info:" info))))
-    (-> (.getCompilationInfo shader-module-fragment)
-        (.then (fn [info] (js/console.log "compute shader info:" info))))
+    #_(-> (.getCompilationInfo shader-module-vertex)
+          (.then (fn [info] (js/console.log "compute shader info:" info))))
+    #_(-> (.getCompilationInfo shader-module-fragment)
+          (.then (fn [info] (js/console.log "compute shader info:" info))))
     (.copyExternalImageToTexture
       (.-queue device)
       (clj->js {:source font-bitmap})
@@ -224,7 +224,7 @@
 
 (defn render-rect [from data device fformat context config ids]
   ;(println 'uplaod-vertices data ":::::::" ids)
-  (println 'config config)
+  ;(println 'config config)
           
   (let [varray                (js/Float32Array. (clj->js data))
         ids-array             (js/Uint32Array.  (clj->js ids))
@@ -408,3 +408,72 @@
       (.end          render-pass)
       (.submit (.-queue device) [(.finish encoder)]))))
 
+
+(defn run-simulation [{:keys [node-positions total-nodes device]}]
+  (let [node-positions-array (js/Float32Array. (clj->js node-positions))
+        node-pos-byte-length (.-byteLength node-positions-array)
+        shader-module        (.createShaderModule device simulation-shader)
+        input-buffer         (.createBuffer 
+                               device 
+                                (clj->js {:label "input buffer"
+                                          :size node-pos-byte-length
+                                          :usage (bit-or js/GPUBufferUsage.STORAGE
+                                                         js/GPUBufferUsage.COPY_DST)}))
+        force-buffer        (.createBuffer
+                              device
+                              (clj->js {:label "output buffer"
+                                        :size node-pos-byte-length
+                                        :usage (bit-or js/GPUBufferUsage.STORAGE
+                                                js/GPUBufferUsage.COPY_SRC)}))
+        bind-group-layout    (.createBindGroupLayout
+                                device
+                                (clj->js {:label "compute bind group layout"
+                                          :entries (clj->js [{:binding 0
+                                                              :visibility js/GPUShaderStage.COMPUTE
+                                                              :buffer {:type "read-only-storage"}}
+                                                             {:binding 1
+                                                              :visibility js/GPUShaderStage.COMPUTE
+                                                              :buffer {:type "storage"}}])}))
+        bind-group           (.createBindGroup
+                               device
+                               (clj->js {:layout bind-group-layout
+                                         :entries (clj->js [{:binding 0
+                                                             :resource {:buffer input-buffer}}
+                                                            {:binding 1
+                                                             :resource {:buffer force-buffer}}])}))
+                                                         
+        pipeline-layout      (.createPipelineLayout
+                                      device
+                                      (clj->js {:label "compute pipeline layout"
+                                                :bindGroupLayouts [bind-group-layout]}))
+        pipeline             (.createComputePipeline
+                               device
+                               (clj->js {:layout pipeline-layout
+                                         :label "compute pipeline"
+                                         :compute (clj->js {:module shader-module
+                                                            :entryPoint "main"})}))
+        encoder              (.createCommandEncoder device)
+        compute-pass         (.beginComputePass encoder)]
+    (.writeBuffer (.-queue device) input-buffer 0 node-positions-array)
+    (.setPipeline        compute-pass pipeline)
+    (.setBindGroup       compute-pass 0 bind-group)
+    (.dispatchWorkgroups compute-pass (max 1 (/ total-nodes  64)))
+    (.end                compute-pass)
+    (let [staging-buffer (.createBuffer
+                              device
+                              (clj->js {:label "staging buffer"
+                                        :size  node-pos-byte-length
+                                        :usage (bit-or js/GPUBufferUsage.MAP_READ
+                                                 js/GPUBufferUsage.COPY_DST)}))]
+         (.copyBufferToBuffer encoder force-buffer 0 staging-buffer 0 node-pos-byte-length)
+
+         (.submit (.-queue device) [(.finish encoder)])
+
+         ; Read the staging buffer
+         (-> (.mapAsync staging-buffer js/GPUMapMode.READ)
+            (.then (fn []
+                     (let [mapped-range (.getMappedRange staging-buffer)]
+                       (println "mapped range" mapped-range)
+                       (.unmap staging-buffer))))))))
+  
+  
