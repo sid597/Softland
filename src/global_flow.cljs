@@ -62,13 +62,14 @@
 (defonce !font-bitmap (atom nil))
 (defonce !atlas-data (atom nil))
 (defonce !dpr (atom nil))
+(defonce !selected (atom nil))
 
 (defn mouse-down?> [node]
   (->> (mx/mix (m/observe (fn [!] (dom/with-listener node "mousedown"
                                     (fn [e] (.preventDefault e) 
                                       (do
-                                       (js/console.log e)
-                                       (println "md" (.-clientX e)(.-clientY e)) 
+                                       ;(js/console.log e)
+                                       ;(println "md" (.-clientX e)(.-clientY e)) 
                                        (! [(.-clientX e) (.-clientY e)]))))))
          (m/observe (fn [!] (dom/with-listener node "mouseup" (fn [_] (! nil))))))
     (m/reductions {} nil)

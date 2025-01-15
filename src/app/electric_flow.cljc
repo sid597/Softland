@@ -7,7 +7,7 @@
             [hyperfiddle.kvs :as kvs]
             [hyperfiddle.domlike :as dl]
             [hyperfiddle.incseq :as i]
-            #?@(:cljs [[app.client.webgpu.core :as wcore :refer [render-rect render-text]]
+            #?@(:cljs [[app.client.webgpu.core :as wcore :refer [render-rect render-text main-simulation]]
                        [global-flow :refer [await-promise
                                             mouse-down?>
                                             debounce
@@ -21,6 +21,7 @@
                                             !atlas-data
                                             !command-encoder
                                             !format
+                                            !selected
                                             !all-rects
                                             !width
                                             !height
@@ -59,6 +60,7 @@
 (declare font-bitmap)
 (declare atlas-data)
 (declare dpr)
+(declare selected)
 
 
 (defn create-random-rects [rects ch cw]
@@ -151,6 +153,7 @@
                (some? context)
                (some? format))
       (when (some? spend)
+        (println "spend token" spend (some? spend) nu all-rects)
         (let [rects-data    (flatten (into [] (vals all-rects)))
               rects-ids     (into [] (keys all-rects))
               [cx cy]       nu
@@ -199,31 +202,37 @@
   ([x] (Tap-diffs prn x)))
 
 
+#?(:cljs 
+   (defn wx [cx]
+     (+ (first @!offset) 
+        (* 
+          cx
+           @!zoom-factor))))
+#?(:cljs 
+   (defn wy [cy]
+     (+ (second @!offset) 
+        (* 
+           cy
+           @!zoom-factor))))
+
+
 
 (e/defn On-node-add [id]
   (when-some [[x y h w] (id all-rects)]
    ((fn []
-     (let [gx       (-> global-atom :cords first)
-           gy       (-> global-atom :cords second)
-           [ox oy zf] offset
-           cgx      (-  (clip-x gx width) ox)
-           cgy      (-  (clip-y gy height) oy)
-           cl       (clip-x x width)
-           cr       (clip-x (+ x w) width)
-           ct       (clip-y y height)
-           cb       (clip-y (+ y h) height)
-           zff      (or zf zoom-factor)
-           clicked? (and (<= cgx cr) (>= cgx cl)
-                         (<= cgy ct) (>= cgy cb))]
-       (println
-              id
-              gx gy
-              zoom-factor
-              offset
-              ":R:"
-              [x y h w]
-              (format-float (+ ox (* zff cl)))
-              (format-float (+ oy (* zff ct)))))))))
+     (let [gx       (* @!dpr (-> global-atom :cords first))
+           gy       (* @!dpr (-> global-atom :cords second))
+           cl       (wx x) 
+           cr       (wx (+ x w)) 
+           ct       (wy y) 
+           cb       (wy (+ y h)) 
+           clicked? (and (>= gx cl) (<= gx cr) 
+                         (>= gy ct) (<= gy cb))]
+       (when clicked?
+         (reset! !selected id)
+
+        (println id "::" gx gy "::" cl ct cr cb)))))))
+
 
 (e/defn Canvas-view []
  (e/client
@@ -237,17 +246,15 @@
       (Render-with-webgpu)
             
       (when-some [down (Mouse-down-cords dom/node)]
-        (println "DOWN")
         (reset! !global-atom {:cords down}))
-     #_(e/for-by identity [node (e/as-vec (e/input (e/join (i/items data-spine))))]
-
-                (println node global-atom) 
-                #_(On-node-add node))
+      (e/for-by identity [node (e/as-vec (e/input (e/join (i/items data-spine))))]
+                #_(println node global-atom) 
+                (On-node-add node))
       #_(println "NEW SPINE"
-                (count visible-rects)
-                (e/input (i/count data-spine))
-                visible-rects 
-                (e/as-vec (e/input (e/join (i/items data-spine)))))
+                 (count visible-rects)
+                 (e/input (i/count data-spine))
+                 visible-rects 
+                 (e/as-vec (e/input (e/join (i/items data-spine)))))
       (let [mount-items (mount
                            (fn [element child]          (do 
                                                           (data-spine 
@@ -322,10 +329,11 @@
               visible-rects (e/watch !visible-rects)
               old-visible-rects (e/watch !old-visible-rects)
               data-spine   (i/spine)
-              rect-ids (vec (range 1 30))
+              rect-ids (vec (range 1 5))
               global-atom (e/watch !global-atom)
               font-bitmap (e/watch !font-bitmap)
               atlas-data (e/watch !atlas-data)
+              selected (e/watch !selected)
               dpr (e/watch !dpr)]
 
         (reset! !dpr (.-devicePixelRatio js/window))
@@ -349,4 +357,7 @@
                (println "success canvas" canvas all-rects)
                (Setup-webgpu)
                (Add-panning)
-               (Add-wheel))))))))
+               (Add-wheel)
+               (when (some? device)
+                 (main-simulation device)))))))))
+
