@@ -409,71 +409,396 @@
       (.submit (.-queue device) [(.finish encoder)]))))
 
 
-(defn run-simulation [{:keys [node-positions total-nodes device]}]
-  (let [node-positions-array (js/Float32Array. (clj->js node-positions))
-        node-pos-byte-length (.-byteLength node-positions-array)
-        shader-module        (.createShaderModule device simulation-shader)
-        input-buffer         (.createBuffer 
-                               device 
-                                (clj->js {:label "input buffer"
-                                          :size node-pos-byte-length
-                                          :usage (bit-or js/GPUBufferUsage.STORAGE
-                                                         js/GPUBufferUsage.COPY_DST)}))
-        force-buffer        (.createBuffer
-                              device
-                              (clj->js {:label "output buffer"
-                                        :size node-pos-byte-length
-                                        :usage (bit-or js/GPUBufferUsage.STORAGE
-                                                js/GPUBufferUsage.COPY_SRC)}))
-        bind-group-layout    (.createBindGroupLayout
-                                device
-                                (clj->js {:label "compute bind group layout"
-                                          :entries (clj->js [{:binding 0
+
+;; --- Data Structures ---
+
+(defn create-graph [nodes edges]
+  (let [num-nodes (count nodes)
+        num-edges (count edges)
+        ;; Each node needs 6 floats: position(2) + velocity(2) + force(2)
+        nodes-typed-array (js/Float32Array.
+                            (flatten
+                              (map (fn [n]
+                                     [(:x n)    (:y n)     ; position (vec2<f32>)
+                                      0.0       0.0        ; velocity (vec2<f32>)
+                                      0.0       0.0])      ; force (vec2<f32>)
+                                nodes)))
+        ;; Each edge needs 2 uint32s: node1_index and node2_index
+        edges-typed-array (js/Uint32Array.
+                            (flatten
+                              (map (fn [e]
+                                     [(:node1-index e)
+                                      (:node2-index e)])
+                                edges)))]
+    (println "Node struct size:" (* 6 4) "bytes") ; 6 floats * 4 bytes
+    (println "Total nodes buffer size:" (* num-nodes 6 4) "bytes")
+    (println "Total edges buffer size:" (* num-edges 2 4) "bytes")
+    {:num-nodes num-nodes
+     :num-edges num-edges
+     :nodes nodes-typed-array
+     :edges edges-typed-array}))
+;; --- Shader Modules ---
+;;
+;;
+
+
+
+(def repulsion-shader-code
+  "struct Node {
+    position: vec2<f32>,
+    velocity: vec2<f32>,
+    force: vec2<f32>
+   };
+
+  @group(0) @binding(0) var<storage, read_write> nodes: array<Node>;
+  @group(0) @binding(1) var<uniform> num_nodes: u32;
+
+  const repulsion_strength: f32 = 100.0;
+
+  @compute @workgroup_size(64)
+  fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let node_index = global_id.x;
+    if (node_index >= num_nodes) {
+      return;
+    }
+
+    var force = vec2<f32>(0.0, 0.0);
+    for (var i: u32 = 0; i < num_nodes; i++) {
+      if (i == node_index) {
+        continue;
+      }
+
+      let other_node_pos = nodes[i].position;
+      let delta = nodes[node_index].position - other_node_pos;
+      let distance = length(delta);
+
+      if (distance > 0.0) {
+        let repulsion = repulsion_strength / (distance * distance);
+        force += repulsion * delta / distance;
+      }
+  }
+
+  nodes[node_index].force += force;
+  }
+")
+
+
+
+(def attraction-shader-code
+  "
+  struct Node {
+    position: vec2<f32>,
+    velocity: vec2<f32>,
+    force: vec2<f32>
+  };
+
+  struct Edge {
+    node1_index: u32,
+    node2_index: u32
+  };
+
+  @group(0) @binding(0) var<storage, read_write> nodes: array<Node>;
+  @group(0) @binding(1) var<storage, read> edges: array<Edge>;
+  @group(0) @binding(2) var<uniform> num_edges: u32;
+
+  const ideal_edge_length: f32 = 50.0;
+
+  @compute @workgroup_size(64)
+  fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let edge_index = global_id.x;
+    if (edge_index >= num_edges) {
+     return;}
+
+
+    let edge = edges[edge_index];
+    let node1_pos = nodes[edge.node1_index].position;
+    let node2_pos = nodes[edge.node2_index].position;
+
+    let delta = node2_pos - node1_pos;
+    let distance = length(delta);
+
+    if (distance > 0.0) {
+      let attraction = (distance - ideal_edge_length) * delta / distance;
+      nodes[edge.node1_index].force += attraction;
+      nodes[edge.node2_index].force -= attraction;}}")
+
+
+(def integration-shader-code
+  "struct Node {
+    position: vec2<f32>,
+    velocity: vec2<f32>,
+    force: vec2<f32>
+  };
+
+  @group(0) @binding(0) var<storage, read_write> nodes: array<Node>;
+  @group(0) @binding(1) var<uniform> num_nodes: u32;
+
+  const cooling_factor: f32 = 0.99;
+  const dt: f32 = 0.1;
+
+  @compute @workgroup_size(64)
+  fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+     let node_index = global_id.x;
+     if (node_index >= num_nodes) {
+       return;}
+
+
+     nodes[node_index].velocity = (nodes[node_index].velocity + nodes[node_index].force * dt) * cooling_factor;
+     nodes[node_index].position += nodes[node_index].velocity * dt;
+     nodes[node_index].force = vec2<f32>(0.0, 0.0);}")
+
+
+(defn create-graph-buffers [device graph]
+  (let [
+        ;; Each node has position (2 floats), velocity (2 floats), and force (2 floats)
+        node-struct-size (* 6 4)  ; 6 floats * 4 bytes per float
+        node-buffer-size (* (:num-nodes graph) node-struct-size)
+
+        ;; Each edge has two u32 indices
+        edge-struct-size (* 2 4)  ; 2 u32s * 4 bytes per u32
+        edge-buffer-size (* (:num-edges graph) edge-struct-size)
+
+        node-count-buffer-size 4  ; Size of one u32 value
+        edge-count-buffer-size 4] ; Size of one u32 value
+    (println "bytes per element " (.-BYTES_PER_ELEMENT (:nodes graph)))
+    (println "bytes per element " (.-BYTES_PER_ELEMENT (:edges graph)))
+    (println "num nodes " (:num-nodes graph))
+    (println "num edges " (:num-edges graph))
+
+    {:node-buffer (-> device (.createBuffer (clj->js {:label "node buffer"
+                                                      :size node-buffer-size
+                                                      :usage (bit-or js/GPUBufferUsage.STORAGE
+                                                               js/GPUBufferUsage.COPY_DST
+                                                               js/GPUBufferUsage.COPY_SRC)})))
+     :edge-buffer (-> device (.createBuffer (clj->js {:label "edge buffer"
+                                                      :size edge-buffer-size
+                                                      :usage (bit-or js/GPUBufferUsage.STORAGE
+                                                               js/GPUBufferUsage.COPY_DST)})))
+     :node-count-buffer (-> device (.createBuffer (clj->js {:label "node count buffer"
+                                                            :size node-count-buffer-size
+                                                            :usage (bit-or js/GPUBufferUsage.UNIFORM
+                                                                     js/GPUBufferUsage.COPY_DST)})))
+     :edge-count-buffer (-> device (.createBuffer (clj->js {:label "edge count buffer"
+                                                            :size edge-count-buffer-size
+                                                            :usage (bit-or js/GPUBufferUsage.UNIFORM
+                                                                     js/GPUBufferUsage.COPY_DST)})))}))
+
+(defn create-compute-pipeline [device graph-buffers]
+  (println "create compute pipeline")
+  (let [repulsion-bind-group-layout (-> device
+                                      (.createBindGroupLayout
+                                        (clj->js {:label "repulsion bind group layout"
+                                                  :entries [{:binding 0
+                                                             :visibility js/GPUShaderStage.COMPUTE
+                                                             :buffer {:type "storage"}}
+                                                            {:binding 1
+                                                             :visibility js/GPUShaderStage.COMPUTE
+                                                             :buffer {:type "uniform"}}]})))
+
+
+        attraction-bind-group-layout (-> device
+                                       (.createBindGroupLayout
+                                         (clj->js {:label "attraction bind group layout"
+                                                   :entries [{:binding 0
                                                               :visibility js/GPUShaderStage.COMPUTE
-                                                              :buffer {:type "read-only-storage"}}
+                                                              :buffer {:type "storage"}}
                                                              {:binding 1
                                                               :visibility js/GPUShaderStage.COMPUTE
-                                                              :buffer {:type "storage"}}])}))
-        bind-group           (.createBindGroup
-                               device
-                               (clj->js {:layout bind-group-layout
-                                         :entries (clj->js [{:binding 0
-                                                             :resource {:buffer input-buffer}}
-                                                            {:binding 1
-                                                             :resource {:buffer force-buffer}}])}))
-                                                         
-        pipeline-layout      (.createPipelineLayout
-                                      device
-                                      (clj->js {:label "compute pipeline layout"
-                                                :bindGroupLayouts [bind-group-layout]}))
-        pipeline             (.createComputePipeline
-                               device
-                               (clj->js {:layout pipeline-layout
-                                         :label "compute pipeline"
-                                         :compute (clj->js {:module shader-module
-                                                            :entryPoint "main"})}))
-        encoder              (.createCommandEncoder device)
-        compute-pass         (.beginComputePass encoder)]
-    (.writeBuffer (.-queue device) input-buffer 0 node-positions-array)
-    (.setPipeline        compute-pass pipeline)
-    (.setBindGroup       compute-pass 0 bind-group)
-    (.dispatchWorkgroups compute-pass (max 1 (/ total-nodes  64)))
-    (.end                compute-pass)
-    (let [staging-buffer (.createBuffer
-                              device
-                              (clj->js {:label "staging buffer"
-                                        :size  node-pos-byte-length
-                                        :usage (bit-or js/GPUBufferUsage.MAP_READ
-                                                 js/GPUBufferUsage.COPY_DST)}))]
-         (.copyBufferToBuffer encoder force-buffer 0 staging-buffer 0 node-pos-byte-length)
+                                                              :buffer {:type "read-only-storage"}}
+                                                             {:binding 2
+                                                              :visibility js/GPUShaderStage.COMPUTE
+                                                              :buffer {:type "uniform"}}]})))
 
-         (.submit (.-queue device) [(.finish encoder)])
+        integration-bind-group-layout (-> device
+                                        (.createBindGroupLayout
+                                          (clj->js {:label "integration bind group layout"
+                                                    :entries [{:binding 0
+                                                               :visibility js/GPUShaderStage.COMPUTE
+                                                               :buffer {:type "storage"}}
+                                                              {:binding 1
+                                                               :visibility js/GPUShaderStage.COMPUTE
+                                                               :buffer {:type "uniform"}}]})))
 
-         ; Read the staging buffer
-         (-> (.mapAsync staging-buffer js/GPUMapMode.READ)
-            (.then (fn []
-                     (let [mapped-range (.getMappedRange staging-buffer)]
-                       (println "mapped range" mapped-range)
-                       (.unmap staging-buffer))))))))
-  
-  
+        repulsion-pipeline-layout (-> device
+                                    (.createPipelineLayout
+                                      (clj->js {:label "repulsion pipeline layout"
+                                                :bindGroupLayouts [repulsion-bind-group-layout]})))
+
+        attraction-pipeline-layout (-> device
+                                     (.createPipelineLayout
+                                       (clj->js {:label "attraction pipeline layout"
+                                                 :bindGroupLayouts [attraction-bind-group-layout]})))
+
+        integration-pipeline-layout (-> device
+                                      (.createPipelineLayout
+                                        (clj->js {:label "integration pipeline layout"
+                                                  :bindGroupLayouts [integration-bind-group-layout]})))
+
+        repulsion-shader-module (-> device
+                                  (.createShaderModule
+                                    (clj->js {:code repulsion-shader-code})))
+
+        attraction-shader-module (-> device
+                                   (.createShaderModule
+                                     (clj->js {:code attraction-shader-code})))
+
+        integration-shader-module (-> device
+                                    (.createShaderModule
+                                      (clj->js {:code integration-shader-code})))
+
+        repulsion-pipeline (-> device
+                             (.createComputePipeline
+                               (clj->js {:layout repulsion-pipeline-layout
+                                         :compute {:module repulsion-shader-module
+                                                   :entryPoint "main"}})))
+
+        attraction-pipeline (-> device
+                              (.createComputePipeline
+                                (clj->js {:layout attraction-pipeline-layout
+                                          :compute {:module attraction-shader-module
+                                                    :entryPoint "main"}})))
+
+        integration-pipeline (-> device
+                               (.createComputePipeline
+                                 (clj->js {:layout integration-pipeline-layout
+                                           :compute {:module integration-shader-module
+                                                     :entryPoint "main"}})))
+
+        repulsion-bind-group (-> device
+                               (.createBindGroup
+                                 (clj->js {:layout repulsion-bind-group-layout
+                                           :entries [{:binding 0
+                                                      :resource {:buffer (:node-buffer graph-buffers)}}
+                                                     {:binding 1
+                                                      :resource {:buffer (:node-count-buffer graph-buffers)}}]})))
+
+        attraction-bind-group (-> device
+                                (.createBindGroup
+                                  (clj->js {:layout attraction-bind-group-layout
+                                            :entries [{:binding 0
+                                                       :resource {:buffer (:node-buffer graph-buffers)}}
+                                                      {:binding 1
+                                                       :resource {:buffer (:edge-buffer graph-buffers)}}
+                                                      {:binding 2
+                                                       :resource {:buffer (:edge-count-buffer graph-buffers)}}]})))
+
+        integration-bind-group (-> device
+                                 (.createBindGroup
+                                   (clj->js {:layout integration-bind-group-layout
+                                             :entries [{:binding 0
+                                                        :resource {:buffer (:node-buffer graph-buffers)}}
+                                                       {:binding 1
+                                                        :resource {:buffer (:node-count-buffer graph-buffers)}}]})))]
+
+    {:repulsion-pipeline repulsion-pipeline
+     :attraction-pipeline attraction-pipeline
+     :integration-pipeline integration-pipeline
+     :repulsion-bind-group repulsion-bind-group
+     :attraction-bind-group attraction-bind-group
+     :integration-bind-group integration-bind-group}))
+
+(defn run-simulation [device graph pipelines buffers]
+  (let [num-iterations 5]
+    (println "run simulation")
+
+    ;; Initial buffer writes (outside the simulation loop)
+    (.writeBuffer
+      (.-queue device)
+      (:node-count-buffer buffers)
+      0
+      (js/Uint32Array. (clj->js [(:num-nodes graph)])))
+
+    (.writeBuffer
+      (.-queue device)
+      (:edge-count-buffer buffers)
+      0
+      (js/Uint32Array. (clj->js [(:num-edges graph)])))
+
+    (.writeBuffer
+      (.-queue device)
+      (:node-buffer buffers)
+      0
+      (:nodes graph))
+
+    (.writeBuffer
+      (.-queue device)
+      (:edge-buffer buffers)
+      0
+      (:edges graph))
+
+    ;; Run iterations
+    (dotimes [i num-iterations]
+      (let [command-encoder (.createCommandEncoder device)
+            compute-pass (.beginComputePass command-encoder)]
+
+        (println "iteration" i)
+
+        ;; Repulsion pass
+        (.setPipeline compute-pass (:repulsion-pipeline pipelines))
+        (.setBindGroup compute-pass 0 (:repulsion-bind-group pipelines))
+        (.dispatchWorkgroups compute-pass (js/Math.ceil (/ (:num-nodes graph) 64)))
+
+        ;; Attraction pass
+        (.setPipeline compute-pass (:attraction-pipeline pipelines))
+        (.setBindGroup compute-pass 0 (:attraction-bind-group pipelines))
+        (.dispatchWorkgroups compute-pass (js/Math.ceil (/ (:num-edges graph) 64)))
+
+        ;; Integration pass
+        (.setPipeline compute-pass (:integration-pipeline pipelines))
+        (.setBindGroup compute-pass 0 (:integration-bind-group pipelines))
+        (.dispatchWorkgroups compute-pass (js/Math.ceil (/ (:num-nodes graph) 64)))
+
+        ;; End compute pass and submit commands
+        (.end compute-pass)
+        (.submit (.-queue device) [(.finish command-encoder)]))
+      (let [staging-buffer (.createBuffer
+                             device
+                             (clj->js {:label "staging buffer"
+                                       :size  (* (:num-nodes graph)
+                                                (.-BYTES_PER_ELEMENT (:nodes graph)))
+                                       :usage (bit-or js/GPUBufferUsage.MAP_READ
+                                                js/GPUBufferUsage.COPY_DST)}))
+            command-encoder (.createCommandEncoder device)]
+        (.copyBufferToBuffer command-encoder
+          (:node-buffer buffers)
+          0
+          staging-buffer
+          0
+          (* (:num-nodes graph)
+            (.-BYTES_PER_ELEMENT (:nodes graph))))
+        (.submit (.-queue device) [(.finish command-encoder)])
+        (-> (.mapAsync staging-buffer js/GPUMapMode.READ)
+          (.then (fn []
+                   (let [result-buffer (.getMappedRange staging-buffer)
+                         result-array (js/Float32Array. result-buffer)]
+                     (println "Final node positions:" (vec result-array))
+                     (.unmap staging-buffer)))))))))
+
+
+;; Example usage (you'll need to adapt this to your specific application context)
+(defn main-simulation [device]
+  (println "main simulation")
+  (let [nodes [{:x 10 :y 20}
+               {:x 100 :y 100}
+               {:x 200 :y 50}
+               {:x 300 :y 300}
+               {:x 350 :y 350}] ; Example node positions
+        edges [{:node1-index 0 :node2-index 1}
+               {:node1-index 1 :node2-index 2}
+               {:node1-index 2 :node2-index 3}
+               {:node1-index 3 :node2-index 4}
+               {:node1-index 4 :node2-index 0}
+               {:node1-index 0 :node2-index 2}
+               {:node1-index 1 :node2-index 3}
+               {:node1-index 2 :node2-index 4}] ; Example edge connections
+        graph (create-graph nodes edges)
+        _ (println "graph" graph)
+        buffers (create-graph-buffers device graph)
+        _ (println "buffers" buffers)
+        pipelines (create-compute-pipeline device buffers)
+        _ (println "pipelines" pipelines)]
+
+    (run-simulation device graph pipelines buffers)))
+
+
+

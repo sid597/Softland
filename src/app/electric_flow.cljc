@@ -7,7 +7,7 @@
             [hyperfiddle.kvs :as kvs]
             [hyperfiddle.domlike :as dl]
             [hyperfiddle.incseq :as i]
-            #?@(:cljs [[app.client.webgpu.core :as wcore :refer [render-rect render-text]]
+            #?@(:cljs [[app.client.webgpu.core :as wcore :refer [render-rect render-text main-simulation]]
                        [global-flow :refer [await-promise
                                             mouse-down?>
                                             debounce
@@ -357,4 +357,7 @@
                (println "success canvas" canvas all-rects)
                (Setup-webgpu)
                (Add-panning)
-               (Add-wheel))))))))
+               (Add-wheel)
+               (when (some? device)
+                 (main-simulation device)))))))))
+
