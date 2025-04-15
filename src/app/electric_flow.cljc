@@ -37,28 +37,28 @@
 (hyperfiddle.rcf/enable!)
 
 
-(declare canvas)
-(declare squares)
-(declare adapter)
-(declare device)
-(declare context)
-(declare format)
-(declare command-encoder)
-(declare all-rects)
-(declare width)
-(declare height)
-(declare canvas-y)
-(declare canvas-x)
-(declare offset)
-(declare zoom-factor)
-(declare rect-ids)
-(declare visible-rects)
-(declare old-visible-rects)
-(declare data-spine)
-(declare global-atom)
-(declare font-bitmap)
-(declare atlas-data)
-(declare dpr)
+(e/declare canvas)
+(e/declare squares)
+(e/declare adapter)
+(e/declare device)
+(e/declare context)
+(e/declare format)
+(e/declare command-encoder)
+(e/declare all-rects)
+(e/declare width)
+(e/declare height)
+(e/declare canvas-y)
+(e/declare canvas-x)
+(e/declare offset)
+(e/declare zoom-factor)
+(e/declare rect-ids)
+(e/declare visible-rects)
+(e/declare old-visible-rects)
+(e/declare data-spine)
+(e/declare global-atom)
+(e/declare font-bitmap)
+(e/declare atlas-data)
+(e/declare dpr)
 
 
 (defn create-random-rects [rects ch cw]
@@ -114,7 +114,8 @@
                       new-pan-x   (+ off-x (* dpr (- end-x start-x)))
                       new-pan-y   (+ off-y (* dpr (- end-y start-y)))]
                   (reset! !offset [new-pan-x new-pan-y])
-                  [new-pan-x new-pan-y]))))))
+                  [new-pan-x new-pan-y]))
+              ""))))
 
 
 
@@ -136,7 +137,8 @@
               (println "Wheel" total-pan-x total-pan-y new-zoom 1)
               (reset! !offset [total-pan-x total-pan-y])
               (reset! !zoom-factor new-zoom)))
-          nil {:passive false}))
+          nil 
+          {:passive false}))
 
 
 (e/defn Render-with-webgpu []
