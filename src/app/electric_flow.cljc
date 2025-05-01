@@ -142,8 +142,7 @@
 
 
 (e/defn Render-with-webgpu []
-  (let [nu    (e/watch !offset)
-        spend (e/Token nu)
+  (let [[spend e] (e/Token offset)
         dv (e/snapshot device)
         con (e/snapshot context)
         fmat (e/snapshot format)]
@@ -155,8 +154,8 @@
       (when (some? spend)
         (let [rects-data    (flatten (into [] (vals all-rects)))
               rects-ids     (into [] (keys all-rects))
-              [cx cy]       nu
-              [off-x off-y] (spend (e/Task (m/sleep 25 nu)))
+              [cx cy]       offset
+              [off-x off-y] (spend (e/Task (m/sleep 25 offset)))
               rx            (e/amb cx off-x)
               ry            (e/amb cy off-y)
               texts         (reduce
