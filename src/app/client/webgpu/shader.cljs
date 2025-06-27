@@ -26,7 +26,7 @@
             fn main(input: VertexInput) -> VertexOutput {
                var output: VertexOutput;
                output.position = vec4<f32>(input.position, 0.0, 1.0);
-               output.uv = input.uv;
+output.uv = vec2<f32>(1.0 - input.uv.x, input.uv.y);
                return output;
                }
             "}))
@@ -40,7 +40,7 @@
             @group(0) @binding(1)
             var texture0: texture_2d<f32>;
 
-            @group(0) @binding(2) var<uniform> sizes:sizing;
+            @group(0) @binding(3) var<uniform> sizes:sizing;
 
             struct sizing {
               pxRange: f32,
@@ -68,7 +68,7 @@
              let screenPxDistance = screenPxRange * (sd - 0.5);
              let opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
              
-             let text = vec4<f32>(0.0, 0.0, 0.0, opacity); // Transparent background how??
+             let text = vec4<f32>(1.0, 0.0, 0.0, opacity); // Transparent background how??
 
              return text;
             }

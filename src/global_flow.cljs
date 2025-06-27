@@ -38,6 +38,7 @@
 (defonce !all-nodes-map (atom []))
 (defonce !quad-tree (atom nil))
 
+(defonce !text-renderer (atom nil))
 
 (defonce !canvas (atom nil))
 (defonce !squares (atom nil))

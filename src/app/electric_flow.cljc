@@ -7,12 +7,17 @@
             [hyperfiddle.kvs :as kvs]
             [hyperfiddle.domlike :as dl]
             [hyperfiddle.incseq :as i]
-            #?@(:cljs [[app.client.webgpu.core :as wcore :refer [render-rect render-text]]
+            #?@(:cljs [[app.client.webgpu.core :as wcore :refer 
+                        [render-rect 
+                         render-text 
+                         setup-text-renderer
+                         draw-text]]
                        [global-flow :refer [await-promise
                                             mouse-down?>
                                             debounce
                                             !canvas
                                             !font-bitmap
+                                            !text-renderer
                                             global-client-flow
                                             !adapter
                                             !global-atom
@@ -42,7 +47,7 @@
 (e/declare adapter)
 (e/declare device)
 (e/declare context)
-(e/declare format)
+(e/declare wformat)
 (e/declare command-encoder)
 (e/declare all-rects)
 (e/declare width)
@@ -59,6 +64,7 @@
 (e/declare font-bitmap)
 (e/declare atlas-data)
 (e/declare dpr)
+(e/declare text-renderer)
 
 
 (defn create-random-rects [rects ch cw]
@@ -72,7 +78,7 @@
         ;(js/console.log "xx" x y)
         ;(println i 'Create-random-rects (keyword (str i)) [x y height width])
         (swap! res assoc (keyword (str i)) [x y height width])))
-   (println "all RECTS" @res)
+   ;(println "all RECTS" @res)
    res))
 
 #?(:cljs (defn format-float [inp]
@@ -80,6 +86,35 @@
 
 #?(:cljs (defn clip-x [x w] (- (* 2 (/ x w)) 1)))
 #?(:cljs (defn clip-y [y h] (- 1 (* 2 (/ y h)))))
+
+#?(:cljs (defn setup-all-text-and-get-renderer [dv fmat atl fnt rct]
+  
+  ;; PART A: Prepare a STATIC list of texts wih their ORIGINAL WORLD positions.
+  ;; This `reduce` loop now only runs ONCE
+           (js/console.log "SETUP all text :" dv fmat atl fnt rct)
+           (let [static-texts-in-world-space (reduce
+                                     (fn [acc [id data]]
+                                       (let [[x y] data] ; We only care about the original x and y
+                                         ;; The position is now just the original world position, NOT the final clip-space one.
+                                         ;; We add 7 here because your original code did.
+                                         (conj acc {:x (+ 7 x) 
+                                                    :y (+ 7 y)
+                                                    :text (str (name id))})))
+                                     []
+                                     rct)
+
+        ;; PART B: Call the "setup renderer" function we designed before.
+        ;; It will take this static text data and create the permanent GPU objects.
+        renderer-objects  (setup-text-renderer dv
+                                               fmat
+                                               static-texts-in-world-space
+                                               atl
+                                               fnt)]
+   ;(println "static text rects" dv fmat fnt rct)
+   renderer-objects
+  )))
+
+
 
 (e/defn Setup-webgpu []
   (e/client
@@ -91,12 +126,21 @@
             device   (e/Task (await-promise (.requestDevice adapter)))
             cformat  (.getPreferredCanvasFormat gpu)
             config   (clj->js {:format cformat
-                               :device device})]
+                               :device device})
+            ar (e/snapshot all-rects)
+            atl (e/snapshot atlas-data)
+            fnt (e/snapshot font-bitmap)]
         (.configure context config)
         (reset! !adapter adapter)
         (reset! !device device)
         (reset! !context context)
-        (reset! !format cformat)))))
+        (reset! !format cformat)
+        (reset! !text-renderer (setup-all-text-and-get-renderer device 
+                                                                cformat
+                                                                atl 
+                                                                fnt
+                                                                ar
+                                                                ))))))
        
 
 
@@ -140,58 +184,73 @@
           nil 
           {:passive false}))
 
+;; This new function does all the setup work. Call it ONCE.
 
-(e/defn Render-with-webgpu []
-  (let [[spend e] (e/Token offset)
-        dv (e/snapshot device)
+(e/defn Render-text [cx cy zf]
+  (println "rendering text")
+  (let [dv (e/snapshot device)
         con (e/snapshot context)
-        fmat (e/snapshot format)]
-    (when (and (some? atlas-data)
-               (some? device)
-               (some? font-bitmap)
-               (some? context)
-               (some? format))
-      (when (some? spend)
-        (let [rects-data    (flatten (into [] (vals all-rects)))
-              rects-ids     (into [] (keys all-rects))
-              [cx cy]       offset
-              [off-x off-y] (spend (e/Task (m/sleep 25 offset)))
-              rx            (e/amb cx off-x)
-              ry            (e/amb cy off-y)
-              texts         (reduce
-                             (fn [acc [id data]]
-                               (let [[x y dh dw] data
-
-                                     left (clip-x 
-                                            (+ (* (+ 7 x) zoom-factor) off-x)
-                                            width)
-                                     top  (clip-y 
-                                            (+ (* (+ 7 y) zoom-factor) off-y)
-                                            height)]
-                                 (conj acc {:x  left
-                                            :y  top
-                                            :text (str (name id))})))
-                             []
-                             all-rects)
-              zof           (max 17 (* (/ 1 zoom-factor) 14))]
-          (render-rect
-            "zoom"
-            rects-data
+        fmat (e/snapshot wformat)
+        renderer (e/snapshot text-renderer)
+        ]
+    (when (every? some? [renderer dv con fmat ])
+      (let [camera-state {:pan-x cx
+                          :pan-y cy
+                          :zoom zf
+                          :width width
+                          :height height}]
+      (println "render text --" dv "--" con "--" renderer "--" camera-state)
+      (draw-text dv con renderer camera-state))
+      #_(let [texts         (reduce
+                            (fn [acc [id data]]
+                              (let [[x y dh dw] data
+                                    left (clip-x
+                                           (+ (* (+ 7 x) zf) cx)
+                                           width)
+                                    top  (clip-y
+                                           (+ (* (+ 7 y) zf) cy)
+                                           height)]
+                                (conj acc {:x  left
+                                           :y  top
+                                           :text (str (name id))})))
+                            []
+                            all-rects)
+            zof           (max 17 (* (/ 1 zf) 14))]
+          (render-text
             dv
             fmat
             con
-            [width height rx ry zoom-factor]
-            rects-ids)
-          (render-text
-           dv
-           fmat
-           con
-           16
-           zof
-           atlas-data
-           font-bitmap
-           texts))))))
-  
+            16
+            zof
+            atlas-data
+            font-bitmap
+            texts)))))
+
+(e/defn Render-rect [cx cy zf]
+  (let [dv (e/snapshot device)
+        fmat (e/snapshot wformat)
+        con (e/snapshot context)
+       ]
+    #_(println "render rect" device wformat context)
+    (when (every? some? [device wformat context])
+      (println "render rect" )
+      (let [rects-data (flatten (into [] (vals all-rects)))
+            [s e] (e/Token offset)
+            rects-ids (into [] (keys all-rects))]
+        #_(println "render rect crx"  cx cy)
+        (render-rect
+          "zoom"
+          rects-data
+          dv
+          fmat
+          con
+          [width height cx cy zf]
+          rects-ids) 
+        #_(when (some? s)
+          (let [[cx cy] (s (e/Task (m/sleep 25 offset)))]
+            (Render-text cx cy zf))))
+        )))
+
     
 (e/defn Tap-diffs
   ([f! x] 
@@ -235,57 +294,56 @@
                   :style {:height (str (/ height dpr) "px")
                           :width (str (/ width dpr) "px")}})
       (reset! !canvas dom/node)
-      (Render-with-webgpu)
-            
+
       (when-some [down (Mouse-down-cords dom/node)]
         (println "DOWN")
         (reset! !global-atom {:cords down}))
-     #_(e/for-by identity [node (e/as-vec (e/input (e/join (i/items data-spine))))]
+      #_(e/for-by identity [node (e/as-vec (e/input (e/join (i/items data-spine))))]
 
-                (println node global-atom) 
-                #_(On-node-add node))
+          (println node global-atom)
+          #_(On-node-add node))
       #_(println "NEW SPINE"
-                (count visible-rects)
-                (e/input (i/count data-spine))
-                visible-rects 
-                (e/as-vec (e/input (e/join (i/items data-spine)))))
+          (count visible-rects)
+          (e/input (i/count data-spine))
+          visible-rects
+          (e/as-vec (e/input (e/join (i/items data-spine)))))
       (let [mount-items (mount
-                           (fn [element child]          (do 
-                                                          (data-spine 
-                                                           child 
+                          (fn [element child]          (do
+                                                         (data-spine
+                                                           child
                                                            (fn [_ new]
                                                              (keyword (str new)))
                                                            child)
-                                                          (.push element child)
+                                                         (.push element child)
                                                          element))
-                           (fn [element child previous] (do 
-                                                          (let [idx (.indexOf element previous)]
-                                                            (when (>= idx 0)
-                                                              (aset element idx child)))
-                                                          element))
-                           (fn [element child sibling]  (do
-                                                          (let [idx (.indexOf element sibling)]
-                                                            (if (>= idx 0)
-                                                              (.splice element idx 0 child)
-                                                              (.push element child)))
-                                                          element))
-                           (fn [element child]          (do 
-                                                          (data-spine
-                                                               child 
-                                                               (fn [_ new]
-                                                                 (keyword (str new)))
-                                                               nil)
-                                                          (let [idx (.indexOf element child)]
-                                                            (when (>= idx 0)
-                                                              (.splice element idx  1)))
-                                                          element))
-                           (fn [element i]              (do 
-                                                          (aget element i))))
+                          (fn [element child previous] (do
+                                                         (let [idx (.indexOf element previous)]
+                                                           (when (>= idx 0)
+                                                             (aset element idx child)))
+                                                         element))
+                          (fn [element child sibling]  (do
+                                                         (let [idx (.indexOf element sibling)]
+                                                           (if (>= idx 0)
+                                                             (.splice element idx 0 child)
+                                                             (.push element child)))
+                                                         element))
+                          (fn [element child]          (do
+                                                         (data-spine
+                                                           child
+                                                           (fn [_ new]
+                                                             (keyword (str new)))
+                                                           nil)
+                                                         (let [idx (.indexOf element child)]
+                                                           (when (>= idx 0)
+                                                             (.splice element idx  1)))
+                                                         element))
+                          (fn [element i]              (do
+                                                         (aget element i))))
 
-             diff       (e/input (e/pure (e/diff-by identity visible-rects)))]
+            diff       (e/input (e/pure (e/diff-by identity visible-rects)))]
 
-         ((fn [] (when (some? diff) 
-                   (mount-items (object-array @!old-visible-rects) diff))))))))
+        ((fn [] (when (some? diff)
+                  (mount-items (object-array @!old-visible-rects) diff))))))))
         
 
 
@@ -315,7 +373,7 @@
               height (e/watch !height)
               width (e/watch !width)
               device (e/watch !device)
-              format (e/watch !format)
+              wformat (e/watch !format)
               context (e/watch !context)
               all-rects (e/watch !all-rects)
               offset    (e/watch !offset)
@@ -327,6 +385,7 @@
               global-atom (e/watch !global-atom)
               font-bitmap (e/watch !font-bitmap)
               atlas-data (e/watch !atlas-data)
+              text-renderer (e/watch !text-renderer)
               dpr (e/watch !dpr)]
 
         (reset! !dpr (.-devicePixelRatio js/window))
@@ -343,11 +402,25 @@
           (let [rnd     (create-random-rects rect-ids height width)]
             ;(println "RND" @rnd)
             (reset! !all-rects @rnd)
-            (println "all-rects" all-rects)
+            ;(println "all-rects" all-rects)
             (when (and (some? font-bitmap) (some? all-rects))
               (do
-               (println "total rncts" all-rects)
-               (println "success canvas" canvas all-rects)
+               ;(println "total rncts" all-rects)
+               ;(println "success canvas" canvas all-rects)
                (Setup-webgpu)
                (Add-panning)
-               (Add-wheel))))))))
+               (Add-wheel)
+               
+               (when (some? text-renderer)
+                 (let [[cx cy] offset
+                       zf zoom-factor
+                       [gx gy] (e/Task (m/sleep 40 offset))
+                       [s e] (e/Token offset)]
+                   (println "GX GY" gx gy)
+                   (let [[gx gy] (e/snapshot offset)]
+                       (println "render text ")
+                       (Render-text cx cy zf)
+                       (Render-rect cx cy zf)
+                       ))
+                 #_(Render-rect cx cy zf))
+               )))))))

@@ -8,6 +8,19 @@
                       :entryPoint "modifySquare"})})
 
 
+(def vertices-render-shader
+  (clj->js {:label "vertices render shader descriptor"
+            :code "
+            @vertex
+            fn renderVertices(@location(0) pos: vec2f) -> @builtin(position) vec4<f32> {
+             return vec4f(pos, 0.0, 1.0);
+            }
+
+            @fragment
+            fn renderVerticesFragment() -> @location(0) vec4f {
+            return vec4f(0.9, 0.9, 0.9, 1);
+            }
+            "}))
 
 (defn render-new-vertices [context new-vertices device fformat num-rectangles output-buffer]
   (js/console.log "RENDER NEW VERTICES"(js/Float32Array. new-vertices) fformat)
@@ -51,16 +64,3 @@
     (.end render-pass)
     (.submit (.-queue device) [(.finish encoder)])))
 
-(def vertices-render-shader
-  (clj->js {:label "vertices render shader descriptor"
-            :code "
-            @vertex
-            fn renderVertices(@location(0) pos: vec2f) -> @builtin(position) vec4<f32> {
-             return vec4f(pos, 0.0, 1.0);
-            }
-
-            @fragment
-            fn renderVerticesFragment() -> @location(0) vec4f {
-            return vec4f(0.9, 0.9, 0.9, 1);
-            }
-            "}))
