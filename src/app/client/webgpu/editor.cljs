@@ -1,5 +1,47 @@
 (ns app.client.webgpu.editor)
 
+(def rect-vertex-shader "
+  struct Camera {
+      pan: vec2<f32>,
+      zoom: f32,
+      padding: f32,
+      screen_dimensions: vec2<f32>,
+  };
+  @group(0) @binding(0) var<uniform> camera: Camera;
+
+  struct VertexInput {
+      @location(0) position: vec2<f32>,
+      @location(1) color: vec4<f32>, // RGBA
+  };
+
+  struct VertexOutput {
+      @builtin(position) position: vec4<f32>,
+      @location(0) color: vec4<f32>,
+  };
+
+  @vertex
+  fn main(input: VertexInput) -> VertexOutput {
+      var output: VertexOutput;
+
+      // SAME CAMERA MATH AS TEXT SHADER
+      let zoomed_position = input.position * camera.zoom;
+      let panned_position = zoomed_position + camera.pan;
+      let zero_to_two = panned_position / camera.screen_dimensions * 2.0;
+      let shifted = zero_to_two - vec2<f32>(1.0, 1.0);
+
+      output.position = vec4<f32>(shifted.x, -shifted.y, 0.0, 1.0);
+      output.color = input.color;
+
+      return output;
+  }
+")
+
+(def rect-fragment-shader "
+  @fragment
+  fn main(@location(0) color: vec4<f32>) -> @location(0) vec4<f32> {
+      return color;
+  }
+")
 ;; --- 1. SHADERS (Fixed Derivative Logic) ---
 
 (def vertex-shader-code "
@@ -88,6 +130,93 @@
        return vec4<f32>(params.color_r, params.color_g, params.color_b, opacity);
   }")
 ;; --- 2. SYSTEM SETUP ---
+(defn init-rect-system [^js/GPUDevice device fformat camera-buffer & {:keys [capacity] :or {capacity 1000}}]
+  (let [v-module (.createShaderModule device (clj->js {:code rect-vertex-shader}))
+        f-module (.createShaderModule device (clj->js {:code rect-fragment-shader}))
+
+        ;; Buffer for geometry (x, y, r, g, b, a) -> 6 floats per vertex
+        vertex-buffer (.createBuffer device (clj->js {:size (* capacity 6 6 4) ;; 6 verts/rect * 6 floats * 4 bytes
+                                                      :usage (bit-or js/GPUBufferUsage.VERTEX js/GPUBufferUsage.COPY_DST)}))
+
+        ;; Bind Group Layout (Only Camera needed)
+        bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 
+                                                                      :visibility js/GPUShaderStage.VERTEX 
+                                                                      :buffer {:type "uniform"}}]}))
+        
+        pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
+
+        pipeline (.createRenderPipeline device
+                   (clj->js {:layout pipeline-layout
+                             :vertex {:module v-module :entryPoint "main"
+                                      :buffers [{:arrayStride 24 ;; 6 floats * 4 bytes
+                                                 :attributes [{:shaderLocation 0 :offset 0 :format "float32x2"}  ;; Pos
+                                                              {:shaderLocation 1 :offset 8 :format "float32x4"}]}]} ;; Color
+                             :fragment {:module f-module :entryPoint "main"
+                                        :targets [{:format fformat
+                                                   ;; BLENDING IS CRITICAL FOR HIGHLIGHTS
+                                                   :blend {:color {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}
+                                                           :alpha {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}}}]}
+                             :primitive {:topology "triangle-list"}}))
+
+        ;; SHARE THE CAMERA BUFFER! We don't create a new one.
+        bind-group (.createBindGroup device (clj->js {:layout bg-layout
+                                                      :entries [{:binding 0 :resource {:buffer camera-buffer}}]}))]
+
+    {:pipeline pipeline
+     :bind-group bind-group
+     :vertex-buffer vertex-buffer
+     :num-verts 0}))
+
+(defn update-rects [^js device rect-system rects]
+  (let [count (count rects)
+        total-floats (* count 6 6) ;; 2 triangles * 3 verts * 6 floats
+        data (js/Float32Array. total-floats)]
+    
+    (loop [i 0, rs rects]
+      (when (seq rs)
+        (let [{:keys [x y w h r g b a]} (first rs)
+              base (* i 36) ;; 6 verts * 6 floats
+              
+              x2 (+ x w)
+              y2 (+ y h)]
+           
+           ;; We manually build 2 triangles (Quad)
+           ;; Vert Format: x, y, r, g, b, a
+           
+           ;; Triangle 1
+           ;; TL
+           (aset data (+ base 0) x) (aset data (+ base 1) y) 
+           (aset data (+ base 2) r) (aset data (+ base 3) g) (aset data (+ base 4) b) (aset data (+ base 5) a)
+           ;; TR
+           (aset data (+ base 6) x2) (aset data (+ base 7) y)
+           (aset data (+ base 8) r) (aset data (+ base 9) g) (aset data (+ base 10) b) (aset data (+ base 11) a)
+           ;; BL
+           (aset data (+ base 12) x) (aset data (+ base 13) y2)
+           (aset data (+ base 14) r) (aset data (+ base 15) g) (aset data (+ base 16) b) (aset data (+ base 17) a)
+
+           ;; Triangle 2
+           ;; TR
+           (aset data (+ base 18) x2) (aset data (+ base 19) y)
+           (aset data (+ base 20) r) (aset data (+ base 21) g) (aset data (+ base 22) b) (aset data (+ base 23) a)
+           ;; BR
+           (aset data (+ base 24) x2) (aset data (+ base 25) y2)
+           (aset data (+ base 26) r) (aset data (+ base 27) g) (aset data (+ base 28) b) (aset data (+ base 29) a)
+           ;; BL
+           (aset data (+ base 30) x) (aset data (+ base 31) y2)
+           (aset data (+ base 32) r) (aset data (+ base 33) g) (aset data (+ base 34) b) (aset data (+ base 35) a)
+
+           (recur (inc i) (next rs)))))
+    
+    (.writeBuffer (.-queue device) (:vertex-buffer rect-system) 0 data)
+    (assoc rect-system :num-verts (* count 6))))
+
+(defn draw-rects [^js pass ^js rect-system ]
+  (when (> (:num-verts rect-system) 0)
+    (.setPipeline pass (:pipeline rect-system))
+    (.setBindGroup pass 0 (:bind-group rect-system))
+    (.setVertexBuffer pass 0 (:vertex-buffer rect-system))
+    (.draw pass (:num-verts rect-system))))
+
 
 (defn init-text-system
   [^js/GPUDevice device fformat atlas font-bitmap & {:keys [initial-capacity] :or {initial-capacity 10000}}]
@@ -289,32 +418,21 @@
 
     (assoc renderer-state :num-indices total-indices)))
 
-(defn draw-text [^js/GPUDevice device ^js/GPUCanvasContext context renderer-state camera-state]
+(defn draw-text-pass [^js pass ^js device renderer-state camera-state]
   (when (> (:num-indices renderer-state) 0)
+    ;; 1. Update Camera Uniforms (This happens on the Queue, not the Pass)
     (let [camera-array (js/Float32Array. (clj->js [(:pan-x camera-state) 
                                                    (:pan-y camera-state)
                                                    (:zoom camera-state) 
                                                    0.0
                                                    (:width camera-state) 
-                                                   (:height camera-state)]))
+                                                   (:height camera-state)]))]
+      (.writeBuffer (.-queue device) (:camera-uniform-buffer renderer-state) 0 camera-array))
 
-          encoder (.createCommandEncoder device)
-          view    (.createView (.getCurrentTexture context))
-
-          render-pass (.beginRenderPass encoder
-                                        (clj->js {:colorAttachments [{:view view
-                                                                      :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 1.0} 
-                                                                      :loadOp "clear"
-                                                                      :storeOp "store"}]}))]
-
-      (.writeBuffer (.-queue device) (:camera-uniform-buffer renderer-state) 0 camera-array)
-
-      (.setPipeline render-pass (:pipeline renderer-state))
-      (.setBindGroup render-pass 0 (:bind-group renderer-state))
-      (.setVertexBuffer render-pass 0 (:vertex-buffer renderer-state))
-      (.setIndexBuffer render-pass (:index-buffer renderer-state) "uint16")
-      (.drawIndexed render-pass (:num-indices renderer-state))
-      (.end render-pass)
-
-      (.submit (.-queue device) [(.finish encoder)]))))
+    ;; 2. Record Draw Commands into the provided Pass
+    (.setPipeline pass (:pipeline renderer-state))
+    (.setBindGroup pass 0 (:bind-group renderer-state))
+    (.setVertexBuffer pass 0 (:vertex-buffer renderer-state))
+    (.setIndexBuffer pass (:index-buffer renderer-state) "uint16")
+    (.drawIndexed pass (:num-indices renderer-state))))
 

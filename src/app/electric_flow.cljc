@@ -69,80 +69,52 @@
                   (reset! !atlas-data (js->clj data :keywordize-keys true)))))))
 
 ;; --- Resource Loaders ---
-#?(:cljs (defn load-resources []
-           (println "Loading resources...")
-           (-> (js/fetch "/font_atlas.png")
-               (.then #(.blob %))
-               (.then #(js/createImageBitmap %))
-               (.then #(reset! !font-bitmap %)))
-           (-> (js/fetch "/font_atlas.json")
-               (.then #(.json %))
-               (.then #(reset! !atlas-data (js->clj % :keywordize-keys true))))))
+#?(:cljs
+   (defn load-resources-async []
+     (js/Promise.all
+       #js [(-> (js/fetch "/font_atlas.png")
+                (.then #(.blob %))
+                (.then #(js/createImageBitmap %)))
+            (-> (js/fetch "/font_atlas.json")
+                (.then #(.json %))
+                (.then #(js->clj % :keywordize-keys true)))])))
 
 (e/defn Init-Editor-State []
   (e/client
     (when (nil? editor-state)
       (println "⏳ Starting Async Init...")
-      (load-resources)
-      (when-not (some nil? [atlas-data font-bitmap])
-        (let [gpu js/navigator.gpu
-              adapter (e/Task (await-promise (.requestAdapter gpu)))
-              device  (e/Task (await-promise (.requestDevice adapter)))
-              ]
+      (let [[bitmap atlas] (e/Task (await-promise (load-resources-async)))]
+        (reset! !font-bitmap bitmap)
+        (reset! !atlas-data atlas)
+        (when-not (some nil? [atlas-data font-bitmap])
+          (let [gpu js/navigator.gpu
+                adapter (e/Task (await-promise (.requestAdapter gpu)))
+                device  (e/Task (await-promise (.requestDevice adapter)))
+                ]
 
-          ;; 3. The "Bingoing": Compile Shaders & Save State
-          (when device
-            (println "⚡ GPU & Files Ready. Compiling Shaders...")
-            (js/console.log "ff" gpu "--" adapter "--" device "--" atlas-data "--" font-bitmap)
-            (let [format (.getPreferredCanvasFormat gpu)
-                  ;; This is the HEAVY function from your editor ns
-                  final-state (editor/init-text-system 
-                                device 
-                                format 
-                                atlas-data
-                                font-bitmap
-                                )]
-              (js/console.log "GOT final state" final-state)
+            ;; 3. The "Bingoing": Compile Shaders & Save State
+            (when device
+              (println "⚡ GPU & Files Ready. Compiling Shaders...")
+              (js/console.log "ff" gpu "--" adapter "--" device "--" atlas-data "--" font-bitmap)
+              (let [format (.getPreferredCanvasFormat gpu)
+                    text-sys (editor/init-text-system device format atlas-data font-bitmap)
+                    rect-sys (editor/init-rect-system device format (:camera-uniform-buffer text-sys))
+                    final-state {:text-sys text-sys
+                                 :rect-sys rect-sys}
+                    ]
+                (js/console.log "GOT final state" final-state)
 
-              ;; Save global refs needed for rendering later
-              (reset! !device device)
+                ;; Save global refs needed for rendering later
+                (reset! !device device)
 
-              ;; Save the compiled pipeline state!
-              (reset! !editor-state final-state)
-              (println "✅ Init Complete. State saved."))))))))
+                ;; Save the compiled pipeline state!
+                (reset! !editor-state final-state)
+                (println "✅ Init Complete. State saved.")))))))))
 
-(defn layout-lines [start-y line-gap lines]
-  (let [calc-next (fn [{:keys [y current-h]} line]
-                    (let [size    (:size line)
-                          ;; Crude metric: Cap height is roughly 70% of font size
-                          ;; Line height usually 1.2x font size
-                          height  (* size 1.2)
-                          new-y   (if y 
-                                    (- y current-h line-gap) ;; Move UP (since 0,0 is bottom-left in WebGPU usually, but check your camera)
-                                    ;; If your Y=0 is TOP-LEFT (standard UI), use (+ y current-h line-gap)
-                                    ;; Based on your previous code, let's assume Y grows downwards or we adjust manually.
-                                    ;; Let's assume Standard UI: Y increases going DOWN.
-                                    (+ y height line-gap)
-                                    )]
-                      
-                      {:y new-y
-                       :current-h height
-                       :lines (conj (:lines line) (assoc line :y start-y))}))]
-    
-    ;; Simple reducer to stack them
-    (first (reduce (fn [[acc-y final-lines] line]
-                     (let [size   (:size line)
-                           height (* size 1.2) ;; Standard Line Height
-                           this-y acc-y
-                           next-y (+ acc-y height line-gap)]
-                       [next-y (conj final-lines (assoc line :y this-y))]))
-                   [start-y []]
-                   lines))))
 
 
 (e/defn WebGPU-Render-Logic []
   (e/client
-
     ;; Only render if we have the canvas AND the compiled state
     (js/console.log "WebGPU-Render-Logic" canvas device editor-state)
     (when-not (some nil? [canvas device editor-state]) 
@@ -165,11 +137,12 @@
 
         (when configured?
           (println "configured" w h)
-          (let [raw-content [{:text "Paragraph text is smaller (64px)" :size 64}
+          (let [{:keys [text-sys rect-sys]} editor-state
+                raw-content [{:text "Paragraph text is smaller != -> (64px)" :size 64}
                              {:text "Paragraph text is smaller (32px)" :size 32}
                              {:text "Paragraph text is smaller (19px)" :size 19}
                              {:text "Paragraph text is smaller (17px)" :size 14}]
-                
+
                 ;; Calculate Y positions automatically starting at Y=100 with 10px gap
                 [_ stacked-lines] (reduce (fn [[current-y lines] line]
                                             (let [fsize (:size line)
@@ -178,17 +151,44 @@
                                               [next-y (conj lines (assoc line :x 50 :y current-y))]))
                                           [100.0 []] ;; Start Y
                                           raw-content)
-
-                updated-state (editor/update-text-data 
-                                device 
-                                editor-state 
-                                stacked-lines
-                                atlas-data 
-                                19)
-
-                ;; 3. Camera
                 camera {:pan-x 0.0 :pan-y 0.0 :zoom 1.0 
-                        :width w :height h}]
+                        :width w :height h}
+                camera-data (js/Float32Array. (clj->js [(:pan-x camera) (:pan-y camera) 
+                                                        (:zoom camera) 0.0 
+                                                        (:width camera) (:height camera)]))
+                target-line (nth stacked-lines 1) 
+                metrics      (:metrics atlas-data)
+
+                ;; 1. Get the font's actual DNA
+                ;; Ascender: Distance from Baseline to top of "h" or "T"
+                ;; Descender: Distance from Baseline to bottom of "g" (usually negative)
+                metric-asc   (or (:ascender metrics) 0.8)
+                metric-lh    (or (:lineHeight metrics) 1.2)
+
+                ;; 2. Calculate pixel values
+                fsize        (:size target-line)
+
+                ;; The top of the box should be the Baseline minus the Ascender
+                ;; We add a tiny bit of "padding" (0.1 em) so it doesn't touch the letters exactly
+                rect-y       (- (:y target-line) (* fsize metric-asc))
+
+                ;; The height is exactly what the font says a line should be
+                rect-h       (* fsize metric-lh)
+
+                ;; 3. Width (We still have to guess width for now, or measure chars)
+                ;; A rough estimate for Monospace is 0.6 * size * char-count
+                rect-w       (* (count (:text target-line)) (* fsize 0.6)) 
+                rect-x       (:x target-line)
+
+                ;; 3. UPDATE BUFFERS
+                updated-text-sys (editor/update-text-data device text-sys stacked-lines atlas-data 19)
+                updated-rect-sys (editor/update-rects device rect-sys 
+                                                      [{:x rect-x 
+                                                        :y rect-y 
+                                                        :w rect-w 
+                                                        :h rect-h 
+                                                        :r 0.0 :g 0.0 :b 1.0 :a 0.5}]
+                                                      )]
             (println "stacked-lines" stacked-lines)
 
             ;; 4. Draw
@@ -199,9 +199,32 @@
             ;; but BEFORE the screen refresh, resulting in a black screen (race condition).
             ;; requestAnimationFrame aligns our draw call to the start of the next VSync,
             ;; guaranteeing it executes after the browser's layout/clear pass is finished.
-            (let [draw-cmd (fn [] 
-                             (editor/draw-text device context updated-state camera))]
-              
+            (let [draw-cmd (fn render-loop [] 
+                             (.writeBuffer ^js (.-queue ^js device) 
+                                           (:camera-uniform-buffer text-sys) 
+                                           0 
+                                           camera-data)
+                             (let [encoder (.createCommandEncoder ^js device )
+                                   view    (.createView ^js (.getCurrentTexture context))
+
+                                   ;; MASTER RENDER PASS
+                                   pass    (.beginRenderPass ^js encoder 
+                                                             (clj->js {:colorAttachments [{:view view 
+                                                                                           ;; Clear to Black
+                                                                                           :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 1.0} 
+                                                                                           :loadOp "clear" 
+                                                                                           :storeOp "store"}]}))]
+
+                               ;; LAYER 1: Background Rects
+                               (editor/draw-rects pass updated-rect-sys)
+
+                               ;; LAYER 2: Text (Note: we call draw-text-pass now)
+                               (editor/draw-text-pass pass device updated-text-sys camera)
+
+                               (.end ^js pass)
+                               (.submit ^js (.-queue ^js device) [(.finish ^js encoder)]))
+                             (js/requestAnimationFrame render-loop))]
+
               (js/requestAnimationFrame draw-cmd))
             ))))))
 
