@@ -39,7 +39,7 @@
 
 
 (e/defn Mouse-down-cords [node] (e/input (mouse-down?> node)))
-    
+
 (e/defn Tap-diffs
   ([f! x] 
    (f! (e/input (e/pure x)))
@@ -53,8 +53,8 @@
                (.then #(.blob %))
                (.then #(js/createImageBitmap %))
                (.then (fn [img]
-                         (reset! !font-bitmap img))))))
-                            
+                        (reset! !font-bitmap img))))))
+
 #?(:cljs
    (defn read-json-file []
      (-> (js/fetch "/font_atlas.json")
@@ -88,15 +88,15 @@
         (let [gpu js/navigator.gpu
               adapter (e/Task (await-promise (.requestAdapter gpu)))
               device  (e/Task (await-promise (.requestDevice adapter)))]
-          
+
           (when (and adapter device)
             (let [context (.getContext canvas "webgpu" (clj->js {:alpha true}))
                   format  (.getPreferredCanvasFormat gpu)
-                  
+
                   ;; Use the atoms (which are now full-screen)
                   w (js/Math.ceil width)
                   h (js/Math.ceil height)
-                  
+
                   configured? (do 
                                 (.configure ^js context (clj->js {:device device 
                                                                   :format format
@@ -115,14 +115,14 @@
                       snap-h (e/snapshot h)]
 
                   (let [init-state (editor/init-text-system dv fmat atl bmp)
-                        
+
                         ;; Text at 100, 100 should now be clearly visible
                         render-state (editor/update-text-data dv init-state 
-                                       [{:text "HELLO FULL SCREEN!" :x 100 :y 100}] atl 64)
-                        
+                                                              [{:text "HELLO FULL SCREEN!" :x 100 :y 100}] atl 64)
+
                         camera {:pan-x 0.0 :pan-y 0.0 :zoom 1.0 
                                 :width snap-w :height snap-h}]
-                    
+
                     (println "Final Draw. Full Screen Size:" snap-w "x" snap-h)
                     (editor/draw-text dv ctx render-state camera)))))))))))
 
@@ -142,7 +142,7 @@
               text-renderer (e/watch !text-renderer)
               dpr (e/watch !dpr)]
 
-(dom/style {:margin "0" 
+      (dom/style {:margin "0" 
                   :padding "0" 
                   :width "100vw" 
                   :height "100vh" 
@@ -153,7 +153,7 @@
       (let [dpr   (.-devicePixelRatio js/window)
             win-w (.-innerWidth js/window)
             win-h (.-innerHeight js/window)]
-        
+
         (reset! !width (* dpr win-w))
         (reset! !height (* dpr win-h))
 
@@ -163,7 +163,7 @@
                       :height (e/watch !height)
                       ;; Canvas fills the window
                       :style {:width "100vw" :height "100vh" :display "block"}})
-          
+
           (reset! !canvas dom/node)
           (load-resources)
           (WebGPU-Static-Render))))))
