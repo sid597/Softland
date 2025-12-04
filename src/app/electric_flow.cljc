@@ -42,8 +42,8 @@
 
 (defn layout-lines [raw-content start-y]
   "Pure function. 
-   Input: Vector of maps {:text str :size int}
-   Output: Vector of maps with calculated {:x :y} coordinates."
+  Input: Vector of maps {:text str :size int}
+  Output: Vector of maps with calculated {:x :y} coordinates."
   (let [initial-state {:current-y start-y :lines []}]
     (:lines 
       (reduce (fn [acc line]
@@ -116,6 +116,31 @@
            :r 0.0 :g 0.0 :b 1.0 :a 0.3})
         lines))
 
+(e/defn Prepare-Geometry [device pipelines render-data atlas]
+  (e/client
+    (println "STATIC: Uploading 30k vertices to GPU...")
+    ;; This calls your update-text-data-fast ONE time.
+    {:text (editor/update-text-data device 
+                                         (:text-sys pipelines) 
+                                         (:text-lines render-data) 
+                                         atlas 
+                                         19)}))
+
+;; 2. FAST MOVEMENT (Uniform Buffer)
+;; This function takes the PRE-CALCULATED geometry and the CHANGING camera.
+(e/defn Fast-Render-Loop [device ctx geometry camera-state]
+  (e/client
+    (js/requestAnimationFrame
+      (fn []
+        ;; This function ONLY updates the tiny Camera Buffer (24 bytes)
+        ;; It does NOT touch the Geometry Buffer (Megabytes)
+        (editor/draw-frame! device
+                            ctx
+                            (:text geometry)
+                            nil ;; rects
+                            camera-state)))))
+
+
 (e/defn main [ring-request]
   (e/client
     (binding [dom/node js/document.body]
@@ -127,41 +152,41 @@
                   :background "black"})
       (let [resources (LoadWebGPU)]
         (when resources
-            (let [ win       js/window
+          (let [ win       js/window
                 raw-w      (dom/On win "resize" (fn [_] (.-innerWidth win)) (.-innerWidth win) nil)
-                   raw-h      (dom/On win "resize" (fn [_] (.-innerHeight win)) (.-innerHeight win) nil)
-                   dpr        (dom/On win "resize" (fn [_] (or (.-devicePixelRatio win) 1.0)) (or (.-devicePixelRatio win) 1.0) nil)                ;; Ensure we never have NaNs even if DOM is not ready
+                raw-h      (dom/On win "resize" (fn [_] (.-innerHeight win)) (.-innerHeight win) nil)
+                dpr        (dom/On win "resize" (fn [_] (or (.-devicePixelRatio win) 1.0)) (or (.-devicePixelRatio win) 1.0) nil)                ;; Ensure we never have NaNs even if DOM is not ready
                 calc-w    (max 1.0 (* (or raw-w 100) dpr))
                 calc-h    (max 1.0 (* (or raw-h 100) dpr))
-                
-                  !scroll-y (atom 0)
-                  scroll-y (e/watch !scroll-y)
-                  pipelines (editor/create-editor-state resources) ;; Assumes you renamed init logic to this or kept separate calls
-                ;; --- Data Model ---
-                raw-content [{:text "Title (64px)" :size 64}
-                             {:text "Subtitle (32px)" :size 32}
-                             {:text "Body text (19px)" :size 19}]]
-              (let [layout-lines (layout-lines raw-content 100)
+
+                !scroll-y (atom 0)
+                pipelines (editor/create-editor-state resources) ;; Assumes you renamed init logic to this or kept separate calls
+                ;; ... inside the let bindings ...
+                raw-content (mapv (fn [i] 
+                                    {:text (str "Line " i ": Stress test verify GPU batching. " 
+                                                "The quick brown fox jumps over the lazy dog. (19px)") 
+                                     :size 19})
+                                  (range 2100))
+                ;; --- Data Model --
+                #_#_raw-content [{:text "Title (64px)" :size 64}
+                                 {:text "Subtitle (32px)" :size 32}
+                                 {:text "Body text (19px)" :size 19}]]
+            (let [layout-lines (layout-lines raw-content 100)
                   render-data  {:text-lines layout-lines
                                 :rects      (text-to-rects layout-lines)}]
 
               (dom/canvas
                 (dom/props {:id "webgpu-canvas" :width calc-w :height calc-h 
                             :style {:width "100vw" :height "100vh" :display "block"}})
-                
-                ;; Configure Context (Reactive)
                 (let [ctx (.getContext dom/node "webgpu" #?(:cljs #js {:alpha true}))]
                   (.configure ctx (clj->js {:device (:device resources) :format (:format resources) 
                                             :width (js/Math.ceil calc-w) :height (js/Math.ceil calc-h)}))
-                  
-                  ;; Input Handling
                   (dom/On js/window "wheel" (fn [e] (.preventDefault e) (swap! !scroll-y + (.-deltaY e))) nil {:passive false})
-
-                  ;; Render
-                  (WebGPU-Layer (:device resources) 
-                                 ctx 
-                                 pipelines 
-                                 (:atlas resources)
-                                 {:pan-x 0 :pan-y (- scroll-y) :zoom 1.0 :width calc-w :height calc-h} 
-                                 render-data)))
-              )))))))
+                  (let [geometry (Prepare-Geometry (:device resources) 
+                                                   pipelines 
+                                                   render-data 
+                                                   (:atlas resources))]
+                        (let [
+                              scroll-y (e/watch !scroll-y)
+                              camera-state {:pan-x 0 :pan-y scroll-y :zoom 1.0 :width calc-w :height calc-h}]
+                          (Fast-Render-Loop (:device resources) ctx geometry camera-state)      )))))))))))
