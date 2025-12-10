@@ -94,7 +94,6 @@
     {:pipeline pipeline :bind-group bind-group :instance-buffer instance-buffer :num-instances 0}))
 
 (defn init-text-system [^js/GPUDevice device fformat atlas font-bitmap & {:keys [initial-capacity] :or {initial-capacity 10000}}]
-  (println "INITIALIZING INSTANCED TEXT SYSTEM")
   (let [vertex-module (.createShaderModule device (clj->js {:code text-vertex-shader}))
         fragment-module (.createShaderModule device (clj->js {:code text-fragment-shader}))
         texture (.createTexture device (clj->js {:size {:width (.-width font-bitmap) :height (.-height font-bitmap) :depthOrArrayLayers 1}
@@ -170,25 +169,63 @@
     @res))
 
 (defn update-text-data [^js/GPUDevice device renderer-state texts atlas font-size]
-  (println "---- update text data")
-  (let [shaped (shape-text texts font-size atlas) count (count shaped)
-        data (js/Float32Array. (* count 8))]
-    (println "CPU Geometry:" count "instances.")
-    (loop [i 0 quads shaped]
-      (when (seq quads)
-        (let [verts (:vertices (first quads))
-              v-tl (nth verts 3) v-br (nth verts 1)
-              [tl_x tl_y u_min v_min _] v-tl [br_x br_y u_max v_max _] v-br
-              base (* i 8)]
-          (aset data (+ base 0) tl_x) (aset data (+ base 1) tl_y)
-          (aset data (+ base 2) (- br_x tl_x)) (aset data (+ base 3) (- br_y tl_y))
-          (aset data (+ base 4) u_min) (aset data (+ base 5) v_min)
-          (aset data (+ base 6) u_max) (aset data (+ base 7) v_max)
-          (recur (inc i) (next quads)))))
+  (let [;; 1. SHAPE & INDEX
+        ;; We map over the lines to shape them individually so we can count instances per line.
+        ;; This gives us a collection of {:quads [...] :count n}
+        shaped-lines (mapv (fn [line-data]
+                             (let [quads (shape-text [line-data] font-size atlas)]
+                               {:quads quads
+                                :count (count quads)}))
+                           texts)
+
+        ;; 2. FLATTEN DATA
+        total-instances (reduce + (map :count shaped-lines))
+        data (js/Float32Array. (* total-instances 8))
+        
+        ;; 3. BUILD THE INDEX (Cumulative Sum)
+        ;; line-offsets will look like [0, 15, 32, 45 ...]
+        ;; It tells us the "Start Instance Index" for every line number.
+        line-offsets (loop [lines shaped-lines
+                            current-idx 0
+                            offsets []]
+                       (if (seq lines)
+                         (let [cnt (:count (first lines))]
+                           (recur (next lines) 
+                                  (+ current-idx cnt) 
+                                  (conj offsets current-idx)))
+                         (vec offsets)))]
+
+    ;; 4. FILL THE BUFFER
+    ;; This logic is effectively the same, just iterating our new structure
+    (loop [lines shaped-lines
+           global-i 0]
+      (when (seq lines)
+        (let [quads (:quads (first lines))]
+          (loop [q quads
+                 sub-i 0]
+            (when (seq q)
+              (let [verts (:vertices (first q))
+                    v-tl (nth verts 3) v-br (nth verts 1)
+                    [tl_x tl_y u_min v_min _] v-tl [br_x br_y u_max v_max _] v-br
+                    base (* (+ global-i sub-i) 8)]
+                (aset data (+ base 0) tl_x) (aset data (+ base 1) tl_y)
+                (aset data (+ base 2) (- br_x tl_x)) (aset data (+ base 3) (- br_y tl_y))
+                (aset data (+ base 4) u_min) (aset data (+ base 5) v_min)
+                (aset data (+ base 6) u_max) (aset data (+ base 7) v_max)
+                (recur (next q) (inc sub-i)))))
+          (recur (next lines) (+ global-i (:count (first lines)))))))
+
     (.writeBuffer (.-queue device) (:instance-buffer renderer-state) 0 data)
+    
     (let [sizes (js/Float32Array. #js [8.0 64.0 1.0 1.0 1.0 0.0])]
       (.writeBuffer (.-queue device) (:sizes-uniform-buffer renderer-state) 0 sizes))
-    (assoc renderer-state :num-instances count)))
+
+    ;; 5. RETURN STATE WITH METADATA
+    (assoc renderer-state 
+           :num-instances total-instances
+           :line-offsets line-offsets
+           :line-height (* font-size 1.2)))) ;; We assume 1.2 line height here
+
 
 (defn update-rects [^js device rect-system rects]
   (let [count (count rects) data (js/Float32Array. (* count 8))]
@@ -215,16 +252,13 @@
   (.writeBuffer (.-queue device) camera-buffer 0 floats))
 
 (defn draw-frame! [^js device ^js context text-sys rect-sys camera-floats pass-descriptor pan-x pan-y w h]
-  ;; REMOVED PRINTLN HERE - IT WAS KILLING PERFORMANCE
-  
-  ;; 1. Update Camera Buffer
+  ;; Update Camera Uniforms
   (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y 1.0 w h)
   
   (let [encoder (.createCommandEncoder device)
         texture (.getCurrentTexture context)
         view    (.createView texture)
         
-        ;; 2. Reuse the Descriptor Object
         color-attachments (aget pass-descriptor "colorAttachments")
         attachment-0      (aget color-attachments 0)]
     
@@ -232,18 +266,56 @@
     
     (let [pass (.beginRenderPass encoder pass-descriptor)]
       
+      ;; --- DRAW RECTS ---
       (when (and rect-sys (> (:num-instances rect-sys) 0))
         (.setPipeline pass (:pipeline rect-sys))
         (.setBindGroup pass 0 (:bind-group rect-sys))
         (.setVertexBuffer pass 0 (:instance-buffer rect-sys))
         (.draw pass 6 (:num-instances rect-sys)))
 
+      ;; --- DRAW TEXT (WITH CULLING) ---
       (when (and text-sys (> (:num-instances text-sys) 0))
         (.setPipeline pass (:pipeline text-sys))
         (.setBindGroup pass 0 (:bind-group text-sys))
         (.setVertexBuffer pass 0 (:instance-buffer text-sys))
-        (.draw pass 6 (:num-instances text-sys)))
+
+        (let [line-offsets (:line-offsets text-sys)
+              line-h       (:line-height text-sys)
+              total-lines  (count line-offsets)
+              
+              ;; 1. CALCULATE VISIBLE LINES
+              ;; pan-y is negative scroll-y. So we invert it.
+              scroll-y     (- pan-y) 
+              
+              ;; Index of the top-most visible line
+              start-line   (max 0 (Math/floor (/ scroll-y line-h)))
+              
+              ;; Index of the bottom-most visible line (plus buffer of 2 lines)
+              end-line     (min total-lines (+ (Math/ceil (/ (+ scroll-y h) line-h)) 2))]
+          
+          (if (< start-line end-line)
+            (let [;; 2. LOOKUP INSTANCE INDICES
+                  ;; Where does the first visible line start in the buffer?
+                  start-inst (nth line-offsets start-line)
+                  
+                  ;; Where does the last visible line end?
+                  ;; If we are at the very end, use total-instances.
+                  end-inst   (if (< end-line total-lines)
+                               (nth line-offsets end-line)
+                               (:num-instances text-sys))
+                  
+                  ;; How many instances to draw?
+                  draw-count (- end-inst start-inst)]
+              
+              ;; 3. DRAW ONLY THE VISIBLE RANGE
+              ;; .draw(vertexCount, instanceCount, firstVertex, firstInstance)
+              (.draw pass 6 draw-count 0 start-inst))
+            
+            ;; If nothing is visible, draw nothing (or draw 0 instances)
+            nil)))
 
       (.end pass)
       (.submit (.-queue device) #js [(.finish encoder)]))))
+
+
 

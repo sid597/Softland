@@ -1,18 +1,17 @@
 (ns app.client.webgpu.loop
-  (:require [app.client.webgpu.editor :as editor]))
+  (:require [hyperfiddle.electric3 :as e]
+            [hyperfiddle.electric-dom3 :as dom]
+            [missionary.core :as m]
+            [contrib.missionary-contrib :as mx]
+            [app.client.webgpu.editor :as editor]))
 
-(defn make-input-state []
-  (atom {:scroll-y 0 :width 100 :height 100 :dpr 1 
-         :auto-scroll? false}))
+;; --- 1. UTILS & HUD ---
 
-;; --- HUD & CONTROLS ---
-
-(defn ensure-hud-element [!state toggle-auto-fn]
+(defn ensure-hud! [toggle-fn]
   (let [id "webgpu-hud"]
     (or (.getElementById js/document id)
         (let [div (.createElement js/document "div")
               btn (.createElement js/document "button")]
-          
           (set! (.-id div) id)
           (set! (.-style div) "position:fixed;top:10px;left:10px;background:rgba(0,0,0,0.85);color:#0f0;padding:10px;font-family:monospace;font-weight:bold;z-index:99999;border:1px solid #333;display:flex;flex-direction:column;gap:10px;")
           
@@ -23,9 +22,9 @@
 
           (set! (.-innerText btn) "🔥 Toggle Stress Test")
           (set! (.-style btn) "background:#333;color:white;border:1px solid #555;padding:5px;cursor:pointer;")
-          (set! (.-onclick btn) toggle-auto-fn)
+          (set! (.-onclick btn) toggle-fn)
           (.appendChild div btn)
-
+          
           (.appendChild js/document.body div)
           div))))
 
@@ -36,98 +35,113 @@
                "CPU:     " (.toFixed cpu-ms 3) " ms\n"
                "(Core Render Logic Only)"))))
 
-;; --- LOOP LOGIC ---
+;; --- 2. INPUT SIGNALS ---
 
-(defn configure-reactive-loop [node !state device ctx geometry]
-  (let [!pending-frame (atom nil)
-        !dragging?     (atom false)]
-    
-    ;; USE LETFN FOR RECURSION
-    (letfn [(draw! []
-              (reset! !pending-frame nil)
-              
-              (let [t0 (js/performance.now)
-                    state-val @!state
-                    {:keys [scroll-y width height auto-scroll?]} state-val
-                    {:keys [camera-floats pass-descriptor]} (:pipelines geometry)
-                    
-                    ;; Auto-scroll logic
-                    final-scroll-y (if auto-scroll? 
-                                     (let [next-y (+ scroll-y 100)]
-                                       (swap! !state assoc :scroll-y next-y)
-                                       next-y) 
-                                     scroll-y)]
-                
-                ;; 1. EXECUTE GPU COMMANDS
-                (editor/draw-frame! device ctx 
-                                    (:text geometry) (:rect geometry) 
-                                    camera-floats pass-descriptor
-                                    0 (- final-scroll-y) width height)
-                
-                ;; 2. METRICS
-                (let [t1 (js/performance.now)
-                      mode (if auto-scroll? "AUTO (Max FPS)" "REACTIVE (Input)")]
-                  (update-stats! (- t1 t0) mode))
+(defn <canvas-size [node]
+  (->> (m/observe
+         (fn [!]
+           (let [update-size (fn []
+                               (let [win js/window
+                                     dpr (or (.-devicePixelRatio win) 1)
+                                     rect (.getBoundingClientRect node)
+                                     w (max 1 (Math/floor (* (.-width rect) dpr)))
+                                     h (max 1 (Math/floor (* (.-height rect) dpr)))]
+                                 (set! (.-width node) w)
+                                 (set! (.-height node) h)
+                                 (! {:width w :height h :dpr dpr})))
+                 
+                 obs (new js/ResizeObserver update-size)]
+             
+             (update-size)
+             (.observe obs node)
+             #(.disconnect obs))))
+       (m/relieve (fn [_old new] new))))
 
-                ;; 3. RECUR (Only if auto-scrolling)
-                ;; Now valid because letfn supports recursion
-                (when (:auto-scroll? @!state)
-                  (reset! !pending-frame (js/requestAnimationFrame draw!)))))
+(defn >wheel-deltas [node]
+  (m/observe
+    (fn [!]
+      (let [handler (fn [e]
+                      (.preventDefault e)
+                      (! (.-deltaY e)))]
+        (.addEventListener node "wheel" handler #js {:passive false})
+        #(.removeEventListener node "wheel" handler)))))
 
-            (request-draw! []
-              (when-not @!pending-frame
-                (reset! !pending-frame (js/requestAnimationFrame draw!))))
-
-            (toggle-stress-test []
-              (let [on? (:auto-scroll? @!state)]
-                (swap! !state assoc :auto-scroll? (not on?))
-                (if (not on?)
-                  (request-draw!)
-                  (reset! !pending-frame nil))))]
-
-      ;; --- SETUP LISTENERS ---
-      
-      (ensure-hud-element !state toggle-stress-test)
-      
-      (let [wheel-handler (fn [e]
-                            (.preventDefault e)
-                            (swap! !state update :scroll-y + (.-deltaY e))
-                            (request-draw!))
-
-            mousedown-handler (fn [e] (reset! !dragging? true))
-            mouseup-handler   (fn [e] (reset! !dragging? false))
+(defn >user-input-deltas [node]
+  (m/observe
+    (fn [!]
+      (let [dragging? (volatile! false)
             
-            mousemove-handler (fn [e]
-                                (when @!dragging?
-                                  (let [dy (.-movementY e)]
-                                    (swap! !state update :scroll-y - dy)
-                                    (request-draw!))))
+            down-h  (fn [e] (vreset! dragging? true))
+            up-h    (fn [e] (vreset! dragging? false))
+            
+            move-h  (fn [e]
+                      (when @dragging?
+                        (! (- (.-movementY e)))))]
 
-            resize-handler (fn [_]
-                             (let [win js/window
-                                   dpr (or (.-devicePixelRatio win) 1)
-                                   w   (max 1 (* (.-innerWidth win) dpr))
-                                   h   (max 1 (* (.-innerHeight win) dpr))]
-                               (swap! !state merge {:width w :height h :dpr dpr})
-                               (set! (.-width node) w)
-                               (set! (.-height node) h)
-                               (request-draw!)))]
+        (.addEventListener node "mousedown" down-h)
+        (.addEventListener js/window "mouseup" up-h)
+        (.addEventListener js/window "mousemove" move-h)
 
-        ;; Init
-        (resize-handler nil)
-        
-        (.addEventListener node "wheel" wheel-handler #js {:passive false})
-        (.addEventListener node "mousedown" mousedown-handler)
-        (.addEventListener js/window "mousemove" mousemove-handler)
-        (.addEventListener js/window "mouseup" mouseup-handler)
-        (.addEventListener js/window "resize" resize-handler #js {:passive true})
-
-        ;; Cleanup
         (fn []
-          (when @!pending-frame (js/cancelAnimationFrame @!pending-frame))
-          (.removeEventListener node "wheel" wheel-handler)
-          (.removeEventListener node "mousedown" mousedown-handler)
-          (.removeEventListener js/window "mousemove" mousemove-handler)
-          (.removeEventListener js/window "mouseup" mouseup-handler)
-          (.removeEventListener js/window "resize" resize-handler)
-          (some-> (.getElementById js/document "webgpu-hud") .remove))))))
+          (.removeEventListener node "mousedown" down-h)
+          (.removeEventListener js/window "mouseup" up-h)
+          (.removeEventListener js/window "mousemove" move-h))))))
+
+(def >raf
+  (m/observe 
+    (fn [!]
+      (let [active? (volatile! true)
+            callback (fn loop [t]
+                       (when @active?
+                         (! t)
+                         (js/requestAnimationFrame loop)))]
+        (js/requestAnimationFrame callback)
+        #(vreset! active? false)))))
+
+
+(defn start-loop! [node device ctx geometry]
+  
+  (let [;; 1. STATE CONTAINER
+        initial-state {:scroll-y 0 :width 100 :height 100 :dpr 1}
+        !state        (atom initial-state)
+
+        !auto-scroll? (atom false)
+        toggle-fn     #(swap! !auto-scroll? not)
+        _             (ensure-hud! toggle-fn)
+
+        wheel-deltas (->> (>wheel-deltas node) (m/relieve +))
+        input-deltas (->> (>user-input-deltas node) (m/relieve +))
+        canvas-size  (<canvas-size node)]
+
+    (m/join {}
+      
+      (->> (mx/mix
+             (m/eduction (map (fn [x] [:resize x])) canvas-size)
+             (m/eduction (map (fn [x] [:input x])) wheel-deltas)
+             (m/eduction (map (fn [x] [:input x])) input-deltas))
+           
+           (m/reduce
+             (fn [_ [type value]]
+               (swap! !state
+                      (fn [state]
+                        (case type
+                          :resize (merge state value)
+                          :input  (update state :scroll-y + value)))))
+             nil))
+
+      (m/reduce
+        (fn [_ state]
+          (editor/draw-frame! device ctx 
+                                (:text geometry) (:rect geometry) 
+                                (:camera-floats (:pipelines geometry)) 
+                                (:pass-descriptor (:pipelines geometry)) 
+                                0 (- (:scroll-y state)) (:width state) (:height state))
+            
+          nil)
+        nil
+        (->> (m/sample identity (m/watch !state) >raf)
+             (m/eduction (dedupe))))
+      )))
+
+(defn configure-reactive-loop [node _unused-state device ctx geometry]
+  (start-loop! node device ctx geometry))
