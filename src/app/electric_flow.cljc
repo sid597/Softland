@@ -68,6 +68,6 @@
                                 :style {:width "100vw" :height "100vh" :display "block"}})
                     (let [ctx (.getContext dom/node "webgpu" #?(:cljs #js {:alpha true}))]
                       (.configure ctx (clj->js {:device device :format format :alphaMode "premultiplied"}))
-                      (let [loop-flow (loop/configure-reactive-loop dom/node nil device ctx geometry)]
+                      (let [loop-flow (loop/start-loop! dom/node device ctx geometry)]
                         (let [loop-state (e/input loop-flow)]
                           loop-state)))))))))))))
