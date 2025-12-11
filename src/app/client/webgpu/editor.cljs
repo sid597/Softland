@@ -94,32 +94,45 @@
     {:pipeline pipeline :bind-group bind-group :instance-buffer instance-buffer :num-instances 0}))
 
 (defn init-text-system [^js/GPUDevice device fformat atlas font-bitmap & {:keys [initial-capacity] :or {initial-capacity 10000}}]
-  (let [vertex-module (.createShaderModule device (clj->js {:code text-vertex-shader}))
+  (let [vertex-module   (.createShaderModule device (clj->js {:code text-vertex-shader}))
         fragment-module (.createShaderModule device (clj->js {:code text-fragment-shader}))
-        texture (.createTexture device (clj->js {:size {:width (.-width font-bitmap) :height (.-height font-bitmap) :depthOrArrayLayers 1}
-                                                 :format "rgba8unorm" :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT js/GPUTextureUsage.TEXTURE_BINDING js/GPUTextureUsage.COPY_DST)}))
-        _ (.copyExternalImageToTexture (.-queue device) (clj->js {:source font-bitmap}) (clj->js {:texture texture}) (clj->js {:width (.-width font-bitmap) :height (.-height font-bitmap)}))
-        sampler (.createSampler device (clj->js {:minFilter "linear" :magFilter "linear" :mipmapFilter "linear"}))
-        instance-buffer (.createBuffer device (clj->js {:size (* initial-capacity 32) :usage (bit-or js/GPUBufferUsage.VERTEX js/GPUBufferUsage.COPY_DST)}))
-        camera-buffer (.createBuffer device (clj->js {:size 24 :usage (bit-or js/GPUBufferUsage.UNIFORM js/GPUBufferUsage.COPY_DST)}))
-        sizes-buffer (.createBuffer device (clj->js {:size 24 :usage (bit-or js/GPUBufferUsage.UNIFORM js/GPUBufferUsage.COPY_DST)}))
-        bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility js/GPUShaderStage.FRAGMENT :sampler {:type "filtering"}}
-                                                                     {:binding 1 :visibility js/GPUShaderStage.FRAGMENT :texture {:sampleType "float"}}
-                                                                     {:binding 2 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}
-                                                                     {:binding 3 :visibility js/GPUShaderStage.FRAGMENT :buffer {:type "uniform"}}]}))
+        texture         (.createTexture device (clj->js {:size {:width (.-width font-bitmap) 
+                                                                :height (.-height font-bitmap) 
+                                                                :depthOrArrayLayers 1}
+                                                         :format "rgba8unorm"
+                                                         :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT js/GPUTextureUsage.TEXTURE_BINDING js/GPUTextureUsage.COPY_DST)
+                                                         }))
+        _               (.copyExternalImageToTexture (.-queue device) 
+                                                     (clj->js {:source font-bitmap})
+                                                     (clj->js {:texture texture})
+                                                     (clj->js {:width (.-width font-bitmap) 
+                                                               :height (.-height font-bitmap)}))
+        sampler         (.createSampler device 
+                                        (clj->js {:minFilter "linear"
+                                                  :magFilter "linear" 
+                                                  :mipmapFilter "linear"}))
+        instance-buffer (.createBuffer device 
+                                       (clj->js {:size (* initial-capacity 32) 
+                                                 :usage (bit-or js/GPUBufferUsage.VERTEX js/GPUBufferUsage.COPY_DST)}))
+        camera-buffer   (.createBuffer device (clj->js {:size 24 :usage (bit-or js/GPUBufferUsage.UNIFORM js/GPUBufferUsage.COPY_DST)}))
+        sizes-buffer    (.createBuffer device (clj->js {:size 24 :usage (bit-or js/GPUBufferUsage.UNIFORM js/GPUBufferUsage.COPY_DST)}))
+        bg-layout       (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility js/GPUShaderStage.FRAGMENT :sampler {:type "filtering"}}
+                                                                           {:binding 1 :visibility js/GPUShaderStage.FRAGMENT :texture {:sampleType "float"}}
+                                                                           {:binding 2 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}
+                                                                           {:binding 3 :visibility js/GPUShaderStage.FRAGMENT :buffer {:type "uniform"}}]}))
         pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
-        pipeline (.createRenderPipeline device (clj->js {:layout pipeline-layout
-                                                         :vertex {:module vertex-module :entryPoint "main"
-                                                                  :buffers [{:arrayStride 32 :stepMode "instance"
-                                                                             :attributes [{:shaderLocation 0 :offset 0 :format "float32x4"}
-                                                                                          {:shaderLocation 1 :offset 16 :format "float32x4"}]}]}
-                                                         :fragment {:module fragment-module :entryPoint "main"
-                                                                    :targets [{:format fformat :blend {:color {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}
-                                                                                                       :alpha {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}}}]}
-                                                         :primitive {:topology "triangle-list"}}))
-        bind-group (.createBindGroup device (clj->js {:layout bg-layout
-                                                      :entries [{:binding 0 :resource sampler} {:binding 1 :resource (.createView texture)}
-                                                                {:binding 2 :resource {:buffer camera-buffer}} {:binding 3 :resource {:buffer sizes-buffer}}]}))]
+        pipeline        (.createRenderPipeline device (clj->js {:layout pipeline-layout
+                                                                :vertex {:module vertex-module :entryPoint "main"
+                                                                         :buffers [{:arrayStride 32 :stepMode "instance"
+                                                                                    :attributes [{:shaderLocation 0 :offset 0 :format "float32x4"}
+                                                                                                 {:shaderLocation 1 :offset 16 :format "float32x4"}]}]}
+                                                                :fragment {:module fragment-module :entryPoint "main"
+                                                                           :targets [{:format fformat :blend {:color {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}
+                                                                                                              :alpha {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}}}]}
+                                                                :primitive {:topology "triangle-list"}}))
+        bind-group     (.createBindGroup device (clj->js {:layout bg-layout
+                                                          :entries [{:binding 0 :resource sampler} {:binding 1 :resource (.createView texture)}
+                                                                    {:binding 2 :resource {:buffer camera-buffer}} {:binding 3 :resource {:buffer sizes-buffer}}]}))]
     {:pipeline pipeline :bind-group bind-group :camera-uniform-buffer camera-buffer :sizes-uniform-buffer sizes-buffer :instance-buffer instance-buffer :num-instances 0}))
 
 (defn create-editor-state [{:keys [device format atlas bitmap]}]
@@ -150,7 +163,7 @@
         atlas-w (or (:width atlas) 1) atlas-h (or (:height atlas) 1) line-h (or (:lineHeight metrics) 1.2)
         res (atom [])]
     (doseq [txt texts]
-      (let [{:keys [text x y]} txt fsize (max (or (:size txt) global-fsize) 17.0)
+      (let [{:keys [text x y]} txt fsize (max (or (:size txt) global-fsize) 1.0)
             start-x x !x (atom x) !y (atom y)]
         (doseq [ch (seq text)]
           (let [code (.charCodeAt ch 0)]
@@ -168,41 +181,60 @@
                         (swap! res conj {:vertices [[sl sb ul vb fsize] [sr sb ur vb fsize] [sr st ur vt fsize] [sl st ul vt fsize]]}))))))))
     @res))
 
-(defn update-text-data [^js/GPUDevice device renderer-state texts atlas font-size]
-  (let [;; 1. SHAPE & INDEX
-        ;; We map over the lines to shape them individually so we can count instances per line.
-        ;; This gives us a collection of {:quads [...] :count n}
-        shaped-lines (mapv (fn [line-data]
-                             (let [quads (shape-text [line-data] font-size atlas)]
-                               {:quads quads
-                                :count (count quads)}))
-                           texts)
 
-        ;; 2. FLATTEN DATA
-        total-instances (reduce + (map :count shaped-lines))
+(defn update-text-data [^js/GPUDevice device renderer-state texts atlas font-size]
+  (let [;; ... Steps 1, 2, 3 (Shaping & Indexing) remain exactly the same ...
+        shaped-lines (mapv (fn [tokens-in-line]
+                             ;; CHANGE 2: Pass the line's tokens DIRECTLY to shape-text.
+                             ;; REMOVED the [] wrapper because tokens-in-line is already a vector.
+                             (let [quads (shape-text tokens-in-line font-size atlas)]
+                               {:quads quads :count (count quads)}))
+                           texts)
+total-instances (reduce + (map :count shaped-lines))
+        total-instances (max total-instances 1) 
         data (js/Float32Array. (* total-instances 8))
         
-        ;; 3. BUILD THE INDEX (Cumulative Sum)
-        ;; line-offsets will look like [0, 15, 32, 45 ...]
-        ;; It tells us the "Start Instance Index" for every line number.
+        ;; line-offsets now correctly maps Line Index -> Instance Index
         line-offsets (loop [lines shaped-lines
                             current-idx 0
                             offsets []]
                        (if (seq lines)
                          (let [cnt (:count (first lines))]
-                           (recur (next lines) 
-                                  (+ current-idx cnt) 
-                                  (conj offsets current-idx)))
-                         (vec offsets)))]
+                           (recur (next lines) (+ current-idx cnt) (conj offsets current-idx)))
+                         (vec offsets)))
 
-    ;; 4. FILL THE BUFFER
-    ;; This logic is effectively the same, just iterating our new structure
-    (loop [lines shaped-lines
-           global-i 0]
+        ;; --- BUFFER RESIZING LOGIC ---
+        current-buffer (:instance-buffer renderer-state)
+        required-size (.-byteLength data)
+        current-size (.-size ^js current-buffer) ;; Fix inference here
+        
+        ;; Check if we need to resize
+        needs-resize? (> required-size current-size)
+
+        new-buffer (if needs-resize?
+                     (do
+                       (.destroy ^js current-buffer) ;; Fix inference here
+                       (.createBuffer device (clj->js {:size required-size
+                                                       :usage (.| js/GPUBufferUsage.STORAGE 
+                                                                  js/GPUBufferUsage.COPY_DST)})))
+                     current-buffer)
+
+        ;; --- CRITICAL FIX: RECREATE BIND GROUP ---
+        ;; If the buffer changed, the old BindGroup is invalid. We MUST create a new one.
+        new-bind-group (if needs-resize?
+                         (.createBindGroup device
+                           (clj->js {:layout (:bind-group-layout renderer-state) ;; Ensure this exists in state!
+                                     :entries [{:binding 0
+                                                :resource {:buffer new-buffer}}
+                                               {:binding 1
+                                                :resource {:buffer (:sizes-uniform-buffer renderer-state)}}]}))
+                         (:bind-group renderer-state))]
+
+    ;; 4. FILL THE BUFFER (Same as before)
+    (loop [lines shaped-lines global-i 0]
       (when (seq lines)
         (let [quads (:quads (first lines))]
-          (loop [q quads
-                 sub-i 0]
+          (loop [q quads sub-i 0]
             (when (seq q)
               (let [verts (:vertices (first q))
                     v-tl (nth verts 3) v-br (nth verts 1)
@@ -215,16 +247,23 @@
                 (recur (next q) (inc sub-i)))))
           (recur (next lines) (+ global-i (:count (first lines)))))))
 
-    (.writeBuffer (.-queue device) (:instance-buffer renderer-state) 0 data)
+    ;; Write to the (potentially new) buffer
+    (.writeBuffer (.-queue device) new-buffer 0 data)
     
     (let [sizes (js/Float32Array. #js [8.0 64.0 1.0 1.0 1.0 0.0])]
       (.writeBuffer (.-queue device) (:sizes-uniform-buffer renderer-state) 0 sizes))
 
-    ;; 5. RETURN STATE WITH METADATA
+    (println "total instances" total-instances)
+    ;; 5. RETURN UPDATED STATE
     (assoc renderer-state 
+           :instance-buffer new-buffer
+           :bind-group new-bind-group  ;; <--- IMPORTANT: Return the new BindGroup
            :num-instances total-instances
            :line-offsets line-offsets
-           :line-height (* font-size 1.2)))) ;; We assume 1.2 line height here
+           :line-height (* font-size 1.2))))
+
+
+ ;; We assume 1.2 line height here
 
 
 (defn update-rects [^js device rect-system rects]
@@ -278,6 +317,7 @@
         (.setPipeline pass (:pipeline text-sys))
         (.setBindGroup pass 0 (:bind-group text-sys))
         (.setVertexBuffer pass 0 (:instance-buffer text-sys))
+        (println "text-syns" (:num-instances text-sys))
 
         (let [line-offsets (:line-offsets text-sys)
               line-h       (:line-height text-sys)
@@ -292,6 +332,7 @@
               
               ;; Index of the bottom-most visible line (plus buffer of 2 lines)
               end-line     (min total-lines (+ (Math/ceil (/ (+ scroll-y h) line-h)) 2))]
+          (println "line" w h pan-x pan-y "--" line-h total-lines scroll-y start-line end-line (< start-line end-line))
           
           (if (< start-line end-line)
             (let [;; 2. LOOKUP INSTANCE INDICES
@@ -306,6 +347,7 @@
                   
                   ;; How many instances to draw?
                   draw-count (- end-inst start-inst)]
+              (println "draw count" draw-count)
               
               ;; 3. DRAW ONLY THE VISIBLE RANGE
               ;; .draw(vertexCount, instanceCount, firstVertex, firstInstance)
