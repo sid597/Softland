@@ -143,14 +143,16 @@
      :pass-descriptor pass-descriptor}))
 
 ;; --- 3. UPDATES (CPU -> GPU) ---
-
 (defn shape-text [texts global-fsize msdf-atlas]
   (let [atlas (:atlas msdf-atlas) metrics (:metrics msdf-atlas)
         glyphs (reduce (fn [acc glyph] (assoc acc (:unicode glyph) glyph)) {} (:glyphs msdf-atlas))
         atlas-w (or (:width atlas) 1) atlas-h (or (:height atlas) 1) line-h (or (:lineHeight metrics) 1.2)
         res (atom [])]
     (doseq [txt texts]
-      (let [{:keys [text x y]} txt fsize (max (or (:size txt) global-fsize) 17.0)
+      (let [{:keys [text x y]} txt 
+            ;; FIX: Removed the (max ... 17.0) clamp. 
+            ;; Now respects the actual font size passed in.
+            fsize (or (:size txt) global-fsize)
             start-x x !x (atom x) !y (atom y)]
         (doseq [ch (seq text)]
           (let [code (.charCodeAt ch 0)]
@@ -158,51 +160,68 @@
               (= ch \newline) (do (reset! !x start-x) (reset! !y (+ @!y (* fsize line-h))))
               (= ch \space) (swap! !x + (* fsize 0.25))
               :else (when-let [g (get glyphs code)]
-                      (let [pb (:planeBounds g) ab (:atlasBounds g)
+                      (let [pb (:planeBounds g)
+                            ab (:atlasBounds g)
                             advance (* fsize (or (:advance g) 0))
-                            sl (+ @!x (* fsize (or (:left pb) 0))) sr (+ @!x (* fsize (or (:right pb) 0)))
-                            st (- @!y (* fsize (or (:top pb) 0))) sb (- @!y (* fsize (or (:bottom pb) 0)))
-                            ul (/ (:left ab) atlas-w) ur (/ (:right ab) atlas-w)
-                            vt (- 1.0 (/ (:top ab) atlas-h)) vb (- 1.0 (/ (:bottom ab) atlas-h))]
+                            sl (+ @!x (* fsize (or (:left pb) 0)))
+                            sr (+ @!x (* fsize (or (:right pb) 0)))
+                            st (- @!y (* fsize (or (:top pb) 0)))
+                            sb (- @!y (* fsize (or (:bottom pb) 0)))
+                            ul (/ (:left ab) atlas-w)
+                            ur (/ (:right ab) atlas-w)
+                            vt (- 1.0 (/ (:top ab) atlas-h))
+                            vb (- 1.0 (/ (:bottom ab) atlas-h))]
                         (swap! !x + advance)
                         (swap! res conj {:vertices [[sl sb ul vb fsize] [sr sb ur vb fsize] [sr st ur vt fsize] [sl st ul vt fsize]]}))))))))
     @res))
 
-(defn update-text-data [^js/GPUDevice device renderer-state texts atlas font-size]
-  (let [;; 1. SHAPE & INDEX
-        ;; We map over the lines to shape them individually so we can count instances per line.
-        ;; This gives us a collection of {:quads [...] :count n}
-        shaped-lines (mapv (fn [line-data]
-                             (let [quads (shape-text [line-data] font-size atlas)]
-                               {:quads quads
-                                :count (count quads)}))
-                           texts)
 
-        ;; 2. FLATTEN DATA
+(defn update-text-data [^js/GPUDevice device renderer-state texts atlas font-size]
+  (let [
+        shaped-lines (mapv (fn [tokens-in-line]
+                             (let [quads (shape-text tokens-in-line font-size atlas)]
+                               {:quads quads :count (count quads)}))
+                           texts)
+        
         total-instances (reduce + (map :count shaped-lines))
+        total-instances (max total-instances 1) 
         data (js/Float32Array. (* total-instances 8))
         
-        ;; 3. BUILD THE INDEX (Cumulative Sum)
-        ;; line-offsets will look like [0, 15, 32, 45 ...]
-        ;; It tells us the "Start Instance Index" for every line number.
         line-offsets (loop [lines shaped-lines
                             current-idx 0
                             offsets []]
                        (if (seq lines)
                          (let [cnt (:count (first lines))]
-                           (recur (next lines) 
-                                  (+ current-idx cnt) 
-                                  (conj offsets current-idx)))
-                         (vec offsets)))]
+                           (recur (next lines) (+ current-idx cnt) (conj offsets current-idx)))
+                         (vec offsets)))
 
-    ;; 4. FILL THE BUFFER
-    ;; This logic is effectively the same, just iterating our new structure
-    (loop [lines shaped-lines
-           global-i 0]
+        current-buffer (:instance-buffer renderer-state)
+        required-size (.-byteLength data)
+        current-size (.-size ^js current-buffer) 
+        
+        needs-resize? (> required-size current-size)
+
+        new-buffer (if needs-resize?
+                     (do
+                       (.destroy ^js current-buffer) 
+                       (.createBuffer device (clj->js {:size required-size
+                                                       :usage (bit-or js/GPUBufferUsage.STORAGE 
+                                                                      js/GPUBufferUsage.COPY_DST)})))
+                     current-buffer)
+
+        new-bind-group (if needs-resize?
+                         (.createBindGroup device
+                           (clj->js {:layout (:bind-group-layout renderer-state) ;; Ensure this exists in state!
+                                     :entries [{:binding 0
+                                                :resource {:buffer new-buffer}}
+                                               {:binding 1
+                                                :resource {:buffer (:sizes-uniform-buffer renderer-state)}}]}))
+                         (:bind-group renderer-state))]
+
+    (loop [lines shaped-lines global-i 0]
       (when (seq lines)
         (let [quads (:quads (first lines))]
-          (loop [q quads
-                 sub-i 0]
+          (loop [q quads sub-i 0]
             (when (seq q)
               (let [verts (:vertices (first q))
                     v-tl (nth verts 3) v-br (nth verts 1)
@@ -215,16 +234,17 @@
                 (recur (next q) (inc sub-i)))))
           (recur (next lines) (+ global-i (:count (first lines)))))))
 
-    (.writeBuffer (.-queue device) (:instance-buffer renderer-state) 0 data)
+    (.writeBuffer (.-queue device) new-buffer 0 data)
     
     (let [sizes (js/Float32Array. #js [8.0 64.0 1.0 1.0 1.0 0.0])]
       (.writeBuffer (.-queue device) (:sizes-uniform-buffer renderer-state) 0 sizes))
 
-    ;; 5. RETURN STATE WITH METADATA
     (assoc renderer-state 
+           :instance-buffer new-buffer
+           :bind-group new-bind-group 
            :num-instances total-instances
            :line-offsets line-offsets
-           :line-height (* font-size 1.2)))) ;; We assume 1.2 line height here
+           :line-height (* font-size 1.2))))
 
 
 (defn update-rects [^js device rect-system rects]
@@ -240,7 +260,6 @@
     (.writeBuffer (.-queue device) (:instance-buffer rect-system) 0 data)
     (assoc rect-system :num-instances count)))
 
-;; --- 4. RENDER LOOP OPTIMIZED ---
 
 (defn update-camera [^js device camera-buffer ^js floats pan-x pan-y zoom w h]
   (aset floats 0 pan-x)
@@ -251,71 +270,49 @@
   (aset floats 5 h)
   (.writeBuffer (.-queue device) camera-buffer 0 floats))
 
-(defn draw-frame! [^js device ^js context text-sys rect-sys camera-floats pass-descriptor pan-x pan-y w h]
-  ;; Update Camera Uniforms
+
+(defn draw-frame! [^js device ^js context text-sys rect-sys camera-floats _ignored_pass_descriptor pan-x pan-y w h]
   (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y 1.0 w h)
   
   (let [encoder (.createCommandEncoder device)
         texture (.getCurrentTexture context)
         view    (.createView texture)
         
-        color-attachments (aget pass-descriptor "colorAttachments")
-        attachment-0      (aget color-attachments 0)]
-    
-    (aset attachment-0 "view" view)
-    
-    (let [pass (.beginRenderPass encoder pass-descriptor)]
+        pass-descriptor (clj->js 
+                          {:colorAttachments [{:view view
+                                               :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 1.0}
+                                               :loadOp "clear"
+                                               :storeOp "store"}]})
+        
+        pass (.beginRenderPass encoder pass-descriptor)]
+
+    (when (and rect-sys (> (:num-instances rect-sys) 0))
+      (.setPipeline pass (:pipeline rect-sys))
+      (.setBindGroup pass 0 (:bind-group rect-sys))
+      (.setVertexBuffer pass 0 (:instance-buffer rect-sys))
+      (.draw pass 6 (:num-instances rect-sys)))
+
+    (when (and text-sys (> (:num-instances text-sys) 0))
+      (.setPipeline pass (:pipeline text-sys))
+      (.setBindGroup pass 0 (:bind-group text-sys))
+      (.setVertexBuffer pass 0 (:instance-buffer text-sys))
       
-      ;; --- DRAW RECTS ---
-      (when (and rect-sys (> (:num-instances rect-sys) 0))
-        (.setPipeline pass (:pipeline rect-sys))
-        (.setBindGroup pass 0 (:bind-group rect-sys))
-        (.setVertexBuffer pass 0 (:instance-buffer rect-sys))
-        (.draw pass 6 (:num-instances rect-sys)))
-
-      ;; --- DRAW TEXT (WITH CULLING) ---
-      (when (and text-sys (> (:num-instances text-sys) 0))
-        (.setPipeline pass (:pipeline text-sys))
-        (.setBindGroup pass 0 (:bind-group text-sys))
-        (.setVertexBuffer pass 0 (:instance-buffer text-sys))
-
-        (let [line-offsets (:line-offsets text-sys)
-              line-h       (:line-height text-sys)
-              total-lines  (count line-offsets)
-              
-              ;; 1. CALCULATE VISIBLE LINES
-              ;; pan-y is negative scroll-y. So we invert it.
-              scroll-y     (- pan-y) 
-              
-              ;; Index of the top-most visible line
-              start-line   (max 0 (Math/floor (/ scroll-y line-h)))
-              
-              ;; Index of the bottom-most visible line (plus buffer of 2 lines)
-              end-line     (min total-lines (+ (Math/ceil (/ (+ scroll-y h) line-h)) 2))]
-          
-          (if (< start-line end-line)
-            (let [;; 2. LOOKUP INSTANCE INDICES
-                  ;; Where does the first visible line start in the buffer?
-                  start-inst (nth line-offsets start-line)
-                  
-                  ;; Where does the last visible line end?
-                  ;; If we are at the very end, use total-instances.
-                  end-inst   (if (< end-line total-lines)
-                               (nth line-offsets end-line)
-                               (:num-instances text-sys))
-                  
-                  ;; How many instances to draw?
-                  draw-count (- end-inst start-inst)]
-              
-              ;; 3. DRAW ONLY THE VISIBLE RANGE
-              ;; .draw(vertexCount, instanceCount, firstVertex, firstInstance)
-              (.draw pass 6 draw-count 0 start-inst))
+      (let [line-offsets (:line-offsets text-sys)
+            line-h       (:line-height text-sys)
+            total-lines  (count line-offsets)
             
-            ;; If nothing is visible, draw nothing (or draw 0 instances)
-            nil)))
+            scroll-y     (- pan-y) 
+            start-line   (max 0 (Math/floor (/ scroll-y line-h)))
+            end-line     (min total-lines (+ (Math/ceil (/ (+ scroll-y h) line-h)) 2))]
+        
+        (when (< start-line end-line)
+          (let [start-inst (nth line-offsets start-line)
+                end-inst   (if (< end-line total-lines)
+                             (nth line-offsets end-line)
+                             (:num-instances text-sys))
+                draw-count (- end-inst start-inst)]
+            
+            (.draw pass 6 draw-count 0 start-inst)))))
 
-      (.end pass)
-      (.submit (.-queue device) #js [(.finish encoder)]))))
-
-
-
+    (.end pass)
+    (.submit (.-queue device) #js [(.finish encoder)])))
