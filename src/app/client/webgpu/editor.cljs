@@ -73,6 +73,67 @@
        return vec4<f32>(params.color_r, params.color_g, params.color_b, opacity);
   }")
 
+;; Updated hit-test: clamps column to actual line length
+(defn hit-test [x y font-size start-x start-y line-h line-lengths]
+  (let [char-w     (* font-size 0.6)
+        rel-x      (- x start-x)
+        rel-y      (- y start-y)
+        line-idx   (max 0 (Math/floor (/ rel-y line-h)))
+        ;; Clamp line index to valid range
+        line-idx   (min line-idx (max 0 (dec (count line-lengths))))
+        ;; Get actual line length, default to 0 for empty lines
+        line-len   (get line-lengths line-idx 0)
+        ;; Clamp column to [0, line-length]
+        col-idx    (-> (/ rel-x char-w)
+                       (Math/round)
+                       (max 0)
+                       (min line-len))]
+    {:line line-idx :col col-idx}))
+
+;; Updated calculate-selection-rects: uses actual line lengths
+(defn calculate-selection-rects [sel-start sel-end font-size start-x start-y line-h line-lengths]
+  (if (and sel-start sel-end)
+    (let [;; Normalize selection direction
+          [start end] (if (or (> (:line sel-start) (:line sel-end))
+                              (and (= (:line sel-start) (:line sel-end))
+                                   (> (:col sel-start) (:col sel-end))))
+                        [sel-end sel-start]
+                        [sel-start sel-end])
+          char-w (* font-size 0.6)
+          ;; Selection highlight color
+          r 0.2 g 0.4 b 0.9 a 0.5]
+
+      (loop [curr-line (:line start)
+             rects     []]
+        (if (> curr-line (:line end))
+          rects
+          (let [;; Get actual length of this line
+                line-len   (get line-lengths curr-line 0)
+                is-first?  (= curr-line (:line start))
+                is-last?   (= curr-line (:line end))
+                
+                ;; Column range for this line
+                col-start  (if is-first? (:col start) 0)
+                col-end    (if is-last? 
+                             (:col end) 
+                             line-len)  ;; Use actual line length, not hardcoded!
+                
+                ;; Only create rect if there's content to highlight
+                width-chars (- col-end col-start)]
+            
+            (if (and (> width-chars 0) (> line-len 0))
+              ;; Create rect for this line's selection
+              (let [px-x (+ start-x (* col-start char-w))
+                    px-y (+ start-y (* curr-line line-h))
+                    px-w (* width-chars char-w)
+                    px-h line-h]
+                (recur (inc curr-line)
+                       (conj rects {:x px-x :y px-y :w px-w :h px-h
+                                    :r r :g g :b b :a a})))
+              ;; Skip empty lines or zero-width selections
+              (recur (inc curr-line) rects))))))
+    []))
+
 ;; --- 2. INITIALIZATION ---
 
 (defn init-rect-system [^js/GPUDevice device fformat camera-buffer & {:keys [initial-capacity] :or {initial-capacity 1000}}]
@@ -126,19 +187,15 @@
   (let [text-sys (init-text-system device format atlas bitmap :initial-capacity 1000000)
         rect-sys (init-rect-system device format (:camera-uniform-buffer text-sys) :initial-capacity 50000)
         
-        ;; OPTIMIZATION 1: Pre-allocate the Camera Array
         camera-floats (js/Float32Array. 6)
         
-        ;; OPTIMIZATION 2: Pre-allocate the Render Pass Descriptor object
-        ;; We create the JS object ONCE. We will just swap the .view property later.
-        pass-descriptor (clj->js {:colorAttachments [{:view nil ;; Placeholder
+        pass-descriptor (clj->js {:colorAttachments [{:view nil
                                                       :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 0.0}
                                                       :loadOp "clear"
                                                       :storeOp "store"}]})]
     
     {:text-sys text-sys 
      :rect-sys rect-sys
-     ;; Store reusable objects in the state
      :camera-floats camera-floats
      :pass-descriptor pass-descriptor}))
 
@@ -150,8 +207,6 @@
         res (atom [])]
     (doseq [txt texts]
       (let [{:keys [text x y]} txt 
-            ;; FIX: Removed the (max ... 17.0) clamp. 
-            ;; Now respects the actual font size passed in.
             fsize (or (:size txt) global-fsize)
             start-x x !x (atom x) !y (atom y)]
         (doseq [ch (seq text)]
@@ -211,7 +266,7 @@
 
         new-bind-group (if needs-resize?
                          (.createBindGroup device
-                           (clj->js {:layout (:bind-group-layout renderer-state) ;; Ensure this exists in state!
+                           (clj->js {:layout (:bind-group-layout renderer-state)
                                      :entries [{:binding 0
                                                 :resource {:buffer new-buffer}}
                                                {:binding 1

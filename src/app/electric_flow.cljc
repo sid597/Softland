@@ -140,7 +140,6 @@
                       line-ops (mapv (fn [token]
                                        (let [color (get-color (:type token))]
                                          (merge token color
-                                                ;; Use :from position for correct x placement
                                                 {:x (+ start-x (* (or (:from token) 0) char-width))
                                                  :y line-y
                                                  :size font-size})))
@@ -186,7 +185,7 @@
                       :overflow "hidden" :background "#111" 
                       :user-select "none"})
           
-          (init-lezer-parser!)  ; No #? needed - JVM stub exists
+          (init-lezer-parser!)
           
           (let [resources (LoadWebGPU)]
             (when resources
@@ -197,7 +196,10 @@
                 
                 (let [lines (str/split-lines file-content)
                       tokenized-lines (mapv tokenize-line lines)
-                      render-ops (layout-tokens tokenized-lines 50 100 16)]
+                      render-ops (layout-tokens tokenized-lines 50 100 16)
+                      
+                      ;; NEW: Compute line lengths (character count per line)
+                      line-lengths (mapv count lines)]
                   
                   (let [geometry (Prepare-Geometry device pipelines render-ops atlas)]
                     (dom/canvas
@@ -205,5 +207,6 @@
                                   :style {:width "100vw" :height "100vh" :display "block"}})
                       (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
                         (.configure ^js ctx (clj->js {:device device :format format :alphaMode "premultiplied"}))
-                        (let [loop-flow (e/Task (loop/start-loop! dom/node device ctx geometry))]
+                        ;; Pass line-lengths to start-loop!
+                        (let [loop-flow (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths))]
                           (e/input loop-flow))))))))))))))
