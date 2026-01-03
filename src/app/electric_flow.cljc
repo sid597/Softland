@@ -208,5 +208,6 @@
                       (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
                         (.configure ^js ctx (clj->js {:device device :format format :alphaMode "premultiplied"}))
                         ;; Pass line-lengths to start-loop!
-                        (let [loop-flow (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths))]
+                        (let [loop-flow (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
+                                                                   lines tokenize-line layout-tokens atlas))]
                           (e/input loop-flow))))))))))))))

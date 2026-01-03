@@ -52,10 +52,30 @@
     (fn [!]
       (let [handler (fn [e]
                       (let [key (.-key e)]
-                        (when (contains? #{"ArrowLeft" "ArrowRight" "ArrowUp" "ArrowDown"
-                                           "Home" "End"} key)
-                          (.preventDefault e)
-                          (! [:keydown key]))))]
+                        (cond
+                          ;; Navigation keys
+                          (contains? #{"ArrowLeft" "ArrowRight" "ArrowUp" "ArrowDown"
+                                       "Home" "End"} key)
+                          (do (.preventDefault e)
+                              (! [:keydown key]))
+
+                          ;; Printable characters (length 1, not control keys)
+                          (and (= 1 (.-length key))
+                               (not (.-ctrlKey e))
+                               (not (.-metaKey e))
+                               (not (.-altKey e)))
+                          (do (.preventDefault e)
+                              (! [:char-input key]))
+
+                          ;; Enter key
+                          (= key "Enter")
+                          (do (.preventDefault e)
+                              (! [:enter nil]))
+
+                          ;; Backspace
+                          (= key "Backspace")
+                          (do (.preventDefault e)
+                              (! [:backspace nil])))))]
         (.addEventListener node "keydown" handler)
         (fn [] (.removeEventListener node "keydown" handler))))))
 
@@ -80,7 +100,7 @@
                         (do (m/? (m/sleep 530))
                             (recur))))))))
 
-(defn start-loop! [node device ctx geometry line-lengths]
+(defn start-loop! [node device ctx geometry line-lengths lines tokenize-fn layout-fn atlas]
   (let [;; Layout Configuration (Must match Editor defaults)
         font-size 16
         layout-x  50
@@ -99,6 +119,9 @@
         
         !state        (atom initial-state)
         !rect-sys     (atom (:rect geometry))
+        !lines        (atom lines)
+        !line-lengths (atom line-lengths)
+        !text-geo     (atom (:text geometry))
         
         ;; Event Streams
         wheel-deltas   (->> (>wheel-deltas node) (m/relieve +))
@@ -133,7 +156,7 @@
                           :mousedown
                           (let [{:keys [x y]} value
                                 adj-y (+ y (:scroll-y state))
-                                pos   (editor/hit-test x adj-y font-size layout-x layout-y line-h line-lengths)]
+                                pos   (editor/hit-test x adj-y font-size layout-x layout-y line-h @!line-lengths)]
                             (assoc state :dragging? true :sel-start pos :sel-end pos
                                    :desired-col (:col pos) :caret-visible true))
 
@@ -141,27 +164,110 @@
                           (if (:dragging? state)
                             (let [{:keys [x y]} value
                                   adj-y (+ y (:scroll-y state))
-                                  pos   (editor/hit-test x adj-y font-size layout-x layout-y line-h line-lengths)]
+                                  pos   (editor/hit-test x adj-y font-size layout-x layout-y line-h @!line-lengths)]
                               (assoc state :sel-end pos))
                             state)
 
                           :mouseup
                           (assoc state :dragging? false)
 
+                          :char-input
+                          (if-let [pos (:sel-start state)]
+                            (let [line-idx (:line pos)
+                                  col      (:col pos)
+                                  current-line (get @!lines line-idx "")
+                                  before (subs current-line 0 col)
+                                  after  (subs current-line col)
+                                  new-line (str before value after)
+                                  new-lines (assoc @!lines line-idx new-line)
+                                  new-line-lengths (mapv count new-lines)]
+                              (reset! !lines new-lines)
+                              (reset! !line-lengths new-line-lengths)
+                              (assoc state
+                                     :sel-start {:line line-idx :col (inc col)}
+                                     :sel-end {:line line-idx :col (inc col)}
+                                     :desired-col (inc col)
+                                     :caret-visible true))
+                            state)
+
+                          :backspace
+                          (if-let [pos (:sel-start state)]
+                            (let [line-idx (:line pos)
+                                  col      (:col pos)]
+                              (cond
+                                ;; At start of line - join with previous line
+                                (and (= col 0) (> line-idx 0))
+                                (let [current-line (get @!lines line-idx "")
+                                      prev-line (get @!lines (dec line-idx) "")
+                                      prev-len (count prev-line)
+                                      merged-line (str prev-line current-line)
+                                      new-lines (vec (concat (subvec @!lines 0 (dec line-idx))
+                                                             [merged-line]
+                                                             (subvec @!lines (inc line-idx))))
+                                      new-line-lengths (mapv count new-lines)]
+                                  (reset! !lines new-lines)
+                                  (reset! !line-lengths new-line-lengths)
+                                  (assoc state
+                                         :sel-start {:line (dec line-idx) :col prev-len}
+                                         :sel-end {:line (dec line-idx) :col prev-len}
+                                         :desired-col prev-len
+                                         :caret-visible true))
+
+                                ;; Delete character before cursor
+                                (> col 0)
+                                (let [current-line (get @!lines line-idx "")
+                                      before (subs current-line 0 (dec col))
+                                      after  (subs current-line col)
+                                      new-line (str before after)
+                                      new-lines (assoc @!lines line-idx new-line)
+                                      new-line-lengths (mapv count new-lines)]
+                                  (reset! !lines new-lines)
+                                  (reset! !line-lengths new-line-lengths)
+                                  (assoc state
+                                         :sel-start {:line line-idx :col (dec col)}
+                                         :sel-end {:line line-idx :col (dec col)}
+                                         :desired-col (dec col)
+                                         :caret-visible true))
+
+                                ;; At start of first line - do nothing
+                                :else state))
+                            state)
+
+                          :enter
+                          (if-let [pos (:sel-start state)]
+                            (let [line-idx (:line pos)
+                                  col      (:col pos)
+                                  current-line (get @!lines line-idx "")
+                                  before (subs current-line 0 col)
+                                  after  (subs current-line col)
+                                  new-lines (vec (concat (subvec @!lines 0 line-idx)
+                                                         [before after]
+                                                         (subvec @!lines (inc line-idx))))
+                                  new-line-lengths (mapv count new-lines)]
+                              (reset! !lines new-lines)
+                              (reset! !line-lengths new-line-lengths)
+                              (assoc state
+                                     :sel-start {:line (inc line-idx) :col 0}
+                                     :sel-end {:line (inc line-idx) :col 0}
+                                     :desired-col 0
+                                     :caret-visible true))
+                            state)
+
                           :keydown
                           (if-let [pos (:sel-start state)]
                             (let [line (:line pos)
                                   col  (:col pos)
                                   desired (:desired-col state)
-                                  max-line (dec (count line-lengths))
-                                  line-len (get line-lengths line 0)
+                                  line-lengths-val @!line-lengths
+                                  max-line (dec (count line-lengths-val))
+                                  line-len (get line-lengths-val line 0)
                                   [new-pos new-desired]
                                   (case value
                                     "ArrowLeft"
                                     (let [np (if (> col 0)
                                                {:line line :col (dec col)}
                                                (if (> line 0)
-                                                 (let [prev-len (get line-lengths (dec line) 0)]
+                                                 (let [prev-len (get line-lengths-val (dec line) 0)]
                                                    {:line (dec line) :col prev-len})
                                                  pos))]
                                       [np (:col np)])
@@ -176,13 +282,13 @@
 
                                     "ArrowUp"
                                     (if (> line 0)
-                                      (let [prev-len (get line-lengths (dec line) 0)]
+                                      (let [prev-len (get line-lengths-val (dec line) 0)]
                                         [{:line (dec line) :col (min desired prev-len)} desired])
                                       [pos desired])
 
                                     "ArrowDown"
                                     (if (< line max-line)
-                                      (let [next-len (get line-lengths (inc line) 0)]
+                                      (let [next-len (get line-lengths-val (inc line) 0)]
                                         [{:line (inc line) :col (min desired next-len)} desired])
                                       [pos desired])
 
@@ -223,7 +329,18 @@
                           state))))
              nil))
 
-      ;; 2. SELECTION & CARET GEOMETRY UPDATER
+      ;; 2. TEXT CONTENT UPDATER (re-tokenize and update GPU when lines change)
+      (->> (m/watch !lines)
+           (m/eduction (dedupe))
+           (m/reduce
+             (fn [_ new-lines]
+               (let [tokenized-lines (mapv tokenize-fn new-lines)
+                     render-ops (layout-fn tokenized-lines layout-x layout-y font-size)]
+                 (reset! !text-geo (editor/update-text-data device (:text geometry) render-ops atlas font-size)))
+               nil)
+             nil))
+
+      ;; 3. SELECTION & CARET GEOMETRY UPDATER
       (->> (m/watch !state)
            (m/eduction
              (map (fn [s] {:sel-start (:sel-start s)
@@ -240,7 +357,7 @@
                              (editor/calculate-selection-rects
                                sel-start sel-end
                                font-size layout-x layout-y line-h
-                               line-lengths)
+                               @!line-lengths)
                              ;; Caret mode: show blinking caret
                              (if-let [caret-rect (editor/calculate-caret-rect
                                                    sel-start font-size layout-x layout-y line-h
@@ -251,14 +368,14 @@
                nil)
              nil))
 
-      ;; 3. RENDER LOOP (just draws, no rect calculation)
+      ;; 4. RENDER LOOP (just draws, no rect calculation)
       (m/reduce
         (fn [_ state]
-          (editor/draw-frame! device ctx 
-                              (:text geometry) 
+          (editor/draw-frame! device ctx
+                              @!text-geo
                               @!rect-sys
-                              (:camera-floats (:pipelines geometry)) 
-                              (:pass-descriptor (:pipelines geometry)) 
+                              (:camera-floats (:pipelines geometry))
+                              (:pass-descriptor (:pipelines geometry))
                               0 (- (:scroll-y state)) (:width state) (:height state))
           nil)
         nil
