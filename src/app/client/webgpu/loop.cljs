@@ -29,11 +29,11 @@
 (defn >mouse-events [node]
   (m/observe
     (fn [!]
-      (let [get-coords (fn [e] 
+      (let [get-coords (fn [e]
                          (let [rect (.getBoundingClientRect node)]
                            {:x (- (.-clientX e) (.-left rect))
                             :y (- (.-clientY e) (.-top rect))}))
-            
+
             down-h (fn [e] (! [:mousedown (get-coords e)]))
             up-h   (fn [e] (! [:mouseup (get-coords e)]))
             move-h (fn [e] (! [:mousemove (get-coords e)]))]
@@ -46,6 +46,18 @@
           (.removeEventListener node "mousedown" down-h)
           (.removeEventListener js/window "mouseup" up-h)
           (.removeEventListener js/window "mousemove" move-h))))))
+
+(defn >keyboard-events [node]
+  (m/observe
+    (fn [!]
+      (let [handler (fn [e]
+                      (let [key (.-key e)]
+                        (when (contains? #{"ArrowLeft" "ArrowRight" "ArrowUp" "ArrowDown"
+                                           "Home" "End"} key)
+                          (.preventDefault e)
+                          (! [:keydown key]))))]
+        (.addEventListener node "keydown" handler)
+        (fn [] (.removeEventListener node "keydown" handler))))))
 
 (def >raf
   (m/observe 
@@ -82,14 +94,16 @@
                        :dragging?     false
                        :sel-start     nil
                        :sel-end       nil
+                       :desired-col   0
                        :caret-visible true}
         
         !state        (atom initial-state)
         !rect-sys     (atom (:rect geometry))
         
         ;; Event Streams
-        wheel-deltas  (->> (>wheel-deltas node) (m/relieve +))
-        mouse-events  (->> (>mouse-events node) (m/relieve (fn [_ x] x))) 
+        wheel-deltas   (->> (>wheel-deltas node) (m/relieve +))
+        mouse-events   (->> (>mouse-events node) (m/relieve (fn [_ x] x)))
+        keyboard-events (->> (>keyboard-events js/window) (m/relieve (fn [_ x] x)))
         window-metrics (<window-metrics)]
 
     (m/join {}
@@ -99,7 +113,8 @@
              (m/eduction (map (fn [m] [:resize m])) window-metrics)
              (m/eduction (map (fn [x] [:wheel x])) wheel-deltas)
              (m/eduction (map (fn [v] [:blink v])) >blink-timer)
-             mouse-events)
+             mouse-events
+             keyboard-events)
 
            (m/reduce
              (fn [_ [type value]]
@@ -119,7 +134,8 @@
                           (let [{:keys [x y]} value
                                 adj-y (+ y (:scroll-y state))
                                 pos   (editor/hit-test x adj-y font-size layout-x layout-y line-h line-lengths)]
-                            (assoc state :dragging? true :sel-start pos :sel-end pos :caret-visible true))
+                            (assoc state :dragging? true :sel-start pos :sel-end pos
+                                   :desired-col (:col pos) :caret-visible true))
 
                           :mousemove
                           (if (:dragging? state)
@@ -131,6 +147,78 @@
 
                           :mouseup
                           (assoc state :dragging? false)
+
+                          :keydown
+                          (if-let [pos (:sel-start state)]
+                            (let [line (:line pos)
+                                  col  (:col pos)
+                                  desired (:desired-col state)
+                                  max-line (dec (count line-lengths))
+                                  line-len (get line-lengths line 0)
+                                  [new-pos new-desired]
+                                  (case value
+                                    "ArrowLeft"
+                                    (let [np (if (> col 0)
+                                               {:line line :col (dec col)}
+                                               (if (> line 0)
+                                                 (let [prev-len (get line-lengths (dec line) 0)]
+                                                   {:line (dec line) :col prev-len})
+                                                 pos))]
+                                      [np (:col np)])
+
+                                    "ArrowRight"
+                                    (let [np (if (< col line-len)
+                                               {:line line :col (inc col)}
+                                               (if (< line max-line)
+                                                 {:line (inc line) :col 0}
+                                                 pos))]
+                                      [np (:col np)])
+
+                                    "ArrowUp"
+                                    (if (> line 0)
+                                      (let [prev-len (get line-lengths (dec line) 0)]
+                                        [{:line (dec line) :col (min desired prev-len)} desired])
+                                      [pos desired])
+
+                                    "ArrowDown"
+                                    (if (< line max-line)
+                                      (let [next-len (get line-lengths (inc line) 0)]
+                                        [{:line (inc line) :col (min desired next-len)} desired])
+                                      [pos desired])
+
+                                    "Home"
+                                    [{:line line :col 0} 0]
+
+                                    "End"
+                                    [{:line line :col line-len} line-len]
+
+                                    [pos desired])
+
+                                  ;; Auto-scroll to keep caret visible
+                                  caret-y (+ layout-y (* (:line new-pos) line-h))
+                                  viewport-top (:scroll-y state)
+                                  viewport-bottom (+ viewport-top (:height state))
+
+                                  ;; Add padding (one line worth)
+                                  padding line-h
+
+                                  new-scroll (cond
+                                               ;; Caret above viewport - scroll up
+                                               (< caret-y (+ viewport-top padding))
+                                               (max 0 (- caret-y padding))
+
+                                               ;; Caret below viewport - scroll down
+                                               (> (+ caret-y line-h) (- viewport-bottom padding))
+                                               (+ (- caret-y (:height state)) line-h padding)
+
+                                               ;; Caret in view - don't scroll
+                                               :else
+                                               (:scroll-y state))]
+
+                              (assoc state :sel-start new-pos :sel-end new-pos
+                                     :desired-col new-desired :caret-visible true
+                                     :scroll-y new-scroll))
+                            state)
 
                           state))))
              nil))
