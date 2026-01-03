@@ -73,6 +73,15 @@
        return vec4<f32>(params.color_r, params.color_g, params.color_b, opacity);
   }")
 
+;; Calculate caret rectangle (thin vertical bar at cursor position)
+(defn calculate-caret-rect [cursor font-size start-x start-y line-h visible?]
+  (when (and cursor visible?)
+    (let [char-w (* font-size 0.6)
+          x (+ start-x (* (:col cursor) char-w))
+          y (+ start-y (* (:line cursor) line-h))]
+      {:x x :y y :w 2 :h line-h
+       :r 0.9 :g 0.9 :b 0.9 :a 1.0})))
+
 ;; Updated hit-test: clamps column to actual line length
 (defn hit-test [x y font-size start-x start-y line-h line-lengths]
   (let [char-w     (* font-size 0.6)

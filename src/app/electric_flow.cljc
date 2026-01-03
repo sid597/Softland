@@ -146,7 +146,7 @@
                                      tokens)]
                   {:current-y (+ line-y (* font-size 1.2))
                    :render-ops (conj (:render-ops acc) line-ops)}))
-              {:current-y start-y :render-ops []}
+              {:current-y (+ start-y font-size) :render-ops []}
               lines-of-tokens))))
 
 #?(:cljs

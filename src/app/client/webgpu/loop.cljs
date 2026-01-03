@@ -58,6 +58,16 @@
         (js/requestAnimationFrame callback)
         #(vreset! active? false)))))
 
+(def >blink-timer
+  "Emits true/false every 530ms for caret blinking"
+  (m/ap
+    (loop []
+      (m/amb true
+             (do (m/? (m/sleep 530))
+                 (m/amb false
+                        (do (m/? (m/sleep 530))
+                            (recur))))))))
+
 (defn start-loop! [node device ctx geometry line-lengths]
   (let [;; Layout Configuration (Must match Editor defaults)
         font-size 16
@@ -65,13 +75,14 @@
         layout-y  100
         line-h    (* font-size 1.2)
 
-        initial-state {:scroll-y   0 
-                       :width      (.-innerWidth js/window) 
-                       :height     (.-innerHeight js/window) 
-                       :dpr        (or (.-devicePixelRatio js/window) 1)
-                       :dragging?  false
-                       :sel-start  nil
-                       :sel-end    nil}
+        initial-state {:scroll-y      0
+                       :width         (.-innerWidth js/window)
+                       :height        (.-innerHeight js/window)
+                       :dpr           (or (.-devicePixelRatio js/window) 1)
+                       :dragging?     false
+                       :sel-start     nil
+                       :sel-end       nil
+                       :caret-visible true}
         
         !state        (atom initial-state)
         !rect-sys     (atom (:rect geometry))
@@ -87,8 +98,9 @@
       (->> (mx/mix
              (m/eduction (map (fn [m] [:resize m])) window-metrics)
              (m/eduction (map (fn [x] [:wheel x])) wheel-deltas)
+             (m/eduction (map (fn [v] [:blink v])) >blink-timer)
              mouse-events)
-           
+
            (m/reduce
              (fn [_ [type value]]
                (swap! !state
@@ -98,14 +110,16 @@
                                     (set! (.-width node)  (Math/floor (* width dpr)))
                                     (set! (.-height node) (Math/floor (* height dpr)))
                                     (merge state value))
-                          
+
                           :wheel  (update state :scroll-y + value)
-                          
-                          :mousedown 
+
+                          :blink  (assoc state :caret-visible value)
+
+                          :mousedown
                           (let [{:keys [x y]} value
                                 adj-y (+ y (:scroll-y state))
                                 pos   (editor/hit-test x adj-y font-size layout-x layout-y line-h line-lengths)]
-                            (assoc state :dragging? true :sel-start pos :sel-end pos))
+                            (assoc state :dragging? true :sel-start pos :sel-end pos :caret-visible true))
 
                           :mousemove
                           (if (:dragging? state)
@@ -117,23 +131,34 @@
 
                           :mouseup
                           (assoc state :dragging? false)
-                          
+
                           state))))
              nil))
 
-      ;; 2. SELECTION GEOMETRY UPDATER (separate from render loop)
+      ;; 2. SELECTION & CARET GEOMETRY UPDATER
       (->> (m/watch !state)
-           (m/eduction 
-             (map (fn [s] [(:sel-start s) (:sel-end s)]))
+           (m/eduction
+             (map (fn [s] {:sel-start (:sel-start s)
+                           :sel-end (:sel-end s)
+                           :caret-visible (:caret-visible s)}))
              (dedupe))
            (m/reduce
-             (fn [_ [sel-start sel-end]]
-               (let [rects (if (and sel-start sel-end)
-                             (editor/calculate-selection-rects 
-                               sel-start sel-end 
+             (fn [_ {:keys [sel-start sel-end caret-visible]}]
+               (let [has-selection? (and sel-start sel-end
+                                         (not (and (= (:line sel-start) (:line sel-end))
+                                                   (= (:col sel-start) (:col sel-end)))))
+                     rects (if has-selection?
+                             ;; Selection mode: show selection rects
+                             (editor/calculate-selection-rects
+                               sel-start sel-end
                                font-size layout-x layout-y line-h
-                               line-lengths)  ;; Pass line lengths!
-                             [])]
+                               line-lengths)
+                             ;; Caret mode: show blinking caret
+                             (if-let [caret-rect (editor/calculate-caret-rect
+                                                   sel-start font-size layout-x layout-y line-h
+                                                   caret-visible)]
+                               [caret-rect]
+                               []))]
                  (reset! !rect-sys (editor/update-rects device (:rect geometry) rects)))
                nil)
              nil))
