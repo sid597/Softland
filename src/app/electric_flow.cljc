@@ -13,6 +13,8 @@
      :cljs nil)) 
 
 #?(:clj (defn init-lezer-parser! [] nil))
+#?(:clj (defn find-matching-bracket [_ _ _] nil))
+#?(:clj (defn detect-fold-regions [_ _] []))
 
 #?(:cljs
    (do
@@ -76,7 +78,98 @@
        (if (or (empty? line-text) (not @lezer-parser))
          []
          (let [tree (.parse ^js @lezer-parser line-text)]
-           (extract-tokens-from-syntax-tree tree line-text))))))
+           (extract-tokens-from-syntax-tree tree line-text))))
+
+     ;; Bracket matching pairs
+     (def bracket-pairs
+       {"(" ")" ")" "("
+        "[" "]" "]" "["
+        "{" "}" "}" "{"})
+
+     (def open-brackets #{"(" "[" "{"})
+     (def close-brackets #{")" "]" "}"})
+
+     (defn offset->line-col
+       "Convert absolute offset to {:line :col} given line-lengths"
+       [offset line-lengths]
+       (loop [remaining offset
+              line-idx 0]
+         (if (>= line-idx (count line-lengths))
+           {:line (dec (count line-lengths)) :col (get line-lengths (dec (count line-lengths)) 0)}
+           (let [line-len (inc (get line-lengths line-idx 0))] ;; +1 for newline
+             (if (< remaining line-len)
+               {:line line-idx :col remaining}
+               (recur (- remaining line-len) (inc line-idx)))))))
+
+     (defn line-col->offset
+       "Convert {:line :col} to absolute offset given line-lengths"
+       [{:keys [line col]} line-lengths]
+       (let [lines-before (subvec line-lengths 0 (min line (count line-lengths)))
+             offset-to-line (reduce + (map inc lines-before))] ;; +1 for each newline
+         (+ offset-to-line col)))
+
+     (defn find-matching-bracket
+       "Given cursor position and document, find matching bracket if cursor is on one.
+        Returns {:open {:line :col} :close {:line :col}} or nil"
+       [cursor-pos lines line-lengths]
+       (when (and @lezer-parser cursor-pos (seq lines))
+         (let [full-text (str/join "\n" lines)
+               cursor-offset (line-col->offset cursor-pos line-lengths)
+               ;; Check char at cursor and char before cursor
+               char-at (when (< cursor-offset (count full-text))
+                         (str (nth full-text cursor-offset)))
+               char-before (when (and (> cursor-offset 0) (<= cursor-offset (count full-text)))
+                             (str (nth full-text (dec cursor-offset))))
+               ;; Determine which bracket we're on
+               [bracket-char bracket-offset]
+               (cond
+                 (get bracket-pairs char-at) [char-at cursor-offset]
+                 (get bracket-pairs char-before) [char-before (dec cursor-offset)]
+                 :else [nil nil])]
+           (when bracket-char
+             (let [tree (.parse ^js @lezer-parser full-text)
+                   ;; Walk tree to find the bracket's container node
+                   result (atom nil)]
+               ;; Iterate through tree to find matching container
+               (.. ^js tree
+                   (iterate #js {:enter (fn [node]
+                                          (let [node-name (.-name ^js (.-type ^js node))
+                                                from (.-from ^js node)
+                                                to (.-to ^js node)]
+                                            ;; Check if this is a container and bracket is at boundary
+                                            (when (and (contains? container-node-types node-name)
+                                                       (or (= from bracket-offset)
+                                                           (= (dec to) bracket-offset)))
+                                              (reset! result {:open (offset->line-col from line-lengths)
+                                                              :close (offset->line-col (dec to) line-lengths)}))))}))
+               @result)))))
+
+     (def foldable-node-types
+       #{"List" "Vector" "Map" "Set"})
+
+     (defn detect-fold-regions
+       "Detect all foldable regions in the document.
+        Returns [{:start-line :end-line :type} ...] for multi-line forms"
+       [lines line-lengths]
+       (when (and @lezer-parser (seq lines))
+         (let [full-text (str/join "\n" lines)
+               tree (.parse ^js @lezer-parser full-text)
+               regions (atom [])]
+           (.. ^js tree
+               (iterate #js {:enter (fn [node]
+                                      (let [node-name (.-name ^js (.-type ^js node))
+                                            from (.-from ^js node)
+                                            to (.-to ^js node)]
+                                        (when (contains? foldable-node-types node-name)
+                                          (let [start-pos (offset->line-col from line-lengths)
+                                                end-pos (offset->line-col (dec to) line-lengths)]
+                                            ;; Only foldable if spans multiple lines
+                                            (when (> (:line end-pos) (:line start-pos))
+                                              (swap! regions conj {:start-line (:line start-pos)
+                                                                   :end-line (:line end-pos)
+                                                                   :type node-name}))))))}))
+           ;; Sort by start line, nested regions come after their parents
+           (sort-by :start-line @regions))))))
 
 (def jvm-macro-symbols
   #{"defn" "def" "defmacro" "defn-" "defonce" "defmulti" "defmethod" "defprotocol" "defrecord" "deftype"
@@ -132,22 +225,52 @@
 
 (defn get-color [type] (get theme type (:text theme)))
 
-(defn layout-tokens [lines-of-tokens start-x start-y font-size]
-  (let [char-width (* font-size 0.6)] 
-    (:render-ops
-      (reduce (fn [acc tokens]
-                (let [line-y (:current-y acc)
-                      line-ops (mapv (fn [token]
-                                       (let [color (get-color (:type token))]
-                                         (merge token color
-                                                {:x (+ start-x (* (or (:from token) 0) char-width))
-                                                 :y line-y
-                                                 :size font-size})))
-                                     tokens)]
-                  {:current-y (+ line-y (* font-size 1.2))
-                   :render-ops (conj (:render-ops acc) line-ops)}))
-              {:current-y (+ start-y font-size) :render-ops []}
-              lines-of-tokens))))
+(defn line-visible?
+  "Check if a logical line should be visible given fold regions and folded state.
+   A line is hidden if it's inside a folded region (but not the first line of that region)."
+  [line-idx fold-regions folded-lines]
+  (not (some (fn [{:keys [start-line end-line]}]
+               (and (contains? folded-lines start-line)  ;; This region is folded
+                    (> line-idx start-line)              ;; Line is after the fold start
+                    (<= line-idx end-line)))             ;; Line is within the fold
+             fold-regions)))
+
+(defn layout-tokens
+  "Layout tokens with optional folding support.
+   Returns {:render-ops [...] :line-mapping [...]} where line-mapping maps visual->logical line."
+  ([lines-of-tokens start-x start-y font-size]
+   ;; No folding - all lines visible
+   (layout-tokens lines-of-tokens start-x start-y font-size [] #{}))
+  ([lines-of-tokens start-x start-y font-size fold-regions folded-lines]
+   (let [char-width (* font-size 0.6)
+         line-h (* font-size 1.2)]
+     (loop [logical-idx 0
+            visual-y (+ start-y font-size)
+            render-ops []
+            line-mapping []]  ;; Maps visual line index -> logical line index
+       (if (>= logical-idx (count lines-of-tokens))
+         {:render-ops render-ops
+          :line-mapping line-mapping}
+         (let [tokens (nth lines-of-tokens logical-idx)
+               visible? (line-visible? logical-idx fold-regions folded-lines)]
+           (if visible?
+             ;; Render this line at current visual-y
+             (let [line-ops (mapv (fn [token]
+                                    (let [color (get-color (:type token))]
+                                      (merge token color
+                                             {:x (+ start-x (* (or (:from token) 0) char-width))
+                                              :y visual-y
+                                              :size font-size})))
+                                  tokens)]
+               (recur (inc logical-idx)
+                      (+ visual-y line-h)
+                      (conj render-ops line-ops)
+                      (conj line-mapping logical-idx)))
+             ;; Skip this line (it's folded)
+             (recur (inc logical-idx)
+                    visual-y  ;; Don't advance visual-y
+                    render-ops
+                    line-mapping))))))))
 
 #?(:cljs
    (defn load-resources-async []
@@ -196,9 +319,14 @@
                 
                 (let [lines (str/split-lines file-content)
                       tokenized-lines (mapv tokenize-line lines)
-                      render-ops (layout-tokens tokenized-lines 50 100 16)
-                      
-                      ;; NEW: Compute line lengths (character count per line)
+                      ;; Layout constants (must match loop.cljs)
+                      gutter-w 40
+                      layout-x (+ 50 gutter-w)  ;; 90
+                      ;; Initial render - no folds yet
+                      layout-result (layout-tokens tokenized-lines layout-x 100 16)
+                      render-ops (:render-ops layout-result)
+
+                      ;; Compute line lengths (character count per line)
                       line-lengths (mapv count lines)]
                   
                   (let [geometry (Prepare-Geometry device pipelines render-ops atlas)]
@@ -207,7 +335,8 @@
                                   :style {:width "100vw" :height "100vh" :display "block"}})
                       (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
                         (.configure ^js ctx (clj->js {:device device :format format :alphaMode "premultiplied"}))
-                        ;; Pass line-lengths to start-loop!
+                        ;; Pass all functions to start-loop!
                         (let [loop-flow (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
-                                                                   lines tokenize-line layout-tokens atlas))]
+                                                                   lines tokenize-line layout-tokens
+                                                                   find-matching-bracket detect-fold-regions atlas))]
                           (e/input loop-flow))))))))))))))

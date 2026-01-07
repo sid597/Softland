@@ -82,6 +82,20 @@
       {:x x :y y :w 2 :h line-h
        :r 0.9 :g 0.9 :b 0.9 :a 1.0})))
 
+;; Calculate bracket highlight rectangles
+(defn calculate-bracket-rects [bracket-match font-size start-x start-y line-h]
+  (when bracket-match
+    (let [char-w (* font-size 0.6)
+          {:keys [open close]} bracket-match
+          make-rect (fn [{:keys [line col]}]
+                      {:x (+ start-x (* col char-w))
+                       :y (+ start-y (* line line-h))
+                       :w char-w
+                       :h line-h
+                       ;; Golden/yellow highlight for matching brackets
+                       :r 0.8 :g 0.6 :b 0.2 :a 0.4})]
+      [(make-rect open) (make-rect close)])))
+
 ;; Updated hit-test: clamps column to actual line length
 (defn hit-test [x y font-size start-x start-y line-h line-lengths]
   (let [char-w     (* font-size 0.6)

@@ -100,10 +100,11 @@
                         (do (m/? (m/sleep 530))
                             (recur))))))))
 
-(defn start-loop! [node device ctx geometry line-lengths lines tokenize-fn layout-fn atlas]
+(defn start-loop! [node device ctx geometry line-lengths lines tokenize-fn layout-fn find-bracket-fn detect-folds-fn atlas]
   (let [;; Layout Configuration (Must match Editor defaults)
         font-size 16
-        layout-x  50
+        gutter-w  40           ;; Width of gutter for fold indicators
+        layout-x  (+ 50 gutter-w)  ;; Shift text right to make room for gutter
         layout-y  100
         line-h    (* font-size 1.2)
 
@@ -115,13 +116,16 @@
                        :sel-start     nil
                        :sel-end       nil
                        :desired-col   0
-                       :caret-visible true}
+                       :caret-visible true
+                       :folded-lines  #{}}
         
         !state        (atom initial-state)
         !rect-sys     (atom (:rect geometry))
         !lines        (atom lines)
         !line-lengths (atom line-lengths)
         !text-geo     (atom (:text geometry))
+        !fold-regions (atom [])
+        !line-mapping (atom [])  ;; Maps visual line index -> logical line index
         
         ;; Event Streams
         wheel-deltas   (->> (>wheel-deltas node) (m/relieve +))
@@ -155,16 +159,51 @@
 
                           :mousedown
                           (let [{:keys [x y]} value
-                                adj-y (+ y (:scroll-y state))
-                                pos   (editor/hit-test x adj-y font-size layout-x layout-y line-h @!line-lengths)]
-                            (assoc state :dragging? true :sel-start pos :sel-end pos
-                                   :desired-col (:col pos) :caret-visible true))
+                                adj-y (+ y (:scroll-y state))]
+                            ;; Check if click is in gutter area (for fold toggle)
+                            ;; Gutter spans from x=50 to x=50+gutter-w
+                            (if (and (>= x 50) (< x (+ 50 gutter-w)))
+                              ;; Gutter click - toggle fold
+                              ;; Use visual line to find which fold indicator was clicked
+                              (let [visual-line (max 0 (Math/floor (/ (- adj-y layout-y) line-h)))
+                                    ;; Map visual line to logical line
+                                    logical-line (get @!line-mapping visual-line visual-line)
+                                    ;; Find fold region starting at this logical line
+                                    fold-region (first (filter #(= (:start-line %) logical-line) @!fold-regions))]
+                                (if fold-region
+                                  (update state :folded-lines
+                                          (fn [folded]
+                                            (if (contains? folded logical-line)
+                                              (disj folded logical-line)
+                                              (conj folded logical-line))))
+                                  state))
+                              ;; Normal click - cursor placement with visual->logical mapping
+                              (let [visual-line (max 0 (Math/floor (/ (- adj-y layout-y) line-h)))
+                                    logical-line (get @!line-mapping visual-line (min visual-line (dec (count @!line-lengths))))
+                                    line-len (get @!line-lengths logical-line 0)
+                                    char-w (* font-size 0.6)
+                                    col (-> (/ (- x layout-x) char-w)
+                                            (Math/round)
+                                            (max 0)
+                                            (min line-len))
+                                    pos {:line logical-line :col col}]
+                                (assoc state :dragging? true :sel-start pos :sel-end pos
+                                       :desired-col col :caret-visible true))))
 
                           :mousemove
                           (if (:dragging? state)
                             (let [{:keys [x y]} value
                                   adj-y (+ y (:scroll-y state))
-                                  pos   (editor/hit-test x adj-y font-size layout-x layout-y line-h @!line-lengths)]
+                                  ;; Use visual->logical mapping for selection
+                                  visual-line (max 0 (Math/floor (/ (- adj-y layout-y) line-h)))
+                                  logical-line (get @!line-mapping visual-line (min visual-line (dec (count @!line-lengths))))
+                                  line-len (get @!line-lengths logical-line 0)
+                                  char-w (* font-size 0.6)
+                                  col (-> (/ (- x layout-x) char-w)
+                                          (Math/round)
+                                          (max 0)
+                                          (min line-len))
+                                  pos {:line logical-line :col col}]
                               (assoc state :sel-end pos))
                             state)
 
@@ -329,41 +368,116 @@
                           state))))
              nil))
 
-      ;; 2. TEXT CONTENT UPDATER (re-tokenize and update GPU when lines change)
-      (->> (m/watch !lines)
+      ;; 2. TEXT CONTENT UPDATER (re-tokenize and update GPU when lines OR fold state changes)
+      (->> (m/latest vector
+                     (m/watch !lines)
+                     (m/eduction (map :folded-lines) (m/watch !state)))
            (m/eduction (dedupe))
            (m/reduce
-             (fn [_ new-lines]
-               (let [tokenized-lines (mapv tokenize-fn new-lines)
-                     render-ops (layout-fn tokenized-lines layout-x layout-y font-size)]
+             (fn [_ [new-lines folded-lines]]
+               (let [new-line-lengths (mapv count new-lines)
+                     ;; Detect fold regions from parse tree
+                     fold-regions (or (detect-folds-fn new-lines new-line-lengths) [])
+                     _ (reset! !fold-regions fold-regions)
+                     _ (reset! !line-lengths new-line-lengths)
+                     tokenized-lines (mapv tokenize-fn new-lines)
+                     ;; Layout with folding - returns {:render-ops :line-mapping}
+                     layout-result (layout-fn tokenized-lines layout-x layout-y font-size
+                                              fold-regions folded-lines)
+                     render-ops (:render-ops layout-result)]
+                 (reset! !line-mapping (:line-mapping layout-result))
                  (reset! !text-geo (editor/update-text-data device (:text geometry) render-ops atlas font-size)))
                nil)
              nil))
 
-      ;; 3. SELECTION & CARET GEOMETRY UPDATER
+      ;; 3. SELECTION & CARET GEOMETRY UPDATER (with bracket matching + fold indicators)
       (->> (m/watch !state)
            (m/eduction
              (map (fn [s] {:sel-start (:sel-start s)
                            :sel-end (:sel-end s)
-                           :caret-visible (:caret-visible s)}))
+                           :caret-visible (:caret-visible s)
+                           :folded-lines (:folded-lines s)}))
              (dedupe))
            (m/reduce
-             (fn [_ {:keys [sel-start sel-end caret-visible]}]
-               (let [has-selection? (and sel-start sel-end
+             (fn [_ {:keys [sel-start sel-end caret-visible folded-lines]}]
+               (let [line-mapping @!line-mapping
+                     ;; Create logical->visual line mapping (inverse)
+                     logical->visual (reduce-kv (fn [m visual-idx logical-idx]
+                                                  (assoc m logical-idx visual-idx))
+                                                {}
+                                                (vec line-mapping))
+                     ;; Helper to get visual y for a logical line
+                     logical-line->visual-y (fn [logical-line]
+                                              (if-let [visual-idx (get logical->visual logical-line)]
+                                                (+ layout-y (* visual-idx line-h))
+                                                nil))  ;; Line is hidden (folded)
+
+                     has-selection? (and sel-start sel-end
                                          (not (and (= (:line sel-start) (:line sel-end))
                                                    (= (:col sel-start) (:col sel-end)))))
-                     rects (if has-selection?
-                             ;; Selection mode: show selection rects
-                             (editor/calculate-selection-rects
-                               sel-start sel-end
-                               font-size layout-x layout-y line-h
-                               @!line-lengths)
-                             ;; Caret mode: show blinking caret
-                             (if-let [caret-rect (editor/calculate-caret-rect
-                                                   sel-start font-size layout-x layout-y line-h
-                                                   caret-visible)]
-                               [caret-rect]
-                               []))]
+                     ;; Calculate fold indicator rects in gutter (at visual positions)
+                     fold-rects (keep (fn [{:keys [start-line]}]
+                                        (when-let [visual-y (logical-line->visual-y start-line)]
+                                          (let [is-folded? (contains? folded-lines start-line)
+                                                indicator-size 10
+                                                x (+ 50 (/ (- gutter-w indicator-size) 2))
+                                                y (+ visual-y (/ (- line-h indicator-size) 2))]
+                                            {:x x :y y :w indicator-size :h indicator-size
+                                             ;; Gold for expanded, blue for folded
+                                             :r (if is-folded? 0.3 0.7)
+                                             :g (if is-folded? 0.5 0.6)
+                                             :b (if is-folded? 0.9 0.3)
+                                             :a 0.8})))
+                                      @!fold-regions)
+                     ;; Calculate bracket match highlights (at visual positions)
+                     bracket-match (when (and sel-start (not has-selection?))
+                                     (find-bracket-fn sel-start @!lines @!line-lengths))
+                     bracket-rects (when bracket-match
+                                     (let [{:keys [open close]} bracket-match
+                                           char-w (* font-size 0.6)]
+                                       (keep (fn [{:keys [line col]}]
+                                               (when-let [visual-y (logical-line->visual-y line)]
+                                                 {:x (+ layout-x (* col char-w))
+                                                  :y visual-y
+                                                  :w char-w
+                                                  :h line-h
+                                                  :r 0.8 :g 0.6 :b 0.2 :a 0.4}))
+                                             [open close])))
+                     ;; Calculate caret rect at visual position
+                     caret-rect (when (and sel-start caret-visible (not has-selection?))
+                                  (when-let [visual-y (logical-line->visual-y (:line sel-start))]
+                                    (let [char-w (* font-size 0.6)]
+                                      {:x (+ layout-x (* (:col sel-start) char-w))
+                                       :y visual-y
+                                       :w 2
+                                       :h line-h
+                                       :r 0.9 :g 0.9 :b 0.9 :a 1.0})))
+                     ;; Calculate selection rects at visual positions
+                     selection-rects (when has-selection?
+                                       (let [[start end] (if (or (> (:line sel-start) (:line sel-end))
+                                                                 (and (= (:line sel-start) (:line sel-end))
+                                                                      (> (:col sel-start) (:col sel-end))))
+                                                           [sel-end sel-start]
+                                                           [sel-start sel-end])
+                                             char-w (* font-size 0.6)]
+                                         (keep (fn [logical-line]
+                                                 (when-let [visual-y (logical-line->visual-y logical-line)]
+                                                   (let [line-len (get @!line-lengths logical-line 0)
+                                                         col-start (if (= logical-line (:line start)) (:col start) 0)
+                                                         col-end (if (= logical-line (:line end)) (:col end) line-len)
+                                                         width-chars (- col-end col-start)]
+                                                     (when (> width-chars 0)
+                                                       {:x (+ layout-x (* col-start char-w))
+                                                        :y visual-y
+                                                        :w (* width-chars char-w)
+                                                        :h line-h
+                                                        :r 0.2 :g 0.4 :b 0.9 :a 0.5}))))
+                                               (range (:line start) (inc (:line end))))))
+                     ;; Combine all rects
+                     rects (vec (concat fold-rects
+                                        (or bracket-rects [])
+                                        (or selection-rects [])
+                                        (if caret-rect [caret-rect] [])))]
                  (reset! !rect-sys (editor/update-rects device (:rect geometry) rects)))
                nil)
              nil))
