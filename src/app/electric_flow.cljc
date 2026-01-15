@@ -79,6 +79,8 @@
 #?(:clj (defn sci-eval [_] {:error "SCI only available in browser"}))
 #?(:clj (defn sci-eval-form [_] "SCI only available in browser"))
 #?(:clj (defn find-form-at-cursor [_ _ _] nil))
+#?(:clj (defn inspect-all-values [_ _] []))
+#?(:clj (defn find-all-top-level-forms [_ _] []))
 
 #?(:cljs
    (do
@@ -235,6 +237,90 @@
                 :end-line (:line end-pos)
                 :from from
                 :to to})))))
+
+     ;; === LIVE VALUE INSPECTOR (Project 1) ===
+
+     (defn find-all-top-level-forms
+       "Parse code and find all top-level forms with their positions.
+        Returns [{:form-str :line :col :end-line :end-col :type}]"
+       [lines line-lengths]
+       (when (and @lezer-parser (seq lines))
+         (let [full-text (str/join "\n" lines)
+               tree (.parse ^js @lezer-parser full-text)
+               forms (atom [])
+               root-depth (atom 0)]
+           ;; Find top-level forms (children of Program node)
+           (.. ^js tree
+               (iterate #js {:enter (fn [node]
+                                      (let [node-name (.-name ^js (.-type ^js node))
+                                            from (.-from ^js node)
+                                            to (.-to ^js node)
+                                            ;; Track depth - we want immediate children of Program
+                                            depth @root-depth]
+                                        (when (= node-name "Program")
+                                          (reset! root-depth 0))
+                                        (when (and (= depth 0)
+                                                   (contains? #{"List" "Vector" "Map" "Set" "Number" "String" "Symbol" "Keyword"} node-name)
+                                                   (not= node-name "Program"))
+                                          (let [form-str (.substring full-text from to)
+                                                start-pos (offset->line-col from line-lengths)
+                                                end-pos (offset->line-col (max 0 (dec to)) line-lengths)]
+                                            (swap! forms conj {:form-str form-str
+                                                               :line (:line start-pos)
+                                                               :col (:col start-pos)
+                                                               :end-line (:line end-pos)
+                                                               :end-col (:col end-pos)
+                                                               :type node-name
+                                                               :from from
+                                                               :to to})))
+                                        (swap! root-depth inc)))
+                             :leave (fn [_] (swap! root-depth dec))}))
+           @forms)))
+
+     (defn evaluate-form-safely
+       "Evaluate a form string and return result with value type info."
+       [form-str]
+       (try
+         (when-not @sci-ctx (init-sci!))
+         (let [result (sci/eval-string* @sci-ctx form-str)
+               value-type (cond
+                            (nil? result) :nil
+                            (number? result) :number
+                            (string? result) :string
+                            (keyword? result) :keyword
+                            (symbol? result) :symbol
+                            (boolean? result) :boolean
+                            (vector? result) :vector
+                            (map? result) :map
+                            (set? result) :set
+                            (list? result) :list
+                            (fn? result) :function
+                            :else :other)]
+           {:result result
+            :value-type value-type
+            :display (if (fn? result)
+                       "#<fn>"
+                       (pr-str result))})
+         (catch :default e
+           {:error (.-message e)
+            :value-type :error
+            :display (str "❌ " (.-message e))})))
+
+     (defn inspect-all-values
+       "Evaluate all top-level forms and return their values with positions.
+        Returns [{:line :col :end-line :end-col :display :value-type :result}]"
+       [lines line-lengths]
+       (let [forms (find-all-top-level-forms lines line-lengths)]
+         (->> forms
+              (map (fn [{:keys [form-str line col end-line end-col type]}]
+                     (let [eval-result (evaluate-form-safely form-str)]
+                       (merge {:line line
+                               :col col
+                               :end-line end-line
+                               :end-col end-col
+                               :form-type type}
+                              eval-result))))
+              (vec))))
 
      (defn find-matching-bracket
        "Given cursor position and document, find matching bracket if cursor is on one.
@@ -493,10 +579,11 @@
                                   :style {:width "100vw" :height "100vh" :display "block"}})
                       (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
                         (.configure ^js ctx (clj->js {:device device :format format :alphaMode "premultiplied"}))
-                        ;; Pass all functions to start-loop! with AI callback
+                        ;; Pass all functions to start-loop! with AI callback and inspector
                         (let [loop-flow (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
                                                                    lines tokenize-line layout-tokens
                                                                    find-matching-bracket detect-fold-regions
                                                                    find-form-at-cursor sci-eval-form atlas
-                                                                   {:ai-request-fn ai-request-fn}))]
+                                                                   {:ai-request-fn ai-request-fn
+                                                                    :inspect-values-fn inspect-all-values}))]
                           (e/input loop-flow)))))))))))))))

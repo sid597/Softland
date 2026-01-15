@@ -140,6 +140,11 @@
                           (do (.preventDefault e)
                               (! [:zoom-out nil]))
 
+                          ;; Ctrl+Shift+I - Toggle Live Value Inspector
+                          (and ctrl? (.-shiftKey e) (= key "I"))
+                          (do (.preventDefault e)
+                              (! [:toggle-inspector nil]))
+
                           ;; Escape - Close panels / clear focus
                           (= key "Escape")
                           (do (.preventDefault e)
@@ -210,7 +215,7 @@
   [event-type value]
   (reset! !external-events [event-type value]))
 
-(defn start-loop! [node device ctx geometry line-lengths lines tokenize-fn layout-fn find-bracket-fn detect-folds-fn find-form-fn eval-form-fn atlas & [{:keys [ai-request-fn]}]]
+(defn start-loop! [node device ctx geometry line-lengths lines tokenize-fn layout-fn find-bracket-fn detect-folds-fn find-form-fn eval-form-fn atlas & [{:keys [ai-request-fn inspect-values-fn]}]]
   (let [;; Layout Configuration (Must match Editor defaults)
         font-size 16
         gutter-w  40           ;; Width of gutter for fold indicators
@@ -263,7 +268,10 @@
                        :tree-files    [{:name "electric_flow.cljc" :path "src/app/electric_flow.cljc" :type :file}
                                        {:name "loop.cljs" :path "src/app/client/webgpu/loop.cljs" :type :file}
                                        {:name "editor.cljs" :path "src/app/client/webgpu/editor.cljs" :type :file}]
-                       :tree-selected nil}         ;; Currently selected file path
+                       :tree-selected nil          ;; Currently selected file path
+                       ;; Live Value Inspector (Project 1)
+                       :inspector-visible false    ;; Show inline value annotations?
+                       :inspected-values  []}      ;; [{:line :col :display :value-type}]
 
         ;; Helper to calculate effective editor X offset based on panels
         calc-editor-x (fn [tree-visible?]
@@ -1029,6 +1037,23 @@
                           :zoom-out
                           (update state :zoom #(max 0.1 (* % 0.9)))
 
+                          ;; === LIVE VALUE INSPECTOR EVENTS ===
+                          :toggle-inspector
+                          (let [currently-visible? (:inspector-visible state)]
+                            (if currently-visible?
+                              ;; Turn off inspector
+                              (assoc state :inspector-visible false :inspected-values [])
+                              ;; Turn on inspector - evaluate all values
+                              (let [values (when inspect-values-fn
+                                             (inspect-values-fn @!lines @!line-lengths))]
+                                (js/console.log "Inspector values:" (count values))
+                                (assoc state
+                                       :inspector-visible true
+                                       :inspected-values (or values [])))))
+
+                          :update-inspector-values
+                          (assoc state :inspected-values value)
+
                           ;; === ESCAPE - Close all panels ===
 
                           :escape
@@ -1091,14 +1116,17 @@
                                                 :tree-visible (:tree-visible s)
                                                 :tree-files (:tree-files s)
                                                 :tree-selected (:tree-selected s)
-                                                :zoom (:zoom s)}))
+                                                :zoom (:zoom s)
+                                                :inspector-visible (:inspector-visible s)
+                                                :inspected-values (:inspected-values s)}))
                                  (m/watch !state)))
            (m/eduction (dedupe))
            (m/reduce
              (fn [_ [editor-ops {:keys [cmd-visible cmd-text scroll-y height width
                                          ai-visible ai-loading ai-response
                                          status-visible sel-start focus tree-visible
-                                         tree-files tree-selected zoom]}]]
+                                         tree-files tree-selected zoom
+                                         inspector-visible inspected-values]}]]
                (let [;; === COMMAND PANEL TEXT ===
                      cmd-panel-y (+ scroll-y (- height cmd-panel-h))
                      cmd-text-y (+ cmd-panel-y 12 font-size)
@@ -1227,6 +1255,17 @@
                                            :size (- font-size 2)
                                            :r 0.8 :g 0.7 :b 0.4 :a 1.0}])
 
+                     ;; Inspector indicator in status bar
+                     status-inspector-token (when (and status-visible inspector-visible)
+                                              [{:text "INSPECT"
+                                                :type :macro
+                                                :from 0
+                                                :to 7
+                                                :x (- width 210)
+                                                :y (+ status-y 16)
+                                                :size (- font-size 2)
+                                                :r 0.4 :g 0.9 :b 0.6 :a 1.0}])
+
                      ;; === FILE TREE TEXT ===
                      tree-title-token (when tree-visible
                                         [{:text "FILES"
@@ -1257,6 +1296,46 @@
                                                 :a 1.0}]))
                                           tree-files))
 
+                     ;; === LIVE VALUE INSPECTOR ANNOTATIONS ===
+                     tree-visible-for-layout tree-visible
+                     inspector-layout-x (if tree-visible-for-layout
+                                          (+ layout-x file-tree-w)
+                                          layout-x)
+                     inspector-tokens (when (and inspector-visible (seq inspected-values))
+                                        (->> inspected-values
+                                             (map (fn [{:keys [line end-col display value-type]}]
+                                                    (let [;; Position annotation after the end of the expression
+                                                          char-w (* font-size 0.6)
+                                                          anno-x (+ inspector-layout-x (* (+ end-col 3) char-w))
+                                                          anno-y (+ layout-y (* line line-h))
+                                                          ;; Color based on value type
+                                                          [r g b] (case value-type
+                                                                    :number [0.6 0.9 0.6]
+                                                                    :string [0.9 0.7 0.5]
+                                                                    :keyword [0.5 0.8 0.9]
+                                                                    :symbol [0.8 0.8 0.6]
+                                                                    :boolean [0.8 0.6 0.9]
+                                                                    :nil [0.5 0.5 0.5]
+                                                                    :vector [0.6 0.8 0.8]
+                                                                    :map [0.8 0.8 0.6]
+                                                                    :function [0.7 0.6 0.9]
+                                                                    :error [0.9 0.4 0.4]
+                                                                    [0.7 0.7 0.7])
+                                                          ;; Truncate long values
+                                                          display-text (if (> (count display) 40)
+                                                                         (str (subs display 0 37) "...")
+                                                                         display)]
+                                                      [{:text (str "→ " display-text)
+                                                        :type :comment
+                                                        :from 0
+                                                        :to (+ 2 (count display-text))
+                                                        :x anno-x
+                                                        :y anno-y
+                                                        :size (- font-size 2)
+                                                        :r r :g g :b b :a 0.85}])))
+                                             (apply concat)
+                                             vec))
+
                      ;; Combine all text ops
                      render-ops (vec (concat editor-ops
                                              (when cmd-prompt-token [cmd-prompt-token])
@@ -1265,10 +1344,12 @@
                                              (when ai-loading-text [ai-loading-text])
                                              (or ai-response-lines [])
                                              (when status-line-col-token [status-line-col-token])
+                                             (when status-inspector-token [status-inspector-token])
                                              (when status-zoom-token [status-zoom-token])
                                              (when status-focus-token [status-focus-token])
                                              (when tree-title-token [tree-title-token])
-                                             (or tree-file-tokens [])))]
+                                             (or tree-file-tokens [])
+                                             (or inspector-tokens [])))]
                  (reset! !text-geo (editor/update-text-data device (:text geometry) render-ops atlas font-size)))
                nil)
              nil))
