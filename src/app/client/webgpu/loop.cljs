@@ -371,6 +371,7 @@
                                 cmd-visible? (:cmd-visible state)
                                 ai-visible? (:ai-visible state)
                                 tree-visible? (:tree-visible state)
+                                scrub-mode? (:scrub-mode state)
                                 ;; Calculate panel regions
                                 cmd-panel-top (if cmd-visible? (- screen-h cmd-panel-h) screen-h)
                                 ai-panel-left (- screen-w ai-panel-w)
@@ -384,6 +385,17 @@
                               ;; Middle button = start panning
                               (= button 1)
                               (assoc state :panning? true :pan-start {:x x :y y})
+
+                              ;; Scrub mode + hovering over a number = start scrubbing
+                              (and scrub-mode? (= button 0) (:hover-literal state)
+                                   (= :number (:type (:hover-literal state))))
+                              (let [lit (:hover-literal state)]
+                                (js/console.log "Start scrubbing:" (:text lit) "value:" (:value lit))
+                                (assoc state
+                                       :scrubbing? true
+                                       :scrub-literal lit
+                                       :scrub-start-x x
+                                       :scrub-start-val (:value lit)))
 
                               ;; Clicked in command panel
                               clicked-in-cmd-panel?
@@ -446,6 +458,36 @@
 
                           :mousemove
                           (cond
+                            ;; Currently scrubbing a number - update value
+                            (:scrubbing? state)
+                            (let [{:keys [x]} value
+                                  start-x (:scrub-start-x state)
+                                  start-val (:scrub-start-val state)
+                                  literal (:scrub-literal state)
+                                  ;; Calculate new value: 1 pixel = 0.1 change
+                                  delta (/ (- x start-x) 10)
+                                  new-val (+ start-val delta)
+                                  ;; Round to reasonable precision
+                                  rounded-val (/ (Math/round (* new-val 100)) 100)
+                                  ;; Update source code
+                                  line-idx (:line literal)
+                                  col (:col literal)
+                                  end-col (:end-col literal)
+                                  line-text (get @!lines line-idx "")
+                                  new-text-val (str rounded-val)
+                                  new-line (str (subs line-text 0 col)
+                                                new-text-val
+                                                (subs line-text end-col))
+                                  new-lines (assoc @!lines line-idx new-line)]
+                              (reset! !lines new-lines)
+                              (reset! !line-lengths (mapv count new-lines))
+                              ;; Update the literal's end col based on new text length
+                              (assoc state
+                                     :scrub-literal (assoc literal
+                                                           :value rounded-val
+                                                           :text new-text-val
+                                                           :end-col (+ col (count new-text-val)))))
+
                             ;; Panning with middle mouse
                             (:panning? state)
                             (let [{:keys [x y]} value
@@ -475,10 +517,45 @@
                                   pos {:line logical-line :col col}]
                               (assoc state :sel-end pos))
 
+                            ;; Scrub mode hover detection
+                            (:scrub-mode state)
+                            (let [{:keys [x y]} value
+                                  adj-y (+ y (:scroll-y state))
+                                  tree-visible? (:tree-visible state)
+                                  editor-x (calc-editor-x tree-visible?)
+                                  char-w (* font-size 0.6)
+                                  ;; Find which character position cursor is at
+                                  visual-line (max 0 (Math/floor (/ (- adj-y layout-y) line-h)))
+                                  logical-line (get @!line-mapping visual-line visual-line)
+                                  col (Math/floor (/ (- x editor-x) char-w))
+                                  ;; Find literal at this position
+                                  all-lits (:all-literals state)
+                                  hovered (first (filter (fn [lit]
+                                                           (and (= (:line lit) logical-line)
+                                                                (>= col (:col lit))
+                                                                (< col (:end-col lit))))
+                                                         all-lits))]
+                              (assoc state :hover-literal hovered))
+
                             :else state)
 
                           :mouseup
-                          (assoc state :dragging? false :panning? false :pan-start nil)
+                          (if (:scrubbing? state)
+                            ;; End scrubbing and refresh literals list
+                            (let [new-literals (when find-literals-fn
+                                                 (find-literals-fn @!lines @!line-lengths))]
+                              (js/console.log "End scrubbing, refreshing literals:" (count new-literals))
+                              (assoc state
+                                     :scrubbing? false
+                                     :scrub-literal nil
+                                     :scrub-start-x nil
+                                     :scrub-start-val nil
+                                     :all-literals (or new-literals [])
+                                     :dragging? false
+                                     :panning? false
+                                     :pan-start nil))
+                            ;; Normal mouse up
+                            (assoc state :dragging? false :panning? false :pan-start nil))
 
                           :char-input
                           (if (= (:focus state) :command-panel)
@@ -1194,7 +1271,8 @@
                                                 :tree-selected (:tree-selected s)
                                                 :zoom (:zoom s)
                                                 :inspector-visible (:inspector-visible s)
-                                                :inspected-values (:inspected-values s)}))
+                                                :inspected-values (:inspected-values s)
+                                                :scrub-mode (:scrub-mode s)}))
                                  (m/watch !state)))
            (m/eduction (dedupe))
            (m/reduce
@@ -1202,7 +1280,7 @@
                                          ai-visible ai-loading ai-response
                                          status-visible sel-start focus tree-visible
                                          tree-files tree-selected zoom
-                                         inspector-visible inspected-values]}]]
+                                         inspector-visible inspected-values scrub-mode]}]]
                (let [;; === COMMAND PANEL TEXT ===
                      cmd-panel-y (+ scroll-y (- height cmd-panel-h))
                      cmd-text-y (+ cmd-panel-y 12 font-size)
@@ -1342,6 +1420,17 @@
                                                 :size (- font-size 2)
                                                 :r 0.4 :g 0.9 :b 0.6 :a 1.0}])
 
+                     ;; SCRUB mode indicator in status bar
+                     status-scrub-token (when (and status-visible scrub-mode)
+                                          [{:text "SCRUB"
+                                            :type :macro
+                                            :from 0
+                                            :to 5
+                                            :x (- width 280)
+                                            :y (+ status-y 16)
+                                            :size (- font-size 2)
+                                            :r 0.9 :g 0.7 :b 0.3 :a 1.0}])
+
                      ;; === FILE TREE TEXT ===
                      tree-title-token (when tree-visible
                                         [{:text "FILES"
@@ -1421,6 +1510,7 @@
                                              (or ai-response-lines [])
                                              (when status-line-col-token [status-line-col-token])
                                              (when status-inspector-token [status-inspector-token])
+                                             (when status-scrub-token [status-scrub-token])
                                              (when status-zoom-token [status-zoom-token])
                                              (when status-focus-token [status-focus-token])
                                              (when tree-title-token [tree-title-token])
@@ -1451,13 +1541,19 @@
                            ;; Status bar
                            :status-visible (:status-visible s)
                            ;; File tree
-                           :tree-visible (:tree-visible s)}))
+                           :tree-visible (:tree-visible s)
+                           ;; Direct manipulation (scrub mode)
+                           :scrub-mode (:scrub-mode s)
+                           :hover-literal (:hover-literal s)
+                           :scrubbing? (:scrubbing? s)
+                           :scrub-literal (:scrub-literal s)}))
              (dedupe))
            (m/reduce
              (fn [_ {:keys [sel-start sel-end caret-visible folded-lines eval-result
                             cmd-visible cmd-text cmd-cursor focus width height
                             ai-visible ai-loading ai-response
-                            status-visible tree-visible]}]
+                            status-visible tree-visible
+                            scrub-mode hover-literal scrubbing? scrub-literal]}]
                (let [line-mapping @!line-mapping
                      ;; Dynamic layout-x based on tree visibility
                      effective-layout-x (calc-editor-x tree-visible)
@@ -1625,12 +1721,46 @@
                                      :h height
                                      :r 0.08 :g 0.08 :b 0.12 :a 0.98})
 
+                     ;; === SCRUB MODE RECTS (Project 2) ===
+                     ;; Hover highlight for literals when scrub mode is active
+                     hover-lit-rect (when (and scrub-mode hover-literal (not scrubbing?))
+                                      (when-let [visual-y (logical-line->visual-y (:line hover-literal))]
+                                        (let [char-w (* font-size 0.6)
+                                              lit-x (+ effective-layout-x (* (:col hover-literal) char-w))
+                                              lit-w (* (- (:end-col hover-literal) (:col hover-literal)) char-w)
+                                              ;; Different colors for different literal types
+                                              [r g b] (case (:type hover-literal)
+                                                        :number [0.3 0.7 0.3]   ;; Green for numbers
+                                                        :color  [0.7 0.3 0.6]   ;; Purple for colors
+                                                        :vector-2d [0.3 0.6 0.7] ;; Cyan for 2D vectors
+                                                        [0.5 0.5 0.5])]         ;; Gray default
+                                          {:x lit-x
+                                           :y visual-y
+                                           :w lit-w
+                                           :h line-h
+                                           :r r :g g :b b :a 0.4})))
+
+                     ;; Active scrubbing highlight (brighter)
+                     scrub-active-rect (when (and scrubbing? scrub-literal)
+                                         (when-let [visual-y (logical-line->visual-y (:line scrub-literal))]
+                                           (let [char-w (* font-size 0.6)
+                                                 lit-x (+ effective-layout-x (* (:col scrub-literal) char-w))
+                                                 lit-w (* (- (:end-col scrub-literal) (:col scrub-literal)) char-w)]
+                                             {:x lit-x
+                                              :y visual-y
+                                              :w lit-w
+                                              :h line-h
+                                              :r 0.4 :g 0.9 :b 0.4 :a 0.6})))
+
                      ;; Combine all rects
                      rects (vec (concat fold-rects
                                         (or bracket-rects [])
                                         (or selection-rects [])
                                         (if editor-caret-rect [editor-caret-rect] [])
                                         (if eval-rect [eval-rect] [])
+                                        ;; Scrub mode highlights
+                                        (if hover-lit-rect [hover-lit-rect] [])
+                                        (if scrub-active-rect [scrub-active-rect] [])
                                         ;; Panel backgrounds (drawn first, behind content)
                                         (if tree-bg-rect [tree-bg-rect] [])
                                         (if ai-bg-rect [ai-bg-rect] [])

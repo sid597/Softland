@@ -346,7 +346,8 @@
                                         ;; Detect number literals
                                         (when (= node-name "Number")
                                           (let [start-pos (offset->line-col from line-lengths)
-                                                end-pos (offset->line-col (max 0 (dec to)) line-lengths)]
+                                                ;; end-col is exclusive (one past the last char) for range checking
+                                                end-pos (offset->line-col to line-lengths)]
                                             (swap! literals conj
                                                    {:type :number
                                                     :value (js/parseFloat text)
@@ -360,7 +361,8 @@
                                         ;; Detect string literals (check for color patterns)
                                         (when (= node-name "String")
                                           (let [start-pos (offset->line-col from line-lengths)
-                                                end-pos (offset->line-col (max 0 (dec to)) line-lengths)
+                                                ;; end-col is exclusive for range checking
+                                                end-pos (offset->line-col to line-lengths)
                                                 ;; Check if string looks like hex color
                                                 inner-text (subs text 1 (dec (count text)))
                                                 is-color? (re-matches #"#[0-9A-Fa-f]{3,8}" inner-text)]
@@ -377,7 +379,8 @@
                                         ;; Detect 2D vectors [x y] as potential coordinates
                                         (when (= node-name "Vector")
                                           (let [start-pos (offset->line-col from line-lengths)
-                                                end-pos (offset->line-col (max 0 (dec to)) line-lengths)
+                                                ;; end-col is exclusive for range checking
+                                                end-pos (offset->line-col to line-lengths)
                                                 ;; Try to parse as [num num]
                                                 parsed (try
                                                          (let [result (cljs.reader/read-string text)]
