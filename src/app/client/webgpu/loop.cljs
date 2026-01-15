@@ -91,6 +91,16 @@
                           (do (.preventDefault e)
                               (! [:save nil]))
 
+                          ;; Ctrl+K - Toggle command panel
+                          (and ctrl? (= key "k"))
+                          (do (.preventDefault e)
+                              (! [:toggle-command-panel nil]))
+
+                          ;; Escape - Close command panel / clear focus
+                          (= key "Escape")
+                          (do (.preventDefault e)
+                              (! [:escape nil]))
+
                           ;; Ctrl+Arrow word navigation
                           (and ctrl? (contains? #{"ArrowLeft" "ArrowRight"} key))
                           (do (.preventDefault e)
@@ -155,6 +165,9 @@
         layout-y  100
         line-h    (* font-size 1.2)
 
+        ;; Command panel configuration
+        cmd-panel-h   40           ;; Height of command panel when visible
+
         initial-state {:scroll-y      0
                        :width         (.-innerWidth js/window)
                        :height        (.-innerHeight js/window)
@@ -165,7 +178,12 @@
                        :desired-col   0
                        :caret-visible true
                        :folded-lines  #{}
-                       :eval-result   nil}  ;; {:text "=> 42" :line 5 :expires-at <timestamp>}
+                       :eval-result   nil
+                       ;; Command panel state
+                       :cmd-visible   false        ;; Is command panel shown?
+                       :cmd-text      ""           ;; Text in command panel
+                       :cmd-cursor    0            ;; Cursor position in command text
+                       :focus         :editor}     ;; :editor or :command-panel
         
         !state        (atom initial-state)
         !rect-sys     (atom (:rect geometry))
@@ -177,6 +195,7 @@
         !clipboard    (atom nil) ;; Internal clipboard for copy/cut/paste
         !undo-stack   (atom [])  ;; Stack of previous states for undo
         !redo-stack   (atom [])  ;; Stack of undone states for redo
+        !editor-render-ops (atom [])  ;; Cached editor render ops for combining with command panel
 
         ;; Helper to save state before edit
         save-undo! (fn [lines-val cursor]
@@ -219,36 +238,55 @@
 
                           :mousedown
                           (let [{:keys [x y]} value
-                                adj-y (+ y (:scroll-y state))]
-                            ;; Check if click is in gutter area (for fold toggle)
-                            ;; Gutter spans from x=50 to x=50+gutter-w
-                            (if (and (>= x 50) (< x (+ 50 gutter-w)))
-                              ;; Gutter click - toggle fold
-                              ;; Use visual line to find which fold indicator was clicked
-                              (let [visual-line (max 0 (Math/floor (/ (- adj-y layout-y) line-h)))
-                                    ;; Map visual line to logical line
-                                    logical-line (get @!line-mapping visual-line visual-line)
-                                    ;; Find fold region starting at this logical line
-                                    fold-region (first (filter #(= (:start-line %) logical-line) @!fold-regions))]
-                                (if fold-region
-                                  (update state :folded-lines
-                                          (fn [folded]
-                                            (if (contains? folded logical-line)
-                                              (disj folded logical-line)
-                                              (conj folded logical-line))))
-                                  state))
-                              ;; Normal click - cursor placement with visual->logical mapping
-                              (let [visual-line (max 0 (Math/floor (/ (- adj-y layout-y) line-h)))
-                                    logical-line (get @!line-mapping visual-line (min visual-line (dec (count @!line-lengths))))
-                                    line-len (get @!line-lengths logical-line 0)
-                                    char-w (* font-size 0.6)
-                                    col (-> (/ (- x layout-x) char-w)
+                                screen-h (:height state)
+                                cmd-visible? (:cmd-visible state)
+                                ;; Command panel occupies bottom cmd-panel-h pixels when visible
+                                cmd-panel-top (if cmd-visible? (- screen-h cmd-panel-h) screen-h)
+                                clicked-in-cmd-panel? (and cmd-visible? (>= y cmd-panel-top))]
+                            (if clicked-in-cmd-panel?
+                              ;; Clicked in command panel - focus it and position cursor
+                              (let [char-w (* font-size 0.6)
+                                    text (:cmd-text state)
+                                    text-len (count text)
+                                    ;; Command panel text starts at x=60 (with some padding)
+                                    cmd-text-x 60
+                                    col (-> (/ (- x cmd-text-x) char-w)
                                             (Math/round)
                                             (max 0)
-                                            (min line-len))
-                                    pos {:line logical-line :col col}]
-                                (assoc state :dragging? true :sel-start pos :sel-end pos
-                                       :desired-col col :caret-visible true))))
+                                            (min text-len))]
+                                (assoc state :focus :command-panel :cmd-cursor col :caret-visible true))
+                              ;; Clicked in editor area
+                              (let [adj-y (+ y (:scroll-y state))]
+                                ;; Check if click is in gutter area (for fold toggle)
+                                ;; Gutter spans from x=50 to x=50+gutter-w
+                                (if (and (>= x 50) (< x (+ 50 gutter-w)))
+                                  ;; Gutter click - toggle fold
+                                  ;; Use visual line to find which fold indicator was clicked
+                                  (let [visual-line (max 0 (Math/floor (/ (- adj-y layout-y) line-h)))
+                                        ;; Map visual line to logical line
+                                        logical-line (get @!line-mapping visual-line visual-line)
+                                        ;; Find fold region starting at this logical line
+                                        fold-region (first (filter #(= (:start-line %) logical-line) @!fold-regions))]
+                                    (if fold-region
+                                      (update state :folded-lines
+                                              (fn [folded]
+                                                (if (contains? folded logical-line)
+                                                  (disj folded logical-line)
+                                                  (conj folded logical-line))))
+                                      ;; Not on a fold indicator - just focus editor
+                                      (assoc state :focus :editor)))
+                                  ;; Normal click - cursor placement with visual->logical mapping
+                                  (let [visual-line (max 0 (Math/floor (/ (- adj-y layout-y) line-h)))
+                                        logical-line (get @!line-mapping visual-line (min visual-line (dec (count @!line-lengths))))
+                                        line-len (get @!line-lengths logical-line 0)
+                                        char-w (* font-size 0.6)
+                                        col (-> (/ (- x layout-x) char-w)
+                                                (Math/round)
+                                                (max 0)
+                                                (min line-len))
+                                        pos {:line logical-line :col col}]
+                                    (assoc state :dragging? true :sel-start pos :sel-end pos
+                                           :desired-col col :caret-visible true :focus :editor))))))
 
                           :mousemove
                           (if (:dragging? state)
@@ -271,69 +309,94 @@
                           (assoc state :dragging? false)
 
                           :char-input
-                          (if-let [pos (:sel-start state)]
-                            (let [_ (save-undo! @!lines pos)
-                                  line-idx (:line pos)
-                                  col      (:col pos)
-                                  current-line (get @!lines line-idx "")
-                                  before (subs current-line 0 col)
-                                  after  (subs current-line col)
-                                  new-line (str before value after)
-                                  new-lines (assoc @!lines line-idx new-line)
-                                  new-line-lengths (mapv count new-lines)]
-                              (reset! !lines new-lines)
-                              (reset! !line-lengths new-line-lengths)
+                          (if (= (:focus state) :command-panel)
+                            ;; Command panel input
+                            (let [text (:cmd-text state)
+                                  cursor (:cmd-cursor state)
+                                  before (subs text 0 cursor)
+                                  after (subs text cursor)
+                                  new-text (str before value after)]
                               (assoc state
-                                     :sel-start {:line line-idx :col (inc col)}
-                                     :sel-end {:line line-idx :col (inc col)}
-                                     :desired-col (inc col)
+                                     :cmd-text new-text
+                                     :cmd-cursor (inc cursor)
                                      :caret-visible true))
-                            state)
+                            ;; Editor input
+                            (if-let [pos (:sel-start state)]
+                              (let [_ (save-undo! @!lines pos)
+                                    line-idx (:line pos)
+                                    col      (:col pos)
+                                    current-line (get @!lines line-idx "")
+                                    before (subs current-line 0 col)
+                                    after  (subs current-line col)
+                                    new-line (str before value after)
+                                    new-lines (assoc @!lines line-idx new-line)
+                                    new-line-lengths (mapv count new-lines)]
+                                (reset! !lines new-lines)
+                                (reset! !line-lengths new-line-lengths)
+                                (assoc state
+                                       :sel-start {:line line-idx :col (inc col)}
+                                       :sel-end {:line line-idx :col (inc col)}
+                                       :desired-col (inc col)
+                                       :caret-visible true))
+                              state))
 
                           :backspace
-                          (if-let [pos (:sel-start state)]
-                            (let [line-idx (:line pos)
-                                  col      (:col pos)]
-                              (cond
-                                ;; At start of line - join with previous line
-                                (and (= col 0) (> line-idx 0))
-                                (let [_ (save-undo! @!lines pos)
-                                      current-line (get @!lines line-idx "")
-                                      prev-line (get @!lines (dec line-idx) "")
-                                      prev-len (count prev-line)
-                                      merged-line (str prev-line current-line)
-                                      new-lines (vec (concat (subvec @!lines 0 (dec line-idx))
-                                                             [merged-line]
-                                                             (subvec @!lines (inc line-idx))))
-                                      new-line-lengths (mapv count new-lines)]
-                                  (reset! !lines new-lines)
-                                  (reset! !line-lengths new-line-lengths)
+                          (if (= (:focus state) :command-panel)
+                            ;; Command panel backspace
+                            (let [text (:cmd-text state)
+                                  cursor (:cmd-cursor state)]
+                              (if (> cursor 0)
+                                (let [before (subs text 0 (dec cursor))
+                                      after (subs text cursor)]
                                   (assoc state
-                                         :sel-start {:line (dec line-idx) :col prev-len}
-                                         :sel-end {:line (dec line-idx) :col prev-len}
-                                         :desired-col prev-len
+                                         :cmd-text (str before after)
+                                         :cmd-cursor (dec cursor)
                                          :caret-visible true))
+                                state))
+                            ;; Editor backspace
+                            (if-let [pos (:sel-start state)]
+                              (let [line-idx (:line pos)
+                                    col      (:col pos)]
+                                (cond
+                                  ;; At start of line - join with previous line
+                                  (and (= col 0) (> line-idx 0))
+                                  (let [_ (save-undo! @!lines pos)
+                                        current-line (get @!lines line-idx "")
+                                        prev-line (get @!lines (dec line-idx) "")
+                                        prev-len (count prev-line)
+                                        merged-line (str prev-line current-line)
+                                        new-lines (vec (concat (subvec @!lines 0 (dec line-idx))
+                                                               [merged-line]
+                                                               (subvec @!lines (inc line-idx))))
+                                        new-line-lengths (mapv count new-lines)]
+                                    (reset! !lines new-lines)
+                                    (reset! !line-lengths new-line-lengths)
+                                    (assoc state
+                                           :sel-start {:line (dec line-idx) :col prev-len}
+                                           :sel-end {:line (dec line-idx) :col prev-len}
+                                           :desired-col prev-len
+                                           :caret-visible true))
 
-                                ;; Delete character before cursor
-                                (> col 0)
-                                (let [_ (save-undo! @!lines pos)
-                                      current-line (get @!lines line-idx "")
-                                      before (subs current-line 0 (dec col))
-                                      after  (subs current-line col)
-                                      new-line (str before after)
-                                      new-lines (assoc @!lines line-idx new-line)
-                                      new-line-lengths (mapv count new-lines)]
-                                  (reset! !lines new-lines)
-                                  (reset! !line-lengths new-line-lengths)
-                                  (assoc state
-                                         :sel-start {:line line-idx :col (dec col)}
-                                         :sel-end {:line line-idx :col (dec col)}
-                                         :desired-col (dec col)
-                                         :caret-visible true))
+                                  ;; Delete character before cursor
+                                  (> col 0)
+                                  (let [_ (save-undo! @!lines pos)
+                                        current-line (get @!lines line-idx "")
+                                        before (subs current-line 0 (dec col))
+                                        after  (subs current-line col)
+                                        new-line (str before after)
+                                        new-lines (assoc @!lines line-idx new-line)
+                                        new-line-lengths (mapv count new-lines)]
+                                    (reset! !lines new-lines)
+                                    (reset! !line-lengths new-line-lengths)
+                                    (assoc state
+                                           :sel-start {:line line-idx :col (dec col)}
+                                           :sel-end {:line line-idx :col (dec col)}
+                                           :desired-col (dec col)
+                                           :caret-visible true))
 
-                                ;; At start of first line - do nothing
-                                :else state))
-                            state)
+                                  ;; At start of first line - do nothing
+                                  :else state))
+                              state))
 
                           :delete
                           (if-let [pos (:sel-start state)]
@@ -547,98 +610,126 @@
                             state)
 
                           :enter
-                          (if-let [pos (:sel-start state)]
-                            (let [_ (save-undo! @!lines pos)
-                                  line-idx (:line pos)
-                                  col      (:col pos)
-                                  current-line (get @!lines line-idx "")
-                                  before (subs current-line 0 col)
-                                  after  (subs current-line col)
-                                  new-lines (vec (concat (subvec @!lines 0 line-idx)
-                                                         [before after]
-                                                         (subvec @!lines (inc line-idx))))
-                                  new-line-lengths (mapv count new-lines)]
-                              (reset! !lines new-lines)
-                              (reset! !line-lengths new-line-lengths)
+                          (if (= (:focus state) :command-panel)
+                            ;; Command panel Enter - submit command
+                            (let [cmd-text (:cmd-text state)]
+                              (when (seq cmd-text)
+                                (js/console.log "Command submitted:" cmd-text)
+                                ;; TODO: Process the command here
+                                )
+                              ;; Clear and close panel
                               (assoc state
-                                     :sel-start {:line (inc line-idx) :col 0}
-                                     :sel-end {:line (inc line-idx) :col 0}
-                                     :desired-col 0
-                                     :caret-visible true))
-                            state)
+                                     :cmd-text ""
+                                     :cmd-cursor 0
+                                     :cmd-visible false
+                                     :focus :editor))
+                            ;; Editor Enter - new line
+                            (if-let [pos (:sel-start state)]
+                              (let [_ (save-undo! @!lines pos)
+                                    line-idx (:line pos)
+                                    col      (:col pos)
+                                    current-line (get @!lines line-idx "")
+                                    before (subs current-line 0 col)
+                                    after  (subs current-line col)
+                                    new-lines (vec (concat (subvec @!lines 0 line-idx)
+                                                           [before after]
+                                                           (subvec @!lines (inc line-idx))))
+                                    new-line-lengths (mapv count new-lines)]
+                                (reset! !lines new-lines)
+                                (reset! !line-lengths new-line-lengths)
+                                (assoc state
+                                       :sel-start {:line (inc line-idx) :col 0}
+                                       :sel-end {:line (inc line-idx) :col 0}
+                                       :desired-col 0
+                                       :caret-visible true))
+                              state))
 
                           :keydown
-                          (if-let [pos (:sel-start state)]
-                            (let [line (:line pos)
-                                  col  (:col pos)
-                                  desired (:desired-col state)
-                                  line-lengths-val @!line-lengths
-                                  max-line (dec (count line-lengths-val))
-                                  line-len (get line-lengths-val line 0)
-                                  [new-pos new-desired]
+                          (if (= (:focus state) :command-panel)
+                            ;; Command panel navigation
+                            (let [text (:cmd-text state)
+                                  cursor (:cmd-cursor state)
+                                  text-len (count text)
+                                  new-cursor
                                   (case value
-                                    "ArrowLeft"
-                                    (let [np (if (> col 0)
-                                               {:line line :col (dec col)}
-                                               (if (> line 0)
-                                                 (let [prev-len (get line-lengths-val (dec line) 0)]
-                                                   {:line (dec line) :col prev-len})
-                                                 pos))]
-                                      [np (:col np)])
+                                    "ArrowLeft" (max 0 (dec cursor))
+                                    "ArrowRight" (min text-len (inc cursor))
+                                    "Home" 0
+                                    "End" text-len
+                                    cursor)]
+                              (assoc state :cmd-cursor new-cursor :caret-visible true))
+                            ;; Editor navigation
+                            (if-let [pos (:sel-start state)]
+                              (let [line (:line pos)
+                                    col  (:col pos)
+                                    desired (:desired-col state)
+                                    line-lengths-val @!line-lengths
+                                    max-line (dec (count line-lengths-val))
+                                    line-len (get line-lengths-val line 0)
+                                    [new-pos new-desired]
+                                    (case value
+                                      "ArrowLeft"
+                                      (let [np (if (> col 0)
+                                                 {:line line :col (dec col)}
+                                                 (if (> line 0)
+                                                   (let [prev-len (get line-lengths-val (dec line) 0)]
+                                                     {:line (dec line) :col prev-len})
+                                                   pos))]
+                                        [np (:col np)])
 
-                                    "ArrowRight"
-                                    (let [np (if (< col line-len)
-                                               {:line line :col (inc col)}
-                                               (if (< line max-line)
-                                                 {:line (inc line) :col 0}
-                                                 pos))]
-                                      [np (:col np)])
+                                      "ArrowRight"
+                                      (let [np (if (< col line-len)
+                                                 {:line line :col (inc col)}
+                                                 (if (< line max-line)
+                                                   {:line (inc line) :col 0}
+                                                   pos))]
+                                        [np (:col np)])
 
-                                    "ArrowUp"
-                                    (if (> line 0)
-                                      (let [prev-len (get line-lengths-val (dec line) 0)]
-                                        [{:line (dec line) :col (min desired prev-len)} desired])
+                                      "ArrowUp"
+                                      (if (> line 0)
+                                        (let [prev-len (get line-lengths-val (dec line) 0)]
+                                          [{:line (dec line) :col (min desired prev-len)} desired])
+                                        [pos desired])
+
+                                      "ArrowDown"
+                                      (if (< line max-line)
+                                        (let [next-len (get line-lengths-val (inc line) 0)]
+                                          [{:line (inc line) :col (min desired next-len)} desired])
+                                        [pos desired])
+
+                                      "Home"
+                                      [{:line line :col 0} 0]
+
+                                      "End"
+                                      [{:line line :col line-len} line-len]
+
                                       [pos desired])
 
-                                    "ArrowDown"
-                                    (if (< line max-line)
-                                      (let [next-len (get line-lengths-val (inc line) 0)]
-                                        [{:line (inc line) :col (min desired next-len)} desired])
-                                      [pos desired])
+                                    ;; Auto-scroll to keep caret visible
+                                    caret-y (+ layout-y (* (:line new-pos) line-h))
+                                    viewport-top (:scroll-y state)
+                                    viewport-bottom (+ viewport-top (:height state))
 
-                                    "Home"
-                                    [{:line line :col 0} 0]
+                                    ;; Add padding (one line worth)
+                                    padding line-h
 
-                                    "End"
-                                    [{:line line :col line-len} line-len]
+                                    new-scroll (cond
+                                                 ;; Caret above viewport - scroll up
+                                                 (< caret-y (+ viewport-top padding))
+                                                 (max 0 (- caret-y padding))
 
-                                    [pos desired])
+                                                 ;; Caret below viewport - scroll down
+                                                 (> (+ caret-y line-h) (- viewport-bottom padding))
+                                                 (+ (- caret-y (:height state)) line-h padding)
 
-                                  ;; Auto-scroll to keep caret visible
-                                  caret-y (+ layout-y (* (:line new-pos) line-h))
-                                  viewport-top (:scroll-y state)
-                                  viewport-bottom (+ viewport-top (:height state))
+                                                 ;; Caret in view - don't scroll
+                                                 :else
+                                                 (:scroll-y state))]
 
-                                  ;; Add padding (one line worth)
-                                  padding line-h
-
-                                  new-scroll (cond
-                                               ;; Caret above viewport - scroll up
-                                               (< caret-y (+ viewport-top padding))
-                                               (max 0 (- caret-y padding))
-
-                                               ;; Caret below viewport - scroll down
-                                               (> (+ caret-y line-h) (- viewport-bottom padding))
-                                               (+ (- caret-y (:height state)) line-h padding)
-
-                                               ;; Caret in view - don't scroll
-                                               :else
-                                               (:scroll-y state))]
-
-                              (assoc state :sel-start new-pos :sel-end new-pos
-                                     :desired-col new-desired :caret-visible true
-                                     :scroll-y new-scroll))
-                            state)
+                                (assoc state :sel-start new-pos :sel-end new-pos
+                                       :desired-col new-desired :caret-visible true
+                                       :scroll-y new-scroll))
+                              state))
 
                           :word-nav
                           (if-let [pos (:sel-start state)]
@@ -718,10 +809,28 @@
                                                              :expires-at (+ (js/Date.now) 2000)})))
                             state)
 
+                          ;; === COMMAND PANEL EVENTS ===
+
+                          :toggle-command-panel
+                          (if (:cmd-visible state)
+                            ;; Close panel, return focus to editor
+                            (assoc state :cmd-visible false :focus :editor)
+                            ;; Open panel, focus it
+                            (assoc state :cmd-visible true :focus :command-panel :caret-visible true))
+
+                          :escape
+                          (cond
+                            ;; If command panel is open, close it
+                            (:cmd-visible state)
+                            (assoc state :cmd-visible false :focus :editor)
+                            ;; Otherwise, clear selection
+                            :else
+                            (assoc state :sel-start nil :sel-end nil))
+
                           state))))
              nil))
 
-      ;; 2. TEXT CONTENT UPDATER (re-tokenize and update GPU when lines OR fold state changes)
+      ;; 2a. EDITOR TEXT UPDATER (re-tokenize when lines or fold state changes)
       (->> (m/latest vector
                      (m/watch !lines)
                      (m/eduction (map :folded-lines) (m/watch !state)))
@@ -739,21 +848,88 @@
                                               fold-regions folded-lines)
                      render-ops (:render-ops layout-result)]
                  (reset! !line-mapping (:line-mapping layout-result))
+                 ;; Cache editor render ops
+                 (reset! !editor-render-ops render-ops))
+               nil)
+             nil))
+
+      ;; 2b. COMBINED TEXT UPDATER (combines editor + command panel text)
+      ;; Updates GPU when editor ops change OR when command panel state changes
+      (->> (m/latest vector
+                     (m/watch !editor-render-ops)
+                     (m/eduction (map (fn [s] {:cmd-visible (:cmd-visible s)
+                                                :cmd-text (:cmd-text s)
+                                                :scroll-y (:scroll-y s)
+                                                :height (:height s)}))
+                                 (m/watch !state)))
+           (m/eduction (dedupe))
+           (m/reduce
+             (fn [_ [editor-ops {:keys [cmd-visible cmd-text scroll-y height]}]]
+               (let [;; Add command panel text if visible
+                     ;; Position it at fixed screen position (accounting for scroll)
+                     cmd-panel-y (+ scroll-y (- height cmd-panel-h))
+                     cmd-text-y (+ cmd-panel-y 12 font-size)  ;; Center vertically
+
+                     ;; Show placeholder or actual text
+                     cmd-text-token (when cmd-visible
+                                      (if (seq cmd-text)
+                                        ;; Show actual text
+                                        [{:text cmd-text
+                                          :type :text
+                                          :from 0
+                                          :to (count cmd-text)
+                                          :x 60
+                                          :y cmd-text-y
+                                          :size font-size
+                                          :r 0.9 :g 0.9 :b 0.9 :a 1.0}]
+                                        ;; Show placeholder
+                                        [{:text "Type a task..."
+                                          :type :comment  ;; Gray color
+                                          :from 0
+                                          :to 14
+                                          :x 60
+                                          :y cmd-text-y
+                                          :size font-size
+                                          :r 0.5 :g 0.5 :b 0.5 :a 0.7}]))
+
+                     cmd-prompt-token (when cmd-visible
+                                        [{:text "> "
+                                          :type :macro
+                                          :from 0
+                                          :to 2
+                                          :x 40
+                                          :y cmd-text-y
+                                          :size font-size
+                                          :r 0.3 :g 0.6 :b 1.0 :a 1.0}])
+
+                     ;; Combine editor ops with command panel ops
+                     render-ops (if cmd-visible
+                                  (vec (concat editor-ops
+                                               (when cmd-prompt-token [cmd-prompt-token])
+                                               (when cmd-text-token [cmd-text-token])))
+                                  editor-ops)]
                  (reset! !text-geo (editor/update-text-data device (:text geometry) render-ops atlas font-size)))
                nil)
              nil))
 
-      ;; 3. SELECTION & CARET GEOMETRY UPDATER (with bracket matching + fold indicators + eval results)
+      ;; 3. SELECTION & CARET GEOMETRY UPDATER (with bracket matching + fold indicators + eval results + command panel)
       (->> (m/watch !state)
            (m/eduction
              (map (fn [s] {:sel-start (:sel-start s)
                            :sel-end (:sel-end s)
                            :caret-visible (:caret-visible s)
                            :folded-lines (:folded-lines s)
-                           :eval-result (:eval-result s)}))
+                           :eval-result (:eval-result s)
+                           :cmd-visible (:cmd-visible s)
+                           :cmd-text (:cmd-text s)
+                           :cmd-cursor (:cmd-cursor s)
+                           :focus (:focus s)
+                           :width (:width s)
+                           :height (:height s)}))
              (dedupe))
            (m/reduce
-             (fn [_ {:keys [sel-start sel-end caret-visible folded-lines eval-result]}]
+             (fn [_ {:keys [sel-start sel-end caret-visible folded-lines eval-result
+                            cmd-visible cmd-text cmd-cursor focus width height]}]
                (let [line-mapping @!line-mapping
                      ;; Create logical->visual line mapping (inverse)
                      logical->visual (reduce-kv (fn [m visual-idx logical-idx]
@@ -797,15 +973,16 @@
                                                   :h line-h
                                                   :r 0.8 :g 0.6 :b 0.2 :a 0.4}))
                                              [open close])))
-                     ;; Calculate caret rect at visual position
-                     caret-rect (when (and sel-start caret-visible (not has-selection?))
-                                  (when-let [visual-y (logical-line->visual-y (:line sel-start))]
-                                    (let [char-w (* font-size 0.6)]
-                                      {:x (+ layout-x (* (:col sel-start) char-w))
-                                       :y visual-y
-                                       :w 2
-                                       :h line-h
-                                       :r 0.9 :g 0.9 :b 0.9 :a 1.0})))
+                     ;; Calculate caret rect at visual position (only for editor focus)
+                     editor-caret-rect (when (and sel-start caret-visible (not has-selection?)
+                                                  (= focus :editor))
+                                         (when-let [visual-y (logical-line->visual-y (:line sel-start))]
+                                           (let [char-w (* font-size 0.6)]
+                                             {:x (+ layout-x (* (:col sel-start) char-w))
+                                              :y visual-y
+                                              :w 2
+                                              :h line-h
+                                              :r 0.9 :g 0.9 :b 0.9 :a 1.0})))
                      ;; Calculate selection rects at visual positions
                      selection-rects (when has-selection?
                                        (let [[start end] (if (or (> (:line sel-start) (:line sel-end))
@@ -847,12 +1024,41 @@
                                           :g (if (str/starts-with? (:text eval-result) "=>") 0.3 0.1)
                                           :b 0.1
                                           :a 0.8})))))
+
+                     ;; === COMMAND PANEL RECTS ===
+                     ;; Command panel is rendered at fixed screen position (not scrolled)
+                     ;; We need to account for scroll-y to position it correctly
+                     scroll-y (:scroll-y @!state)
+                     cmd-panel-y (+ scroll-y (- height cmd-panel-h))  ;; Fixed to bottom of viewport
+
+                     ;; Command panel background
+                     cmd-bg-rect (when cmd-visible
+                                   {:x 0
+                                    :y cmd-panel-y
+                                    :w width
+                                    :h cmd-panel-h
+                                    :r 0.15 :g 0.15 :b 0.2 :a 1.0})
+
+                     ;; Command panel caret (only when focused)
+                     cmd-caret-rect (when (and cmd-visible caret-visible (= focus :command-panel))
+                                      (let [char-w (* font-size 0.6)
+                                            cmd-text-x 60
+                                            caret-x (+ cmd-text-x (* cmd-cursor char-w))
+                                            caret-y (+ cmd-panel-y 8)]  ;; Vertically center in panel
+                                        {:x caret-x
+                                         :y caret-y
+                                         :w 2
+                                         :h (- cmd-panel-h 16)
+                                         :r 0.9 :g 0.9 :b 0.9 :a 1.0}))
+
                      ;; Combine all rects
                      rects (vec (concat fold-rects
                                         (or bracket-rects [])
                                         (or selection-rects [])
-                                        (if caret-rect [caret-rect] [])
-                                        (if eval-rect [eval-rect] [])))]
+                                        (if editor-caret-rect [editor-caret-rect] [])
+                                        (if eval-rect [eval-rect] [])
+                                        (if cmd-bg-rect [cmd-bg-rect] [])
+                                        (if cmd-caret-rect [cmd-caret-rect] [])))]
                  (reset! !rect-sys (editor/update-rects device (:rect geometry) rects)))
                nil)
              nil))
