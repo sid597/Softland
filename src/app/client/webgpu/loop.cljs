@@ -23,7 +23,11 @@
     (fn [!]
       (let [handler (fn [e]
                       (.preventDefault e)
-                      (! (.-deltaY e)))]
+                      (let [rect (.getBoundingClientRect node)]
+                        (! {:delta-y (.-deltaY e)
+                            :cursor-x (- (.-clientX e) (.-left rect))
+                            :cursor-y (- (.-clientY e) (.-top rect))
+                            :ctrl? (or (.-ctrlKey e) (.-metaKey e))})))]
         (.addEventListener node "wheel" handler #js {:passive false})
         #(.removeEventListener node "wheel" handler)))))
 
@@ -33,20 +37,30 @@
       (let [get-coords (fn [e]
                          (let [rect (.getBoundingClientRect node)]
                            {:x (- (.-clientX e) (.-left rect))
-                            :y (- (.-clientY e) (.-top rect))}))
+                            :y (- (.-clientY e) (.-top rect))
+                            :button (.-button e)}))
 
-            down-h (fn [e] (! [:mousedown (get-coords e)]))
+            down-h (fn [e]
+                     ;; Prevent context menu on middle click
+                     (when (= 1 (.-button e))
+                       (.preventDefault e))
+                     (! [:mousedown (get-coords e)]))
             up-h   (fn [e] (! [:mouseup (get-coords e)]))
-            move-h (fn [e] (! [:mousemove (get-coords e)]))]
+            move-h (fn [e] (! [:mousemove (get-coords e)]))
+            context-h (fn [e]
+                        ;; Prevent context menu (right click)
+                        nil)]
 
         (.addEventListener node "mousedown" down-h)
         (.addEventListener js/window "mouseup" up-h)
         (.addEventListener js/window "mousemove" move-h)
+        (.addEventListener node "contextmenu" context-h)
 
         (fn []
           (.removeEventListener node "mousedown" down-h)
           (.removeEventListener js/window "mouseup" up-h)
-          (.removeEventListener js/window "mousemove" move-h))))))
+          (.removeEventListener js/window "mousemove" move-h)
+          (.removeEventListener node "contextmenu" context-h))))))
 
 (defn >keyboard-events [node]
   (m/observe
@@ -110,6 +124,21 @@
                           (and ctrl? (.-shiftKey e) (= key "C"))
                           (do (.preventDefault e)
                               (! [:copy-ai-response nil]))
+
+                          ;; Ctrl+0 - Reset zoom to 100%
+                          (and ctrl? (= key "0"))
+                          (do (.preventDefault e)
+                              (! [:reset-zoom nil]))
+
+                          ;; Ctrl+Plus - Zoom in
+                          (and ctrl? (or (= key "=") (= key "+")))
+                          (do (.preventDefault e)
+                              (! [:zoom-in nil]))
+
+                          ;; Ctrl+Minus - Zoom out
+                          (and ctrl? (= key "-"))
+                          (do (.preventDefault e)
+                              (! [:zoom-out nil]))
 
                           ;; Escape - Close panels / clear focus
                           (= key "Escape")
@@ -202,10 +231,14 @@
                              (m/eduction (filter some?)))
 
         initial-state {:scroll-y      0
+                       :scroll-x      0            ;; Horizontal scroll/pan
+                       :zoom          1.0          ;; Zoom factor (1.0 = 100%)
                        :width         (.-innerWidth js/window)
                        :height        (.-innerHeight js/window)
                        :dpr           (or (.-devicePixelRatio js/window) 1)
                        :dragging?     false
+                       :panning?      false        ;; Middle-mouse panning
+                       :pan-start     nil          ;; {x y} of pan start
                        :sel-start     nil
                        :sel-end       nil
                        :desired-col   0
@@ -260,7 +293,7 @@
                      (reset! !redo-stack []))
         
         ;; Event Streams
-        wheel-deltas   (->> (>wheel-deltas node) (m/relieve +))
+        wheel-deltas   (->> (>wheel-deltas node) (m/relieve (fn [_ x] x)))
         mouse-events   (->> (>mouse-events node) (m/relieve (fn [_ x] x)))
         keyboard-events (->> (>keyboard-events js/window) (m/relieve (fn [_ x] x)))
         window-metrics (<window-metrics)]
@@ -286,12 +319,32 @@
                                     (set! (.-height node) (Math/floor (* height dpr)))
                                     (merge state value))
 
-                          :wheel  (update state :scroll-y + value)
+                          :wheel  (let [{:keys [delta-y cursor-x cursor-y ctrl?]} value]
+                                    (if ctrl?
+                                      ;; Ctrl+Wheel = Zoom around cursor
+                                      (let [current-zoom (:zoom state)
+                                            scale (if (< delta-y 0) 1.05 0.95)
+                                            new-zoom (-> (* current-zoom scale)
+                                                         (max 0.1)   ;; Min 10%
+                                                         (min 5.0))  ;; Max 500%
+                                            ;; Adjust scroll to zoom around cursor
+                                            scroll-x (:scroll-x state)
+                                            scroll-y (:scroll-y state)
+                                            ;; Calculate new scroll to keep cursor position stable
+                                            pan-adjust (- 1 (/ new-zoom current-zoom))
+                                            new-scroll-x (+ scroll-x (* (- cursor-x scroll-x) pan-adjust))
+                                            new-scroll-y (+ scroll-y (* (- cursor-y scroll-y) pan-adjust))]
+                                        (assoc state
+                                               :zoom new-zoom
+                                               :scroll-x new-scroll-x
+                                               :scroll-y new-scroll-y))
+                                      ;; Normal wheel = vertical scroll
+                                      (update state :scroll-y + delta-y)))
 
                           :blink  (assoc state :caret-visible value)
 
                           :mousedown
-                          (let [{:keys [x y]} value
+                          (let [{:keys [x y button]} value
                                 screen-w (:width state)
                                 screen-h (:height state)
                                 cmd-visible? (:cmd-visible state)
@@ -307,6 +360,10 @@
                                 ;; Dynamic editor X offset
                                 editor-x (calc-editor-x tree-visible?)]
                             (cond
+                              ;; Middle button = start panning
+                              (= button 1)
+                              (assoc state :panning? true :pan-start {:x x :y y})
+
                               ;; Clicked in command panel
                               clicked-in-cmd-panel?
                               (let [char-w (* font-size 0.6)
@@ -367,7 +424,20 @@
                                            :desired-col col :caret-visible true :focus :editor))))))
 
                           :mousemove
-                          (if (:dragging? state)
+                          (cond
+                            ;; Panning with middle mouse
+                            (:panning? state)
+                            (let [{:keys [x y]} value
+                                  pan-start (:pan-start state)
+                                  dx (- x (:x pan-start))
+                                  dy (- y (:y pan-start))]
+                              (-> state
+                                  (update :scroll-x - dx)
+                                  (update :scroll-y - dy)
+                                  (assoc :pan-start {:x x :y y})))
+
+                            ;; Selection drag
+                            (:dragging? state)
                             (let [{:keys [x y]} value
                                   adj-y (+ y (:scroll-y state))
                                   tree-visible? (:tree-visible state)
@@ -383,10 +453,11 @@
                                           (min line-len))
                                   pos {:line logical-line :col col}]
                               (assoc state :sel-end pos))
-                            state)
+
+                            :else state)
 
                           :mouseup
-                          (assoc state :dragging? false)
+                          (assoc state :dragging? false :panning? false :pan-start nil)
 
                           :char-input
                           (if (= (:focus state) :command-panel)
@@ -948,6 +1019,16 @@
                           :select-file
                           (assoc state :tree-selected value)
 
+                          ;; === ZOOM EVENTS ===
+                          :reset-zoom
+                          (assoc state :zoom 1.0 :scroll-x 0 :scroll-y 0)
+
+                          :zoom-in
+                          (update state :zoom #(min 5.0 (* % 1.1)))
+
+                          :zoom-out
+                          (update state :zoom #(max 0.1 (* % 0.9)))
+
                           ;; === ESCAPE - Close all panels ===
 
                           :escape
@@ -1009,14 +1090,15 @@
                                                 :focus (:focus s)
                                                 :tree-visible (:tree-visible s)
                                                 :tree-files (:tree-files s)
-                                                :tree-selected (:tree-selected s)}))
+                                                :tree-selected (:tree-selected s)
+                                                :zoom (:zoom s)}))
                                  (m/watch !state)))
            (m/eduction (dedupe))
            (m/reduce
              (fn [_ [editor-ops {:keys [cmd-visible cmd-text scroll-y height width
                                          ai-visible ai-loading ai-response
                                          status-visible sel-start focus tree-visible
-                                         tree-files tree-selected]}]]
+                                         tree-files tree-selected zoom]}]]
                (let [;; === COMMAND PANEL TEXT ===
                      cmd-panel-y (+ scroll-y (- height cmd-panel-h))
                      cmd-text-y (+ cmd-panel-y 12 font-size)
@@ -1133,6 +1215,18 @@
                                             :size (- font-size 2)
                                             :r 0.5 :g 0.8 :b 0.5 :a 1.0}])
 
+                     ;; Zoom indicator in status bar
+                     zoom-text (str (Math/round (* (or zoom 1.0) 100)) "%")
+                     status-zoom-token (when status-visible
+                                         [{:text zoom-text
+                                           :type :number
+                                           :from 0
+                                           :to (count zoom-text)
+                                           :x (- width 130)
+                                           :y (+ status-y 16)
+                                           :size (- font-size 2)
+                                           :r 0.8 :g 0.7 :b 0.4 :a 1.0}])
+
                      ;; === FILE TREE TEXT ===
                      tree-title-token (when tree-visible
                                         [{:text "FILES"
@@ -1171,6 +1265,7 @@
                                              (when ai-loading-text [ai-loading-text])
                                              (or ai-response-lines [])
                                              (when status-line-col-token [status-line-col-token])
+                                             (when status-zoom-token [status-zoom-token])
                                              (when status-focus-token [status-focus-token])
                                              (when tree-title-token [tree-title-token])
                                              (or tree-file-tokens [])))]
@@ -1393,12 +1488,16 @@
       ;; 4. RENDER LOOP (just draws, no rect calculation)
       (m/reduce
         (fn [_ state]
-          (editor/draw-frame! device ctx
-                              @!text-geo
-                              @!rect-sys
-                              (:camera-floats (:pipelines geometry))
-                              (:pass-descriptor (:pipelines geometry))
-                              0 (- (:scroll-y state)) (:width state) (:height state))
+          (let [scroll-x (:scroll-x state 0)
+                scroll-y (:scroll-y state 0)
+                zoom (:zoom state 1.0)]
+            (editor/draw-frame! device ctx
+                                @!text-geo
+                                @!rect-sys
+                                (:camera-floats (:pipelines geometry))
+                                (:pass-descriptor (:pipelines geometry))
+                                (- scroll-x) (- scroll-y) zoom
+                                (:width state) (:height state)))
           nil)
         nil
         (m/sample (fn [s _t] s) (m/watch !state) >raf)))))

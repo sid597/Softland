@@ -349,8 +349,8 @@
   (.writeBuffer (.-queue device) camera-buffer 0 floats))
 
 
-(defn draw-frame! [^js device ^js context text-sys rect-sys camera-floats _ignored_pass_descriptor pan-x pan-y w h]
-  (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y 1.0 w h)
+(defn draw-frame! [^js device ^js context text-sys rect-sys camera-floats _ignored_pass_descriptor pan-x pan-y zoom w h]
+  (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y zoom w h)
   
   (let [encoder (.createCommandEncoder device)
         texture (.getCurrentTexture context)
