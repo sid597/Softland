@@ -15,6 +15,7 @@
              org.clojure/tools.logging          {:mvn/version "1.2.4"}
              ch.qos.logback/logback-classic     {:mvn/version "1.2.11"}
              datascript/datascript              {:mvn/version "1.5.2"}
+             org.babashka/sci                  {:mvn/version "0.8.43"}
              com.rpl/rama                       {:mvn/version "0.17.0"}
              com.roamresearch/backend-sdk       {:mvn/version "0.0.4"}
              com.rpl/rama-helpers               {:mvn/version "0.9.3"}

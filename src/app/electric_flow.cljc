@@ -6,7 +6,8 @@
                        [app.client.webgpu.loop :as loop]
                        [global-flow :refer [await-promise]]
                        ["@lezer/lr" :as lr]
-                       ["@nextjournal/lezer-clojure" :as clj-parser]])))
+                       ["@nextjournal/lezer-clojure" :as clj-parser]
+                       [sci.core :as sci]])))
 
 (def source-code 
   #?(:clj (slurp "src/app/electric_flow.cljc") 
@@ -15,14 +16,46 @@
 #?(:clj (defn init-lezer-parser! [] nil))
 #?(:clj (defn find-matching-bracket [_ _ _] nil))
 #?(:clj (defn detect-fold-regions [_ _] []))
+#?(:clj (defn init-sci! [] nil))
+#?(:clj (defn sci-eval [_] {:error "SCI only available in browser"}))
+#?(:clj (defn sci-eval-form [_] "SCI only available in browser"))
+#?(:clj (defn find-form-at-cursor [_ _ _] nil))
 
 #?(:cljs
    (do
      (def lezer-parser (atom nil))
-     
+
      (defn init-lezer-parser! []
        (when-not @lezer-parser
          (reset! lezer-parser (.-parser clj-parser))))
+
+     ;; === SCI (Small Clojure Interpreter) ===
+
+     (def sci-ctx (atom nil))
+
+     (defn init-sci! []
+       "Initialize SCI context with clojure.core and common namespaces"
+       (when-not @sci-ctx
+         (reset! sci-ctx
+                 (sci/init {:namespaces {'user {}}
+                            :classes {'js js/globalThis}}))))
+
+     (defn sci-eval
+       "Evaluate a Clojure string using SCI. Returns {:result value} or {:error message}"
+       [code-str]
+       (try
+         (when-not @sci-ctx (init-sci!))
+         {:result (sci/eval-string* @sci-ctx code-str)}
+         (catch :default e
+           {:error (.-message e)})))
+
+     (defn sci-eval-form
+       "Evaluate a single form string. Returns formatted result string."
+       [form-str]
+       (let [{:keys [result error]} (sci-eval form-str)]
+         (if error
+           (str "❌ " error)
+           (str "=> " (pr-str result)))))
 
      (def macro-symbols
        #{"defn" "def" "defmacro" "defn-" "defonce" "defmulti" "defmethod" "defprotocol" "defrecord" "deftype"
@@ -107,6 +140,42 @@
        (let [lines-before (subvec line-lengths 0 (min line (count line-lengths)))
              offset-to-line (reduce + (map inc lines-before))] ;; +1 for each newline
          (+ offset-to-line col)))
+
+     (defn find-form-at-cursor
+       "Given cursor position and lines, find the outermost form containing cursor.
+        Returns {:form-str :start-line :end-line} or nil"
+       [cursor-pos lines line-lengths]
+       (when (and @lezer-parser cursor-pos (seq lines))
+         (let [full-text (str/join "\n" lines)
+               cursor-offset (line-col->offset cursor-pos line-lengths)
+               tree (.parse ^js @lezer-parser full-text)
+               ;; Find the outermost List/Vector/Map containing cursor
+               ;; Lezer iterates parent-first, so first match is outermost
+               best-match (atom nil)]
+           (.. ^js tree
+               (iterate #js {:enter (fn [node]
+                                      (let [node-name (.-name ^js (.-type ^js node))
+                                            from (.-from ^js node)
+                                            to (.-to ^js node)]
+                                        ;; Check if cursor is inside this node
+                                        (when (and (contains? #{"List" "Vector" "Map" "Set"} node-name)
+                                                   (<= from cursor-offset)
+                                                   (< cursor-offset to))
+                                          ;; Keep only the first (outermost) match
+                                          (when (nil? @best-match)
+                                            (reset! best-match {:from from
+                                                                :to to
+                                                                :type node-name})))))}))
+           (when @best-match
+             (let [{:keys [from to]} @best-match
+                   form-str (.substring full-text from to)
+                   start-pos (offset->line-col from line-lengths)
+                   end-pos (offset->line-col (dec to) line-lengths)]
+               {:form-str form-str
+                :start-line (:line start-pos)
+                :end-line (:line end-pos)
+                :from from
+                :to to})))))
 
      (defn find-matching-bracket
        "Given cursor position and document, find matching bracket if cursor is on one.
@@ -309,6 +378,7 @@
                       :user-select "none"})
           
           (init-lezer-parser!)
+          (init-sci!)
           
           (let [resources (LoadWebGPU)]
             (when resources
@@ -338,5 +408,6 @@
                         ;; Pass all functions to start-loop!
                         (let [loop-flow (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
                                                                    lines tokenize-line layout-tokens
-                                                                   find-matching-bracket detect-fold-regions atlas))]
+                                                                   find-matching-bracket detect-fold-regions
+                                                                   find-form-at-cursor sci-eval-form atlas))]
                           (e/input loop-flow))))))))))))))
