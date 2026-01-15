@@ -2,6 +2,8 @@
   (:require [clojure.string :as str]
             [hyperfiddle.electric3 :as e]
             [hyperfiddle.electric-dom3 :as dom]
+            #?@(:clj [[clj-http.client :as http]
+                      [clojure.data.json :as json]])
             #?@(:cljs [[app.client.webgpu.editor :as editor]
                        [app.client.webgpu.loop :as loop]
                        [global-flow :refer [await-promise]]
@@ -9,9 +11,66 @@
                        ["@nextjournal/lezer-clojure" :as clj-parser]
                        [sci.core :as sci]])))
 
-(def source-code 
-  #?(:clj (slurp "src/app/electric_flow.cljc") 
-     :cljs nil)) 
+(def source-code
+  #?(:clj (slurp "src/app/electric_flow.cljc")
+     :cljs nil))
+
+;; === AI Integration (Server-side) ===
+
+#?(:clj
+   (defn call-claude-api
+     "Call Claude API with a prompt and optional code context.
+      Returns {:result text} or {:error message}.
+      Requires ANTHROPIC_API_KEY environment variable."
+     [user-prompt code-context]
+     (let [api-key (System/getenv "ANTHROPIC_API_KEY")]
+       (if (str/blank? api-key)
+         ;; Return mock response when no API key is configured
+         {:result (str "Mock AI Response\n\n"
+                       "You asked: " user-prompt "\n\n"
+                       "Code context: " (count code-context) " characters\n\n"
+                       "To enable real AI responses, set ANTHROPIC_API_KEY environment variable.\n"
+                       "Example: export ANTHROPIC_API_KEY=sk-ant-...")}
+         ;; Make real API call
+         (try
+           (let [messages [{:role "user"
+                            :content (str "Context (code I'm working on):\n```\n"
+                                          (subs code-context 0 (min 4000 (count code-context)))
+                                          "\n```\n\nTask: " user-prompt)}]
+                 response (http/post "https://api.anthropic.com/v1/messages"
+                                     {:headers {"x-api-key" api-key
+                                                "anthropic-version" "2023-06-01"
+                                                "content-type" "application/json"}
+                                      :body (json/write-str
+                                              {:model "claude-sonnet-4-20250514"
+                                               :max_tokens 1024
+                                               :messages messages})
+                                      :as :json})]
+             (if (= 200 (:status response))
+               (let [content (-> response :body :content first :text)]
+                 {:result content})
+               {:error (str "API error: " (:status response))}))
+           (catch Exception e
+             {:error (str "Request failed: " (.getMessage e))}))))))
+
+#?(:clj
+   (defn call-claude-api-mock
+     "Mock version for testing without API key"
+     [user-prompt code-context]
+     {:result (str "AI Response (Mock Mode)\n"
+                   "─────────────────────────\n\n"
+                   "Task: " user-prompt "\n\n"
+                   "Analysis:\n"
+                   "Based on the " (count (str/split-lines code-context)) " lines of code provided, "
+                   "here are some suggestions:\n\n"
+                   "1. The code appears to be a Clojure/ClojureScript application\n"
+                   "2. Consider adding error handling\n"
+                   "3. Documentation could be improved\n\n"
+                   "Note: Set ANTHROPIC_API_KEY for real AI responses.")}))
+
+;; Client-side placeholder for AI functions
+#?(:cljs (defn call-claude-api [_ _] {:error "AI calls must go through server"}))
+#?(:cljs (defn call-claude-api-mock [_ _] {:error "AI calls must go through server"}))
 
 #?(:clj (defn init-lezer-parser! [] nil))
 #?(:clj (defn find-matching-bracket [_ _ _] nil))
@@ -366,27 +425,56 @@
      :rect (editor/update-rects device (:rect-sys pipelines) [])
      :pipelines pipelines}))
 
+;; Atom to hold pending AI request (client-side)
+#?(:cljs (defonce !ai-request (atom nil)))
+
+(e/defn ProcessAIRequest [request]
+  "Electric function to process AI request on server and return response."
+  (e/server
+    (when request
+      (let [{:keys [prompt context]} request
+            response (call-claude-api prompt context)]
+        response))))
+
 (e/defn main [ring-request]
   (e/server
-    (let [file-content source-code] 
-      
+    (let [file-content source-code]
+
       (e/client
         (binding [dom/node js/document.body]
-          (dom/style {:margin "0" :padding "0" 
-                      :width "100vw" :height "100vh" 
-                      :overflow "hidden" :background "#111" 
+          (dom/style {:margin "0" :padding "0"
+                      :width "100vw" :height "100vh"
+                      :overflow "hidden" :background "#111"
                       :user-select "none"})
-          
+
           (init-lezer-parser!)
           (init-sci!)
-          
+
           (let [resources (LoadWebGPU)]
             (when resources
               (let [device (get resources :device)
                     format (get resources :format)
                     atlas (get resources :atlas)
-                    pipelines (editor/create-editor-state resources)]
-                
+                    pipelines (editor/create-editor-state resources)
+
+                    ;; AI request callback - stores request for Electric to process
+                    ai-request-fn (fn [prompt context]
+                                    (reset! !ai-request {:prompt prompt
+                                                         :context context
+                                                         :timestamp (js/Date.now)}))]
+
+                ;; Watch for AI requests and process them
+                (let [ai-req (e/watch !ai-request)]
+                  (when ai-req
+                    (let [response (ProcessAIRequest ai-req)]
+                      ;; Dispatch response back to loop
+                      (when response
+                        (if (:result response)
+                          (loop/dispatch-external-event! :ai-request-success (:result response))
+                          (loop/dispatch-external-event! :ai-request-error (:error response)))
+                        ;; Clear the request
+                        (reset! !ai-request nil)))))
+
                 (let [lines (str/split-lines file-content)
                       tokenized-lines (mapv tokenize-line lines)
                       ;; Layout constants (must match loop.cljs)
@@ -398,16 +486,17 @@
 
                       ;; Compute line lengths (character count per line)
                       line-lengths (mapv count lines)]
-                  
+
                   (let [geometry (Prepare-Geometry device pipelines render-ops atlas)]
                     (dom/canvas
-                      (dom/props {:id "webgpu-canvas" 
+                      (dom/props {:id "webgpu-canvas"
                                   :style {:width "100vw" :height "100vh" :display "block"}})
                       (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
                         (.configure ^js ctx (clj->js {:device device :format format :alphaMode "premultiplied"}))
-                        ;; Pass all functions to start-loop!
+                        ;; Pass all functions to start-loop! with AI callback
                         (let [loop-flow (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
                                                                    lines tokenize-line layout-tokens
                                                                    find-matching-bracket detect-fold-regions
-                                                                   find-form-at-cursor sci-eval-form atlas))]
-                          (e/input loop-flow))))))))))))))
+                                                                   find-form-at-cursor sci-eval-form atlas
+                                                                   {:ai-request-fn ai-request-fn}))]
+                          (e/input loop-flow)))))))))))))))
