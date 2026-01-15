@@ -81,6 +81,8 @@
 #?(:clj (defn find-form-at-cursor [_ _ _] nil))
 #?(:clj (defn inspect-all-values [_ _] []))
 #?(:clj (defn find-all-top-level-forms [_ _] []))
+#?(:clj (defn find-all-literals [_ _] []))
+#?(:clj (defn find-literal-at-position [_ _] nil))
 
 #?(:cljs
    (do
@@ -321,6 +323,98 @@
                                :form-type type}
                               eval-result))))
               (vec))))
+
+     ;; === DIRECT MANIPULATION LITERALS (Project 2) ===
+
+     (defn find-all-literals
+       "Find all manipulable literals in the code with their positions.
+        Returns [{:type :number/:string/:keyword/:vector
+                  :value (parsed value)
+                  :text (original text)
+                  :line :col :end-line :end-col :from :to}]"
+       [lines line-lengths]
+       (when (and @lezer-parser (seq lines))
+         (let [full-text (str/join "\n" lines)
+               tree (.parse ^js @lezer-parser full-text)
+               literals (atom [])]
+           (.. ^js tree
+               (iterate #js {:enter (fn [node]
+                                      (let [node-name (.-name ^js (.-type ^js node))
+                                            from (.-from ^js node)
+                                            to (.-to ^js node)
+                                            text (.substring full-text from to)]
+                                        ;; Detect number literals
+                                        (when (= node-name "Number")
+                                          (let [start-pos (offset->line-col from line-lengths)
+                                                end-pos (offset->line-col (max 0 (dec to)) line-lengths)]
+                                            (swap! literals conj
+                                                   {:type :number
+                                                    :value (js/parseFloat text)
+                                                    :text text
+                                                    :line (:line start-pos)
+                                                    :col (:col start-pos)
+                                                    :end-line (:line end-pos)
+                                                    :end-col (:col end-pos)
+                                                    :from from
+                                                    :to to})))
+                                        ;; Detect string literals (check for color patterns)
+                                        (when (= node-name "String")
+                                          (let [start-pos (offset->line-col from line-lengths)
+                                                end-pos (offset->line-col (max 0 (dec to)) line-lengths)
+                                                ;; Check if string looks like hex color
+                                                inner-text (subs text 1 (dec (count text)))
+                                                is-color? (re-matches #"#[0-9A-Fa-f]{3,8}" inner-text)]
+                                            (swap! literals conj
+                                                   {:type (if is-color? :color :string)
+                                                    :value inner-text
+                                                    :text text
+                                                    :line (:line start-pos)
+                                                    :col (:col start-pos)
+                                                    :end-line (:line end-pos)
+                                                    :end-col (:col end-pos)
+                                                    :from from
+                                                    :to to})))
+                                        ;; Detect 2D vectors [x y] as potential coordinates
+                                        (when (= node-name "Vector")
+                                          (let [start-pos (offset->line-col from line-lengths)
+                                                end-pos (offset->line-col (max 0 (dec to)) line-lengths)
+                                                ;; Try to parse as [num num]
+                                                parsed (try
+                                                         (let [result (cljs.reader/read-string text)]
+                                                           (when (and (vector? result)
+                                                                      (= 2 (count result))
+                                                                      (every? number? result))
+                                                             result))
+                                                         (catch :default _ nil))]
+                                            (when parsed
+                                              (swap! literals conj
+                                                     {:type :vector-2d
+                                                      :value parsed
+                                                      :text text
+                                                      :line (:line start-pos)
+                                                      :col (:col start-pos)
+                                                      :end-line (:line end-pos)
+                                                      :end-col (:col end-pos)
+                                                      :from from
+                                                      :to to}))))))}))
+           @literals)))
+
+     (defn find-literal-at-position
+       "Find the literal at or containing the given position.
+        Returns the literal or nil."
+       [pos literals]
+       (first (filter (fn [{:keys [line col end-line end-col]}]
+                        (let [pos-line (:line pos)
+                              pos-col (:col pos)]
+                          (and (>= pos-line line)
+                               (<= pos-line end-line)
+                               (if (= pos-line line)
+                                 (>= pos-col col)
+                                 true)
+                               (if (= pos-line end-line)
+                                 (<= pos-col end-col)
+                                 true))))
+                      literals)))
 
      (defn find-matching-bracket
        "Given cursor position and document, find matching bracket if cursor is on one.
@@ -579,11 +673,12 @@
                                   :style {:width "100vw" :height "100vh" :display "block"}})
                       (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
                         (.configure ^js ctx (clj->js {:device device :format format :alphaMode "premultiplied"}))
-                        ;; Pass all functions to start-loop! with AI callback and inspector
+                        ;; Pass all functions to start-loop! with AI callback, inspector, and literals
                         (let [loop-flow (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
                                                                    lines tokenize-line layout-tokens
                                                                    find-matching-bracket detect-fold-regions
                                                                    find-form-at-cursor sci-eval-form atlas
                                                                    {:ai-request-fn ai-request-fn
-                                                                    :inspect-values-fn inspect-all-values}))]
+                                                                    :inspect-values-fn inspect-all-values
+                                                                    :find-literals-fn find-all-literals}))]
                           (e/input loop-flow)))))))))))))))

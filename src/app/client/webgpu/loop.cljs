@@ -145,6 +145,11 @@
                           (do (.preventDefault e)
                               (! [:toggle-inspector nil]))
 
+                          ;; Ctrl+Shift+S - Toggle Number Scrub Mode
+                          (and ctrl? (.-shiftKey e) (= key "S"))
+                          (do (.preventDefault e)
+                              (! [:toggle-scrub-mode nil]))
+
                           ;; Escape - Close panels / clear focus
                           (= key "Escape")
                           (do (.preventDefault e)
@@ -215,7 +220,7 @@
   [event-type value]
   (reset! !external-events [event-type value]))
 
-(defn start-loop! [node device ctx geometry line-lengths lines tokenize-fn layout-fn find-bracket-fn detect-folds-fn find-form-fn eval-form-fn atlas & [{:keys [ai-request-fn inspect-values-fn]}]]
+(defn start-loop! [node device ctx geometry line-lengths lines tokenize-fn layout-fn find-bracket-fn detect-folds-fn find-form-fn eval-form-fn atlas & [{:keys [ai-request-fn inspect-values-fn find-literals-fn]}]]
   (let [;; Layout Configuration (Must match Editor defaults)
         font-size 16
         gutter-w  40           ;; Width of gutter for fold indicators
@@ -271,7 +276,15 @@
                        :tree-selected nil          ;; Currently selected file path
                        ;; Live Value Inspector (Project 1)
                        :inspector-visible false    ;; Show inline value annotations?
-                       :inspected-values  []}      ;; [{:line :col :display :value-type}]
+                       :inspected-values  []       ;; [{:line :col :display :value-type}]
+                       ;; Direct Manipulation (Project 2)
+                       :scrub-mode       false     ;; Enable number scrubbing?
+                       :scrubbing?       false     ;; Currently scrubbing a number?
+                       :scrub-literal    nil       ;; The literal being scrubbed
+                       :scrub-start-x    nil       ;; Mouse X at scrub start
+                       :scrub-start-val  nil       ;; Value at scrub start
+                       :hover-literal    nil       ;; Literal under cursor (for highlight)
+                       :all-literals     []}       ;; Cached literals in document
 
         ;; Helper to calculate effective editor X offset based on panels
         calc-editor-x (fn [tree-visible?]
@@ -1053,6 +1066,69 @@
 
                           :update-inspector-values
                           (assoc state :inspected-values value)
+
+                          ;; === DIRECT MANIPULATION EVENTS (Project 2) ===
+                          :toggle-scrub-mode
+                          (let [currently-on? (:scrub-mode state)]
+                            (if currently-on?
+                              ;; Turn off scrub mode
+                              (assoc state :scrub-mode false :all-literals [] :hover-literal nil)
+                              ;; Turn on - find all literals
+                              (let [literals (when find-literals-fn
+                                               (find-literals-fn @!lines @!line-lengths))]
+                                (js/console.log "Scrub mode: found" (count literals) "literals")
+                                (assoc state
+                                       :scrub-mode true
+                                       :all-literals (or literals [])))))
+
+                          :start-scrub
+                          (let [{:keys [literal x]} value]
+                            (assoc state
+                                   :scrubbing? true
+                                   :scrub-literal literal
+                                   :scrub-start-x x
+                                   :scrub-start-val (:value literal)))
+
+                          :scrub-update
+                          (if (:scrubbing? state)
+                            (let [{:keys [x]} value
+                                  start-x (:scrub-start-x state)
+                                  start-val (:scrub-start-val state)
+                                  literal (:scrub-literal state)
+                                  ;; Calculate new value: 1 pixel = 0.1 change
+                                  delta (/ (- x start-x) 10)
+                                  new-val (+ start-val delta)
+                                  ;; Round to reasonable precision
+                                  rounded-val (/ (Math/round (* new-val 100)) 100)
+                                  ;; Update source code
+                                  line-idx (:line literal)
+                                  col (:col literal)
+                                  end-col (:end-col literal)
+                                  line-text (get @!lines line-idx "")
+                                  new-text-val (str rounded-val)
+                                  new-line (str (subs line-text 0 col)
+                                                new-text-val
+                                                (subs line-text (inc end-col)))
+                                  new-lines (assoc @!lines line-idx new-line)]
+                              (reset! !lines new-lines)
+                              (reset! !line-lengths (mapv count new-lines))
+                              ;; Update the literal's end col based on new text length
+                              (assoc state
+                                     :scrub-literal (assoc literal
+                                                           :value rounded-val
+                                                           :text new-text-val
+                                                           :end-col (+ col (dec (count new-text-val))))))
+                            state)
+
+                          :end-scrub
+                          (assoc state
+                                 :scrubbing? false
+                                 :scrub-literal nil
+                                 :scrub-start-x nil
+                                 :scrub-start-val nil)
+
+                          :hover-literal
+                          (assoc state :hover-literal value)
 
                           ;; === ESCAPE - Close all panels ===
 
