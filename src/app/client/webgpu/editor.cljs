@@ -73,15 +73,6 @@
        return vec4<f32>(params.color_r, params.color_g, params.color_b, opacity);
   }")
 
-;; Calculate caret rectangle (thin vertical bar at cursor position)
-(defn calculate-caret-rect [cursor font-size start-x start-y line-h visible?]
-  (when (and cursor visible?)
-    (let [char-w (* font-size 0.6)
-          x (+ start-x (* (:col cursor) char-w))
-          y (+ start-y (* (:line cursor) line-h))]
-      {:x x :y y :w 2 :h line-h
-       :r 0.9 :g 0.9 :b 0.9 :a 1.0})))
-
 ;; Calculate bracket highlight rectangles
 (defn calculate-bracket-rects [bracket-match font-size start-x start-y line-h]
   (when bracket-match
@@ -112,50 +103,6 @@
                        (max 0)
                        (min line-len))]
     {:line line-idx :col col-idx}))
-
-;; Updated calculate-selection-rects: uses actual line lengths
-(defn calculate-selection-rects [sel-start sel-end font-size start-x start-y line-h line-lengths]
-  (if (and sel-start sel-end)
-    (let [;; Normalize selection direction
-          [start end] (if (or (> (:line sel-start) (:line sel-end))
-                              (and (= (:line sel-start) (:line sel-end))
-                                   (> (:col sel-start) (:col sel-end))))
-                        [sel-end sel-start]
-                        [sel-start sel-end])
-          char-w (* font-size 0.6)
-          ;; Selection highlight color
-          r 0.2 g 0.4 b 0.9 a 0.5]
-
-      (loop [curr-line (:line start)
-             rects     []]
-        (if (> curr-line (:line end))
-          rects
-          (let [;; Get actual length of this line
-                line-len   (get line-lengths curr-line 0)
-                is-first?  (= curr-line (:line start))
-                is-last?   (= curr-line (:line end))
-                
-                ;; Column range for this line
-                col-start  (if is-first? (:col start) 0)
-                col-end    (if is-last? 
-                             (:col end) 
-                             line-len)  ;; Use actual line length, not hardcoded!
-                
-                ;; Only create rect if there's content to highlight
-                width-chars (- col-end col-start)]
-            
-            (if (and (> width-chars 0) (> line-len 0))
-              ;; Create rect for this line's selection
-              (let [px-x (+ start-x (* col-start char-w))
-                    px-y (+ start-y (* curr-line line-h))
-                    px-w (* width-chars char-w)
-                    px-h line-h]
-                (recur (inc curr-line)
-                       (conj rects {:x px-x :y px-y :w px-w :h px-h
-                                    :r r :g g :b b :a a})))
-              ;; Skip empty lines or zero-width selections
-              (recur (inc curr-line) rects))))))
-    []))
 
 ;; --- 2. INITIALIZATION ---
 
@@ -236,11 +183,12 @@
           (let [code (.charCodeAt ch 0)]
             (cond
               (= ch \newline) (do (reset! !x start-x) (reset! !y (+ @!y (* fsize line-h))))
-              (= ch \space) (swap! !x + (* fsize 0.25))
+              (= ch \space) (swap! !x + (* fsize 0.6))  ;; Must match char-w in cursor calculations
               :else (when-let [g (get glyphs code)]
                       (let [pb (:planeBounds g)
                             ab (:atlasBounds g)
-                            advance (* fsize (or (:advance g) 0))
+                            ;; Use fixed 0.6 advance for monospace consistency with cursor calculations
+                            advance (* fsize 0.6)
                             sl (+ @!x (* fsize (or (:left pb) 0)))
                             sr (+ @!x (* fsize (or (:right pb) 0)))
                             st (- @!y (* fsize (or (:top pb) 0)))
@@ -349,48 +297,89 @@
   (.writeBuffer (.-queue device) camera-buffer 0 floats))
 
 
-(defn draw-frame! [^js device ^js context text-sys rect-sys camera-floats _ignored_pass_descriptor pan-x pan-y w h]
+(defn draw-frame! [^js device ^js context text-sys editor-rect-sys cmd-rect-sys camera-floats _ignored_pass_descriptor pan-x pan-y w h
+                   & {:keys [cmd-panel-visible cmd-panel-h editor-line-count]
+                      :or {cmd-panel-visible false cmd-panel-h 40 editor-line-count nil}}]
   (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y 1.0 w h)
-  
+
   (let [encoder (.createCommandEncoder device)
         texture (.getCurrentTexture context)
         view    (.createView texture)
-        
-        pass-descriptor (clj->js 
+
+        pass-descriptor (clj->js
                           {:colorAttachments [{:view view
                                                :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 1.0}
                                                :loadOp "clear"
                                                :storeOp "store"}]})
-        
+
         pass (.beginRenderPass encoder pass-descriptor)]
 
-    (when (and rect-sys (> (:num-instances rect-sys) 0))
-      (.setPipeline pass (:pipeline rect-sys))
-      (.setBindGroup pass 0 (:bind-group rect-sys))
-      (.setVertexBuffer pass 0 (:instance-buffer rect-sys))
-      (.draw pass 6 (:num-instances rect-sys)))
+    ;; Draw editor rects first (selection, brackets, fold indicators, caret, eval)
+    (when (and editor-rect-sys (> (:num-instances editor-rect-sys) 0))
+      (.setPipeline pass (:pipeline editor-rect-sys))
+      (.setBindGroup pass 0 (:bind-group editor-rect-sys))
+      (.setVertexBuffer pass 0 (:instance-buffer editor-rect-sys))
+      (.draw pass 6 (:num-instances editor-rect-sys)))
 
+    ;; Draw editor text (with viewport culling)
     (when (and text-sys (> (:num-instances text-sys) 0))
       (.setPipeline pass (:pipeline text-sys))
       (.setBindGroup pass 0 (:bind-group text-sys))
       (.setVertexBuffer pass 0 (:instance-buffer text-sys))
-      
+
       (let [line-offsets (:line-offsets text-sys)
             line-h       (:line-height text-sys)
             total-lines  (count line-offsets)
-            
-            scroll-y     (- pan-y) 
+            ;; If we know how many editor lines there are, only cull those
+            ;; Command panel lines are at the end and need different handling
+            editor-lines (or editor-line-count total-lines)
+
+            ;; Effective viewport height (exclude command panel area)
+            effective-h  (if cmd-panel-visible (- h cmd-panel-h) h)
+
+            scroll-y     (- pan-y)
             start-line   (max 0 (Math/floor (/ scroll-y line-h)))
-            end-line     (min total-lines (+ (Math/ceil (/ (+ scroll-y h) line-h)) 2))]
-        
-        (when (< start-line end-line)
+            end-line     (min editor-lines (+ (Math/ceil (/ (+ scroll-y effective-h) line-h)) 2))]
+
+        ;; Draw visible editor lines
+        (when (and (< start-line end-line) (< start-line (count line-offsets)))
           (let [start-inst (nth line-offsets start-line)
-                end-inst   (if (< end-line total-lines)
+                end-inst   (if (< end-line (count line-offsets))
                              (nth line-offsets end-line)
-                             (:num-instances text-sys))
+                             (if (< editor-lines total-lines)
+                               (nth line-offsets editor-lines)
+                               (:num-instances text-sys)))
                 draw-count (- end-inst start-inst)]
-            
-            (.draw pass 6 draw-count 0 start-inst)))))
+            (when (> draw-count 0)
+              (.draw pass 6 draw-count 0 start-inst))))
+
+        ;; Command panel: draw background, then text, then caret
+        (when cmd-panel-visible
+          ;; Draw command panel BACKGROUND rect (covers editor text bleeding into panel area)
+          (when (and cmd-rect-sys (>= (:num-instances cmd-rect-sys) 1))
+            (.setPipeline pass (:pipeline cmd-rect-sys))
+            (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
+            (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
+            (.draw pass 6 1 0 0))
+
+          ;; Draw command panel TEXT (on top of background)
+          (when (< editor-lines total-lines)
+            (let [cmd-start-inst (nth line-offsets editor-lines)
+                  cmd-end-inst   (:num-instances text-sys)
+                  cmd-draw-count (- cmd-end-inst cmd-start-inst)]
+              (when (> cmd-draw-count 0)
+                ;; Need to set up text pipeline again after drawing rect
+                (.setPipeline pass (:pipeline text-sys))
+                (.setBindGroup pass 0 (:bind-group text-sys))
+                (.setVertexBuffer pass 0 (:instance-buffer text-sys))
+                (.draw pass 6 cmd-draw-count 0 cmd-start-inst))))
+
+          ;; Draw command panel CARET rect (on top of text)
+          (when (and cmd-rect-sys (>= (:num-instances cmd-rect-sys) 2))
+            (.setPipeline pass (:pipeline cmd-rect-sys))
+            (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
+            (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
+            (.draw pass 6 1 0 1)))))
 
     (.end pass)
     (.submit (.-queue device) #js [(.finish encoder)])))

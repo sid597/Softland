@@ -368,25 +368,25 @@
 
 (e/defn main [ring-request]
   (e/server
-    (let [file-content source-code] 
-      
+    (let [file-content source-code]
+
       (e/client
         (binding [dom/node js/document.body]
-          (dom/style {:margin "0" :padding "0" 
-                      :width "100vw" :height "100vh" 
-                      :overflow "hidden" :background "#111" 
+          (dom/style {:margin "0" :padding "0"
+                      :width "100vw" :height "100vh"
+                      :overflow "hidden" :background "#111"
                       :user-select "none"})
-          
+
           (init-lezer-parser!)
           (init-sci!)
-          
+
           (let [resources (LoadWebGPU)]
             (when resources
               (let [device (get resources :device)
                     format (get resources :format)
                     atlas (get resources :atlas)
                     pipelines (editor/create-editor-state resources)]
-                
+
                 (let [lines (str/split-lines file-content)
                       tokenized-lines (mapv tokenize-line lines)
                       ;; Layout constants (must match loop.cljs)
@@ -398,16 +398,15 @@
 
                       ;; Compute line lengths (character count per line)
                       line-lengths (mapv count lines)]
-                  
+
                   (let [geometry (Prepare-Geometry device pipelines render-ops atlas)]
                     (dom/canvas
-                      (dom/props {:id "webgpu-canvas" 
+                      (dom/props {:id "webgpu-canvas"
                                   :style {:width "100vw" :height "100vh" :display "block"}})
                       (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
                         (.configure ^js ctx (clj->js {:device device :format format :alphaMode "premultiplied"}))
                         ;; Pass all functions to start-loop!
-                        (let [loop-flow (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
-                                                                   lines tokenize-line layout-tokens
-                                                                   find-matching-bracket detect-fold-regions
-                                                                   find-form-at-cursor sci-eval-form atlas))]
-                          (e/input loop-flow))))))))))))))
+                        (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
+                                                  lines tokenize-line layout-tokens
+                                                  find-matching-bracket detect-fold-regions
+                                                  find-form-at-cursor sci-eval-form atlas))))))))))))))
