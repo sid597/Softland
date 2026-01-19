@@ -58,7 +58,7 @@
 (def text-fragment-shader "
   @group(0) @binding(0) var sampler0: sampler;
   @group(0) @binding(1) var texture0: texture_2d<f32>;
-  struct Sizing { pxRange: f32, atlasEmSize: f32, color_r: f32, color_g: f32, color_b: f32, padding: f32, };
+  struct Sizing { pxRange: f32, atlasEmSize: f32, color_r: f32, color_g: f32, color_b: f32, sharpness: f32, };
   @group(0) @binding(3) var<uniform> params: Sizing;
   fn median(a: f32, b: f32, c: f32) -> f32 { return max(min(a, b), min(max(a, b), c)); }
 
@@ -66,9 +66,9 @@
   fn main(@location(0) uv: vec2<f32>, @location(1) visual_size: f32) -> @location(0) vec4<f32> {
        let msd = textureSample(texture0, sampler0, uv).rgb;
        let sd = median(msd.r, msd.g, msd.b);
-       let screenPxRange = params.pxRange * (visual_size / params.atlasEmSize);
-       let size_factor = clamp(1.0 - (visual_size / 24.0), 0.0, 1.0);
-       let dist = sd - 0.5 + (size_factor * 0.2); 
+       let screenPxRange = max(params.pxRange * (visual_size / params.atlasEmSize), 1.0);
+       // sharpness: negative = sharper edges, positive = softer edges, 0 = standard MSDF
+       let dist = sd - 0.5 + params.sharpness;
        let opacity = clamp(dist * screenPxRange + 0.5, 0.0, 1.0);
        return vec4<f32>(params.color_r, params.color_g, params.color_b, opacity);
   }")
@@ -76,7 +76,7 @@
 ;; Calculate bracket highlight rectangles
 (defn calculate-bracket-rects [bracket-match font-size start-x start-y line-h]
   (when bracket-match
-    (let [char-w (* font-size 0.6)
+    (let [char-w (* font-size 0.56)
           {:keys [open close]} bracket-match
           make-rect (fn [{:keys [line col]}]
                       {:x (+ start-x (* col char-w))
@@ -89,7 +89,7 @@
 
 ;; Updated hit-test: clamps column to actual line length
 (defn hit-test [x y font-size start-x start-y line-h line-lengths]
-  (let [char-w     (* font-size 0.6)
+  (let [char-w     (* font-size 0.56)
         rel-x      (- x start-x)
         rel-y      (- y start-y)
         line-idx   (max 0 (Math/floor (/ rel-y line-h)))
@@ -151,7 +151,20 @@
         bind-group (.createBindGroup device (clj->js {:layout bg-layout
                                                       :entries [{:binding 0 :resource sampler} {:binding 1 :resource (.createView texture)}
                                                                 {:binding 2 :resource {:buffer camera-buffer}} {:binding 3 :resource {:buffer sizes-buffer}}]}))]
-    {:pipeline pipeline :bind-group bind-group :camera-uniform-buffer camera-buffer :sizes-uniform-buffer sizes-buffer :instance-buffer instance-buffer :num-instances 0}))
+    {:pipeline pipeline :bind-group bind-group :bind-group-layout bg-layout :camera-uniform-buffer camera-buffer :sizes-uniform-buffer sizes-buffer :instance-buffer instance-buffer :num-instances 0}))
+
+(defn update-font-texture [^js/GPUDevice device renderer-state font-bitmap]
+  (let [texture (.createTexture device (clj->js {:size {:width (.-width font-bitmap) :height (.-height font-bitmap) :depthOrArrayLayers 1}
+                                                 :format "rgba8unorm" :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT js/GPUTextureUsage.TEXTURE_BINDING js/GPUTextureUsage.COPY_DST)}))
+        _ (.copyExternalImageToTexture (.-queue device) (clj->js {:source font-bitmap}) (clj->js {:texture texture}) (clj->js {:width (.-width font-bitmap) :height (.-height font-bitmap)}))
+        sampler (.createSampler device (clj->js {:minFilter "linear" :magFilter "linear" :mipmapFilter "linear"}))
+        
+        new-bind-group (.createBindGroup device (clj->js {:layout (:bind-group-layout renderer-state)
+                                                          :entries [{:binding 0 :resource sampler} 
+                                                                    {:binding 1 :resource (.createView texture)}
+                                                                    {:binding 2 :resource {:buffer (:camera-uniform-buffer renderer-state)}} 
+                                                                    {:binding 3 :resource {:buffer (:sizes-uniform-buffer renderer-state)}}]}))]
+    (assoc renderer-state :bind-group new-bind-group)))
 
 (defn create-editor-state [{:keys [device format atlas bitmap]}]
   (let [text-sys (init-text-system device format atlas bitmap :initial-capacity 1000000)
@@ -170,7 +183,7 @@
      :pass-descriptor pass-descriptor}))
 
 ;; --- 3. UPDATES (CPU -> GPU) ---
-(defn shape-text [texts global-fsize msdf-atlas]
+(defn shape-text [texts global-fsize msdf-atlas & {:keys [char-width snap-step] :or {char-width 0.56}}]
   (let [atlas (:atlas msdf-atlas) metrics (:metrics msdf-atlas)
         glyphs (reduce (fn [acc glyph] (assoc acc (:unicode glyph) glyph)) {} (:glyphs msdf-atlas))
         atlas-w (or (:width atlas) 1) atlas-h (or (:height atlas) 1) line-h (or (:lineHeight metrics) 1.2)
@@ -178,17 +191,21 @@
     (doseq [txt texts]
       (let [{:keys [text x y]} txt 
             fsize (or (:size txt) global-fsize)
-            start-x x !x (atom x) !y (atom y)]
+            snap (when (and snap-step (pos? snap-step))
+                   (fn [v] (* (Math/round (/ v snap-step)) snap-step)))
+            start-x (if snap (snap x) x)
+            start-y (if snap (snap y) y)
+            advance (let [v (* fsize char-width)] (if snap (snap v) v))
+            !x (atom start-x)
+            !y (atom start-y)]
         (doseq [ch (seq text)]
           (let [code (.charCodeAt ch 0)]
             (cond
               (= ch \newline) (do (reset! !x start-x) (reset! !y (+ @!y (* fsize line-h))))
-              (= ch \space) (swap! !x + (* fsize 0.6))  ;; Must match char-w in cursor calculations
+              (= ch \space) (swap! !x + advance)
               :else (when-let [g (get glyphs code)]
                       (let [pb (:planeBounds g)
                             ab (:atlasBounds g)
-                            ;; Use fixed 0.6 advance for monospace consistency with cursor calculations
-                            advance (* fsize 0.6)
                             sl (+ @!x (* fsize (or (:left pb) 0)))
                             sr (+ @!x (* fsize (or (:right pb) 0)))
                             st (- @!y (* fsize (or (:top pb) 0)))
@@ -202,10 +219,14 @@
     @res))
 
 
-(defn update-text-data [^js/GPUDevice device renderer-state texts atlas font-size]
+(defn update-text-data [^js/GPUDevice device renderer-state texts atlas font-size & {:keys [px-range line-height-factor line-height sharpness char-width snap-step] :or {px-range 8.0 line-height-factor 1.0 sharpness 0.0 char-width 0.56}}]
   (let [
+        line-h (or line-height (* font-size line-height-factor))
+        atlas-em (or (get-in atlas [:atlas :size]) 64.0)
         shaped-lines (mapv (fn [tokens-in-line]
-                             (let [quads (shape-text tokens-in-line font-size atlas)]
+                             (let [quads (shape-text tokens-in-line font-size atlas
+                                                     :char-width char-width
+                                                     :snap-step snap-step)]
                                {:quads quads :count (count quads)}))
                            texts)
         
@@ -262,7 +283,7 @@
 
     (.writeBuffer (.-queue device) new-buffer 0 data)
     
-    (let [sizes (js/Float32Array. #js [8.0 64.0 1.0 1.0 1.0 0.0])]
+    (let [sizes (js/Float32Array. #js [(float px-range) (float atlas-em) 1.0 1.0 1.0 (float sharpness)])]
       (.writeBuffer (.-queue device) (:sizes-uniform-buffer renderer-state) 0 sizes))
 
     (assoc renderer-state 
@@ -270,7 +291,7 @@
            :bind-group new-bind-group 
            :num-instances total-instances
            :line-offsets line-offsets
-           :line-height (* font-size 1.2))))
+           :line-height line-h)))
 
 
 (defn update-rects [^js device rect-system rects]
@@ -298,8 +319,9 @@
 
 
 (defn draw-frame! [^js device ^js context text-sys editor-rect-sys cmd-rect-sys camera-floats _ignored_pass_descriptor pan-x pan-y w h
-                   & {:keys [cmd-panel-visible cmd-panel-h editor-line-count]
-                      :or {cmd-panel-visible false cmd-panel-h 40 editor-line-count nil}}]
+                   & {:keys [cmd-panel-visible cmd-panel-h editor-line-count settings-visible settings-rect-sys
+                             diagnostics-visible diagnostics-line-index]
+                      :or {cmd-panel-visible false cmd-panel-h 40 editor-line-count nil settings-visible false settings-rect-sys nil}}]
   (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y 1.0 w h)
 
   (let [encoder (.createCommandEncoder device)
@@ -379,7 +401,50 @@
             (.setPipeline pass (:pipeline cmd-rect-sys))
             (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
             (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
-            (.draw pass 6 1 0 1)))))
+            (.draw pass 6 1 0 1)))
+
+        ;; Settings panel: draw on top of everything when visible
+        (when settings-visible
+          ;; Draw settings panel BACKGROUND + UI rects
+          (when (and settings-rect-sys (> (:num-instances settings-rect-sys) 0))
+            (.setPipeline pass (:pipeline settings-rect-sys))
+            (.setBindGroup pass 0 (:bind-group settings-rect-sys))
+            (.setVertexBuffer pass 0 (:instance-buffer settings-rect-sys))
+            (.draw pass 6 (:num-instances settings-rect-sys)))
+
+          ;; Draw settings panel TEXT (font names, labels, values)
+          ;; Settings text is appended after editor+cmd text in the instance buffer
+          ;; We draw all remaining instances after editor-line-count
+          (when (> total-lines editor-lines)
+            (let [settings-start-inst (if (and cmd-panel-visible (< editor-lines total-lines))
+                                        ;; After command panel text
+                                        (:num-instances text-sys)
+                                        ;; After editor text
+                                        (if (< editor-lines (count line-offsets))
+                                          (nth line-offsets editor-lines)
+                                          (:num-instances text-sys)))]
+              ;; Actually, settings text is the last "line" in line-offsets
+              ;; We need to draw from the settings start to end
+              (when (< settings-start-inst (:num-instances text-sys))
+                (.setPipeline pass (:pipeline text-sys))
+                (.setBindGroup pass 0 (:bind-group text-sys))
+                (.setVertexBuffer pass 0 (:instance-buffer text-sys))
+                (.draw pass 6 (- (:num-instances text-sys) settings-start-inst) 0 settings-start-inst)))))
+
+        ;; Diagnostics overlay: draw when enabled and not covered by panels
+        (when (and diagnostics-visible (not cmd-panel-visible) (not settings-visible) diagnostics-line-index)
+          (when (< diagnostics-line-index (count line-offsets))
+            (let [start-inst (nth line-offsets diagnostics-line-index)
+                  next-line (inc diagnostics-line-index)
+                  end-inst (if (< next-line (count line-offsets))
+                             (nth line-offsets next-line)
+                             (:num-instances text-sys))
+                  draw-count (- end-inst start-inst)]
+              (when (> draw-count 0)
+                (.setPipeline pass (:pipeline text-sys))
+                (.setBindGroup pass 0 (:bind-group text-sys))
+                (.setVertexBuffer pass 0 (:instance-buffer text-sys))
+                (.draw pass 6 draw-count 0 start-inst)))))))
 
     (.end pass)
     (.submit (.-queue device) #js [(.finish encoder)])))

@@ -309,10 +309,12 @@
    Returns {:render-ops [...] :line-mapping [...]} where line-mapping maps visual->logical line."
   ([lines-of-tokens start-x start-y font-size]
    ;; No folding - all lines visible
-   (layout-tokens lines-of-tokens start-x start-y font-size [] #{}))
+   (layout-tokens lines-of-tokens start-x start-y font-size [] #{} nil nil))
   ([lines-of-tokens start-x start-y font-size fold-regions folded-lines]
-   (let [char-width (* font-size 0.6)
-         line-h (* font-size 1.2)]
+   (layout-tokens lines-of-tokens start-x start-y font-size fold-regions folded-lines nil nil))
+  ([lines-of-tokens start-x start-y font-size fold-regions folded-lines char-advance line-h]
+   (let [char-width (or char-advance (* font-size 0.56))
+         line-h (or line-h (* font-size 1.2))]
      (loop [logical-idx 0
             visual-y (+ start-y font-size)
             render-ops []
@@ -325,8 +327,8 @@
            (if visible?
              ;; Render this line at current visual-y
              (let [line-ops (mapv (fn [token]
-                                    (let [color (get-color (:type token))]
-                                      (merge token color
+                                     (let [color (get-color (:type token))]
+                                       (merge token color
                                              {:x (+ start-x (* (or (:from token) 0) char-width))
                                               :y visual-y
                                               :size font-size})))
@@ -347,6 +349,43 @@
        #js [(-> (js/fetch "/font_atlas.png") (.then #(.blob %)) (.then #(js/createImageBitmap %)))
             (-> (js/fetch "/font_atlas.json") (.then #(.json %)) (.then #(js->clj % :keywordize-keys true)))])))
 
+#?(:cljs
+   (defn load-font-manifest-async []
+     "Load the font manifest from the fonts directory"
+     (-> (js/fetch "/fonts/manifest.json")
+         (.then #(.json %))
+         (.then #(js->clj % :keywordize-keys true))
+         (.catch (fn [_e]
+                   ;; Fallback if manifest not found
+                   {:fonts [{:name "Ubuntu Sans Mono"
+                             :id "ubuntu-sans-mono"
+                             :atlas "ubuntu_sans_mono_atlas.png"
+                             :metrics "ubuntu_sans_mono_atlas.json"
+                             :charWidth 0.56
+                             :default true
+                             :defaults {:fontSize 16
+                                        :lineHeight 1.2
+                                        :pxRange 8
+                                        :sharpness -0.10
+                                        :snapToPixel true
+                                        :showDiagnostics false}}]
+                    :settings {:fontSize {:default 16}
+                               :lineHeight {:default 1.2}
+                               :pxRange {:default 8}
+                               :sharpness {:default -0.10}
+                               :snapToPixel {:default true}
+                               :showDiagnostics {:default false}}})))))
+
+#?(:cljs
+   (defn load-font-atlas-async [font-config]
+     "Load a specific font's atlas and metrics given its config from manifest"
+     (let [base-path "/fonts/"
+           atlas-url (str base-path (:atlas font-config))
+           metrics-url (str base-path (:metrics font-config))]
+       (js/Promise.all
+         #js [(-> (js/fetch atlas-url) (.then #(.blob %)) (.then #(js/createImageBitmap %)))
+              (-> (js/fetch metrics-url) (.then #(.json %)) (.then #(js->clj % :keywordize-keys true)))]))))
+
 (e/defn LoadWebGPU []
   (e/client
     (let [raw (e/Task (await-promise (load-resources-async)))]
@@ -362,9 +401,18 @@
 
 (e/defn Prepare-Geometry [device pipelines render-ops atlas]
   (e/client
-    {:text (editor/update-text-data device (:text-sys pipelines) render-ops atlas 16)
-     :rect (editor/update-rects device (:rect-sys pipelines) [])
-     :pipelines pipelines}))
+    (let [font-size 16
+          char-width 0.56
+          dpr (or (.-devicePixelRatio js/window) 1)
+          snap-step (/ 1 dpr)
+          snap (fn [v] (* (Math/round (/ v snap-step)) snap-step))
+          line-h (snap (* font-size 1.2))]
+      {:text (editor/update-text-data device (:text-sys pipelines) render-ops atlas font-size
+                                      :line-height line-h
+                                      :char-width char-width
+                                      :snap-step snap-step)
+       :rect (editor/update-rects device (:rect-sys pipelines) [])
+       :pipelines pipelines})))
 
 (e/defn main [ring-request]
   (e/server
@@ -380,7 +428,9 @@
           (init-lezer-parser!)
           (init-sci!)
 
-          (let [resources (LoadWebGPU)]
+          (let [resources (LoadWebGPU)
+                ;; Load font manifest asynchronously
+                font-manifest (e/Task (await-promise (load-font-manifest-async)))]
             (when resources
               (let [device (get resources :device)
                     format (get resources :format)
@@ -393,7 +443,13 @@
                       gutter-w 40
                       layout-x (+ 50 gutter-w)  ;; 90
                       ;; Initial render - no folds yet
-                      layout-result (layout-tokens tokenized-lines layout-x 100 16)
+                      font-size 16
+                      dpr (or (.-devicePixelRatio js/window) 1)
+                      snap-step (/ 1 dpr)
+                      snap (fn [v] (* (Math/round (/ v snap-step)) snap-step))
+                      char-advance (snap (* font-size 0.56))
+                      line-h (snap (* font-size 1.2))
+                      layout-result (layout-tokens tokenized-lines layout-x 100 font-size [] #{} char-advance line-h)
                       render-ops (:render-ops layout-result)
 
                       ;; Compute line lengths (character count per line)
@@ -405,8 +461,9 @@
                                   :style {:width "100vw" :height "100vh" :display "block"}})
                       (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
                         (.configure ^js ctx (clj->js {:device device :format format :alphaMode "premultiplied"}))
-                        ;; Pass all functions to start-loop!
+                        ;; Pass all functions to start-loop! with font manifest
                         (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
                                                   lines tokenize-line layout-tokens
                                                   find-matching-bracket detect-fold-regions
-                                                  find-form-at-cursor sci-eval-form atlas))))))))))))))
+                                                  find-form-at-cursor sci-eval-form atlas
+                                                  :font-manifest font-manifest))))))))))))))

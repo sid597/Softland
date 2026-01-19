@@ -1,0 +1,73 @@
+{
+  "fonts": [
+    {
+      "name": "Ubuntu Sans Mono",
+      "id": "ubuntu-sans-mono",
+      "atlas": "ubuntu_sans_mono_atlas.png",
+      "metrics": "ubuntu_sans_mono_atlas.json",
+      "charWidth": 0.56,
+      "default": true,
+      "defaults": {
+        "fontSize": 16,
+        "lineHeight": 1.2,
+        "pxRange": 8,
+        "sharpness": -0.10,
+        "snapToPixel": true,
+        "showDiagnostics": false
+      }
+    },
+    {
+      "name": "Ubuntu Mono",
+      "id": "ubuntu-mono",
+      "atlas": "ubuntu_mono_atlas.png",
+      "metrics": "ubuntu_mono_atlas.json",
+      "charWidth": 0.56,
+      "defaults": {
+        "fontSize": 16,
+        "lineHeight": 1.2,
+        "pxRange": 8,
+        "sharpness": -0.10,
+        "snapToPixel": true,
+        "showDiagnostics": false
+      }
+    },
+    {
+      "name": "DejaVu Sans Mono",
+      "id": "dejavu-sans-mono",
+      "atlas": "dejavu_sans_mono_atlas.png",
+      "metrics": "dejavu_sans_mono_atlas.json",
+      "charWidth": 0.60,
+      "defaults": {
+        "fontSize": 16,
+        "lineHeight": 1.2,
+        "pxRange": 8,
+        "sharpness": -0.10,
+        "snapToPixel": true,
+        "showDiagnostics": false
+      }
+    },
+    {
+      "name": "Noto Sans Mono",
+      "id": "noto-sans-mono",
+      "atlas": "noto_sans_mono_atlas.png",
+      "metrics": "noto_sans_mono_atlas.json",
+      "charWidth": 0.60,
+      "defaults": {
+        "fontSize": 16,
+        "lineHeight": 1.2,
+        "pxRange": 8,
+        "sharpness": -0.10,
+        "snapToPixel": true,
+        "showDiagnostics": false
+      }
+    }
+  ],
+  "settings": {
+    "fontSize": {"min": 8, "max": 40, "default": 16},
+    "lineHeight": {"min": 1.0, "max": 2.0, "default": 1.2},
+    "pxRange": {"min": 4, "max": 12, "default": 8},
+    "sharpness": {"min": -0.2, "max": 0.2, "default": -0.10},
+    "snapToPixel": {"default": true},
+    "showDiagnostics": {"default": false}
+  }
+}
