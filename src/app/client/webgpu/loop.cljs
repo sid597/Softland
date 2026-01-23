@@ -15,7 +15,8 @@
             [missionary.core :as m]
             [contrib.missionary-contrib :as mx]
             [app.client.webgpu.editor :as editor]
-            [app.client.webgpu.text-input :as text-input]))
+            [app.client.webgpu.text-input :as text-input]
+            [app.client.webgpu.themes :as themes]))
 
 ;; ============================================================================
 ;; LAYER 1: PRIMARY SOURCES (The Only Atoms)
@@ -84,7 +85,8 @@
      :px-range (get-default :pxRange 8)
      :sharpness (get-default :sharpness -0.10)
      :snap-to-pixel? (get-default :snapToPixel true)
-     :show-diagnostics? (get-default :showDiagnostics false)}))
+     :show-diagnostics? (get-default :showDiagnostics false)
+     :theme-id (get-default :theme :gruvbox-dark)}))
 
 (defn compact-map [m]
   (into {} (filter (comp some? val) m)))
@@ -101,7 +103,8 @@
          :show-diagnostics? (or (:showDiagnostics defaults) (:show-diagnostics? defaults))}))))
 
 (defn slider-specs [settings]
-  [{:id :font-size :label "Font Size" :val (:font-size settings) :min 8 :max 40}
+  [{:id :theme-id :label "Theme" :val (themes/theme-index (:theme-id settings)) :min 0 :max (dec (count themes/theme-list)) :discrete true}
+   {:id :font-size :label "Font Size" :val (:font-size settings) :min 8 :max 40}
    {:id :line-height :label "Line Height" :val (:line-height settings) :min 1.0 :max 2.0}
    {:id :px-range :label "pxRange" :val (:px-range settings) :min 4 :max 12}
    {:id :sharpness :label "Sharpness" :val (:sharpness settings) :min -0.2 :max 0.2}
@@ -829,6 +832,9 @@
                                                {:r 0.5 :g 0.5 :b 0.5 :a 1.0})
                                  
                                  val-str (case (:id slider)
+                                           :theme-id (let [tid (or (:theme-id settings) :gruvbox-dark)
+                                                           theme (themes/get-theme tid)]
+                                                       (or (:name theme) (name tid)))
                                            :line-height (.toFixed (:val slider) 1)
                                            :sharpness (.toFixed (:val slider) 2)
                                            :snap-to-pixel? (if (pos? (:val slider)) "On" "Off")
@@ -907,12 +913,14 @@
             line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
             layout-x (maybe-snap layout-x dpr snap?)
             layout-y (maybe-snap layout-y dpr snap?)
+            ;; Theme
+            theme-id (or (:theme-id settings) :gruvbox-dark)
 
             ;; Editor render ops
             lines (:lines doc)
             tokenized (mapv tokenize-fn lines)
             regions (or (detect-folds-fn lines (mapv count lines)) [])
-            layout-result (layout-fn tokenized layout-x layout-y font-size regions folded char-advance line-h)
+            layout-result (layout-fn tokenized layout-x layout-y font-size regions folded char-advance line-h theme-id)
             editor-ops (:render-ops layout-result)
 
             ;; Command panel ops (if visible)
@@ -1613,6 +1621,9 @@
                        (let [slider (nth sliders slider-index)
                              slider-id (:id slider)]
                          (case slider-id
+                           :theme-id    (let [cur-idx (themes/theme-index (:theme-id settings))
+                                              new-idx (mod (dec cur-idx) (count themes/theme-list))]
+                                          (swap! !settings assoc :theme-id (nth themes/theme-list new-idx)))
                            :font-size   (swap! !settings update :font-size #(max 8 (dec %)))
                            :line-height (swap! !settings update :line-height #(max 1.0 (- % 0.1)))
                            :px-range    (swap! !settings update :px-range #(max 4 (dec %)))
@@ -1625,6 +1636,9 @@
                        (let [slider (nth sliders slider-index)
                              slider-id (:id slider)]
                          (case slider-id
+                           :theme-id    (let [cur-idx (themes/theme-index (:theme-id settings))
+                                              new-idx (mod (inc cur-idx) (count themes/theme-list))]
+                                          (swap! !settings assoc :theme-id (nth themes/theme-list new-idx)))
                            :font-size   (swap! !settings update :font-size #(min 40 (inc %)))
                            :line-height (swap! !settings update :line-height #(min 2.0 (+ % 0.1)))
                            :px-range    (swap! !settings update :px-range #(min 12 (inc %)))

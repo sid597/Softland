@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperfiddle.electric3 :as e]
             [hyperfiddle.electric-dom3 :as dom]
+            [app.client.webgpu.themes :as themes]
             #?@(:cljs [[app.client.webgpu.editor :as editor]
                        [app.client.webgpu.loop :as loop]
                        [global-flow :refer [await-promise]]
@@ -280,19 +281,16 @@
                  (recur tokens match-end rest-matches)
                  (recur (conj tokens token) match-end rest-matches)))))))))
 
-(def theme
-  {:keyword   {:r 0.8 :g 0.4 :b 0.8 :a 1.0}
-   :macro     {:r 0.3 :g 0.6 :b 1.0 :a 1.0}
-   :string    {:r 0.6 :g 0.8 :b 0.4 :a 1.0}
-   :comment   {:r 0.5 :g 0.5 :b 0.5 :a 1.0}
-   :delimiter {:r 1.0 :g 1.0 :b 1.0 :a 0.6}
-   :number    {:r 1.0 :g 0.6 :b 0.3 :a 1.0}
-   :character {:r 0.9 :g 0.7 :b 0.4 :a 1.0}
-   :boolean   {:r 0.7 :g 0.3 :b 0.9 :a 1.0}
-   :nil       {:r 0.8 :g 0.3 :b 0.3 :a 1.0}
-   :text      {:r 0.9 :g 0.9 :b 0.9 :a 1.0}})
+;; ============================================================================
+;; SYNTAX HIGHLIGHTING (delegated to themes namespace)
+;; ============================================================================
 
-(defn get-color [type] (get theme type (:text theme)))
+(def default-theme-id themes/default-theme-id)
+
+(defn get-color
+  "Get color for a token type from the specified theme"
+  ([type] (themes/get-color type))
+  ([type theme-id] (themes/get-color type theme-id)))
 
 (defn line-visible?
   "Check if a logical line should be visible given fold regions and folded state.
@@ -305,16 +303,19 @@
              fold-regions)))
 
 (defn layout-tokens
-  "Layout tokens with optional folding support.
+  "Layout tokens with optional folding support and theme.
    Returns {:render-ops [...] :line-mapping [...]} where line-mapping maps visual->logical line."
   ([lines-of-tokens start-x start-y font-size]
-   ;; No folding - all lines visible
-   (layout-tokens lines-of-tokens start-x start-y font-size [] #{} nil nil))
+   ;; No folding - all lines visible, default theme
+   (layout-tokens lines-of-tokens start-x start-y font-size [] #{} nil nil default-theme-id))
   ([lines-of-tokens start-x start-y font-size fold-regions folded-lines]
-   (layout-tokens lines-of-tokens start-x start-y font-size fold-regions folded-lines nil nil))
+   (layout-tokens lines-of-tokens start-x start-y font-size fold-regions folded-lines nil nil default-theme-id))
   ([lines-of-tokens start-x start-y font-size fold-regions folded-lines char-advance line-h]
+   (layout-tokens lines-of-tokens start-x start-y font-size fold-regions folded-lines char-advance line-h default-theme-id))
+  ([lines-of-tokens start-x start-y font-size fold-regions folded-lines char-advance line-h theme-id]
    (let [char-width (or char-advance (* font-size 0.56))
-         line-h (or line-h (* font-size 1.2))]
+         line-h (or line-h (* font-size 1.2))
+         active-theme-id (or theme-id default-theme-id)]
      (loop [logical-idx 0
             visual-y (+ start-y font-size)
             render-ops []
@@ -325,9 +326,9 @@
          (let [tokens (nth lines-of-tokens logical-idx)
                visible? (line-visible? logical-idx fold-regions folded-lines)]
            (if visible?
-             ;; Render this line at current visual-y
+             ;; Render this line at current visual-y, using the active theme
              (let [line-ops (mapv (fn [token]
-                                     (let [color (get-color (:type token))]
+                                     (let [color (get-color (:type token) active-theme-id)]
                                        (merge token color
                                              {:x (+ start-x (* (or (:from token) 0) char-width))
                                               :y visual-y

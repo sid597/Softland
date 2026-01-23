@@ -31,8 +31,9 @@
 (def text-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
   @group(0) @binding(2) var<uniform> camera: Camera;
-  struct InstanceInput { @location(0) rect: vec4<f32>, @location(1) uv_bounds: vec4<f32>, };
-  struct VertexOutput { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, @location(1) v_visual_size: f32, };
+  // Per-instance: rect (vec4), uv_bounds (vec4), color (vec4) = 12 floats
+  struct InstanceInput { @location(0) rect: vec4<f32>, @location(1) uv_bounds: vec4<f32>, @location(2) color: vec4<f32>, };
+  struct VertexOutput { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, @location(1) v_visual_size: f32, @location(2) color: vec4<f32>, };
 
   @vertex
   fn main(@builtin(vertex_index) v_index: u32, instance: InstanceInput) -> VertexOutput {
@@ -52,25 +53,28 @@
       output.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
       output.uv = vec2<f32>(u, v);
       output.v_visual_size = max(instance.rect.z, instance.rect.w) * camera.zoom;
+      output.color = instance.color;
       return output;
   }")
 
 (def text-fragment-shader "
   @group(0) @binding(0) var sampler0: sampler;
   @group(0) @binding(1) var texture0: texture_2d<f32>;
-  struct Sizing { pxRange: f32, atlasEmSize: f32, color_r: f32, color_g: f32, color_b: f32, sharpness: f32, };
+  // Sizing uniform: pxRange, atlasEmSize, sharpness (color now per-instance)
+  struct Sizing { pxRange: f32, atlasEmSize: f32, sharpness: f32, padding: f32, };
   @group(0) @binding(3) var<uniform> params: Sizing;
   fn median(a: f32, b: f32, c: f32) -> f32 { return max(min(a, b), min(max(a, b), c)); }
 
   @fragment
-  fn main(@location(0) uv: vec2<f32>, @location(1) visual_size: f32) -> @location(0) vec4<f32> {
+  fn main(@location(0) uv: vec2<f32>, @location(1) visual_size: f32, @location(2) color: vec4<f32>) -> @location(0) vec4<f32> {
        let msd = textureSample(texture0, sampler0, uv).rgb;
        let sd = median(msd.r, msd.g, msd.b);
        let screenPxRange = max(params.pxRange * (visual_size / params.atlasEmSize), 1.0);
        // sharpness: negative = sharper edges, positive = softer edges, 0 = standard MSDF
        let dist = sd - 0.5 + params.sharpness;
        let opacity = clamp(dist * screenPxRange + 0.5, 0.0, 1.0);
-       return vec4<f32>(params.color_r, params.color_g, params.color_b, opacity);
+       // Use per-instance color instead of uniform color
+       return vec4<f32>(color.rgb, opacity * color.a);
   }")
 
 ;; Calculate bracket highlight rectangles
@@ -131,9 +135,10 @@
                                                  :format "rgba8unorm" :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT js/GPUTextureUsage.TEXTURE_BINDING js/GPUTextureUsage.COPY_DST)}))
         _ (.copyExternalImageToTexture (.-queue device) (clj->js {:source font-bitmap}) (clj->js {:texture texture}) (clj->js {:width (.-width font-bitmap) :height (.-height font-bitmap)}))
         sampler (.createSampler device (clj->js {:minFilter "linear" :magFilter "linear" :mipmapFilter "linear"}))
-        instance-buffer (.createBuffer device (clj->js {:size (* initial-capacity 32) :usage (bit-or js/GPUBufferUsage.VERTEX js/GPUBufferUsage.COPY_DST)}))
+        ;; 12 floats per glyph: rect(4) + uv(4) + color(4) = 48 bytes
+        instance-buffer (.createBuffer device (clj->js {:size (* initial-capacity 48) :usage (bit-or js/GPUBufferUsage.VERTEX js/GPUBufferUsage.COPY_DST)}))
         camera-buffer (.createBuffer device (clj->js {:size 24 :usage (bit-or js/GPUBufferUsage.UNIFORM js/GPUBufferUsage.COPY_DST)}))
-        sizes-buffer (.createBuffer device (clj->js {:size 24 :usage (bit-or js/GPUBufferUsage.UNIFORM js/GPUBufferUsage.COPY_DST)}))
+        sizes-buffer (.createBuffer device (clj->js {:size 16 :usage (bit-or js/GPUBufferUsage.UNIFORM js/GPUBufferUsage.COPY_DST)}))
         bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility js/GPUShaderStage.FRAGMENT :sampler {:type "filtering"}}
                                                                      {:binding 1 :visibility js/GPUShaderStage.FRAGMENT :texture {:sampleType "float"}}
                                                                      {:binding 2 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}
@@ -141,9 +146,11 @@
         pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
         pipeline (.createRenderPipeline device (clj->js {:layout pipeline-layout
                                                          :vertex {:module vertex-module :entryPoint "main"
-                                                                  :buffers [{:arrayStride 32 :stepMode "instance"
-                                                                             :attributes [{:shaderLocation 0 :offset 0 :format "float32x4"}
-                                                                                          {:shaderLocation 1 :offset 16 :format "float32x4"}]}]}
+                                                                  ;; 12 floats: rect(4) + uv(4) + color(4) = 48 bytes stride
+                                                                  :buffers [{:arrayStride 48 :stepMode "instance"
+                                                                             :attributes [{:shaderLocation 0 :offset 0 :format "float32x4"}   ;; rect
+                                                                                          {:shaderLocation 1 :offset 16 :format "float32x4"}  ;; uv_bounds
+                                                                                          {:shaderLocation 2 :offset 32 :format "float32x4"}]}]}
                                                          :fragment {:module fragment-module :entryPoint "main"
                                                                     :targets [{:format fformat :blend {:color {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}
                                                                                                        :alpha {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}}}]}
@@ -184,12 +191,16 @@
 
 ;; --- 3. UPDATES (CPU -> GPU) ---
 (defn shape-text [texts global-fsize msdf-atlas & {:keys [char-width snap-step] :or {char-width 0.56}}]
+  "Shape text tokens into GPU-ready quads with per-glyph colors.
+   Each token should have: {:text :x :y :size :r :g :b :a}"
   (let [atlas (:atlas msdf-atlas) metrics (:metrics msdf-atlas)
         glyphs (reduce (fn [acc glyph] (assoc acc (:unicode glyph) glyph)) {} (:glyphs msdf-atlas))
         atlas-w (or (:width atlas) 1) atlas-h (or (:height atlas) 1) line-h (or (:lineHeight metrics) 1.2)
         res (atom [])]
     (doseq [txt texts]
-      (let [{:keys [text x y]} txt 
+      (let [{:keys [text x y r g b a]} txt
+            ;; Default to white if no color specified
+            cr (or r 1.0) cg (or g 1.0) cb (or b 1.0) ca (or a 1.0)
             fsize (or (:size txt) global-fsize)
             snap (when (and snap-step (pos? snap-step))
                    (fn [v] (* (Math/round (/ v snap-step)) snap-step)))
@@ -215,11 +226,14 @@
                             vt (- 1.0 (/ (:top ab) atlas-h))
                             vb (- 1.0 (/ (:bottom ab) atlas-h))]
                         (swap! !x + advance)
-                        (swap! res conj {:vertices [[sl sb ul vb fsize] [sr sb ur vb fsize] [sr st ur vt fsize] [sl st ul vt fsize]]}))))))))
+                        ;; Include color in output for per-glyph coloring
+                        (swap! res conj {:vertices [[sl sb ul vb fsize] [sr sb ur vb fsize] [sr st ur vt fsize] [sl st ul vt fsize]]
+                                         :color [cr cg cb ca]}))))))))
     @res))
 
 
 (defn update-text-data [^js/GPUDevice device renderer-state texts atlas font-size & {:keys [px-range line-height-factor line-height sharpness char-width snap-step] :or {px-range 8.0 line-height-factor 1.0 sharpness 0.0 char-width 0.56}}]
+  "Update GPU buffers with text data. Now includes per-glyph colors (12 floats per glyph)."
   (let [
         line-h (or line-height (* font-size line-height-factor))
         atlas-em (or (get-in atlas [:atlas :size]) 64.0)
@@ -229,11 +243,12 @@
                                                      :snap-step snap-step)]
                                {:quads quads :count (count quads)}))
                            texts)
-        
+
         total-instances (reduce + (map :count shaped-lines))
-        total-instances (max total-instances 1) 
-        data (js/Float32Array. (* total-instances 8))
-        
+        total-instances (max total-instances 1)
+        ;; 12 floats per glyph: rect(4) + uv(4) + color(4)
+        data (js/Float32Array. (* total-instances 12))
+
         line-offsets (loop [lines shaped-lines
                             current-idx 0
                             offsets []]
@@ -244,15 +259,15 @@
 
         current-buffer (:instance-buffer renderer-state)
         required-size (.-byteLength data)
-        current-size (.-size ^js current-buffer) 
-        
+        current-size (.-size ^js current-buffer)
+
         needs-resize? (> required-size current-size)
 
         new-buffer (if needs-resize?
                      (do
-                       (.destroy ^js current-buffer) 
+                       (.destroy ^js current-buffer)
                        (.createBuffer device (clj->js {:size required-size
-                                                       :usage (bit-or js/GPUBufferUsage.STORAGE 
+                                                       :usage (bit-or js/GPUBufferUsage.VERTEX
                                                                       js/GPUBufferUsage.COPY_DST)})))
                      current-buffer)
 
@@ -265,25 +280,34 @@
                                                 :resource {:buffer (:sizes-uniform-buffer renderer-state)}}]}))
                          (:bind-group renderer-state))]
 
+    ;; Write 12 floats per glyph: [x, y, w, h, u_min, v_min, u_max, v_max, r, g, b, a]
     (loop [lines shaped-lines global-i 0]
       (when (seq lines)
         (let [quads (:quads (first lines))]
           (loop [q quads sub-i 0]
             (when (seq q)
-              (let [verts (:vertices (first q))
+              (let [quad (first q)
+                    verts (:vertices quad)
+                    [cr cg cb ca] (or (:color quad) [1.0 1.0 1.0 1.0])
                     v-tl (nth verts 3) v-br (nth verts 1)
                     [tl_x tl_y u_min v_min _] v-tl [br_x br_y u_max v_max _] v-br
-                    base (* (+ global-i sub-i) 8)]
+                    base (* (+ global-i sub-i) 12)]
+                ;; rect: x, y, w, h
                 (aset data (+ base 0) tl_x) (aset data (+ base 1) tl_y)
                 (aset data (+ base 2) (- br_x tl_x)) (aset data (+ base 3) (- br_y tl_y))
+                ;; uv: u_min, v_min, u_max, v_max
                 (aset data (+ base 4) u_min) (aset data (+ base 5) v_min)
                 (aset data (+ base 6) u_max) (aset data (+ base 7) v_max)
+                ;; color: r, g, b, a
+                (aset data (+ base 8) cr) (aset data (+ base 9) cg)
+                (aset data (+ base 10) cb) (aset data (+ base 11) ca)
                 (recur (next q) (inc sub-i)))))
           (recur (next lines) (+ global-i (:count (first lines)))))))
 
     (.writeBuffer (.-queue device) new-buffer 0 data)
-    
-    (let [sizes (js/Float32Array. #js [(float px-range) (float atlas-em) 1.0 1.0 1.0 (float sharpness)])]
+
+    ;; Sizes uniform: pxRange, atlasEmSize, sharpness, padding (color now per-instance)
+    (let [sizes (js/Float32Array. #js [(float px-range) (float atlas-em) (float sharpness) 0.0])]
       (.writeBuffer (.-queue device) (:sizes-uniform-buffer renderer-state) 0 sizes))
 
     (assoc renderer-state 
