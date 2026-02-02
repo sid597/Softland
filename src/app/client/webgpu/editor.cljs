@@ -345,130 +345,117 @@
 (defn draw-frame! [^js device ^js context text-sys editor-rect-sys cmd-rect-sys camera-floats _ignored_pass_descriptor pan-x pan-y w h
                    & {:keys [cmd-panel-visible cmd-panel-h editor-line-count settings-visible settings-rect-sys
                              diagnostics-visible diagnostics-line-index]
-                      :or {cmd-panel-visible false cmd-panel-h 40 editor-line-count nil settings-visible false settings-rect-sys nil}}]
+                      :or {cmd-panel-visible false cmd-panel-h 40 editor-line-count nil settings-visible false
+                           settings-rect-sys nil}}]
   (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y 1.0 w h)
 
   (let [encoder (.createCommandEncoder device)
-        texture (.getCurrentTexture context)
-        view    (.createView texture)
+          texture (.getCurrentTexture context)
+          view    (.createView texture)
 
-        pass-descriptor (clj->js
-                          {:colorAttachments [{:view view
-                                               :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 1.0}
-                                               :loadOp "clear"
-                                               :storeOp "store"}]})
+          pass-descriptor (clj->js
+                            {:colorAttachments [{:view view
+                                                 :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 1.0}
+                                                 :loadOp "clear"
+                                                 :storeOp "store"}]})
 
-        pass (.beginRenderPass encoder pass-descriptor)]
+          pass (.beginRenderPass encoder pass-descriptor)]
 
-    ;; Draw editor rects first (selection, brackets, fold indicators, caret, eval)
-    (when (and editor-rect-sys (> (:num-instances editor-rect-sys) 0))
-      (.setPipeline pass (:pipeline editor-rect-sys))
-      (.setBindGroup pass 0 (:bind-group editor-rect-sys))
-      (.setVertexBuffer pass 0 (:instance-buffer editor-rect-sys))
-      (.draw pass 6 (:num-instances editor-rect-sys)))
+      ;; Draw editor rects first (selection, brackets, fold indicators, caret, eval)
+      (when (and editor-rect-sys (> (:num-instances editor-rect-sys) 0))
+        (.setPipeline pass (:pipeline editor-rect-sys))
+        (.setBindGroup pass 0 (:bind-group editor-rect-sys))
+        (.setVertexBuffer pass 0 (:instance-buffer editor-rect-sys))
+        (.draw pass 6 (:num-instances editor-rect-sys)))
 
-    ;; Draw editor text (with viewport culling)
-    (when (and text-sys (> (:num-instances text-sys) 0))
-      (.setPipeline pass (:pipeline text-sys))
-      (.setBindGroup pass 0 (:bind-group text-sys))
-      (.setVertexBuffer pass 0 (:instance-buffer text-sys))
+      ;; Draw editor text (data-level viewport culling — buffer only contains visible lines)
+      (when (and text-sys (> (:num-instances text-sys) 0))
+        (.setPipeline pass (:pipeline text-sys))
+        (.setBindGroup pass 0 (:bind-group text-sys))
+        (.setVertexBuffer pass 0 (:instance-buffer text-sys))
 
-      (let [line-offsets (:line-offsets text-sys)
-            line-h       (:line-height text-sys)
-            total-lines  (count line-offsets)
-            ;; If we know how many editor lines there are, only cull those
-            ;; Command panel lines are at the end and need different handling
-            editor-lines (or editor-line-count total-lines)
+        (let [line-offsets (:line-offsets text-sys)
+              total-lines  (count line-offsets)
+              editor-lines (or editor-line-count total-lines)
 
-            ;; Effective viewport height (exclude command panel area)
-            effective-h  (if cmd-panel-visible (- h cmd-panel-h) h)
+              ;; Draw all editor instances (viewport culling already done at data level)
+              editor-end-inst (if (< editor-lines total-lines)
+                                (nth line-offsets editor-lines)
+                                (:num-instances text-sys))
+              draw-count editor-end-inst]
+          (when (> draw-count 0)
+            (.draw pass 6 draw-count 0 0))
 
-            scroll-y     (- pan-y)
-            start-line   (max 0 (Math/floor (/ scroll-y line-h)))
-            end-line     (min editor-lines (+ (Math/ceil (/ (+ scroll-y effective-h) line-h)) 2))]
+          ;; Command panel: draw background, then text, then caret
+          (when cmd-panel-visible
+            ;; Draw command panel BACKGROUND rect (covers editor text bleeding into panel area)
+            (when (and cmd-rect-sys (>= (:num-instances cmd-rect-sys) 1))
+              (.setPipeline pass (:pipeline cmd-rect-sys))
+              (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
+              (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
+              (.draw pass 6 1 0 0))
 
-        ;; Draw visible editor lines
-        (when (and (< start-line end-line) (< start-line (count line-offsets)))
-          (let [start-inst (nth line-offsets start-line)
-                end-inst   (if (< end-line (count line-offsets))
-                             (nth line-offsets end-line)
-                             (if (< editor-lines total-lines)
-                               (nth line-offsets editor-lines)
-                               (:num-instances text-sys)))
-                draw-count (- end-inst start-inst)]
-            (when (> draw-count 0)
-              (.draw pass 6 draw-count 0 start-inst))))
+            ;; Draw command panel TEXT (on top of background)
+            (when (< editor-lines total-lines)
+              (let [cmd-start-inst (nth line-offsets editor-lines)
+                    cmd-end-inst   (:num-instances text-sys)
+                    cmd-draw-count (- cmd-end-inst cmd-start-inst)]
+                (when (> cmd-draw-count 0)
+                  ;; Need to set up text pipeline again after drawing rect
+                  (.setPipeline pass (:pipeline text-sys))
+                  (.setBindGroup pass 0 (:bind-group text-sys))
+                  (.setVertexBuffer pass 0 (:instance-buffer text-sys))
+                  (.draw pass 6 cmd-draw-count 0 cmd-start-inst))))
 
-        ;; Command panel: draw background, then text, then caret
-        (when cmd-panel-visible
-          ;; Draw command panel BACKGROUND rect (covers editor text bleeding into panel area)
-          (when (and cmd-rect-sys (>= (:num-instances cmd-rect-sys) 1))
-            (.setPipeline pass (:pipeline cmd-rect-sys))
-            (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
-            (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
-            (.draw pass 6 1 0 0))
+            ;; Draw command panel CARET rect (on top of text)
+            (when (and cmd-rect-sys (>= (:num-instances cmd-rect-sys) 2))
+              (.setPipeline pass (:pipeline cmd-rect-sys))
+              (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
+              (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
+              (.draw pass 6 1 0 1)))
 
-          ;; Draw command panel TEXT (on top of background)
-          (when (< editor-lines total-lines)
-            (let [cmd-start-inst (nth line-offsets editor-lines)
-                  cmd-end-inst   (:num-instances text-sys)
-                  cmd-draw-count (- cmd-end-inst cmd-start-inst)]
-              (when (> cmd-draw-count 0)
-                ;; Need to set up text pipeline again after drawing rect
-                (.setPipeline pass (:pipeline text-sys))
-                (.setBindGroup pass 0 (:bind-group text-sys))
-                (.setVertexBuffer pass 0 (:instance-buffer text-sys))
-                (.draw pass 6 cmd-draw-count 0 cmd-start-inst))))
+          ;; Settings panel: draw on top of everything when visible
+          (when settings-visible
+            ;; Draw settings panel BACKGROUND + UI rects
+            (when (and settings-rect-sys (> (:num-instances settings-rect-sys) 0))
+              (.setPipeline pass (:pipeline settings-rect-sys))
+              (.setBindGroup pass 0 (:bind-group settings-rect-sys))
+              (.setVertexBuffer pass 0 (:instance-buffer settings-rect-sys))
+              (.draw pass 6 (:num-instances settings-rect-sys)))
 
-          ;; Draw command panel CARET rect (on top of text)
-          (when (and cmd-rect-sys (>= (:num-instances cmd-rect-sys) 2))
-            (.setPipeline pass (:pipeline cmd-rect-sys))
-            (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
-            (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
-            (.draw pass 6 1 0 1)))
+            ;; Draw settings panel TEXT (font names, labels, values)
+            ;; Settings text is appended after editor+cmd text in the instance buffer
+            ;; We draw all remaining instances after editor-line-count
+            (when (> total-lines editor-lines)
+              (let [settings-start-inst (if (and cmd-panel-visible (< editor-lines total-lines))
+                                          ;; After command panel text
+                                          (:num-instances text-sys)
+                                          ;; After editor text
+                                          (if (< editor-lines (count line-offsets))
+                                            (nth line-offsets editor-lines)
+                                            (:num-instances text-sys)))]
+                ;; Actually, settings text is the last "line" in line-offsets
+                ;; We need to draw from the settings start to end
+                (when (< settings-start-inst (:num-instances text-sys))
+                  (.setPipeline pass (:pipeline text-sys))
+                  (.setBindGroup pass 0 (:bind-group text-sys))
+                  (.setVertexBuffer pass 0 (:instance-buffer text-sys))
+                  (.draw pass 6 (- (:num-instances text-sys) settings-start-inst) 0 settings-start-inst)))))
 
-        ;; Settings panel: draw on top of everything when visible
-        (when settings-visible
-          ;; Draw settings panel BACKGROUND + UI rects
-          (when (and settings-rect-sys (> (:num-instances settings-rect-sys) 0))
-            (.setPipeline pass (:pipeline settings-rect-sys))
-            (.setBindGroup pass 0 (:bind-group settings-rect-sys))
-            (.setVertexBuffer pass 0 (:instance-buffer settings-rect-sys))
-            (.draw pass 6 (:num-instances settings-rect-sys)))
-
-          ;; Draw settings panel TEXT (font names, labels, values)
-          ;; Settings text is appended after editor+cmd text in the instance buffer
-          ;; We draw all remaining instances after editor-line-count
-          (when (> total-lines editor-lines)
-            (let [settings-start-inst (if (and cmd-panel-visible (< editor-lines total-lines))
-                                        ;; After command panel text
-                                        (:num-instances text-sys)
-                                        ;; After editor text
-                                        (if (< editor-lines (count line-offsets))
-                                          (nth line-offsets editor-lines)
-                                          (:num-instances text-sys)))]
-              ;; Actually, settings text is the last "line" in line-offsets
-              ;; We need to draw from the settings start to end
-              (when (< settings-start-inst (:num-instances text-sys))
-                (.setPipeline pass (:pipeline text-sys))
-                (.setBindGroup pass 0 (:bind-group text-sys))
-                (.setVertexBuffer pass 0 (:instance-buffer text-sys))
-                (.draw pass 6 (- (:num-instances text-sys) settings-start-inst) 0 settings-start-inst)))))
-
-        ;; Diagnostics overlay: draw when enabled and not covered by panels
-        (when (and diagnostics-visible (not cmd-panel-visible) (not settings-visible) diagnostics-line-index)
-          (when (< diagnostics-line-index (count line-offsets))
-            (let [start-inst (nth line-offsets diagnostics-line-index)
-                  next-line (inc diagnostics-line-index)
-                  end-inst (if (< next-line (count line-offsets))
-                             (nth line-offsets next-line)
-                             (:num-instances text-sys))
-                  draw-count (- end-inst start-inst)]
-              (when (> draw-count 0)
-                (.setPipeline pass (:pipeline text-sys))
-                (.setBindGroup pass 0 (:bind-group text-sys))
-                (.setVertexBuffer pass 0 (:instance-buffer text-sys))
-                (.draw pass 6 draw-count 0 start-inst)))))))
+          ;; Diagnostics overlay: draw when enabled and not covered by panels
+          (when (and diagnostics-visible (not cmd-panel-visible) (not settings-visible) diagnostics-line-index)
+            (when (< diagnostics-line-index (count line-offsets))
+              (let [start-inst (nth line-offsets diagnostics-line-index)
+                    next-line (inc diagnostics-line-index)
+                    end-inst (if (< next-line (count line-offsets))
+                               (nth line-offsets next-line)
+                               (:num-instances text-sys))
+                    draw-count (- end-inst start-inst)]
+                (when (> draw-count 0)
+                  (.setPipeline pass (:pipeline text-sys))
+                  (.setBindGroup pass 0 (:bind-group text-sys))
+                  (.setVertexBuffer pass 0 (:instance-buffer text-sys))
+                  (.draw pass 6 draw-count 0 start-inst)))))))
 
     (.end pass)
     (.submit (.-queue device) #js [(.finish encoder)])))

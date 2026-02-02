@@ -6,6 +6,7 @@
     [clojure.string :as str]
     [clojure.tools.logging :as log]
     [contrib.assert :refer [check]]
+    [app.file-viewer :as fv]
     [hyperfiddle.electric-ring-adapter3 :as electric-ring]
     [ring.adapter.jetty :as ring]
     [ring.middleware.content-type :refer [wrap-content-type]]
@@ -73,12 +74,43 @@ information."
   (-> (res/not-found "Not found")
     (res/content-type "text/plain")))
 
+(defn json-response [data]
+  (-> (res/response (pr-str data))
+      (res/content-type "application/edn")))
+
+(defn wrap-file-api
+  "Handle /api/* routes for file explorer sidebar.
+   Returns EDN responses consumable by ClojureScript client."
+  [next-handler]
+  (fn [{:keys [uri query-params] :as ring-req}]
+    (case uri
+      "/api/home-dirs"
+      (json-response (fv/list-home-dirs))
+
+      "/api/list-dir"
+      (let [path (get query-params "path")]
+        (if path
+          (json-response (fv/list-directory path))
+          (json-response {:error "Missing path parameter"})))
+
+      "/api/read-file"
+      (let [path (get query-params "path")
+            root (get query-params "root")]
+        (if (and path root)
+          (json-response (fv/read-file-content path root))
+          (json-response {:error "Missing path or root parameter"})))
+
+      ;; Not an API route — pass through
+      (next-handler ring-req))))
+
 (defn http-middleware [config]
   ;; these compose as functions, so are applied bottom up
   (-> not-found-handler
-    (wrap-index-page config) ; 3. otherwise fallback to default page file
-    (wrap-resource (:resources-path config)) ; 2. serve static file from classpath
-    (wrap-content-type))) ; 1. detect content (e.g. for index.html)
+    (wrap-index-page config) ; 5. otherwise fallback to default page file
+    (wrap-resource (:resources-path config)) ; 4. serve static file from classpath
+    (wrap-content-type) ; 3. detect content (e.g. for index.html)
+    (wrap-file-api) ; 2. intercept /api/* routes for file explorer
+    (wrap-params))) ; 1. parse query params for API routes
 
 
 (defn middleware [config entrypoint]

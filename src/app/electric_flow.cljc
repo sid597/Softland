@@ -415,6 +415,15 @@
        :rect (editor/update-rects device (:rect-sys pipelines) [])
        :pipelines pipelines})))
 
+;; ============================================================================
+;; SIDEBAR CONSTANTS (used by imperative DOM in loop.cljs)
+;; ============================================================================
+
+(def sidebar-bg "#1a1a2e")
+(def sidebar-border "#2a2a4a")
+(def sidebar-text "#c8c8d8")
+(def sidebar-width 250)
+
 (e/defn main [ring-request]
   (e/server
     (let [file-content source-code]
@@ -430,8 +439,10 @@
           (init-sci!)
 
           (let [resources (LoadWebGPU)
-                ;; Load font manifest asynchronously
-                font-manifest (e/Task (await-promise (load-font-manifest-async)))]
+                font-manifest (e/Task (await-promise (load-font-manifest-async)))
+                ;; Sidebar state atoms (plain CLJS, not watched by Electric)
+                !sidebar-visible (atom true)
+                !file-load-request (atom nil)]
             (when resources
               (let [device (get resources :device)
                     format (get resources :format)
@@ -440,10 +451,8 @@
 
                 (let [lines (str/split-lines file-content)
                       tokenized-lines (mapv tokenize-line lines)
-                      ;; Layout constants (must match loop.cljs)
                       gutter-w 40
-                      layout-x (+ 50 gutter-w)  ;; 90
-                      ;; Initial render - no folds yet
+                      layout-x (+ 50 gutter-w)
                       font-size 16
                       dpr (or (.-devicePixelRatio js/window) 1)
                       snap-step (/ 1 dpr)
@@ -452,19 +461,48 @@
                       line-h (snap (* font-size 1.2))
                       layout-result (layout-tokens tokenized-lines layout-x 100 font-size [] #{} char-advance line-h)
                       render-ops (:render-ops layout-result)
-
-                      ;; Compute line lengths (character count per line)
                       line-lengths (mapv count lines)]
 
                   (let [geometry (Prepare-Geometry device pipelines render-ops atlas)]
-                    (dom/canvas
-                      (dom/props {:id "webgpu-canvas"
-                                  :style {:width "100vw" :height "100vh" :display "block"}})
-                      (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
-                        (.configure ^js ctx (clj->js {:device device :format format :alphaMode "premultiplied"}))
-                        ;; Pass all functions to start-loop! with font manifest
-                        (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
-                                                  lines tokenize-line layout-tokens
-                                                  find-matching-bracket detect-fold-regions
-                                                  find-form-at-cursor sci-eval-form atlas
-                                                  :font-manifest font-manifest))))))))))))))
+
+                    ;; Outer flex container
+                    (dom/div
+                      (dom/props {:style {:display "flex"
+                                          :width "100vw"
+                                          :height "100vh"
+                                          :overflow "hidden"}})
+
+                      ;; === LEFT: Sidebar (always mounted, CSS-toggled) ===
+                      (dom/div
+                        (dom/props {:id "file-sidebar"
+                                    :style {:width (str sidebar-width "px")
+                                            :min-width (str sidebar-width "px")
+                                            :height "100vh"
+                                            :background sidebar-bg
+                                            :border-right (str "1px solid " sidebar-border)
+                                            :overflow-y "auto"
+                                            :overflow-x "hidden"
+                                            :font-family "Ubuntu Sans Mono, monospace"
+                                            :font-size "13px"
+                                            :color sidebar-text
+                                            :display "block"
+                                            :user-select "none"}})
+                        ;; Sidebar content rendered by JS after toggle
+                        (dom/text ""))
+
+                      ;; === RIGHT: Canvas (fills remaining space) ===
+                      (dom/canvas
+                        (dom/props {:id "webgpu-canvas"
+                                    :style {:flex "1"
+                                            :height "100vh"
+                                            :display "block"
+                                            :min-width "0"}})
+                        (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
+                          (.configure ^js ctx (clj->js {:device device :format format :alphaMode "premultiplied"}))
+                          (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
+                                                    lines tokenize-line layout-tokens
+                                                    find-matching-bracket detect-fold-regions
+                                                    find-form-at-cursor sci-eval-form atlas
+                                                    :font-manifest font-manifest
+                                                    :!sidebar-visible !sidebar-visible
+                                                    :!file-load-request !file-load-request)))))))))))))))

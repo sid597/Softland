@@ -10,6 +10,7 @@
    - Layer 6: GPU State Derived Flows
    - Layer 7: Terminal Render Consumer"
   (:require [clojure.string :as str]
+            [cljs.reader :as reader]
             [hyperfiddle.electric3 :as e]
             [hyperfiddle.electric-dom3 :as dom]
             [missionary.core :as m]
@@ -27,17 +28,25 @@
 ;; LAYER 2: EVENT FLOWS (Produce Values, Don't Store)
 ;; ============================================================================
 
-(defn >window-resize []
-  "Flow that emits viewport dimensions on resize"
+(defn >canvas-resize
+  "Flow that emits viewport dimensions when the canvas element resizes.
+   Uses ResizeObserver to detect size changes from flex layout, sidebar toggle, etc."
+  [canvas-node]
   (->> (m/observe
          (fn [!]
-           (let [handler (fn []
-                           (! {:width  js/window.innerWidth
-                               :height js/window.innerHeight
-                               :dpr    (or js/window.devicePixelRatio 1)}))]
-             (js/window.addEventListener "resize" handler)
-             (handler)  ;; Emit initial value
-             #(js/window.removeEventListener "resize" handler))))
+           (let [emit! (fn []
+                         (! {:width  (.-clientWidth canvas-node)
+                             :height (.-clientHeight canvas-node)
+                             :dpr    (or js/window.devicePixelRatio 1)}))]
+             (if (exists? js/ResizeObserver)
+               (let [obs (js/ResizeObserver. (fn [_entries] (emit!)))]
+                 (.observe obs canvas-node)
+                 (emit!)  ;; Emit initial value
+                 #(.disconnect obs))
+               ;; Fallback: window resize (won't catch sidebar toggle)
+               (do (js/window.addEventListener "resize" emit!)
+                   (emit!)
+                   #(js/window.removeEventListener "resize" emit!))))))
        (m/relieve (fn [_old new] new))))
 
 (defn >wheel [node]
@@ -121,6 +130,7 @@
       ;; Global shortcuts (not affected by focus)
       (and ctrl? (= key "k")) {:type :toggle-command-panel :global? true}
       (and ctrl? (= key "g")) {:type :toggle-settings-panel :global? true}
+      (and ctrl? (= key "b")) {:type :toggle-file-viewer :global? true}
       (and ctrl? (= key "s")) {:type :save :global? true}
 
       ;; Escape - context dependent but handled globally
@@ -200,64 +210,8 @@
 ;; LAYER 3: DERIVED FLOWS (Pure Transformations)
 ;; ============================================================================
 
-(defn <line-lengths
-  "Derived flow: line lengths from editor doc"
-  [!editor-doc]
-  (m/ap
-    (let [doc (m/?< (m/watch !editor-doc))]
-      (mapv count (:lines doc)))))
-
-(defn <fold-regions
-  "Derived flow: fold regions from lines"
-  [!editor-doc detect-folds-fn]
-  (m/ap
-    (let [doc (m/?< (m/watch !editor-doc))
-          lines (:lines doc)
-          lengths (mapv count lines)]
-      (or (detect-folds-fn lines lengths) []))))
-
-(defn <line-mapping
-  "Derived flow: visual→logical line mapping based on fold state"
-  [!editor-doc !folded-lines detect-folds-fn]
-  (m/ap
-    (let [doc (m/?< (m/watch !editor-doc))
-          regions (m/?< (<fold-regions !editor-doc detect-folds-fn))
-          folded (m/?< (m/watch !folded-lines))
-          lines (:lines doc)
-          num-lines (count lines)]
-      ;; Build mapping: visual line index -> logical line index
-      (loop [logical-idx 0
-             mapping []]
-        (if (>= logical-idx num-lines)
-          mapping
-          (let [;; Check if this line should be visible
-                visible? (not (some (fn [{:keys [start-line end-line]}]
-                                      (and (contains? folded start-line)
-                                           (> logical-idx start-line)
-                                           (<= logical-idx end-line)))
-                                    regions))]
-            (if visible?
-              (recur (inc logical-idx) (conj mapping logical-idx))
-              (recur (inc logical-idx) mapping))))))))
-
-(defn <tokenized-lines
-  "Derived flow: tokenized lines for syntax highlighting"
-  [!editor-doc tokenize-fn]
-  (m/ap
-    (let [doc (m/?< (m/watch !editor-doc))]
-      (mapv tokenize-fn (:lines doc)))))
-
-(defn <editor-render-ops
-  "Derived flow: render operations for editor text"
-  [!editor-doc !folded-lines tokenize-fn layout-fn detect-folds-fn layout-x layout-y font-size]
-  (m/ap
-    (let [doc (m/?< (m/watch !editor-doc))
-          folded (m/?< (m/watch !folded-lines))
-          lines (:lines doc)
-          tokenized (mapv tokenize-fn lines)
-          regions (or (detect-folds-fn lines (mapv count lines)) [])
-          layout-result (layout-fn tokenized layout-x layout-y font-size regions folded)]
-      layout-result)))
+;; NOTE: <line-lengths, <fold-regions, <line-mapping were removed (dead code using banned m/ap+m/?< pattern).
+;; Their functionality is now consolidated in <fold-state (line 633) which uses m/latest.
 
 ;; ============================================================================
 ;; LAYER 4: FOCUS-BASED EVENT ROUTING
@@ -435,33 +389,72 @@
              {}
              (vec line-mapping)))
 
-(defn compute-editor-rects
-  "Pure function: compute all editor rectangles from inputs.
-   REACTIVE: char advance now passed as parameter for font switching."
-  [doc folded eval-result caret-visible focus
-   detect-folds-fn find-bracket-fn
-   layout-x layout-y line-h gutter-w char-advance]
-  (let [lines (:lines doc)
-        cursor (:cursor doc)
-        selection (:selection doc)
+(defn build-line-mapping
+  "Build visual->logical mapping based on fold regions."
+  [lines regions folded]
+  (let [num-lines (count lines)]
+    (loop [logical-idx 0 mapping []]
+      (if (>= logical-idx num-lines)
+        mapping
+        (let [visible? (not (some (fn [{:keys [start-line end-line]}]
+                                    (and (contains? folded start-line)
+                                         (> logical-idx start-line)
+                                         (<= logical-idx end-line)))
+                                  regions))]
+          (if visible?
+            (recur (inc logical-idx) (conj mapping logical-idx))
+            (recur (inc logical-idx) mapping)))))))
 
+(defn compute-fold-state
+  "Compute fold regions + line mapping once per doc/fold change.
+   Safe for large files because this only runs on document changes (cached in <fold-state),
+   NOT on every blink tick."
+  [doc folded detect-folds-fn]
+  (let [lines (:lines doc)
         lengths (mapv count lines)
         regions (or (detect-folds-fn lines lengths) [])
+        line-mapping (build-line-mapping lines regions folded)
+        logical->visual (calculate-logical->visual line-mapping)]
+    {:lines lines
+     :lengths lengths
+     :regions regions
+     :folded folded
+     :line-mapping line-mapping
+     :logical->visual logical->visual}))
 
-        ;; Build line mapping
-        line-mapping (loop [logical-idx 0 mapping []]
-                       (if (>= logical-idx (count lines))
-                         mapping
-                         (let [visible? (not (some (fn [{:keys [start-line end-line]}]
-                                                     (and (contains? folded start-line)
-                                                          (> logical-idx start-line)
-                                                          (<= logical-idx end-line)))
-                                                   regions))]
-                           (if visible?
-                             (recur (inc logical-idx) (conj mapping logical-idx))
-                             (recur (inc logical-idx) mapping)))))
+(defn <fold-state
+  "Derived flow: fold regions + line mapping (cached between blinks)."
+  [!editor-doc !folded-lines detect-folds-fn]
+  (m/latest
+    (fn [doc folded]
+      (compute-fold-state doc folded detect-folds-fn))
+    (m/watch !editor-doc)
+    (m/watch !folded-lines)))
 
-        logical->visual (calculate-logical->visual line-mapping)
+(defn <bracket-match
+  "Derived flow: cached bracket matching (recomputes on doc change, NOT on blink).
+   Safe for all file sizes because this only runs on document changes."
+  [!editor-doc find-bracket-fn]
+  (m/latest
+    (fn [doc]
+      (let [lines (:lines doc)
+            cursor (:cursor doc)
+            selection (:selection doc)]
+        (when (and cursor (not selection))
+          (let [lengths (mapv count lines)]
+            (find-bracket-fn cursor lines lengths)))))
+    (m/watch !editor-doc)))
+
+(defn compute-editor-rects
+  "Pure function: compute all editor rectangles from PRE-COMPUTED fold state and bracket match.
+   No longer calls detect-folds-fn or find-bracket-fn directly — those are cached in separate flows."
+  [doc fold-state bracket-match eval-result caret-visible focus
+   layout-x layout-y line-h gutter-w char-advance]
+  (let [cursor (:cursor doc)
+        selection (:selection doc)
+
+        ;; Use pre-computed fold state (cached, only changes on doc/fold change)
+        {:keys [lengths regions folded line-mapping logical->visual]} fold-state
 
         ;; Helper to get visual y for logical line
         logical->visual-y (fn [logical-line]
@@ -486,9 +479,7 @@
                                :a 0.8})))
                         regions)
 
-        ;; Bracket match rects
-        bracket-match (when (and cursor (not selection))
-                        (find-bracket-fn cursor lines lengths))
+        ;; Bracket match rects (pre-computed, cached in <bracket-match flow)
         bracket-rects (when bracket-match
                         (keep (fn [{:keys [line col]}]
                                 (when-let [visual-y (logical->visual-y line)]
@@ -556,12 +547,14 @@
 (defn <editor-rects
   "Derived flow: all editor rectangles (selection, caret, brackets, folds, eval)
    Uses m/latest instead of m/ap to avoid cancellation propagation issues.
-   REACTIVE: font-size, line-h, char-advance come from !settings and !active-font."
-  [!editor-doc !folded-lines !eval-result !caret-visible !focus !settings !active-font !viewport
-   detect-folds-fn find-bracket-fn
+   REACTIVE: font-size, line-h, char-advance come from !settings and !active-font.
+   OPTIMIZED: fold-state and bracket-match are pre-computed in cached flows
+   that only recompute when the document changes — NOT on every blink tick."
+  [!editor-doc !eval-result !caret-visible !focus !settings !active-font !viewport
+   <fold-data <bracket-data
    layout-x layout-y gutter-w]
   (m/latest
-    (fn [doc folded eval-result caret-visible focus settings active-font viewport]
+    (fn [doc fold-state bracket-match eval-result caret-visible focus settings active-font viewport]
       (let [dpr (:dpr viewport)
             snap? (:snap-to-pixel? settings)
             font-size (:font-size settings)
@@ -569,11 +562,11 @@
             char-advance (maybe-snap (* font-size (:char-width active-font)) dpr snap?)
             layout-x (maybe-snap layout-x dpr snap?)
             layout-y (maybe-snap layout-y dpr snap?)]
-        (compute-editor-rects doc folded eval-result caret-visible focus
-                              detect-folds-fn find-bracket-fn
+        (compute-editor-rects doc fold-state bracket-match eval-result caret-visible focus
                               layout-x layout-y line-h gutter-w char-advance)))
     (m/watch !editor-doc)
-    (m/watch !folded-lines)
+    <fold-data
+    <bracket-data
     (m/watch !eval-result)
     (m/watch !caret-visible)
     (m/watch !focus)
@@ -905,58 +898,94 @@
   (m/latest
     (fn [doc panel scroll-y viewport folded settings active-font]
       (let [dpr (:dpr viewport)
-            snap? (:snap-to-pixel? settings)
-            ;; Reactive font settings
-            font-size (:font-size settings)
-            char-width (:char-width active-font)
-            char-advance (maybe-snap (* font-size char-width) dpr snap?)
-            line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
-            layout-x (maybe-snap layout-x dpr snap?)
-            layout-y (maybe-snap layout-y dpr snap?)
-            ;; Theme
-            theme-id (or (:theme-id settings) :gruvbox-dark)
+              snap? (:snap-to-pixel? settings)
+              ;; Reactive font settings
+              font-size (:font-size settings)
+              char-width (:char-width active-font)
+              char-advance (maybe-snap (* font-size char-width) dpr snap?)
+              line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
+              layout-x (maybe-snap layout-x dpr snap?)
+              layout-y (maybe-snap layout-y dpr snap?)
+              ;; Theme
+              theme-id (or (:theme-id settings) :gruvbox-dark)
 
-            ;; Editor render ops
-            lines (:lines doc)
-            tokenized (mapv tokenize-fn lines)
-            regions (or (detect-folds-fn lines (mapv count lines)) [])
-            layout-result (layout-fn tokenized layout-x layout-y font-size regions folded char-advance line-h theme-id)
-            editor-ops (:render-ops layout-result)
+              ;; Editor render ops with VIEWPORT-SCOPED processing
+              ;; For large files (>500 lines): only tokenize, detect folds, and layout
+              ;; the visible ~50 lines. Avoids 1.4s main-thread block.
+              ;; For small files: process everything (original behavior with fold support).
+              lines (:lines doc)
+              total-line-count (count lines)
+              large-file? (> total-line-count 500)
 
-            ;; Command panel ops (if visible)
-            cmd-ops (when (:visible panel)
-                      (let [cmd-panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h)) dpr snap?)
-                            cmd-text-y (maybe-snap (+ cmd-panel-y 12 font-size) dpr snap?)
-                            prompt-x (maybe-snap 40 dpr snap?)
-                            text-x (maybe-snap 60 dpr snap?)]
-                        [(when (seq (:text panel))
-                           [{:text (:text panel)
-                             :type :text
-                             :from 0 :to (count (:text panel))
-                             :x text-x :y cmd-text-y
+              ;; Visible line range (with buffer above/below)
+              visible-start (max 0 (- (int (/ scroll-y line-h)) 5))
+              visible-end (min total-line-count (+ (int (/ (+ scroll-y (:height viewport)) line-h)) 5))
+
+              ;; Tokenize only visible lines
+              visible-lines (subvec lines visible-start visible-end)
+              tokenized-visible (mapv tokenize-fn visible-lines)
+
+              ;; Fold detection + Layout: fast path for large files
+              [editor-ops final-line-mapping]
+              (if large-file?
+                ;; FAST PATH: skip fold detection entirely (full Lezer re-parse too expensive)
+                ;; Layout only visible lines with adjusted Y offset
+                (let [adjusted-y (+ layout-y (* visible-start line-h))
+                      result (layout-fn tokenized-visible layout-x adjusted-y font-size
+                                        [] #{} char-advance line-h theme-id)
+                      ;; Identity line-mapping: visual line N = logical line N (no folds)
+                      full-mapping (vec (range total-line-count))]
+                  [(:render-ops result) full-mapping])
+
+                ;; NORMAL PATH (<500 lines): full fold support
+                (let [regions (or (detect-folds-fn lines (mapv count lines)) [])
+                      ;; Build sparse tokenized vector for full layout
+                      tokenized-all (into []
+                                      (map-indexed
+                                        (fn [idx _]
+                                          (if (and (>= idx visible-start) (< idx visible-end))
+                                            (nth tokenized-visible (- idx visible-start))
+                                            [])))
+                                      lines)
+                      result (layout-fn tokenized-all layout-x layout-y font-size
+                                        regions folded char-advance line-h theme-id)]
+                  [(filterv seq (:render-ops result))
+                   (:line-mapping result)]))
+
+              ;; Command panel ops (if visible)
+              cmd-ops (when (:visible panel)
+                        (let [cmd-panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h)) dpr snap?)
+                              cmd-text-y (maybe-snap (+ cmd-panel-y 12 font-size) dpr snap?)
+                              prompt-x (maybe-snap 40 dpr snap?)
+                              text-x (maybe-snap 60 dpr snap?)]
+                          [(when (seq (:text panel))
+                             [{:text (:text panel)
+                               :type :text
+                               :from 0 :to (count (:text panel))
+                               :x text-x :y cmd-text-y
+                               :size font-size
+                               :r 0.9 :g 0.9 :b 0.9 :a 1.0}])
+                           [{:text "> "
+                             :type :macro
+                             :from 0 :to 2
+                             :x prompt-x :y cmd-text-y
                              :size font-size
-                             :r 0.9 :g 0.9 :b 0.9 :a 1.0}])
-                         [{:text "> "
-                           :type :macro
-                           :from 0 :to 2
-                           :x prompt-x :y cmd-text-y
-                           :size font-size
-                           :r 0.3 :g 0.6 :b 1.0 :a 1.0}]
-                         (when (empty? (:text panel))
-                           [{:text "Type a task..."
-                             :type :comment
-                             :from 0 :to 14
-                             :x text-x :y cmd-text-y
-                             :size font-size
-                             :r 0.5 :g 0.5 :b 0.5 :a 0.7}])]))
-            cmd-lines (if (:visible panel) (vec (filter some? cmd-ops)) [])]
+                             :r 0.3 :g 0.6 :b 1.0 :a 1.0}]
+                           (when (empty? (:text panel))
+                             [{:text "Type a task..."
+                               :type :comment
+                               :from 0 :to 14
+                               :x text-x :y cmd-text-y
+                               :size font-size
+                               :r 0.5 :g 0.5 :b 0.5 :a 0.7}])]))
+              cmd-lines (if (:visible panel) (vec (filter some? cmd-ops)) [])]
 
-        {:render-ops (if (:visible panel)
-                       (vec (concat editor-ops cmd-lines))
-                       editor-ops)
-         :line-mapping (:line-mapping layout-result)
-         :editor-line-count (count editor-ops)
-         :cmd-line-count (count cmd-lines)}))
+          {:render-ops (if (:visible panel)
+                         (vec (concat editor-ops cmd-lines))
+                         editor-ops)
+           :line-mapping final-line-mapping
+           :editor-line-count (count editor-ops)
+           :cmd-line-count (count cmd-lines)}))
     (m/watch !editor-doc)
     (m/watch !cmd-panel)
     (m/watch !scroll-y)
@@ -999,7 +1028,7 @@
    returns a Missionary task that runs the render loop."
   [node device ctx geometry initial-line-lengths initial-lines
    tokenize-fn layout-fn find-bracket-fn detect-folds-fn
-   find-form-fn eval-form-fn atlas & {:keys [font-manifest]}]
+   find-form-fn eval-form-fn atlas & {:keys [font-manifest !sidebar-visible !file-load-request]}]
 
   (let [;; Layout Configuration
         font-size 16
@@ -1024,8 +1053,8 @@
 
         !scroll-y (atom 0)
 
-        !viewport (atom {:width  (.-innerWidth js/window)
-                         :height (.-innerHeight js/window)
+        !viewport (atom {:width  (.-clientWidth node)
+                         :height (.-clientHeight node)
                          :dpr    (or (.-devicePixelRatio js/window) 1)})
 
         !folded-lines (atom #{})
@@ -1141,13 +1170,180 @@
                                   (js/console.error "[FONT] Failed to load:" err)))))))))
 
         ;; =====================================================================
+        ;; SIDEBAR STATE & DOM RENDERING (imperative, avoids Electric DAG)
+        ;; =====================================================================
+        !selected-project (atom nil)    ;; {:name :path} or nil
+        !expanded-dirs (atom #{})       ;; set of expanded dir paths
+        !dir-cache (atom {})            ;; {path -> [entries]}
+        !home-dirs (atom nil)           ;; cached home dirs list
+
+        sidebar-el (js/document.getElementById "file-sidebar")
+
+        ;; --- Fetch helpers (call server HTTP API, parse EDN response) ---
+
+        fetch-edn!
+        (fn [url callback]
+          (-> (js/fetch url)
+              (.then (fn [resp] (.text resp)))
+              (.then (fn [text] (callback (reader/read-string text))))
+              (.catch (fn [err] (js/console.error "[SIDEBAR] Fetch error:" err)))))
+
+        fetch-home-dirs!
+        (fn [render-fn]
+          (if @!home-dirs
+            (render-fn)
+            (fetch-edn! "/api/home-dirs"
+                        (fn [dirs]
+                          (reset! !home-dirs dirs)
+                          (render-fn)))))
+
+        fetch-dir!
+        (fn [path render-fn]
+          (if (contains? @!dir-cache path)
+            (render-fn)
+            (fetch-edn! (str "/api/list-dir?path=" (js/encodeURIComponent path))
+                        (fn [entries]
+                          (swap! !dir-cache assoc path entries)
+                          (render-fn)))))
+
+        fetch-file!
+        (fn [path root-path]
+          (fetch-edn! (str "/api/read-file?path=" (js/encodeURIComponent path)
+                           "&root=" (js/encodeURIComponent root-path))
+                      (fn [result]
+                        (if (:error result)
+                          (js/console.error "[SIDEBAR] File read error:" (:error result))
+                          (let [lines (str/split-lines (:content result))]
+                            (reset! !file-load-request {:lines lines}))))))
+
+        render-sidebar!
+        (fn render-sidebar! []
+          (when sidebar-el
+            (let [visible? (and !sidebar-visible @!sidebar-visible)
+                  project @!selected-project
+                  expanded @!expanded-dirs
+                  cache @!dir-cache]
+              ;; Toggle visibility
+              (set! (.. sidebar-el -style -display) (if visible? "block" "none"))
+              (when visible?
+                ;; Clear content
+                (set! (.-innerHTML sidebar-el) "")
+                (if (nil? project)
+                  ;; PROJECT PICKER — fetch home dirs then render
+                  (do
+                    ;; Header
+                    (let [header (js/document.createElement "div")]
+                      (set! (.-textContent header) "EXPLORER")
+                      (set! (.-cssText (.-style header))
+                            "padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#7878a0;border-bottom:1px solid #2a2a4a;")
+                      (.appendChild sidebar-el header))
+                    ;; Render dirs (or loading)
+                    (if-let [dirs @!home-dirs]
+                      (doseq [d dirs]
+                        (let [el (js/document.createElement "div")]
+                          (set! (.-textContent el) (str "📁 " (:name d)))
+                          (set! (.-cssText (.-style el))
+                                "padding:6px 12px;cursor:pointer;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;")
+                          (set! (.-onmouseenter el) #(set! (.. el -style -background) "#252547"))
+                          (set! (.-onmouseleave el) #(set! (.. el -style -background) "transparent"))
+                          (set! (.-onclick el)
+                                (fn [_]
+                                  (reset! !selected-project {:name (:name d) :path (:path d)})
+                                  (reset! !expanded-dirs #{})
+                                  (reset! !dir-cache {})
+                                  ;; Fetch root dir contents, then re-render
+                                  (fetch-dir! (:path d) render-sidebar!)))
+                          (.appendChild sidebar-el el)))
+                      ;; Show loading while fetching
+                      (let [loading (js/document.createElement "div")]
+                        (set! (.-textContent loading) "Loading...")
+                        (set! (.-cssText (.-style loading))
+                              "padding:10px 12px;color:#7878a0;font-style:italic;font-size:12px;")
+                        (.appendChild sidebar-el loading)
+                        ;; Trigger fetch
+                        (fetch-home-dirs! render-sidebar!))))
+
+                  ;; FILE TREE VIEW
+                  (let [;; Back button
+                        back-btn (js/document.createElement "div")
+                        _ (do (set! (.-textContent back-btn) (str "← " (:name project)))
+                              (set! (.-cssText (.-style back-btn))
+                                    "padding:8px 12px;cursor:pointer;font-size:12px;color:#7878a0;border-bottom:1px solid #2a2a4a;")
+                              (set! (.-onmouseenter back-btn) #(set! (.. back-btn -style -background) "#252547"))
+                              (set! (.-onmouseleave back-btn) #(set! (.. back-btn -style -background) "transparent"))
+                              (set! (.-onclick back-btn)
+                                    (fn [_]
+                                      (reset! !selected-project nil)
+                                      (reset! !expanded-dirs #{})
+                                      (reset! !dir-cache {})
+                                      (render-sidebar!)))
+                              (.appendChild sidebar-el back-btn))
+                        ;; Render tree entries recursively
+                        render-entries
+                        (fn render-entries [entries depth]
+                          (doseq [entry entries]
+                            (let [el (js/document.createElement "div")
+                                  is-dir? (= (:type entry) :dir)
+                                  is-exp? (contains? expanded (:path entry))
+                                  pad-left (+ 12 (* depth 16))]
+                              (set! (.-textContent el)
+                                    (if is-dir?
+                                      (str (if is-exp? "▾ " "▸ ") (:name entry) "/")
+                                      (str "  " (:name entry))))
+                              (set! (.-cssText (.-style el))
+                                    (str "padding:4px 12px;padding-left:" pad-left "px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;"))
+                              (set! (.-onmouseenter el) #(set! (.. el -style -background) "#252547"))
+                              (set! (.-onmouseleave el) #(set! (.. el -style -background) "transparent"))
+                              (set! (.-onclick el)
+                                    (fn [_]
+                                      (if is-dir?
+                                        (do (swap! !expanded-dirs
+                                                   (fn [dirs]
+                                                     (if (contains? dirs (:path entry))
+                                                       (disj dirs (:path entry))
+                                                       (conj dirs (:path entry)))))
+                                            ;; Fetch children if not cached, then re-render
+                                            (fetch-dir! (:path entry) render-sidebar!))
+                                        ;; File click — fetch content from server
+                                        (fetch-file! (:path entry) (:path project)))))
+                              (.appendChild sidebar-el el)
+                              ;; Render children if expanded and cached
+                              (when (and is-dir? is-exp?)
+                                (if-let [children (get cache (:path entry))]
+                                  (render-entries children (inc depth))
+                                  ;; Not cached yet — show loading placeholder
+                                  (let [loading (js/document.createElement "div")]
+                                    (set! (.-textContent loading) "  loading...")
+                                    (set! (.-cssText (.-style loading))
+                                          (str "padding:4px 12px;padding-left:" (+ pad-left 16) "px;color:#7878a0;font-size:12px;font-style:italic;"))
+                                    (.appendChild sidebar-el loading)))))))
+                        root-entries (get cache (:path project) [])]
+                    (render-entries root-entries 0)))))))
+
+        ;; Watch sidebar-related atoms to re-render
+        _ (when !sidebar-visible
+            (add-watch !sidebar-visible :sidebar-render
+                       (fn [_ _ old-vis new-vis]
+                         (render-sidebar!)
+                         ;; When becoming visible with no project, fetch home dirs
+                         (when (and new-vis (not old-vis) (nil? @!selected-project))
+                           (fetch-home-dirs! render-sidebar!)))))
+        _ (add-watch !selected-project :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
+        _ (add-watch !expanded-dirs :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
+        _ (add-watch !dir-cache :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
+
+        ;; Initial sidebar render (watches only fire on change, not initial state)
+        _ (when (and !sidebar-visible @!sidebar-visible)
+            (fetch-home-dirs! render-sidebar!))
+
+        ;; =====================================================================
         ;; LAYER 2: EVENT FLOWS
         ;; =====================================================================
         ;; IMPORTANT: These must be fresh flows, not shared top-level defs!
 
         >raf (make-raf-flow)              ;; Fresh RAF flow for this instance
         >blink-timer (make-blink-timer)   ;; Fresh blink timer for this instance
-        >resize (>window-resize)
+        >resize (>canvas-resize node)
         >wheel-events (>wheel node)
         >mouse-events (->> (>mouse node) (m/relieve (fn [_ x] x)))
         >keyboard-events (>keyboard js/window)
@@ -1416,8 +1612,15 @@
                      (do (swap! !cmd-panel assoc :visible false)
                          (reset! !focus :editor))
 
+                     (and !sidebar-visible @!sidebar-visible)
+                     (reset! !sidebar-visible false)
+
                      :else
                      (swap! !editor-doc assoc :selection nil))
+
+                   :toggle-file-viewer
+                   (when !sidebar-visible
+                     (swap! !sidebar-visible not))
 
                    :save
                    (let [content (str/join "\n" (:lines @!editor-doc))
@@ -1433,6 +1636,36 @@
                    nil))
                nil)
              nil))
+
+      ;; =====================================================================
+      ;; FILE LOAD CONSUMER
+      ;; =====================================================================
+      ;; Watches !file-load-request atom. When set to a map with :lines,
+      ;; resets the editor state to show the new file content.
+      (if !file-load-request
+        (->> (m/watch !file-load-request)
+             (m/eduction (filter some?))
+             (m/reduce
+               (fn [_ request]
+                 (let [{:keys [lines]} request]
+                   (when (seq lines)
+                     (js/console.log "[FILE-LOAD] Loading file with" (count lines) "lines")
+                     (reset! !editor-doc {:lines (vec lines)
+                                          :cursor {:line 0 :col 0}
+                                          :selection nil
+                                          :desired-col 0})
+                     (reset! !scroll-y 0)
+                     (reset! !undo-stack [])
+                     (reset! !redo-stack [])
+                     (reset! !folded-lines #{})
+                     (reset! !caret-visible true)
+                     (reset! !focus :editor)
+                     ;; Clear the request so same file can be re-opened
+                     (reset! !file-load-request nil)))
+                 nil)
+               nil))
+        ;; No-op task when !file-load-request not provided
+        (m/reduce (fn [_ _] nil) nil (m/seed [nil])))
 
       ;; =====================================================================
       ;; EDITOR KEYBOARD EVENTS CONSUMER
@@ -1676,12 +1909,17 @@
       ;; 3. Frame-synchronized updates - GPU state changes aligned with vsync
       ;;
       (let [;; Derived flows (pure computation, no GPU side effects)
+            ;; CACHED: fold state only recomputes when doc/folds change (not on blink)
+            <fold-data (<fold-state !editor-doc !folded-lines detect-folds-fn)
+            ;; CACHED: bracket match only recomputes when doc changes (not on blink)
+            <bracket-data (<bracket-match !editor-doc find-bracket-fn)
+
             <text-data (<combined-text-ops !editor-doc !cmd-panel !scroll-y !viewport !folded-lines !settings !active-font
                                            tokenize-fn layout-fn detect-folds-fn
                                            layout-x layout-y cmd-panel-h)
-            <editor-rect-data (<editor-rects !editor-doc !folded-lines !eval-result !caret-visible !focus
+            <editor-rect-data (<editor-rects !editor-doc !eval-result !caret-visible !focus
                                              !settings !active-font !viewport
-                                             detect-folds-fn find-bracket-fn
+                                             <fold-data <bracket-data
                                              layout-x layout-y gutter-w)
             <cmd-rect-data (<cmd-panel-rects !cmd-panel !focus !caret-visible !scroll-y !viewport
                                              !settings !active-font cmd-panel-h)
@@ -1724,154 +1962,182 @@
                               (m/watch !active-font))]
 
         ;; The render pulse: sample world state on each animation frame
+        ;; OPTIMIZATION: Use identical? on flow objects (cheap pointer compare)
+        ;; instead of = on reconstructed data (expensive deep structural compare).
+        ;; Skip draw-frame! entirely when nothing changed.
         (m/reduce
           (fn [prev-state [world _frame-time]]
-            ;; Only upload to GPU if data actually changed (via structural comparison)
-            (let [{:keys [text-data editor-rects cmd-rects settings-rects settings-text
-                          viewport scroll-y cmd-visible settings-visible
-                          font-size px-range line-height sharpness char-width
-                          snap-to-pixel? show-diagnostics?]} world
+              ;; --- Fast dirty check using identical? on flow objects ---
+              ;; m/latest caches its result, so when no input changed,
+              ;; m/sample returns the exact same object. Quick pointer compare:
+              (if (identical? world (:prev-world prev-state))
+                ;; FAST PATH: nothing changed, skip everything (no draw-frame!)
+                prev-state
 
-                  dpr (:dpr viewport)
-                  snap? (not (false? snap-to-pixel?))
-                  line-h (maybe-snap (* font-size line-height) dpr snap?)
-                  snap-step (when snap? (/ 1 (or dpr 1)))
+                ;; SLOW PATH: something changed, figure out what
+                (let [{:keys [text-data editor-rects cmd-rects settings-rects settings-text
+                              viewport scroll-y cmd-visible settings-visible
+                              font-size px-range line-height sharpness char-width
+                              snap-to-pixel? show-diagnostics?]} world
 
-                  ;; Get current font assets from atom (updated by watch)
-                  font-assets @!font-assets
+                      dpr (:dpr viewport)
+                      snap? (not (false? snap-to-pixel?))
+                      line-h (maybe-snap (* font-size line-height) dpr snap?)
+                      snap-step (when snap? (/ 1 (or dpr 1)))
 
-                  ;; Check if font changed
-                  prev-font-id (:prev-font-id prev-state)
-                  font-changed? (not= (:id font-assets) prev-font-id)
+                      ;; Get current font assets from atom (updated by watch)
+                      font-assets @!font-assets
 
-                  ;; Current renderer state
-                  current-text-geo (:text-geo prev-state)
+                      ;; Check if font changed
+                      prev-font-id (:prev-font-id prev-state)
+                      font-changed? (not= (:id font-assets) prev-font-id)
 
-                  ;; Update font texture if needed (when we have a new bitmap)
-                  updated-text-geo (if (and font-changed? (:bitmap font-assets))
-                                     (do
-                                       (js/console.log "[RENDER] Updating font texture for:" (:id font-assets))
-                                       (editor/update-font-texture device current-text-geo (:bitmap font-assets)))
-                                     current-text-geo)
+                      ;; Current renderer state
+                      current-text-geo (:text-geo prev-state)
 
-                  ;; Determine atlas to use for shaping
-                  active-atlas (or (:atlas font-assets) atlas)
+                      ;; Update font texture if needed (when we have a new bitmap)
+                      updated-text-geo (if (and font-changed? (:bitmap font-assets))
+                                         (do
+                                           (js/console.log "[RENDER] Updating font texture for:" (:id font-assets))
+                                           (editor/update-font-texture device current-text-geo (:bitmap font-assets)))
+                                         current-text-geo)
 
-                  ;; Upload text geometry (only if changed)
-                  ;; Include settings panel text when visible
-                  settings-lines (when settings-visible (when settings-text [settings-text]))
-                  diagnostics-line (when show-diagnostics?
-                                     (let [diag-x (maybe-snap 16 dpr snap?)
-                                           diag-y (maybe-snap (+ scroll-y 20) dpr snap?)
-                                           diag-size (max 10 (- font-size 2))
-                                           atlas-size (get-in active-atlas [:atlas :size])
-                                           font-name (:name @!active-font)
-                                           diag-text (str "font: " (or font-name (:id font-assets)) "\n"
-                                                          "dpr: " dpr "  snap: " (if snap? "on" "off") "\n"
-                                                          "pxRange: " px-range "  sharp: " sharpness "\n"
-                                                          "atlas: " atlas-size "  charW: " char-width)]
-                                       [{:text diag-text
-                                         :type :comment
-                                         :from 0 :to (count diag-text)
-                                         :x diag-x
-                                         :y diag-y
-                                         :size diag-size
-                                         :r 0.7 :g 0.7 :b 0.7 :a 1.0}]))
-                  all-text-ops (vec (concat (:render-ops text-data)
-                                            settings-lines
-                                            diagnostics-line))
-                  editor-line-count (:editor-line-count text-data)
-                  cmd-line-count (:cmd-line-count text-data)
-                  settings-line-count (count (or settings-lines []))
-                  diagnostics-line-index (when diagnostics-line
-                                           (+ editor-line-count cmd-line-count settings-line-count))
+                      ;; Determine atlas to use for shaping
+                      active-atlas (or (:atlas font-assets) atlas)
 
-                  ;; Use reactive font settings from world snapshot
-                  new-text-geo (if (and (= all-text-ops (:prev-text-ops prev-state))
-                                        (= font-size (:prev-font-size prev-state))
-                                        (= px-range (:prev-px-range prev-state))
-                                        (= line-h (:prev-line-height prev-state))
-                                        (= sharpness (:prev-sharpness prev-state))
-                                        (= char-width (:prev-char-width prev-state))
-                                        (= snap-step (:prev-snap-step prev-state))
-                                        (not font-changed?))
-                                 updated-text-geo
-                                 (let [geo (editor/update-text-data device updated-text-geo
-                                                                    all-text-ops active-atlas font-size
-                                                                    :px-range px-range
-                                                                    :line-height line-h
-                                                                    :char-width char-width
-                                                                    :snap-step snap-step
-                                                                    :sharpness sharpness)]
-                                   (assoc geo
+                      ;; Upload text geometry (only if changed)
+                      ;; Use identical? on the flow object (cheap) instead of = on vec (expensive)
+                      settings-lines (when settings-visible (when settings-text [settings-text]))
+                      diagnostics-line (when show-diagnostics?
+                                         (let [diag-x (maybe-snap 16 dpr snap?)
+                                               diag-y (maybe-snap (+ scroll-y 20) dpr snap?)
+                                               diag-size (max 10 (- font-size 2))
+                                               atlas-size (get-in active-atlas [:atlas :size])
+                                               font-name (:name @!active-font)
+                                               diag-text (str "font: " (or font-name (:id font-assets)) "\n"
+                                                              "dpr: " dpr "  snap: " (if snap? "on" "off") "\n"
+                                                              "pxRange: " px-range "  sharp: " sharpness "\n"
+                                                              "atlas: " atlas-size "  charW: " char-width)]
+                                           [{:text diag-text
+                                             :type :comment
+                                             :from 0 :to (count diag-text)
+                                             :x diag-x
+                                             :y diag-y
+                                             :size diag-size
+                                             :r 0.7 :g 0.7 :b 0.7 :a 1.0}]))
+
+                      ;; Check text inputs by identity (flow objects are cached by m/latest)
+                      text-same? (and (identical? text-data (:prev-text-data prev-state))
+                                      (identical? settings-text (:prev-settings-text prev-state))
+                                      (= show-diagnostics? (:prev-show-diagnostics prev-state))
+                                      (= scroll-y (:prev-scroll-y prev-state))  ;; diagnostics HUD uses scroll-y
+                                      (= font-size (:prev-font-size prev-state))
+                                      (= px-range (:prev-px-range prev-state))
+                                      (= line-h (:prev-line-height prev-state))
+                                      (= sharpness (:prev-sharpness prev-state))
+                                      (= char-width (:prev-char-width prev-state))
+                                      (= snap-step (:prev-snap-step prev-state))
+                                      (not font-changed?))
+
+                      all-text-ops (if text-same?
+                                     (:prev-text-ops prev-state)
+                                     (vec (concat (:render-ops text-data)
+                                                  settings-lines
+                                                  diagnostics-line)))
+                      editor-line-count (:editor-line-count text-data)
+                      cmd-line-count (:cmd-line-count text-data)
+                      settings-line-count (count (or settings-lines []))
+                      diagnostics-line-index (when diagnostics-line
+                                               (+ editor-line-count cmd-line-count settings-line-count))
+
+                      base-text-geo (if (not text-same?)
+                                      (editor/update-text-data device updated-text-geo
+                                                               all-text-ops active-atlas font-size
+                                                               :px-range px-range
+                                                               :line-height line-h
+                                                               :char-width char-width
+                                                               :snap-step snap-step
+                                                               :sharpness sharpness)
+                                      updated-text-geo)
+                      new-text-geo (assoc base-text-geo
                                           :line-mapping (:line-mapping text-data)
                                           :editor-line-count editor-line-count
                                           :cmd-line-count cmd-line-count
-                                          :diagnostics-line-index diagnostics-line-index)))
+                                          :diagnostics-line-index diagnostics-line-index)
 
-                  ;; Upload editor rects (only if changed)
-                  new-editor-sys (if (= editor-rects (:prev-editor-rects prev-state))
-                                   (:editor-rect-sys prev-state)
-                                   (editor/update-rects device
-                                                        (or (:editor-rect-sys prev-state) (:rect geometry))
-                                                        editor-rects))
+                      ;; Upload editor rects (only if changed — use identical? for flow objects)
+                      new-editor-sys (if (not (identical? editor-rects (:prev-editor-rects prev-state)))
+                                       (editor/update-rects device
+                                                            (or (:editor-rect-sys prev-state) (:rect geometry))
+                                                            editor-rects)
+                                       (:editor-rect-sys prev-state))
 
-                  ;; Upload cmd panel rects (only if changed)
-                  new-cmd-sys (if (= cmd-rects (:prev-cmd-rects prev-state))
-                                (:cmd-rect-sys prev-state)
-                                (editor/update-rects device
-                                                     (or (:cmd-rect-sys prev-state) @!cmd-rect-sys)
-                                                     (or cmd-rects [])))
+                      ;; Upload cmd panel rects (only if changed)
+                      new-cmd-sys (if (not (identical? cmd-rects (:prev-cmd-rects prev-state)))
+                                    (editor/update-rects device
+                                                         (or (:cmd-rect-sys prev-state) @!cmd-rect-sys)
+                                                         (or cmd-rects []))
+                                    (:cmd-rect-sys prev-state))
 
-                  ;; Upload settings panel rects (only if changed)
-                  new-settings-sys (if (= settings-rects (:prev-settings-rects prev-state))
-                                     (:settings-rect-sys prev-state)
-                                     (editor/update-rects device
-                                                          (or (:settings-rect-sys prev-state) @!settings-rect-sys)
-                                                          (or settings-rects [])))]
+                      ;; Upload settings panel rects (only if changed)
+                      new-settings-sys (if (not (identical? settings-rects (:prev-settings-rects prev-state)))
+                                         (editor/update-rects device
+                                                              (or (:settings-rect-sys prev-state) @!settings-rect-sys)
+                                                              (or settings-rects []))
+                                         (:settings-rect-sys prev-state))]
 
-              ;; Store line-mapping for mouse hit testing
-              (reset! !text-geo new-text-geo)
+                  ;; Store line-mapping for mouse hit testing
+                  (reset! !text-geo new-text-geo)
 
-              ;; Draw the frame
-              (editor/draw-frame! device ctx
-                                  new-text-geo
-                                  new-editor-sys
-                                  new-cmd-sys
-                                  (:camera-floats (:pipelines geometry))
-                                  (:pass-descriptor (:pipelines geometry))
-                                  0 (- scroll-y)
-                                  (:width viewport) (:height viewport)
-                                  :cmd-panel-visible cmd-visible
-                                  :cmd-panel-h cmd-panel-h
-                                  :editor-line-count (:editor-line-count text-data)
-                                  :settings-visible settings-visible
-                                  :settings-rect-sys new-settings-sys
-                                  :diagnostics-visible show-diagnostics?
-                                  :diagnostics-line-index diagnostics-line-index)
+                  ;; Draw the frame
+                  (editor/draw-frame! device ctx
+                                      new-text-geo
+                                      new-editor-sys
+                                      new-cmd-sys
+                                      (:camera-floats (:pipelines geometry))
+                                      (:pass-descriptor (:pipelines geometry))
+                                      0 (- scroll-y)
+                                      (:width viewport) (:height viewport)
+                                      :cmd-panel-visible cmd-visible
+                                      :cmd-panel-h cmd-panel-h
+                                      :editor-line-count (:editor-line-count text-data)
+                                      :settings-visible settings-visible
+                                      :settings-rect-sys new-settings-sys
+                                      :diagnostics-visible show-diagnostics?
+                                      :diagnostics-line-index diagnostics-line-index)
 
-              ;; Return state for next frame comparison
-              {:text-geo new-text-geo
-               :editor-rect-sys new-editor-sys
-               :cmd-rect-sys new-cmd-sys
-               :settings-rect-sys new-settings-sys
-               :prev-text-ops all-text-ops
-               :prev-editor-rects editor-rects
-               :prev-cmd-rects cmd-rects
-               :prev-settings-rects settings-rects
-               :prev-font-size font-size
-               :prev-px-range px-range
-               :prev-line-height line-h
-               :prev-sharpness sharpness
-               :prev-char-width char-width
-               :prev-snap-step snap-step
-               :prev-font-id (:id font-assets)}))
+                  ;; Return state for next frame comparison
+                  {:text-geo new-text-geo
+                       :editor-rect-sys new-editor-sys
+                       :cmd-rect-sys new-cmd-sys
+                       :settings-rect-sys new-settings-sys
+                       :prev-world world
+                       :prev-text-data text-data
+                       :prev-settings-text settings-text
+                       :prev-show-diagnostics show-diagnostics?
+                       :prev-scroll-y scroll-y
+                       :prev-text-ops all-text-ops
+                       :prev-editor-rects editor-rects
+                       :prev-cmd-rects cmd-rects
+                       :prev-settings-rects settings-rects
+                       :prev-font-size font-size
+                       :prev-px-range px-range
+                       :prev-line-height line-h
+                       :prev-sharpness sharpness
+                       :prev-char-width char-width
+                       :prev-snap-step snap-step
+                       :prev-font-id (:id font-assets)})))
 
           ;; Initial state
           {:text-geo (:text geometry)
            :editor-rect-sys (:rect geometry)
            :cmd-rect-sys @!cmd-rect-sys
            :settings-rect-sys @!settings-rect-sys
+           :prev-world nil
+           :prev-text-data nil
+           :prev-settings-text nil
+           :prev-show-diagnostics nil
+           :prev-scroll-y nil
            :prev-text-ops nil
            :prev-editor-rects nil
            :prev-cmd-rects nil
