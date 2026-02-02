@@ -10,9 +10,16 @@
                        ["@nextjournal/lezer-clojure" :as clj-parser]
                        [sci.core :as sci]])))
 
-(def source-code 
-  #?(:clj (slurp "src/app/electric_flow.cljc") 
-     :cljs nil)) 
+(def source-code
+  #?(:clj (slurp "src/app/electric_flow.cljc")
+     :cljs nil))
+
+(def initial-file-info
+  #?(:clj (let [project-dir (System/getProperty "user.dir")
+                rel-path "src/app/electric_flow.cljc"]
+            {:path (str project-dir "/" rel-path)
+             :project project-dir})
+     :cljs nil))
 
 #?(:clj (defn init-lezer-parser! [] nil))
 #?(:clj (defn find-matching-bracket [_ _ _] nil))
@@ -364,16 +371,16 @@
                              :metrics "ubuntu_sans_mono_atlas.json"
                              :charWidth 0.56
                              :default true
-                             :defaults {:fontSize 16
+                             :defaults {:fontSize 19
                                         :lineHeight 1.2
                                         :pxRange 8
-                                        :sharpness -0.10
+                                        :sharpness 0.0
                                         :snapToPixel true
                                         :showDiagnostics false}}]
-                    :settings {:fontSize {:default 16}
+                    :settings {:fontSize {:default 19}
                                :lineHeight {:default 1.2}
                                :pxRange {:default 8}
-                               :sharpness {:default -0.10}
+                               :sharpness {:default 0.0}
                                :snapToPixel {:default true}
                                :showDiagnostics {:default false}}})))))
 
@@ -402,8 +409,8 @@
 
 (e/defn Prepare-Geometry [device pipelines render-ops atlas]
   (e/client
-    (let [font-size 16
-          char-width 0.56
+    (let [font-size 19
+          char-width 0.60
           dpr (or (.-devicePixelRatio js/window) 1)
           snap-step (/ 1 dpr)
           snap (fn [v] (* (Math/round (/ v snap-step)) snap-step))
@@ -426,7 +433,8 @@
 
 (e/defn main [ring-request]
   (e/server
-    (let [file-content source-code]
+    (let [file-content source-code
+          file-info initial-file-info]
 
       (e/client
         (binding [dom/node js/document.body]
@@ -453,11 +461,11 @@
                       tokenized-lines (mapv tokenize-line lines)
                       gutter-w 40
                       layout-x (+ 50 gutter-w)
-                      font-size 16
+                      font-size 19
                       dpr (or (.-devicePixelRatio js/window) 1)
                       snap-step (/ 1 dpr)
                       snap (fn [v] (* (Math/round (/ v snap-step)) snap-step))
-                      char-advance (snap (* font-size 0.56))
+                      char-advance (snap (* font-size 0.60))
                       line-h (snap (* font-size 1.2))
                       layout-result (layout-tokens tokenized-lines layout-x 100 font-size [] #{} char-advance line-h)
                       render-ops (:render-ops layout-result)
@@ -505,4 +513,5 @@
                                                     find-form-at-cursor sci-eval-form atlas
                                                     :font-manifest font-manifest
                                                     :!sidebar-visible !sidebar-visible
-                                                    :!file-load-request !file-load-request)))))))))))))))
+                                                    :!file-load-request !file-load-request
+                                                    :initial-file file-info)))))))))))))))

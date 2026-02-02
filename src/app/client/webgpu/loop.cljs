@@ -89,10 +89,10 @@
 (defn manifest-defaults->settings [manifest-settings]
   (let [get-default (fn [k fallback]
                       (or (get-in manifest-settings [k :default]) fallback))]
-    {:font-size (get-default :fontSize 16)
+    {:font-size (get-default :fontSize 19)
      :line-height (get-default :lineHeight 1.2)
      :px-range (get-default :pxRange 8)
-     :sharpness (get-default :sharpness -0.10)
+     :sharpness (get-default :sharpness 0.0)
      :snap-to-pixel? (get-default :snapToPixel true)
      :show-diagnostics? (get-default :showDiagnostics false)
      :theme-id (get-default :theme :gruvbox-dark)}))
@@ -659,7 +659,7 @@
 
           ;; Font List
           fonts (or (:fonts font-manifest)
-                    [{:name "Ubuntu Sans Mono" :id "ubuntu-sans-mono"}])
+                    [{:name "DejaVu Sans Mono" :id "dejavu-sans-mono"}])
           available-fonts (filter #(not (false? (:available %))) fonts)
           font-item-h 32
           
@@ -783,7 +783,7 @@
 
           ;; Font List
           fonts (or (:fonts font-manifest)
-                    [{:name "Ubuntu Sans Mono" :id "ubuntu-sans-mono"}])
+                    [{:name "DejaVu Sans Mono" :id "dejavu-sans-mono"}])
           available-fonts (filter #(not (false? (:available %))) fonts)
           font-item-h 32
           
@@ -1028,10 +1028,10 @@
    returns a Missionary task that runs the render loop."
   [node device ctx geometry initial-line-lengths initial-lines
    tokenize-fn layout-fn find-bracket-fn detect-folds-fn
-   find-form-fn eval-form-fn atlas & {:keys [font-manifest !sidebar-visible !file-load-request]}]
+   find-form-fn eval-form-fn atlas & {:keys [font-manifest !sidebar-visible !file-load-request initial-file]}]
 
   (let [;; Layout Configuration
-        font-size 16
+        font-size 19
         gutter-w  40
         layout-x  (+ 50 gutter-w)
         layout-y  100
@@ -1068,20 +1068,20 @@
         !dragging? (atom false)
 
         ;; Font configuration - use passed manifest or default
-        default-manifest {:fonts [{:name "Ubuntu Sans Mono"
-                                   :id "ubuntu-sans-mono"
-                                   :charWidth 0.56
+        default-manifest {:fonts [{:name "DejaVu Sans Mono"
+                                   :id "dejavu-sans-mono"
+                                   :charWidth 0.60
                                    :default true
-                                   :defaults {:fontSize 16
+                                   :defaults {:fontSize 19
                                               :lineHeight 1.2
                                               :pxRange 8
-                                              :sharpness -0.10
+                                              :sharpness 0.0
                                               :snapToPixel true
                                               :showDiagnostics false}}]
-                          :settings {:fontSize {:default 16}
+                          :settings {:fontSize {:default 19}
                                      :lineHeight {:default 1.2}
                                      :pxRange {:default 8}
-                                     :sharpness {:default -0.10}
+                                     :sharpness {:default 0.0}
                                      :snapToPixel {:default true}
                                      :showDiagnostics {:default false}}}
         manifest (or font-manifest default-manifest)
@@ -1089,7 +1089,7 @@
         available-fonts (filterv #(not (false? (:available %))) fonts)
         default-font (or (first (filter :default available-fonts))
                          (first available-fonts)
-                         {:id "ubuntu-sans-mono" :name "Ubuntu Sans Mono" :charWidth 0.56})
+                         {:id "dejavu-sans-mono" :name "DejaVu Sans Mono" :charWidth 0.60})
         default-font-idx (or (first (keep-indexed (fn [idx font]
                                                     (when (= (:id font) (:id default-font)) idx))
                                                   available-fonts))
@@ -1114,7 +1114,7 @@
 
         ;; Font assets atom - stores loaded atlas/bitmap for current font
         ;; Initial value uses the atlas passed to start-loop!
-        !font-assets (atom {:atlas atlas :bitmap nil :id "ubuntu-sans-mono"})
+        !font-assets (atom {:atlas atlas :bitmap nil :id "dejavu-sans-mono"})
 
         ;; GPU state atoms (terminals update these)
         !text-geo (atom (:text geometry))
@@ -1176,6 +1176,7 @@
         !expanded-dirs (atom #{})       ;; set of expanded dir paths
         !dir-cache (atom {})            ;; {path -> [entries]}
         !home-dirs (atom nil)           ;; cached home dirs list
+        !current-file (atom nil)        ;; {:path "..." :name "..."} or nil
 
         sidebar-el (js/document.getElementById "file-sidebar")
 
@@ -1214,6 +1215,7 @@
                         (if (:error result)
                           (js/console.error "[SIDEBAR] File read error:" (:error result))
                           (let [lines (str/split-lines (:content result))]
+                            (reset! !current-file {:path path :name (last (str/split path #"/"))})
                             (reset! !file-load-request {:lines lines}))))))
 
         render-sidebar!
@@ -1276,24 +1278,39 @@
                                       (reset! !selected-project nil)
                                       (reset! !expanded-dirs #{})
                                       (reset! !dir-cache {})
+                                      (reset! !current-file nil)
                                       (render-sidebar!)))
                               (.appendChild sidebar-el back-btn))
                         ;; Render tree entries recursively
+                        current-file @!current-file
+                        ;; Open file breadcrumb
+                        _ (when current-file
+                            (let [breadcrumb (js/document.createElement "div")]
+                              (set! (.-textContent breadcrumb) (:name current-file))
+                              (set! (.-cssText (.-style breadcrumb))
+                                    "padding:4px 12px 4px 14px;font-size:11px;color:#9898b8;border-bottom:1px solid #2a2a4a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;")
+                              (.appendChild sidebar-el breadcrumb)))
                         render-entries
                         (fn render-entries [entries depth]
                           (doseq [entry entries]
                             (let [el (js/document.createElement "div")
                                   is-dir? (= (:type entry) :dir)
                                   is-exp? (contains? expanded (:path entry))
+                                  is-active? (and (not is-dir?) current-file
+                                                  (= (:path entry) (:path current-file)))
                                   pad-left (+ 12 (* depth 16))]
                               (set! (.-textContent el)
                                     (if is-dir?
                                       (str (if is-exp? "▾ " "▸ ") (:name entry) "/")
                                       (str "  " (:name entry))))
                               (set! (.-cssText (.-style el))
-                                    (str "padding:4px 12px;padding-left:" pad-left "px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;"))
+                                    (str "padding:4px 12px;padding-left:" pad-left "px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;"
+                                         (if is-active?
+                                           "background:#37375a;border-left:3px solid #5588ff;color:#e0e0ff;"
+                                           "border-left:3px solid transparent;")))
                               (set! (.-onmouseenter el) #(set! (.. el -style -background) "#252547"))
-                              (set! (.-onmouseleave el) #(set! (.. el -style -background) "transparent"))
+                              (set! (.-onmouseleave el) #(set! (.. el -style -background)
+                                                               (if is-active? "#37375a" "transparent")))
                               (set! (.-onclick el)
                                     (fn [_]
                                       (if is-dir?
@@ -1331,10 +1348,37 @@
         _ (add-watch !selected-project :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
         _ (add-watch !expanded-dirs :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
         _ (add-watch !dir-cache :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
+        _ (add-watch !current-file :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
 
         ;; Initial sidebar render (watches only fire on change, not initial state)
         _ (when (and !sidebar-visible @!sidebar-visible)
             (fetch-home-dirs! render-sidebar!))
+
+        ;; Seed sidebar with initial file if provided
+        _ (when initial-file
+            (let [file-path (:path initial-file)
+                  file-name (last (str/split file-path #"/"))
+                  project-path (:project initial-file)]
+              (reset! !current-file {:path file-path :name file-name})
+              (when project-path
+                ;; Expand dirs along the file path so the file is visible in the tree
+                (let [rel (subs file-path (count project-path))
+                      rel (if (str/starts-with? rel "/") (subs rel 1) rel)
+                      parts (str/split rel #"/")
+                      dir-parts (butlast parts)
+                      dir-paths (loop [acc [] prefix project-path dirs dir-parts]
+                                  (if (empty? dirs)
+                                    acc
+                                    (let [next-path (str prefix "/" (first dirs))]
+                                      (recur (conj acc next-path) next-path (rest dirs)))))]
+                  (reset! !selected-project {:name (last (str/split project-path #"/"))
+                                             :path project-path})
+                  (reset! !expanded-dirs (set dir-paths))
+                  ;; Fetch root dir + expanded dirs so tree renders with content
+                  (fetch-dir! project-path
+                              (fn []
+                                (doseq [dp dir-paths]
+                                  (fetch-dir! dp render-sidebar!))))))))
 
         ;; =====================================================================
         ;; LAYER 2: EVENT FLOWS
@@ -1438,7 +1482,7 @@
                          (< rel-x left-w)
                          (let [font-idx (int (/ rel-y font-item-h))
                                fonts (or (:fonts @!font-manifest)
-                                         [{:name "Ubuntu Sans Mono" :id "ubuntu-sans-mono"}])
+                                         [{:name "DejaVu Sans Mono" :id "dejavu-sans-mono"}])
                                available-fonts (filterv #(not (false? (:available %))) fonts)]
                            (when (< font-idx (count available-fonts))
                              (swap! !settings assoc 
@@ -1803,7 +1847,7 @@
                  (js/console.log "[SETTINGS KEY]" (:type event) "focus=" @!focus)
                  (let [settings @!settings
                        fonts (or (:fonts @!font-manifest)
-                                 [{:name "Ubuntu Sans Mono" :id "ubuntu-sans-mono" :charWidth 0.56}])
+                                 [{:name "DejaVu Sans Mono" :id "dejavu-sans-mono" :charWidth 0.60}])
                        available-fonts (filterv #(not (false? (:available %))) fonts)
                        font-count (count available-fonts)
                        
@@ -2148,7 +2192,7 @@
            :prev-sharpness nil
            :prev-char-width nil
            :prev-snap-step nil
-           :prev-font-id "ubuntu-sans-mono"}
+           :prev-font-id "dejavu-sans-mono"}
 
           ;; Sample world state on each RAF tick
           (m/sample vector <world-snapshot >raf))))))
