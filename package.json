@@ -1,10 +1,10 @@
 {
   "name": "softland",
   "version": "0.0.1",
-  "description": "``` $ clj -A:dev -X user/main",
+  "description": "``` $ clj -M:dev -m dev",
   "main": "index.js",
   "scripts": {
-    "build": "clj -A:dev -X user/main"
+    "build": "clj -M:dev -m dev"
   },
   "author": "",
   "license": "ISC",
