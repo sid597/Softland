@@ -8,7 +8,6 @@
             [app.server.rama.core :refer [node-events-module]])
   (:import (clojure.lang Keyword)
            (missionary Cancelled)
-           [hyperfiddle.electric Failure Pending]
            [com.rpl.rama.integration TaskGlobalObject]
            [java.util.concurrent CompletableFuture]
            [java.util.function Supplier]
@@ -43,6 +42,8 @@
 (def dg-nodes-pstate              (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$dg-nodes-pstate"))
 (def dg-edges-pstate              (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$dg-edges-pstate"))
 (def event-id-pstate              (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$event-id-pstate"))
+(def agent-runs-pstate            (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$agent-runs-pstate"))
+(def cli-sessions-pstate          (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$cli-sessions-pstate"))
 (def user-registration-pstate     (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$user-registration-pstate"))
 (def user-registration-depot      (foreign-depot @!rama-ipc (get-module-name node-events-module) "*user-registration-depot"))
 (def  user-graph-settings-pstate  (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$user-graph-settings-pstate"))
@@ -108,8 +109,8 @@
   (->> (m/observe
          (fn [!]
            (println "SUBSCRIBE")
-           ;; check https://clojurians.slack.com/archives/CL85MBPEF/p1698064128506939?thread_ts=1698062851.851949&cid=CL85MBPEF
-           (! (Failure. (Pending.)))
+           ;; emit current value immediately, then stream updates
+           (! (first (foreign-select path pstate)))
            ;; using subselect because foreign-procxy takes exactly one path
            (let [proxy (foreign-proxy-async path pstate
                          {:callback-fn (proxy-callback !)})]
@@ -196,6 +197,56 @@
     :append-ack))
 
 
+(defn get-cli-session
+  "Look up the saved CLI session for a file+provider pair (for --resume)."
+  [file-path provider]
+  (first (foreign-select [(keypath file-path) (keypath provider)] cli-sessions-pstate)))
+
+(defn update-cli-session
+  "Store/update the CLI session-id for a file+provider pair in Rama.
+   Called after a successful agent run to persist the session-id for --resume."
+  [file-path provider session-id]
+  (when (and (seq file-path) provider (seq session-id))
+    (foreign-append! event-depot
+      (->node-events :update-cli-session
+                     {}
+                     {:graph-name :main
+                      :file-path file-path
+                      :provider provider
+                      :session-id session-id})
+      :append-ack)))
+
+(defn submit-agent-run
+  "Append an :agent-run event and return the run-id.
+   Auto-injects session-id from previous sessions for --resume support."
+  [request-data]
+  (let [run-id (or (:run-id request-data)
+                   (str (java.util.UUID/randomUUID)))
+        ;; Auto-inject session-id for --resume if not provided
+        file-path (:file request-data)
+        provider (:provider request-data)
+        session (when (and file-path provider)
+                  (get-cli-session file-path provider))
+        request-data (cond-> (assoc request-data :run-id run-id)
+                       (and session (not (:session-id request-data)))
+                       (assoc :session-id (:session-id session)))
+        now-ms (System/currentTimeMillis)]
+    (foreign-append! event-depot
+      (->node-events :agent-run
+                     {}
+                     {:graph-name :main
+                      :run-id run-id
+                      :request-data request-data
+                      :create-time now-ms})
+      :append-ack)
+    run-id))
+
+
+(defn get-agent-run
+  [run-id]
+  (first (foreign-select [(keypath run-id)] agent-runs-pstate)))
+
+
 (defn roam-query-request
   [node-map event-data]
   (println "SEND roam query REQUEST: " event-data)
@@ -261,4 +312,3 @@
             "InformedBy"
             {:uid "y384RFx3P"
              :title "[[HYP]] - Depending on the ECM substrate, we can vary the dynamics and relative abundance of the type of endocytosis in cells."}])}
-

@@ -4,9 +4,10 @@
        [com.rpl.rama.ops]
        [com.rpl.rama.aggs])
   (:require [app.server.env :refer [oai-key roam-api-key roam-graph-name]]
-            [app.server.rama.objects :refer [http-post-future query-roam-req task-global-client roam-client]])
+            [app.server.rama.objects :refer [http-post-future query-roam-req task-global-client roam-client
+                                             cli-exec-future cli-client]])
   (:import (clojure.lang Keyword)
-           [app.server.rama.objects CljHttpTaskGlobal roam-task-global]
+           [app.server.rama.objects CljHttpTaskGlobal roam-task-global CliProcessTaskGlobal]
            [com.rpl.rama.helpers ModuleUniqueIdPState]))
 
 
@@ -18,6 +19,7 @@
   (declare-depot setup *user-registration-depot (hash-by :username))
   (declare-depot setup *user-graph-settings-depot (hash-by :user-id))
   (declare-object setup *http-client (CljHttpTaskGlobal.))
+  (declare-object setup *cli-process (CliProcessTaskGlobal.))
   (declare-object setup *roam-client (roam-task-global.
                                        roam-api-key
                                        roam-graph-name))
@@ -45,6 +47,13 @@
     (declare-pstate n $$node-ids-inview-pstate {Keyword (vector-schema Keyword)})
     (declare-pstate n $$event-id-pstate Long {:global? true
                                               :initial-value 0})
+    (declare-pstate n $$agent-runs-pstate {String (map-schema Keyword Object)})
+    (declare-pstate n $$cli-sessions-pstate
+      {String
+       {Keyword
+        (fixed-keys-schema
+          {:session-id String
+           :last-active Long})}})
     (declare-pstate n $$user-registration-pstate {String ; username
                                                   (fixed-keys-schema {:user-id Long
                                                                       :uuid String})})
@@ -269,6 +278,31 @@
         (local-select> [] $$event-id-pstate :> *event-id)
         (local-transform> [(termval (inc *event-id))] $$event-id-pstate)
 
+        ;; ========agent run========
+        (case> (= :agent-run *action-type))
+        (local-select> (keypath :request-data) *event-data :> *request-data)
+        (local-select> (keypath :run-id) *event-data :> *run-id)
+        (local-select> (keypath :provider) *request-data :> *provider)
+        (local-select> (keypath :prompt) *request-data :> *prompt)
+        (identity (System/currentTimeMillis) :> *start-ms)
+        (local-transform> [(keypath *run-id) :status] (termval :running) $$agent-runs-pstate)
+        (local-transform> [(keypath *run-id) :provider] (termval *provider) $$agent-runs-pstate)
+        (local-transform> [(keypath *run-id) :prompt] (termval *prompt) $$agent-runs-pstate)
+        (local-transform> [(keypath *run-id) :request-data] (termval *request-data) $$agent-runs-pstate)
+        (local-transform> [(keypath *run-id) :started-at] (termval *start-ms) $$agent-runs-pstate)
+        (local-transform> [(keypath *run-id) :updated-at] (termval *start-ms) $$agent-runs-pstate)
+
+        ;; ========update cli session (stores session-id for --resume)========
+        (case> (= :update-cli-session *action-type))
+        (local-select> (keypath :file-path) *event-data :> *file-path)
+        (local-select> (keypath :provider) *event-data :> *provider)
+        (local-select> (keypath :session-id) *event-data :> *session-id)
+        (identity (System/currentTimeMillis) :> *now)
+        (local-transform>
+          [(keypath *file-path) (keypath *provider)
+           (multi-path
+             [:session-id (termval *session-id)]
+             [:last-active (termval *now)])]
+          $$cli-sessions-pstate)
 
         (default>) (println "FALSE" *action-type)))))
-
