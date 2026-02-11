@@ -206,6 +206,7 @@
                         (do (m/? (m/sleep 530))
                             (recur))))))))
 
+
 ;; ============================================================================
 ;; LAYER 3: DERIVED FLOWS (Pure Transformations)
 ;; ============================================================================
@@ -253,6 +254,7 @@
        (m/eduction (filter (fn [event]
                              (and (= @!focus :settings-panel)
                                   (not (:global? event))))))))
+
 
 ;; ============================================================================
 ;; LAYER 5: COMPONENT UPDATE FLOWS
@@ -376,6 +378,47 @@
 
       ;; Default: no change
       panel)))
+
+(defn parse-agent-command
+  "Parse command-panel text into an agent action.
+   Supported forms:
+   - /provider claude|codex|gemini
+   - /run <raw argv...>
+   - plain text prompt"
+  [cmd-text current-provider]
+  (let [trimmed (str/trim (or cmd-text ""))]
+    (cond
+      (str/blank? trimmed)
+      {:kind :noop}
+
+      (str/starts-with? trimmed "/provider ")
+      (let [arg (-> trimmed
+                    (subs (count "/provider "))
+                    str/trim
+                    str/lower-case
+                    keyword)]
+        (if (contains? #{:claude :codex :gemini} arg)
+          {:kind :set-provider :provider arg}
+          {:kind :error :message (str "Unknown provider: " arg)}))
+
+      (str/starts-with? trimmed "/run ")
+      (let [argv (-> trimmed
+                     (subs (count "/run "))
+                     str/trim
+                     (str/split #"\s+")
+                     vec)
+            first-bin (some-> (first argv) str/lower-case)
+            provider (case first-bin
+                       "claude" :claude
+                       "codex" :codex
+                       "gemini" :gemini
+                       current-provider)]
+        (if (seq argv)
+          {:kind :run :provider provider :argv argv :prompt (str/join " " argv)}
+          {:kind :error :message "Missing argv for /run"}))
+
+      :else
+      {:kind :run :provider current-provider :prompt trimmed})))
 
 ;; ============================================================================
 ;; LAYER 6: GPU STATE DERIVED FLOWS
@@ -892,11 +935,11 @@
   "Derived flow: combined text render ops (editor + command panel)
    Uses m/latest instead of m/ap to avoid cancellation propagation.
    REACTIVE: font-size comes from !settings, updates live."
-  [!editor-doc !cmd-panel !scroll-y !viewport !folded-lines !settings !active-font
+  [!editor-doc !cmd-panel !ai-provider !agent-output !scroll-y !viewport !folded-lines !settings !active-font
    tokenize-fn layout-fn detect-folds-fn
    layout-x layout-y cmd-panel-h]
   (m/latest
-    (fn [doc panel scroll-y viewport folded settings active-font]
+    (fn [doc panel provider agent-output scroll-y viewport folded settings active-font]
       (let [dpr (:dpr viewport)
               snap? (:snap-to-pixel? settings)
               ;; Reactive font settings
@@ -956,8 +999,9 @@
               cmd-ops (when (:visible panel)
                         (let [cmd-panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h)) dpr snap?)
                               cmd-text-y (maybe-snap (+ cmd-panel-y 12 font-size) dpr snap?)
-                              prompt-x (maybe-snap 40 dpr snap?)
-                              text-x (maybe-snap 60 dpr snap?)]
+                              prompt-text (str "[" (-> (or provider :claude) name str/upper-case) "]> ")
+                              prompt-x (maybe-snap 24 dpr snap?)
+                              text-x (maybe-snap (+ prompt-x (* (count prompt-text) char-advance)) dpr snap?)]
                           [(when (seq (:text panel))
                              [{:text (:text panel)
                                :type :text
@@ -965,29 +1009,73 @@
                                :x text-x :y cmd-text-y
                                :size font-size
                                :r 0.9 :g 0.9 :b 0.9 :a 1.0}])
-                           [{:text "> "
+                           [{:text prompt-text
                              :type :macro
-                             :from 0 :to 2
+                             :from 0 :to (count prompt-text)
                              :x prompt-x :y cmd-text-y
                              :size font-size
                              :r 0.3 :g 0.6 :b 1.0 :a 1.0}]
                            (when (empty? (:text panel))
-                             [{:text "Type a task..."
+                             [{:text "Type a task... (/provider codex | /run codex exec ...)"
                                :type :comment
-                               :from 0 :to 14
+                               :from 0 :to 56
                                :x text-x :y cmd-text-y
                                :size font-size
                                :r 0.5 :g 0.5 :b 0.5 :a 0.7}])]))
               cmd-lines (if (:visible panel) (vec (filter some? cmd-ops)) [])]
 
-          {:render-ops (if (:visible panel)
-                         (vec (concat editor-ops cmd-lines))
-                         editor-ops)
-           :line-mapping final-line-mapping
-           :editor-line-count (count editor-ops)
-           :cmd-line-count (count cmd-lines)}))
+          (let [status (:status agent-output)
+                provider-name (some-> (:provider agent-output) name str/upper-case)
+                prompt (:prompt agent-output)
+                result-output (or (:output agent-output) "")
+                status-color (case status
+                               :complete {:r 0.55 :g 0.9 :b 0.55 :a 1.0}
+                               :failed {:r 0.95 :g 0.45 :b 0.45 :a 1.0}
+                               :timeout {:r 0.95 :g 0.75 :b 0.35 :a 1.0}
+                               :running {:r 0.6 :g 0.8 :b 1.0 :a 1.0}
+                               :submitting {:r 0.6 :g 0.8 :b 1.0 :a 1.0}
+                               {:r 0.75 :g 0.75 :b 0.75 :a 1.0})
+                header-text (cond
+                              (nil? status) nil
+                              (= status :running) (str "[" provider-name "] running: " prompt)
+                              (= status :submitting) (str "[" provider-name "] submitting: " prompt)
+                              (= status :failed) (str "[" provider-name "] failed: " prompt)
+                              (= status :timeout) (str "[" provider-name "] timeout: " prompt)
+                              (= status :complete) (str "[" provider-name "] complete: " prompt)
+                              :else (str "[" provider-name "] " (name status) ": " prompt))
+                max-output-lines 100
+                output-lines (->> (str/split-lines result-output)
+                                  (take max-output-lines))
+                lines (cond-> []
+                        header-text (conj header-text)
+                        (and (= status :running) (empty? output-lines)) (conj "...")
+                        (seq output-lines) (into output-lines))
+                agent-panel-h 180
+                agent-x (maybe-snap 60 dpr snap?)
+                agent-y0 (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h agent-panel-h 12)) dpr snap?)
+                line-step (maybe-snap (* font-size 1.2) dpr snap?)
+                agent-lines (mapv (fn [idx line]
+                                    [{:text line
+                                      :type :comment
+                                      :from 0 :to (count line)
+                                      :x agent-x
+                                      :y (+ agent-y0 8 font-size (* idx line-step))
+                                      :size font-size
+                                      :r (:r status-color)
+                                      :g (:g status-color)
+                                      :b (:b status-color)
+                                      :a (:a status-color)}])
+                                  (range (count lines))
+                                  lines)]
+
+            {:render-ops (vec (concat editor-ops cmd-lines agent-lines))
+             :line-mapping final-line-mapping
+             :editor-line-count (count editor-ops)
+             :cmd-line-count (count cmd-lines)})))
     (m/watch !editor-doc)
     (m/watch !cmd-panel)
+    (m/watch !ai-provider)
+    (m/watch !agent-output)
     (m/watch !scroll-y)
     (m/watch !viewport)
     (m/watch !folded-lines)
@@ -1177,17 +1265,41 @@
         !dir-cache (atom {})            ;; {path -> [entries]}
         !home-dirs (atom nil)           ;; cached home dirs list
         !current-file (atom nil)        ;; {:path "..." :name "..."} or nil
+        !ai-provider (atom :claude)     ;; :claude | :codex | :gemini
+        !agent-output (atom nil)        ;; {:status :provider :prompt :output :run-id}
 
         sidebar-el (js/document.getElementById "file-sidebar")
 
         ;; --- Fetch helpers (call server HTTP API, parse EDN response) ---
 
         fetch-edn!
-        (fn [url callback]
-          (-> (js/fetch url)
+        (fn
+          ([url callback]
+           (-> (js/fetch url)
+               (.then (fn [resp] (.text resp)))
+               (.then (fn [text] (callback (reader/read-string text))))
+               (.catch (fn [err] (js/console.error "[SIDEBAR] Fetch error:" err)))))
+          ([url callback err-callback]
+           (-> (js/fetch url)
+               (.then (fn [resp] (.text resp)))
+               (.then (fn [text] (callback (reader/read-string text))))
+               (.catch (fn [err] (err-callback err))))))
+
+        post-edn!
+        (fn [url body callback]
+          (-> (js/fetch url
+                        (clj->js {:method "POST"
+                                  :headers {"Content-Type" "application/edn"}
+                                  :body (pr-str body)}))
               (.then (fn [resp] (.text resp)))
               (.then (fn [text] (callback (reader/read-string text))))
-              (.catch (fn [err] (js/console.error "[SIDEBAR] Fetch error:" err)))))
+              (.catch (fn [err]
+                        (js/console.error "[AGENT][HTTP][POST-ERROR]"
+                                          (clj->js {:url url
+                                                    :message (.-message err)})
+                                          err))))
+
+          nil)
 
         fetch-home-dirs!
         (fn [render-fn]
@@ -1217,6 +1329,89 @@
                           (let [lines (str/split-lines (:content result))]
                             (reset! !current-file {:path path :name (last (str/split path #"/"))})
                             (reset! !file-load-request {:lines lines}))))))
+
+        submit-agent-run!
+        (fn [cmd-text]
+          (let [doc @!editor-doc
+                file-path (:path @!current-file)
+                scroll-y @!scroll-y
+                viewport @!viewport
+                parsed (parse-agent-command cmd-text @!ai-provider)
+                cwd (or (some-> file-path (str/split #"/") butlast seq (str/join "/"))
+                        ".")
+                context {:cursor (:cursor doc)
+                         :selection (:selection doc)
+                         :visible-range [scroll-y (+ scroll-y (:height viewport))]
+                         :file-path file-path
+                         :timestamp (js/Date.now)}]
+            (case (:kind parsed)
+              :noop
+              nil
+
+              :set-provider
+              (do
+                (reset! !ai-provider (:provider parsed))
+                (reset! !agent-output {:status :complete
+                                       :provider (:provider parsed)
+                                       :prompt "provider"
+                                       :output (str "Provider set to " (-> (:provider parsed) name str/upper-case))
+                                       :run-id nil}))
+
+              :error
+              (reset! !agent-output {:status :failed
+                                     :provider @!ai-provider
+                                     :prompt cmd-text
+                                     :output (:message parsed)
+                                     :run-id nil})
+
+              :run
+              (let [provider (:provider parsed)
+                    prompt (:prompt parsed)
+                    argv (:argv parsed)
+                    run-id (str (random-uuid))
+                    request-body (cond-> {:run-id run-id
+                                          :provider provider
+                                          :prompt prompt
+                                          :cwd cwd
+                                          :file file-path
+                                          :context context}
+                                   (seq argv) (assoc :argv argv))]
+                (js/console.log "[AGENT][CLIENT][SUBMIT]"
+                                (clj->js {:run-id run-id
+                                          :provider provider
+                                          :file file-path
+                                          :cwd cwd
+                                          :prompt prompt
+                                          :argv argv}))
+                ;; Show running state immediately
+                (reset! !agent-output {:status :running
+                                       :provider provider
+                                       :prompt prompt
+                                       :output ""
+                                       :run-id run-id})
+                ;; POST blocks on server until complete, .then() fires with result
+                (post-edn! "/api/agent/run"
+                           request-body
+                           (fn [resp]
+                             (js/console.log "[AGENT][CLIENT][RESPONSE]"
+                                             (clj->js {:run-id run-id
+                                                       :status (:status resp)
+                                                       :provider (:provider resp)
+                                                       :prompt (:prompt resp)
+                                                       :result-summary (some-> (:result resp)
+                                                                               (select-keys [:exit-code :timed-out? :timeout-ms :duration-ms]))}))
+                             (if-let [err (:error resp)]
+                               (reset! !agent-output {:status :failed
+                                                      :provider provider
+                                                      :prompt prompt
+                                                      :output err
+                                                      :run-id run-id})
+                               (let [result (:result resp)]
+                                 (reset! !agent-output {:status (:status resp)
+                                                        :provider (:provider resp)
+                                                        :prompt (:prompt resp)
+                                                        :output (or (:output result) "")
+                                                        :run-id (:run-id resp)})))))))))
 
         render-sidebar!
         (fn render-sidebar! []
@@ -1825,7 +2020,7 @@
                    :enter
                    (let [cmd-text (:text @!cmd-panel)]
                      (when (seq cmd-text)
-                       (js/console.log "Command submitted:" cmd-text))
+                       (submit-agent-run! cmd-text))
                      (swap! !cmd-panel assoc :text "" :cursor 0 :visible false)
                      (reset! !focus :editor))
 
@@ -1958,7 +2153,7 @@
             ;; CACHED: bracket match only recomputes when doc changes (not on blink)
             <bracket-data (<bracket-match !editor-doc find-bracket-fn)
 
-            <text-data (<combined-text-ops !editor-doc !cmd-panel !scroll-y !viewport !folded-lines !settings !active-font
+            <text-data (<combined-text-ops !editor-doc !cmd-panel !ai-provider !agent-output !scroll-y !viewport !folded-lines !settings !active-font
                                            tokenize-fn layout-fn detect-folds-fn
                                            layout-x layout-y cmd-panel-h)
             <editor-rect-data (<editor-rects !editor-doc !eval-result !caret-visible !focus

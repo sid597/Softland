@@ -7,6 +7,8 @@
     [clojure.tools.logging :as log]
     [contrib.assert :refer [check]]
     [app.file-viewer :as fv]
+    [app.server.rama.util-fns :as util-fns]
+    [app.server.rama.objects :as rama-objects]
     [hyperfiddle.electric-ring-adapter3 :as electric-ring]
     [ring.adapter.jetty :as ring]
     [ring.middleware.content-type :refer [wrap-content-type]]
@@ -15,6 +17,7 @@
     [ring.middleware.resource :refer [wrap-resource]]
     [ring.util.response :as res])
   (:import
+    (java.util.concurrent TimeUnit)
     (org.eclipse.jetty.server.handler.gzip GzipHandler)
     (org.eclipse.jetty.websocket.server.config JettyWebSocketServletContainerInitializer JettyWebSocketServletContainerInitializer$Configurator)))
 
@@ -78,11 +81,199 @@ information."
   (-> (res/response (pr-str data))
       (res/content-type "application/edn")))
 
+(defn parse-edn-body
+  [ring-req]
+  (let [body-str (some-> ring-req :body slurp str/trim)]
+    (if (str/blank? body-str)
+      {}
+      (edn/read-string body-str))))
+
+(defonce !agent-runs (atom {}))
+
+(def default-agent-timeout-ms 120000)
+(def min-agent-timeout-ms 1000)
+(def max-agent-timeout-ms 900000)
+
+(defn normalize-timeout-ms
+  [timeout-ms]
+  (let [parsed (cond
+                 (number? timeout-ms) (long timeout-ms)
+                 (string? timeout-ms) (try (Long/parseLong (str/trim timeout-ms))
+                                           (catch Exception _ default-agent-timeout-ms))
+                 :else default-agent-timeout-ms)]
+    (-> parsed
+        (max min-agent-timeout-ms)
+        (min max-agent-timeout-ms))))
+
+(defn preview-str
+  [x]
+  (let [s (str (or x ""))]
+    (if (> (count s) 180)
+      (str (subs s 0 180) "...<truncated>")
+      s)))
+
+(defn summarize-agent-request
+  [request-data]
+  {:run-id (:run-id request-data)
+   :provider (:provider request-data)
+   :file (:file request-data)
+   :cwd (:cwd request-data)
+   :timeout-ms (:timeout-ms request-data)
+   :argv (:argv request-data)
+   :prompt (preview-str (:prompt request-data))
+   :keys (sort (keys request-data))})
+
+(defn start-output-reader
+  [proc]
+  (let [output-promise (promise)
+        reader-thread (doto
+                        (Thread.
+                          (fn []
+                            (deliver output-promise
+                                     (try
+                                       (slurp (.getInputStream proc))
+                                       (catch Exception e
+                                         (str "Failed reading process output: " (.getMessage e)))))))
+                        (.setName (str "softland-agent-output-" (System/currentTimeMillis)))
+                        (.setDaemon true))]
+    (.start reader-thread)
+    output-promise))
+
+(defn destroy-process-tree!
+  [proc]
+  (try
+    (doseq [child-handle (iterator-seq (.iterator (.descendants (.toHandle proc))))]
+      (try
+        (.destroyForcibly child-handle)
+        (catch Exception _ nil)))
+    (catch Exception _ nil))
+  (try
+    (.destroy proc)
+    (catch Exception _ nil))
+  (when-not (.waitFor proc 2000 TimeUnit/MILLISECONDS)
+    (try
+      (.destroyForcibly proc)
+      (catch Exception _ nil)))
+  nil)
+
+(defn run-cli-process
+  [argv cwd timeout-ms]
+  (let [cmd (vec (map str argv))
+        pb  (ProcessBuilder. (into-array String cmd))]
+    (when (seq cwd)
+      (.directory pb (io/file cwd)))
+    (.redirectErrorStream pb true)
+    (let [proc (.start pb)
+          _ (try
+              ;; Always close stdin to avoid CLIs waiting indefinitely for input.
+              (.close (.getOutputStream proc))
+              (catch Exception _ nil))
+          output-promise (start-output-reader proc)
+          finished? (.waitFor proc timeout-ms TimeUnit/MILLISECONDS)]
+      (if finished?
+        {:argv cmd
+         :cwd cwd
+         :output (deref output-promise 2000 "")
+         :exit-code (.exitValue proc)
+         :timed-out? false
+         :timeout-ms timeout-ms}
+        (do
+          (destroy-process-tree! proc)
+          (try
+            (.close (.getInputStream proc))
+            (catch Exception _ nil))
+          (let [partial-output (deref output-promise 1000 "")
+                timeout-msg (str "\n[Softland] Process timed out after " timeout-ms " ms and was terminated.")]
+            {:argv cmd
+             :cwd cwd
+             :output (str partial-output timeout-msg)
+             :exit-code 124
+             :timed-out? true
+             :timeout-ms timeout-ms}))))))
+
+(defn run-agent-request
+  [request-data]
+  (let [run-id (or (:run-id request-data) (str (java.util.UUID/randomUUID)))
+        provider (:provider request-data)
+        prompt (:prompt request-data)
+        file-path (:file request-data)
+        ;; Look up stored session-id from Rama for --resume
+        stored-session (when (and file-path provider)
+                         (try (util-fns/get-cli-session file-path provider)
+                              (catch Exception _ nil)))
+        session-id (or (:session-id request-data)
+                       (:session-id stored-session))
+        argv (or (:argv request-data)
+                 (rama-objects/provider-default-argv provider prompt session-id))
+        cwd (:cwd request-data)
+        timeout-ms (normalize-timeout-ms (:timeout-ms request-data))
+        start-ms (System/currentTimeMillis)]
+    (log/info "[AGENT][SERVER][RUN-START]"
+              {:run-id run-id
+               :provider provider
+               :file file-path
+               :cwd cwd
+               :timeout-ms timeout-ms
+               :argv argv
+               :session-id session-id
+               :prompt (preview-str prompt)})
+    (swap! !agent-runs assoc run-id {:run-id run-id
+                                     :status :running
+                                     :provider provider
+                                     :prompt prompt})
+    (let [result (try
+                   (run-cli-process argv cwd timeout-ms)
+                   (catch Exception e
+                     {:argv (vec (or argv []))
+                      :cwd cwd
+                      :output (str "CLI Error: " (.getMessage e))
+                      :exit-code 1
+                      :timed-out? false
+                      :timeout-ms timeout-ms}))
+          end-ms (System/currentTimeMillis)
+          ;; For Claude: parse JSON output to extract session-id and clean content
+          parsed (when (= provider :claude)
+                   (try (rama-objects/parse-claude-json-output (:output result))
+                        (catch Exception _ nil)))
+          clean-output (if parsed (:content parsed) (:output result))
+          new-session-id (when parsed (:session-id parsed))
+          final-status (cond
+                         (:timed-out? result) :timeout
+                         (zero? (:exit-code result)) :complete
+                         :else :failed)
+          response {:run-id run-id
+                    :status final-status
+                    :provider provider
+                    :prompt prompt
+                    :result (assoc result
+                                   :output clean-output
+                                   :duration-ms (- end-ms start-ms))
+                    :started-at start-ms
+                    :ended-at end-ms}]
+      ;; Store session-id in Rama for next --resume
+      (when (and new-session-id file-path (= final-status :complete))
+        (try
+          (util-fns/update-cli-session file-path provider new-session-id)
+          (catch Exception e
+            (log/warn "[AGENT][SERVER][SESSION-STORE-FAILED]"
+                      {:file file-path :provider provider
+                       :error (.getMessage e)}))))
+      (swap! !agent-runs assoc run-id response)
+      (log/info "[AGENT][SERVER][RUN-END]"
+                {:run-id run-id
+                 :status final-status
+                 :duration-ms (:duration-ms (:result response))
+                 :exit-code (get-in response [:result :exit-code])
+                 :timed-out? (get-in response [:result :timed-out?])
+                 :timeout-ms timeout-ms
+                 :session-id new-session-id})
+      response)))
+
 (defn wrap-file-api
   "Handle /api/* routes for file explorer sidebar.
    Returns EDN responses consumable by ClojureScript client."
   [next-handler]
-  (fn [{:keys [uri query-params] :as ring-req}]
+  (fn [{:keys [uri query-params request-method] :as ring-req}]
     (case uri
       "/api/home-dirs"
       (json-response (fv/list-home-dirs))
@@ -99,6 +290,32 @@ information."
         (if (and path root)
           (json-response (fv/read-file-content path root))
           (json-response {:error "Missing path or root parameter"})))
+
+      "/api/agent/run"
+      (if (= request-method :post)
+        (try
+          (let [request-data (parse-edn-body ring-req)]
+            (log/info "[AGENT][SERVER][HTTP-IN]"
+                      {:remote-addr (:remote-addr ring-req)
+                       :method request-method
+                       :uri uri
+                       :request (summarize-agent-request request-data)})
+            (json-response (run-agent-request request-data)))
+          (catch Exception e
+            (log/error e "[AGENT][SERVER][HTTP-ERROR]"
+                       {:remote-addr (:remote-addr ring-req)
+                        :method request-method
+                        :uri uri})
+            (json-response {:error (str "Failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
+      "/api/agent/run-status"
+      (let [run-id (get query-params "run-id")]
+        (if (str/blank? run-id)
+          (json-response {:error "Missing run-id parameter"})
+          (if-let [run (get @!agent-runs run-id)]
+            (json-response run)
+            (json-response {:status :not-found :run-id run-id}))))
 
       ;; Not an API route — pass through
       (next-handler ring-req))))
