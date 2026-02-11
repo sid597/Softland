@@ -292,9 +292,9 @@
 (println "------ ADDING DG PAGES------")
 #_(load-events dg-page-data-edn add-dg-page-data) ;; THIS IS A HACK: Will not work when we move away from ipc.
 (println "------ ADDING DG NODES------")
-(load-events dg-nodes-edn add-dg-nodes) ;; THIS IS A HACK: Will not work when we move away from ipc.
+#_(load-events dg-nodes-edn add-dg-nodes) ;; THIS IS A HACK: Will not work when we move away from ipc.
 (println "------ ADDING DG EDGES------")
-(load-events dg-edges-edn add-dg-edges) ;; THIS IS A HACK: Will not work when we move away from ipc.
+#_(load-events dg-edges-edn add-dg-edges) ;; THIS IS A HACK: Will not work when we move away from ipc.
 
 
 #_(load-events dg-nodes-file-edn deserialize-and-execute)

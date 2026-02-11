@@ -14,6 +14,12 @@
 
 
 
+(defn now-ms
+  "Wrapper for System/currentTimeMillis — Rama's dataflow DSL cannot
+   inline Java static method calls, so we wrap it in a plain function."
+  ^long []
+  (System/currentTimeMillis))
+
 (defmodule node-events-module [setup topologies]
   (declare-depot setup *node-events-depot :random)
   (declare-depot setup *user-registration-depot (hash-by :username))
@@ -284,20 +290,20 @@
         (local-select> (keypath :run-id) *event-data :> *run-id)
         (local-select> (keypath :provider) *request-data :> *provider)
         (local-select> (keypath :prompt) *request-data :> *prompt)
-        (identity (System/currentTimeMillis) :> *start-ms)
-        (local-transform> [(keypath *run-id) :status] (termval :running) $$agent-runs-pstate)
-        (local-transform> [(keypath *run-id) :provider] (termval *provider) $$agent-runs-pstate)
-        (local-transform> [(keypath *run-id) :prompt] (termval *prompt) $$agent-runs-pstate)
-        (local-transform> [(keypath *run-id) :request-data] (termval *request-data) $$agent-runs-pstate)
-        (local-transform> [(keypath *run-id) :started-at] (termval *start-ms) $$agent-runs-pstate)
-        (local-transform> [(keypath *run-id) :updated-at] (termval *start-ms) $$agent-runs-pstate)
+        (now-ms :> *start-ms)
+        (local-transform> [(keypath *run-id) :status (termval :running)] $$agent-runs-pstate)
+        (local-transform> [(keypath *run-id) :provider (termval *provider)] $$agent-runs-pstate)
+        (local-transform> [(keypath *run-id) :prompt (termval *prompt)] $$agent-runs-pstate)
+        (local-transform> [(keypath *run-id) :request-data (termval *request-data)] $$agent-runs-pstate)
+        (local-transform> [(keypath *run-id) :started-at (termval *start-ms)] $$agent-runs-pstate)
+        (local-transform> [(keypath *run-id) :updated-at (termval *start-ms)] $$agent-runs-pstate)
 
         ;; ========update cli session (stores session-id for --resume)========
         (case> (= :update-cli-session *action-type))
         (local-select> (keypath :file-path) *event-data :> *file-path)
         (local-select> (keypath :provider) *event-data :> *provider)
         (local-select> (keypath :session-id) *event-data :> *session-id)
-        (identity (System/currentTimeMillis) :> *now)
+        (now-ms :> *now)
         (local-transform>
           [(keypath *file-path) (keypath *provider)
            (multi-path
