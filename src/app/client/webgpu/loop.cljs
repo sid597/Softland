@@ -379,6 +379,20 @@
       ;; Default: no change
       panel)))
 
+(defn cmd-prompt-text
+  "Build the command panel prompt string for a given provider."
+  [provider]
+  (str "[" (-> (or provider :claude) name str/upper-case) "]> "))
+
+(defn cmd-text-start-x
+  "Compute the x-pixel where user-typed text begins, after the prompt.
+   Must be used consistently by caret, text-ops, and mouse click handlers."
+  [provider font-size char-width dpr snap?]
+  (let [prompt (cmd-prompt-text provider)
+        char-advance (maybe-snap (* font-size char-width) dpr snap?)
+        prompt-x (maybe-snap 24 dpr snap?)]
+    (maybe-snap (+ prompt-x (* (count prompt) char-advance)) dpr snap?)))
+
 (defn parse-agent-command
   "Parse command-panel text into an agent action.
    Supported forms:
@@ -617,44 +631,113 @@
     (m/watch !active-font)
     (m/watch !viewport)))
 
+(defn wrap-line
+  "Wrap a single string into chunks of max-chars. Returns vector of strings."
+  [line max-chars]
+  (if (or (<= (count line) max-chars) (< max-chars 1))
+    [line]
+    (loop [remaining line result []]
+      (if (<= (count remaining) max-chars)
+        (conj result remaining)
+        (recur (subs remaining max-chars)
+               (conj result (subs remaining 0 max-chars)))))))
+
+(defn compute-agent-panel-h
+  "Pure: dynamic panel height from agent output content.
+   Returns 0 when no agent output, otherwise sizes to content capped at 50% viewport.
+   Wraps lines to viewport width for accurate height."
+  [agent-output font-size viewport-height viewport-width char-advance]
+  (if-not (some? (:status agent-output))
+    0
+    (let [agent-x 24
+          right-pad 24
+          available-w (- viewport-width agent-x right-pad)
+          max-chars (if (pos? char-advance) (max 1 (int (/ available-w char-advance))) 80)
+          status (:status agent-output)
+          provider-name (some-> (:provider agent-output) name str/upper-case)
+          prompt (:prompt agent-output)
+          header-text (when status (str "[" provider-name "] " (name status) ": " prompt))
+          raw-output-lines (str/split-lines (or (:output agent-output) ""))
+          all-lines (cond-> []
+                      header-text (conj header-text)
+                      (and (= status :running) (empty? raw-output-lines)) (conj "...")
+                      (seq raw-output-lines) (into raw-output-lines))
+          wrapped (into [] (mapcat #(wrap-line % max-chars)) all-lines)
+          line-count (count wrapped)
+          line-step (* font-size 1.2)
+          content-h (+ 16 (* line-count line-step))
+          max-h (* viewport-height 0.5)]
+      (min content-h max-h))))
+
+(defn visible-agent-lines
+  "Pure: truncate lines to what fits in panel, append indicator if truncated."
+  [all-lines font-size agent-panel-h]
+  (let [line-step (* font-size 1.2)
+        max-visible (max 1 (int (/ (- agent-panel-h 16) line-step)))
+        total (count all-lines)]
+    (if (<= total max-visible)
+      {:lines all-lines :truncated? false}
+      {:lines (conj (subvec all-lines 0 (dec max-visible))
+                    (str "... (" (- total (dec max-visible)) " more lines)"))
+       :truncated? true})))
+
 (defn <cmd-panel-rects
-  "Derived flow: command panel rectangles (background + caret)
-   Uses m/latest instead of m/ap to avoid cancellation propagation.
-   REACTIVE: font-size and char-advance come from !settings and !active-font."
-  [!cmd-panel !focus !caret-visible !scroll-y !viewport !settings !active-font cmd-panel-h]
+  "Derived flow: command panel rectangles — always 3 instances:
+     [0] agent-output background  (visible when agent has status)
+     [1] command-panel background (visible when panel is open)
+     [2] caret                    (visible when panel focused + blink on)
+   Zero-size invisible rects for absent elements keep GPU indices stable."
+  [!cmd-panel !focus !caret-visible !scroll-y !viewport !settings !active-font
+   !ai-provider !agent-output cmd-panel-h]
   (m/latest
-    (fn [panel focus caret-visible scroll-y viewport settings active-font]
-      (when (:visible panel)
-        (let [dpr (:dpr viewport)
-              snap? (:snap-to-pixel? settings)
-              font-size (:font-size settings)
-              char-advance (maybe-snap (* font-size (:char-width active-font)) dpr snap?)
-              panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h)) dpr snap?)
-              text-x (maybe-snap 60 dpr snap?)
-              char-w char-advance
+    (fn [panel focus caret-visible scroll-y viewport settings active-font
+         agent-output]
+      (let [dpr (:dpr viewport)
+            snap? (:snap-to-pixel? settings)
+            font-size (:font-size settings)
+            char-advance (maybe-snap (* font-size (:char-width active-font)) dpr snap?)
+            invisible {:x 0 :y 0 :w 0 :h 0 :r 0 :g 0 :b 0 :a 0}
 
-              ;; Background rect
-              bg-rect {:x 0 :y panel-y :w (:width viewport) :h cmd-panel-h
-                       :r 0.15 :g 0.15 :b 0.2 :a 1.0}
+            ;; --- Instance 0: agent output background ---
+            agent-panel-h (compute-agent-panel-h agent-output font-size (:height viewport)
+                                                (:width viewport) char-advance)
+            agent-visible? (some? (:status agent-output))
+            agent-bg (if agent-visible?
+                       (let [agent-y0 (maybe-snap
+                                        (+ scroll-y (- (:height viewport)
+                                                       cmd-panel-h agent-panel-h 12))
+                                        dpr snap?)]
+                         {:x 0 :y agent-y0
+                          :w (:width viewport) :h (+ agent-panel-h 12)
+                          :r 0.10 :g 0.10 :b 0.13 :a 1.0})
+                       invisible)
 
-              ;; Caret rect (only when focused and visible)
-              caret-rect (when (and caret-visible (= focus :command-panel))
-                           {:x (+ text-x (* (:cursor panel) char-w))
-                            :y (maybe-snap (+ panel-y 8) dpr snap?)
-                            :w 2
-                            :h (maybe-snap (- cmd-panel-h 16) dpr snap?)
-                            :r 0.9 :g 0.9 :b 0.9 :a 1.0})]
+            ;; --- Instance 1: command panel background ---
+            panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h)) dpr snap?)
+            cmd-bg (if (:visible panel)
+                     {:x 0 :y panel-y :w (:width viewport) :h cmd-panel-h
+                      :r 0.15 :g 0.15 :b 0.2 :a 1.0}
+                     invisible)
 
-          (if caret-rect
-            [bg-rect caret-rect]
-            [bg-rect]))))
+            ;; --- Instance 2: caret ---
+            text-x (cmd-text-start-x @!ai-provider font-size (:char-width active-font) dpr snap?)
+            caret (if (and (:visible panel) caret-visible (= focus :command-panel))
+                    {:x (+ text-x (* (:cursor panel) char-advance))
+                     :y (maybe-snap (+ panel-y 8) dpr snap?)
+                     :w 2
+                     :h (maybe-snap (- cmd-panel-h 16) dpr snap?)
+                     :r 0.9 :g 0.9 :b 0.9 :a 1.0}
+                    invisible)]
+
+        [agent-bg cmd-bg caret]))
     (m/watch !cmd-panel)
     (m/watch !focus)
     (m/watch !caret-visible)
     (m/watch !scroll-y)
     (m/watch !viewport)
     (m/watch !settings)
-    (m/watch !active-font)))
+    (m/watch !active-font)
+    (m/watch !agent-output)))
 
 (defn compute-settings-panel-rects
   "Pure function: compute settings panel rectangles (background + font list + sliders)"
@@ -935,11 +1018,11 @@
   "Derived flow: combined text render ops (editor + command panel)
    Uses m/latest instead of m/ap to avoid cancellation propagation.
    REACTIVE: font-size comes from !settings, updates live."
-  [!editor-doc !cmd-panel !ai-provider !agent-output !scroll-y !viewport !folded-lines !settings !active-font
+  [!editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y !viewport !folded-lines !settings !active-font
    tokenize-fn layout-fn detect-folds-fn
    layout-x layout-y cmd-panel-h]
   (m/latest
-    (fn [doc panel provider agent-output scroll-y viewport folded settings active-font]
+    (fn [doc panel provider agent-output agent-scroll-y scroll-y viewport folded settings active-font]
       (let [dpr (:dpr viewport)
               snap? (:snap-to-pixel? settings)
               ;; Reactive font settings
@@ -999,9 +1082,9 @@
               cmd-ops (when (:visible panel)
                         (let [cmd-panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h)) dpr snap?)
                               cmd-text-y (maybe-snap (+ cmd-panel-y 12 font-size) dpr snap?)
-                              prompt-text (str "[" (-> (or provider :claude) name str/upper-case) "]> ")
+                              prompt-text (cmd-prompt-text provider)
                               prompt-x (maybe-snap 24 dpr snap?)
-                              text-x (maybe-snap (+ prompt-x (* (count prompt-text) char-advance)) dpr snap?)]
+                              text-x (cmd-text-start-x provider font-size (:char-width active-font) dpr snap?)]
                           [(when (seq (:text panel))
                              [{:text (:text panel)
                                :type :text
@@ -1043,30 +1126,44 @@
                               (= status :timeout) (str "[" provider-name "] timeout: " prompt)
                               (= status :complete) (str "[" provider-name "] complete: " prompt)
                               :else (str "[" provider-name "] " (name status) ": " prompt))
-                max-output-lines 100
-                output-lines (->> (str/split-lines result-output)
-                                  (take max-output-lines))
-                lines (cond-> []
-                        header-text (conj header-text)
-                        (and (= status :running) (empty? output-lines)) (conj "...")
-                        (seq output-lines) (into output-lines))
-                agent-panel-h 180
-                agent-x (maybe-snap 60 dpr snap?)
+                output-lines (str/split-lines result-output)
+                agent-x-px 24
+                right-pad 24
+                available-w (- (:width viewport) agent-x-px right-pad)
+                max-chars (if (pos? char-advance) (max 1 (int (/ available-w char-advance))) 80)
+                raw-lines (cond-> []
+                            header-text (conj header-text)
+                            (and (= status :running) (empty? output-lines)) (conj "...")
+                            (seq output-lines) (into output-lines))
+                all-lines (into [] (mapcat #(wrap-line % max-chars)) raw-lines)
+                agent-panel-h (compute-agent-panel-h agent-output font-size (:height viewport)
+                                                     (:width viewport) char-advance)
+                agent-x (maybe-snap 24 dpr snap?)
                 agent-y0 (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h agent-panel-h 12)) dpr snap?)
                 line-step (maybe-snap (* font-size 1.2) dpr snap?)
-                agent-lines (mapv (fn [idx line]
-                                    [{:text line
-                                      :type :comment
-                                      :from 0 :to (count line)
-                                      :x agent-x
-                                      :y (+ agent-y0 8 font-size (* idx line-step))
-                                      :size font-size
-                                      :r (:r status-color)
-                                      :g (:g status-color)
-                                      :b (:b status-color)
-                                      :a (:a status-color)}])
-                                  (range (count lines))
-                                  lines)]
+                panel-top agent-y0
+                panel-bottom (+ agent-y0 agent-panel-h)
+                agent-lines (into []
+                              (comp
+                                (map (fn [idx]
+                                       (let [line (nth all-lines idx)
+                                             y (+ agent-y0 8 font-size
+                                                  (* idx line-step)
+                                                  (- agent-scroll-y))]
+                                         (when (and (>= y (+ panel-top 8))
+                                                    (< y panel-bottom))
+                                           [{:text line
+                                             :type :comment
+                                             :from 0 :to (count line)
+                                             :x agent-x
+                                             :y y
+                                             :size font-size
+                                             :r (:r status-color)
+                                             :g (:g status-color)
+                                             :b (:b status-color)
+                                             :a (:a status-color)}]))))
+                                (filter some?))
+                              (range (count all-lines)))]
 
             {:render-ops (vec (concat editor-ops cmd-lines agent-lines))
              :line-mapping final-line-mapping
@@ -1076,6 +1173,7 @@
     (m/watch !cmd-panel)
     (m/watch !ai-provider)
     (m/watch !agent-output)
+    (m/watch !agent-scroll-y)
     (m/watch !scroll-y)
     (m/watch !viewport)
     (m/watch !folded-lines)
@@ -1267,6 +1365,8 @@
         !current-file (atom nil)        ;; {:path "..." :name "..."} or nil
         !ai-provider (atom :claude)     ;; :claude | :codex | :gemini
         !agent-output (atom nil)        ;; {:status :provider :prompt :output :run-id}
+        !agent-scroll-y (atom 0)        ;; scroll offset within agent output panel
+        !mouse-y (atom 0)               ;; last known mouse Y (viewport-relative)
 
         sidebar-el (js/document.getElementById "file-sidebar")
 
@@ -1351,6 +1451,7 @@
               :set-provider
               (do
                 (reset! !ai-provider (:provider parsed))
+                (reset! !agent-scroll-y 0)
                 (reset! !agent-output {:status :complete
                                        :provider (:provider parsed)
                                        :prompt "provider"
@@ -1358,11 +1459,12 @@
                                        :run-id nil}))
 
               :error
-              (reset! !agent-output {:status :failed
-                                     :provider @!ai-provider
-                                     :prompt cmd-text
-                                     :output (:message parsed)
-                                     :run-id nil})
+              (do (reset! !agent-scroll-y 0)
+                  (reset! !agent-output {:status :failed
+                                          :provider @!ai-provider
+                                          :prompt cmd-text
+                                          :output (:message parsed)
+                                          :run-id nil}))
 
               :run
               (let [provider (:provider parsed)
@@ -1384,6 +1486,7 @@
                                           :prompt prompt
                                           :argv argv}))
                 ;; Show running state immediately
+                (reset! !agent-scroll-y 0)
                 (reset! !agent-output {:status :running
                                        :provider provider
                                        :prompt prompt
@@ -1620,11 +1723,39 @@
       ;; SCROLL CONSUMER
       ;; =====================================================================
       (->> >wheel-events
-           (m/reduce (fn [_ delta] 
-                       #_(js/console.log "Scroll:" delta)
-                       (let [dpr (:dpr @!viewport)
-                             snap? (:snap-to-pixel? @!settings)]
-                         (swap! !scroll-y #(maybe-snap (+ % delta) dpr snap?)))
+           (m/reduce (fn [_ delta]
+                       (let [viewport @!viewport
+                             settings @!settings
+                             dpr (:dpr viewport)
+                             snap? (:snap-to-pixel? settings)
+                             font-size (:font-size settings)
+                             char-advance (* font-size (:char-width @!active-font))
+                             agent-output @!agent-output
+                             agent-h (compute-agent-panel-h agent-output font-size
+                                                            (:height viewport) (:width viewport)
+                                                            char-advance)
+                             ;; Agent panel Y bounds (viewport-relative, no scroll offset)
+                             agent-y0 (- (:height viewport) cmd-panel-h agent-h 12)
+                             agent-y1 (- (:height viewport) cmd-panel-h)
+                             mouse-y @!mouse-y
+                             in-agent? (and (pos? agent-h)
+                                            (>= mouse-y agent-y0)
+                                            (< mouse-y agent-y1))]
+                         (if in-agent?
+                           ;; Scroll agent panel (clamp to content bounds)
+                           (let [line-step (* font-size 1.2)
+                                 raw-lines (str/split-lines (or (:output agent-output) ""))
+                                 max-chars (if (pos? char-advance)
+                                             (max 1 (int (/ (- (:width viewport) 48) char-advance)))
+                                             80)
+                                 wrapped (into [] (mapcat #(wrap-line % max-chars)) raw-lines)
+                                 ;; +1 for header line
+                                 total-h (* (inc (count wrapped)) line-step)
+                                 max-scroll (max 0 (- total-h (- agent-h 16)))]
+                             (swap! !agent-scroll-y
+                                    #(-> (+ % delta) (max 0) (min max-scroll))))
+                           ;; Scroll editor
+                           (swap! !scroll-y #(maybe-snap (+ % delta) dpr snap?))))
                        nil) nil))
 
       ;; =====================================================================
@@ -1714,7 +1845,7 @@
                               snap? (:snap-to-pixel? @!settings)
                               char-width (:char-width @!active-font)
                               char-w (maybe-snap (* font-size char-width) dpr snap?)
-                              text-x (maybe-snap 60 dpr snap?)
+                              text-x (cmd-text-start-x @!ai-provider font-size char-width dpr snap?)
                               text (:text cmd-panel)
                               col (-> (/ (- x text-x) char-w)
                                        (Math/round)
@@ -1723,7 +1854,10 @@
                            (reset! !focus :command-panel)
                            (swap! !cmd-panel assoc :cursor col)
                            (reset! !caret-visible true))
-                        ;; Click in editor - use reactive font values
+                        ;; Click in editor — close command panel if open
+                        (do
+                        (when (:visible @!cmd-panel)
+                          (swap! !cmd-panel assoc :visible false))
                         (let [adj-y (+ y scroll-y)
                               dpr (:dpr @!viewport)
                               snap? (:snap-to-pixel? @!settings)
@@ -1771,9 +1905,10 @@
                                      :selection nil
                                      :desired-col col)
                               (reset! !caret-visible true)
-                              (reset! !focus :editor))))))))
+                              (reset! !focus :editor)))))))))
 
                  :mousemove
+                 (do (reset! !mouse-y (:y coords))
                  (when @!dragging?
                    ;; Use reactive font values for mouse drag selection
                    (let [{:keys [x y]} coords
@@ -1803,7 +1938,7 @@
                          start-pos (:cursor doc)]
                      (when (not= pos start-pos)
                        (swap! !editor-doc assoc
-                              :selection {:start start-pos :end pos}))))
+                              :selection {:start start-pos :end pos})))))
 
                  :mouseup
                  (reset! !dragging? false))
@@ -1847,8 +1982,9 @@
                      (do (swap! !settings assoc :visible false)
                          (reset! !focus :editor))
 
-                     (:visible @!cmd-panel)
+                     (or (:visible @!cmd-panel) (some? (:status @!agent-output)))
                      (do (swap! !cmd-panel assoc :visible false)
+                         (reset! !agent-output nil)
                          (reset! !focus :editor))
 
                      (and !sidebar-visible @!sidebar-visible)
@@ -1898,7 +2034,9 @@
                      (reset! !redo-stack [])
                      (reset! !folded-lines #{})
                      (reset! !caret-visible true)
-                     (reset! !focus :editor)
+                     ;; Only steal focus if command panel is not open
+                     (when-not (:visible @!cmd-panel)
+                       (reset! !focus :editor))
                      ;; Clear the request so same file can be re-opened
                      (reset! !file-load-request nil)))
                  nil)
@@ -2019,10 +2157,13 @@
                  (case (:type event)
                    :enter
                    (let [cmd-text (:text @!cmd-panel)]
-                     (when (seq cmd-text)
-                       (submit-agent-run! cmd-text))
-                     (swap! !cmd-panel assoc :text "" :cursor 0 :visible false)
-                     (reset! !focus :editor))
+                     (if (seq cmd-text)
+                       ;; Submit command, clear text, keep panel open for follow-up
+                       (do (submit-agent-run! cmd-text)
+                           (swap! !cmd-panel assoc :text "" :cursor 0))
+                       ;; Empty Enter = close panel (like Escape)
+                       (do (swap! !cmd-panel assoc :text "" :cursor 0 :visible false)
+                           (reset! !focus :editor))))
 
                    ;; Edit/navigation operations
                    (let [panel @!cmd-panel
@@ -2153,7 +2294,7 @@
             ;; CACHED: bracket match only recomputes when doc changes (not on blink)
             <bracket-data (<bracket-match !editor-doc find-bracket-fn)
 
-            <text-data (<combined-text-ops !editor-doc !cmd-panel !ai-provider !agent-output !scroll-y !viewport !folded-lines !settings !active-font
+            <text-data (<combined-text-ops !editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y !viewport !folded-lines !settings !active-font
                                            tokenize-fn layout-fn detect-folds-fn
                                            layout-x layout-y cmd-panel-h)
             <editor-rect-data (<editor-rects !editor-doc !eval-result !caret-visible !focus
@@ -2161,7 +2302,8 @@
                                              <fold-data <bracket-data
                                              layout-x layout-y gutter-w)
             <cmd-rect-data (<cmd-panel-rects !cmd-panel !focus !caret-visible !scroll-y !viewport
-                                             !settings !active-font cmd-panel-h)
+                                             !settings !active-font
+                                             !ai-provider !agent-output cmd-panel-h)
             ;; Settings panel flows (reactive: derive font-size from !settings internally)
             <settings-rect-data (<settings-panel-rects !settings !focus !viewport !scroll-y !font-manifest)
             <settings-text-data (<settings-panel-text !settings !viewport !scroll-y !font-manifest)
@@ -2171,7 +2313,7 @@
             ;; All derived flows now use m/latest internally, so they're continuous
             <world-snapshot (m/latest
                               (fn [text-data editor-rects cmd-rects settings-rects settings-text
-                                   viewport scroll-y cmd-panel settings active-font]
+                                   viewport scroll-y cmd-panel settings active-font agent-output]
                                 {:text-data text-data
                                  :editor-rects editor-rects
                                  :cmd-rects cmd-rects
@@ -2180,6 +2322,7 @@
                                  :viewport viewport
                                  :scroll-y scroll-y
                                  :cmd-visible (:visible cmd-panel)
+                                 :agent-visible (some? (:status agent-output))
                                  :settings-visible (:visible settings)
                                  ;; Include font settings for reactive text rendering
                                  :font-size (:font-size settings)
@@ -2198,7 +2341,8 @@
                               (m/watch !scroll-y)
                               (m/watch !cmd-panel)
                               (m/watch !settings)
-                              (m/watch !active-font))]
+                              (m/watch !active-font)
+                              (m/watch !agent-output))]
 
         ;; The render pulse: sample world state on each animation frame
         ;; OPTIMIZATION: Use identical? on flow objects (cheap pointer compare)
@@ -2215,7 +2359,7 @@
 
                 ;; SLOW PATH: something changed, figure out what
                 (let [{:keys [text-data editor-rects cmd-rects settings-rects settings-text
-                              viewport scroll-y cmd-visible settings-visible
+                              viewport scroll-y cmd-visible agent-visible settings-visible
                               font-size px-range line-height sharpness char-width
                               snap-to-pixel? show-diagnostics?]} world
 
@@ -2343,7 +2487,8 @@
                                       :settings-visible settings-visible
                                       :settings-rect-sys new-settings-sys
                                       :diagnostics-visible show-diagnostics?
-                                      :diagnostics-line-index diagnostics-line-index)
+                                      :diagnostics-line-index diagnostics-line-index
+                                      :agent-visible agent-visible)
 
                   ;; Return state for next frame comparison
                   {:text-geo new-text-geo

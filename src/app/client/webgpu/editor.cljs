@@ -344,9 +344,9 @@
 
 (defn draw-frame! [^js device ^js context text-sys editor-rect-sys cmd-rect-sys camera-floats _ignored_pass_descriptor pan-x pan-y w h
                    & {:keys [cmd-panel-visible cmd-panel-h editor-line-count settings-visible settings-rect-sys
-                             diagnostics-visible diagnostics-line-index]
+                             diagnostics-visible diagnostics-line-index agent-visible]
                       :or {cmd-panel-visible false cmd-panel-h 40 editor-line-count nil settings-visible false
-                           settings-rect-sys nil}}]
+                           settings-rect-sys nil agent-visible false}}]
   (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y 1.0 w h)
 
   (let [encoder (.createCommandEncoder device)
@@ -386,33 +386,41 @@
           (when (> draw-count 0)
             (.draw pass 6 draw-count 0 0))
 
-          ;; Command panel: draw background, then text, then caret
-          (when cmd-panel-visible
-            ;; Draw command panel BACKGROUND rect (covers editor text bleeding into panel area)
-            (when (and cmd-rect-sys (>= (:num-instances cmd-rect-sys) 1))
-              (.setPipeline pass (:pipeline cmd-rect-sys))
-              (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
-              (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
-              (.draw pass 6 1 0 0))
+          ;; Agent output background (instance 0) — draw behind text
+          (when (and agent-visible cmd-rect-sys (>= (:num-instances cmd-rect-sys) 1))
+            (.setPipeline pass (:pipeline cmd-rect-sys))
+            (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
+            (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
+            (.draw pass 6 1 0 0))
 
-            ;; Draw command panel TEXT (on top of background)
-            (when (< editor-lines total-lines)
-              (let [cmd-start-inst (nth line-offsets editor-lines)
-                    cmd-end-inst   (:num-instances text-sys)
-                    cmd-draw-count (- cmd-end-inst cmd-start-inst)]
-                (when (> cmd-draw-count 0)
-                  ;; Need to set up text pipeline again after drawing rect
-                  (.setPipeline pass (:pipeline text-sys))
-                  (.setBindGroup pass 0 (:bind-group text-sys))
-                  (.setVertexBuffer pass 0 (:instance-buffer text-sys))
-                  (.draw pass 6 cmd-draw-count 0 cmd-start-inst))))
+          ;; Command panel background (instance 1) — only draw when text data is ready
+          ;; Gating on (< editor-lines total-lines) prevents a 1-frame blank box
+          ;; from the race between cmd-visible (direct watch) and text-data (derived flow)
+          (when (and cmd-panel-visible (< editor-lines total-lines)
+                     cmd-rect-sys (>= (:num-instances cmd-rect-sys) 2))
+            (.setPipeline pass (:pipeline cmd-rect-sys))
+            (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
+            (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
+            (.draw pass 6 1 0 1))
 
-            ;; Draw command panel CARET rect (on top of text)
-            (when (and cmd-rect-sys (>= (:num-instances cmd-rect-sys) 2))
-              (.setPipeline pass (:pipeline cmd-rect-sys))
-              (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
-              (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
-              (.draw pass 6 1 0 1)))
+          ;; Command + agent TEXT (on top of backgrounds)
+          (when (< editor-lines total-lines)
+            (let [cmd-start-inst (nth line-offsets editor-lines)
+                  cmd-end-inst   (:num-instances text-sys)
+                  cmd-draw-count (- cmd-end-inst cmd-start-inst)]
+              (when (> cmd-draw-count 0)
+                (.setPipeline pass (:pipeline text-sys))
+                (.setBindGroup pass 0 (:bind-group text-sys))
+                (.setVertexBuffer pass 0 (:instance-buffer text-sys))
+                (.draw pass 6 cmd-draw-count 0 cmd-start-inst))))
+
+          ;; Caret (instance 2) — draw on top of text, same guard
+          (when (and cmd-panel-visible (< editor-lines total-lines)
+                     cmd-rect-sys (>= (:num-instances cmd-rect-sys) 3))
+            (.setPipeline pass (:pipeline cmd-rect-sys))
+            (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
+            (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
+            (.draw pass 6 1 0 2))
 
           ;; Settings panel: draw on top of everything when visible
           (when settings-visible
