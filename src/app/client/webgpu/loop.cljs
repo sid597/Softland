@@ -526,8 +526,8 @@
         fold-rects (keep (fn [{:keys [start-line]}]
                           (when-let [visual-y (logical->visual-y start-line)]
                             (let [is-folded? (contains? folded start-line)
-                                  indicator-size 10
-                                  x (+ gutter-x (/ (- gutter-w indicator-size) 2))
+                                  indicator-size 8
+                                  x (+ gutter-x 2)
                                   y (+ visual-y (/ (- line-h indicator-size) 2))]
                               {:x x :y y :w indicator-size :h indicator-size
                                :r (if is-folded? 0.3 0.7)
@@ -668,18 +668,6 @@
           content-h (+ 16 (* line-count line-step))
           max-h (* viewport-height 0.5)]
       (min content-h max-h))))
-
-(defn visible-agent-lines
-  "Pure: truncate lines to what fits in panel, append indicator if truncated."
-  [all-lines font-size agent-panel-h]
-  (let [line-step (* font-size 1.2)
-        max-visible (max 1 (int (/ (- agent-panel-h 16) line-step)))
-        total (count all-lines)]
-    (if (<= total max-visible)
-      {:lines all-lines :truncated? false}
-      {:lines (conj (subvec all-lines 0 (dec max-visible))
-                    (str "... (" (- total (dec max-visible)) " more lines)"))
-       :truncated? true})))
 
 (defn <cmd-panel-rects
   "Derived flow: command panel rectangles — always 3 instances:
@@ -1018,11 +1006,12 @@
   "Derived flow: combined text render ops (editor + command panel)
    Uses m/latest instead of m/ap to avoid cancellation propagation.
    REACTIVE: font-size comes from !settings, updates live."
-  [!editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y !viewport !folded-lines !settings !active-font
-   tokenize-fn layout-fn detect-folds-fn
+  [!editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y !viewport !settings !active-font
+   tokenize-fn layout-fn
+   <fold-data
    layout-x layout-y cmd-panel-h]
   (m/latest
-    (fn [doc panel provider agent-output agent-scroll-y scroll-y viewport folded settings active-font]
+    (fn [doc panel provider agent-output agent-scroll-y scroll-y viewport fold-state settings active-font]
       (let [dpr (:dpr viewport)
               snap? (:snap-to-pixel? settings)
               ;; Reactive font settings
@@ -1035,13 +1024,17 @@
               ;; Theme
               theme-id (or (:theme-id settings) :gruvbox-dark)
 
+              ;; Pre-computed fold state from <fold-data (cached, only recomputes on doc/fold change)
+              folded (or (:folded fold-state) #{})
+              regions (or (:regions fold-state) [])
+
               ;; Editor render ops with VIEWPORT-SCOPED processing
-              ;; For large files (>500 lines): only tokenize, detect folds, and layout
-              ;; the visible ~50 lines. Avoids 1.4s main-thread block.
-              ;; For small files: process everything (original behavior with fold support).
+              ;; For large files (>500 lines) with no active folds: only tokenize and layout
+              ;; the visible ~50 lines. Avoids processing all N lines.
+              ;; When folds are active or small files: process all lines with fold support.
               lines (:lines doc)
               total-line-count (count lines)
-              large-file? (> total-line-count 500)
+              large-file? (and (> total-line-count 500) (empty? folded))
 
               ;; Visible line range (with buffer above/below)
               visible-start (max 0 (- (int (/ scroll-y line-h)) 5))
@@ -1052,21 +1045,40 @@
               tokenized-visible (mapv tokenize-fn visible-lines)
 
               ;; Fold detection + Layout: fast path for large files
-              [editor-ops final-line-mapping]
+              cursor-line (:line (:cursor doc))
+
+              [editor-ops final-line-mapping line-num-ops]
               (if large-file?
                 ;; FAST PATH: skip fold detection entirely (full Lezer re-parse too expensive)
                 ;; Layout only visible lines with adjusted Y offset
                 (let [adjusted-y (+ layout-y (* visible-start line-h))
                       result (layout-fn tokenized-visible layout-x adjusted-y font-size
                                         [] #{} char-advance line-h theme-id)
-                      ;; Identity line-mapping: visual line N = logical line N (no folds)
-                      full-mapping (vec (range total-line-count))]
-                  [(:render-ops result) full-mapping])
+                      full-mapping (vec (range total-line-count))
+                      nums (mapv (fn [i]
+                                   (let [logical (+ visible-start i)
+                                         num-str (str (inc logical))
+                                         num-w (* (count num-str) char-advance)
+                                         x (maybe-snap (- layout-x 8 num-w) dpr snap?)
+                                         y (+ adjusted-y font-size (* i line-h))
+                                         current? (= logical cursor-line)]
+                                     [{:text num-str :type :line-number
+                                       :from 0 :to (count num-str)
+                                       :x x :y y :size font-size
+                                       :r (if current? 0.85 0.45)
+                                       :g (if current? 0.85 0.45)
+                                       :b (if current? 0.85 0.45)
+                                       :a (if current? 0.9 0.4)}]))
+                                 (range (count visible-lines)))]
+                  [(:render-ops result) full-mapping nums])
 
-                ;; NORMAL PATH (<500 lines): full fold support
-                (let [regions (or (detect-folds-fn lines (mapv count lines)) [])
-                      ;; Build sparse tokenized vector for full layout
-                      tokenized-all (into []
+                ;; NORMAL PATH (<500 lines or folds active): full fold support
+                ;; Uses pre-computed regions from <fold-data (no Lezer re-parse here)
+                (do (when (seq folded)
+                      (js/console.log "[TEXT-OPS] folded:" (clj->js folded)
+                                      "total-lines:" total-line-count
+                                      "regions:" (count regions)))
+                (let [tokenized-all (into []
                                       (map-indexed
                                         (fn [idx _]
                                           (if (and (>= idx visible-start) (< idx visible-end))
@@ -1074,9 +1086,28 @@
                                             [])))
                                       lines)
                       result (layout-fn tokenized-all layout-x layout-y font-size
-                                        regions folded char-advance line-h theme-id)]
-                  [(filterv seq (:render-ops result))
-                   (:line-mapping result)]))
+                                        regions folded char-advance line-h theme-id)
+                      _ (when (seq folded)
+                          (js/console.log "[TEXT-OPS] render-ops:" (count (:render-ops result))
+                                          "mapping:" (count (:line-mapping result))
+                                          "regions:" (count regions)))
+                      mapping (:line-mapping result)
+                      nums (mapv (fn [visual-idx]
+                                   (let [logical (get mapping visual-idx visual-idx)
+                                         num-str (str (inc logical))
+                                         num-w (* (count num-str) char-advance)
+                                         x (maybe-snap (- layout-x 8 num-w) dpr snap?)
+                                         y (+ layout-y font-size (* visual-idx line-h))
+                                         current? (= logical cursor-line)]
+                                     [{:text num-str :type :line-number
+                                       :from 0 :to (count num-str)
+                                       :x x :y y :size font-size
+                                       :r (if current? 0.85 0.45)
+                                       :g (if current? 0.85 0.45)
+                                       :b (if current? 0.85 0.45)
+                                       :a (if current? 0.9 0.4)}]))
+                                 (range (count mapping)))]
+                  [(filterv seq (:render-ops result)) mapping nums])))
 
               ;; Command panel ops (if visible)
               cmd-ops (when (:visible panel)
@@ -1099,9 +1130,9 @@
                              :size font-size
                              :r 0.3 :g 0.6 :b 1.0 :a 1.0}]
                            (when (empty? (:text panel))
-                             [{:text "Type a task... (/provider codex | /run codex exec ...)"
+                             [{:text "Ask AI..."
                                :type :comment
-                               :from 0 :to 56
+                               :from 0 :to 10
                                :x text-x :y cmd-text-y
                                :size font-size
                                :r 0.5 :g 0.5 :b 0.5 :a 0.7}])]))
@@ -1165,9 +1196,9 @@
                                 (filter some?))
                               (range (count all-lines)))]
 
-            {:render-ops (vec (concat editor-ops cmd-lines agent-lines))
+            {:render-ops (vec (concat line-num-ops editor-ops cmd-lines agent-lines))
              :line-mapping final-line-mapping
-             :editor-line-count (count editor-ops)
+             :editor-line-count (+ (count line-num-ops) (count editor-ops))
              :cmd-line-count (count cmd-lines)})))
     (m/watch !editor-doc)
     (m/watch !cmd-panel)
@@ -1176,7 +1207,7 @@
     (m/watch !agent-scroll-y)
     (m/watch !scroll-y)
     (m/watch !viewport)
-    (m/watch !folded-lines)
+    <fold-data  ;; pre-computed fold state (regions + folded set), replaces (m/watch !folded-lines)
     (m/watch !settings)
     (m/watch !active-font)))
 
@@ -1879,12 +1910,16 @@
                                                            (mapv count (:lines @!editor-doc)))
                                   fold-region (first (filter #(= (:start-line %) logical-line)
                                                              (or regions [])))]
+                              (js/console.log "[FOLD] visual:" visual-line "logical:" logical-line
+                                              "region:" (clj->js fold-region)
+                                              "folded-before:" (clj->js @!folded-lines))
                               (when fold-region
                                 (swap! !folded-lines
                                        (fn [folded]
                                          (if (contains? folded logical-line)
                                            (disj folded logical-line)
-                                           (conj folded logical-line)))))
+                                           (conj folded logical-line))))
+                                (js/console.log "[FOLD] folded-after:" (clj->js @!folded-lines)))
                               (reset! !focus :editor))
                             ;; Normal click - place cursor
                             (let [text-result @!text-geo
@@ -1952,7 +1987,6 @@
            (m/reduce
              (fn [_ event]
                (when event
-                 (js/console.log "Global Key:" (:type event))
                  (case (:type event)
                    :toggle-command-panel
                    (let [visible? (:visible @!cmd-panel)]
@@ -1967,14 +2001,11 @@
                    :toggle-settings-panel
                    (let [visible? (:visible @!settings)]
                      (if visible?
-                       (do (js/console.log "[SETTINGS] Closing, focus -> :editor")
-                           (swap! !settings assoc :visible false)
+                       (do (swap! !settings assoc :visible false)
                            (reset! !focus :editor))
-                       (do (js/console.log "[SETTINGS] Opening, focus -> :settings-panel")
-                           (swap! !settings assoc :visible true)
-                           (swap! !cmd-panel assoc :visible false)  ;; Close command panel if open
-                           (reset! !focus :settings-panel)
-                           (js/console.log "[SETTINGS] Focus is now:" @!focus))))
+                       (do (swap! !settings assoc :visible true)
+                           (swap! !cmd-panel assoc :visible false)
+                           (reset! !focus :settings-panel))))
 
                    :escape
                    (cond
@@ -2051,7 +2082,6 @@
            (m/reduce
              (fn [_ event]
                (when event
-                 (js/console.log "[EDITOR KEY]" (:type event) "focus=" @!focus)
                  (let [doc @!editor-doc
                        lengths (mapv count (:lines doc))]
                    (case (:type event)
@@ -2153,7 +2183,6 @@
            (m/reduce
              (fn [_ event]
                (when event
-                 (js/console.log "Cmd Key:" (:type event))
                  (case (:type event)
                    :enter
                    (let [cmd-text (:text @!cmd-panel)]
@@ -2294,8 +2323,9 @@
             ;; CACHED: bracket match only recomputes when doc changes (not on blink)
             <bracket-data (<bracket-match !editor-doc find-bracket-fn)
 
-            <text-data (<combined-text-ops !editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y !viewport !folded-lines !settings !active-font
-                                           tokenize-fn layout-fn detect-folds-fn
+            <text-data (<combined-text-ops !editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y !viewport !settings !active-font
+                                           tokenize-fn layout-fn
+                                           <fold-data
                                            layout-x layout-y cmd-panel-h)
             <editor-rect-data (<editor-rects !editor-doc !eval-result !caret-visible !focus
                                              !settings !active-font !viewport
