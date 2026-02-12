@@ -3,6 +3,7 @@
         [com.rpl.rama.path])
   (:require [clj-http.client :as http]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [app.server.env :refer [oai-key roam-api-key roam-graph-name]]
             [com.roamresearch.sdk.backend :as b]
             [cheshire.core :as json])
@@ -50,12 +51,15 @@
 
 (defn provider-default-argv
   "Build argv when client does not send raw argv.
-   Session support is best-effort per provider."
-  [provider prompt session-id]
+   Session support is best-effort per provider.
+   Optional :output-format overrides Claude's default (\"json\").
+   When streaming, pass :output-format \"stream-json\" :include-partials? true."
+  [provider prompt session-id & {:keys [output-format include-partials?]}]
   (case provider
     :claude (vec (concat ["claude"]
                          (when (seq session-id) ["--resume" session-id])
-                         ["-p" (or prompt "") "--output-format" "json"]))
+                         ["-p" (or prompt "") "--output-format" (or output-format "json")]
+                         (when include-partials? ["--include-partial-messages"])))
     :codex (vec ["codex" "exec" (or prompt "")])
     :gemini (vec (concat ["gemini"]
                          (when (seq session-id) ["--resume" session-id])
@@ -79,12 +83,28 @@
 
 (defn parse-claude-json-output
   "Parse Claude's JSON output to extract session-id and text content.
-   Claude with --output-format json returns {\"type\":\"result\", \"session_id\":\"...\", \"result\":\"...\"}."
+   Handles two formats:
+   1. Object: {\"type\":\"result\", \"session_id\":\"...\", \"result\":\"...\"}
+   2. Array:  [{\"type\":\"system\",\"session_id\":\"...\",...}, ..., {\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"...\"}]}]"
   [raw-output]
   (try
     (let [parsed (json/parse-string raw-output true)]
-      {:session-id (:session_id parsed)
-       :content (or (:result parsed) raw-output)})
+      (if (vector? parsed)
+        ;; Array format: extract session-id from system init, content from last assistant message
+        (let [init-msg (first (filter #(= (:type %) "system") parsed))
+              assistant-msgs (filter #(and (= (:type %) "message")
+                                           (= (:role %) "assistant"))
+                                     parsed)
+              last-assistant (last assistant-msgs)
+              text-content (->> (:content last-assistant)
+                                (filter #(= (:type %) "text"))
+                                (map :text)
+                                (str/join "\n"))]
+          {:session-id (:session_id init-msg)
+           :content (if (seq text-content) text-content raw-output)})
+        ;; Object format: direct extraction
+        {:session-id (:session_id parsed)
+         :content (or (:result parsed) raw-output)}))
     (catch Exception _
       {:session-id nil :content raw-output})))
 

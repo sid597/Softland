@@ -422,6 +422,13 @@
             (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
             (.draw pass 6 1 0 2))
 
+          ;; Status bar background (instance 3) — always visible
+          (when (and cmd-rect-sys (>= (:num-instances cmd-rect-sys) 4))
+            (.setPipeline pass (:pipeline cmd-rect-sys))
+            (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
+            (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
+            (.draw pass 6 1 0 3))
+
           ;; Settings panel: draw on top of everything when visible
           (when settings-visible
             ;; Draw settings panel BACKGROUND + UI rects

@@ -434,6 +434,53 @@
       :else
       {:kind :run :provider current-provider :prompt trimmed})))
 
+(defn stream-agent-run!
+  "Streaming fetch: POST to url, read SSE events via ReadableStream.
+   Calls (on-event edn-map) for each parsed SSE event.
+   Calls (on-error err) on failure. Returns nil."
+  [url body on-event on-error]
+  (-> (js/fetch url
+                (clj->js {:method "POST"
+                          :headers {"Content-Type" "application/edn"}
+                          :body (pr-str body)}))
+      (.then
+        (fn [resp]
+          (if-not (.-ok resp)
+            (on-error (js/Error. (str "HTTP " (.-status resp))))
+            (let [rdr    (.getReader (.-body resp))
+                  !buf   (atom "")]
+              (letfn [(pump []
+                        (-> (.read rdr)
+                            (.then
+                              (fn [result]
+                                (if (.-done result)
+                                  ;; Stream ended — flush any remaining buffer
+                                  (let [remaining @!buf]
+                                    (when (seq remaining)
+                                      (doseq [chunk (str/split remaining #"\n\n")]
+                                        (let [trimmed (str/trim chunk)]
+                                          (when (str/starts-with? trimmed "data: ")
+                                            (try
+                                              (on-event (reader/read-string (subs trimmed 6)))
+                                              (catch :default _ nil)))))))
+                                  ;; Got a chunk — decode + split on SSE boundary
+                                  (let [text  (.decode (js/TextDecoder.) (.-value result))
+                                        buf   (swap! !buf str text)
+                                        parts (str/split buf #"\n\n" -1)]
+                                    ;; All parts except the last are complete events
+                                    (reset! !buf (peek parts))
+                                    (doseq [part (pop parts)]
+                                      (let [trimmed (str/trim part)]
+                                        (when (str/starts-with? trimmed "data: ")
+                                          (try
+                                            (on-event (reader/read-string (subs trimmed 6)))
+                                            (catch :default _ nil)))))
+                                    (pump)))))
+                            (.catch (fn [e] (on-error e)))))]
+                (pump))))))
+      (.catch (fn [e] (on-error e))))
+  nil)
+
 ;; ============================================================================
 ;; LAYER 6: GPU STATE DERIVED FLOWS
 ;; ============================================================================
@@ -506,7 +553,7 @@
   "Pure function: compute all editor rectangles from PRE-COMPUTED fold state and bracket match.
    No longer calls detect-folds-fn or find-bracket-fn directly — those are cached in separate flows."
   [doc fold-state bracket-match eval-result caret-visible focus
-   layout-x layout-y line-h gutter-w char-advance]
+   layout-x layout-y line-h gutter-w char-advance viewport-w]
   (let [cursor (:cursor doc)
         selection (:selection doc)
 
@@ -578,6 +625,12 @@
                                            :r 0.2 :g 0.4 :b 0.9 :a 0.5}))))
                                   (range (:line s) (inc (:line e))))))
 
+        ;; Current-line highlight (subtle background on cursor's line)
+        current-line-rect (when (and cursor (= focus :editor) (not selection))
+                            (when-let [visual-y (logical->visual-y (:line cursor))]
+                              {:x 0 :y visual-y :w viewport-w :h line-h
+                               :r 1.0 :g 1.0 :b 1.0 :a 0.04}))
+
         ;; Eval result rect
         eval-rect (when eval-result
                     (let [now (js/Date.now)]
@@ -595,7 +648,8 @@
                              :b 0.1
                              :a 0.8})))))]
 
-    (vec (concat fold-rects
+    (vec (concat (if current-line-rect [current-line-rect] [])
+                 fold-rects
                  (or bracket-rects [])
                  (or selection-rects [])
                  (if caret-rect [caret-rect] [])
@@ -620,7 +674,7 @@
             layout-x (maybe-snap layout-x dpr snap?)
             layout-y (maybe-snap layout-y dpr snap?)]
         (compute-editor-rects doc fold-state bracket-match eval-result caret-visible focus
-                              layout-x layout-y line-h gutter-w char-advance)))
+                              layout-x layout-y line-h gutter-w char-advance (:width viewport))))
     (m/watch !editor-doc)
     <fold-data
     <bracket-data
@@ -670,13 +724,14 @@
       (min content-h max-h))))
 
 (defn <cmd-panel-rects
-  "Derived flow: command panel rectangles — always 3 instances:
+  "Derived flow: command panel rectangles — always 4 instances:
      [0] agent-output background  (visible when agent has status)
      [1] command-panel background (visible when panel is open)
      [2] caret                    (visible when panel focused + blink on)
+     [3] status-bar background    (always visible)
    Zero-size invisible rects for absent elements keep GPU indices stable."
   [!cmd-panel !focus !caret-visible !scroll-y !viewport !settings !active-font
-   !ai-provider !agent-output cmd-panel-h]
+   !ai-provider !agent-output cmd-panel-h status-bar-h]
   (m/latest
     (fn [panel focus caret-visible scroll-y viewport settings active-font
          agent-output]
@@ -693,7 +748,7 @@
             agent-bg (if agent-visible?
                        (let [agent-y0 (maybe-snap
                                         (+ scroll-y (- (:height viewport)
-                                                       cmd-panel-h agent-panel-h 12))
+                                                       cmd-panel-h status-bar-h agent-panel-h 12))
                                         dpr snap?)]
                          {:x 0 :y agent-y0
                           :w (:width viewport) :h (+ agent-panel-h 12)
@@ -701,7 +756,7 @@
                        invisible)
 
             ;; --- Instance 1: command panel background ---
-            panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h)) dpr snap?)
+            panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h)) dpr snap?)
             cmd-bg (if (:visible panel)
                      {:x 0 :y panel-y :w (:width viewport) :h cmd-panel-h
                       :r 0.15 :g 0.15 :b 0.2 :a 1.0}
@@ -715,9 +770,15 @@
                      :w 2
                      :h (maybe-snap (- cmd-panel-h 16) dpr snap?)
                      :r 0.9 :g 0.9 :b 0.9 :a 1.0}
-                    invisible)]
+                    invisible)
 
-        [agent-bg cmd-bg caret]))
+            ;; --- Instance 3: status bar background (always visible) ---
+            status-y (maybe-snap (+ scroll-y (- (:height viewport) status-bar-h)) dpr snap?)
+            status-bg {:x 0 :y status-y
+                       :w (:width viewport) :h status-bar-h
+                       :r 0.12 :g 0.12 :b 0.16 :a 1.0}]
+
+        [agent-bg cmd-bg caret status-bg]))
     (m/watch !cmd-panel)
     (m/watch !focus)
     (m/watch !caret-visible)
@@ -1003,15 +1064,17 @@
     (m/watch !font-manifest)))
 
 (defn <combined-text-ops
-  "Derived flow: combined text render ops (editor + command panel)
+  "Derived flow: combined text render ops (editor + command panel + status bar)
    Uses m/latest instead of m/ap to avoid cancellation propagation.
    REACTIVE: font-size comes from !settings, updates live."
   [!editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y !viewport !settings !active-font
+   !current-file
    tokenize-fn layout-fn
    <fold-data
-   layout-x layout-y cmd-panel-h]
+   layout-x layout-y cmd-panel-h status-bar-h]
   (m/latest
-    (fn [doc panel provider agent-output agent-scroll-y scroll-y viewport fold-state settings active-font]
+    (fn [doc panel provider agent-output agent-scroll-y scroll-y viewport fold-state settings active-font
+         current-file]
       (let [dpr (:dpr viewport)
               snap? (:snap-to-pixel? settings)
               ;; Reactive font settings
@@ -1111,7 +1174,7 @@
 
               ;; Command panel ops (if visible)
               cmd-ops (when (:visible panel)
-                        (let [cmd-panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h)) dpr snap?)
+                        (let [cmd-panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h)) dpr snap?)
                               cmd-text-y (maybe-snap (+ cmd-panel-y 12 font-size) dpr snap?)
                               prompt-text (cmd-prompt-text provider)
                               prompt-x (maybe-snap 24 dpr snap?)
@@ -1170,7 +1233,7 @@
                 agent-panel-h (compute-agent-panel-h agent-output font-size (:height viewport)
                                                      (:width viewport) char-advance)
                 agent-x (maybe-snap 24 dpr snap?)
-                agent-y0 (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h agent-panel-h 12)) dpr snap?)
+                agent-y0 (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h agent-panel-h 12)) dpr snap?)
                 line-step (maybe-snap (* font-size 1.2) dpr snap?)
                 panel-top agent-y0
                 panel-bottom (+ agent-y0 agent-panel-h)
@@ -1194,12 +1257,38 @@
                                              :b (:b status-color)
                                              :a (:a status-color)}]))))
                                 (filter some?))
-                              (range (count all-lines)))]
+                              (range (count all-lines)))
 
-            {:render-ops (vec (concat line-num-ops editor-ops cmd-lines agent-lines))
+                ;; Status bar text (always visible, pinned to bottom)
+                status-y (maybe-snap (+ scroll-y (- (:height viewport) status-bar-h) 4 font-size) dpr snap?)
+                sb-cursor (:cursor doc)
+                status-left-text (str "Ln " (inc (:line sb-cursor)) ", Col " (inc (:col sb-cursor)))
+                file-name (or (:name current-file) "untitled")
+                provider-upper (some-> provider name str/upper-case)
+                status-right-text (if provider-upper
+                                    (str file-name "  |  " provider-upper)
+                                    file-name)
+                status-right-w (* (count status-right-text) char-advance)
+                status-right-x (maybe-snap (- (:width viewport) status-right-w 16) dpr snap?)
+                status-lines [;; Left: cursor position
+                              [{:text status-left-text
+                                :type :comment
+                                :from 0 :to (count status-left-text)
+                                :x (maybe-snap 16 dpr snap?) :y status-y
+                                :size font-size
+                                :r 0.65 :g 0.65 :b 0.65 :a 0.9}]
+                              ;; Right: filename | PROVIDER
+                              [{:text status-right-text
+                                :type :comment
+                                :from 0 :to (count status-right-text)
+                                :x status-right-x :y status-y
+                                :size font-size
+                                :r 0.65 :g 0.65 :b 0.65 :a 0.9}]]]
+
+            {:render-ops (vec (concat line-num-ops editor-ops cmd-lines agent-lines status-lines))
              :line-mapping final-line-mapping
              :editor-line-count (+ (count line-num-ops) (count editor-ops))
-             :cmd-line-count (count cmd-lines)})))
+             :cmd-line-count (+ (count cmd-lines) (count status-lines))})))
     (m/watch !editor-doc)
     (m/watch !cmd-panel)
     (m/watch !ai-provider)
@@ -1209,7 +1298,8 @@
     (m/watch !viewport)
     <fold-data  ;; pre-computed fold state (regions + folded set), replaces (m/watch !folded-lines)
     (m/watch !settings)
-    (m/watch !active-font)))
+    (m/watch !active-font)
+    (m/watch !current-file)))
 
 ;; ============================================================================
 ;; LAYER 7: TERMINAL RENDER CONSUMER
@@ -1254,6 +1344,7 @@
         layout-y  100
         line-h    (* font-size 1.2)
         cmd-panel-h 40
+        status-bar-h 24
 
         ;; =====================================================================
         ;; LAYER 1: PRIMARY SOURCE ATOMS
@@ -1523,29 +1614,60 @@
                                        :prompt prompt
                                        :output ""
                                        :run-id run-id})
-                ;; POST blocks on server until complete, .then() fires with result
-                (post-edn! "/api/agent/run"
-                           request-body
-                           (fn [resp]
-                             (js/console.log "[AGENT][CLIENT][RESPONSE]"
-                                             (clj->js {:run-id run-id
-                                                       :status (:status resp)
-                                                       :provider (:provider resp)
-                                                       :prompt (:prompt resp)
-                                                       :result-summary (some-> (:result resp)
-                                                                               (select-keys [:exit-code :timed-out? :timeout-ms :duration-ms]))}))
-                             (if-let [err (:error resp)]
-                               (reset! !agent-output {:status :failed
-                                                      :provider provider
-                                                      :prompt prompt
-                                                      :output err
-                                                      :run-id run-id})
-                               (let [result (:result resp)]
-                                 (reset! !agent-output {:status (:status resp)
-                                                        :provider (:provider resp)
-                                                        :prompt (:prompt resp)
-                                                        :output (or (:output result) "")
-                                                        :run-id (:run-id resp)})))))))))
+                ;; Stream SSE events from server
+                (stream-agent-run!
+                  "/api/agent/stream"
+                  request-body
+                  ;; on-event: handle each SSE event
+                  (fn [evt]
+                    (case (:event evt)
+                      :text-delta
+                      (do (swap! !agent-output update :output str (:text evt))
+                          ;; Auto-scroll to bottom
+                          (let [ao @!agent-output
+                                viewport @!viewport
+                                settings @!settings
+                                font-size (:font-size settings)
+                                char-advance (* font-size (:char-width @!active-font))
+                                agent-h (compute-agent-panel-h ao font-size (:height viewport)
+                                                               (:width viewport) char-advance)
+                                line-step (* font-size 1.2)
+                                max-chars (if (pos? char-advance)
+                                            (max 1 (int (/ (- (:width viewport) 48) char-advance)))
+                                            80)
+                                raw-lines (str/split-lines (or (:output ao) ""))
+                                wrapped (into [] (mapcat #(wrap-line % max-chars)) raw-lines)
+                                total-h (* (inc (count wrapped)) line-step)
+                                max-scroll (max 0 (- total-h (- agent-h 16)))]
+                            (reset! !agent-scroll-y max-scroll)))
+
+                      :done
+                      (do (swap! !agent-output assoc :status (:status evt))
+                          (js/console.log "[AGENT][CLIENT][DONE]"
+                                          (clj->js {:run-id run-id
+                                                    :status (:status evt)
+                                                    :exit-code (:exit-code evt)
+                                                    :duration-ms (:duration-ms evt)})))
+
+                      :start
+                      (js/console.log "[AGENT][CLIENT][STREAM-START]" (clj->js evt))
+
+                      :init
+                      (js/console.log "[AGENT][CLIENT][INIT]" (clj->js evt))
+
+                      :result
+                      (js/console.log "[AGENT][CLIENT][RESULT]" (clj->js evt))
+
+                      ;; Unknown event — ignore
+                      nil))
+                  ;; on-error
+                  (fn [err]
+                    (js/console.error "[AGENT][CLIENT][STREAM-ERROR]" err)
+                    (reset! !agent-output {:status :failed
+                                           :provider provider
+                                           :prompt prompt
+                                           :output (str "Stream error: " (.-message err))
+                                           :run-id run-id})))))))
 
         render-sidebar!
         (fn render-sidebar! []
@@ -1766,8 +1888,8 @@
                                                             (:height viewport) (:width viewport)
                                                             char-advance)
                              ;; Agent panel Y bounds (viewport-relative, no scroll offset)
-                             agent-y0 (- (:height viewport) cmd-panel-h agent-h 12)
-                             agent-y1 (- (:height viewport) cmd-panel-h)
+                             agent-y0 (- (:height viewport) cmd-panel-h status-bar-h agent-h 12)
+                             agent-y1 (- (:height viewport) cmd-panel-h status-bar-h)
                              mouse-y @!mouse-y
                              in-agent? (and (pos? agent-h)
                                             (>= mouse-y agent-y0)
@@ -1861,13 +1983,17 @@
                                     :focus-section :sliders)
                             (js/console.log "[SETTINGS] Clicked slider:" slider-idx)))))
 
-                     ;; Not in settings - check command panel or editor
+                     ;; Not in settings - check status bar, command panel, or editor
+                     (let [status-bar-top (- (:height viewport) status-bar-h)
+                           clicked-in-status? (>= y status-bar-top)]
+                       (if clicked-in-status?
+                         nil ;; Clicks in status bar are no-ops
                      (let [cmd-panel @!cmd-panel
                            cmd-visible? (:visible cmd-panel)
                            cmd-panel-top (if cmd-visible?
-                                           (- (:height viewport) cmd-panel-h)
+                                           (- (:height viewport) cmd-panel-h status-bar-h)
                                            (:height viewport))
-                           clicked-in-cmd? (and cmd-visible? (>= y cmd-panel-top))]
+                           clicked-in-cmd? (and cmd-visible? (>= y cmd-panel-top) (< y status-bar-top))]
 
                        (if clicked-in-cmd?
                          ;; Click in command panel - use reactive font values
@@ -1940,7 +2066,7 @@
                                      :selection nil
                                      :desired-col col)
                               (reset! !caret-visible true)
-                              (reset! !focus :editor)))))))))
+                              (reset! !focus :editor)))))))))))
 
                  :mousemove
                  (do (reset! !mouse-y (:y coords))
@@ -2324,16 +2450,17 @@
             <bracket-data (<bracket-match !editor-doc find-bracket-fn)
 
             <text-data (<combined-text-ops !editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y !viewport !settings !active-font
+                                           !current-file
                                            tokenize-fn layout-fn
                                            <fold-data
-                                           layout-x layout-y cmd-panel-h)
+                                           layout-x layout-y cmd-panel-h status-bar-h)
             <editor-rect-data (<editor-rects !editor-doc !eval-result !caret-visible !focus
                                              !settings !active-font !viewport
                                              <fold-data <bracket-data
                                              layout-x layout-y gutter-w)
             <cmd-rect-data (<cmd-panel-rects !cmd-panel !focus !caret-visible !scroll-y !viewport
                                              !settings !active-font
-                                             !ai-provider !agent-output cmd-panel-h)
+                                             !ai-provider !agent-output cmd-panel-h status-bar-h)
             ;; Settings panel flows (reactive: derive font-size from !settings internally)
             <settings-rect-data (<settings-panel-rects !settings !focus !viewport !scroll-y !font-manifest)
             <settings-text-data (<settings-panel-text !settings !viewport !scroll-y !font-manifest)

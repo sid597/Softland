@@ -9,14 +9,17 @@
     [app.file-viewer :as fv]
     [app.server.rama.util-fns :as util-fns]
     [app.server.rama.objects :as rama-objects]
+    [cheshire.core :as json]
     [hyperfiddle.electric-ring-adapter3 :as electric-ring]
     [ring.adapter.jetty :as ring]
     [ring.middleware.content-type :refer [wrap-content-type]]
     [ring.middleware.cookies :as cookies]
     [ring.middleware.params :refer [wrap-params]]
     [ring.middleware.resource :refer [wrap-resource]]
+    [ring.core.protocols :as ring-protocols]
     [ring.util.response :as res])
   (:import
+    (java.io BufferedReader InputStreamReader OutputStreamWriter)
     (java.util.concurrent TimeUnit)
     (org.eclipse.jetty.server.handler.gzip GzipHandler)
     (org.eclipse.jetty.websocket.server.config JettyWebSocketServletContainerInitializer JettyWebSocketServletContainerInitializer$Configurator)))
@@ -269,6 +272,182 @@ information."
                  :session-id new-session-id})
       response)))
 
+;;; ── Streaming agent execution (SSE over POST) ──────────────────────────────
+
+(defn stream-cli-process
+  "Spawn a CLI process and read its stdout line-by-line.
+   Calls (on-line line-str) for each line, (on-done info-map) when the process
+   exits or times out. Runs reader + waiter on daemon threads."
+  [argv cwd timeout-ms on-line on-done]
+  (let [cmd  (vec (map str argv))
+        pb   (ProcessBuilder. (into-array String cmd))]
+    (when (seq cwd)
+      (.directory pb (io/file cwd)))
+    (.redirectErrorStream pb true)
+    (let [proc       (.start pb)
+          _          (try (.close (.getOutputStream proc)) (catch Exception _ nil))
+          start-ms   (System/currentTimeMillis)
+          reader     (BufferedReader. (InputStreamReader. (.getInputStream proc)))
+          ;; Reader thread: emit lines until EOF
+          read-thread
+          (doto (Thread.
+                  (fn []
+                    (try
+                      (loop []
+                        (when-let [line (.readLine reader)]
+                          (try (on-line line) (catch Exception _ nil))
+                          (recur)))
+                      (catch Exception e
+                        (log/debug "[STREAM] reader exception" (.getMessage e)))
+                      (finally
+                        (try (.close reader) (catch Exception _ nil))))))
+            (.setName (str "stream-reader-" (System/currentTimeMillis)))
+            (.setDaemon true))
+          ;; Waiter thread: wait for exit or timeout, then invoke on-done
+          wait-thread
+          (doto (Thread.
+                  (fn []
+                    (let [finished? (.waitFor proc timeout-ms TimeUnit/MILLISECONDS)
+                          end-ms    (System/currentTimeMillis)]
+                      (if finished?
+                        (do (.join read-thread 2000) ;; let reader drain
+                            (on-done {:exit-code   (.exitValue proc)
+                                      :timed-out?  false
+                                      :duration-ms (- end-ms start-ms)}))
+                        (do (destroy-process-tree! proc)
+                            (try (.close (.getInputStream proc)) (catch Exception _ nil))
+                            (.join read-thread 1000)
+                            (on-done {:exit-code   124
+                                      :timed-out?  true
+                                      :duration-ms (- end-ms start-ms)}))))))
+            (.setName (str "stream-waiter-" (System/currentTimeMillis)))
+            (.setDaemon true))]
+      (.start read-thread)
+      (.start wait-thread)
+      proc)))
+
+(defn parse-stream-json-line
+  "Parse a single NDJSON line from `claude --output-format stream-json --include-partial-messages`.
+   Event types:
+     system       → {:session_id ...}
+     stream_event → wraps Anthropic API events (content_block_delta, etc.)
+     assistant    → full message (ignored — we already got deltas)
+     result       → {:session_id ... :total_cost_usd ...}"
+  [line]
+  (try
+    (let [obj (json/parse-string line true)]
+      (case (:type obj)
+        "system"
+        {:event :init :session-id (:session_id obj)}
+
+        "stream_event"
+        (let [inner (:event obj)]
+          (case (:type inner)
+            "content_block_delta"
+            (when-let [text (get-in inner [:delta :text])]
+              {:event :text-delta :text text})
+            ;; message_start, content_block_start/stop, message_delta, message_stop — skip
+            nil))
+
+        ;; assistant — full message; fallback if --include-partial-messages wasn't passed
+        "assistant"
+        (let [text (->> (get-in obj [:message :content])
+                        (filter #(= (:type %) "text"))
+                        (map :text)
+                        (str/join "\n"))]
+          (when (seq text)
+            {:event :text-delta :text text}))
+
+        "result"
+        {:event :result
+         :session-id (:session_id obj)
+         :cost-usd (:total_cost_usd obj)}
+
+        ;; Unknown types — skip
+        nil))
+    (catch Exception _
+      nil)))
+
+(defn write-event!
+  "Write one SSE event as `data: {edn}\\n\\n` and flush."
+  [^java.io.Writer writer evt]
+  (.write writer (str "data: " (pr-str evt) "\n\n"))
+  (.flush writer))
+
+(defn run-agent-stream
+  "Streaming variant of run-agent-request. Returns a Ring response with
+   Content-Type text/event-stream. Each SSE event is an EDN map."
+  [request-data]
+  (let [run-id      (or (:run-id request-data) (str (java.util.UUID/randomUUID)))
+        provider    (:provider request-data)
+        prompt      (:prompt request-data)
+        file-path   (:file request-data)
+        stored-ses  (when (and file-path provider)
+                      (try (util-fns/get-cli-session file-path provider)
+                           (catch Exception _ nil)))
+        session-id  (or (:session-id request-data)
+                        (:session-id stored-ses))
+        argv        (or (:argv request-data)
+                        (rama-objects/provider-default-argv
+                          provider prompt session-id
+                          :output-format (if (= provider :claude) "stream-json" nil)
+                          :include-partials? (= provider :claude)))
+        cwd         (:cwd request-data)
+        timeout-ms  (normalize-timeout-ms (:timeout-ms request-data))
+        ;; Capture session-id from stream events
+        !session-id (atom session-id)]
+    {:status  200
+     :headers {"Content-Type"       "text/event-stream"
+               "Cache-Control"      "no-cache"
+               "X-Accel-Buffering"  "no"
+               "Connection"         "keep-alive"}
+     :body
+     (reify ring-protocols/StreamableResponseBody
+       (write-body-to-stream [_ _response output-stream]
+         (let [writer (OutputStreamWriter. output-stream "UTF-8")]
+           (try
+             ;; Send :start event immediately — flushes to Jetty's output
+             (write-event! writer {:event    :start
+                                   :run-id   run-id
+                                   :provider provider
+                                   :prompt   prompt})
+             (let [done-promise (promise)]
+               (stream-cli-process
+                 argv cwd timeout-ms
+                 ;; on-line callback
+                 (fn [line]
+                   (if (= provider :claude)
+                     (when-let [evt (parse-stream-json-line line)]
+                       (when-let [sid (:session-id evt)]
+                         (reset! !session-id sid))
+                       (write-event! writer evt))
+                     (write-event! writer {:event :text-delta :text (str line "\n")})))
+                 ;; on-done callback
+                 (fn [{:keys [exit-code timed-out? duration-ms]}]
+                   (let [status (cond timed-out? :timeout
+                                      (zero? exit-code) :complete
+                                      :else :failed)]
+                     (write-event! writer {:event       :done
+                                           :status      status
+                                           :exit-code   exit-code
+                                           :duration-ms duration-ms})
+                     ;; Persist session-id to Rama
+                     (let [final-sid @!session-id]
+                       (when (and final-sid file-path (= status :complete))
+                         (try
+                           (util-fns/update-cli-session file-path provider final-sid)
+                           (catch Exception e
+                             (log/warn "[AGENT][STREAM][SESSION-STORE-FAILED]"
+                                       {:error (.getMessage e)})))))
+                     (deliver done-promise true))))
+               ;; Block this thread until process completes — keeps stream open
+               @done-promise)
+             (catch Exception e
+               (println "[STREAM][ERROR]" (.getMessage e)))
+             (finally
+               (try (.flush writer) (catch Exception _ nil))
+               (try (.close writer) (catch Exception _ nil)))))))}))
+
 (defn wrap-file-api
   "Handle /api/* routes for file explorer sidebar.
    Returns EDN responses consumable by ClojureScript client."
@@ -307,6 +486,20 @@ information."
                         :method request-method
                         :uri uri})
             (json-response {:error (str "Failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
+      "/api/agent/stream"
+      (if (= request-method :post)
+        (try
+          (let [request-data (parse-edn-body ring-req)]
+            (log/info "[AGENT][STREAM][HTTP-IN]"
+                      {:remote-addr (:remote-addr ring-req)
+                       :request (summarize-agent-request request-data)})
+            (run-agent-stream request-data))
+          (catch Exception e
+            (log/error e "[AGENT][STREAM][HTTP-ERROR]"
+                       {:remote-addr (:remote-addr ring-req) :uri uri})
+            (json-response {:error (str "Stream failed: " (.getMessage e))})))
         (json-response {:error "Method not allowed. Use POST."}))
 
       "/api/agent/run-status"
