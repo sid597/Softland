@@ -398,6 +398,8 @@
    Supported forms:
    - /provider claude|codex|gemini
    - /run <raw argv...>
+   - /bootstrap, /select, /arrange, /run-flow, /review
+   - /rework <comment>, /finalize, /status, /reset
    - plain text prompt"
   [cmd-text current-provider]
   (let [trimmed (str/trim (or cmd-text ""))]
@@ -415,6 +417,9 @@
           {:kind :set-provider :provider arg}
           {:kind :error :message (str "Unknown provider: " arg)}))
 
+      (str/starts-with? trimmed "/replay")
+      {:kind :replay}
+
       (str/starts-with? trimmed "/run ")
       (let [argv (-> trimmed
                      (subs (count "/run "))
@@ -431,8 +436,208 @@
           {:kind :run :provider provider :argv argv :prompt (str/join " " argv)}
           {:kind :error :message "Missing argv for /run"}))
 
+      ;; --- Flow commands (V0 state machine) ---
+      (= trimmed "/bootstrap")
+      {:kind :flow-bootstrap}
+
+      (str/starts-with? trimmed "/select ")
+      (let [args (-> trimmed (subs (count "/select ")) str/trim (str/split #"\s+"))
+            indices (try (mapv #(dec (js/parseInt % 10)) args)
+                         (catch :default _ nil))]
+        (if (and (seq indices) (every? #(and (number? %) (not (js/isNaN %))) indices))
+          {:kind :flow-select :indices indices}
+          {:kind :error :message "Usage: /select 1 2 3 (1-based ticket numbers)"}))
+
+      (str/starts-with? trimmed "/arrange ")
+      (let [mode (-> trimmed (subs (count "/arrange ")) str/trim str/lower-case keyword)]
+        (if (contains? #{:sequential :parallel} mode)
+          {:kind :flow-arrange :mode mode}
+          {:kind :error :message "Usage: /arrange sequential|parallel"}))
+
+      (= trimmed "/arrange")
+      {:kind :error :message "Usage: /arrange sequential|parallel"}
+
+      (= trimmed "/run-flow")
+      {:kind :flow-run}
+
+      (= trimmed "/review")
+      {:kind :flow-review}
+
+      (str/starts-with? trimmed "/rework ")
+      {:kind :flow-rework :comment (-> trimmed (subs (count "/rework ")) str/trim)}
+
+      (= trimmed "/rework")
+      {:kind :error :message "Usage: /rework <feedback comment>"}
+
+      (= trimmed "/finalize")
+      {:kind :flow-finalize}
+
+      (= trimmed "/status")
+      {:kind :flow-status}
+
+      (= trimmed "/reset")
+      {:kind :flow-reset}
+
       :else
       {:kind :run :provider current-provider :prompt trimmed})))
+
+;; ============================================================================
+;; FLOW STATE MACHINE (V0 — "Prompts as API Calls")
+;; ============================================================================
+;; Encodes the state graph from commission-consensus.md Section 4.
+;; Pure functions — no atoms, no side effects.
+
+(def flow-transitions
+  "Directed graph of valid state transitions.
+   Keys are from-states, values are sets of reachable to-states.
+   NOTE: :idle is a pre-graph state (not in Section 4's locked graph).
+   It exists only as the initial state before the first bootstrap.
+   Once bootstrapping begins, all transitions follow the locked graph."
+  {:idle            #{:bootstrapping}
+   :bootstrapping   #{:intake :bootstrapping}         ;; retry on failure
+   :intake          #{:arrange}
+   :arrange         #{:run}
+   :run             #{:review :intake}                 ;; back-edge: scope change
+   :review          #{:rework :finalize :arrange}      ;; back-edge: re-arrange
+   :rework          #{:review :arrange}                ;; back-edge: split/reorder
+   :finalize        #{:intake}})
+
+(defn valid-transition?
+  "Check if moving from `from` to `to` is allowed.
+   Human override: any state can jump to :intake or :arrange."
+  [from to]
+  (or (contains? (get flow-transitions from) to)
+      (contains? #{:intake :arrange} to)))
+
+(defn initial-flow-state
+  "Fresh flow state for a new session."
+  []
+  {:node :idle
+   :tickets []
+   :selected []
+   :arrangement nil
+   :session-id nil
+   :history []})
+
+(defn transition-flow-state
+  "Attempt to transition flow state. Returns updated state or nil if invalid.
+   Appends previous node to :history for auditability."
+  [flow-state to-node & [extra-merge]]
+  (let [from (:node flow-state)]
+    (when (valid-transition? from to-node)
+      (cond-> (assoc flow-state
+                :node to-node
+                :history (conj (:history flow-state) from))
+        extra-merge (merge extra-merge)))))
+
+;; ============================================================================
+;; PROMPT TEMPLATES (V0 Flow Actions)
+;; ============================================================================
+
+(defn flow-prompt
+  "Compose a prompt + optional system instruction for a flow action.
+   Returns {:prompt \"...\" :system-instruction nil}."
+  [action flow-state]
+  (case action
+    :bootstrap
+    {:prompt (str "Get my active Linear tickets for the discourse-graph project. "
+                  "Return them as a JSON code block with this exact shape:\n"
+                  "```json\n"
+                  "[{\"id\": \"TICKET-1\", \"title\": \"...\", "
+                  "\"status\": \"...\", \"assignee\": \"...\", \"priority\": 1}]\n"
+                  "```\n"
+                  "Include all active tickets. The JSON block must be parseable.")
+     :system-instruction nil}
+
+    :run-sequential
+    (let [tickets (mapv #(nth (:tickets flow-state) %) (:selected flow-state))
+          ticket-list (str/join "\n" (map-indexed
+                                       (fn [i t]
+                                         (str (inc i) ". " (:id t) " — " (:title t)
+                                              " [" (:status t) ", P" (:priority t) "]"))
+                                       tickets))]
+      {:prompt (str "Execute the following tickets SEQUENTIALLY. "
+                    "Each ticket's output should feed into the next ticket's context.\n\n"
+                    ticket-list "\n\n"
+                    "For each ticket: create a worktree, implement the changes, "
+                    "run tests, and report the result before moving to the next.")
+       :system-instruction nil})
+
+    :run-parallel
+    (let [tickets (mapv #(nth (:tickets flow-state) %) (:selected flow-state))
+          ticket-list (str/join "\n" (map-indexed
+                                       (fn [i t]
+                                         (str (inc i) ". " (:id t) " — " (:title t)
+                                              " [" (:status t) ", P" (:priority t) "]"))
+                                       tickets))]
+      {:prompt (str "Execute the following tickets IN PARALLEL (independent worktrees). "
+                    "Each ticket is independent — do not chain context between them.\n\n"
+                    ticket-list "\n\n"
+                    "For each ticket: create a separate worktree from main, "
+                    "implement changes, run tests, and report results.")
+       :system-instruction nil})
+
+    :rework
+    {:prompt (str "Rework the previous implementation based on this feedback:\n\n"
+                  (or (:rework-comment flow-state) "Please fix the issues found in review.") "\n\n"
+                  "Apply fixes in the existing worktree(s) and re-run tests.")
+     :system-instruction nil}
+
+    :finalize
+    {:prompt (str "Finalize the current batch of tickets. For each completed ticket:\n"
+                  "1. Generate a PR description summarizing the changes\n"
+                  "2. List any remaining TODOs or known issues\n"
+                  "3. Confirm test status\n\n"
+                  "Return a summary of all finalized work.")
+     :system-instruction nil}
+
+    ;; Fallback — shouldn't happen if callers validate
+    {:prompt (str "Unknown flow action: " action)
+     :system-instruction nil}))
+
+;; ============================================================================
+;; RESPONSE PARSER (Extract structured data from agent output)
+;; ============================================================================
+
+(defn parse-tickets-from-output
+  "Extract a JSON ticket array from agent output text.
+   Tries ```json code block first, then bracket-matching fallback.
+   Returns [{:id :title :status :assignee :priority}] or nil."
+  [output-text]
+  (when (and output-text (not (str/blank? output-text)))
+    (let [;; Strategy 1: look for ```json ... ``` code block
+          json-block-re #"(?s)```json\s*\n?(.*?)\n?\s*```"
+          match1 (re-find json-block-re output-text)
+          json-str (if match1
+                     (second match1)
+                     ;; Strategy 2: find first [ ... ] bracket pair
+                     (let [start (str/index-of output-text "[")]
+                       (when start
+                         (loop [i start depth 0 max-i (min (count output-text) (+ start 50000))]
+                           (if (>= i max-i)
+                             nil
+                             (let [c (.charAt output-text i)
+                                   new-depth (cond (= c \[) (inc depth)
+                                                   (= c \]) (dec depth)
+                                                   :else depth)]
+                               (if (zero? new-depth)
+                                 (subs output-text start (inc i))
+                                 (recur (inc i) new-depth max-i))))))))]
+      (when json-str
+        (try
+          (let [parsed (js/JSON.parse json-str)
+                arr (js->clj parsed :keywordize-keys true)]
+            (when (vector? arr)
+              (mapv (fn [t]
+                      {:id (or (:id t) "UNKNOWN")
+                       :title (or (:title t) "Untitled")
+                       :status (or (:status t) "unknown")
+                       :assignee (or (:assignee t) "unassigned")
+                       :priority (or (:priority t) 0)})
+                    arr)))
+          (catch :default e
+            (js/console.warn "[FLOW] Failed to parse tickets JSON:" (.-message e))
+            nil))))))
 
 (defn stream-agent-run!
   "Streaming fetch: POST to url, read SSE events via ReadableStream.
@@ -696,10 +901,105 @@
         (recur (subs remaining max-chars)
                (conj result (subs remaining 0 max-chars)))))))
 
+(defn trail-node-color
+  "Color for a trail node by kind. Returns {:r :g :b :a}."
+  [kind tool-name]
+  (case kind
+    :reasoning    {:r 0.85 :g 0.85 :b 0.85 :a 1.0}
+    :tool-call    (case tool-name
+                    ("Read" "read")        {:r 0.4 :g 0.85 :b 0.95 :a 1.0}  ;; cyan
+                    ("Edit" "edit")        {:r 0.95 :g 0.85 :b 0.35 :a 1.0}  ;; yellow
+                    ("Write" "write")      {:r 0.95 :g 0.85 :b 0.35 :a 1.0}  ;; yellow
+                    ("Grep" "grep")        {:r 0.55 :g 0.9 :b 0.55 :a 1.0}   ;; green
+                    ("Glob" "glob")        {:r 0.55 :g 0.9 :b 0.55 :a 1.0}   ;; green
+                    ("Bash" "bash")        {:r 0.9 :g 0.65 :b 0.4 :a 1.0}    ;; orange
+                    ("Task" "task")        {:r 0.75 :g 0.6 :b 0.95 :a 1.0}   ;; purple
+                                           {:r 0.7 :g 0.7 :b 0.85 :a 1.0})  ;; default blue-gray
+    :tool-call-start {:r 0.6 :g 0.6 :b 0.7 :a 0.7}
+    :tool-result  {:r 0.55 :g 0.55 :b 0.6 :a 0.7}  ;; dim
+    {:r 0.75 :g 0.75 :b 0.75 :a 1.0}))
+
+(defn trail->display-lines
+  "Convert trail nodes to [{:text :color}]. Merges consecutive reasoning nodes."
+  [trail]
+  (reduce
+    (fn [acc node]
+      (case (:kind node)
+        :reasoning
+        (let [last-entry (peek acc)]
+          (if (and last-entry (= :reasoning (:kind last-entry)))
+            ;; Merge with previous reasoning node
+            (conj (pop acc) (update last-entry :text str (:text node)))
+            (conj acc {:kind :reasoning :text (:text node)
+                       :color (trail-node-color :reasoning nil)})))
+
+        :tool-call
+        (let [input-summary (let [inp (:input node)]
+                              (cond
+                                (and (string? (:file_path inp)) (seq (:file_path inp)))
+                                (:file_path inp)
+                                (and (string? (:pattern inp)) (seq (:pattern inp)))
+                                (str "\"" (:pattern inp) "\"")
+                                (and (string? (:command inp)) (seq (:command inp)))
+                                (let [cmd (:command inp)]
+                                  (if (> (count cmd) 60)
+                                    (str (subs cmd 0 57) "...")
+                                    cmd))
+                                :else ""))]
+          (conj acc {:kind :tool-call
+                     :text (str ">> " (:tool-name node) " " input-summary)
+                     :color (trail-node-color :tool-call (:tool-name node))}))
+
+        :tool-call-start
+        (conj acc {:kind :tool-call-start
+                   :text (str "> " (:tool-name node) "...")
+                   :color (trail-node-color :tool-call-start nil)})
+
+        :tool-result
+        (let [raw-content (or (:content node) "")
+              content (if (string? raw-content) raw-content (pr-str raw-content))
+              short (if (> (count content) 120)
+                      (str (subs content 0 117) "...")
+                      content)]
+          (conj acc {:kind :tool-result
+                     :text (str "  <- " short)
+                     :color (trail-node-color :tool-result nil)}))
+
+        ;; Unknown kind — render as-is
+        (conj acc {:kind (:kind node) :text (pr-str node)
+                   :color {:r 0.75 :g 0.75 :b 0.75 :a 1.0}})))
+    []
+    trail))
+
+(defn agent-wrapped-line-count
+  "Count wrapped display lines for agent output. Trail-aware: uses structured trail
+   when available, falls back to flat :output text. Includes header line in count."
+  [agent-output max-chars]
+  (let [status (:status agent-output)
+        provider-name (some-> (:provider agent-output) name str/upper-case)
+        prompt (:prompt agent-output)
+        header-text (when status (str "[" provider-name "] " (name status) ": " prompt))
+        trail (:trail agent-output)
+        display-entries (when (seq trail) (trail->display-lines trail))
+        raw-lines (if display-entries
+                    ;; Trail path: header + structured trail lines
+                    (cond-> []
+                      header-text (conj {:text header-text})
+                      (and (= status :running) (empty? display-entries)) (conj {:text "..."})
+                      (seq display-entries) (into display-entries))
+                    ;; Flat text fallback
+                    (let [output-lines (str/split-lines (or (:output agent-output) ""))
+                          flat-lines (cond-> []
+                                       header-text (conj header-text)
+                                       (and (= status :running) (empty? output-lines)) (conj "...")
+                                       (seq output-lines) (into output-lines))]
+                      (mapv (fn [l] {:text l}) flat-lines)))]
+    (count (into [] (mapcat (fn [entry] (wrap-line (:text entry) max-chars))) raw-lines))))
+
 (defn compute-agent-panel-h
   "Pure: dynamic panel height from agent output content.
    Returns 0 when no agent output, otherwise sizes to content capped at 50% viewport.
-   Wraps lines to viewport width for accurate height."
+   Wraps lines to viewport width for accurate height. Trail-aware."
   [agent-output font-size viewport-height viewport-width char-advance]
   (if-not (some? (:status agent-output))
     0
@@ -707,17 +1007,7 @@
           right-pad 24
           available-w (- viewport-width agent-x right-pad)
           max-chars (if (pos? char-advance) (max 1 (int (/ available-w char-advance))) 80)
-          status (:status agent-output)
-          provider-name (some-> (:provider agent-output) name str/upper-case)
-          prompt (:prompt agent-output)
-          header-text (when status (str "[" provider-name "] " (name status) ": " prompt))
-          raw-output-lines (str/split-lines (or (:output agent-output) ""))
-          all-lines (cond-> []
-                      header-text (conj header-text)
-                      (and (= status :running) (empty? raw-output-lines)) (conj "...")
-                      (seq raw-output-lines) (into raw-output-lines))
-          wrapped (into [] (mapcat #(wrap-line % max-chars)) all-lines)
-          line-count (count wrapped)
+          line-count (agent-wrapped-line-count agent-output max-chars)
           line-step (* font-size 1.2)
           content-h (+ 16 (* line-count line-step))
           max-h (* viewport-height 0.5)]
@@ -1225,11 +1515,32 @@
                 right-pad 24
                 available-w (- (:width viewport) agent-x-px right-pad)
                 max-chars (if (pos? char-advance) (max 1 (int (/ available-w char-advance))) 80)
-                raw-lines (cond-> []
-                            header-text (conj header-text)
-                            (and (= status :running) (empty? output-lines)) (conj "...")
-                            (seq output-lines) (into output-lines))
-                all-lines (into [] (mapcat #(wrap-line % max-chars)) raw-lines)
+
+                ;; Trail-aware line generation: use trail if available, fall back to flat text
+                trail (:trail agent-output)
+                display-entries (if (seq trail)
+                                  (trail->display-lines trail)
+                                  nil)
+                raw-lines (if display-entries
+                            ;; Trail path: header + trail display lines (each carries its own color)
+                            (cond-> []
+                              header-text (conj {:text header-text :color status-color})
+                              (and (= status :running) (empty? display-entries)) (conj {:text "..." :color status-color})
+                              (seq display-entries) (into display-entries))
+                            ;; Flat text fallback (backward compat)
+                            (let [flat-lines (cond-> []
+                                              header-text (conj header-text)
+                                              (and (= status :running) (empty? output-lines)) (conj "...")
+                                              (seq output-lines) (into output-lines))]
+                              (mapv (fn [l] {:text l :color status-color}) flat-lines)))
+
+                ;; Wrap all lines (both trail and flat share this path)
+                all-lines (into []
+                            (mapcat (fn [entry]
+                              (let [wrapped (wrap-line (:text entry) max-chars)]
+                                (mapv (fn [wl] {:text wl :color (:color entry)}) wrapped))))
+                            raw-lines)
+
                 agent-panel-h (compute-agent-panel-h agent-output font-size (:height viewport)
                                                      (:width viewport) char-advance)
                 agent-x (maybe-snap 24 dpr snap?)
@@ -1240,22 +1551,23 @@
                 agent-lines (into []
                               (comp
                                 (map (fn [idx]
-                                       (let [line (nth all-lines idx)
+                                       (let [entry (nth all-lines idx)
                                              y (+ agent-y0 8 font-size
                                                   (* idx line-step)
-                                                  (- agent-scroll-y))]
+                                                  (- agent-scroll-y))
+                                             c (:color entry)]
                                          (when (and (>= y (+ panel-top 8))
                                                     (< y panel-bottom))
-                                           [{:text line
+                                           [{:text (:text entry)
                                              :type :comment
-                                             :from 0 :to (count line)
+                                             :from 0 :to (count (:text entry))
                                              :x agent-x
                                              :y y
                                              :size font-size
-                                             :r (:r status-color)
-                                             :g (:g status-color)
-                                             :b (:b status-color)
-                                             :a (:a status-color)}]))))
+                                             :r (:r c)
+                                             :g (:g c)
+                                             :b (:b c)
+                                             :a (:a c)}]))))
                                 (filter some?))
                               (range (count all-lines)))
 
@@ -1484,11 +1796,21 @@
         !expanded-dirs (atom #{})       ;; set of expanded dir paths
         !dir-cache (atom {})            ;; {path -> [entries]}
         !home-dirs (atom nil)           ;; cached home dirs list
-        !current-file (atom nil)        ;; {:path "..." :name "..."} or nil
+        ;; V0: default to discourse-graph entry point
+        !current-file (atom {:path "/home/sid/projects/discourse-graph/apps/roam/src/index.ts"
+                             :name "index.ts"})
+        !sidebar-mode (atom :files)     ;; :files | :review-packs
+        !review-pack-list (atom nil)    ;; nil = not loaded yet
+        !review-pack-loading? (atom false)
+        !review-pack-selected-id (atom nil)
+        !review-pack-selected-node-id (atom nil)
+        !review-pack-summary-cache (atom {})
+        !review-pack-load-error (atom nil)
         !ai-provider (atom :claude)     ;; :claude | :codex | :gemini
-        !agent-output (atom nil)        ;; {:status :provider :prompt :output :run-id}
+        !agent-output (atom nil)        ;; {:status :provider :prompt :output :run-id :trail :tool-buf}
         !agent-scroll-y (atom 0)        ;; scroll offset within agent output panel
         !mouse-y (atom 0)               ;; last known mouse Y (viewport-relative)
+        !flow-state (atom (initial-flow-state))  ;; V0 flow state machine
 
         sidebar-el (js/document.getElementById "file-sidebar")
 
@@ -1552,6 +1874,457 @@
                             (reset! !current-file {:path path :name (last (str/split path #"/"))})
                             (reset! !file-load-request {:lines lines}))))))
 
+        compact-text
+        (fn [s max-len]
+          (let [txt (or (some-> s str str/trim) "")]
+            (if (> (count txt) max-len)
+              (str (subs txt 0 max-len) "...")
+              txt)))
+
+        build-review-pack-canvas-model
+        (fn [pack]
+          (let [claims (vec (or (:claims pack) []))
+                evidence (vec (get-in pack [:sections :evidence]))
+                evidence-by-claim (group-by :claim-id evidence)
+                decisions (vec (get-in pack [:sections :decisions]))
+                risks (vec (get-in pack [:sections :risks-unknowns]))
+                nodes (atom [{:id "root"
+                              :kind :question
+                              :x 24 :y 18 :w 210 :h 72
+                              :title (or (:issue-ref pack) (:pack-id pack) "Thread")
+                              :subtitle (compact-text (get-in pack [:sections :intent]) 78)
+                              :payload {:kind :question :pack pack}}])
+                edges (atom [])
+                !cursor-y (atom 118)]
+            (doseq [[i claim] (map-indexed vector claims)]
+              (let [claim-id (str "claim:" (or (:id claim) i))
+                    y @!cursor-y
+                    claim-evidence (vec (get evidence-by-claim (:id claim)))
+                    claim-h 66]
+                (swap! nodes conj
+                       {:id claim-id
+                        :kind :claim
+                        :x 42 :y y :w 232 :h claim-h
+                        :title (str "Claim " (inc i))
+                        :subtitle (compact-text (:text claim) 88)
+                        :payload {:kind :claim :claim claim}})
+                (swap! edges conj {:from "root" :to claim-id})
+                (if (seq claim-evidence)
+                  (do
+                    (doseq [[j anchor] (map-indexed vector claim-evidence)]
+                      (let [anchor-id (str "evidence:" (:id anchor))
+                            ey (+ y (* j 72))
+                            anchor-title (or (some-> (:kind anchor) name str/upper-case) "EVIDENCE")
+                            anchor-subtitle (compact-text
+                                              (or (:file-path anchor) (:snippet anchor) "anchor")
+                                              70)]
+                        (swap! nodes conj
+                               {:id anchor-id
+                                :kind :evidence
+                                :x 304 :y ey :w 208 :h 62
+                                :title anchor-title
+                                :subtitle anchor-subtitle
+                                :payload {:kind :evidence :anchor anchor}})
+                        (swap! edges conj {:from claim-id :to anchor-id})))
+                    (reset! !cursor-y (+ y (max 108 (* (count claim-evidence) 72)))))
+                  (reset! !cursor-y (+ y 98)))))
+
+            (when (seq decisions)
+              (let [decisions-id "decisions"
+                    y @!cursor-y]
+                (swap! nodes conj
+                       {:id decisions-id
+                        :kind :decision
+                        :x 42 :y y :w 232 :h 62
+                        :title "Decisions"
+                        :subtitle (str (count decisions) " recorded")
+                        :payload {:kind :decision-group :decisions decisions}})
+                (swap! edges conj {:from "root" :to decisions-id})
+                (doseq [[i d] (map-indexed vector decisions)]
+                  (let [did (str "decision:" (or (:id d) i))
+                        dy (+ y (* i 66))
+                        status (some-> (:status d) name str/upper-case)]
+                    (swap! nodes conj
+                           {:id did
+                            :kind :decision
+                            :x 304 :y dy :w 208 :h 58
+                            :title (or status "DECISION")
+                            :subtitle (compact-text (or (:summary d) (:rationale d) "") 70)
+                            :payload {:kind :decision :decision d}})
+                    (swap! edges conj {:from decisions-id :to did})))
+                (reset! !cursor-y (+ y (max 96 (* (count decisions) 66))))))
+
+            (when (seq risks)
+              (let [risks-id "risks"
+                    y @!cursor-y]
+                (swap! nodes conj
+                       {:id risks-id
+                        :kind :risk
+                        :x 42 :y y :w 232 :h 62
+                        :title "Risks & Unknowns"
+                        :subtitle (str (count risks) " open items")
+                        :payload {:kind :risk-group :risks risks}})
+                (swap! edges conj {:from "root" :to risks-id})
+                (doseq [[i r] (map-indexed vector risks)]
+                  (let [rid (str "risk:" (or (:id r) i))
+                        ry (+ y (* i 66))
+                        rk (some-> (:kind r) name str/upper-case)
+                        sev (some-> (:severity r) name str/upper-case)]
+                    (swap! nodes conj
+                           {:id rid
+                            :kind :risk
+                            :x 304 :y ry :w 208 :h 58
+                            :title (str (or rk "RISK")
+                                        (when sev (str " • " sev)))
+                            :subtitle (compact-text (:text r) 70)
+                            :payload {:kind :risk :risk r}})
+                    (swap! edges conj {:from risks-id :to rid})))
+                (reset! !cursor-y (+ y (max 96 (* (count risks) 66))))))
+
+            {:nodes @nodes
+             :edges @edges
+             :height (+ @!cursor-y 120)}))
+
+        node-by-id
+        (fn [nodes node-id]
+          (first (filter #(= (:id %) node-id) nodes)))
+
+        fetch-review-packs!
+        (fn [render-fn]
+          (when-not @!review-pack-loading?
+            (reset! !review-pack-loading? true)
+            (fetch-edn!
+              "/api/review-pack/list"
+              (fn [result]
+                (reset! !review-pack-loading? false)
+                (if (:ok result)
+                  (let [packs (vec (or (:review-packs result) []))
+                        selected-id @!review-pack-selected-id
+                        selected-exists? (some #(= (:pack-id %) selected-id) packs)]
+                    (reset! !review-pack-load-error nil)
+                    (reset! !review-pack-list packs)
+                    (cond
+                      (and (seq packs) (nil? selected-id))
+                      (do (reset! !review-pack-selected-id (:pack-id (first packs)))
+                          (reset! !review-pack-selected-node-id nil))
+
+                      (and (seq packs) (not selected-exists?))
+                      (do (reset! !review-pack-selected-id (:pack-id (first packs)))
+                          (reset! !review-pack-selected-node-id nil))
+
+                      (empty? packs)
+                      (do (reset! !review-pack-selected-id nil)
+                          (reset! !review-pack-selected-node-id nil)))
+                    (render-fn))
+                  (do
+                    (reset! !review-pack-load-error (or (:message result) "Failed to load review packs"))
+                    (reset! !review-pack-list [])
+                    (reset! !review-pack-selected-id nil)
+                    (reset! !review-pack-selected-node-id nil)
+                    (render-fn))))
+              (fn [err]
+                (reset! !review-pack-loading? false)
+                (reset! !review-pack-load-error (str "Fetch failed: " (.-message err)))
+                (reset! !review-pack-list [])
+                (reset! !review-pack-selected-id nil)
+                (reset! !review-pack-selected-node-id nil)
+                (render-fn)))))
+
+        fetch-review-pack-summary!
+        (fn [pack-id render-fn]
+          (when (and pack-id
+                     (not (contains? @!review-pack-summary-cache pack-id)))
+            (fetch-edn!
+              (str "/api/review-pack/" (js/encodeURIComponent pack-id) "/summary")
+              (fn [result]
+                (if (:ok result)
+                  (swap! !review-pack-summary-cache assoc pack-id result)
+                  (swap! !review-pack-summary-cache assoc pack-id
+                         {:ok false
+                          :message (or (:message result) "Failed to load review pack summary")}))
+                (render-fn))
+              (fn [err]
+                (swap! !review-pack-summary-cache assoc pack-id
+                       {:ok false
+                        :message (str "Fetch failed: " (.-message err))})
+                (render-fn)))))
+
+        trigger-dev-replay!
+        (fn []
+          (js/console.log "[DEV] Triggering replay fixture...")
+          (reset! !agent-scroll-y 0)
+          (reset! !agent-output {:status :running
+                                 :provider :claude
+                                 :prompt "Replay Fixture"
+                                 :output ""
+                                 :run-id "replay-dev"
+                                 :trail []
+                                 :tool-buf {}})
+          (-> (js/fetch "/api/dev/replay-fixture")
+              (.then (fn [resp] (.json resp)))
+              (.then (fn [json]
+                       (let [data (js->clj json :keywordize-keys true)]
+                         (if (:ok data)
+                           (let [events (:events data)]
+                             (doseq [[i evt] (map-indexed vector events)]
+                               (js/setTimeout
+                                 (fn []
+                                   (let [kind (:event evt)]
+                                     (case kind
+                                       :text-delta
+                                       (do
+                                         (swap! !agent-output
+                                           (fn [ao]
+                                             (-> ao
+                                               (update :output str (:text evt))
+                                               (update :trail conj {:kind :reasoning :text (:text evt)}))))
+                                         (let [ao @!agent-output
+                                               viewport @!viewport
+                                               settings @!settings
+                                               font-size (:font-size settings)
+                                               char-advance (* font-size (:char-width @!active-font))
+                                               agent-h (compute-agent-panel-h ao font-size (:height viewport) (:width viewport) char-advance)
+                                               line-step (* font-size 1.2)
+                                               max-chars (if (pos? char-advance)
+                                                           (max 1 (int (/ (- (:width viewport) 48) char-advance)))
+                                                           80)
+                                               line-count (agent-wrapped-line-count ao max-chars)
+                                               total-h (* line-count line-step)
+                                               max-scroll (max 0 (- total-h (- agent-h 16)))]
+                                           (reset! !agent-scroll-y max-scroll)))
+
+                                       :tool-use-start
+                                       (swap! !agent-output
+                                         (fn [ao]
+                                           (-> ao
+                                             (assoc-in [:tool-buf (:tool-id evt)]
+                                               {:tool-name (:tool-name evt) :json "" :block-idx (:block-idx evt)})
+                                             (update :trail conj {:kind :tool-call-start
+                                                                  :tool-name (:tool-name evt)
+                                                                  :tool-id (:tool-id evt)
+                                                                  :block-idx (:block-idx evt)}))))
+
+                                       :tool-input-delta
+                                       (if-let [tid (:tool-id evt)]
+                                         (swap! !agent-output
+                                           (fn [ao]
+                                             (update-in ao [:tool-buf tid :json] str (:json-chunk evt))))
+                                         (js/console.warn "[DEV][REPLAY] :tool-input-delta missing :tool-id" (clj->js evt)))
+
+                                       :tool-result
+                                       (swap! !agent-output
+                                         (fn [ao]
+                                           (update ao :trail conj {:kind :tool-result
+                                                                   :tool-id (:tool-id evt)
+                                                                   :content (:content evt)})))
+
+                                       :block-stop
+                                       (let [ao @!agent-output
+                                             matching-tool (some (fn [[tid buf]]
+                                                                   (when (= (:block-idx buf) (:block-idx evt))
+                                                                     [tid buf]))
+                                                                 (:tool-buf ao))]
+                                         (when matching-tool
+                                           (let [[tid buf] matching-tool
+                                                 parsed-input (try (js/JSON.parse (:json buf))
+                                                                   (catch :default _ nil))]
+                                             (swap! !agent-output
+                                               (fn [ao]
+                                                 (-> ao
+                                                   (update :trail conj {:kind :tool-call
+                                                                        :tool-name (:tool-name buf)
+                                                                        :tool-id tid
+                                                                        :input (js->clj parsed-input :keywordize-keys true)
+                                                                        :block-idx (:block-idx evt)})
+                                                   (update :tool-buf dissoc tid)))))))
+
+                                       (:result :run-done)
+                                       (swap! !agent-output assoc :status :complete)
+
+                                       :run-error
+                                       (swap! !agent-output assoc :status :failed)
+
+                                       ;; Unknown — surface
+                                       (js/console.warn "[DEV][UNKNOWN-EVENT]" (clj->js evt)))))
+                                 (* i 50))))
+                           (js/console.error "[DEV] Replay failed:" (:error data))))))
+              (.catch (fn [err] (js/console.error "[DEV] Replay fetch error:" err)))))
+
+        ;; =====================================================================
+        ;; EXTRACTED EVENT HANDLER (DRY — used by replay, submit, and flow runs)
+        ;; =====================================================================
+
+        auto-scroll-agent!
+        (fn []
+          (let [ao @!agent-output
+                viewport @!viewport
+                settings @!settings
+                font-size (:font-size settings)
+                char-advance (* font-size (:char-width @!active-font))
+                agent-h (compute-agent-panel-h ao font-size (:height viewport)
+                                               (:width viewport) char-advance)
+                line-step (* font-size 1.2)
+                max-chars (if (pos? char-advance)
+                            (max 1 (int (/ (- (:width viewport) 48) char-advance)))
+                            80)
+                line-count (agent-wrapped-line-count ao max-chars)
+                total-h (* line-count line-step)
+                max-scroll (max 0 (- total-h (- agent-h 16)))]
+            (reset! !agent-scroll-y max-scroll)))
+
+        make-event-handler
+        (fn [run-id on-done-fn]
+          (fn [evt]
+            (let [kind (:event evt)]
+              (case kind
+                :text-delta
+                (do (swap! !agent-output
+                      (fn [ao]
+                        (-> ao
+                          (update :output str (:text evt))
+                          (update :trail conj {:kind :reasoning :text (:text evt)}))))
+                    (auto-scroll-agent!))
+
+                :tool-use-start
+                (swap! !agent-output
+                  (fn [ao]
+                    (-> ao
+                      (assoc-in [:tool-buf (:tool-id evt)]
+                        {:tool-name (:tool-name evt) :json "" :block-idx (:block-idx evt)})
+                      (update :trail conj {:kind :tool-call-start
+                                           :tool-name (:tool-name evt)
+                                           :tool-id (:tool-id evt)
+                                           :block-idx (:block-idx evt)}))))
+
+                :tool-input-delta
+                (if-let [tid (:tool-id evt)]
+                  (swap! !agent-output
+                    (fn [ao]
+                      (update-in ao [:tool-buf tid :json] str (:json-chunk evt))))
+                  (js/console.warn "[AGENT] :tool-input-delta missing :tool-id" (clj->js evt)))
+
+                :tool-result
+                (swap! !agent-output
+                  (fn [ao]
+                    (update ao :trail conj {:kind :tool-result
+                                            :tool-id (:tool-id evt)
+                                            :content (:content evt)})))
+
+                :block-stop
+                (let [ao @!agent-output
+                      matching-tool (some (fn [[tid buf]]
+                                            (when (= (:block-idx buf) (:block-idx evt))
+                                              [tid buf]))
+                                          (:tool-buf ao))]
+                  (when matching-tool
+                    (let [[tid buf] matching-tool
+                          parsed-input (try (js/JSON.parse (:json buf))
+                                            (catch :default _ nil))]
+                      (swap! !agent-output
+                        (fn [ao]
+                          (-> ao
+                            (update :trail conj {:kind :tool-call
+                                                 :tool-name (:tool-name buf)
+                                                 :tool-id tid
+                                                 :input (js->clj parsed-input :keywordize-keys true)
+                                                 :block-idx (:block-idx evt)})
+                            (update :tool-buf dissoc tid)))))))
+
+                (:done :run-done)
+                (do (swap! !agent-output assoc :status (or (:status evt) :complete))
+                    (js/console.log "[AGENT][DONE]" (clj->js {:run-id run-id
+                                                               :status (:status evt)}))
+                    (when on-done-fn (on-done-fn)))
+
+                (:start :run-start)
+                (do (js/console.log "[AGENT][STREAM-START]" (clj->js evt))
+                    ;; Capture session-id into flow state for --resume continuity
+                    (when-let [sid (:session-id evt)]
+                      (swap! !flow-state assoc :session-id sid)))
+
+                :init
+                (do (js/console.log "[AGENT][INIT]" (clj->js evt))
+                    (when-let [sid (:session-id evt)]
+                      (swap! !flow-state assoc :session-id sid)))
+
+                :result
+                (do (js/console.log "[AGENT][RESULT]" (clj->js evt))
+                    (when-let [sid (:session-id evt)]
+                      (swap! !flow-state assoc :session-id sid)))
+
+                :run-error
+                (do (swap! !agent-output assoc :status :failed)
+                    (js/console.error "[AGENT][RUN-ERROR]" (clj->js evt))
+                    (when on-done-fn (on-done-fn)))
+
+                ;; Unknown — surface, don't silently drop
+                (js/console.warn "[AGENT][UNKNOWN-EVENT]" (clj->js evt))))))
+
+        ;; =====================================================================
+        ;; FLOW RUN HELPER (compose prompt → stream)
+        ;; =====================================================================
+
+        ;; V0: hardcoded to discourse-graph (per commission-consensus.md scope)
+        flow-cwd "/home/sid/projects/discourse-graph"
+        ;; Read-only Linear MCP tools pre-approved for non-interactive (-p) mode
+        flow-allowed-tools ["mcp__linear-server__list_issues"
+                            "mcp__linear-server__get_issue"
+                            "mcp__linear-server__search_issues"
+                            "mcp__linear-server__list_projects"
+                            "mcp__linear-server__get_project"
+                            "mcp__linear-server__list_teams"]
+
+        fire-flow-run!
+        (fn [prompt-action & {:keys [on-done]}]
+          (let [flow @!flow-state
+                {:keys [prompt]} (flow-prompt prompt-action flow)
+                provider @!ai-provider
+                cwd flow-cwd
+                run-id (str (random-uuid))
+                session-id (:session-id flow)
+                request-body (cond-> {:run-id run-id
+                                      :provider provider
+                                      :prompt prompt
+                                      :cwd cwd
+                                      :allowed-tools flow-allowed-tools
+                                      :context {:timestamp (js/Date.now)}}
+                               session-id (assoc :session-id session-id))]
+            (js/console.log "[FLOW][FIRE]" (clj->js {:action prompt-action
+                                                      :node (:node flow)
+                                                      :run-id run-id
+                                                      :session-id session-id}))
+            (reset! !agent-scroll-y 0)
+            (reset! !agent-output {:status :running
+                                   :provider provider
+                                   :prompt (str "[" (name prompt-action) "]")
+                                   :output ""
+                                   :run-id run-id
+                                   :trail []
+                                   :tool-buf {}})
+            (stream-agent-run!
+              "/api/agent/stream"
+              request-body
+              (make-event-handler run-id on-done)
+              (fn [err]
+                (js/console.error "[FLOW][STREAM-ERROR]" err)
+                (reset! !agent-output {:status :failed
+                                       :provider provider
+                                       :prompt (str "[" (name prompt-action) "]")
+                                       :output (str "Stream error: " (.-message err))
+                                       :run-id run-id
+                                       :trail []
+                                       :tool-buf {}})
+                (when on-done (on-done))))))
+
+        show-flow-info!
+        (fn [msg]
+          (reset! !agent-scroll-y 0)
+          (reset! !agent-output {:status :complete
+                                 :provider @!ai-provider
+                                 :prompt "flow"
+                                 :output msg
+                                 :run-id nil}))
+
         submit-agent-run!
         (fn [cmd-text]
           (let [doc @!editor-doc
@@ -1569,6 +2342,9 @@
             (case (:kind parsed)
               :noop
               nil
+
+              :replay
+              (trigger-dev-replay!)
 
               :set-provider
               (do
@@ -1588,6 +2364,7 @@
                                           :output (:message parsed)
                                           :run-id nil}))
 
+              ;; === Regular prompt run (refactored to use make-event-handler) ===
               :run
               (let [provider (:provider parsed)
                     prompt (:prompt parsed)
@@ -1599,211 +2376,618 @@
                                           :cwd cwd
                                           :file file-path
                                           :context context}
-                                   (seq argv) (assoc :argv argv))]
+                                   (seq argv) (assoc :argv argv)
+                                   (:session-id @!flow-state) (assoc :session-id (:session-id @!flow-state)))]
                 (js/console.log "[AGENT][CLIENT][SUBMIT]"
                                 (clj->js {:run-id run-id
                                           :provider provider
-                                          :file file-path
-                                          :cwd cwd
-                                          :prompt prompt
-                                          :argv argv}))
-                ;; Show running state immediately
+                                          :prompt prompt}))
                 (reset! !agent-scroll-y 0)
                 (reset! !agent-output {:status :running
                                        :provider provider
                                        :prompt prompt
                                        :output ""
-                                       :run-id run-id})
-                ;; Stream SSE events from server
+                                       :run-id run-id
+                                       :trail []
+                                       :tool-buf {}})
                 (stream-agent-run!
                   "/api/agent/stream"
                   request-body
-                  ;; on-event: handle each SSE event
-                  (fn [evt]
-                    (case (:event evt)
-                      :text-delta
-                      (do (swap! !agent-output update :output str (:text evt))
-                          ;; Auto-scroll to bottom
-                          (let [ao @!agent-output
-                                viewport @!viewport
-                                settings @!settings
-                                font-size (:font-size settings)
-                                char-advance (* font-size (:char-width @!active-font))
-                                agent-h (compute-agent-panel-h ao font-size (:height viewport)
-                                                               (:width viewport) char-advance)
-                                line-step (* font-size 1.2)
-                                max-chars (if (pos? char-advance)
-                                            (max 1 (int (/ (- (:width viewport) 48) char-advance)))
-                                            80)
-                                raw-lines (str/split-lines (or (:output ao) ""))
-                                wrapped (into [] (mapcat #(wrap-line % max-chars)) raw-lines)
-                                total-h (* (inc (count wrapped)) line-step)
-                                max-scroll (max 0 (- total-h (- agent-h 16)))]
-                            (reset! !agent-scroll-y max-scroll)))
-
-                      :done
-                      (do (swap! !agent-output assoc :status (:status evt))
-                          (js/console.log "[AGENT][CLIENT][DONE]"
-                                          (clj->js {:run-id run-id
-                                                    :status (:status evt)
-                                                    :exit-code (:exit-code evt)
-                                                    :duration-ms (:duration-ms evt)})))
-
-                      :start
-                      (js/console.log "[AGENT][CLIENT][STREAM-START]" (clj->js evt))
-
-                      :init
-                      (js/console.log "[AGENT][CLIENT][INIT]" (clj->js evt))
-
-                      :result
-                      (js/console.log "[AGENT][CLIENT][RESULT]" (clj->js evt))
-
-                      ;; Unknown event — ignore
-                      nil))
-                  ;; on-error
+                  (make-event-handler run-id nil)
                   (fn [err]
                     (js/console.error "[AGENT][CLIENT][STREAM-ERROR]" err)
                     (reset! !agent-output {:status :failed
                                            :provider provider
                                            :prompt prompt
                                            :output (str "Stream error: " (.-message err))
-                                           :run-id run-id})))))))
+                                           :run-id run-id
+                                           :trail []
+                                           :tool-buf {}}))))
+
+              ;; === Flow commands (V0 state machine) ===
+
+              :flow-bootstrap
+              (let [flow @!flow-state
+                    next (or (transition-flow-state flow :bootstrapping)
+                             ;; Allow re-bootstrap from :intake too
+                             (when (= (:node flow) :intake)
+                               (transition-flow-state flow :bootstrapping)))]
+                (if next
+                  (do (reset! !flow-state next)
+                      (fire-flow-run! :bootstrap
+                        :on-done (fn []
+                                   (let [output (:output @!agent-output)
+                                         tickets (parse-tickets-from-output output)]
+                                     (if (seq tickets)
+                                       (do (swap! !flow-state assoc
+                                                  :node :intake
+                                                  :tickets tickets)
+                                           (show-flow-info!
+                                             (str "Bootstrap complete. " (count tickets) " tickets loaded.\n\n"
+                                                  (str/join "\n" (map-indexed
+                                                                   (fn [i t] (str (inc i) ". " (:id t) " — " (:title t)))
+                                                                   tickets))
+                                                  "\n\nUse /select <numbers> to choose tickets.")))
+                                       ;; No tickets parsed — stay in bootstrapping for retry
+                                       (do (swap! !flow-state assoc :node :bootstrapping)
+                                           (show-flow-info!
+                                             (str "Bootstrap finished but no tickets could be parsed.\n"
+                                                  "Use /bootstrap to retry or check agent output."))))))))
+                  (show-flow-info! (str "Cannot bootstrap from state: " (name (:node flow))
+                                        "\nUse /reset to return to idle."))))
+
+              :flow-select
+              (let [flow @!flow-state
+                    indices (:indices parsed)
+                    tickets (:tickets flow)]
+                (if (not= (:node flow) :intake)
+                  (show-flow-info! (str "Cannot select tickets in state: " (name (:node flow))
+                                        "\nMust be in :intake state."))
+                  (let [invalid (filter #(or (neg? %) (>= % (count tickets))) indices)]
+                    (if (seq invalid)
+                      (show-flow-info! (str "Invalid ticket numbers: "
+                                            (str/join ", " (map inc invalid))
+                                            "\nValid range: 1-" (count tickets)))
+                      (do (swap! !flow-state assoc :selected (vec indices))
+                          (show-flow-info!
+                            (str "Selected " (count indices) " ticket(s):\n"
+                                 (str/join "\n" (map (fn [i]
+                                                       (let [t (nth tickets i)]
+                                                         (str "  " (inc i) ". " (:id t) " — " (:title t))))
+                                                     indices))
+                                 "\n\nUse /arrange sequential|parallel to set execution mode.")))))))
+
+              :flow-arrange
+              (let [flow @!flow-state
+                    mode (:mode parsed)]
+                (if (empty? (:selected flow))
+                  (show-flow-info! "No tickets selected. Use /select first.")
+                  (let [next (transition-flow-state flow :arrange {:arrangement mode})]
+                    (if next
+                      (do (reset! !flow-state next)
+                          (show-flow-info!
+                            (str "Arrangement set to: " (name mode)
+                                 "\n" (count (:selected flow)) " ticket(s) ready."
+                                 "\n\nUse /run-flow to start execution.")))
+                      (show-flow-info! (str "Cannot arrange from state: " (name (:node flow))))))))
+
+              :flow-run
+              (let [flow @!flow-state
+                    next (transition-flow-state flow :run)]
+                (if next
+                  (let [mode (or (:arrangement flow) :sequential)
+                        action (if (= mode :parallel) :run-parallel :run-sequential)]
+                    (reset! !flow-state next)
+                    (fire-flow-run! action
+                      :on-done (fn []
+                                 (swap! !flow-state assoc :node :review)
+                                 (show-flow-info!
+                                   (str "Run complete. Now in review state.\n\n"
+                                        "Use /rework <comment> to request changes,\n"
+                                        "or /finalize to wrap up.")))))
+                  (show-flow-info! (str "Cannot run from state: " (name (:node flow))
+                                        "\nExpected :arrange. Current: " (name (:node flow))))))
+
+              :flow-review
+              (show-flow-info!
+                (let [flow @!flow-state]
+                  (str "Current state: " (name (:node flow))
+                       (when (= (:node flow) :review)
+                         "\n\nOptions:\n  /rework <comment> — request changes\n  /finalize — wrap up batch"))))
+
+              :flow-rework
+              (let [flow @!flow-state
+                    next (transition-flow-state flow :rework {:rework-comment (:comment parsed)})]
+                (if next
+                  (do (reset! !flow-state next)
+                      (fire-flow-run! :rework
+                        :on-done (fn []
+                                   (swap! !flow-state assoc :node :review)
+                                   (show-flow-info!
+                                     (str "Rework complete. Back in review.\n\n"
+                                          "Use /rework <comment> for more changes,\n"
+                                          "or /finalize to wrap up.")))))
+                  (show-flow-info! (str "Cannot rework from state: " (name (:node flow))
+                                        "\nExpected :review. Current: " (name (:node flow))))))
+
+              :flow-finalize
+              (let [flow @!flow-state
+                    next (transition-flow-state flow :finalize)]
+                (if (or next (= (:node flow) :review))
+                  (do (reset! !flow-state (or next (assoc flow :node :finalize
+                                                          :history (conj (:history flow) (:node flow)))))
+                      (fire-flow-run! :finalize
+                        :on-done (fn []
+                                   (swap! !flow-state assoc
+                                          :node :intake
+                                          :selected []
+                                          :arrangement nil)
+                                   (show-flow-info!
+                                     (str "Batch finalized. Returned to intake.\n\n"
+                                          "Tickets still loaded. Use /select to start a new batch,\n"
+                                          "or /bootstrap to refresh tickets.")))))
+                  (show-flow-info! (str "Cannot finalize from state: " (name (:node flow))
+                                        "\nExpected :review. Current: " (name (:node flow))))))
+
+              :flow-status
+              (let [flow @!flow-state]
+                (show-flow-info!
+                  (str "=== Flow State ===\n"
+                       "Node: " (name (:node flow)) "\n"
+                       "Session: " (or (:session-id flow) "none") "\n"
+                       "Tickets: " (count (:tickets flow)) "\n"
+                       "Selected: " (if (seq (:selected flow))
+                                      (str/join ", " (map inc (:selected flow)))
+                                      "none") "\n"
+                       "Arrangement: " (or (some-> (:arrangement flow) name) "none") "\n"
+                       "History: [" (str/join " -> " (map name (:history flow))) "]")))
+
+              :flow-reset
+              (do (reset! !flow-state (initial-flow-state))
+                  (show-flow-info! "Flow state reset to idle.\nUse /bootstrap to start fresh.")))))
 
         render-sidebar!
         (fn render-sidebar! []
           (when sidebar-el
             (let [visible? (and !sidebar-visible @!sidebar-visible)
+                  mode @!sidebar-mode
                   project @!selected-project
                   expanded @!expanded-dirs
-                  cache @!dir-cache]
+                  cache @!dir-cache
+                  review-packs @!review-pack-list
+                  review-pack-selected-id @!review-pack-selected-id
+                  review-pack-summary-cache @!review-pack-summary-cache
+                  review-pack-load-error @!review-pack-load-error]
               ;; Toggle visibility
               (set! (.. sidebar-el -style -display) (if visible? "block" "none"))
+              (let [target-w (if (= mode :review-packs) 760 250)]
+                (set! (.. sidebar-el -style -width) (str target-w "px"))
+                (set! (.. sidebar-el -style -minWidth) (str target-w "px")))
               (when visible?
                 ;; Clear content
                 (set! (.-innerHTML sidebar-el) "")
-                (if (nil? project)
-                  ;; PROJECT PICKER — fetch home dirs then render
+                ;; Mode selector
+                (let [mode-row (js/document.createElement "div")]
+                  (set! (.-cssText (.-style mode-row))
+                        "display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid #2a2a4a;")
+                  (doseq [[mode-k mode-label] [[:files "Files"] [:review-packs "Review Packs"]]]
+                    (let [btn (js/document.createElement "button")
+                          active? (= mode mode-k)]
+                      (set! (.-textContent btn) mode-label)
+                      (set! (.-cssText (.-style btn))
+                            (str "flex:1;border:1px solid #3a3a5a;border-radius:6px;padding:4px 6px;cursor:pointer;font-size:11px;"
+                                 (if active?
+                                   "background:#334066;color:#e4e8ff;"
+                                   "background:#202038;color:#9a9abf;")))
+                      (set! (.-onclick btn)
+                            (fn [_]
+                              (when (not= @!sidebar-mode mode-k)
+                                (reset! !sidebar-mode mode-k)
+                                (when (= mode-k :review-packs)
+                                  (when (nil? @!review-pack-list)
+                                    (fetch-review-packs! render-sidebar!)))
+                                (render-sidebar!))))
+                      (.appendChild mode-row btn)))
+                  (.appendChild sidebar-el mode-row))
+
+                (if (= mode :review-packs)
+                  ;; REVIEW PACKS MODE
                   (do
-                    ;; Header
-                    (let [header (js/document.createElement "div")]
-                      (set! (.-textContent header) "EXPLORER")
-                      (set! (.-cssText (.-style header))
-                            "padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#7878a0;border-bottom:1px solid #2a2a4a;")
-                      (.appendChild sidebar-el header))
-                    ;; Render dirs (or loading)
-                    (if-let [dirs @!home-dirs]
-                      (doseq [d dirs]
-                        (let [el (js/document.createElement "div")]
-                          (set! (.-textContent el) (str "📁 " (:name d)))
-                          (set! (.-cssText (.-style el))
-                                "padding:6px 12px;cursor:pointer;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;")
-                          (set! (.-onmouseenter el) #(set! (.. el -style -background) "#252547"))
-                          (set! (.-onmouseleave el) #(set! (.. el -style -background) "transparent"))
-                          (set! (.-onclick el)
-                                (fn [_]
-                                  (reset! !selected-project {:name (:name d) :path (:path d)})
-                                  (reset! !expanded-dirs #{})
-                                  (reset! !dir-cache {})
-                                  ;; Fetch root dir contents, then re-render
-                                  (fetch-dir! (:path d) render-sidebar!)))
-                          (.appendChild sidebar-el el)))
-                      ;; Show loading while fetching
+                    (let [header-row (js/document.createElement "div")
+                          title (js/document.createElement "div")
+                          refresh-btn (js/document.createElement "div")]
+                      (set! (.-cssText (.-style header-row))
+                            "display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #2a2a4a;")
+                      (set! (.-textContent title) "REVIEW PACKS")
+                      (set! (.-cssText (.-style title))
+                            "font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#7878a0;")
+                      (set! (.-textContent refresh-btn) "refresh")
+                      (set! (.-cssText (.-style refresh-btn))
+                            "font-size:11px;cursor:pointer;color:#8ea0ff;")
+                      (set! (.-onclick refresh-btn)
+                            (fn [_]
+                              (reset! !review-pack-list nil)
+                              (reset! !review-pack-load-error nil)
+                              (fetch-review-packs! render-sidebar!)))
+                      (.appendChild header-row title)
+                      (.appendChild header-row refresh-btn)
+                      (.appendChild sidebar-el header-row))
+
+                    (cond
+                      review-pack-load-error
+                      (let [msg (js/document.createElement "div")]
+                        (set! (.-textContent msg) review-pack-load-error)
+                        (set! (.-cssText (.-style msg))
+                              "padding:10px 12px;color:#ff8c8c;font-size:12px;")
+                        (.appendChild sidebar-el msg))
+
+                      (nil? review-packs)
                       (let [loading (js/document.createElement "div")]
-                        (set! (.-textContent loading) "Loading...")
+                        (set! (.-textContent loading) "Loading review packs...")
                         (set! (.-cssText (.-style loading))
                               "padding:10px 12px;color:#7878a0;font-style:italic;font-size:12px;")
                         (.appendChild sidebar-el loading)
-                        ;; Trigger fetch
-                        (fetch-home-dirs! render-sidebar!))))
+                        (fetch-review-packs! render-sidebar!))
 
-                  ;; FILE TREE VIEW
-                  (let [;; Back button
-                        back-btn (js/document.createElement "div")
-                        _ (do (set! (.-textContent back-btn) (str "← " (:name project)))
-                              (set! (.-cssText (.-style back-btn))
-                                    "padding:8px 12px;cursor:pointer;font-size:12px;color:#7878a0;border-bottom:1px solid #2a2a4a;")
-                              (set! (.-onmouseenter back-btn) #(set! (.. back-btn -style -background) "#252547"))
-                              (set! (.-onmouseleave back-btn) #(set! (.. back-btn -style -background) "transparent"))
-                              (set! (.-onclick back-btn)
-                                    (fn [_]
-                                      (reset! !selected-project nil)
-                                      (reset! !expanded-dirs #{})
-                                      (reset! !dir-cache {})
-                                      (reset! !current-file nil)
-                                      (render-sidebar!)))
-                              (.appendChild sidebar-el back-btn))
-                        ;; Render tree entries recursively
-                        current-file @!current-file
-                        ;; Open file breadcrumb
-                        _ (when current-file
-                            (let [breadcrumb (js/document.createElement "div")]
-                              (set! (.-textContent breadcrumb) (:name current-file))
-                              (set! (.-cssText (.-style breadcrumb))
-                                    "padding:4px 12px 4px 14px;font-size:11px;color:#9898b8;border-bottom:1px solid #2a2a4a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;")
-                              (.appendChild sidebar-el breadcrumb)))
-                        render-entries
-                        (fn render-entries [entries depth]
-                          (doseq [entry entries]
-                            (let [el (js/document.createElement "div")
-                                  is-dir? (= (:type entry) :dir)
-                                  is-exp? (contains? expanded (:path entry))
-                                  is-active? (and (not is-dir?) current-file
-                                                  (= (:path entry) (:path current-file)))
-                                  pad-left (+ 12 (* depth 16))]
-                              (set! (.-textContent el)
-                                    (if is-dir?
-                                      (str (if is-exp? "▾ " "▸ ") (:name entry) "/")
-                                      (str "  " (:name entry))))
-                              (set! (.-cssText (.-style el))
-                                    (str "padding:4px 12px;padding-left:" pad-left "px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;"
-                                         (if is-active?
-                                           "background:#37375a;border-left:3px solid #5588ff;color:#e0e0ff;"
-                                           "border-left:3px solid transparent;")))
-                              (set! (.-onmouseenter el) #(set! (.. el -style -background) "#252547"))
-                              (set! (.-onmouseleave el) #(set! (.. el -style -background)
-                                                               (if is-active? "#37375a" "transparent")))
-                              (set! (.-onclick el)
-                                    (fn [_]
+                      (empty? review-packs)
+                      (let [empty-el (js/document.createElement "div")]
+                        (set! (.-textContent empty-el) "No review packs yet.")
+                        (set! (.-cssText (.-style empty-el))
+                              "padding:10px 12px;color:#7878a0;font-size:12px;")
+                        (.appendChild sidebar-el empty-el))
+
+                      :else
+                      (let [selected-pack (some #(when (= (:pack-id %) review-pack-selected-id) %) review-packs)
+                            summary-result (get review-pack-summary-cache review-pack-selected-id)
+                            summary (:summary summary-result)
+                            model (when selected-pack (build-review-pack-canvas-model selected-pack))
+                            nodes (vec (:nodes model))
+                            edges (vec (:edges model))
+                            node-index (reduce (fn [m n] (assoc m (:id n) n)) {} nodes)
+                            selected-node-id (or @!review-pack-selected-node-id "root")
+                            selected-node (or (node-by-id nodes selected-node-id) (first nodes))
+                            workspace (js/document.createElement "div")
+                            list-col (js/document.createElement "div")
+                            right-col (js/document.createElement "div")]
+                        (when (and selected-pack (nil? summary-result))
+                          (fetch-review-pack-summary! review-pack-selected-id render-sidebar!))
+                        (when (and selected-pack
+                                   (or (nil? @!review-pack-selected-node-id)
+                                       (nil? (node-by-id nodes @!review-pack-selected-node-id))))
+                          (reset! !review-pack-selected-node-id "root"))
+
+                        (set! (.-cssText (.-style workspace))
+                              "display:grid;grid-template-columns:240px 1fr;gap:10px;padding:10px;min-height:600px;")
+
+                        ;; Left list column
+                        (set! (.-cssText (.-style list-col))
+                              "border:1px solid #2b2f49;border-radius:8px;background:#14182a;overflow-y:auto;max-height:650px;")
+                        (doseq [pack review-packs]
+                          (let [pack-id (:pack-id pack)
+                                selected? (= pack-id review-pack-selected-id)
+                                row (js/document.createElement "div")
+                                status (some-> (:status pack) name str/upper-case)
+                                issue (or (:issue-ref pack) "NO-ISSUE")
+                                line (str issue " [" (or status "DRAFT") "]")]
+                            (set! (.-textContent row) line)
+                            (set! (.-cssText (.-style row))
+                                  (str "padding:8px 10px;cursor:pointer;font-size:12px;line-height:1.35;border-bottom:1px solid #222640;"
+                                       (if selected?
+                                         "background:#2a3355;color:#ecf0ff;border-left:3px solid #66a2ff;"
+                                         "background:transparent;color:#c7cbe3;border-left:3px solid transparent;")))
+                            (set! (.-onclick row)
+                                  (fn [_]
+                                    (reset! !review-pack-selected-id pack-id)
+                                    (reset! !review-pack-selected-node-id "root")
+                                    (fetch-review-pack-summary! pack-id render-sidebar!)))
+                            (.appendChild list-col row)))
+
+                        ;; Right canvas + inspector column
+                        (set! (.-cssText (.-style right-col))
+                              "display:grid;grid-template-rows:auto 1fr;gap:8px;")
+                        (if selected-pack
+                          (let [toolbar (js/document.createElement "div")
+                                body (js/document.createElement "div")
+                                canvas-pane (js/document.createElement "div")
+                                inspector-pane (js/document.createElement "div")
+                                canvas-surface (js/document.createElement "div")]
+                            (set! (.-textContent toolbar)
+                                  (str "THREAD CANVAS  •  "
+                                       (or (:issue-ref selected-pack) (:pack-id selected-pack))
+                                       "  •  "
+                                       (count nodes) " nodes"))
+                            (set! (.-cssText (.-style toolbar))
+                                  "padding:8px 10px;border:1px solid #2b2f49;border-radius:8px;background:#151b30;color:#a8b0d8;font-size:12px;")
+                            (.appendChild right-col toolbar)
+
+                            (set! (.-cssText (.-style body))
+                                  "display:grid;grid-template-columns:1fr 300px;gap:8px;min-height:540px;")
+                            (set! (.-cssText (.-style canvas-pane))
+                                  "border:1px solid #2b2f49;border-radius:8px;background:#0f1322;overflow:auto;position:relative;")
+                            (set! (.-cssText (.-style canvas-surface))
+                                  (str "position:relative;width:560px;height:"
+                                       (max 560 (:height model 560))
+                                       "px;"))
+
+                            ;; Draw edges first.
+                            (doseq [edge edges]
+                              (let [from (get node-index (:from edge))
+                                    to (get node-index (:to edge))]
+                                (when (and from to)
+                                  (let [x1 (+ (:x from) (:w from))
+                                        y1 (+ (:y from) (int (/ (:h from) 2)))
+                                        x2 (:x to)
+                                        y2 (+ (:y to) (int (/ (:h to) 2)))
+                                        mid-x (+ x1 (max 18 (int (/ (- x2 x1) 2))))
+                                        seg1 (js/document.createElement "div")
+                                        seg2 (js/document.createElement "div")
+                                        seg3 (js/document.createElement "div")
+                                        min-y (min y1 y2)
+                                        v-h (max 1 (js/Math.abs (- y2 y1)))]
+                                    (set! (.-cssText (.-style seg1))
+                                          (str "position:absolute;left:" x1 "px;top:" y1 "px;width:" (max 1 (- mid-x x1)) "px;height:1px;background:#355087;"))
+                                    (set! (.-cssText (.-style seg2))
+                                          (str "position:absolute;left:" mid-x "px;top:" min-y "px;width:1px;height:" v-h "px;background:#355087;"))
+                                    (set! (.-cssText (.-style seg3))
+                                          (str "position:absolute;left:" mid-x "px;top:" y2 "px;width:" (max 1 (- x2 mid-x)) "px;height:1px;background:#355087;"))
+                                    (.appendChild canvas-surface seg1)
+                                    (.appendChild canvas-surface seg2)
+                                    (.appendChild canvas-surface seg3)))))
+
+                            ;; Draw nodes.
+                            (doseq [node nodes]
+                              (let [node-el (js/document.createElement "div")
+                                    subtitle-el (js/document.createElement "div")
+                                    selected? (= (:id node) (:id selected-node))
+                                    accent (case (:kind node)
+                                             :question "#6ea8ff"
+                                             :claim "#69d8a6"
+                                             :evidence "#f2ca74"
+                                             :decision "#ff9d70"
+                                             :risk "#ff7885"
+                                             "#8fa1d8")]
+                                (set! (.-textContent node-el) (:title node))
+                                (set! (.-textContent subtitle-el) (:subtitle node))
+                                (set! (.-cssText (.-style node-el))
+                                      (str "position:absolute;left:" (:x node) "px;top:" (:y node) "px;width:" (:w node) "px;height:" (:h node) "px;"
+                                           "padding:7px 8px;border-radius:8px;border:1px solid #2f3658;border-left:4px solid " accent ";"
+                                           "font-size:11px;line-height:1.25;cursor:pointer;overflow:hidden;"
+                                           (if selected?
+                                             "background:#243055;color:#f0f3ff;box-shadow:0 0 0 1px #6aa5ff inset;"
+                                             "background:#171d33;color:#d6dcfb;")))
+                                (set! (.-cssText (.-style subtitle-el))
+                                      "margin-top:4px;font-size:10px;color:#9ca7d0;line-height:1.25;")
+                                (set! (.-onclick node-el) (fn [_] (reset! !review-pack-selected-node-id (:id node))))
+                                (.appendChild node-el subtitle-el)
+                                (.appendChild canvas-surface node-el)))
+
+                            (.appendChild canvas-pane canvas-surface)
+                            (.appendChild body canvas-pane)
+
+                            ;; Inspector pane
+                            (set! (.-cssText (.-style inspector-pane))
+                                  "border:1px solid #2b2f49;border-radius:8px;background:#141a2f;padding:10px;overflow:auto;")
+                            (let [k (get-in selected-node [:payload :kind])
+                                  heading (js/document.createElement "div")
+                                  info (js/document.createElement "div")
+                                  body-text (js/document.createElement "div")]
+                              (set! (.-textContent heading)
+                                    (str "NODE • " (some-> k name str/upper-case)))
+                              (set! (.-cssText (.-style heading))
+                                    "font-size:11px;color:#9aa5d3;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:6px;")
+                              (.appendChild inspector-pane heading)
+
+                              (set! (.-textContent info)
+                                    (str "ID: " (:id selected-node)))
+                              (set! (.-cssText (.-style info))
+                                    "font-size:11px;color:#c8cff0;margin-bottom:6px;word-break:break-all;")
+                              (.appendChild inspector-pane info)
+
+                              (set! (.-textContent body-text) (or (:subtitle selected-node) ""))
+                              (set! (.-cssText (.-style body-text))
+                                    "font-size:12px;color:#d9def9;line-height:1.4;margin-bottom:8px;")
+                              (.appendChild inspector-pane body-text)
+
+                              (when (= k :evidence)
+                                (let [anchor (get-in selected-node [:payload :anchor])
+                                      meta (js/document.createElement "div")
+                                      snippet (js/document.createElement "pre")
+                                      open-btn (js/document.createElement "button")
+                                      project-root (:path project)]
+                                  (set! (.-textContent meta)
+                                        (str "File: " (or (:file-path anchor) "n/a")
+                                             "\nCommit: " (or (:commit anchor) "n/a")
+                                             "\nSpan: L" (get-in anchor [:span :line-start] 1)
+                                             "-L" (get-in anchor [:span :line-end] 1)))
+                                  (set! (.-cssText (.-style meta))
+                                        "font-size:11px;color:#9ea8d7;white-space:pre-wrap;line-height:1.35;margin-bottom:8px;")
+                                  (.appendChild inspector-pane meta)
+
+                                  (set! (.-textContent snippet) (or (:snippet anchor) ""))
+                                  (set! (.-cssText (.-style snippet))
+                                        "margin:0 0 8px 0;padding:6px;background:#0c1020;border:1px solid #303859;border-radius:4px;color:#cad2fa;font-size:10px;line-height:1.35;white-space:pre-wrap;word-break:break-word;")
+                                  (.appendChild inspector-pane snippet)
+
+                                  (set! (.-textContent open-btn) "Open Anchor File")
+                                  (set! (.-cssText (.-style open-btn))
+                                        "border:1px solid #3d4f7d;border-radius:6px;padding:6px 8px;background:#1f2a4a;color:#dde5ff;cursor:pointer;font-size:11px;")
+                                  (set! (.-onclick open-btn)
+                                        (fn [_]
+                                          (let [fp (:file-path anchor)
+                                                abs-path (cond
+                                                           (nil? fp) nil
+                                                           (str/starts-with? fp "/") fp
+                                                           (seq project-root) (str project-root "/" fp)
+                                                           :else nil)]
+                                            (if (and abs-path project-root)
+                                              (fetch-file! abs-path project-root)
+                                              (js/console.warn "[REVIEW-PACK] Missing project root to open anchor" fp)))))
+                                  (.appendChild inspector-pane open-btn)))
+
+                              (when (:ok summary-result)
+                                (let [stats (js/document.createElement "div")]
+                                  (set! (.-textContent stats)
+                                        (str "Changed files: " (:changed-file-count summary)
+                                             " | Evidence: " (:evidence-anchor-count summary)
+                                             " | Core claims: " (:core-claim-count summary)))
+                                  (set! (.-cssText (.-style stats))
+                                        "margin-top:10px;padding-top:8px;border-top:1px solid #2a3150;font-size:11px;color:#b8c0e4;line-height:1.35;")
+                                  (.appendChild inspector-pane stats))))
+
+                            (.appendChild body inspector-pane)
+                            (.appendChild right-col body))
+                          (let [empty-right (js/document.createElement "div")]
+                            (set! (.-textContent empty-right) "Select a review pack to open the canvas.")
+                            (set! (.-cssText (.-style empty-right))
+                                  "padding:12px;color:#8f99c8;font-size:12px;border:1px solid #2b2f49;border-radius:8px;background:#14182a;")
+                            (.appendChild right-col empty-right)))
+
+                        (.appendChild workspace list-col)
+                        (.appendChild workspace right-col)
+                        (.appendChild sidebar-el workspace))))
+
+                  ;; FILES MODE
+                  (if (nil? project)
+                    ;; PROJECT PICKER — fetch home dirs then render
+                    (do
+                      ;; Header
+                      (let [header (js/document.createElement "div")]
+                        (set! (.-textContent header) "EXPLORER")
+                        (set! (.-cssText (.-style header))
+                              "padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#7878a0;border-bottom:1px solid #2a2a4a;")
+                        (.appendChild sidebar-el header))
+                      ;; Render dirs (or loading)
+                      (if-let [dirs @!home-dirs]
+                        (doseq [d dirs]
+                          (let [el (js/document.createElement "div")]
+                            (set! (.-textContent el) (str "📁 " (:name d)))
+                            (set! (.-cssText (.-style el))
+                                  "padding:6px 12px;cursor:pointer;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;")
+                            (set! (.-onmouseenter el) #(set! (.. el -style -background) "#252547"))
+                            (set! (.-onmouseleave el) #(set! (.. el -style -background) "transparent"))
+                            (set! (.-onclick el)
+                                  (fn [_]
+                                    (reset! !selected-project {:name (:name d) :path (:path d)})
+                                    (reset! !expanded-dirs #{})
+                                    (reset! !dir-cache {})
+                                    ;; Fetch root dir contents, then re-render
+                                    (fetch-dir! (:path d) render-sidebar!)))
+                            (.appendChild sidebar-el el)))
+                        ;; Show loading while fetching
+                        (let [loading (js/document.createElement "div")]
+                          (set! (.-textContent loading) "Loading...")
+                          (set! (.-cssText (.-style loading))
+                                "padding:10px 12px;color:#7878a0;font-style:italic;font-size:12px;")
+                          (.appendChild sidebar-el loading)
+                          ;; Trigger fetch
+                          (fetch-home-dirs! render-sidebar!))))
+
+                    ;; FILE TREE VIEW
+                    (let [;; Back button
+                          back-btn (js/document.createElement "div")
+                          _ (do (set! (.-textContent back-btn) (str "← " (:name project)))
+                                (set! (.-cssText (.-style back-btn))
+                                      "padding:8px 12px;cursor:pointer;font-size:12px;color:#7878a0;border-bottom:1px solid #2a2a4a;")
+                                (set! (.-onmouseenter back-btn) #(set! (.. back-btn -style -background) "#252547"))
+                                (set! (.-onmouseleave back-btn) #(set! (.. back-btn -style -background) "transparent"))
+                                (set! (.-onclick back-btn)
+                                      (fn [_]
+                                        (reset! !selected-project nil)
+                                        (reset! !expanded-dirs #{})
+                                        (reset! !dir-cache {})
+                                        (reset! !current-file nil)
+                                        (render-sidebar!)))
+                                (.appendChild sidebar-el back-btn))
+                          ;; Render tree entries recursively
+                          current-file @!current-file
+                          ;; Open file breadcrumb
+                          _ (when current-file
+                              (let [breadcrumb (js/document.createElement "div")]
+                                (set! (.-textContent breadcrumb) (:name current-file))
+                                (set! (.-cssText (.-style breadcrumb))
+                                      "padding:4px 12px 4px 14px;font-size:11px;color:#9898b8;border-bottom:1px solid #2a2a4a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;")
+                                (.appendChild sidebar-el breadcrumb)))
+                          render-entries
+                          (fn render-entries [entries depth]
+                            (doseq [entry entries]
+                              (let [el (js/document.createElement "div")
+                                    is-dir? (= (:type entry) :dir)
+                                    is-exp? (contains? expanded (:path entry))
+                                    is-active? (and (not is-dir?) current-file
+                                                    (= (:path entry) (:path current-file)))
+                                    pad-left (+ 12 (* depth 16))]
+                                (set! (.-textContent el)
                                       (if is-dir?
-                                        (do (swap! !expanded-dirs
-                                                   (fn [dirs]
-                                                     (if (contains? dirs (:path entry))
-                                                       (disj dirs (:path entry))
-                                                       (conj dirs (:path entry)))))
-                                            ;; Fetch children if not cached, then re-render
-                                            (fetch-dir! (:path entry) render-sidebar!))
-                                        ;; File click — fetch content from server
-                                        (fetch-file! (:path entry) (:path project)))))
-                              (.appendChild sidebar-el el)
-                              ;; Render children if expanded and cached
-                              (when (and is-dir? is-exp?)
-                                (if-let [children (get cache (:path entry))]
-                                  (render-entries children (inc depth))
-                                  ;; Not cached yet — show loading placeholder
-                                  (let [loading (js/document.createElement "div")]
-                                    (set! (.-textContent loading) "  loading...")
-                                    (set! (.-cssText (.-style loading))
-                                          (str "padding:4px 12px;padding-left:" (+ pad-left 16) "px;color:#7878a0;font-size:12px;font-style:italic;"))
-                                    (.appendChild sidebar-el loading)))))))
-                        root-entries (get cache (:path project) [])]
-                    (render-entries root-entries 0)))))))
+                                        (str (if is-exp? "▾ " "▸ ") (:name entry) "/")
+                                        (str "  " (:name entry))))
+                                (set! (.-cssText (.-style el))
+                                      (str "padding:4px 12px;padding-left:" pad-left "px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;"
+                                           (if is-active?
+                                             "background:#37375a;border-left:3px solid #5588ff;color:#e0e0ff;"
+                                             "border-left:3px solid transparent;")))
+                                (set! (.-onmouseenter el) #(set! (.. el -style -background) "#252547"))
+                                (set! (.-onmouseleave el) #(set! (.. el -style -background)
+                                                                 (if is-active? "#37375a" "transparent")))
+                                (set! (.-onclick el)
+                                      (fn [_]
+                                        (if is-dir?
+                                          (do (swap! !expanded-dirs
+                                                     (fn [dirs]
+                                                       (if (contains? dirs (:path entry))
+                                                         (disj dirs (:path entry))
+                                                         (conj dirs (:path entry)))))
+                                              ;; Fetch children if not cached, then re-render
+                                              (fetch-dir! (:path entry) render-sidebar!))
+                                          ;; File click — fetch content from server
+                                          (fetch-file! (:path entry) (:path project)))))
+                                (.appendChild sidebar-el el)
+                                ;; Render children if expanded and cached
+                                (when (and is-dir? is-exp?)
+                                  (if-let [children (get cache (:path entry))]
+                                    (render-entries children (inc depth))
+                                    ;; Not cached yet — show loading placeholder
+                                    (let [loading (js/document.createElement "div")]
+                                      (set! (.-textContent loading) "  loading...")
+                                      (set! (.-cssText (.-style loading))
+                                            (str "padding:4px 12px;padding-left:" (+ pad-left 16) "px;color:#7878a0;font-size:12px;font-style:italic;"))
+                                      (.appendChild sidebar-el loading)))))))
+                          root-entries (get cache (:path project) [])]
+                      (render-entries root-entries 0))))))))
 
         ;; Watch sidebar-related atoms to re-render
         _ (when !sidebar-visible
             (add-watch !sidebar-visible :sidebar-render
                        (fn [_ _ old-vis new-vis]
                          (render-sidebar!)
-                         ;; When becoming visible with no project, fetch home dirs
-                         (when (and new-vis (not old-vis) (nil? @!selected-project))
-                           (fetch-home-dirs! render-sidebar!)))))
+                         ;; When becoming visible, load active mode data if needed
+                         (when (and new-vis (not old-vis))
+                           (if (= @!sidebar-mode :review-packs)
+                             (when (nil? @!review-pack-list)
+                               (fetch-review-packs! render-sidebar!))
+                             (when (nil? @!selected-project)
+                               (fetch-home-dirs! render-sidebar!)))))))
+        _ (add-watch !sidebar-mode :sidebar-render
+                     (fn [_ _ _ mode]
+                       (render-sidebar!)
+                       (when (= mode :review-packs)
+                         (when (nil? @!review-pack-list)
+                           (fetch-review-packs! render-sidebar!)))))
         _ (add-watch !selected-project :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
         _ (add-watch !expanded-dirs :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
         _ (add-watch !dir-cache :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
         _ (add-watch !current-file :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
+        _ (add-watch !review-pack-list :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
+        _ (add-watch !review-pack-selected-id :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
+        _ (add-watch !review-pack-selected-node-id :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
+        _ (add-watch !review-pack-summary-cache :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
+        _ (add-watch !review-pack-load-error :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
 
         ;; Initial sidebar render (watches only fire on change, not initial state)
         _ (when (and !sidebar-visible @!sidebar-visible)
-            (fetch-home-dirs! render-sidebar!))
+            (if (= @!sidebar-mode :review-packs)
+              (when (nil? @!review-pack-list)
+                (fetch-review-packs! render-sidebar!))
+              (fetch-home-dirs! render-sidebar!)))
 
         ;; Seed sidebar with initial file if provided
         _ (when initial-file
@@ -1852,6 +3036,26 @@
         <cmd-keyboard (<cmd-panel-keys >keyboard-events !focus)
         <settings-keyboard (<settings-panel-keys >keyboard-events !focus)]
 
+    ;; =====================================================================
+    ;; AUTO-BOOTSTRAP (V0 — fire once on load if idle)
+    ;; =====================================================================
+    ;; Semantics (per Codex review):
+    ;;   Fresh load:                auto-bootstrap
+    ;;   Resume with cached state:  skip bootstrap (atom persists on hot-reload)
+    ;;   Resume without cached:     bootstrap (atom reset to idle)
+    ;; Guard: only fires if flow state is :idle AND no session-id cached.
+    (let [flow @!flow-state]
+      (when (and (= :idle (:node flow))
+                 (nil? (:session-id flow)))
+        (js/setTimeout
+          (fn []
+            (let [flow @!flow-state]
+              (when (and (= :idle (:node flow))
+                         (nil? (:session-id flow)))
+                (js/console.log "[FLOW] Auto-bootstrap triggered (fresh load)")
+                (submit-agent-run! "/bootstrap"))))
+          1500)))
+
     (m/join vector
 
       ;; =====================================================================
@@ -1897,13 +3101,11 @@
                          (if in-agent?
                            ;; Scroll agent panel (clamp to content bounds)
                            (let [line-step (* font-size 1.2)
-                                 raw-lines (str/split-lines (or (:output agent-output) ""))
                                  max-chars (if (pos? char-advance)
                                              (max 1 (int (/ (- (:width viewport) 48) char-advance)))
                                              80)
-                                 wrapped (into [] (mapcat #(wrap-line % max-chars)) raw-lines)
-                                 ;; +1 for header line
-                                 total-h (* (inc (count wrapped)) line-step)
+                                 line-count (agent-wrapped-line-count agent-output max-chars)
+                                 total-h (* line-count line-step)
                                  max-scroll (max 0 (- total-h (- agent-h 16)))]
                              (swap! !agent-scroll-y
                                     #(-> (+ % delta) (max 0) (min max-scroll))))

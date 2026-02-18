@@ -53,13 +53,15 @@
   "Build argv when client does not send raw argv.
    Session support is best-effort per provider.
    Optional :output-format overrides Claude's default (\"json\").
-   When streaming, pass :output-format \"stream-json\" :include-partials? true."
-  [provider prompt session-id & {:keys [output-format include-partials?]}]
+   When streaming, pass :output-format \"stream-json\" :include-partials? true.
+   Optional :allowed-tools is a seq of tool patterns (e.g. [\"mcp__linear-server__*\"])."
+  [provider prompt session-id & {:keys [output-format include-partials? allowed-tools]}]
   (case provider
     :claude (vec (concat ["claude"]
                          (when (seq session-id) ["--resume" session-id])
                          ["-p" (or prompt "") "--output-format" (or output-format "json")]
-                         (when include-partials? ["--include-partial-messages"])))
+                         (when include-partials? ["--include-partial-messages"])
+                         (mapcat (fn [t] ["--allowedTools" t]) allowed-tools)))
     :codex (vec ["codex" "exec" (or prompt "")])
     :gemini (vec (concat ["gemini"]
                          (when (seq session-id) ["--resume" session-id])
