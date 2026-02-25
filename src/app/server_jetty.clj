@@ -10,6 +10,8 @@
     [app.server.review-pack :as review-pack]
     [app.server.rama.util-fns :as util-fns]
     [app.server.rama.objects :as rama-objects]
+    [app.server.env :as env]
+    [clj-http.client :as http]
     [cheshire.core :as json]
     [hyperfiddle.electric-ring-adapter3 :as electric-ring]
     [ring.adapter.jetty :as ring]
@@ -91,6 +93,59 @@ information."
     (if (str/blank? body-str)
       {}
       (edn/read-string body-str))))
+
+;; =====================================================================
+;; Linear API (direct GraphQL — no LLM, no MCP, no CLI)
+;; =====================================================================
+
+(def linear-issues-query
+  "query($teamKey: String!) {
+     team(key: $teamKey) {
+       issues(first: 100, filter: { state: { type: { nin: [\"completed\", \"canceled\"] } } }) {
+         nodes {
+           identifier
+           title
+           priority
+           description
+           state { name }
+           assignee { name }
+         }
+       }
+     }
+   }")
+
+(defn fetch-linear-issues
+  "Fetch issues for a Linear team directly via GraphQL API.
+   Returns {:ok true :tickets [...]} or {:ok false :error ...}."
+  [team-key]
+  (let [api-key env/linear-api-key]
+    (if (or (str/blank? api-key) (= api-key "YOUR_KEY_HERE"))
+      {:ok false :error "Linear API key not configured"}
+      (try
+        (let [resp (http/post "https://api.linear.app/graphql"
+                     {:headers      {"Authorization" api-key
+                                     "Content-Type"  "application/json"}
+                      :body         (json/generate-string
+                                      {:query     linear-issues-query
+                                       :variables {:teamKey team-key}})
+                      :as           :json
+                      :socket-timeout 10000
+                      :connection-timeout 5000})
+              nodes (get-in resp [:body :data :team :issues :nodes])]
+          (if nodes
+            {:ok true
+             :tickets (mapv (fn [n]
+                              {:id          (:identifier n)
+                               :title       (:title n)
+                               :status      (get-in n [:state :name] "unknown")
+                               :assignee    (get-in n [:assignee :name] "unassigned")
+                               :priority    (:priority n 0)
+                               :description (or (:description n) "")})
+                            nodes)}
+            {:ok false :error "No issues found or team not accessible"
+             :raw-body (:body resp)}))
+        (catch Exception e
+          {:ok false :error (.getMessage e)})))))
 
 (defonce !agent-runs (atom {}))
 
@@ -401,7 +456,8 @@ information."
           (mk-event :run-done
                     {:status :complete
                      :session-id (:session_id obj)
-                     :cost-usd (:total_cost_usd obj)})
+                     :cost-usd (:total_cost_usd obj)
+                     :result (:result obj)})
 
           ;; Unknown types — skip
           nil))
@@ -517,12 +573,20 @@ information."
         session-id  (or (:session-id request-data)
                         (:session-id stored-ses))
         allowed-tools (:allowed-tools request-data)
+        json-schema       (:json-schema request-data)
+        max-budget-usd    (:max-budget-usd request-data)
+        model             (:model request-data)
+        append-sys-prompt (:append-system-prompt request-data)
         argv        (or (:argv request-data)
                         (rama-objects/provider-default-argv
                           provider prompt session-id
                           :output-format (if (= provider :claude) "stream-json" nil)
                           :include-partials? (= provider :claude)
-                          :allowed-tools allowed-tools))
+                          :allowed-tools allowed-tools
+                          :json-schema json-schema
+                          :max-budget-usd max-budget-usd
+                          :model model
+                          :append-system-prompt append-sys-prompt))
         cwd         (:cwd request-data)
         timeout-ms  (normalize-timeout-ms (:timeout-ms request-data))
         ;; Capture session-id from stream events
@@ -688,6 +752,11 @@ information."
             (json-response {:ok true :pack pack})
             (json-response {:ok false :error :not-found :message "Review pack not found"}))
           (json-response {:ok false :error :method-not-allowed :message "Method not allowed. Use GET."})))
+
+      ;; ===== Linear API (direct, no LLM) =====
+      (= uri "/api/linear/issues")
+      (let [team-key (or (get query-params "team") "DIS")]
+        (json-response (fetch-linear-issues team-key)))
 
       ;; ===== Existing File/Agent API =====
       (= uri "/api/home-dirs")

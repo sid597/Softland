@@ -54,14 +54,23 @@
    Session support is best-effort per provider.
    Optional :output-format overrides Claude's default (\"json\").
    When streaming, pass :output-format \"stream-json\" :include-partials? true.
-   Optional :allowed-tools is a seq of tool patterns (e.g. [\"mcp__linear-server__*\"])."
-  [provider prompt session-id & {:keys [output-format include-partials? allowed-tools]}]
+   Optional :allowed-tools is a seq of tool patterns (e.g. [\"mcp__linear-server__*\"]).
+   Optional :json-schema is a JSON string for --json-schema (structured output).
+   Optional :max-budget-usd caps API spend (only works with -p/--print).
+   Optional :model overrides the default model.
+   Optional :append-system-prompt appends to the system prompt."
+  [provider prompt session-id & {:keys [output-format include-partials? allowed-tools
+                                         json-schema max-budget-usd model append-system-prompt]}]
   (case provider
     :claude (vec (concat ["claude"]
                          (when (seq session-id) ["--resume" session-id])
                          ["-p" (or prompt "") "--output-format" (or output-format "json")]
                          (when include-partials? ["--include-partial-messages"])
-                         (mapcat (fn [t] ["--allowedTools" t]) allowed-tools)))
+                         (mapcat (fn [t] ["--allowedTools" t]) allowed-tools)
+                         (when json-schema ["--json-schema" json-schema])
+                         (when max-budget-usd ["--max-budget-usd" (str max-budget-usd)])
+                         (when model ["--model" model])
+                         (when append-system-prompt ["--append-system-prompt" append-system-prompt])))
     :codex (vec ["codex" "exec" (or prompt "")])
     :gemini (vec (concat ["gemini"]
                          (when (seq session-id) ["--resume" session-id])

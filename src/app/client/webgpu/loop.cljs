@@ -530,6 +530,452 @@
                 :history (conj (:history flow-state) from))
         extra-merge (merge extra-merge)))))
 
+(defn wrap-line
+  "Wrap a single string into lines of at most max-chars, breaking at word
+   boundaries (spaces). Falls back to hard char-split when a single word
+   exceeds max-chars."
+  [line max-chars]
+  (if (or (<= (count line) max-chars) (< max-chars 1))
+    [line]
+    (let [words (str/split line #" ")]
+      (loop [ws words cur "" result []]
+        (if (empty? ws)
+          (if (seq cur)
+            (conj result cur)
+            result)
+          (let [w (first ws)
+                candidate (if (seq cur) (str cur " " w) w)]
+            (cond
+              ;; Fits on current line
+              (<= (count candidate) max-chars)
+              (recur (rest ws) candidate result)
+              ;; Current line has content — flush it, retry word on new line
+              (seq cur)
+              (recur ws "" (conj result cur))
+              ;; Single word longer than max-chars — hard-split it
+              :else
+              (let [chunks (loop [rem w acc []]
+                             (if (<= (count rem) max-chars)
+                               (conj acc rem)
+                               (recur (subs rem max-chars)
+                                      (conj acc (subs rem 0 max-chars)))))]
+                (recur (rest ws)
+                       (peek chunks)
+                       (into result (pop chunks)))))))))))
+
+;; ============================================================================
+;; TICKET CARD LAYOUT (V0 Flow Canvas — visual grid of Linear tickets)
+;; ============================================================================
+
+(defn flow-canvas-active?
+  "True when the flow state machine is in a node that shows the master-detail list view
+   instead of the code editor. Currently :intake and :arrange."
+  [flow-state]
+  (contains? #{:intake :arrange} (:node flow-state)))
+
+;; ============================================================================
+;; SCREEN 1: MASTER-DETAIL INTAKE (List View)
+;; ============================================================================
+
+(def list-row-h 24)
+(def list-group-header-h 28)
+(def list-left-pane-pct 0.40)
+(def list-padding-x 12)
+(def list-padding-top 36)
+(def list-checkbox-size 12)
+(def list-divider-w 1)
+
+(def priority-colors
+  "Priority level \u2192 RGBA color for the priority dot."
+  {1 {:r 0.95 :g 0.30 :b 0.30 :a 1.0}   ;; urgent - red
+   2 {:r 0.95 :g 0.60 :b 0.25 :a 1.0}   ;; high - orange
+   3 {:r 0.90 :g 0.80 :b 0.30 :a 1.0}   ;; medium - yellow
+   4 {:r 0.45 :g 0.85 :b 0.45 :a 1.0}   ;; low - green
+   0 {:r 0.55 :g 0.55 :b 0.60 :a 0.8}}) ;; none - gray
+
+(def status-group-order
+  ["Ready to Merge" "Ready for Review" "In Progress" "Todo" "Backlog" "Done" "Released"])
+
+(def status-icons
+  {"Ready to Merge"    "\u25CF"   ;; \u25CF
+   "Ready for Review"  "\u25CB"   ;; \u25CB
+   "In Progress"       "\u25D0"   ;; \u25D0
+   "Todo"              "\u25CB"   ;; \u25CB
+   "Backlog"           "\u25C7"   ;; \u25C7
+   "Done"              "\u2713"   ;; \u2713
+   "Released"          "\u2713"}) ;; \u2713
+
+(def status-icon-colors
+  {"Ready to Merge"    {:r 0.45 :g 0.85 :b 0.45 :a 1.0}  ;; green
+   "Ready for Review"  {:r 0.55 :g 0.75 :b 0.95 :a 1.0}  ;; blue
+   "In Progress"       {:r 0.95 :g 0.75 :b 0.30 :a 1.0}  ;; amber
+   "Todo"              {:r 0.65 :g 0.65 :b 0.70 :a 0.8}  ;; gray
+   "Backlog"           {:r 0.55 :g 0.55 :b 0.60 :a 0.6}  ;; dim gray
+   "Done"              {:r 0.45 :g 0.85 :b 0.45 :a 0.7}  ;; green dim
+   "Released"          {:r 0.45 :g 0.85 :b 0.45 :a 0.5}}) ;; green dimmer
+
+(defn group-tickets-by-status
+  "Group tickets into ordered sections by status.
+   Returns [{:status \"Ready to Merge\" :icon \"\u25CF\" :count N
+             :tickets [{:idx 0 :ticket {...}} ...]} ...]
+   :idx is the 0-based index into the original flat tickets vector."
+  [tickets]
+  (let [indexed (mapv (fn [i t] {:idx i :ticket t}) (range) tickets)
+        known-set (set status-group-order)
+        known-groups (->> status-group-order
+                          (mapv (fn [status]
+                                  (let [group-tix (filterv #(= (:status (:ticket %)) status) indexed)]
+                                    (when (seq group-tix)
+                                      {:status status
+                                       :icon (get status-icons status "?")
+                                       :count (count group-tix)
+                                       :tickets group-tix}))))
+                          (filterv some?))
+        unknown-tix (filterv #(not (known-set (:status (:ticket %)))) indexed)
+        unknown-groups (when (seq unknown-tix)
+                         [{:status "Other" :icon "?" :count (count unknown-tix) :tickets unknown-tix}])]
+    (into known-groups unknown-groups)))
+
+(defn ticket-list-layout
+  "Compute layout entries for the grouped ticket list in CONTENT SPACE (no scroll).
+   Returns flat vec of {:type :group-header|:ticket-row ...} with :y positions.
+   collapsed-groups is a set of status strings."
+  [grouped-tickets collapsed-groups selected-set]
+  (loop [groups (seq grouped-tickets)
+         y list-padding-top
+         result []]
+    (if-not groups
+      result
+      (let [{:keys [status icon tickets] grp-count :count} (first groups)
+            collapsed? (contains? collapsed-groups status)
+            header {:type :group-header
+                    :status status :icon icon :count grp-count
+                    :y y :collapsed? collapsed?}
+            next-y (+ y list-group-header-h)
+            rows (if collapsed?
+                   []
+                   (mapv (fn [i {:keys [idx ticket]}]
+                           {:type :ticket-row
+                            :idx idx :ticket ticket
+                            :y (+ next-y (* i list-row-h))
+                            :selected? (contains? selected-set idx)})
+                         (range) tickets))
+            total-rows-h (if collapsed? 0 (* (count tickets) list-row-h))]
+        (recur (next groups)
+               (+ next-y total-rows-h)
+               (into (conj result header) rows))))))
+
+(defn list-content-height
+  "Total content height for the grouped ticket list (for scroll clamping)."
+  [grouped-tickets collapsed-groups]
+  (reduce (fn [h {:keys [status tickets]}]
+            (+ h list-group-header-h
+               (if (contains? collapsed-groups status) 0 (* (count tickets) list-row-h))))
+          list-padding-top
+          grouped-tickets))
+
+(defn compute-ticket-list-rects
+  "All rects for Screen 1 intake: left pane list + divider + right pane.
+   Coordinates: left pane items in content space (camera scrolls them).
+   Fixed elements (backgrounds, divider, right pane) use scroll-y offset."
+  [flow-state viewport-w viewport-h scroll-y hovered-row-idx collapsed-groups]
+  (let [tickets (:tickets flow-state)
+        selected-set (set (:selected flow-state))
+        grouped (group-tickets-by-status tickets)
+        layout (ticket-list-layout grouped collapsed-groups selected-set)
+        left-w (int (* viewport-w list-left-pane-pct))
+        ;; Fixed backgrounds (compensate camera with scroll-y)
+        left-bg {:x 0 :y scroll-y :w left-w :h viewport-h
+                 :r 0.10 :g 0.10 :b 0.12 :a 1.0}
+        divider {:x left-w :y scroll-y :w list-divider-w :h viewport-h
+                 :r 0.25 :g 0.25 :b 0.30 :a 1.0}
+        right-bg {:x (+ left-w list-divider-w) :y scroll-y
+                  :w (- viewport-w left-w list-divider-w) :h viewport-h
+                  :r 0.11 :g 0.11 :b 0.13 :a 1.0}
+        ;; Project header (fixed to top of left pane)
+        header-bg {:x 0 :y scroll-y :w left-w :h list-padding-top
+                   :r 0.12 :g 0.12 :b 0.15 :a 1.0}
+        ;; Separator line under header (matching mockup)
+        header-sep {:x list-padding-x :y (+ scroll-y list-padding-top -1)
+                    :w (- left-w (* 2 list-padding-x)) :h 1
+                    :r 0.25 :g 0.25 :b 0.30 :a 0.6}
+        ;; Right-pane detail rects (when tickets are selected)
+        selected (:selected flow-state)
+        right-x (+ left-w list-divider-w)
+        right-w (- viewport-w left-w list-divider-w)
+        right-detail-rects
+        (when (seq selected)
+          (let [detail-y (+ scroll-y 44)
+                ;; Header bar for ticket ID
+                id-bar {:x (+ right-x list-padding-x) :y detail-y
+                        :w (- right-w (* 2 list-padding-x)) :h 28
+                        :r 0.13 :g 0.14 :b 0.18 :a 1.0}
+                ;; Separator under ID bar
+                id-sep {:x (+ right-x list-padding-x) :y (+ detail-y 28)
+                        :w (- right-w (* 2 list-padding-x)) :h 1
+                        :r 0.25 :g 0.25 :b 0.30 :a 0.4}]
+            [id-bar id-sep]))
+        ;; Visible viewport bounds for clipping (in content space)
+        visible-top (+ scroll-y list-padding-top)
+        visible-bottom (+ scroll-y viewport-h)
+        ;; Layout items (clipped to visible left-pane area)
+        item-rects
+        (into []
+          (comp
+            (filter (fn [entry]
+                      (let [y (:y entry)
+                            h (if (= (:type entry) :group-header) list-group-header-h list-row-h)]
+                        (and (< y visible-bottom) (> (+ y h) visible-top)))))
+            (mapcat (fn [entry]
+                      (case (:type entry)
+                        :group-header
+                        [{:x 0 :y (:y entry) :w left-w :h list-group-header-h
+                          :r 0.13 :g 0.13 :b 0.16 :a 1.0}]
+                        :ticket-row
+                        (let [y (:y entry)
+                              idx (:idx entry)
+                              sel? (:selected? entry)
+                              hov? (= idx hovered-row-idx)
+                              ;; Row bg
+                              row-bg {:x 0 :y y :w left-w :h list-row-h
+                                      :r (cond sel? 0.15 hov? 0.13 :else 0.10)
+                                      :g (cond sel? 0.17 hov? 0.13 :else 0.10)
+                                      :b (cond sel? 0.25 hov? 0.16 :else 0.12)
+                                      :a 1.0}
+                              ;; Checkbox outline
+                              cb-x (+ list-padding-x 4)
+                              cb-y (+ y (/ (- list-row-h list-checkbox-size) 2))
+                              cb-border {:x cb-x :y cb-y :w list-checkbox-size :h list-checkbox-size
+                                         :r 0.35 :g 0.40 :b 0.50 :a (if sel? 1.0 0.6)}
+                              cb-fill (when sel?
+                                        {:x (+ cb-x 2) :y (+ cb-y 2)
+                                         :w (- list-checkbox-size 4) :h (- list-checkbox-size 4)
+                                         :r 0.35 :g 0.55 :b 0.95 :a 1.0})
+                              ;; Priority dot (for P1/P2)
+                              prio (or (:priority (:ticket entry)) 0)
+                              prio-dot (when (<= 1 prio 2)
+                                         (let [pc (get priority-colors prio)]
+                                           {:x (- left-w 20) :y (+ y (/ (- list-row-h 6) 2))
+                                            :w 6 :h 6
+                                            :r (:r pc) :g (:g pc) :b (:b pc) :a (:a pc)}))]
+                          (cond-> [row-bg cb-border]
+                            cb-fill (conj cb-fill)
+                            prio-dot (conj prio-dot)))))))
+          layout)]
+    (cond-> (into [left-bg right-bg header-bg header-sep divider] item-rects)
+      right-detail-rects (into right-detail-rects))))
+
+(defn compute-ticket-list-text-ops
+  "All text ops for Screen 1 intake: project header + grouped list + right pane content.
+   Left pane items in content space. Right pane and header pinned to viewport via scroll-y."
+  [flow-state viewport-w viewport-h font-size char-advance scroll-y
+   hovered-row-idx collapsed-groups]
+  (let [tickets (:tickets flow-state)
+        selected (:selected flow-state)
+        selected-set (set selected)
+        grouped (group-tickets-by-status tickets)
+        layout (ticket-list-layout grouped collapsed-groups selected-set)
+        left-w (int (* viewport-w list-left-pane-pct))
+        right-x (+ left-w list-divider-w list-padding-x)
+        right-w (- viewport-w left-w list-divider-w (* 2 list-padding-x))
+        list-font (- font-size 2)
+        meta-font (- font-size 3)
+        list-advance (if (pos? font-size) (* list-font (/ char-advance font-size)) char-advance)
+        ;; Visible viewport bounds (content space)
+        visible-top (+ scroll-y list-padding-top)
+        visible-bottom (+ scroll-y viewport-h)
+        ;; Project header (pinned to viewport top)
+        header-text (str "DISCOURSE-GRAPH  " (count tickets) " active")
+        header-ops [{:text header-text :type :macro
+                     :from 0 :to (count header-text)
+                     :x list-padding-x :y (+ scroll-y 22)
+                     :size font-size
+                     :r 0.75 :g 0.80 :b 0.95 :a 1.0}]
+        ;; Layout items (clipped to visible)
+        list-ops
+        (into []
+          (comp
+            (filter (fn [entry]
+                      (let [y (:y entry)
+                            h (if (= (:type entry) :group-header) list-group-header-h list-row-h)]
+                        (and (< y visible-bottom) (> (+ y h) visible-top)))))
+            (mapcat (fn [entry]
+                      (case (:type entry)
+                        :group-header
+                        (let [y (:y entry)
+                              collapse-ind (if (:collapsed? entry) "\u25B8" "\u25BE")
+                              label (str collapse-ind " " (:icon entry) "  " (:status entry) "  " (:count entry))
+                              ic (get status-icon-colors (:status entry) {:r 0.6 :g 0.6 :b 0.6 :a 0.8})]
+                          [[{:text label :type :keyword
+                             :from 0 :to (count label)
+                             :x list-padding-x :y (+ y 19)
+                             :size list-font
+                             :r (:r ic) :g (:g ic) :b (:b ic) :a (:a ic)}]])
+                        :ticket-row
+                        (let [y (:y entry)
+                              ticket (:ticket entry)
+                              sel? (:selected? entry)
+                              title (or (:title ticket) "Untitled")
+                              ;; Column X positions
+                              cb-x (+ list-padding-x 4)
+                              title-x (+ list-padding-x list-checkbox-size 14)
+                              max-title-chars (if (pos? list-advance)
+                                                (max 8 (int (/ (- left-w title-x 36) list-advance)))
+                                                30)
+                              trunc-title (if (> (count title) max-title-chars)
+                                            (str (subs title 0 (- max-title-chars 1)) "\u2026")
+                                            title)
+                              prio (or (:priority ticket) 0)
+                              prio-text (str "P" prio)
+                              prio-x (- left-w 36)
+                              text-y (+ y 17)
+                              ;; Checkbox character
+                              cb-text (if sel? "\u2611" "\u2610")]
+                          [[{:text cb-text :type :keyword
+                             :from 0 :to (count cb-text)
+                             :x cb-x :y text-y
+                             :size list-font
+                             :r 0.45 :g 0.60 :b 0.85 :a (if sel? 1.0 0.5)}]
+                           [{:text trunc-title :type :text
+                             :from 0 :to (count trunc-title)
+                             :x title-x :y text-y
+                             :size list-font
+                             :r 0.80 :g 0.80 :b 0.82 :a 1.0}]
+                           [{:text prio-text :type :comment
+                             :from 0 :to (count prio-text)
+                             :x prio-x :y text-y
+                             :size meta-font
+                             :r (if (<= prio 2) 0.95 0.55)
+                             :g (if (<= prio 2) 0.55 0.55)
+                             :b (if (<= prio 2) 0.30 0.60)
+                             :a 0.8}]])))))
+          layout)
+        ;; Right pane content (pinned to viewport)
+        right-center-y (+ scroll-y (/ viewport-h 2))
+        detail-max-chars (if (pos? char-advance)
+                           (max 20 (int (/ right-w char-advance)))
+                           60)
+        right-ops
+        (cond
+          ;; Empty tickets (bootstrap returned nothing)
+          (empty? tickets)
+          [[{:text "No tickets found." :type :text
+             :from 0 :to 18
+             :x right-x :y (- right-center-y 20)
+             :size font-size
+             :r 0.60 :g 0.60 :b 0.65 :a 0.8}]
+           [{:text "Run /bootstrap to fetch Linear tickets." :type :comment
+             :from 0 :to 39
+             :x right-x :y (+ right-center-y 8)
+             :size (- font-size 1)
+             :r 0.50 :g 0.50 :b 0.55 :a 0.6}]]
+          ;; No selection
+          (empty? selected)
+          [[{:text "No tickets selected yet." :type :text
+             :from 0 :to 24
+             :x right-x :y (- right-center-y 20)
+             :size font-size
+             :r 0.60 :g 0.60 :b 0.65 :a 0.8}]
+           [{:text "Select tickets from the list," :type :comment
+             :from 0 :to 29
+             :x right-x :y (+ right-center-y 8)
+             :size (- font-size 1)
+             :r 0.50 :g 0.50 :b 0.55 :a 0.6}]
+           [{:text "then /arrange sequential|parallel." :type :comment
+             :from 0 :to 35
+             :x right-x :y (+ right-center-y 28)
+             :size (- font-size 1)
+             :r 0.50 :g 0.50 :b 0.55 :a 0.6}]]
+          ;; Single selection — rich detail with description
+          (= 1 (count selected))
+          (let [idx (first selected)
+                ticket (nth tickets idx nil)
+                ttitle (or (:title ticket) "Untitled")
+                tstatus (or (:status ticket) "?")
+                tprio (or (:priority ticket) 0)
+                tassignee (or (:assignee ticket) "unassigned")
+                tdesc (or (:description ticket) "")
+                prio-label (case tprio 1 "Urgent" 2 "High" 3 "Medium" 4 "Low" "None")
+                meta-line (str tstatus "  |  " prio-label "  |  " tassignee)
+                ;; Layout Y positions (relative to viewport top)
+                header-y (+ scroll-y 52)
+                ;; Wrap title as the hero header
+                title-lines (wrap-line ttitle detail-max-chars)
+                title-line-h 20
+                title-ops (mapv (fn [i line]
+                                  [{:text line :type :text
+                                    :from 0 :to (count line)
+                                    :x right-x :y (+ header-y (* i title-line-h))
+                                    :size (+ font-size 2)
+                                    :r 0.85 :g 0.85 :b 0.88 :a 1.0}])
+                                (range) title-lines)
+                meta-y (+ header-y (* (count title-lines) title-line-h) 4)
+                desc-start-y (+ meta-y 24)
+                ;; Wrap description text
+                desc-lines (if (seq tdesc)
+                             (wrap-line tdesc detail-max-chars)
+                             [])
+                desc-line-h 18
+                desc-ops (mapv (fn [i line]
+                                 [{:text line :type :text
+                                   :from 0 :to (count line)
+                                   :x right-x :y (+ desc-start-y (* i desc-line-h))
+                                   :size (- font-size 1)
+                                   :r 0.70 :g 0.70 :b 0.73 :a 0.9}])
+                               (range) desc-lines)
+                ;; Action hint below description
+                hint-y (+ desc-start-y (max desc-line-h (* (count desc-lines) desc-line-h)) 16)
+                hint-text "/arrange sequential|parallel to proceed"]
+            (into
+              (into
+                (into title-ops
+                  [[{:text meta-line :type :comment
+                     :from 0 :to (count meta-line)
+                     :x right-x :y meta-y
+                     :size (- font-size 1)
+                     :r 0.55 :g 0.55 :b 0.60 :a 0.8}]
+                   [{:text hint-text :type :comment
+                     :from 0 :to (count hint-text)
+                     :x right-x :y hint-y
+                     :size (- font-size 2)
+                     :r 0.40 :g 0.40 :b 0.45 :a 0.5}]])
+              desc-ops))
+          ;; Multi selection — batch summary with ticket list
+          :else
+          (let [n-selected (count selected)
+                count-text (str n-selected " tickets selected")
+                ;; List each selected ticket
+                sel-ticket-ops
+                (into []
+                  (map-indexed
+                    (fn [i sel-idx]
+                      (let [ticket (nth tickets sel-idx nil)
+                            ttitle (or (:title ticket) "Untitled")
+                            trunc (if (> (count ttitle) detail-max-chars)
+                                    (str (subs ttitle 0 (- detail-max-chars 1)) "\u2026")
+                                    ttitle)]
+                        [{:text trunc :type :text
+                          :from 0 :to (count trunc)
+                          :x right-x :y (+ scroll-y 88 (* i 20))
+                          :size (- font-size 1)
+                          :r 0.70 :g 0.75 :b 0.80 :a 0.9}]))
+                    selected))
+                hint-y (+ scroll-y 88 (* n-selected 20) 16)
+                hint-text "/arrange sequential|parallel to proceed"]
+            (into
+              [[{:text count-text :type :macro
+                 :from 0 :to (count count-text)
+                 :x right-x :y (+ scroll-y 52)
+                 :size (+ font-size 2)
+                 :r 0.75 :g 0.80 :b 0.95 :a 1.0}]
+               [{:text hint-text :type :comment
+                 :from 0 :to (count hint-text)
+                 :x right-x :y hint-y
+                 :size (- font-size 2)
+                 :r 0.40 :g 0.40 :b 0.45 :a 0.5}]]
+              sel-ticket-ops))))]
+    (into (into [header-ops] list-ops) right-ops)))
+
 ;; ============================================================================
 ;; PROMPT TEMPLATES (V0 Flow Actions)
 ;; ============================================================================
@@ -540,13 +986,10 @@
   [action flow-state]
   (case action
     :bootstrap
-    {:prompt (str "Get my active Linear tickets for the discourse-graph project. "
-                  "Return them as a JSON code block with this exact shape:\n"
-                  "```json\n"
-                  "[{\"id\": \"TICKET-1\", \"title\": \"...\", "
-                  "\"status\": \"...\", \"assignee\": \"...\", \"priority\": 1}]\n"
-                  "```\n"
-                  "Include all active tickets. The JSON block must be parseable.")
+    {:prompt (str "List all active Linear tickets for the discourse-graph project. "
+                  "Output ONLY a JSON array, no other text. Each object needs: "
+                  "id, title, status, assignee, priority, description. "
+                  "IMPORTANT: Copy the full description text verbatim from Linear — do NOT summarize or truncate it.")
      :system-instruction nil}
 
     :run-sequential
@@ -599,18 +1042,66 @@
 ;; RESPONSE PARSER (Extract structured data from agent output)
 ;; ============================================================================
 
+(def priority-label->num
+  {"urgent" 1 "high" 2 "medium" 3 "low" 4 "none" 0
+   "1" 1 "2" 2 "3" 3 "4" 4 "0" 0})
+
+(defn normalize-priority
+  "Coerce a priority value (number, string label, or string digit) to an int 0-4."
+  [p]
+  (cond
+    (number? p) (int p)
+    (string? p) (or (get priority-label->num (str/lower-case p)) 0)
+    :else 0))
+
+(defn normalize-ticket
+  "Map a raw issue object (from Linear MCP or Claude JSON) to our ticket shape.
+   Handles both Linear native fields and pre-formatted fields."
+  [t]
+  {:id (or (:identifier t) (:id t) "UNKNOWN")
+   :title (or (:title t) "Untitled")
+   :status (or (get-in t [:state :name]) (:status t) "unknown")
+   :assignee (or (get-in t [:assignee :name]) (:assignee t) "unassigned")
+   :priority (normalize-priority (:priority t))
+   :description (or (:description t) "")})
+
+(defn parse-tickets-from-trail
+  "Extract tickets from trail :tool-result events (raw MCP responses).
+   Tries to parse each tool result as JSON containing an array of issues.
+   Returns [{:id :title :status ...}] or nil."
+  [trail]
+  (let [tool-results (->> trail
+                          (filter #(= :tool-result (:kind %)))
+                          (mapv :content))
+        ;; Try each tool result — the Linear MCP response is usually a JSON array
+        tickets (some (fn [content]
+                        (when (string? content)
+                          (try
+                            (let [parsed (js/JSON.parse content)
+                                  data (js->clj parsed :keywordize-keys true)
+                                  ;; Handle both direct array and {:issues [...]} wrapper
+                                  arr (cond
+                                        (vector? data) data
+                                        (vector? (:issues data)) (:issues data)
+                                        (vector? (:nodes data)) (:nodes data)
+                                        :else nil)]
+                              (when (and (seq arr) (or (:title (first arr))
+                                                       (:identifier (first arr))))
+                                (mapv normalize-ticket arr)))
+                            (catch :default _ nil))))
+                      tool-results)]
+    tickets))
+
 (defn parse-tickets-from-output
-  "Extract a JSON ticket array from agent output text.
-   Tries ```json code block first, then bracket-matching fallback.
+  "Fallback: extract a JSON ticket array from agent text output.
+   Tries ```json code block first, then bracket-matching.
    Returns [{:id :title :status :assignee :priority}] or nil."
   [output-text]
   (when (and output-text (not (str/blank? output-text)))
-    (let [;; Strategy 1: look for ```json ... ``` code block
-          json-block-re #"(?s)```json\s*\n?(.*?)\n?\s*```"
+    (let [json-block-re #"(?s)```json\s*\n?(.*?)\n?\s*```"
           match1 (re-find json-block-re output-text)
           json-str (if match1
                      (second match1)
-                     ;; Strategy 2: find first [ ... ] bracket pair
                      (let [start (str/index-of output-text "[")]
                        (when start
                          (loop [i start depth 0 max-i (min (count output-text) (+ start 50000))]
@@ -628,16 +1119,42 @@
           (let [parsed (js/JSON.parse json-str)
                 arr (js->clj parsed :keywordize-keys true)]
             (when (vector? arr)
-              (mapv (fn [t]
-                      {:id (or (:id t) "UNKNOWN")
-                       :title (or (:title t) "Untitled")
-                       :status (or (:status t) "unknown")
-                       :assignee (or (:assignee t) "unassigned")
-                       :priority (or (:priority t) 0)})
-                    arr)))
+              (mapv normalize-ticket arr)))
           (catch :default e
             (js/console.warn "[FLOW] Failed to parse tickets JSON:" (.-message e))
             nil))))))
+
+(def ticket-json-schema
+  "JSON schema for Claude CLI --json-schema flag. Validates structured ticket output."
+  (js/JSON.stringify
+    (clj->js {:type "object"
+              :properties {:tickets {:type "array"
+                                     :items {:type "object"
+                                             :properties {:id {:type "string"}
+                                                          :title {:type "string"}
+                                                          :status {:type "string"}
+                                                          :assignee {:type "string"}
+                                                          :priority {:type "string"}
+                                                          :description {:type "string"}}
+                                             :required ["title" "status"]}}}
+              :required ["tickets"]})))
+
+(defn parse-structured-result
+  "Parse the structured result from Claude CLI --json-schema output.
+   Returns [{:id :title :status ...}] or nil."
+  [structured-result]
+  (when structured-result
+    (try
+      (let [parsed (if (string? structured-result)
+                     (js/JSON.parse structured-result)
+                     (clj->js structured-result))
+            data (js->clj parsed :keywordize-keys true)
+            tickets (:tickets data)]
+        (when (seq tickets)
+          (mapv normalize-ticket tickets)))
+      (catch :default e
+        (js/console.warn "[FLOW] Failed to parse structured result:" (.-message e))
+        nil))))
 
 (defn stream-agent-run!
   "Streaming fetch: POST to url, read SSE events via ReadableStream.
@@ -865,21 +1382,29 @@
    Uses m/latest instead of m/ap to avoid cancellation propagation issues.
    REACTIVE: font-size, line-h, char-advance come from !settings and !active-font.
    OPTIMIZED: fold-state and bracket-match are pre-computed in cached flows
-   that only recompute when the document changes — NOT on every blink tick."
+   that only recompute when the document changes — NOT on every blink tick.
+   MODE-SWITCH: when flow canvas is active, returns ticket card rects instead."
   [!editor-doc !eval-result !caret-visible !focus !settings !active-font !viewport
    <fold-data <bracket-data
+   !flow-state !scroll-y !collapsed-groups !hovered-row-idx
    layout-x layout-y gutter-w]
   (m/latest
-    (fn [doc fold-state bracket-match eval-result caret-visible focus settings active-font viewport]
-      (let [dpr (:dpr viewport)
-            snap? (:snap-to-pixel? settings)
-            font-size (:font-size settings)
-            line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
-            char-advance (maybe-snap (* font-size (:char-width active-font)) dpr snap?)
-            layout-x (maybe-snap layout-x dpr snap?)
-            layout-y (maybe-snap layout-y dpr snap?)]
-        (compute-editor-rects doc fold-state bracket-match eval-result caret-visible focus
-                              layout-x layout-y line-h gutter-w char-advance (:width viewport))))
+    (fn [doc fold-state bracket-match eval-result caret-visible focus settings active-font viewport
+         flow-state scroll-y collapsed-groups hovered-row-idx]
+      (if (flow-canvas-active? flow-state)
+        ;; Flow canvas mode: master-detail list view
+        (compute-ticket-list-rects flow-state (:width viewport) (:height viewport)
+                                   scroll-y hovered-row-idx collapsed-groups)
+        ;; Normal editor mode
+        (let [dpr (:dpr viewport)
+              snap? (:snap-to-pixel? settings)
+              font-size (:font-size settings)
+              line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
+              char-advance (maybe-snap (* font-size (:char-width active-font)) dpr snap?)
+              layout-x (maybe-snap layout-x dpr snap?)
+              layout-y (maybe-snap layout-y dpr snap?)]
+          (compute-editor-rects doc fold-state bracket-match eval-result caret-visible focus
+                                layout-x layout-y line-h gutter-w char-advance (:width viewport)))))
     (m/watch !editor-doc)
     <fold-data
     <bracket-data
@@ -888,18 +1413,11 @@
     (m/watch !focus)
     (m/watch !settings)
     (m/watch !active-font)
-    (m/watch !viewport)))
-
-(defn wrap-line
-  "Wrap a single string into chunks of max-chars. Returns vector of strings."
-  [line max-chars]
-  (if (or (<= (count line) max-chars) (< max-chars 1))
-    [line]
-    (loop [remaining line result []]
-      (if (<= (count remaining) max-chars)
-        (conj result remaining)
-        (recur (subs remaining max-chars)
-               (conj result (subs remaining 0 max-chars)))))))
+    (m/watch !viewport)
+    (m/watch !flow-state)
+    (m/watch !scroll-y)
+    (m/watch !collapsed-groups)
+    (m/watch !hovered-row-idx)))
 
 (defn trail-node-color
   "Color for a trail node by kind. Returns {:r :g :b :a}."
@@ -994,7 +1512,10 @@
                                        (and (= status :running) (empty? output-lines)) (conj "...")
                                        (seq output-lines) (into output-lines))]
                       (mapv (fn [l] {:text l}) flat-lines)))]
-    (count (into [] (mapcat (fn [entry] (wrap-line (:text entry) max-chars))) raw-lines))))
+    (count (into [] (mapcat (fn [entry]
+                              (let [nl-lines (str/split-lines (or (:text entry) ""))]
+                                (mapcat #(wrap-line % max-chars) nl-lines))))
+                    raw-lines))))
 
 (defn compute-agent-panel-h
   "Pure: dynamic panel height from agent output content.
@@ -1356,15 +1877,17 @@
 (defn <combined-text-ops
   "Derived flow: combined text render ops (editor + command panel + status bar)
    Uses m/latest instead of m/ap to avoid cancellation propagation.
-   REACTIVE: font-size comes from !settings, updates live."
+   REACTIVE: font-size comes from !settings, updates live.
+   MODE-SWITCH: when flow canvas is active, returns ticket card text ops instead."
   [!editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y !viewport !settings !active-font
    !current-file
    tokenize-fn layout-fn
    <fold-data
+   !flow-state !collapsed-groups !hovered-row-idx
    layout-x layout-y cmd-panel-h status-bar-h]
   (m/latest
     (fn [doc panel provider agent-output agent-scroll-y scroll-y viewport fold-state settings active-font
-         current-file]
+         current-file flow-state collapsed-groups hovered-row-idx]
       (let [dpr (:dpr viewport)
               snap? (:snap-to-pixel? settings)
               ;; Reactive font settings
@@ -1377,90 +1900,86 @@
               ;; Theme
               theme-id (or (:theme-id settings) :gruvbox-dark)
 
-              ;; Pre-computed fold state from <fold-data (cached, only recomputes on doc/fold change)
-              folded (or (:folded fold-state) #{})
-              regions (or (:regions fold-state) [])
-
-              ;; Editor render ops with VIEWPORT-SCOPED processing
-              ;; For large files (>500 lines) with no active folds: only tokenize and layout
-              ;; the visible ~50 lines. Avoids processing all N lines.
-              ;; When folds are active or small files: process all lines with fold support.
-              lines (:lines doc)
-              total-line-count (count lines)
-              large-file? (and (> total-line-count 500) (empty? folded))
-
-              ;; Visible line range (with buffer above/below)
-              visible-start (max 0 (- (int (/ scroll-y line-h)) 5))
-              visible-end (min total-line-count (+ (int (/ (+ scroll-y (:height viewport)) line-h)) 5))
-
-              ;; Tokenize only visible lines
-              visible-lines (subvec lines visible-start visible-end)
-              tokenized-visible (mapv tokenize-fn visible-lines)
-
-              ;; Fold detection + Layout: fast path for large files
-              cursor-line (:line (:cursor doc))
-
+              ;; MODE-SWITCH: flow canvas replaces editor ops with ticket card text
               [editor-ops final-line-mapping line-num-ops]
-              (if large-file?
-                ;; FAST PATH: skip fold detection entirely (full Lezer re-parse too expensive)
-                ;; Layout only visible lines with adjusted Y offset
-                (let [adjusted-y (+ layout-y (* visible-start line-h))
-                      result (layout-fn tokenized-visible layout-x adjusted-y font-size
-                                        [] #{} char-advance line-h theme-id)
-                      full-mapping (vec (range total-line-count))
-                      nums (mapv (fn [i]
-                                   (let [logical (+ visible-start i)
-                                         num-str (str (inc logical))
-                                         num-w (* (count num-str) char-advance)
-                                         x (maybe-snap (- layout-x 8 num-w) dpr snap?)
-                                         y (+ adjusted-y font-size (* i line-h))
-                                         current? (= logical cursor-line)]
-                                     [{:text num-str :type :line-number
-                                       :from 0 :to (count num-str)
-                                       :x x :y y :size font-size
-                                       :r (if current? 0.85 0.45)
-                                       :g (if current? 0.85 0.45)
-                                       :b (if current? 0.85 0.45)
-                                       :a (if current? 0.9 0.4)}]))
-                                 (range (count visible-lines)))]
-                  [(:render-ops result) full-mapping nums])
+              (if (flow-canvas-active? flow-state)
+                ;; Flow canvas mode: master-detail list view text
+                [(compute-ticket-list-text-ops flow-state (:width viewport) (:height viewport)
+                                               font-size char-advance scroll-y
+                                               hovered-row-idx collapsed-groups)
+                 (vec (range (count (:lines doc))))
+                 []]
 
-                ;; NORMAL PATH (<500 lines or folds active): full fold support
-                ;; Uses pre-computed regions from <fold-data (no Lezer re-parse here)
-                (do (when (seq folded)
-                      (js/console.log "[TEXT-OPS] folded:" (clj->js folded)
-                                      "total-lines:" total-line-count
-                                      "regions:" (count regions)))
-                (let [tokenized-all (into []
-                                      (map-indexed
-                                        (fn [idx _]
-                                          (if (and (>= idx visible-start) (< idx visible-end))
-                                            (nth tokenized-visible (- idx visible-start))
-                                            [])))
-                                      lines)
-                      result (layout-fn tokenized-all layout-x layout-y font-size
-                                        regions folded char-advance line-h theme-id)
-                      _ (when (seq folded)
-                          (js/console.log "[TEXT-OPS] render-ops:" (count (:render-ops result))
-                                          "mapping:" (count (:line-mapping result))
+                ;; Normal editor mode — original logic below
+                (let [;; Pre-computed fold state from <fold-data
+                      folded (or (:folded fold-state) #{})
+                      regions (or (:regions fold-state) [])
+                      lines (:lines doc)
+                      total-line-count (count lines)
+                      large-file? (and (> total-line-count 500) (empty? folded))
+                      visible-start (max 0 (- (int (/ scroll-y line-h)) 5))
+                      visible-end (min total-line-count (+ (int (/ (+ scroll-y (:height viewport)) line-h)) 5))
+                      visible-lines (subvec lines visible-start visible-end)
+                      tokenized-visible (mapv tokenize-fn visible-lines)
+                      cursor-line (:line (:cursor doc))]
+                  (if large-file?
+                    ;; FAST PATH: skip fold detection entirely
+                    (let [adjusted-y (+ layout-y (* visible-start line-h))
+                          result (layout-fn tokenized-visible layout-x adjusted-y font-size
+                                            [] #{} char-advance line-h theme-id)
+                          full-mapping (vec (range total-line-count))
+                          nums (mapv (fn [i]
+                                       (let [logical (+ visible-start i)
+                                             num-str (str (inc logical))
+                                             num-w (* (count num-str) char-advance)
+                                             x (maybe-snap (- layout-x 8 num-w) dpr snap?)
+                                             y (+ adjusted-y font-size (* i line-h))
+                                             current? (= logical cursor-line)]
+                                         [{:text num-str :type :line-number
+                                           :from 0 :to (count num-str)
+                                           :x x :y y :size font-size
+                                           :r (if current? 0.85 0.45)
+                                           :g (if current? 0.85 0.45)
+                                           :b (if current? 0.85 0.45)
+                                           :a (if current? 0.9 0.4)}]))
+                                     (range (count visible-lines)))]
+                      [(:render-ops result) full-mapping nums])
+
+                    ;; NORMAL PATH (<500 lines or folds active): full fold support
+                    (do (when (seq folded)
+                          (js/console.log "[TEXT-OPS] folded:" (clj->js folded)
+                                          "total-lines:" total-line-count
                                           "regions:" (count regions)))
-                      mapping (:line-mapping result)
-                      nums (mapv (fn [visual-idx]
-                                   (let [logical (get mapping visual-idx visual-idx)
-                                         num-str (str (inc logical))
-                                         num-w (* (count num-str) char-advance)
-                                         x (maybe-snap (- layout-x 8 num-w) dpr snap?)
-                                         y (+ layout-y font-size (* visual-idx line-h))
-                                         current? (= logical cursor-line)]
-                                     [{:text num-str :type :line-number
-                                       :from 0 :to (count num-str)
-                                       :x x :y y :size font-size
-                                       :r (if current? 0.85 0.45)
-                                       :g (if current? 0.85 0.45)
-                                       :b (if current? 0.85 0.45)
-                                       :a (if current? 0.9 0.4)}]))
-                                 (range (count mapping)))]
-                  [(filterv seq (:render-ops result)) mapping nums])))
+                    (let [tokenized-all (into []
+                                          (map-indexed
+                                            (fn [idx _]
+                                              (if (and (>= idx visible-start) (< idx visible-end))
+                                                (nth tokenized-visible (- idx visible-start))
+                                                [])))
+                                          lines)
+                          result (layout-fn tokenized-all layout-x layout-y font-size
+                                            regions folded char-advance line-h theme-id)
+                          _ (when (seq folded)
+                              (js/console.log "[TEXT-OPS] render-ops:" (count (:render-ops result))
+                                              "mapping:" (count (:line-mapping result))
+                                              "regions:" (count regions)))
+                          mapping (:line-mapping result)
+                          nums (mapv (fn [visual-idx]
+                                       (let [logical (get mapping visual-idx visual-idx)
+                                             num-str (str (inc logical))
+                                             num-w (* (count num-str) char-advance)
+                                             x (maybe-snap (- layout-x 8 num-w) dpr snap?)
+                                             y (+ layout-y font-size (* visual-idx line-h))
+                                             current? (= logical cursor-line)]
+                                         [{:text num-str :type :line-number
+                                           :from 0 :to (count num-str)
+                                           :x x :y y :size font-size
+                                           :r (if current? 0.85 0.45)
+                                           :g (if current? 0.85 0.45)
+                                           :b (if current? 0.85 0.45)
+                                           :a (if current? 0.9 0.4)}]))
+                                     (range (count mapping)))]
+                      [(filterv seq (:render-ops result)) mapping nums])))))
 
               ;; Command panel ops (if visible)
               cmd-ops (when (:visible panel)
@@ -1535,9 +2054,12 @@
                               (mapv (fn [l] {:text l :color status-color}) flat-lines)))
 
                 ;; Wrap all lines (both trail and flat share this path)
+                ;; Split by newlines FIRST, then wrap — prevents \n inside text ops
+                ;; which causes shape-text to bump Y and overlap with the next text op
                 all-lines (into []
                             (mapcat (fn [entry]
-                              (let [wrapped (wrap-line (:text entry) max-chars)]
+                              (let [nl-lines (str/split-lines (or (:text entry) ""))
+                                    wrapped (mapcat #(wrap-line % max-chars) nl-lines)]
                                 (mapv (fn [wl] {:text wl :color (:color entry)}) wrapped))))
                             raw-lines)
 
@@ -1573,8 +2095,14 @@
 
                 ;; Status bar text (always visible, pinned to bottom)
                 status-y (maybe-snap (+ scroll-y (- (:height viewport) status-bar-h) 4 font-size) dpr snap?)
-                sb-cursor (:cursor doc)
-                status-left-text (str "Ln " (inc (:line sb-cursor)) ", Col " (inc (:col sb-cursor)))
+                ;; Flow canvas mode: show flow info instead of cursor position
+                status-left-text (if (flow-canvas-active? flow-state)
+                                   (let [node-name (some-> (:node flow-state) name str/upper-case)
+                                         n-tickets (count (:tickets flow-state))
+                                         n-selected (count (:selected flow-state))]
+                                     (str node-name " | " n-tickets " tickets | " n-selected " selected"))
+                                   (let [sb-cursor (:cursor doc)]
+                                     (str "Ln " (inc (:line sb-cursor)) ", Col " (inc (:col sb-cursor)))))
                 file-name (or (:name current-file) "untitled")
                 provider-upper (some-> provider name str/upper-case)
                 status-right-text (if provider-upper
@@ -1611,7 +2139,10 @@
     <fold-data  ;; pre-computed fold state (regions + folded set), replaces (m/watch !folded-lines)
     (m/watch !settings)
     (m/watch !active-font)
-    (m/watch !current-file)))
+    (m/watch !current-file)
+    (m/watch !flow-state)
+    (m/watch !collapsed-groups)
+    (m/watch !hovered-row-idx)))
 
 ;; ============================================================================
 ;; LAYER 7: TERMINAL RENDER CONSUMER
@@ -1667,9 +2198,9 @@
                           :selection nil
                           :desired-col 0})
 
-        !cmd-panel (atom {:text "" :cursor 0 :visible false})
+        !cmd-panel (atom {:text "" :cursor 0 :visible true})
 
-        !focus (atom :editor)
+        !focus (atom :command-panel)
 
         !scroll-y (atom 0)
 
@@ -1811,6 +2342,8 @@
         !agent-scroll-y (atom 0)        ;; scroll offset within agent output panel
         !mouse-y (atom 0)               ;; last known mouse Y (viewport-relative)
         !flow-state (atom (initial-flow-state))  ;; V0 flow state machine
+        !collapsed-groups (atom #{})           ;; set of collapsed group status strings
+        !hovered-row-idx (atom nil)            ;; 0-based flat ticket index under mouse cursor
 
         sidebar-el (js/document.getElementById "file-sidebar")
 
@@ -2231,9 +2764,12 @@
                             (update :tool-buf dissoc tid)))))))
 
                 (:done :run-done)
-                (do (swap! !agent-output assoc :status (or (:status evt) :complete))
+                (do (swap! !agent-output (fn [ao]
+                      (cond-> (assoc ao :status (or (:status evt) :complete))
+                        (:result evt) (assoc :structured-result (:result evt)))))
                     (js/console.log "[AGENT][DONE]" (clj->js {:run-id run-id
-                                                               :status (:status evt)}))
+                                                               :status (:status evt)
+                                                               :has-result (some? (:result evt))}))
                     (when on-done-fn (on-done-fn)))
 
                 (:start :run-start)
@@ -2248,7 +2784,7 @@
                       (swap! !flow-state assoc :session-id sid)))
 
                 :result
-                (do (js/console.log "[AGENT][RESULT]" (clj->js evt))
+                (do (js/console.log "[AGENT][RESULT] session-id:" (:session-id evt))
                     (when-let [sid (:session-id evt)]
                       (swap! !flow-state assoc :session-id sid)))
 
@@ -2275,7 +2811,7 @@
                             "mcp__linear-server__list_teams"]
 
         fire-flow-run!
-        (fn [prompt-action & {:keys [on-done]}]
+        (fn [prompt-action & {:keys [on-done json-schema max-budget-usd model append-system-prompt]}]
           (let [flow @!flow-state
                 {:keys [prompt]} (flow-prompt prompt-action flow)
                 provider @!ai-provider
@@ -2288,7 +2824,11 @@
                                       :cwd cwd
                                       :allowed-tools flow-allowed-tools
                                       :context {:timestamp (js/Date.now)}}
-                               session-id (assoc :session-id session-id))]
+                               session-id          (assoc :session-id session-id)
+                               json-schema         (assoc :json-schema json-schema)
+                               max-budget-usd      (assoc :max-budget-usd max-budget-usd)
+                               model               (assoc :model model)
+                               append-system-prompt (assoc :append-system-prompt append-system-prompt))]
             (js/console.log "[FLOW][FIRE]" (clj->js {:action prompt-action
                                                       :node (:node flow)
                                                       :run-id run-id
@@ -2414,27 +2954,32 @@
                                (transition-flow-state flow :bootstrapping)))]
                 (if next
                   (do (reset! !flow-state next)
-                      (fire-flow-run! :bootstrap
-                        :on-done (fn []
-                                   (let [output (:output @!agent-output)
-                                         tickets (parse-tickets-from-output output)]
-                                     (if (seq tickets)
+                      (show-flow-info! "Fetching tickets from Linear...")
+                      (-> (js/fetch "/api/linear/issues?team=DIS")
+                          (.then (fn [resp] (.text resp)))
+                          (.then (fn [text]
+                                   (let [data (reader/read-string text)
+                                         tickets (:tickets data)]
+                                     (js/console.log "[FLOW][BOOTSTRAP]"
+                                                     (clj->js {:ok (:ok data)
+                                                                :ticket-count (count tickets)}))
+                                     (if (and (:ok data) (seq tickets))
                                        (do (swap! !flow-state assoc
                                                   :node :intake
                                                   :tickets tickets)
+                                           (reset! !scroll-y 0)
                                            (show-flow-info!
-                                             (str "Bootstrap complete. " (count tickets) " tickets loaded.\n\n"
-                                                  (str/join "\n" (map-indexed
-                                                                   (fn [i t] (str (inc i) ". " (:id t) " — " (:title t)))
-                                                                   tickets))
-                                                  "\n\nUse /select <numbers> to choose tickets.")))
-                                       ;; No tickets parsed — stay in bootstrapping for retry
+                                             (str "Bootstrap complete. " (count tickets) " tickets loaded.")))
+                                       ;; Failed — stay in bootstrapping for retry
                                        (do (swap! !flow-state assoc :node :bootstrapping)
                                            (show-flow-info!
-                                             (str "Bootstrap finished but no tickets could be parsed.\n"
-                                                  "Use /bootstrap to retry or check agent output."))))))))
-                  (show-flow-info! (str "Cannot bootstrap from state: " (name (:node flow))
-                                        "\nUse /reset to return to idle."))))
+                                             (str "Bootstrap failed: " (or (:error data) "no tickets found") "\nUse /bootstrap to retry.")))))))
+                          (.catch (fn [err]
+                                    (swap! !flow-state assoc :node :bootstrapping)
+                                    (show-flow-info!
+                                      (str "Bootstrap fetch error: " (.-message err) "\nUse /bootstrap to retry."))))))
+                  (show-flow-info! (str "Cannot bootstrap from state: " (name (:node flow)) "\nUse /reset to return to idle."))))
+
 
               :flow-select
               (let [flow @!flow-state
@@ -2522,6 +3067,7 @@
                                           :node :intake
                                           :selected []
                                           :arrangement nil)
+                                   (reset! !scroll-y 0) ;; reset scroll on mode switch
                                    (show-flow-info!
                                      (str "Batch finalized. Returned to intake.\n\n"
                                           "Tickets still loaded. Use /select to start a new batch,\n"
@@ -2544,6 +3090,7 @@
 
               :flow-reset
               (do (reset! !flow-state (initial-flow-state))
+                  (reset! !scroll-y 0) ;; reset scroll on mode switch
                   (show-flow-info! "Flow state reset to idle.\nUse /bootstrap to start fresh.")))))
 
         render-sidebar!
@@ -3044,17 +3591,8 @@
     ;;   Resume with cached state:  skip bootstrap (atom persists on hot-reload)
     ;;   Resume without cached:     bootstrap (atom reset to idle)
     ;; Guard: only fires if flow state is :idle AND no session-id cached.
-    (let [flow @!flow-state]
-      (when (and (= :idle (:node flow))
-                 (nil? (:session-id flow)))
-        (js/setTimeout
-          (fn []
-            (let [flow @!flow-state]
-              (when (and (= :idle (:node flow))
-                         (nil? (:session-id flow)))
-                (js/console.log "[FLOW] Auto-bootstrap triggered (fresh load)")
-                (submit-agent-run! "/bootstrap"))))
-          1500)))
+    ;; Auto-bootstrap disabled — user triggers /bootstrap manually from cmd panel
+    ;; (was: fire once on fresh load if idle + no session-id)
 
     (m/join vector
 
@@ -3109,8 +3647,17 @@
                                  max-scroll (max 0 (- total-h (- agent-h 16)))]
                              (swap! !agent-scroll-y
                                     #(-> (+ % delta) (max 0) (min max-scroll))))
-                           ;; Scroll editor
-                           (swap! !scroll-y #(maybe-snap (+ % delta) dpr snap?))))
+                           ;; Scroll editor / flow canvas
+                           (if (flow-canvas-active? @!flow-state)
+                             ;; List view: clamp scroll to grouped list content height
+                             (let [flow @!flow-state
+                                   grouped (group-tickets-by-status (:tickets flow))
+                                   content-h (list-content-height grouped @!collapsed-groups)
+                                   visible-h (- (:height viewport) cmd-panel-h status-bar-h agent-h 12)
+                                   max-scroll (max 0 (- content-h visible-h))]
+                               (swap! !scroll-y #(-> (+ % delta) (max 0) (min max-scroll))))
+                             ;; Normal editor scroll (unclamped — code can be long)
+                             (swap! !scroll-y #(maybe-snap (+ % delta) dpr snap?)))))
                        nil) nil))
 
       ;; =====================================================================
@@ -3213,65 +3760,116 @@
                            (reset! !focus :command-panel)
                            (swap! !cmd-panel assoc :cursor col)
                            (reset! !caret-visible true))
-                        ;; Click in editor — close command panel if open
+                        ;; Click in editor area — flow canvas or code editor
                         (do
                         (when (:visible @!cmd-panel)
                           (swap! !cmd-panel assoc :visible false))
-                        (let [adj-y (+ y scroll-y)
-                              dpr (:dpr @!viewport)
-                              snap? (:snap-to-pixel? @!settings)
-                              font-size (:font-size @!settings)
-                              char-width (:char-width @!active-font)
-                              line-h (maybe-snap (* font-size (:line-height @!settings)) dpr snap?)
-                              char-w (maybe-snap (* font-size char-width) dpr snap?)
-                              layout-x (maybe-snap layout-x dpr snap?)
-                              layout-y (maybe-snap layout-y dpr snap?)
-                              gutter-x (- layout-x gutter-w)
-                              gutter-right (+ gutter-x gutter-w)]
-                          (if (and (>= x gutter-x) (< x gutter-right))
-                            ;; Gutter click - toggle fold
-                            (let [text-result @!text-geo
-                                  line-mapping (or (:line-mapping text-result) [])
-                                  visual-line (max 0 (Math/floor (/ (- adj-y layout-y) line-h)))
-                                  logical-line (get line-mapping visual-line visual-line)
-                                  regions (detect-folds-fn (:lines @!editor-doc)
-                                                           (mapv count (:lines @!editor-doc)))
-                                  fold-region (first (filter #(= (:start-line %) logical-line)
-                                                             (or regions [])))]
-                              (js/console.log "[FOLD] visual:" visual-line "logical:" logical-line
-                                              "region:" (clj->js fold-region)
-                                              "folded-before:" (clj->js @!folded-lines))
-                              (when fold-region
-                                (swap! !folded-lines
-                                       (fn [folded]
-                                         (if (contains? folded logical-line)
-                                           (disj folded logical-line)
-                                           (conj folded logical-line))))
-                                (js/console.log "[FOLD] folded-after:" (clj->js @!folded-lines)))
-                              (reset! !focus :editor))
-                            ;; Normal click - place cursor
-                            (let [text-result @!text-geo
-                                  line-mapping (or (:line-mapping text-result) [])
-                                  lengths (mapv count (:lines @!editor-doc))
-                                  visual-line (max 0 (Math/floor (/ (- adj-y layout-y) line-h)))
-                                  logical-line (get line-mapping visual-line
-                                                    (min visual-line (dec (count lengths))))
-                                  line-len (get lengths logical-line 0)
-                                  col (-> (/ (- x layout-x) char-w)
-                                          (Math/round)
-                                          (max 0)
-                                          (min line-len))
-                                  pos {:line logical-line :col col}]
-                              (reset! !dragging? true)
-                              (swap! !editor-doc assoc
-                                     :cursor pos
-                                     :selection nil
-                                     :desired-col col)
-                              (reset! !caret-visible true)
-                              (reset! !focus :editor)))))))))))
+                        (if (flow-canvas-active? @!flow-state)
+                          ;; Flow canvas mode: hit-test list rows and group headers
+                          (let [adj-y (+ y scroll-y)
+                                flow @!flow-state
+                                left-w (int (* (:width viewport) list-left-pane-pct))
+                                in-left-pane? (< x left-w)]
+                            (when in-left-pane?
+                              (let [grouped (group-tickets-by-status (:tickets flow))
+                                    layout (ticket-list-layout grouped @!collapsed-groups (set (:selected flow)))
+                                    hit (first (filter (fn [entry]
+                                                         (let [ey (:y entry)
+                                                               eh (if (= (:type entry) :group-header)
+                                                                    list-group-header-h list-row-h)]
+                                                           (and (>= adj-y ey) (< adj-y (+ ey eh)))))
+                                                       layout))]
+                                (when hit
+                                  (case (:type hit)
+                                    :group-header
+                                    (swap! !collapsed-groups
+                                           (fn [cg] (if (contains? cg (:status hit))
+                                                      (disj cg (:status hit))
+                                                      (conj cg (:status hit)))))
+                                    :ticket-row
+                                    (let [idx (:idx hit)
+                                          selected (:selected flow)
+                                          already? (some #{idx} selected)
+                                          new-selected (if already?
+                                                         (vec (remove #{idx} selected))
+                                                         (conj (vec selected) idx))]
+                                      (swap! !flow-state assoc :selected new-selected)))))))
+                          ;; Normal editor mode: cursor placement / fold toggle
+                          (let [adj-y (+ y scroll-y)
+                                dpr (:dpr @!viewport)
+                                snap? (:snap-to-pixel? @!settings)
+                                font-size (:font-size @!settings)
+                                char-width (:char-width @!active-font)
+                                line-h (maybe-snap (* font-size (:line-height @!settings)) dpr snap?)
+                                char-w (maybe-snap (* font-size char-width) dpr snap?)
+                                layout-x (maybe-snap layout-x dpr snap?)
+                                layout-y (maybe-snap layout-y dpr snap?)
+                                gutter-x (- layout-x gutter-w)
+                                gutter-right (+ gutter-x gutter-w)]
+                            (if (and (>= x gutter-x) (< x gutter-right))
+                              ;; Gutter click - toggle fold
+                              (let [text-result @!text-geo
+                                    line-mapping (or (:line-mapping text-result) [])
+                                    visual-line (max 0 (Math/floor (/ (- adj-y layout-y) line-h)))
+                                    logical-line (get line-mapping visual-line visual-line)
+                                    regions (detect-folds-fn (:lines @!editor-doc)
+                                                             (mapv count (:lines @!editor-doc)))
+                                    fold-region (first (filter #(= (:start-line %) logical-line)
+                                                               (or regions [])))]
+                                (js/console.log "[FOLD] visual:" visual-line "logical:" logical-line
+                                                "region:" (clj->js fold-region)
+                                                "folded-before:" (clj->js @!folded-lines))
+                                (when fold-region
+                                  (swap! !folded-lines
+                                         (fn [folded]
+                                           (if (contains? folded logical-line)
+                                             (disj folded logical-line)
+                                             (conj folded logical-line))))
+                                  (js/console.log "[FOLD] folded-after:" (clj->js @!folded-lines)))
+                                (reset! !focus :editor))
+                              ;; Normal click - place cursor
+                              (let [text-result @!text-geo
+                                    line-mapping (or (:line-mapping text-result) [])
+                                    lengths (mapv count (:lines @!editor-doc))
+                                    visual-line (max 0 (Math/floor (/ (- adj-y layout-y) line-h)))
+                                    logical-line (get line-mapping visual-line
+                                                      (min visual-line (dec (count lengths))))
+                                    line-len (get lengths logical-line 0)
+                                    col (-> (/ (- x layout-x) char-w)
+                                            (Math/round)
+                                            (max 0)
+                                            (min line-len))
+                                    pos {:line logical-line :col col}]
+                                (reset! !dragging? true)
+                                (swap! !editor-doc assoc
+                                       :cursor pos
+                                       :selection nil
+                                       :desired-col col)
+                                (reset! !caret-visible true)
+                                (reset! !focus :editor))))))))))))
 
                  :mousemove
                  (do (reset! !mouse-y (:y coords))
+                 ;; Hover tracking for flow canvas list view
+                 (when (flow-canvas-active? @!flow-state)
+                   (let [mx (:x coords)
+                         my (:y coords)
+                         scroll-y @!scroll-y
+                         left-w (int (* (:width @!viewport) list-left-pane-pct))
+                         adj-y (+ my scroll-y)]
+                     (if (< mx left-w)
+                       ;; In left pane: find which ticket row we're over
+                       (let [flow @!flow-state
+                             grouped (group-tickets-by-status (:tickets flow))
+                             layout (ticket-list-layout grouped @!collapsed-groups (set (:selected flow)))
+                             hit (first (filter (fn [entry]
+                                                  (and (= (:type entry) :ticket-row)
+                                                       (let [ey (:y entry)]
+                                                         (and (>= adj-y ey) (< adj-y (+ ey list-row-h))))))
+                                                layout))]
+                         (reset! !hovered-row-idx (when hit (:idx hit))))
+                       ;; Outside left pane
+                       (reset! !hovered-row-idx nil))))
                  (when @!dragging?
                    ;; Use reactive font values for mouse drag selection
                    (let [{:keys [x y]} coords
@@ -3655,10 +4253,12 @@
                                            !current-file
                                            tokenize-fn layout-fn
                                            <fold-data
+                                           !flow-state !collapsed-groups !hovered-row-idx
                                            layout-x layout-y cmd-panel-h status-bar-h)
             <editor-rect-data (<editor-rects !editor-doc !eval-result !caret-visible !focus
                                              !settings !active-font !viewport
                                              <fold-data <bracket-data
+                                             !flow-state !scroll-y !collapsed-groups !hovered-row-idx
                                              layout-x layout-y gutter-w)
             <cmd-rect-data (<cmd-panel-rects !cmd-panel !focus !caret-visible !scroll-y !viewport
                                              !settings !active-font
