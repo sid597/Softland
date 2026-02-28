@@ -1,11 +1,30 @@
 (ns app.client.webgpu.editor)
 
-;; --- 1. SHADERS (Unchanged) ---
+;; --- 1. SHADERS ---
+;; Rich quads: 28 floats/rect, SDF-based rounded corners, borders, gradients
 (def rect-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
   @group(0) @binding(0) var<uniform> camera: Camera;
-  struct InstanceInput { @location(0) rect_geometry: vec4<f32>, @location(1) color: vec4<f32>, };
-  struct VertexOutput { @builtin(position) position: vec4<f32>, @location(0) color: vec4<f32>, };
+  struct InstanceInput {
+    @location(0) rect_geometry: vec4<f32>,
+    @location(1) color: vec4<f32>,
+    @location(2) corner_radii: vec4<f32>,
+    @location(3) border_widths: vec4<f32>,
+    @location(4) border_color: vec4<f32>,
+    @location(5) gradient: vec4<f32>,
+    @location(6) gradient_color2: vec4<f32>,
+  };
+  struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) color: vec4<f32>,
+    @location(1) local_pos: vec2<f32>,
+    @location(2) rect_size: vec2<f32>,
+    @location(3) corner_radii: vec4<f32>,
+    @location(4) border_widths: vec4<f32>,
+    @location(5) border_color: vec4<f32>,
+    @location(6) gradient: vec4<f32>,
+    @location(7) gradient_color2: vec4<f32>,
+  };
 
   @vertex
   fn main(@builtin(vertex_index) v_index: u32, instance: InstanceInput) -> VertexOutput {
@@ -22,11 +41,193 @@
       let ndc = (panned / camera.screen_dimensions * 2.0) - vec2<f32>(1.0, 1.0);
       output.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
       output.color = instance.color;
+      // Pass local UV (0..size in pixels) and rect size for SDF evaluation
+      output.local_pos = pos * instance.rect_geometry.zw * camera.zoom;
+      output.rect_size = instance.rect_geometry.zw * camera.zoom;
+      output.corner_radii = instance.corner_radii;
+      output.border_widths = instance.border_widths;
+      output.border_color = instance.border_color;
+      output.gradient = instance.gradient;
+      output.gradient_color2 = instance.gradient_color2;
       return output;
   }")
 
 (def rect-fragment-shader "
-  @fragment fn main(@location(0) color: vec4<f32>) -> @location(0) vec4<f32> { return color; }")
+  // Inigo Quilez SDF rounded box with per-corner radii
+  fn sd_rounded_box(p: vec2<f32>, half_size: vec2<f32>, radii: vec4<f32>) -> f32 {
+      // radii: tl, tr, br, bl → select based on quadrant
+      var r: vec2<f32>;
+      if (p.x > 0.0) {
+          r = vec2<f32>(radii.y, radii.z);  // tr, br
+      } else {
+          r = vec2<f32>(radii.x, radii.w);  // tl, bl
+      }
+      if (p.y > 0.0) {
+          r.x = r.y;  // bottom row
+      }
+      let q = abs(p) - half_size + vec2<f32>(r.x, r.x);
+      return min(max(q.x, q.y), 0.0) + length(max(q, vec2<f32>(0.0, 0.0))) - r.x;
+  }
+
+  @fragment
+  fn main(
+    @location(0) color: vec4<f32>,
+    @location(1) local_pos: vec2<f32>,
+    @location(2) rect_size: vec2<f32>,
+    @location(3) corner_radii: vec4<f32>,
+    @location(4) border_widths: vec4<f32>,
+    @location(5) border_color: vec4<f32>,
+    @location(6) gradient: vec4<f32>,
+    @location(7) gradient_color2: vec4<f32>,
+  ) -> @location(0) vec4<f32> {
+      let half_size = rect_size * 0.5;
+      // p in centered coordinates: (0,0) = center of rect
+      let p = local_pos - half_size;
+
+      // Clamp radii so they don't exceed half the smallest dimension
+      let max_r = min(half_size.x, half_size.y);
+      let radii = min(corner_radii, vec4<f32>(max_r, max_r, max_r, max_r));
+
+      let dist = sd_rounded_box(p, half_size, radii);
+
+      // Anti-aliased edge (1px smoothstep)
+      let aa = clamp(0.5 - dist, 0.0, 1.0);
+
+      // --- Fill color (with optional gradient) ---
+      var fill = color;
+      let t_stop = gradient.y;
+      if (t_stop > 0.0) {
+          // Linear gradient: angle in radians, t_stop = blend position
+          let angle = gradient.x;
+          let cs = cos(angle);
+          let sn = sin(angle);
+          // Project centered UV onto gradient axis
+          let uv_norm = local_pos / rect_size;
+          let t = clamp(uv_norm.x * cs + uv_norm.y * sn, 0.0, 1.0);
+          fill = mix(color, gradient_color2, smoothstep(0.0, t_stop, t));
+      }
+
+      // --- Border ---
+      let has_border = (border_widths.x + border_widths.y + border_widths.z + border_widths.w) > 0.0;
+      if (has_border) {
+          // Use max border width for SDF shrink (uniform-ish approach)
+          let bw = max(max(border_widths.x, border_widths.y), max(border_widths.z, border_widths.w));
+          let inner_half = half_size - vec2<f32>(bw, bw);
+          let inner_radii = max(radii - vec4<f32>(bw, bw, bw, bw), vec4<f32>(0.0, 0.0, 0.0, 0.0));
+          let inner_dist = sd_rounded_box(p, inner_half, inner_radii);
+          let inner_aa = clamp(0.5 - inner_dist, 0.0, 1.0);
+          // Composite: border color in the ring, fill inside
+          let result = mix(border_color, fill, inner_aa);
+          return vec4<f32>(result.rgb, result.a * aa);
+      }
+
+      return vec4<f32>(fill.rgb, fill.a * aa);
+  }")
+
+;; --- Shadow shaders ---
+;; 20 floats/shadow (80 bytes): expanded_rect, shadow_color, corner_radii, blur_params, inner_rect
+(def shadow-vertex-shader "
+  struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
+  @group(0) @binding(0) var<uniform> camera: Camera;
+  struct InstanceInput {
+    @location(0) expanded_rect: vec4<f32>,
+    @location(1) shadow_color: vec4<f32>,
+    @location(2) corner_radii: vec4<f32>,
+    @location(3) blur_params: vec4<f32>,
+    @location(4) inner_rect: vec4<f32>,
+  };
+  struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) shadow_color: vec4<f32>,
+    @location(1) local_pos: vec2<f32>,
+    @location(2) rect_size: vec2<f32>,
+    @location(3) corner_radii: vec4<f32>,
+    @location(4) blur_params: vec4<f32>,
+    @location(5) inner_rect: vec4<f32>,
+  };
+
+  @vertex
+  fn main(@builtin(vertex_index) v_index: u32, instance: InstanceInput) -> VertexOutput {
+      var output: VertexOutput;
+      var pos = vec2<f32>(0.0, 0.0);
+      switch(v_index) {
+          case 0u: { pos = vec2<f32>(0.0, 0.0); } case 1u: { pos = vec2<f32>(1.0, 0.0); }
+          case 2u: { pos = vec2<f32>(0.0, 1.0); } case 3u: { pos = vec2<f32>(1.0, 0.0); }
+          case 4u: { pos = vec2<f32>(1.0, 1.0); } default: { pos = vec2<f32>(0.0, 1.0); }
+      }
+      let world_pos = vec2<f32>(instance.expanded_rect.x + (pos.x * instance.expanded_rect.z),
+                                instance.expanded_rect.y + (pos.y * instance.expanded_rect.w));
+      let panned = (world_pos * camera.zoom) + camera.pan;
+      let ndc = (panned / camera.screen_dimensions * 2.0) - vec2<f32>(1.0, 1.0);
+      output.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
+      output.shadow_color = instance.shadow_color;
+      output.local_pos = pos * instance.expanded_rect.zw * camera.zoom;
+      output.rect_size = instance.expanded_rect.zw * camera.zoom;
+      output.corner_radii = instance.corner_radii;
+      output.blur_params = instance.blur_params;
+      // Scale inner_rect to match zoom-scaled local_pos
+      output.inner_rect = vec4<f32>(
+          instance.inner_rect.xy * camera.zoom,
+          instance.inner_rect.zw * camera.zoom);
+      return output;
+  }")
+
+(def shadow-fragment-shader "
+  // Approximate erf for Gaussian CDF shadow falloff
+  fn erf_approx(x: f32) -> f32 {
+      let a = abs(x);
+      // Abramowitz & Stegun approximation (max error ~1.5e-7)
+      let t = 1.0 / (1.0 + 0.3275911 * a);
+      let poly = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
+      let result = 1.0 - poly * exp(-a * a);
+      return select(-result, result, x >= 0.0);
+  }
+
+  // SDF rounded box (same as rect shader)
+  fn sd_rounded_box(p: vec2<f32>, half_size: vec2<f32>, radii: vec4<f32>) -> f32 {
+      var r: vec2<f32>;
+      if (p.x > 0.0) {
+          r = vec2<f32>(radii.y, radii.z);
+      } else {
+          r = vec2<f32>(radii.x, radii.w);
+      }
+      if (p.y > 0.0) {
+          r.x = r.y;
+      }
+      let q = abs(p) - half_size + vec2<f32>(r.x, r.x);
+      return min(max(q.x, q.y), 0.0) + length(max(q, vec2<f32>(0.0, 0.0))) - r.x;
+  }
+
+  @fragment
+  fn main(
+    @location(0) shadow_color: vec4<f32>,
+    @location(1) local_pos: vec2<f32>,
+    @location(2) rect_size: vec2<f32>,
+    @location(3) corner_radii: vec4<f32>,
+    @location(4) blur_params: vec4<f32>,
+    @location(5) inner_rect: vec4<f32>,
+  ) -> @location(0) vec4<f32> {
+      let blur = blur_params.x;
+      let offset = blur_params.yz;
+      let spread = blur_params.w;
+
+      // Inner rect center and half-size (in zoom-scaled pixels, relative to expanded quad)
+      let inner_center = (inner_rect.xy + inner_rect.zw * 0.5) + offset;
+      let inner_half = inner_rect.zw * 0.5 + vec2<f32>(spread, spread);
+
+      let max_r = min(inner_half.x, inner_half.y);
+      let radii = min(corner_radii, vec4<f32>(max_r, max_r, max_r, max_r));
+
+      // Pixel position relative to inner rect center
+      let p = local_pos - inner_center;
+      let dist = sd_rounded_box(p, inner_half, radii);
+
+      // Gaussian CDF falloff
+      let sigma = max(blur * 0.5, 0.001);
+      let alpha = 0.5 - 0.5 * erf_approx(dist / (sigma * 1.4142135));
+
+      return vec4<f32>(shadow_color.rgb, shadow_color.a * alpha);
+  }")
 
 (def text-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
@@ -110,23 +311,32 @@
 
 ;; --- 2. INITIALIZATION ---
 
+(def rect-stride 112)  ;; 28 floats × 4 bytes = 112 bytes per rect
+
 (defn init-rect-system [^js/GPUDevice device fformat camera-buffer & {:keys [initial-capacity] :or {initial-capacity 1000}}]
   (let [v-module (.createShaderModule device (clj->js {:code rect-vertex-shader}))
         f-module (.createShaderModule device (clj->js {:code rect-fragment-shader}))
-        instance-buffer (.createBuffer device (clj->js {:size (* initial-capacity 32) :usage (bit-or js/GPUBufferUsage.VERTEX js/GPUBufferUsage.COPY_DST)}))
-        bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}]}))
+        buf-size (* initial-capacity rect-stride)
+        instance-buffer (.createBuffer device (clj->js {:size buf-size :usage (bit-or js/GPUBufferUsage.VERTEX js/GPUBufferUsage.COPY_DST)}))
+        bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility (bit-or js/GPUShaderStage.VERTEX js/GPUShaderStage.FRAGMENT) :buffer {:type "uniform"}}]}))
         pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
-        pipeline (.createRenderPipeline device (clj->js {:layout pipeline-layout
-                                                         :vertex {:module v-module :entryPoint "main"
-                                                                  :buffers [{:arrayStride 32 :stepMode "instance"
-                                                                             :attributes [{:shaderLocation 0 :offset 0 :format "float32x4"}
-                                                                                          {:shaderLocation 1 :offset 16 :format "float32x4"}]}]}
-                                                         :fragment {:module f-module :entryPoint "main"
-                                                                    :targets [{:format fformat :blend {:color {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}
-                                                                                                       :alpha {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}}}]}
-                                                         :primitive {:topology "triangle-list"}}))
+        pipeline (.createRenderPipeline device
+                   (clj->js {:layout pipeline-layout
+                              :vertex {:module v-module :entryPoint "main"
+                                       :buffers [{:arrayStride rect-stride :stepMode "instance"
+                                                  :attributes [{:shaderLocation 0 :offset 0  :format "float32x4"}   ;; rect_geometry
+                                                               {:shaderLocation 1 :offset 16 :format "float32x4"}   ;; color
+                                                               {:shaderLocation 2 :offset 32 :format "float32x4"}   ;; corner_radii
+                                                               {:shaderLocation 3 :offset 48 :format "float32x4"}   ;; border_widths
+                                                               {:shaderLocation 4 :offset 64 :format "float32x4"}   ;; border_color
+                                                               {:shaderLocation 5 :offset 80 :format "float32x4"}   ;; gradient
+                                                               {:shaderLocation 6 :offset 96 :format "float32x4"}]}]}  ;; gradient_color2
+                              :fragment {:module f-module :entryPoint "main"
+                                         :targets [{:format fformat :blend {:color {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}
+                                                                            :alpha {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}}}]}
+                              :primitive {:topology "triangle-list"}}))
         bind-group (.createBindGroup device (clj->js {:layout bg-layout :entries [{:binding 0 :resource {:buffer camera-buffer}}]}))]
-    {:pipeline pipeline :bind-group bind-group :instance-buffer instance-buffer :num-instances 0}))
+    {:pipeline pipeline :bind-group bind-group :instance-buffer instance-buffer :capacity initial-capacity :num-instances 0}))
 
 (defn init-text-system [^js/GPUDevice device fformat atlas font-bitmap & {:keys [initial-capacity] :or {initial-capacity 10000}}]
   (let [vertex-module (.createShaderModule device (clj->js {:code text-vertex-shader}))
@@ -173,19 +383,108 @@
                                                                     {:binding 3 :resource {:buffer (:sizes-uniform-buffer renderer-state)}}]}))]
     (assoc renderer-state :bind-group new-bind-group)))
 
+;; --- Shadow system ---
+(def shadow-stride 80)  ;; 20 floats × 4 bytes = 80 bytes per shadow
+
+(defn init-shadow-system [^js/GPUDevice device fformat camera-buffer & {:keys [initial-capacity] :or {initial-capacity 256}}]
+  (let [v-module (.createShaderModule device (clj->js {:code shadow-vertex-shader}))
+        f-module (.createShaderModule device (clj->js {:code shadow-fragment-shader}))
+        buf-size (* initial-capacity shadow-stride)
+        instance-buffer (.createBuffer device (clj->js {:size buf-size :usage (bit-or js/GPUBufferUsage.VERTEX js/GPUBufferUsage.COPY_DST)}))
+        bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility (bit-or js/GPUShaderStage.VERTEX js/GPUShaderStage.FRAGMENT) :buffer {:type "uniform"}}]}))
+        pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
+        pipeline (.createRenderPipeline device
+                   (clj->js {:layout pipeline-layout
+                              :vertex {:module v-module :entryPoint "main"
+                                       :buffers [{:arrayStride shadow-stride :stepMode "instance"
+                                                  :attributes [{:shaderLocation 0 :offset 0  :format "float32x4"}   ;; expanded_rect
+                                                               {:shaderLocation 1 :offset 16 :format "float32x4"}   ;; shadow_color
+                                                               {:shaderLocation 2 :offset 32 :format "float32x4"}   ;; corner_radii
+                                                               {:shaderLocation 3 :offset 48 :format "float32x4"}   ;; blur_params
+                                                               {:shaderLocation 4 :offset 64 :format "float32x4"}]}]}  ;; inner_rect
+                              :fragment {:module f-module :entryPoint "main"
+                                         :targets [{:format fformat :blend {:color {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}
+                                                                            :alpha {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}}}]}
+                              :primitive {:topology "triangle-list"}}))
+        bind-group (.createBindGroup device (clj->js {:layout bg-layout :entries [{:binding 0 :resource {:buffer camera-buffer}}]}))]
+    {:pipeline pipeline :bind-group bind-group :instance-buffer instance-buffer :capacity initial-capacity :num-instances 0}))
+
+(defn update-shadows [^js device shadow-system shadows]
+  (let [n (count shadows)
+        floats-per-shadow 20
+        data (js/Float32Array. (* n floats-per-shadow))
+        required-bytes (.-byteLength data)
+        current-buffer (:instance-buffer shadow-system)
+        current-size (.-size ^js current-buffer)
+        needs-resize? (> required-bytes current-size)
+        new-buffer (if needs-resize?
+                     (do (.destroy ^js current-buffer)
+                         (.createBuffer device (clj->js {:size (max required-bytes (* n shadow-stride))
+                                                         :usage (bit-or js/GPUBufferUsage.VERTEX
+                                                                        js/GPUBufferUsage.COPY_DST)})))
+                     current-buffer)]
+    (loop [i 0 ss shadows]
+      (when (seq ss)
+        (let [s (first ss)
+              {:keys [x y w h blur offset-x offset-y spread color corner-radii radius]} s
+              blur   (or blur 8.0)
+              ox     (or offset-x 0.0)
+              oy     (or offset-y 0.0)
+              spread (or spread 0.0)
+              sc     (or color [0 0 0 0.25])
+              expand (* 3.0 blur)
+              ;; Expanded quad (captures Gaussian tail)
+              ex     (- x expand (max ox 0))
+              ey     (- y expand (max oy 0))
+              ew     (+ w (* 2 expand) (Math/abs ox))
+              eh     (+ h (* 2 expand) (Math/abs oy))
+              ;; Inner rect relative to expanded quad origin
+              ix     (- x ex)
+              iy     (- y ey)
+              ;; Corner radii
+              cr     corner-radii
+              ur     (or radius 0.0)
+              base   (* i floats-per-shadow)]
+          ;; Slot 0: expanded_rect
+          (aset data (+ base 0) ex)  (aset data (+ base 1) ey)
+          (aset data (+ base 2) ew)  (aset data (+ base 3) eh)
+          ;; Slot 1: shadow_color
+          (aset data (+ base 4) (nth sc 0))  (aset data (+ base 5) (nth sc 1))
+          (aset data (+ base 6) (nth sc 2))  (aset data (+ base 7) (nth sc 3))
+          ;; Slot 2: corner_radii
+          (if cr
+            (do (aset data (+ base 8)  (nth cr 0))
+                (aset data (+ base 9)  (nth cr 1))
+                (aset data (+ base 10) (nth cr 2))
+                (aset data (+ base 11) (nth cr 3)))
+            (do (aset data (+ base 8)  ur) (aset data (+ base 9)  ur)
+                (aset data (+ base 10) ur) (aset data (+ base 11) ur)))
+          ;; Slot 3: blur_params [blur, offset_x, offset_y, spread]
+          (aset data (+ base 12) blur)   (aset data (+ base 13) ox)
+          (aset data (+ base 14) oy)     (aset data (+ base 15) spread)
+          ;; Slot 4: inner_rect (relative to expanded quad, in zoom-scaled space)
+          (aset data (+ base 16) ix)  (aset data (+ base 17) iy)
+          (aset data (+ base 18) w)   (aset data (+ base 19) h)
+          (recur (inc i) (next ss)))))
+    (when (pos? n)
+      (.writeBuffer (.-queue device) new-buffer 0 data))
+    (assoc shadow-system :instance-buffer new-buffer :num-instances n)))
+
 (defn create-editor-state [{:keys [device format atlas bitmap]}]
   (let [text-sys (init-text-system device format atlas bitmap :initial-capacity 1000000)
         rect-sys (init-rect-system device format (:camera-uniform-buffer text-sys) :initial-capacity 50000)
-        
+        shadow-sys (init-shadow-system device format (:camera-uniform-buffer text-sys) :initial-capacity 256)
+
         camera-floats (js/Float32Array. 6)
-        
+
         pass-descriptor (clj->js {:colorAttachments [{:view nil
                                                       :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 0.0}
                                                       :loadOp "clear"
                                                       :storeOp "store"}]})]
-    
-    {:text-sys text-sys 
+
+    {:text-sys text-sys
      :rect-sys rect-sys
+     :shadow-sys shadow-sys
      :camera-floats camera-floats
      :pass-descriptor pass-descriptor}))
 
@@ -319,17 +618,81 @@
 
 
 (defn update-rects [^js device rect-system rects]
-  (let [count (count rects) data (js/Float32Array. (* count 8))]
+  (let [n (count rects)
+        floats-per-rect 28
+        data (js/Float32Array. (* n floats-per-rect))
+        required-bytes (.-byteLength data)
+        current-buffer (:instance-buffer rect-system)
+        current-size (.-size ^js current-buffer)
+        needs-resize? (> required-bytes current-size)
+        new-buffer (if needs-resize?
+                     (do (.destroy ^js current-buffer)
+                         (.createBuffer device (clj->js {:size (max required-bytes (* n rect-stride))
+                                                         :usage (bit-or js/GPUBufferUsage.VERTEX
+                                                                        js/GPUBufferUsage.COPY_DST)})))
+                     current-buffer)]
     (loop [i 0 rs rects]
       (when (seq rs)
-        (let [{:keys [x y w h r g b a]} (first rs) base (* i 8)]
-          (aset data (+ base 0) x) (aset data (+ base 1) y)
-          (aset data (+ base 2) w) (aset data (+ base 3) h)
-          (aset data (+ base 4) r) (aset data (+ base 5) g)
-          (aset data (+ base 6) b) (aset data (+ base 7) a)
+        (let [rect (first rs)
+              {:keys [x y w h r g b a]} rect
+              base (* i floats-per-rect)
+              ;; Corner radii: uniform :radius or per-corner :corner-radii [tl tr br bl]
+              cr (:corner-radii rect)
+              uniform-r (or (:radius rect) 0.0)
+              ;; Border widths: uniform :border-width or per-side :border-widths [t r b l]
+              bw (:border-widths rect)
+              uniform-bw (or (:border-width rect) 0.0)
+              ;; Border color
+              bc (or (:border-color rect) [0 0 0 0])
+              ;; Gradient: [angle t-stop 0 0]
+              gr (or (:gradient rect) [0 0 0 0])
+              ;; Gradient color 2
+              gc2 (or (:gradient-color2 rect) [0 0 0 0])]
+          ;; Slot 0: rect_geometry [x y w h]
+          (aset data (+ base 0) x)  (aset data (+ base 1) y)
+          (aset data (+ base 2) w)  (aset data (+ base 3) h)
+          ;; Slot 1: color [r g b a]
+          (aset data (+ base 4) r)  (aset data (+ base 5) g)
+          (aset data (+ base 6) b)  (aset data (+ base 7) a)
+          ;; Slot 2: corner_radii [tl tr br bl]
+          (if cr
+            (do (aset data (+ base 8)  (nth cr 0))
+                (aset data (+ base 9)  (nth cr 1))
+                (aset data (+ base 10) (nth cr 2))
+                (aset data (+ base 11) (nth cr 3)))
+            (do (aset data (+ base 8)  uniform-r)
+                (aset data (+ base 9)  uniform-r)
+                (aset data (+ base 10) uniform-r)
+                (aset data (+ base 11) uniform-r)))
+          ;; Slot 3: border_widths [top right bottom left]
+          (if bw
+            (do (aset data (+ base 12) (nth bw 0))
+                (aset data (+ base 13) (nth bw 1))
+                (aset data (+ base 14) (nth bw 2))
+                (aset data (+ base 15) (nth bw 3)))
+            (do (aset data (+ base 12) uniform-bw)
+                (aset data (+ base 13) uniform-bw)
+                (aset data (+ base 14) uniform-bw)
+                (aset data (+ base 15) uniform-bw)))
+          ;; Slot 4: border_color [r g b a]
+          (aset data (+ base 16) (nth bc 0))
+          (aset data (+ base 17) (nth bc 1))
+          (aset data (+ base 18) (nth bc 2))
+          (aset data (+ base 19) (nth bc 3))
+          ;; Slot 5: gradient [angle t_stop 0 0]
+          (aset data (+ base 20) (nth gr 0))
+          (aset data (+ base 21) (nth gr 1))
+          (aset data (+ base 22) (nth gr 2))
+          (aset data (+ base 23) (nth gr 3))
+          ;; Slot 6: gradient_color2 [r g b a]
+          (aset data (+ base 24) (nth gc2 0))
+          (aset data (+ base 25) (nth gc2 1))
+          (aset data (+ base 26) (nth gc2 2))
+          (aset data (+ base 27) (nth gc2 3))
           (recur (inc i) (next rs)))))
-    (.writeBuffer (.-queue device) (:instance-buffer rect-system) 0 data)
-    (assoc rect-system :num-instances count)))
+    (when (pos? n)
+      (.writeBuffer (.-queue device) new-buffer 0 data))
+    (assoc rect-system :instance-buffer new-buffer :num-instances n)))
 
 
 (defn update-camera [^js device camera-buffer ^js floats pan-x pan-y zoom w h]
@@ -344,9 +707,9 @@
 
 (defn draw-frame! [^js device ^js context text-sys editor-rect-sys cmd-rect-sys camera-floats _ignored_pass_descriptor pan-x pan-y w h
                    & {:keys [cmd-panel-visible cmd-panel-h editor-line-count settings-visible settings-rect-sys
-                             diagnostics-visible diagnostics-line-index agent-visible]
+                             diagnostics-visible diagnostics-line-index agent-visible shadow-sys]
                       :or {cmd-panel-visible false cmd-panel-h 40 editor-line-count nil settings-visible false
-                           settings-rect-sys nil agent-visible false}}]
+                           settings-rect-sys nil agent-visible false shadow-sys nil}}]
   (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y 1.0 w h)
 
   (let [encoder (.createCommandEncoder device)
@@ -361,7 +724,14 @@
 
           pass (.beginRenderPass encoder pass-descriptor)]
 
-      ;; Draw editor rects first (selection, brackets, fold indicators, caret, eval)
+      ;; Draw shadows FIRST (behind everything)
+      (when (and shadow-sys (> (:num-instances shadow-sys) 0))
+        (.setPipeline pass (:pipeline shadow-sys))
+        (.setBindGroup pass 0 (:bind-group shadow-sys))
+        (.setVertexBuffer pass 0 (:instance-buffer shadow-sys))
+        (.draw pass 6 (:num-instances shadow-sys)))
+
+      ;; Draw editor rects (selection, brackets, fold indicators, caret, eval)
       (when (and editor-rect-sys (> (:num-instances editor-rect-sys) 0))
         (.setPipeline pass (:pipeline editor-rect-sys))
         (.setBindGroup pass 0 (:bind-group editor-rect-sys))

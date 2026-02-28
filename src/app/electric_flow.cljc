@@ -420,16 +420,14 @@
                                       :char-width char-width
                                       :snap-step snap-step)
        :rect (editor/update-rects device (:rect-sys pipelines) [])
+       :shadow (editor/update-shadows device (:shadow-sys pipelines) [])
        :pipelines pipelines})))
 
 ;; ============================================================================
 ;; SIDEBAR CONSTANTS (used by imperative DOM in loop.cljs)
 ;; ============================================================================
 
-(def sidebar-bg "#1a1a2e")
-(def sidebar-border "#2a2a4a")
-(def sidebar-text "#c8c8d8")
-(def sidebar-width 250)
+;; Sidebar constants removed — sidebar now rendered via WebGPU rect tree in loop.cljs
 
 (e/defn main [ring-request]
   (e/server
@@ -473,45 +471,19 @@
 
                   (let [geometry (Prepare-Geometry device pipelines render-ops atlas)]
 
-                    ;; Outer flex container
-                    (dom/div
-                      (dom/props {:style {:display "flex"
-                                          :width "100vw"
+                    ;; Full-width canvas (sidebar rendered on GPU, no DOM element needed)
+                    (dom/canvas
+                      (dom/props {:id "webgpu-canvas"
+                                  :style {:width "100vw"
                                           :height "100vh"
-                                          :overflow "hidden"}})
-
-                      ;; === LEFT: Sidebar (always mounted, CSS-toggled) ===
-                      (dom/div
-                        (dom/props {:id "file-sidebar"
-                                    :style {:width (str sidebar-width "px")
-                                            :min-width (str sidebar-width "px")
-                                            :height "100vh"
-                                            :background sidebar-bg
-                                            :border-right (str "1px solid " sidebar-border)
-                                            :overflow-y "auto"
-                                            :overflow-x "hidden"
-                                            :font-family "Ubuntu Sans Mono, monospace"
-                                            :font-size "13px"
-                                            :color sidebar-text
-                                            :display "block"
-                                            :user-select "none"}})
-                        ;; Sidebar content rendered by JS after toggle
-                        (dom/text ""))
-
-                      ;; === RIGHT: Canvas (fills remaining space) ===
-                      (dom/canvas
-                        (dom/props {:id "webgpu-canvas"
-                                    :style {:flex "1"
-                                            :height "100vh"
-                                            :display "block"
-                                            :min-width "0"}})
-                        (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
-                          (.configure ^js ctx (clj->js {:device device :format format :alphaMode "premultiplied"}))
-                          (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
-                                                    lines tokenize-line layout-tokens
-                                                    find-matching-bracket detect-fold-regions
-                                                    find-form-at-cursor sci-eval-form atlas
-                                                    :font-manifest font-manifest
-                                                    :!sidebar-visible !sidebar-visible
-                                                    :!file-load-request !file-load-request
-                                                    :initial-file file-info)))))))))))))))
+                                          :display "block"}})
+                      (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
+                        (.configure ^js ctx (clj->js {:device device :format format :alphaMode "premultiplied"}))
+                        (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
+                                                  lines tokenize-line layout-tokens
+                                                  find-matching-bracket detect-fold-regions
+                                                  find-form-at-cursor sci-eval-form atlas
+                                                  :font-manifest font-manifest
+                                                  :!sidebar-visible !sidebar-visible
+                                                  :!file-load-request !file-load-request
+                                                  :initial-file file-info))))))))))))))

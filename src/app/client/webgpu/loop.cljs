@@ -440,6 +440,9 @@
       (= trimmed "/bootstrap")
       {:kind :flow-bootstrap}
 
+      (= trimmed "/mock")
+      {:kind :flow-mock-bootstrap}
+
       (str/starts-with? trimmed "/select ")
       (let [args (-> trimmed (subs (count "/select ")) str/trim (str/split #"\s+"))
             indices (try (mapv #(dec (js/parseInt % 10)) args)
@@ -495,7 +498,7 @@
    Once bootstrapping begins, all transitions follow the locked graph."
   {:idle            #{:bootstrapping}
    :bootstrapping   #{:intake :bootstrapping}         ;; retry on failure
-   :intake          #{:arrange}
+   :intake          #{:arrange :bootstrapping}       ;; re-bootstrap from intake
    :arrange         #{:run}
    :run             #{:review :intake}                 ;; back-edge: scope change
    :review          #{:rework :finalize :arrange}      ;; back-edge: re-arrange
@@ -510,9 +513,10 @@
       (contains? #{:intake :arrange} to)))
 
 (defn initial-flow-state
-  "Fresh flow state for a new session."
+  "Fresh flow state for a new session.
+   Starts in :intake so the sidebar list is visible by default."
   []
-  {:node :idle
+  {:node :intake
    :tickets []
    :selected []
    :arrangement nil
@@ -574,16 +578,426 @@
   (contains? #{:intake :arrange} (:node flow-state)))
 
 ;; ============================================================================
+;; RECT TREE — Scene graph for nested UI (Step 1: data structure + tree walk)
+;; ============================================================================
+;;
+;; Everything is a rect. The tree replaces scattered compute-*-rects fns with
+;; one generic walk that produces flat GPU-compatible vectors.
+;;
+;; Node: {:id :type :bounds {:x :y :w :h}  ;; parent-relative
+;;         :style {:bg [r g b a]}           ;; optional fill
+;;         :actions {:click fn :scroll {:axis :y :atom !a}}
+;;         :children [...]                  ;; back-to-front order
+;;         :text [{text-op} ...]            ;; leaf text (absolute offsets applied by walk)
+;;         :clip? bool}                     ;; if true, children clipped to this bounds
+
+(defn rt-node
+  "Create a rect tree node.  Bounds are in parent-relative coordinates.
+   Children are rendered back-to-front (painter's order).
+   Optional :layout {:direction :column/:row :gap N :padding N :align :start/:center/:end :auto-height? bool}
+   enables automatic child positioning via resolve-layout."
+  [id type bounds & {:keys [style actions children text clip? data layout]
+                     :or {clip? false}}]
+  {:id       id
+   :type     type
+   :bounds   bounds
+   :style    (or style {})
+   :actions  (or actions {})
+   :children (vec (or children []))
+   :text     (or text [])
+   :clip?    clip?
+   :data     data
+   :layout   layout})
+
+;; --- Layout engine ----------------------------------------------------------
+;; Pure pre-pass: walks tree depth-first, computes child :x/:y from :layout
+;; directives. Nodes without :layout pass through unchanged.
+
+(defn normalize-padding
+  "CSS-style padding shorthand:
+   number        → [n n n n]       (uniform)
+   [vert horiz]  → [v h v h]       (vertical, horizontal)
+   [t r b l]     → [t r b l]       (clockwise from top)"
+  [p]
+  (cond
+    (number? p)               [p p p p]
+    (nil? p)                  [0 0 0 0]
+    (and (vector? p) (= 2 (count p))) [(nth p 0) (nth p 1) (nth p 0) (nth p 1)]
+    (and (vector? p) (= 4 (count p))) p
+    :else                     [0 0 0 0]))
+
+(defn layout-children
+  "Position children inside a parent node according to its :layout directive.
+   Returns the node with children's :bounds :x/:y updated.
+   Children with (:data child :layout-skip?) pass through unchanged.
+
+   Layout keys:
+     :direction   :column (default) or :row
+     :gap         px between children (default 0)
+     :padding     number, [v h], or [t r b l] (default 0)
+     :align       :start (default), :center, or :end — cross-axis alignment
+     :auto-height? if true, parent :h = content height + padding"
+  [node]
+  (let [layout   (:layout node)
+        bounds   (:bounds node)
+        parent-w (:w bounds 0)
+        parent-h (:h bounds 0)]
+    (if-not layout
+      node ;; no layout directive → pass through
+      (let [{:keys [direction gap padding align auto-height?]
+             :or   {direction :column gap 0 align :start}} layout
+            [pt pr pb pl] (normalize-padding padding)
+            children (:children node)]
+        (if (empty? children)
+          node
+          (let [;; Separate layout-managed children from skip children
+                positioned
+                (loop [cs       children
+                       cursor   (if (= direction :column) pt pl) ;; start after top/left padding
+                       result   []]
+                  (if (empty? cs)
+                    result
+                    (let [child (first cs)]
+                      (if (get-in child [:data :layout-skip?])
+                        ;; Skip — preserve as-is
+                        (recur (rest cs) cursor (conj result child))
+                        ;; Position this child
+                        (let [cb    (:bounds child)
+                              cw    (:w cb 0)
+                              ch    (:h cb 0)
+                              ;; Cross-axis position
+                              cross (case direction
+                                      :column
+                                      (case align
+                                        :center (+ pl (/ (- parent-w pl pr cw) 2))
+                                        :end    (- parent-w pr cw)
+                                        ;; :start
+                                        pl)
+                                      :row
+                                      (case align
+                                        :center (+ pt (/ (- parent-h pt pb ch) 2))
+                                        :end    (- parent-h pb ch)
+                                        ;; :start
+                                        pt))
+                              ;; Set x/y based on direction
+                              new-bounds (if (= direction :column)
+                                           (assoc cb :x cross :y cursor)
+                                           (assoc cb :y cross :x cursor))
+                              new-child  (assoc child :bounds new-bounds)
+                              ;; Advance cursor along main axis
+                              advance    (if (= direction :column) ch cw)
+                              next-cursor (+ cursor advance gap)]
+                          (recur (rest cs) next-cursor (conj result new-child)))))))
+                ;; Auto-height: shrink-wrap parent to content
+                total-main (if auto-height?
+                             (let [managed (filterv #(not (get-in % [:data :layout-skip?])) positioned)
+                                   last-child (peek managed)]
+                               (when last-child
+                                 (let [lb (:bounds last-child)]
+                                   (+ (if (= direction :column)
+                                        (+ (:y lb 0) (:h lb 0) pb)
+                                        (+ (:x lb 0) (:w lb 0) pr))))))
+                             nil)
+                new-bounds (if total-main
+                             (if (= direction :column)
+                               (assoc bounds :h total-main)
+                               (assoc bounds :w total-main))
+                             bounds)]
+            (assoc node :children positioned :bounds new-bounds)))))))
+
+(defn resolve-text-layout
+  "Auto-position text ops on a node that has :text-layout.
+   Text-layout map: {:line-height N :max-chars N :padding [t r b l] or N}
+   Text ops provide :text, :size, :r/:g/:b/:a, :type — but NOT :x/:y.
+   This fn computes :x/:y by wrapping text and stacking lines vertically.
+   Returns the node with :text updated (local coords)."
+  [node]
+  (let [tl (:text-layout node)]
+    (if-not tl
+      node
+      (let [{:keys [line-height max-chars padding]} tl
+            [pt _pr _pb pl] (normalize-padding padding)
+            text-specs (:text node)]
+        (if (empty? text-specs)
+          node
+          (let [ops (loop [specs text-specs
+                           y     pt
+                           acc   []]
+                     (if (empty? specs)
+                       acc
+                       (let [spec  (first specs)
+                             txt   (:text spec "")
+                             size  (:size spec 14)
+                             ;; Split by newlines first, then wrap each line
+                             raw-lines  (str/split-lines txt)
+                             lines      (if max-chars
+                                          (vec (mapcat #(wrap-line % max-chars) raw-lines))
+                                          raw-lines)
+                             line-ops   (mapv (fn [i line-text]
+                                               (assoc spec
+                                                      :text line-text
+                                                      :from 0
+                                                      :to   (count line-text)
+                                                      :x    pl
+                                                      :y    (+ y (* i (or line-height size)))))
+                                             (range) lines)
+                             next-y     (+ y (* (count lines) (or line-height size)))]
+                         (recur (rest specs) next-y (into acc line-ops)))))]
+            (assoc node :text ops)))))))
+
+(defn resolve-layout
+  "Recursive depth-first pre-pass: apply layout-children at each level,
+   resolve text-layout, then recurse into children. Returns a fully-positioned
+   tree ready for tree->rects / tree->text-ops / tree->shadows."
+  [node]
+  (let [laid-out  (-> node layout-children resolve-text-layout)
+        children  (:children laid-out)]
+    (if (empty? children)
+      laid-out
+      (assoc laid-out :children (mapv resolve-layout children)))))
+
+;; --- Tree walk: rects -------------------------------------------------------
+
+(defn tree->rects
+  "Walk rect tree depth-first, emit flat vector of GPU rect maps.
+   Parent-relative coords are converted to absolute via parent-x/parent-y.
+   Clip-bounds is {:x :y :w :h} in absolute space (nil = no clipping).
+   Style keys: :bg, :radius, :corner-radii, :border-width, :border-widths,
+               :border-color, :gradient, :gradient-color2"
+  ([node] (tree->rects node 0 0 nil))
+  ([node parent-x parent-y clip-bounds]
+   (let [{:keys [bounds style children clip?]} node
+         abs-x (+ parent-x (:x bounds 0))
+         abs-y (+ parent-y (:y bounds 0))
+         w     (:w bounds 0)
+         h     (:h bounds 0)
+         ;; If parent clips, check visibility
+         visible? (if clip-bounds
+                    (let [cx (:x clip-bounds) cy (:y clip-bounds)
+                          cw (:w clip-bounds) ch (:h clip-bounds)]
+                      (and (< abs-x (+ cx cw))
+                           (< abs-y (+ cy ch))
+                           (> (+ abs-x w) cx)
+                           (> (+ abs-y h) cy)))
+                    true)]
+     (when visible?
+       (let [;; Background rect from style — now includes SDF properties
+             bg  (when-let [c (:bg style)]
+                   (cond-> {:x abs-x :y abs-y :w w :h h
+                            :r (nth c 0) :g (nth c 1) :b (nth c 2) :a (nth c 3)}
+                     (:radius style)         (assoc :radius (:radius style))
+                     (:corner-radii style)   (assoc :corner-radii (:corner-radii style))
+                     (:border-width style)   (assoc :border-width (:border-width style))
+                     (:border-widths style)  (assoc :border-widths (:border-widths style))
+                     (:border-color style)   (assoc :border-color (:border-color style))
+                     (:gradient style)       (assoc :gradient (:gradient style))
+                     (:gradient-color2 style)(assoc :gradient-color2 (:gradient-color2 style))))
+             ;; This node's clip bounds for children (if clip? is set)
+             child-clip (if clip?
+                          {:x abs-x :y abs-y :w w :h h}
+                          clip-bounds)
+             ;; Recurse children (depth-first, painter's order)
+             child-rects (into [] (mapcat #(tree->rects % abs-x abs-y child-clip)) children)]
+         (cond-> []
+           bg   (conj bg)
+           true (into child-rects)))))))
+
+;; --- Tree walk: text ops ----------------------------------------------------
+
+(defn tree->text-ops
+  "Walk rect tree depth-first, emit nested vector of text-op vectors.
+   Text ops on each node have :x/:y in node-local space; the walk
+   offsets them to absolute coordinates.  Returns [[{op}] ...]."
+  ([node] (tree->text-ops node 0 0 nil))
+  ([node parent-x parent-y clip-bounds]
+   (let [{:keys [bounds style children text clip?]} node
+         abs-x (+ parent-x (:x bounds 0))
+         abs-y (+ parent-y (:y bounds 0))
+         w     (:w bounds 0)
+         h     (:h bounds 0)
+         visible? (if clip-bounds
+                    (let [cx (:x clip-bounds) cy (:y clip-bounds)
+                          cw (:w clip-bounds) ch (:h clip-bounds)]
+                      (and (< abs-x (+ cx cw))
+                           (< abs-y (+ cy ch))
+                           (> (+ abs-x w) cx)
+                           (> (+ abs-y h) cy)))
+                    true)]
+     (when visible?
+       (let [;; Offset this node's text ops to absolute space
+             own-ops (when (seq text)
+                       (mapv (fn [op]
+                               (if (vector? op)
+                                 ;; op is already a vec of text-op maps (nested format)
+                                 (mapv #(-> %
+                                            (update :x + abs-x)
+                                            (update :y + abs-y)) op)
+                                 ;; Single text-op map
+                                 [(-> op
+                                      (update :x + abs-x)
+                                      (update :y + abs-y))]))
+                             text))
+             child-clip (if clip?
+                          {:x abs-x :y abs-y :w w :h h}
+                          clip-bounds)
+             child-ops (into [] (mapcat #(tree->text-ops % abs-x abs-y child-clip)) children)]
+         (into (vec (or own-ops [])) child-ops))))))
+
+;; --- Tree walk: shadows -----------------------------------------------------
+
+(defn tree->shadows
+  "Walk rect tree depth-first, emit flat vector of shadow maps.
+   Only nodes with :shadow in style produce shadows.
+   Shadow map keys: :x :y :w :h :blur :offset-x :offset-y :spread :color :radius :corner-radii"
+  ([node] (tree->shadows node 0 0))
+  ([node parent-x parent-y]
+   (let [{:keys [bounds style children]} node
+         abs-x (+ parent-x (:x bounds 0))
+         abs-y (+ parent-y (:y bounds 0))
+         w     (:w bounds 0)
+         h     (:h bounds 0)
+         shadow-spec (:shadow style)
+         own-shadow (when shadow-spec
+                      (let [s shadow-spec]
+                        {:x abs-x :y abs-y :w w :h h
+                         :blur     (or (:blur s) 8.0)
+                         :offset-x (or (:offset-x s) 0.0)
+                         :offset-y (or (:offset-y s) 0.0)
+                         :spread   (or (:spread s) 0.0)
+                         :color    (or (:color s) [0 0 0 0.25])
+                         :radius   (:radius style)
+                         :corner-radii (:corner-radii style)}))
+         child-shadows (into [] (mapcat #(tree->shadows % abs-x abs-y)) children)]
+     (cond-> []
+       own-shadow (conj own-shadow)
+       true       (into child-shadows)))))
+
+;; --- Hit testing ------------------------------------------------------------
+
+(defn hit-test
+  "Find the deepest node containing point (px, py).
+   Returns a vector of nodes from root to deepest hit [root ... leaf],
+   or nil if the point misses the tree entirely.
+   The LAST element is the deepest (innermost) hit — the event target.
+   Earlier elements are ancestors — used for bubbling."
+  ([node px py] (hit-test node px py 0 0))
+  ([node px py parent-x parent-y]
+   (let [{:keys [bounds children]} node
+         abs-x (+ parent-x (:x bounds 0))
+         abs-y (+ parent-y (:y bounds 0))
+         w     (:w bounds 0)
+         h     (:h bounds 0)]
+     (when (and (>= px abs-x) (< px (+ abs-x w))
+                (>= py abs-y) (< py (+ abs-y h)))
+       ;; Point is inside this node — check children (reverse order = front-to-back)
+       (let [child-hit (some (fn [child]
+                               (hit-test child px py abs-x abs-y))
+                             (rseq children))]
+         (if child-hit
+           (into [node] child-hit)
+           [node]))))))
+
+;; --- Event dispatch with bubbling -------------------------------------------
+
+(defn dispatch-event
+  "Dispatch an event to the hit-test path (innermost → outermost).
+   event-type is a keyword (:click, :scroll, etc.).
+   event is the event data map.
+   path is the hit-test result [root ... target].
+   Walks from target to root (bubbling).  First handler that returns
+   a non-nil value stops propagation.  Returns {:handled? bool :result any}."
+  [path event-type event]
+  (when (seq path)
+    (loop [nodes (rseq path)]  ;; target first, root last
+      (if-let [node (first nodes)]
+        (let [handler (get-in node [:actions event-type])]
+          (if (and handler (fn? handler))
+            (let [result (handler node event)]
+              (if (some? result)
+                {:handled? true :result result :node node}
+                (recur (rest nodes))))  ;; nil = let it bubble
+            (recur (rest nodes))))
+        {:handled? false}))))
+
+;; ============================================================================
 ;; SCREEN 1: MASTER-DETAIL INTAKE (List View)
 ;; ============================================================================
 
-(def list-row-h 24)
+(def list-row-h 36)
 (def list-group-header-h 28)
 (def list-left-pane-pct 0.40)
-(def list-padding-x 12)
-(def list-padding-top 36)
-(def list-checkbox-size 12)
+(def list-padding-x 16)
+(def list-item-inset 6)       ;; horizontal inset for rounded hover bg
+(def list-padding-top 44)
+(def list-checkbox-size 16)
 (def list-divider-w 1)
+(def list-group-gap 12)       ;; vertical space between groups
+(def list-footer-h 40)        ;; footer height
+
+;; ============================================================================
+;; SIDEBAR CONSTANTS (WebGPU-native sidebar)
+;; ============================================================================
+
+(def sidebar-w 256)
+(def sidebar-tab-h 36)
+(def sidebar-row-h 32)
+(def sidebar-back-h 48)
+(def sidebar-breadcrumb-h 24)
+(def sidebar-indent-px 14)
+(def sidebar-padding-x 16)
+(def sidebar-item-inset 6)
+(def sidebar-font-size 13)
+
+(defn split-filename
+  "Split a filename into [stem extension] at the last dot.
+   Handles dotfiles (.gitignore → ['.gitignore' nil]), no-ext (Makefile → ['Makefile' nil]),
+   and truncated names ending in '..' (returned as-is, no split)."
+  [name]
+  (if (str/ends-with? name "..")
+    [name nil]  ;; Truncated — don't split the '..' marker
+    (let [dot-idx (str/last-index-of name ".")]
+      (if (and dot-idx (pos? dot-idx))
+        [(subs name 0 dot-idx) (subs name dot-idx)]
+        [name nil]))))
+
+(defn flatten-file-tree
+  "Recursively walk dir-cache tree and return a flat vector of row descriptors.
+   Each row: {:entry {:name :path :type} :depth N :expanded? bool :active? bool}
+   Dirs listed before files at each level, both sorted alphabetically."
+  [entries expanded-dirs current-file cache depth]
+  (let [sorted (sort-by (fn [e] [(if (= (:type e) :dir) 0 1)
+                                  (str/lower-case (or (:name e) ""))])
+                         entries)]
+    (into []
+      (mapcat
+        (fn [entry]
+          (let [is-dir? (= (:type entry) :dir)
+                is-exp? (and is-dir? (contains? expanded-dirs (:path entry)))
+                is-active? (and (not is-dir?) current-file
+                                (= (:path entry) (:path current-file)))
+                row {:entry entry :depth depth :expanded? is-exp? :active? is-active?}
+                children (when (and is-dir? is-exp?)
+                           (when-let [child-entries (get cache (:path entry))]
+                             (flatten-file-tree child-entries expanded-dirs current-file
+                                                cache (inc depth))))]
+            (if children
+              (into [row] children)
+              [row]))))
+      sorted)))
+
+(defn compute-sidebar-content-height
+  "Total content height in px for sidebar scroll clamping."
+  [sidebar-state current-file]
+  (let [{:keys [mode project expanded-dirs dir-cache home-dirs]} sidebar-state]
+    (if (= mode :review-packs)
+      100  ;; placeholder height
+      (if (nil? project)
+        ;; Home dirs list
+        (* (count (or home-dirs [])) sidebar-row-h)
+        ;; File tree
+        (let [root-entries (get dir-cache (:path project) [])
+              flat (flatten-file-tree root-entries expanded-dirs current-file dir-cache 0)]
+          (* (count flat) sidebar-row-h))))))
 
 (def priority-colors
   "Priority level \u2192 RGBA color for the priority dot."
@@ -666,315 +1080,1017 @@
                (into (conj result header) rows))))))
 
 (defn list-content-height
-  "Total content height for the grouped ticket list (for scroll clamping)."
+  "Total content height for the grouped ticket list (for scroll clamping).
+   Accounts for group gaps and padding."
   [grouped-tickets collapsed-groups]
-  (reduce (fn [h {:keys [status tickets]}]
-            (+ h list-group-header-h
-               (if (contains? collapsed-groups status) 0 (* (count tickets) list-row-h))))
-          list-padding-top
-          grouped-tickets))
+  (let [n-groups (count grouped-tickets)
+        gaps (* (max 0 (dec n-groups)) list-group-gap)]
+    (+ list-padding-top gaps 4  ;; 4 = panel-content top padding
+       (reduce (fn [h {:keys [status tickets]}]
+                 (+ h list-group-header-h
+                    (if (contains? collapsed-groups status) 0 (* (count tickets) list-row-h))))
+               0
+               grouped-tickets))))
+
+;; --- Drag state machine (IDLE → PENDING → DRAGGING → DROP/CLICK) -----------
+
+(def drag-threshold-px 5)
+
+(defn drag-pending?
+  "True when drag state is :pending (mousedown happened, waiting for threshold)."
+  [drag-state] (= :pending (:phase drag-state)))
+
+(defn drag-active?
+  "True when drag state is :dragging (past threshold, item follows cursor)."
+  [drag-state] (= :dragging (:phase drag-state)))
+
+(defn drag-distance
+  "Euclidean distance from drag origin to point (px, py)."
+  [{:keys [origin]} px py]
+  (let [dx (- px (:x origin))
+        dy (- py (:y origin))]
+    (Math/sqrt (+ (* dx dx) (* dy dy)))))
+
+;; ============================================================================
+;; DESIGN TOKENS (Linear/shadcn-inspired dark theme)
+;; ============================================================================
+
+(def dt
+  "Design tokens — single source of truth for colors, spacing, radii, shadows."
+  {:colors {:bg           [0.09 0.09 0.11 1.0]
+            :bg-subtle    [0.11 0.11 0.13 1.0]
+            :bg-muted     [0.14 0.14 0.17 1.0]
+            :bg-elevated  [0.13 0.13 0.16 1.0]
+            :bg-hover     [0.16 0.16 0.19 1.0]   ;; rounded hover highlight (solid)
+            :bg-selected  [0.20 0.24 0.36 0.9]   ;; selected item bg (prominent)
+            :bg-active    [0.15 0.15 0.18 1.0]   ;; pressed/active state
+            :border       [0.22 0.22 0.28 1.0]
+            :border-subtle [0.18 0.18 0.22 0.6]
+            :fg           [0.90 0.90 0.92 1.0]
+            :fg-muted     [0.55 0.55 0.60 1.0]
+            :fg-subtle    [0.40 0.40 0.45 0.8]
+            :fg-section   [0.42 0.42 0.48 1.0]   ;; section label text (solid)
+            :accent       [0.35 0.55 0.95 1.0]
+            :accent-muted [0.25 0.38 0.65 0.3]
+            :destructive  [0.90 0.30 0.30 1.0]
+            :success      [0.30 0.80 0.50 1.0]
+            :warning      [0.95 0.75 0.25 1.0]}
+   :spacing {:xs 4 :sm 8 :md 12 :lg 16 :xl 24 :xxl 32}
+   :radii   {:sm 4 :md 6 :lg 8 :xl 12 :full 9999}
+   :shadows {:sm  {:blur 4  :offset-y 1 :color [0 0 0 0.15]}
+             :md  {:blur 8  :offset-y 2 :color [0 0 0 0.25]}
+             :lg  {:blur 16 :offset-y 4 :color [0 0 0 0.35]}}
+   :font-sizes {:xs 10 :sm 12 :md 14 :lg 16 :xl 20}})
+
+;; ============================================================================
+;; COMPONENT LIBRARY (pure fns → rt-node trees)
+;; ============================================================================
+
+(defn ui-card
+  "Card component: rounded rect with border, optional shadow.
+   Returns an rt-node with :shadow and :radius in style."
+  [id bounds & {:keys [children text shadow variant]
+                :or {shadow :md variant :default}}]
+  (let [bg     (case variant
+                 :elevated (:bg-elevated (:colors dt))
+                 :muted    (:bg-muted (:colors dt))
+                 (:bg-subtle (:colors dt)))
+        border (:border (:colors dt))
+        radius (:lg (:radii dt))
+        shadow-spec (get (:shadows dt) shadow)]
+    (rt-node id :card bounds
+             :style (cond-> {:bg bg :radius radius
+                             :border-width 1 :border-color border}
+                      shadow-spec (assoc :shadow shadow-spec))
+             :children (vec (or children []))
+             :text (or text []))))
+
+(defn ui-badge
+  "Small pill badge with tinted background. Returns an rt-node."
+  [id bounds label & {:keys [color text-color font-size]
+                      :or {color (:accent-muted (:colors dt))
+                           text-color (:accent (:colors dt))
+                           font-size (:xs (:font-sizes dt))}}]
+  (rt-node id :badge bounds
+           :style {:bg color :radius (:full (:radii dt))}
+           :text [{:text label :type :keyword
+                   :from 0 :to (count label)
+                   :x 6 :y (- (:h bounds) 4)
+                   :size font-size
+                   :r (nth text-color 0) :g (nth text-color 1)
+                   :b (nth text-color 2) :a (nth text-color 3)}]))
+
+(defn ui-button
+  "Button component: solid/outline/ghost variants. Returns an rt-node."
+  [id bounds label & {:keys [variant on-click font-size]
+                      :or {variant :solid font-size (:sm (:font-sizes dt))}}]
+  (let [accent (:accent (:colors dt))
+        styles (case variant
+                 :solid   {:bg accent :radius (:md (:radii dt))}
+                 :outline {:bg [0 0 0 0] :radius (:md (:radii dt))
+                           :border-width 1 :border-color accent}
+                 :ghost   {:bg [0 0 0 0] :radius (:md (:radii dt))}
+                 {:bg accent :radius (:md (:radii dt))})
+        text-c (case variant
+                 :solid [1 1 1 1]
+                 :outline accent
+                 :ghost (:fg-muted (:colors dt))
+                 [1 1 1 1])]
+    (rt-node id :button bounds
+             :style styles
+             :actions (if on-click {:click on-click} {})
+             :text [{:text label :type :text
+                     :from 0 :to (count label)
+                     :x (:sm (:spacing dt)) :y (- (:h bounds) 5)
+                     :size font-size
+                     :r (nth text-c 0) :g (nth text-c 1)
+                     :b (nth text-c 2) :a (nth text-c 3)}])))
+
+(defn ui-divider
+  "Thin horizontal separator line. Returns an rt-node."
+  [id bounds & {:keys [color] :or {color (:border-subtle (:colors dt))}}]
+  (rt-node id :divider bounds :style {:bg color}))
+
+(defn ui-progress
+  "Progress bar (track + fill). Returns an rt-node with child fill rect."
+  [id bounds progress & {:keys [color track-color]
+                         :or {color (:accent (:colors dt))
+                              track-color (:bg-muted (:colors dt))}}]
+  (let [fill-w (* (:w bounds) (min 1.0 (max 0.0 progress)))]
+    (rt-node id :progress bounds
+             :style {:bg track-color :radius (:sm (:radii dt))}
+             :children [(rt-node (keyword (str (name id) "-fill")) :progress-fill
+                          {:x 0 :y 0 :w fill-w :h (:h bounds)}
+                          :style {:bg color :radius (:sm (:radii dt))})])))
+
+(defn ui-scrollbar
+  "Vertical scrollbar (track + thumb). Returns an rt-node."
+  [id bounds thumb-pct thumb-offset & {:keys [track-color thumb-color]
+                                       :or {track-color [0 0 0 0]
+                                            thumb-color [0.35 0.35 0.40 0.5]}}]
+  (let [track-h (:h bounds)
+        thumb-h (max 20 (* track-h thumb-pct))
+        thumb-y (* (- track-h thumb-h) (min 1.0 (max 0.0 thumb-offset)))]
+    (rt-node id :scrollbar bounds
+             :style {:bg track-color}
+             :children [(rt-node (keyword (str (name id) "-thumb")) :scrollbar-thumb
+                          {:x 1 :y thumb-y :w (- (:w bounds) 2) :h thumb-h}
+                          :style {:bg thumb-color :radius (:full (:radii dt))})])))
+
+(defn ui-tabs
+  "Tab bar with active indicator. Returns an rt-node.
+   tabs: [{:id :label}], active-id: keyword."
+  [id bounds tabs active-id & {:keys [font-size padding]
+                                :or {font-size (:sm (:font-sizes dt)) padding 16}}]
+  (let [char-adv (* font-size 0.56)
+        {tab-nodes :nodes}
+        (reduce
+          (fn [{:keys [nodes tx]} tab]
+            (let [active? (= (:id tab) active-id)
+                  label-str (:label tab)
+                  text-w (* (count label-str) char-adv)
+                  tab-w (+ text-w (* 2 padding))]
+              {:nodes
+               (conj nodes
+                 (rt-node (:id tab) :tab
+                   {:x tx :y 0 :w tab-w :h (:h bounds)}
+                   :data {:tab-id (:id tab)}
+                   :children (when active?
+                               [(rt-node (keyword (str (name (:id tab)) "-ind")) :tab-indicator
+                                  {:x padding :y (- (:h bounds) 2) :w text-w :h 2}
+                                  :style {:bg [0.9 0.9 0.92 1.0]})])
+                   :text [{:text label-str :type (if active? :keyword :text)
+                           :from 0 :to (count label-str)
+                           :x padding :y (- (:h bounds) 14)
+                           :size font-size
+                           :r (if active? 0.9 0.55)
+                           :g (if active? 0.9 0.55)
+                           :b (if active? 0.92 0.60)
+                           :a 1.0}]))
+               :tx (+ tx tab-w)}))
+          {:nodes [] :tx 0}
+          tabs)]
+    (rt-node id :tab-bar bounds
+             :style {:bg (:bg-elevated (:colors dt))
+                     :border-widths [0 0 1 0]
+                     :border-color (:border (:colors dt))}
+             :children tab-nodes)))
+
+(defn ui-tooltip
+  "Small floating card with text, positioned at anchor. Returns an rt-node."
+  [id bounds label & {:keys [font-size] :or {font-size (:xs (:font-sizes dt))}}]
+  (let [fg (:fg (:colors dt))]
+    (ui-card id bounds
+             :shadow :sm
+             :variant :elevated
+             :text [{:text label :type :text
+                     :from 0 :to (count label)
+                     :x (:sm (:spacing dt)) :y (- (:h bounds) 5)
+                     :size font-size
+                     :r (nth fg 0) :g (nth fg 1) :b (nth fg 2) :a (nth fg 3)}])))
+
+;; ============================================================================
+;; COMPOSABLE PANEL COMPONENTS (shadcn Sidebar pattern for WebGPU)
+;; ============================================================================
+;; Pure fns returning rt-nodes with :layout directives.
+;; Composition: ui-panel > ui-panel-header > ui-panel-content > ui-panel-group > ui-list-item
+;; The layout engine (resolve-layout) handles all child positioning.
+
+(defn ui-panel
+  "Container panel — the outermost sidebar/panel frame.
+   Vertical column layout: stacks header/content/footer automatically.
+   variant: :default (bg), :elevated (bg-elevated), :subtle (bg-subtle)"
+  [id bounds & {:keys [children variant style]
+                :or {variant :default}}]
+  (let [bg (case variant
+             :elevated (:bg-elevated (:colors dt))
+             :subtle   (:bg-subtle (:colors dt))
+             (:bg (:colors dt)))]
+    (rt-node id :panel bounds
+             :style (merge {:bg bg} style)
+             :layout {:direction :column}
+             :children (vec (or children [])))))
+
+(defn ui-panel-header
+  "Fixed-height header slot with integrated bottom border.
+   text: vector of text-op maps (with :x/:y in local coords)."
+  [id w h & {:keys [children text style]}]
+  (rt-node id :panel-header
+    {:x 0 :y 0 :w w :h h}
+    :style (merge {:bg (:bg-elevated (:colors dt))
+                   :border-widths [0 0 1 0]
+                   :border-color (:border-subtle (:colors dt))}
+                  style)
+    :children (vec (or children []))
+    :text (or text [])))
+
+(defn ui-panel-content
+  "Scrollable content area — fills remaining height, clips children.
+   layout-opts override defaults: {:direction :column :gap list-group-gap}."
+  [id w h & {:keys [children layout-opts]}]
+  (rt-node id :panel-content
+    {:x 0 :y 0 :w w :h h}
+    :clip? true
+    :layout (merge {:direction :column :gap list-group-gap :padding [4 0 0 0]} layout-opts)
+    :children (vec (or children []))))
+
+(defn ui-panel-footer
+  "Fixed-height footer slot with top border separator."
+  [id w h & {:keys [children text style]}]
+  (rt-node id :panel-footer
+    {:x 0 :y 0 :w w :h h}
+    :style (merge {:bg (:bg-elevated (:colors dt))
+                   :border-widths [1 0 0 0]
+                   :border-color (:border-subtle (:colors dt))} style)
+    :children (vec (or children []))
+    :text (or text [])))
+
+(defn ui-panel-group
+  "Collapsible labeled section — shadcn-style uppercase muted label + items.
+   items: vector of rt-nodes (typically ui-list-item results).
+   status: raw status string (for hit-test/collapse). label: display string.
+   Height is auto-computed: header-h + (collapsed? 0 : items)."
+  [id w & {:keys [label status icon icon-color collapsed? items font-size first-group?]
+           :or {font-size (:xs (:font-sizes dt))
+                collapsed? false
+                first-group? false}}]
+  (let [header-h list-group-header-h
+        sc (:fg-section (:colors dt))
+        ind (if collapsed? ">" "v")
+        upper-label (str/upper-case (or label ""))
+        label-str (str ind " " upper-label)
+        ;; Subtle top separator between groups (skip first)
+        sep-node (when-not first-group?
+                   (rt-node (keyword (str (name id) "-sep")) :divider
+                     {:x list-padding-x :y 0 :w (- w (* 2 list-padding-x)) :h 1}
+                     :style {:bg (:border-subtle (:colors dt))}))
+        group-header (rt-node (keyword (str (name id) "-hdr")) :group-header
+                       {:x 0 :y 0 :w w :h header-h}
+                       :data {:status (or status label)}
+                       :text [{:text label-str :type :comment
+                               :from 0 :to (count label-str)
+                               :x list-padding-x :y 19
+                               :size font-size
+                               :r (nth sc 0) :g (nth sc 1) :b (nth sc 2) :a (nth sc 3)}])
+        visible-items (if collapsed? [] (vec items))
+        all-children (cond-> []
+                       sep-node  (conj sep-node)
+                       true      (conj group-header)
+                       true      (into visible-items))
+        sep-h (if sep-node 1 0)
+        total-h (+ sep-h header-h (if collapsed? 0 (* (count (or items [])) list-row-h)))]
+    (rt-node id :panel-group
+      {:x 0 :y 0 :w w :h total-h}
+      :layout {:direction :column}
+      :children all-children)))
+
+(defn ui-list-item
+  "Row with leading/title/trailing slots — shadcn SidebarMenuItem style.
+   Rounded inset hover/selected background with left accent bar on selected.
+   leading/trailing are child rt-nodes.
+   title: string — rendered as text between leading and trailing."
+  [id w & {:keys [title leading trailing selected? hovered? ghost? data
+                  font-size title-x-offset]
+           :or {font-size (:sm (:font-sizes dt))
+                title-x-offset (+ list-padding-x list-checkbox-size 16)}}]
+  (let [;; Outer row is transparent — inner child gets the rounded bg
+        ga (if ghost? 0.3 1.0)
+        ;; Inner rounded highlight rect (inset from edges)
+        inner-bg (cond
+                   (and selected? ghost?) (assoc (:bg-selected (:colors dt)) 3 0.15)
+                   selected?              (:bg-selected (:colors dt))
+                   hovered?               (:bg-hover (:colors dt))
+                   :else                  nil)
+        inset list-item-inset
+        inner-h (- list-row-h 4)  ;; 2px top + 2px bottom breathing room
+        inner-w (- w (* 2 inset))
+        highlight-node (when inner-bg
+                         (rt-node (keyword (str (name id) "-hl")) :highlight
+                           {:x inset :y 2 :w inner-w :h inner-h}
+                           :style {:bg inner-bg
+                                   :radius (:lg (:radii dt))}))
+        ;; Left accent bar on selected items (shadcn active indicator)
+        accent-bar (when (and selected? (not ghost?))
+                     (rt-node (keyword (str (name id) "-acc")) :accent-bar
+                       {:x (+ inset 1) :y 6 :w 3 :h (- list-row-h 12)}
+                       :style {:bg (:accent (:colors dt))
+                               :radius (:sm (:radii dt))}))
+        ;; Text truncation
+        trunc-max (if (pos? font-size)
+                    (max 8 (int (/ (- w title-x-offset 36)
+                                   (* font-size 0.56))))
+                    30)
+        trunc (when title
+                (if (> (count title) trunc-max)
+                  (str (subs title 0 (- trunc-max 2)) "..")
+                  title))
+        ;; Text vertically centered in row
+        text-y (+ (/ list-row-h 2) (/ font-size 2.5))
+        children (cond-> []
+                   highlight-node (conj highlight-node)
+                   accent-bar     (conj accent-bar)
+                   (and leading (not ghost?)) (conj leading)
+                   (and trailing (not ghost?)) (conj trailing))
+        ;; Selected text gets slightly brighter
+        fg (if selected?
+             [0.95 0.95 0.98 1.0]
+             (:fg (:colors dt)))
+        text-ops (cond-> []
+                   trunc
+                   (conj {:text trunc :type :text
+                          :from 0 :to (count trunc)
+                          :x title-x-offset :y text-y
+                          :size font-size
+                          :r (nth fg 0) :g (nth fg 1) :b (nth fg 2)
+                          :a (* (nth fg 3) ga)}))]
+    (rt-node id :ticket-row
+      {:x 0 :y 0 :w w :h list-row-h}
+      :data (merge {:selected? selected? :hovered? hovered? :ghost? ghost?}
+                   data)
+      :children children
+      :text text-ops)))
+
+(defn ui-checkbox
+  "Simplified checkbox — single rect, no inner fill child.
+   Checked: accent bg + accent border. Unchecked: transparent + subtle border."
+  [id & {:keys [checked? size]
+         :or {size list-checkbox-size}}]
+  (let [cb-x (+ list-padding-x 4)
+        cb-y (/ (- list-row-h size) 2)]
+    (rt-node id :checkbox
+      {:x cb-x :y cb-y :w size :h size}
+      :style {:bg (if checked?
+                    (:accent (:colors dt))
+                    [0.15 0.15 0.18 0.6])
+              :radius (:sm (:radii dt))
+              :border-width 1.5
+              :border-color (if checked?
+                              (:accent (:colors dt))
+                              [0.30 0.30 0.36 0.5])})))
+
+(defn ui-priority-dot
+  "Circular color dot indicating priority level (1-4).
+   Uses priority-colors lookup. 8px dot, vertically centered."
+  [id priority & {:keys [parent-w] :or {parent-w 0}}]
+  (let [prio (or priority 0)
+        dot-size 8
+        pc (get priority-colors prio {:r 0.55 :g 0.55 :b 0.60 :a 0.8})]
+    (rt-node id :priority-dot
+      {:x (if (pos? parent-w) (- parent-w 24) 0)
+       :y (/ (- list-row-h dot-size) 2)
+       :w dot-size :h dot-size}
+      :style {:bg [(:r pc) (:g pc) (:b pc) (:a pc)]
+              :radius (:full (:radii dt))})))
+
+;; ============================================================================
+;; SIDEBAR TREE BUILDER (rect tree for file sidebar)
+;; ============================================================================
+
+(defn build-sidebar-tree
+  "Build the file sidebar scene graph. Pure function, same pattern as build-intake-tree.
+   Returns a single rt-node tree. Walk with tree->rects for GPU rects, tree->text-ops for text.
+   The sidebar root is pinned to the viewport via scroll-y offset."
+  [sidebar-state current-file sidebar-visible?
+   viewport-h scroll-y font-size char-advance]
+  (when sidebar-visible?
+    (let [{:keys [mode project expanded-dirs dir-cache home-dirs
+                  hovered-id review-pack-list review-pack-load-error]} sidebar-state
+          sidebar-scroll-y (or (:scroll-y sidebar-state) 0)
+          sb-w sidebar-w
+          sb-font font-size
+          sb-char-advance (* sb-font 0.56)
+          max-chars (max 8 (int (/ (- sb-w (* 2 sidebar-padding-x)) sb-char-advance)))
+          colors (:colors dt)
+
+          ;; Tab bar at top
+          tabs-node (ui-tabs :sidebar-tabs
+                     {:x 0 :y 0 :w sb-w :h sidebar-tab-h}
+                     [{:id :files :label "Files"} {:id :review-packs :label "Review"}]
+                     mode
+                     :font-size (:md (:font-sizes dt))
+                     :padding 16)
+
+          ;; Right border line (1px separator between sidebar and content)
+          border-node (rt-node :sidebar-border :chrome
+                        {:x (dec sb-w) :y 0 :w 1 :h viewport-h}
+                        :style {:bg (:border colors)})
+
+          ;; Content below tabs
+          content-top sidebar-tab-h
+          content-h (- viewport-h content-top)
+
+          content-children
+          (cond
+            ;; Review packs mode — placeholder
+            (= mode :review-packs)
+            (let [msg (cond
+                        review-pack-load-error (str "Error: " review-pack-load-error)
+                        (nil? review-pack-list) "Loading review packs..."
+                        (empty? review-pack-list) "No review packs yet."
+                        :else "Review packs (coming soon)")]
+              [(rt-node :review-placeholder :text-block
+                 {:x 0 :y 0 :w sb-w :h 40}
+                 :text [{:text msg :type :comment
+                         :from 0 :to (count msg)
+                         :x sidebar-padding-x :y 24
+                         :size sb-font
+                         :r 0.40 :g 0.40 :b 0.45 :a 0.8}])])
+
+            ;; Files mode, no project selected — show home dirs
+            (nil? project)
+            (let [;; Header
+                  explorer-label "EXPLORER"
+                  header-node (rt-node :explorer-hdr :header
+                                {:x 0 :y 0 :w sb-w :h sidebar-back-h}
+                                :style {:bg (:bg-elevated colors)
+                                        :border-widths [0 0 1 0]
+                                        :border-color (:border-subtle colors)}
+                                :text [{:text explorer-label :type :comment
+                                        :from 0 :to (count explorer-label)
+                                        :x sidebar-padding-x :y 28
+                                        :size (:xs (:font-sizes dt))
+                                        :r 0.40 :g 0.40 :b 0.48 :a 1.0}])
+                  ;; Dir list items
+                  dir-items
+                  (if (nil? home-dirs)
+                    ;; Loading state
+                    [(rt-node :home-loading :text-block
+                       {:x 0 :y 0 :w sb-w :h sidebar-row-h}
+                       :text [{:text "Loading..." :type :comment
+                               :from 0 :to 10
+                               :x sidebar-padding-x :y 20
+                               :size sb-font
+                               :r 0.40 :g 0.40 :b 0.45 :a 0.6}])]
+                    ;; Render each home dir
+                    (mapv
+                      (fn [i d]
+                        (let [id-kw (keyword (str "home-" i))
+                              name-str (str "▸ " (:name d))
+                              hovered? (= id-kw hovered-id)
+                              text-y (+ (/ sidebar-row-h 2) (/ sb-font 2.5))]
+                          (rt-node id-kw :sidebar-entry
+                            {:x 0 :y 0 :w sb-w :h sidebar-row-h}
+                            :data {:entry-type :home-dir :entry d :idx i}
+                            :style (when hovered?
+                                     {:bg (:bg-hover colors)
+                                      :radius (:md (:radii dt))})
+                            :children
+                            (if hovered?
+                              [(rt-node (keyword (str "home-" i "-hl")) :highlight
+                                 {:x sidebar-item-inset :y 2
+                                  :w (- sb-w (* 2 sidebar-item-inset)) :h (- sidebar-row-h 4)}
+                                 :style {:bg (:bg-hover colors)
+                                         :radius (:md (:radii dt))})]
+                              [])
+                            :text [{:text name-str :type :text
+                                    :from 0 :to (count name-str)
+                                    :x sidebar-padding-x :y text-y
+                                    :size sb-font
+                                    :r 0.65 :g 0.65 :b 0.70 :a 1.0}])))
+                      (range) home-dirs))]
+              (into [header-node] dir-items))
+
+            ;; Files mode, project selected — file tree
+            :else
+            (let [;; Back button
+                  back-label (str "← " (:name project))
+                  subtitle "Project Workspace"
+                  back-node (rt-node :back-btn :sidebar-entry
+                              {:x 0 :y 0 :w sb-w :h sidebar-back-h}
+                              :data {:entry-type :back-btn}
+                              :style {:bg (:bg-elevated colors)
+                                      :border-widths [0 0 1 0]
+                                      :border-color (:border-subtle colors)}
+                              :text [{:text back-label :type :text
+                                      :from 0 :to (count back-label)
+                                      :x sidebar-padding-x :y 26
+                                      :size (+ sb-font 1)
+                                      :r 0.90 :g 0.90 :b 0.92 :a 1.0}
+                                     {:text subtitle :type :comment
+                                      :from 0 :to (count subtitle)
+                                      :x (+ sidebar-padding-x 16) :y 40
+                                      :size (:xs (:font-sizes dt))
+                                      :r 0.55 :g 0.55 :b 0.60 :a 1.0}])
+                  ;; Breadcrumb (when file is open)
+                  breadcrumb-node
+                  (when current-file
+                    (let [fname (:name current-file)]
+                      (rt-node :breadcrumb :text-block
+                        {:x 0 :y 0 :w sb-w :h sidebar-breadcrumb-h}
+                        :style {:bg [0.05 0.05 0.06 1.0]
+                                :border-widths [0 0 1 0]
+                                :border-color (:border-subtle colors)}
+                        :text [{:text fname :type :comment
+                                :from 0 :to (count fname)
+                                :x sidebar-padding-x :y 17
+                                :size (:xs (:font-sizes dt))
+                                :r 0.45 :g 0.45 :b 0.50 :a 1.0}])))
+                  ;; Flatten the file tree
+                  root-entries (get dir-cache (:path project) [])
+                  flat-rows (flatten-file-tree root-entries expanded-dirs current-file dir-cache 0)
+                  ;; Build file entry nodes
+                  file-nodes
+                  (mapv
+                    (fn [i {:keys [entry depth expanded? active?]}]
+                      (let [is-dir? (= (:type entry) :dir)
+                            id-kw (keyword (str "entry-" i))
+                            hovered? (= id-kw hovered-id)
+                            indent (* depth sidebar-indent-px)
+                            chevron (cond
+                                      (not is-dir?) "  "
+                                      expanded?     "▾ "
+                                      :else         "▸ ")
+                            label (str chevron (:name entry))
+                            avail-chars (max 5 (- max-chars (int (/ indent sb-char-advance))))
+                            trunc (if (> (count label) avail-chars)
+                                    (str (subs label 0 (- avail-chars 2)) "..")
+                                    label)
+                            fg-color (cond
+                                       active?  [0.95 0.95 0.98 1.0]
+                                       :else    (:fg colors))
+                            ;; Highlight background
+                            inner-bg (cond
+                                       active?  (:bg-selected colors)
+                                       hovered? (:bg-hover colors)
+                                       :else    nil)
+                            highlight (when inner-bg
+                                        (rt-node (keyword (str "entry-" i "-hl")) :highlight
+                                          {:x sidebar-item-inset :y 2
+                                           :w (- sb-w (* 2 sidebar-item-inset)) :h (- sidebar-row-h 4)}
+                                          :style {:bg inner-bg
+                                                  :radius (:md (:radii dt))}))
+                            ;; Active accent bar
+                            accent-bar (when active?
+                                         (rt-node (keyword (str "entry-" i "-acc")) :accent-bar
+                                           {:x (+ sidebar-item-inset 1) :y 6
+                                            :w 3 :h (- sidebar-row-h 12)}
+                                           :style {:bg (:accent colors)
+                                                   :radius (:sm (:radii dt))}))
+                            ;; Indent guide lines (1px vertical per depth level)
+                            guide-color (:border colors)
+                            indent-guides
+                            (when (pos? depth)
+                              (mapv (fn [d]
+                                      (let [gx (+ sidebar-padding-x (* d sidebar-indent-px) (/ sidebar-indent-px 2))]
+                                        (rt-node (keyword (str "entry-" i "-g" d)) :indent-guide
+                                          {:x gx :y 0 :w 1 :h sidebar-row-h}
+                                          :style {:bg [(nth guide-color 0) (nth guide-color 1)
+                                                       (nth guide-color 2) 0.10]})))
+                                    (range depth)))
+                            text-y (+ (/ sidebar-row-h 2) (/ sb-font 2.5))]
+                        (rt-node id-kw :sidebar-entry
+                          {:x 0 :y 0 :w sb-w :h sidebar-row-h}
+                          :data {:entry-type (if is-dir? :dir :file) :entry entry :idx i
+                                 :expanded? expanded? :active? active? :depth depth}
+                          :children (cond-> []
+                                      highlight     (conj highlight)
+                                      accent-bar    (conj accent-bar)
+                                      indent-guides (into indent-guides))
+                          :text [{:text trunc :type :text
+                                  :from 0 :to (count trunc)
+                                  :x (+ sidebar-padding-x indent) :y text-y
+                                  :size sb-font
+                                  :r (nth fg-color 0) :g (nth fg-color 1)
+                                  :b (nth fg-color 2) :a (nth fg-color 3)}])))
+                    (range) flat-rows)]
+              (cond-> [back-node]
+                breadcrumb-node (conj breadcrumb-node)
+                true (into file-nodes))))
+
+          ;; Scrollable content area (clips children)
+          ;; Inner scroll container: offset by -scroll-y, layout positions children,
+          ;; outer clip-node hides overflow
+          scroll-inner (rt-node :sidebar-scroll-inner :container
+                         {:x 0 :y (- sidebar-scroll-y) :w sb-w :h 99999}
+                         :layout {:direction :column}
+                         :children (vec content-children))
+          content-node (rt-node :sidebar-content :panel-content
+                         {:x 0 :y content-top :w sb-w :h content-h}
+                         :clip? true
+                         :children [scroll-inner])]
+
+      ;; Root node: pinned to viewport via scroll-y
+      (rt-node :sidebar-root :panel
+        {:x 0 :y scroll-y :w sb-w :h viewport-h}
+        :style {:bg (:bg colors)}
+        :children [border-node tabs-node content-node]))))
+
+;; ============================================================================
+;; INTAKE TREE BUILDER (rect tree for Screen 1)
+;; ============================================================================
+
+(defn build-right-detail
+  "Build the right pane content for Screen 1 detail view.
+   Returns a vector of rt-node children for the right panel.
+   4 states: empty tickets, no selection, single selection, multi selection."
+  [tickets selected right-w viewport-h font-size char-advance]
+  (let [right-inner-w (- right-w (* 2 list-padding-x))
+        detail-max-chars (if (pos? char-advance)
+                           (max 20 (int (/ right-inner-w char-advance)))
+                           60)
+        cy (/ viewport-h 2)]
+    (cond
+      ;; No tickets loaded — centered card prompt
+      (empty? tickets)
+      (let [card-w (- right-w (* 2 (:xl (:spacing dt))))
+            card-h 80
+            card-x (:xl (:spacing dt))
+            card-y (- cy (/ card-h 2))]
+        [(ui-card :empty-card
+           {:x card-x :y card-y :w card-w :h card-h}
+           :shadow :md
+           :text [{:text "No tickets found." :type :text
+                   :from 0 :to 18
+                   :x (:lg (:spacing dt)) :y 28
+                   :size font-size
+                   :r 0.60 :g 0.60 :b 0.65 :a 0.8}
+                  {:text "Run /bootstrap to fetch Linear tickets." :type :comment
+                   :from 0 :to 39
+                   :x (:lg (:spacing dt)) :y 52
+                   :size (- font-size 1)
+                   :r 0.50 :g 0.50 :b 0.55 :a 0.6}])])
+
+      ;; Nothing selected — centered card prompt
+      (empty? selected)
+      (let [card-w (- right-w (* 2 (:xl (:spacing dt))))
+            card-h 100
+            card-x (:xl (:spacing dt))
+            card-y (- cy (/ card-h 2))]
+        [(ui-card :no-sel-card
+           {:x card-x :y card-y :w card-w :h card-h}
+           :shadow :md
+           :text [{:text "No tickets selected yet." :type :text
+                   :from 0 :to 24
+                   :x (:lg (:spacing dt)) :y 28
+                   :size font-size
+                   :r 0.60 :g 0.60 :b 0.65 :a 0.8}
+                  {:text "Select tickets from the list," :type :comment
+                   :from 0 :to 29
+                   :x (:lg (:spacing dt)) :y 52
+                   :size (- font-size 1)
+                   :r 0.50 :g 0.50 :b 0.55 :a 0.6}
+                  {:text "then /arrange sequential|parallel." :type :comment
+                   :from 0 :to 35
+                   :x (:lg (:spacing dt)) :y 72
+                   :size (- font-size 1)
+                   :r 0.50 :g 0.50 :b 0.55 :a 0.6}])])
+
+      ;; Single ticket selected — rich detail view
+      (= 1 (count selected))
+      (let [idx    (first selected)
+            tkt    (nth tickets idx nil)
+            ttitle (or (:title tkt) "Untitled")
+            tstatus (or (:status tkt) "?")
+            tprio  (or (:priority tkt) 0)
+            tassn  (or (:assignee tkt) "unassigned")
+            tdesc  (or (:description tkt) "")
+            plabel (case tprio 1 "Urgent" 2 "High" 3 "Medium" 4 "Low" "None")
+            mline  (str tstatus "  |  " plabel "  |  " tassn)
+            tlines (wrap-line ttitle detail-max-chars)
+            tlh    20
+            hdr-y  52
+            meta-y (+ hdr-y (* (count tlines) tlh) 4)
+            desc-y (+ meta-y 24)
+            dlines (if (seq tdesc) (wrap-line tdesc detail-max-chars) [])
+            dlh    18
+            hint-y (+ desc-y (max dlh (* (count dlines) dlh)) 16)
+            htext  "/arrange sequential|parallel to proceed"
+            title-ops (mapv (fn [i l]
+                              {:text l :type :text
+                               :from 0 :to (count l)
+                               :x list-padding-x :y (+ hdr-y (* i tlh))
+                               :size (+ font-size 2)
+                               :r 0.85 :g 0.85 :b 0.88 :a 1.0})
+                            (range) tlines)
+            desc-ops  (mapv (fn [i l]
+                              {:text l :type :text
+                               :from 0 :to (count l)
+                               :x list-padding-x :y (+ desc-y (* i dlh))
+                               :size (- font-size 1)
+                               :r 0.70 :g 0.70 :b 0.73 :a 0.9})
+                            (range) dlines)
+            all-ops  (into (into title-ops
+                             [{:text mline :type :comment
+                               :from 0 :to (count mline)
+                               :x list-padding-x :y meta-y
+                               :size (- font-size 1)
+                               :r 0.55 :g 0.55 :b 0.60 :a 0.8}
+                              {:text htext :type :comment
+                               :from 0 :to (count htext)
+                               :x list-padding-x :y hint-y
+                               :size (- font-size 2)
+                               :r 0.40 :g 0.40 :b 0.45 :a 0.5}])
+                           desc-ops)]
+        [(ui-card :detail-card
+           {:x (:lg (:spacing dt)) :y 36
+            :w (- right-w (* 2 (:lg (:spacing dt)))) :h (+ hint-y 24)}
+           :shadow :md
+           :children [(ui-divider :detail-sep
+                        {:x (:md (:spacing dt)) :y (- meta-y 34)
+                         :w (- right-w (* 2 (:lg (:spacing dt))) (* 2 (:md (:spacing dt)))) :h 1})])
+         (rt-node :detail-content :text-block
+           {:x 0 :y 0 :w right-w :h viewport-h}
+           :text all-ops)])
+
+      ;; Multi-selection — batch summary
+      :else
+      (let [n   (count selected)
+            ctxt (str n " tickets selected")
+            sops (mapv (fn [i si]
+                         (let [tkt (nth tickets si nil)
+                               t   (or (:title tkt) "Untitled")
+                               tr  (if (> (count t) detail-max-chars)
+                                     (str (subs t 0 (- detail-max-chars 2)) "..")
+                                     t)]
+                           {:text tr :type :text
+                            :from 0 :to (count tr)
+                            :x list-padding-x :y (+ 88 (* i 20))
+                            :size (- font-size 1)
+                            :r 0.70 :g 0.75 :b 0.80 :a 0.9}))
+                       (range) selected)
+            hy   (+ 88 (* n 20) 16)
+            htxt "/arrange sequential|parallel to proceed"]
+        [(rt-node :multi-detail :text-block
+           {:x 0 :y 0 :w right-w :h viewport-h}
+           :text (into [{:text ctxt :type :macro
+                         :from 0 :to (count ctxt)
+                         :x list-padding-x :y 52
+                         :size (+ font-size 2)
+                         :r 0.75 :g 0.80 :b 0.95 :a 1.0}
+                        {:text htxt :type :comment
+                         :from 0 :to (count htxt)
+                         :x list-padding-x :y hy
+                         :size (- font-size 2)
+                         :r 0.40 :g 0.40 :b 0.45 :a 0.5}]
+                       sops))]))))
+
+(defn build-intake-tree
+  "Build the Screen 1 intake scene graph.  Returns an rt-node tree.
+   Walk with tree->rects for GPU rects, tree->text-ops for text.
+   All fixed elements (backgrounds, header, right pane) compensate for
+   scroll-y so the global camera can scroll content items.
+   drag-state: {:phase :idle|:pending|:dragging, :node ..., :current {:x :y}}"
+  [flow-state viewport-w viewport-h scroll-y hovered-row-idx collapsed-groups
+   font-size char-advance drag-state]
+  (let [tickets       (:tickets flow-state)
+        selected      (:selected flow-state)
+        selected-set  (set selected)
+        grouped       (group-tickets-by-status tickets)
+        left-w        (int (* viewport-w list-left-pane-pct))
+        right-x0      (+ left-w list-divider-w)
+        right-w       (- viewport-w left-w list-divider-w)
+        sy            scroll-y
+        list-font     (- font-size 2)
+        meta-font     (- font-size 3)
+
+        ;; === DRAG STATE ===
+        dragging?     (drag-active? (or drag-state {:phase :idle}))
+        dragged-idx   (when dragging? (:idx (:data (:node drag-state))))
+        drag-cur      (when dragging? (:current drag-state))
+        ;; Is cursor over right pane? (drop zone highlight)
+        drag-over-right? (and dragging? drag-cur (>= (:x drag-cur) left-w))
+
+        ;; === FIXED CHROME (scroll-compensated, using design tokens) ===
+        left-bg    (rt-node :left-bg :bg
+                     {:x 0 :y sy :w left-w :h viewport-h}
+                     :style {:bg (:bg (:colors dt))})
+        right-bg   (rt-node :right-bg :bg
+                     {:x right-x0 :y sy :w right-w :h viewport-h}
+                     :style {:bg (if drag-over-right?
+                                   (:accent-muted (:colors dt))
+                                   (:bg-subtle (:colors dt)))})
+        header-str (str "DISCOURSE-GRAPH  " (count tickets) " active")
+        divider    (rt-node :divider :chrome
+                     {:x left-w :y sy :w list-divider-w :h viewport-h}
+                     :style {:bg (:border (:colors dt))})
+
+        ;; === LEFT PANEL (composable components + layout engine) ===
+        group-nodes
+        (vec (map-indexed
+               (fn [gi {:keys [status icon tickets] grp-count :count}]
+                 (let [collapsed? (contains? collapsed-groups status)
+                       ic (get status-icon-colors status {:r 0.6 :g 0.6 :b 0.6 :a 0.8})
+                       item-nodes
+                       (mapv (fn [{:keys [idx ticket]}]
+                               (let [sel?   (contains? selected-set idx)
+                                     hov?   (= idx hovered-row-idx)
+                                     ghost? (= idx dragged-idx)
+                                     prio   (or (:priority ticket) 0)
+                                     leading (ui-checkbox (keyword (str "cb-" idx))
+                                               :checked? sel?)
+                                     trailing (when (<= 1 prio 2)
+                                                (ui-priority-dot (keyword (str "pd-" idx))
+                                                  prio :parent-w left-w))]
+                                 (ui-list-item (keyword (str "t-" idx)) left-w
+                                   :title (or (:title ticket) "Untitled")
+                                   :leading leading
+                                   :trailing trailing
+                                   :selected? sel?
+                                   :hovered? hov?
+                                   :ghost? ghost?
+                                   :data {:idx idx}
+                                   :font-size list-font)))
+                             tickets)]
+                   (ui-panel-group (keyword (str "grp-" status)) left-w
+                     :label (str status "  " grp-count)
+                     :status status
+                     :icon icon
+                     :icon-color ic
+                     :collapsed? collapsed?
+                     :first-group? (zero? gi)
+                     :items item-nodes)))
+               grouped))
+
+        ;; Footer text
+        sel-count  (count selected)
+        footer-txt (cond
+                     (zero? (count tickets)) "/bootstrap to load"
+                     (pos? sel-count)         (str sel-count " selected")
+                     :else                    "Click to select")
+        footer-hint (when (pos? sel-count)
+                      "/arrange to proceed")
+        footer-fg  (:fg-muted (:colors dt))
+        footer-acc (:fg-subtle (:colors dt))
+        content-h  (- viewport-h list-padding-top list-footer-h)
+
+        left-panel
+        (ui-panel :left-panel {:x 0 :y sy :w left-w :h viewport-h}
+          :children
+          [(ui-panel-header :header left-w list-padding-top
+             :text [{:text header-str :type :macro
+                     :from 0 :to (count header-str)
+                     :x list-padding-x
+                     :y (+ (/ list-padding-top 2) (/ font-size 2.5))
+                     :size font-size
+                     :r 0.75 :g 0.80 :b 0.95 :a 1.0}])
+           (ui-panel-content :linear-panel left-w content-h
+             :children group-nodes)
+           (ui-panel-footer :footer left-w list-footer-h
+             :text (cond-> [{:text footer-txt :type :comment
+                             :from 0 :to (count footer-txt)
+                             :x list-padding-x :y 24
+                             :size (:xs (:font-sizes dt))
+                             :r (nth footer-fg 0) :g (nth footer-fg 1)
+                             :b (nth footer-fg 2) :a (nth footer-fg 3)}]
+                     footer-hint
+                     (conj {:text footer-hint :type :comment
+                            :from 0 :to (count footer-hint)
+                            :x (+ list-padding-x
+                                   (* (count footer-txt) (* (:xs (:font-sizes dt)) 0.56))
+                                   12)
+                            :y 24
+                            :size (:xs (:font-sizes dt))
+                            :r (nth footer-acc 0) :g (nth footer-acc 1)
+                            :b (nth footer-acc 2) :a (nth footer-acc 3)})))])
+
+        ;; === RIGHT DETAIL PANE (delegated to build-right-detail) ===
+        right-children (build-right-detail tickets selected right-w viewport-h
+                                           font-size char-advance)
+        right-detail (rt-node :right-detail :panel
+                       {:x right-x0 :y sy :w right-w :h viewport-h}
+                       :children (vec right-children))
+
+        ;; === DROP ZONE BORDER (visible when dragging over right pane) ===
+        drop-accent (let [a (:accent (:colors dt))] (assoc a 3 0.7))
+        drop-border (when drag-over-right?
+                      [(rt-node :drop-top :chrome
+                         {:x right-x0 :y sy :w right-w :h 2}
+                         :style {:bg drop-accent})
+                       (rt-node :drop-bottom :chrome
+                         {:x right-x0 :y (+ sy viewport-h -2) :w right-w :h 2}
+                         :style {:bg drop-accent})
+                       (rt-node :drop-left :chrome
+                         {:x right-x0 :y sy :w 2 :h viewport-h}
+                         :style {:bg drop-accent})
+                       (rt-node :drop-right :chrome
+                         {:x (+ right-x0 right-w -2) :y sy :w 2 :h viewport-h}
+                         :style {:bg drop-accent})])
+
+        ;; === FLOATING TICKET (follows cursor during drag, renders on top) ===
+        float-node
+        (when (and dragging? dragged-idx drag-cur)
+          (let [tkt (nth tickets dragged-idx nil)]
+            (when tkt
+              (let [ftitle (or (:title tkt) "Untitled")
+                    ftrunc (if (> (count ftitle) 40)
+                             (str (subs ftitle 0 38) "..")
+                             ftitle)
+                    fprio (or (:priority tkt) 0)
+                    ;; Position in world space: cursor screen + scroll offset
+                    fx (- (:x drag-cur) 20)
+                    fy (+ (- (:y drag-cur) 12) sy)
+                    fw (min 300 left-w)]
+                (rt-node :float-ticket :ticket-row
+                  {:x fx :y fy :w fw :h list-row-h}
+                  :style {:bg [0.18 0.22 0.35 0.95]
+                          :radius (:md (:radii dt))
+                          :shadow {:blur 12 :offset-y 4 :color [0 0 0 0.4]}}
+                  :text [{:text ftrunc :type :text
+                          :from 0 :to (count ftrunc)
+                          :x 10 :y 17 :size list-font
+                          :r 0.90 :g 0.90 :b 0.95 :a 1.0}
+                         {:text (str "P" fprio) :type :comment
+                          :from 0 :to (+ 1 (count (str fprio)))
+                          :x (- fw 36) :y 17 :size meta-font
+                          :r (if (<= fprio 2) 0.95 0.55)
+                          :g (if (<= fprio 2) 0.55 0.55)
+                          :b (if (<= fprio 2) 0.30 0.60)
+                          :a 0.9}])))))
+
+        base-children [left-bg right-bg left-panel divider right-detail]]
+
+    ;; === ROOT ===
+    (rt-node :intake-root :root
+      {:x 0 :y 0 :w viewport-w :h 100000}
+      :children (cond-> base-children
+                  drop-border (into drop-border)
+                  float-node  (conj float-node)))))
+
+;; === Thin wrappers — drop-in replacements for the old compute fns ===
+
+(defn offset-rects
+  "Shift all rect :x by dx. Used to push content right when sidebar visible."
+  [rects dx]
+  (if (zero? dx)
+    rects
+    (mapv #(update % :x + dx) rects)))
+
+(defn offset-shadows
+  "Shift all shadow :x by dx."
+  [shadows dx]
+  (if (zero? dx)
+    shadows
+    (mapv #(update % :x + dx) shadows)))
+
+(defn offset-text-ops
+  "Shift text ops :x by dx. Handles both nested [[op]] and flat [op] formats."
+  [ops dx]
+  (if (zero? dx)
+    ops
+    (mapv (fn [op]
+            (if (vector? op)
+              (mapv #(update % :x + dx) op)
+              (update op :x + dx)))
+          ops)))
 
 (defn compute-ticket-list-rects
-  "All rects for Screen 1 intake: left pane list + divider + right pane.
-   Coordinates: left pane items in content space (camera scrolls them).
-   Fixed elements (backgrounds, divider, right pane) use scroll-y offset."
-  [flow-state viewport-w viewport-h scroll-y hovered-row-idx collapsed-groups]
-  (let [tickets (:tickets flow-state)
-        selected-set (set (:selected flow-state))
-        grouped (group-tickets-by-status tickets)
-        layout (ticket-list-layout grouped collapsed-groups selected-set)
-        left-w (int (* viewport-w list-left-pane-pct))
-        ;; Fixed backgrounds (compensate camera with scroll-y)
-        left-bg {:x 0 :y scroll-y :w left-w :h viewport-h
-                 :r 0.10 :g 0.10 :b 0.12 :a 1.0}
-        divider {:x left-w :y scroll-y :w list-divider-w :h viewport-h
-                 :r 0.25 :g 0.25 :b 0.30 :a 1.0}
-        right-bg {:x (+ left-w list-divider-w) :y scroll-y
-                  :w (- viewport-w left-w list-divider-w) :h viewport-h
-                  :r 0.11 :g 0.11 :b 0.13 :a 1.0}
-        ;; Project header (fixed to top of left pane)
-        header-bg {:x 0 :y scroll-y :w left-w :h list-padding-top
-                   :r 0.12 :g 0.12 :b 0.15 :a 1.0}
-        ;; Separator line under header (matching mockup)
-        header-sep {:x list-padding-x :y (+ scroll-y list-padding-top -1)
-                    :w (- left-w (* 2 list-padding-x)) :h 1
-                    :r 0.25 :g 0.25 :b 0.30 :a 0.6}
-        ;; Right-pane detail rects (when tickets are selected)
-        selected (:selected flow-state)
-        right-x (+ left-w list-divider-w)
-        right-w (- viewport-w left-w list-divider-w)
-        right-detail-rects
-        (when (seq selected)
-          (let [detail-y (+ scroll-y 44)
-                ;; Header bar for ticket ID
-                id-bar {:x (+ right-x list-padding-x) :y detail-y
-                        :w (- right-w (* 2 list-padding-x)) :h 28
-                        :r 0.13 :g 0.14 :b 0.18 :a 1.0}
-                ;; Separator under ID bar
-                id-sep {:x (+ right-x list-padding-x) :y (+ detail-y 28)
-                        :w (- right-w (* 2 list-padding-x)) :h 1
-                        :r 0.25 :g 0.25 :b 0.30 :a 0.4}]
-            [id-bar id-sep]))
-        ;; Visible viewport bounds for clipping (in content space)
-        visible-top (+ scroll-y list-padding-top)
-        visible-bottom (+ scroll-y viewport-h)
-        ;; Layout items (clipped to visible left-pane area)
-        item-rects
-        (into []
-          (comp
-            (filter (fn [entry]
-                      (let [y (:y entry)
-                            h (if (= (:type entry) :group-header) list-group-header-h list-row-h)]
-                        (and (< y visible-bottom) (> (+ y h) visible-top)))))
-            (mapcat (fn [entry]
-                      (case (:type entry)
-                        :group-header
-                        [{:x 0 :y (:y entry) :w left-w :h list-group-header-h
-                          :r 0.13 :g 0.13 :b 0.16 :a 1.0}]
-                        :ticket-row
-                        (let [y (:y entry)
-                              idx (:idx entry)
-                              sel? (:selected? entry)
-                              hov? (= idx hovered-row-idx)
-                              ;; Row bg
-                              row-bg {:x 0 :y y :w left-w :h list-row-h
-                                      :r (cond sel? 0.15 hov? 0.13 :else 0.10)
-                                      :g (cond sel? 0.17 hov? 0.13 :else 0.10)
-                                      :b (cond sel? 0.25 hov? 0.16 :else 0.12)
-                                      :a 1.0}
-                              ;; Checkbox outline
-                              cb-x (+ list-padding-x 4)
-                              cb-y (+ y (/ (- list-row-h list-checkbox-size) 2))
-                              cb-border {:x cb-x :y cb-y :w list-checkbox-size :h list-checkbox-size
-                                         :r 0.35 :g 0.40 :b 0.50 :a (if sel? 1.0 0.6)}
-                              cb-fill (when sel?
-                                        {:x (+ cb-x 2) :y (+ cb-y 2)
-                                         :w (- list-checkbox-size 4) :h (- list-checkbox-size 4)
-                                         :r 0.35 :g 0.55 :b 0.95 :a 1.0})
-                              ;; Priority dot (for P1/P2)
-                              prio (or (:priority (:ticket entry)) 0)
-                              prio-dot (when (<= 1 prio 2)
-                                         (let [pc (get priority-colors prio)]
-                                           {:x (- left-w 20) :y (+ y (/ (- list-row-h 6) 2))
-                                            :w 6 :h 6
-                                            :r (:r pc) :g (:g pc) :b (:b pc) :a (:a pc)}))]
-                          (cond-> [row-bg cb-border]
-                            cb-fill (conj cb-fill)
-                            prio-dot (conj prio-dot)))))))
-          layout)]
-    (cond-> (into [left-bg right-bg header-bg header-sep divider] item-rects)
-      right-detail-rects (into right-detail-rects))))
+  "GPU rects + shadows for Screen 1 intake (delegates to rect tree).
+   Returns {:rects [...] :shadows [...]} for flow-canvas mode."
+  [flow-state viewport-w viewport-h scroll-y hovered-row-idx collapsed-groups drag-state]
+  (let [tree (resolve-layout
+               (build-intake-tree flow-state viewport-w viewport-h scroll-y
+                                  hovered-row-idx collapsed-groups 0 0 drag-state))]
+    {:rects   (tree->rects tree)
+     :shadows (tree->shadows tree)}))
 
 (defn compute-ticket-list-text-ops
-  "All text ops for Screen 1 intake: project header + grouped list + right pane content.
-   Left pane items in content space. Right pane and header pinned to viewport via scroll-y."
+  "Text ops for Screen 1 intake (delegates to rect tree)."
   [flow-state viewport-w viewport-h font-size char-advance scroll-y
-   hovered-row-idx collapsed-groups]
-  (let [tickets (:tickets flow-state)
-        selected (:selected flow-state)
-        selected-set (set selected)
-        grouped (group-tickets-by-status tickets)
-        layout (ticket-list-layout grouped collapsed-groups selected-set)
-        left-w (int (* viewport-w list-left-pane-pct))
-        right-x (+ left-w list-divider-w list-padding-x)
-        right-w (- viewport-w left-w list-divider-w (* 2 list-padding-x))
-        list-font (- font-size 2)
-        meta-font (- font-size 3)
-        list-advance (if (pos? font-size) (* list-font (/ char-advance font-size)) char-advance)
-        ;; Visible viewport bounds (content space)
-        visible-top (+ scroll-y list-padding-top)
-        visible-bottom (+ scroll-y viewport-h)
-        ;; Project header (pinned to viewport top)
-        header-text (str "DISCOURSE-GRAPH  " (count tickets) " active")
-        header-ops [{:text header-text :type :macro
-                     :from 0 :to (count header-text)
-                     :x list-padding-x :y (+ scroll-y 22)
-                     :size font-size
-                     :r 0.75 :g 0.80 :b 0.95 :a 1.0}]
-        ;; Layout items (clipped to visible)
-        list-ops
-        (into []
-          (comp
-            (filter (fn [entry]
-                      (let [y (:y entry)
-                            h (if (= (:type entry) :group-header) list-group-header-h list-row-h)]
-                        (and (< y visible-bottom) (> (+ y h) visible-top)))))
-            (mapcat (fn [entry]
-                      (case (:type entry)
-                        :group-header
-                        (let [y (:y entry)
-                              collapse-ind (if (:collapsed? entry) "\u25B8" "\u25BE")
-                              label (str collapse-ind " " (:icon entry) "  " (:status entry) "  " (:count entry))
-                              ic (get status-icon-colors (:status entry) {:r 0.6 :g 0.6 :b 0.6 :a 0.8})]
-                          [[{:text label :type :keyword
-                             :from 0 :to (count label)
-                             :x list-padding-x :y (+ y 19)
-                             :size list-font
-                             :r (:r ic) :g (:g ic) :b (:b ic) :a (:a ic)}]])
-                        :ticket-row
-                        (let [y (:y entry)
-                              ticket (:ticket entry)
-                              sel? (:selected? entry)
-                              title (or (:title ticket) "Untitled")
-                              ;; Column X positions
-                              cb-x (+ list-padding-x 4)
-                              title-x (+ list-padding-x list-checkbox-size 14)
-                              max-title-chars (if (pos? list-advance)
-                                                (max 8 (int (/ (- left-w title-x 36) list-advance)))
-                                                30)
-                              trunc-title (if (> (count title) max-title-chars)
-                                            (str (subs title 0 (- max-title-chars 1)) "\u2026")
-                                            title)
-                              prio (or (:priority ticket) 0)
-                              prio-text (str "P" prio)
-                              prio-x (- left-w 36)
-                              text-y (+ y 17)
-                              ;; Checkbox character
-                              cb-text (if sel? "\u2611" "\u2610")]
-                          [[{:text cb-text :type :keyword
-                             :from 0 :to (count cb-text)
-                             :x cb-x :y text-y
-                             :size list-font
-                             :r 0.45 :g 0.60 :b 0.85 :a (if sel? 1.0 0.5)}]
-                           [{:text trunc-title :type :text
-                             :from 0 :to (count trunc-title)
-                             :x title-x :y text-y
-                             :size list-font
-                             :r 0.80 :g 0.80 :b 0.82 :a 1.0}]
-                           [{:text prio-text :type :comment
-                             :from 0 :to (count prio-text)
-                             :x prio-x :y text-y
-                             :size meta-font
-                             :r (if (<= prio 2) 0.95 0.55)
-                             :g (if (<= prio 2) 0.55 0.55)
-                             :b (if (<= prio 2) 0.30 0.60)
-                             :a 0.8}]])))))
-          layout)
-        ;; Right pane content (pinned to viewport)
-        right-center-y (+ scroll-y (/ viewport-h 2))
-        detail-max-chars (if (pos? char-advance)
-                           (max 20 (int (/ right-w char-advance)))
-                           60)
-        right-ops
-        (cond
-          ;; Empty tickets (bootstrap returned nothing)
-          (empty? tickets)
-          [[{:text "No tickets found." :type :text
-             :from 0 :to 18
-             :x right-x :y (- right-center-y 20)
-             :size font-size
-             :r 0.60 :g 0.60 :b 0.65 :a 0.8}]
-           [{:text "Run /bootstrap to fetch Linear tickets." :type :comment
-             :from 0 :to 39
-             :x right-x :y (+ right-center-y 8)
-             :size (- font-size 1)
-             :r 0.50 :g 0.50 :b 0.55 :a 0.6}]]
-          ;; No selection
-          (empty? selected)
-          [[{:text "No tickets selected yet." :type :text
-             :from 0 :to 24
-             :x right-x :y (- right-center-y 20)
-             :size font-size
-             :r 0.60 :g 0.60 :b 0.65 :a 0.8}]
-           [{:text "Select tickets from the list," :type :comment
-             :from 0 :to 29
-             :x right-x :y (+ right-center-y 8)
-             :size (- font-size 1)
-             :r 0.50 :g 0.50 :b 0.55 :a 0.6}]
-           [{:text "then /arrange sequential|parallel." :type :comment
-             :from 0 :to 35
-             :x right-x :y (+ right-center-y 28)
-             :size (- font-size 1)
-             :r 0.50 :g 0.50 :b 0.55 :a 0.6}]]
-          ;; Single selection — rich detail with description
-          (= 1 (count selected))
-          (let [idx (first selected)
-                ticket (nth tickets idx nil)
-                ttitle (or (:title ticket) "Untitled")
-                tstatus (or (:status ticket) "?")
-                tprio (or (:priority ticket) 0)
-                tassignee (or (:assignee ticket) "unassigned")
-                tdesc (or (:description ticket) "")
-                prio-label (case tprio 1 "Urgent" 2 "High" 3 "Medium" 4 "Low" "None")
-                meta-line (str tstatus "  |  " prio-label "  |  " tassignee)
-                ;; Layout Y positions (relative to viewport top)
-                header-y (+ scroll-y 52)
-                ;; Wrap title as the hero header
-                title-lines (wrap-line ttitle detail-max-chars)
-                title-line-h 20
-                title-ops (mapv (fn [i line]
-                                  [{:text line :type :text
-                                    :from 0 :to (count line)
-                                    :x right-x :y (+ header-y (* i title-line-h))
-                                    :size (+ font-size 2)
-                                    :r 0.85 :g 0.85 :b 0.88 :a 1.0}])
-                                (range) title-lines)
-                meta-y (+ header-y (* (count title-lines) title-line-h) 4)
-                desc-start-y (+ meta-y 24)
-                ;; Wrap description text
-                desc-lines (if (seq tdesc)
-                             (wrap-line tdesc detail-max-chars)
-                             [])
-                desc-line-h 18
-                desc-ops (mapv (fn [i line]
-                                 [{:text line :type :text
-                                   :from 0 :to (count line)
-                                   :x right-x :y (+ desc-start-y (* i desc-line-h))
-                                   :size (- font-size 1)
-                                   :r 0.70 :g 0.70 :b 0.73 :a 0.9}])
-                               (range) desc-lines)
-                ;; Action hint below description
-                hint-y (+ desc-start-y (max desc-line-h (* (count desc-lines) desc-line-h)) 16)
-                hint-text "/arrange sequential|parallel to proceed"]
-            (into
-              (into
-                (into title-ops
-                  [[{:text meta-line :type :comment
-                     :from 0 :to (count meta-line)
-                     :x right-x :y meta-y
-                     :size (- font-size 1)
-                     :r 0.55 :g 0.55 :b 0.60 :a 0.8}]
-                   [{:text hint-text :type :comment
-                     :from 0 :to (count hint-text)
-                     :x right-x :y hint-y
-                     :size (- font-size 2)
-                     :r 0.40 :g 0.40 :b 0.45 :a 0.5}]])
-              desc-ops))
-          ;; Multi selection — batch summary with ticket list
-          :else
-          (let [n-selected (count selected)
-                count-text (str n-selected " tickets selected")
-                ;; List each selected ticket
-                sel-ticket-ops
-                (into []
-                  (map-indexed
-                    (fn [i sel-idx]
-                      (let [ticket (nth tickets sel-idx nil)
-                            ttitle (or (:title ticket) "Untitled")
-                            trunc (if (> (count ttitle) detail-max-chars)
-                                    (str (subs ttitle 0 (- detail-max-chars 1)) "\u2026")
-                                    ttitle)]
-                        [{:text trunc :type :text
-                          :from 0 :to (count trunc)
-                          :x right-x :y (+ scroll-y 88 (* i 20))
-                          :size (- font-size 1)
-                          :r 0.70 :g 0.75 :b 0.80 :a 0.9}]))
-                    selected))
-                hint-y (+ scroll-y 88 (* n-selected 20) 16)
-                hint-text "/arrange sequential|parallel to proceed"]
-            (into
-              [[{:text count-text :type :macro
-                 :from 0 :to (count count-text)
-                 :x right-x :y (+ scroll-y 52)
-                 :size (+ font-size 2)
-                 :r 0.75 :g 0.80 :b 0.95 :a 1.0}]
-               [{:text hint-text :type :comment
-                 :from 0 :to (count hint-text)
-                 :x right-x :y hint-y
-                 :size (- font-size 2)
-                 :r 0.40 :g 0.40 :b 0.45 :a 0.5}]]
-              sel-ticket-ops))))]
-    (into (into [header-ops] list-ops) right-ops)))
+   hovered-row-idx collapsed-groups drag-state]
+  (tree->text-ops
+    (resolve-layout
+      (build-intake-tree flow-state viewport-w viewport-h scroll-y
+                         hovered-row-idx collapsed-groups font-size char-advance drag-state))))
 
 ;; ============================================================================
 ;; PROMPT TEMPLATES (V0 Flow Actions)
@@ -1383,28 +2499,47 @@
    REACTIVE: font-size, line-h, char-advance come from !settings and !active-font.
    OPTIMIZED: fold-state and bracket-match are pre-computed in cached flows
    that only recompute when the document changes — NOT on every blink tick.
-   MODE-SWITCH: when flow canvas is active, returns ticket card rects instead."
+   MODE-SWITCH: when flow canvas is active, returns ticket card rects instead.
+   SIDEBAR: when sidebar visible, sidebar rects prepended, content offset right."
   [!editor-doc !eval-result !caret-visible !focus !settings !active-font !viewport
    <fold-data <bracket-data
-   !flow-state !scroll-y !collapsed-groups !hovered-row-idx
+   !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
+   !sidebar-state !sidebar-visible !current-file
    layout-x layout-y gutter-w]
   (m/latest
     (fn [doc fold-state bracket-match eval-result caret-visible focus settings active-font viewport
-         flow-state scroll-y collapsed-groups hovered-row-idx]
-      (if (flow-canvas-active? flow-state)
-        ;; Flow canvas mode: master-detail list view
-        (compute-ticket-list-rects flow-state (:width viewport) (:height viewport)
-                                   scroll-y hovered-row-idx collapsed-groups)
-        ;; Normal editor mode
-        (let [dpr (:dpr viewport)
-              snap? (:snap-to-pixel? settings)
-              font-size (:font-size settings)
-              line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
-              char-advance (maybe-snap (* font-size (:char-width active-font)) dpr snap?)
-              layout-x (maybe-snap layout-x dpr snap?)
-              layout-y (maybe-snap layout-y dpr snap?)]
-          (compute-editor-rects doc fold-state bracket-match eval-result caret-visible focus
-                                layout-x layout-y line-h gutter-w char-advance (:width viewport)))))
+         flow-state scroll-y collapsed-groups hovered-row-idx drag-state
+         sidebar-state sidebar-visible? current-file]
+      (let [sb-vis? (boolean sidebar-visible?)
+            sb-w (if sb-vis? sidebar-w 0)
+            dpr (:dpr viewport)
+            snap? (:snap-to-pixel? settings)
+            font-size (:font-size settings)
+            char-advance (maybe-snap (* font-size (:char-width active-font)) dpr snap?)
+            ;; Build sidebar rects when visible
+            sidebar-result
+            (when sb-vis?
+              (let [tree (resolve-layout
+                           (build-sidebar-tree sidebar-state current-file true
+                                               (:height viewport) scroll-y font-size char-advance))]
+                (when tree
+                  {:rects (tree->rects tree)
+                   :shadows (tree->shadows tree)})))
+            ;; Build content rects (offset by sb-w)
+            content-result
+            (if (flow-canvas-active? flow-state)
+              (compute-ticket-list-rects flow-state (- (:width viewport) sb-w) (:height viewport)
+                                         scroll-y hovered-row-idx collapsed-groups drag-state)
+              (let [line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
+                    lx (maybe-snap layout-x dpr snap?)
+                    ly (maybe-snap layout-y dpr snap?)]
+                {:rects (compute-editor-rects doc fold-state bracket-match eval-result caret-visible focus
+                                              lx ly line-h gutter-w char-advance (- (:width viewport) sb-w))
+                 :shadows []}))]
+        {:rects (into (or (:rects sidebar-result) [])
+                      (offset-rects (:rects content-result) sb-w))
+         :shadows (into (or (:shadows sidebar-result) [])
+                        (offset-shadows (:shadows content-result) sb-w))}))
     (m/watch !editor-doc)
     <fold-data
     <bracket-data
@@ -1417,7 +2552,11 @@
     (m/watch !flow-state)
     (m/watch !scroll-y)
     (m/watch !collapsed-groups)
-    (m/watch !hovered-row-idx)))
+    (m/watch !hovered-row-idx)
+    (m/watch !drag-state)
+    (m/watch !sidebar-state)
+    (m/watch !sidebar-visible)
+    (m/watch !current-file)))
 
 (defn trail-node-color
   "Color for a trail node by kind. Returns {:r :g :b :a}."
@@ -1540,13 +2679,15 @@
      [1] command-panel background (visible when panel is open)
      [2] caret                    (visible when panel focused + blink on)
      [3] status-bar background    (always visible)
-   Zero-size invisible rects for absent elements keep GPU indices stable."
+   Zero-size invisible rects for absent elements keep GPU indices stable.
+   SIDEBAR: backgrounds span full viewport, caret offset by sb-w."
   [!cmd-panel !focus !caret-visible !scroll-y !viewport !settings !active-font
-   !ai-provider !agent-output cmd-panel-h status-bar-h]
+   !ai-provider !agent-output !sidebar-visible cmd-panel-h status-bar-h]
   (m/latest
     (fn [panel focus caret-visible scroll-y viewport settings active-font
-         agent-output]
-      (let [dpr (:dpr viewport)
+         agent-output sidebar-visible?]
+      (let [sb-w (if (boolean sidebar-visible?) sidebar-w 0)
+            dpr (:dpr viewport)
             snap? (:snap-to-pixel? settings)
             font-size (:font-size settings)
             char-advance (maybe-snap (* font-size (:char-width active-font)) dpr snap?)
@@ -1573,8 +2714,8 @@
                       :r 0.15 :g 0.15 :b 0.2 :a 1.0}
                      invisible)
 
-            ;; --- Instance 2: caret ---
-            text-x (cmd-text-start-x @!ai-provider font-size (:char-width active-font) dpr snap?)
+            ;; --- Instance 2: caret (offset by sidebar width) ---
+            text-x (+ (cmd-text-start-x @!ai-provider font-size (:char-width active-font) dpr snap?) sb-w)
             caret (if (and (:visible panel) caret-visible (= focus :command-panel))
                     {:x (+ text-x (* (:cursor panel) char-advance))
                      :y (maybe-snap (+ panel-y 8) dpr snap?)
@@ -1597,7 +2738,8 @@
     (m/watch !viewport)
     (m/watch !settings)
     (m/watch !active-font)
-    (m/watch !agent-output)))
+    (m/watch !agent-output)
+    (m/watch !sidebar-visible)))
 
 (defn compute-settings-panel-rects
   "Pure function: compute settings panel rectangles (background + font list + sliders)"
@@ -1878,17 +3020,22 @@
   "Derived flow: combined text render ops (editor + command panel + status bar)
    Uses m/latest instead of m/ap to avoid cancellation propagation.
    REACTIVE: font-size comes from !settings, updates live.
-   MODE-SWITCH: when flow canvas is active, returns ticket card text ops instead."
+   MODE-SWITCH: when flow canvas is active, returns ticket card text ops instead.
+   SIDEBAR: when sidebar visible, sidebar text ops prepended, content offset right."
   [!editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y !viewport !settings !active-font
    !current-file
    tokenize-fn layout-fn
    <fold-data
-   !flow-state !collapsed-groups !hovered-row-idx
+   !flow-state !collapsed-groups !hovered-row-idx !drag-state
+   !sidebar-state !sidebar-visible
    layout-x layout-y cmd-panel-h status-bar-h]
   (m/latest
     (fn [doc panel provider agent-output agent-scroll-y scroll-y viewport fold-state settings active-font
-         current-file flow-state collapsed-groups hovered-row-idx]
-      (let [dpr (:dpr viewport)
+         current-file flow-state collapsed-groups hovered-row-idx drag-state
+         sidebar-state sidebar-visible?]
+      (let [sb-vis? (boolean sidebar-visible?)
+            sb-w (if sb-vis? sidebar-w 0)
+            dpr (:dpr viewport)
               snap? (:snap-to-pixel? settings)
               ;; Reactive font settings
               font-size (:font-size settings)
@@ -1899,14 +3046,24 @@
               layout-y (maybe-snap layout-y dpr snap?)
               ;; Theme
               theme-id (or (:theme-id settings) :gruvbox-dark)
+              ;; Content viewport width (minus sidebar)
+              content-vw (- (:width viewport) sb-w)
+
+              ;; Sidebar text ops
+              sidebar-text-ops
+              (when sb-vis?
+                (let [tree (resolve-layout
+                             (build-sidebar-tree sidebar-state current-file true
+                                                 (:height viewport) scroll-y font-size char-advance))]
+                  (when tree (tree->text-ops tree))))
 
               ;; MODE-SWITCH: flow canvas replaces editor ops with ticket card text
               [editor-ops final-line-mapping line-num-ops]
               (if (flow-canvas-active? flow-state)
                 ;; Flow canvas mode: master-detail list view text
-                [(compute-ticket-list-text-ops flow-state (:width viewport) (:height viewport)
+                [(compute-ticket-list-text-ops flow-state content-vw (:height viewport)
                                                font-size char-advance scroll-y
-                                               hovered-row-idx collapsed-groups)
+                                               hovered-row-idx collapsed-groups drag-state)
                  (vec (range (count (:lines doc))))
                  []]
 
@@ -1981,13 +3138,17 @@
                                      (range (count mapping)))]
                       [(filterv seq (:render-ops result)) mapping nums])))))
 
-              ;; Command panel ops (if visible)
+              ;; Offset editor/flow text ops by sidebar width
+              offset-editor-ops (offset-text-ops editor-ops sb-w)
+              offset-line-num-ops (offset-text-ops line-num-ops sb-w)
+
+              ;; Command panel ops (if visible) — offset by sb-w
               cmd-ops (when (:visible panel)
                         (let [cmd-panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h)) dpr snap?)
                               cmd-text-y (maybe-snap (+ cmd-panel-y 12 font-size) dpr snap?)
                               prompt-text (cmd-prompt-text provider)
-                              prompt-x (maybe-snap 24 dpr snap?)
-                              text-x (cmd-text-start-x provider font-size (:char-width active-font) dpr snap?)]
+                              prompt-x (maybe-snap (+ 24 sb-w) dpr snap?)
+                              text-x (+ (cmd-text-start-x provider font-size (:char-width active-font) dpr snap?) sb-w)]
                           [(when (seq (:text panel))
                              [{:text (:text panel)
                                :type :text
@@ -2030,7 +3191,7 @@
                               (= status :complete) (str "[" provider-name "] complete: " prompt)
                               :else (str "[" provider-name "] " (name status) ": " prompt))
                 output-lines (str/split-lines result-output)
-                agent-x-px 24
+                agent-x-px (+ 24 sb-w)
                 right-pad 24
                 available-w (- (:width viewport) agent-x-px right-pad)
                 max-chars (if (pos? char-advance) (max 1 (int (/ available-w char-advance))) 80)
@@ -2065,7 +3226,7 @@
 
                 agent-panel-h (compute-agent-panel-h agent-output font-size (:height viewport)
                                                      (:width viewport) char-advance)
-                agent-x (maybe-snap 24 dpr snap?)
+                agent-x (maybe-snap (+ 24 sb-w) dpr snap?)
                 agent-y0 (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h agent-panel-h 12)) dpr snap?)
                 line-step (maybe-snap (* font-size 1.2) dpr snap?)
                 panel-top agent-y0
@@ -2093,7 +3254,7 @@
                                 (filter some?))
                               (range (count all-lines)))
 
-                ;; Status bar text (always visible, pinned to bottom)
+                ;; Status bar text (always visible, pinned to bottom) — offset by sb-w
                 status-y (maybe-snap (+ scroll-y (- (:height viewport) status-bar-h) 4 font-size) dpr snap?)
                 ;; Flow canvas mode: show flow info instead of cursor position
                 status-left-text (if (flow-canvas-active? flow-state)
@@ -2114,7 +3275,7 @@
                               [{:text status-left-text
                                 :type :comment
                                 :from 0 :to (count status-left-text)
-                                :x (maybe-snap 16 dpr snap?) :y status-y
+                                :x (maybe-snap (+ 16 sb-w) dpr snap?) :y status-y
                                 :size font-size
                                 :r 0.65 :g 0.65 :b 0.65 :a 0.9}]
                               ;; Right: filename | PROVIDER
@@ -2125,7 +3286,9 @@
                                 :size font-size
                                 :r 0.65 :g 0.65 :b 0.65 :a 0.9}]]]
 
-            {:render-ops (vec (concat line-num-ops editor-ops cmd-lines agent-lines status-lines))
+            {:render-ops (vec (concat (or sidebar-text-ops [])
+                                      offset-line-num-ops offset-editor-ops
+                                      cmd-lines agent-lines status-lines))
              :line-mapping final-line-mapping
              :editor-line-count (+ (count line-num-ops) (count editor-ops))
              :cmd-line-count (+ (count cmd-lines) (count status-lines))})))
@@ -2142,7 +3305,10 @@
     (m/watch !current-file)
     (m/watch !flow-state)
     (m/watch !collapsed-groups)
-    (m/watch !hovered-row-idx)))
+    (m/watch !hovered-row-idx)
+    (m/watch !drag-state)
+    (m/watch !sidebar-state)
+    (m/watch !sidebar-visible)))
 
 ;; ============================================================================
 ;; LAYER 7: TERMINAL RENDER CONSUMER
@@ -2272,7 +3438,7 @@
         !editor-rect-sys (atom (:rect geometry))
         !cmd-rect-sys (atom (let [capacity 16
                                   instance-buffer (.createBuffer device
-                                                    (clj->js {:size (* capacity 32)
+                                                    (clj->js {:size (* capacity editor/rect-stride)
                                                               :usage (bit-or js/GPUBufferUsage.VERTEX
                                                                              js/GPUBufferUsage.COPY_DST)}))]
                               {:pipeline (:pipeline (:rect geometry))
@@ -2281,13 +3447,14 @@
                                :num-instances 0}))
         !settings-rect-sys (atom (let [capacity 32
                                         instance-buffer (.createBuffer device
-                                                          (clj->js {:size (* capacity 32)
+                                                          (clj->js {:size (* capacity editor/rect-stride)
                                                                     :usage (bit-or js/GPUBufferUsage.VERTEX
                                                                                    js/GPUBufferUsage.COPY_DST)}))]
                                     {:pipeline (:pipeline (:rect geometry))
                                      :bind-group (:bind-group (:rect geometry))
                                      :instance-buffer instance-buffer
                                      :num-instances 0}))
+        !shadow-sys (atom (:shadow geometry))
 
         ;; Helper functions
         save-undo! (fn [lines cursor]
@@ -2323,29 +3490,36 @@
         ;; =====================================================================
         ;; SIDEBAR STATE & DOM RENDERING (imperative, avoids Electric DAG)
         ;; =====================================================================
-        !selected-project (atom nil)    ;; {:name :path} or nil
-        !expanded-dirs (atom #{})       ;; set of expanded dir paths
-        !dir-cache (atom {})            ;; {path -> [entries]}
-        !home-dirs (atom nil)           ;; cached home dirs list
         ;; V0: default to discourse-graph entry point
         !current-file (atom {:path "/home/sid/projects/discourse-graph/apps/roam/src/index.ts"
                              :name "index.ts"})
-        !sidebar-mode (atom :files)     ;; :files | :review-packs
-        !review-pack-list (atom nil)    ;; nil = not loaded yet
-        !review-pack-loading? (atom false)
-        !review-pack-selected-id (atom nil)
-        !review-pack-selected-node-id (atom nil)
-        !review-pack-summary-cache (atom {})
-        !review-pack-load-error (atom nil)
+        ;; Consolidated sidebar state (replaces 9 individual atoms)
+        !sidebar-state (atom {:mode :files           ;; :files | :review-packs
+                              :project nil           ;; {:name :path} or nil
+                              :expanded-dirs #{}
+                              :dir-cache {}
+                              :home-dirs nil
+                              :scroll-y 0
+                              :hovered-id nil
+                              :loading? false
+                              ;; Review pack sub-state
+                              :review-pack-list nil
+                              :review-pack-loading? false
+                              :review-pack-selected-id nil
+                              :review-pack-selected-node-id nil
+                              :review-pack-summary-cache {}
+                              :review-pack-load-error nil})
         !ai-provider (atom :claude)     ;; :claude | :codex | :gemini
         !agent-output (atom nil)        ;; {:status :provider :prompt :output :run-id :trail :tool-buf}
         !agent-scroll-y (atom 0)        ;; scroll offset within agent output panel
+        !mouse-x (atom 0)               ;; last known mouse X (viewport-relative)
         !mouse-y (atom 0)               ;; last known mouse Y (viewport-relative)
         !flow-state (atom (initial-flow-state))  ;; V0 flow state machine
         !collapsed-groups (atom #{})           ;; set of collapsed group status strings
         !hovered-row-idx (atom nil)            ;; 0-based flat ticket index under mouse cursor
+        !drag-state (atom {:phase :idle})      ;; drag state machine: :idle/:pending/:dragging
 
-        sidebar-el (js/document.getElementById "file-sidebar")
+        ;; sidebar-el removed — sidebar now rendered via WebGPU rect tree
 
         ;; --- Fetch helpers (call server HTTP API, parse EDN response) ---
 
@@ -2379,22 +3553,18 @@
           nil)
 
         fetch-home-dirs!
-        (fn [render-fn]
-          (if @!home-dirs
-            (render-fn)
+        (fn []
+          (when (nil? (:home-dirs @!sidebar-state))
             (fetch-edn! "/api/home-dirs"
                         (fn [dirs]
-                          (reset! !home-dirs dirs)
-                          (render-fn)))))
+                          (swap! !sidebar-state assoc :home-dirs dirs)))))
 
         fetch-dir!
-        (fn [path render-fn]
-          (if (contains? @!dir-cache path)
-            (render-fn)
+        (fn [path]
+          (when-not (contains? (:dir-cache @!sidebar-state) path)
             (fetch-edn! (str "/api/list-dir?path=" (js/encodeURIComponent path))
                         (fn [entries]
-                          (swap! !dir-cache assoc path entries)
-                          (render-fn)))))
+                          (swap! !sidebar-state assoc-in [:dir-cache path] entries)))))
 
         fetch-file!
         (fn [path root-path]
@@ -2523,64 +3693,63 @@
           (first (filter #(= (:id %) node-id) nodes)))
 
         fetch-review-packs!
-        (fn [render-fn]
-          (when-not @!review-pack-loading?
-            (reset! !review-pack-loading? true)
+        (fn []
+          (when-not (:review-pack-loading? @!sidebar-state)
+            (swap! !sidebar-state assoc :review-pack-loading? true)
             (fetch-edn!
               "/api/review-pack/list"
               (fn [result]
-                (reset! !review-pack-loading? false)
                 (if (:ok result)
                   (let [packs (vec (or (:review-packs result) []))
-                        selected-id @!review-pack-selected-id
+                        selected-id (:review-pack-selected-id @!sidebar-state)
                         selected-exists? (some #(= (:pack-id %) selected-id) packs)]
-                    (reset! !review-pack-load-error nil)
-                    (reset! !review-pack-list packs)
+                    (swap! !sidebar-state assoc
+                           :review-pack-loading? false
+                           :review-pack-load-error nil
+                           :review-pack-list packs)
                     (cond
                       (and (seq packs) (nil? selected-id))
-                      (do (reset! !review-pack-selected-id (:pack-id (first packs)))
-                          (reset! !review-pack-selected-node-id nil))
+                      (swap! !sidebar-state assoc
+                             :review-pack-selected-id (:pack-id (first packs))
+                             :review-pack-selected-node-id nil)
 
                       (and (seq packs) (not selected-exists?))
-                      (do (reset! !review-pack-selected-id (:pack-id (first packs)))
-                          (reset! !review-pack-selected-node-id nil))
+                      (swap! !sidebar-state assoc
+                             :review-pack-selected-id (:pack-id (first packs))
+                             :review-pack-selected-node-id nil)
 
                       (empty? packs)
-                      (do (reset! !review-pack-selected-id nil)
-                          (reset! !review-pack-selected-node-id nil)))
-                    (render-fn))
-                  (do
-                    (reset! !review-pack-load-error (or (:message result) "Failed to load review packs"))
-                    (reset! !review-pack-list [])
-                    (reset! !review-pack-selected-id nil)
-                    (reset! !review-pack-selected-node-id nil)
-                    (render-fn))))
+                      (swap! !sidebar-state assoc
+                             :review-pack-selected-id nil
+                             :review-pack-selected-node-id nil)))
+                  (swap! !sidebar-state assoc
+                         :review-pack-loading? false
+                         :review-pack-load-error (or (:message result) "Failed to load review packs")
+                         :review-pack-list []
+                         :review-pack-selected-id nil
+                         :review-pack-selected-node-id nil)))
               (fn [err]
-                (reset! !review-pack-loading? false)
-                (reset! !review-pack-load-error (str "Fetch failed: " (.-message err)))
-                (reset! !review-pack-list [])
-                (reset! !review-pack-selected-id nil)
-                (reset! !review-pack-selected-node-id nil)
-                (render-fn)))))
+                (swap! !sidebar-state assoc
+                       :review-pack-loading? false
+                       :review-pack-load-error (str "Fetch failed: " (.-message err))
+                       :review-pack-list []
+                       :review-pack-selected-id nil
+                       :review-pack-selected-node-id nil)))))
 
         fetch-review-pack-summary!
-        (fn [pack-id render-fn]
+        (fn [pack-id]
           (when (and pack-id
-                     (not (contains? @!review-pack-summary-cache pack-id)))
+                     (not (contains? (:review-pack-summary-cache @!sidebar-state) pack-id)))
             (fetch-edn!
               (str "/api/review-pack/" (js/encodeURIComponent pack-id) "/summary")
               (fn [result]
-                (if (:ok result)
-                  (swap! !review-pack-summary-cache assoc pack-id result)
-                  (swap! !review-pack-summary-cache assoc pack-id
-                         {:ok false
-                          :message (or (:message result) "Failed to load review pack summary")}))
-                (render-fn))
+                (swap! !sidebar-state assoc-in [:review-pack-summary-cache pack-id]
+                       (if (:ok result)
+                         result
+                         {:ok false :message (or (:message result) "Failed to load review pack summary")})))
               (fn [err]
-                (swap! !review-pack-summary-cache assoc pack-id
-                       {:ok false
-                        :message (str "Fetch failed: " (.-message err))})
-                (render-fn)))))
+                (swap! !sidebar-state assoc-in [:review-pack-summary-cache pack-id]
+                       {:ok false :message (str "Fetch failed: " (.-message err))})))))
 
         trigger-dev-replay!
         (fn []
@@ -2980,6 +4149,49 @@
                                       (str "Bootstrap fetch error: " (.-message err) "\nUse /bootstrap to retry."))))))
                   (show-flow-info! (str "Cannot bootstrap from state: " (name (:node flow)) "\nUse /reset to return to idle."))))
 
+              :flow-mock-bootstrap
+              (let [flow @!flow-state
+                    mock-tickets [{:id "DIS-101" :title "Fix SSO auth flow for enterprise users"
+                                   :status "In Progress" :assignee "Siddharth" :priority 1
+                                   :description "Enterprise SSO login fails when SAML assertion contains multiple group claims. Need to handle array-valued attributes in the assertion parser."}
+                                  {:id "DIS-102" :title "Add batch export for reasoning trails"
+                                   :status "Todo" :assignee "Siddharth" :priority 2
+                                   :description "Users want to export multiple reasoning trails as a single PDF or markdown bundle for offline review and sharing with stakeholders."}
+                                  {:id "DIS-103" :title "WebGPU text rendering perf regression"
+                                   :status "In Progress" :assignee "Siddharth" :priority 1
+                                   :description "After adding MSDF font atlas, frame times spiked from 2ms to 8ms on large files. Suspect redundant texture uploads per frame."}
+                                  {:id "DIS-104" :title "Design review screen diff viewer"
+                                   :status "Backlog" :assignee "unassigned" :priority 3
+                                   :description "Screen 4 needs a side-by-side diff viewer for code changes produced by agent runs. Should support syntax highlighting and inline comments."}
+                                  {:id "DIS-105" :title "Implement parallel lane arrangement"
+                                   :status "Todo" :assignee "unassigned" :priority 2
+                                   :description "The arrange step currently only supports sequential chains. Add parallel lane layout so independent tickets can run concurrently."}
+                                  {:id "DIS-106" :title "Add keyboard navigation to ticket list"
+                                   :status "Backlog" :assignee "unassigned" :priority 4
+                                   :description "j/k to move selection, space to toggle, enter to view detail. Vim-style navigation for the intake screen ticket list."}
+                                  {:id "DIS-107" :title "Streaming token counter in agent panel"
+                                   :status "Done" :assignee "Siddharth" :priority 3
+                                   :description "Show a live token count in the agent output panel header during streaming. Helps users gauge cost and progress of long-running agent sessions."}
+                                  {:id "DIS-108" :title "Fix scroll clamping on window resize"
+                                   :status "In Progress" :assignee "Siddharth" :priority 2
+                                   :description "When the browser window is resized smaller, scroll position can exceed content bounds. Need to re-clamp scroll-y in the resize handler."}
+                                  {:id "DIS-109" :title "Rama PState schema migration for trails"
+                                   :status "Todo" :assignee "unassigned" :priority 2
+                                   :description "The reasoning trail PState needs a schema evolution to support the new structured tool-use events. Plan the migration path."}
+                                  {:id "DIS-110" :title "Release v0.2.0 milestone"
+                                   :status "Released" :assignee "Siddharth" :priority 1
+                                   :description "Tag and release the v0.2.0 milestone including streaming agent output, rect tree UI, and the intake list view."}]
+                    can-transition (or (= (:node flow) :idle)
+                                      (= (:node flow) :intake))]
+                (if can-transition
+                  (do (reset! !flow-state (assoc (initial-flow-state)
+                                                 :node :intake
+                                                 :tickets mock-tickets))
+                      (reset! !scroll-y 0)
+                      (show-flow-info!
+                        (str "Mock bootstrap complete. " (count mock-tickets) " tickets loaded.")))
+                  (show-flow-info! (str "Cannot bootstrap from state: " (name (:node flow)) "\nUse /reset to return to idle."))))
+
 
               :flow-select
               (let [flow @!flow-state
@@ -3093,448 +4305,23 @@
                   (reset! !scroll-y 0) ;; reset scroll on mode switch
                   (show-flow-info! "Flow state reset to idle.\nUse /bootstrap to start fresh.")))))
 
-        render-sidebar!
-        (fn render-sidebar! []
-          (when sidebar-el
-            (let [visible? (and !sidebar-visible @!sidebar-visible)
-                  mode @!sidebar-mode
-                  project @!selected-project
-                  expanded @!expanded-dirs
-                  cache @!dir-cache
-                  review-packs @!review-pack-list
-                  review-pack-selected-id @!review-pack-selected-id
-                  review-pack-summary-cache @!review-pack-summary-cache
-                  review-pack-load-error @!review-pack-load-error]
-              ;; Toggle visibility
-              (set! (.. sidebar-el -style -display) (if visible? "block" "none"))
-              (let [target-w (if (= mode :review-packs) 760 250)]
-                (set! (.. sidebar-el -style -width) (str target-w "px"))
-                (set! (.. sidebar-el -style -minWidth) (str target-w "px")))
-              (when visible?
-                ;; Clear content
-                (set! (.-innerHTML sidebar-el) "")
-                ;; Mode selector
-                (let [mode-row (js/document.createElement "div")]
-                  (set! (.-cssText (.-style mode-row))
-                        "display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid #2a2a4a;")
-                  (doseq [[mode-k mode-label] [[:files "Files"] [:review-packs "Review Packs"]]]
-                    (let [btn (js/document.createElement "button")
-                          active? (= mode mode-k)]
-                      (set! (.-textContent btn) mode-label)
-                      (set! (.-cssText (.-style btn))
-                            (str "flex:1;border:1px solid #3a3a5a;border-radius:6px;padding:4px 6px;cursor:pointer;font-size:11px;"
-                                 (if active?
-                                   "background:#334066;color:#e4e8ff;"
-                                   "background:#202038;color:#9a9abf;")))
-                      (set! (.-onclick btn)
-                            (fn [_]
-                              (when (not= @!sidebar-mode mode-k)
-                                (reset! !sidebar-mode mode-k)
-                                (when (= mode-k :review-packs)
-                                  (when (nil? @!review-pack-list)
-                                    (fetch-review-packs! render-sidebar!)))
-                                (render-sidebar!))))
-                      (.appendChild mode-row btn)))
-                  (.appendChild sidebar-el mode-row))
 
-                (if (= mode :review-packs)
-                  ;; REVIEW PACKS MODE
-                  (do
-                    (let [header-row (js/document.createElement "div")
-                          title (js/document.createElement "div")
-                          refresh-btn (js/document.createElement "div")]
-                      (set! (.-cssText (.-style header-row))
-                            "display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #2a2a4a;")
-                      (set! (.-textContent title) "REVIEW PACKS")
-                      (set! (.-cssText (.-style title))
-                            "font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#7878a0;")
-                      (set! (.-textContent refresh-btn) "refresh")
-                      (set! (.-cssText (.-style refresh-btn))
-                            "font-size:11px;cursor:pointer;color:#8ea0ff;")
-                      (set! (.-onclick refresh-btn)
-                            (fn [_]
-                              (reset! !review-pack-list nil)
-                              (reset! !review-pack-load-error nil)
-                              (fetch-review-packs! render-sidebar!)))
-                      (.appendChild header-row title)
-                      (.appendChild header-row refresh-btn)
-                      (.appendChild sidebar-el header-row))
 
-                    (cond
-                      review-pack-load-error
-                      (let [msg (js/document.createElement "div")]
-                        (set! (.-textContent msg) review-pack-load-error)
-                        (set! (.-cssText (.-style msg))
-                              "padding:10px 12px;color:#ff8c8c;font-size:12px;")
-                        (.appendChild sidebar-el msg))
-
-                      (nil? review-packs)
-                      (let [loading (js/document.createElement "div")]
-                        (set! (.-textContent loading) "Loading review packs...")
-                        (set! (.-cssText (.-style loading))
-                              "padding:10px 12px;color:#7878a0;font-style:italic;font-size:12px;")
-                        (.appendChild sidebar-el loading)
-                        (fetch-review-packs! render-sidebar!))
-
-                      (empty? review-packs)
-                      (let [empty-el (js/document.createElement "div")]
-                        (set! (.-textContent empty-el) "No review packs yet.")
-                        (set! (.-cssText (.-style empty-el))
-                              "padding:10px 12px;color:#7878a0;font-size:12px;")
-                        (.appendChild sidebar-el empty-el))
-
-                      :else
-                      (let [selected-pack (some #(when (= (:pack-id %) review-pack-selected-id) %) review-packs)
-                            summary-result (get review-pack-summary-cache review-pack-selected-id)
-                            summary (:summary summary-result)
-                            model (when selected-pack (build-review-pack-canvas-model selected-pack))
-                            nodes (vec (:nodes model))
-                            edges (vec (:edges model))
-                            node-index (reduce (fn [m n] (assoc m (:id n) n)) {} nodes)
-                            selected-node-id (or @!review-pack-selected-node-id "root")
-                            selected-node (or (node-by-id nodes selected-node-id) (first nodes))
-                            workspace (js/document.createElement "div")
-                            list-col (js/document.createElement "div")
-                            right-col (js/document.createElement "div")]
-                        (when (and selected-pack (nil? summary-result))
-                          (fetch-review-pack-summary! review-pack-selected-id render-sidebar!))
-                        (when (and selected-pack
-                                   (or (nil? @!review-pack-selected-node-id)
-                                       (nil? (node-by-id nodes @!review-pack-selected-node-id))))
-                          (reset! !review-pack-selected-node-id "root"))
-
-                        (set! (.-cssText (.-style workspace))
-                              "display:grid;grid-template-columns:240px 1fr;gap:10px;padding:10px;min-height:600px;")
-
-                        ;; Left list column
-                        (set! (.-cssText (.-style list-col))
-                              "border:1px solid #2b2f49;border-radius:8px;background:#14182a;overflow-y:auto;max-height:650px;")
-                        (doseq [pack review-packs]
-                          (let [pack-id (:pack-id pack)
-                                selected? (= pack-id review-pack-selected-id)
-                                row (js/document.createElement "div")
-                                status (some-> (:status pack) name str/upper-case)
-                                issue (or (:issue-ref pack) "NO-ISSUE")
-                                line (str issue " [" (or status "DRAFT") "]")]
-                            (set! (.-textContent row) line)
-                            (set! (.-cssText (.-style row))
-                                  (str "padding:8px 10px;cursor:pointer;font-size:12px;line-height:1.35;border-bottom:1px solid #222640;"
-                                       (if selected?
-                                         "background:#2a3355;color:#ecf0ff;border-left:3px solid #66a2ff;"
-                                         "background:transparent;color:#c7cbe3;border-left:3px solid transparent;")))
-                            (set! (.-onclick row)
-                                  (fn [_]
-                                    (reset! !review-pack-selected-id pack-id)
-                                    (reset! !review-pack-selected-node-id "root")
-                                    (fetch-review-pack-summary! pack-id render-sidebar!)))
-                            (.appendChild list-col row)))
-
-                        ;; Right canvas + inspector column
-                        (set! (.-cssText (.-style right-col))
-                              "display:grid;grid-template-rows:auto 1fr;gap:8px;")
-                        (if selected-pack
-                          (let [toolbar (js/document.createElement "div")
-                                body (js/document.createElement "div")
-                                canvas-pane (js/document.createElement "div")
-                                inspector-pane (js/document.createElement "div")
-                                canvas-surface (js/document.createElement "div")]
-                            (set! (.-textContent toolbar)
-                                  (str "THREAD CANVAS  •  "
-                                       (or (:issue-ref selected-pack) (:pack-id selected-pack))
-                                       "  •  "
-                                       (count nodes) " nodes"))
-                            (set! (.-cssText (.-style toolbar))
-                                  "padding:8px 10px;border:1px solid #2b2f49;border-radius:8px;background:#151b30;color:#a8b0d8;font-size:12px;")
-                            (.appendChild right-col toolbar)
-
-                            (set! (.-cssText (.-style body))
-                                  "display:grid;grid-template-columns:1fr 300px;gap:8px;min-height:540px;")
-                            (set! (.-cssText (.-style canvas-pane))
-                                  "border:1px solid #2b2f49;border-radius:8px;background:#0f1322;overflow:auto;position:relative;")
-                            (set! (.-cssText (.-style canvas-surface))
-                                  (str "position:relative;width:560px;height:"
-                                       (max 560 (:height model 560))
-                                       "px;"))
-
-                            ;; Draw edges first.
-                            (doseq [edge edges]
-                              (let [from (get node-index (:from edge))
-                                    to (get node-index (:to edge))]
-                                (when (and from to)
-                                  (let [x1 (+ (:x from) (:w from))
-                                        y1 (+ (:y from) (int (/ (:h from) 2)))
-                                        x2 (:x to)
-                                        y2 (+ (:y to) (int (/ (:h to) 2)))
-                                        mid-x (+ x1 (max 18 (int (/ (- x2 x1) 2))))
-                                        seg1 (js/document.createElement "div")
-                                        seg2 (js/document.createElement "div")
-                                        seg3 (js/document.createElement "div")
-                                        min-y (min y1 y2)
-                                        v-h (max 1 (js/Math.abs (- y2 y1)))]
-                                    (set! (.-cssText (.-style seg1))
-                                          (str "position:absolute;left:" x1 "px;top:" y1 "px;width:" (max 1 (- mid-x x1)) "px;height:1px;background:#355087;"))
-                                    (set! (.-cssText (.-style seg2))
-                                          (str "position:absolute;left:" mid-x "px;top:" min-y "px;width:1px;height:" v-h "px;background:#355087;"))
-                                    (set! (.-cssText (.-style seg3))
-                                          (str "position:absolute;left:" mid-x "px;top:" y2 "px;width:" (max 1 (- x2 mid-x)) "px;height:1px;background:#355087;"))
-                                    (.appendChild canvas-surface seg1)
-                                    (.appendChild canvas-surface seg2)
-                                    (.appendChild canvas-surface seg3)))))
-
-                            ;; Draw nodes.
-                            (doseq [node nodes]
-                              (let [node-el (js/document.createElement "div")
-                                    subtitle-el (js/document.createElement "div")
-                                    selected? (= (:id node) (:id selected-node))
-                                    accent (case (:kind node)
-                                             :question "#6ea8ff"
-                                             :claim "#69d8a6"
-                                             :evidence "#f2ca74"
-                                             :decision "#ff9d70"
-                                             :risk "#ff7885"
-                                             "#8fa1d8")]
-                                (set! (.-textContent node-el) (:title node))
-                                (set! (.-textContent subtitle-el) (:subtitle node))
-                                (set! (.-cssText (.-style node-el))
-                                      (str "position:absolute;left:" (:x node) "px;top:" (:y node) "px;width:" (:w node) "px;height:" (:h node) "px;"
-                                           "padding:7px 8px;border-radius:8px;border:1px solid #2f3658;border-left:4px solid " accent ";"
-                                           "font-size:11px;line-height:1.25;cursor:pointer;overflow:hidden;"
-                                           (if selected?
-                                             "background:#243055;color:#f0f3ff;box-shadow:0 0 0 1px #6aa5ff inset;"
-                                             "background:#171d33;color:#d6dcfb;")))
-                                (set! (.-cssText (.-style subtitle-el))
-                                      "margin-top:4px;font-size:10px;color:#9ca7d0;line-height:1.25;")
-                                (set! (.-onclick node-el) (fn [_] (reset! !review-pack-selected-node-id (:id node))))
-                                (.appendChild node-el subtitle-el)
-                                (.appendChild canvas-surface node-el)))
-
-                            (.appendChild canvas-pane canvas-surface)
-                            (.appendChild body canvas-pane)
-
-                            ;; Inspector pane
-                            (set! (.-cssText (.-style inspector-pane))
-                                  "border:1px solid #2b2f49;border-radius:8px;background:#141a2f;padding:10px;overflow:auto;")
-                            (let [k (get-in selected-node [:payload :kind])
-                                  heading (js/document.createElement "div")
-                                  info (js/document.createElement "div")
-                                  body-text (js/document.createElement "div")]
-                              (set! (.-textContent heading)
-                                    (str "NODE • " (some-> k name str/upper-case)))
-                              (set! (.-cssText (.-style heading))
-                                    "font-size:11px;color:#9aa5d3;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:6px;")
-                              (.appendChild inspector-pane heading)
-
-                              (set! (.-textContent info)
-                                    (str "ID: " (:id selected-node)))
-                              (set! (.-cssText (.-style info))
-                                    "font-size:11px;color:#c8cff0;margin-bottom:6px;word-break:break-all;")
-                              (.appendChild inspector-pane info)
-
-                              (set! (.-textContent body-text) (or (:subtitle selected-node) ""))
-                              (set! (.-cssText (.-style body-text))
-                                    "font-size:12px;color:#d9def9;line-height:1.4;margin-bottom:8px;")
-                              (.appendChild inspector-pane body-text)
-
-                              (when (= k :evidence)
-                                (let [anchor (get-in selected-node [:payload :anchor])
-                                      meta (js/document.createElement "div")
-                                      snippet (js/document.createElement "pre")
-                                      open-btn (js/document.createElement "button")
-                                      project-root (:path project)]
-                                  (set! (.-textContent meta)
-                                        (str "File: " (or (:file-path anchor) "n/a")
-                                             "\nCommit: " (or (:commit anchor) "n/a")
-                                             "\nSpan: L" (get-in anchor [:span :line-start] 1)
-                                             "-L" (get-in anchor [:span :line-end] 1)))
-                                  (set! (.-cssText (.-style meta))
-                                        "font-size:11px;color:#9ea8d7;white-space:pre-wrap;line-height:1.35;margin-bottom:8px;")
-                                  (.appendChild inspector-pane meta)
-
-                                  (set! (.-textContent snippet) (or (:snippet anchor) ""))
-                                  (set! (.-cssText (.-style snippet))
-                                        "margin:0 0 8px 0;padding:6px;background:#0c1020;border:1px solid #303859;border-radius:4px;color:#cad2fa;font-size:10px;line-height:1.35;white-space:pre-wrap;word-break:break-word;")
-                                  (.appendChild inspector-pane snippet)
-
-                                  (set! (.-textContent open-btn) "Open Anchor File")
-                                  (set! (.-cssText (.-style open-btn))
-                                        "border:1px solid #3d4f7d;border-radius:6px;padding:6px 8px;background:#1f2a4a;color:#dde5ff;cursor:pointer;font-size:11px;")
-                                  (set! (.-onclick open-btn)
-                                        (fn [_]
-                                          (let [fp (:file-path anchor)
-                                                abs-path (cond
-                                                           (nil? fp) nil
-                                                           (str/starts-with? fp "/") fp
-                                                           (seq project-root) (str project-root "/" fp)
-                                                           :else nil)]
-                                            (if (and abs-path project-root)
-                                              (fetch-file! abs-path project-root)
-                                              (js/console.warn "[REVIEW-PACK] Missing project root to open anchor" fp)))))
-                                  (.appendChild inspector-pane open-btn)))
-
-                              (when (:ok summary-result)
-                                (let [stats (js/document.createElement "div")]
-                                  (set! (.-textContent stats)
-                                        (str "Changed files: " (:changed-file-count summary)
-                                             " | Evidence: " (:evidence-anchor-count summary)
-                                             " | Core claims: " (:core-claim-count summary)))
-                                  (set! (.-cssText (.-style stats))
-                                        "margin-top:10px;padding-top:8px;border-top:1px solid #2a3150;font-size:11px;color:#b8c0e4;line-height:1.35;")
-                                  (.appendChild inspector-pane stats))))
-
-                            (.appendChild body inspector-pane)
-                            (.appendChild right-col body))
-                          (let [empty-right (js/document.createElement "div")]
-                            (set! (.-textContent empty-right) "Select a review pack to open the canvas.")
-                            (set! (.-cssText (.-style empty-right))
-                                  "padding:12px;color:#8f99c8;font-size:12px;border:1px solid #2b2f49;border-radius:8px;background:#14182a;")
-                            (.appendChild right-col empty-right)))
-
-                        (.appendChild workspace list-col)
-                        (.appendChild workspace right-col)
-                        (.appendChild sidebar-el workspace))))
-
-                  ;; FILES MODE
-                  (if (nil? project)
-                    ;; PROJECT PICKER — fetch home dirs then render
-                    (do
-                      ;; Header
-                      (let [header (js/document.createElement "div")]
-                        (set! (.-textContent header) "EXPLORER")
-                        (set! (.-cssText (.-style header))
-                              "padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#7878a0;border-bottom:1px solid #2a2a4a;")
-                        (.appendChild sidebar-el header))
-                      ;; Render dirs (or loading)
-                      (if-let [dirs @!home-dirs]
-                        (doseq [d dirs]
-                          (let [el (js/document.createElement "div")]
-                            (set! (.-textContent el) (str "📁 " (:name d)))
-                            (set! (.-cssText (.-style el))
-                                  "padding:6px 12px;cursor:pointer;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;")
-                            (set! (.-onmouseenter el) #(set! (.. el -style -background) "#252547"))
-                            (set! (.-onmouseleave el) #(set! (.. el -style -background) "transparent"))
-                            (set! (.-onclick el)
-                                  (fn [_]
-                                    (reset! !selected-project {:name (:name d) :path (:path d)})
-                                    (reset! !expanded-dirs #{})
-                                    (reset! !dir-cache {})
-                                    ;; Fetch root dir contents, then re-render
-                                    (fetch-dir! (:path d) render-sidebar!)))
-                            (.appendChild sidebar-el el)))
-                        ;; Show loading while fetching
-                        (let [loading (js/document.createElement "div")]
-                          (set! (.-textContent loading) "Loading...")
-                          (set! (.-cssText (.-style loading))
-                                "padding:10px 12px;color:#7878a0;font-style:italic;font-size:12px;")
-                          (.appendChild sidebar-el loading)
-                          ;; Trigger fetch
-                          (fetch-home-dirs! render-sidebar!))))
-
-                    ;; FILE TREE VIEW
-                    (let [;; Back button
-                          back-btn (js/document.createElement "div")
-                          _ (do (set! (.-textContent back-btn) (str "← " (:name project)))
-                                (set! (.-cssText (.-style back-btn))
-                                      "padding:8px 12px;cursor:pointer;font-size:12px;color:#7878a0;border-bottom:1px solid #2a2a4a;")
-                                (set! (.-onmouseenter back-btn) #(set! (.. back-btn -style -background) "#252547"))
-                                (set! (.-onmouseleave back-btn) #(set! (.. back-btn -style -background) "transparent"))
-                                (set! (.-onclick back-btn)
-                                      (fn [_]
-                                        (reset! !selected-project nil)
-                                        (reset! !expanded-dirs #{})
-                                        (reset! !dir-cache {})
-                                        (reset! !current-file nil)
-                                        (render-sidebar!)))
-                                (.appendChild sidebar-el back-btn))
-                          ;; Render tree entries recursively
-                          current-file @!current-file
-                          ;; Open file breadcrumb
-                          _ (when current-file
-                              (let [breadcrumb (js/document.createElement "div")]
-                                (set! (.-textContent breadcrumb) (:name current-file))
-                                (set! (.-cssText (.-style breadcrumb))
-                                      "padding:4px 12px 4px 14px;font-size:11px;color:#9898b8;border-bottom:1px solid #2a2a4a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;")
-                                (.appendChild sidebar-el breadcrumb)))
-                          render-entries
-                          (fn render-entries [entries depth]
-                            (doseq [entry entries]
-                              (let [el (js/document.createElement "div")
-                                    is-dir? (= (:type entry) :dir)
-                                    is-exp? (contains? expanded (:path entry))
-                                    is-active? (and (not is-dir?) current-file
-                                                    (= (:path entry) (:path current-file)))
-                                    pad-left (+ 12 (* depth 16))]
-                                (set! (.-textContent el)
-                                      (if is-dir?
-                                        (str (if is-exp? "▾ " "▸ ") (:name entry) "/")
-                                        (str "  " (:name entry))))
-                                (set! (.-cssText (.-style el))
-                                      (str "padding:4px 12px;padding-left:" pad-left "px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;"
-                                           (if is-active?
-                                             "background:#37375a;border-left:3px solid #5588ff;color:#e0e0ff;"
-                                             "border-left:3px solid transparent;")))
-                                (set! (.-onmouseenter el) #(set! (.. el -style -background) "#252547"))
-                                (set! (.-onmouseleave el) #(set! (.. el -style -background)
-                                                                 (if is-active? "#37375a" "transparent")))
-                                (set! (.-onclick el)
-                                      (fn [_]
-                                        (if is-dir?
-                                          (do (swap! !expanded-dirs
-                                                     (fn [dirs]
-                                                       (if (contains? dirs (:path entry))
-                                                         (disj dirs (:path entry))
-                                                         (conj dirs (:path entry)))))
-                                              ;; Fetch children if not cached, then re-render
-                                              (fetch-dir! (:path entry) render-sidebar!))
-                                          ;; File click — fetch content from server
-                                          (fetch-file! (:path entry) (:path project)))))
-                                (.appendChild sidebar-el el)
-                                ;; Render children if expanded and cached
-                                (when (and is-dir? is-exp?)
-                                  (if-let [children (get cache (:path entry))]
-                                    (render-entries children (inc depth))
-                                    ;; Not cached yet — show loading placeholder
-                                    (let [loading (js/document.createElement "div")]
-                                      (set! (.-textContent loading) "  loading...")
-                                      (set! (.-cssText (.-style loading))
-                                            (str "padding:4px 12px;padding-left:" (+ pad-left 16) "px;color:#7878a0;font-size:12px;font-style:italic;"))
-                                      (.appendChild sidebar-el loading)))))))
-                          root-entries (get cache (:path project) [])]
-                      (render-entries root-entries 0))))))))
-
-        ;; Watch sidebar-related atoms to re-render
-        _ (when !sidebar-visible
-            (add-watch !sidebar-visible :sidebar-render
-                       (fn [_ _ old-vis new-vis]
-                         (render-sidebar!)
-                         ;; When becoming visible, load active mode data if needed
-                         (when (and new-vis (not old-vis))
-                           (if (= @!sidebar-mode :review-packs)
-                             (when (nil? @!review-pack-list)
-                               (fetch-review-packs! render-sidebar!))
-                             (when (nil? @!selected-project)
-                               (fetch-home-dirs! render-sidebar!)))))))
-        _ (add-watch !sidebar-mode :sidebar-render
-                     (fn [_ _ _ mode]
-                       (render-sidebar!)
-                       (when (= mode :review-packs)
-                         (when (nil? @!review-pack-list)
-                           (fetch-review-packs! render-sidebar!)))))
-        _ (add-watch !selected-project :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
-        _ (add-watch !expanded-dirs :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
-        _ (add-watch !dir-cache :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
-        _ (add-watch !current-file :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
-        _ (add-watch !review-pack-list :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
-        _ (add-watch !review-pack-selected-id :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
-        _ (add-watch !review-pack-selected-node-id :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
-        _ (add-watch !review-pack-summary-cache :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
-        _ (add-watch !review-pack-load-error :sidebar-render (fn [_ _ _ _] (render-sidebar!)))
-
-        ;; Initial sidebar render (watches only fire on change, not initial state)
+        ;; Initial sidebar data fetch (reactive — m/watch triggers re-render)
         _ (when (and !sidebar-visible @!sidebar-visible)
-            (if (= @!sidebar-mode :review-packs)
-              (when (nil? @!review-pack-list)
-                (fetch-review-packs! render-sidebar!))
-              (fetch-home-dirs! render-sidebar!)))
+            (if (= (:mode @!sidebar-state) :review-packs)
+              (when (nil? (:review-pack-list @!sidebar-state))
+                (fetch-review-packs!))
+              (fetch-home-dirs!)))
+        ;; Fetch data when sidebar becomes visible
+        _ (when !sidebar-visible
+            (add-watch !sidebar-visible :sidebar-fetch
+                       (fn [_ _ old-vis new-vis]
+                         (when (and new-vis (not old-vis))
+                           (if (= (:mode @!sidebar-state) :review-packs)
+                             (when (nil? (:review-pack-list @!sidebar-state))
+                               (fetch-review-packs!))
+                             (fetch-home-dirs!))))))
 
         ;; Seed sidebar with initial file if provided
         _ (when initial-file
@@ -3553,14 +4340,14 @@
                                     acc
                                     (let [next-path (str prefix "/" (first dirs))]
                                       (recur (conj acc next-path) next-path (rest dirs)))))]
-                  (reset! !selected-project {:name (last (str/split project-path #"/"))
-                                             :path project-path})
-                  (reset! !expanded-dirs (set dir-paths))
+                  (swap! !sidebar-state assoc
+                         :project {:name (last (str/split project-path #"/"))
+                                   :path project-path}
+                         :expanded-dirs (set dir-paths))
                   ;; Fetch root dir + expanded dirs so tree renders with content
-                  (fetch-dir! project-path
-                              (fn []
-                                (doseq [dp dir-paths]
-                                  (fetch-dir! dp render-sidebar!))))))))
+                  (fetch-dir! project-path)
+                  (doseq [dp dir-paths]
+                    (fetch-dir! dp))))))
 
         ;; =====================================================================
         ;; LAYER 2: EVENT FLOWS
@@ -3625,6 +4412,9 @@
                              snap? (:snap-to-pixel? settings)
                              font-size (:font-size settings)
                              char-advance (* font-size (:char-width @!active-font))
+                             sb-vis? (and !sidebar-visible @!sidebar-visible)
+                             mouse-x @!mouse-x
+                             in-sidebar? (and sb-vis? (< mouse-x sidebar-w))
                              agent-output @!agent-output
                              agent-h (compute-agent-panel-h agent-output font-size
                                                             (:height viewport) (:width viewport)
@@ -3633,11 +4423,21 @@
                              agent-y0 (- (:height viewport) cmd-panel-h status-bar-h agent-h 12)
                              agent-y1 (- (:height viewport) cmd-panel-h status-bar-h)
                              mouse-y @!mouse-y
-                             in-agent? (and (pos? agent-h)
+                             in-agent? (and (not in-sidebar?)
+                                            (pos? agent-h)
                                             (>= mouse-y agent-y0)
                                             (< mouse-y agent-y1))]
-                         (if in-agent?
-                           ;; Scroll agent panel (clamp to content bounds)
+                         (cond
+                           ;; Scroll sidebar file tree
+                           in-sidebar?
+                           (let [ss @!sidebar-state
+                                 content-h (compute-sidebar-content-height ss @!current-file)
+                                 visible-h (- (:height viewport) sidebar-tab-h)
+                                 max-scroll (max 0 (- content-h visible-h))]
+                             (swap! !sidebar-state update :scroll-y
+                                    #(-> (+ (or % 0) delta) (max 0) (min max-scroll))))
+                           ;; Scroll agent panel
+                           in-agent?
                            (let [line-step (* font-size 1.2)
                                  max-chars (if (pos? char-advance)
                                              (max 1 (int (/ (- (:width viewport) 48) char-advance)))
@@ -3648,6 +4448,7 @@
                              (swap! !agent-scroll-y
                                     #(-> (+ % delta) (max 0) (min max-scroll))))
                            ;; Scroll editor / flow canvas
+                           :else
                            (if (flow-canvas-active? @!flow-state)
                              ;; List view: clamp scroll to grouped list content height
                              (let [flow @!flow-state
@@ -3732,7 +4533,73 @@
                                     :focus-section :sliders)
                             (js/console.log "[SETTINGS] Clicked slider:" slider-idx)))))
 
-                     ;; Not in settings - check status bar, command panel, or editor
+                     ;; Not in settings - check sidebar, status bar, command panel, or editor
+                     (let [sb-vis? (and !sidebar-visible @!sidebar-visible)
+                           clicked-in-sidebar? (and sb-vis? (< x sidebar-w))]
+                       (if clicked-in-sidebar?
+                         ;; Click in sidebar — hit-test the sidebar tree
+                         (let [ss @!sidebar-state
+                               font-size (:font-size @!settings)
+                               char-advance (* font-size (:char-width @!active-font))
+                               tree (resolve-layout
+                                      (build-sidebar-tree ss @!current-file true
+                                                          (:height viewport) scroll-y font-size char-advance))
+                               path (when tree (hit-test tree x (+ y scroll-y)))]
+                           (when path
+                             (some (fn [node]
+                                     (case (:type node)
+                                       ;; Tab click — switch mode
+                                       :tab
+                                       (let [tab-id (:tab-id (:data node))]
+                                         (when tab-id
+                                           (swap! !sidebar-state assoc :mode tab-id)
+                                           ;; Fetch review packs if switching to that mode
+                                           (when (and (= tab-id :review-packs)
+                                                      (nil? (:review-pack-list @!sidebar-state)))
+                                             (fetch-review-packs!)))
+                                         true)
+                                       ;; File/dir entry click
+                                       :sidebar-entry
+                                       (let [d (:data node)
+                                             et (:entry-type d)]
+                                         (case et
+                                           :back-btn
+                                           (do (swap! !sidebar-state assoc
+                                                      :project nil
+                                                      :expanded-dirs #{}
+                                                      :dir-cache {}
+                                                      :scroll-y 0)
+                                               (reset! !current-file nil)
+                                               true)
+                                           :home-dir
+                                           (let [entry (:entry d)]
+                                             (swap! !sidebar-state assoc
+                                                    :project {:name (:name entry) :path (:path entry)}
+                                                    :expanded-dirs #{}
+                                                    :dir-cache {}
+                                                    :scroll-y 0)
+                                             (fetch-dir! (:path entry))
+                                             true)
+                                           :dir
+                                           (let [entry (:entry d)
+                                                 path (:path entry)]
+                                             (swap! !sidebar-state update :expanded-dirs
+                                                    (fn [dirs]
+                                                      (if (contains? dirs path)
+                                                        (disj dirs path)
+                                                        (conj dirs path))))
+                                             (fetch-dir! path)
+                                             true)
+                                           :file
+                                           (let [entry (:entry d)
+                                                 project (:project @!sidebar-state)]
+                                             (fetch-file! (:path entry) (:path project))
+                                             true)
+                                           ;; Unknown entry type
+                                           nil))
+                                       ;; Other node types — skip
+                                       nil))
+                                   (rseq path))))
                      (let [status-bar-top (- (:height viewport) status-bar-h)
                            clicked-in-status? (>= y status-bar-top)]
                        (if clicked-in-status?
@@ -3745,13 +4612,14 @@
                            clicked-in-cmd? (and cmd-visible? (>= y cmd-panel-top) (< y status-bar-top))]
 
                        (if clicked-in-cmd?
-                         ;; Click in command panel - use reactive font values
+                         ;; Click in command panel - use reactive font values (offset by sidebar)
                          (let [font-size (:font-size @!settings)
                               dpr (:dpr @!viewport)
                               snap? (:snap-to-pixel? @!settings)
                               char-width (:char-width @!active-font)
                               char-w (maybe-snap (* font-size char-width) dpr snap?)
-                              text-x (cmd-text-start-x @!ai-provider font-size char-width dpr snap?)
+                              sb-w (if sb-vis? sidebar-w 0)
+                              text-x (+ (cmd-text-start-x @!ai-provider font-size char-width dpr snap?) sb-w)
                               text (:text cmd-panel)
                               col (-> (/ (- x text-x) char-w)
                                        (Math/round)
@@ -3765,35 +4633,34 @@
                         (when (:visible @!cmd-panel)
                           (swap! !cmd-panel assoc :visible false))
                         (if (flow-canvas-active? @!flow-state)
-                          ;; Flow canvas mode: hit-test list rows and group headers
-                          (let [adj-y (+ y scroll-y)
-                                flow @!flow-state
-                                left-w (int (* (:width viewport) list-left-pane-pct))
-                                in-left-pane? (< x left-w)]
-                            (when in-left-pane?
-                              (let [grouped (group-tickets-by-status (:tickets flow))
-                                    layout (ticket-list-layout grouped @!collapsed-groups (set (:selected flow)))
-                                    hit (first (filter (fn [entry]
-                                                         (let [ey (:y entry)
-                                                               eh (if (= (:type entry) :group-header)
-                                                                    list-group-header-h list-row-h)]
-                                                           (and (>= adj-y ey) (< adj-y (+ ey eh)))))
-                                                       layout))]
-                                (when hit
-                                  (case (:type hit)
-                                    :group-header
-                                    (swap! !collapsed-groups
-                                           (fn [cg] (if (contains? cg (:status hit))
-                                                      (disj cg (:status hit))
-                                                      (conj cg (:status hit)))))
-                                    :ticket-row
-                                    (let [idx (:idx hit)
-                                          selected (:selected flow)
-                                          already? (some #{idx} selected)
-                                          new-selected (if already?
-                                                         (vec (remove #{idx} selected))
-                                                         (conj (vec selected) idx))]
-                                      (swap! !flow-state assoc :selected new-selected)))))))
+                          ;; Flow canvas mode: rect tree hit-test
+                          (let [flow @!flow-state
+                                tree (resolve-layout
+                                       (build-intake-tree flow (:width viewport) (:height viewport)
+                                                          scroll-y nil @!collapsed-groups 0 0 nil))
+                                path (hit-test tree x (+ y scroll-y))]
+                            ;; Walk path innermost→outermost, handle first recognized type
+                            (when path
+                              (some (fn [node]
+                                      (case (:type node)
+                                        :group-header
+                                        ;; Immediate — not draggable
+                                        (let [status (:status (:data node))]
+                                          (swap! !collapsed-groups
+                                                 (fn [cg] (if (contains? cg status)
+                                                            (disj cg status)
+                                                            (conj cg status))))
+                                          true)
+                                        :ticket-row
+                                        ;; Enter PENDING — defer click vs drag to mouseup/mousemove
+                                        (do (reset! !drag-state
+                                                    {:phase :pending
+                                                     :origin {:x x :y y}
+                                                     :node node})
+                                            true)
+                                        ;; Other node types — skip, let it bubble
+                                        nil))
+                                    (rseq path))))
                           ;; Normal editor mode: cursor placement / fold toggle
                           (let [adj-y (+ y scroll-y)
                                 dpr (:dpr @!viewport)
@@ -3846,30 +4713,57 @@
                                        :selection nil
                                        :desired-col col)
                                 (reset! !caret-visible true)
-                                (reset! !focus :editor))))))))))))
+                                (reset! !focus :editor))))))))))))))
 
                  :mousemove
-                 (do (reset! !mouse-y (:y coords))
-                 ;; Hover tracking for flow canvas list view
-                 (when (flow-canvas-active? @!flow-state)
-                   (let [mx (:x coords)
-                         my (:y coords)
-                         scroll-y @!scroll-y
-                         left-w (int (* (:width @!viewport) list-left-pane-pct))
-                         adj-y (+ my scroll-y)]
-                     (if (< mx left-w)
-                       ;; In left pane: find which ticket row we're over
-                       (let [flow @!flow-state
-                             grouped (group-tickets-by-status (:tickets flow))
-                             layout (ticket-list-layout grouped @!collapsed-groups (set (:selected flow)))
-                             hit (first (filter (fn [entry]
-                                                  (and (= (:type entry) :ticket-row)
-                                                       (let [ey (:y entry)]
-                                                         (and (>= adj-y ey) (< adj-y (+ ey list-row-h))))))
-                                                layout))]
-                         (reset! !hovered-row-idx (when hit (:idx hit))))
-                       ;; Outside left pane
-                       (reset! !hovered-row-idx nil))))
+                 (do (reset! !mouse-x (:x coords))
+                     (reset! !mouse-y (:y coords))
+                 ;; --- Sidebar hover tracking ---
+                 (let [sb-vis? (and !sidebar-visible @!sidebar-visible)
+                       in-sidebar? (and sb-vis? (< (:x coords) sidebar-w))]
+                   (if in-sidebar?
+                     ;; Hit-test sidebar for hover
+                     (let [ss @!sidebar-state
+                           font-size (:font-size @!settings)
+                           char-advance (* font-size (:char-width @!active-font))
+                           tree (resolve-layout
+                                  (build-sidebar-tree ss @!current-file true
+                                                      (:height @!viewport) @!scroll-y font-size char-advance))
+                           path (when tree (hit-test tree (:x coords) (+ (:y coords) @!scroll-y)))
+                           target (peek path)
+                           new-id (when (and target (= (:type target) :sidebar-entry))
+                                    (:id target))]
+                       (when (not= new-id (:hovered-id @!sidebar-state))
+                         (swap! !sidebar-state assoc :hovered-id new-id)))
+                     ;; Clear sidebar hover when outside
+                     (when (:hovered-id @!sidebar-state)
+                       (swap! !sidebar-state assoc :hovered-id nil))))
+                 ;; --- Drag state machine transitions ---
+                 (let [ds @!drag-state
+                       mx (:x coords) my (:y coords)]
+                   (case (:phase ds)
+                     :pending
+                     (when (> (drag-distance ds mx my) drag-threshold-px)
+                       (reset! !drag-state
+                               {:phase :dragging
+                                :origin (:origin ds)
+                                :node (:node ds)
+                                :current {:x mx :y my}}))
+                     :dragging
+                     (swap! !drag-state assoc :current {:x mx :y my})
+                     nil))
+                 ;; Hover tracking — suppress during drag
+                 (when (and (flow-canvas-active? @!flow-state)
+                            (= :idle (:phase @!drag-state)))
+                   (let [flow @!flow-state
+                         tree (resolve-layout
+                                (build-intake-tree flow (:width @!viewport) (:height @!viewport)
+                                                   @!scroll-y nil @!collapsed-groups 0 0 nil))
+                         path (hit-test tree (:x coords) (+ (:y coords) @!scroll-y))
+                         target (peek path)]
+                     (reset! !hovered-row-idx
+                             (when (and target (= (:type target) :ticket-row))
+                               (:idx (:data target))))))
                  (when @!dragging?
                    ;; Use reactive font values for mouse drag selection
                    (let [{:keys [x y]} coords
@@ -3902,7 +4796,41 @@
                               :selection {:start start-pos :end pos})))))
 
                  :mouseup
-                 (reset! !dragging? false))
+                 (let [ds @!drag-state]
+                   (case (:phase ds)
+                     :pending
+                     ;; Under threshold — treat as click (toggle selection)
+                     (do (let [node (:node ds)]
+                           (when (= :ticket-row (:type node))
+                             (let [idx (:idx (:data node))
+                                   flow @!flow-state
+                                   selected (:selected flow)
+                                   already? (some #{idx} selected)
+                                   new-sel (if already?
+                                             (vec (remove #{idx} selected))
+                                             (conj (vec selected) idx))]
+                               (swap! !flow-state assoc :selected new-sel))))
+                         (reset! !drag-state {:phase :idle}))
+                     :dragging
+                     ;; Past threshold — check drop zone
+                     (let [node (:node ds)
+                           cur (:current ds)
+                           left-w (int (* (:width @!viewport) list-left-pane-pct))]
+                       (when (and node cur (= :ticket-row (:type node)))
+                         (if (>= (:x cur) left-w)
+                           ;; Dropped on right pane → select ticket (cross-panel DnD)
+                           (let [idx (:idx (:data node))
+                                 flow @!flow-state
+                                 selected (:selected flow)
+                                 already? (some #{idx} selected)]
+                             (when-not already?
+                               (swap! !flow-state assoc :selected
+                                      (conj (vec selected) idx))))
+                           ;; Dropped on left pane → reorder (future)
+                           nil))
+                       (reset! !drag-state {:phase :idle}))
+                     ;; :idle — normal mouseup (editor text selection)
+                     (reset! !dragging? false))))
                nil)
              nil))
 
@@ -4253,16 +5181,19 @@
                                            !current-file
                                            tokenize-fn layout-fn
                                            <fold-data
-                                           !flow-state !collapsed-groups !hovered-row-idx
+                                           !flow-state !collapsed-groups !hovered-row-idx !drag-state
+                                           !sidebar-state !sidebar-visible
                                            layout-x layout-y cmd-panel-h status-bar-h)
             <editor-rect-data (<editor-rects !editor-doc !eval-result !caret-visible !focus
                                              !settings !active-font !viewport
                                              <fold-data <bracket-data
-                                             !flow-state !scroll-y !collapsed-groups !hovered-row-idx
+                                             !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
+                                             !sidebar-state !sidebar-visible !current-file
                                              layout-x layout-y gutter-w)
             <cmd-rect-data (<cmd-panel-rects !cmd-panel !focus !caret-visible !scroll-y !viewport
                                              !settings !active-font
-                                             !ai-provider !agent-output cmd-panel-h status-bar-h)
+                                             !ai-provider !agent-output !sidebar-visible
+                                             cmd-panel-h status-bar-h)
             ;; Settings panel flows (reactive: derive font-size from !settings internally)
             <settings-rect-data (<settings-panel-rects !settings !focus !viewport !scroll-y !font-manifest)
             <settings-text-data (<settings-panel-text !settings !viewport !scroll-y !font-manifest)
@@ -4271,10 +5202,10 @@
             ;; m/latest combines flows, m/sample synchronizes with frame clock
             ;; All derived flows now use m/latest internally, so they're continuous
             <world-snapshot (m/latest
-                              (fn [text-data editor-rects cmd-rects settings-rects settings-text
+                              (fn [text-data editor-rect-data cmd-rects settings-rects settings-text
                                    viewport scroll-y cmd-panel settings active-font agent-output]
                                 {:text-data text-data
-                                 :editor-rects editor-rects
+                                 :editor-rect-data editor-rect-data
                                  :cmd-rects cmd-rects
                                  :settings-rects settings-rects
                                  :settings-text settings-text
@@ -4317,10 +5248,12 @@
                 prev-state
 
                 ;; SLOW PATH: something changed, figure out what
-                (let [{:keys [text-data editor-rects cmd-rects settings-rects settings-text
+                (let [{:keys [text-data editor-rect-data cmd-rects settings-rects settings-text
                               viewport scroll-y cmd-visible agent-visible settings-visible
                               font-size px-range line-height sharpness char-width
                               snap-to-pixel? show-diagnostics?]} world
+                      editor-rects   (:rects editor-rect-data)
+                      editor-shadows (:shadows editor-rect-data)
 
                       dpr (:dpr viewport)
                       snap? (not (false? snap-to-pixel?))
@@ -4414,6 +5347,13 @@
                                                             editor-rects)
                                        (:editor-rect-sys prev-state))
 
+                      ;; Upload shadows (only if changed)
+                      new-shadow-sys (if (not (identical? editor-shadows (:prev-editor-shadows prev-state)))
+                                       (editor/update-shadows device
+                                                              (or (:shadow-sys prev-state) @!shadow-sys)
+                                                              (or editor-shadows []))
+                                       (:shadow-sys prev-state))
+
                       ;; Upload cmd panel rects (only if changed)
                       new-cmd-sys (if (not (identical? cmd-rects (:prev-cmd-rects prev-state)))
                                     (editor/update-rects device
@@ -4447,13 +5387,15 @@
                                       :settings-rect-sys new-settings-sys
                                       :diagnostics-visible show-diagnostics?
                                       :diagnostics-line-index diagnostics-line-index
-                                      :agent-visible agent-visible)
+                                      :agent-visible agent-visible
+                                      :shadow-sys new-shadow-sys)
 
                   ;; Return state for next frame comparison
                   {:text-geo new-text-geo
                        :editor-rect-sys new-editor-sys
                        :cmd-rect-sys new-cmd-sys
                        :settings-rect-sys new-settings-sys
+                       :shadow-sys new-shadow-sys
                        :prev-world world
                        :prev-text-data text-data
                        :prev-settings-text settings-text
@@ -4461,6 +5403,7 @@
                        :prev-scroll-y scroll-y
                        :prev-text-ops all-text-ops
                        :prev-editor-rects editor-rects
+                       :prev-editor-shadows editor-shadows
                        :prev-cmd-rects cmd-rects
                        :prev-settings-rects settings-rects
                        :prev-font-size font-size
@@ -4476,6 +5419,7 @@
            :editor-rect-sys (:rect geometry)
            :cmd-rect-sys @!cmd-rect-sys
            :settings-rect-sys @!settings-rect-sys
+           :shadow-sys @!shadow-sys
            :prev-world nil
            :prev-text-data nil
            :prev-settings-text nil
@@ -4483,6 +5427,7 @@
            :prev-scroll-y nil
            :prev-text-ops nil
            :prev-editor-rects nil
+           :prev-editor-shadows nil
            :prev-cmd-rects nil
            :prev-settings-rects nil
            :prev-font-size nil
