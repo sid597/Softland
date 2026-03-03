@@ -8,6 +8,10 @@
     [contrib.assert :refer [check]]
     [app.file-viewer :as fv]
     [app.server.review-pack :as review-pack]
+    [components.adapter :as adapter]
+    [components.compiler :as compiler]
+    [components.token-matcher :as token-matcher]
+    [components.design-tokens :as design-tokens]
     [app.server.rama.util-fns :as util-fns]
     [app.server.rama.objects :as rama-objects]
     [app.server.env :as env]
@@ -417,6 +421,12 @@ information."
                             {:block-idx idx
                              :json-chunk (:partial_json delta)})
 
+                  (= (:type delta) "thinking_delta")
+                  (mk-event :thinking-delta {:text (:thinking delta)})
+
+                  (= (:type delta) "signature_delta")
+                  nil  ;; verification signature — not needed for display
+
                   :else nil))
 
               "content_block_start"
@@ -434,6 +444,9 @@ information."
                             {:block-idx idx
                              :tool-id (:tool_use_id block)
                              :content (:content block)})
+
+                  (= (:type block) "thinking")
+                  (mk-event :thinking-start {:block-idx idx})
 
                   :else nil))
 
@@ -753,10 +766,81 @@ information."
             (json-response {:ok false :error :not-found :message "Review pack not found"}))
           (json-response {:ok false :error :method-not-allowed :message "Method not allowed. Use GET."})))
 
+      ;; ===== Component Library Registry =====
+      (= uri "/api/components/registry")
+      (try
+        (let [base-dir (io/file "components")
+              registry-file (io/file base-dir "_registry.edn")
+              registry (when (.exists registry-file)
+                         (edn/read-string (slurp registry-file)))
+              ;; Read _source.edn for each component to get current status
+              components (mapv (fn [{:keys [slug] :as comp}]
+                                (let [source-file (io/file base-dir slug "_source.edn")
+                                      source (when (.exists source-file)
+                                               (edn/read-string (slurp source-file)))
+                                      ;; Check if .cljc file exists for shadcn
+                                      cljc-file (io/file base-dir slug "shadcn.cljc")
+                                      has-cljc? (.exists cljc-file)]
+                                  (assoc comp
+                                    :source source
+                                    :has-cljc? has-cljc?)))
+                              (:components registry))]
+          (json-response {:ok true
+                          :libraries (:libraries registry)
+                          :components components}))
+        (catch Exception e
+          (log/error e "[COMPONENTS] registry read failed")
+          (json-response {:ok false :error (.getMessage e)})))
+
+      ;; Update component status (after conversion)
+      (= uri "/api/components/status")
+      (if (= request-method :post)
+        (try
+          (let [body (parse-edn-body ring-req)
+                slug (:slug body)
+                library (or (:library body) :shadcn-v4)
+                status (or (:status body) :ready)
+                source-file (io/file "components" slug "_source.edn")]
+            (if (.exists source-file)
+              (let [source (edn/read-string (slurp source-file))
+                    updated (-> source
+                                (assoc-in [library :status] status)
+                                (assoc-in [library :converted] (str (java.time.LocalDate/now))))]
+                (spit source-file (pr-str updated))
+                (json-response {:ok true :slug slug :status status}))
+              (json-response {:ok false :error "Component not found"})))
+          (catch Exception e
+            (log/error e "[COMPONENTS] status update failed")
+            (json-response {:ok false :error (.getMessage e)})))
+        (json-response {:ok false :error "POST required"}))
+
       ;; ===== Linear API (direct, no LLM) =====
       (= uri "/api/linear/issues")
       (let [team-key (or (get query-params "team") "DIS")]
         (json-response (fetch-linear-issues team-key)))
+
+      ;; ===== Design Converter API =====
+      (= uri "/api/extract/compile")
+      (if (= request-method :post)
+        (try
+          (let [request-data (parse-edn-body ring-req)
+                extracted-tree (:tree request-data)
+                source-url (or (:source-url request-data) "")
+                dt design-tokens/dt
+                ;; Step 1: extracted JSON → Design IR
+                ir (adapter/extracted->ir extracted-tree {:source-url source-url})
+                ;; Step 2: tokenize (snap to dt)
+                tokenized-ir (token-matcher/tokenize-ir ir dt)
+                ;; Step 3: compile to rt-node
+                rt-node (compiler/compile-ir tokenized-ir dt {:use-tokens? true})]
+            (json-response {:ok true
+                            :ir tokenized-ir
+                            :rt-node rt-node
+                            :source-url source-url}))
+          (catch Exception e
+            (log/error e "[EXTRACT] compile failed")
+            (json-response {:ok false :error (.getMessage e)})))
+        (json-response {:ok false :error "POST required"}))
 
       ;; ===== Existing File/Agent API =====
       (= uri "/api/home-dirs")

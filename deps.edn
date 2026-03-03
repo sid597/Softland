@@ -45,6 +45,8 @@
                      "--interactive"
                      "--port" "9001"]}
 
+            :test {:extra-paths ["test"]}
+
             :prod {:extra-paths ["src-prod"]}
 
             ; use `clj -X:build build-client`, NOT -T! build/app classpath contamination cannot be prevented

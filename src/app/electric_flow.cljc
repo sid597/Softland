@@ -410,7 +410,7 @@
 (e/defn Prepare-Geometry [device pipelines render-ops atlas]
   (e/client
     (let [font-size 19
-          char-width 0.60
+          char-width 0.56
           dpr (or (.-devicePixelRatio js/window) 1)
           snap-step (/ 1 dpr)
           snap (fn [v] (* (Math/round (/ v snap-step)) snap-step))
@@ -471,19 +471,36 @@
 
                   (let [geometry (Prepare-Geometry device pipelines render-ops atlas)]
 
-                    ;; Full-width canvas (sidebar rendered on GPU, no DOM element needed)
-                    (dom/canvas
-                      (dom/props {:id "webgpu-canvas"
-                                  :style {:width "100vw"
-                                          :height "100vh"
-                                          :display "block"}})
-                      (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
-                        (.configure ^js ctx (clj->js {:device device :format format :alphaMode "premultiplied"}))
-                        (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
-                                                  lines tokenize-line layout-tokens
-                                                  find-matching-bracket detect-fold-regions
-                                                  find-form-at-cursor sci-eval-form atlas
-                                                  :font-manifest font-manifest
-                                                  :!sidebar-visible !sidebar-visible
-                                                  :!file-load-request !file-load-request
-                                                  :initial-file file-info))))))))))))))
+                    ;; Extract preview overlay (hidden by default, shown when extract mode active)
+                    (let [preview-el-atom (atom nil)]
+                      (dom/div
+                        (dom/props {:id "extract-preview-overlay"
+                                    :style {:position "fixed"
+                                            :top "0" :left "0"
+                                            :width "50vw" :height "100vh"
+                                            :display "none"
+                                            :overflow "auto"
+                                            :background "#111"
+                                            :border-right "1px solid #333"
+                                            :z-index "10"
+                                            :padding "16px"
+                                            :box-sizing "border-box"}})
+                        (reset! preview-el-atom dom/node))
+
+                      ;; Full-width canvas (sidebar rendered on GPU, no DOM element needed)
+                      (dom/canvas
+                        (dom/props {:id "webgpu-canvas"
+                                    :style {:width "100vw"
+                                            :height "100vh"
+                                            :display "block"}})
+                        (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
+                          (.configure ^js ctx (clj->js {:device device :format format :alphaMode "premultiplied"}))
+                          (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
+                                                    lines tokenize-line layout-tokens
+                                                    find-matching-bracket detect-fold-regions
+                                                    find-form-at-cursor sci-eval-form atlas
+                                                    :font-manifest font-manifest
+                                                    :!sidebar-visible !sidebar-visible
+                                                    :!file-load-request !file-load-request
+                                                    :!preview-el preview-el-atom
+                                                    :initial-file file-info)))))))))))))))
