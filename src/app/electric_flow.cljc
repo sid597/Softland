@@ -463,7 +463,7 @@
                       dpr (or (.-devicePixelRatio js/window) 1)
                       snap-step (/ 1 dpr)
                       snap (fn [v] (* (Math/round (/ v snap-step)) snap-step))
-                      char-advance (snap (* font-size 0.60))
+                      char-advance (snap (* font-size 0.56))
                       line-h (snap (* font-size 1.2))
                       layout-result (layout-tokens tokenized-lines layout-x 100 font-size [] #{} char-advance line-h)
                       render-ops (:render-ops layout-result)

@@ -255,6 +255,15 @@
                              (and (= @!focus :command-panel)
                                   (not (:global? event))))))))
 
+(defn <chat-input-keys
+  "Flow of keyboard events routed to chat input (when focused).
+   Uses deref instead of m/watch to avoid cancellation on focus change."
+  [>keyboard !focus]
+  (->> >keyboard
+       (m/eduction (filter (fn [event]
+                             (and (= @!focus :chat)
+                                  (not (:global? event))))))))
+
 (defn <settings-panel-keys
   "Flow of keyboard events routed to settings panel (when focused).
    Uses deref instead of m/watch to avoid cancellation on focus change."
@@ -854,8 +863,10 @@
                            (> (+ abs-y h) cy)))
                     true)]
      (when visible?
-       (let [;; Clip-right: truncate text so glyphs don't exceed clip bounds
+       (let [;; Clip bounds: right + vertical (top/bottom) for text op filtering
              clip-right (when clip-bounds (+ (:x clip-bounds) (:w clip-bounds)))
+             clip-top (when clip-bounds (:y clip-bounds))
+             clip-bottom (when clip-bounds (+ (:y clip-bounds) (:h clip-bounds)))
              truncate-op (fn [op]
                            (if (and clip-right (:text op))
                              (let [ox (:x op 0)
@@ -868,7 +879,11 @@
                                  (assoc op :text (subs txt 0 max-chars) :to max-chars)
                                  op))
                              op))
-             ;; Offset this node's text ops to absolute space + clip-right truncation
+             in-clip? (fn [shifted]
+                        (and (or (nil? clip-right) (< (:x shifted) clip-right))
+                             (or (nil? clip-top) (>= (:y shifted) clip-top))
+                             (or (nil? clip-bottom) (< (:y shifted) clip-bottom))))
+             ;; Offset this node's text ops to absolute space + clip truncation
              own-ops (when (seq text)
                        (mapv (fn [op]
                                (if (vector? op)
@@ -877,14 +892,14 @@
                                                   (let [shifted (-> sub
                                                                     (update :x + abs-x)
                                                                     (update :y + abs-y))]
-                                                    (when (or (nil? clip-right) (< (:x shifted) clip-right))
+                                                    (when (in-clip? shifted)
                                                       (truncate-op shifted)))))
                                        op)
                                  ;; Single text-op map
                                  (let [shifted (-> op
                                                    (update :x + abs-x)
                                                    (update :y + abs-y))]
-                                   (when (or (nil? clip-right) (< (:x shifted) clip-right))
+                                   (when (in-clip? shifted)
                                      [(truncate-op shifted)]))))
                              text))
              child-clip (if clip?
@@ -1800,15 +1815,17 @@
    shimmer-alpha: 0.0-1.0 pulse for pending tool cards.
    collapsed: #{keyword} set of collapsed block ids."
   [w h current-file agent-output font-size shimmer-alpha collapsed
-   & {:keys [active-pane] :or {active-pane :editor}}]
+   & {:keys [active-pane char-advance chat-scroll-y chat-input focus]
+      :or {active-pane :editor char-advance nil chat-scroll-y 0
+           chat-input {:text "" :cursor 0} focus :editor}}]
   (let [colors (:colors dt)
         surfaces (:surfaces dt)
         fg (:fg colors)
         fg-dim (:fg-muted colors)
         border (:border colors)
-        ;; 3-column widths: 40% / 30% / 30%
+        ;; 3-column widths: 40% / 55% / 5%
         code-w (int (* w 0.4))
-        chat-w (int (* w 0.3))
+        chat-w (int (* w 0.55))
         render-w (- w code-w chat-w)
         ;; Header height — 36px (4px grid rhythm)
         header-h 36
@@ -1819,15 +1836,17 @@
         line-h (+ fs 4)
         text-y (+ fs 6)
         pad (:lg (:spacing dt))
-        char-advance (* fs 0.56)
+        char-advance (or char-advance (* fs 0.56))
         ;; Surface colors for depth hierarchy — focused pane gets elevated, others sunken
         elevated-bg (or (:elevated surfaces) (:bg-elevated colors))
         sunken-bg (or (:sunken surfaces) (:bg colors))
         hdr-bg elevated-bg
-        ;; Per-pane background based on focus
-        code-bg (if (= active-pane :editor) elevated-bg sunken-bg)
-        chat-bg (if (= active-pane :chat) elevated-bg sunken-bg)
-        preview-bg (if (= active-pane :preview) elevated-bg sunken-bg)
+        ;; Chat pane uses a warm dark bg (matching terminal #090200 feel)
+        chat-warm-bg [0.06 0.04 0.03 1.0]
+        ;; Per-pane background — focus tracked but same bg (no highlight shift)
+        code-bg (if (= active-pane :editor) sunken-bg sunken-bg)
+        chat-bg (if (= active-pane :chat) chat-warm-bg chat-warm-bg)
+        preview-bg (if (= active-pane :preview) sunken-bg sunken-bg)
         ;; Header text — brighter for focused pane
         text-primary (or (:text-primary surfaces) fg)
         text-secondary (or (:text-secondary surfaces) fg-dim)
@@ -1870,7 +1889,8 @@
                       complete? "Complete"
                       :else "Idle")
         chat-header-str (str "Chat - " chat-status)
-        chat-body-h (- h header-h)
+        chat-input-h 36   ;; height of the chat input bar
+        chat-body-h (- h header-h chat-input-h)
         trail (:trail agent-output)
         ;; Build chat body children: either typed blocks from trail, or placeholder
         chat-children
@@ -1918,9 +1938,10 @@
                 :headline "No session"
                 :description "Type a prompt below to start a conversation."})]))
 
-        ;; Auto-scroll: compute total content height from children, show bottom
+        ;; Chat scroll: use interactive scroll-y, clamped to content bounds
         chat-content-h (reduce + 0 (map #(get-in % [:bounds :h] 0) chat-children))
-        chat-scroll-offset (max 0 (- chat-content-h chat-body-h))
+        max-chat-scroll (max 0 (- chat-content-h chat-body-h))
+        chat-scroll-offset (min chat-scroll-y max-chat-scroll)
 
         ;; Chat header status color
         chat-hdr-accent (cond
@@ -1950,12 +1971,63 @@
                    (rt-node :file-chat-body :panel-content
                      {:x 0 :y header-h :w chat-w :h chat-body-h}
                      :clip? true
-                     :layout {:direction :column :gap 4 :padding [4 0 4 0]}
                      :children
                      [(rt-node :file-chat-scroll :scroll-container
-                        {:x 0 :y (- chat-scroll-offset) :w chat-w :h (+ chat-content-h 8)}
+                        {:x 0 :y (- 4 chat-scroll-offset) :w chat-w :h (+ chat-content-h 8)}
                         :layout {:direction :column :gap 4 :padding [0 0 0 0]}
-                        :children chat-children)])]
+                        :children chat-children)])
+                   ;; === CHAT INPUT BAR (bottom of chat pane) ===
+                   (let [input-y (- h chat-input-h)
+                         ci-text (:text chat-input)
+                         ci-cursor (:cursor chat-input)
+                         chat-focused? (= focus :chat)
+                         prompt-str "> "
+                         prompt-len (count prompt-str)
+                         display-text (str prompt-str ci-text)
+                         placeholder? (and (empty? ci-text) (not chat-focused?))
+                         input-fg (if chat-focused?
+                                    {:r 0.85 :g 0.84 :b 0.83 :a 1.0}
+                                    {:r 0.50 :g 0.49 :b 0.48 :a 0.7})
+                         prompt-fg {:r 0.45 :g 0.70 :b 0.45 :a 0.9}
+                         placeholder-fg {:r 0.45 :g 0.43 :b 0.41 :a 0.5}
+                         ;; Input text ops
+                         input-text-ops
+                         (if placeholder?
+                           [{:text "Type a message..." :type :comment
+                             :from 0 :to 18
+                             :x (+ pad (* prompt-len char-advance)) :y (+ fs 10) :size fs
+                             :r (:r placeholder-fg) :g (:g placeholder-fg)
+                             :b (:b placeholder-fg) :a (:a placeholder-fg)}
+                            {:text prompt-str :type :keyword
+                             :from 0 :to prompt-len
+                             :x pad :y (+ fs 10) :size fs
+                             :r (:r prompt-fg) :g (:g prompt-fg)
+                             :b (:b prompt-fg) :a (:a prompt-fg)}]
+                           [{:text prompt-str :type :keyword
+                             :from 0 :to prompt-len
+                             :x pad :y (+ fs 10) :size fs
+                             :r (:r prompt-fg) :g (:g prompt-fg)
+                             :b (:b prompt-fg) :a (:a prompt-fg)}
+                            {:text ci-text :type :keyword
+                             :from 0 :to (count ci-text)
+                             :x (+ pad (* prompt-len char-advance)) :y (+ fs 10) :size fs
+                             :r (:r input-fg) :g (:g input-fg)
+                             :b (:b input-fg) :a (:a input-fg)}])
+                         ;; Caret rect (only when focused)
+                         caret-x (+ pad (* (+ prompt-len ci-cursor) char-advance))
+                         input-children
+                         (if chat-focused?
+                           [(rt-node :chat-input-caret :rect
+                              {:x caret-x :y 8 :w 2 :h (+ fs 4)}
+                              :style {:bg [0.85 0.84 0.83 1.0]})]
+                           [])]
+                     (rt-node :file-chat-input :panel
+                       {:x 0 :y input-y :w chat-w :h chat-input-h}
+                       :style {:bg [0.08 0.06 0.05 1.0]
+                               :border-widths [1 0 0 0]
+                               :border-color (:border-subtle colors)}
+                       :text input-text-ops
+                       :children input-children))]
             ;; Status accent: bottom underline for focus, left bar for streaming status
             chat-hdr-accent
             (conj (rt-node :file-chat-status :accent-bar
@@ -2767,13 +2839,13 @@
    <fold-data <bracket-data
    !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
    !sidebar-state !sidebar-visible !current-file !extract-preview !agent-output
-   !shimmer-phase !trail-collapsed !active-pane !scroll-x
+   !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input
    layout-x layout-y gutter-w]
   (m/latest
     (fn [doc fold-state bracket-match eval-result caret-visible focus settings active-font viewport
          flow-state scroll-y collapsed-groups hovered-row-idx drag-state
          sidebar-state sidebar-visible? current-file extract-preview agent-output
-         shimmer-phase trail-collapsed active-pane scroll-x]
+         shimmer-phase trail-collapsed active-pane scroll-x chat-scroll-y chat-input]
       (let [sb-vis? (boolean sidebar-visible?)
             sb-w (if sb-vis? sidebar-w 0)
             dpr (:dpr viewport)
@@ -2829,10 +2901,12 @@
                         right-tree (resolve-layout
                                      (build-file-layout content-w content-h current-file agent-output font-size
                                                         shimmer-alpha trail-collapsed
-                                                        :active-pane active-pane))
-                        right-rects (tree->rects right-tree)
-                        right-shadows (tree->shadows right-tree)]
-                    {:rects (into (vec editor-rects) right-rects)
+                                                        :active-pane active-pane :char-advance char-advance
+                                                        :chat-scroll-y (or chat-scroll-y 0)
+                                                        :chat-input chat-input :focus focus))
+                        right-rects (mapv #(update % :y + scroll-y) (tree->rects right-tree))
+                        right-shadows (mapv #(update % :y + scroll-y) (tree->shadows right-tree))]
+                    {:rects (into (vec right-rects) editor-rects)
                      :shadows (vec right-shadows)})
                   (let [line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
                         lx (maybe-snap (- layout-x (or scroll-x 0)) dpr snap?)
@@ -2868,13 +2942,281 @@
     (m/watch !shimmer-phase)
     (m/watch !trail-collapsed)
     (m/watch !active-pane)
-    (m/watch !scroll-x)))
+    (m/watch !scroll-x)
+    (m/watch !chat-scroll-y)
+    (m/watch !chat-input)))
+
+;; --- Markdown rendering helpers for chat pane trail --------------------------
+
+(def md-style-colors
+  "Colors for inline markdown styles in reasoning blocks.
+   Tuned for warm terminal-like feel on dark bg."
+  {:normal {:r 0.72 :g 0.71 :b 0.71 :a 1.0}    ;; warm neutral, softer than terminal #a4a1a1
+   :bold   {:r 0.88 :g 0.87 :b 0.87 :a 1.0}    ;; brighter for emphasis but not harsh white
+   :code   {:r 0.00 :g 0.63 :b 0.89 :a 1.0}    ;; terminal blue (color4 #00a0e4)
+   :link   {:r 0.00 :g 0.63 :b 0.89 :a 0.85}}) ;; same blue, slightly dimmer
+
+(defn parse-md-inline-spans
+  "Parse inline markdown: **bold**, *emphasis*, `code`, [link](url).
+   Returns [{:text str :style :normal/:bold/:code/:link} ...]"
+  [line]
+  (let [len (count line)]
+    (loop [i 0 spans [] cur ""]
+      (if (>= i len)
+        (let [final (if (seq cur) (conj spans {:text cur :style :normal}) spans)]
+          (if (empty? final) [{:text "" :style :normal}] final))
+        (let [ch (.charAt line i)]
+          (cond
+            ;; **bold**
+            (and (= ch \*) (< (inc i) len) (= (.charAt line (inc i)) \*))
+            (let [end (str/index-of line "**" (+ i 2))]
+              (if (and end (> end (+ i 2)))
+                (recur (+ end 2)
+                       (-> (if (seq cur) (conj spans {:text cur :style :normal}) spans)
+                           (conj {:text (subs line (+ i 2) end) :style :bold}))
+                       "")
+                (recur (+ i 2) spans (str cur "**"))))
+            ;; *emphasis* (single asterisk, not followed by another *)
+            (and (= ch \*)
+                 (or (>= (inc i) len) (not= (.charAt line (inc i)) \*)))
+            (let [end (str/index-of line "*" (inc i))]
+              (if (and end (> end (inc i))
+                       ;; Ensure closing * is not part of **
+                       (or (>= (inc end) len) (not= (.charAt line (inc end)) \*)))
+                (recur (inc end)
+                       (-> (if (seq cur) (conj spans {:text cur :style :normal}) spans)
+                           (conj {:text (subs line (inc i) end) :style :bold}))
+                       "")
+                (recur (inc i) spans (str cur "*"))))
+            ;; `code`
+            (= ch \`)
+            (let [end (str/index-of line "`" (inc i))]
+              (if (and end (> end (inc i)))
+                (recur (inc end)
+                       (-> (if (seq cur) (conj spans {:text cur :style :normal}) spans)
+                           (conj {:text (subs line (inc i) end) :style :code}))
+                       "")
+                (recur (inc i) spans (str cur "`"))))
+            ;; [link](url)
+            (= ch \[)
+            (let [close-bracket (str/index-of line "](" i)]
+              (if close-bracket
+                (let [close-paren (str/index-of line ")" (+ close-bracket 2))]
+                  (if close-paren
+                    (recur (inc close-paren)
+                           (-> (if (seq cur) (conj spans {:text cur :style :normal}) spans)
+                               (conj {:text (subs line (inc i) close-bracket) :style :link}))
+                           "")
+                    (recur (inc i) spans (str cur "["))))
+                (recur (inc i) spans (str cur "["))))
+            ;; Normal character
+            :else
+            (recur (inc i) spans (str cur ch))))))))
+
+(defn wrap-md-spans
+  "Word-wrap styled spans to fit max-chars per line.
+   Returns [[{:text str :style kw} ...] ...] — one vector of spans per visual line."
+  [spans max-chars]
+  (let [total-len (reduce + 0 (map (comp count :text) spans))]
+    (if (<= total-len max-chars)
+      [spans]
+      ;; Build flat [char style] vector, then greedy-wrap
+      (let [flat (vec (mapcat (fn [{:keys [text style]}]
+                                (map #(vector % style) text))
+                              spans))
+            n (count flat)
+            reconstitute (fn [chars]
+                           (if (empty? chars)
+                             [{:text "" :style :normal}]
+                             (->> chars
+                                  (partition-by second)
+                                  (mapv (fn [g] {:text (apply str (map first g))
+                                                :style (second (first g))})))))]
+        (loop [pos 0 lines []]
+          (if (>= pos n)
+            lines
+            (let [remaining (- n pos)
+                  line-end (+ pos (min remaining max-chars))]
+              (if (<= remaining max-chars)
+                ;; Last line
+                (conj lines (reconstitute (subvec flat pos n)))
+                ;; Find last space in [pos, line-end) to break at word boundary
+                (let [break-at (loop [j (dec line-end)]
+                                 (cond
+                                   (<= j pos) -1
+                                   (= (first (nth flat j)) \space) j
+                                   :else (recur (dec j))))]
+                  (if (>= break-at 0)
+                    (recur (inc break-at)
+                           (conj lines (reconstitute (subvec flat pos break-at))))
+                    ;; No space found — hard break at max-chars
+                    (recur line-end
+                           (conj lines (reconstitute (subvec flat pos line-end))))))))))))))
+
+(defn spans->text-ops
+  "Convert a single visual line of styled spans into positioned text-ops.
+   style-colors maps :normal/:bold/:code/:link to {:r :g :b :a}."
+  [spans x y font-size char-advance style-colors]
+  (loop [ss spans cx x ops []]
+    (if (empty? ss)
+      ops
+      (let [{:keys [text style]} (first ss)
+            c (get style-colors style (get style-colors :normal))
+            op {:text text :type :comment
+                :from 0 :to (count text)
+                :x cx :y y
+                :size font-size
+                :r (:r c) :g (:g c) :b (:b c) :a (:a c)}]
+        (recur (rest ss) (+ cx (* (count text) char-advance)) (conj ops op))))))
+
+(defn- decorative-line?
+  "True when line is a backtick-wrapped decorative border (contains ─ or ★)."
+  [trimmed]
+  (and (str/starts-with? trimmed "`")
+       (str/ends-with? trimmed "`")
+       (> (count trimmed) 2)
+       (re-find #"[\u2500\u2605]" trimmed)))
+
+(defn- decorative-inner
+  "Extract meaningful ASCII text from a decorative border line."
+  [trimmed]
+  (-> (subs trimmed 1 (dec (count trimmed)))
+      (str/replace #"[\u2500\u2605\u2014\u2022]" "")
+      str/trim))
+
+(defn parse-md-blocks
+  "Parse markdown text into block-level elements.
+   States: :normal, :in-code, :in-callout.
+   Returns [{:type :header/:paragraph/:code-block/:list/:callout ...}]"
+  [text]
+  (let [src-lines (str/split-lines text)]
+    (loop [ls src-lines state :normal blocks [] cur-para [] code-lang nil callout-label nil]
+      (if (empty? ls)
+        ;; Flush remaining
+        (cond
+          (= state :in-code)
+          (conj blocks {:type :code-block :lang code-lang :lines cur-para})
+          (= state :in-callout)
+          (let [body-text (str/join "\n" cur-para)
+                body-blocks (when (seq body-text) (parse-md-blocks body-text))]
+            (conj blocks {:type :callout :label callout-label :body (or body-blocks [])}))
+          (seq cur-para)
+          (conj blocks {:type :paragraph :content (str/join " " cur-para)})
+          :else blocks)
+        (let [line (first ls)
+              trimmed (str/trim line)]
+          (case state
+            :in-code
+            (if (str/starts-with? trimmed "```")
+              (recur (rest ls) :normal
+                     (conj blocks {:type :code-block :lang code-lang :lines cur-para})
+                     [] nil nil)
+              (recur (rest ls) :in-code blocks (conj cur-para line) code-lang nil))
+
+            :in-callout
+            (if (and (decorative-line? trimmed) (empty? (decorative-inner trimmed)))
+              ;; Closing border — emit callout block with recursively-parsed body
+              (let [body-text (str/join "\n" cur-para)
+                    body-blocks (when (seq body-text) (parse-md-blocks body-text))]
+                (recur (rest ls) :normal
+                       (conj blocks {:type :callout :label callout-label :body (or body-blocks [])})
+                       [] nil nil))
+              ;; Content inside callout — collect lines
+              (recur (rest ls) :in-callout blocks (conj cur-para line) nil callout-label))
+
+            ;; :normal state
+            (cond
+              ;; Code fence opening
+              (str/starts-with? trimmed "```")
+              (let [blocks (if (seq cur-para)
+                             (conj blocks {:type :paragraph :content (str/join " " cur-para)})
+                             blocks)
+                    lang (let [r (str/trim (subs trimmed 3))] (when (seq r) r))]
+                (recur (rest ls) :in-code blocks [] lang nil))
+              ;; Decorative border line: backtick-wrapped ★/─ chars (Insight blocks)
+              (decorative-line? trimmed)
+              (let [blocks (if (seq cur-para)
+                             (conj blocks {:type :paragraph :content (str/join " " cur-para)})
+                             blocks)
+                    inner (decorative-inner trimmed)]
+                (if (seq inner)
+                  ;; Has meaningful text (e.g., "Insight") — enter callout mode
+                  (recur (rest ls) :in-callout blocks [] nil inner)
+                  ;; Just decorative — horizontal rule
+                  (recur (rest ls) :normal (conj blocks {:type :hr}) [] nil nil)))
+              ;; Table lines (pipe-delimited)
+              (str/starts-with? trimmed "|")
+              (let [blocks (if (seq cur-para)
+                             (conj blocks {:type :paragraph :content (str/join " " cur-para)})
+                             blocks)
+                    [remaining table-lines]
+                    (loop [rem ls tl []]
+                      (let [l (first rem)
+                            t (when l (str/trim l))]
+                        (if (and t (str/starts-with? t "|"))
+                          (recur (rest rem) (conj tl t))
+                          [rem tl])))]
+                (recur remaining :normal
+                       (conj blocks {:type :table :lines table-lines}) [] nil nil))
+              ;; Header
+              (re-find #"^#{1,6}\s+" trimmed)
+              (let [blocks (if (seq cur-para)
+                             (conj blocks {:type :paragraph :content (str/join " " cur-para)})
+                             blocks)
+                    level (count (re-find #"^#+" trimmed))
+                    content (str/trim (subs trimmed (inc level)))]
+                (recur (rest ls) :normal
+                       (conj blocks {:type :header :level level :content content})
+                       [] nil nil))
+              ;; Horizontal rule: --- or *** or ___ or repeated ─
+              (or (re-find #"^[-*_]{3,}\s*$" trimmed)
+                  (re-find #"^\u2500{3,}" trimmed))
+              (let [blocks (if (seq cur-para)
+                             (conj blocks {:type :paragraph :content (str/join " " cur-para)})
+                             blocks)]
+                (recur (rest ls) :normal (conj blocks {:type :hr}) [] nil nil))
+              ;; Bullet list item
+              (re-find #"^[-*]\s+" trimmed)
+              (let [blocks (if (seq cur-para)
+                             (conj blocks {:type :paragraph :content (str/join " " cur-para)})
+                             blocks)
+                    [remaining items]
+                    (loop [rem ls items []]
+                      (let [l (first rem)
+                            t (when l (str/trim l))]
+                        (if (and t (re-find #"^[-*]\s+" t))
+                          (recur (rest rem) (conj items {:content (str/trim (subs t 2))}))
+                          [rem items])))]
+                (recur remaining :normal (conj blocks {:type :list :items items}) [] nil nil))
+              ;; Numbered list item (1. 2. 3. etc.)
+              (re-find #"^\d+\.\s+" trimmed)
+              (let [blocks (if (seq cur-para)
+                             (conj blocks {:type :paragraph :content (str/join " " cur-para)})
+                             blocks)
+                    [remaining items]
+                    (loop [rem ls items []]
+                      (let [l (first rem)
+                            t (when l (str/trim l))]
+                        (if (and t (re-find #"^\d+\.\s+" t))
+                          (let [after-num (str/replace-first t #"^\d+\.\s+" "")]
+                            (recur (rest rem) (conj items {:content after-num})))
+                          [rem items])))]
+                (recur remaining :normal (conj blocks {:type :numbered-list :items items}) [] nil nil))
+              ;; Blank line — paragraph break
+              (empty? trimmed)
+              (let [blocks (if (seq cur-para)
+                             (conj blocks {:type :paragraph :content (str/join " " cur-para)})
+                             blocks)]
+                (recur (rest ls) :normal blocks [] nil nil))
+              ;; Regular text — accumulate into paragraph
+              :else
+              (recur (rest ls) :normal blocks (conj cur-para trimmed) nil nil))))))))
 
 (defn trail-node-color
   "Color for a trail node by kind. Returns {:r :g :b :a}."
   [kind tool-name]
   (case kind
-    :reasoning    {:r 0.85 :g 0.85 :b 0.85 :a 1.0}
+    :reasoning    {:r 0.72 :g 0.71 :b 0.71 :a 1.0}
     :thinking     {:r 0.65 :g 0.65 :b 0.75 :a 0.6}  ;; dimmed — internal reasoning
     :tool-call    (case tool-name
                     ("Read" "read")        {:r 0.4 :g 0.85 :b 0.95 :a 1.0}  ;; cyan
@@ -3019,23 +3361,374 @@
       (map-indexed
         (fn [bi block]
           (case (:block-type block)
-            ;; --- Reasoning: plain wrapped text ---
+            ;; --- Reasoning: markdown-formatted text ---
             :reasoning
             (let [merged-text (apply str (map :text (:nodes block)))
-                  lines (mapcat #(wrap-line % max-chars) (str/split-lines merged-text))
-                  c (trail-node-color :reasoning nil)
-                  text-ops (vec (map-indexed
-                                  (fn [i line]
-                                    {:text line :type :comment
-                                     :from 0 :to (count line)
-                                     :x pad :y (+ font-size (* i line-h))
-                                     :size font-size
-                                     :r (:r c) :g (:g c) :b (:b c) :a (:a c)})
-                                  lines))
-                  h (+ 4 (* (count lines) line-h))]
+                  md-blocks (parse-md-blocks merged-text)
+                  inner-w (- pane-w (* 2 pad))
+                  inner-max-chars (max 20 (int (/ inner-w char-advance)))
+                  code-bg (get-in dt [:colors :bg-muted])
+                  code-pad 8
+                  code-max-chars (max 20 (int (/ (- inner-w (* 2 code-pad)) char-advance)))
+                  block-gap 8
+                  ;; Build child nodes for each markdown block
+                  children
+                  (vec
+                    (map-indexed
+                      (fn [mi mb]
+                        (case (:type mb)
+                          :header
+                          (let [level (or (:level mb) 2)
+                                hdr-size (if (<= level 2) (:size typo-title) (:size typo-subtitle))
+                                hdr-color {:r 0.90 :g 0.89 :b 0.89 :a 1.0}
+                                hdr-max (max 20 (int (/ inner-w (* hdr-size 0.56))))
+                                text (:content mb)
+                                wrapped (wrap-line text hdr-max)
+                                hdr-line-h (+ hdr-size 5)
+                                text-h (* (count wrapped) hdr-line-h)
+                                ;; Top margin + text + bottom accent + gap
+                                top-margin (if (<= level 2) 10 6)
+                                bottom-pad 6
+                                h (+ top-margin text-h bottom-pad)
+                                text-ops (vec (map-indexed
+                                               (fn [i ln]
+                                                 {:text ln :type :keyword
+                                                  :from 0 :to (count ln)
+                                                  :x pad :y (+ top-margin hdr-size (* i hdr-line-h))
+                                                  :size hdr-size
+                                                  :r (:r hdr-color) :g (:g hdr-color)
+                                                  :b (:b hdr-color) :a (:a hdr-color)})
+                                               wrapped))
+                                ;; Subtle bottom border for h1/h2
+                                accent-line (when (<= level 2)
+                                              (rt-node (keyword (str "md-hdr-line-" bi "-" mi)) :hdr-accent
+                                                {:x pad :y (- h 2) :w (min (* (count (first wrapped)) (* hdr-size 0.56)) inner-w) :h 1}
+                                                :style {:bg (:border-subtle colors)}))]
+                            (rt-node (keyword (str "md-hdr-" bi "-" mi)) :md-header
+                              {:x 0 :y 0 :w pane-w :h h}
+                              :text text-ops
+                              :children (if accent-line [accent-line] [])))
+
+                          :paragraph
+                          (let [spans (parse-md-inline-spans (:content mb))
+                                wrapped-lines (wrap-md-spans spans inner-max-chars)
+                                all-ops (vec (apply concat
+                                              (map-indexed
+                                                (fn [li line-spans]
+                                                  (spans->text-ops line-spans pad
+                                                                   (+ font-size (* li line-h))
+                                                                   font-size char-advance md-style-colors))
+                                                wrapped-lines)))
+                                h (+ 4 (* (count wrapped-lines) line-h))]
+                            (rt-node (keyword (str "md-para-" bi "-" mi)) :md-paragraph
+                              {:x 0 :y 0 :w pane-w :h h}
+                              :text all-ops))
+
+                          :code-block
+                          (let [code-color {:r 0.00 :g 0.63 :b 0.32 :a 1.0}
+                                code-lines (:lines mb)
+                                wrapped-lines (vec (mapcat #(wrap-line % code-max-chars) code-lines))
+                                text-ops (vec (map-indexed
+                                               (fn [i ln]
+                                                 {:text ln :type :comment
+                                                  :from 0 :to (count ln)
+                                                  :x (+ pad code-pad) :y (+ code-pad font-size (* i line-h))
+                                                  :size font-size
+                                                  :r (:r code-color) :g (:g code-color)
+                                                  :b (:b code-color) :a (:a code-color)})
+                                               wrapped-lines))
+                                body-h (+ (* 2 code-pad) (* (count wrapped-lines) line-h))
+                                total-h (+ body-h 4)]
+                            (rt-node (keyword (str "md-code-" bi "-" mi)) :md-code-block
+                              {:x 0 :y 0 :w pane-w :h total-h}
+                              :children
+                              [(rt-node (keyword (str "md-code-bg-" bi "-" mi)) :code-bg
+                                 {:x pad :y 0 :w inner-w :h body-h}
+                                 :style {:bg code-bg :radius 4})
+                               (rt-node (keyword (str "md-code-text-" bi "-" mi)) :code-text
+                                 {:x 0 :y 0 :w pane-w :h body-h}
+                                 :text text-ops)]))
+
+                          :list
+                          (let [items (:items mb)
+                                bullet-indent 2
+                                item-max-chars (max 10 (- inner-max-chars bullet-indent))
+                                item-data (mapv (fn [item]
+                                                  (let [spans (parse-md-inline-spans (:content item))
+                                                        wrapped (wrap-md-spans spans item-max-chars)]
+                                                    {:wrapped wrapped}))
+                                                items)
+                                all-ops (loop [items-rem item-data li 0 ops []]
+                                          (if (empty? items-rem)
+                                            ops
+                                            (let [{:keys [wrapped]} (first items-rem)
+                                                  item-ops
+                                                  (vec (apply concat
+                                                    (map-indexed
+                                                      (fn [wi line-spans]
+                                                        (let [bullet-ops (when (= wi 0)
+                                                                          [{:text "- " :type :comment
+                                                                            :from 0 :to 2
+                                                                            :x pad :y (+ font-size (* (+ li wi) line-h))
+                                                                            :size font-size
+                                                                            :r 0.55 :g 0.55 :b 0.6 :a 0.8}])
+                                                              span-ops (spans->text-ops
+                                                                         line-spans
+                                                                         (+ pad (* bullet-indent char-advance))
+                                                                         (+ font-size (* (+ li wi) line-h))
+                                                                         font-size char-advance md-style-colors)]
+                                                          (into (vec (or bullet-ops [])) span-ops)))
+                                                      wrapped)))]
+                                              (recur (rest items-rem) (+ li (count wrapped)) (into ops item-ops)))))
+                                total-lines (reduce + 0 (map (comp count :wrapped) item-data))
+                                h (+ 4 (* total-lines line-h))]
+                            (rt-node (keyword (str "md-list-" bi "-" mi)) :md-list
+                              {:x 0 :y 0 :w pane-w :h h}
+                              :text all-ops))
+
+                          :hr
+                          (let [rule-h 8
+                                border-c (:border-subtle colors)]
+                            (rt-node (keyword (str "md-hr-" bi "-" mi)) :md-hr
+                              {:x 0 :y 0 :w pane-w :h rule-h}
+                              :children
+                              [(rt-node (keyword (str "md-hr-line-" bi "-" mi)) :hr-line
+                                 {:x pad :y 3 :w inner-w :h 1}
+                                 :style {:bg border-c})]))
+
+                          :numbered-list
+                          (let [items (:items mb)
+                                item-data (mapv (fn [idx item]
+                                                  (let [prefix (str (inc idx) ". ")
+                                                        prefix-w (count prefix)
+                                                        item-max (max 10 (- inner-max-chars prefix-w))
+                                                        spans (parse-md-inline-spans (:content item))
+                                                        wrapped (wrap-md-spans spans item-max)]
+                                                    {:wrapped wrapped :prefix prefix :prefix-w prefix-w}))
+                                                (range) items)
+                                all-ops (loop [items-rem item-data li 0 ops []]
+                                          (if (empty? items-rem)
+                                            ops
+                                            (let [{:keys [wrapped prefix prefix-w]} (first items-rem)
+                                                  item-ops
+                                                  (vec (apply concat
+                                                    (map-indexed
+                                                      (fn [wi line-spans]
+                                                        (let [num-ops (when (= wi 0)
+                                                                        [{:text prefix :type :comment
+                                                                          :from 0 :to (count prefix)
+                                                                          :x pad :y (+ font-size (* (+ li wi) line-h))
+                                                                          :size font-size
+                                                                          :r 0.55 :g 0.55 :b 0.6 :a 0.8}])
+                                                              span-ops (spans->text-ops
+                                                                         line-spans
+                                                                         (+ pad (* prefix-w char-advance))
+                                                                         (+ font-size (* (+ li wi) line-h))
+                                                                         font-size char-advance md-style-colors)]
+                                                          (into (vec (or num-ops [])) span-ops)))
+                                                      wrapped)))]
+                                              (recur (rest items-rem) (+ li (count wrapped)) (into ops item-ops)))))
+                                total-lines (reduce + 0 (map (comp count :wrapped) item-data))
+                                h (+ 4 (* total-lines line-h))]
+                            (rt-node (keyword (str "md-nlist-" bi "-" mi)) :md-numbered-list
+                              {:x 0 :y 0 :w pane-w :h h}
+                              :text all-ops))
+
+                          :callout
+                          (let [label (:label mb)
+                                body-blocks (:body mb)
+                                accent-c (:accent colors)
+                                label-c {:r 0.70 :g 0.80 :b 1.0 :a 1.0}
+                                callout-pad (+ pad 10)
+                                callout-w (- pane-w callout-pad pad)
+                                callout-max (max 20 (int (/ callout-w char-advance)))
+                                ;; Header node
+                                hdr-h (+ font-size 6)
+                                hdr-node (rt-node (keyword (str "md-co-hdr-" bi "-" mi)) :callout-hdr
+                                           {:x 0 :y 0 :w pane-w :h hdr-h}
+                                           :text [{:text label :type :keyword
+                                                   :from 0 :to (count label)
+                                                   :x callout-pad :y (+ font-size 2)
+                                                   :size font-size
+                                                   :r (:r label-c) :g (:g label-c)
+                                                   :b (:b label-c) :a (:a label-c)}])
+                                ;; Body content nodes — reuse the same rendering logic
+                                body-children
+                                (vec (map-indexed
+                                  (fn [ci cb]
+                                    (case (:type cb)
+                                      :paragraph
+                                      (let [spans (parse-md-inline-spans (:content cb))
+                                            wrapped-lines (wrap-md-spans spans callout-max)
+                                            ops (vec (apply concat
+                                                      (map-indexed
+                                                        (fn [li ls]
+                                                          (spans->text-ops ls callout-pad
+                                                                           (+ font-size (* li line-h))
+                                                                           font-size char-advance md-style-colors))
+                                                        wrapped-lines)))
+                                            h (+ 4 (* (count wrapped-lines) line-h))]
+                                        (rt-node (keyword (str "md-co-p-" bi "-" mi "-" ci)) :callout-para
+                                          {:x 0 :y 0 :w pane-w :h h}
+                                          :text ops))
+                                      :list
+                                      (let [items (:items cb)
+                                            bullet-indent 2
+                                            item-mc (max 10 (- callout-max bullet-indent))
+                                            item-d (mapv (fn [item]
+                                                           {:wrapped (wrap-md-spans (parse-md-inline-spans (:content item)) item-mc)})
+                                                         items)
+                                            ops (loop [ir item-d li 0 o []]
+                                                  (if (empty? ir) o
+                                                    (let [{:keys [wrapped]} (first ir)
+                                                          io (vec (apply concat
+                                                               (map-indexed
+                                                                 (fn [wi ls]
+                                                                   (let [bp (when (= wi 0)
+                                                                              [{:text "- " :type :comment :from 0 :to 2
+                                                                                :x callout-pad :y (+ font-size (* (+ li wi) line-h))
+                                                                                :size font-size :r 0.55 :g 0.55 :b 0.6 :a 0.8}])
+                                                                         sp (spans->text-ops ls (+ callout-pad (* bullet-indent char-advance))
+                                                                              (+ font-size (* (+ li wi) line-h))
+                                                                              font-size char-advance md-style-colors)]
+                                                                     (into (vec (or bp [])) sp)))
+                                                                 wrapped)))]
+                                                      (recur (rest ir) (+ li (count wrapped)) (into o io)))))
+                                            tl (reduce + 0 (map (comp count :wrapped) item-d))
+                                            h (+ 4 (* tl line-h))]
+                                        (rt-node (keyword (str "md-co-l-" bi "-" mi "-" ci)) :callout-list
+                                          {:x 0 :y 0 :w pane-w :h h}
+                                          :text ops))
+                                      :numbered-list
+                                      (let [items (:items cb)
+                                            item-d (mapv (fn [idx item]
+                                                           (let [pfx (str (inc idx) ". ")
+                                                                 pw (count pfx)]
+                                                             {:wrapped (wrap-md-spans (parse-md-inline-spans (:content item))
+                                                                         (max 10 (- callout-max pw)))
+                                                              :prefix pfx :prefix-w pw}))
+                                                         (range) items)
+                                            ops (loop [ir item-d li 0 o []]
+                                                  (if (empty? ir) o
+                                                    (let [{:keys [wrapped prefix prefix-w]} (first ir)
+                                                          io (vec (apply concat
+                                                               (map-indexed
+                                                                 (fn [wi ls]
+                                                                   (let [np (when (= wi 0)
+                                                                              [{:text prefix :type :comment :from 0 :to (count prefix)
+                                                                                :x callout-pad :y (+ font-size (* (+ li wi) line-h))
+                                                                                :size font-size :r 0.55 :g 0.55 :b 0.6 :a 0.8}])
+                                                                         sp (spans->text-ops ls (+ callout-pad (* prefix-w char-advance))
+                                                                              (+ font-size (* (+ li wi) line-h))
+                                                                              font-size char-advance md-style-colors)]
+                                                                     (into (vec (or np [])) sp)))
+                                                                 wrapped)))]
+                                                      (recur (rest ir) (+ li (count wrapped)) (into o io)))))
+                                            tl (reduce + 0 (map (comp count :wrapped) item-d))
+                                            h (+ 4 (* tl line-h))]
+                                        (rt-node (keyword (str "md-co-n-" bi "-" mi "-" ci)) :callout-nlist
+                                          {:x 0 :y 0 :w pane-w :h h}
+                                          :text ops))
+                                      ;; Other block types inside callout — render as paragraph
+                                      (let [content (or (:content cb) "")
+                                            spans (parse-md-inline-spans content)
+                                            wrapped-lines (wrap-md-spans spans callout-max)
+                                            ops (vec (apply concat
+                                                      (map-indexed
+                                                        (fn [li ls]
+                                                          (spans->text-ops ls callout-pad
+                                                                           (+ font-size (* li line-h))
+                                                                           font-size char-advance md-style-colors))
+                                                        wrapped-lines)))
+                                            h (+ 4 (* (count wrapped-lines) line-h))]
+                                        (rt-node (keyword (str "md-co-x-" bi "-" mi "-" ci)) :callout-misc
+                                          {:x 0 :y 0 :w pane-w :h h}
+                                          :text ops))))
+                                  body-blocks))
+                                all-children (into [hdr-node] body-children)
+                                body-gap 4
+                                content-h (+ (reduce + 0 (map #(get-in % [:bounds :h] 0) all-children))
+                                             (* body-gap (max 0 (dec (count all-children)))))
+                                total-h (+ content-h 4)]
+                            (rt-node (keyword (str "md-callout-" bi "-" mi)) :md-callout
+                              {:x 0 :y 0 :w pane-w :h total-h}
+                              :layout {:direction :column :gap body-gap :padding [0 0 0 0]}
+                              :children
+                              (into [(rt-node (keyword (str "md-co-bar-" bi "-" mi)) :accent-bar
+                                       {:x pad :y 2 :w 3 :h (- total-h 4)}
+                                       :data {:layout-skip? true}
+                                       :style {:bg accent-c :radius 2})]
+                                    all-children)))
+
+                          :table
+                          (let [table-lines (:lines mb)
+                                ;; Filter separator rows (|---|---|)
+                                is-separator? #(boolean (re-find #"^\|[\s\-:|\+]+\|$" %))
+                                content-rows (filterv (complement is-separator?) table-lines)
+                                ;; Parse each row: split by |, trim cells
+                                parse-row (fn [row-str]
+                                            (->> (str/split row-str #"\|")
+                                                 (map str/trim)
+                                                 (filterv #(seq %))))
+                                rows (mapv parse-row content-rows)
+                                header-row (first rows)
+                                data-rows (rest rows)
+                                ;; Render each data row as "Name — value — value" with inline md
+                                table-pad (+ pad code-pad)
+                                table-max (max 20 (int (/ (- inner-w (* 2 code-pad)) char-advance)))
+                                ;; Build text-ops: header row bold, data rows with inline parsing
+                                all-ops
+                                (loop [rs (cons {:cells header-row :is-header true}
+                                                (map #(hash-map :cells % :is-header false) data-rows))
+                                       li 0 ops []]
+                                  (if (empty? rs)
+                                    ops
+                                    (let [{:keys [cells is-header]} (first rs)
+                                          row-text (str/join "  |  " cells)
+                                          spans (if is-header
+                                                  [{:text row-text :style :bold}]
+                                                  (parse-md-inline-spans row-text))
+                                          wrapped (wrap-md-spans spans table-max)
+                                          row-ops (vec (apply concat
+                                                    (map-indexed
+                                                      (fn [wi line-spans]
+                                                        (spans->text-ops line-spans table-pad
+                                                                         (+ font-size (* (+ li wi) line-h))
+                                                                         font-size char-advance md-style-colors))
+                                                      wrapped)))]
+                                      (recur (rest rs) (+ li (count wrapped)) (into ops row-ops)))))
+                                total-lines (+ (if header-row
+                                                 (count (wrap-md-spans [{:text (str/join "  |  " header-row) :style :bold}] table-max))
+                                                 0)
+                                               (reduce + 0
+                                                 (map (fn [cells]
+                                                        (count (wrap-md-spans
+                                                                 (parse-md-inline-spans (str/join "  |  " cells))
+                                                                 table-max)))
+                                                      data-rows)))
+                                body-h (+ (* 2 code-pad) (* total-lines line-h))
+                                total-h (+ body-h 4)]
+                            (rt-node (keyword (str "md-table-" bi "-" mi)) :md-table
+                              {:x 0 :y 0 :w pane-w :h total-h}
+                              :children
+                              [(rt-node (keyword (str "md-table-bg-" bi "-" mi)) :table-bg
+                                 {:x pad :y 0 :w inner-w :h body-h}
+                                 :style {:bg (get-in dt [:colors :bg-subtle]) :radius 4})
+                               (rt-node (keyword (str "md-table-text-" bi "-" mi)) :table-text
+                                 {:x 0 :y 0 :w pane-w :h body-h}
+                                 :text all-ops)]))
+
+                          ;; Fallback for unknown block types
+                          (rt-node (keyword (str "md-unk-" bi "-" mi)) :md-unknown
+                            {:x 0 :y 0 :w pane-w :h 0})))
+                      md-blocks))
+                  ;; Compute total height including gaps between blocks
+                  total-h (+ (reduce + 0 (map #(get-in % [:bounds :h] 0) children))
+                             (* block-gap (max 0 (dec (count children)))))]
               (rt-node (keyword (str "reasoning-" bi)) :reasoning-block
-                {:x 0 :y 0 :w pane-w :h h}
-                :text text-ops))
+                {:x 0 :y 0 :w pane-w :h total-h}
+                :layout {:direction :column :gap block-gap}
+                :children children))
 
             ;; --- Thinking: dimmed block with left accent bar ---
             :thinking
@@ -3104,6 +3797,12 @@
                   status (:status block)
                   pending? (= :pending status)
                   input (:input block)
+                  ;; Navigation target: extract file path + line from tool input
+                  nav-target (when input
+                               (let [fp (or (:file_path input) (:path input))]
+                                 (when (and (string? fp) (seq fp))
+                                   {:file-path fp
+                                    :line (or (:offset input) (:line input) 0)})))
                   summary (if input (tool-input-summary tool-name input)
                                     (some-> (:nodes block) first :tool-name (str "...")))
                   header-label (str tool-name (when (seq summary) (str "  " summary)))
@@ -3146,7 +3845,8 @@
                 {:x 0 :y 0 :w pane-w :h total-h}
                 :style {:bg card-bg :radius 4
                         :border-width 1
-                        :border-color (:border-subtle colors)}
+                        :border-color (if nav-target (:border colors) (:border-subtle colors))}
+                :data (when nav-target {:nav nav-target})
                 :children
                 (cond-> [(rt-node (keyword (str "dot-" bi)) :status-dot
                            {:x (+ pad 2) :y 10 :w 6 :h 6}
@@ -3361,10 +4061,10 @@
    Zero-size invisible rects for absent elements keep GPU indices stable.
    SIDEBAR: backgrounds span full viewport, caret offset by sb-w."
   [!cmd-panel !focus !caret-visible !scroll-y !viewport !settings !active-font
-   !ai-provider !agent-output !sidebar-visible !sidebar-state cmd-panel-h status-bar-h]
+   !ai-provider !agent-output !sidebar-visible !sidebar-state !current-file cmd-panel-h status-bar-h]
   (m/latest
     (fn [panel focus caret-visible scroll-y viewport settings active-font
-         agent-output sidebar-visible? sidebar-state]
+         agent-output sidebar-visible? sidebar-state current-file]
       (let [sb-w (if (boolean sidebar-visible?) sidebar-w 0)
             dpr (:dpr viewport)
             snap? (:snap-to-pixel? settings)
@@ -3375,7 +4075,7 @@
             ;; --- Instance 0: agent output background ---
             agent-panel-h (compute-agent-panel-h agent-output font-size (:height viewport)
                                                  (:width viewport) char-advance)
-            agent-visible? (some? (:status agent-output))
+            agent-visible? (and (some? (:status agent-output)) (not (some? current-file)))
             agent-bg (if agent-visible?
                        (let [agent-y0 (maybe-snap
                                         (+ scroll-y (- (:height viewport)
@@ -3387,9 +4087,11 @@
                        invisible)
 
             ;; --- Instance 1: command panel background (elevated + top border) ---
+            ;; Always visible when file is open (persistent chat input)
+            panel-visible? (or (:visible panel) (some? current-file))
             panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h)) dpr snap?)
             elevated-surface (or (:elevated (:surfaces dt)) [0.10 0.13 0.19 1.0])
-            cmd-bg (if (:visible panel)
+            cmd-bg (if panel-visible?
                      {:x 0 :y panel-y :w (:width viewport) :h cmd-panel-h
                       :r (nth elevated-surface 0) :g (nth elevated-surface 1)
                       :b (nth elevated-surface 2) :a (nth elevated-surface 3)}
@@ -3397,7 +4099,7 @@
 
             ;; --- Instance 2: caret (offset by sidebar width) ---
             text-x (+ (cmd-text-start-x @!ai-provider font-size (:char-width active-font) dpr snap?) sb-w)
-            caret (if (and (:visible panel) caret-visible (= focus :command-panel))
+            caret (if (and panel-visible? caret-visible (= focus :command-panel))
                     {:x (+ text-x (* (:cursor panel) char-advance))
                      :y (maybe-snap (+ panel-y 8) dpr snap?)
                      :w 2
@@ -3421,7 +4123,8 @@
     (m/watch !active-font)
     (m/watch !agent-output)
     (m/watch !sidebar-visible)
-    (m/watch !sidebar-state)))
+    (m/watch !sidebar-state)
+    (m/watch !current-file)))
 
 (defn compute-settings-panel-rects
   "Pure function: compute settings panel rectangles (background + font list + sliders)"
@@ -3710,13 +4413,13 @@
    <fold-data
    !flow-state !collapsed-groups !hovered-row-idx !drag-state
    !sidebar-state !sidebar-visible !extract-preview
-   !shimmer-phase !trail-collapsed !active-pane !scroll-x
+   !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus
    layout-x layout-y cmd-panel-h status-bar-h]
   (m/latest
     (fn [doc panel provider agent-output agent-scroll-y scroll-y viewport fold-state settings active-font
          current-file flow-state collapsed-groups hovered-row-idx drag-state
          sidebar-state sidebar-visible? extract-preview
-         shimmer-phase trail-collapsed active-pane scroll-x]
+         shimmer-phase trail-collapsed active-pane scroll-x chat-scroll-y chat-input focus]
       (let [sb-vis? (boolean sidebar-visible?)
             sb-w (if sb-vis? sidebar-w 0)
             dpr (:dpr viewport)
@@ -3849,14 +4552,17 @@
                       ;; Clip text ops to editor pane [layout-x, code-w] — left (gutter edge) AND right
                       font-cw (:char-width active-font 0.56)
                       clip-left layout-x ;; left boundary = gutter right edge (text start)
+                      header-h 36
+                      clip-top (+ scroll-y header-h) ;; viewport-pinned top edge below header
                       clip-sub (fn [sub]
                                  (let [x (or (:x sub) 0)
+                                       y (or (:y sub) 0)
                                        fs (or (:size sub) font-size)
                                        cw (* fs font-cw)
                                        txt (or (:text sub) "")
                                        text-end (+ x (* (count txt) cw))]
-                                   ;; Drop if entirely outside [clip-left, code-w]
-                                   (when (and (< x code-w) (> text-end clip-left))
+                                   ;; Drop if outside horizontal [clip-left, code-w] or above header
+                                   (when (and (< x code-w) (> text-end clip-left) (>= y clip-top))
                                      ;; Left-trim chars before gutter edge
                                      (let [skip (if (< x clip-left) (min (count txt) (int (Math/ceil (/ (- clip-left x) cw)))) 0)
                                            adj-x (+ x (* skip cw))
@@ -3882,9 +4588,23 @@
                                    (build-file-layout content-vw (:height viewport)
                                                       current-file agent-output font-size
                                                       shimmer-alpha trail-collapsed
-                                                      :active-pane active-pane))
-                      right-text-ops (tree->text-ops right-tree)]
-                  [(into (vec clipped) right-text-ops) final-line-mapping line-num-ops])
+                                                      :active-pane active-pane :char-advance char-advance
+                                                      :chat-scroll-y (or chat-scroll-y 0)
+                                                      :chat-input chat-input :focus focus))
+                      right-text-ops (tree->text-ops right-tree)
+                      ;; Pin to viewport: offset by scroll-y so camera pan doesn't move it
+                      pinned-ops (mapv (fn [op]
+                                         (if (vector? op)
+                                           (mapv #(update % :y + scroll-y) op)
+                                           (update op :y + scroll-y)))
+                                       right-text-ops)]
+                  (let [clip-ln (fn [op]
+                                  (if (vector? op)
+                                    (let [f (filterv #(>= (or (:y %) 0) clip-top) op)]
+                                      (when (seq f) f))
+                                    (when (>= (or (:y op) 0) clip-top) op)))
+                        clipped-ln (into [] (keep clip-ln) line-num-ops)]
+                    [(into (vec clipped) pinned-ops) final-line-mapping clipped-ln]))
                 [editor-ops final-line-mapping line-num-ops])
 
               ;; Bottom clip: filter out text ops that would render inside cmd panel / status bar
@@ -3902,8 +4622,9 @@
               offset-editor-ops (offset-text-ops (clip-bottom editor-ops) sb-w)
               offset-line-num-ops (offset-text-ops (clip-bottom line-num-ops) sb-w)
 
-              ;; Command panel ops (if visible) — offset by sb-w
-              cmd-ops (when (:visible panel)
+              ;; Command panel ops (if visible or file open) — offset by sb-w
+              panel-visible? (or (:visible panel) file-open?)
+              cmd-ops (when panel-visible?
                         (let [cmd-panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h)) dpr snap?)
                               cmd-text-y (maybe-snap (+ cmd-panel-y 12 font-size) dpr snap?)
                               prompt-text (cmd-prompt-text provider)
@@ -3929,7 +4650,7 @@
                                :x text-x :y cmd-text-y
                                :size font-size
                                :r 0.5 :g 0.5 :b 0.5 :a 0.7}])]))
-              cmd-lines (if (:visible panel) (vec (filter some? cmd-ops)) [])]
+              cmd-lines (if panel-visible? (vec (filter some? cmd-ops)) [])]
 
           (let [status (:status agent-output)
                 provider-name (some-> (:provider agent-output) name str/upper-case)
@@ -3984,8 +4705,10 @@
                                 (mapv (fn [wl] {:text wl :color (:color entry)}) wrapped))))
                             raw-lines)
 
-                agent-panel-h (compute-agent-panel-h agent-output font-size (:height viewport)
-                                                     (:width viewport) char-advance)
+                agent-panel-h (if file-open?
+                                0 ;; Chat pane shows trail; suppress bottom panel
+                                (compute-agent-panel-h agent-output font-size (:height viewport)
+                                                       (:width viewport) char-advance))
                 agent-x (maybe-snap (+ 24 sb-w) dpr snap?)
                 agent-y0 (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h agent-panel-h 12)) dpr snap?)
                 line-step (maybe-snap (* font-size 1.2) dpr snap?)
@@ -4049,7 +4772,8 @@
             {:render-ops (vec (concat (or sidebar-text-ops [])
                                       offset-line-num-ops offset-editor-ops
                                       cmd-lines
-                                      agent-lines
+                                      ;; Suppress bottom agent output when 3-pane chat shows trail
+                                      (when-not file-open? agent-lines)
                                       status-lines))
              :line-mapping final-line-mapping
              :editor-line-count (+ (count line-num-ops) (count editor-ops))
@@ -4075,7 +4799,10 @@
     (m/watch !shimmer-phase)
     (m/watch !trail-collapsed)
     (m/watch !active-pane)
-    (m/watch !scroll-x)))
+    (m/watch !scroll-x)
+    (m/watch !chat-scroll-y)
+    (m/watch !chat-input)
+    (m/watch !focus)))
 
 ;; ============================================================================
 ;; LAYER 7: TERMINAL RENDER CONSUMER
@@ -4275,6 +5002,8 @@
         !ai-provider (atom :claude)     ;; :claude | :codex | :gemini
         !agent-output (atom nil)        ;; {:status :provider :prompt :output :run-id :trail :tool-buf}
         !agent-scroll-y (atom 0)        ;; scroll offset within agent output panel
+        !chat-scroll-y (atom 0)         ;; scroll offset within chat pane (3-pane mode)
+        !chat-input (atom {:text "" :cursor 0})  ;; dedicated text buffer for chat pane input
         !mouse-x (atom 0)               ;; last known mouse X (viewport-relative)
         !mouse-y (atom 0)               ;; last known mouse Y (viewport-relative)
         !flow-state (atom (initial-flow-state))  ;; V0 flow state machine
@@ -4351,7 +5080,7 @@
                           (swap! !sidebar-state assoc-in [:dir-cache path] entries)))))
 
         fetch-file!
-        (fn [path root-path]
+        (fn [path root-path & {:keys [target-line]}]
           (fetch-edn! (str "/api/read-file?path=" (js/encodeURIComponent path)
                            "&root=" (js/encodeURIComponent root-path))
                       (fn [result]
@@ -4360,7 +5089,9 @@
                           (let [lines (str/split-lines (:content result))]
                             (reset! !current-file {:path path :name (last (str/split path #"/"))})
                             (reset! !scroll-x 0)
-                            (reset! !file-load-request {:lines lines}))))))
+                            (reset! !file-load-request
+                                    (cond-> {:lines lines}
+                                      target-line (assoc :target-line target-line))))))))
 
         trigger-dev-replay!
         (fn []
@@ -4688,7 +5419,8 @@
                 scroll-y @!scroll-y
                 viewport @!viewport
                 parsed (parse-agent-command cmd-text @!ai-provider)
-                cwd (or (some-> file-path (str/split #"/") butlast seq (str/join "/"))
+                cwd (or (:path (:project @!sidebar-state))
+                        (some-> file-path (str/split #"/") butlast seq (str/join "/"))
                         ".")
                 context {:cursor (:cursor doc)
                          :selection (:selection doc)
@@ -5198,6 +5930,7 @@
         <global-keys (<global-events >keyboard-events)
         <editor-keyboard (<editor-keys >keyboard-events !focus)
         <cmd-keyboard (<cmd-panel-keys >keyboard-events !focus)
+        <chat-keyboard (<chat-input-keys >keyboard-events !focus)
         <settings-keyboard (<settings-panel-keys >keyboard-events !focus)
 
         ;; System clipboard paste: listen for native paste event (fired by Ctrl+V)
@@ -5219,6 +5952,13 @@
                         (let [panel @!cmd-panel
                               new-panel (cmd-panel-apply-event panel {:type :paste} text)]
                           (reset! !cmd-panel new-panel)
+                          (reset! !caret-visible true))
+                        :chat
+                        (let [ci @!chat-input
+                              ci-text (:text ci)
+                              ci-cursor (:cursor ci)
+                              new-text (str (subs ci-text 0 ci-cursor) text (subs ci-text ci-cursor))]
+                          (reset! !chat-input {:text new-text :cursor (+ ci-cursor (count text))})
                           (reset! !caret-visible true))
                         nil))))]
             (.addEventListener js/window "paste" paste-handler))]
@@ -5278,9 +6018,11 @@
                              mouse-x @!mouse-x
                              in-sidebar? (and sb-vis? (< mouse-x sidebar-w))
                              agent-output @!agent-output
-                             agent-h (compute-agent-panel-h agent-output font-size
-                                                            (:height viewport) (:width viewport)
-                                                            char-advance)
+                             agent-h (if (some? (:path @!current-file))
+                                       0 ;; Suppress agent panel when 3-pane layout active
+                                       (compute-agent-panel-h agent-output font-size
+                                                              (:height viewport) (:width viewport)
+                                                              char-advance))
                              ;; Agent panel Y bounds (viewport-relative, no scroll offset)
                              agent-y0 (- (:height viewport) cmd-panel-h status-bar-h agent-h 12)
                              agent-y1 (- (:height viewport) cmd-panel-h status-bar-h)
@@ -5309,6 +6051,17 @@
                                  max-scroll (max 0 (- total-h (- agent-h 16)))]
                              (swap! !agent-scroll-y
                                     #(-> (+ % delta) (max 0) (min max-scroll))))
+                           ;; Scroll chat pane when mouse is over it (3-pane mode)
+                           (let [file-open? (some? (:path @!current-file))
+                                 sb-off (if sb-vis? sidebar-w 0)
+                                 cw (- (:width viewport) sb-off)
+                                 code-w (int (* cw 0.4))
+                                 chat-w (int (* cw 0.3))
+                                 rel-mx (- mouse-x sb-off)
+                                 in-chat? (and file-open? (>= rel-mx code-w) (< rel-mx (+ code-w chat-w)))]
+                             (and file-open? in-chat?))
+                           (swap! !chat-scroll-y #(max 0 (+ % delta)))
+
                            ;; Scroll editor / flow canvas
                            :else
                            (if (flow-canvas-active? @!flow-state)
@@ -5319,7 +6072,10 @@
                                    visible-h (- (:height viewport) cmd-panel-h status-bar-h agent-h 12)
                                    max-scroll (max 0 (- content-h visible-h))]
                                (swap! !scroll-y #(-> (+ % delta) (max 0) (min max-scroll))))
-                             ;; Normal editor scroll: vertical + horizontal
+                             ;; Normal editor scroll: vertical + horizontal (skip if mouse over preview pane)
+                             (when (or (not (some? (:path @!current-file)))
+                                       (< (- mouse-x (if sb-vis? sidebar-w 0))
+                                          (int (* (- (:width viewport) (if sb-vis? sidebar-w 0)) 0.4))))
                              (do (swap! !scroll-y #(maybe-snap (+ % delta) dpr snap?))
                                  ;; Horizontal scroll: only within editor pane
                                  (let [h-delta (if shift? delta dx)
@@ -5329,7 +6085,7 @@
                                                       (+ sb-off (int (* cw 0.4)))
                                                       (+ sb-off cw))]
                                    (when (and (not (zero? h-delta)) (< mouse-x editor-right))
-                                     (swap! !scroll-x #(max 0 (+ (or % 0) h-delta)))))))))
+                                     (swap! !scroll-x #(max 0 (+ (or % 0) h-delta))))))))))
                        nil) nil))
 
       ;; =====================================================================
@@ -5466,7 +6222,7 @@
                        (if clicked-in-status?
                          nil ;; Clicks in status bar are no-ops
                      (let [cmd-panel @!cmd-panel
-                           cmd-visible? (:visible cmd-panel)
+                           cmd-visible? (or (:visible cmd-panel) (some? @!current-file))
                            cmd-panel-top (if cmd-visible?
                                            (- (:height viewport) cmd-panel-h status-bar-h)
                                            (:height viewport))
@@ -5528,36 +6284,120 @@
                           (some? @!current-file)
                           (let [content-w (- (:width viewport) (if sb-vis? sidebar-w 0))
                                 code-w (int (* content-w 0.4))
-                                chat-w (int (* content-w 0.3))
+                                chat-w (int (* content-w 0.55))
                                 ;; Adjust x relative to content area (subtract sidebar)
                                 rel-x (- x (if sb-vis? sidebar-w 0))
                                 in-chat? (and (>= rel-x code-w) (< rel-x (+ code-w chat-w)))
+                                in-editor? (< rel-x code-w)
                                 ;; Focus hierarchy: set active pane based on click position
                                 clicked-pane (cond
-                                               (< rel-x code-w) :editor
+                                               in-editor? :editor
                                                in-chat? :chat
                                                :else :preview)]
                             (reset! !active-pane clicked-pane)
+                            ;; Editor clicks: place cursor + set focus (same as normal mode)
+                            (when in-editor?
+                              (let [adj-y (+ y scroll-y)
+                                    dpr (:dpr @!viewport)
+                                    snap? (:snap-to-pixel? @!settings)
+                                    font-size (:font-size @!settings)
+                                    char-width (:char-width @!active-font)
+                                    line-h (maybe-snap (* font-size (:line-height @!settings)) dpr snap?)
+                                    char-w (maybe-snap (* font-size char-width) dpr snap?)
+                                    elx (maybe-snap (- layout-x (or @!scroll-x 0)) dpr snap?)
+                                    ely (maybe-snap layout-y dpr snap?)
+                                    gutter-x (- elx gutter-w)
+                                    gutter-right (+ gutter-x gutter-w)]
+                                (if (and (>= x gutter-x) (< x gutter-right))
+                                  ;; Gutter click - toggle fold
+                                  (let [text-result @!text-geo
+                                        line-mapping (or (:line-mapping text-result) [])
+                                        visual-line (max 0 (Math/floor (/ (- adj-y ely) line-h)))
+                                        logical-line (get line-mapping visual-line visual-line)
+                                        regions (detect-folds-fn (:lines @!editor-doc)
+                                                                 (mapv count (:lines @!editor-doc)))
+                                        fold-region (first (filter #(= (:start-line %) logical-line)
+                                                                   (or regions [])))]
+                                    (when fold-region
+                                      (swap! !folded-lines
+                                             (fn [folded]
+                                               (if (contains? folded logical-line)
+                                                 (disj folded logical-line)
+                                                 (conj folded logical-line))))))
+                                  ;; Normal click - place cursor
+                                  (let [text-result @!text-geo
+                                        line-mapping (or (:line-mapping text-result) [])
+                                        lengths (mapv count (:lines @!editor-doc))
+                                        visual-line (max 0 (Math/floor (/ (- adj-y ely) line-h)))
+                                        logical-line (get line-mapping visual-line
+                                                          (min visual-line (dec (count lengths))))
+                                        line-len (get lengths logical-line 0)
+                                        col (-> (/ (- x elx) char-w)
+                                                (Math/round)
+                                                (max 0)
+                                                (min line-len))
+                                        pos {:line logical-line :col col}]
+                                    (reset! !dragging? true)
+                                    (swap! !editor-doc assoc
+                                           :cursor pos
+                                           :selection nil
+                                           :desired-col col)))
+                                (reset! !caret-visible true)
+                                (reset! !focus :editor)))
                             (when in-chat?
-                              ;; Hit-test the file layout tree for tool-header clicks
-                              (let [font-size (:font-size @!settings)
+                              ;; Click in bottom 36px of viewport → focus chat input
+                              (if (>= y (- (:height viewport) 36))
+                                (do (reset! !focus :chat)
+                                    (reset! !caret-visible true))
+                                ;; Hit-test the file layout tree for tool-header + nav clicks
+                                (let [font-size (:font-size @!settings)
+                                    char-advance (* font-size (:char-width @!active-font))
                                     shimmer-alpha (if @!shimmer-phase 0.9 0.4)
                                     tree (resolve-layout
                                            (build-file-layout content-w (:height viewport)
                                                               @!current-file @!agent-output font-size
                                                               shimmer-alpha @!trail-collapsed
-                                                              :active-pane @!active-pane))
+                                                              :active-pane @!active-pane :char-advance char-advance
+                                                              :chat-scroll-y (or @!chat-scroll-y 0)
+                                                              :chat-input @!chat-input :focus @!focus))
                                     path (hit-test tree rel-x y)]
                                 (when path
-                                  (some (fn [node]
-                                          (when (= :tool-header (:type node))
-                                            (when-let [cid (:collapse-id (:data node))]
-                                              (swap! !trail-collapsed
-                                                     (fn [s] (if (contains? s cid)
-                                                                (disj s cid)
-                                                                (conj s cid))))
-                                              true)))
-                                        (rseq path))))))
+                                  ;; Priority 1: navigate (tool cards with :nav file path)
+                                  (let [handled-nav?
+                                        (some (fn [node]
+                                                (when-let [nav (:nav (:data node))]
+                                                  (let [file-path (:file-path nav)
+                                                        target-line (or (:line nav) 0)
+                                                        current-path (:path @!current-file)
+                                                        project (or (:path (:project @!sidebar-state)) flow-cwd)
+                                                        same-file? (or (= file-path current-path)
+                                                                       (and current-path
+                                                                            (str/ends-with? current-path file-path)))]
+                                                    (if same-file?
+                                                      ;; Same file: reposition cursor + scroll
+                                                      (let [safe-line (min target-line
+                                                                          (max 0 (dec (count (:lines @!editor-doc)))))]
+                                                        (swap! !editor-doc assoc
+                                                               :cursor {:line safe-line :col 0}
+                                                               :selection nil :desired-col 0)
+                                                        (let [line-h (* font-size (:line-height @!settings))]
+                                                          (reset! !scroll-y (max 0 (- (* safe-line line-h) 100)))))
+                                                      ;; Different file: load with target-line
+                                                      (fetch-file! file-path project :target-line target-line))
+                                                    (reset! !active-pane :editor)
+                                                    true)))
+                                              (rseq path))]
+                                    ;; Priority 2: collapse toggle (thinking/grep cards without nav)
+                                    (when-not handled-nav?
+                                      (some (fn [node]
+                                              (when (= :tool-header (:type node))
+                                                (when-let [cid (:collapse-id (:data node))]
+                                                  (swap! !trail-collapsed
+                                                         (fn [s] (if (contains? s cid)
+                                                                    (disj s cid)
+                                                                    (conj s cid))))
+                                                  true)))
+                                            (rseq path))))))))
 
                           ;; Normal editor mode: cursor placement / fold toggle
                           :else
@@ -5731,7 +6571,7 @@
                      ;; :idle — normal mouseup (editor text selection)
                      (reset! !dragging? false))))
                nil)
-             nil))
+             nil)))
 
       ;; =====================================================================
       ;; GLOBAL KEYBOARD EVENTS CONSUMER
@@ -5742,8 +6582,9 @@
                (when event
                  (case (:type event)
                    :toggle-command-panel
-                   (let [visible? (:visible @!cmd-panel)]
-                     (if visible?
+                   (let [visible? (:visible @!cmd-panel)
+                         file-open? (some? (:path @!current-file))]
+                     (if (and visible? (not file-open?))
                        (do (swap! !cmd-panel assoc :visible false)
                            (reset! !focus :editor))
                        (do (swap! !cmd-panel assoc :visible true)
@@ -5766,10 +6607,18 @@
                      (do (swap! !settings assoc :visible false)
                          (reset! !focus :editor))
 
-                     (or (:visible @!cmd-panel) (some? (:status @!agent-output)))
-                     (do (swap! !cmd-panel assoc :visible false)
-                         (reset! !agent-output nil)
+                     (= @!focus :chat)
+                     (do (reset! !chat-input {:text "" :cursor 0})
                          (reset! !focus :editor))
+
+                     (or (:visible @!cmd-panel) (some? (:status @!agent-output)))
+                     (if (some? (:path @!current-file))
+                       ;; File open: just unfocus (panel stays visible)
+                       (reset! !focus :editor)
+                       ;; No file: hide panel + clear agent output
+                       (do (swap! !cmd-panel assoc :visible false)
+                           (reset! !agent-output nil)
+                           (reset! !focus :editor)))
 
                      (and !sidebar-visible @!sidebar-visible)
                      (reset! !sidebar-visible false)
@@ -5783,7 +6632,13 @@
 
                    :focus-pane
                    (when (some? @!current-file)
-                     (reset! !active-pane (:pane event)))
+                     (let [pane (:pane event)]
+                       (reset! !active-pane pane)
+                       (when (= pane :chat)
+                         (reset! !focus :chat)
+                         (reset! !caret-visible true))
+                       (when (= pane :editor)
+                         (reset! !focus :editor))))
 
                    :save
                    (let [content (str/join "\n" (:lines @!editor-doc))
@@ -5805,31 +6660,40 @@
       ;; =====================================================================
       ;; Watches !file-load-request atom. When set to a map with :lines,
       ;; resets the editor state to show the new file content.
-      (if !file-load-request
+      (cond
+        !file-load-request
         (->> (m/watch !file-load-request)
              (m/eduction (filter some?))
              (m/reduce
                (fn [_ request]
-                 (let [{:keys [lines]} request]
+                 (let [{:keys [lines target-line]} request
+                       target-line (or target-line 0)]
                    (when (seq lines)
-                     (js/console.log "[FILE-LOAD] Loading file with" (count lines) "lines")
-                     (reset! !editor-doc {:lines (vec lines)
-                                          :cursor {:line 0 :col 0}
-                                          :selection nil
-                                          :desired-col 0})
-                     (reset! !scroll-y 0)
-                     (reset! !undo-stack [])
-                     (reset! !redo-stack [])
-                     (reset! !folded-lines #{})
-                     (reset! !caret-visible true)
-                     ;; Only steal focus if command panel is not open
-                     (when-not (:visible @!cmd-panel)
-                       (reset! !focus :editor))
-                     ;; Clear the request so same file can be re-opened
-                     (reset! !file-load-request nil)))
+                     (let [safe-line (min target-line (max 0 (dec (count lines))))]
+                       (js/console.log "[FILE-LOAD] Loading file with" (count lines) "lines, target:" safe-line)
+                       (reset! !editor-doc {:lines (vec lines)
+                                            :cursor {:line safe-line :col 0}
+                                            :selection nil
+                                            :desired-col 0})
+                       ;; Scroll to target line with ~100px top margin
+                       (let [font-size (:font-size @!settings)
+                             line-h (* font-size (:line-height @!settings))
+                             target-y (* safe-line line-h)]
+                         (reset! !scroll-y (max 0 (- target-y 100))))
+                       (reset! !scroll-x 0)
+                       (reset! !undo-stack [])
+                       (reset! !redo-stack [])
+                       (reset! !folded-lines #{})
+                       (reset! !caret-visible true)
+                       ;; Only steal focus if command panel is not open
+                       (when-not (:visible @!cmd-panel)
+                         (reset! !focus :editor))
+                       ;; Clear the request so same file can be re-opened
+                       (reset! !file-load-request nil))))
                  nil)
                nil))
         ;; No-op task when !file-load-request not provided
+        :else
         (m/reduce (fn [_ _] nil) nil (m/seed [nil])))
 
       ;; =====================================================================
@@ -5936,130 +6800,199 @@
       ;; =====================================================================
       ;; COMMAND PANEL KEYBOARD EVENTS CONSUMER
       ;; =====================================================================
-      (->> <cmd-keyboard
-           (m/reduce
-             (fn [_ event]
-               (when event
-                 (case (:type event)
-                   :enter
-                   (let [cmd-text (:text @!cmd-panel)]
-                     (if (seq cmd-text)
-                       ;; Submit command, clear text, keep panel open for follow-up
-                       (do (submit-agent-run! cmd-text)
-                           (swap! !cmd-panel assoc :text "" :cursor 0))
-                       ;; Empty Enter = close panel (like Escape)
-                       (do (swap! !cmd-panel assoc :text "" :cursor 0 :visible false)
-                           (reset! !focus :editor))))
+      (m/reduce
+        (fn [_ event]
+          (when event
+            (let [tickets (:tickets @!flow-state)
+                  has-tickets? (seq tickets)
+                  ;; Visual order: ticket indices in grouped display order
+                  visual-order (when has-tickets?
+                                 (vec (mapcat (fn [g] (mapv :idx (:tickets g)))
+                                              (group-tickets-by-status tickets))))
+                  n-visual (count visual-order)]
+              (case (:type event)
+                :enter
+                (let [cmd-text (:text @!cmd-panel)]
+                  (if (seq cmd-text)
+                    ;; Submit command, clear text, keep panel open for follow-up
+                    (do (submit-agent-run! cmd-text)
+                        (swap! !cmd-panel assoc :text "" :cursor 0))
+                    ;; Empty Enter with hovered ticket = toggle selection
+                    (if (and has-tickets? @!hovered-row-idx)
+                      (let [idx @!hovered-row-idx]
+                        (swap! !flow-state update :selected
+                               (fn [sel]
+                                 (if (some #{idx} sel)
+                                   (vec (remove #{idx} sel))
+                                   (conj (vec sel) idx)))))
+                      ;; No tickets or no hover = unfocus (close if no file open)
+                      (do (when-not (some? (:path @!current-file))
+                            (swap! !cmd-panel assoc :text "" :cursor 0 :visible false))
+                          (reset! !focus :editor)))))
 
-                   ;; Edit/navigation operations
-                   (let [panel @!cmd-panel
-                         new-panel (cmd-panel-apply-event panel event @!clipboard)]
-                     (reset! !cmd-panel new-panel)
-                     (reset! !caret-visible true))))
-               nil)
-             nil))
+                ;; Up/Down: navigate ticket list in visual (grouped) order
+                :up
+                (when has-tickets?
+                  (let [cur-idx @!hovered-row-idx
+                        vis-pos (when cur-idx
+                                  (some (fn [[i v]] (when (= v cur-idx) i))
+                                        (map-indexed vector visual-order)))
+                        new-pos (if (nil? vis-pos)
+                                  (dec n-visual)
+                                  (mod (dec vis-pos) n-visual))]
+                    (reset! !hovered-row-idx (nth visual-order new-pos))))
+
+                :down
+                (when has-tickets?
+                  (let [cur-idx @!hovered-row-idx
+                        vis-pos (when cur-idx
+                                  (some (fn [[i v]] (when (= v cur-idx) i))
+                                        (map-indexed vector visual-order)))
+                        new-pos (if (nil? vis-pos)
+                                  0
+                                  (mod (inc vis-pos) n-visual))]
+                    (reset! !hovered-row-idx (nth visual-order new-pos))))
+
+                ;; Edit/navigation operations (char, backspace, left, right, etc.)
+                (let [panel @!cmd-panel
+                      new-panel (cmd-panel-apply-event panel event @!clipboard)]
+                  (reset! !cmd-panel new-panel)
+                  (reset! !caret-visible true)))))
+          nil)
+        nil
+        <cmd-keyboard)
+
+      ;; =====================================================================
+      ;; CHAT INPUT KEYBOARD EVENTS CONSUMER
+      ;; =====================================================================
+      (m/reduce
+        (fn [_ event]
+          (when event
+            (case (:type event)
+              :enter
+              (let [cmd-text (:text @!chat-input)]
+                (when (seq cmd-text)
+                  (submit-agent-run! cmd-text)
+                  (reset! !chat-input {:text "" :cursor 0})))
+
+              :escape
+              (do (reset! !chat-input {:text "" :cursor 0})
+                  (reset! !focus :editor)
+                  (reset! !active-pane :editor))
+
+              (:up :down)
+              nil ;; no-op for now (could scroll chat later)
+
+              ;; Edit/navigation: reuse cmd-panel-apply-event pure fn
+              (let [panel @!chat-input
+                    new-panel (cmd-panel-apply-event panel event @!clipboard)]
+                (reset! !chat-input new-panel)
+                (reset! !caret-visible true))))
+          nil)
+        nil
+        <chat-keyboard)
 
       ;; =====================================================================
       ;; SETTINGS PANEL KEYBOARD EVENTS CONSUMER
       ;; =====================================================================
-      (->> <settings-keyboard
-           (m/reduce
-             (fn [_ event]
-               (when event
-                 (js/console.log "[SETTINGS KEY]" (:type event) "focus=" @!focus)
-                 (let [settings @!settings
-                       fonts (or (:fonts @!font-manifest)
-                                 [{:name "DejaVu Sans Mono" :id "dejavu-sans-mono" :charWidth 0.60}])
-                       available-fonts (filterv #(not (false? (:available %))) fonts)
-                       font-count (count available-fonts)
-                       
-                       ;; Current state
-                       focus-section (:focus-section settings)
-                       slider-index (:slider-index settings)
-                       sliders (slider-specs settings)
-                       slider-count (count sliders)]
+      (m/reduce
+        (fn [_ event]
+          (when event
+            (js/console.log "[SETTINGS KEY]" (:type event) "focus=" @!focus)
+            (let [settings @!settings
+                  fonts (or (:fonts @!font-manifest)
+                            [{:name "DejaVu Sans Mono" :id "dejavu-sans-mono" :charWidth 0.60}])
+                  available-fonts (filterv #(not (false? (:available %))) fonts)
+                  font-count (count available-fonts)
 
-                   (case (:type event)
-                     ;; Tab: Switch Pane
-                     :char
-                     (if (= (:char event) "Tab")
-                       (swap! !settings update :focus-section
-                              (fn [s] (if (= s :fonts) :sliders :fonts)))
-                       nil)
+                  ;; Current state
+                  focus-section (:focus-section settings)
+                  slider-index (:slider-index settings)
+                  sliders (slider-specs settings)
+                  slider-count (count sliders)]
 
-                     ;; Navigation
-                     :up
-                     (if (= focus-section :fonts)
-                       ;; Fonts: Change selection
-                       (let [new-idx (max 0 (dec (:selected-index settings)))
-                             selected-font (nth available-fonts new-idx nil)]
-                         (swap! !settings assoc :selected-index new-idx)
-                         (when selected-font
-                           (reset! !active-font {:id (:id selected-font)
-                                                 :char-width (or (:charWidth selected-font) 0.56)
-                                                 :name (:name selected-font)})))
-                       ;; Sliders: Change selection
-                       (swap! !settings update :slider-index #(max 0 (dec %))))
+              (case (:type event)
+                ;; Tab: Switch Pane
+                :char
+                (if (= (:char event) "Tab")
+                  (swap! !settings update :focus-section
+                         (fn [s] (if (= s :fonts) :sliders :fonts)))
+                  nil)
 
-                     :down
-                     (if (= focus-section :fonts)
-                       ;; Fonts: Change selection
-                       (let [new-idx (min (dec font-count) (inc (:selected-index settings)))
-                             selected-font (nth available-fonts new-idx nil)]
-                         (swap! !settings assoc :selected-index new-idx)
-                         (when selected-font
-                           (reset! !active-font {:id (:id selected-font)
-                                                 :char-width (or (:charWidth selected-font) 0.56)
-                                                 :name (:name selected-font)})))
-                       ;; Sliders: Change selection
-                       (swap! !settings update :slider-index #(min (dec slider-count) (inc %))))
+                ;; Navigation
+                :up
+                (if (= focus-section :fonts)
+                  ;; Fonts: Change selection
+                  (let [new-idx (max 0 (dec (:selected-index settings)))
+                        selected-font (nth available-fonts new-idx nil)]
+                    (swap! !settings assoc :selected-index new-idx)
+                    (when selected-font
+                      (reset! !active-font {:id (:id selected-font)
+                                            :char-width (or (:charWidth selected-font) 0.56)
+                                            :name (:name selected-font)})))
+                  ;; Sliders: Change selection
+                  (swap! !settings update :slider-index #(max 0 (dec %))))
 
-                     ;; Value Adjustment (Sliders only)
-                     :left
-                     (when (= focus-section :sliders)
-                       (let [slider (nth sliders slider-index)
-                             slider-id (:id slider)]
-                         (case slider-id
-                           :theme-id    (let [cur-idx (themes/theme-index (:theme-id settings))
-                                              new-idx (mod (dec cur-idx) (count themes/theme-list))]
-                                          (swap! !settings assoc :theme-id (nth themes/theme-list new-idx)))
-                           :font-size   (swap! !settings update :font-size #(max 8 (dec %)))
-                           :line-height (swap! !settings update :line-height #(max 1.0 (- % 0.1)))
-                           :px-range    (swap! !settings update :px-range #(max 4 (dec %)))
-                           :sharpness   (swap! !settings update :sharpness #(max -0.2 (- % 0.02)))
-                           :snap-to-pixel? (swap! !settings assoc :snap-to-pixel? false)
-                           :show-diagnostics? (swap! !settings assoc :show-diagnostics? false))))
+                :down
+                (if (= focus-section :fonts)
+                  ;; Fonts: Change selection
+                  (let [new-idx (min (dec font-count) (inc (:selected-index settings)))
+                        selected-font (nth available-fonts new-idx nil)]
+                    (swap! !settings assoc :selected-index new-idx)
+                    (when selected-font
+                      (reset! !active-font {:id (:id selected-font)
+                                            :char-width (or (:charWidth selected-font) 0.56)
+                                            :name (:name selected-font)})))
+                  ;; Sliders: Change selection
+                  (swap! !settings update :slider-index #(min (dec slider-count) (inc %))))
 
-                     :right
-                     (when (= focus-section :sliders)
-                       (let [slider (nth sliders slider-index)
-                             slider-id (:id slider)]
-                         (case slider-id
-                           :theme-id    (let [cur-idx (themes/theme-index (:theme-id settings))
-                                              new-idx (mod (inc cur-idx) (count themes/theme-list))]
-                                          (swap! !settings assoc :theme-id (nth themes/theme-list new-idx)))
-                           :font-size   (swap! !settings update :font-size #(min 40 (inc %)))
-                           :line-height (swap! !settings update :line-height #(min 2.0 (+ % 0.1)))
-                           :px-range    (swap! !settings update :px-range #(min 12 (inc %)))
-                           :sharpness   (swap! !settings update :sharpness #(min 0.2 (+ % 0.02)))
-                           :snap-to-pixel? (swap! !settings assoc :snap-to-pixel? true)
-                           :show-diagnostics? (swap! !settings assoc :show-diagnostics? true))))
+                ;; Value Adjustment (Sliders only)
+                :left
+                (when (= focus-section :sliders)
+                  (let [slider (nth sliders slider-index)
+                        slider-id (:id slider)]
+                    (case slider-id
+                      :theme-id    (let [cur-idx (themes/theme-index (:theme-id settings))
+                                         new-idx (mod (dec cur-idx) (count themes/theme-list))]
+                                     (swap! !settings assoc :theme-id (nth themes/theme-list new-idx)))
+                      :font-size   (swap! !settings update :font-size #(max 8 (dec %)))
+                      :line-height (swap! !settings update :line-height #(max 1.0 (- % 0.1)))
+                      :px-range    (swap! !settings update :px-range #(max 4 (dec %)))
+                      :sharpness   (swap! !settings update :sharpness #(max -0.2 (- % 0.02)))
+                      :snap-to-pixel? (swap! !settings assoc :snap-to-pixel? false)
+                      :show-diagnostics? (swap! !settings assoc :show-diagnostics? false))))
 
-                     ;; Close
-                     :enter
-                     (do
-                       (swap! !settings assoc :visible false)
-                       (reset! !focus :editor)
-                       (js/console.log "[SETTINGS] Closed panel"))
-                       
-                     :escape
-                     (do
-                       (swap! !settings assoc :visible false)
-                       (reset! !focus :editor))
+                :right
+                (when (= focus-section :sliders)
+                  (let [slider (nth sliders slider-index)
+                        slider-id (:id slider)]
+                    (case slider-id
+                      :theme-id    (let [cur-idx (themes/theme-index (:theme-id settings))
+                                         new-idx (mod (inc cur-idx) (count themes/theme-list))]
+                                     (swap! !settings assoc :theme-id (nth themes/theme-list new-idx)))
+                      :font-size   (swap! !settings update :font-size #(min 40 (inc %)))
+                      :line-height (swap! !settings update :line-height #(min 2.0 (+ % 0.1)))
+                      :px-range    (swap! !settings update :px-range #(min 12 (inc %)))
+                      :sharpness   (swap! !settings update :sharpness #(min 0.2 (+ % 0.02)))
+                      :snap-to-pixel? (swap! !settings assoc :snap-to-pixel? true)
+                      :show-diagnostics? (swap! !settings assoc :show-diagnostics? true))))
 
-                     nil)))
-               nil)
-             nil))
+                ;; Close
+                :enter
+                (do
+                  (swap! !settings assoc :visible false)
+                  (reset! !focus :editor)
+                  (js/console.log "[SETTINGS] Closed panel"))
+
+                :escape
+                (do
+                  (swap! !settings assoc :visible false)
+                  (reset! !focus :editor))
+
+                nil)))
+          nil)
+        nil
+        <settings-keyboard)
 
       ;; =====================================================================
       ;; RENDER LOOP (SINGLE TERMINAL - "PULL" MODEL)
@@ -6086,19 +7019,19 @@
                                            <fold-data
                                            !flow-state !collapsed-groups !hovered-row-idx !drag-state
                                            !sidebar-state !sidebar-visible !extract-preview
-                                           !shimmer-phase !trail-collapsed !active-pane !scroll-x
+                                           !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus
                                            layout-x layout-y cmd-panel-h status-bar-h)
             <editor-rect-data (<editor-rects !editor-doc !eval-result !caret-visible !focus
                                              !settings !active-font !viewport
                                              <fold-data <bracket-data
                                              !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
                                              !sidebar-state !sidebar-visible !current-file !extract-preview !agent-output
-                                             !shimmer-phase !trail-collapsed !active-pane !scroll-x
+                                             !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input
                                              layout-x layout-y gutter-w)
             <cmd-rect-data (<cmd-panel-rects !cmd-panel !focus !caret-visible !scroll-y !viewport
                                              !settings !active-font
                                              !ai-provider !agent-output !sidebar-visible !sidebar-state
-                                             cmd-panel-h status-bar-h)
+                                             !current-file cmd-panel-h status-bar-h)
             ;; Settings panel flows (reactive: derive font-size from !settings internally)
             <settings-rect-data (<settings-panel-rects !settings !focus !viewport !scroll-y !font-manifest)
             <settings-text-data (<settings-panel-text !settings !viewport !scroll-y !font-manifest)
@@ -6345,3 +7278,4 @@
 
           ;; Sample world state on each RAF tick
           (m/sample vector <world-snapshot >raf))))))
+
