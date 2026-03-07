@@ -1007,6 +1007,8 @@
 (def sidebar-tab-h 36)
 (def sidebar-row-h 32)
 (def sidebar-back-h 48)
+(def cmd-panel-h 40)
+(def status-bar-h 24)
 (def sidebar-breadcrumb-h 24)
 (def sidebar-indent-px 14)
 (def sidebar-padding-x 16)
@@ -2888,7 +2890,7 @@
                 ;; File open -> 3-pane layout; no file -> plain editor
                 (if file-open?
                   (let [code-w (int (* content-w 0.4))
-                        content-h (:height viewport)
+                        content-h (- (:height viewport) cmd-panel-h status-bar-h)
                         line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
                         lx (maybe-snap (- layout-x (or scroll-x 0)) dpr snap?)
                         ly (maybe-snap layout-y dpr snap?)
@@ -4584,8 +4586,9 @@
                                   (clip-sub op)))
                       clipped (into [] (keep clip-op) editor-ops)
                       shimmer-alpha (if shimmer-phase 0.9 0.4)
+                      file-layout-h (- (:height viewport) cmd-panel-h status-bar-h)
                       right-tree (resolve-layout
-                                   (build-file-layout content-vw (:height viewport)
+                                   (build-file-layout content-vw file-layout-h
                                                       current-file agent-output font-size
                                                       shimmer-alpha trail-collapsed
                                                       :active-pane active-pane :char-advance char-advance
@@ -4846,8 +4849,6 @@
         layout-x  (+ 50 gutter-w)
         layout-y  100
         line-h    (* font-size 1.2)
-        cmd-panel-h 40
-        status-bar-h 24
 
         ;; =====================================================================
         ;; LAYER 1: PRIMARY SOURCE ATOMS
@@ -6341,25 +6342,26 @@
                                     (swap! !editor-doc assoc
                                            :cursor pos
                                            :selection nil
-                                           :desired-col col)))
+                                           :desired-col col)
                                 (reset! !caret-visible true)
-                                (reset! !focus :editor)))
+                                (reset! !focus :editor)))))
                             (when in-chat?
-                              ;; Click in bottom 36px of viewport → focus chat input
-                              (if (>= y (- (:height viewport) 36))
-                                (do (reset! !focus :chat)
-                                    (reset! !caret-visible true))
-                                ;; Hit-test the file layout tree for tool-header + nav clicks
-                                (let [font-size (:font-size @!settings)
-                                    char-advance (* font-size (:char-width @!active-font))
-                                    shimmer-alpha (if @!shimmer-phase 0.9 0.4)
-                                    tree (resolve-layout
-                                           (build-file-layout content-w (:height viewport)
-                                                              @!current-file @!agent-output font-size
-                                                              shimmer-alpha @!trail-collapsed
-                                                              :active-pane @!active-pane :char-advance char-advance
-                                                              :chat-scroll-y (or @!chat-scroll-y 0)
-                                                              :chat-input @!chat-input :focus @!focus))
+                              ;; Click in bottom 36px of chat pane (above cmd bar) → focus chat input
+                              (let [file-layout-h (- (:height viewport) cmd-panel-h status-bar-h)]
+                                (if (>= y (- file-layout-h 36))
+                                  (do (reset! !focus :chat)
+                                      (reset! !caret-visible true))
+                                  ;; Hit-test the file layout tree for tool-header + nav clicks
+                                  (let [font-size (:font-size @!settings)
+                                      char-advance (* font-size (:char-width @!active-font))
+                                      shimmer-alpha (if @!shimmer-phase 0.9 0.4)
+                                      tree (resolve-layout
+                                             (build-file-layout content-w file-layout-h
+                                                                @!current-file @!agent-output font-size
+                                                                shimmer-alpha @!trail-collapsed
+                                                                :active-pane @!active-pane :char-advance char-advance
+                                                                :chat-scroll-y (or @!chat-scroll-y 0)
+                                                                :chat-input @!chat-input :focus @!focus))
                                     path (hit-test tree rel-x y)]
                                 (when path
                                   ;; Priority 1: navigate (tool cards with :nav file path)
@@ -6397,7 +6399,7 @@
                                                                     (disj s cid)
                                                                     (conj s cid))))
                                                   true)))
-                                            (rseq path))))))))
+                                            (rseq path)))))))))
 
                           ;; Normal editor mode: cursor placement / fold toggle
                           :else
