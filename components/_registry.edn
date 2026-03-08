@@ -1,0 +1,72 @@
+;; Component Registry — shadcn v4
+;; Auto-generated 2026-03-01 from ui.shadcn.com/docs/components
+;; 59 components, 54 with direct source files
+
+{:libraries [{:id :shadcn-v4
+              :name "shadcn/ui v4"
+              :repo "shadcn-ui/ui"
+              :branch "main"
+              :base-path "apps/v4/registry/bases/base/ui"
+              :docs-base "https://ui.shadcn.com/docs/components/radix"
+              :token-map "shadcn-v4.edn"}]
+
+ :components
+ [{:slug "accordion"      :name "Accordion"        :has-source? true  :category :disclosure}
+  {:slug "alert"           :name "Alert"            :has-source? true  :category :feedback}
+  {:slug "alert-dialog"    :name "Alert Dialog"     :has-source? true  :category :overlay}
+  {:slug "aspect-ratio"    :name "Aspect Ratio"     :has-source? true  :category :layout}
+  {:slug "avatar"          :name "Avatar"           :has-source? true  :category :data-display}
+  {:slug "badge"           :name "Badge"            :has-source? true  :category :data-display}
+  {:slug "breadcrumb"      :name "Breadcrumb"       :has-source? true  :category :navigation}
+  {:slug "button"          :name "Button"           :has-source? true  :category :action}
+  {:slug "button-group"    :name "Button Group"     :has-source? true  :category :action}
+  {:slug "calendar"        :name "Calendar"         :has-source? true  :category :date-time}
+  {:slug "card"            :name "Card"             :has-source? true  :category :data-display}
+  {:slug "carousel"        :name "Carousel"         :has-source? true  :category :data-display}
+  {:slug "chart"           :name "Chart"            :has-source? true  :category :data-display}
+  {:slug "checkbox"        :name "Checkbox"         :has-source? true  :category :input}
+  {:slug "collapsible"     :name "Collapsible"      :has-source? true  :category :disclosure}
+  {:slug "combobox"        :name "Combobox"         :has-source? true  :category :input}
+  {:slug "command"         :name "Command"          :has-source? true  :category :input}
+  {:slug "context-menu"    :name "Context Menu"     :has-source? true  :category :overlay}
+  {:slug "data-table"      :name "Data Table"       :has-source? false :category :data-display}
+  {:slug "date-picker"     :name "Date Picker"      :has-source? false :category :date-time}
+  {:slug "dialog"          :name "Dialog"           :has-source? true  :category :overlay}
+  {:slug "direction"       :name "Direction"        :has-source? true  :category :utility}
+  {:slug "drawer"          :name "Drawer"           :has-source? true  :category :overlay}
+  {:slug "dropdown-menu"   :name "Dropdown Menu"    :has-source? true  :category :overlay}
+  {:slug "empty"           :name "Empty"            :has-source? true  :category :feedback}
+  {:slug "field"           :name "Field"            :has-source? true  :category :input}
+  {:slug "hover-card"      :name "Hover Card"       :has-source? true  :category :overlay}
+  {:slug "input"           :name "Input"            :has-source? true  :category :input}
+  {:slug "input-group"     :name "Input Group"      :has-source? true  :category :input}
+  {:slug "input-otp"       :name "Input OTP"        :has-source? true  :category :input}
+  {:slug "item"            :name "Item"             :has-source? true  :category :data-display}
+  {:slug "kbd"             :name "Kbd"              :has-source? true  :category :data-display}
+  {:slug "label"           :name "Label"            :has-source? true  :category :input}
+  {:slug "menubar"         :name "Menubar"          :has-source? true  :category :navigation}
+  {:slug "native-select"   :name "Native Select"    :has-source? true  :category :input}
+  {:slug "navigation-menu" :name "Navigation Menu"  :has-source? true  :category :navigation}
+  {:slug "pagination"      :name "Pagination"       :has-source? true  :category :navigation}
+  {:slug "popover"         :name "Popover"          :has-source? true  :category :overlay}
+  {:slug "progress"        :name "Progress"         :has-source? true  :category :feedback}
+  {:slug "radio-group"     :name "Radio Group"      :has-source? true  :category :input}
+  {:slug "resizable"       :name "Resizable"        :has-source? true  :category :layout}
+  {:slug "scroll-area"     :name "Scroll Area"      :has-source? true  :category :layout}
+  {:slug "select"          :name "Select"           :has-source? true  :category :input}
+  {:slug "separator"       :name "Separator"        :has-source? true  :category :layout}
+  {:slug "sheet"           :name "Sheet"            :has-source? true  :category :overlay}
+  {:slug "sidebar"         :name "Sidebar"          :has-source? true  :category :navigation}
+  {:slug "skeleton"        :name "Skeleton"         :has-source? true  :category :feedback}
+  {:slug "slider"          :name "Slider"           :has-source? true  :category :input}
+  {:slug "sonner"          :name "Sonner"           :has-source? true  :category :feedback}
+  {:slug "spinner"         :name "Spinner"          :has-source? true  :category :feedback}
+  {:slug "switch"          :name "Switch"           :has-source? true  :category :input}
+  {:slug "table"           :name "Table"            :has-source? true  :category :data-display}
+  {:slug "tabs"            :name "Tabs"             :has-source? true  :category :navigation}
+  {:slug "textarea"        :name "Textarea"         :has-source? true  :category :input}
+  {:slug "toast"           :name "Toast"            :has-source? false :category :feedback}
+  {:slug "toggle"          :name "Toggle"           :has-source? true  :category :action}
+  {:slug "toggle-group"    :name "Toggle Group"     :has-source? true  :category :action}
+  {:slug "tooltip"         :name "Tooltip"          :has-source? true  :category :overlay}
+  {:slug "typography"      :name "Typography"       :has-source? false :category :data-display}]}
