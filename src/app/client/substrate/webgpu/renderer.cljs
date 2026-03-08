@@ -1,4 +1,4 @@
-(ns app.client.webgpu.editor)
+(ns app.client.substrate.webgpu.renderer)
 
 ;; --- 1. SHADERS ---
 ;; Rich quads: 28 floats/rect, SDF-based rounded corners, borders, gradients
@@ -706,9 +706,9 @@
 
 
 (defn draw-frame! [^js device ^js context text-sys editor-rect-sys cmd-rect-sys camera-floats _ignored_pass_descriptor pan-x pan-y w h
-                   & {:keys [cmd-panel-visible cmd-panel-h editor-line-count settings-visible settings-rect-sys
+                   & {:keys [cmd-panel-visible cmd-panel-h editor-line-count pre-settings-line-count settings-line-count settings-visible settings-rect-sys
                              diagnostics-visible diagnostics-line-index agent-visible shadow-sys]
-                      :or {cmd-panel-visible false cmd-panel-h 40 editor-line-count nil settings-visible false
+                      :or {cmd-panel-visible false cmd-panel-h 40 editor-line-count nil pre-settings-line-count nil settings-line-count 0 settings-visible false
                            settings-rect-sys nil agent-visible false shadow-sys nil}}]
   (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y 1.0 w h)
 
@@ -809,23 +809,23 @@
               (.draw pass 6 (:num-instances settings-rect-sys)))
 
             ;; Draw settings panel TEXT (font names, labels, values)
-            ;; Settings text is appended after editor+cmd text in the instance buffer
-            ;; We draw all remaining instances after editor-line-count
-            (when (> total-lines editor-lines)
-              (let [settings-start-inst (if (and cmd-panel-visible (< editor-lines total-lines))
-                                          ;; After command panel text
-                                          (:num-instances text-sys)
-                                          ;; After editor text
-                                          (if (< editor-lines (count line-offsets))
-                                            (nth line-offsets editor-lines)
-                                            (:num-instances text-sys)))]
-                ;; Actually, settings text is the last "line" in line-offsets
-                ;; We need to draw from the settings start to end
-                (when (< settings-start-inst (:num-instances text-sys))
+            ;; Settings text is appended after editor text and command/agent text.
+            ;; Runtime passes exact line counts so we can slice this deterministically.
+            (when (pos? settings-line-count)
+              (let [settings-start-line (or pre-settings-line-count editor-line-count 0)
+                    settings-end-line (+ settings-start-line settings-line-count)
+                    settings-start-inst (if (< settings-start-line (count line-offsets))
+                                          (nth line-offsets settings-start-line)
+                                          (:num-instances text-sys))
+                    settings-end-inst (if (< settings-end-line (count line-offsets))
+                                        (nth line-offsets settings-end-line)
+                                        (:num-instances text-sys))
+                    settings-draw-count (- settings-end-inst settings-start-inst)]
+                (when (> settings-draw-count 0)
                   (.setPipeline pass (:pipeline text-sys))
                   (.setBindGroup pass 0 (:bind-group text-sys))
                   (.setVertexBuffer pass 0 (:instance-buffer text-sys))
-                  (.draw pass 6 (- (:num-instances text-sys) settings-start-inst) 0 settings-start-inst)))))
+                  (.draw pass 6 settings-draw-count 0 settings-start-inst)))))
 
           ;; Diagnostics overlay: draw when enabled and not covered by panels
           (when (and diagnostics-visible (not cmd-panel-visible) (not settings-visible) diagnostics-line-index)

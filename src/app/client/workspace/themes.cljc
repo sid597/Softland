@@ -1,4 +1,4 @@
-(ns app.client.webgpu.themes
+(ns app.client.workspace.themes
   "Syntax highlighting themes for the editor.
    Extracted to avoid circular dependencies between electric-flow and loop.")
 

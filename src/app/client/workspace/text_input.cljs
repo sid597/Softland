@@ -1,4 +1,4 @@
-(ns app.client.webgpu.text-input
+(ns app.client.workspace.text-input
   (:require [clojure.string :as str]))
 
 (defn- clamp [v min-v max-v]
@@ -538,7 +538,8 @@
   [cursor font-size origin-x origin-y line-h visible?]
   (when (and cursor visible?)
     (let [{:keys [line col]} (if (map? cursor) cursor {:line 0 :col cursor})
-          char-w (* font-size 0.6)
+          ;; Keep rendering helpers aligned with the runtime/editor 0.56 glyph advance.
+          char-w (* font-size 0.56)
           x (+ origin-x (* col char-w))
           y (+ origin-y (* line line-h))]
       {:x x :y y :w 2 :h line-h
@@ -550,7 +551,8 @@
   (when selection
     (let [{:keys [start end]} selection
           multi-line? (and (map? start) (contains? start :line))
-          char-w (* font-size 0.6)
+          ;; Keep rendering helpers aligned with the runtime/editor 0.56 glyph advance.
+          char-w (* font-size 0.56)
           r 0.2 g 0.4 b 0.9 a 0.5]
       (if (not multi-line?)
         (let [s (min start end)
