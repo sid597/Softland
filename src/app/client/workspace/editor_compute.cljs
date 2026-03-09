@@ -217,12 +217,14 @@
                                       (let [line-len (get lengths logical-line 0)
                                             col-start (if (= logical-line (:line s)) (:col s) 0)
                                             col-end (if (= logical-line (:line e)) (:col e) line-len)
-                                            width-chars (- col-end col-start)]
-                                        (when (> width-chars 0)
-                                          {:x (+ layout-x (* col-start char-w))
-                                           :y visual-y
-                                           :w (* width-chars char-w)
-                                           :h line-h
+                                            width-chars (- col-end col-start)
+                                            x (+ layout-x (* col-start char-w))
+                                            raw-w (* width-chars char-w)
+                                            ;; Clamp to editor pane boundary
+                                            clamped-w (min raw-w (max 0 (- viewport-w x)))]
+                                        (when (> clamped-w 0)
+                                          {:x x :y visual-y
+                                           :w clamped-w :h line-h
                                            :r 0.2 :g 0.4 :b 0.9 :a 0.5}))))
                                   (range (:line s) (inc (:line e))))))
 

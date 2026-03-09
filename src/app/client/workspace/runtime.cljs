@@ -798,8 +798,73 @@
         >shimmer-timer (events/make-blink-timer) ;; Separate blink for tool-card shimmer
         >resize (events/>canvas-resize node)
         >wheel-events (events/>wheel node)
-        >mouse-events (->> (events/>mouse node) (m/relieve (fn [_ x] x)))
+        >mouse-events (events/>mouse node)
         >keyboard-events (events/>keyboard js/window)
+
+        ;; RAW DOM drag-select: bypasses Missionary's async scheduling so every
+        ;; mousemove is captured synchronously while the mouse button is held.
+        ;; Uses !drag-start atom to avoid race with Missionary's async mousedown.
+        !drag-start (atom nil)
+        _ (let [get-coords (fn [e]
+                             (let [rect (.getBoundingClientRect node)]
+                               {:x (- (.-clientX e) (.-left rect))
+                                :y (- (.-clientY e) (.-top rect))}))
+               mouse->pos (fn [{:keys [x y]}]
+                            (let [scroll-y @!scroll-y
+                                  sb-w (if (and !sidebar-visible @!sidebar-visible) sidebar-w 0)
+                                  local-x (- x sb-w)
+                                  dpr (:dpr @!viewport)
+                                  snap? (:snap-to-pixel? @!settings)
+                                  font-size (:font-size @!settings)
+                                  char-width (:char-width @!active-font)
+                                  line-h (maybe-snap (* font-size (:line-height @!settings)) dpr snap?)
+                                  char-w (maybe-snap (* font-size char-width) dpr snap?)
+                                  adj-y (+ y scroll-y)
+                                  lx (maybe-snap (- layout-x (or @!scroll-x 0)) dpr snap?)
+                                  ly (maybe-snap layout-y dpr snap?)
+                                  text-result @!text-geo
+                                  line-mapping (or (:line-mapping text-result) [])
+                                  lengths (mapv count (:lines @!editor-doc))
+                                  visual-line (max 0 (Math/floor (/ (- adj-y ly) line-h)))
+                                  logical-line (get line-mapping visual-line
+                                                    (min visual-line (dec (count lengths))))
+                                  line-len (get lengths logical-line 0)
+                                  col (-> (/ (- local-x lx) char-w)
+                                          (Math/round)
+                                          (max 0)
+                                          (min line-len))]
+                              {:line logical-line :col col}))]
+            (.addEventListener node "mousedown"
+              (fn [e]
+                (let [coords (get-coords e)
+                      {:keys [x]} coords
+                      sb-w (if (and !sidebar-visible @!sidebar-visible) sidebar-w 0)
+                      local-x (- x sb-w)
+                      content-w (- (:width @!viewport) sb-w)
+                      code-w (int (* content-w 0.4))
+                      in-editor? (and (some? (:path @!current-file)) (< local-x code-w))
+                      in-normal-editor? (and (nil? (:path @!current-file))
+                                             (not (flow-canvas-active? @!flow-state)))]
+                  (when (or in-editor? in-normal-editor?)
+                    (let [pos (mouse->pos coords)]
+                      (reset! !drag-start pos)
+                      (reset! !dragging? true)
+                      (swap! !editor-doc assoc
+                             :cursor pos :selection nil :desired-col (:col pos))
+                      (reset! !focus :editor)
+                      (reset! !caret-visible true))))))
+            (.addEventListener js/window "mousemove"
+              (fn [e]
+                (when @!dragging?
+                  (let [pos (mouse->pos (get-coords e))
+                        start @!drag-start]
+                    (when (and start (not= pos start))
+                      (swap! !editor-doc assoc
+                             :selection {:start start :end pos}))))))
+            (.addEventListener js/window "mouseup"
+              (fn [_]
+                (reset! !dragging? false)
+                (reset! !drag-start nil))))
 
         ;; =====================================================================
         ;; LAYER 4: FOCUS-BASED EVENT ROUTING
@@ -934,7 +999,7 @@
                                  sb-off (if sb-vis? sidebar-w 0)
                                  cw (- (:width viewport) sb-off)
                                  code-w (int (* cw 0.4))
-                                 chat-w (int (* cw 0.3))
+                                 chat-w (int (* cw 0.55))
                                  rel-mx (- mouse-x sb-off)
                                  in-chat? (and file-open? (>= rel-mx code-w) (< rel-mx (+ code-w chat-w)))]
                              (and file-open? in-chat?))
@@ -972,7 +1037,6 @@
       (->> >mouse-events
            (m/reduce
              (fn [_ [type coords]]
-               #_(js/console.log "Mouse:" type coords)
                (case type
                  :mousedown
                  (let [{:keys [x y]} coords
@@ -1002,7 +1066,7 @@
                            font-item-h 32
                            
                            ;; Sliders
-                           slider-item-h 70
+                           slider-item-h 58
                            slider-count (count (slider-specs settings))
                            
                            rel-x (- x panel-x)
@@ -1218,20 +1282,21 @@
                                                 (max 0)
                                                 (min line-len))
                                         pos {:line logical-line :col col}]
-                                    (reset! !dragging? true)
-                                    (swap! !editor-doc assoc
-                                           :cursor pos
-                                           :selection nil
-                                           :desired-col col)
-                                (reset! !caret-visible true)
-                                (reset! !focus :editor)))))
+                                    ;; Skip if raw DOM handler already processed this click
+                                    (when-not @!drag-start
+                                      (swap! !editor-doc assoc
+                                             :cursor pos
+                                             :selection nil
+                                             :desired-col col)
+                                      (reset! !caret-visible true)
+                                      (reset! !focus :editor))))))
                             (when in-chat?
-                              ;; Click in bottom 36px of chat pane (above cmd bar) → focus chat input
+                              ;; Always focus chat pane on click (prevents editor caret bleed-through)
+                              (reset! !focus :chat)
+                              (reset! !caret-visible true)
+                              ;; Hit-test upper chat area for tool-header + nav clicks
                               (let [file-layout-h (- (:height viewport) cmd-panel-h status-bar-h)]
-                                (if (>= y (- file-layout-h 36))
-                                  (do (reset! !focus :chat)
-                                      (reset! !caret-visible true))
-                                  ;; Hit-test the file layout tree for tool-header + nav clicks
+                                (when (< y (- file-layout-h 36))
                                   (let [font-size (:font-size @!settings)
                                       char-advance (* font-size (:char-width @!active-font))
                                       shimmer-alpha (if @!shimmer-phase 0.9 0.4)
@@ -1279,7 +1344,7 @@
                                                                     (disj s cid)
                                                                     (conj s cid))))
                                                   true)))
-                                            (rseq path)))))))))
+                                            (rseq path))))))))))
 
                           ;; Normal editor mode: cursor placement / fold toggle
                           :else
@@ -1329,13 +1394,14 @@
                                             (max 0)
                                             (min line-len))
                                     pos {:line logical-line :col col}]
-                                (reset! !dragging? true)
-                                (swap! !editor-doc assoc
-                                       :cursor pos
-                                       :selection nil
-                                       :desired-col col)
-                                (reset! !caret-visible true)
-                                (reset! !focus :editor))))))))))))))
+                                ;; Skip if raw DOM handler already processed this click
+                                (when-not @!drag-start
+                                  (swap! !editor-doc assoc
+                                         :cursor pos
+                                         :selection nil
+                                         :desired-col col)
+                                  (reset! !caret-visible true)
+                                  (reset! !focus :editor))))))))))))))
 
                  :mousemove
                  (do (reset! !mouse-x (:x coords))
@@ -1386,38 +1452,9 @@
                      (reset! !hovered-row-idx
                              (when (and target (= (:type target) :ticket-row))
                                (:idx (:data target))))))
-                 (when @!dragging?
-                   ;; Use reactive font values for mouse drag selection
-                   (let [{:keys [x y]} coords
-                         scroll-y @!scroll-y
-                         sb-w (if (and !sidebar-visible @!sidebar-visible) sidebar-w 0)
-                         local-x (- x sb-w)
-                         dpr (:dpr @!viewport)
-                         snap? (:snap-to-pixel? @!settings)
-                         font-size (:font-size @!settings)
-                         char-width (:char-width @!active-font)
-                         line-h (maybe-snap (* font-size (:line-height @!settings)) dpr snap?)
-                         adj-y (+ y scroll-y)
-                         layout-x (maybe-snap (- layout-x (or @!scroll-x 0)) dpr snap?)
-                         layout-y (maybe-snap layout-y dpr snap?)
-                         text-result @!text-geo
-                         line-mapping (or (:line-mapping text-result) [])
-                         lengths (mapv count (:lines @!editor-doc))
-                         visual-line (max 0 (Math/floor (/ (- adj-y layout-y) line-h)))
-                         logical-line (get line-mapping visual-line
-                                          (min visual-line (dec (count lengths))))
-                         line-len (get lengths logical-line 0)
-                         char-w (maybe-snap (* font-size char-width) dpr snap?)
-                         col (-> (/ (- local-x layout-x) char-w)
-                                 (Math/round)
-                                 (max 0)
-                                 (min line-len))
-                         pos {:line logical-line :col col}
-                         doc @!editor-doc
-                         start-pos (:cursor doc)]
-                     (when (not= pos start-pos)
-                       (swap! !editor-doc assoc
-                              :selection {:start start-pos :end pos})))))
+                 ;; Drag-select handled by raw DOM listeners (see above) --
+                 ;; Missionary's async scheduling loses mousemove events.
+                 nil)
 
                  :mouseup
                  (let [ds @!drag-state]
@@ -1453,8 +1490,8 @@
                            ;; Dropped on left pane → reorder (future)
                            nil))
                        (reset! !drag-state {:phase :idle}))
-                     ;; :idle — normal mouseup (editor text selection)
-                     (reset! !dragging? false))))
+                     ;; :idle — drag-select managed by raw DOM listeners (see above)
+                     nil)))
                nil)
              nil)))
 
