@@ -23,14 +23,14 @@
    <fold-data
    !flow-state !collapsed-groups !hovered-row-idx !drag-state
    !sidebar-state !sidebar-visible !extract-preview
-   !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus
-   flow-canvas-active?* compute-ticket-list-text-ops* offset-text-ops*
+   !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus !run-scroll-y !detail-scroll-y
+   flow-canvas-active?* compute-ticket-list-text-ops* compute-run-text-ops* offset-text-ops*
    layout-x layout-y cmd-panel-h status-bar-h]
   (m/latest
     (fn [doc panel provider agent-output agent-scroll-y scroll-y viewport fold-state settings active-font
          current-file flow-state collapsed-groups hovered-row-idx drag-state
          sidebar-state sidebar-visible? extract-preview
-         shimmer-phase trail-collapsed active-pane scroll-x chat-scroll-y chat-input focus]
+         shimmer-phase trail-collapsed active-pane scroll-x chat-scroll-y chat-input focus run-scroll-y detail-scroll-y]
       (let [sb-vis? (boolean sidebar-visible?)
             sb-w (if sb-vis? sidebar-w 0)
             dpr (:dpr viewport)
@@ -78,12 +78,19 @@
                    (vec (range (count (:lines doc))))
                    []])
                 (if (flow-canvas-active?* flow-state)
-                  ;; Flow canvas mode: master-detail list view text
-                  [(compute-ticket-list-text-ops* flow-state content-vw (:height viewport)
-                                                  font-size char-advance scroll-y
-                                                  hovered-row-idx collapsed-groups drag-state)
-                   (vec (range (count (:lines doc))))
-                   []]
+                  ;; Flow canvas mode: dispatch by node
+                  (if (= :intake (:node flow-state))
+                    [(compute-ticket-list-text-ops* flow-state content-vw (:height viewport)
+                                                    font-size char-advance scroll-y
+                                                    detail-scroll-y
+                                                    hovered-row-idx collapsed-groups drag-state)
+                     (vec (range (count (:lines doc))))
+                     []]
+                    [(compute-run-text-ops* flow-state content-vw (:height viewport)
+                                            scroll-y agent-output font-size char-advance
+                                            shimmer-phase trail-collapsed run-scroll-y)
+                     (vec (range (count (:lines doc))))
+                     []])
 
                 ;; Normal editor mode — original logic below
                 (let [;; Pre-computed fold state from <fold-data
@@ -161,7 +168,6 @@
               (if (and file-open? (not (flow-canvas-active?* flow-state)) (not (:rt-node extract-preview)))
                 (let [code-w (int (* content-vw 0.4))
                       ;; Clip text ops to editor pane [layout-x, code-w] — left (gutter edge) AND right
-                      font-cw (:char-width active-font 0.56)
                       clip-left layout-x ;; left boundary = gutter right edge (text start)
                       header-h 36
                       clip-top (+ scroll-y header-h) ;; viewport-pinned top edge below header
@@ -169,7 +175,10 @@
                                  (let [x (or (:x sub) 0)
                                        y (or (:y sub) 0)
                                        fs (or (:size sub) font-size)
-                                       cw (* fs font-cw)
+                                       ;; Use snapped char-advance for consistency with cursor/selection
+                                       cw (if (== fs font-size)
+                                            char-advance
+                                            (maybe-snap (* fs char-width) dpr snap?))
                                        txt (or (:text sub) "")
                                        text-end (+ x (* (count txt) cw))]
                                    ;; Drop if outside horizontal [clip-left, code-w] or above header
@@ -414,4 +423,6 @@
     (m/watch !scroll-x)
     (m/watch !chat-scroll-y)
     (m/watch !chat-input)
-    (m/watch !focus)))
+    (m/watch !focus)
+    (m/watch !run-scroll-y)
+    (m/watch !detail-scroll-y)))

@@ -270,14 +270,14 @@
    <fold-data <bracket-data
    !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
    !sidebar-state !sidebar-visible !current-file !extract-preview !agent-output
-   !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input
-   flow-canvas-active?* compute-ticket-list-rects* offset-rects* offset-shadows*
+   !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !run-scroll-y !detail-scroll-y
+   flow-canvas-active?* compute-ticket-list-rects* compute-run-rects* offset-rects* offset-shadows*
    layout-x layout-y gutter-w]
   (m/latest
     (fn [doc fold-state bracket-match eval-result caret-visible focus settings active-font viewport
          flow-state scroll-y collapsed-groups hovered-row-idx drag-state
          sidebar-state sidebar-visible? current-file extract-preview agent-output
-         shimmer-phase trail-collapsed active-pane scroll-x chat-scroll-y chat-input]
+         shimmer-phase trail-collapsed active-pane scroll-x chat-scroll-y chat-input run-scroll-y detail-scroll-y]
       (let [sb-vis? (boolean sidebar-visible?)
             sb-w (if sb-vis? sidebar-w 0)
             dpr (:dpr viewport)
@@ -315,8 +315,13 @@
                 {:rects (if preview-tree (tree->rects preview-tree) [])
                  :shadows (if preview-tree (tree->shadows preview-tree) [])})
               (if (flow-canvas-active?* flow-state)
-                (compute-ticket-list-rects* flow-state content-w (:height viewport)
-                                            scroll-y hovered-row-idx collapsed-groups drag-state)
+                (if (= :intake (:node flow-state))
+                  (compute-ticket-list-rects* flow-state content-w (:height viewport)
+                                              scroll-y detail-scroll-y hovered-row-idx collapsed-groups drag-state
+                                              font-size char-advance)
+                  (compute-run-rects* flow-state content-w (:height viewport)
+                                      scroll-y agent-output font-size char-advance
+                                      shimmer-phase trail-collapsed run-scroll-y))
                 ;; File open -> 3-pane layout; no file -> plain editor
                 (if file-open?
                   (let [code-w (int (* content-w 0.4))
@@ -376,6 +381,8 @@
     (m/watch !active-pane)
     (m/watch !scroll-x)
     (m/watch !chat-scroll-y)
-    (m/watch !chat-input)))
+    (m/watch !chat-input)
+    (m/watch !run-scroll-y)
+    (m/watch !detail-scroll-y)))
 
 ;; --- Markdown rendering helpers for chat pane trail --------------------------

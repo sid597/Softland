@@ -29,19 +29,34 @@
        (m/relieve (fn [_old new] new))))
 
 (defn >wheel [node]
-  "Flow that emits wheel delta values as {:dy N :dx N}"
+  "Flow that emits wheel delta values as {:dy N :dx N :x N :y N}."
   (->> (m/observe
          (fn [!]
-           (let [handler (fn [e]
-                           (.preventDefault e)
-                           (! {:dy (.-deltaY e)
-                               :dx (.-deltaX e)
-                               :shift? (.-shiftKey e)}))]
+           (let [get-coords (fn [e]
+                              (let [rect (.getBoundingClientRect node)]
+                                {:x (- (.-clientX e) (.-left rect))
+                                 :y (- (.-clientY e) (.-top rect))}))
+                 handler (fn [e]
+                           (let [{:keys [x y]} (get-coords e)]
+                             (.preventDefault e)
+                             (js/console.log "[WHEEL][SOURCE]"
+                                             (clj->js {:x x
+                                                       :y y
+                                                       :dy (.-deltaY e)
+                                                       :dx (.-deltaX e)
+                                                       :shift? (.-shiftKey e)}))
+                             (! {:dy (.-deltaY e)
+                                 :dx (.-deltaX e)
+                                 :shift? (.-shiftKey e)
+                                 :x x
+                                 :y y})))]
              (.addEventListener node "wheel" handler #js {:passive false})
              #(.removeEventListener node "wheel" handler))))
        (m/relieve (fn [a b] {:dy (+ (:dy a) (:dy b))
-                              :dx (+ (:dx a) (:dx b))
-                              :shift? (:shift? b)}))))
+                             :dx (+ (:dx a) (:dx b))
+                             :shift? (:shift? b)
+                             :x (:x b)
+                             :y (:y b)}))))
 
 (defn >mouse [node]
   "Flow that emits mouse events [:mousedown/:mouseup/:mousemove coords]"
@@ -102,11 +117,11 @@
       (and ctrl? (= key "ArrowLeft")) {:type :word-left}
       (and ctrl? (= key "ArrowRight")) {:type :word-right}
 
-      ;; Navigation keys
-      (= key "ArrowLeft") {:type :left}
-      (= key "ArrowRight") {:type :right}
-      (= key "ArrowUp") {:type :up}
-      (= key "ArrowDown") {:type :down}
+      ;; Navigation keys (shift? included for stack reorder)
+      (= key "ArrowLeft") {:type :left :shift? shift?}
+      (= key "ArrowRight") {:type :right :shift? shift?}
+      (= key "ArrowUp") {:type :up :shift? shift?}
+      (= key "ArrowDown") {:type :down :shift? shift?}
       (= key "Home") {:type :home}
       (= key "End") {:type :end}
 

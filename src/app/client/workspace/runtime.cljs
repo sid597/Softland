@@ -29,7 +29,7 @@
             [app.client.workspace.agent :as agent :refer [stream-agent-run! parse-structured-result]]
             [app.client.workspace.editor-compute :as editor-compute :refer [editor-apply-event <fold-state <bracket-match <editor-rects]]
             [app.client.workspace.combined-text :refer [<combined-text-ops]]
-            [app.client.workflows.dg-flow :as dg :refer [initial-flow-state flow-canvas-active? flow-prompt group-tickets-by-status list-content-height drag-distance drag-threshold-px build-intake-tree]]
+            [app.client.workflows.dg-flow :as dg :refer [initial-flow-state flow-canvas-active? flow-prompt group-tickets-by-status list-content-height drag-distance drag-threshold-px build-intake-tree compute-run-text-ops compute-run-rects]]
             [app.client.workflows.jit :as jit]))
 
 ;; ============================================================================
@@ -96,6 +96,8 @@
 
         !scroll-y (atom 0)
         !scroll-x (atom 0)
+        !run-scroll-y (atom 0)
+        !detail-scroll-y (atom 0)
 
         !viewport (atom {:width  (.-clientWidth node)
                          :height (.-clientHeight node)
@@ -1199,7 +1201,7 @@
                           (let [flow @!flow-state
                                 tree (resolve-layout
                                        (build-intake-tree flow (:width viewport) (:height viewport)
-                                                          scroll-y nil @!collapsed-groups 0 0 nil))
+                                                          scroll-y nil @!hovered-row-idx @!collapsed-groups 0 0 nil))
                                 path (hit-test tree x (+ y scroll-y))]
                             ;; Walk path innermost→outermost, handle first recognized type
                             (when path
@@ -1446,7 +1448,7 @@
                    (let [flow @!flow-state
                          tree (resolve-layout
                                 (build-intake-tree flow (:width @!viewport) (:height @!viewport)
-                                                   @!scroll-y nil @!collapsed-groups 0 0 nil))
+                                                   @!scroll-y nil @!hovered-row-idx @!collapsed-groups 0 0 nil))
                          path (hit-test tree (:x coords) (+ (:y coords) @!scroll-y))
                          target (peek path)]
                      (reset! !hovered-row-idx
@@ -1941,16 +1943,16 @@
                                            <fold-data
                                            !flow-state !collapsed-groups !hovered-row-idx !drag-state
                                            !sidebar-state !sidebar-visible !extract-preview
-                                           !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus
-                                           dg/flow-canvas-active? dg/compute-ticket-list-text-ops dg/offset-text-ops
+                                           !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus !run-scroll-y !detail-scroll-y
+                                           dg/flow-canvas-active? dg/compute-ticket-list-text-ops dg/compute-run-text-ops dg/offset-text-ops
                                            layout-x layout-y cmd-panel-h status-bar-h)
             <editor-rect-data (<editor-rects !editor-doc !eval-result !caret-visible !focus
                                              !settings !active-font !viewport
                                              <fold-data <bracket-data
                                              !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
                                              !sidebar-state !sidebar-visible !current-file !extract-preview !agent-output
-                                             !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input
-                                             dg/flow-canvas-active? dg/compute-ticket-list-rects dg/offset-rects dg/offset-shadows
+                                             !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !run-scroll-y !detail-scroll-y
+                                             dg/flow-canvas-active? dg/compute-ticket-list-rects dg/compute-run-rects dg/offset-rects dg/offset-shadows
                                              layout-x layout-y gutter-w)
             <cmd-rect-data (<cmd-panel-rects !cmd-panel !focus !caret-visible !scroll-y !viewport
                                              !settings !active-font
