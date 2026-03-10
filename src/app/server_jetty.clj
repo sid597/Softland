@@ -102,52 +102,115 @@ information."
 ;; Linear API (direct GraphQL — no LLM, no MCP, no CLI)
 ;; =====================================================================
 
+(def linear-teams-query
+  "{ teams { nodes { id name } } }")
+
+(def linear-viewer-query
+  "{ viewer { id } }")
+
 (def linear-issues-query
-  "query($teamKey: String!) {
-     team(key: $teamKey) {
-       issues(first: 100, filter: { state: { type: { nin: [\"completed\", \"canceled\"] } } }) {
-         nodes {
-           identifier
-           title
-           priority
-           description
-           state { name }
-           assignee { name }
-         }
+  "query($teamId: ID!, $viewerId: ID!) {
+     issues(
+       first: 100,
+       filter: {
+         team: { id: { eq: $teamId } }
+         assignee: { id: { eq: $viewerId } }
+         state: { type: { nin: [\"completed\", \"canceled\"] } }
+       }
+     ) {
+       nodes {
+         identifier
+         title
+         priority
+         description
+         state { name }
+         assignee { name }
        }
      }
    }")
 
+(defn linear-api-key
+  []
+  ;; Prefer a runtime-injected env var so local/dev secrets can stay out of the repo.
+  (or (some-> (System/getenv "LINEAR_API_KEY") str/trim not-empty)
+      env/linear-api-key))
+
+(def linear-team-aliases
+  {"DIS" "Discourse Graphs Team"})
+
+(defn linear-post
+  [api-key query variables]
+  (http/post "https://api.linear.app/graphql"
+             {:headers            {"Authorization" api-key
+                                   "Content-Type"  "application/json"}
+              :body               (json/generate-string
+                                   {:query query
+                                    :variables variables})
+              :as                 :json
+              :throw-exceptions   false
+              :socket-timeout     10000
+              :connection-timeout 5000}))
+
+(defn linear-errors->message
+  [resp fallback]
+  (let [errors (get-in resp [:body :errors])]
+    (if (seq errors)
+      (str fallback ": "
+           (str/join "; " (map #(or (:message %) (pr-str %)) errors)))
+      fallback)))
+
+(defn resolve-linear-team-id
+  [api-key team-ref]
+  (let [resp (linear-post api-key linear-teams-query nil)
+        teams (get-in resp [:body :data :teams :nodes])
+        wanted (or (get linear-team-aliases team-ref) team-ref)
+        wanted-lc (some-> wanted str/lower-case)
+        match (some (fn [team]
+                      (let [id (:id team)
+                            name (:name team)]
+                        (when (or (= id wanted)
+                                  (= (some-> name str/lower-case) wanted-lc))
+                          team)))
+                    teams)]
+    (cond
+      (= 200 (:status resp)) (:id match)
+      :else nil)))
+
+(defn resolve-linear-viewer-id
+  [api-key]
+  (let [resp (linear-post api-key linear-viewer-query nil)]
+    (when (= 200 (:status resp))
+      (get-in resp [:body :data :viewer :id]))))
+
 (defn fetch-linear-issues
   "Fetch issues for a Linear team directly via GraphQL API.
    Returns {:ok true :tickets [...]} or {:ok false :error ...}."
-  [team-key]
-  (let [api-key env/linear-api-key]
+  [team-ref]
+  (let [api-key (linear-api-key)]
     (if (or (str/blank? api-key) (= api-key "YOUR_KEY_HERE"))
-      {:ok false :error "Linear API key not configured"}
+      {:ok false :error "Linear API key not configured. Set LINEAR_API_KEY in the server environment."}
       (try
-        (let [resp (http/post "https://api.linear.app/graphql"
-                     {:headers      {"Authorization" api-key
-                                     "Content-Type"  "application/json"}
-                      :body         (json/generate-string
-                                      {:query     linear-issues-query
-                                       :variables {:teamKey team-key}})
-                      :as           :json
-                      :socket-timeout 10000
-                      :connection-timeout 5000})
-              nodes (get-in resp [:body :data :team :issues :nodes])]
-          (if nodes
-            {:ok true
-             :tickets (mapv (fn [n]
-                              {:id          (:identifier n)
-                               :title       (:title n)
-                               :status      (get-in n [:state :name] "unknown")
-                               :assignee    (get-in n [:assignee :name] "unassigned")
-                               :priority    (:priority n 0)
-                               :description (or (:description n) "")})
-                            nodes)}
-            {:ok false :error "No issues found or team not accessible"
-             :raw-body (:body resp)}))
+        (if-let [team-id (resolve-linear-team-id api-key team-ref)]
+          (if-let [viewer-id (resolve-linear-viewer-id api-key)]
+            (let [resp (linear-post api-key linear-issues-query {:teamId team-id
+                                                                 :viewerId viewer-id})
+                  nodes (get-in resp [:body :data :issues :nodes])]
+              (if (= 200 (:status resp))
+                {:ok true
+                 :tickets (mapv (fn [n]
+                                  {:id          (:identifier n)
+                                   :title       (:title n)
+                                   :status      (get-in n [:state :name] "unknown")
+                                   :assignee    (get-in n [:assignee :name] "unassigned")
+                                   :priority    (:priority n 0)
+                                   :description (or (:description n) "")})
+                                nodes)}
+                {:ok false
+                 :error (linear-errors->message resp "Linear issue query failed")
+                 :raw-body (:body resp)}))
+            {:ok false :error "Could not resolve authenticated Linear user"})
+          {:ok false
+           :error (str "Linear team not found for '" team-ref "'")})
         (catch Exception e
           {:ok false :error (.getMessage e)})))))
 

@@ -7,14 +7,16 @@
 (def md-style-colors
   "Colors for inline markdown styles in reasoning blocks.
    Tuned for warm terminal-like feel on dark bg."
-  {:normal {:r 0.72 :g 0.71 :b 0.71 :a 1.0}    ;; warm neutral, softer than terminal #a4a1a1
-   :bold   {:r 0.88 :g 0.87 :b 0.87 :a 1.0}    ;; brighter for emphasis but not harsh white
+  {:normal {:r 0.82 :g 0.82 :b 0.85 :a 1.0}
+   :bold   {:r 0.94 :g 0.94 :b 0.96 :a 1.0}
+   :italic {:r 0.87 :g 0.87 :b 0.90 :a 0.98}
+   :strike {:r 0.58 :g 0.58 :b 0.62 :a 0.88}
    :code   {:r 0.00 :g 0.63 :b 0.89 :a 1.0}    ;; terminal blue (color4 #00a0e4)
    :link   {:r 0.00 :g 0.63 :b 0.89 :a 0.85}}) ;; same blue, slightly dimmer
 
 (defn parse-md-inline-spans
-  "Parse inline markdown: **bold**, *emphasis*, `code`, [link](url).
-   Returns [{:text str :style :normal/:bold/:code/:link} ...]"
+  "Parse inline markdown: **bold**, *emphasis*, ~~strike~~, `code`, [link](url).
+   Returns [{:text str :style :normal/:bold/:italic/:strike/:code/:link} ...]"
   [line]
   (let [len (count line)]
     (loop [i 0 spans [] cur ""]
@@ -23,6 +25,27 @@
           (if (empty? final) [{:text "" :style :normal}] final))
         (let [ch (.charAt line i)]
           (cond
+            ;; ***bold+italic*** -> treat as bold until font variants exist
+            (and (= ch \*)
+                 (< (+ i 2) len)
+                 (= (.charAt line (inc i)) \*)
+                 (= (.charAt line (+ i 2)) \*))
+            (let [end (str/index-of line "***" (+ i 3))]
+              (if (and end (> end (+ i 3)))
+                (recur (+ end 3)
+                       (-> (if (seq cur) (conj spans {:text cur :style :normal}) spans)
+                           (conj {:text (subs line (+ i 3) end) :style :bold}))
+                       "")
+                (recur (+ i 3) spans (str cur "***"))))
+            ;; ~~strike~~
+            (and (= ch \~) (< (inc i) len) (= (.charAt line (inc i)) \~))
+            (let [end (str/index-of line "~~" (+ i 2))]
+              (if (and end (> end (+ i 2)))
+                (recur (+ end 2)
+                       (-> (if (seq cur) (conj spans {:text cur :style :normal}) spans)
+                           (conj {:text (subs line (+ i 2) end) :style :strike}))
+                       "")
+                (recur (+ i 2) spans (str cur "~~"))))
             ;; **bold**
             (and (= ch \*) (< (inc i) len) (= (.charAt line (inc i)) \*))
             (let [end (str/index-of line "**" (+ i 2))]
@@ -41,7 +64,7 @@
                        (or (>= (inc end) len) (not= (.charAt line (inc end)) \*)))
                 (recur (inc end)
                        (-> (if (seq cur) (conj spans {:text cur :style :normal}) spans)
-                           (conj {:text (subs line (inc i) end) :style :bold}))
+                           (conj {:text (subs line (inc i) end) :style :italic}))
                        "")
                 (recur (inc i) spans (str cur "*"))))
             ;; `code`
@@ -140,10 +163,54 @@
       (str/replace #"[\u2500\u2605\u2014\u2022]" "")
       str/trim))
 
+(defn- md-table-separator-line?
+  "True for GFM separator rows like:
+   | --- | :---: | ---: |
+   --- | --- | ---"
+  [trimmed]
+  (let [parts (->> (str/split trimmed #"\|")
+                   (map str/trim)
+                   (filter seq)
+                   (map #(str/replace % #"\s+" "")))]
+    (and (>= (count parts) 2)
+         (every? #(boolean (re-matches #":?-{2,}:?" %)) parts))))
+
+(defn- md-table-header-line?
+  "Heuristic for a markdown table header row.
+   Accepts both leading-pipe and pipe-less GFM forms, but requires 2+ cells."
+  [trimmed]
+  (let [parts (->> (str/split trimmed #"\|")
+                   (map str/trim)
+                   (filter seq))]
+    (and (>= (count parts) 2)
+         (not (md-table-separator-line? trimmed)))))
+
+(defn- md-table-start?
+  "True when the current line and next line form a GFM table header + separator."
+  [line next-line]
+  (let [trimmed (some-> line str/trim)
+        next-trimmed (some-> next-line str/trim)]
+    (and (seq trimmed)
+         (seq next-trimmed)
+         (>= (count (re-seq #"\|" trimmed)) 1)
+         (md-table-header-line? trimmed)
+         (or (md-table-separator-line? next-trimmed)
+             (and (re-find #"\|" next-trimmed)
+                  (re-find #"-{2,}" next-trimmed))))))
+
+(defn- md-table-data-line?
+  "True for subsequent table rows after a header/separator pair."
+  [trimmed]
+  (let [parts (->> (str/split trimmed #"\|")
+                   (map str/trim)
+                   (filter seq))]
+    (and (>= (count parts) 2)
+         (not (md-table-separator-line? trimmed)))))
+
 (defn parse-md-blocks
   "Parse markdown text into block-level elements.
    States: :normal, :in-code, :in-callout.
-   Returns [{:type :header/:paragraph/:code-block/:list/:callout ...}]"
+   Returns [{:type :header/:paragraph/:code-block/:list/:task-list/:blockquote/:callout ...}]"
   [text]
   (let [src-lines (str/split-lines text)]
     (loop [ls src-lines state :normal blocks [] cur-para [] code-lang nil callout-label nil]
@@ -200,20 +267,35 @@
                   (recur (rest ls) :in-callout blocks [] nil inner)
                   ;; Just decorative — horizontal rule
                   (recur (rest ls) :normal (conj blocks {:type :hr}) [] nil nil)))
-              ;; Table lines (pipe-delimited)
-              (str/starts-with? trimmed "|")
+              ;; GFM table: header row + separator row, with or without outer pipes
+              (md-table-start? line (second ls))
               (let [blocks (if (seq cur-para)
                              (conj blocks {:type :paragraph :content (str/join " " cur-para)})
                              blocks)
                     [remaining table-lines]
-                    (loop [rem ls tl []]
+                    (loop [rem (drop 2 ls) tl [trimmed (str/trim (second ls))]]
                       (let [l (first rem)
                             t (when l (str/trim l))]
-                        (if (and t (str/starts-with? t "|"))
+                        (if (and t (md-table-data-line? t))
                           (recur (rest rem) (conj tl t))
                           [rem tl])))]
                 (recur remaining :normal
                        (conj blocks {:type :table :lines table-lines}) [] nil nil))
+              ;; Blockquote
+              (re-find #"^>\s?" trimmed)
+              (let [blocks (if (seq cur-para)
+                             (conj blocks {:type :paragraph :content (str/join " " cur-para)})
+                             blocks)
+                    [remaining quote-lines]
+                    (loop [rem ls acc []]
+                      (let [l (first rem)
+                            t (when l (str/trim l))]
+                        (if (and t (re-find #"^>\s?" t))
+                          (recur (rest rem)
+                                 (conj acc (str/replace-first t #"^>\s?" "")))
+                          [rem acc])))]
+                (recur remaining :normal
+                       (conj blocks {:type :blockquote :lines quote-lines}) [] nil nil))
               ;; Header
               (re-find #"^#{1,6}\s+" trimmed)
               (let [blocks (if (seq cur-para)
@@ -231,6 +313,23 @@
                              (conj blocks {:type :paragraph :content (str/join " " cur-para)})
                              blocks)]
                 (recur (rest ls) :normal (conj blocks {:type :hr}) [] nil nil))
+              ;; Task list item
+              (re-find #"^[-*]\s+\[( |x|X)\]\s+" trimmed)
+              (let [blocks (if (seq cur-para)
+                             (conj blocks {:type :paragraph :content (str/join " " cur-para)})
+                             blocks)
+                    [remaining items]
+                    (loop [rem ls items []]
+                      (let [l (first rem)
+                            t (when l (str/trim l))]
+                        (if (and t (re-find #"^[-*]\s+\[( |x|X)\]\s+" t))
+                          (let [[_ mark] (re-find #"^[-*]\s+\[( |x|X)\]" t)
+                                content (str/trim (str/replace-first t #"^[-*]\s+\[( |x|X)\]\s+" ""))]
+                            (recur (rest rem)
+                                   (conj items {:checked? (not= mark " ")
+                                                :content content})))
+                          [rem items])))]
+                (recur remaining :normal (conj blocks {:type :task-list :items items}) [] nil nil))
               ;; Bullet list item
               (re-find #"^[-*]\s+" trimmed)
               (let [blocks (if (seq cur-para)
@@ -480,6 +579,36 @@
                               {:x 0 :y 0 :w pane-w :h h}
                               :text all-ops))
 
+                          :blockquote
+                          (let [quote-lines (or (:lines mb) [])
+                                quote-max (max 16 (int (/ (- inner-w 24) char-advance)))
+                                quote-color (assoc md-style-colors :normal {:r 0.78 :g 0.79 :b 0.82 :a 0.95})
+                                line-data (mapv (fn [line]
+                                                  (wrap-md-spans (parse-md-inline-spans line) quote-max))
+                                                quote-lines)
+                                all-ops (loop [remaining line-data li 0 ops []]
+                                          (if (empty? remaining)
+                                            ops
+                                            (let [wrapped (first remaining)
+                                                  quote-ops (vec (apply concat
+                                                                   (map-indexed
+                                                                     (fn [wi line-spans]
+                                                                       (spans->text-ops line-spans (+ pad 12)
+                                                                                        (+ font-size (* (+ li wi) line-h))
+                                                                                        font-size char-advance quote-color))
+                                                                     wrapped)))]
+                                              (recur (rest remaining)
+                                                     (+ li (max 1 (count wrapped)))
+                                                     (into ops quote-ops)))))
+                                total-lines (max 1 (reduce + 0 (map #(max 1 (count %)) line-data)))
+                                h (+ 8 (* total-lines line-h))]
+                            (rt-node (keyword (str "md-quote-" bi "-" mi)) :md-blockquote
+                              {:x 0 :y 0 :w pane-w :h h}
+                              :children [(rt-node (keyword (str "md-quote-bar-" bi "-" mi)) :quote-bar
+                                           {:x pad :y 2 :w 3 :h (- h 4)}
+                                           :style {:bg (:accent colors) :radius 2})]
+                              :text all-ops))
+
                           :code-block
                           (let [code-color {:r 0.00 :g 0.63 :b 0.32 :a 1.0}
                                 code-lines (:lines mb)
@@ -539,6 +668,51 @@
                                 total-lines (reduce + 0 (map (comp count :wrapped) item-data))
                                 h (+ 4 (* total-lines line-h))]
                             (rt-node (keyword (str "md-list-" bi "-" mi)) :md-list
+                              {:x 0 :y 0 :w pane-w :h h}
+                              :text all-ops))
+
+                          :task-list
+                          (let [items (:items mb)
+                                item-data (mapv (fn [item]
+                                                  (let [prefix (if (:checked? item) "[x] " "[ ] ")
+                                                        prefix-w (count prefix)
+                                                        item-max (max 10 (- inner-max-chars prefix-w))
+                                                        spans (parse-md-inline-spans (:content item))
+                                                        wrapped (wrap-md-spans spans item-max)]
+                                                    {:wrapped wrapped
+                                                     :prefix prefix
+                                                     :prefix-w prefix-w
+                                                     :checked? (:checked? item)}))
+                                                items)
+                                all-ops (loop [items-rem item-data li 0 ops []]
+                                          (if (empty? items-rem)
+                                            ops
+                                            (let [{:keys [wrapped prefix prefix-w checked?]} (first items-rem)
+                                                  check-color (if checked?
+                                                                {:r 0.42 :g 0.86 :b 0.58 :a 1.0}
+                                                                {:r 0.52 :g 0.52 :b 0.58 :a 0.9})
+                                                  item-ops
+                                                  (vec (apply concat
+                                                        (map-indexed
+                                                          (fn [wi line-spans]
+                                                            (let [prefix-ops (when (= wi 0)
+                                                                                [{:text prefix :type :comment
+                                                                                  :from 0 :to (count prefix)
+                                                                                  :x pad :y (+ font-size (* (+ li wi) line-h))
+                                                                                  :size font-size
+                                                                                  :r (:r check-color) :g (:g check-color)
+                                                                                  :b (:b check-color) :a (:a check-color)}])
+                                                                  span-ops (spans->text-ops
+                                                                             line-spans
+                                                                             (+ pad (* prefix-w char-advance))
+                                                                             (+ font-size (* (+ li wi) line-h))
+                                                                             font-size char-advance md-style-colors)]
+                                                              (into (vec (or prefix-ops [])) span-ops)))
+                                                          wrapped)))]
+                                              (recur (rest items-rem) (+ li (count wrapped)) (into ops item-ops)))))
+                                total-lines (reduce + 0 (map (comp count :wrapped) item-data))
+                                h (+ 4 (* total-lines line-h))]
+                            (rt-node (keyword (str "md-task-list-" bi "-" mi)) :md-task-list
                               {:x 0 :y 0 :w pane-w :h h}
                               :text all-ops))
 
@@ -719,59 +893,113 @@
                           :table
                           (let [table-lines (:lines mb)
                                 ;; Filter separator rows (|---|---|)
-                                is-separator? #(boolean (re-find #"^\|[\s\-:|\+]+\|$" %))
+                                is-separator? #(md-table-separator-line? (str/trim %))
                                 content-rows (filterv (complement is-separator?) table-lines)
                                 ;; Parse each row: split by |, trim cells
                                 parse-row (fn [row-str]
                                             (->> (str/split row-str #"\|")
                                                  (map str/trim)
                                                  (filterv #(seq %))))
-                                rows (mapv parse-row content-rows)
+                                raw-rows (mapv parse-row content-rows)
+                                col-count (max 1 (reduce max 1 (map count raw-rows)))
+                                rows (mapv (fn [row]
+                                             (vec (take col-count (concat row (repeat "")))))
+                                           raw-rows)
                                 header-row (first rows)
-                                data-rows (rest rows)
-                                ;; Render each data row as "Name — value — value" with inline md
-                                table-pad (+ pad code-pad)
-                                table-max (max 20 (int (/ (- inner-w (* 2 code-pad)) char-advance)))
-                                ;; Build text-ops: header row bold, data rows with inline parsing
+                                data-rows (vec (rest rows))
+                                table-pad 0
+                                table-inner-w inner-w
+                                cell-pad-x 10
+                                cell-pad-y 8
+                                font-scale (if (pos? font-size) (/ char-advance font-size) 0.56)
+                                header-font (max (+ font-size 1) (:size typo-body))
+                                header-char-advance (* header-font font-scale)
+                                header-line-h (+ header-font 6)
+                                col-w (/ table-inner-w col-count)
+                                cell-max-chars (max 6 (int (/ (max 1 (- col-w (* 2 cell-pad-x))) char-advance)))
+                                header-max-chars (max 6 (int (/ (max 1 (- col-w (* 2 cell-pad-x))) header-char-advance)))
+                                rows-data
+                                (mapv (fn [ri cells]
+                                        (let [is-header? (zero? ri)
+                                              wrapped-cells (mapv (fn [cell]
+                                                                    (let [spans (if is-header?
+                                                                                  [{:text cell :style :bold}]
+                                                                                  (parse-md-inline-spans cell))]
+                                                                      (wrap-md-spans spans (if is-header? header-max-chars cell-max-chars))))
+                                                                  cells)
+                                              row-line-count (max 1 (reduce max 1 (map count wrapped-cells)))
+                                              row-font (if is-header? header-font font-size)
+                                              row-line-h (if is-header? header-line-h line-h)
+                                              row-char-advance (if is-header? header-char-advance char-advance)]
+                                          {:cells cells
+                                           :wrapped-cells wrapped-cells
+                                           :is-header? is-header?
+                                           :line-count row-line-count
+                                           :row-font row-font
+                                           :row-line-h row-line-h
+                                           :row-char-advance row-char-advance
+                                           :row-h (+ (* 2 cell-pad-y) (* row-line-count row-line-h))}))
+                                      (range) rows)
+                                row-positions
+                                (loop [remaining rows-data y 0 out []]
+                                  (if (empty? remaining)
+                                    out
+                                    (let [row (first remaining)]
+                                      (recur (rest remaining)
+                                             (+ y (:row-h row))
+                                             (conj out (assoc row :y y))))))
+                                total-h (+ 4 (reduce + 0 (map :row-h rows-data)))
                                 all-ops
-                                (loop [rs (cons {:cells header-row :is-header true}
-                                                (map #(hash-map :cells % :is-header false) data-rows))
-                                       li 0 ops []]
-                                  (if (empty? rs)
-                                    ops
-                                    (let [{:keys [cells is-header]} (first rs)
-                                          row-text (str/join "  |  " cells)
-                                          spans (if is-header
-                                                  [{:text row-text :style :bold}]
-                                                  (parse-md-inline-spans row-text))
-                                          wrapped (wrap-md-spans spans table-max)
-                                          row-ops (vec (apply concat
-                                                    (map-indexed
-                                                      (fn [wi line-spans]
-                                                        (spans->text-ops line-spans table-pad
-                                                                         (+ font-size (* (+ li wi) line-h))
-                                                                         font-size char-advance md-style-colors))
-                                                      wrapped)))]
-                                      (recur (rest rs) (+ li (count wrapped)) (into ops row-ops)))))
-                                total-lines (+ (if header-row
-                                                 (count (wrap-md-spans [{:text (str/join "  |  " header-row) :style :bold}] table-max))
-                                                 0)
-                                               (reduce + 0
-                                                 (map (fn [cells]
-                                                        (count (wrap-md-spans
-                                                                 (parse-md-inline-spans (str/join "  |  " cells))
-                                                                 table-max)))
-                                                      data-rows)))
-                                body-h (+ (* 2 code-pad) (* total-lines line-h))
-                                total-h (+ body-h 4)]
+                                (vec (mapcat
+                                       (fn [{:keys [wrapped-cells is-header? y row-font row-line-h row-char-advance]}]
+                                         (mapcat
+                                           (fn [ci wrapped]
+                                             (mapcat
+                                               (fn [wi line-spans]
+                                                 (spans->text-ops line-spans
+                                                                  (+ pad (* ci col-w) cell-pad-x)
+                                                                  (+ 4 y cell-pad-y row-font (* wi row-line-h))
+                                                                  row-font row-char-advance md-style-colors))
+                                               (range) wrapped))
+                                           (range) wrapped-cells))
+                                       row-positions))
+                                table-lines-nodes
+                                (vec
+                                  (concat
+                                    (mapcat
+                                      (fn [{:keys [y row-h is-header?]}]
+                                        (let [line-y (+ 4 y row-h -1)]
+                                          (cond-> []
+                                            is-header?
+                                            (conj (rt-node (keyword (str "md-table-header-bg-" bi "-" mi "-" y)) :table-header-bg
+                                                    {:x pad :y (+ 4 y) :w table-inner-w :h row-h}
+                                                    :style {:bg (:bg-muted colors)
+                                                            :radius 4}))
+                                            true
+                                            (conj (rt-node (keyword (str "md-table-row-line-" bi "-" mi "-" y)) :table-row-line
+                                                    {:x pad :y line-y :w table-inner-w :h 1}
+                                                    :style {:bg (:border-subtle colors)})))))
+                                      row-positions)
+                                    (mapcat
+                                      (fn [ci]
+                                        (let [x (+ pad (* ci col-w))]
+                                          [(rt-node (keyword (str "md-table-col-line-" bi "-" mi "-" ci)) :table-col-line
+                                             {:x x :y 4 :w 1 :h (- total-h 5)}
+                                             :style {:bg (:border-subtle colors)})]))
+                                      (range 1 col-count))))]
                             (rt-node (keyword (str "md-table-" bi "-" mi)) :md-table
                               {:x 0 :y 0 :w pane-w :h total-h}
                               :children
                               [(rt-node (keyword (str "md-table-bg-" bi "-" mi)) :table-bg
-                                 {:x pad :y 0 :w inner-w :h body-h}
-                                 :style {:bg (get-in dt [:colors :bg-subtle]) :radius 4})
+                                 {:x pad :y 4 :w inner-w :h (- total-h 4)}
+                                 :style {:bg (get-in dt [:colors :bg-elevated]) :radius 4
+                                         :border-width 1
+                                         :border-color (:border-subtle colors)})
+                               (rt-node (keyword (str "md-table-lines-" bi "-" mi)) :table-lines
+                                 {:x 0 :y 0 :w pane-w :h total-h}
+                                 :children table-lines-nodes)
                                (rt-node (keyword (str "md-table-text-" bi "-" mi)) :table-text
-                                 {:x 0 :y 0 :w pane-w :h body-h}
+                                 {:x 0 :y 0 :w pane-w :h total-h}
                                  :text all-ops)]))
 
                           ;; Fallback for unknown block types

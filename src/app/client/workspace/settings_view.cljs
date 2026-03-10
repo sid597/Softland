@@ -114,30 +114,30 @@
           ;; Slider List
           sliders (slider-specs settings)
           
-          slider-item-h 70
+          slider-item-h 64
           slider-rects (map-indexed
                          (fn [idx slider]
                            (let [selected? (= idx slider-idx)
                                  focused?  (= current-focus :sliders)
                                  base-y (+ content-y 10 (* idx slider-item-h))
-                                 
+
                                  ;; Calculate ratio
                                  range (- (:max slider) (:min slider))
                                  ratio (/ (- (:val slider) (:min slider)) range)
-                                 
+
                                  ;; Background highlight
                                  bg (cond
                                       (and selected? focused?) item-active
                                       selected?                item-selected
                                       :else                    nil)
-                                      
+
                                  ;; Track geometry
                                  track-x (+ right-pane-x 20)
-                                 track-y (+ base-y 40)
+                                 track-y (+ base-y 34)
                                  track-w (- right-w 40)
                                  track-h 4
                                  fill-w (* track-w ratio)]
-                             
+
                              (concat
                                ;; Item Background
                                (when bg
@@ -239,21 +239,24 @@
 
           ;; Slider Labels
           sliders (slider-specs settings)
-          slider-item-h 70
-          
+          slider-item-h 64
+          dpr (or (:dpr viewport) 1)
+          snap? (:snap-to-pixel? settings)
+          char-w (maybe-snap (* font-size 0.56) dpr snap?)
+
           slider-texts (mapcat
                          (fn [[idx slider]]
                            (let [selected? (= idx slider-idx)
                                  focused?  (= current-focus :sliders)
                                  base-y (+ content-y 10 (* idx slider-item-h))
-                                 
+
                                  label-color (if (and selected? focused?)
                                                {:r 1.0 :g 1.0 :b 1.0 :a 1.0}
                                                {:r 0.8 :g 0.8 :b 0.8 :a 1.0})
                                  val-color   (if (and selected? focused?)
                                                {:r 0.4 :g 0.7 :b 1.0 :a 1.0}
                                                {:r 0.5 :g 0.5 :b 0.5 :a 1.0})
-                                 
+
                                  val-str (case (:id slider)
                                            :theme-id (let [tid (or (:theme-id settings) :gruvbox-dark)
                                                            theme (themes/get-theme tid)]
@@ -262,21 +265,26 @@
                                            :sharpness (.toFixed (:val slider) 2)
                                            :snap-to-pixel? (if (pos? (:val slider)) "On" "Off")
                                            :show-diagnostics? (if (pos? (:val slider)) "On" "Off")
-                                           (str (:val slider)))]
-                             
+                                           (str (:val slider)))
+                                 ;; Right-align value text: x = right-edge - text-width
+                                 val-text-w (* (count val-str) char-w)
+                                 val-x-raw (- (+ right-pane-x right-w -20) val-text-w)
+                                 label-end (+ right-pane-x 20 (* (count (:label slider)) char-w) 12)
+                                 val-x (max label-end val-x-raw)]
+
                              [{:text (:label slider)
                                :type :text
                                :from 0 :to (count (:label slider))
                                :x (+ right-pane-x 20)
-                               :y (+ base-y 25)
+                               :y (+ base-y 22)
                                :size font-size
                                :r (:r label-color) :g (:g label-color) :b (:b label-color) :a (:a label-color)}
-                              
+
                               {:text val-str
                                :type :number
                                :from 0 :to (count val-str)
-                               :x (+ right-pane-x right-w -20 -10) ;; Right align approx
-                               :y (+ base-y 25)
+                               :x val-x
+                               :y (+ base-y 22)
                                :size font-size
                                :r (:r val-color) :g (:g val-color) :b (:b val-color) :a (:a val-color)}]))
                          (map-indexed vector sliders))
