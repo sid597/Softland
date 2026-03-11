@@ -313,22 +313,22 @@
 (defn- handle-flow-canvas-click!
   "Route click within the DG flow canvas (group headers + ticket rows)."
   [{:keys [!flow-state !collapsed-groups !hovered-row-idx !drag-state]}
-   x y viewport scroll-y]
+   content-x y content-w viewport-h scroll-y]
   (let [flow @!flow-state
         tree (resolve-layout
-               (build-intake-tree flow (:width viewport) (:height viewport)
+               (build-intake-tree flow content-w viewport-h
                                   scroll-y nil @!hovered-row-idx @!collapsed-groups 0 0 nil))
-        path (hit-test tree x (+ y scroll-y))]
+        path (hit-test tree content-x (+ y scroll-y))]
     (when path
       (some (fn [node]
               (case (:type node)
                 :group-header
                 (let [status (:status (:data node))]
-                  (swap! !collapsed-groups
-                         (fn [cg] (if (contains? cg status) (disj cg status) (conj cg status))))
+                (swap! !collapsed-groups
+                       (fn [cg] (if (contains? cg status) (disj cg status) (conj cg status))))
                   true)
                 :ticket-row
-                (do (reset! !drag-state {:phase :pending :origin {:x x :y y} :node node})
+                (do (reset! !drag-state {:phase :pending :origin {:x content-x :y y} :node node})
                     true)
                 nil))
             (rseq path)))))
@@ -382,7 +382,12 @@
               (swap! !cmd-panel assoc :visible false))
             (cond
               (flow-canvas-active? @!flow-state)
-              (handle-flow-canvas-click! atoms x y viewport scroll-y)
+              (let [sb-w (if sb-vis? sidebar-w 0)]
+                (handle-flow-canvas-click! atoms
+                                           (- x sb-w) y
+                                           (- (:width viewport) sb-w)
+                                           (:height viewport)
+                                           scroll-y))
 
               (some? @!current-file)
               (let [sb-w (if sb-vis? sidebar-w 0)
@@ -427,10 +432,12 @@
                                        (:height @!viewport) @!scroll-y font-size char-advance))
             path (when tree (hit-test tree (:x coords) (+ (:y coords) @!scroll-y)))
             target (peek path)
-            new-id (when (and target (#{:sidebar-entry :ticket-row} (:type target)))
+            new-id (when (and target (= :sidebar-entry (:type target)))
                      (:id target))]
         (when (not= new-id (:hovered-id @!sidebar-state))
-          (swap! !sidebar-state assoc :hovered-id new-id)))
+          (swap! !sidebar-state assoc :hovered-id new-id))
+        (when @!hovered-row-idx
+          (reset! !hovered-row-idx nil)))
       (when (:hovered-id @!sidebar-state)
         (swap! !sidebar-state assoc :hovered-id nil))))
   ;; Drag state machine
@@ -445,21 +452,27 @@
       (swap! !drag-state assoc :current {:x mx :y my})
       nil))
   ;; Flow canvas hover
-  (when (and (flow-canvas-active? @!flow-state)
-             (= :idle (:phase @!drag-state)))
-    (let [flow @!flow-state
-          tree (resolve-layout
-                 (build-intake-tree flow (:width @!viewport) (:height @!viewport)
-                                    @!scroll-y nil @!hovered-row-idx @!collapsed-groups 0 0 nil))
-          path (hit-test tree (:x coords) (+ (:y coords) @!scroll-y))
-          target (peek path)]
-      (reset! !hovered-row-idx
-              (when (and target (= (:type target) :ticket-row))
-                (:idx (:data target)))))))
+  (let [sb-vis? (and !sidebar-visible @!sidebar-visible)
+        sb-w (if sb-vis? sidebar-w 0)
+        in-sidebar? (and sb-vis? (< (:x coords) sidebar-w))]
+    (when (and (flow-canvas-active? @!flow-state)
+               (not in-sidebar?)
+               (= :idle (:phase @!drag-state)))
+      (let [flow @!flow-state
+            content-x (- (:x coords) sb-w)
+            content-w (- (:width @!viewport) sb-w)
+            tree (resolve-layout
+                   (build-intake-tree flow content-w (:height @!viewport)
+                                      @!scroll-y nil @!hovered-row-idx @!collapsed-groups 0 0 nil))
+            path (hit-test tree content-x (+ (:y coords) @!scroll-y))
+            target (peek path)]
+        (reset! !hovered-row-idx
+                (when (and target (= (:type target) :ticket-row))
+                  (:idx (:data target))))))))
 
 (defn- handle-mouseup!
   "Route mouseup: ticket selection or drag-to-select completion."
-  [{:keys [!drag-state !flow-state !viewport]}]
+  [{:keys [!drag-state !flow-state !viewport !sidebar-visible]}]
   (let [ds @!drag-state]
     (case (:phase ds)
       :pending
@@ -475,11 +488,15 @@
                 (swap! !flow-state set-selection new-sel))))
           (reset! !drag-state {:phase :idle}))
       :dragging
-      (let [node (:node ds)
+      (let [sb-vis? (and !sidebar-visible @!sidebar-visible)
+            sb-w (if sb-vis? sidebar-w 0)
+            node (:node ds)
             cur (:current ds)
-            left-w (int (* (:width @!viewport) list-left-pane-pct))]
+            content-w (- (:width @!viewport) sb-w)
+            left-w (int (* content-w list-left-pane-pct))
+            cur-x (- (:x cur) sb-w)]
         (when (and node cur (= :ticket-row (:type node)))
-          (if (>= (:x cur) left-w)
+          (if (>= cur-x left-w)
             (let [idx (:idx (:data node))
                   flow @!flow-state
                   selected (:selected flow)

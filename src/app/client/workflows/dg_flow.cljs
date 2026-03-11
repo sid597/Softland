@@ -59,6 +59,10 @@
    :selected []
    :arrangement nil})
 
+;; Derived max-scroll for the intake detail pane description area.
+;; Set as side effect during build-right-detail, read by scroll consumer.
+(defonce !detail-max-scroll (atom 0))
+
 (defn set-selection
   "Update flow-state with new selection, syncing batch lanes and clamping active-lane-idx."
   [flow-state new-sel]
@@ -495,6 +499,7 @@
                            (max 20 (int (/ right-inner-w char-advance)))
                            60)
         cy (/ viewport-h 2)]
+    (reset! !detail-max-scroll 0)
     (cond
       ;; No tickets loaded — centered empty state
       (empty? tickets)
@@ -557,6 +562,7 @@
             desc-stack-h (+ desc-content-h (* desc-gap (max 0 (dec (count desc-nodes)))))
             overflow? (> desc-stack-h desc-max-h)
             max-scroll (max 0 (- desc-stack-h desc-max-h))
+            _ (reset! !detail-max-scroll max-scroll)
             clamped-scroll (min (max detail-scroll-y 0) max-scroll)
             htext  (if overflow?
                      "Wheel to scroll description  |  Select more or Enter to run"
