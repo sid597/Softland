@@ -39,12 +39,6 @@
                  handler (fn [e]
                            (let [{:keys [x y]} (get-coords e)]
                              (.preventDefault e)
-                             (js/console.log "[WHEEL][SOURCE]"
-                                             (clj->js {:x x
-                                                       :y y
-                                                       :dy (.-deltaY e)
-                                                       :dx (.-deltaX e)
-                                                       :shift? (.-shiftKey e)}))
                              (! {:dy (.-deltaY e)
                                  :dx (.-deltaX e)
                                  :shift? (.-shiftKey e)
