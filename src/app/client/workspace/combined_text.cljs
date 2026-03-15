@@ -12,11 +12,9 @@
             [app.client.workspace.themes :as themes]))
 
 (defn <combined-text-ops
-  "Derived flow: combined text render ops (editor + command panel + status bar)
-   Uses m/latest instead of m/ap to avoid cancellation propagation.
-   REACTIVE: font-size comes from !settings, updates live.
-   MODE-SWITCH: when flow canvas is active, returns ticket card text ops instead.
-   SIDEBAR: when sidebar visible, sidebar text ops prepended, content offset right."
+  "Derived flow: combined text render ops (editor + command panel + status bar).
+   Split into scoped sub-flows: flow-canvas text isolated from editor text,
+   so hover/drag/collapse changes don't recompute editor tokenization and vice versa."
   [!editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y !viewport !settings !active-font
    !current-file
    tokenize-fn layout-fn
@@ -26,27 +24,76 @@
    !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus !run-scroll-y !detail-scroll-y
    flow-canvas-active?* compute-ticket-list-text-ops* compute-run-text-ops* offset-text-ops*
    layout-x layout-y cmd-panel-h status-bar-h]
-  (m/latest
-    (fn [doc panel provider agent-output agent-scroll-y scroll-y viewport fold-state settings active-font
-         current-file flow-state collapsed-groups hovered-row-idx drag-state
-         sidebar-state sidebar-visible? extract-preview
-         shimmer-phase trail-collapsed active-pane scroll-x chat-scroll-y chat-input focus run-scroll-y detail-scroll-y]
-      (let [sb-vis? (boolean sidebar-visible?)
-            sb-w (if sb-vis? sidebar-w 0)
-            dpr (:dpr viewport)
-              snap? (:snap-to-pixel? settings)
-              ;; Reactive font settings
-              font-size (:font-size settings)
-              char-width (:char-width active-font)
-              char-advance (maybe-snap (* font-size char-width) dpr snap?)
-              line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
+  (let [;; ── Shared layout context ──
+        <layout
+        (m/latest
+          (fn [viewport settings active-font sidebar-visible?]
+            (let [dpr (:dpr viewport)
+                  snap? (:snap-to-pixel? settings)
+                  font-size (:font-size settings)
+                  char-width (:char-width active-font)
+                  char-advance (maybe-snap (* font-size char-width) dpr snap?)
+                  sb-vis? (boolean sidebar-visible?)]
+              {:viewport viewport :settings settings :dpr dpr :snap? snap?
+               :font-size font-size :char-width char-width :char-advance char-advance
+               :line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
+               :sb-vis? sb-vis? :sb-w (if sb-vis? sidebar-w 0)}))
+          (m/watch !viewport) (m/watch !settings) (m/watch !active-font) (m/watch !sidebar-visible))
+        ;; 4 fn args, 4 flows
+
+        ;; ── Flow canvas text ops (intake + run) ──
+        ;; ── Intake text ops (ticket list) ──
+        ;; NOT watching: !shimmer-phase, !agent-output, !trail-collapsed, !run-scroll-y
+        <intake-text
+        (m/latest
+          (fn [layout flow-state scroll-y detail-scroll-y
+               hovered-row-idx collapsed-groups drag-state]
+            (if-not (and (flow-canvas-active?* flow-state) (= :intake (:node flow-state)))
+              []
+              (let [{:keys [viewport font-size char-advance sb-w]} layout
+                    content-vw (- (:width viewport) sb-w)]
+                (compute-ticket-list-text-ops* flow-state content-vw (:height viewport)
+                                                font-size char-advance scroll-y
+                                                detail-scroll-y
+                                                hovered-row-idx collapsed-groups drag-state))))
+          <layout
+          (m/watch !flow-state) (m/watch !scroll-y) (m/watch !detail-scroll-y)
+          (m/watch !hovered-row-idx) (m/watch !collapsed-groups) (m/watch !drag-state))
+        ;; 7 fn args, 7 flows
+
+        ;; ── Run text ops (agent execution view) ──
+        ;; NOT watching: !hovered-row-idx, !collapsed-groups, !drag-state, !detail-scroll-y
+        <run-text
+        (m/latest
+          (fn [layout flow-state scroll-y agent-output shimmer-phase
+               trail-collapsed run-scroll-y]
+            (if-not (and (flow-canvas-active?* flow-state) (not= :intake (:node flow-state)))
+              []
+              (let [{:keys [viewport font-size char-advance sb-w]} layout
+                    content-vw (- (:width viewport) sb-w)]
+                (compute-run-text-ops* flow-state content-vw (:height viewport)
+                                        scroll-y agent-output font-size char-advance
+                                        shimmer-phase trail-collapsed run-scroll-y))))
+          <layout
+          (m/watch !flow-state) (m/watch !scroll-y)
+          (m/watch !agent-output) (m/watch !shimmer-phase)
+          (m/watch !trail-collapsed) (m/watch !run-scroll-y))]
+        ;; 7 fn args, 7 flows
+
+    ;; ── Main assembly: editor text + chrome (cmd panel, agent, status bar) ──
+    ;; NOT watching: !hovered-row-idx, !collapsed-groups, !drag-state,
+    ;;              !detail-scroll-y, !run-scroll-y (all in <flow-text-content)
+    (m/latest
+      (fn [intake-text run-text layout
+           doc fold-state panel provider agent-output agent-scroll-y scroll-y
+           current-file flow-state sidebar-state extract-preview
+           shimmer-phase trail-collapsed active-pane scroll-x chat-scroll-y chat-input focus]
+        (let [{:keys [viewport settings dpr snap? font-size char-width char-advance line-h
+                       sb-vis? sb-w]} layout
               layout-x (maybe-snap layout-x dpr snap?)
-              ;; Scrolled x for editor text only — gutter/line-nums stay fixed
               editor-lx (maybe-snap (- layout-x (or scroll-x 0)) dpr snap?)
               layout-y (maybe-snap layout-y dpr snap?)
-              ;; Theme
               theme-id (or (:theme-id settings) :gruvbox-dark)
-              ;; Content viewport width (minus sidebar)
               content-vw (- (:width viewport) sb-w)
 
               ;; Sidebar text ops
@@ -57,8 +104,9 @@
                                                  (:height viewport) scroll-y font-size char-advance))]
                   (when tree (tree->text-ops tree))))
 
-              ;; MODE-SWITCH: file open (3-pane), flow canvas, or plain editor
               file-open? (some? current-file)
+
+              ;; MODE-SWITCH: use pre-computed flow text, or compute editor text
               [editor-ops final-line-mapping line-num-ops]
               (if (:rt-node extract-preview)
                 ;; Extract preview on right half
@@ -78,23 +126,13 @@
                    (vec (range (count (:lines doc))))
                    []])
                 (if (flow-canvas-active?* flow-state)
-                  ;; Flow canvas mode: dispatch by node
-                  (if (= :intake (:node flow-state))
-                    [(compute-ticket-list-text-ops* flow-state content-vw (:height viewport)
-                                                    font-size char-advance scroll-y
-                                                    detail-scroll-y
-                                                    hovered-row-idx collapsed-groups drag-state)
-                     (vec (range (count (:lines doc))))
-                     []]
-                    [(compute-run-text-ops* flow-state content-vw (:height viewport)
-                                            scroll-y agent-output font-size char-advance
-                                            shimmer-phase trail-collapsed run-scroll-y)
-                     (vec (range (count (:lines doc))))
-                     []])
+                  ;; Flow canvas: use pre-computed ops from intake or run
+                  [(if (= :intake (:node flow-state)) intake-text run-text)
+                   (vec (range (count (:lines doc))))
+                   []]
 
-                ;; Normal editor mode — original logic below
-                (let [;; Pre-computed fold state from <fold-data
-                      folded (or (:folded fold-state) #{})
+                ;; Normal editor mode
+                (let [folded (or (:folded fold-state) #{})
                       regions (or (:regions fold-state) [])
                       lines (:lines doc)
                       total-line-count (count lines)
@@ -105,7 +143,6 @@
                       tokenized-visible (mapv tokenize-fn visible-lines)
                       cursor-line (:line (:cursor doc))]
                   (if large-file?
-                    ;; FAST PATH: skip fold detection entirely
                     (let [adjusted-y (+ layout-y (* visible-start line-h))
                           result (layout-fn tokenized-visible editor-lx adjusted-y font-size
                                             [] #{} char-advance line-h theme-id)
@@ -127,7 +164,6 @@
                                      (range (count visible-lines)))]
                       [(:render-ops result) full-mapping nums])
 
-                    ;; NORMAL PATH (<500 lines or folds active): full fold support
                     (do (when (seq folded)
                           (js/console.log "[TEXT-OPS] folded:" (clj->js folded)
                                           "total-lines:" total-line-count
@@ -167,27 +203,22 @@
               [editor-ops final-line-mapping line-num-ops]
               (if (and file-open? (not (flow-canvas-active?* flow-state)) (not (:rt-node extract-preview)))
                 (let [code-w (int (* content-vw 0.4))
-                      ;; Clip text ops to editor pane [layout-x, code-w] — left (gutter edge) AND right
-                      clip-left layout-x ;; left boundary = gutter right edge (text start)
+                      clip-left layout-x
                       header-h 36
-                      clip-top (+ scroll-y header-h) ;; viewport-pinned top edge below header
+                      clip-top (+ scroll-y header-h)
                       clip-sub (fn [sub]
                                  (let [x (or (:x sub) 0)
                                        y (or (:y sub) 0)
                                        fs (or (:size sub) font-size)
-                                       ;; Use snapped char-advance for consistency with cursor/selection
                                        cw (if (== fs font-size)
                                             char-advance
                                             (maybe-snap (* fs char-width) dpr snap?))
                                        txt (or (:text sub) "")
                                        text-end (+ x (* (count txt) cw))]
-                                   ;; Drop if outside horizontal [clip-left, code-w] or above header
                                    (when (and (< x code-w) (> text-end clip-left) (>= y clip-top))
-                                     ;; Left-trim chars before gutter edge
                                      (let [skip (if (< x clip-left) (min (count txt) (int (Math/ceil (/ (- clip-left x) cw)))) 0)
                                            adj-x (+ x (* skip cw))
                                            adj-txt (if (pos? skip) (subs txt skip) txt)
-                                           ;; Right-truncate at code-w
                                            max-chars (if (pos? cw)
                                                        (max 0 (int (/ (- code-w adj-x) cw)))
                                                        1000)
@@ -213,7 +244,6 @@
                                                       :chat-scroll-y (or chat-scroll-y 0)
                                                       :chat-input chat-input :focus focus))
                       right-text-ops (tree->text-ops right-tree)
-                      ;; Pin to viewport: offset by scroll-y so camera pan doesn't move it
                       pinned-ops (mapv (fn [op]
                                          (if (vector? op)
                                            (mapv #(update % :y + scroll-y) op)
@@ -228,7 +258,7 @@
                     [(into (vec clipped) pinned-ops) final-line-mapping clipped-ln]))
                 [editor-ops final-line-mapping line-num-ops])
 
-              ;; Bottom clip: filter out text ops that would render inside cmd panel / status bar
+              ;; Bottom clip
               bottom-clip-y (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h))
               clip-bottom (fn [ops]
                             (into []
@@ -239,18 +269,16 @@
                                         (when (< (or (:y op) 0) bottom-clip-y) op))))
                               ops))
 
-              ;; Offset editor/flow text ops by sidebar width
               offset-editor-ops (offset-text-ops* (clip-bottom editor-ops) sb-w)
               offset-line-num-ops (offset-text-ops* (clip-bottom line-num-ops) sb-w)
 
-              ;; Command panel ops (if visible or file open) — offset by sb-w
               panel-visible? (or (:visible panel) file-open? (flow-canvas-active?* flow-state))
               cmd-ops (when panel-visible?
                         (let [cmd-panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h)) dpr snap?)
                               cmd-text-y (maybe-snap (+ cmd-panel-y 12 font-size) dpr snap?)
                               prompt-text (cmd-prompt-text provider)
                               prompt-x (maybe-snap (+ 24 sb-w) dpr snap?)
-                              text-x (+ (cmd-text-start-x provider font-size (:char-width active-font) dpr snap?) sb-w)]
+                              text-x (+ (cmd-text-start-x provider font-size char-width dpr snap?) sb-w)]
                           [(when (seq (:text panel))
                              [{:text (:text panel)
                                :type :text
@@ -298,27 +326,21 @@
                 available-w (- (:width viewport) agent-x-px right-pad)
                 max-chars (if (pos? char-advance) (max 1 (int (/ available-w char-advance))) 80)
 
-                ;; Trail-aware line generation: use trail if available, fall back to flat text
                 trail (:trail agent-output)
                 display-entries (if (seq trail)
                                   (trail->display-lines trail)
                                   nil)
                 raw-lines (if display-entries
-                            ;; Trail path: header + trail display lines (each carries its own color)
                             (cond-> []
                               header-text (conj {:text header-text :color status-color})
                               (and (= status :running) (empty? display-entries)) (conj {:text "..." :color status-color})
                               (seq display-entries) (into display-entries))
-                            ;; Flat text fallback (backward compat)
                             (let [flat-lines (cond-> []
                                               header-text (conj header-text)
                                               (and (= status :running) (empty? output-lines)) (conj "...")
                                               (seq output-lines) (into output-lines))]
                               (mapv (fn [l] {:text l :color status-color}) flat-lines)))
 
-                ;; Wrap all lines (both trail and flat share this path)
-                ;; Split by newlines FIRST, then wrap — prevents \n inside text ops
-                ;; which causes shape-text to bump Y and overlap with the next text op
                 all-lines (into []
                             (mapcat (fn [entry]
                               (let [nl-lines (str/split-lines (or (:text entry) ""))
@@ -327,7 +349,7 @@
                             raw-lines)
 
                 agent-panel-h (if file-open?
-                                0 ;; Chat pane shows trail; suppress bottom panel
+                                0
                                 (compute-agent-panel-h agent-output font-size (:height viewport)
                                                        (:width viewport) char-advance))
                 agent-x (maybe-snap (+ 24 sb-w) dpr snap?)
@@ -358,9 +380,7 @@
                                 (filter some?))
                               (range (count all-lines)))
 
-                ;; Status bar text (always visible, pinned to bottom) — offset by sb-w
                 status-y (maybe-snap (+ scroll-y (- (:height viewport) status-bar-h) 4 font-size) dpr snap?)
-                ;; Flow canvas mode: show flow info instead of cursor position
                 status-left-text (if (flow-canvas-active?* flow-state)
                                    (let [node-name (some-> (:node flow-state) name str/upper-case)
                                          n-tickets (count (:tickets flow-state))
@@ -393,36 +413,15 @@
             {:render-ops (vec (concat (or sidebar-text-ops [])
                                       offset-line-num-ops offset-editor-ops
                                       cmd-lines
-                                      ;; Suppress bottom agent output when 3-pane chat shows trail
                                       (when-not file-open? agent-lines)
                                       status-lines))
              :line-mapping final-line-mapping
              :editor-line-count (+ (count line-num-ops) (count editor-ops))
              :cmd-line-count (+ (count cmd-lines) (count status-lines))})))
-    (m/watch !editor-doc)
-    (m/watch !cmd-panel)
-    (m/watch !ai-provider)
-    (m/watch !agent-output)
-    (m/watch !agent-scroll-y)
-    (m/watch !scroll-y)
-    (m/watch !viewport)
-    <fold-data  ;; pre-computed fold state (regions + folded set), replaces (m/watch !folded-lines)
-    (m/watch !settings)
-    (m/watch !active-font)
-    (m/watch !current-file)
-    (m/watch !flow-state)
-    (m/watch !collapsed-groups)
-    (m/watch !hovered-row-idx)
-    (m/watch !drag-state)
-    (m/watch !sidebar-state)
-    (m/watch !sidebar-visible)
-    (m/watch !extract-preview)
-    (m/watch !shimmer-phase)
-    (m/watch !trail-collapsed)
-    (m/watch !active-pane)
-    (m/watch !scroll-x)
-    (m/watch !chat-scroll-y)
-    (m/watch !chat-input)
-    (m/watch !focus)
-    (m/watch !run-scroll-y)
-    (m/watch !detail-scroll-y)))
+      <intake-text <run-text <layout
+      (m/watch !editor-doc) <fold-data (m/watch !cmd-panel) (m/watch !ai-provider)
+      (m/watch !agent-output) (m/watch !agent-scroll-y) (m/watch !scroll-y)
+      (m/watch !current-file) (m/watch !flow-state) (m/watch !sidebar-state)
+      (m/watch !extract-preview)
+      (m/watch !shimmer-phase) (m/watch !trail-collapsed) (m/watch !active-pane)
+      (m/watch !scroll-x) (m/watch !chat-scroll-y) (m/watch !chat-input) (m/watch !focus))))

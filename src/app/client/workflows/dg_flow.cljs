@@ -59,10 +59,6 @@
    :selected []
    :arrangement nil})
 
-;; Derived max-scroll for the intake detail pane description area.
-;; Set as side effect during build-right-detail, read by scroll consumer.
-(defonce !detail-max-scroll (atom 0))
-
 (defn set-selection
   "Update flow-state with new selection, syncing batch lanes and clamping active-lane-idx."
   [flow-state new-sel]
@@ -499,7 +495,6 @@
                            (max 20 (int (/ right-inner-w char-advance)))
                            60)
         cy (/ viewport-h 2)]
-    (reset! !detail-max-scroll 0)
     (cond
       ;; No tickets loaded — centered empty state
       (empty? tickets)
@@ -562,7 +557,6 @@
             desc-stack-h (+ desc-content-h (* desc-gap (max 0 (dec (count desc-nodes)))))
             overflow? (> desc-stack-h desc-max-h)
             max-scroll (max 0 (- desc-stack-h desc-max-h))
-            _ (reset! !detail-max-scroll max-scroll)
             clamped-scroll (min (max detail-scroll-y 0) max-scroll)
             htext  (if overflow?
                      "Wheel to scroll description  |  Select more or Enter to run"
@@ -709,12 +703,12 @@
         ;; === FIXED CHROME (scroll-compensated, using design tokens) ===
         left-bg    (rt-node :left-bg :bg
                      {:x 0 :y sy :w left-w :h viewport-h}
-                     :style {:bg (:bg (:colors dt))})
+                     :style {:bg [0.0 0.0 0.0 1.0]})
         right-bg   (rt-node :right-bg :bg
                      {:x right-x0 :y sy :w right-w :h viewport-h}
                      :style {:bg (if drag-over-right?
                                    (:accent-muted (:colors dt))
-                                   (:bg-subtle (:colors dt)))})
+                                   [0.0 0.0 0.0 1.0])})
         header-str (str "DISCOURSE-GRAPH  " (count tickets) " active")
         divider    (rt-node :divider :chrome
                      {:x left-w :y sy :w list-divider-w :h viewport-h}
@@ -772,8 +766,10 @@
 
         left-panel
         (ui-panel :left-panel {:x 0 :y sy :w left-w :h viewport-h}
+          :style {:bg [0.0 0.0 0.0 1.0]}
           :children
           [(ui-panel-header :header left-w list-padding-top
+             :style {:bg [0.0 0.0 0.0 1.0]}
              :text [{:text header-str :type :macro
                      :from 0 :to (count header-str)
                      :x list-padding-x
@@ -783,6 +779,7 @@
            (ui-panel-content :linear-panel left-w content-h
              :children group-nodes)
            (ui-panel-footer :footer left-w list-footer-h
+             :style {:bg [0.0 0.0 0.0 1.0]}
              :text (cond-> [{:text footer-txt :type :comment
                              :from 0 :to (count footer-txt)
                              :x list-padding-x :y 24
@@ -1057,7 +1054,7 @@
         left-panel
         (rt-node :run-left :panel
           {:x 0 :y sy :w left-w :h viewport-h}
-          :style {:bg (:bg colors)}
+          :style {:bg [0.0 0.0 0.0 1.0]}
           :text [{:text banner :type :macro
                   :from 0 :to (count banner)
                   :x list-padding-x :y 28
@@ -1100,7 +1097,7 @@
         right-panel
         (rt-node :run-right :panel
           {:x right-x0 :y sy :w right-w :h viewport-h}
-          :style {:bg (:bg-subtle colors)}
+          :style {:bg [0.0 0.0 0.0 1.0]}
           :children
           [(rt-node :run-right-body :panel-content
              {:x 0 :y 0 :w right-w :h viewport-h}

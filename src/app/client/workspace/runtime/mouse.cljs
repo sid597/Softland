@@ -312,12 +312,15 @@
 
 (defn- handle-flow-canvas-click!
   "Route click within the DG flow canvas (group headers + ticket rows)."
-  [{:keys [!flow-state !collapsed-groups !hovered-row-idx !drag-state]}
+  [{:keys [!flow-state !collapsed-groups !hovered-row-idx !drag-state !settings !active-font]}
    content-x y content-w viewport-h scroll-y]
   (let [flow @!flow-state
+        font-size (:font-size @!settings)
+        char-advance (* font-size (:char-width @!active-font))
         tree (resolve-layout
                (build-intake-tree flow content-w viewport-h
-                                  scroll-y nil @!hovered-row-idx @!collapsed-groups 0 0 nil))
+                                  scroll-y nil @!hovered-row-idx @!collapsed-groups
+                                  font-size char-advance nil))
         path (hit-test tree content-x (+ y scroll-y))]
     (when path
       (some (fn [node]
@@ -431,10 +434,13 @@
                    (build-sidebar-tree ss @!current-file true
                                        (:height @!viewport) @!scroll-y font-size char-advance))
             path (when tree (hit-test tree (:x coords) (+ (:y coords) @!scroll-y)))
-            target (peek path)
-            new-id (when (and target (= :sidebar-entry (:type target)))
-                     (:id target))]
-        (when (not= new-id (:hovered-id @!sidebar-state))
+            new-id (when path
+                     (some (fn [node]
+                             (when (= :sidebar-entry (:type node))
+                               (:id node)))
+                           (rseq path)))
+            old-id (:hovered-id ss)]
+        (when (not= new-id old-id)
           (swap! !sidebar-state assoc :hovered-id new-id))
         (when @!hovered-row-idx
           (reset! !hovered-row-idx nil)))
@@ -461,14 +467,20 @@
       (let [flow @!flow-state
             content-x (- (:x coords) sb-w)
             content-w (- (:width @!viewport) sb-w)
+            font-size (:font-size @!settings)
+            char-advance (* font-size (:char-width @!active-font))
             tree (resolve-layout
                    (build-intake-tree flow content-w (:height @!viewport)
-                                      @!scroll-y nil @!hovered-row-idx @!collapsed-groups 0 0 nil))
+                                      @!scroll-y nil @!hovered-row-idx @!collapsed-groups
+                                      font-size char-advance nil))
             path (hit-test tree content-x (+ (:y coords) @!scroll-y))
-            target (peek path)]
-        (reset! !hovered-row-idx
-                (when (and target (= (:type target) :ticket-row))
-                  (:idx (:data target))))))))
+            new-idx (when path
+                      (some (fn [node]
+                              (when (= :ticket-row (:type node))
+                                (:idx (:data node))))
+                            (rseq path)))]
+        (when (not= new-idx @!hovered-row-idx)
+          (reset! !hovered-row-idx new-idx))))))
 
 (defn- handle-mouseup!
   "Route mouseup: ticket selection or drag-to-select completion."

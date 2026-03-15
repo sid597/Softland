@@ -259,13 +259,9 @@
                  (if eval-rect [eval-rect] [])))))
 
 (defn <editor-rects
-  "Derived flow: all editor rectangles (selection, caret, brackets, folds, eval)
-   Uses m/latest instead of m/ap to avoid cancellation propagation issues.
-   REACTIVE: font-size, line-h, char-advance come from !settings and !active-font.
-   OPTIMIZED: fold-state and bracket-match are pre-computed in cached flows
-   that only recompute when the document changes — NOT on every blink tick.
-   MODE-SWITCH: when flow canvas is active, returns ticket card rects instead.
-   SIDEBAR: when sidebar visible, sidebar rects prepended, content offset right."
+  "Derived flow: all editor rectangles.
+   Split into scoped sub-flows so each mode only watches its own atoms.
+   Caret blink no longer recomputes flow-canvas rects and vice versa."
   [!editor-doc !eval-result !caret-visible !focus !settings !active-font !viewport
    <fold-data <bracket-data
    !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
@@ -273,116 +269,170 @@
    !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !run-scroll-y !detail-scroll-y
    flow-canvas-active?* compute-ticket-list-rects* compute-run-rects* offset-rects* offset-shadows*
    layout-x layout-y gutter-w]
-  (m/latest
-    (fn [doc fold-state bracket-match eval-result caret-visible focus settings active-font viewport
-         flow-state scroll-y collapsed-groups hovered-row-idx drag-state
-         sidebar-state sidebar-visible? current-file extract-preview agent-output
-         shimmer-phase trail-collapsed active-pane scroll-x chat-scroll-y chat-input run-scroll-y detail-scroll-y]
-      (let [sb-vis? (boolean sidebar-visible?)
-            sb-w (if sb-vis? sidebar-w 0)
-            dpr (:dpr viewport)
-            snap? (:snap-to-pixel? settings)
-            font-size (:font-size settings)
-            char-advance (maybe-snap (* font-size (:char-width active-font)) dpr snap?)
-            ;; Build sidebar rects when visible
-            sidebar-result
-            (when sb-vis?
-              (let [tree (resolve-layout
+  (let [;; ── Shared layout context (changes on: resize, settings, font, sidebar toggle) ──
+        <layout
+        (m/latest
+          (fn [viewport settings active-font sidebar-visible?]
+            (let [dpr (:dpr viewport)
+                  snap? (:snap-to-pixel? settings)
+                  font-size (:font-size settings)
+                  char-advance (maybe-snap (* font-size (:char-width active-font)) dpr snap?)
+                  sb-vis? (boolean sidebar-visible?)]
+              {:viewport viewport :settings settings :dpr dpr :snap? snap?
+               :font-size font-size :char-advance char-advance
+               :sb-vis? sb-vis? :sb-w (if sb-vis? sidebar-w 0)}))
+          (m/watch !viewport) (m/watch !settings) (m/watch !active-font) (m/watch !sidebar-visible))
+        ;; 4 fn args, 4 flows
+
+        ;; ── Mode determination ──
+        <mode
+        (m/latest
+          (fn [flow-state current-file extract-preview]
+            (cond
+              (:rt-node extract-preview)          :extract-preview
+              (flow-canvas-active?* flow-state)   (if (= :intake (:node flow-state)) :intake :run)
+              (some? current-file)                :file-open
+              :else                               :editor))
+          (m/watch !flow-state) (m/watch !current-file) (m/watch !extract-preview))
+        ;; 3 fn args, 3 flows
+
+        ;; ── Sidebar rects (independent of content mode) ──
+        <sidebar
+        (m/latest
+          (fn [layout sidebar-state current-file scroll-y]
+            (when (:sb-vis? layout)
+              (let [{:keys [viewport font-size char-advance]} layout
+                    tree (resolve-layout
                            (build-sidebar-tree sidebar-state current-file true
                                                (:height viewport) scroll-y font-size char-advance))]
                 (when tree
-                  {:rects (tree->rects tree)
-                   :shadows (tree->shadows tree)})))
-            ;; Build content rects (offset by sb-w)
-            content-w (- (:width viewport) sb-w)
-            file-open? (some? current-file)
-            content-result
-            (if (:rt-node extract-preview)
-              ;; Extract preview on right half
-              (let [half-w (/ (- (:width viewport) sb-w) 2)
-                    preview-tree (when-let [rt (:rt-node extract-preview)]
-                                   (resolve-layout
-                                     (rt-node :extract-preview-root :rect
-                                              {:x half-w :y 0 :w half-w :h (:height viewport)}
-                                              :style {:bg (:bg (:colors dt))}
-                                              :layout {:direction :column :padding [16 16 16 16] :gap 8}
-                                              :children [(rt-node :extract-label :text
-                                                                  {:x 0 :y 0 :w (- half-w 32) :h 24}
-                                                                  :text [{:text "Compiled Preview" :type :keyword
-                                                                          :from 0 :to 16 :x 0 :y 16
-                                                                          :size 14 :r 0.55 :g 0.55 :b 0.60 :a 1.0}])
-                                                         (assoc-in rt [:bounds :w] (- half-w 32))])))]
-                {:rects (if preview-tree (tree->rects preview-tree) [])
-                 :shadows (if preview-tree (tree->shadows preview-tree) [])})
-              (if (flow-canvas-active?* flow-state)
-                (if (= :intake (:node flow-state))
-                  (compute-ticket-list-rects* flow-state content-w (:height viewport)
-                                              scroll-y detail-scroll-y hovered-row-idx collapsed-groups drag-state
-                                              font-size char-advance)
-                  (compute-run-rects* flow-state content-w (:height viewport)
-                                      scroll-y agent-output font-size char-advance
-                                      shimmer-phase trail-collapsed run-scroll-y))
-                ;; File open -> 3-pane layout; no file -> plain editor
-                (if file-open?
-                  (let [code-w (int (* content-w 0.4))
-                        content-h (- (:height viewport) cmd-panel-h status-bar-h)
-                        line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
-                        lx (maybe-snap (- layout-x (or scroll-x 0)) dpr snap?)
-                        ly (maybe-snap layout-y dpr snap?)
-                        ulx (maybe-snap layout-x dpr snap?) ;; unscrolled for gutter
-                        editor-rects (compute-editor-rects doc fold-state bracket-match eval-result
-                                                           caret-visible focus lx ly line-h gutter-w
-                                                           char-advance code-w
-                                                           :gutter-lx ulx)
-                        shimmer-alpha (if shimmer-phase 0.9 0.4)
-                        right-tree (resolve-layout
-                                     (build-file-layout content-w content-h current-file agent-output font-size
-                                                        shimmer-alpha trail-collapsed
-                                                        :active-pane active-pane :char-advance char-advance
-                                                        :chat-scroll-y (or chat-scroll-y 0)
-                                                        :chat-input chat-input :focus focus))
-                        right-rects (mapv #(update % :y + scroll-y) (tree->rects right-tree))
-                        right-shadows (mapv #(update % :y + scroll-y) (tree->shadows right-tree))]
-                    {:rects (into (vec right-rects) editor-rects)
-                     :shadows (vec right-shadows)})
-                  (let [line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
-                        lx (maybe-snap (- layout-x (or scroll-x 0)) dpr snap?)
-                        ulx (maybe-snap layout-x dpr snap?)
-                        ly (maybe-snap layout-y dpr snap?)]
-                    {:rects (compute-editor-rects doc fold-state bracket-match eval-result caret-visible focus
-                                                  lx ly line-h gutter-w char-advance content-w
-                                                  :gutter-lx ulx)
-                     :shadows []}))))]
-        {:rects (into (or (:rects sidebar-result) [])
-                      (offset-rects* (:rects content-result) sb-w))
-         :shadows (into (or (:shadows sidebar-result) [])
-                        (offset-shadows* (:shadows content-result) sb-w))}))
-    (m/watch !editor-doc)
-    <fold-data
-    <bracket-data
-    (m/watch !eval-result)
-    (m/watch !caret-visible)
-    (m/watch !focus)
-    (m/watch !settings)
-    (m/watch !active-font)
-    (m/watch !viewport)
-    (m/watch !flow-state)
-    (m/watch !scroll-y)
-    (m/watch !collapsed-groups)
-    (m/watch !hovered-row-idx)
-    (m/watch !drag-state)
-    (m/watch !sidebar-state)
-    (m/watch !sidebar-visible)
-    (m/watch !current-file)
-    (m/watch !extract-preview)
-    (m/watch !agent-output)
-    (m/watch !shimmer-phase)
-    (m/watch !trail-collapsed)
-    (m/watch !active-pane)
-    (m/watch !scroll-x)
-    (m/watch !chat-scroll-y)
-    (m/watch !chat-input)
-    (m/watch !run-scroll-y)
-    (m/watch !detail-scroll-y)))
+                  {:rects (tree->rects tree) :shadows (tree->shadows tree)}))))
+          <layout (m/watch !sidebar-state) (m/watch !current-file) (m/watch !scroll-y))
+        ;; 4 fn args, 4 flows
+
+        ;; ── Flow canvas rects (intake + run) ──
+        ;; ── Intake rects (ticket list) ──
+        ;; NOT watching: !shimmer-phase, !agent-output, !trail-collapsed, !run-scroll-y
+        <intake-content
+        (m/latest
+          (fn [layout flow-state scroll-y detail-scroll-y
+               hovered-row-idx collapsed-groups drag-state]
+            (if-not (and (flow-canvas-active?* flow-state) (= :intake (:node flow-state)))
+              {:rects [] :shadows []}
+              (let [{:keys [viewport font-size char-advance sb-w]} layout
+                    content-w (- (:width viewport) sb-w)]
+                (compute-ticket-list-rects* flow-state content-w (:height viewport)
+                                            scroll-y detail-scroll-y hovered-row-idx
+                                            collapsed-groups drag-state
+                                            font-size char-advance))))
+          <layout
+          (m/watch !flow-state) (m/watch !scroll-y) (m/watch !detail-scroll-y)
+          (m/watch !hovered-row-idx) (m/watch !collapsed-groups) (m/watch !drag-state))
+        ;; 7 fn args, 7 flows
+
+        ;; ── Run rects (agent execution view) ──
+        ;; NOT watching: !hovered-row-idx, !collapsed-groups, !drag-state, !detail-scroll-y
+        <run-content
+        (m/latest
+          (fn [layout flow-state scroll-y agent-output shimmer-phase
+               trail-collapsed run-scroll-y]
+            (if-not (and (flow-canvas-active?* flow-state) (not= :intake (:node flow-state)))
+              {:rects [] :shadows []}
+              (let [{:keys [viewport font-size char-advance sb-w]} layout
+                    content-w (- (:width viewport) sb-w)]
+                (compute-run-rects* flow-state content-w (:height viewport)
+                                    scroll-y agent-output font-size char-advance
+                                    shimmer-phase trail-collapsed run-scroll-y))))
+          <layout
+          (m/watch !flow-state) (m/watch !scroll-y)
+          (m/watch !agent-output) (m/watch !shimmer-phase)
+          (m/watch !trail-collapsed) (m/watch !run-scroll-y))
+        ;; 7 fn args, 7 flows
+
+        ;; ── Editor/file/extract rects ──
+        ;; NOT watching: !hovered-row-idx, !collapsed-groups, !drag-state,
+        ;;               !detail-scroll-y, !run-scroll-y
+        <editor-content
+        (m/latest
+          (fn [layout current-file extract-preview
+               doc fold-state bracket-match eval-result caret-visible focus
+               scroll-y scroll-x
+               agent-output shimmer-phase trail-collapsed
+               active-pane chat-scroll-y chat-input]
+            (let [{:keys [viewport settings dpr snap? font-size char-advance sb-w]} layout
+                  content-w (- (:width viewport) sb-w)]
+              (cond
+                ;; Extract preview
+                (:rt-node extract-preview)
+                (let [half-w (/ content-w 2)
+                      preview-tree (when-let [rt (:rt-node extract-preview)]
+                                     (resolve-layout
+                                       (rt-node :extract-preview-root :rect
+                                                {:x half-w :y 0 :w half-w :h (:height viewport)}
+                                                :style {:bg (:bg (:colors dt))}
+                                                :layout {:direction :column :padding [16 16 16 16] :gap 8}
+                                                :children [(rt-node :extract-label :text
+                                                                    {:x 0 :y 0 :w (- half-w 32) :h 24}
+                                                                    :text [{:text "Compiled Preview" :type :keyword
+                                                                            :from 0 :to 16 :x 0 :y 16
+                                                                            :size 14 :r 0.55 :g 0.55 :b 0.60 :a 1.0}])
+                                                           (assoc-in rt [:bounds :w] (- half-w 32))])))]
+                  {:rects (if preview-tree (tree->rects preview-tree) [])
+                   :shadows (if preview-tree (tree->shadows preview-tree) [])})
+
+                ;; File open (3-pane)
+                (some? current-file)
+                (let [code-w (int (* content-w 0.4))
+                      content-h (- (:height viewport) cmd-panel-h status-bar-h)
+                      line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
+                      lx (maybe-snap (- layout-x (or scroll-x 0)) dpr snap?)
+                      ly (maybe-snap layout-y dpr snap?)
+                      ulx (maybe-snap layout-x dpr snap?)
+                      editor-rects (compute-editor-rects doc fold-state bracket-match eval-result
+                                                         caret-visible focus lx ly line-h gutter-w
+                                                         char-advance code-w
+                                                         :gutter-lx ulx)
+                      shimmer-alpha (if shimmer-phase 0.9 0.4)
+                      right-tree (resolve-layout
+                                   (build-file-layout content-w content-h current-file agent-output font-size
+                                                      shimmer-alpha trail-collapsed
+                                                      :active-pane active-pane :char-advance char-advance
+                                                      :chat-scroll-y (or chat-scroll-y 0)
+                                                      :chat-input chat-input :focus focus))
+                      right-rects (mapv #(update % :y + scroll-y) (tree->rects right-tree))
+                      right-shadows (mapv #(update % :y + scroll-y) (tree->shadows right-tree))]
+                  {:rects (into (vec right-rects) editor-rects)
+                   :shadows (vec right-shadows)})
+
+                ;; Plain editor
+                :else
+                (let [line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
+                      lx (maybe-snap (- layout-x (or scroll-x 0)) dpr snap?)
+                      ulx (maybe-snap layout-x dpr snap?)
+                      ly (maybe-snap layout-y dpr snap?)]
+                  {:rects (compute-editor-rects doc fold-state bracket-match eval-result caret-visible focus
+                                                lx ly line-h gutter-w char-advance content-w
+                                                :gutter-lx ulx)
+                   :shadows []}))))
+          <layout (m/watch !current-file) (m/watch !extract-preview)
+          (m/watch !editor-doc) <fold-data <bracket-data (m/watch !eval-result)
+          (m/watch !caret-visible) (m/watch !focus)
+          (m/watch !scroll-y) (m/watch !scroll-x)
+          (m/watch !agent-output) (m/watch !shimmer-phase) (m/watch !trail-collapsed)
+          (m/watch !active-pane) (m/watch !chat-scroll-y) (m/watch !chat-input))]
+        ;; 17 fn args, 17 flows
+
+    ;; ── Combine: pick content by mode, merge with sidebar ──
+    (m/latest
+      (fn [mode sidebar intake run editor-content layout]
+        (let [content (case mode
+                        :intake intake
+                        :run run
+                        editor-content)]
+          {:rects (into (or (:rects sidebar) [])
+                        (offset-rects* (:rects content) (:sb-w layout)))
+           :shadows (into (or (:shadows sidebar) [])
+                          (offset-shadows* (:shadows content) (:sb-w layout)))}))
+      <mode <sidebar <intake-content <run-content <editor-content <layout)))
 
 ;; --- Markdown rendering helpers for chat pane trail --------------------------
