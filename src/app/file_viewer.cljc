@@ -104,7 +104,8 @@
 
 (e/defn WatchSidebarTruth
   "Reactive bridge: Rama sidebar truth → Electric client.
-   Watches the server-side atom (updated by emit-sidebar-event! after each
-   Rama write). Returns continuously updating sidebar committed state."
+   Watches the server-side mirror atom (updated by emit-sidebar-event!
+   after each Rama write). foreign-proxy-async is broken in Rama 1.6.0
+   test IPC, so this uses e/watch on the atom instead."
   []
   (e/server (e/watch util-fns/!sidebar-truth-atom)))

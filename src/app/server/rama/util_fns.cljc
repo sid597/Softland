@@ -106,10 +106,8 @@
 
 
 (defn !subscribe [path pstate]
-  (println "---R---: SUBSCRIBE")
   (->> (m/observe
          (fn [!]
-           (println "SUBSCRIBE")
            ;; emit current value immediately, then stream updates
            (! (first (foreign-select path pstate)))
            ;; using subselect because foreign-procxy takes exactly one path
@@ -261,12 +259,10 @@
 ;; Updated after each Rama write by emit-sidebar-event!.
 ;; Initialized from Rama PState at boot (picks up persisted state).
 ;;
-;; Why not foreign-proxy-async + m/signal + e/input?
-;; Path [] on a global {Keyword Object} PState causes RocksDBWrapper
-;; serialization failure in Rama 1.6.0's wire protocol (the proxy callback
-;; result envelope references the raw backing store). Per-key subscriptions
-;; might work but aren't tested. The atom approach is correct, proven, and
-;; gives Electric the same reactive semantics via e/watch.
+;; foreign-proxy-async is broken in Rama 1.6.0 test IPC:
+;;   - Root path [] → RocksDBWrapper serialization failure
+;;   - Per-key paths → WorpResolveTimeout / connection manager collapse
+;; The atom mirror approach bypasses proxy entirely and is proven stable.
 (defonce !sidebar-truth-atom
   (atom (try (get-sidebar-state)
              (catch Exception _ {:project nil :expanded-dirs #{} :selected-file nil}))))
