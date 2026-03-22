@@ -258,8 +258,10 @@
                  (if caret-rect [caret-rect] [])
                  (if eval-rect [eval-rect] [])))))
 
-(defn <editor-rects
-  "Derived flow: all editor rectangles.
+(defn <editor-rects+sidebar
+  "Derived flows: editor rectangles + sidebar rectangles (separate).
+   Returns {:<editor-rects <flow> :<sidebar <flow>} so sidebar rects
+   can be routed to a differential buffer pool instead of the editor rect system.
    Split into scoped sub-flows so each mode only watches its own atoms.
    Caret blink no longer recomputes flow-canvas rects and vice versa."
   [!editor-doc !eval-result !caret-visible !focus !settings !active-font !viewport
@@ -422,17 +424,19 @@
           (m/watch !active-pane) (m/watch !chat-scroll-y) (m/watch !chat-input))]
         ;; 17 fn args, 17 flows
 
-    ;; ── Combine: pick content by mode, merge with sidebar ──
-    (m/latest
-      (fn [mode sidebar intake run editor-content layout]
-        (let [content (case mode
-                        :intake intake
-                        :run run
-                        editor-content)]
-          {:rects (into (or (:rects sidebar) [])
-                        (offset-rects* (:rects content) (:sb-w layout)))
-           :shadows (into (or (:shadows sidebar) [])
-                          (offset-shadows* (:shadows content) (:sb-w layout)))}))
-      <mode <sidebar <intake-content <run-content <editor-content <layout)))
+    ;; ── Return both flows separately ──
+    ;; Editor rects (content only, offset by sidebar width) go to editor-rect-sys.
+    ;; Sidebar rects go to the differential buffer pool.
+    {:<editor-rects
+     (m/latest
+       (fn [mode intake run editor-content layout]
+         (let [content (case mode
+                         :intake intake
+                         :run run
+                         editor-content)]
+           {:rects (vec (offset-rects* (:rects content) (:sb-w layout)))
+            :shadows (vec (offset-shadows* (:shadows content) (:sb-w layout)))}))
+       <mode <intake-content <run-content <editor-content <layout)
+     :<sidebar <sidebar}))
 
 ;; --- Markdown rendering helpers for chat pane trail --------------------------

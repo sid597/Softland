@@ -707,9 +707,9 @@
 
 (defn draw-frame! [^js device ^js context text-sys editor-rect-sys cmd-rect-sys camera-floats _ignored_pass_descriptor pan-x pan-y w h
                    & {:keys [cmd-panel-visible cmd-panel-h editor-line-count pre-settings-line-count settings-line-count settings-visible settings-rect-sys
-                             diagnostics-visible diagnostics-line-index agent-visible shadow-sys]
+                             diagnostics-visible diagnostics-line-index agent-visible shadow-sys sidebar-pool-info]
                       :or {cmd-panel-visible false cmd-panel-h 40 editor-line-count nil pre-settings-line-count nil settings-line-count 0 settings-visible false
-                           settings-rect-sys nil agent-visible false shadow-sys nil}}]
+                           settings-rect-sys nil agent-visible false shadow-sys nil sidebar-pool-info nil}}]
   (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y 1.0 w h)
 
   (let [encoder (.createCommandEncoder device)
@@ -730,6 +730,13 @@
         (.setBindGroup pass 0 (:bind-group shadow-sys))
         (.setVertexBuffer pass 0 (:instance-buffer shadow-sys))
         (.draw pass 6 (:num-instances shadow-sys)))
+
+      ;; Draw sidebar pool (behind editor content, uses differential buffer)
+      (when (and sidebar-pool-info (> (:draw-count sidebar-pool-info) 0))
+        (.setPipeline pass (:pipeline sidebar-pool-info))
+        (.setBindGroup pass 0 (:bind-group sidebar-pool-info))
+        (.setVertexBuffer pass 0 (:buffer sidebar-pool-info))
+        (.draw pass 6 (:draw-count sidebar-pool-info)))
 
       ;; Draw editor rects (selection, brackets, fold indicators, caret, eval)
       (when (and editor-rect-sys (> (:num-instances editor-rect-sys) 0))

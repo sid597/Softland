@@ -2,9 +2,10 @@
   "Render consumer: derived flow assembly, world snapshot, GPU upload diffing, draw."
   (:require [missionary.core :as m]
             [app.client.substrate.webgpu.renderer :as editor]
+            [app.client.substrate.webgpu.buffer-pool :as pool]
             [app.client.workspace.events :refer [maybe-snap]]
             [app.client.workspace.sidebar :refer [cmd-panel-h status-bar-h]]
-            [app.client.workspace.editor-compute :refer [<fold-state <bracket-match <editor-rects]]
+            [app.client.workspace.editor-compute :refer [<fold-state <bracket-match <editor-rects+sidebar]]
             [app.client.workspace.combined-text :refer [<combined-text-ops]]
             [app.client.workspace.cmd-panel :refer [<cmd-panel-rects]]
             [app.client.workspace.settings-view :refer [<settings-panel-rects <settings-panel-text]]
@@ -17,7 +18,8 @@
            !hovered-row-idx !drag-state !sidebar-state !sidebar-visible !extract-preview
            !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input
            !focus !run-scroll-y !detail-scroll-y !eval-result !caret-visible !folded-lines
-           !font-manifest !font-assets !text-geo !shadow-sys !cmd-rect-sys !settings-rect-sys]
+           !font-manifest !font-assets !text-geo !shadow-sys !cmd-rect-sys !settings-rect-sys
+           !sidebar-pool]
     :as atoms}
    {:keys [layout-x layout-y gutter-w]}
    {:keys [device ctx geometry atlas]}
@@ -38,15 +40,20 @@
                       dg/flow-canvas-active? dg/compute-ticket-list-text-ops dg/compute-run-text-ops dg/offset-text-ops
                       layout-x layout-y cmd-panel-h status-bar-h)
 
-        <editor-rect-data (<editor-rects
-                            !editor-doc !eval-result !caret-visible !focus
-                            !settings !active-font !viewport
-                            <fold-data <bracket-data
-                            !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
-                            !sidebar-state !sidebar-visible !current-file !extract-preview !agent-output
-                            !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !run-scroll-y !detail-scroll-y
-                            dg/flow-canvas-active? dg/compute-ticket-list-rects dg/compute-run-rects dg/offset-rects dg/offset-shadows
-                            layout-x layout-y gutter-w)
+        ;; Split: editor rects (content only) + sidebar rects (for pool)
+        {<editor-rect-flow :<editor-rects
+         <sidebar-flow     :<sidebar}
+        (<editor-rects+sidebar
+          !editor-doc !eval-result !caret-visible !focus
+          !settings !active-font !viewport
+          <fold-data <bracket-data
+          !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
+          !sidebar-state !sidebar-visible !current-file !extract-preview !agent-output
+          !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !run-scroll-y !detail-scroll-y
+          dg/flow-canvas-active? dg/compute-ticket-list-rects dg/compute-run-rects dg/offset-rects dg/offset-shadows
+          layout-x layout-y gutter-w)
+
+        <editor-rect-data <editor-rect-flow
 
         <cmd-rect-data (<cmd-panel-rects
                           !cmd-panel !focus !caret-visible !scroll-y !viewport
@@ -58,13 +65,15 @@
         <settings-rect-data (<settings-panel-rects !settings !focus !viewport !scroll-y !font-manifest)
         <settings-text-data (<settings-panel-text !settings !viewport !scroll-y !font-manifest)
 
-        ;; World snapshot
+        ;; World snapshot (now includes sidebar data for pool updates)
         <world-snapshot (m/latest
-                          (fn [text-data editor-rect-data cmd-rects settings-rects settings-text
+                          (fn [text-data editor-rect-data sidebar-data
+                               cmd-rects settings-rects settings-text
                                viewport scroll-y cmd-panel settings active-font agent-output
                                current-file flow-state]
                             {:text-data text-data
                              :editor-rect-data editor-rect-data
+                             :sidebar-data sidebar-data
                              :cmd-rects cmd-rects
                              :settings-rects settings-rects
                              :settings-text settings-text
@@ -84,6 +93,7 @@
                              :char-width (:char-width active-font)})
                           <text-data
                           <editor-rect-data
+                          <sidebar-flow
                           <cmd-rect-data
                           <settings-rect-data
                           <settings-text-data
@@ -102,12 +112,17 @@
         (if (identical? world (:prev-world prev-state))
           prev-state
 
-          (let [{:keys [text-data editor-rect-data cmd-rects settings-rects settings-text
+          (let [{:keys [text-data editor-rect-data sidebar-data cmd-rects settings-rects settings-text
                         viewport scroll-y cmd-visible agent-visible settings-visible
                         font-size px-range line-height sharpness char-width
                         snap-to-pixel? show-diagnostics?]} world
                 editor-rects   (:rects editor-rect-data)
                 editor-shadows (:shadows editor-rect-data)
+
+                ;; Differential sidebar pool update — only writes changed rects
+                sidebar-rects (or (:rects sidebar-data) [])
+                _sidebar-writes (when-not (identical? sidebar-data (:prev-sidebar-data prev-state))
+                                  (pool/batch-update-pool! !sidebar-pool sidebar-rects))
                 dpr (:dpr viewport)
                 snap? (not (false? snap-to-pixel?))
                 line-h (maybe-snap (* font-size line-height) dpr snap?)
@@ -186,10 +201,17 @@
                                                       editor-rects)
                                  (:editor-rect-sys prev-state))
 
-                new-shadow-sys (if (not (identical? editor-shadows (:prev-editor-shadows prev-state)))
+                ;; Shadows: combine editor + sidebar (shadow pipeline is separate from rect pool)
+                sidebar-shadows (or (:shadows sidebar-data) [])
+                shadows-changed? (or (not (identical? editor-shadows (:prev-editor-shadows prev-state)))
+                                     (not (identical? sidebar-data (:prev-sidebar-data prev-state))))
+                combined-shadows (if shadows-changed?
+                                   (into (vec (or editor-shadows [])) sidebar-shadows)
+                                   nil)
+                new-shadow-sys (if shadows-changed?
                                  (editor/update-shadows device
                                                         (or (:shadow-sys prev-state) @!shadow-sys)
-                                                        (or editor-shadows []))
+                                                        combined-shadows)
                                  (:shadow-sys prev-state))
 
                 new-cmd-sys (if (not (identical? cmd-rects (:prev-cmd-rects prev-state)))
@@ -222,7 +244,8 @@
                                 :diagnostics-visible show-diagnostics?
                                 :diagnostics-line-index diagnostics-line-index
                                 :agent-visible agent-visible
-                                :shadow-sys new-shadow-sys)
+                                :shadow-sys new-shadow-sys
+                                :sidebar-pool-info (pool/pool-draw-info !sidebar-pool))
 
             {:text-geo new-text-geo
              :editor-rect-sys new-editor-sys
@@ -231,6 +254,7 @@
              :shadow-sys new-shadow-sys
              :prev-world world
              :prev-text-data text-data
+             :prev-sidebar-data sidebar-data
              :prev-settings-text settings-text
              :prev-show-diagnostics show-diagnostics?
              :prev-scroll-y scroll-y
@@ -254,6 +278,7 @@
        :shadow-sys @!shadow-sys
        :prev-world nil
        :prev-text-data nil
+       :prev-sidebar-data nil
        :prev-settings-text nil
        :prev-show-diagnostics nil
        :prev-scroll-y nil

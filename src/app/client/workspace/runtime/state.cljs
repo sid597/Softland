@@ -2,6 +2,7 @@
   "Runtime state: atom creation, layout constants, font defaults.
    Returns the rt context map — the single shared contract for all runtime modules."
   (:require [app.client.substrate.webgpu.renderer :as editor]
+            [app.client.substrate.webgpu.buffer-pool :as pool]
             [app.client.workspace.settings-view :refer [manifest-defaults->settings font-defaults->settings]]
             [app.client.workflows.dg-flow :refer [initial-flow-state]]))
 
@@ -111,6 +112,11 @@
                                     :instance-buffer ib
                                     :num-instances 0}))
       :!shadow-sys    (atom (:shadow geometry))
+
+      ;; Sidebar buffer pool (differential rendering — separate from editor-rect-sys)
+      :!sidebar-pool  (pool/create-pool device 256
+                        (:pipeline (:rect geometry))
+                        (:bind-group (:rect geometry)))
 
       ;; Sidebar / file state
       :!current-file  (atom {:path "/home/sid/projects/discourse-graph/apps/roam/src/index.ts"
