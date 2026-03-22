@@ -2,7 +2,7 @@
   "Scroll consumer: wheel routing across sidebar, agent, chat, editor, flow canvas."
   (:require [missionary.core :as m]
             [app.client.workspace.events :refer [maybe-snap]]
-            [app.client.workspace.sidebar :refer [sidebar-w sidebar-tab-h cmd-panel-h status-bar-h compute-sidebar-content-height]]
+            [app.client.workspace.sidebar :refer [sidebar-w sidebar-tab-h cmd-panel-h status-bar-h compute-sidebar-content-height derive-effective-sidebar]]
             [app.client.workspace.trail :refer [compute-agent-panel-h agent-wrapped-line-count]]
             [app.client.workspace.ui-primitives :refer [list-left-pane-pct list-divider-w]]
             [app.client.workflows.dg-flow :refer [flow-canvas-active? group-tickets-by-status list-content-height]]))
@@ -10,8 +10,8 @@
 (defn scroll-consumer
   "Missionary consumer: route wheel events to the appropriate scroll target."
   [{:keys [!scroll-y !scroll-x !viewport !settings !active-font !sidebar-visible
-           !mouse-x !mouse-y !sidebar-state !current-file !agent-output
-           !agent-scroll-y !chat-scroll-y !detail-scroll-y !flow-state !collapsed-groups]}
+           !mouse-x !mouse-y !sidebar-truth !sidebar-overlay !sidebar-ui !current-file !agent-output
+           !agent-scroll-y !chat-scroll-y !detail-scroll-y !flow-state !collapsed-groups !editor-doc]}
    >wheel-events]
   (->> >wheel-events
        (m/reduce
@@ -50,11 +50,11 @@
                ;; Sidebar file tree
                in-sidebar?
                (do (js/console.log "[SCROLL] -> sidebar")
-                   (let [ss @!sidebar-state
-                         content-h (compute-sidebar-content-height ss @!current-file)
+                   (let [ss (derive-effective-sidebar @!sidebar-truth @!sidebar-overlay @!sidebar-ui)
+                         content-h (compute-sidebar-content-height ss)
                          visible-h (- (:height viewport) sidebar-tab-h)
                          max-scroll (max 0 (- content-h visible-h))]
-                     (swap! !sidebar-state update :scroll-y
+                     (swap! !sidebar-ui update :scroll-y
                             #(-> (+ (or % 0) delta) (max 0) (min max-scroll)))))
 
                ;; Agent panel
@@ -113,7 +113,11 @@
                    (when (or (not (some? (:path @!current-file)))
                              (< (- mouse-x (if sb-vis? sidebar-w 0))
                                 (int (* (- (:width viewport) (if sb-vis? sidebar-w 0)) 0.4))))
-                     (do (swap! !scroll-y #(maybe-snap (+ % delta) dpr snap?))
+                     (do (let [doc @!editor-doc
+                               line-h (* font-size (:line-height settings))
+                               total-lines (count (:lines doc))
+                               max-scroll (max 0 (- (* total-lines line-h) (:height viewport)))]
+                           (swap! !scroll-y #(-> (+ % delta) (max 0) (min max-scroll) (maybe-snap dpr snap?))))
                          (let [h-delta (if shift? delta dx)
                                sb-off (if sb-vis? sidebar-w 0)
                                cw (- (:width viewport) sb-off)
@@ -121,6 +125,5 @@
                                               (+ sb-off (int (* cw 0.4)))
                                               (+ sb-off cw))]
                            (when (and (not (zero? h-delta)) (< mouse-x editor-right))
-                             (swap! !scroll-x #(max 0 (+ (or % 0) h-delta)))))))))))
-           nil)
+                             (swap! !scroll-x #(max 0 (+ (or % 0) h-delta)))))))))))           nil)
          ))

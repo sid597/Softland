@@ -509,5 +509,5 @@
                                                     :!sidebar-visible !sidebar-visible
                                                     :!file-load-request !file-load-request
                                                     :!preview-el preview-el-atom
-                                                    :!sidebar-truth !sidebar-truth
+                                                    :!remote-sidebar-truth !sidebar-truth
                                                     :initial-file file-info)))))))))))))))

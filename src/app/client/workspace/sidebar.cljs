@@ -1,6 +1,7 @@
 (ns app.client.workspace.sidebar
   "File explorer sidebar: constants, tree flattening, and rect-tree builder."
   (:require [clojure.string :as str]
+            [clojure.set :as set]
             [app.client.workspace.rect-tree :refer [rt-node]]
             [app.client.workspace.ui-primitives :as ui
              :refer [dt typo-title typo-subtitle typo-body typo-caption]]))
@@ -20,6 +21,25 @@
 (def sidebar-padding-x 16)
 (def sidebar-item-inset 8)
 (def sidebar-font-size 13)
+
+(defn derive-effective-sidebar
+  "Derive the effective sidebar state from truth, overlay, and ui layers."
+  [truth overlay ui]
+  (let [project (or (:pending-project overlay) (:project truth))
+        project (when (:path project) project)
+        expanded (set/difference
+                   (set/union (or (:expanded-dirs truth) #{})
+                              (or (:pending-expanded-dirs overlay) #{}))
+                   (or (:pending-collapsed-dirs overlay) #{}))
+        selected (or (:pending-selected-file overlay) (:selected-file truth))
+        selected (when (:path selected) selected)]
+    {:project project
+     :expanded-dirs expanded
+     :selected-file selected
+     :dir-cache (:dir-cache ui)
+     :home-dirs (:home-dirs ui)
+     :scroll-y (:scroll-y ui)
+     :in-flight-dirs (:in-flight-dirs ui)}))
 
 (defn path->id
   "Domain-identity keyword from a filesystem path.
@@ -45,7 +65,7 @@
   "Recursively walk dir-cache tree and return a flat vector of row descriptors.
    Each row: {:entry {:name :path :type} :depth N :expanded? bool :active? bool}
    Dirs listed before files at each level, both sorted alphabetically."
-  [entries expanded-dirs current-file cache depth]
+  [entries expanded-dirs selected-file cache depth]
   (let [sorted (sort-by (fn [e] [(if (= (:type e) :dir) 0 1)
                                   (str/lower-case (or (:name e) ""))])
                          entries)]
@@ -54,12 +74,12 @@
         (fn [entry]
           (let [is-dir? (= (:type entry) :dir)
                 is-exp? (and is-dir? (contains? expanded-dirs (:path entry)))
-                is-active? (and (not is-dir?) current-file
-                                (= (:path entry) (:path current-file)))
+                is-active? (and (not is-dir?) selected-file
+                                (= (:path entry) (:path selected-file)))
                 row {:entry entry :depth depth :expanded? is-exp? :active? is-active?}
                 children (when (and is-dir? is-exp?)
                            (when-let [child-entries (get cache (:path entry))]
-                             (flatten-file-tree child-entries expanded-dirs current-file
+                             (flatten-file-tree child-entries expanded-dirs selected-file
                                                 cache (inc depth))))]
             (if children
               (into [row] children)
@@ -68,14 +88,14 @@
 
 (defn compute-sidebar-content-height
   "Total content height in px for sidebar scroll clamping."
-  [sidebar-state current-file]
-  (let [{:keys [project expanded-dirs dir-cache home-dirs]} sidebar-state]
+  [sidebar-state]
+  (let [{:keys [project expanded-dirs dir-cache home-dirs selected-file]} sidebar-state]
     (if (nil? project)
       ;; Home dirs list
       (* (count (or home-dirs [])) sidebar-row-h)
       ;; File tree
       (let [root-entries (get dir-cache (:path project) [])
-            flat (flatten-file-tree root-entries expanded-dirs current-file dir-cache 0)]
+            flat (flatten-file-tree root-entries expanded-dirs selected-file dir-cache 0)]
         (* (count flat) sidebar-row-h)))))
 
 ;; ============================================================================
@@ -85,12 +105,14 @@
 (defn build-sidebar-tree
   "Build the file sidebar scene graph. Pure function, same pattern as build-intake-tree.
    Returns a single rt-node tree. Walk with tree->rects for GPU rects, tree->text-ops for text.
-   The sidebar root is pinned to the viewport via scroll-y offset."
-  [sidebar-state current-file sidebar-visible?
-   viewport-h scroll-y font-size char-advance]
+   The sidebar root is pinned to the viewport via scroll-y offset.
+   hover-id is a separate arg (not in sidebar-state) so hover doesn't trigger
+   expensive flows that watch sidebar-state."
+  [sidebar-state sidebar-visible?
+   viewport-h scroll-y font-size char-advance hover-id]
   (when sidebar-visible?
-    (let [{:keys [project expanded-dirs dir-cache home-dirs
-                  hovered-id]} sidebar-state
+    (let [{:keys [project expanded-dirs dir-cache home-dirs selected-file]} sidebar-state
+          hovered-id hover-id
           sidebar-scroll-y (or (:scroll-y sidebar-state) 0)
           sb-w sidebar-w
           sb-font font-size
@@ -189,8 +211,8 @@
                                       :r 0.55 :g 0.55 :b 0.60 :a 0.7}])
                   ;; Breadcrumb (when file is open)
                   breadcrumb-node
-                  (when current-file
-                    (let [fname (:name current-file)]
+                  (when selected-file
+                    (let [fname (:name selected-file)]
                       (rt-node :breadcrumb :text-block
                         {:x 0 :y 0 :w sb-w :h sidebar-breadcrumb-h}
                         :style {:bg [0.05 0.05 0.06 1.0]
@@ -203,7 +225,7 @@
                                 :r 0.55 :g 0.55 :b 0.60 :a 0.8}])))
                   ;; Flatten the file tree
                   root-entries (get dir-cache (:path project) [])
-                  flat-rows (flatten-file-tree root-entries expanded-dirs current-file dir-cache 0)
+                  flat-rows (flatten-file-tree root-entries expanded-dirs selected-file dir-cache 0)
                   ;; Build file entry nodes
                   file-nodes
                   (mapv

@@ -163,59 +163,75 @@
    that produced the current frame's rects. No redundant tree rebuild.
    Optimistic local updates for instant UI, fire-and-forget POST to Rama.
    Committed truth flows back via Electric subscription."
-  [{:keys [!sidebar-state !current-file !sidebar-scene !settings !active-font]}
+  [{:keys [!sidebar-truth !sidebar-overlay !sidebar-ui !current-file !sidebar-scene !settings !active-font]}
    {:keys [fetch-dir! fetch-file!]}
    x y viewport scroll-y]
-  (let [tree @!sidebar-scene
-        path (when tree (hit-test tree x (+ y scroll-y)))]
+  (let [t0 (js/performance.now)
+        tree @!sidebar-scene
+        path (when tree (hit-test tree x (+ y scroll-y)))
+        t1 (js/performance.now)]
+    (js/console.log "[SIDEBAR-CLICK] hit-test:" (.toFixed (- t1 t0) 2) "ms | hit:" (some? path))
     (when path
       (some (fn [node]
               (case (:type node)
                 :sidebar-entry
                 (let [d (:data node)
                       et (:entry-type d)]
+                  (js/console.log "[SIDEBAR-CLICK] matched:" (str et) "| node-id:" (str (:id node)))
                   (case et
                     :back-btn
                     (do
-                      ;; Optimistic: clear local state immediately
-                      (swap! !sidebar-state assoc
-                             :project nil :expanded-dirs #{} :dir-cache {} :scroll-y 0)
+                      (swap! !sidebar-overlay assoc
+                             :pending-project {:path nil}
+                             :pending-expanded-dirs #{}
+                             :pending-collapsed-dirs #{}
+                             :pending-selected-file {:path nil})
+                      (swap! !sidebar-ui assoc :dir-cache {} :scroll-y 0)
                       (reset! !current-file nil)
-                      ;; Fire-and-forget → Rama (truth returns via Electric)
                       (emit-sidebar-action! :sidebar/project-back {} nil)
+                      (js/console.log "[SIDEBAR-CLICK] back total:" (.toFixed (- (js/performance.now) t0) 2) "ms")
                       true)
                     :home-dir
                     (let [entry (:entry d)]
-                      ;; Optimistic: set project, clear cache
-                      (swap! !sidebar-state assoc
-                             :project {:name (:name entry) :path (:path entry)}
-                             :expanded-dirs #{} :dir-cache {} :scroll-y 0)
-                      ;; Fire-and-forget → Rama
+                      (swap! !sidebar-overlay assoc
+                             :pending-project {:name (:name entry) :path (:path entry)}
+                             :pending-expanded-dirs #{}
+                             :pending-collapsed-dirs #{}
+                             :pending-selected-file {:path nil})
+                      (swap! !sidebar-ui assoc :dir-cache {} :scroll-y 0)
                       (emit-sidebar-action! :sidebar/project-select
                         {:name (:name entry) :path (:path entry)} nil)
-                      ;; Side effect: fetch dir contents (stays client-local)
                       (fetch-dir! (:path entry))
+                      (js/console.log "[SIDEBAR-CLICK] home-dir total:" (.toFixed (- (js/performance.now) t0) 2) "ms")
                       true)
                     :dir
-                    (let [entry (:entry d) dir-path (:path entry)]
-                      ;; Optimistic: toggle expanded-dirs locally
-                      (swap! !sidebar-state update :expanded-dirs
-                             (fn [dirs] (if (contains? dirs dir-path)
-                                          (disj dirs dir-path)
-                                          (conj dirs dir-path))))
-                      ;; Fire-and-forget → Rama
+                    (let [entry (:entry d) dir-path (:path entry)
+                          truth-exp (or (:expanded-dirs @!sidebar-truth) #{})
+                          overlay @!sidebar-overlay
+                          eff-exp (clojure.set/difference 
+                                    (clojure.set/union truth-exp (:pending-expanded-dirs overlay)) 
+                                    (:pending-collapsed-dirs overlay))
+                          expanding? (not (contains? eff-exp dir-path))]
+                      (if expanding?
+                        (swap! !sidebar-overlay (fn [o] (-> o
+                                                            (update :pending-expanded-dirs conj dir-path)
+                                                            (update :pending-collapsed-dirs disj dir-path))))
+                        (swap! !sidebar-overlay (fn [o] (-> o
+                                                            (update :pending-collapsed-dirs conj dir-path)
+                                                            (update :pending-expanded-dirs disj dir-path)))))
                       (emit-sidebar-action! :sidebar/dir-toggle {:path dir-path} nil)
-                      ;; Side effect: fetch dir contents if expanding
-                      (fetch-dir! dir-path)
+                      (when expanding?
+                        (fetch-dir! dir-path))
+                      (js/console.log "[SIDEBAR-CLICK] dir-toggle total:" (.toFixed (- (js/performance.now) t0) 2) "ms")
                       true)
                     :file
                     (let [entry (:entry d)
-                          project (:project @!sidebar-state)]
-                      ;; Fire-and-forget → Rama
+                          project (or (:pending-project @!sidebar-overlay) (:project @!sidebar-truth))]
+                      (swap! !sidebar-overlay assoc :pending-selected-file {:path (:path entry) :name (:name entry)})
                       (emit-sidebar-action! :sidebar/file-select
                         {:path (:path entry) :name (:name entry)} nil)
-                      ;; Side effect: fetch file content (stays client-local)
                       (fetch-file! (:path entry) (:path project))
+                      (js/console.log "[SIDEBAR-CLICK] file-select total:" (.toFixed (- (js/performance.now) t0) 2) "ms")
                       true)
                     nil))
                 nil))
@@ -286,7 +302,7 @@
   "Route click within the chat pane: nav links and tool collapse toggles."
   [{:keys [!settings !active-font !shimmer-phase !current-file !agent-output
            !trail-collapsed !active-pane !chat-scroll-y !chat-input !focus
-           !editor-doc !scroll-y !sidebar-state]}
+           !editor-doc !scroll-y !sidebar-truth]}
    {:keys [fetch-file!]}
    rel-x y content-w viewport scroll-y]
   (let [file-layout-h (- (:height viewport) cmd-panel-h status-bar-h)]
@@ -309,7 +325,7 @@
                           (let [file-path (:file-path nav)
                                 target-line (or (:line nav) 0)
                                 current-path (:path @!current-file)
-                                project (or (:path (:project @!sidebar-state)) flow-cwd)
+                                project (or (:path (:project @!sidebar-truth)) flow-cwd)
                                 same-file? (or (= file-path current-path)
                                                (and current-path
                                                     (str/ends-with? current-path file-path)))]
@@ -441,13 +457,14 @@
 
 (defn- handle-mousemove!
   "Route mousemove: sidebar hover, drag state machine, flow canvas hover."
-  [{:keys [!mouse-x !mouse-y !sidebar-visible !sidebar-state !sidebar-scene !settings !active-font
+  [{:keys [!mouse-x !mouse-y !sidebar-visible !sidebar-ui !sidebar-scene !settings !active-font
            !current-file !viewport !scroll-y !drag-state !flow-state
            !hovered-row-idx !collapsed-groups]}
    coords]
   (reset! !mouse-x (:x coords))
   (reset! !mouse-y (:y coords))
-  ;; Sidebar hover — reads from shared sidebar scene (cached by render flow)
+  ;; Sidebar hover — writes to dedicated atom (:hover-id in !sidebar-ui) to avoid
+  ;; triggering expensive <combined-text-ops and <cmd-panel-rects flows
   (let [sb-vis? (and !sidebar-visible @!sidebar-visible)
         in-sidebar? (and sb-vis? (< (:x coords) sidebar-w))]
     (if in-sidebar?
@@ -458,13 +475,13 @@
                              (when (= :sidebar-entry (:type node))
                                (:id node)))
                            (rseq path)))
-            old-id (:hovered-id @!sidebar-state)]
+            old-id (:hover-id @!sidebar-ui)]
         (when (not= new-id old-id)
-          (swap! !sidebar-state assoc :hovered-id new-id))
+          (swap! !sidebar-ui assoc :hover-id new-id))
         (when @!hovered-row-idx
           (reset! !hovered-row-idx nil)))
-      (when (:hovered-id @!sidebar-state)
-        (swap! !sidebar-state assoc :hovered-id nil))))
+      (when (:hover-id @!sidebar-ui)
+        (swap! !sidebar-ui assoc :hover-id nil))))
   ;; Drag state machine
   (let [ds @!drag-state
         mx (:x coords) my (:y coords)]

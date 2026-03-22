@@ -15,7 +15,7 @@
   "Missionary consumer: assemble derived flows, build world snapshot, diff-upload to GPU, draw on RAF."
   [{:keys [!editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y
            !viewport !settings !active-font !current-file !flow-state !collapsed-groups
-           !hovered-row-idx !drag-state !sidebar-state !sidebar-visible !sidebar-scene !extract-preview
+           !hovered-row-idx !drag-state !sidebar-truth !sidebar-overlay !sidebar-ui !sidebar-visible !sidebar-scene !extract-preview
            !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input
            !focus !run-scroll-y !detail-scroll-y !eval-result !caret-visible !folded-lines
            !font-manifest !font-assets !text-geo !shadow-sys !cmd-rect-sys !settings-rect-sys
@@ -35,7 +35,7 @@
                       tokenize-fn layout-fn
                       <fold-data
                       !flow-state !collapsed-groups !hovered-row-idx !drag-state
-                      !sidebar-state !sidebar-visible !sidebar-scene !extract-preview
+                      !sidebar-visible !sidebar-scene !extract-preview
                       !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus !run-scroll-y !detail-scroll-y
                       dg/flow-canvas-active? dg/compute-ticket-list-text-ops dg/compute-run-text-ops dg/offset-text-ops
                       layout-x layout-y cmd-panel-h status-bar-h)
@@ -48,7 +48,7 @@
           !settings !active-font !viewport
           <fold-data <bracket-data
           !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
-          !sidebar-state !sidebar-visible !current-file !sidebar-scene !extract-preview !agent-output
+          !sidebar-truth !sidebar-overlay !sidebar-ui !sidebar-visible !current-file !sidebar-scene !extract-preview !agent-output
           !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !run-scroll-y !detail-scroll-y
           dg/flow-canvas-active? dg/compute-ticket-list-rects dg/compute-run-rects dg/offset-rects dg/offset-shadows
           layout-x layout-y gutter-w)
@@ -58,7 +58,7 @@
         <cmd-rect-data (<cmd-panel-rects
                           !cmd-panel !focus !caret-visible !scroll-y !viewport
                           !settings !active-font
-                          !ai-provider !agent-output !sidebar-visible !sidebar-state
+                          !ai-provider !agent-output !sidebar-visible
                           !current-file !flow-state dg/flow-canvas-active?
                           cmd-panel-h status-bar-h)
 
@@ -112,7 +112,8 @@
         (if (identical? world (:prev-world prev-state))
           prev-state
 
-          (let [{:keys [text-data editor-rect-data sidebar-data cmd-rects settings-rects settings-text
+          (let [raf-t0 (js/performance.now)
+                {:keys [text-data editor-rect-data sidebar-data cmd-rects settings-rects settings-text
                         viewport scroll-y cmd-visible agent-visible settings-visible
                         font-size px-range line-height sharpness char-width
                         snap-to-pixel? show-diagnostics?]} world
@@ -180,6 +181,7 @@
                 diagnostics-line-index (when diagnostics-line
                                          (+ render-line-count settings-line-count))
 
+                raf-t1 (js/performance.now)  ;; after text-same? check
                 base-text-geo (if (not text-same?)
                                 (editor/update-text-data device updated-text-geo
                                                          all-text-ops active-atlas font-size
@@ -189,6 +191,7 @@
                                                          :snap-step snap-step
                                                          :sharpness sharpness)
                                 updated-text-geo)
+                raf-t2 (js/performance.now)  ;; after text GPU upload
                 new-text-geo (assoc base-text-geo
                                     :line-mapping (:line-mapping text-data)
                                     :editor-line-count editor-line-count
@@ -228,6 +231,7 @@
 
             (reset! !text-geo new-text-geo)
 
+            (let [raf-t3 (js/performance.now)]  ;; before draw
             (editor/draw-frame! device ctx
                                 new-text-geo new-editor-sys new-cmd-sys
                                 (:camera-floats (:pipelines geometry))
@@ -246,6 +250,9 @@
                                 :agent-visible agent-visible
                                 :shadow-sys new-shadow-sys
                                 :sidebar-pool-info (pool/pool-draw-info !sidebar-pool))
+              (let [raf-t4 (js/performance.now)]
+                (when (> (- raf-t4 raf-t0) 5)
+                  (js/console.log "[RAF] prep:" (.toFixed (- raf-t1 raf-t0) 1) "ms | text-gpu:" (.toFixed (- raf-t2 raf-t1) 1) "ms | rects-gpu:" (.toFixed (- raf-t3 raf-t2) 1) "ms | draw:" (.toFixed (- raf-t4 raf-t3) 1) "ms | TOTAL:" (.toFixed (- raf-t4 raf-t0) 1) "ms | text-same?:" text-same?))))
 
             {:text-geo new-text-geo
              :editor-rect-sys new-editor-sys

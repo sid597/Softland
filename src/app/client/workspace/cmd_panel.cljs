@@ -130,11 +130,11 @@
    Zero-size invisible rects for absent elements keep GPU indices stable.
    SIDEBAR: backgrounds span full viewport, caret offset by sb-w."
   [!cmd-panel !focus !caret-visible !scroll-y !viewport !settings !active-font
-   !ai-provider !agent-output !sidebar-visible !sidebar-state !current-file !flow-state
+   !ai-provider !agent-output !sidebar-visible !current-file !flow-state
    flow-canvas-active?* cmd-panel-h status-bar-h]
   (m/latest
     (fn [panel focus caret-visible scroll-y viewport settings active-font
-         agent-output sidebar-visible? sidebar-state current-file flow-state]
+         agent-output sidebar-visible? current-file flow-state]
       (let [sb-w (if (boolean sidebar-visible?) sidebar-w 0)
             dpr (:dpr viewport)
             snap? (:snap-to-pixel? settings)
@@ -195,6 +195,5 @@
     (m/watch !active-font)
     (m/watch !agent-output)
     (m/watch !sidebar-visible)
-    (m/watch !sidebar-state)
     (m/watch !current-file)
     (m/watch !flow-state)))

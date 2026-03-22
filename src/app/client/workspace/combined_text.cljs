@@ -20,7 +20,7 @@
    tokenize-fn layout-fn
    <fold-data
    !flow-state !collapsed-groups !hovered-row-idx !drag-state
-   !sidebar-state !sidebar-visible !sidebar-scene !extract-preview
+   !sidebar-visible !sidebar-scene !extract-preview
    !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus !run-scroll-y !detail-scroll-y
    flow-canvas-active?* compute-ticket-list-text-ops* compute-run-text-ops* offset-text-ops*
    layout-x layout-y cmd-panel-h status-bar-h]
@@ -86,7 +86,7 @@
     (m/latest
       (fn [intake-text run-text layout
            doc fold-state panel provider agent-output agent-scroll-y scroll-y
-           current-file flow-state sidebar-state extract-preview
+           current-file flow-state sidebar-scene extract-preview
            shimmer-phase trail-collapsed active-pane scroll-x chat-scroll-y chat-input focus]
         (let [{:keys [viewport settings dpr snap? font-size char-width char-advance line-h
                        sb-vis? sb-w]} layout
@@ -99,7 +99,7 @@
               ;; Sidebar text ops — reads from shared scene (cached by render flow)
               sidebar-text-ops
               (when sb-vis?
-                (when-let [tree @!sidebar-scene]
+                (when-let [tree sidebar-scene]
                   (tree->text-ops tree)))
 
               file-open? (some? current-file)
@@ -135,8 +135,10 @@
                       lines (:lines doc)
                       total-line-count (count lines)
                       large-file? (and (> total-line-count 500) (empty? folded))
-                      visible-start (max 0 (- (int (/ scroll-y line-h)) 5))
-                      visible-end (min total-line-count (+ (int (/ (+ scroll-y (:height viewport)) line-h)) 5))
+                      raw-start (max 0 (- (int (/ scroll-y line-h)) 5))
+                      raw-end (+ (int (/ (+ scroll-y (:height viewport)) line-h)) 5)
+                      visible-start (min total-line-count raw-start)
+                      visible-end (min total-line-count (max visible-start raw-end))
                       visible-lines (subvec lines visible-start visible-end)
                       tokenized-visible (mapv tokenize-fn visible-lines)
                       cursor-line (:line (:cursor doc))]
@@ -419,7 +421,7 @@
       <intake-text <run-text <layout
       (m/watch !editor-doc) <fold-data (m/watch !cmd-panel) (m/watch !ai-provider)
       (m/watch !agent-output) (m/watch !agent-scroll-y) (m/watch !scroll-y)
-      (m/watch !current-file) (m/watch !flow-state) (m/watch !sidebar-state)
+      (m/watch !current-file) (m/watch !flow-state) (m/watch !sidebar-scene)
       (m/watch !extract-preview)
       (m/watch !shimmer-phase) (m/watch !trail-collapsed) (m/watch !active-pane)
       (m/watch !scroll-x) (m/watch !chat-scroll-y) (m/watch !chat-input) (m/watch !focus))))

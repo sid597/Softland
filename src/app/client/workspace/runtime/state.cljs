@@ -121,13 +121,21 @@
       ;; Sidebar / file state
       :!current-file  (atom {:path "/home/sid/projects/discourse-graph/apps/roam/src/index.ts"
                               :name "index.ts"})
-      :!sidebar-state (atom {:project nil
-                              :expanded-dirs #{}
-                              :dir-cache {}
-                              :home-dirs nil
-                              :scroll-y 0
-                              :hovered-id nil
-                              :loading? false})
+      :!sidebar-truth (atom {:project nil
+                             :expanded-dirs #{}
+                             :selected-file nil})
+      :!sidebar-overlay (atom {:pending-project nil
+                               :pending-expanded-dirs #{}
+                               :pending-collapsed-dirs #{}
+                               :pending-selected-file nil})
+      :!sidebar-ui    (atom {:hover-id nil
+                             :scroll-y 0
+                             :pointer-state :idle
+                             :dir-cache {}
+                             :home-dirs nil
+                             :loading? false
+                             :in-flight-dirs #{}
+                             :in-flight-files #{}})
       ;; Shared sidebar scene — resolved tree cached by render flow,
       ;; consumed by hit-testing. Single source, two consumers.
       :!sidebar-scene (atom nil)

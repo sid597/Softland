@@ -7,7 +7,7 @@
             [app.client.workspace.themes :as themes]
             [app.client.workspace.text-input :as text-input]
             [app.client.workspace.ui-primitives :refer [dt]]
-            [app.client.workspace.sidebar :as sidebar :refer [sidebar-w cmd-panel-h status-bar-h build-sidebar-tree]]
+            [app.client.workspace.sidebar :as sidebar :refer [sidebar-w cmd-panel-h status-bar-h build-sidebar-tree derive-effective-sidebar]]
             [app.client.workspace.shell :refer [build-file-layout]]))
 
 ;; ============================================================================
@@ -267,7 +267,7 @@
   [!editor-doc !eval-result !caret-visible !focus !settings !active-font !viewport
    <fold-data <bracket-data
    !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
-   !sidebar-state !sidebar-visible !current-file !sidebar-scene !extract-preview !agent-output
+   !sidebar-truth !sidebar-overlay !sidebar-ui !sidebar-visible !current-file !sidebar-scene !extract-preview !agent-output
    !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !run-scroll-y !detail-scroll-y
    flow-canvas-active?* compute-ticket-list-rects* compute-run-rects* offset-rects* offset-shadows*
    layout-x layout-y gutter-w]
@@ -301,21 +301,35 @@
         ;; ── Sidebar rects (independent of content mode) ──
         ;; Builds + resolves the tree once, caches in !sidebar-scene for hit-testing,
         ;; then extracts rects+shadows for GPU. One tree, two consumers.
+        !last-sidebar-struct-hash (atom nil)
         <sidebar
         (m/latest
-          (fn [layout sidebar-state current-file scroll-y]
+          (fn [layout sidebar-truth sidebar-overlay sidebar-ui scroll-y]
             (if-not (:sb-vis? layout)
               (do (reset! !sidebar-scene nil) nil)
-              (let [{:keys [viewport font-size char-advance]} layout
-                    tree (resolve-layout
-                           (build-sidebar-tree sidebar-state current-file true
-                                               (:height viewport) scroll-y font-size char-advance))]
-                ;; Cache resolved tree for hit-testing (mouse.cljs reads this)
-                (reset! !sidebar-scene tree)
+              (let [t0 (js/performance.now)
+                    {:keys [viewport font-size char-advance]} layout
+                    sidebar-state (derive-effective-sidebar sidebar-truth sidebar-overlay sidebar-ui)
+                    struct-hash (hash [layout sidebar-truth sidebar-overlay (select-keys sidebar-ui [:scroll-y :dir-cache :home-dirs]) scroll-y])
+                    structure-changed? (not= struct-hash @!last-sidebar-struct-hash)
+                    _ (when structure-changed? (reset! !last-sidebar-struct-hash struct-hash))
+                    
+                    raw-tree (build-sidebar-tree sidebar-state true
+                                                (:height viewport) scroll-y font-size char-advance (:hover-id sidebar-ui))
+                    t1 (js/performance.now)
+                    tree (resolve-layout raw-tree)
+                    t2 (js/performance.now)]
+                (when structure-changed?
+                  (reset! !sidebar-scene tree))
                 (when tree
-                  {:rects (tree->rects tree) :shadows (tree->shadows tree)}))))
-          <layout (m/watch !sidebar-state) (m/watch !current-file) (m/watch !scroll-y))
-        ;; 4 fn args, 4 flows
+                  (let [rects (tree->rects tree)
+                        t3 (js/performance.now)
+                        shadows (tree->shadows tree)
+                        t4 (js/performance.now)]
+                    (js/console.log "[SIDEBAR-FLOW] build:" (.toFixed (- t1 t0) 1) "ms | resolve:" (.toFixed (- t2 t1) 1) "ms | rects:" (.toFixed (- t3 t2) 1) "ms | shadows:" (.toFixed (- t4 t3) 1) "ms | TOTAL:" (.toFixed (- t4 t0) 1) "ms | rows:" (count (:children (first (:children (last (:children raw-tree)))))))
+                    {:rects rects :shadows shadows})))))
+          <layout (m/watch !sidebar-truth) (m/watch !sidebar-overlay) (m/watch !sidebar-ui) (m/watch !scroll-y))
+        ;; 5 fn args, 5 flows
 
         ;; ── Flow canvas rects (intake + run) ──
         ;; ── Intake rects (ticket list) ──

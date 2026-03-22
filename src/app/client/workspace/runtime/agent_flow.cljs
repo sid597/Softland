@@ -23,7 +23,7 @@
    trigger-dev-replay! is passed in from interop module."
   [{:keys [!agent-output !agent-scroll-y !viewport !settings !active-font
            !flow-state !ai-provider !editor-doc !current-file !scroll-y
-           !sidebar-state !extract-preview]}
+           !sidebar-truth !sidebar-overlay !extract-preview]}
    trigger-dev-replay!]
   (let [auto-scroll-agent!
         (fn []
@@ -210,7 +210,8 @@
                 file-path (:path @!current-file)
                 scroll-y @!scroll-y
                 viewport @!viewport
-                cwd (or (:path (:project @!sidebar-state))
+                cwd (or (:path (:pending-project @!sidebar-overlay))
+                        (:path (:project @!sidebar-truth))
                         (some-> file-path (str/split #"/") butlast seq (str/join "/"))
                         ".")
                 context {:cursor (:cursor doc)
