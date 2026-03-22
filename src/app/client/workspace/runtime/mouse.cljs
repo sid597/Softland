@@ -4,13 +4,14 @@
             [missionary.core :as m]
             [app.client.workspace.events :refer [maybe-snap]]
             [app.client.workspace.rect-tree :refer [resolve-layout hit-test]]
-            [app.client.workspace.sidebar :refer [sidebar-w cmd-panel-h status-bar-h build-sidebar-tree]]
+            [app.client.workspace.sidebar :refer [sidebar-w cmd-panel-h status-bar-h]]
             [app.client.workspace.shell :refer [build-file-layout]]
             [app.client.workspace.cmd-panel :refer [cmd-panel-apply-event cmd-text-start-x]]
             [app.client.workspace.editor-compute :refer [editor-apply-event]]
             [app.client.workspace.settings-view :refer [slider-specs]]
             [app.client.workspace.ui-primitives :refer [list-left-pane-pct]]
             [app.client.workspace.runtime.state :refer [save-undo!]]
+            [app.client.workspace.runtime.sidebar-io :refer [emit-sidebar-action!]]
             [app.client.workflows.dg-flow :refer [flow-canvas-active? build-intake-tree
                                                    drag-distance drag-threshold-px
                                                    set-selection]]))
@@ -157,15 +158,15 @@
           (swap! !settings assoc :slider-index slider-idx :focus-section :sliders))))))
 
 (defn- handle-sidebar-click!
-  "Route click within the sidebar file explorer."
-  [{:keys [!sidebar-state !current-file !settings !active-font]}
+  "Route click within the sidebar file explorer.
+   Reads from the shared sidebar scene (cached by render flow) — same tree
+   that produced the current frame's rects. No redundant tree rebuild.
+   Optimistic local updates for instant UI, fire-and-forget POST to Rama.
+   Committed truth flows back via Electric subscription."
+  [{:keys [!sidebar-state !current-file !sidebar-scene !settings !active-font]}
    {:keys [fetch-dir! fetch-file!]}
    x y viewport scroll-y]
-  (let [font-size (:font-size @!settings)
-        char-advance (* font-size (:char-width @!active-font))
-        tree (resolve-layout
-               (build-sidebar-tree @!sidebar-state @!current-file true
-                                   (:height viewport) scroll-y font-size char-advance))
+  (let [tree @!sidebar-scene
         path (when tree (hit-test tree x (+ y scroll-y)))]
     (when path
       (some (fn [node]
@@ -175,24 +176,47 @@
                       et (:entry-type d)]
                   (case et
                     :back-btn
-                    (do (swap! !sidebar-state assoc
-                               :project nil :expanded-dirs #{} :dir-cache {} :scroll-y 0)
-                        (reset! !current-file nil) true)
+                    (do
+                      ;; Optimistic: clear local state immediately
+                      (swap! !sidebar-state assoc
+                             :project nil :expanded-dirs #{} :dir-cache {} :scroll-y 0)
+                      (reset! !current-file nil)
+                      ;; Fire-and-forget → Rama (truth returns via Electric)
+                      (emit-sidebar-action! :sidebar/project-back {} nil)
+                      true)
                     :home-dir
                     (let [entry (:entry d)]
+                      ;; Optimistic: set project, clear cache
                       (swap! !sidebar-state assoc
                              :project {:name (:name entry) :path (:path entry)}
                              :expanded-dirs #{} :dir-cache {} :scroll-y 0)
-                      (fetch-dir! (:path entry)) true)
+                      ;; Fire-and-forget → Rama
+                      (emit-sidebar-action! :sidebar/project-select
+                        {:name (:name entry) :path (:path entry)} nil)
+                      ;; Side effect: fetch dir contents (stays client-local)
+                      (fetch-dir! (:path entry))
+                      true)
                     :dir
-                    (let [entry (:entry d) path (:path entry)]
+                    (let [entry (:entry d) dir-path (:path entry)]
+                      ;; Optimistic: toggle expanded-dirs locally
                       (swap! !sidebar-state update :expanded-dirs
-                             (fn [dirs] (if (contains? dirs path) (disj dirs path) (conj dirs path))))
-                      (fetch-dir! path) true)
+                             (fn [dirs] (if (contains? dirs dir-path)
+                                          (disj dirs dir-path)
+                                          (conj dirs dir-path))))
+                      ;; Fire-and-forget → Rama
+                      (emit-sidebar-action! :sidebar/dir-toggle {:path dir-path} nil)
+                      ;; Side effect: fetch dir contents if expanding
+                      (fetch-dir! dir-path)
+                      true)
                     :file
                     (let [entry (:entry d)
                           project (:project @!sidebar-state)]
-                      (fetch-file! (:path entry) (:path project)) true)
+                      ;; Fire-and-forget → Rama
+                      (emit-sidebar-action! :sidebar/file-select
+                        {:path (:path entry) :name (:name entry)} nil)
+                      ;; Side effect: fetch file content (stays client-local)
+                      (fetch-file! (:path entry) (:path project))
+                      true)
                     nil))
                 nil))
             (rseq path)))))
@@ -417,29 +441,24 @@
 
 (defn- handle-mousemove!
   "Route mousemove: sidebar hover, drag state machine, flow canvas hover."
-  [{:keys [!mouse-x !mouse-y !sidebar-visible !sidebar-state !settings !active-font
+  [{:keys [!mouse-x !mouse-y !sidebar-visible !sidebar-state !sidebar-scene !settings !active-font
            !current-file !viewport !scroll-y !drag-state !flow-state
            !hovered-row-idx !collapsed-groups]}
    coords]
   (reset! !mouse-x (:x coords))
   (reset! !mouse-y (:y coords))
-  ;; Sidebar hover
+  ;; Sidebar hover — reads from shared sidebar scene (cached by render flow)
   (let [sb-vis? (and !sidebar-visible @!sidebar-visible)
         in-sidebar? (and sb-vis? (< (:x coords) sidebar-w))]
     (if in-sidebar?
-      (let [ss @!sidebar-state
-            font-size (:font-size @!settings)
-            char-advance (* font-size (:char-width @!active-font))
-            tree (resolve-layout
-                   (build-sidebar-tree ss @!current-file true
-                                       (:height @!viewport) @!scroll-y font-size char-advance))
+      (let [tree @!sidebar-scene
             path (when tree (hit-test tree (:x coords) (+ (:y coords) @!scroll-y)))
             new-id (when path
                      (some (fn [node]
                              (when (= :sidebar-entry (:type node))
                                (:id node)))
                            (rseq path)))
-            old-id (:hovered-id ss)]
+            old-id (:hovered-id @!sidebar-state)]
         (when (not= new-id old-id)
           (swap! !sidebar-state assoc :hovered-id new-id))
         (when @!hovered-row-idx

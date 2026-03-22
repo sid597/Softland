@@ -21,6 +21,14 @@
 (def sidebar-item-inset 8)
 (def sidebar-font-size 13)
 
+(defn path->id
+  "Domain-identity keyword from a filesystem path.
+   Uses (keyword prefix path) — the prefix becomes the keyword namespace,
+   the raw path becomes the name. Collision-free, fully inspectable.
+   E.g. (path->id \"e\" \"/home/sid/foo.cljs\") → :e//home/sid/foo.cljs"
+  [prefix path]
+  (keyword prefix path))
+
 (defn split-filename
   "Split a filename into [stem extension] at the last dot.
    Handles dotfiles (.gitignore → ['.gitignore' nil]), no-ext (Makefile → ['Makefile' nil]),
@@ -129,10 +137,10 @@
                                :x sidebar-padding-x :y 20
                                :size sb-font
                                :r 0.40 :g 0.40 :b 0.45 :a 0.6}])]
-                    ;; Render each home dir
+                    ;; Render each home dir (semantic path-based IDs)
                     (mapv
                       (fn [i d]
-                        (let [id-kw (keyword (str "home-" i))
+                        (let [id-kw (path->id "hd" (:path d))
                               name-str (str "▸ " (:name d))
                               hovered? (= id-kw hovered-id)
                               text-y (+ (/ sidebar-row-h 2) (/ sb-font 2.5))]
@@ -144,7 +152,7 @@
                                       :radius (:sm (:radii dt))})
                             :children
                             (if hovered?
-                              [(rt-node (keyword (str "home-" i "-hl")) :highlight
+                              [(rt-node (keyword (namespace id-kw) (str (name id-kw) "_hl")) :highlight
                                  {:x sidebar-item-inset :y 2
                                   :w (- sb-w (* 2 sidebar-item-inset)) :h (- sidebar-row-h 4)}
                                  :style {:bg (:bg-hover colors)
@@ -201,7 +209,9 @@
                   (mapv
                     (fn [i {:keys [entry depth expanded? active?]}]
                       (let [is-dir? (= (:type entry) :dir)
-                            id-kw (keyword (str "entry-" i))
+                            id-kw (path->id "e" (:path entry))
+                            id-ns (namespace id-kw)
+                            id-nm (name id-kw)
                             hovered? (= id-kw hovered-id)
                             indent (* depth sidebar-indent-px)
                             chevron (cond
@@ -222,14 +232,14 @@
                                        hovered? (:bg-hover colors)
                                        :else    nil)
                             highlight (when inner-bg
-                                        (rt-node (keyword (str "entry-" i "-hl")) :highlight
+                                        (rt-node (keyword id-ns (str id-nm "_hl")) :highlight
                                           {:x sidebar-item-inset :y 2
                                            :w (- sb-w (* 2 sidebar-item-inset)) :h (- sidebar-row-h 4)}
                                           :style {:bg inner-bg
                                                   :radius (:sm (:radii dt))}))
                             ;; Active accent bar (2px, inner-left edge)
                             accent-bar (when active?
-                                         (rt-node (keyword (str "entry-" i "-acc")) :accent-bar
+                                         (rt-node (keyword id-ns (str id-nm "_acc")) :accent-bar
                                            {:x (+ sidebar-item-inset 1) :y 6
                                             :w 2 :h (- sidebar-row-h 12)}
                                            :style {:bg (:accent colors)
@@ -240,7 +250,7 @@
                             (when (pos? depth)
                               (mapv (fn [d]
                                       (let [gx (+ sidebar-padding-x (* d sidebar-indent-px) (/ sidebar-indent-px 2))]
-                                        (rt-node (keyword (str "entry-" i "-g" d)) :indent-guide
+                                        (rt-node (keyword id-ns (str id-nm "_g" d)) :indent-guide
                                           {:x gx :y 0 :w 1 :h sidebar-row-h}
                                           :style {:bg [(nth guide-color 0) (nth guide-color 1)
                                                        (nth guide-color 2) 0.10]})))

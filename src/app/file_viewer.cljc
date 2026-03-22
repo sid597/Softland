@@ -5,7 +5,8 @@
    Electric: HomeDirs, DirContents, FileContent (e/defn wrappers)"
   (:require [hyperfiddle.electric3 :as e]
             #?(:clj [clojure.java.io :as io])
-            #?(:clj [clojure.string :as str])))
+            #?(:clj [clojure.string :as str])
+            #?(:clj [app.server.rama.util-fns :as util-fns])))
 
 ;; ============================================================================
 ;; SERVER SIDE — File I/O (JVM only)
@@ -100,3 +101,10 @@
 
 (e/defn FileContent [path root]
   (e/server (read-file-content path root)))
+
+(e/defn WatchSidebarTruth
+  "Reactive bridge: Rama sidebar truth → Electric client.
+   Watches the server-side atom (updated by emit-sidebar-event! after each
+   Rama write). Returns continuously updating sidebar committed state."
+  []
+  (e/server (e/watch util-fns/!sidebar-truth-atom)))

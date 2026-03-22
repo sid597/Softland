@@ -14,6 +14,15 @@
 
 
 
+(defn toggle-set
+  "Toggle membership of `item` in set `s`. Rama DSL cannot inline
+   let/if, so this must be a plain function called from the topology."
+  [s item]
+  (let [s (or s #{})]
+    (if (contains? s item)
+      (disj s item)
+      (conj s item))))
+
 (defn now-ms
   "Wrapper for System/currentTimeMillis — Rama's dataflow DSL cannot
    inline Java static method calls, so we wrap it in a plain function."
@@ -60,6 +69,10 @@
         (fixed-keys-schema
           {:session-id String
            :last-active Long})}})
+
+    ;; Sidebar committed truth — project, expanded dirs, selected file
+    ;; Global PState: single workspace, keyed by field name
+    (declare-pstate n $$sidebar-pstate {Keyword Object} {:global? true})
     (declare-pstate n $$user-registration-pstate {String ; username
                                                   (fixed-keys-schema {:user-id Long
                                                                       :uuid String})})
@@ -310,5 +323,40 @@
              [:session-id (termval *session-id)]
              [:last-active (termval *now)])]
           $$cli-sessions-pstate)
+
+        ;; ========sidebar: toggle dir expand/collapse========
+        (case> (= :sidebar/dir-toggle *action-type))
+        (local-select> (keypath :path) *node-data :> *dir-path)
+        (local-select> [(keypath :expanded-dirs)] $$sidebar-pstate :> *dirs)
+        (identity (toggle-set *dirs *dir-path) :> *new-dirs)
+        (local-transform> [(keypath :expanded-dirs) (termval *new-dirs)] $$sidebar-pstate)
+        (println "R: SIDEBAR dir-toggle" *dir-path)
+
+        ;; ========sidebar: select file========
+        (case> (= :sidebar/file-select *action-type))
+        (local-select> (keypath :path) *node-data :> *file-path)
+        (local-select> (keypath :name) *node-data :> *file-name)
+        (local-transform> [(keypath :selected-file)
+                           (termval {:path *file-path :name *file-name})]
+          $$sidebar-pstate)
+        (println "R: SIDEBAR file-select" *file-path)
+
+        ;; ========sidebar: select project (home dir)========
+        (case> (= :sidebar/project-select *action-type))
+        (local-select> (keypath :name) *node-data :> *proj-name)
+        (local-select> (keypath :path) *node-data :> *proj-path)
+        (local-transform> [(keypath :project)
+                           (termval {:name *proj-name :path *proj-path})]
+          $$sidebar-pstate)
+        (local-transform> [(keypath :expanded-dirs) (termval #{})] $$sidebar-pstate)
+        (local-transform> [(keypath :selected-file) (termval nil)] $$sidebar-pstate)
+        (println "R: SIDEBAR project-select" *proj-name)
+
+        ;; ========sidebar: go back to home dirs========
+        (case> (= :sidebar/project-back *action-type))
+        (local-transform> [(keypath :project) (termval nil)] $$sidebar-pstate)
+        (local-transform> [(keypath :expanded-dirs) (termval #{})] $$sidebar-pstate)
+        (local-transform> [(keypath :selected-file) (termval nil)] $$sidebar-pstate)
+        (println "R: SIDEBAR project-back")
 
         (default>) (println "FALSE" *action-type)))))

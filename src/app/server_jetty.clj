@@ -905,6 +905,22 @@ information."
             (json-response {:ok false :error (.getMessage e)})))
         (json-response {:ok false :error "POST required"}))
 
+      ;; ===== Sidebar Rama Actions =====
+      (= uri "/api/sidebar/action")
+      (if (= request-method :post)
+        (try
+          (let [body (parse-edn-body ring-req)
+                action-type (:action-type body)
+                data (or (:data body) {})]
+            (json-response (util-fns/emit-sidebar-event! action-type data)))
+          (catch Exception e
+            (log/error e "[SIDEBAR][ACTION][ERROR]")
+            (json-response {:error (str "Sidebar action failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
+      (= uri "/api/sidebar/state")
+      (json-response (util-fns/get-sidebar-state))
+
       ;; ===== Existing File/Agent API =====
       (= uri "/api/home-dirs")
       (json-response (fv/list-home-dirs))

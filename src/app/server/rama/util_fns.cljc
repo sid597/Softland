@@ -49,6 +49,7 @@
 (def  user-graph-settings-pstate  (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$user-graph-settings-pstate"))
 (def  user-graph-settings-depot   (foreign-depot @!rama-ipc (get-module-name node-events-module) "*user-graph-settings-depot"))
 (def get-in-view-nodes-query  (foreign-query @!rama-ipc (get-module-name node-events-module) "get-in-view-nodeids"))
+(def sidebar-pstate              (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$sidebar-pstate"))
 
 
 (defn update-event-id []
@@ -98,10 +99,10 @@
           (update-event-id))))))
 
 
-(defn proxy-callback [f]
-  (fn [new-val diff old-val]
-    ;(println "R: nodes-pstate callback" new-val "::::" diff "::::" old-val)
-    (f new-val)))
+(defn proxy-callback [emit]
+  (fn [new-val _diff _old-val]
+    (emit new-val)
+    nil))
 
 
 (defn !subscribe [path pstate]
@@ -246,6 +247,44 @@
   [run-id]
   (first (foreign-select [(keypath run-id)] agent-runs-pstate)))
 
+
+;; ── Sidebar Rama helpers ──────────────────────────────────────────
+
+(defn get-sidebar-state
+  "Read the current sidebar committed truth from Rama."
+  []
+  {:project       (first (foreign-select [(keypath :project)] sidebar-pstate))
+   :expanded-dirs (or (first (foreign-select [(keypath :expanded-dirs)] sidebar-pstate)) #{})
+   :selected-file (first (foreign-select [(keypath :selected-file)] sidebar-pstate))})
+
+;; Server-side atom — the reactive source for Electric e/watch.
+;; Updated after each Rama write by emit-sidebar-event!.
+;; Initialized from Rama PState at boot (picks up persisted state).
+;;
+;; Why not foreign-proxy-async + m/signal + e/input?
+;; Path [] on a global {Keyword Object} PState causes RocksDBWrapper
+;; serialization failure in Rama 1.6.0's wire protocol (the proxy callback
+;; result envelope references the raw backing store). Per-key subscriptions
+;; might work but aren't tested. The atom approach is correct, proven, and
+;; gives Electric the same reactive semantics via e/watch.
+(defonce !sidebar-truth-atom
+  (atom (try (get-sidebar-state)
+             (catch Exception _ {:project nil :expanded-dirs #{} :selected-file nil}))))
+
+(defn emit-sidebar-event!
+  "Submit a sidebar action to Rama. Updates the server-side truth atom
+   (which Electric watches via e/watch) and returns the new state."
+  [action-type data]
+  (foreign-append! event-depot
+    (->node-events action-type
+                   data
+                   {:graph-name :sidebar})
+    :append-ack)
+  (let [state (get-sidebar-state)]
+    (reset! !sidebar-truth-atom state)
+    state))
+
+;; ─────────────────────────────────────────────────────────────────
 
 (defn roam-query-request
   [node-map event-data]

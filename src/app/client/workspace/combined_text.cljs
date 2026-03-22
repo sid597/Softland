@@ -5,7 +5,7 @@
             [app.client.workspace.events :refer [maybe-snap]]
             [app.client.workspace.rect-tree :refer [rt-node wrap-line tree->rects tree->text-ops tree->shadows resolve-layout]]
             [app.client.workspace.ui-primitives :as ui :refer [dt]]
-            [app.client.workspace.sidebar :as sidebar :refer [sidebar-w build-sidebar-tree]]
+            [app.client.workspace.sidebar :as sidebar :refer [sidebar-w]]
             [app.client.workspace.trail :as trail :refer [trail->display-lines trail->chat-nodes agent-wrapped-line-count compute-agent-panel-h]]
             [app.client.workspace.shell :refer [build-file-layout]]
             [app.client.workspace.cmd-panel :refer [cmd-prompt-text cmd-text-start-x]]
@@ -20,7 +20,7 @@
    tokenize-fn layout-fn
    <fold-data
    !flow-state !collapsed-groups !hovered-row-idx !drag-state
-   !sidebar-state !sidebar-visible !extract-preview
+   !sidebar-state !sidebar-visible !sidebar-scene !extract-preview
    !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus !run-scroll-y !detail-scroll-y
    flow-canvas-active?* compute-ticket-list-text-ops* compute-run-text-ops* offset-text-ops*
    layout-x layout-y cmd-panel-h status-bar-h]
@@ -96,13 +96,11 @@
               theme-id (or (:theme-id settings) :gruvbox-dark)
               content-vw (- (:width viewport) sb-w)
 
-              ;; Sidebar text ops
+              ;; Sidebar text ops — reads from shared scene (cached by render flow)
               sidebar-text-ops
               (when sb-vis?
-                (let [tree (resolve-layout
-                             (build-sidebar-tree sidebar-state current-file true
-                                                 (:height viewport) scroll-y font-size char-advance))]
-                  (when tree (tree->text-ops tree))))
+                (when-let [tree @!sidebar-scene]
+                  (tree->text-ops tree)))
 
               file-open? (some? current-file)
 

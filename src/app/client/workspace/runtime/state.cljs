@@ -128,6 +128,9 @@
                               :scroll-y 0
                               :hovered-id nil
                               :loading? false})
+      ;; Shared sidebar scene — resolved tree cached by render flow,
+      ;; consumed by hit-testing. Single source, two consumers.
+      :!sidebar-scene (atom nil)
 
       ;; Agent / AI
       :!ai-provider     (atom :claude)

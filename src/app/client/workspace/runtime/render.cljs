@@ -15,7 +15,7 @@
   "Missionary consumer: assemble derived flows, build world snapshot, diff-upload to GPU, draw on RAF."
   [{:keys [!editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y
            !viewport !settings !active-font !current-file !flow-state !collapsed-groups
-           !hovered-row-idx !drag-state !sidebar-state !sidebar-visible !extract-preview
+           !hovered-row-idx !drag-state !sidebar-state !sidebar-visible !sidebar-scene !extract-preview
            !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input
            !focus !run-scroll-y !detail-scroll-y !eval-result !caret-visible !folded-lines
            !font-manifest !font-assets !text-geo !shadow-sys !cmd-rect-sys !settings-rect-sys
@@ -35,7 +35,7 @@
                       tokenize-fn layout-fn
                       <fold-data
                       !flow-state !collapsed-groups !hovered-row-idx !drag-state
-                      !sidebar-state !sidebar-visible !extract-preview
+                      !sidebar-state !sidebar-visible !sidebar-scene !extract-preview
                       !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus !run-scroll-y !detail-scroll-y
                       dg/flow-canvas-active? dg/compute-ticket-list-text-ops dg/compute-run-text-ops dg/offset-text-ops
                       layout-x layout-y cmd-panel-h status-bar-h)
@@ -48,7 +48,7 @@
           !settings !active-font !viewport
           <fold-data <bracket-data
           !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
-          !sidebar-state !sidebar-visible !current-file !extract-preview !agent-output
+          !sidebar-state !sidebar-visible !current-file !sidebar-scene !extract-preview !agent-output
           !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !run-scroll-y !detail-scroll-y
           dg/flow-canvas-active? dg/compute-ticket-list-rects dg/compute-run-rects dg/offset-rects dg/offset-shadows
           layout-x layout-y gutter-w)

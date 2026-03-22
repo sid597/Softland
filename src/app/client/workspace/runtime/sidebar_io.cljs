@@ -3,6 +3,19 @@
   (:require [clojure.string :as str]
             [cljs.reader :as reader]))
 
+(defn emit-sidebar-action!
+  "Submit a sidebar action to Rama via HTTP. Calls callback with the new committed state."
+  [action-type data callback]
+  (-> (js/fetch "/api/sidebar/action"
+        (clj->js {:method "POST"
+                  :headers {"Content-Type" "application/edn"}
+                  :body (pr-str {:action-type action-type :data data})}))
+      (.then (fn [resp] (.text resp)))
+      (.then (fn [text]
+               (let [state (reader/read-string text)]
+                 (when callback (callback state)))))
+      (.catch (fn [err] (js/console.error "[SIDEBAR] Rama action failed:" err)))))
+
 (defn make-sidebar-io
   "Create sidebar I/O closures. Returns {:fetch-edn! :post-edn! :fetch-home-dirs! :fetch-dir! :fetch-file!}."
   [{:keys [!sidebar-state !current-file !scroll-x !file-load-request]}]

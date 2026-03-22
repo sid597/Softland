@@ -3,6 +3,7 @@
             [hyperfiddle.electric3 :as e]
             [hyperfiddle.electric-dom3 :as dom]
             [app.client.workspace.themes :as themes]
+            [app.file-viewer :as fv]
             #?@(:cljs [[app.client.substrate.webgpu.renderer :as editor]
                        [app.client.workspace.runtime :as loop]
                        [global-flow :refer [await-promise]]
@@ -448,7 +449,12 @@
                 font-manifest (e/Task (await-promise (load-font-manifest-async)))
                 ;; Sidebar state atoms (plain CLJS, not watched by Electric)
                 !sidebar-visible (atom true)
-                !file-load-request (atom nil)]
+                !file-load-request (atom nil)
+                ;; Rama sidebar truth — Electric subscription populates this atom
+                !sidebar-truth (atom nil)]
+            ;; Reactive sync: Rama PState → Electric → client atom.
+            ;; Re-runs whenever the server-side PState changes.
+            (reset! !sidebar-truth (fv/WatchSidebarTruth))
             (when resources
               (let [device (get resources :device)
                     format (get resources :format)
@@ -503,4 +509,5 @@
                                                     :!sidebar-visible !sidebar-visible
                                                     :!file-load-request !file-load-request
                                                     :!preview-el preview-el-atom
+                                                    :!sidebar-truth !sidebar-truth
                                                     :initial-file file-info)))))))))))))))

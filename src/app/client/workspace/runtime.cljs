@@ -20,7 +20,7 @@
    returns a Missionary task that runs the render loop."
   [node device ctx geometry initial-line-lengths initial-lines
    tokenize-fn layout-fn find-bracket-fn detect-folds-fn
-   find-form-fn eval-form-fn atlas & {:keys [font-manifest !sidebar-visible !file-load-request !preview-el initial-file]}]
+   find-form-fn eval-form-fn atlas & {:keys [font-manifest !sidebar-visible !file-load-request !preview-el !sidebar-truth initial-file]}]
 
   (let [;; Phase 2: Build the rt context map
         rt (state/make-runtime-state
@@ -46,6 +46,56 @@
         io (sidebar-io/make-sidebar-io atoms)
         _ (sidebar-io/install-sidebar-watch! atoms (:fetch-home-dirs! io))
         _ (sidebar-io/seed-initial-file! atoms io initial-file)
+
+        ;; ── Rama truth sync (Electric → local sidebar state) ──────
+        ;; All three committed fields: project, expanded-dirs, selected-file.
+        ;; Also rehydrates local caches (fetch-dir!, fetch-file!) so Rama truth
+        ;; actually produces a visible sidebar after restart.
+        apply-sidebar-truth!
+        (fn [truth]
+          (when (map? truth)
+            (let [!ss       (:!sidebar-state atoms)
+                  !cf       (:!current-file atoms)
+                  old-ss    @!ss
+                  old-file  @!cf]
+              ;; 1. Sync committed fields → !sidebar-state
+              (swap! !ss (fn [s]
+                           (cond-> s
+                             (contains? truth :project)
+                             (assoc :project (:project truth))
+                             (contains? truth :expanded-dirs)
+                             (assoc :expanded-dirs (:expanded-dirs truth)))))
+              ;; 2. Sync selected-file → !current-file
+              (when (contains? truth :selected-file)
+                (reset! !cf (:selected-file truth)))
+              ;; 3. Rehydrate dir-cache: when project or expanded-dirs change,
+              ;;    fetch any directories not yet in the local cache.
+              (when-let [proj (:project truth)]
+                (let [proj-path (:path proj)
+                      dirs      (or (:expanded-dirs truth) #{})]
+                  ;; Fetch project root if not cached
+                  (when (and proj-path
+                             (not (contains? (:dir-cache old-ss) proj-path)))
+                    ((:fetch-dir! io) proj-path))
+                  ;; Fetch each expanded dir if not cached
+                  (doseq [d dirs]
+                    (when-not (contains? (:dir-cache @!ss) d)
+                      ((:fetch-dir! io) d)))))
+              ;; 4. Rehydrate file content: when selected-file changes and
+              ;;    it's not already the loaded file, trigger content fetch.
+              (when-let [sf (:selected-file truth)]
+                (let [proj-path (some-> (:project truth) :path)]
+                  (when (and (:path sf) proj-path
+                             (not= (:path sf) (:path old-file)))
+                    ((:fetch-file! io) (:path sf) proj-path)))))))
+
+        ;; Apply current truth once at startup (P0: don't wait for first change)
+        _ (when !sidebar-truth
+            (apply-sidebar-truth! @!sidebar-truth))
+        ;; Then watch for future changes
+        _ (when !sidebar-truth
+            (add-watch !sidebar-truth :rama-sidebar-sync
+              (fn [_ _ _ truth] (apply-sidebar-truth! truth))))
 
         ;; ── Agent API (needs io for trigger-dev-replay!) ────────────
         trigger-replay! (fn [] (interop/trigger-dev-replay! atoms))

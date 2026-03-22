@@ -267,7 +267,7 @@
   [!editor-doc !eval-result !caret-visible !focus !settings !active-font !viewport
    <fold-data <bracket-data
    !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
-   !sidebar-state !sidebar-visible !current-file !extract-preview !agent-output
+   !sidebar-state !sidebar-visible !current-file !sidebar-scene !extract-preview !agent-output
    !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !run-scroll-y !detail-scroll-y
    flow-canvas-active?* compute-ticket-list-rects* compute-run-rects* offset-rects* offset-shadows*
    layout-x layout-y gutter-w]
@@ -299,14 +299,19 @@
         ;; 3 fn args, 3 flows
 
         ;; ── Sidebar rects (independent of content mode) ──
+        ;; Builds + resolves the tree once, caches in !sidebar-scene for hit-testing,
+        ;; then extracts rects+shadows for GPU. One tree, two consumers.
         <sidebar
         (m/latest
           (fn [layout sidebar-state current-file scroll-y]
-            (when (:sb-vis? layout)
+            (if-not (:sb-vis? layout)
+              (do (reset! !sidebar-scene nil) nil)
               (let [{:keys [viewport font-size char-advance]} layout
                     tree (resolve-layout
                            (build-sidebar-tree sidebar-state current-file true
                                                (:height viewport) scroll-y font-size char-advance))]
+                ;; Cache resolved tree for hit-testing (mouse.cljs reads this)
+                (reset! !sidebar-scene tree)
                 (when tree
                   {:rects (tree->rects tree) :shadows (tree->shadows tree)}))))
           <layout (m/watch !sidebar-state) (m/watch !current-file) (m/watch !scroll-y))
