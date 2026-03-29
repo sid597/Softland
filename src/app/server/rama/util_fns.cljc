@@ -52,6 +52,7 @@
 (def sidebar-pstate              (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$sidebar-pstate"))
 (def settings-pstate             (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$settings-pstate"))
 (def agent-trails-pstate         (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$agent-trails-pstate"))
+(def flow-session-pstate         (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$flow-session-pstate"))
 
 
 (defn update-event-id []
@@ -350,6 +351,29 @@
   (let [result {:run-id run-id :trail-data trail-data}]
     (reset! !agent-trail-atom result)
     result))
+
+;; ── Flow Session Rama helpers ────────────────────────────────────
+
+(defn get-flow-session-state
+  "Read the current flow session from Rama."
+  []
+  (or (first (foreign-select [:flow] flow-session-pstate)) {}))
+
+(defonce !flow-session-atom
+  (atom (try (get-flow-session-state)
+             (catch Exception _ {}))))
+
+(defn emit-flow-session-event!
+  "Persist flow session FSM state to Rama. Merges provided fields."
+  [flow-data]
+  (foreign-append! event-depot
+    (->node-events :flow/save-state
+                   flow-data
+                   {:graph-name :flow})
+    :append-ack)
+  (let [state (get-flow-session-state)]
+    (reset! !flow-session-atom state)
+    state))
 
 ;; ─────────────────────────────────────────────────────────────────
 

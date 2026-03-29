@@ -3,6 +3,18 @@
   (:require [clojure.string :as str]
             [cljs.reader :as reader]))
 
+(defn save-flow-state!
+  "Persist flow session FSM state to Rama via HTTP. Fire-and-forget."
+  [flow-data]
+  (when (seq flow-data)
+    (-> (js/fetch "/api/flow/save-state"
+          (clj->js {:method "POST"
+                    :headers {"Content-Type" "application/edn"}
+                    :body (pr-str {:data flow-data})}))
+        (.then (fn [resp] (.text resp)))
+        (.then (fn [_] (js/console.log "[FLOW-HTTP] save-state")))
+        (.catch (fn [err] (js/console.error "[FLOW] Save failed:" err))))))
+
 (defn save-agent-trail!
   "Persist a completed agent trail to Rama via HTTP. Fire-and-forget."
   [run-id trail-data]

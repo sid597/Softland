@@ -121,3 +121,8 @@
    Returns {:run-id \"...\" :trail-data {...}} or nil."
   []
   (e/server (e/watch util-fns/!agent-trail-atom)))
+
+(e/defn WatchFlowSession
+  "Reactive bridge: DG workflow FSM state → Electric client."
+  []
+  (e/server (e/watch util-fns/!flow-session-atom)))

@@ -453,12 +453,14 @@
                 ;; Rama truth atoms — Electric subscriptions populate these
                 !sidebar-truth (atom nil)
                 !settings-truth (atom nil)
-                !agent-trail-truth (atom nil)]
+                !agent-trail-truth (atom nil)
+                !flow-session-truth (atom nil)]
             ;; Reactive sync: Rama PState → Electric → client atom.
             ;; Re-runs whenever the server-side PState changes.
             (reset! !sidebar-truth (fv/WatchSidebarTruth))
             (reset! !settings-truth (fv/WatchUserSettings))
             (reset! !agent-trail-truth (fv/WatchAgentTrail))
+            (reset! !flow-session-truth (fv/WatchFlowSession))
             (when resources
               (let [device (get resources :device)
                     format (get resources :format)
@@ -516,4 +518,5 @@
                                                     :!remote-sidebar-truth !sidebar-truth
                                                     :!remote-settings-truth !settings-truth
                                                     :!remote-agent-trail !agent-trail-truth
+                                                    :!remote-flow-session !flow-session-truth
                                                     :initial-file file-info)))))))))))))))

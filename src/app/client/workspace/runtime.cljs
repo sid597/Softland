@@ -22,7 +22,7 @@
    returns a Missionary task that runs the render loop."
   [node device ctx geometry initial-line-lengths initial-lines
    tokenize-fn layout-fn find-bracket-fn detect-folds-fn
-   find-form-fn eval-form-fn atlas & {:keys [font-manifest !sidebar-visible !file-load-request !preview-el !remote-sidebar-truth !remote-settings-truth !remote-agent-trail initial-file]}]
+   find-form-fn eval-form-fn atlas & {:keys [font-manifest !sidebar-visible !file-load-request !preview-el !remote-sidebar-truth !remote-settings-truth !remote-agent-trail !remote-flow-session initial-file]}]
 
   (let [;; Phase 2: Build the rt context map
         rt (state/make-runtime-state
@@ -200,6 +200,38 @@
                            :tool-buf {}
                            :structured-result (:structured-result trail-data)})
                   (js/console.log "[TRAIL-TRUTH] Restored trail for run:" run-id)))))
+
+        ;; ── Flow session persistence (Rama round-trip) ───────────────
+        ;; On load: restore flow state from Rama if !flow-state is at :idle.
+        ;; After load: watch !flow-state for FSM node transitions → persist.
+        _ (when !remote-flow-session
+            (let [saved @!remote-flow-session
+                  persistent-keys #{:node :tickets :batch :active-lane-idx
+                                    :runs :decisions :session-id :history}]
+              ;; Restore on load (only if idle — don't overwrite an active session)
+              (when (and (map? saved) (seq saved)
+                         (= :idle (:node @(:!flow-state atoms))))
+                (let [restored (select-keys saved persistent-keys)
+                      ;; Reconstruct :selected from persisted :batch :lanes.
+                      ;; set-selection keeps these in sync, so on restore we
+                      ;; reverse it — without this, the UI shows "no selection"
+                      ;; even though the batch has lanes.
+                      lanes (get-in restored [:batch :lanes])
+                      restored (if (seq lanes)
+                                 (assoc restored :selected (vec lanes))
+                                 restored)]
+                  (when (and (seq restored) (not= :idle (:node restored)))
+                    (swap! (:!flow-state atoms) merge restored)
+                    (js/console.log "[FLOW-TRUTH] Restored flow state:" (pr-str (:node restored))))))
+              ;; Persist when any persistent field changes (not just :node).
+              ;; Covers batch/lane updates from set-selection, session-id
+              ;; from agent events, etc.
+              (add-watch (:!flow-state atoms) :flow-persist
+                (fn [_ _ old-val new-val]
+                  (let [old-p (select-keys old-val persistent-keys)
+                        new-p (select-keys new-val persistent-keys)]
+                    (when (not= old-p new-p)
+                      (sidebar-io/save-flow-state! new-p)))))))
 
         ;; ── Effective local world (reactive derivation) ──────────────
         ;; One derived object that answers "what world is the user in?"

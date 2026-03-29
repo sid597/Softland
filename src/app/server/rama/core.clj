@@ -81,6 +81,10 @@
     ;; Agent trails — completed run trail data, keyed by run-id
     ;; Each run: {:status :trail :provider :prompt :started-at :completed-at}
     (declare-pstate n $$agent-trails-pstate {String (map-schema Keyword Object)})
+
+    ;; Flow session — DG workflow FSM state, keyed by namespace
+    ;; Persists :node, :tickets, :batch, :session-id, :history across reload
+    (declare-pstate n $$flow-session-pstate {Keyword (map-schema Keyword Object)})
     (declare-pstate n $$user-registration-pstate {String ; username
                                                   (fixed-keys-schema {:user-id Long
                                                                       :uuid String})})
@@ -372,6 +376,12 @@
         (explode-map *node-data :> *setting-key *setting-val)
         (local-transform> [*graph-name (keypath *setting-key) (termval *setting-val)] $$settings-pstate)
         (println "R: SETTINGS update" *setting-key *setting-val)
+
+        ;; ========flow session: save FSM state========
+        (case> (= :flow/save-state *action-type))
+        (explode-map *node-data :> *fkey *fval)
+        (local-transform> [*graph-name (keypath *fkey) (termval *fval)] $$flow-session-pstate)
+        (println "R: FLOW save-state")
 
         ;; ========agent trail: save completed run========
         (case> (= :agent-trail/save-run *action-type))

@@ -951,6 +951,18 @@ information."
             (json-response {:error (str "Trail save failed: " (.getMessage e))})))
         (json-response {:error "Method not allowed. Use POST."}))
 
+      ;; ===== Flow Session Persistence =====
+      (= uri "/api/flow/save-state")
+      (if (= request-method :post)
+        (try
+          (let [body (parse-edn-body ring-req)
+                flow-data (or (:data body) {})]
+            (json-response (util-fns/emit-flow-session-event! flow-data)))
+          (catch Exception e
+            (log/error e "[FLOW][SAVE][ERROR]")
+            (json-response {:error (str "Flow save failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
       ;; ===== Existing File/Agent API =====
       (= uri "/api/home-dirs")
       (json-response (fv/list-home-dirs))
