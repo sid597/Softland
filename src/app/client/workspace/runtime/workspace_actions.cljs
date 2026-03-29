@@ -101,4 +101,37 @@
      :flow-node        (:node flow-state)
      :flow-session-id  (:session-id flow-state)
      :agent-status     (:status agent-output)
-     :agent-run-id     (:run-id agent-output)}))
+     :agent-run-id     (:run-id agent-output)
+     ;; Pane descriptors — semantic fills derived from mode + artifacts.
+     ;; Each pane: {:pane/id :role :artifact-ref :content}
+     ;; :role = what the pane is for (:primary-artifact, :trail, :preview, :command, :flow-canvas)
+     ;; :artifact-ref = which artifact it shows (nil = empty/placeholder)
+     ;; :content = keyword for non-artifact content (:cmd-panel, :intake-tree, etc.)
+     :panes
+     (case mode
+       :file-workspace
+       [{:pane/id :main    :role :primary-artifact
+         :artifact-ref selected-artifact
+         :width-pct 0.4}
+        {:pane/id :right   :role :trail
+         :artifact-ref (when (:run-id agent-output)
+                         {:kind :trail :run-id (:run-id agent-output)})
+         :width-pct 0.55}
+        {:pane/id :preview :role :preview
+         :artifact-ref nil
+         :width-pct 0.05}]
+
+       :flow-intake
+       [{:pane/id :main    :role :flow-canvas
+         :content :intake-tree
+         :width-pct 1.0}]
+
+       :flow-run
+       [{:pane/id :main    :role :flow-canvas
+         :content :run-detail
+         :width-pct 1.0}]
+
+       :editor
+       [{:pane/id :main    :role :primary-artifact
+         :artifact-ref nil
+         :width-pct 1.0}])}))
