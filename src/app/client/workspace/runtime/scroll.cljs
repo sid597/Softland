@@ -116,7 +116,10 @@
                      (do (let [doc @!editor-doc
                                line-h (* font-size (:line-height settings))
                                total-lines (count (:lines doc))
-                               max-scroll (max 0 (- (* total-lines line-h) (:height viewport)))]
+                               chrome-h (+ cmd-panel-h status-bar-h)
+                               overscroll (* 10 line-h)
+                               visible-h (- (:height viewport) chrome-h)
+                               max-scroll (max 0 (- (+ (* total-lines line-h) overscroll) visible-h))]
                            (swap! !scroll-y #(-> (+ % delta) (max 0) (min max-scroll) (maybe-snap dpr snap?))))
                          (let [h-delta (if shift? delta dx)
                                sb-off (if sb-vis? sidebar-w 0)

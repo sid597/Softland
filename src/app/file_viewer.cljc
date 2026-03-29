@@ -109,3 +109,15 @@
    test IPC, so this uses e/watch on the atom instead."
   []
   (e/server (e/watch util-fns/!sidebar-truth-atom)))
+
+(e/defn WatchUserSettings
+  "Reactive bridge: Rama user settings → Electric client.
+   Same pattern as WatchSidebarTruth — server atom mirror + e/watch."
+  []
+  (e/server (e/watch util-fns/!settings-truth-atom)))
+
+(e/defn WatchAgentTrail
+  "Reactive bridge: latest completed agent trail → Electric client.
+   Returns {:run-id \"...\" :trail-data {...}} or nil."
+  []
+  (e/server (e/watch util-fns/!agent-trail-atom)))

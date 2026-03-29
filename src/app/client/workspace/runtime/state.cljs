@@ -118,7 +118,22 @@
                         (:pipeline (:rect geometry))
                         (:bind-group (:rect geometry)))
 
+      ;; Effective local world — the single semantic root.
+      ;; Derived from truth+overlay+ui+artifacts. No independent write path.
+      ;; Updated reactively via watches in runtime.cljs.
+      :!effective-local-world (atom nil)
+
+      ;; Artifact selection — the semantic intent ("the user chose this")
+      ;; :kind = :file | :trail | :workflow (extensible)
+      ;; :file → {:kind :file :path "..." :name "..."}
+      ;; nil = nothing selected (home screen)
+      :!selected-artifact (atom nil)
+
       ;; Sidebar / file state
+      ;; TRANSITIONAL: downstream I/O cache. Updated when selected-artifact
+      ;; is a :file and content finishes loading. Readers that check
+      ;; "is a file open?" still use this; they'll migrate to
+      ;; !selected-artifact in later phases.
       :!current-file  (atom {:path "/home/sid/projects/discourse-graph/apps/roam/src/index.ts"
                               :name "index.ts"})
       :!sidebar-truth (atom {:project nil

@@ -4,6 +4,7 @@
             [app.client.workspace.agent :refer [stream-agent-run!]]
             [app.client.workspace.cmd-panel :refer [parse-agent-command]]
             [app.client.workspace.trail :refer [compute-agent-panel-h agent-wrapped-line-count]]
+            [app.client.workspace.runtime.sidebar-io :refer [save-agent-trail!]]
             [app.client.workflows.dg-flow :as dg :refer [flow-prompt]]
             [app.client.workflows.jit :as jit]))
 
@@ -119,6 +120,15 @@
                     (js/console.log "[AGENT][DONE]" (clj->js {:run-id run-id
                                                                :status (:status evt)
                                                                :has-result (some? (:result evt))}))
+                    ;; Persist completed trail to Rama (fire-and-forget)
+                    (let [ao @!agent-output]
+                      (when (and run-id (:trail ao))
+                        (save-agent-trail! run-id
+                          {:status   (or (:status evt) :complete)
+                           :provider (:provider ao)
+                           :prompt   (:prompt ao)
+                           :trail    (:trail ao)
+                           :structured-result (:structured-result ao)})))
                     (when on-done-fn (on-done-fn)))
 
                 (:start :run-start)

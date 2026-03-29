@@ -12,6 +12,7 @@
             [app.client.workspace.ui-primitives :refer [list-left-pane-pct]]
             [app.client.workspace.runtime.state :refer [save-undo!]]
             [app.client.workspace.runtime.sidebar-io :refer [emit-sidebar-action!]]
+            [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workflows.dg-flow :refer [flow-canvas-active? build-intake-tree
                                                    drag-distance drag-threshold-px
                                                    set-selection]]))
@@ -163,7 +164,8 @@
    that produced the current frame's rects. No redundant tree rebuild.
    Optimistic local updates for instant UI, fire-and-forget POST to Rama.
    Committed truth flows back via Electric subscription."
-  [{:keys [!sidebar-truth !sidebar-overlay !sidebar-ui !current-file !sidebar-scene !settings !active-font]}
+  [{:keys [!sidebar-truth !sidebar-overlay !sidebar-ui !current-file !sidebar-scene !settings !active-font]
+    :as atoms}
    {:keys [fetch-dir! fetch-file!]}
    x y viewport scroll-y]
   (let [t0 (js/performance.now)
@@ -181,18 +183,19 @@
                   (case et
                     :back-btn
                     (do
+                      (ws/clear-artifact! atoms)
                       (swap! !sidebar-overlay assoc
                              :pending-project {:path nil}
                              :pending-expanded-dirs #{}
                              :pending-collapsed-dirs #{}
                              :pending-selected-file {:path nil})
                       (swap! !sidebar-ui assoc :dir-cache {} :scroll-y 0)
-                      (reset! !current-file nil)
                       (emit-sidebar-action! :sidebar/project-back {} nil)
                       (js/console.log "[SIDEBAR-CLICK] back total:" (.toFixed (- (js/performance.now) t0) 2) "ms")
                       true)
                     :home-dir
                     (let [entry (:entry d)]
+                      (ws/clear-artifact! atoms)
                       (swap! !sidebar-overlay assoc
                              :pending-project {:name (:name entry) :path (:path entry)}
                              :pending-expanded-dirs #{}
@@ -227,6 +230,9 @@
                     :file
                     (let [entry (:entry d)
                           project (or (:pending-project @!sidebar-overlay) (:project @!sidebar-truth))]
+                      ;; Semantic selection — single entry point
+                      (ws/select-artifact! atoms {:kind :file :path (:path entry) :name (:name entry)})
+                      ;; Sidebar overlay + Rama persistence (existing flow)
                       (swap! !sidebar-overlay assoc :pending-selected-file {:path (:path entry) :name (:name entry)})
                       (emit-sidebar-action! :sidebar/file-select
                         {:path (:path entry) :name (:name entry)} nil)
@@ -302,7 +308,8 @@
   "Route click within the chat pane: nav links and tool collapse toggles."
   [{:keys [!settings !active-font !shimmer-phase !current-file !agent-output
            !trail-collapsed !active-pane !chat-scroll-y !chat-input !focus
-           !editor-doc !scroll-y !sidebar-truth]}
+           !editor-doc !scroll-y !sidebar-truth]
+    :as atoms}
    {:keys [fetch-file!]}
    rel-x y content-w viewport scroll-y]
   (let [file-layout-h (- (:height viewport) cmd-panel-h status-bar-h)]
@@ -338,7 +345,7 @@
                                 (let [line-h (* font-size (:line-height @!settings))]
                                   (reset! !scroll-y (max 0 (- (* safe-line line-h) 100)))))
                               (fetch-file! file-path project :target-line target-line))
-                            (reset! !active-pane :editor)
+                            (ws/set-active-pane! atoms :editor)
                             true)))
                       (rseq path))]
             (when-not handled-nav?
@@ -441,13 +448,11 @@
                     in-editor? (< rel-x code-w)
                     in-chat? (and (>= rel-x code-w) (< rel-x (+ code-w chat-w)))
                     clicked-pane (cond in-editor? :editor in-chat? :chat :else :preview)]
-                (reset! !active-pane clicked-pane)
+                (ws/set-active-pane! atoms clicked-pane)
                 (when in-editor?
                   (handle-editor-click! atoms deps layout-x layout-y gutter-w
                                         x (+ y scroll-y) (- x sb-w)))
                 (when in-chat?
-                  (reset! !focus :chat)
-                  (reset! !caret-visible true)
                   (handle-chat-click! atoms io rel-x y content-w viewport scroll-y)))
 
               :else

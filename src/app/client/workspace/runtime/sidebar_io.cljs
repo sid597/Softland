@@ -3,6 +3,36 @@
   (:require [clojure.string :as str]
             [cljs.reader :as reader]))
 
+(defn save-agent-trail!
+  "Persist a completed agent trail to Rama via HTTP. Fire-and-forget."
+  [run-id trail-data]
+  (when (and run-id trail-data)
+    (let [t0 (js/performance.now)]
+      (-> (js/fetch "/api/agent/trail/save"
+            (clj->js {:method "POST"
+                      :headers {"Content-Type" "application/edn"}
+                      :body (pr-str {:run-id run-id :trail-data trail-data})}))
+          (.then (fn [resp] (.text resp)))
+          (.then (fn [_text]
+                   (js/console.log "[TRAIL-HTTP] save round-trip:"
+                                   (.toFixed (- (js/performance.now) t0) 1) "ms")))
+          (.catch (fn [err] (js/console.error "[TRAIL] Save failed:" err)))))))
+
+(defn emit-settings-update!
+  "Submit a settings update to Rama via HTTP. Fire-and-forget — truth
+   flows back via Electric subscription, not via HTTP response."
+  [settings-data]
+  (let [t0 (js/performance.now)]
+    (-> (js/fetch "/api/settings/update"
+          (clj->js {:method "POST"
+                    :headers {"Content-Type" "application/edn"}
+                    :body (pr-str {:data settings-data})}))
+        (.then (fn [resp] (.text resp)))
+        (.then (fn [_text]
+                 (js/console.log "[SETTINGS-HTTP] update round-trip:"
+                                 (.toFixed (- (js/performance.now) t0) 1) "ms")))
+        (.catch (fn [err] (js/console.error "[SETTINGS] Update failed:" err))))))
+
 (defn emit-sidebar-action!
   "Submit a sidebar action to Rama via HTTP. Calls callback with the new committed state."
   [action-type data callback]
@@ -115,12 +145,13 @@
                    (fetch-home-dirs!))))))
 
 (defn seed-initial-file!
-  "If initial-file provided, set current-file and expand sidebar dirs."
-  [{:keys [!current-file !sidebar-truth]} {:keys [fetch-dir!]} initial-file]
+  "If initial-file provided, set selected-artifact + current-file and expand sidebar dirs."
+  [{:keys [!selected-artifact !current-file !sidebar-truth]} {:keys [fetch-dir!]} initial-file]
   (when initial-file
     (let [file-path (:path initial-file)
           file-name (last (str/split file-path #"/"))
           project-path (:project initial-file)]
+      (reset! !selected-artifact {:kind :file :path file-path :name file-name})
       (reset! !current-file {:path file-path :name file-name})
       (when project-path
         (let [rel (subs file-path (count project-path))

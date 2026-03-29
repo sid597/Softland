@@ -921,6 +921,36 @@ information."
       (= uri "/api/sidebar/state")
       (json-response (util-fns/get-sidebar-state))
 
+      ;; ===== Settings Rama Actions =====
+      (= uri "/api/settings/update")
+      (if (= request-method :post)
+        (try
+          (let [body (parse-edn-body ring-req)
+                settings-data (or (:data body) {})]
+            (json-response (util-fns/emit-settings-event! settings-data)))
+          (catch Exception e
+            (log/error e "[SETTINGS][UPDATE][ERROR]")
+            (json-response {:error (str "Settings update failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
+      (= uri "/api/settings/state")
+      (json-response (util-fns/get-settings-state))
+
+      ;; ===== Agent Trail Persistence =====
+      (= uri "/api/agent/trail/save")
+      (if (= request-method :post)
+        (try
+          (let [body (parse-edn-body ring-req)
+                run-id (:run-id body)
+                trail-data (:trail-data body)]
+            (if (and run-id trail-data)
+              (json-response (util-fns/save-agent-trail! run-id trail-data))
+              (json-response {:error "Missing run-id or trail-data"})))
+          (catch Exception e
+            (log/error e "[AGENT-TRAIL][SAVE][ERROR]")
+            (json-response {:error (str "Trail save failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
       ;; ===== Existing File/Agent API =====
       (= uri "/api/home-dirs")
       (json-response (fv/list-home-dirs))

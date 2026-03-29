@@ -7,7 +7,8 @@
             [app.client.workspace.sidebar :refer [cmd-panel-h status-bar-h]]
             [app.client.workspace.runtime.state :as state]
             [app.client.workspace.runtime.fonts :as fonts]
-            [app.client.workspace.runtime.sidebar-io :as sidebar-io]
+            [app.client.workspace.runtime.sidebar-io :as sidebar-io :refer [emit-settings-update!]]
+            [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.runtime.interop :as interop]
             [app.client.workspace.runtime.agent-flow :as agent-flow]
             [app.client.workspace.runtime.scroll :as scroll]
@@ -21,7 +22,7 @@
    returns a Missionary task that runs the render loop."
   [node device ctx geometry initial-line-lengths initial-lines
    tokenize-fn layout-fn find-bracket-fn detect-folds-fn
-   find-form-fn eval-form-fn atlas & {:keys [font-manifest !sidebar-visible !file-load-request !preview-el !remote-sidebar-truth initial-file]}]
+   find-form-fn eval-form-fn atlas & {:keys [font-manifest !sidebar-visible !file-load-request !preview-el !remote-sidebar-truth !remote-settings-truth !remote-agent-trail initial-file]}]
 
   (let [;; Phase 2: Build the rt context map
         rt (state/make-runtime-state
@@ -69,9 +70,13 @@
                              (contains? truth :selected-file)
                              (assoc :selected-file (:selected-file truth)))))
                              
-              ;; Also update !current-file for now (to not break the rest of the app)
+              ;; Sync !selected-artifact + !current-file from truth
               (when (contains? truth :selected-file)
-                (reset! !cf (:selected-file truth)))
+                (let [sf (:selected-file truth)]
+                  (reset! !cf sf)
+                  (reset! (:!selected-artifact atoms)
+                          (when (:path sf)
+                            {:kind :file :path (:path sf) :name (:name sf)}))))
                 
               ;; 2. Clear matched optimistic overlay state
               (swap! !so (fn [overlay]
@@ -118,6 +123,109 @@
                 (apply-sidebar-truth! new-truth)))
             ;; Apply current truth initially
             (apply-sidebar-truth! @!remote-sidebar-truth))
+
+        ;; ── Settings persistence (Rama round-trip) ─────────────────
+        ;; 1. On load: apply persisted settings from Rama → !settings
+        ;; 2. After load: watch local !settings changes → fire-and-forget to Rama
+        ;; Suppression flag prevents the initial load from triggering a pointless POST.
+        !settings-loaded (atom false)
+
+        _ (when !remote-settings-truth
+            (let [persistent-keys #{:font-size :line-height :px-range :sharpness
+                                    :snap-to-pixel? :show-diagnostics? :font-id :theme-id}
+                  truth @!remote-settings-truth]
+              (when (and (map? truth) (seq truth))
+                (let [persistent-fields (select-keys truth persistent-keys)]
+                  (when (seq persistent-fields)
+                    (swap! (:!settings atoms) merge persistent-fields)
+                    (js/console.log "[SETTINGS-TRUTH] Initial load applied:" (pr-str (keys persistent-fields)))
+                    ;; Sync !active-font if font-id was restored from truth.
+                    ;; Normally !active-font → !settings (via font watch), but on
+                    ;; load we need the reverse direction to apply the saved font.
+                    (when-let [saved-font-id (:font-id persistent-fields)]
+                      (let [manifest @(:!font-manifest atoms)
+                            fonts (or (:fonts manifest) [])
+                            available-fonts (filterv #(not (false? (:available %))) fonts)
+                            font-config (first (filter #(= (:id %) saved-font-id) available-fonts))
+                            font-idx (when font-config
+                                       (first (keep-indexed
+                                                (fn [i f] (when (= (:id f) saved-font-id) i))
+                                                available-fonts)))]
+                        (when font-config
+                          ;; Reset !active-font — this triggers install-font-watch! which
+                          ;; synchronously writes font defaults into !settings.
+                          (reset! (:!active-font atoms)
+                                  {:id (:id font-config)
+                                   :char-width (or (:charWidth font-config) 0.56)
+                                   :name (:name font-config)})
+                          ;; Re-apply persisted settings to undo the font-watch default
+                          ;; overwrite. The watch fires synchronously above, so this merge
+                          ;; restores the user's saved slider values over the font's defaults.
+                          (swap! (:!settings atoms) merge persistent-fields)
+                          ;; Reconcile the settings panel's local cursor state so the
+                          ;; highlighted row matches the restored font, not the boot default.
+                          (when font-idx
+                            (swap! (:!settings atoms) assoc :selected-index font-idx))))))))))
+
+        ;; Persist local settings changes to Rama via fire-and-forget HTTP.
+        ;; Only fires after initial truth has loaded (suppresses the no-op echo).
+        _ (let [persistent-keys #{:font-size :line-height :px-range :sharpness
+                                  :snap-to-pixel? :show-diagnostics? :font-id :theme-id}]
+            (add-watch (:!settings atoms) :settings-persist
+              (fn [_ _ old-val new-val]
+                (when @!settings-loaded
+                  (let [old-p (select-keys old-val persistent-keys)
+                        new-p (select-keys new-val persistent-keys)]
+                    (when (not= old-p new-p)
+                      (let [changed (into {} (filter (fn [[k v]] (not= v (get old-p k))) new-p))]
+                        (when (seq changed)
+                          (emit-settings-update! changed))))))))
+            ;; Enable persistence after the initial truth has been applied
+            (reset! !settings-loaded true))
+
+        ;; ── Agent trail restore (Rama → local) ───────────────────────
+        ;; On load: if Rama has a saved trail and !agent-output is empty,
+        ;; restore it so the last run's trail survives page reload.
+        _ (when !remote-agent-trail
+            (let [saved @!remote-agent-trail]
+              (when (and (map? saved) (:trail-data saved) (nil? @(:!agent-output atoms)))
+                (let [{:keys [run-id trail-data]} saved]
+                  (reset! (:!agent-output atoms)
+                          {:status   (or (:status trail-data) :complete)
+                           :provider (or (:provider trail-data) :claude)
+                           :prompt   (or (:prompt trail-data) "")
+                           :output   ""
+                           :run-id   run-id
+                           :trail    (or (:trail trail-data) [])
+                           :tool-buf {}
+                           :structured-result (:structured-result trail-data)})
+                  (js/console.log "[TRAIL-TRUTH] Restored trail for run:" run-id)))))
+
+        ;; ── Effective local world (reactive derivation) ──────────────
+        ;; One derived object that answers "what world is the user in?"
+        ;; Recomputed when any of its inputs change.
+        recompute-local-world!
+        (fn []
+          (let [sidebar-truth @(:!sidebar-truth atoms)
+                sidebar-overlay @(:!sidebar-overlay atoms)]
+            (reset! (:!effective-local-world atoms)
+                    (ws/derive-effective-local-world
+                      {:selected-artifact @(:!selected-artifact atoms)
+                       :active-pane       @(:!active-pane atoms)
+                       :sidebar-visible   (and (:!sidebar-visible atoms)
+                                               @(:!sidebar-visible atoms))
+                       :flow-state        @(:!flow-state atoms)
+                       :agent-output      @(:!agent-output atoms)
+                       :project           (or (:pending-project sidebar-overlay)
+                                              (:project sidebar-truth))}))))
+
+        _ (recompute-local-world!)
+        _ (doseq [a [:!selected-artifact :!active-pane :!flow-state :!agent-output]]
+            (add-watch (get atoms a) :local-world (fn [_ _ _ _] (recompute-local-world!))))
+        _ (when (:!sidebar-visible atoms)
+            (add-watch (:!sidebar-visible atoms) :local-world (fn [_ _ _ _] (recompute-local-world!))))
+        _ (add-watch (:!sidebar-truth atoms) :local-world (fn [_ _ _ _] (recompute-local-world!)))
+        _ (add-watch (:!sidebar-overlay atoms) :local-world (fn [_ _ _ _] (recompute-local-world!)))
 
         ;; ── Agent API (needs io for trigger-dev-replay!) ────────────
         trigger-replay! (fn [] (interop/trigger-dev-replay! atoms))

@@ -450,11 +450,15 @@
                 ;; Sidebar state atoms (plain CLJS, not watched by Electric)
                 !sidebar-visible (atom true)
                 !file-load-request (atom nil)
-                ;; Rama sidebar truth — Electric subscription populates this atom
-                !sidebar-truth (atom nil)]
+                ;; Rama truth atoms — Electric subscriptions populate these
+                !sidebar-truth (atom nil)
+                !settings-truth (atom nil)
+                !agent-trail-truth (atom nil)]
             ;; Reactive sync: Rama PState → Electric → client atom.
             ;; Re-runs whenever the server-side PState changes.
             (reset! !sidebar-truth (fv/WatchSidebarTruth))
+            (reset! !settings-truth (fv/WatchUserSettings))
+            (reset! !agent-trail-truth (fv/WatchAgentTrail))
             (when resources
               (let [device (get resources :device)
                     format (get resources :format)
@@ -510,4 +514,6 @@
                                                     :!file-load-request !file-load-request
                                                     :!preview-el preview-el-atom
                                                     :!remote-sidebar-truth !sidebar-truth
+                                                    :!remote-settings-truth !settings-truth
+                                                    :!remote-agent-trail !agent-trail-truth
                                                     :initial-file file-info)))))))))))))))

@@ -50,6 +50,8 @@
 (def  user-graph-settings-depot   (foreign-depot @!rama-ipc (get-module-name node-events-module) "*user-graph-settings-depot"))
 (def get-in-view-nodes-query  (foreign-query @!rama-ipc (get-module-name node-events-module) "get-in-view-nodeids"))
 (def sidebar-pstate              (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$sidebar-pstate"))
+(def settings-pstate             (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$settings-pstate"))
+(def agent-trails-pstate         (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$agent-trails-pstate"))
 
 
 (defn update-event-id []
@@ -251,9 +253,9 @@
 (defn get-sidebar-state
   "Read the current sidebar committed truth from Rama."
   []
-  {:project       (first (foreign-select [(keypath :project)] sidebar-pstate))
-   :expanded-dirs (or (first (foreign-select [(keypath :expanded-dirs)] sidebar-pstate)) #{})
-   :selected-file (first (foreign-select [(keypath :selected-file)] sidebar-pstate))})
+  {:project       (first (foreign-select [:sidebar (keypath :project)] sidebar-pstate))
+   :expanded-dirs (or (first (foreign-select [:sidebar (keypath :expanded-dirs)] sidebar-pstate)) #{})
+   :selected-file (first (foreign-select [:sidebar (keypath :selected-file)] sidebar-pstate))})
 
 ;; Server-side atom — the reactive source for Electric e/watch.
 ;; Updated after each Rama write by emit-sidebar-event!.
@@ -279,6 +281,75 @@
   (let [state (get-sidebar-state)]
     (reset! !sidebar-truth-atom state)
     state))
+
+;; ── Settings Rama helpers ────────────────────────────────────────
+
+(defn get-settings-state
+  "Read the current user settings from Rama."
+  []
+  (or (first (foreign-select [:settings] settings-pstate)) {}))
+
+;; Server-side atom — reactive source for Electric e/watch.
+;; Same pattern as sidebar: atom mirror bypasses broken foreign-proxy-async.
+(defonce !settings-truth-atom
+  (atom (try (get-settings-state)
+             (catch Exception _ {}))))
+
+(defn emit-settings-event!
+  "Submit a settings update to Rama. Merges partial settings map.
+   Updates the server-side truth atom and returns the new state."
+  [settings-data]
+  (foreign-append! event-depot
+    (->node-events :settings/update
+                   settings-data
+                   {:graph-name :settings})
+    :append-ack)
+  (let [state (get-settings-state)]
+    (reset! !settings-truth-atom state)
+    state))
+
+;; ── Agent Trail Rama helpers ─────────────────────────────────────
+
+(defn get-agent-trail
+  "Read a single completed trail from Rama by run-id."
+  [run-id]
+  (first (foreign-select [(keypath run-id)] agent-trails-pstate)))
+
+(defn get-latest-trail-run-id
+  "Read the :latest-run-id marker from agent trails.
+   Stored as a special key so we know which run to restore on reload."
+  []
+  (first (foreign-select [(keypath "__latest") (keypath :run-id)] agent-trails-pstate)))
+
+;; Server-side atom — holds the most recently completed trail for Electric.
+;; On boot, tries to restore the latest trail from Rama.
+(defonce !agent-trail-atom
+  (atom (try
+          (when-let [run-id (get-latest-trail-run-id)]
+            (when-let [trail-data (get-agent-trail run-id)]
+              {:run-id run-id :trail-data trail-data}))
+          (catch Exception _ nil))))
+
+(defn save-agent-trail!
+  "Persist a completed agent trail to Rama. Updates the latest-run marker
+   and the server-side atom for Electric."
+  [run-id trail-data]
+  ;; Save the trail data
+  (foreign-append! event-depot
+    (->node-events :agent-trail/save-run
+                   {:run-id run-id :trail-data trail-data}
+                   {:graph-name :trails})
+    :append-ack)
+  ;; Update the latest-run marker
+  (foreign-append! event-depot
+    (->node-events :agent-trail/save-run
+                   {:run-id "__latest"
+                    :trail-data {:run-id run-id}}
+                   {:graph-name :trails})
+    :append-ack)
+  (let [result {:run-id run-id :trail-data trail-data}]
+    (reset! !agent-trail-atom result)
+    result))
 
 ;; ─────────────────────────────────────────────────────────────────
 

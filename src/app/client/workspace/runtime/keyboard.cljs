@@ -3,12 +3,14 @@
   (:require [clojure.string :as str]
             [missionary.core :as m]
             [app.client.workspace.events :refer [maybe-snap]]
+            [app.client.workspace.sidebar :refer [cmd-panel-h status-bar-h]]
             [app.client.workspace.text-input :as text-input]
             [app.client.workspace.themes :as themes]
             [app.client.workspace.cmd-panel :refer [cmd-panel-apply-event]]
             [app.client.workspace.editor-compute :refer [editor-apply-event]]
             [app.client.workspace.settings-view :refer [slider-specs font-defaults->settings]]
             [app.client.workspace.runtime.state :refer [save-undo!]]
+            [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workflows.dg-flow :refer [flow-canvas-active? group-tickets-by-status
                                                    set-selection]]))
 
@@ -18,7 +20,8 @@
 
 (defn global-keys-consumer
   [{:keys [!cmd-panel !settings !focus !caret-visible !editor-doc !sidebar-visible
-           !current-file !agent-output !active-pane !chat-input]}
+           !current-file !agent-output !active-pane !chat-input]
+    :as atoms}
    <global-keys]
   (->> <global-keys
        (m/reduce
@@ -61,20 +64,17 @@
                        (reset! !focus :editor)))
 
                  (and !sidebar-visible @!sidebar-visible)
-                 (reset! !sidebar-visible false)
+                 (ws/hide-sidebar! atoms)
 
                  :else
                  (swap! !editor-doc assoc :selection nil))
 
                :toggle-file-viewer
-               (when !sidebar-visible (swap! !sidebar-visible not))
+               (ws/toggle-sidebar! atoms)
 
                :focus-pane
                (when (some? @!current-file)
-                 (let [pane (:pane event)]
-                   (reset! !active-pane pane)
-                   (when (= pane :chat) (reset! !focus :chat) (reset! !caret-visible true))
-                   (when (= pane :editor) (reset! !focus :editor))))
+                 (ws/set-active-pane! atoms (:pane event)))
 
                :save
                (let [content (str/join "\n" (:lines @!editor-doc))
@@ -161,13 +161,15 @@
                        caret-y (+ ly (* (:line (:cursor new-doc)) line-h))
                        scroll-y @!scroll-y
                        viewport @!viewport
-                       viewport-bottom (+ scroll-y (:height viewport))
+                       chrome-h (+ cmd-panel-h status-bar-h)
+                       visible-h (- (:height viewport) chrome-h)
+                       viewport-bottom (+ scroll-y visible-h)
                        padding line-h
                        new-scroll (cond
                                     (< caret-y (+ scroll-y padding))
                                     (max 0 (- caret-y padding))
                                     (> (+ caret-y line-h) (- viewport-bottom padding))
-                                    (+ (- caret-y (:height viewport)) line-h padding)
+                                    (+ (- caret-y visible-h) line-h padding)
                                     :else scroll-y)
                        new-scroll (maybe-snap new-scroll dpr snap?)]
                    (reset! !editor-doc new-doc)
@@ -293,7 +295,8 @@
 ;; ─────────────────────────────────────────────────
 
 (defn chat-keys-consumer
-  [{:keys [!chat-input !focus !active-pane !caret-visible !clipboard]}
+  [{:keys [!chat-input !focus !active-pane !caret-visible !clipboard]
+    :as atoms}
    submit-agent-run!
    <chat-keyboard]
   (m/reduce
@@ -308,8 +311,7 @@
 
           :escape
           (do (reset! !chat-input {:text "" :cursor 0})
-              (reset! !focus :editor)
-              (reset! !active-pane :editor))
+              (ws/set-active-pane! atoms :editor))
 
           (:up :down) nil
 

@@ -72,7 +72,15 @@
 
     ;; Sidebar committed truth — project, expanded dirs, selected file
     ;; Global PState: single workspace, keyed by field name
-    (declare-pstate n $$sidebar-pstate {Keyword Object} {:global? true})
+    (declare-pstate n $$sidebar-pstate {Keyword (map-schema Keyword Object)})
+
+    ;; User settings — font-size, line-height, theme-id, etc.
+    ;; Keyed by namespace (e.g. :settings), values are setting keyword → value
+    (declare-pstate n $$settings-pstate {Keyword (map-schema Keyword Object)})
+
+    ;; Agent trails — completed run trail data, keyed by run-id
+    ;; Each run: {:status :trail :provider :prompt :started-at :completed-at}
+    (declare-pstate n $$agent-trails-pstate {String (map-schema Keyword Object)})
     (declare-pstate n $$user-registration-pstate {String ; username
                                                   (fixed-keys-schema {:user-id Long
                                                                       :uuid String})})
@@ -327,16 +335,16 @@
         ;; ========sidebar: toggle dir expand/collapse========
         (case> (= :sidebar/dir-toggle *action-type))
         (local-select> (keypath :path) *node-data :> *dir-path)
-        (local-select> [(keypath :expanded-dirs)] $$sidebar-pstate :> *dirs)
+        (local-select> [*graph-name (keypath :expanded-dirs)] $$sidebar-pstate :> *dirs)
         (identity (toggle-set *dirs *dir-path) :> *new-dirs)
-        (local-transform> [(keypath :expanded-dirs) (termval *new-dirs)] $$sidebar-pstate)
+        (local-transform> [*graph-name (keypath :expanded-dirs) (termval *new-dirs)] $$sidebar-pstate)
         (println "R: SIDEBAR dir-toggle" *dir-path)
 
         ;; ========sidebar: select file========
         (case> (= :sidebar/file-select *action-type))
         (local-select> (keypath :path) *node-data :> *file-path)
         (local-select> (keypath :name) *node-data :> *file-name)
-        (local-transform> [(keypath :selected-file)
+        (local-transform> [*graph-name (keypath :selected-file)
                            (termval {:path *file-path :name *file-name})]
           $$sidebar-pstate)
         (println "R: SIDEBAR file-select" *file-path)
@@ -345,18 +353,32 @@
         (case> (= :sidebar/project-select *action-type))
         (local-select> (keypath :name) *node-data :> *proj-name)
         (local-select> (keypath :path) *node-data :> *proj-path)
-        (local-transform> [(keypath :project)
+        (local-transform> [*graph-name (keypath :project)
                            (termval {:name *proj-name :path *proj-path})]
           $$sidebar-pstate)
-        (local-transform> [(keypath :expanded-dirs) (termval #{})] $$sidebar-pstate)
-        (local-transform> [(keypath :selected-file) (termval nil)] $$sidebar-pstate)
+        (local-transform> [*graph-name (keypath :expanded-dirs) (termval #{})] $$sidebar-pstate)
+        (local-transform> [*graph-name (keypath :selected-file) (termval nil)] $$sidebar-pstate)
         (println "R: SIDEBAR project-select" *proj-name)
 
         ;; ========sidebar: go back to home dirs========
         (case> (= :sidebar/project-back *action-type))
-        (local-transform> [(keypath :project) (termval nil)] $$sidebar-pstate)
-        (local-transform> [(keypath :expanded-dirs) (termval #{})] $$sidebar-pstate)
-        (local-transform> [(keypath :selected-file) (termval nil)] $$sidebar-pstate)
+        (local-transform> [*graph-name (keypath :project) (termval nil)] $$sidebar-pstate)
+        (local-transform> [*graph-name (keypath :expanded-dirs) (termval #{})] $$sidebar-pstate)
+        (local-transform> [*graph-name (keypath :selected-file) (termval nil)] $$sidebar-pstate)
         (println "R: SIDEBAR project-back")
+
+        ;; ========settings: update (merge partial settings map)========
+        (case> (= :settings/update *action-type))
+        (explode-map *node-data :> *setting-key *setting-val)
+        (local-transform> [*graph-name (keypath *setting-key) (termval *setting-val)] $$settings-pstate)
+        (println "R: SETTINGS update" *setting-key *setting-val)
+
+        ;; ========agent trail: save completed run========
+        (case> (= :agent-trail/save-run *action-type))
+        (local-select> (keypath :run-id) *node-data :> *trail-run-id)
+        (local-select> (keypath :trail-data) *node-data :> *trail-data)
+        (explode-map *trail-data :> *tkey *tval)
+        (local-transform> [(keypath *trail-run-id) (keypath *tkey) (termval *tval)] $$agent-trails-pstate)
+        (println "R: AGENT-TRAIL save-run" *trail-run-id)
 
         (default>) (println "FALSE" *action-type)))))
