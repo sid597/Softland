@@ -951,6 +951,21 @@ information."
             (json-response {:error (str "Trail save failed: " (.getMessage e))})))
         (json-response {:error "Method not allowed. Use POST."}))
 
+      ;; ===== Editor State Persistence (Phase 4B measurement) =====
+      (= uri "/api/editor/save-doc")
+      (if (= request-method :post)
+        (try
+          (let [body (parse-edn-body ring-req)
+                file-path (:file-path body)
+                doc-state (:doc-state body)]
+            (if (and file-path doc-state)
+              (json-response (util-fns/save-editor-doc! file-path doc-state))
+              (json-response {:error "Missing file-path or doc-state"})))
+          (catch Exception e
+            (log/error e "[EDITOR][SAVE][ERROR]")
+            (json-response {:error (str "Editor save failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
       ;; ===== Flow Session Persistence =====
       (= uri "/api/flow/save-state")
       (if (= request-method :post)

@@ -87,6 +87,37 @@
   (reset! !focus :editor)
   (reset! !scroll-y 0))
 
+;; ── Editor event classification ──────────────────────────────────
+;;
+;; Phase 4A: classify editor events for the commitment boundary.
+;; COMMITTED events change document content — candidates for Rama persistence.
+;; EPHEMERAL events change cursor/selection — local-only, never persisted.
+;;
+;; Phase 4B will wire committed events through Rama and measure latency.
+;; Until that measurement, the classification is the design contract.
+
+(def editor-committed-events
+  "Event types that change document content. These are the candidates
+   for Rama persistence (Phase 4B will measure whether direct committed
+   path is fast enough at keystroke rate)."
+  #{:char :backspace :delete :enter :paste :cut :tab})
+
+(def editor-ephemeral-events
+  "Event types that change cursor/selection/view only. Never persisted."
+  #{:left :right :up :down :home :end :word-left :word-right
+    :copy :eval :undo :redo})
+
+(def editor-structural-events
+  "Events that change document structure (folding). Committed, but
+   not at keystroke rate — can go through Rama without latency concern."
+  #{:fold :unfold})
+
+(defn editor-event-committed?
+  "True if this editor event type changes document content."
+  [event-type]
+  (or (contains? editor-committed-events event-type)
+      (contains? editor-structural-events event-type)))
+
 ;; ── Local world derivation ──────────────────────────────────────
 
 (defn derive-effective-local-world

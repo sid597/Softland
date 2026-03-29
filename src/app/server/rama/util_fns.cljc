@@ -53,6 +53,7 @@
 (def settings-pstate             (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$settings-pstate"))
 (def agent-trails-pstate         (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$agent-trails-pstate"))
 (def flow-session-pstate         (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$flow-session-pstate"))
+(def editor-state-pstate         (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$editor-state-pstate"))
 
 
 (defn update-event-id []
@@ -351,6 +352,29 @@
   (let [result {:run-id run-id :trail-data trail-data}]
     (reset! !agent-trail-atom result)
     result))
+
+;; ── Editor State Rama helpers ────────────────────────────────────
+
+(defn get-editor-doc
+  "Read editor document state for a file path from Rama."
+  [file-path]
+  (first (foreign-select [(keypath file-path)] editor-state-pstate)))
+
+(defonce !editor-doc-atom (atom nil))
+
+(defn save-editor-doc!
+  "Persist editor document state to Rama. Returns the round-trip time in ms."
+  [file-path doc-state]
+  (let [t0 (System/currentTimeMillis)]
+    (foreign-append! event-depot
+      (->node-events :editor/save-doc
+                     {:file-path file-path :doc-state doc-state}
+                     {:graph-name :editor})
+      :append-ack)
+    (let [t1 (System/currentTimeMillis)
+          latency (- t1 t0)]
+      (reset! !editor-doc-atom {:file-path file-path :doc-state doc-state :latency-ms latency})
+      {:ok true :latency-ms latency})))
 
 ;; ── Flow Session Rama helpers ────────────────────────────────────
 

@@ -10,6 +10,7 @@
             [app.client.workspace.editor-compute :refer [editor-apply-event]]
             [app.client.workspace.settings-view :refer [slider-specs font-defaults->settings]]
             [app.client.workspace.runtime.state :refer [save-undo!]]
+            [app.client.workspace.runtime.sidebar-io :as sio]
             [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workflows.dg-flow :refer [group-tickets-by-status set-selection]]))
 
@@ -132,7 +133,7 @@
 
 (defn editor-keys-consumer
   [{:keys [!editor-doc !caret-visible !clipboard !undo-stack !redo-stack
-           !eval-result !scroll-y !viewport !settings !active-font]}
+           !eval-result !scroll-y !viewport !settings !active-font !current-file]}
    {:keys [layout-y]}
    {:keys [find-form-fn eval-form-fn]}
    <editor-keyboard]
@@ -148,7 +149,12 @@
                                      (:lines doc) (:cursor doc))
                        new-doc (editor-apply-event doc event lengths @!clipboard)]
                    (reset! !editor-doc new-doc)
-                   (reset! !caret-visible true))
+                   (reset! !caret-visible true)
+                   ;; Phase 4B measurement: fire-and-forget to Rama.
+                   ;; Editor updates locally first (no latency for user).
+                   ;; This measures the round-trip for the direct committed path.
+                   (when-let [fp (:path @!current-file)]
+                     (sio/save-editor-doc! fp {:lines (:lines new-doc)})))
 
                  (:left :right :up :down :home :end :word-left :word-right)
                  (let [new-doc (editor-apply-event doc event lengths nil)

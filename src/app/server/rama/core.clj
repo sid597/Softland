@@ -85,6 +85,10 @@
     ;; Flow session — DG workflow FSM state, keyed by namespace
     ;; Persists :node, :tickets, :batch, :session-id, :history across reload
     (declare-pstate n $$flow-session-pstate {Keyword (map-schema Keyword Object)})
+
+    ;; Editor state — document content keyed by file path
+    ;; Phase 4B: measuring direct committed editing through Rama
+    (declare-pstate n $$editor-state-pstate {String (map-schema Keyword Object)})
     (declare-pstate n $$user-registration-pstate {String ; username
                                                   (fixed-keys-schema {:user-id Long
                                                                       :uuid String})})
@@ -376,6 +380,13 @@
         (explode-map *node-data :> *setting-key *setting-val)
         (local-transform> [*graph-name (keypath *setting-key) (termval *setting-val)] $$settings-pstate)
         (println "R: SETTINGS update" *setting-key *setting-val)
+
+        ;; ========editor: save document state========
+        (case> (= :editor/save-doc *action-type))
+        (local-select> (keypath :file-path) *node-data :> *file-path)
+        (local-select> (keypath :doc-state) *node-data :> *doc-state)
+        (explode-map *doc-state :> *dkey *dval)
+        (local-transform> [(keypath *file-path) (keypath *dkey) (termval *dval)] $$editor-state-pstate)
 
         ;; ========flow session: save FSM state========
         (case> (= :flow/save-state *action-type))

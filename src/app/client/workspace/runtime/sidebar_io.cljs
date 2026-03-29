@@ -3,6 +3,28 @@
   (:require [clojure.string :as str]
             [cljs.reader :as reader]))
 
+(defn save-editor-doc!
+  "Persist editor document state to Rama. Logs full round-trip latency
+   for Phase 4B measurement. Fire-and-forget — the client does NOT wait
+   for the response to update the editor."
+  [file-path doc-state]
+  (when (and file-path doc-state)
+    (let [t0 (js/performance.now)]
+      (-> (js/fetch "/api/editor/save-doc"
+            (clj->js {:method "POST"
+                      :headers {"Content-Type" "application/edn"}
+                      :body (pr-str {:file-path file-path :doc-state doc-state})}))
+          (.then (fn [resp] (.text resp)))
+          (.then (fn [text]
+                   (let [t1 (js/performance.now)
+                         result (reader/read-string text)
+                         server-ms (:latency-ms result)
+                         total-ms (- t1 t0)]
+                     (js/console.log "[EDITOR-RAMA] round-trip:" (.toFixed total-ms 1) "ms"
+                                     "| server:" server-ms "ms"
+                                     "| network:" (.toFixed (- total-ms (or server-ms 0)) 1) "ms"))))
+          (.catch (fn [err] (js/console.error "[EDITOR-RAMA] Save failed:" err)))))))
+
 (defn save-flow-state!
   "Persist flow session FSM state to Rama via HTTP. Fire-and-forget."
   [flow-data]
