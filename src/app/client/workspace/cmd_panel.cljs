@@ -4,6 +4,7 @@
             [missionary.core :as m]
             [app.client.workspace.events :refer [maybe-snap]]
             [app.client.workspace.rect-tree :refer [rt-node]]
+            [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.text-input :as text-input]
             [app.client.workspace.ui-primitives :refer [dt]]
             [app.client.workspace.sidebar :refer [sidebar-w]]
@@ -127,25 +128,27 @@
      [1] command-panel background (visible when panel is open)
      [2] caret                    (visible when panel focused + blink on)
      [3] status-bar background    (always visible)
-   Zero-size invisible rects for absent elements keep GPU indices stable.
+  Zero-size invisible rects for absent elements keep GPU indices stable.
    SIDEBAR: backgrounds span full viewport, caret offset by sb-w."
   [!cmd-panel !focus !caret-visible !scroll-y !viewport !settings !active-font
-   !ai-provider !agent-output !sidebar-visible !current-file !flow-state
-   flow-canvas-active?* cmd-panel-h status-bar-h]
+   !ai-provider !agent-output !sidebar-visible !effective-local-world
+   cmd-panel-h status-bar-h]
   (m/latest
     (fn [panel focus caret-visible scroll-y viewport settings active-font
-         agent-output sidebar-visible? current-file flow-state]
+         agent-output sidebar-visible? local-world]
       (let [sb-w (if (boolean sidebar-visible?) sidebar-w 0)
             dpr (:dpr viewport)
             snap? (:snap-to-pixel? settings)
             font-size (:font-size settings)
             char-advance (maybe-snap (* font-size (:char-width active-font)) dpr snap?)
+            file-workspace? (ws/local-world-file-workspace? local-world)
+            flow-mode? (ws/local-world-flow? local-world)
             invisible {:x 0 :y 0 :w 0 :h 0 :r 0 :g 0 :b 0 :a 0}
 
             ;; --- Instance 0: agent output background ---
             agent-panel-h (compute-agent-panel-h agent-output font-size (:height viewport)
                                                  (:width viewport) char-advance)
-            agent-visible? (and (some? (:status agent-output)) (not (some? current-file)))
+            agent-visible? (and (some? (:status agent-output)) (not file-workspace?))
             agent-bg (if agent-visible?
                        (let [agent-y0 (maybe-snap
                                         (+ scroll-y (- (:height viewport)
@@ -159,8 +162,8 @@
             ;; --- Instance 1: command panel background (elevated + top border) ---
             ;; Persistent in file-open mode and DG flow mode.
             panel-visible? (or (:visible panel)
-                               (some? current-file)
-                               (flow-canvas-active?* flow-state))
+                               file-workspace?
+                               flow-mode?)
             panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h)) dpr snap?)
             elevated-surface (or (:elevated (:surfaces dt)) [0.10 0.13 0.19 1.0])
             cmd-bg (if panel-visible?
@@ -195,5 +198,4 @@
     (m/watch !active-font)
     (m/watch !agent-output)
     (m/watch !sidebar-visible)
-    (m/watch !current-file)
-    (m/watch !flow-state)))
+    (m/watch !effective-local-world)))

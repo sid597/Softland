@@ -5,6 +5,7 @@
             [app.client.workspace.cmd-panel :refer [parse-agent-command]]
             [app.client.workspace.trail :refer [compute-agent-panel-h agent-wrapped-line-count]]
             [app.client.workspace.runtime.sidebar-io :refer [save-agent-trail!]]
+            [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workflows.dg-flow :as dg :refer [flow-prompt]]
             [app.client.workflows.jit :as jit]))
 
@@ -24,7 +25,8 @@
    trigger-dev-replay! is passed in from interop module."
   [{:keys [!agent-output !agent-scroll-y !viewport !settings !active-font
            !flow-state !ai-provider !editor-doc !current-file !scroll-y
-           !sidebar-truth !sidebar-overlay !extract-preview]}
+           !sidebar-truth !sidebar-overlay !extract-preview]
+    :as atoms}
    trigger-dev-replay!]
   (let [auto-scroll-agent!
         (fn []
@@ -306,7 +308,9 @@
                                      {:!flow-state !flow-state
                                       :!scroll-y !scroll-y
                                       :show-flow-info! show-flow-info!
-                                      :fire-flow-run! fire-flow-run!}))))]
+                                      :fire-flow-run! fire-flow-run!
+                                      :enter-workflow! #(ws/enter-workflow! atoms)
+                                      :exit-workflow! #(ws/exit-workflow! atoms)}))))]
 
     {:auto-scroll-agent! auto-scroll-agent!
      :make-event-handler make-event-handler

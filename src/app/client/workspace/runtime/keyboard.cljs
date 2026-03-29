@@ -11,8 +11,7 @@
             [app.client.workspace.settings-view :refer [slider-specs font-defaults->settings]]
             [app.client.workspace.runtime.state :refer [save-undo!]]
             [app.client.workspace.runtime.workspace-actions :as ws]
-            [app.client.workflows.dg-flow :refer [flow-canvas-active? group-tickets-by-status
-                                                   set-selection]]))
+            [app.client.workflows.dg-flow :refer [group-tickets-by-status set-selection]]))
 
 ;; ─────────────────────────────────────────────────
 ;; GLOBAL KEYS
@@ -20,18 +19,18 @@
 
 (defn global-keys-consumer
   [{:keys [!cmd-panel !settings !focus !caret-visible !editor-doc !sidebar-visible
-           !current-file !agent-output !active-pane !chat-input]
+           !current-file !effective-local-world !agent-output !active-pane !chat-input]
     :as atoms}
    <global-keys]
   (->> <global-keys
        (m/reduce
          (fn [_ event]
-           (when event
-             (case (:type event)
-               :toggle-command-panel
-               (let [visible? (:visible @!cmd-panel)
-                     file-open? (some? (:path @!current-file))]
-                 (if (and visible? (not file-open?))
+            (when event
+              (case (:type event)
+                :toggle-command-panel
+                (let [visible? (:visible @!cmd-panel)
+                      file-workspace? (ws/local-world-file-workspace? @!effective-local-world)]
+                 (if (and visible? (not file-workspace?))
                    (do (swap! !cmd-panel assoc :visible false)
                        (reset! !focus :editor))
                    (do (swap! !cmd-panel assoc :visible true)
@@ -57,7 +56,7 @@
                  (do (reset! !chat-input {:text "" :cursor 0}) (reset! !focus :editor))
 
                  (or (:visible @!cmd-panel) (some? (:status @!agent-output)))
-                 (if (some? (:path @!current-file))
+                 (if (ws/local-world-file-workspace? @!effective-local-world)
                    (reset! !focus :editor)
                    (do (swap! !cmd-panel assoc :visible false)
                        (reset! !agent-output nil)
@@ -73,7 +72,7 @@
                (ws/toggle-sidebar! atoms)
 
                :focus-pane
-               (when (some? @!current-file)
+               (when (ws/local-world-file-workspace? @!effective-local-world)
                  (ws/set-active-pane! atoms (:pane event)))
 
                :save
@@ -235,7 +234,7 @@
 
 (defn command-keys-consumer
   [{:keys [!cmd-panel !flow-state !hovered-row-idx !focus !caret-visible
-           !clipboard !current-file]}
+           !clipboard !effective-local-world]}
    submit-agent-run!
    <cmd-keyboard]
   (m/reduce
@@ -260,7 +259,7 @@
                                   (vec (remove #{idx} sel))
                                   (conj (vec sel) idx))]
                     (swap! !flow-state set-selection new-sel))
-                  (do (when-not (some? (:path @!current-file))
+                  (do (when-not (ws/local-world-file-workspace? @!effective-local-world)
                         (swap! !cmd-panel assoc :text "" :cursor 0 :visible false))
                       (reset! !focus :editor)))))
 

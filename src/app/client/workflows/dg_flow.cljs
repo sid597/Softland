@@ -166,7 +166,8 @@
 (defn handle-dg-command!
   "Apply DG workflow side effects through the provided runtime env.
    Returns true when the command was handled."
-  [parsed {:keys [!flow-state !scroll-y !agent-output show-flow-info! fire-flow-run!]}]
+  [parsed {:keys [!flow-state !scroll-y !agent-output show-flow-info! fire-flow-run!
+                  enter-workflow! exit-workflow!]}]
   (case (:kind parsed)
     :flow-bootstrap
     (do
@@ -177,6 +178,7 @@
         (if next
           (do
             (reset! !flow-state next)
+            (when enter-workflow! (enter-workflow!))
             (show-flow-info! "Fetching tickets from Linear...")
             (-> (js/fetch "/api/linear/issues?team=Engineering")
                 (.then (fn [resp] (.text resp)))
@@ -217,7 +219,7 @@
             (reset! !flow-state (assoc (initial-flow-state)
                                        :node :intake
                                        :tickets mock-tickets))
-            (reset! !scroll-y 0)
+            (when enter-workflow! (enter-workflow!))
             (show-flow-info!
              (str "Mock bootstrap complete. " (count mock-tickets) " tickets loaded.")))
           (show-flow-info!
@@ -363,7 +365,7 @@
     :flow-reset
     (do
       (reset! !flow-state (initial-flow-state))
-      (reset! !scroll-y 0)
+      (when exit-workflow! (exit-workflow!))
       (show-flow-info! "Flow state reset to idle.\nUse /bootstrap to start fresh.")
       true)
 

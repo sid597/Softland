@@ -2,15 +2,16 @@
   "Scroll consumer: wheel routing across sidebar, agent, chat, editor, flow canvas."
   (:require [missionary.core :as m]
             [app.client.workspace.events :refer [maybe-snap]]
+            [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.sidebar :refer [sidebar-w sidebar-tab-h cmd-panel-h status-bar-h compute-sidebar-content-height derive-effective-sidebar]]
             [app.client.workspace.trail :refer [compute-agent-panel-h agent-wrapped-line-count]]
             [app.client.workspace.ui-primitives :refer [list-left-pane-pct list-divider-w]]
-            [app.client.workflows.dg-flow :refer [flow-canvas-active? group-tickets-by-status list-content-height]]))
+            [app.client.workflows.dg-flow :refer [group-tickets-by-status list-content-height]]))
 
 (defn scroll-consumer
   "Missionary consumer: route wheel events to the appropriate scroll target."
   [{:keys [!scroll-y !scroll-x !viewport !settings !active-font !sidebar-visible
-           !mouse-x !mouse-y !sidebar-truth !sidebar-overlay !sidebar-ui !current-file !agent-output
+           !mouse-x !mouse-y !sidebar-truth !sidebar-overlay !sidebar-ui !effective-local-world !agent-output
            !agent-scroll-y !chat-scroll-y !detail-scroll-y !flow-state !collapsed-groups !editor-doc]}
    >wheel-events]
   (->> >wheel-events
@@ -28,8 +29,11 @@
                  sb-vis? (and !sidebar-visible @!sidebar-visible)
                  mouse-x @!mouse-x
                  in-sidebar? (and sb-vis? (< mouse-x sidebar-w))
+                 local-world @!effective-local-world
+                 file-workspace? (ws/local-world-file-workspace? local-world)
+                 flow-active? (ws/local-world-flow? local-world)
                  agent-output @!agent-output
-                 agent-h (if (some? (:path @!current-file))
+                 agent-h (if file-workspace?
                            0
                            (compute-agent-panel-h agent-output font-size
                                                   (:height viewport) (:width viewport)
@@ -40,12 +44,11 @@
                  in-agent? (and (not in-sidebar?)
                                 (pos? agent-h)
                                 (>= mouse-y agent-y0)
-                                (< mouse-y agent-y1))
-                 flow-active? (flow-canvas-active? @!flow-state)]
+                                (< mouse-y agent-y1))]
              (js/console.log "[SCROLL][WHEEL] delta:" delta "mx:" mouse-x "my:" mouse-y
                              "sb?" sb-vis? "sidebar?" in-sidebar? "agent?" in-agent?
                              "flow?" flow-active?
-                             "file?" (some? (:path @!current-file)))
+                             "file?" file-workspace?)
              (cond
                ;; Sidebar file tree
                in-sidebar?
@@ -96,23 +99,23 @@
                      (swap! !scroll-y #(-> (+ % delta) (max 0) (min max-scroll))))))
 
                ;; Chat pane (3-pane mode)
-               (let [file-open? (some? (:path @!current-file))
-                     sb-off (if sb-vis? sidebar-w 0)
+               (let [sb-off (if sb-vis? sidebar-w 0)
                      cw (- (:width viewport) sb-off)
-                     code-w (int (* cw 0.4))
-                     chat-w (int (* cw 0.55))
+                     code-w (int (* cw (ws/pane-width-pct local-world :main 0.4)))
+                     chat-w (int (* cw (ws/pane-width-pct local-world :right 0.55)))
                      rel-mx (- mouse-x sb-off)
-                     in-chat? (and file-open? (>= rel-mx code-w) (< rel-mx (+ code-w chat-w)))]
-                 (and file-open? in-chat?))
+                     in-chat? (and file-workspace? (>= rel-mx code-w) (< rel-mx (+ code-w chat-w)))]
+                 (and file-workspace? in-chat?))
                (do (js/console.log "[SCROLL] -> chat")
                    (swap! !chat-scroll-y #(max 0 (+ % delta))))
 
                ;; Editor (no file open, or mouse in code pane)
                :else
                (do (js/console.log "[SCROLL] -> editor")
-                   (when (or (not (some? (:path @!current-file)))
+                   (when (or (not file-workspace?)
                              (< (- mouse-x (if sb-vis? sidebar-w 0))
-                                (int (* (- (:width viewport) (if sb-vis? sidebar-w 0)) 0.4))))
+                                (int (* (- (:width viewport) (if sb-vis? sidebar-w 0))
+                                        (ws/pane-width-pct local-world :main 0.4)))))
                      (do (let [doc @!editor-doc
                                line-h (* font-size (:line-height settings))
                                total-lines (count (:lines doc))
@@ -124,8 +127,8 @@
                          (let [h-delta (if shift? delta dx)
                                sb-off (if sb-vis? sidebar-w 0)
                                cw (- (:width viewport) sb-off)
-                               editor-right (if (some? @!current-file)
-                                              (+ sb-off (int (* cw 0.4)))
+                               editor-right (if file-workspace?
+                                              (+ sb-off (int (* cw (ws/pane-width-pct local-world :main 0.4))))
                                               (+ sb-off cw))]
                            (when (and (not (zero? h-delta)) (< mouse-x editor-right))
                              (swap! !scroll-x #(max 0 (+ (or % 0) h-delta)))))))))))           nil)

@@ -2,6 +2,7 @@
   "3-pane file layout: Editor | Chat | Preview."
   (:require [clojure.string :as str]
             [app.client.workspace.rect-tree :refer [rt-node wrap-line]]
+            [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.ui-primitives :refer [dt typo-subtitle typo-body build-empty-state]]
             [app.client.workspace.trail :refer [trail->chat-nodes]]))
 
@@ -15,17 +16,17 @@
    shimmer-alpha: 0.0-1.0 pulse for pending tool cards.
    collapsed: #{keyword} set of collapsed block ids."
   [w h current-file agent-output font-size shimmer-alpha collapsed
-   & {:keys [active-pane char-advance chat-scroll-y chat-input focus]
-      :or {active-pane :editor char-advance nil chat-scroll-y 0
+   & {:keys [local-world active-pane char-advance chat-scroll-y chat-input focus]
+      :or {local-world nil active-pane :editor char-advance nil chat-scroll-y 0
            chat-input {:text "" :cursor 0} focus :editor}}]
   (let [colors (:colors dt)
         surfaces (:surfaces dt)
         fg (:fg colors)
         fg-dim (:fg-muted colors)
         border (:border colors)
-        ;; 3-column widths: 40% / 55% / 5%
-        code-w (int (* w 0.4))
-        chat-w (int (* w 0.55))
+        ;; Pane widths come from semantic pane descriptors when present.
+        code-w (int (* w (ws/pane-width-pct local-world :main 0.4)))
+        chat-w (int (* w (ws/pane-width-pct local-world :right 0.55)))
         render-w (- w code-w chat-w)
         ;; Header height — 36px (4px grid rhythm)
         header-h 36
@@ -52,7 +53,9 @@
         text-secondary (or (:text-secondary surfaces) fg-dim)
 
         ;; === CODE PANE (left) — real editor renders beneath, we just add header + border ===
-        code-header-label (or (:name current-file) "No file open")
+        code-header-label (or (:name current-file)
+                              (get-in local-world [:selected-artifact :name])
+                              "No file open")
 
         code-focused? (= active-pane :editor)
         code-hdr-fg (if code-focused? text-primary text-secondary)
@@ -277,5 +280,4 @@
     (rt-node :file-layout-root :panel
       {:x 0 :y 0 :w w :h h}
       :children [code-pane chat-pane render-pane])))
-
 

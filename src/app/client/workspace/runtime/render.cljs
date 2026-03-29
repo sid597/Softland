@@ -4,6 +4,7 @@
             [app.client.substrate.webgpu.renderer :as editor]
             [app.client.substrate.webgpu.buffer-pool :as pool]
             [app.client.workspace.events :refer [maybe-snap]]
+            [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.sidebar :refer [cmd-panel-h status-bar-h]]
             [app.client.workspace.editor-compute :refer [<fold-state <bracket-match <editor-rects+sidebar]]
             [app.client.workspace.combined-text :refer [<combined-text-ops]]
@@ -14,7 +15,7 @@
 (defn render-consumer
   "Missionary consumer: assemble derived flows, build world snapshot, diff-upload to GPU, draw on RAF."
   [{:keys [!editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y
-           !viewport !settings !active-font !current-file !flow-state !collapsed-groups
+           !viewport !settings !active-font !current-file !effective-local-world !flow-state !collapsed-groups
            !hovered-row-idx !drag-state !sidebar-truth !sidebar-overlay !sidebar-ui !sidebar-visible !sidebar-scene !extract-preview
            !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input
            !focus !run-scroll-y !detail-scroll-y !eval-result !caret-visible !folded-lines
@@ -31,13 +32,13 @@
 
         <text-data (<combined-text-ops
                       !editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y !viewport !settings !active-font
-                      !current-file
+                      !current-file !effective-local-world
                       tokenize-fn layout-fn
                       <fold-data
                       !flow-state !collapsed-groups !hovered-row-idx !drag-state
                       !sidebar-visible !sidebar-scene !extract-preview
                       !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus !run-scroll-y !detail-scroll-y
-                      dg/flow-canvas-active? dg/compute-ticket-list-text-ops dg/compute-run-text-ops dg/offset-text-ops
+                      dg/compute-ticket-list-text-ops dg/compute-run-text-ops dg/offset-text-ops
                       layout-x layout-y cmd-panel-h status-bar-h)
 
         ;; Split: editor rects (content only) + sidebar rects (for pool)
@@ -48,9 +49,9 @@
           !settings !active-font !viewport
           <fold-data <bracket-data
           !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
-          !sidebar-truth !sidebar-overlay !sidebar-ui !sidebar-visible !current-file !sidebar-scene !extract-preview !agent-output
+          !sidebar-truth !sidebar-overlay !sidebar-ui !sidebar-visible !current-file !effective-local-world !sidebar-scene !extract-preview !agent-output
           !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !run-scroll-y !detail-scroll-y
-          dg/flow-canvas-active? dg/compute-ticket-list-rects dg/compute-run-rects dg/offset-rects dg/offset-shadows
+          dg/compute-ticket-list-rects dg/compute-run-rects dg/offset-rects dg/offset-shadows
           layout-x layout-y gutter-w)
 
         <editor-rect-data <editor-rect-flow
@@ -59,7 +60,7 @@
                           !cmd-panel !focus !caret-visible !scroll-y !viewport
                           !settings !active-font
                           !ai-provider !agent-output !sidebar-visible
-                          !current-file !flow-state dg/flow-canvas-active?
+                          !effective-local-world
                           cmd-panel-h status-bar-h)
 
         <settings-rect-data (<settings-panel-rects !settings !focus !viewport !scroll-y !font-manifest)
@@ -70,7 +71,7 @@
                           (fn [text-data editor-rect-data sidebar-data
                                cmd-rects settings-rects settings-text
                                viewport scroll-y cmd-panel settings active-font agent-output
-                               current-file flow-state]
+                               local-world]
                             {:text-data text-data
                              :editor-rect-data editor-rect-data
                              :sidebar-data sidebar-data
@@ -80,8 +81,8 @@
                              :viewport viewport
                              :scroll-y scroll-y
                              :cmd-visible (or (:visible cmd-panel)
-                                              (some? current-file)
-                                              (dg/flow-canvas-active? flow-state))
+                                              (ws/local-world-file-workspace? local-world)
+                                              (ws/local-world-flow? local-world))
                              :agent-visible (some? (:status agent-output))
                              :settings-visible (:visible settings)
                              :font-size (:font-size settings)
@@ -103,8 +104,7 @@
                           (m/watch !settings)
                           (m/watch !active-font)
                           (m/watch !agent-output)
-                          (m/watch !current-file)
-                          (m/watch !flow-state))]
+                          (m/watch !effective-local-world))]
 
     ;; Render pulse: sample world on each RAF tick
     (m/reduce

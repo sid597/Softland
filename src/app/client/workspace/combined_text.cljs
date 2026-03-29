@@ -4,6 +4,7 @@
             [missionary.core :as m]
             [app.client.workspace.events :refer [maybe-snap]]
             [app.client.workspace.rect-tree :refer [rt-node wrap-line tree->rects tree->text-ops tree->shadows resolve-layout]]
+            [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.ui-primitives :as ui :refer [dt]]
             [app.client.workspace.sidebar :as sidebar :refer [sidebar-w]]
             [app.client.workspace.trail :as trail :refer [trail->display-lines trail->chat-nodes agent-wrapped-line-count compute-agent-panel-h]]
@@ -16,13 +17,13 @@
    Split into scoped sub-flows: flow-canvas text isolated from editor text,
    so hover/drag/collapse changes don't recompute editor tokenization and vice versa."
   [!editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y !viewport !settings !active-font
-   !current-file
+   !current-file !effective-local-world
    tokenize-fn layout-fn
    <fold-data
    !flow-state !collapsed-groups !hovered-row-idx !drag-state
    !sidebar-visible !sidebar-scene !extract-preview
    !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus !run-scroll-y !detail-scroll-y
-   flow-canvas-active?* compute-ticket-list-text-ops* compute-run-text-ops* offset-text-ops*
+   compute-ticket-list-text-ops* compute-run-text-ops* offset-text-ops*
    layout-x layout-y cmd-panel-h status-bar-h]
   (let [;; ── Shared layout context ──
         <layout
@@ -46,9 +47,9 @@
         ;; NOT watching: !shimmer-phase, !agent-output, !trail-collapsed, !run-scroll-y
         <intake-text
         (m/latest
-          (fn [layout flow-state scroll-y detail-scroll-y
+          (fn [layout local-world flow-state scroll-y detail-scroll-y
                hovered-row-idx collapsed-groups drag-state]
-            (if-not (and (flow-canvas-active?* flow-state) (= :intake (:node flow-state)))
+            (if-not (ws/local-world-intake? local-world)
               []
               (let [{:keys [viewport font-size char-advance sb-w]} layout
                     content-vw (- (:width viewport) sb-w)]
@@ -57,17 +58,17 @@
                                                 detail-scroll-y
                                                 hovered-row-idx collapsed-groups drag-state))))
           <layout
-          (m/watch !flow-state) (m/watch !scroll-y) (m/watch !detail-scroll-y)
+          (m/watch !effective-local-world) (m/watch !flow-state) (m/watch !scroll-y) (m/watch !detail-scroll-y)
           (m/watch !hovered-row-idx) (m/watch !collapsed-groups) (m/watch !drag-state))
-        ;; 7 fn args, 7 flows
+        ;; 8 fn args, 8 flows
 
         ;; ── Run text ops (agent execution view) ──
         ;; NOT watching: !hovered-row-idx, !collapsed-groups, !drag-state, !detail-scroll-y
         <run-text
         (m/latest
-          (fn [layout flow-state scroll-y agent-output shimmer-phase
+          (fn [layout local-world flow-state scroll-y agent-output shimmer-phase
                trail-collapsed run-scroll-y]
-            (if-not (and (flow-canvas-active?* flow-state) (not= :intake (:node flow-state)))
+            (if-not (ws/local-world-run? local-world)
               []
               (let [{:keys [viewport font-size char-advance sb-w]} layout
                     content-vw (- (:width viewport) sb-w)]
@@ -75,10 +76,10 @@
                                         scroll-y agent-output font-size char-advance
                                         shimmer-phase trail-collapsed run-scroll-y))))
           <layout
-          (m/watch !flow-state) (m/watch !scroll-y)
+          (m/watch !effective-local-world) (m/watch !flow-state) (m/watch !scroll-y)
           (m/watch !agent-output) (m/watch !shimmer-phase)
           (m/watch !trail-collapsed) (m/watch !run-scroll-y))]
-        ;; 7 fn args, 7 flows
+        ;; 8 fn args, 8 flows
 
     ;; ── Main assembly: editor text + chrome (cmd panel, agent, status bar) ──
     ;; NOT watching: !hovered-row-idx, !collapsed-groups, !drag-state,
@@ -86,7 +87,7 @@
     (m/latest
       (fn [intake-text run-text layout
            doc fold-state panel provider agent-output agent-scroll-y scroll-y
-           current-file flow-state sidebar-scene extract-preview
+           current-file local-world flow-state sidebar-scene extract-preview
            shimmer-phase trail-collapsed active-pane scroll-x chat-scroll-y chat-input focus]
         (let [{:keys [viewport settings dpr snap? font-size char-width char-advance line-h
                        sb-vis? sb-w]} layout
@@ -95,14 +96,15 @@
               layout-y (maybe-snap layout-y dpr snap?)
               theme-id (or (:theme-id settings) :gruvbox-dark)
               content-vw (- (:width viewport) sb-w)
+              mode (ws/local-world-mode local-world)
+              file-workspace? (ws/local-world-file-workspace? local-world)
+              flow-mode? (ws/local-world-flow? local-world)
 
               ;; Sidebar text ops — reads from shared scene (cached by render flow)
               sidebar-text-ops
               (when sb-vis?
                 (when-let [tree sidebar-scene]
                   (tree->text-ops tree)))
-
-              file-open? (some? current-file)
 
               ;; MODE-SWITCH: use pre-computed flow text, or compute editor text
               [editor-ops final-line-mapping line-num-ops]
@@ -123,9 +125,9 @@
                   [(if preview-tree (tree->text-ops preview-tree) [])
                    (vec (range (count (:lines doc))))
                    []])
-                (if (flow-canvas-active?* flow-state)
+                (if flow-mode?
                   ;; Flow canvas: use pre-computed ops from intake or run
-                  [(if (= :intake (:node flow-state)) intake-text run-text)
+                  [(if (ws/local-world-intake? local-world) intake-text run-text)
                    (vec (range (count (:lines doc))))
                    []]
 
@@ -201,8 +203,8 @@
 
               ;; When file is open, clip editor text to left 40% and add right-tree text ops
               [editor-ops final-line-mapping line-num-ops]
-              (if (and file-open? (not (flow-canvas-active?* flow-state)) (not (:rt-node extract-preview)))
-                (let [code-w (int (* content-vw 0.4))
+              (if (and file-workspace? (not (:rt-node extract-preview)))
+                (let [code-w (int (* content-vw (ws/pane-width-pct local-world :main 0.4)))
                       clip-left layout-x
                       header-h 36
                       clip-top (+ scroll-y header-h)
@@ -240,6 +242,7 @@
                                    (build-file-layout content-vw file-layout-h
                                                       current-file agent-output font-size
                                                       shimmer-alpha trail-collapsed
+                                                      :local-world local-world
                                                       :active-pane active-pane :char-advance char-advance
                                                       :chat-scroll-y (or chat-scroll-y 0)
                                                       :chat-input chat-input :focus focus))
@@ -272,7 +275,7 @@
               offset-editor-ops (offset-text-ops* (clip-bottom editor-ops) sb-w)
               offset-line-num-ops (offset-text-ops* (clip-bottom line-num-ops) sb-w)
 
-              panel-visible? (or (:visible panel) file-open? (flow-canvas-active?* flow-state))
+              panel-visible? (or (:visible panel) file-workspace? flow-mode?)
               cmd-ops (when panel-visible?
                         (let [cmd-panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h)) dpr snap?)
                               cmd-text-y (maybe-snap (+ cmd-panel-y 12 font-size) dpr snap?)
@@ -348,7 +351,7 @@
                                 (mapv (fn [wl] {:text wl :color (:color entry)}) wrapped))))
                             raw-lines)
 
-                agent-panel-h (if file-open?
+                agent-panel-h (if file-workspace?
                                 0
                                 (compute-agent-panel-h agent-output font-size (:height viewport)
                                                        (:width viewport) char-advance))
@@ -381,14 +384,16 @@
                               (range (count all-lines)))
 
                 status-y (maybe-snap (+ scroll-y (- (:height viewport) status-bar-h) 4 font-size) dpr snap?)
-                status-left-text (if (flow-canvas-active?* flow-state)
+                status-left-text (if flow-mode?
                                    (let [node-name (some-> (:node flow-state) name str/upper-case)
                                          n-tickets (count (:tickets flow-state))
                                          n-selected (count (:selected flow-state))]
                                      (str node-name " | " n-tickets " tickets | " n-selected " selected"))
                                    (let [sb-cursor (:cursor doc)]
                                      (str "Ln " (inc (:line sb-cursor)) ", Col " (inc (:col sb-cursor)))))
-                file-name (or (:name current-file) "untitled")
+                file-name (or (:name current-file)
+                              (get-in local-world [:selected-artifact :name])
+                              "untitled")
                 provider-upper (some-> provider name str/upper-case)
                 status-right-text (if provider-upper
                                     (str file-name "  |  " provider-upper)
@@ -413,7 +418,7 @@
             {:render-ops (vec (concat (or sidebar-text-ops [])
                                       offset-line-num-ops offset-editor-ops
                                       cmd-lines
-                                      (when-not file-open? agent-lines)
+                                      (when-not file-workspace? agent-lines)
                                       status-lines))
              :line-mapping final-line-mapping
              :editor-line-count (+ (count line-num-ops) (count editor-ops))
@@ -421,7 +426,7 @@
       <intake-text <run-text <layout
       (m/watch !editor-doc) <fold-data (m/watch !cmd-panel) (m/watch !ai-provider)
       (m/watch !agent-output) (m/watch !agent-scroll-y) (m/watch !scroll-y)
-      (m/watch !current-file) (m/watch !flow-state) (m/watch !sidebar-scene)
+      (m/watch !current-file) (m/watch !effective-local-world) (m/watch !flow-state) (m/watch !sidebar-scene)
       (m/watch !extract-preview)
       (m/watch !shimmer-phase) (m/watch !trail-collapsed) (m/watch !active-pane)
       (m/watch !scroll-x) (m/watch !chat-scroll-y) (m/watch !chat-input) (m/watch !focus))))

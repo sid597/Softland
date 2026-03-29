@@ -4,7 +4,8 @@
 
    SEMANTIC (routed here):
      select-artifact!, clear-artifact!,
-     set-active-pane!, toggle-sidebar!, hide-sidebar!
+     set-active-pane!, toggle-sidebar!, hide-sidebar!,
+     enter-workflow!, exit-workflow!
    EPHEMERAL (stays as direct mutation):
      !focus, !caret-visible, !cmd-panel :visible, !settings :visible,
      scrolls, hover, drag, mouse position")
@@ -64,6 +65,28 @@
   (reset! !active-pane :editor)
   (reset! !focus :editor))
 
+;; ── Workflow entry/exit ──────────────────────────────────────────
+
+(defn enter-workflow!
+  "Workspace-level consequences of entering a workflow.
+   DG command handlers own the FSM transition; this handles the
+   substrate side: clear file artifact (workflow takes full screen),
+   reset pane to editor, reset scroll."
+  [{:keys [!selected-artifact !current-file !active-pane !focus !scroll-y]}]
+  (reset! !selected-artifact nil)
+  (reset! !current-file nil)
+  (reset! !active-pane :editor)
+  (reset! !focus :editor)
+  (reset! !scroll-y 0))
+
+(defn exit-workflow!
+  "Workspace-level consequences of exiting a workflow (back to idle).
+   DG command handlers call this after resetting !flow-state."
+  [{:keys [!active-pane !focus !scroll-y]}]
+  (reset! !active-pane :editor)
+  (reset! !focus :editor)
+  (reset! !scroll-y 0))
+
 ;; ── Local world derivation ──────────────────────────────────────
 
 (defn derive-effective-local-world
@@ -83,11 +106,11 @@
   (let [file-open? (and (some? selected-artifact)
                         (= :file (:kind selected-artifact)))
         flow-active? (and (some? flow-state)
-                          (contains? #{:intake :select :arrange :run :review
+                          (contains? #{:bootstrapping :intake :select :arrange :run :review
                                        :rework :finalize}
                                      (:node flow-state)))
         mode (cond
-               (and flow-active? (= :intake (:node flow-state))) :flow-intake
+               (and flow-active? (contains? #{:bootstrapping :intake} (:node flow-state))) :flow-intake
                flow-active?       :flow-run
                file-open?         :file-workspace
                :else              :editor)]
@@ -102,6 +125,19 @@
      :flow-session-id  (:session-id flow-state)
      :agent-status     (:status agent-output)
      :agent-run-id     (:run-id agent-output)
+     ;; Split — preserved co-presence. Describes what's held together,
+     ;; which artifact is primary, what's adjacent.
+     ;; :direction = :horizontal (panes side-by-side) or :single (one pane fills)
+     ;; :primary = :pane/id of the primary artifact pane
+     ;; :adjacent = vec of :pane/id that share the split
+     :split
+     (case mode
+       :file-workspace {:direction :horizontal
+                        :primary   :main
+                        :adjacent  [:right :preview]}
+       {:direction :single
+        :primary   :main
+        :adjacent  []})
      ;; Pane descriptors — semantic fills derived from mode + artifacts.
      ;; Each pane: {:pane/id :role :artifact-ref :content}
      ;; :role = what the pane is for (:primary-artifact, :trail, :preview, :command, :flow-canvas)
@@ -135,3 +171,40 @@
        [{:pane/id :main    :role :primary-artifact
          :artifact-ref nil
          :width-pct 1.0}])}))
+
+(defn local-world-mode
+  "Read the effective mode from a local-world object, defaulting to :editor
+   during boot before the first derivation runs."
+  [local-world]
+  (or (:mode local-world) :editor))
+
+(defn local-world-flow?
+  "True when the local world is showing a workflow surface."
+  [local-world]
+  (contains? #{:flow-intake :flow-run} (local-world-mode local-world)))
+
+(defn local-world-intake?
+  "True when the local world is showing the intake workflow surface."
+  [local-world]
+  (= :flow-intake (local-world-mode local-world)))
+
+(defn local-world-run?
+  "True when the local world is showing a run/review workflow surface."
+  [local-world]
+  (= :flow-run (local-world-mode local-world)))
+
+(defn local-world-file-workspace?
+  "True when the local world is showing the file workspace split."
+  [local-world]
+  (= :file-workspace (local-world-mode local-world)))
+
+(defn pane-descriptor
+  "Look up a semantic pane descriptor by stable :pane/id."
+  [local-world pane-id]
+  (some #(when (= pane-id (:pane/id %)) %) (:panes local-world)))
+
+(defn pane-width-pct
+  "Read a pane's semantic width percentage, falling back when the pane is absent."
+  [local-world pane-id fallback]
+  (or (:width-pct (pane-descriptor local-world pane-id))
+      fallback))

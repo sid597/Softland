@@ -13,9 +13,8 @@
             [app.client.workspace.runtime.state :refer [save-undo!]]
             [app.client.workspace.runtime.sidebar-io :refer [emit-sidebar-action!]]
             [app.client.workspace.runtime.workspace-actions :as ws]
-            [app.client.workflows.dg-flow :refer [flow-canvas-active? build-intake-tree
-                                                   drag-distance drag-threshold-px
-                                                   set-selection]]))
+            [app.client.workflows.dg-flow :refer [build-intake-tree drag-distance
+                                                   drag-threshold-px set-selection]]))
 
 ;; ═══════════════════════════════════════════════════════════════════════
 ;; Paste + drag-select (raw DOM, not Missionary)
@@ -58,7 +57,7 @@
 (defn install-drag-select!
   "Install raw DOM drag-select listeners (bypasses Missionary async scheduling)."
   [{:keys [!scroll-y !sidebar-visible !viewport !settings !active-font !scroll-x
-           !text-geo !editor-doc !current-file !flow-state !drag-start !dragging?
+           !text-geo !editor-doc !effective-local-world !drag-start !dragging?
            !focus !caret-visible]}
    {:keys [layout-x layout-y]}
    node]
@@ -97,11 +96,12 @@
               {:keys [x]} coords
               sb-w (if (and !sidebar-visible @!sidebar-visible) sidebar-w 0)
               local-x (- x sb-w)
+              local-world @!effective-local-world
               content-w (- (:width @!viewport) sb-w)
-              code-w (int (* content-w 0.4))
-              in-editor? (and (some? (:path @!current-file)) (< local-x code-w))
-              in-normal-editor? (and (nil? (:path @!current-file))
-                                     (not (flow-canvas-active? @!flow-state)))]
+              code-w (int (* content-w (ws/pane-width-pct local-world :main 0.4)))
+              in-editor? (and (ws/local-world-file-workspace? local-world) (< local-x code-w))
+              in-normal-editor? (and (not (ws/local-world-file-workspace? local-world))
+                                     (not (ws/local-world-flow? local-world)))]
           (when (or in-editor? in-normal-editor?)
             (let [pos (mouse->pos coords)]
               (reset! !drag-start pos)
@@ -306,7 +306,7 @@
 
 (defn- handle-chat-click!
   "Route click within the chat pane: nav links and tool collapse toggles."
-  [{:keys [!settings !active-font !shimmer-phase !current-file !agent-output
+  [{:keys [!settings !active-font !shimmer-phase !current-file !effective-local-world !agent-output
            !trail-collapsed !active-pane !chat-scroll-y !chat-input !focus
            !editor-doc !scroll-y !sidebar-truth]
     :as atoms}
@@ -321,6 +321,7 @@
                    (build-file-layout content-w file-layout-h
                                       @!current-file @!agent-output font-size
                                       shimmer-alpha @!trail-collapsed
+                                      :local-world @!effective-local-world
                                       :active-pane @!active-pane :char-advance char-advance
                                       :chat-scroll-y (or @!chat-scroll-y 0)
                                       :chat-input @!chat-input :focus @!focus))
@@ -389,7 +390,7 @@
 
 (defn- handle-mousedown!
   "Route mousedown to the appropriate zone handler."
-  [{:keys [!viewport !scroll-y !settings !sidebar-visible !current-file !cmd-panel
+  [{:keys [!viewport !scroll-y !settings !sidebar-visible !current-file !effective-local-world !cmd-panel
            !flow-state !focus !caret-visible !active-pane] :as atoms}
    {:keys [layout-x layout-y gutter-w] :as layout}
    deps io x y]
@@ -397,6 +398,7 @@
         scroll-y @!scroll-y
         settings @!settings
         sb-vis? (and !sidebar-visible @!sidebar-visible)
+        local-world @!effective-local-world
         ;; Settings overlay
         panel-w 600  panel-h 480
         panel-x (/ (- (:width viewport) panel-w) 2)
@@ -417,8 +419,8 @@
       :else
       (let [cmd-panel @!cmd-panel
             cmd-visible? (or (:visible cmd-panel)
-                             (some? @!current-file)
-                             (flow-canvas-active? @!flow-state))
+                             (ws/local-world-file-workspace? local-world)
+                             (ws/local-world-flow? local-world))
             cmd-panel-top (if cmd-visible?
                             (- (:height viewport) cmd-panel-h status-bar-h)
                             (:height viewport))
@@ -431,7 +433,7 @@
             (when (:visible @!cmd-panel)
               (swap! !cmd-panel assoc :visible false))
             (cond
-              (flow-canvas-active? @!flow-state)
+              (ws/local-world-flow? local-world)
               (let [sb-w (if sb-vis? sidebar-w 0)]
                 (handle-flow-canvas-click! atoms
                                            (- x sb-w) y
@@ -439,11 +441,11 @@
                                            (:height viewport)
                                            scroll-y))
 
-              (some? @!current-file)
+              (ws/local-world-file-workspace? local-world)
               (let [sb-w (if sb-vis? sidebar-w 0)
                     content-w (- (:width viewport) sb-w)
-                    code-w (int (* content-w 0.4))
-                    chat-w (int (* content-w 0.55))
+                    code-w (int (* content-w (ws/pane-width-pct local-world :main 0.4)))
+                    chat-w (int (* content-w (ws/pane-width-pct local-world :right 0.55)))
                     rel-x (- x sb-w)
                     in-editor? (< rel-x code-w)
                     in-chat? (and (>= rel-x code-w) (< rel-x (+ code-w chat-w)))
@@ -463,7 +465,7 @@
 (defn- handle-mousemove!
   "Route mousemove: sidebar hover, drag state machine, flow canvas hover."
   [{:keys [!mouse-x !mouse-y !sidebar-visible !sidebar-ui !sidebar-scene !settings !active-font
-           !current-file !viewport !scroll-y !drag-state !flow-state
+           !current-file !effective-local-world !viewport !scroll-y !drag-state !flow-state
            !hovered-row-idx !collapsed-groups]}
    coords]
   (reset! !mouse-x (:x coords))
@@ -502,7 +504,7 @@
   (let [sb-vis? (and !sidebar-visible @!sidebar-visible)
         sb-w (if sb-vis? sidebar-w 0)
         in-sidebar? (and sb-vis? (< (:x coords) sidebar-w))]
-    (when (and (flow-canvas-active? @!flow-state)
+    (when (and (ws/local-world-intake? @!effective-local-world)
                (not in-sidebar?)
                (= :idle (:phase @!drag-state)))
       (let [flow @!flow-state

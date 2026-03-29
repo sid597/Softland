@@ -4,6 +4,7 @@
             [missionary.core :as m]
             [app.client.workspace.events :refer [maybe-snap]]
             [app.client.workspace.rect-tree :refer [rt-node resolve-layout tree->rects tree->shadows]]
+            [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.themes :as themes]
             [app.client.workspace.text-input :as text-input]
             [app.client.workspace.ui-primitives :refer [dt]]
@@ -267,9 +268,9 @@
   [!editor-doc !eval-result !caret-visible !focus !settings !active-font !viewport
    <fold-data <bracket-data
    !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
-   !sidebar-truth !sidebar-overlay !sidebar-ui !sidebar-visible !current-file !sidebar-scene !extract-preview !agent-output
+   !sidebar-truth !sidebar-overlay !sidebar-ui !sidebar-visible !current-file !effective-local-world !sidebar-scene !extract-preview !agent-output
    !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !run-scroll-y !detail-scroll-y
-   flow-canvas-active?* compute-ticket-list-rects* compute-run-rects* offset-rects* offset-shadows*
+   compute-ticket-list-rects* compute-run-rects* offset-rects* offset-shadows*
    layout-x layout-y gutter-w]
   (let [;; ── Shared layout context (changes on: resize, settings, font, sidebar toggle) ──
         <layout
@@ -289,14 +290,12 @@
         ;; ── Mode determination ──
         <mode
         (m/latest
-          (fn [flow-state current-file extract-preview]
+          (fn [local-world extract-preview]
             (cond
-              (:rt-node extract-preview)          :extract-preview
-              (flow-canvas-active?* flow-state)   (if (= :intake (:node flow-state)) :intake :run)
-              (some? current-file)                :file-open
-              :else                               :editor))
-          (m/watch !flow-state) (m/watch !current-file) (m/watch !extract-preview))
-        ;; 3 fn args, 3 flows
+              (:rt-node extract-preview) :extract-preview
+              :else (ws/local-world-mode local-world)))
+          (m/watch !effective-local-world) (m/watch !extract-preview))
+        ;; 2 fn args, 2 flows
 
         ;; ── Sidebar rects (independent of content mode) ──
         ;; Builds + resolves the tree once, caches in !sidebar-scene for hit-testing,
@@ -336,9 +335,9 @@
         ;; NOT watching: !shimmer-phase, !agent-output, !trail-collapsed, !run-scroll-y
         <intake-content
         (m/latest
-          (fn [layout flow-state scroll-y detail-scroll-y
+          (fn [layout local-world flow-state scroll-y detail-scroll-y
                hovered-row-idx collapsed-groups drag-state]
-            (if-not (and (flow-canvas-active?* flow-state) (= :intake (:node flow-state)))
+            (if-not (ws/local-world-intake? local-world)
               {:rects [] :shadows []}
               (let [{:keys [viewport font-size char-advance sb-w]} layout
                     content-w (- (:width viewport) sb-w)]
@@ -347,17 +346,17 @@
                                             collapsed-groups drag-state
                                             font-size char-advance))))
           <layout
-          (m/watch !flow-state) (m/watch !scroll-y) (m/watch !detail-scroll-y)
+          (m/watch !effective-local-world) (m/watch !flow-state) (m/watch !scroll-y) (m/watch !detail-scroll-y)
           (m/watch !hovered-row-idx) (m/watch !collapsed-groups) (m/watch !drag-state))
-        ;; 7 fn args, 7 flows
+        ;; 8 fn args, 8 flows
 
         ;; ── Run rects (agent execution view) ──
         ;; NOT watching: !hovered-row-idx, !collapsed-groups, !drag-state, !detail-scroll-y
         <run-content
         (m/latest
-          (fn [layout flow-state scroll-y agent-output shimmer-phase
+          (fn [layout local-world flow-state scroll-y agent-output shimmer-phase
                trail-collapsed run-scroll-y]
-            (if-not (and (flow-canvas-active?* flow-state) (not= :intake (:node flow-state)))
+            (if-not (ws/local-world-run? local-world)
               {:rects [] :shadows []}
               (let [{:keys [viewport font-size char-advance sb-w]} layout
                     content-w (- (:width viewport) sb-w)]
@@ -365,17 +364,17 @@
                                     scroll-y agent-output font-size char-advance
                                     shimmer-phase trail-collapsed run-scroll-y))))
           <layout
-          (m/watch !flow-state) (m/watch !scroll-y)
+          (m/watch !effective-local-world) (m/watch !flow-state) (m/watch !scroll-y)
           (m/watch !agent-output) (m/watch !shimmer-phase)
           (m/watch !trail-collapsed) (m/watch !run-scroll-y))
-        ;; 7 fn args, 7 flows
+        ;; 8 fn args, 8 flows
 
         ;; ── Editor/file/extract rects ──
         ;; NOT watching: !hovered-row-idx, !collapsed-groups, !drag-state,
         ;;               !detail-scroll-y, !run-scroll-y
         <editor-content
         (m/latest
-          (fn [layout current-file extract-preview
+          (fn [layout local-world current-file extract-preview
                doc fold-state bracket-match eval-result caret-visible focus
                scroll-y scroll-x
                agent-output shimmer-phase trail-collapsed
@@ -402,8 +401,8 @@
                    :shadows (if preview-tree (tree->shadows preview-tree) [])})
 
                 ;; File open (3-pane)
-                (some? current-file)
-                (let [code-w (int (* content-w 0.4))
+                (ws/local-world-file-workspace? local-world)
+                (let [code-w (int (* content-w (ws/pane-width-pct local-world :main 0.4)))
                       content-h (- (:height viewport) cmd-panel-h status-bar-h)
                       line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
                       lx (maybe-snap (- layout-x (or scroll-x 0)) dpr snap?)
@@ -417,6 +416,7 @@
                       right-tree (resolve-layout
                                    (build-file-layout content-w content-h current-file agent-output font-size
                                                       shimmer-alpha trail-collapsed
+                                                      :local-world local-world
                                                       :active-pane active-pane :char-advance char-advance
                                                       :chat-scroll-y (or chat-scroll-y 0)
                                                       :chat-input chat-input :focus focus))
@@ -435,13 +435,13 @@
                                                 lx ly line-h gutter-w char-advance content-w
                                                 :gutter-lx ulx)
                    :shadows []}))))
-          <layout (m/watch !current-file) (m/watch !extract-preview)
+          <layout (m/watch !effective-local-world) (m/watch !current-file) (m/watch !extract-preview)
           (m/watch !editor-doc) <fold-data <bracket-data (m/watch !eval-result)
           (m/watch !caret-visible) (m/watch !focus)
           (m/watch !scroll-y) (m/watch !scroll-x)
           (m/watch !agent-output) (m/watch !shimmer-phase) (m/watch !trail-collapsed)
           (m/watch !active-pane) (m/watch !chat-scroll-y) (m/watch !chat-input))]
-        ;; 17 fn args, 17 flows
+        ;; 18 fn args, 18 flows
 
     ;; ── Return both flows separately ──
     ;; Editor rects (content only, offset by sidebar width) go to editor-rect-sys.
@@ -450,8 +450,8 @@
      (m/latest
        (fn [mode intake run editor-content layout]
          (let [content (case mode
-                         :intake intake
-                         :run run
+                         :flow-intake intake
+                         :flow-run run
                          editor-content)]
            {:rects (vec (offset-rects* (:rects content) (:sb-w layout)))
             :shadows (vec (offset-shadows* (:shadows content) (:sb-w layout)))}))
