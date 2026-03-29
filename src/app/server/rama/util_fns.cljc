@@ -54,6 +54,7 @@
 (def agent-trails-pstate         (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$agent-trails-pstate"))
 (def flow-session-pstate         (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$flow-session-pstate"))
 (def editor-state-pstate         (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$editor-state-pstate"))
+(def workspace-truth-pstate      (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$workspace-truth-pstate"))
 
 
 (defn update-event-id []
@@ -352,6 +353,29 @@
   (let [result {:run-id run-id :trail-data trail-data}]
     (reset! !agent-trail-atom result)
     result))
+
+;; ── Workspace Truth Rama helpers ─────────────────────────────────
+
+(defn get-workspace-truth
+  "Read workspace truth from Rama."
+  []
+  (or (first (foreign-select [:workspace] workspace-truth-pstate)) {}))
+
+(defonce !workspace-truth-atom
+  (atom (try (get-workspace-truth)
+             (catch Exception _ {}))))
+
+(defn emit-workspace-truth-event!
+  "Persist workspace truth fields to Rama."
+  [truth-data]
+  (foreign-append! event-depot
+    (->node-events :workspace/save-truth
+                   truth-data
+                   {:graph-name :workspace})
+    :append-ack)
+  (let [state (get-workspace-truth)]
+    (reset! !workspace-truth-atom state)
+    state))
 
 ;; ── Editor State Rama helpers ────────────────────────────────────
 

@@ -89,6 +89,10 @@
     ;; Editor state — document content keyed by file path
     ;; Phase 4B: measuring direct committed editing through Rama
     (declare-pstate n $$editor-state-pstate {String (map-schema Keyword Object)})
+
+    ;; Workspace truth — selected artifact, active pane, sidebar visible
+    ;; Phase 7: persist stabilized workspace semantic model
+    (declare-pstate n $$workspace-truth-pstate {Keyword (map-schema Keyword Object)})
     (declare-pstate n $$user-registration-pstate {String ; username
                                                   (fixed-keys-schema {:user-id Long
                                                                       :uuid String})})
@@ -380,6 +384,12 @@
         (explode-map *node-data :> *setting-key *setting-val)
         (local-transform> [*graph-name (keypath *setting-key) (termval *setting-val)] $$settings-pstate)
         (println "R: SETTINGS update" *setting-key *setting-val)
+
+        ;; ========workspace: save truth========
+        (case> (= :workspace/save-truth *action-type))
+        (explode-map *node-data :> *wkey *wval)
+        (local-transform> [*graph-name (keypath *wkey) (termval *wval)] $$workspace-truth-pstate)
+        (println "R: WORKSPACE save-truth")
 
         ;; ========editor: save document state========
         (case> (= :editor/save-doc *action-type))

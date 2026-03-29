@@ -3,6 +3,18 @@
   (:require [clojure.string :as str]
             [cljs.reader :as reader]))
 
+(defn save-workspace-truth!
+  "Persist workspace truth to Rama via HTTP. Fire-and-forget."
+  [truth-data]
+  (when (seq truth-data)
+    (-> (js/fetch "/api/workspace/save-truth"
+          (clj->js {:method "POST"
+                    :headers {"Content-Type" "application/edn"}
+                    :body (pr-str {:data truth-data})}))
+        (.then (fn [resp] (.text resp)))
+        (.then (fn [_] (js/console.log "[WORKSPACE-HTTP] save-truth")))
+        (.catch (fn [err] (js/console.error "[WORKSPACE] Save failed:" err))))))
+
 (defn save-editor-doc!
   "Persist editor document state to Rama. Logs full round-trip latency
    for Phase 4B measurement. Fire-and-forget — the client does NOT wait
@@ -84,7 +96,7 @@
 
 (defn make-sidebar-io
   "Create sidebar I/O closures. Returns {:fetch-edn! :post-edn! :fetch-home-dirs! :fetch-dir! :fetch-file!}."
-  [{:keys [!sidebar-ui !current-file !scroll-x !file-load-request]}]
+  [{:keys [!sidebar-ui !current-file !selected-artifact !scroll-x !file-load-request]}]
   (let [fetch-edn!
         (fn
           ([url callback]
@@ -150,7 +162,14 @@
                           (fn [result]
                             (swap! !sidebar-ui update :in-flight-files disj path)
                             (if (:error result)
-                              (js/console.error "[SIDEBAR] File read error:" (:error result))
+                              (do (js/console.error "[SIDEBAR] File read error:" (:error result))
+                                  ;; Roll back selection — file can't be loaded.
+                                  ;; Clear local state AND committed sidebar truth so
+                                  ;; reconnect/reload doesn't retry the failed open.
+                                  (when !selected-artifact
+                                    (reset! !selected-artifact nil))
+                                  (reset! !current-file nil)
+                                  (emit-sidebar-action! :sidebar/file-select {:path nil :name nil} nil))
                               (when (= @!latest-file-req path)
                                 (let [lines (str/split-lines (:content result))]
                                   (reset! !current-file {:path path :name (last (str/split path #"/"))})
@@ -160,7 +179,12 @@
                                             target-line (assoc :target-line target-line)))))))
                           (fn [err]
                             (js/console.error "[SIDEBAR] File read error:" err)
-                            (swap! !sidebar-ui update :in-flight-files disj path))))))]
+                            (swap! !sidebar-ui update :in-flight-files disj path)
+                            ;; Roll back selection on network error too
+                            (when !selected-artifact
+                              (reset! !selected-artifact nil))
+                            (reset! !current-file nil)
+                            (emit-sidebar-action! :sidebar/file-select {:path nil :name nil} nil))))))]
     {:fetch-edn! fetch-edn!
      :post-edn! post-edn!
      :fetch-home-dirs! fetch-home-dirs!

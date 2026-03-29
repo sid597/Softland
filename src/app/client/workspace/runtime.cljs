@@ -1,7 +1,8 @@
 (ns app.client.workspace.runtime
   "Thin shell: build runtime context, wire modules, join the reactive loop.
    All business logic lives in workspace/runtime/* modules."
-  (:require [clojure.set :as set]
+  (:require [clojure.string :as str]
+            [clojure.set :as set]
             [missionary.core :as m]
             [app.client.workspace.events :as events]
             [app.client.workspace.sidebar :refer [cmd-panel-h status-bar-h]]
@@ -22,7 +23,7 @@
    returns a Missionary task that runs the render loop."
   [node device ctx geometry initial-line-lengths initial-lines
    tokenize-fn layout-fn find-bracket-fn detect-folds-fn
-   find-form-fn eval-form-fn atlas & {:keys [font-manifest !sidebar-visible !file-load-request !preview-el !remote-sidebar-truth !remote-settings-truth !remote-agent-trail !remote-flow-session initial-file]}]
+   find-form-fn eval-form-fn atlas & {:keys [font-manifest !sidebar-visible !file-load-request !preview-el !remote-sidebar-truth !remote-settings-truth !remote-agent-trail !remote-flow-session !remote-workspace-truth initial-file]}]
 
   (let [;; Phase 2: Build the rt context map
         rt (state/make-runtime-state
@@ -232,6 +233,59 @@
                         new-p (select-keys new-val persistent-keys)]
                     (when (not= old-p new-p)
                       (sidebar-io/save-flow-state! new-p)))))))
+
+        ;; ── Workspace truth persistence (Phase 7) ────────────────────
+        ;; Restore on load: selected-artifact, active-pane, sidebar-visible.
+        ;; Persist on change: debounced to avoid intermediate states.
+        ;; Do NOT persist derived state (!effective-local-world, :split, :panes).
+        !workspace-loaded (atom false)
+        !workspace-persist-timer (atom nil)
+
+        _ (when !remote-workspace-truth
+            (let [saved @!remote-workspace-truth]
+              (when (and (map? saved) (seq saved))
+                ;; Restore selected-artifact + sync !current-file
+                (let [art (:selected-artifact saved)]
+                  (reset! (:!selected-artifact atoms) art)
+                  (if (and art (= :file (:kind art)))
+                    (do (reset! (:!current-file atoms) {:path (:path art) :name (:name art)})
+                        (when-let [project (or (:path (:project @(:!sidebar-truth atoms)))
+                                               (some-> (:path art) (str/split #"/") butlast seq (#(str/join "/" %))))]
+                          ((:fetch-file! io) (:path art) project)))
+                    ;; Not a file or nil — clear !current-file to prevent stale identity
+                    (reset! (:!current-file atoms) nil)))
+                ;; Restore active-pane via semantic action (syncs !focus + !caret-visible)
+                (when-let [pane (:active-pane saved)]
+                  (ws/set-active-pane! atoms pane))
+                ;; Restore sidebar-visible
+                (when (contains? saved :sidebar-visible)
+                  (when (:!sidebar-visible atoms)
+                    (reset! (:!sidebar-visible atoms) (:sidebar-visible saved))))
+                (js/console.log "[WORKSPACE-TRUTH] Restored:" (pr-str (keys saved))))))
+
+        ;; Debounced persist: wait 16ms after last atom change so sequential
+        ;; mutations from one action (e.g. clear-artifact! sets both
+        ;; !selected-artifact and !active-pane) settle before saving.
+        _ (let [persist-workspace!
+                (fn []
+                  (when-let [timer @!workspace-persist-timer]
+                    (js/clearTimeout timer))
+                  (reset! !workspace-persist-timer
+                    (js/setTimeout
+                      (fn []
+                        (reset! !workspace-persist-timer nil)
+                        (when @!workspace-loaded
+                          (let [truth {:selected-artifact @(:!selected-artifact atoms)
+                                       :active-pane @(:!active-pane atoms)
+                                       :sidebar-visible (boolean (and (:!sidebar-visible atoms)
+                                                                      @(:!sidebar-visible atoms)))}]
+                            (sidebar-io/save-workspace-truth! truth))))
+                      16)))]
+            (add-watch (:!selected-artifact atoms) :workspace-persist (fn [_ _ _ _] (persist-workspace!)))
+            (add-watch (:!active-pane atoms) :workspace-persist (fn [_ _ _ _] (persist-workspace!)))
+            (when (:!sidebar-visible atoms)
+              (add-watch (:!sidebar-visible atoms) :workspace-persist (fn [_ _ _ _] (persist-workspace!))))
+            (reset! !workspace-loaded true))
 
         ;; ── Effective local world (reactive derivation) ──────────────
         ;; One derived object that answers "what world is the user in?"

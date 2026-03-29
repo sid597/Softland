@@ -951,6 +951,18 @@ information."
             (json-response {:error (str "Trail save failed: " (.getMessage e))})))
         (json-response {:error "Method not allowed. Use POST."}))
 
+      ;; ===== Workspace Truth Persistence (Phase 7) =====
+      (= uri "/api/workspace/save-truth")
+      (if (= request-method :post)
+        (try
+          (let [body (parse-edn-body ring-req)
+                truth-data (or (:data body) {})]
+            (json-response (util-fns/emit-workspace-truth-event! truth-data)))
+          (catch Exception e
+            (log/error e "[WORKSPACE][SAVE][ERROR]")
+            (json-response {:error (str "Workspace save failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
       ;; ===== Editor State Persistence (Phase 4B measurement) =====
       (= uri "/api/editor/save-doc")
       (if (= request-method :post)

@@ -447,20 +447,24 @@
 
           (let [resources (LoadWebGPU)
                 font-manifest (e/Task (await-promise (load-font-manifest-async)))
-                ;; Sidebar state atoms (plain CLJS, not watched by Electric)
-                !sidebar-visible (atom true)
-                !file-load-request (atom nil)
                 ;; Rama truth atoms — Electric subscriptions populate these
                 !sidebar-truth (atom nil)
                 !settings-truth (atom nil)
                 !agent-trail-truth (atom nil)
-                !flow-session-truth (atom nil)]
+                !flow-session-truth (atom nil)
+                !workspace-truth (atom nil)]
             ;; Reactive sync: Rama PState → Electric → client atom.
             ;; Re-runs whenever the server-side PState changes.
             (reset! !sidebar-truth (fv/WatchSidebarTruth))
             (reset! !settings-truth (fv/WatchUserSettings))
             (reset! !agent-trail-truth (fv/WatchAgentTrail))
             (reset! !flow-session-truth (fv/WatchFlowSession))
+            (reset! !workspace-truth (fv/WatchWorkspaceTruth))
+            ;; Sidebar visible: default true, but respect persisted workspace truth.
+            ;; Must be initialized AFTER workspace truth loads so install-sidebar-watch!
+            ;; sees the correct initial value and doesn't auto-show a hidden sidebar.
+            (let [!sidebar-visible (atom (get @!workspace-truth :sidebar-visible true))
+                  !file-load-request (atom nil)]
             (when resources
               (let [device (get resources :device)
                     format (get resources :format)
@@ -519,4 +523,5 @@
                                                     :!remote-settings-truth !settings-truth
                                                     :!remote-agent-trail !agent-trail-truth
                                                     :!remote-flow-session !flow-session-truth
-                                                    :initial-file file-info)))))))))))))))
+                                                    :!remote-workspace-truth !workspace-truth
+                                                    :initial-file file-info))))))))))))))))

@@ -126,3 +126,8 @@
   "Reactive bridge: DG workflow FSM state → Electric client."
   []
   (e/server (e/watch util-fns/!flow-session-atom)))
+
+(e/defn WatchWorkspaceTruth
+  "Reactive bridge: workspace truth (selected artifact, active pane, sidebar) → Electric client."
+  []
+  (e/server (e/watch util-fns/!workspace-truth-atom)))
