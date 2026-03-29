@@ -2,7 +2,8 @@
   "Slot-based GPU buffer pool for differential rect rendering.
    Each slot holds one rect (28 floats = 112 bytes).
    Supports per-slot updates via writeBuffer for O(1) partial writes,
-   and batch-update with diff for O(changed) bulk sync.")
+   and batch-update with diff for O(changed) bulk sync."
+  (:require [clojure.set]))
 
 (def floats-per-rect 28)
 (def bytes-per-rect 112) ;; 28 × 4
@@ -123,6 +124,66 @@
         data (pack-rect rect-map)]
     (.writeBuffer (.-queue device) buffer (* slot-index bytes-per-rect) data))
   nil)
+
+;; ============================================================================
+;; KEYED DIFF API (Phase 5: differential rendering by identity)
+;; ============================================================================
+
+(defn keyed-diff-update-pool!
+  "Sync pool contents with a keyed rect list. Each rect must have an :id field.
+   Allocates new slots for new IDs, updates changed rects, frees removed IDs.
+   Returns {:added N :updated N :freed N :total-writes N} for diagnostics.
+
+   This is the Missionary-side equivalent of what e/for-by would do:
+   - new ID → allocate-slot! + update-slot!
+   - same ID, changed rect → update-slot!
+   - removed ID → free-slot!"
+  [pool new-rects]
+  (let [new-rects (or new-rects [])
+        {:keys [id->slot prev-keyed-rects]} @pool
+        id->slot (or id->slot {})
+        prev-keyed (or prev-keyed-rects {})
+        new-keyed (into {} (map (fn [r] [(:id r) r])) new-rects)
+        new-ids (set (keys new-keyed))
+        old-ids (set (keys prev-keyed))
+        added-ids (clojure.set/difference new-ids old-ids)
+        removed-ids (clojure.set/difference old-ids new-ids)
+        kept-ids (clojure.set/intersection new-ids old-ids)
+        added (volatile! 0)
+        updated (volatile! 0)
+        freed (volatile! 0)
+        ;; Free removed slots
+        new-id->slot (reduce (fn [m id]
+                               (when-let [slot (get m id)]
+                                 (free-slot! pool slot))
+                               (vswap! freed inc)
+                               (dissoc m id))
+                             id->slot removed-ids)
+        ;; Allocate + write new slots
+        new-id->slot (reduce (fn [m id]
+                               (let [slot (allocate-slot! pool)
+                                     rect (get new-keyed id)]
+                                 (update-slot! pool slot rect)
+                                 (vswap! added inc)
+                                 (assoc m id slot)))
+                             new-id->slot added-ids)
+        ;; Update changed kept slots
+        new-id->slot (reduce (fn [m id]
+                               (let [old-rect (get prev-keyed id)
+                                     new-rect (get new-keyed id)]
+                                 (when-not (= old-rect new-rect)
+                                   (when-let [slot (get m id)]
+                                     (update-slot! pool slot new-rect))
+                                   (vswap! updated inc))
+                                 m))
+                             new-id->slot kept-ids)]
+    (swap! pool assoc
+           :id->slot new-id->slot
+           :prev-keyed-rects new-keyed
+           :high-water-mark (max (:high-water-mark @pool)
+                                 (count (:active-slots @pool))))
+    {:added @added :updated @updated :freed @freed
+     :total-writes (+ @added @updated @freed)}))
 
 ;; ============================================================================
 ;; BATCH API (for Missionary-based diff: compare new vs previous rect list)

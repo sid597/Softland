@@ -231,6 +231,8 @@
              bg  (when-let [c (:bg style)]
                    (cond-> {:x abs-x :y abs-y :w w :h h
                             :r (nth c 0) :g (nth c 1) :b (nth c 2) :a (nth c 3)}
+                     ;; Carry node identity for keyed differential rendering (Phase 5)
+                     (:id node)              (assoc :id (:id node))
                      (:radius style)         (assoc :radius (:radius style))
                      (:corner-radii style)   (assoc :corner-radii (:corner-radii style))
                      (:border-width style)   (assoc :border-width (:border-width style))

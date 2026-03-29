@@ -120,10 +120,23 @@
                 editor-rects   (:rects editor-rect-data)
                 editor-shadows (:shadows editor-rect-data)
 
-                ;; Differential sidebar pool update — only writes changed rects
+                ;; Differential sidebar pool update — keyed by identity (Phase 5)
                 sidebar-rects (or (:rects sidebar-data) [])
-                _sidebar-writes (when-not (identical? sidebar-data (:prev-sidebar-data prev-state))
-                                  (pool/batch-update-pool! !sidebar-pool sidebar-rects))
+                _sidebar-diff (when-not (identical? sidebar-data (:prev-sidebar-data prev-state))
+                                (let [has-ids? (some :id sidebar-rects)
+                                      t0 (js/performance.now)
+                                      result (if has-ids?
+                                               (pool/keyed-diff-update-pool! !sidebar-pool sidebar-rects)
+                                               (do (pool/batch-update-pool! !sidebar-pool sidebar-rects) nil))
+                                      t1 (js/performance.now)]
+                                  (when (and result (pos? (+ (:added result) (:updated result) (:freed result))))
+                                    (js/console.log "[SIDEBAR-POOL] keyed-diff:"
+                                                    (.toFixed (- t1 t0) 2) "ms |"
+                                                    "added:" (:added result)
+                                                    "updated:" (:updated result)
+                                                    "freed:" (:freed result)
+                                                    "writes:" (:total-writes result)
+                                                    "rects:" (count sidebar-rects)))))
                 dpr (:dpr viewport)
                 snap? (not (false? snap-to-pixel?))
                 line-h (maybe-snap (* font-size line-height) dpr snap?)
