@@ -195,7 +195,10 @@
                      (save-undo! {:!undo-stack !undo-stack :!redo-stack !redo-stack}
                                  (:lines doc) (:cursor doc))
                      (reset! !clipboard (:text result))
-                     (reset! !editor-doc (merge doc (:state result)))
+                     (let [new-doc (merge doc (:state result))]
+                       (reset! !editor-doc new-doc)
+                       (when-let [fp (:path @!current-file)]
+                         (sio/save-editor-doc! fp {:lines (:lines new-doc)})))
                      (js/console.log "Cut:" (:text result))))
 
                  :undo
@@ -206,7 +209,9 @@
                                                    :cursor (:cursor prev)
                                                    :selection nil
                                                    :desired-col (:col (:cursor prev))}))
-                   (reset! !caret-visible true))
+                   (reset! !caret-visible true)
+                   (when-let [fp (:path @!current-file)]
+                     (sio/save-editor-doc! fp {:lines (:lines prev)})))
 
                  :redo
                  (when-let [next-state (peek @!redo-stack)]
@@ -216,7 +221,9 @@
                                                    :cursor (:cursor next-state)
                                                    :selection nil
                                                    :desired-col (:col (:cursor next-state))}))
-                   (reset! !caret-visible true))
+                   (reset! !caret-visible true)
+                   (when-let [fp (:path @!current-file)]
+                     (sio/save-editor-doc! fp {:lines (:lines next-state)})))
 
                  :eval
                  (when-let [pos (:cursor doc)]

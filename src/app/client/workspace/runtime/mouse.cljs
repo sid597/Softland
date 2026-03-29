@@ -11,7 +11,7 @@
             [app.client.workspace.settings-view :refer [slider-specs]]
             [app.client.workspace.ui-primitives :refer [list-left-pane-pct]]
             [app.client.workspace.runtime.state :refer [save-undo!]]
-            [app.client.workspace.runtime.sidebar-io :refer [emit-sidebar-action!]]
+            [app.client.workspace.runtime.sidebar-io :as sidebar-io :refer [emit-sidebar-action!]]
             [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workflows.dg-flow :refer [build-intake-tree drag-distance
                                                    drag-threshold-px set-selection]]))
@@ -23,7 +23,7 @@
 (defn install-paste-handler!
   "Wire system clipboard paste to editor/cmd/chat based on focus."
   [{:keys [!clipboard !focus !editor-doc !cmd-panel !chat-input !caret-visible
-           !undo-stack !redo-stack]}]
+           !undo-stack !redo-stack !current-file]}]
   (let [paste-handler
         (fn [e]
           (let [text (.getData (.-clipboardData e) "text/plain")]
@@ -38,7 +38,9 @@
                               (:lines doc) (:cursor doc))
                   (let [new-doc (editor-apply-event doc {:type :paste} lengths text)]
                     (reset! !editor-doc new-doc)
-                    (reset! !caret-visible true)))
+                    (reset! !caret-visible true)
+                    (when-let [fp (:path @!current-file)]
+                      (sidebar-io/save-editor-doc! fp {:lines (:lines new-doc)}))))
                 :command-panel
                 (let [panel @!cmd-panel
                       new-panel (cmd-panel-apply-event panel {:type :paste} text)]

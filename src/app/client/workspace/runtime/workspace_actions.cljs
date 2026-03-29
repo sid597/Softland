@@ -100,20 +100,22 @@
   "Event types that change document content. These are the candidates
    for Rama persistence (Phase 4B will measure whether direct committed
    path is fast enough at keystroke rate)."
-  #{:char :backspace :delete :enter :paste :cut :tab})
+  #{:char :backspace :delete :enter :paste :cut :undo :redo})
 
 (def editor-ephemeral-events
   "Event types that change cursor/selection/view only. Never persisted."
   #{:left :right :up :down :home :end :word-left :word-right
-    :copy :eval :undo :redo})
+    :copy :eval})
 
 (def editor-structural-events
   "Events that change document structure (folding). Committed, but
-   not at keystroke rate — can go through Rama without latency concern."
+   persisted via !folded-lines (per-file), not !editor-doc.
+   Rama persistence deferred to Phase 7 (workspace-schema widening)
+   because folds need the artifact model for per-file scoping."
   #{:fold :unfold})
 
 (defn editor-event-committed?
-  "True if this editor event type changes document content."
+  "True if this editor event type is committed (content-changing or structural)."
   [event-type]
   (or (contains? editor-committed-events event-type)
       (contains? editor-structural-events event-type)))
