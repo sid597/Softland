@@ -78,16 +78,141 @@
           <layout
           (m/watch !effective-local-world) (m/watch !flow-state) (m/watch !scroll-y)
           (m/watch !agent-output) (m/watch !shimmer-phase)
-          (m/watch !trail-collapsed) (m/watch !run-scroll-y))]
+          (m/watch !trail-collapsed) (m/watch !run-scroll-y))
         ;; 8 fn args, 8 flows
 
-    ;; ── Main assembly: editor text + chrome (cmd panel, agent, status bar) ──
-    ;; NOT watching: !hovered-row-idx, !collapsed-groups, !drag-state,
-    ;;              !detail-scroll-y, !run-scroll-y (all in <flow-text-content)
+        ;; ── Chrome text (cmd panel + agent status + status bar) ──
+        ;; Separate flow: only fires when chrome-relevant inputs change.
+        ;; Does NOT watch: fold-data, sidebar-scene, extract-preview, scroll-x, etc.
+        <chrome-text
+        (m/latest
+          (fn [layout panel provider agent-output agent-scroll-y scroll-y
+               doc current-file local-world flow-state]
+            (let [{:keys [viewport dpr snap? font-size char-width char-advance sb-w]} layout
+                  file-workspace? (ws/local-world-file-workspace? local-world)
+                  flow-mode? (ws/local-world-flow? local-world)
+                  panel-visible? (or (:visible panel) file-workspace? flow-mode?)
+                  cmd-ops (when panel-visible?
+                            (let [cmd-panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h)) dpr snap?)
+                                  cmd-text-y (maybe-snap (+ cmd-panel-y 12 font-size) dpr snap?)
+                                  prompt-text (cmd-prompt-text provider)
+                                  prompt-x (maybe-snap (+ 24 sb-w) dpr snap?)
+                                  text-x (+ (cmd-text-start-x provider font-size char-width dpr snap?) sb-w)]
+                              [(when (seq (:text panel))
+                                 [{:text (:text panel) :type :text :from 0 :to (count (:text panel))
+                                   :x text-x :y cmd-text-y :size font-size
+                                   :r 0.9 :g 0.9 :b 0.9 :a 1.0}])
+                               [{:text prompt-text :type :macro :from 0 :to (count prompt-text)
+                                 :x prompt-x :y cmd-text-y :size font-size
+                                 :r 0.3 :g 0.6 :b 1.0 :a 1.0}]
+                               (when (empty? (:text panel))
+                                 [{:text "Ask AI..." :type :comment :from 0 :to 10
+                                   :x text-x :y cmd-text-y :size font-size
+                                   :r 0.5 :g 0.5 :b 0.5 :a 0.7}])]))
+                  cmd-lines (if panel-visible? (vec (filter some? cmd-ops)) [])
+                  status (:status agent-output)
+                  provider-name (some-> (:provider agent-output) name str/upper-case)
+                  prompt (:prompt agent-output)
+                  result-output (or (:output agent-output) "")
+                  status-color (case status
+                                 :complete {:r 0.55 :g 0.9 :b 0.55 :a 1.0}
+                                 :failed {:r 0.95 :g 0.45 :b 0.45 :a 1.0}
+                                 :timeout {:r 0.95 :g 0.75 :b 0.35 :a 1.0}
+                                 :running {:r 0.6 :g 0.8 :b 1.0 :a 1.0}
+                                 :submitting {:r 0.6 :g 0.8 :b 1.0 :a 1.0}
+                                 {:r 0.75 :g 0.75 :b 0.75 :a 1.0})
+                  header-text (cond
+                                (nil? status) nil
+                                (= status :running) (str "[" provider-name "] running: " prompt)
+                                (= status :submitting) (str "[" provider-name "] submitting: " prompt)
+                                (= status :failed) (str "[" provider-name "] failed: " prompt)
+                                (= status :timeout) (str "[" provider-name "] timeout: " prompt)
+                                (= status :complete) (str "[" provider-name "] complete: " prompt)
+                                :else (str "[" provider-name "] " (name status) ": " prompt))
+                  output-lines (str/split-lines result-output)
+                  agent-x-px (+ 24 sb-w)
+                  available-w (- (:width viewport) agent-x-px 24)
+                  max-chars (if (pos? char-advance) (max 1 (int (/ available-w char-advance))) 80)
+                  trail (:trail agent-output)
+                  display-entries (if (seq trail) (trail->display-lines trail) nil)
+                  raw-lines (if display-entries
+                              (cond-> []
+                                header-text (conj {:text header-text :color status-color})
+                                (and (= status :running) (empty? display-entries)) (conj {:text "..." :color status-color})
+                                (seq display-entries) (into display-entries))
+                              (let [flat-lines (cond-> []
+                                                header-text (conj header-text)
+                                                (and (= status :running) (empty? output-lines)) (conj "...")
+                                                (seq output-lines) (into output-lines))]
+                                (mapv (fn [l] {:text l :color status-color}) flat-lines)))
+                  all-lines (into []
+                              (mapcat (fn [entry]
+                                (let [nl-lines (str/split-lines (or (:text entry) ""))
+                                      wrapped (mapcat #(wrap-line % max-chars) nl-lines)]
+                                  (mapv (fn [wl] {:text wl :color (:color entry)}) wrapped))))
+                              raw-lines)
+                  agent-panel-h (if file-workspace? 0
+                                  (compute-agent-panel-h agent-output font-size (:height viewport)
+                                                         (:width viewport) char-advance))
+                  agent-x (maybe-snap (+ 24 sb-w) dpr snap?)
+                  agent-y0 (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h agent-panel-h 12)) dpr snap?)
+                  line-step (maybe-snap (* font-size 1.2) dpr snap?)
+                  panel-top agent-y0
+                  panel-bottom (+ agent-y0 agent-panel-h)
+                  agent-lines (into []
+                                (comp
+                                  (map (fn [idx]
+                                         (let [entry (nth all-lines idx)
+                                               y (+ agent-y0 8 font-size (* idx line-step) (- agent-scroll-y))
+                                               c (:color entry)]
+                                           (when (and (>= y (+ panel-top 8)) (< y panel-bottom))
+                                             [{:text (:text entry) :type :comment
+                                               :from 0 :to (count (:text entry))
+                                               :x agent-x :y y :size font-size
+                                               :r (:r c) :g (:g c) :b (:b c) :a (:a c)}]))))
+                                  (filter some?))
+                                (range (count all-lines)))
+                  status-y (maybe-snap (+ scroll-y (- (:height viewport) status-bar-h) 4 font-size) dpr snap?)
+                  status-left-text (if flow-mode?
+                                     (let [node-name (some-> (:node flow-state) name str/upper-case)
+                                           n-tickets (count (:tickets flow-state))
+                                           n-selected (count (:selected flow-state))]
+                                       (str node-name " | " n-tickets " tickets | " n-selected " selected"))
+                                     (let [sb-cursor (:cursor doc)]
+                                       (str "Ln " (inc (:line sb-cursor)) ", Col " (inc (:col sb-cursor)))))
+                  file-name (or (:name current-file)
+                                (get-in local-world [:selected-artifact :name])
+                                "untitled")
+                  provider-upper (some-> provider name str/upper-case)
+                  status-right-text (if provider-upper (str file-name "  |  " provider-upper) file-name)
+                  status-right-w (* (count status-right-text) char-advance)
+                  status-right-x (maybe-snap (- (:width viewport) status-right-w 16) dpr snap?)]
+              (vec (concat cmd-lines
+                           (when-not file-workspace? agent-lines)
+                           [{:text status-left-text :type :comment
+                             :from 0 :to (count status-left-text)
+                             :x (maybe-snap (+ 16 sb-w) dpr snap?) :y status-y :size font-size
+                             :r 0.65 :g 0.65 :b 0.65 :a 0.9}]
+                           [{:text status-right-text :type :comment
+                             :from 0 :to (count status-right-text)
+                             :x status-right-x :y status-y :size font-size
+                             :r 0.65 :g 0.65 :b 0.65 :a 0.9}]))))
+          <layout
+          (m/watch !cmd-panel) (m/watch !ai-provider)
+          (m/watch !agent-output) (m/watch !agent-scroll-y) (m/watch !scroll-y)
+          (m/watch !editor-doc) (m/watch !current-file)
+          (m/watch !effective-local-world) (m/watch !flow-state))
+        ;; 10 fn args, 10 flows
+        ]
+
+    ;; ── Content text (editor + sidebar — the bulk) ──
+    ;; Separate flow: does NOT watch cmd-panel, ai-provider, agent-scroll-y, flow-state.
+    ;; Cursor-only moves don't trigger content re-upload.
+    (let [<content-text
     (m/latest
       (fn [intake-text run-text layout
-           doc fold-state panel provider agent-output agent-scroll-y scroll-y
-           current-file local-world flow-state sidebar-scene extract-preview
+           lines fold-state scroll-y
+           current-file local-world sidebar-scene extract-preview agent-output
            shimmer-phase trail-collapsed active-pane scroll-x chat-scroll-y chat-input focus]
         (let [{:keys [viewport settings dpr snap? font-size char-width char-advance line-h
                        sb-vis? sb-w]} layout
@@ -123,18 +248,17 @@
                                                                             :size 14 :r 0.55 :g 0.55 :b 0.60 :a 1.0}])
                                                            (assoc-in rt [:bounds :w] (- half-w 32))])))]
                   [(if preview-tree (tree->text-ops preview-tree) [])
-                   (vec (range (count (:lines doc))))
+                   (vec (range (count lines)))
                    []])
                 (if flow-mode?
                   ;; Flow canvas: use pre-computed ops from intake or run
                   [(if (ws/local-world-intake? local-world) intake-text run-text)
-                   (vec (range (count (:lines doc))))
+                   (vec (range (count lines)))
                    []]
 
                 ;; Normal editor mode
                 (let [folded (or (:folded fold-state) #{})
                       regions (or (:regions fold-state) [])
-                      lines (:lines doc)
                       total-line-count (count lines)
                       large-file? (and (> total-line-count 500) (empty? folded))
                       raw-start (max 0 (- (int (/ scroll-y line-h)) 5))
@@ -142,8 +266,7 @@
                       visible-start (min total-line-count raw-start)
                       visible-end (min total-line-count (max visible-start raw-end))
                       visible-lines (subvec lines visible-start visible-end)
-                      tokenized-visible (mapv tokenize-fn visible-lines)
-                      cursor-line (:line (:cursor doc))]
+                      tokenized-visible (mapv tokenize-fn visible-lines)]
                   (if large-file?
                     (let [adjusted-y (+ layout-y (* visible-start line-h))
                           result (layout-fn tokenized-visible editor-lx adjusted-y font-size
@@ -154,15 +277,11 @@
                                              num-str (str (inc logical))
                                              num-w (* (count num-str) char-advance)
                                              x (maybe-snap (- layout-x 8 num-w) dpr snap?)
-                                             y (+ adjusted-y font-size (* i line-h))
-                                             current? (= logical cursor-line)]
+                                             y (+ adjusted-y font-size (* i line-h))]
                                          [{:text num-str :type :line-number
                                            :from 0 :to (count num-str)
                                            :x x :y y :size font-size
-                                           :r (if current? 0.85 0.45)
-                                           :g (if current? 0.85 0.45)
-                                           :b (if current? 0.85 0.45)
-                                           :a (if current? 0.9 0.4)}]))
+                                           :r 0.45 :g 0.45 :b 0.45 :a 0.4}]))
                                      (range (count visible-lines)))]
                       [(:render-ops result) full-mapping nums])
 
@@ -189,15 +308,12 @@
                                              num-str (str (inc logical))
                                              num-w (* (count num-str) char-advance)
                                              x (maybe-snap (- layout-x 8 num-w) dpr snap?)
-                                             y (+ layout-y font-size (* visual-idx line-h))
-                                             current? (= logical cursor-line)]
+                                             y (+ layout-y font-size (* visual-idx line-h))]
                                          [{:text num-str :type :line-number
                                            :from 0 :to (count num-str)
                                            :x x :y y :size font-size
-                                           :r (if current? 0.85 0.45)
-                                           :g (if current? 0.85 0.45)
-                                           :b (if current? 0.85 0.45)
-                                           :a (if current? 0.9 0.4)}]))
+                                           :r 0.45
+                                           :g 0.45 :b 0.45 :a 0.4}]))
                                      (range (count mapping)))]
                       [(filterv seq (:render-ops result)) mapping nums]))))))
 
@@ -273,160 +389,23 @@
                               ops))
 
               offset-editor-ops (offset-text-ops* (clip-bottom editor-ops) sb-w)
-              offset-line-num-ops (offset-text-ops* (clip-bottom line-num-ops) sb-w)
-
-              panel-visible? (or (:visible panel) file-workspace? flow-mode?)
-              cmd-ops (when panel-visible?
-                        (let [cmd-panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h)) dpr snap?)
-                              cmd-text-y (maybe-snap (+ cmd-panel-y 12 font-size) dpr snap?)
-                              prompt-text (cmd-prompt-text provider)
-                              prompt-x (maybe-snap (+ 24 sb-w) dpr snap?)
-                              text-x (+ (cmd-text-start-x provider font-size char-width dpr snap?) sb-w)]
-                          [(when (seq (:text panel))
-                             [{:text (:text panel)
-                               :type :text
-                               :from 0 :to (count (:text panel))
-                               :x text-x :y cmd-text-y
-                               :size font-size
-                               :r 0.9 :g 0.9 :b 0.9 :a 1.0}])
-                           [{:text prompt-text
-                             :type :macro
-                             :from 0 :to (count prompt-text)
-                             :x prompt-x :y cmd-text-y
-                             :size font-size
-                             :r 0.3 :g 0.6 :b 1.0 :a 1.0}]
-                           (when (empty? (:text panel))
-                             [{:text "Ask AI..."
-                               :type :comment
-                               :from 0 :to 10
-                               :x text-x :y cmd-text-y
-                               :size font-size
-                               :r 0.5 :g 0.5 :b 0.5 :a 0.7}])]))
-              cmd-lines (if panel-visible? (vec (filter some? cmd-ops)) [])]
-
-          (let [status (:status agent-output)
-                provider-name (some-> (:provider agent-output) name str/upper-case)
-                prompt (:prompt agent-output)
-                result-output (or (:output agent-output) "")
-                status-color (case status
-                               :complete {:r 0.55 :g 0.9 :b 0.55 :a 1.0}
-                               :failed {:r 0.95 :g 0.45 :b 0.45 :a 1.0}
-                               :timeout {:r 0.95 :g 0.75 :b 0.35 :a 1.0}
-                               :running {:r 0.6 :g 0.8 :b 1.0 :a 1.0}
-                               :submitting {:r 0.6 :g 0.8 :b 1.0 :a 1.0}
-                               {:r 0.75 :g 0.75 :b 0.75 :a 1.0})
-                header-text (cond
-                              (nil? status) nil
-                              (= status :running) (str "[" provider-name "] running: " prompt)
-                              (= status :submitting) (str "[" provider-name "] submitting: " prompt)
-                              (= status :failed) (str "[" provider-name "] failed: " prompt)
-                              (= status :timeout) (str "[" provider-name "] timeout: " prompt)
-                              (= status :complete) (str "[" provider-name "] complete: " prompt)
-                              :else (str "[" provider-name "] " (name status) ": " prompt))
-                output-lines (str/split-lines result-output)
-                agent-x-px (+ 24 sb-w)
-                right-pad 24
-                available-w (- (:width viewport) agent-x-px right-pad)
-                max-chars (if (pos? char-advance) (max 1 (int (/ available-w char-advance))) 80)
-
-                trail (:trail agent-output)
-                display-entries (if (seq trail)
-                                  (trail->display-lines trail)
-                                  nil)
-                raw-lines (if display-entries
-                            (cond-> []
-                              header-text (conj {:text header-text :color status-color})
-                              (and (= status :running) (empty? display-entries)) (conj {:text "..." :color status-color})
-                              (seq display-entries) (into display-entries))
-                            (let [flat-lines (cond-> []
-                                              header-text (conj header-text)
-                                              (and (= status :running) (empty? output-lines)) (conj "...")
-                                              (seq output-lines) (into output-lines))]
-                              (mapv (fn [l] {:text l :color status-color}) flat-lines)))
-
-                all-lines (into []
-                            (mapcat (fn [entry]
-                              (let [nl-lines (str/split-lines (or (:text entry) ""))
-                                    wrapped (mapcat #(wrap-line % max-chars) nl-lines)]
-                                (mapv (fn [wl] {:text wl :color (:color entry)}) wrapped))))
-                            raw-lines)
-
-                agent-panel-h (if file-workspace?
-                                0
-                                (compute-agent-panel-h agent-output font-size (:height viewport)
-                                                       (:width viewport) char-advance))
-                agent-x (maybe-snap (+ 24 sb-w) dpr snap?)
-                agent-y0 (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h agent-panel-h 12)) dpr snap?)
-                line-step (maybe-snap (* font-size 1.2) dpr snap?)
-                panel-top agent-y0
-                panel-bottom (+ agent-y0 agent-panel-h)
-                agent-lines (into []
-                              (comp
-                                (map (fn [idx]
-                                       (let [entry (nth all-lines idx)
-                                             y (+ agent-y0 8 font-size
-                                                  (* idx line-step)
-                                                  (- agent-scroll-y))
-                                             c (:color entry)]
-                                         (when (and (>= y (+ panel-top 8))
-                                                    (< y panel-bottom))
-                                           [{:text (:text entry)
-                                             :type :comment
-                                             :from 0 :to (count (:text entry))
-                                             :x agent-x
-                                             :y y
-                                             :size font-size
-                                             :r (:r c)
-                                             :g (:g c)
-                                             :b (:b c)
-                                             :a (:a c)}]))))
-                                (filter some?))
-                              (range (count all-lines)))
-
-                status-y (maybe-snap (+ scroll-y (- (:height viewport) status-bar-h) 4 font-size) dpr snap?)
-                status-left-text (if flow-mode?
-                                   (let [node-name (some-> (:node flow-state) name str/upper-case)
-                                         n-tickets (count (:tickets flow-state))
-                                         n-selected (count (:selected flow-state))]
-                                     (str node-name " | " n-tickets " tickets | " n-selected " selected"))
-                                   (let [sb-cursor (:cursor doc)]
-                                     (str "Ln " (inc (:line sb-cursor)) ", Col " (inc (:col sb-cursor)))))
-                file-name (or (:name current-file)
-                              (get-in local-world [:selected-artifact :name])
-                              "untitled")
-                provider-upper (some-> provider name str/upper-case)
-                status-right-text (if provider-upper
-                                    (str file-name "  |  " provider-upper)
-                                    file-name)
-                status-right-w (* (count status-right-text) char-advance)
-                status-right-x (maybe-snap (- (:width viewport) status-right-w 16) dpr snap?)
-                status-lines [;; Left: cursor position
-                              [{:text status-left-text
-                                :type :comment
-                                :from 0 :to (count status-left-text)
-                                :x (maybe-snap (+ 16 sb-w) dpr snap?) :y status-y
-                                :size font-size
-                                :r 0.65 :g 0.65 :b 0.65 :a 0.9}]
-                              ;; Right: filename | PROVIDER
-                              [{:text status-right-text
-                                :type :comment
-                                :from 0 :to (count status-right-text)
-                                :x status-right-x :y status-y
-                                :size font-size
-                                :r 0.65 :g 0.65 :b 0.65 :a 0.9}]]]
-
-            {:render-ops (vec (concat (or sidebar-text-ops [])
-                                      offset-line-num-ops offset-editor-ops
-                                      cmd-lines
-                                      (when-not file-workspace? agent-lines)
-                                      status-lines))
-             :line-mapping final-line-mapping
-             :editor-line-count (+ (count line-num-ops) (count editor-ops))
-             :cmd-line-count (+ (count cmd-lines) (count status-lines))})))
+              offset-line-num-ops (offset-text-ops* (clip-bottom line-num-ops) sb-w)]
+          ;; Content-only return (chrome is in separate <chrome-text flow)
+          {:ops (vec (concat (or sidebar-text-ops [])
+                             offset-line-num-ops offset-editor-ops))
+           :line-mapping final-line-mapping
+           :editor-line-count (+ (count line-num-ops) (count editor-ops))}))
       <intake-text <run-text <layout
-      (m/watch !editor-doc) <fold-data (m/watch !cmd-panel) (m/watch !ai-provider)
-      (m/watch !agent-output) (m/watch !agent-scroll-y) (m/watch !scroll-y)
-      (m/watch !current-file) (m/watch !effective-local-world) (m/watch !flow-state) (m/watch !sidebar-scene)
-      (m/watch !extract-preview)
+      (m/eduction (map :lines) (dedupe) (m/watch !editor-doc)) <fold-data (m/watch !scroll-y)
+      (m/watch !current-file) (m/watch !effective-local-world) (m/watch !sidebar-scene)
+      (m/watch !extract-preview) (m/watch !agent-output)
       (m/watch !shimmer-phase) (m/watch !trail-collapsed) (m/watch !active-pane)
-      (m/watch !scroll-x) (m/watch !chat-scroll-y) (m/watch !chat-input) (m/watch !focus))))
+      (m/watch !scroll-x) (m/watch !chat-scroll-y) (m/watch !chat-input) (m/watch !focus))]
+      ;; ── Combining flow: preserves identity of unchanged region ──
+      (m/latest
+        (fn [content chrome]
+          {:content-ops (:ops content)
+           :chrome-ops chrome
+           :line-mapping (:line-mapping content)
+           :editor-line-count (:editor-line-count content)})
+        <content-text <chrome-text))))

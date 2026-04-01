@@ -113,9 +113,8 @@
   "Compute fold regions + line mapping once per doc/fold change.
    Safe for large files because this only runs on document changes (cached in <fold-state),
    NOT on every blink tick."
-  [doc folded detect-folds-fn]
-  (let [lines (:lines doc)
-        lengths (mapv count lines)
+  [lines folded detect-folds-fn]
+  (let [lengths (mapv count lines)
         regions (or (detect-folds-fn lines lengths) [])
         line-mapping (build-line-mapping lines regions folded)
         logical->visual (calculate-logical->visual line-mapping)]
@@ -127,12 +126,13 @@
      :logical->visual logical->visual}))
 
 (defn <fold-state
-  "Derived flow: fold regions + line mapping (cached between blinks)."
+  "Derived flow: fold regions + line mapping.
+   Dedupes on (:lines doc) so cursor-only moves don't trigger recomputation."
   [!editor-doc !folded-lines detect-folds-fn]
   (m/latest
-    (fn [doc folded]
-      (compute-fold-state doc folded detect-folds-fn))
-    (m/watch !editor-doc)
+    (fn [lines folded]
+      (compute-fold-state lines folded detect-folds-fn))
+    (m/eduction (map :lines) (dedupe) (m/watch !editor-doc))
     (m/watch !folded-lines)))
 
 (defn <bracket-match
@@ -178,7 +178,8 @@
                                   indicator-size 8
                                   x (+ gutter-x 2)
                                   y (+ visual-y (/ (- line-h indicator-size) 2))]
-                              {:x x :y y :w indicator-size :h indicator-size
+                              {:id [:fold start-line] :z 1
+                               :x x :y y :w indicator-size :h indicator-size
                                :r (if is-folded? 0.3 0.7)
                                :g (if is-folded? 0.5 0.6)
                                :b (if is-folded? 0.9 0.3)
@@ -187,19 +188,21 @@
 
         ;; Bracket match rects (pre-computed, cached in <bracket-match flow)
         bracket-rects (when bracket-match
-                        (keep (fn [{:keys [line col]}]
+                        (keep (fn [[btype {:keys [line col]}]]
                                 (when-let [visual-y (logical->visual-y line)]
-                                  {:x (+ layout-x (* col char-w))
+                                  {:id [:bracket btype] :z 2
+                                   :x (+ layout-x (* col char-w))
                                    :y visual-y
                                    :w char-w
                                    :h line-h
                                    :r 0.8 :g 0.6 :b 0.2 :a 0.4}))
-                              [(:open bracket-match) (:close bracket-match)]))
+                              [[:open (:open bracket-match)] [:close (:close bracket-match)]]))
 
         ;; Caret rect (only when editor is focused and no selection)
         caret-rect (when (and cursor caret-visible (= focus :editor) (not selection))
                      (when-let [visual-y (logical->visual-y (:line cursor))]
-                       {:x (+ layout-x (* (:col cursor) char-w))
+                       {:id :caret :z 4
+                        :x (+ layout-x (* (:col cursor) char-w))
                         :y visual-y
                         :w 2
                         :h line-h
@@ -224,7 +227,8 @@
                                             ;; Clamp to editor pane boundary
                                             clamped-w (min raw-w (max 0 (- viewport-w x)))]
                                         (when (> clamped-w 0)
-                                          {:x x :y visual-y
+                                          {:id [:selection logical-line] :z 3
+                                           :x x :y visual-y
                                            :w clamped-w :h line-h
                                            :r 0.2 :g 0.4 :b 0.9 :a 0.5}))))
                                   (range (:line s) (inc (:line e))))))
@@ -232,7 +236,8 @@
         ;; Current-line highlight (subtle background on cursor's line)
         current-line-rect (when (and cursor (= focus :editor) (not selection))
                             (when-let [visual-y (logical->visual-y (:line cursor))]
-                              {:x 0 :y visual-y :w viewport-w :h line-h
+                              {:id :current-line :z 0
+                               :x 0 :y visual-y :w viewport-w :h line-h
                                :r 1.0 :g 1.0 :b 1.0 :a 0.04}))
 
         ;; Eval result rect
@@ -243,7 +248,8 @@
                           (let [line-len (get lengths (:line eval-result) 0)
                                 result-x (+ layout-x (* (+ line-len 2) char-w))
                                 result-w (* (count (:text eval-result)) char-w)]
-                            {:x result-x
+                            {:id :eval-result :z 5
+                             :x result-x
                              :y visual-y
                              :w (+ result-w 16)
                              :h line-h
@@ -444,8 +450,8 @@
         ;; 18 fn args, 18 flows
 
     ;; ── Return both flows separately ──
-    ;; Editor rects (content only, offset by sidebar width) go to editor-rect-sys.
-    ;; Sidebar rects go to the differential buffer pool.
+    ;; Editor rects (content only, offset by sidebar width) go to the editor pool.
+    ;; Sidebar rects go to the sidebar pool.
     {:<editor-rects
      (m/latest
        (fn [mode intake run editor-content layout]

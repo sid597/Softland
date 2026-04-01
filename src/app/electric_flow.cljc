@@ -421,7 +421,8 @@
                                       :char-width char-width
                                       :snap-step snap-step)
        :rect (editor/update-rects device (:rect-sys pipelines) [])
-       :shadow (editor/update-shadows device (:shadow-sys pipelines) [])
+       ;; Shadow pools now own runtime shadow uploads; bootstrap only needs the pipeline state.
+       :shadow (:shadow-sys pipelines)
        :pipelines pipelines})))
 
 ;; ============================================================================

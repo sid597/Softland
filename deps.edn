@@ -4,21 +4,18 @@
              com.hyperfiddle/rcf                {:mvn/version "20220926-202227"}
              ring/ring                          {:mvn/version "1.11.0"} ; comes with Jetty
 
-             ;; Electric IC version requires 1.12 but rama is fixed on 1.11.1 so I have included the newer changes
-             ;; by importing data.xml above according to this comment
-             ;; https://clojurians.slack.com/archives/C7Q9GSHFV/p1704475238085959?thread_ts=1704210542.998019&cid=C7Q9GSHFV
              com.google.guava/guava            {:mvn/version "33.1.0-jre"}
              org.clojure/data.xml               {:mvn/version "0.2.0-alpha8"}
              org.clojure/data.json              {:mvn/version "2.4.0"}
-             org.clojure/clojure                {:mvn/version "1.11.1"}
-             org.clojure/clojurescript          {:mvn/version "1.11.60"}
+             org.clojure/clojure                {:mvn/version "1.12.4"}
+             org.clojure/clojurescript          {:mvn/version "1.11.132"}
              org.clojure/tools.logging          {:mvn/version "1.2.4"}
              ch.qos.logback/logback-classic     {:mvn/version "1.2.11"}
              datascript/datascript              {:mvn/version "1.5.2"}
              org.babashka/sci                  {:mvn/version "0.8.43"}
-             com.rpl/rama                       {:mvn/version "0.17.0"}
+             com.rpl/rama                       {:mvn/version "1.6.0"}
              com.roamresearch/backend-sdk       {:mvn/version "0.0.4"}
-             com.rpl/rama-helpers               {:mvn/version "0.9.3"}
+             com.rpl/rama-helpers               {:mvn/version "0.10.0"}
              com.rpl/specter                    {:mvn/version "1.1.4"}
              net.clojars.wkok/openai-clojure    {:mvn/version "0.14.0"}
              image-resizer/image-resizer       {:mvn/version "0.1.10"}
@@ -34,7 +31,7 @@
                     :extra-deps {io.github.clojure/tools.build {:mvn/version "0.9.6"
                                                                  :exclusions  [com.google.guava/guava  ; Guava version conflict between tools.build and clojurescript.
                                                                                org.slf4j/slf4j-nop]}   ; clashes with app logger}
-                                 thheller/shadow-cljs            {:mvn/version "2.25.2"}}}
+                                 thheller/shadow-cljs            {:mvn/version "2.28.23"}}}
 
             :nrepl {:extra-deps
                     {cider/cider-nrepl {:mvn/version "0.42.1"}
@@ -55,4 +52,4 @@
                     :extra-deps {io.github.clojure/tools.build {:mvn/version "0.9.6"
                                                                  :exclusions  [com.google.guava/guava  ; Guava version conflict between tools.build and clojurescript.
                                                                                org.slf4j/slf4j-nop]}   ; clashes with app logger}
-                                 thheller/shadow-cljs {:mvn/version "2.25.2"}}}}}
+                                 thheller/shadow-cljs {:mvn/version "2.28.23"}}}}}

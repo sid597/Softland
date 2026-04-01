@@ -319,7 +319,6 @@
         _ (interop/install-window-globals! atoms (:show-flow-info! agent-api))
 
         ;; ── Event flows (fresh per instance) ────────────────────────
-        >raf            (events/make-raf-flow)
         >blink-timer    (events/make-blink-timer)
         >shimmer-timer  (events/make-blink-timer)
         >resize         (events/>canvas-resize node)
@@ -369,4 +368,4 @@
       (kbd/settings-keys-consumer atoms <settings-keyboard)
 
       ;; Render loop (the terminal consumer)
-      (render/render-consumer atoms layout gpu deps >raf))))
+      (render/render-consumer atoms layout gpu deps))))

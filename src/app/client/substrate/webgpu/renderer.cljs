@@ -383,6 +383,20 @@
                                                                     {:binding 3 :resource {:buffer (:sizes-uniform-buffer renderer-state)}}]}))]
     (assoc renderer-state :bind-group new-bind-group)))
 
+(defn clone-text-system
+  "Create a lightweight text system clone sharing pipeline, bind-group, camera,
+   sizes, and font texture with the parent. Only the instance buffer is new.
+   Used for region-split text rendering (Phase 6B)."
+  [^js/GPUDevice device parent-text-sys initial-capacity]
+  (let [ib (.createBuffer device
+             (clj->js {:size (* initial-capacity 48)
+                       :usage (bit-or js/GPUBufferUsage.VERTEX
+                                      js/GPUBufferUsage.COPY_DST)}))]
+    (assoc parent-text-sys
+           :instance-buffer ib
+           :num-instances 0
+           :line-offsets nil)))
+
 ;; --- Shadow system ---
 (def shadow-stride 80)  ;; 20 floats × 4 bytes = 80 bytes per shadow
 
@@ -470,10 +484,53 @@
       (.writeBuffer (.-queue device) new-buffer 0 data))
     (assoc shadow-system :instance-buffer new-buffer :num-instances n)))
 
+;; --- Clear-quad system (Phase 6E: dirty-present) ---
+(def clear-quad-shader "
+  @vertex
+  fn vs_main(@builtin(vertex_index) v: u32) -> @builtin(position) vec4<f32> {
+      // Fullscreen triangle from vertex index — no vertex buffer needed
+      let x = f32(i32(v & 1u)) * 4.0 - 1.0;
+      let y = f32(i32(v >> 1u)) * 4.0 - 1.0;
+      return vec4<f32>(x, y, 0.0, 1.0);
+  }
+  @fragment
+  fn fs_main() -> @location(0) vec4<f32> {
+      return vec4<f32>(0.0, 0.0, 0.0, 1.0);
+  }")
+
+(defn init-clear-quad [^js/GPUDevice device fformat]
+  (let [module (.createShaderModule device (clj->js {:code clear-quad-shader}))
+        layout (.createPipelineLayout device (clj->js {:bindGroupLayouts []}))
+        pipeline (.createRenderPipeline device
+                   (clj->js {:layout layout
+                             :vertex {:module module :entryPoint "vs_main"}
+                             :fragment {:module module :entryPoint "fs_main"
+                                        :targets [{:format fformat
+                                                   :writeMask 0xF}]}
+                             :primitive {:topology "triangle-list"}}))]
+    {:pipeline pipeline}))
+
+;; --- Persistent render target (Phase 6E: survives swap chain double-buffering) ---
+
+(defn create-render-target [^js device width height fformat]
+  (let [tex (.createTexture device
+              (clj->js {:size {:width (max 1 width) :height (max 1 height)}
+                        :format fformat
+                        :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
+                                       js/GPUTextureUsage.COPY_SRC)}))]
+    {:texture tex
+     :view (.createView tex)
+     :width width
+     :height height}))
+
+(defn destroy-render-target! [{:keys [^js texture]}]
+  (when texture (.destroy texture)))
+
 (defn create-editor-state [{:keys [device format atlas bitmap]}]
   (let [text-sys (init-text-system device format atlas bitmap :initial-capacity 1000000)
         rect-sys (init-rect-system device format (:camera-uniform-buffer text-sys) :initial-capacity 50000)
         shadow-sys (init-shadow-system device format (:camera-uniform-buffer text-sys) :initial-capacity 256)
+        clear-quad (init-clear-quad device format)
 
         camera-floats (js/Float32Array. 6)
 
@@ -485,6 +542,8 @@
     {:text-sys text-sys
      :rect-sys rect-sys
      :shadow-sys shadow-sys
+     :clear-quad clear-quad
+     :format format
      :camera-floats camera-floats
      :pass-descriptor pass-descriptor}))
 
@@ -705,31 +764,61 @@
   (.writeBuffer (.-queue device) camera-buffer 0 floats))
 
 
-(defn draw-frame! [^js device ^js context text-sys editor-rect-sys cmd-rect-sys camera-floats _ignored_pass_descriptor pan-x pan-y w h
-                   & {:keys [cmd-panel-visible cmd-panel-h editor-line-count pre-settings-line-count settings-line-count settings-visible settings-rect-sys
-                             diagnostics-visible diagnostics-line-index agent-visible shadow-sys sidebar-pool-info]
-                      :or {cmd-panel-visible false cmd-panel-h 40 editor-line-count nil pre-settings-line-count nil settings-line-count 0 settings-visible false
-                           settings-rect-sys nil agent-visible false shadow-sys nil sidebar-pool-info nil}}]
+(defn draw-frame! [^js device ^js context text-sys editor-pool-info cmd-rect-sys camera-floats _ignored_pass_descriptor pan-x pan-y w h
+                   & {:keys [cmd-panel-visible cmd-panel-h chrome-text-sys chrome-base-line-count
+                             settings-line-count settings-visible settings-rect-sys
+                             diagnostics-visible diagnostics-line-index agent-visible
+                             editor-shadow-pool-info sidebar-shadow-pool-info sidebar-pool-info
+                             dirty-rect render-target clear-quad]
+                      :or {cmd-panel-visible false cmd-panel-h 40 chrome-text-sys nil chrome-base-line-count 0
+                           settings-line-count 0 settings-visible false
+                           settings-rect-sys nil agent-visible false
+                           editor-shadow-pool-info nil sidebar-shadow-pool-info nil sidebar-pool-info nil
+                           dirty-rect nil render-target nil clear-quad nil}}]
   (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y 1.0 w h)
+  (when (and chrome-text-sys
+             (not= (:camera-uniform-buffer chrome-text-sys) (:camera-uniform-buffer text-sys)))
+    (update-camera device (:camera-uniform-buffer chrome-text-sys) camera-floats pan-x pan-y 1.0 w h))
 
   (let [encoder (.createCommandEncoder device)
-          texture (.getCurrentTexture context)
-          view    (.createView texture)
+          swap-texture (.getCurrentTexture context)
+          swap-view (.createView swap-texture)
+          ;; Phase 6E: always render to persistent target (survives swap chain double-buffering)
+          ;; dirty-rect non-nil → loadOp "load" + scissor + clear-quad (partial redraw)
+          ;; dirty-rect nil → loadOp "clear" (first frame, resize, text/font change)
+          use-rt? (some? render-target)
+          target-view (if use-rt? (:view render-target) swap-view)
+          partial? (and use-rt? dirty-rect)
+          load-op (if partial? "load" "clear")
 
           pass-descriptor (clj->js
-                            {:colorAttachments [{:view view
+                            {:colorAttachments [{:view target-view
                                                  :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 1.0}
-                                                 :loadOp "clear"
+                                                 :loadOp load-op
                                                  :storeOp "store"}]})
 
           pass (.beginRenderPass encoder pass-descriptor)]
 
-      ;; Draw shadows FIRST (behind everything)
-      (when (and shadow-sys (> (:num-instances shadow-sys) 0))
-        (.setPipeline pass (:pipeline shadow-sys))
-        (.setBindGroup pass 0 (:bind-group shadow-sys))
-        (.setVertexBuffer pass 0 (:instance-buffer shadow-sys))
-        (.draw pass 6 (:num-instances shadow-sys)))
+      ;; Phase 6E: scissor + clear-quad for partial redraw
+      (when (and partial? clear-quad)
+        (let [{:keys [x y]} dirty-rect
+              dw (:w dirty-rect)
+              dh (:h dirty-rect)]
+          (.setScissorRect pass (int x) (int y) (int (max 1 dw)) (int (max 1 dh)))
+          (.setPipeline pass (:pipeline clear-quad))
+          (.draw pass 3)))
+
+      ;; Draw shadows FIRST (behind everything) — per-source pools (Phase 6C)
+      (when (and editor-shadow-pool-info (> (:draw-count editor-shadow-pool-info) 0))
+        (.setPipeline pass (:pipeline editor-shadow-pool-info))
+        (.setBindGroup pass 0 (:bind-group editor-shadow-pool-info))
+        (.setVertexBuffer pass 0 (:buffer editor-shadow-pool-info))
+        (.draw pass 6 (:draw-count editor-shadow-pool-info)))
+      (when (and sidebar-shadow-pool-info (> (:draw-count sidebar-shadow-pool-info) 0))
+        (.setPipeline pass (:pipeline sidebar-shadow-pool-info))
+        (.setBindGroup pass 0 (:bind-group sidebar-shadow-pool-info))
+        (.setVertexBuffer pass 0 (:buffer sidebar-shadow-pool-info))
+        (.draw pass 6 (:draw-count sidebar-shadow-pool-info)))
 
       ;; Draw sidebar pool (behind editor content, uses differential buffer)
       (when (and sidebar-pool-info (> (:draw-count sidebar-pool-info) 0))
@@ -738,61 +827,53 @@
         (.setVertexBuffer pass 0 (:buffer sidebar-pool-info))
         (.draw pass 6 (:draw-count sidebar-pool-info)))
 
-      ;; Draw editor rects (selection, brackets, fold indicators, caret, eval)
-      (when (and editor-rect-sys (> (:num-instances editor-rect-sys) 0))
-        (.setPipeline pass (:pipeline editor-rect-sys))
-        (.setBindGroup pass 0 (:bind-group editor-rect-sys))
-        (.setVertexBuffer pass 0 (:instance-buffer editor-rect-sys))
-        (.draw pass 6 (:num-instances editor-rect-sys)))
+      ;; Draw editor rects (differential pool — selection, brackets, fold indicators, caret, eval)
+      (when (and editor-pool-info (> (:draw-count editor-pool-info) 0))
+        (.setPipeline pass (:pipeline editor-pool-info))
+        (.setBindGroup pass 0 (:bind-group editor-pool-info))
+        (.setVertexBuffer pass 0 (:buffer editor-pool-info))
+        (.draw pass 6 (:draw-count editor-pool-info)))
 
-      ;; Draw editor text (data-level viewport culling — buffer only contains visible lines)
+      ;; Draw content text (editor + sidebar — all instances, viewport culled at data level)
       (when (and text-sys (> (:num-instances text-sys) 0))
         (.setPipeline pass (:pipeline text-sys))
         (.setBindGroup pass 0 (:bind-group text-sys))
         (.setVertexBuffer pass 0 (:instance-buffer text-sys))
+        (.draw pass 6 (:num-instances text-sys) 0 0))
 
-        (let [line-offsets (:line-offsets text-sys)
-              total-lines  (count line-offsets)
-              editor-lines (or editor-line-count total-lines)
+      (let [chrome-ready? (and chrome-text-sys (> (:num-instances chrome-text-sys) 0))
+            chrome-offsets (:line-offsets chrome-text-sys)
+            chrome-lines (when chrome-offsets (count chrome-offsets))
+            chrome-base chrome-base-line-count]
 
-              ;; Draw all editor instances (viewport culling already done at data level)
-              editor-end-inst (if (< editor-lines total-lines)
-                                (nth line-offsets editor-lines)
-                                (:num-instances text-sys))
-              draw-count editor-end-inst]
-          (when (> draw-count 0)
-            (.draw pass 6 draw-count 0 0))
-
-          ;; Agent output background (instance 0) — draw behind text
+          ;; Agent output background (instance 0) — draw behind chrome text
           (when (and agent-visible cmd-rect-sys (>= (:num-instances cmd-rect-sys) 1))
             (.setPipeline pass (:pipeline cmd-rect-sys))
             (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
             (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
             (.draw pass 6 1 0 0))
 
-          ;; Command panel background (instance 1) — only draw when text data is ready
-          ;; Gating on (< editor-lines total-lines) prevents a 1-frame blank box
-          ;; from the race between cmd-visible (direct watch) and text-data (derived flow)
-          (when (and cmd-panel-visible (< editor-lines total-lines)
+          ;; Command panel background (instance 1)
+          (when (and cmd-panel-visible chrome-ready?
                      cmd-rect-sys (>= (:num-instances cmd-rect-sys) 2))
             (.setPipeline pass (:pipeline cmd-rect-sys))
             (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
             (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
             (.draw pass 6 1 0 1))
 
-          ;; Command + agent TEXT (on top of backgrounds)
-          (when (< editor-lines total-lines)
-            (let [cmd-start-inst (nth line-offsets editor-lines)
-                  cmd-end-inst   (:num-instances text-sys)
-                  cmd-draw-count (- cmd-end-inst cmd-start-inst)]
-              (when (> cmd-draw-count 0)
-                (.setPipeline pass (:pipeline text-sys))
-                (.setBindGroup pass 0 (:bind-group text-sys))
-                (.setVertexBuffer pass 0 (:instance-buffer text-sys))
-                (.draw pass 6 cmd-draw-count 0 cmd-start-inst))))
+          ;; Chrome base text (cmd + agent + status — before settings bg)
+          (when chrome-ready?
+            (let [base-end (if (and chrome-offsets (< chrome-base chrome-lines))
+                             (nth chrome-offsets chrome-base)
+                             (:num-instances chrome-text-sys))]
+              (when (> base-end 0)
+                (.setPipeline pass (:pipeline chrome-text-sys))
+                (.setBindGroup pass 0 (:bind-group chrome-text-sys))
+                (.setVertexBuffer pass 0 (:instance-buffer chrome-text-sys))
+                (.draw pass 6 base-end 0 0))))
 
-          ;; Caret (instance 2) — draw on top of text, same guard
-          (when (and cmd-panel-visible (< editor-lines total-lines)
+          ;; Caret (instance 2)
+          (when (and cmd-panel-visible chrome-ready?
                      cmd-rect-sys (>= (:num-instances cmd-rect-sys) 3))
             (.setPipeline pass (:pipeline cmd-rect-sys))
             (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
@@ -808,46 +889,54 @@
 
           ;; Settings panel: draw on top of everything when visible
           (when settings-visible
-            ;; Draw settings panel BACKGROUND + UI rects
             (when (and settings-rect-sys (> (:num-instances settings-rect-sys) 0))
               (.setPipeline pass (:pipeline settings-rect-sys))
               (.setBindGroup pass 0 (:bind-group settings-rect-sys))
               (.setVertexBuffer pass 0 (:instance-buffer settings-rect-sys))
               (.draw pass 6 (:num-instances settings-rect-sys)))
 
-            ;; Draw settings panel TEXT (font names, labels, values)
-            ;; Settings text is appended after editor text and command/agent text.
-            ;; Runtime passes exact line counts so we can slice this deterministically.
-            (when (pos? settings-line-count)
-              (let [settings-start-line (or pre-settings-line-count editor-line-count 0)
+            ;; Settings text (from chrome buffer, after base chrome lines)
+            (when (and chrome-ready? (pos? settings-line-count) chrome-offsets)
+              (let [settings-start-line chrome-base
                     settings-end-line (+ settings-start-line settings-line-count)
-                    settings-start-inst (if (< settings-start-line (count line-offsets))
-                                          (nth line-offsets settings-start-line)
-                                          (:num-instances text-sys))
-                    settings-end-inst (if (< settings-end-line (count line-offsets))
-                                        (nth line-offsets settings-end-line)
-                                        (:num-instances text-sys))
+                    settings-start-inst (if (< settings-start-line chrome-lines)
+                                          (nth chrome-offsets settings-start-line)
+                                          (:num-instances chrome-text-sys))
+                    settings-end-inst (if (< settings-end-line chrome-lines)
+                                        (nth chrome-offsets settings-end-line)
+                                        (:num-instances chrome-text-sys))
                     settings-draw-count (- settings-end-inst settings-start-inst)]
                 (when (> settings-draw-count 0)
-                  (.setPipeline pass (:pipeline text-sys))
-                  (.setBindGroup pass 0 (:bind-group text-sys))
-                  (.setVertexBuffer pass 0 (:instance-buffer text-sys))
+                  (.setPipeline pass (:pipeline chrome-text-sys))
+                  (.setBindGroup pass 0 (:bind-group chrome-text-sys))
+                  (.setVertexBuffer pass 0 (:instance-buffer chrome-text-sys))
                   (.draw pass 6 settings-draw-count 0 settings-start-inst)))))
 
-          ;; Diagnostics overlay: draw when enabled and not covered by panels
-          (when (and diagnostics-visible (not cmd-panel-visible) (not settings-visible) diagnostics-line-index)
-            (when (< diagnostics-line-index (count line-offsets))
-              (let [start-inst (nth line-offsets diagnostics-line-index)
+          ;; Diagnostics overlay
+          (when (and diagnostics-visible (not cmd-panel-visible) (not settings-visible)
+                     diagnostics-line-index chrome-ready? chrome-offsets)
+            (when (< diagnostics-line-index chrome-lines)
+              (let [start-inst (nth chrome-offsets diagnostics-line-index)
                     next-line (inc diagnostics-line-index)
-                    end-inst (if (< next-line (count line-offsets))
-                               (nth line-offsets next-line)
-                               (:num-instances text-sys))
+                    end-inst (if (< next-line chrome-lines)
+                               (nth chrome-offsets next-line)
+                               (:num-instances chrome-text-sys))
                     draw-count (- end-inst start-inst)]
                 (when (> draw-count 0)
-                  (.setPipeline pass (:pipeline text-sys))
-                  (.setBindGroup pass 0 (:bind-group text-sys))
-                  (.setVertexBuffer pass 0 (:instance-buffer text-sys))
-                  (.draw pass 6 draw-count 0 start-inst)))))))
+                  (.setPipeline pass (:pipeline chrome-text-sys))
+                  (.setBindGroup pass 0 (:bind-group chrome-text-sys))
+                  (.setVertexBuffer pass 0 (:instance-buffer chrome-text-sys))
+                  (.draw pass 6 draw-count 0 start-inst))))))
 
     (.end pass)
+
+    ;; Phase 6E: copy persistent render target → swap chain for presentation
+    (when use-rt?
+      (let [rt-tex (:texture render-target)]
+        (.copyTextureToTexture encoder
+          (clj->js {:texture rt-tex})
+          (clj->js {:texture swap-texture})
+          (clj->js {:width (:width render-target)
+                    :height (:height render-target)}))))
+
     (.submit (.-queue device) #js [(.finish encoder)])))

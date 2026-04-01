@@ -92,7 +92,6 @@
 
       ;; GPU state (terminals update these)
       :!text-geo       (atom (:text geometry))
-      :!editor-rect-sys (atom (:rect geometry))
       :!cmd-rect-sys   (atom (let [capacity 16
                                     ib (.createBuffer device
                                          (clj->js {:size (* capacity editor/rect-stride)
@@ -111,10 +110,26 @@
                                     :bind-group (:bind-group (:rect geometry))
                                     :instance-buffer ib
                                     :num-instances 0}))
-      :!shadow-sys    (atom (:shadow geometry))
+      ;; Per-source shadow pools (Phase 6C: differential rendering, 20 floats/shadow)
+      ;; Separate pools prevent cross-source position shifts from causing full rewrites
+      :!editor-shadow-pool  (pool/create-pool device 16
+                              (:pipeline (:shadow geometry))
+                              (:bind-group (:shadow geometry))
+                              :floats-per-item 20
+                              :pack-fn pool/pack-shadow)
+      :!sidebar-shadow-pool (pool/create-pool device 64
+                              (:pipeline (:shadow geometry))
+                              (:bind-group (:shadow geometry))
+                              :floats-per-item 20
+                              :pack-fn pool/pack-shadow)
 
-      ;; Sidebar buffer pool (differential rendering — separate from editor-rect-sys)
+      ;; Sidebar buffer pool (differential rendering)
       :!sidebar-pool  (pool/create-pool device 256
+                        (:pipeline (:rect geometry))
+                        (:bind-group (:rect geometry)))
+
+      ;; Editor rect pool (Phase 6A: differential rendering with stable identities)
+      :!editor-pool   (pool/create-pool device 64
                         (:pipeline (:rect geometry))
                         (:bind-group (:rect geometry)))
 
