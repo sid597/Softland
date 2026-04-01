@@ -234,6 +234,13 @@
                     (when (not= old-p new-p)
                       (sidebar-io/save-flow-state! new-p)))))))
 
+        ;; Reset detail scroll when ticket selection changes — centralized
+        ;; so all paths (mouse, keyboard, /flow-select command) are covered.
+        _ (add-watch (:!flow-state atoms) :selection-scroll-reset
+            (fn [_ _ old-val new-val]
+              (when (not= (:selected old-val) (:selected new-val))
+                (reset! (:!detail-scroll-y atoms) 0))))
+
         ;; ── Workspace truth persistence (Phase 7) ────────────────────
         ;; Restore on load: selected-artifact, active-pane, sidebar-visible.
         ;; Persist on change: debounced to avoid intermediate states.

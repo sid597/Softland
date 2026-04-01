@@ -290,17 +290,19 @@
                          (map-indexed vector sliders))
           
           ;; Headers
-          title-text {:text "Settings"
+          title-str  "Settings"
+          title-text {:text title-str
                       :type :macro
-                      :from 0 :to 8
+                      :from 0 :to (count title-str)
                       :x (+ panel-x 20)
                       :y (+ panel-y 26)
                       :size (+ font-size 2)
                       :r 0.9 :g 0.9 :b 0.9 :a 1.0}
                       
-          hint-text {:text "Tab: Switch Pane   Arrows: Navigate/Adjust"
+          hint-str  "Tab: Switch Pane   Arrows: Navigate/Adjust"
+          hint-text {:text hint-str
                      :type :comment
-                     :from 0 :to 38
+                     :from 0 :to (count hint-str)
                      :x (+ panel-x 20)
                      :y (+ panel-y panel-h -12)
                      :size (- font-size 2)

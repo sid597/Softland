@@ -45,33 +45,27 @@
                                 (pos? agent-h)
                                 (>= mouse-y agent-y0)
                                 (< mouse-y agent-y1))]
-             (js/console.log "[SCROLL][WHEEL] delta:" delta "mx:" mouse-x "my:" mouse-y
-                             "sb?" sb-vis? "sidebar?" in-sidebar? "agent?" in-agent?
-                             "flow?" flow-active?
-                             "file?" file-workspace?)
              (cond
                ;; Sidebar file tree
                in-sidebar?
-               (do (js/console.log "[SCROLL] -> sidebar")
-                   (let [ss (derive-effective-sidebar @!sidebar-truth @!sidebar-overlay @!sidebar-ui)
-                         content-h (compute-sidebar-content-height ss)
-                         visible-h (- (:height viewport) sidebar-tab-h)
-                         max-scroll (max 0 (- content-h visible-h))]
-                     (swap! !sidebar-ui update :scroll-y
-                            #(-> (+ (or % 0) delta) (max 0) (min max-scroll)))))
+               (let [ss (derive-effective-sidebar @!sidebar-truth @!sidebar-overlay @!sidebar-ui)
+                     content-h (compute-sidebar-content-height ss)
+                     visible-h (- (:height viewport) sidebar-tab-h)
+                     max-scroll (max 0 (- content-h visible-h))]
+                 (swap! !sidebar-ui update :scroll-y
+                        #(-> (+ (or % 0) delta) (max 0) (min max-scroll))))
 
                ;; Agent panel
                in-agent?
-               (do (js/console.log "[SCROLL] -> agent")
-                   (let [line-step (* font-size 1.2)
-                         max-chars (if (pos? char-advance)
-                                     (max 1 (int (/ (- (:width viewport) 48) char-advance)))
-                                     80)
-                         line-count (agent-wrapped-line-count agent-output max-chars)
-                         total-h (* line-count line-step)
-                         max-scroll (max 0 (- total-h (- agent-h 16)))]
-                     (swap! !agent-scroll-y
-                            #(-> (+ % delta) (max 0) (min max-scroll)))))
+               (let [line-step (* font-size 1.2)
+                     max-chars (if (pos? char-advance)
+                                 (max 1 (int (/ (- (:width viewport) 48) char-advance)))
+                                 80)
+                     line-count (agent-wrapped-line-count agent-output max-chars)
+                     total-h (* line-count line-step)
+                     max-scroll (max 0 (- total-h (- agent-h 16)))]
+                 (swap! !agent-scroll-y
+                        #(-> (+ % delta) (max 0) (min max-scroll))))
 
                ;; Flow canvas (intake / run) — must check BEFORE chat to avoid false match
                flow-active?
@@ -80,22 +74,14 @@
                      content-w (- (:width viewport) sb-off)
                      left-w (int (* content-w list-left-pane-pct))
                      right-x0 (+ sb-off left-w list-divider-w)]
-                 (js/console.log "[SCROLL][FLOW] sb-off:" sb-off "content-w:" content-w
-                                 "left-w:" left-w "right-x0:" right-x0 "mx:" mouse-x
-                                 "in-right?:" (>= mouse-x right-x0))
                  (if (>= mouse-x right-x0)
                    ;; Right detail pane
-                   (let [old-val @!detail-scroll-y]
-                     (swap! !detail-scroll-y #(max 0 (+ % delta)))
-                     (js/console.log "[SCROLL] -> detail-right"
-                                     "old:" old-val "new:" @!detail-scroll-y))
+                   (swap! !detail-scroll-y #(max 0 (+ % delta)))
                    ;; Left ticket list
                    (let [grouped (group-tickets-by-status (:tickets flow))
                          content-h (list-content-height grouped @!collapsed-groups)
                          visible-h (- (:height viewport) cmd-panel-h status-bar-h agent-h 12)
                          max-scroll (max 0 (- content-h visible-h))]
-                     (js/console.log "[SCROLL] -> flow-left  content-h:" content-h
-                                     "visible-h:" visible-h "max:" max-scroll)
                      (swap! !scroll-y #(-> (+ % delta) (max 0) (min max-scroll))))))
 
                ;; Chat pane (3-pane mode)
@@ -106,30 +92,29 @@
                      rel-mx (- mouse-x sb-off)
                      in-chat? (and file-workspace? (>= rel-mx code-w) (< rel-mx (+ code-w chat-w)))]
                  (and file-workspace? in-chat?))
-               (do (js/console.log "[SCROLL] -> chat")
-                   (swap! !chat-scroll-y #(max 0 (+ % delta))))
+               (swap! !chat-scroll-y #(max 0 (+ % delta)))
 
                ;; Editor (no file open, or mouse in code pane)
                :else
-               (do (js/console.log "[SCROLL] -> editor")
-                   (when (or (not file-workspace?)
-                             (< (- mouse-x (if sb-vis? sidebar-w 0))
-                                (int (* (- (:width viewport) (if sb-vis? sidebar-w 0))
-                                        (ws/pane-width-pct local-world :main 0.4)))))
-                     (do (let [doc @!editor-doc
-                               line-h (* font-size (:line-height settings))
-                               total-lines (count (:lines doc))
-                               chrome-h (+ cmd-panel-h status-bar-h)
-                               overscroll (* 10 line-h)
-                               visible-h (- (:height viewport) chrome-h)
-                               max-scroll (max 0 (- (+ (* total-lines line-h) overscroll) visible-h))]
-                           (swap! !scroll-y #(-> (+ % delta) (max 0) (min max-scroll) (maybe-snap dpr snap?))))
-                         (let [h-delta (if shift? delta dx)
-                               sb-off (if sb-vis? sidebar-w 0)
-                               cw (- (:width viewport) sb-off)
-                               editor-right (if file-workspace?
-                                              (+ sb-off (int (* cw (ws/pane-width-pct local-world :main 0.4))))
-                                              (+ sb-off cw))]
-                           (when (and (not (zero? h-delta)) (< mouse-x editor-right))
-                             (swap! !scroll-x #(max 0 (+ (or % 0) h-delta)))))))))))           nil)
-         ))
+               (when (or (not file-workspace?)
+                         (< (- mouse-x (if sb-vis? sidebar-w 0))
+                            (int (* (- (:width viewport) (if sb-vis? sidebar-w 0))
+                                    (ws/pane-width-pct local-world :main 0.4)))))
+                 (let [doc @!editor-doc
+                       line-h (* font-size (:line-height settings))
+                       total-lines (count (:lines doc))
+                       chrome-h (+ cmd-panel-h status-bar-h)
+                       overscroll (* 10 line-h)
+                       visible-h (- (:height viewport) chrome-h)
+                       max-scroll (max 0 (- (+ (* total-lines line-h) overscroll) visible-h))]
+                   (swap! !scroll-y #(-> (+ % delta) (max 0) (min max-scroll) (maybe-snap dpr snap?))))
+                 (let [h-delta (if shift? delta dx)
+                       sb-off (if sb-vis? sidebar-w 0)
+                       cw (- (:width viewport) sb-off)
+                       editor-right (if file-workspace?
+                                      (+ sb-off (int (* cw (ws/pane-width-pct local-world :main 0.4))))
+                                      (+ sb-off cw))]
+                   (when (and (not (zero? h-delta)) (< mouse-x editor-right))
+                     (swap! !scroll-x #(max 0 (+ (or % 0) h-delta))))))))
+           nil)
+         )))
