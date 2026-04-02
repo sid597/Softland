@@ -19,10 +19,15 @@
 
 
 (def ipc
-  (let [c (create-ipc)]
-    (println "--R--: Start ipc, launch module")
+  (let [c (create-ipc)
+        module-name (get-module-name node-events-module)
+        launch-opts {:tasks 4 :threads 2}]
+    (println "--R--: Start ipc, launch module" {:module module-name
+                                                :launch-opts launch-opts})
     (reset! !rama-ipc c)
-    (launch-module! c node-events-module {:tasks 4 :threads 2})))
+    (let [result (launch-module! c node-events-module launch-opts)]
+      (println "--R--: Rama IPC ready" {:module module-name})
+      result)))
 
 
 ;; Foreign handles

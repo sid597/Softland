@@ -4,7 +4,8 @@
    (e.g. shadows: 20 floats, 80 bytes) via :floats-per-item and :pack-fn.
    Supports per-slot updates via writeBuffer for O(1) partial writes,
    and batch-update with diff for O(changed) bulk sync."
-  (:require [clojure.set]))
+  (:require [clojure.set]
+            [app.client.substrate.webgpu.gpu-budget :as gpu-budget]))
 
 (def floats-per-rect 28)
 (def bytes-per-rect 112) ;; 28 × 4
@@ -105,11 +106,15 @@
    Optional :floats-per-item (default 28) and :pack-fn (default pack-rect)
    allow the pool to manage different item types (rects, shadows, etc.)."
   [device initial-capacity pipeline bind-group
-   & {:keys [floats-per-item pack-fn]
+   & {:keys [floats-per-item pack-fn tracker label]
       :or {floats-per-item floats-per-rect pack-fn pack-rect}}]
   (let [bytes-per-item (* floats-per-item 4)]
-    (atom {:device device
-           :buffer (make-buffer device initial-capacity bytes-per-item)
+    (atom (let [buffer (make-buffer device initial-capacity bytes-per-item)]
+            (gpu-budget/register-buffer! tracker buffer (or label "pool/unnamed")
+                                         (* initial-capacity bytes-per-item)
+                                         :active-bytes 0)
+            {:device device
+           :buffer buffer
            :capacity initial-capacity
            :free-list ()
            :active-slots #{}
@@ -119,13 +124,15 @@
            :floats-per-item floats-per-item
            :bytes-per-item bytes-per-item
            :pack-fn pack-fn
+            :gpu-tracker tracker
+            :gpu-label (or label "pool/unnamed")
            :generations (vec (repeat initial-capacity 0))
-           :prev-rects nil})))
+            :prev-rects nil}))))
 
 (defn- grow-pool!
   "Double the pool's buffer capacity, copying existing data via command encoder."
   [pool]
-  (let [{:keys [^js device ^js buffer capacity high-water-mark bytes-per-item]} @pool
+  (let [{:keys [^js device ^js buffer capacity high-water-mark bytes-per-item gpu-tracker gpu-label]} @pool
         new-capacity (* capacity 2)
         new-buffer (make-buffer device new-capacity bytes-per-item)
         copy-bytes (* high-water-mark bytes-per-item)]
@@ -133,6 +140,10 @@
       (let [encoder (.createCommandEncoder device)]
         (.copyBufferToBuffer ^js encoder buffer 0 new-buffer 0 copy-bytes)
         (.submit (.-queue device) #js [(.finish ^js encoder)])))
+    (gpu-budget/replace-buffer! gpu-tracker buffer new-buffer gpu-label
+                                (* new-capacity bytes-per-item)
+                                :active-bytes copy-bytes
+                                :reason :pool-grow)
     (.destroy buffer)
     (swap! pool #(-> %
                      (assoc :buffer new-buffer :capacity new-capacity)
@@ -237,6 +248,7 @@
            :prev-keyed-rects new-keyed
            :high-water-mark (max (:high-water-mark @pool)
                                  (count (:active-slots @pool))))
+    (gpu-budget/set-active-bytes! (:gpu-tracker @pool) (:buffer @pool) (* (count new-rects) (:bytes-per-item @pool)))
     {:added @added :updated @updated :freed @freed
      :total-writes (+ @added @updated @freed)}))
 
@@ -288,6 +300,7 @@
            :ordered-ids new-ids
            :prev-keyed-rects new-keyed
            :high-water-mark new-n)
+    (gpu-budget/set-active-bytes! (:gpu-tracker @pool) (:buffer @pool) (* new-n bytes-per-item))
     {:added @added :updated @updated :freed @freed
      :total-writes (+ @added @updated @freed)}))
 
@@ -327,6 +340,7 @@
     (swap! pool assoc
            :prev-rects new-rects
            :high-water-mark new-n)
+    (gpu-budget/set-active-bytes! (:gpu-tracker @pool) (:buffer @pool) (* new-n bytes-per-item))
     @writes))
 
 (defn pool-draw-info

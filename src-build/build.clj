@@ -1,5 +1,6 @@
 (ns build
   (:require
+    [build.slug-font :as slug-font]
     [clojure.tools.build.api :as b]
     [clojure.tools.logging :as log]
     [shadow.cljs.devtools.api :as shadow-api]
@@ -59,6 +60,14 @@
              :uber-file jar-name
              :basis     (b/create-basis {:project "deps.edn" :aliases aliases})})
     (log/info jar-name)))
+
+(defn build-slug-font
+  "Generate Slug assets for the default DejaVu Sans Mono font bundle.
+   Invoke with `clj -X:build build-slug-font`."
+  [_argmap]
+  (let [result (slug-font/write-font-assets! (slug-font/default-config))]
+    (log/info "Slug font assets generated:" (pr-str result))
+    result))
 
 ;; clj -X:build:prod build-client
 ;; clj -X:build:prod uberjar :build/jar-name "app.jar"
