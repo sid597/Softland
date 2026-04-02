@@ -5,6 +5,8 @@
             [app.client.workspace.themes :as themes]
             [app.file-viewer :as fv]
             #?@(:cljs [[app.client.substrate.webgpu.renderer :as editor]
+                       [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
+                       [app.client.workspace.runtime.fonts :as runtime-fonts]
                        [app.client.workspace.runtime :as loop]
                        [global-flow :refer [await-promise]]
                        ["@lezer/lr" :as lr]
@@ -353,73 +355,92 @@
                     line-mapping))))))))
 
 #?(:cljs
-   (defn load-resources-async []
-     (js/Promise.all
-       #js [(-> (js/fetch "/font_atlas.png") (.then #(.blob %)) (.then #(js/createImageBitmap %)))
-            (-> (js/fetch "/font_atlas.json") (.then #(.json %)) (.then #(js->clj % :keywordize-keys true)))])))
+   (do
+     (defonce !window-debug-hooks-installed? (atom false))
 
-#?(:cljs
-   (defn load-font-manifest-async []
-     "Load the font manifest from the fonts directory"
-     (-> (js/fetch "/fonts/manifest.json")
-         (.then #(.json %))
-         (.then #(js->clj % :keywordize-keys true))
-         (.catch (fn [_e]
-                   ;; Fallback if manifest not found
-                   {:fonts [{:name "Ubuntu Sans Mono"
-                             :id "ubuntu-sans-mono"
-                             :atlas "ubuntu_sans_mono_atlas.png"
-                             :metrics "ubuntu_sans_mono_atlas.json"
-                             :charWidth 0.56
-                             :default true
-                             :defaults {:fontSize 19
-                                        :lineHeight 1.2
-                                        :pxRange 8
-                                        :sharpness 0.0
-                                        :snapToPixel true
-                                        :showDiagnostics false}}]
-                    :settings {:fontSize {:default 19}
-                               :lineHeight {:default 1.2}
-                               :pxRange {:default 8}
-                               :sharpness {:default 0.0}
-                               :snapToPixel {:default true}
-                               :showDiagnostics {:default false}}})))))
+     (defn- install-window-debug-hooks! []
+       (when-not @!window-debug-hooks-installed?
+         (reset! !window-debug-hooks-installed? true)
+         (.addEventListener js/window "error"
+           (fn [event]
+             (js/console.error "[CLIENT/ERROR]"
+                               {:message (.-message event)
+                                :filename (.-filename event)
+                                :lineno (.-lineno event)
+                                :colno (.-colno event)
+                                :error (.-error event)})))
+         (.addEventListener js/window "unhandledrejection"
+           (fn [event]
+             (js/console.error "[CLIENT/UNHANDLED-REJECTION]" (.-reason event))))
+         (js/console.log "[CLIENT] Installed global window debug hooks")))
 
-#?(:cljs
-   (defn load-font-atlas-async [font-config]
-     "Load a specific font's atlas and metrics given its config from manifest"
-     (let [base-path "/fonts/"
-           atlas-url (str base-path (:atlas font-config))
-           metrics-url (str base-path (:metrics font-config))]
-       (js/Promise.all
-         #js [(-> (js/fetch atlas-url) (.then #(.blob %)) (.then #(js/createImageBitmap %)))
-              (-> (js/fetch metrics-url) (.then #(.json %)) (.then #(js->clj % :keywordize-keys true)))]))))
+     (defn- install-webgpu-debug-hooks! [^js device]
+       (when (and device (not (true? (.-__softlandDebugHooksInstalled device))))
+         (set! (.-__softlandDebugHooksInstalled device) true)
+         (.addEventListener device "uncapturederror"
+           (fn [event]
+             (js/console.error "[WEBGPU/UNCAUGHT-ERROR]" (.-error event))))
+         (-> (.-lost device)
+             (.then (fn [info]
+                      (js/console.error "[WEBGPU/DEVICE-LOST]"
+                                        {:message (.-message info)
+                                         :reason (.-reason info)})))
+             (.catch (fn [err]
+                       (js/console.error "[WEBGPU/DEVICE-LOST-HOOK-FAILED]" err))))
+         (js/console.log "[WEBGPU] Installed device debug hooks")))))
 
 (e/defn LoadWebGPU []
   (e/client
-    (let [raw (e/Task (await-promise (load-resources-async)))]
-      (when raw
-        (let [bitmap (aget raw 0) 
-              atlas (aget raw 1)
-              gpu js/navigator.gpu
-              adapter (e/Task (await-promise (.requestAdapter ^js gpu)))
-              device (e/Task (await-promise (.requestDevice ^js adapter)))
-              format (.getPreferredCanvasFormat ^js gpu)]
-          (when (and device atlas bitmap)
-            {:bitmap bitmap :atlas atlas :device device :format format}))))))
+    (let [_ (install-window-debug-hooks!)
+          gpu js/navigator.gpu
+          _ (when-not gpu
+              (js/console.error "[BOOT] navigator.gpu unavailable"))
+          adapter (e/Task (await-promise (.requestAdapter ^js gpu)))
+          device (e/Task (await-promise (.requestDevice ^js adapter)))
+          initial-font-data (e/Task (await-promise (runtime-fonts/load-default-font-data-async)))]
+      (when (and adapter device initial-font-data)
+        (let [format (.getPreferredCanvasFormat ^js gpu)
+              adapter-limits (gpu-budget/snapshot-adapter-limits adapter)
+              tracker (gpu-budget/create-tracker adapter-limits)]
+          (install-webgpu-debug-hooks! device)
+          (js/console.log "[BOOT] WebGPU ready"
+                          {:format format
+                           :font-id (get-in initial-font-data [:font-config :id])
+                           :font-backend (get-in initial-font-data [:font-assets :backend])
+                           :adapter-limits adapter-limits})
+          (merge initial-font-data
+                 {:device device
+                  :format format
+                  :adapter-limits adapter-limits
+                  :gpu-budget tracker}))))))
 
-(e/defn Prepare-Geometry [device pipelines render-ops atlas]
+(e/defn Prepare-Geometry [device pipelines render-ops font-assets font-config]
   (e/client
-    (let [font-size 19
-          char-width 0.56
+    (let [font-defaults (:defaults font-config)
+          font-size (or (:fontSize font-defaults) 19)
+          char-width (or (:charWidth font-config) 0.56)
+          px-range (or (:pxRange font-defaults) 8)
+          sharpness (or (:sharpness font-defaults) 0.0)
+          line-height-factor (or (:lineHeight font-defaults) 1.2)
           dpr (or (.-devicePixelRatio js/window) 1)
           snap-step (/ 1 dpr)
           snap (fn [v] (* (Math/round (/ v snap-step)) snap-step))
-          line-h (snap (* font-size 1.2))]
-      {:text (editor/update-text-data device (:text-sys pipelines) render-ops atlas font-size
+          line-h (snap (* font-size line-height-factor))]
+      (js/console.log "[BOOT] Prepare geometry"
+                      {:font-id (:id font-config)
+                       :font-backend (:backend font-assets)
+                       :render-line-count (count render-ops)
+                       :font-size font-size
+                       :char-width char-width
+                       :px-range px-range
+                       :line-height line-h
+                       :dpr dpr})
+      {:text (editor/update-text-data device (:text-sys pipelines) render-ops font-assets font-size
+                                      :px-range px-range
                                       :line-height line-h
                                       :char-width char-width
-                                      :snap-step snap-step)
+                                      :snap-step snap-step
+                                      :sharpness sharpness)
        :rect (editor/update-rects device (:rect-sys pipelines) [])
        ;; Shadow pools now own runtime shadow uploads; bootstrap only needs the pipeline state.
        :shadow (:shadow-sys pipelines)
@@ -447,7 +468,6 @@
           (init-sci!)
 
           (let [resources (LoadWebGPU)
-                font-manifest (e/Task (await-promise (load-font-manifest-async)))
                 ;; Rama truth atoms — Electric subscriptions populate these
                 !sidebar-truth (atom nil)
                 !settings-truth (atom nil)
@@ -469,24 +489,33 @@
             (when resources
               (let [device (get resources :device)
                     format (get resources :format)
-                    atlas (get resources :atlas)
+                    font-manifest (get resources :font-manifest)
+                    font-config (get resources :font-config)
+                    font-assets (get resources :font-assets)
                     pipelines (editor/create-editor-state resources)]
+                (js/console.log "[BOOT] Client resources ready"
+                                {:font-id (:id font-config)
+                                 :font-backend (:backend font-assets)
+                                 :font-manifest-count (count (:fonts font-manifest))
+                                 :format format})
 
                 (let [lines (str/split-lines file-content)
                       tokenized-lines (mapv tokenize-line lines)
                       gutter-w 40
                       layout-x (+ 50 gutter-w)
-                      font-size 19
+                      font-defaults (:defaults font-config)
+                      font-size (or (:fontSize font-defaults) 19)
                       dpr (or (.-devicePixelRatio js/window) 1)
                       snap-step (/ 1 dpr)
                       snap (fn [v] (* (Math/round (/ v snap-step)) snap-step))
-                      char-advance (snap (* font-size 0.56))
-                      line-h (snap (* font-size 1.2))
+                      char-width (or (:charWidth font-config) 0.56)
+                      char-advance (snap (* font-size char-width))
+                      line-h (snap (* font-size (or (:lineHeight font-defaults) 1.2)))
                       layout-result (layout-tokens tokenized-lines layout-x 100 font-size [] #{} char-advance line-h)
                       render-ops (:render-ops layout-result)
                       line-lengths (mapv count lines)]
 
-                  (let [geometry (Prepare-Geometry device pipelines render-ops atlas)]
+                  (let [geometry (Prepare-Geometry device pipelines render-ops font-assets font-config)]
 
                     ;; Extract preview overlay (hidden by default, shown when extract mode active)
                     (let [preview-el-atom (atom nil)]
@@ -511,12 +540,53 @@
                                             :height "100vh"
                                             :display "block"}})
                         (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
-                          (.configure ^js ctx (clj->js {:device device :format format :alphaMode "premultiplied"}))
+                          (let [raw-client-width (max 1 (.-clientWidth dom/node))
+                                raw-client-height (max 1 (.-clientHeight dom/node))
+                                window-width (max 1 (or (.-innerWidth js/window) raw-client-width))
+                                window-height (max 1 (or (.-innerHeight js/window) raw-client-height))
+                                client-width (max raw-client-width window-width)
+                                client-height (max raw-client-height window-height)
+                                dpr (or (.-devicePixelRatio js/window) 1)
+                                backing-width (Math/floor (* client-width dpr))
+                                backing-height (Math/floor (* client-height dpr))]
+                            (set! (.-width dom/node) backing-width)
+                            (set! (.-height dom/node) backing-height)
+                            (js/console.log "[BOOT] Primed canvas backing size"
+                                            (str "{\"clientWidth\":" raw-client-width
+                                                 ",\"clientHeight\":" raw-client-height
+                                                 ",\"effectiveWidth\":" client-width
+                                                 ",\"effectiveHeight\":" client-height
+                                                 ",\"dpr\":" dpr
+                                                 ",\"backingWidth\":" backing-width
+                                                 ",\"backingHeight\":" backing-height "}")))
+                          (js/console.log "[BOOT] Configuring WebGPU canvas"
+                                          (str "{\"clientWidth\":" (.-clientWidth dom/node)
+                                               ",\"clientHeight\":" (.-clientHeight dom/node)
+                                               ",\"effectiveWidth\":" (max (max 1 (.-clientWidth dom/node))
+                                                                           (max 1 (or (.-innerWidth js/window)
+                                                                                      (.-clientWidth dom/node))))
+                                               ",\"effectiveHeight\":" (max (max 1 (.-clientHeight dom/node))
+                                                                            (max 1 (or (.-innerHeight js/window)
+                                                                                       (.-clientHeight dom/node))))
+                                               ",\"devicePixelRatio\":" (or (.-devicePixelRatio js/window) 1)
+                                               ",\"canvasWidth\":" (.-width dom/node)
+                                               ",\"canvasHeight\":" (.-height dom/node)
+                                               ",\"format\":\"" format "\""
+                                               ",\"copyDst\":true}"))
+                          (.configure ^js ctx
+                            (clj->js {:device device
+                                      :format format
+                                      :alphaMode "premultiplied"}))
+                          (js/console.log "[BOOT] Starting runtime loop"
+                                          {:initial-file (:path file-info)
+                                           :font-id (:id font-config)
+                                           :font-backend (:backend font-assets)})
                           (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
                                                     lines tokenize-line layout-tokens
                                                     find-matching-bracket detect-fold-regions
-                                                    find-form-at-cursor sci-eval-form atlas
+                                                    find-form-at-cursor sci-eval-form font-assets
                                                     :font-manifest font-manifest
+                                                    :gpu-budget (:gpu-budget resources)
                                                     :!sidebar-visible !sidebar-visible
                                                     :!file-load-request !file-load-request
                                                     :!preview-el preview-el-atom

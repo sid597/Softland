@@ -3,6 +3,7 @@
    Returns the rt context map — the single shared contract for all runtime modules."
   (:require [app.client.substrate.webgpu.renderer :as editor]
             [app.client.substrate.webgpu.buffer-pool :as pool]
+            [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.workspace.settings-view :refer [manifest-defaults->settings font-defaults->settings]]
             [app.client.workflows.dg-flow :refer [initial-flow-state]]))
 
@@ -24,11 +25,20 @@
               :snapToPixel {:default true}
               :showDiagnostics {:default false}}})
 
+(defn- initial-viewport [node]
+  (let [win-w (or (.-innerWidth js/window) 0)
+        win-h (or (.-innerHeight js/window) 0)
+        node-w (or (.-clientWidth node) 0)
+        node-h (or (.-clientHeight node) 0)]
+    {:width (max 1 node-w win-w)
+     :height (max 1 node-h win-h)
+     :dpr (or (.-devicePixelRatio js/window) 1)}))
+
 (defn make-runtime-state
   "Create all runtime atoms and layout constants. Returns the rt context map.
    External atoms (!sidebar-visible, !file-load-request, !preview-el) are threaded through."
-  [{:keys [node device ctx geometry atlas initial-lines font-manifest
-           !sidebar-visible !file-load-request !preview-el]}]
+  [{:keys [node device ctx geometry font-assets initial-lines font-manifest
+           !sidebar-visible !file-load-request !preview-el gpu-budget]}]
   (let [;; Layout constants
         gutter-w 40
         layout-x (+ 50 gutter-w)
@@ -69,9 +79,7 @@
       :!scroll-x      (atom 0)
       :!run-scroll-y  (atom 0)
       :!detail-scroll-y (atom 0)
-      :!viewport      (atom {:width  (.-clientWidth node)
-                              :height (.-clientHeight node)
-                              :dpr    (or (.-devicePixelRatio js/window) 1)})
+      :!viewport      (atom (initial-viewport node))
       :!folded-lines  (atom #{})
       :!caret-visible (atom true)
       :!clipboard     (atom nil)
@@ -88,50 +96,67 @@
       :!active-font   (atom {:id (:id default-font)
                               :char-width (or (:charWidth default-font) 0.56)
                               :name (:name default-font)})
-      :!font-assets   (atom {:atlas atlas :bitmap nil :id "dejavu-sans-mono"})
+      :!font-assets   (atom (or font-assets {:backend :msdf :atlas nil :bitmap nil :id "dejavu-sans-mono"}))
 
       ;; GPU state (terminals update these)
       :!text-geo       (atom (:text geometry))
+      :!gpu-budget     (atom gpu-budget)
       :!cmd-rect-sys   (atom (let [capacity 16
+                                    size (* capacity editor/rect-stride)
                                     ib (.createBuffer device
-                                         (clj->js {:size (* capacity editor/rect-stride)
+                                         (clj->js {:size size
                                                     :usage (bit-or js/GPUBufferUsage.VERTEX
-                                                                   js/GPUBufferUsage.COPY_DST)}))]
+                                                                   js/GPUBufferUsage.COPY_DST)}))
+                                    _ (gpu-budget/register-buffer! gpu-budget ib "runtime/cmd" size :active-bytes 0)]
                                 {:pipeline (:pipeline (:rect geometry))
                                  :bind-group (:bind-group (:rect geometry))
                                  :instance-buffer ib
-                                 :num-instances 0}))
+                                 :num-instances 0
+                                 :gpu-tracker gpu-budget
+                                 :gpu-label "runtime/cmd"}))
       :!settings-rect-sys (atom (let [capacity 32
+                                       size (* capacity editor/rect-stride)
                                        ib (.createBuffer device
-                                            (clj->js {:size (* capacity editor/rect-stride)
+                                            (clj->js {:size size
                                                       :usage (bit-or js/GPUBufferUsage.VERTEX
-                                                                     js/GPUBufferUsage.COPY_DST)}))]
+                                                                     js/GPUBufferUsage.COPY_DST)}))
+                                       _ (gpu-budget/register-buffer! gpu-budget ib "runtime/settings" size :active-bytes 0)]
                                    {:pipeline (:pipeline (:rect geometry))
                                     :bind-group (:bind-group (:rect geometry))
                                     :instance-buffer ib
-                                    :num-instances 0}))
+                                    :num-instances 0
+                                    :gpu-tracker gpu-budget
+                                    :gpu-label "runtime/settings"}))
       ;; Per-source shadow pools (Phase 6C: differential rendering, 20 floats/shadow)
       ;; Separate pools prevent cross-source position shifts from causing full rewrites
       :!editor-shadow-pool  (pool/create-pool device 16
                               (:pipeline (:shadow geometry))
                               (:bind-group (:shadow geometry))
                               :floats-per-item 20
-                              :pack-fn pool/pack-shadow)
+                              :pack-fn pool/pack-shadow
+                              :tracker gpu-budget
+                              :label "pool/editor-shadow")
       :!sidebar-shadow-pool (pool/create-pool device 64
                               (:pipeline (:shadow geometry))
                               (:bind-group (:shadow geometry))
                               :floats-per-item 20
-                              :pack-fn pool/pack-shadow)
+                              :pack-fn pool/pack-shadow
+                              :tracker gpu-budget
+                              :label "pool/sidebar-shadow")
 
       ;; Sidebar buffer pool (differential rendering)
       :!sidebar-pool  (pool/create-pool device 256
                         (:pipeline (:rect geometry))
-                        (:bind-group (:rect geometry)))
+                        (:bind-group (:rect geometry))
+                        :tracker gpu-budget
+                        :label "pool/sidebar")
 
       ;; Editor rect pool (Phase 6A: differential rendering with stable identities)
       :!editor-pool   (pool/create-pool device 64
                         (:pipeline (:rect geometry))
-                        (:bind-group (:rect geometry)))
+                        (:bind-group (:rect geometry))
+                        :tracker gpu-budget
+                        :label "pool/editor")
 
       ;; Effective local world — the single semantic root.
       ;; Derived from truth+overlay+ui+artifacts. No independent write path.
@@ -195,7 +220,7 @@
       :!file-load-request  !file-load-request
       :!preview-el         !preview-el}
 
-     :gpu {:device device :ctx ctx :geometry geometry :atlas atlas}
+     :gpu {:device device :ctx ctx :geometry geometry :font-assets font-assets}
      :node node}))
 
 (defn save-undo!

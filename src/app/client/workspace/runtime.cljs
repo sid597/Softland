@@ -23,12 +23,13 @@
    returns a Missionary task that runs the render loop."
   [node device ctx geometry initial-line-lengths initial-lines
    tokenize-fn layout-fn find-bracket-fn detect-folds-fn
-   find-form-fn eval-form-fn atlas & {:keys [font-manifest !sidebar-visible !file-load-request !preview-el !remote-sidebar-truth !remote-settings-truth !remote-agent-trail !remote-flow-session !remote-workspace-truth initial-file]}]
+   find-form-fn eval-form-fn font-assets & {:keys [font-manifest gpu-budget !sidebar-visible !file-load-request !preview-el !remote-sidebar-truth !remote-settings-truth !remote-agent-trail !remote-flow-session !remote-workspace-truth initial-file]}]
 
   (let [;; Phase 2: Build the rt context map
         rt (state/make-runtime-state
-             {:node node :device device :ctx ctx :geometry geometry :atlas atlas
+             {:node node :device device :ctx ctx :geometry geometry :font-assets font-assets
               :initial-lines initial-lines :font-manifest font-manifest
+              :gpu-budget gpu-budget
               :!sidebar-visible !sidebar-visible
               :!file-load-request !file-load-request
               :!preview-el !preview-el})
@@ -358,9 +359,24 @@
       (->> >resize
            (m/reduce
              (fn [_ {:keys [width height dpr]}]
-               (reset! (:!viewport atoms) {:width width :height height :dpr dpr})
-               (set! (.-width node) (Math/floor (* width dpr)))
-               (set! (.-height node) (Math/floor (* height dpr)))
+               (let [safe-width (max 1 width)
+                     safe-height (max 1 height)
+                     safe-dpr (or dpr 1)
+                     backing-width (Math/floor (* safe-width safe-dpr))
+                     backing-height (Math/floor (* safe-height safe-dpr))]
+                 (reset! (:!viewport atoms) {:width safe-width :height safe-height :dpr safe-dpr})
+                 (set! (.-width node) backing-width)
+                 (set! (.-height node) backing-height)
+                 ;; No .configure() here — changing canvas.width/height is sufficient.
+                 ;; WebGPU auto-creates new swap chain textures on the next .getCurrentTexture().
+                 ;; Calling .configure() would unconfigure the context, blanking the canvas
+                 ;; until a new frame is presented — causing a black screen flash or worse.
+                 (js/console.log "[RESIZE] Canvas backing resized"
+                                 (str "{\"width\":" safe-width
+                                      ",\"height\":" safe-height
+                                      ",\"dpr\":" safe-dpr
+                                      ",\"backingWidth\":" backing-width
+                                      ",\"backingHeight\":" backing-height "}")))
                nil)
              nil))
 

@@ -3,6 +3,7 @@
   (:require [missionary.core :as m]
             [app.client.substrate.webgpu.renderer :as editor]
             [app.client.substrate.webgpu.buffer-pool :as pool]
+            [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.workspace.events :refer [maybe-snap]]
             [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.sidebar :refer [cmd-panel-h status-bar-h]]
@@ -12,6 +13,13 @@
             [app.client.workspace.settings-view :refer [<settings-panel-rects <settings-panel-text]]
             [app.client.workflows.dg-flow :as dg]))
 
+(def ^:private use-persistent-render-target? false)
+
+(defn- render-debug! [label data]
+  (let [payload (clj->js data)]
+    (js/console.log label payload)
+    (js/console.log (str label " JSON " (js/JSON.stringify payload)))))
+
 (defn render-consumer
   "Missionary consumer: assemble derived flows, build world snapshot, diff-upload to GPU, draw on RAF."
   [{:keys [!editor-doc !cmd-panel !ai-provider !agent-output !agent-scroll-y !scroll-y
@@ -19,11 +27,11 @@
            !hovered-row-idx !drag-state !sidebar-truth !sidebar-overlay !sidebar-ui !sidebar-visible !sidebar-scene !extract-preview
            !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input
            !focus !run-scroll-y !detail-scroll-y !eval-result !caret-visible !folded-lines
-           !font-manifest !font-assets !text-geo !cmd-rect-sys !settings-rect-sys
+           !font-manifest !font-assets !text-geo !gpu-budget !cmd-rect-sys !settings-rect-sys
            !sidebar-pool !editor-pool !editor-shadow-pool !sidebar-shadow-pool]
     :as atoms}
    {:keys [layout-x layout-y gutter-w]}
-   {:keys [device ctx geometry atlas]}
+   {:keys [device ctx geometry]}
    {:keys [tokenize-fn layout-fn detect-folds-fn find-bracket-fn]}]
   (let [;; Dirty-present RAF: only fires when world-snapshot changes (Phase 6E)
         !request-frame (volatile! nil)
@@ -134,7 +142,8 @@
         (if (identical? world (:prev-world prev-state))
           prev-state
 
-          (let [raf-t0 (js/performance.now)
+          (let [frame-idx (inc (or (:frame-idx prev-state) 0))
+                raf-t0 (js/performance.now)
                 {:keys [text-data editor-rect-data sidebar-data cmd-rects settings-rects settings-text
                         viewport scroll-y cmd-visible agent-visible settings-visible
                         font-size px-range line-height sharpness char-width
@@ -164,33 +173,54 @@
                 line-h (maybe-snap (* font-size line-height) dpr snap?)
                 snap-step (when snap? (/ 1 (or dpr 1)))
 
+                gpu-tracker @!gpu-budget
                 font-assets @!font-assets
                 prev-font-id (:prev-font-id prev-state)
-                font-changed? (not= (:id font-assets) prev-font-id)
+                prev-font-backend (:prev-font-backend prev-state)
+                font-changed? (or (not= (:id font-assets) prev-font-id)
+                                  (not= (:backend font-assets) prev-font-backend))
+                backend-changed? (not= (:backend font-assets) prev-font-backend)
 
-                ;; Font texture update — both text systems share pipeline but have separate bind-groups
+                ;; Font asset update — same backend updates resources in-place,
+                ;; backend changes rebuild the content system, then re-clone chrome.
                 [updated-content-geo updated-chrome-geo]
-                (if (and font-changed? (:bitmap font-assets))
-                  (do (js/console.log "[RENDER] Updating font texture for:" (:id font-assets))
-                      [(editor/update-font-texture device (:content-text-geo prev-state) (:bitmap font-assets))
-                       (editor/update-font-texture device (:chrome-text-geo prev-state) (:bitmap font-assets))])
+                (if font-changed?
+                  (if backend-changed?
+                    (let [old-content-geo (:content-text-geo prev-state)
+                          old-chrome-geo (:chrome-text-geo prev-state)
+                          chrome-capacity (max 1
+                                              (quot (.-size ^js (:instance-buffer old-chrome-geo))
+                                                    (:instance-stride old-chrome-geo)))
+                          _ (js/console.log "[RENDER] Recreating text systems for backend:" (name (:backend font-assets)))
+                          _ (editor/destroy-text-system! old-chrome-geo)
+                          new-content-geo (editor/recreate-text-system device
+                                                                       (:format (:pipelines geometry))
+                                                                       old-content-geo
+                                                                       font-assets)]
+                      [new-content-geo
+                       (editor/clone-text-system device new-content-geo chrome-capacity)])
+                    (do (js/console.log "[RENDER] Updating font assets for:" (:id font-assets) "backend=" (name (:backend font-assets)))
+                        (let [new-content-geo (editor/update-font-assets device (:content-text-geo prev-state) font-assets)]
+                          [new-content-geo
+                           (editor/share-font-resources (:chrome-text-geo prev-state) new-content-geo)])))
                   [(:content-text-geo prev-state) (:chrome-text-geo prev-state)])
-
-                active-atlas (or (:atlas font-assets) atlas)
 
                 ;; Resize render target if viewport changed (Phase 6E)
                 ;; Render target is always at physical pixels (CSS * dpr)
                 prev-rt (:render-target prev-state)
                 phys-w (Math/floor (* (:width viewport) dpr))
                 phys-h (Math/floor (* (:height viewport) dpr))
-                rt-resized? (or (not= phys-w (:width prev-rt))
-                                (not= phys-h (:height prev-rt)))
-                render-target (if rt-resized?
-                                (do (editor/destroy-render-target! prev-rt)
-                                    (editor/create-render-target device
-                                      phys-w phys-h
-                                      (:format (:pipelines geometry))))
-                                prev-rt)
+                rt-resized? (and use-persistent-render-target?
+                                 (or (not= phys-w (:width prev-rt))
+                                     (not= phys-h (:height prev-rt))))
+                render-target (when use-persistent-render-target?
+                                (if rt-resized?
+                                  (editor/create-render-target device
+                                    phys-w phys-h
+                                    (:format (:pipelines geometry))
+                                    :tracker gpu-tracker
+                                    :previous prev-rt)
+                                  prev-rt))
 
                 ;; Common rendering settings check
                 settings-same? (and (= font-size (:prev-font-size prev-state))
@@ -210,7 +240,7 @@
                 new-content-geo (if content-same?
                                   updated-content-geo
                                   (editor/update-text-data device updated-content-geo
-                                                           content-ops active-atlas font-size
+                                                           content-ops font-assets font-size
                                                            :px-range px-range
                                                            :line-height line-h
                                                            :char-width char-width
@@ -224,12 +254,27 @@
                                    (let [diag-x (maybe-snap 16 dpr snap?)
                                          diag-y (maybe-snap (+ scroll-y 20) dpr snap?)
                                          diag-size (max 10 (- font-size 2))
-                                         atlas-size (get-in active-atlas [:atlas :size])
+                                         backend-name (name (:backend font-assets))
+                                         atlas-size (get-in font-assets [:atlas :atlas :size])
+                                         curve-tex (get-in font-assets [:slug :meta :curveTexture])
+                                         band-tex (get-in font-assets [:slug :meta :bandTexture])
+                                         slug-upload-ready? (and (= :slug (:backend font-assets))
+                                                                 (:curve-texture updated-content-geo)
+                                                                 (:band-texture updated-content-geo))
                                          font-name (:name @!active-font)
+                                         gpu-line (gpu-budget/summary-line gpu-tracker)
                                          diag-text (str "font: " (or font-name (:id font-assets)) "\n"
+                                                        "backend: " backend-name "\n"
                                                         "dpr: " dpr "  snap: " (if snap? "on" "off") "\n"
                                                         "pxRange: " px-range "  sharp: " sharpness "\n"
-                                                        "atlas: " atlas-size "  charW: " char-width)]
+                                                        (if (= :slug (:backend font-assets))
+                                                          (str "curve: " (:width curve-tex) "x" (:height curve-tex)
+                                                               "  band: " (:width band-tex) "x" (:height band-tex)
+                                                               "  upload: " (if slug-upload-ready? "ready" "missing"))
+                                                          (str "atlas: " atlas-size))
+                                                        "  charW: " char-width
+                                                        (when gpu-line
+                                                          (str "\n" gpu-line)))]
                                      [{:text diag-text :type :comment
                                        :from 0 :to (count diag-text)
                                        :x diag-x :y diag-y :size diag-size
@@ -248,7 +293,7 @@
                 new-chrome-geo (if chrome-same?
                                  updated-chrome-geo
                                  (editor/update-text-data device updated-chrome-geo
-                                                          full-chrome-ops active-atlas font-size
+                                                          full-chrome-ops font-assets font-size
                                                           :px-range px-range
                                                           :line-height line-h
                                                           :char-width char-width
@@ -369,29 +414,80 @@
                     ;; Nothing changed (shouldn't happen — world identity check should have caught this)
                     :else nil)
 
+                  frame-log? (or (<= frame-idx 8)
+                                 font-changed?
+                                 backend-changed?
+                                 (not content-same?)
+                                 (not chrome-same?)
+                                 (not settings-same?)
+                                 rt-resized?)
+                  _ (when frame-log?
+                      (render-debug! "[RENDER/FRAME]"
+                                     {:frame frame-idx
+                                      :font-id (:id font-assets)
+                                      :backend (:backend font-assets)
+                                      :viewport viewport
+                                      :content-lines (count (or content-ops []))
+                                      :chrome-lines (count (or full-chrome-ops []))
+                                      :content-instances (:num-instances new-content-geo)
+                                      :chrome-instances (:num-instances new-chrome-geo)
+                                      :editor-rects (count editor-rects)
+                                      :editor-shadows (count (or editor-shadows []))
+                                      :sidebar-rects (count sidebar-rects)
+                                      :cmd-rects (count (or cmd-rects []))
+                                      :settings-rects (count (or settings-rects []))
+                                      :cmd-visible cmd-visible
+                                      :agent-visible agent-visible
+                                      :settings-visible settings-visible
+                                      :snap? snap?
+                                      :dirty-rect (or dirty-rect :full)
+                                      :rt-enabled? use-persistent-render-target?}))
+                  _ (when (and (seq content-ops)
+                               (zero? (:num-instances new-content-geo)))
+                      (js/console.warn "[RENDER/WARN] content ops present but content instance buffer is empty"
+                                       {:frame frame-idx
+                                        :content-lines (count content-ops)
+                                        :font-id (:id font-assets)
+                                        :backend (:backend font-assets)}))
                   raf-t3 (js/performance.now)]  ;; before draw
-            (editor/draw-frame! device ctx
-                                new-content-geo (pool/pool-draw-info !editor-pool) new-cmd-sys
-                                (:camera-floats (:pipelines geometry))
-                                (:pass-descriptor (:pipelines geometry))
-                                0 (- scroll-y)
-                                (:width viewport) (:height viewport)
-                                :cmd-panel-visible cmd-visible
-                                :cmd-panel-h cmd-panel-h
-                                :chrome-text-sys new-chrome-geo
-                                :chrome-base-line-count chrome-base-count
-                                :settings-line-count settings-line-count
-                                :settings-visible settings-visible
-                                :settings-rect-sys new-settings-sys
-                                :diagnostics-visible show-diagnostics?
-                                :diagnostics-line-index diagnostics-line-index
-                                :agent-visible agent-visible
-                                :editor-shadow-pool-info (pool/pool-draw-info !editor-shadow-pool)
-                                :sidebar-shadow-pool-info (pool/pool-draw-info !sidebar-shadow-pool)
-                                :sidebar-pool-info (pool/pool-draw-info !sidebar-pool)
-                                :dirty-rect dirty-rect
-                                :render-target render-target
-                                :clear-quad (:clear-quad (:pipelines geometry)))
+            (try
+              (editor/draw-frame! device ctx
+                                  new-content-geo (pool/pool-draw-info !editor-pool) new-cmd-sys
+                                  (:camera-floats (:pipelines geometry))
+                                  (:pass-descriptor (:pipelines geometry))
+                                  0 (- scroll-y)
+                                  (:width viewport) (:height viewport)
+                                  :frame-idx frame-idx
+                                  :cmd-panel-visible cmd-visible
+                                  :cmd-panel-h cmd-panel-h
+                                  :chrome-text-sys new-chrome-geo
+                                  :chrome-base-line-count chrome-base-count
+                                  :settings-line-count settings-line-count
+                                  :settings-visible settings-visible
+                                  :settings-rect-sys new-settings-sys
+                                  :diagnostics-visible show-diagnostics?
+                                  :diagnostics-line-index diagnostics-line-index
+                                  :agent-visible agent-visible
+                                  :editor-shadow-pool-info (pool/pool-draw-info !editor-shadow-pool)
+                                  :sidebar-shadow-pool-info (pool/pool-draw-info !sidebar-shadow-pool)
+                                  :sidebar-pool-info (pool/pool-draw-info !sidebar-pool)
+                                  :dirty-rect dirty-rect
+                                  :render-target render-target
+                                  :clear-quad (:clear-quad (:pipelines geometry)))
+              (catch :default err
+                (js/console.error "[RENDER/DRAW-FAIL]"
+                                  err
+                                  (clj->js {:frame frame-idx
+                                            :font-id (:id font-assets)
+                                            :backend (:backend font-assets)
+                                            :viewport viewport
+                                            :content-instances (:num-instances new-content-geo)
+                                            :chrome-instances (:num-instances new-chrome-geo)
+                                            :editor-rects (count editor-rects)
+                                            :sidebar-rects (count sidebar-rects)
+                                            :dirty-rect (or dirty-rect :full)
+                                            :rt-enabled? use-persistent-render-target?}))
+                (throw err)))
               (let [raf-t4 (js/performance.now)]
                 (when (> (- raf-t4 raf-t0) 5)
                   (js/console.log "[RAF] prep:" (.toFixed (- raf-t1 raf-t0) 1) "ms | text-gpu:" (.toFixed (- raf-t2 raf-t1) 1) "ms | rects-gpu:" (.toFixed (- raf-t3 raf-t2) 1) "ms | draw:" (.toFixed (- raf-t4 raf-t3) 1) "ms | TOTAL:" (.toFixed (- raf-t4 raf-t0) 1) "ms | content-same?:" content-same? "chrome-same?:" chrome-same?
@@ -420,18 +516,32 @@
              :prev-sharpness sharpness
              :prev-char-width char-width
              :prev-snap-step snap-step
-             :prev-font-id (:id font-assets)})))
+             :prev-font-id (:id font-assets)
+             :prev-font-backend (:backend font-assets)
+             :frame-idx frame-idx})))
 
-      {:content-text-geo (:text geometry)
-       :chrome-text-geo (editor/clone-text-system device (:text geometry) 2000)
+      (let [tracker @!gpu-budget
+            chrome-text-geo (editor/clone-text-system device (:text geometry) 2000)
+            render-target (when use-persistent-render-target?
+                            (let [vp @!viewport
+                                  d (or (:dpr vp) 1)]
+                              (editor/create-render-target device
+                                (Math/floor (* (:width vp) d))
+                                (Math/floor (* (:height vp) d))
+                                (:format (:pipelines geometry))
+                                :tracker tracker)))]
+        (render-debug! "[RENDER/INIT]"
+                       {:viewport @!viewport
+                        :font-id (:id @!font-assets)
+                        :backend (:backend @!font-assets)
+                        :persistent-render-target? use-persistent-render-target?
+                        :has-render-target? (boolean render-target)})
+        (gpu-budget/log-startup-report! tracker)
+        {:content-text-geo (:text geometry)
+       :chrome-text-geo chrome-text-geo
        :cmd-rect-sys @!cmd-rect-sys
        :settings-rect-sys @!settings-rect-sys
-       :render-target (let [vp @!viewport
-                            d (or (:dpr vp) 1)]
-                        (editor/create-render-target device
-                          (Math/floor (* (:width vp) d))
-                          (Math/floor (* (:height vp) d))
-                          (:format (:pipelines geometry))))
+       :render-target render-target
        :prev-world nil
        :prev-content-ops nil
        :prev-chrome-ops nil
@@ -450,6 +560,8 @@
        :prev-sharpness nil
        :prev-char-width nil
        :prev-snap-step nil
-       :prev-font-id "dejavu-sans-mono"}
+       :prev-font-id (:id @!font-assets)
+       :prev-font-backend (:backend @!font-assets)
+       :frame-idx 0})
 
       (m/sample vector <world-snapshot >dirty-raf))))
