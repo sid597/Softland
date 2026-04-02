@@ -14,3 +14,10 @@ report.html
 .clj-kondo
 /target
 src/app/server/env.clj
+docs/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.agents/
+.gemini/
+.claude/
