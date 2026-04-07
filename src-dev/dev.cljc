@@ -19,17 +19,46 @@
         :manifest-path ; contains Electric compiled program's version so client and server stays in sync
         "public/js/manifest.edn"})
 
+     (defn- wrap-request-logging [handler]
+       (fn [ring-request]
+         (let [started-ns (System/nanoTime)
+               request-summary {:method (some-> (:request-method ring-request) name)
+                                :uri (:uri ring-request)
+                                :query (:query-string ring-request)
+                                :websocket? (boolean (:websocket? ring-request))}]
+           (log/info "[DEV/REQ]" request-summary)
+           (try
+             (let [response (handler ring-request)
+                   elapsed-ms (/ (double (- (System/nanoTime) started-ns)) 1000000.0)]
+               (log/info "[DEV/RESP]"
+                         (assoc request-summary
+                                :status (:status response)
+                                :elapsed-ms (format "%.2f" elapsed-ms)))
+               response)
+             (catch Throwable t
+               (log/error t "[DEV/ERR]" request-summary)
+               (throw t))))))
+
      (defn -main [& args]
-       (log/info "Starting Electric compiler and server...")
+       (log/info "[DEV] Starting Electric compiler and server..."
+                 {:args (vec args)
+                  :config config})
 
        (shadow-server/start!)
+       (log/info "[DEV] shadow-cljs server started")
        (shadow/watch :dev)
+       (log/info "[DEV] shadow-cljs watch started for build :dev")
        (comment (shadow-server/stop!))
 
        (def server (jetty/start-server!
-                     (fn [ring-request]
-                       (e/boot-server {} app.electric-flow/main ring-request))
+                     (wrap-request-logging
+                       (fn [ring-request]
+                         (e/boot-server {} app.electric-flow/main ring-request)))
                      config))
+       (log/info "[DEV] Jetty server started" {:host (:host config)
+                                               :port (:port config)
+                                               :resources-path (:resources-path config)
+                                               :manifest-path (:manifest-path config)})
 
        (comment (.stop server)))))
 

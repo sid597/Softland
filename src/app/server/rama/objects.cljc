@@ -1,100 +1,58 @@
 (ns app.server.rama.objects
-  (:use [com.rpl.rama]
-        [com.rpl.rama.path])
-  (:require [clj-http.client :as http]
-            [app.server.env :refer [oai-key roam-api-key roam-graph-name]]
-            [com.roamresearch.sdk.backend :as b]
-            [cheshire.core :as json])
-  (:import (clojure.lang Keyword)
-           [hyperfiddle.electric Failure Pending]
-           [com.rpl.rama.integration TaskGlobalObject]
-           [java.util.concurrent CompletableFuture]
-           [java.util.function Supplier]
-           [com.rpl.rama.helpers ModuleUniqueIdPState]))
+  (:require [clojure.string :as str]
+            [cheshire.core :as json]))
 
+(defn provider-default-argv
+  "Build argv when client does not send raw argv.
+   Session support is best-effort per provider.
+   Optional :output-format overrides Claude's default (\"json\").
+   When streaming, pass :output-format \"stream-json\" :include-partials? true.
+   Optional :allowed-tools is a seq of tool patterns (e.g. [\"mcp__linear-server__*\"]).
+   Optional :json-schema is a JSON string for --json-schema (structured output).
+   Optional :max-budget-usd caps API spend (only works with -p/--print).
+   Optional :model overrides the default model.
+   Optional :append-system-prompt appends to the system prompt."
+  [provider prompt session-id & {:keys [output-format include-partials? allowed-tools
+                                         json-schema max-budget-usd model append-system-prompt]}]
+  (case provider
+    :claude (vec (concat ["claude"]
+                         (when (seq session-id) ["--resume" session-id])
+                         ["-p" (or prompt "") "--output-format" (or output-format "json")]
+                         (when include-partials? ["--include-partial-messages"])
+                         (mapcat (fn [t] ["--allowedTools" t]) allowed-tools)
+                         (when json-schema ["--json-schema" json-schema])
+                         (when max-budget-usd ["--max-budget-usd" (str max-budget-usd)])
+                         (when model ["--model" model])
+                         (when append-system-prompt ["--append-system-prompt" append-system-prompt])))
+    :codex (vec ["codex" "exec" (or prompt "")])
+    :gemini (vec (concat ["gemini"]
+                         (when (seq session-id) ["--resume" session-id])
+                         ["-p" (or prompt "") "--output-format" "text"]))
+    (vec ["echo" (str "Unknown provider: " provider)])))
 
-
-(defprotocol FetchTaskGlobalClient
-  (task-global-client [this]))
-
-(deftype CljHttpTaskGlobal []
-  TaskGlobalObject
-  (prepareForTask [this task-id task-global-context])
-  (close [this])
-
-  FetchTaskGlobalClient
-  (task-global-client [this]
-    {:http-get http/get
-     :http-post http/post}))
-
-(defn http-get-future [client url]
-  (future
-    (try
-      (:body ((:http-get client) url))
-      (catch Exception e
-        (str "GET Error: " (.getMessage e))))))
-
-(declare update-node)
-
-(defn http-post-future [client path event-data]
-  (CompletableFuture/supplyAsync
-    (reify Supplier
-      (get [this]
-        (try
-          (let [{:keys [request-data graph-name event-id create-time]} event-data
-                {:keys
-                 [url
-                  model
-                  messages
-                  temperature
-                  max-tokens]} request-data
-                body           (json/generate-string
-                                 {:model      model
-                                  :messages   messages
-                                  :temperature temperature
-                                  :max_tokens max-tokens})
-                headers        {"Content-Type" "application/json"
-                                "Authorization" (str "Bearer " oai-key)}
-                _             (println "R: POST REQUEST DATA ")
-                response      ((:http-post client) url {:headers headers
-                                                        :body body
-                                                        :content-type :json
-                                                        :as :json
-                                                        :throw-exceptions false})
-                llm-reply     (-> response :body :choices first :message :content str)]
-            (println "GOT RESPONSE" response)
-
-            (update-node [path llm-reply] {:graph-name  graph-name
-                                           :event-id    event-id
-                                           :create-time create-time} true false))
-
-          (catch Exception e
-            (str "POST Error: " (.getMessage e))))))))
-
-(defn query-roam-req [client query &args]
-  (CompletableFuture/supplyAsync
-    (reify Supplier
-      (get [this]
-        (try
-          (do
-            (println "trying to query" client query)
-            (b/q client query &args))
-          (catch Exception e
-            (str "ROAM QUERY POST ERROR: " (.getMessage e))))))))
-
-
-(defprotocol fetch-roam-client
-  (roam-client [this]))
-
-
-;; Define a task global to manage the Roam client
-(deftype roam-task-global [token graph]
-  TaskGlobalObject
-  (prepareForTask [this task-id task-global-context]
-    (println "Preparing Roam client for task" task-id))
-  (close [this]
-    (println "Closing Roam client"))
-
-  fetch-roam-client
-  (roam-client [this] {:token token
-                       :graph graph}))
+(defn parse-claude-json-output
+  "Parse Claude's JSON output to extract session-id and text content.
+   Handles two formats:
+   1. Object: {\"type\":\"result\", \"session_id\":\"...\", \"result\":\"...\"}
+   2. Array:  [{\"type\":\"system\",\"session_id\":\"...\",...}, ..., {\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"...\"}]}]"
+  [raw-output]
+  (try
+    (let [parsed (json/parse-string raw-output true)]
+      (if (vector? parsed)
+        ;; Array format: extract session-id from system init, content from last assistant message
+        (let [init-msg (first (filter #(= (:type %) "system") parsed))
+              assistant-msgs (filter #(and (= (:type %) "message")
+                                           (= (:role %) "assistant"))
+                                     parsed)
+              last-assistant (last assistant-msgs)
+              text-content (->> (:content last-assistant)
+                                (filter #(= (:type %) "text"))
+                                (map :text)
+                                (str/join "\n"))]
+          {:session-id (:session_id init-msg)
+           :content (if (seq text-content) text-content raw-output)})
+        ;; Object format: direct extraction
+        {:session-id (:session_id parsed)
+         :content (or (:result parsed) raw-output)}))
+    (catch Exception _
+      {:session-id nil :content raw-output})))

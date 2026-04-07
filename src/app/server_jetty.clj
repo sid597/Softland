@@ -6,14 +6,28 @@
     [clojure.string :as str]
     [clojure.tools.logging :as log]
     [contrib.assert :refer [check]]
+    [app.file-viewer :as fv]
+    [app.server.review-pack :as review-pack]
+    [components.adapter :as adapter]
+    [components.compiler :as compiler]
+    [components.token-matcher :as token-matcher]
+    [components.design-tokens :as design-tokens]
+    [app.server.rama.util-fns :as util-fns]
+    [app.server.rama.objects :as rama-objects]
+    [app.server.env :as env]
+    [clj-http.client :as http]
+    [cheshire.core :as json]
     [hyperfiddle.electric-ring-adapter3 :as electric-ring]
     [ring.adapter.jetty :as ring]
     [ring.middleware.content-type :refer [wrap-content-type]]
     [ring.middleware.cookies :as cookies]
     [ring.middleware.params :refer [wrap-params]]
     [ring.middleware.resource :refer [wrap-resource]]
+    [ring.core.protocols :as ring-protocols]
     [ring.util.response :as res])
   (:import
+    (java.io BufferedReader InputStreamReader OutputStreamWriter)
+    (java.util.concurrent TimeUnit)
     (org.eclipse.jetty.server.handler.gzip GzipHandler)
     (org.eclipse.jetty.websocket.server.config JettyWebSocketServletContainerInitializer JettyWebSocketServletContainerInitializer$Configurator)))
 
@@ -73,12 +87,990 @@ information."
   (-> (res/not-found "Not found")
     (res/content-type "text/plain")))
 
+(defn json-response [data]
+  (-> (res/response (pr-str data))
+      (res/content-type "application/edn")))
+
+(defn parse-edn-body
+  [ring-req]
+  (let [body-str (some-> ring-req :body slurp str/trim)]
+    (if (str/blank? body-str)
+      {}
+      (edn/read-string body-str))))
+
+;; =====================================================================
+;; Linear API (direct GraphQL — no LLM, no MCP, no CLI)
+;; =====================================================================
+
+(def linear-teams-query
+  "{ teams { nodes { id name } } }")
+
+(def linear-viewer-query
+  "{ viewer { id } }")
+
+(def linear-issues-query
+  "query($teamId: ID!, $viewerId: ID!) {
+     issues(
+       first: 100,
+       filter: {
+         team: { id: { eq: $teamId } }
+         assignee: { id: { eq: $viewerId } }
+         state: { type: { nin: [\"completed\", \"canceled\"] } }
+       }
+     ) {
+       nodes {
+         identifier
+         title
+         priority
+         description
+         state { name }
+         assignee { name }
+       }
+     }
+   }")
+
+(defn linear-api-key
+  []
+  ;; Prefer a runtime-injected env var so local/dev secrets can stay out of the repo.
+  (or (some-> (System/getenv "LINEAR_API_KEY") str/trim not-empty)
+      env/linear-api-key))
+
+(def linear-team-aliases
+  {"DIS" "Discourse Graphs Team"})
+
+(defn linear-post
+  [api-key query variables]
+  (http/post "https://api.linear.app/graphql"
+             {:headers            {"Authorization" api-key
+                                   "Content-Type"  "application/json"}
+              :body               (json/generate-string
+                                   {:query query
+                                    :variables variables})
+              :as                 :json
+              :throw-exceptions   false
+              :socket-timeout     10000
+              :connection-timeout 5000}))
+
+(defn linear-errors->message
+  [resp fallback]
+  (let [errors (get-in resp [:body :errors])]
+    (if (seq errors)
+      (str fallback ": "
+           (str/join "; " (map #(or (:message %) (pr-str %)) errors)))
+      fallback)))
+
+(defn resolve-linear-team-id
+  [api-key team-ref]
+  (let [resp (linear-post api-key linear-teams-query nil)
+        teams (get-in resp [:body :data :teams :nodes])
+        wanted (or (get linear-team-aliases team-ref) team-ref)
+        wanted-lc (some-> wanted str/lower-case)
+        match (some (fn [team]
+                      (let [id (:id team)
+                            name (:name team)]
+                        (when (or (= id wanted)
+                                  (= (some-> name str/lower-case) wanted-lc))
+                          team)))
+                    teams)]
+    (cond
+      (= 200 (:status resp)) (:id match)
+      :else nil)))
+
+(defn resolve-linear-viewer-id
+  [api-key]
+  (let [resp (linear-post api-key linear-viewer-query nil)]
+    (when (= 200 (:status resp))
+      (get-in resp [:body :data :viewer :id]))))
+
+(defn fetch-linear-issues
+  "Fetch issues for a Linear team directly via GraphQL API.
+   Returns {:ok true :tickets [...]} or {:ok false :error ...}."
+  [team-ref]
+  (let [api-key (linear-api-key)]
+    (if (or (str/blank? api-key) (= api-key "YOUR_KEY_HERE"))
+      {:ok false :error "Linear API key not configured. Set LINEAR_API_KEY in the server environment."}
+      (try
+        (if-let [team-id (resolve-linear-team-id api-key team-ref)]
+          (if-let [viewer-id (resolve-linear-viewer-id api-key)]
+            (let [resp (linear-post api-key linear-issues-query {:teamId team-id
+                                                                 :viewerId viewer-id})
+                  nodes (get-in resp [:body :data :issues :nodes])]
+              (if (= 200 (:status resp))
+                {:ok true
+                 :tickets (mapv (fn [n]
+                                  {:id          (:identifier n)
+                                   :title       (:title n)
+                                   :status      (get-in n [:state :name] "unknown")
+                                   :assignee    (get-in n [:assignee :name] "unassigned")
+                                   :priority    (:priority n 0)
+                                   :description (or (:description n) "")})
+                                nodes)}
+                {:ok false
+                 :error (linear-errors->message resp "Linear issue query failed")
+                 :raw-body (:body resp)}))
+            {:ok false :error "Could not resolve authenticated Linear user"})
+          {:ok false
+           :error (str "Linear team not found for '" team-ref "'")})
+        (catch Exception e
+          {:ok false :error (.getMessage e)})))))
+
+(defonce !agent-runs (atom {}))
+
+(def default-agent-timeout-ms 120000)
+(def min-agent-timeout-ms 1000)
+(def max-agent-timeout-ms 900000)
+
+(defn normalize-timeout-ms
+  [timeout-ms]
+  (let [parsed (cond
+                 (number? timeout-ms) (long timeout-ms)
+                 (string? timeout-ms) (try (Long/parseLong (str/trim timeout-ms))
+                                           (catch Exception _ default-agent-timeout-ms))
+                 :else default-agent-timeout-ms)]
+    (-> parsed
+        (max min-agent-timeout-ms)
+        (min max-agent-timeout-ms))))
+
+(defn preview-str
+  [x]
+  (let [s (str (or x ""))]
+    (if (> (count s) 180)
+      (str (subs s 0 180) "...<truncated>")
+      s)))
+
+(defn summarize-agent-request
+  [request-data]
+  {:run-id (:run-id request-data)
+   :provider (:provider request-data)
+   :file (:file request-data)
+   :cwd (:cwd request-data)
+   :timeout-ms (:timeout-ms request-data)
+   :argv (:argv request-data)
+   :prompt (preview-str (:prompt request-data))
+   :keys (sort (keys request-data))})
+
+(defn start-output-reader
+  [proc]
+  (let [output-promise (promise)
+        reader-thread (doto
+                        (Thread.
+                          (fn []
+                            (deliver output-promise
+                                     (try
+                                       (slurp (.getInputStream proc))
+                                       (catch Exception e
+                                         (str "Failed reading process output: " (.getMessage e)))))))
+                        (.setName (str "softland-agent-output-" (System/currentTimeMillis)))
+                        (.setDaemon true))]
+    (.start reader-thread)
+    output-promise))
+
+(defn destroy-process-tree!
+  [proc]
+  (try
+    (doseq [child-handle (iterator-seq (.iterator (.descendants (.toHandle proc))))]
+      (try
+        (.destroyForcibly child-handle)
+        (catch Exception _ nil)))
+    (catch Exception _ nil))
+  (try
+    (.destroy proc)
+    (catch Exception _ nil))
+  (when-not (.waitFor proc 2000 TimeUnit/MILLISECONDS)
+    (try
+      (.destroyForcibly proc)
+      (catch Exception _ nil)))
+  nil)
+
+(defn run-cli-process
+  [argv cwd timeout-ms]
+  (let [cmd (vec (map str argv))
+        pb  (ProcessBuilder. (into-array String cmd))]
+    (when (seq cwd)
+      (.directory pb (io/file cwd)))
+    (.redirectErrorStream pb true)
+    (let [proc (.start pb)
+          _ (try
+              ;; Always close stdin to avoid CLIs waiting indefinitely for input.
+              (.close (.getOutputStream proc))
+              (catch Exception _ nil))
+          output-promise (start-output-reader proc)
+          finished? (.waitFor proc timeout-ms TimeUnit/MILLISECONDS)]
+      (if finished?
+        {:argv cmd
+         :cwd cwd
+         :output (deref output-promise 2000 "")
+         :exit-code (.exitValue proc)
+         :timed-out? false
+         :timeout-ms timeout-ms}
+        (do
+          (destroy-process-tree! proc)
+          (try
+            (.close (.getInputStream proc))
+            (catch Exception _ nil))
+          (let [partial-output (deref output-promise 1000 "")
+                timeout-msg (str "\n[Softland] Process timed out after " timeout-ms " ms and was terminated.")]
+            {:argv cmd
+             :cwd cwd
+             :output (str partial-output timeout-msg)
+             :exit-code 124
+             :timed-out? true
+             :timeout-ms timeout-ms}))))))
+
+(defn run-agent-request
+  [request-data]
+  (let [run-id (or (:run-id request-data) (str (java.util.UUID/randomUUID)))
+        provider (:provider request-data)
+        prompt (:prompt request-data)
+        file-path (:file request-data)
+        ;; Look up stored session-id from Rama for --resume
+        stored-session (when (and file-path provider)
+                         (try (util-fns/get-cli-session file-path provider)
+                              (catch Exception _ nil)))
+        session-id (or (:session-id request-data)
+                       (:session-id stored-session))
+        argv (or (:argv request-data)
+                 (rama-objects/provider-default-argv provider prompt session-id))
+        cwd (:cwd request-data)
+        timeout-ms (normalize-timeout-ms (:timeout-ms request-data))
+        start-ms (System/currentTimeMillis)]
+    (log/info "[AGENT][SERVER][RUN-START]"
+              {:run-id run-id
+               :provider provider
+               :file file-path
+               :cwd cwd
+               :timeout-ms timeout-ms
+               :argv argv
+               :session-id session-id
+               :prompt (preview-str prompt)})
+    (swap! !agent-runs assoc run-id {:run-id run-id
+                                     :status :running
+                                     :provider provider
+                                     :prompt prompt})
+    (let [result (try
+                   (run-cli-process argv cwd timeout-ms)
+                   (catch Exception e
+                     {:argv (vec (or argv []))
+                      :cwd cwd
+                      :output (str "CLI Error: " (.getMessage e))
+                      :exit-code 1
+                      :timed-out? false
+                      :timeout-ms timeout-ms}))
+          end-ms (System/currentTimeMillis)
+          ;; For Claude: parse JSON output to extract session-id and clean content
+          parsed (when (= provider :claude)
+                   (try (rama-objects/parse-claude-json-output (:output result))
+                        (catch Exception _ nil)))
+          clean-output (if parsed (:content parsed) (:output result))
+          new-session-id (when parsed (:session-id parsed))
+          final-status (cond
+                         (:timed-out? result) :timeout
+                         (zero? (:exit-code result)) :complete
+                         :else :failed)
+          response {:run-id run-id
+                    :status final-status
+                    :provider provider
+                    :prompt prompt
+                    :result (assoc result
+                                   :output clean-output
+                                   :duration-ms (- end-ms start-ms))
+                    :started-at start-ms
+                    :ended-at end-ms}]
+      ;; Store session-id in Rama for next --resume
+      (when (and new-session-id file-path (= final-status :complete))
+        (try
+          (util-fns/update-cli-session file-path provider new-session-id)
+          (catch Exception e
+            (log/warn "[AGENT][SERVER][SESSION-STORE-FAILED]"
+                      {:file file-path :provider provider
+                       :error (.getMessage e)}))))
+      (swap! !agent-runs assoc run-id response)
+      (log/info "[AGENT][SERVER][RUN-END]"
+                {:run-id run-id
+                 :status final-status
+                 :duration-ms (:duration-ms (:result response))
+                 :exit-code (get-in response [:result :exit-code])
+                 :timed-out? (get-in response [:result :timed-out?])
+                 :timeout-ms timeout-ms
+                 :session-id new-session-id})
+      response)))
+
+;;; ── Streaming agent execution (SSE over POST) ──────────────────────────────
+
+(defn stream-cli-process
+  "Spawn a CLI process and read its stdout line-by-line.
+   Calls (on-line line-str) for each line, (on-done info-map) when the process
+   exits or times out. Runs reader + waiter on daemon threads."
+  [argv cwd timeout-ms on-line on-done]
+  (let [cmd  (vec (map str argv))
+        pb   (ProcessBuilder. (into-array String cmd))]
+    (when (seq cwd)
+      (.directory pb (io/file cwd)))
+    (.redirectErrorStream pb true)
+    (let [proc       (.start pb)
+          _          (try (.close (.getOutputStream proc)) (catch Exception _ nil))
+          start-ms   (System/currentTimeMillis)
+          reader     (BufferedReader. (InputStreamReader. (.getInputStream proc)))
+          ;; Reader thread: emit lines until EOF
+          read-thread
+          (doto (Thread.
+                  (fn []
+                    (try
+                      (loop []
+                        (when-let [line (.readLine reader)]
+                          (try (on-line line) (catch Exception _ nil))
+                          (recur)))
+                      (catch Exception e
+                        (log/debug "[STREAM] reader exception" (.getMessage e)))
+                      (finally
+                        (try (.close reader) (catch Exception _ nil))))))
+            (.setName (str "stream-reader-" (System/currentTimeMillis)))
+            (.setDaemon true))
+          ;; Waiter thread: wait for exit or timeout, then invoke on-done
+          wait-thread
+          (doto (Thread.
+                  (fn []
+                    (let [finished? (.waitFor proc timeout-ms TimeUnit/MILLISECONDS)
+                          end-ms    (System/currentTimeMillis)]
+                      (if finished?
+                        (do (.join read-thread 2000) ;; let reader drain
+                            (on-done {:exit-code   (.exitValue proc)
+                                      :timed-out?  false
+                                      :duration-ms (- end-ms start-ms)}))
+                        (do (destroy-process-tree! proc)
+                            (try (.close (.getInputStream proc)) (catch Exception _ nil))
+                            (.join read-thread 1000)
+                            (on-done {:exit-code   124
+                                      :timed-out?  true
+                                      :duration-ms (- end-ms start-ms)}))))))
+            (.setName (str "stream-waiter-" (System/currentTimeMillis)))
+            (.setDaemon true))]
+      (.start read-thread)
+      (.start wait-thread)
+      proc)))
+
+(defn parse-stream-json-line
+  "Parse a single NDJSON line from `claude --output-format stream-json --include-partial-messages`.
+   Event types:
+     system       → {:session_id ...}
+     stream_event → wraps Anthropic API events (content_block_delta, etc.)
+     assistant    → full message (ignored — we already got deltas)
+     result       → {:session_id ... :total_cost_usd ...}"
+  [line]
+  (let [mk-event (fn [kind payload]
+                   (assoc payload
+                          :kind kind
+                          :event kind
+                          :ts (System/currentTimeMillis)))]
+    (try
+      (let [obj (json/parse-string line true)]
+        (case (:type obj)
+          ;; system line carries session-id; model as :run-start envelope.
+          "system"
+          (mk-event :run-start {:session-id (:session_id obj)})
+
+          "stream_event"
+          (let [inner (:event obj)]
+            (case (:type inner)
+              "content_block_delta"
+              (let [delta (:delta inner)
+                    idx   (:index inner)]
+                (cond
+                  (= (:type delta) "text_delta")
+                  (mk-event :text-delta {:text (:text delta)})
+
+                  (= (:type delta) "input_json_delta")
+                  (mk-event :tool-input-delta
+                            {:block-idx idx
+                             :json-chunk (:partial_json delta)})
+
+                  (= (:type delta) "thinking_delta")
+                  (mk-event :thinking-delta {:text (:thinking delta)})
+
+                  (= (:type delta) "signature_delta")
+                  nil  ;; verification signature — not needed for display
+
+                  :else nil))
+
+              "content_block_start"
+              (let [block (:content_block inner)
+                    idx   (:index inner)]
+                (cond
+                  (= (:type block) "tool_use")
+                  (mk-event :tool-use-start
+                            {:block-idx idx
+                             :tool-id (:id block)
+                             :tool-name (:name block)})
+
+                  (= (:type block) "tool_result")
+                  (mk-event :tool-result
+                            {:block-idx idx
+                             :tool-id (:tool_use_id block)
+                             :content (:content block)})
+
+                  (= (:type block) "thinking")
+                  (mk-event :thinking-start {:block-idx idx})
+
+                  :else nil))
+
+              "content_block_stop"
+              (mk-event :block-stop {:block-idx (:index inner)})
+
+              ;; message_start, message_delta, message_stop — skip
+              nil))
+
+          ;; assistant — full message; fallback if --include-partial-messages wasn't passed
+          "assistant"
+          (let [text (->> (get-in obj [:message :content])
+                          (filter #(= (:type %) "text"))
+                          (map :text)
+                          (str/join "\n"))]
+            (when (seq text)
+              (mk-event :text-delta {:text text})))
+
+          "result"
+          (mk-event :run-done
+                    {:status :complete
+                     :session-id (:session_id obj)
+                     :cost-usd (:total_cost_usd obj)
+                     :result (:result obj)})
+
+          ;; Unknown types — skip
+          nil))
+      (catch Exception e
+        (mk-event :run-error
+                  {:error :invalid-json-line
+                   :message (.getMessage e)
+                   :raw (preview-str line)})))))
+
+(defn initial-stream-state []
+  {:tool-ids #{}
+   :tool-by-block {}
+   :terminal-kind nil
+   :saw-run-start? false})
+
+(defn apply-stream-invariants
+  "Validate and enrich one parsed stream event.
+   Returns [next-state maybe-emit-event]."
+  [state evt]
+  (let [mk-error (fn [payload]
+                   [(assoc state :terminal-kind :run-error)
+                    (assoc payload
+                           :kind :run-error
+                           :event :run-error
+                           :ts (System/currentTimeMillis))])]
+    (cond
+      (:terminal-kind state)
+      [state nil]
+
+      (or (nil? (:kind evt)) (nil? (:ts evt)))
+      (mk-error {:error :invalid-envelope
+                 :details (dissoc evt :ts)})
+
+      (= :run-start (:kind evt))
+      [(assoc state :saw-run-start? true) evt]
+
+      (= :tool-use-start (:kind evt))
+      (let [tool-id (:tool-id evt)
+            block-idx (:block-idx evt)]
+        (if (or (nil? tool-id) (str/blank? (str tool-id)))
+          (mk-error {:error :tool-use-missing-id
+                     :block-idx block-idx})
+          [(-> state
+               (update :tool-ids conj tool-id)
+               (assoc-in [:tool-by-block block-idx] tool-id))
+           evt]))
+
+      (= :tool-input-delta (:kind evt))
+      (let [tool-id (or (:tool-id evt)
+                        (get-in state [:tool-by-block (:block-idx evt)]))]
+        (if (contains? (:tool-ids state) tool-id)
+          [state (assoc evt :tool-id tool-id)]
+          (mk-error {:error :unknown-tool-reference
+                     :source-kind :tool-input-delta
+                     :tool-id tool-id
+                     :block-idx (:block-idx evt)})))
+
+      (= :tool-result (:kind evt))
+      (let [tool-id (:tool-id evt)]
+        (if (contains? (:tool-ids state) tool-id)
+          [state evt]
+          (mk-error {:error :unknown-tool-reference
+                     :source-kind :tool-result
+                     :tool-id tool-id
+                     :block-idx (:block-idx evt)})))
+
+      (= :run-done (:kind evt))
+      [(assoc state :terminal-kind :run-done) evt]
+
+      (= :run-error (:kind evt))
+      [(assoc state :terminal-kind :run-error) evt]
+
+      :else
+      [state evt])))
+
+(defn parse-stream-json-lines
+  "Parse + validate a sequence of raw NDJSON lines, returning normalized events."
+  [lines]
+  (let [{:keys [events state]}
+        (reduce (fn [{:keys [events state]} line]
+                  (if-let [evt (parse-stream-json-line line)]
+                    (let [[state* emit] (apply-stream-invariants state evt)]
+                      {:events (cond-> events emit (conj emit))
+                       :state state*})
+                    {:events events :state state}))
+                {:events [] :state (initial-stream-state)}
+                lines)]
+    (if (:terminal-kind state)
+      events
+      (conj events
+            {:kind :run-error
+             :event :run-error
+             :ts (System/currentTimeMillis)
+             :error :missing-terminal-event}))))
+
+(defn write-event!
+  "Write one SSE event as `data: {edn}\\n\\n` and flush."
+  [^java.io.Writer writer evt]
+  (.write writer (str "data: " (pr-str evt) "\n\n"))
+  (.flush writer))
+
+(defn run-agent-stream
+  "Streaming variant of run-agent-request. Returns a Ring response with
+   Content-Type text/event-stream. Each SSE event is an EDN map."
+  [request-data]
+  (let [run-id      (or (:run-id request-data) (str (java.util.UUID/randomUUID)))
+        provider    (:provider request-data)
+        prompt      (:prompt request-data)
+        file-path   (:file request-data)
+        stored-ses  (when (and file-path provider)
+                      (try (util-fns/get-cli-session file-path provider)
+                           (catch Exception _ nil)))
+        session-id  (or (:session-id request-data)
+                        (:session-id stored-ses))
+        allowed-tools (:allowed-tools request-data)
+        json-schema       (:json-schema request-data)
+        max-budget-usd    (:max-budget-usd request-data)
+        model             (:model request-data)
+        append-sys-prompt (:append-system-prompt request-data)
+        argv        (or (:argv request-data)
+                        (rama-objects/provider-default-argv
+                          provider prompt session-id
+                          :output-format (if (= provider :claude) "stream-json" nil)
+                          :include-partials? (= provider :claude)
+                          :allowed-tools allowed-tools
+                          :json-schema json-schema
+                          :max-budget-usd max-budget-usd
+                          :model model
+                          :append-system-prompt append-sys-prompt))
+        cwd         (:cwd request-data)
+        timeout-ms  (normalize-timeout-ms (:timeout-ms request-data))
+        ;; Capture session-id from stream events
+        !session-id (atom session-id)]
+    {:status  200
+     :headers {"Content-Type"       "text/event-stream"
+               "Cache-Control"      "no-cache"
+               "X-Accel-Buffering"  "no"
+               "Connection"         "keep-alive"}
+     :body
+     (reify ring-protocols/StreamableResponseBody
+       (write-body-to-stream [_ _response output-stream]
+         (let [writer (OutputStreamWriter. output-stream "UTF-8")]
+           (try
+             (let [!stream-state (atom (initial-stream-state))]
+               ;; Non-Claude providers have no stream-json envelope, so emit run-start upfront.
+               (when (not= provider :claude)
+                 (let [[state* evt]
+                       (apply-stream-invariants @!stream-state
+                                                {:kind :run-start
+                                                 :event :run-start
+                                                 :ts (System/currentTimeMillis)
+                                                 :run-id run-id
+                                                 :provider provider
+                                                 :prompt prompt
+                                                 :argv argv
+                                                 :session-id session-id})]
+                   (reset! !stream-state state*)
+                   (when evt
+                     (write-event! writer evt))))
+             (let [done-promise (promise)]
+               (stream-cli-process
+                 argv cwd timeout-ms
+                 ;; on-line callback
+                 (fn [line]
+                   (if (= provider :claude)
+                     (when-let [evt0 (parse-stream-json-line line)]
+                       (when-let [sid (:session-id evt0)]
+                         (reset! !session-id sid))
+                       (let [evt1 (if (= :run-start (:kind evt0))
+                                    (merge {:run-id run-id
+                                            :provider provider
+                                            :prompt prompt
+                                            :argv argv}
+                                           evt0)
+                                    evt0)
+                             [state* evt] (apply-stream-invariants @!stream-state evt1)]
+                         (reset! !stream-state state*)
+                         (when evt
+                           (write-event! writer evt))))
+                     (let [[state* evt]
+                           (apply-stream-invariants @!stream-state
+                                                    {:kind :text-delta
+                                                     :event :text-delta
+                                                     :ts (System/currentTimeMillis)
+                                                     :text (str line "\n")})]
+                       (reset! !stream-state state*)
+                       (when evt
+                         (write-event! writer evt)))))
+                 ;; on-done callback
+                 (fn [{:keys [exit-code timed-out? duration-ms]}]
+                   (let [status (cond timed-out? :timeout
+                                      (zero? exit-code) :complete
+                                      :else :failed)
+                         terminal? (:terminal-kind @!stream-state)]
+                     ;; Emit exactly one terminal event.
+                     (when-not terminal?
+                       (let [terminal-evt (if (= status :complete)
+                                            {:kind :run-done
+                                             :event :run-done
+                                             :ts (System/currentTimeMillis)
+                                             :status status
+                                             :exit-code exit-code
+                                             :duration-ms duration-ms}
+                                            {:kind :run-error
+                                             :event :run-error
+                                             :ts (System/currentTimeMillis)
+                                             :status status
+                                             :exit-code exit-code
+                                             :duration-ms duration-ms
+                                             :error (if timed-out?
+                                                      :timeout
+                                                      :process-failed)})
+                             [state* emit] (apply-stream-invariants @!stream-state terminal-evt)]
+                         (reset! !stream-state state*)
+                         (when emit
+                           (write-event! writer emit))))
+                     ;; Persist session-id to Rama
+                     (let [final-sid @!session-id]
+                       (when (and final-sid file-path (= status :complete))
+                         (try
+                           (util-fns/update-cli-session file-path provider final-sid)
+                           (catch Exception e
+                             (log/warn "[AGENT][STREAM][SESSION-STORE-FAILED]"
+                                       {:error (.getMessage e)})))))
+                     (deliver done-promise true))))
+               ;; Block this thread until process completes — keeps stream open
+               @done-promise))
+             (catch Exception e
+               (println "[STREAM][ERROR]" (.getMessage e)))
+             (finally
+               (try (.flush writer) (catch Exception _ nil))
+               (try (.close writer) (catch Exception _ nil)))))))}))
+
+(defn wrap-file-api
+  "Handle /api/* routes for file explorer sidebar.
+   Returns EDN responses consumable by ClojureScript client."
+  [next-handler]
+  (fn [{:keys [uri query-params request-method] :as ring-req}]
+    (cond
+      ;; ===== Review Pack API =====
+      (= uri "/api/review-pack/create")
+      (if (= request-method :post)
+        (try
+          (json-response (review-pack/create-review-pack! (parse-edn-body ring-req)))
+          (catch Exception e
+            (log/error e "[REVIEW-PACK][CREATE][ERROR]" {:uri uri})
+            (json-response {:ok false
+                            :error :server-error
+                            :message (str "Failed creating review pack: " (.getMessage e))})))
+        (json-response {:ok false :error :method-not-allowed :message "Method not allowed. Use POST."}))
+
+      (= uri "/api/review-pack/list")
+      (if (= request-method :get)
+        (json-response {:ok true :review-packs (review-pack/list-review-packs)})
+        (json-response {:ok false :error :method-not-allowed :message "Method not allowed. Use GET."}))
+
+      (re-matches #"/api/review-pack/([^/]+)/publish" uri)
+      (let [[_ pack-id] (re-matches #"/api/review-pack/([^/]+)/publish" uri)]
+        (if (= request-method :post)
+          (try
+            (json-response (review-pack/publish-review-pack! pack-id (parse-edn-body ring-req)))
+            (catch Exception e
+              (log/error e "[REVIEW-PACK][PUBLISH][ERROR]" {:pack-id pack-id})
+              (json-response {:ok false
+                              :error :server-error
+                              :message (str "Failed publishing review pack: " (.getMessage e))})))
+          (json-response {:ok false :error :method-not-allowed :message "Method not allowed. Use POST."})))
+
+      (re-matches #"/api/review-pack/([^/]+)/summary" uri)
+      (let [[_ pack-id] (re-matches #"/api/review-pack/([^/]+)/summary" uri)
+            base-url (or (get query-params "base-url") "")]
+        (if (= request-method :get)
+          (json-response (review-pack/review-pack-summary pack-id {:base-url base-url}))
+          (json-response {:ok false :error :method-not-allowed :message "Method not allowed. Use GET."})))
+
+      (re-matches #"/api/review-pack/([^/]+)/feedback" uri)
+      (let [[_ pack-id] (re-matches #"/api/review-pack/([^/]+)/feedback" uri)]
+        (if (= request-method :post)
+          (try
+            (json-response (review-pack/add-feedback! pack-id (parse-edn-body ring-req)))
+            (catch Exception e
+              (log/error e "[REVIEW-PACK][FEEDBACK][ERROR]" {:pack-id pack-id})
+              (json-response {:ok false
+                              :error :server-error
+                              :message (str "Failed adding feedback: " (.getMessage e))})))
+          (json-response {:ok false :error :method-not-allowed :message "Method not allowed. Use POST."})))
+
+      (re-matches #"/api/review-pack/([^/]+)" uri)
+      (let [[_ pack-id] (re-matches #"/api/review-pack/([^/]+)" uri)]
+        (if (= request-method :get)
+          (if-let [pack (review-pack/get-review-pack pack-id)]
+            (json-response {:ok true :pack pack})
+            (json-response {:ok false :error :not-found :message "Review pack not found"}))
+          (json-response {:ok false :error :method-not-allowed :message "Method not allowed. Use GET."})))
+
+      ;; ===== Component Library Registry =====
+      (= uri "/api/components/registry")
+      (try
+        (let [base-dir (io/file "components")
+              registry-file (io/file base-dir "_registry.edn")
+              registry (when (.exists registry-file)
+                         (edn/read-string (slurp registry-file)))
+              ;; Read _source.edn for each component to get current status
+              components (mapv (fn [{:keys [slug] :as comp}]
+                                (let [source-file (io/file base-dir slug "_source.edn")
+                                      source (when (.exists source-file)
+                                               (edn/read-string (slurp source-file)))
+                                      ;; Check if .cljc file exists for shadcn
+                                      cljc-file (io/file base-dir slug "shadcn.cljc")
+                                      has-cljc? (.exists cljc-file)]
+                                  (assoc comp
+                                    :source source
+                                    :has-cljc? has-cljc?)))
+                              (:components registry))]
+          (json-response {:ok true
+                          :libraries (:libraries registry)
+                          :components components}))
+        (catch Exception e
+          (log/error e "[COMPONENTS] registry read failed")
+          (json-response {:ok false :error (.getMessage e)})))
+
+      ;; Update component status (after conversion)
+      (= uri "/api/components/status")
+      (if (= request-method :post)
+        (try
+          (let [body (parse-edn-body ring-req)
+                slug (:slug body)
+                library (or (:library body) :shadcn-v4)
+                status (or (:status body) :ready)
+                source-file (io/file "components" slug "_source.edn")]
+            (if (.exists source-file)
+              (let [source (edn/read-string (slurp source-file))
+                    updated (-> source
+                                (assoc-in [library :status] status)
+                                (assoc-in [library :converted] (str (java.time.LocalDate/now))))]
+                (spit source-file (pr-str updated))
+                (json-response {:ok true :slug slug :status status}))
+              (json-response {:ok false :error "Component not found"})))
+          (catch Exception e
+            (log/error e "[COMPONENTS] status update failed")
+            (json-response {:ok false :error (.getMessage e)})))
+        (json-response {:ok false :error "POST required"}))
+
+      ;; ===== Linear API (direct, no LLM) =====
+      (= uri "/api/linear/issues")
+      (let [team-key (or (get query-params "team") "DIS")]
+        (json-response (fetch-linear-issues team-key)))
+
+      ;; ===== Design Converter API =====
+      (= uri "/api/extract/compile")
+      (if (= request-method :post)
+        (try
+          (let [request-data (parse-edn-body ring-req)
+                extracted-tree (:tree request-data)
+                source-url (or (:source-url request-data) "")
+                dt design-tokens/dt
+                ;; Step 1: extracted JSON → Design IR
+                ir (adapter/extracted->ir extracted-tree {:source-url source-url})
+                ;; Step 2: tokenize (snap to dt)
+                tokenized-ir (token-matcher/tokenize-ir ir dt)
+                ;; Step 3: compile to rt-node
+                rt-node (compiler/compile-ir tokenized-ir dt {:use-tokens? true})]
+            (json-response {:ok true
+                            :ir tokenized-ir
+                            :rt-node rt-node
+                            :source-url source-url}))
+          (catch Exception e
+            (log/error e "[EXTRACT] compile failed")
+            (json-response {:ok false :error (.getMessage e)})))
+        (json-response {:ok false :error "POST required"}))
+
+      ;; ===== Sidebar Rama Actions =====
+      (= uri "/api/sidebar/action")
+      (if (= request-method :post)
+        (try
+          (let [body (parse-edn-body ring-req)
+                action-type (:action-type body)
+                data (or (:data body) {})]
+            (json-response (util-fns/emit-sidebar-event! action-type data)))
+          (catch Exception e
+            (log/error e "[SIDEBAR][ACTION][ERROR]")
+            (json-response {:error (str "Sidebar action failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
+      (= uri "/api/sidebar/state")
+      (json-response (util-fns/get-sidebar-state))
+
+      ;; ===== Settings Rama Actions =====
+      (= uri "/api/settings/update")
+      (if (= request-method :post)
+        (try
+          (let [body (parse-edn-body ring-req)
+                settings-data (or (:data body) {})]
+            (json-response (util-fns/emit-settings-event! settings-data)))
+          (catch Exception e
+            (log/error e "[SETTINGS][UPDATE][ERROR]")
+            (json-response {:error (str "Settings update failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
+      (= uri "/api/settings/state")
+      (json-response (util-fns/get-settings-state))
+
+      ;; ===== Agent Trail Persistence =====
+      (= uri "/api/agent/trail/save")
+      (if (= request-method :post)
+        (try
+          (let [body (parse-edn-body ring-req)
+                run-id (:run-id body)
+                trail-data (:trail-data body)]
+            (if (and run-id trail-data)
+              (json-response (util-fns/save-agent-trail! run-id trail-data))
+              (json-response {:error "Missing run-id or trail-data"})))
+          (catch Exception e
+            (log/error e "[AGENT-TRAIL][SAVE][ERROR]")
+            (json-response {:error (str "Trail save failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
+      ;; ===== Workspace Truth Persistence (Phase 7) =====
+      (= uri "/api/workspace/save-truth")
+      (if (= request-method :post)
+        (try
+          (let [body (parse-edn-body ring-req)
+                truth-data (or (:data body) {})]
+            (json-response (util-fns/emit-workspace-truth-event! truth-data)))
+          (catch Exception e
+            (log/error e "[WORKSPACE][SAVE][ERROR]")
+            (json-response {:error (str "Workspace save failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
+      ;; ===== Editor State Persistence (Phase 4B measurement) =====
+      (= uri "/api/editor/save-doc")
+      (if (= request-method :post)
+        (try
+          (let [body (parse-edn-body ring-req)
+                file-path (:file-path body)
+                doc-state (:doc-state body)]
+            (if (and file-path doc-state)
+              (json-response (util-fns/save-editor-doc! file-path doc-state))
+              (json-response {:error "Missing file-path or doc-state"})))
+          (catch Exception e
+            (log/error e "[EDITOR][SAVE][ERROR]")
+            (json-response {:error (str "Editor save failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
+      ;; ===== Flow Session Persistence =====
+      (= uri "/api/flow/save-state")
+      (if (= request-method :post)
+        (try
+          (let [body (parse-edn-body ring-req)
+                flow-data (or (:data body) {})]
+            (json-response (util-fns/emit-flow-session-event! flow-data)))
+          (catch Exception e
+            (log/error e "[FLOW][SAVE][ERROR]")
+            (json-response {:error (str "Flow save failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
+      ;; ===== Existing File/Agent API =====
+      (= uri "/api/home-dirs")
+      (json-response (fv/list-home-dirs))
+
+      (= uri "/api/list-dir")
+      (let [path (get query-params "path")]
+        (if path
+          (json-response (fv/list-directory path))
+          (json-response {:error "Missing path parameter"})))
+
+      (= uri "/api/read-file")
+      (let [path (get query-params "path")
+            root (get query-params "root")]
+        (if (and path root)
+          (json-response (fv/read-file-content path root))
+          (json-response {:error "Missing path or root parameter"})))
+
+      (= uri "/api/agent/run")
+      (if (= request-method :post)
+        (try
+          (let [request-data (parse-edn-body ring-req)]
+            (log/info "[AGENT][SERVER][HTTP-IN]"
+                      {:remote-addr (:remote-addr ring-req)
+                       :method request-method
+                       :uri uri
+                       :request (summarize-agent-request request-data)})
+            (json-response (run-agent-request request-data)))
+          (catch Exception e
+            (log/error e "[AGENT][SERVER][HTTP-ERROR]"
+                       {:remote-addr (:remote-addr ring-req)
+                        :method request-method
+                        :uri uri})
+            (json-response {:error (str "Failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
+      (= uri "/api/agent/stream")
+      (if (= request-method :post)
+        (try
+          (let [request-data (parse-edn-body ring-req)]
+            (log/info "[AGENT][STREAM][HTTP-IN]"
+                      {:remote-addr (:remote-addr ring-req)
+                       :request (summarize-agent-request request-data)})
+            (run-agent-stream request-data))
+          (catch Exception e
+            (log/error e "[AGENT][STREAM][HTTP-ERROR]"
+                       {:remote-addr (:remote-addr ring-req) :uri uri})
+            (json-response {:error (str "Stream failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
+      (= uri "/api/agent/run-status")
+      (let [run-id (get query-params "run-id")]
+        (if (str/blank? run-id)
+          (json-response {:error "Missing run-id parameter"})
+          (if-let [run (get @!agent-runs run-id)]
+            (json-response run)
+            (json-response {:status :not-found :run-id run-id}))))
+
+      (= uri "/api/dev/replay-fixture")
+      (try
+        (let [file (io/file "test/fixtures/claude-stream-sample.jsonl")]
+          (if (.exists file)
+            (let [lines (with-open [rdr (io/reader file)]
+                          (doall (line-seq rdr)))
+                  events (parse-stream-json-lines lines)]
+              (json-response {:ok true :events events}))
+            (json-response {:ok false :error "Fixture not found"})))
+        (catch Exception e
+          (json-response {:ok false :error (.getMessage e)})))
+
+      :else
+      ;; Not an API route — pass through
+      (next-handler ring-req))))
+
 (defn http-middleware [config]
   ;; these compose as functions, so are applied bottom up
   (-> not-found-handler
-    (wrap-index-page config) ; 3. otherwise fallback to default page file
-    (wrap-resource (:resources-path config)) ; 2. serve static file from classpath
-    (wrap-content-type))) ; 1. detect content (e.g. for index.html)
+    (wrap-index-page config) ; 5. otherwise fallback to default page file
+    (wrap-resource (:resources-path config)) ; 4. serve static file from classpath
+    (wrap-content-type) ; 3. detect content (e.g. for index.html)
+    (wrap-file-api) ; 2. intercept /api/* routes for file explorer
+    (wrap-params))) ; 1. parse query params for API routes
 
 
 (defn middleware [config entrypoint]

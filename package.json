@@ -1,10 +1,10 @@
 {
   "name": "softland",
   "version": "0.0.1",
-  "description": "``` $ clj -A:dev -X user/main",
+  "description": "``` $ clj -M:dev -m dev",
   "main": "index.js",
   "scripts": {
-    "build": "clj -A:dev -X user/main"
+    "build": "clj -M:dev -m dev"
   },
   "author": "",
   "license": "ISC",
@@ -30,6 +30,7 @@
     "react-dom": "18.2.0",
     "recharts": "^2.4.1",
     "shadow-cljs": "^2.20.1",
+    "web-tree-sitter": "^0.22.6",
     "w3c-keyname": "^2.2.4"
   },
   "devDependencies": {

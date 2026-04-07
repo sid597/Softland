@@ -1,0 +1,6 @@
+{:shadcn-v4
+ {:status :stub
+  :source nil
+  :docs "https://ui.shadcn.com/docs/components/radix/data-table"
+  :note "Composite component - no single source file"
+  :converted nil}}

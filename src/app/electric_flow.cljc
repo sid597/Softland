@@ -1,353 +1,598 @@
 (ns app.electric-flow
-  (:require [hyperfiddle.electric3 :as e]
-            [missionary.core :as m]
+  (:require [clojure.string :as str]
+            [hyperfiddle.electric3 :as e]
             [hyperfiddle.electric-dom3 :as dom]
-            [hyperfiddle.electric-svg3]
-            [hyperfiddle.incseq.mount-impl :refer [mount]]
-            [hyperfiddle.kvs :as kvs]
-            [hyperfiddle.domlike :as dl]
-            [hyperfiddle.incseq :as i]
-            #?@(:cljs [[app.client.webgpu.core :as wcore :refer [render-rect render-text]]
-                       [global-flow :refer [await-promise
-                                            mouse-down?>
-                                            debounce
-                                            !canvas
-                                            !font-bitmap
-                                            global-client-flow
-                                            !adapter
-                                            !global-atom
-                                            !device
-                                            !context
-                                            !atlas-data
-                                            !command-encoder
-                                            !format
-                                            !all-rects
-                                            !width
-                                            !height
-                                            !canvas-y
-                                            !visible-rects
-                                            !dpr
-                                            !old-visible-rects
-                                            !canvas-x
-                                            !zoom-factor
-                                            !offset]]
-                       [app.client.webgpu.data :refer [!rects]]])))
+            [app.client.workspace.themes :as themes]
+            [app.file-viewer :as fv]
+            #?@(:cljs [[app.client.substrate.webgpu.renderer :as editor]
+                       [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
+                       [app.client.workspace.runtime.fonts :as runtime-fonts]
+                       [app.client.workspace.runtime :as loop]
+                       [global-flow :refer [await-promise]]
+                       ["@lezer/lr" :as lr]
+                       ["@nextjournal/lezer-clojure" :as clj-parser]
+                       [sci.core :as sci]])))
 
+(def source-code
+  #?(:clj (slurp "src/app/electric_flow.cljc")
+     :cljs nil))
 
-(hyperfiddle.rcf/enable!)
+(def initial-file-info
+  #?(:clj (let [project-dir (System/getProperty "user.dir")
+                rel-path "src/app/electric_flow.cljc"]
+            {:path (str project-dir "/" rel-path)
+             :project project-dir})
+     :cljs nil))
 
+#?(:clj (defn init-lezer-parser! [] nil))
+#?(:clj (defn find-matching-bracket [_ _ _] nil))
+#?(:clj (defn detect-fold-regions [_ _] []))
+#?(:clj (defn init-sci! [] nil))
+#?(:clj (defn sci-eval [_] {:error "SCI only available in browser"}))
+#?(:clj (defn sci-eval-form [_] "SCI only available in browser"))
+#?(:clj (defn find-form-at-cursor [_ _ _] nil))
 
-(e/declare canvas)
-(e/declare squares)
-(e/declare adapter)
-(e/declare device)
-(e/declare context)
-(e/declare format)
-(e/declare command-encoder)
-(e/declare all-rects)
-(e/declare width)
-(e/declare height)
-(e/declare canvas-y)
-(e/declare canvas-x)
-(e/declare offset)
-(e/declare zoom-factor)
-(e/declare rect-ids)
-(e/declare visible-rects)
-(e/declare old-visible-rects)
-(e/declare data-spine)
-(e/declare global-atom)
-(e/declare font-bitmap)
-(e/declare atlas-data)
-(e/declare dpr)
-
-
-(defn create-random-rects [rects ch cw]
- (let [res (atom {})]
-   ;(println "RAND" @res rc ch cw)
-   (doseq [i rects]
-    (let [height (+ 20.0 (rand-int  60))
-          width (+ 145.0 (rand-int 60))
-          y (+ 0.1 (rand-int ch))
-          x (+ 0.1 (rand-int cw))]
-        ;(js/console.log "xx" x y)
-        ;(println i 'Create-random-rects (keyword (str i)) [x y height width])
-        (swap! res assoc (keyword (str i)) [x y height width])))
-   (println "all RECTS" @res)
-   res))
-
-#?(:cljs (defn format-float [inp]
-           (js/Number (.toFixed inp 3))))
-
-#?(:cljs (defn clip-x [x w] (- (* 2 (/ x w)) 1)))
-#?(:cljs (defn clip-y [y h] (- 1 (* 2 (/ y h)))))
-
-(e/defn Setup-webgpu []
-  (e/client
-    (when (some? canvas)
-      (js/console.log canvas)
-      (let [context  (.getContext canvas "webgpu" (clj->js {:alpha true}))
-            gpu      js/navigator.gpu
-            adapter  (e/Task (await-promise (.requestAdapter gpu (clj->js {:requiredFeatures ["validation"]}))))
-            device   (e/Task (await-promise (.requestDevice adapter)))
-            cformat  (.getPreferredCanvasFormat gpu)
-            config   (clj->js {:format cformat
-                               :device device})]
-        (.configure context config)
-        (reset! !adapter adapter)
-        (reset! !device device)
-        (reset! !context context)
-        (reset! !format cformat)))))
-       
-
-
-(e/defn Mouse-down-cords [node] (e/input (mouse-down?> node)))
-
-
-(e/defn Add-panning []
-  (when-some [[start-x start-y] (Mouse-down-cords canvas)]
-    (let [[off-x off-y] (e/snapshot offset)]
-      (dom/On "mousemove" 
-              (fn [e]
-                (.preventDefault e)
-                (let [end-x  (.-clientX e)
-                      end-y  (.-clientY e)
-                      new-pan-x   (+ off-x (* dpr (- end-x start-x)))
-                      new-pan-y   (+ off-y (* dpr (- end-y start-y)))]
-                  (reset! !offset [new-pan-x new-pan-y])
-                  [new-pan-x new-pan-y]))
-              ""))))
-
-
-
-(e/defn Add-wheel []
-  (dom/On "wheel"
-          (fn [e] (.preventDefault e)
-            (let [delta         (.-deltaY e)
-                  rect          (.getBoundingClientRect (.-target e))
-                  cursor-x      (* dpr (- (.-clientX e) (.-left rect)))
-                  cursor-y      (* dpr (- (.-clientY e) (.-top rect)))
-                  scale         (if (< delta 0) 1.02 0.98)
-                  new-zoom      (* zoom-factor scale)
-                  [off-x off-y] offset
-                  pan-zoom      (- 1 scale)
-                  current-pan-x (* (- cursor-x off-x) pan-zoom)
-                  current-pan-y (* (- cursor-y off-y) pan-zoom)
-                  total-pan-x   (+ off-x current-pan-x)
-                  total-pan-y   (+ off-y current-pan-y)]
-              (println "Wheel" total-pan-x total-pan-y new-zoom 1)
-              (reset! !offset [total-pan-x total-pan-y])
-              (reset! !zoom-factor new-zoom)))
-          nil 
-          {:passive false}))
-
-
-(e/defn Render-with-webgpu []
-  (let [[spend e] (e/Token offset)
-        dv (e/snapshot device)
-        con (e/snapshot context)
-        fmat (e/snapshot format)]
-    (when (and (some? atlas-data)
-               (some? device)
-               (some? font-bitmap)
-               (some? context)
-               (some? format))
-      (when (some? spend)
-        (let [rects-data    (flatten (into [] (vals all-rects)))
-              rects-ids     (into [] (keys all-rects))
-              [cx cy]       offset
-              [off-x off-y] (spend (e/Task (m/sleep 25 offset)))
-              rx            (e/amb cx off-x)
-              ry            (e/amb cy off-y)
-              texts         (reduce
-                             (fn [acc [id data]]
-                               (let [[x y dh dw] data
-
-                                     left (clip-x 
-                                            (+ (* (+ 7 x) zoom-factor) off-x)
-                                            width)
-                                     top  (clip-y 
-                                            (+ (* (+ 7 y) zoom-factor) off-y)
-                                            height)]
-                                 (conj acc {:x  left
-                                            :y  top
-                                            :text (str (name id))})))
-                             []
-                             all-rects)
-              zof           (max 17 (* (/ 1 zoom-factor) 14))]
-          (render-rect
-            "zoom"
-            rects-data
-            dv
-            fmat
-            con
-            [width height rx ry zoom-factor]
-            rects-ids)
-          (render-text
-           dv
-           fmat
-           con
-           16
-           zof
-           atlas-data
-           font-bitmap
-           texts))))))
-  
-    
-(e/defn Tap-diffs
-  ([f! x] 
-   (f! (e/input (e/pure x)))
-   x)
-  ([x] (Tap-diffs prn x)))
-
-
-
-(e/defn On-node-add [id]
-  (when-some [[x y h w] (id all-rects)]
-   ((fn []
-     (let [gx       (-> global-atom :cords first)
-           gy       (-> global-atom :cords second)
-           [ox oy zf] offset
-           cgx      (-  (clip-x gx width) ox)
-           cgy      (-  (clip-y gy height) oy)
-           cl       (clip-x x width)
-           cr       (clip-x (+ x w) width)
-           ct       (clip-y y height)
-           cb       (clip-y (+ y h) height)
-           zff      (or zf zoom-factor)
-           clicked? (and (<= cgx cr) (>= cgx cl)
-                         (<= cgy ct) (>= cgy cb))]
-       (println
-              id
-              gx gy
-              zoom-factor
-              offset
-              ":R:"
-              [x y h w]
-              (format-float (+ ox (* zff cl)))
-              (format-float (+ oy (* zff ct)))))))))
-
-(e/defn Canvas-view []
- (e/client
-    (dom/canvas
-      (dom/props {:id "top-canvas"
-                  :height height
-                  :width width
-                  :style {:height (str (/ height dpr) "px")
-                          :width (str (/ width dpr) "px")}})
-      (reset! !canvas dom/node)
-      (Render-with-webgpu)
-            
-      (when-some [down (Mouse-down-cords dom/node)]
-        (println "DOWN")
-        (reset! !global-atom {:cords down}))
-     #_(e/for-by identity [node (e/as-vec (e/input (e/join (i/items data-spine))))]
-
-                (println node global-atom) 
-                #_(On-node-add node))
-      #_(println "NEW SPINE"
-                (count visible-rects)
-                (e/input (i/count data-spine))
-                visible-rects 
-                (e/as-vec (e/input (e/join (i/items data-spine)))))
-      (let [mount-items (mount
-                           (fn [element child]          (do 
-                                                          (data-spine 
-                                                           child 
-                                                           (fn [_ new]
-                                                             (keyword (str new)))
-                                                           child)
-                                                          (.push element child)
-                                                         element))
-                           (fn [element child previous] (do 
-                                                          (let [idx (.indexOf element previous)]
-                                                            (when (>= idx 0)
-                                                              (aset element idx child)))
-                                                          element))
-                           (fn [element child sibling]  (do
-                                                          (let [idx (.indexOf element sibling)]
-                                                            (if (>= idx 0)
-                                                              (.splice element idx 0 child)
-                                                              (.push element child)))
-                                                          element))
-                           (fn [element child]          (do 
-                                                          (data-spine
-                                                               child 
-                                                               (fn [_ new]
-                                                                 (keyword (str new)))
-                                                               nil)
-                                                          (let [idx (.indexOf element child)]
-                                                            (when (>= idx 0)
-                                                              (.splice element idx  1)))
-                                                          element))
-                           (fn [element i]              (do 
-                                                          (aget element i))))
-
-             diff       (e/input (e/pure (e/diff-by identity visible-rects)))]
-
-         ((fn [] (when (some? diff) 
-                   (mount-items (object-array @!old-visible-rects) diff))))))))
-        
-
-
-#?(:cljs (defn load-bitmap-file []
-           (println "Load bitmap file")
-           (-> (js/fetch   "/font_atlas.png")
-               (.then #(.blob %))
-               (.then #(js/createImageBitmap %))
-               (.then (fn [img]
-                         (reset! !font-bitmap img))))))
-                            
 #?(:cljs
-   (defn read-json-file []
-     (-> (js/fetch "/font_atlas.json")
-         (.then (fn [response]
-                  (.json response)))
-         (.then (fn [data]
-                  (reset! !atlas-data (js->clj data :keywordize-keys true)))))))
+   (do
+     (def lezer-parser (atom nil))
 
+     (defn init-lezer-parser! []
+       (when-not @lezer-parser
+         (reset! lezer-parser (.-parser clj-parser))))
+
+     ;; === SCI (Small Clojure Interpreter) ===
+
+     (def sci-ctx (atom nil))
+
+     (defn init-sci! []
+       "Initialize SCI context with clojure.core and common namespaces"
+       (when-not @sci-ctx
+         (reset! sci-ctx
+                 (sci/init {:namespaces {'user {}}
+                            :classes {'js js/globalThis}}))))
+
+     (defn sci-eval
+       "Evaluate a Clojure string using SCI. Returns {:result value} or {:error message}"
+       [code-str]
+       (try
+         (when-not @sci-ctx (init-sci!))
+         {:result (sci/eval-string* @sci-ctx code-str)}
+         (catch :default e
+           {:error (.-message e)})))
+
+     (defn sci-eval-form
+       "Evaluate a single form string. Returns formatted result string."
+       [form-str]
+       (let [{:keys [result error]} (sci-eval form-str)]
+         (if error
+           (str "❌ " error)
+           (str "=> " (pr-str result)))))
+
+     (def macro-symbols
+       #{"defn" "def" "defmacro" "defn-" "defonce" "defmulti" "defmethod" "defprotocol" "defrecord" "deftype"
+         "let" "fn" "if" "if-let" "if-some" "do" "ns" "when" "when-let" "when-some" "when-not" "when-first"
+         "cond" "condp" "case" "loop" "recur" "for" "doseq" "dotimes" "while"
+         "try" "catch" "finally" "throw" "assert"
+         "binding" "with-open" "with-local-vars" "with-redefs"
+         "require" "import" "use" "refer" "in-ns"
+         "->" "->>" "as->" "some->" "some->>" "cond->" "cond->>"
+         "and" "or" "not"
+         "lazy-seq" "delay" "future" "promise"
+         "e/defn" "e/client" "e/server" "e/fn" "dom/on"})
+
+     (defn classify-token [node-name text]
+       (cond
+         (= node-name "LineComment") :comment
+         (or (= node-name "String") (= node-name "RegExp")) :string
+         (= node-name "Character") :character
+         (= node-name "Keyword") :keyword
+         (= node-name "Number") :number
+         (or (= node-name "Boolean") (= node-name "BooleanLiteral")) :boolean
+         (= node-name "Nil") :nil
+         (contains? #{"(" ")" "[" "]" "{" "}"} text) :delimiter
+         (contains? macro-symbols text) :macro
+         :else :text))
+
+     (def container-node-types
+       #{"Program" "List" "Vector" "Map" "Set" "Meta" "Deref" "Quote" 
+         "SyntaxQuote" "Unquote" "UnquoteSplice" "Anon" "Regex"
+         "VarQuote" "Discard" "NamespacedMap" "ReaderConditional"})
+
+     (defn extract-tokens-from-syntax-tree [tree text]
+       (let [tokens (atom [])]
+         (.. ^js tree
+             (iterate #js {:enter (fn [node]
+                                    (let [node-name (.-name ^js (.-type ^js node))
+                                          from (.-from ^js node)
+                                          to (.-to ^js node)
+                                          node-text (.substring text from to)]
+                                      (when (and (not (contains? container-node-types node-name))
+                                                 (or (= node-name "String")
+                                                     (= node-name "LineComment")
+                                                     (not (re-find #"\s" node-text)))
+                                                 (not (str/blank? node-text))
+                                                 (> (count node-text) 0))
+                                        (swap! tokens conj {:text node-text
+                                                            :type (classify-token node-name node-text)
+                                                            :from from
+                                                            :to to}))))}))
+         @tokens))
+
+     (defn tokenize-line [line-text]
+       (if (or (empty? line-text) (not @lezer-parser))
+         []
+         (let [tree (.parse ^js @lezer-parser line-text)]
+           (extract-tokens-from-syntax-tree tree line-text))))
+
+     ;; Bracket matching pairs
+     (def bracket-pairs
+       {"(" ")" ")" "("
+        "[" "]" "]" "["
+        "{" "}" "}" "{"})
+
+     (def open-brackets #{"(" "[" "{"})
+     (def close-brackets #{")" "]" "}"})
+
+     (defn offset->line-col
+       "Convert absolute offset to {:line :col} given line-lengths"
+       [offset line-lengths]
+       (loop [remaining offset
+              line-idx 0]
+         (if (>= line-idx (count line-lengths))
+           {:line (dec (count line-lengths)) :col (get line-lengths (dec (count line-lengths)) 0)}
+           (let [line-len (inc (get line-lengths line-idx 0))] ;; +1 for newline
+             (if (< remaining line-len)
+               {:line line-idx :col remaining}
+               (recur (- remaining line-len) (inc line-idx)))))))
+
+     (defn line-col->offset
+       "Convert {:line :col} to absolute offset given line-lengths"
+       [{:keys [line col]} line-lengths]
+       (let [lines-before (subvec line-lengths 0 (min line (count line-lengths)))
+             offset-to-line (reduce + (map inc lines-before))] ;; +1 for each newline
+         (+ offset-to-line col)))
+
+     (defn find-form-at-cursor
+       "Given cursor position and lines, find the outermost form containing cursor.
+        Returns {:form-str :start-line :end-line} or nil"
+       [cursor-pos lines line-lengths]
+       (when (and @lezer-parser cursor-pos (seq lines))
+         (let [full-text (str/join "\n" lines)
+               cursor-offset (line-col->offset cursor-pos line-lengths)
+               tree (.parse ^js @lezer-parser full-text)
+               ;; Find the outermost List/Vector/Map containing cursor
+               ;; Lezer iterates parent-first, so first match is outermost
+               best-match (atom nil)]
+           (.. ^js tree
+               (iterate #js {:enter (fn [node]
+                                      (let [node-name (.-name ^js (.-type ^js node))
+                                            from (.-from ^js node)
+                                            to (.-to ^js node)]
+                                        ;; Check if cursor is inside this node
+                                        (when (and (contains? #{"List" "Vector" "Map" "Set"} node-name)
+                                                   (<= from cursor-offset)
+                                                   (< cursor-offset to))
+                                          ;; Keep only the first (outermost) match
+                                          (when (nil? @best-match)
+                                            (reset! best-match {:from from
+                                                                :to to
+                                                                :type node-name})))))}))
+           (when @best-match
+             (let [{:keys [from to]} @best-match
+                   form-str (.substring full-text from to)
+                   start-pos (offset->line-col from line-lengths)
+                   end-pos (offset->line-col (dec to) line-lengths)]
+               {:form-str form-str
+                :start-line (:line start-pos)
+                :end-line (:line end-pos)
+                :from from
+                :to to})))))
+
+     (defn find-matching-bracket
+       "Given cursor position and document, find matching bracket if cursor is on one.
+        Returns {:open {:line :col} :close {:line :col}} or nil"
+       [cursor-pos lines line-lengths]
+       (when (and @lezer-parser cursor-pos (seq lines))
+         (let [full-text (str/join "\n" lines)
+               cursor-offset (line-col->offset cursor-pos line-lengths)
+               ;; Check char at cursor and char before cursor
+               char-at (when (< cursor-offset (count full-text))
+                         (str (nth full-text cursor-offset)))
+               char-before (when (and (> cursor-offset 0) (<= cursor-offset (count full-text)))
+                             (str (nth full-text (dec cursor-offset))))
+               ;; Determine which bracket we're on
+               [bracket-char bracket-offset]
+               (cond
+                 (get bracket-pairs char-at) [char-at cursor-offset]
+                 (get bracket-pairs char-before) [char-before (dec cursor-offset)]
+                 :else [nil nil])]
+           (when bracket-char
+             (let [tree (.parse ^js @lezer-parser full-text)
+                   ;; Walk tree to find the bracket's container node
+                   result (atom nil)]
+               ;; Iterate through tree to find matching container
+               (.. ^js tree
+                   (iterate #js {:enter (fn [node]
+                                          (let [node-name (.-name ^js (.-type ^js node))
+                                                from (.-from ^js node)
+                                                to (.-to ^js node)]
+                                            ;; Check if this is a container and bracket is at boundary
+                                            (when (and (contains? container-node-types node-name)
+                                                       (or (= from bracket-offset)
+                                                           (= (dec to) bracket-offset)))
+                                              (reset! result {:open (offset->line-col from line-lengths)
+                                                              :close (offset->line-col (dec to) line-lengths)}))))}))
+               @result)))))
+
+     (def foldable-node-types
+       #{"List" "Vector" "Map" "Set"})
+
+     (defn detect-fold-regions
+       "Detect all foldable regions in the document.
+        Returns [{:start-line :end-line :type} ...] for multi-line forms"
+       [lines line-lengths]
+       (when (and @lezer-parser (seq lines))
+         (let [full-text (str/join "\n" lines)
+               tree (.parse ^js @lezer-parser full-text)
+               regions (atom [])]
+           (.. ^js tree
+               (iterate #js {:enter (fn [node]
+                                      (let [node-name (.-name ^js (.-type ^js node))
+                                            from (.-from ^js node)
+                                            to (.-to ^js node)]
+                                        (when (contains? foldable-node-types node-name)
+                                          (let [start-pos (offset->line-col from line-lengths)
+                                                end-pos (offset->line-col (dec to) line-lengths)]
+                                            ;; Only foldable if spans multiple lines
+                                            (when (> (:line end-pos) (:line start-pos))
+                                              (swap! regions conj {:start-line (:line start-pos)
+                                                                   :end-line (:line end-pos)
+                                                                   :type node-name}))))))}))
+           ;; Sort by start line, nested regions come after their parents
+           (sort-by :start-line @regions))))))
+
+(def jvm-macro-symbols
+  #{"defn" "def" "defmacro" "defn-" "defonce" "defmulti" "defmethod" "defprotocol" "defrecord" "deftype"
+    "let" "fn" "if" "if-let" "if-some" "do" "ns" "when" "when-let" "when-some" "when-not" "when-first"
+    "cond" "condp" "case" "loop" "recur" "for" "doseq" "dotimes" "while"
+    "try" "catch" "finally" "throw" "assert"
+    "binding" "with-open" "with-local-vars" "with-redefs"
+    "require" "import" "use" "refer" "in-ns"
+    "->" "->>" "as->" "some->" "some->>" "cond->" "cond->>"
+    "and" "or" "not"
+    "lazy-seq" "delay" "future" "promise"
+    "e/defn" "e/client" "e/server" "e/fn" "dom/on"})
+
+#?(:clj
+   (defn tokenize-line [line-text]
+     (if (empty? line-text)
+       []
+       (let [pattern #";.*|:[^ \[\]\(\)\s]+|[\(\)\[\]\{\}]|\"[^\"]*\"|\s+|[^ ;:\[\]\(\)\{\}\"\s]+"
+             matches (re-seq pattern line-text)]
+         (loop [tokens []
+                pos 0
+                [m & rest-matches] matches]
+           (if (nil? m)
+             tokens
+             (let [match-start (.indexOf line-text m pos)
+                   match-end (+ match-start (count m))
+                   token {:text m
+                          :from match-start
+                          :to match-end
+                          :type (cond
+                                  (str/starts-with? m ";") :comment
+                                  (str/starts-with? m ":") :keyword
+                                  (str/starts-with? m "\"") :string
+                                  (str/blank? m) :whitespace
+                                  (contains? #{"(" ")" "[" "]" "{" "}"} m) :delimiter
+                                  (contains? jvm-macro-symbols m) :macro
+                                  :else :text)}]
+               (if (= :whitespace (:type token))
+                 (recur tokens match-end rest-matches)
+                 (recur (conj tokens token) match-end rest-matches)))))))))
+
+;; ============================================================================
+;; SYNTAX HIGHLIGHTING (delegated to themes namespace)
+;; ============================================================================
+
+(def default-theme-id themes/default-theme-id)
+
+(defn get-color
+  "Get color for a token type from the specified theme"
+  ([type] (themes/get-color type))
+  ([type theme-id] (themes/get-color type theme-id)))
+
+(defn line-visible?
+  "Check if a logical line should be visible given fold regions and folded state.
+   A line is hidden if it's inside a folded region (but not the first line of that region)."
+  [line-idx fold-regions folded-lines]
+  (not (some (fn [{:keys [start-line end-line]}]
+               (and (contains? folded-lines start-line)  ;; This region is folded
+                    (> line-idx start-line)              ;; Line is after the fold start
+                    (<= line-idx end-line)))             ;; Line is within the fold
+             fold-regions)))
+
+(defn layout-tokens
+  "Layout tokens with optional folding support and theme.
+   Returns {:render-ops [...] :line-mapping [...]} where line-mapping maps visual->logical line."
+  ([lines-of-tokens start-x start-y font-size]
+   ;; No folding - all lines visible, default theme
+   (layout-tokens lines-of-tokens start-x start-y font-size [] #{} nil nil default-theme-id))
+  ([lines-of-tokens start-x start-y font-size fold-regions folded-lines]
+   (layout-tokens lines-of-tokens start-x start-y font-size fold-regions folded-lines nil nil default-theme-id))
+  ([lines-of-tokens start-x start-y font-size fold-regions folded-lines char-advance line-h]
+   (layout-tokens lines-of-tokens start-x start-y font-size fold-regions folded-lines char-advance line-h default-theme-id))
+  ([lines-of-tokens start-x start-y font-size fold-regions folded-lines char-advance line-h theme-id]
+   (let [char-width (or char-advance (* font-size 0.56))
+         line-h (or line-h (* font-size 1.2))
+         active-theme-id (or theme-id default-theme-id)]
+     (loop [logical-idx 0
+            visual-y (+ start-y font-size)
+            render-ops []
+            line-mapping []]  ;; Maps visual line index -> logical line index
+       (if (>= logical-idx (count lines-of-tokens))
+         {:render-ops render-ops
+          :line-mapping line-mapping}
+         (let [tokens (nth lines-of-tokens logical-idx)
+               visible? (line-visible? logical-idx fold-regions folded-lines)]
+           (if visible?
+             ;; Render this line at current visual-y, using the active theme
+             (let [line-ops (mapv (fn [token]
+                                     (let [color (get-color (:type token) active-theme-id)]
+                                       (merge token color
+                                             {:x (+ start-x (* (or (:from token) 0) char-width))
+                                              :y visual-y
+                                              :size font-size})))
+                                  tokens)]
+               (recur (inc logical-idx)
+                      (+ visual-y line-h)
+                      (conj render-ops line-ops)
+                      (conj line-mapping logical-idx)))
+             ;; Skip this line (it's folded)
+             (recur (inc logical-idx)
+                    visual-y  ;; Don't advance visual-y
+                    render-ops
+                    line-mapping))))))))
+
+#?(:cljs
+   (do
+     (defonce !window-debug-hooks-installed? (atom false))
+
+     (defn- install-window-debug-hooks! []
+       (when-not @!window-debug-hooks-installed?
+         (reset! !window-debug-hooks-installed? true)
+         (.addEventListener js/window "error"
+           (fn [event]
+             (js/console.error "[CLIENT/ERROR]"
+                               {:message (.-message event)
+                                :filename (.-filename event)
+                                :lineno (.-lineno event)
+                                :colno (.-colno event)
+                                :error (.-error event)})))
+         (.addEventListener js/window "unhandledrejection"
+           (fn [event]
+             (js/console.error "[CLIENT/UNHANDLED-REJECTION]" (.-reason event))))
+         (js/console.log "[CLIENT] Installed global window debug hooks")))
+
+     (defn- install-webgpu-debug-hooks! [^js device]
+       (when (and device (not (true? (.-__softlandDebugHooksInstalled device))))
+         (set! (.-__softlandDebugHooksInstalled device) true)
+         (.addEventListener device "uncapturederror"
+           (fn [event]
+             (js/console.error "[WEBGPU/UNCAUGHT-ERROR]" (.-error event))))
+         (-> (.-lost device)
+             (.then (fn [info]
+                      (js/console.error "[WEBGPU/DEVICE-LOST]"
+                                        {:message (.-message info)
+                                         :reason (.-reason info)})))
+             (.catch (fn [err]
+                       (js/console.error "[WEBGPU/DEVICE-LOST-HOOK-FAILED]" err))))
+         (js/console.log "[WEBGPU] Installed device debug hooks")))))
+
+(e/defn LoadWebGPU []
+  (e/client
+    (let [_ (install-window-debug-hooks!)
+          gpu js/navigator.gpu
+          _ (when-not gpu
+              (js/console.error "[BOOT] navigator.gpu unavailable"))
+          adapter (e/Task (await-promise (.requestAdapter ^js gpu)))
+          device (e/Task (await-promise (.requestDevice ^js adapter)))
+          initial-font-data (e/Task (await-promise (runtime-fonts/load-default-font-data-async)))]
+      (when (and adapter device initial-font-data)
+        (let [format (.getPreferredCanvasFormat ^js gpu)
+              adapter-limits (gpu-budget/snapshot-adapter-limits adapter)
+              tracker (gpu-budget/create-tracker adapter-limits)]
+          (install-webgpu-debug-hooks! device)
+          (js/console.log "[BOOT] WebGPU ready"
+                          {:format format
+                           :font-id (get-in initial-font-data [:font-config :id])
+                           :font-backend (get-in initial-font-data [:font-assets :backend])
+                           :adapter-limits adapter-limits})
+          (merge initial-font-data
+                 {:device device
+                  :format format
+                  :adapter-limits adapter-limits
+                  :gpu-budget tracker}))))))
+
+(e/defn Prepare-Geometry [device pipelines render-ops font-assets font-config]
+  (e/client
+    (let [font-defaults (:defaults font-config)
+          font-size (or (:fontSize font-defaults) 19)
+          char-width (or (:charWidth font-config) 0.56)
+          px-range (or (:pxRange font-defaults) 8)
+          sharpness (or (:sharpness font-defaults) 0.0)
+          line-height-factor (or (:lineHeight font-defaults) 1.2)
+          dpr (or (.-devicePixelRatio js/window) 1)
+          snap-step (/ 1 dpr)
+          snap (fn [v] (* (Math/round (/ v snap-step)) snap-step))
+          line-h (snap (* font-size line-height-factor))]
+      (js/console.log "[BOOT] Prepare geometry"
+                      {:font-id (:id font-config)
+                       :font-backend (:backend font-assets)
+                       :render-line-count (count render-ops)
+                       :font-size font-size
+                       :char-width char-width
+                       :px-range px-range
+                       :line-height line-h
+                       :dpr dpr})
+      {:text (editor/update-text-data device (:text-sys pipelines) render-ops font-assets font-size
+                                      :px-range px-range
+                                      :line-height line-h
+                                      :char-width char-width
+                                      :snap-step snap-step
+                                      :sharpness sharpness)
+       :rect (editor/update-rects device (:rect-sys pipelines) [])
+       ;; Shadow pools now own runtime shadow uploads; bootstrap only needs the pipeline state.
+       :shadow (:shadow-sys pipelines)
+       :pipelines pipelines})))
+
+;; ============================================================================
+;; SIDEBAR CONSTANTS (used by imperative DOM in loop.cljs)
+;; ============================================================================
+
+;; Sidebar constants removed — sidebar now rendered via WebGPU rect tree in loop.cljs
 
 (e/defn main [ring-request]
-  (e/client
-    (binding [dom/node js/document.body
-              canvas (e/watch !canvas)
-              canvas-x (e/watch !canvas-x)
-              canvas-y (e/watch !canvas-y)
-              height (e/watch !height)
-              width (e/watch !width)
-              device (e/watch !device)
-              format (e/watch !format)
-              context (e/watch !context)
-              all-rects (e/watch !all-rects)
-              offset    (e/watch !offset)
-              zoom-factor (e/watch !zoom-factor)
-              visible-rects (e/watch !visible-rects)
-              old-visible-rects (e/watch !old-visible-rects)
-              data-spine   (i/spine)
-              rect-ids (vec (range 1 30))
-              global-atom (e/watch !global-atom)
-              font-bitmap (e/watch !font-bitmap)
-              atlas-data (e/watch !atlas-data)
-              dpr (e/watch !dpr)]
+  (e/server
+    (let [file-content source-code
+          file-info initial-file-info]
 
-        (reset! !dpr (.-devicePixelRatio js/window))
-        (reset! !width (* dpr (.-clientWidth dom/node)))
-        (reset! !height (* dpr (.-clientHeight dom/node)))
-        (reset! !canvas-x 0)
-        (reset! !canvas-y 0)
-        (reset! !offset [0 0])
-        (reset! !zoom-factor 1)
-        (load-bitmap-file)
-        (read-json-file)
-        (Canvas-view)
-        (when-not (some nil? [canvas height width])
-          (let [rnd     (create-random-rects rect-ids height width)]
-            ;(println "RND" @rnd)
-            (reset! !all-rects @rnd)
-            (println "all-rects" all-rects)
-            (when (and (some? font-bitmap) (some? all-rects))
-              (do
-               (println "total rncts" all-rects)
-               (println "success canvas" canvas all-rects)
-               (Setup-webgpu)
-               (Add-panning)
-               (Add-wheel))))))))
+      (e/client
+        (binding [dom/node js/document.body]
+          (dom/style {:margin "0" :padding "0"
+                      :width "100vw" :height "100vh"
+                      :overflow "hidden" :background "#111"
+                      :user-select "none"})
+
+          (init-lezer-parser!)
+          (init-sci!)
+
+          (let [resources (LoadWebGPU)
+                ;; Rama truth atoms — Electric subscriptions populate these
+                !sidebar-truth (atom nil)
+                !settings-truth (atom nil)
+                !agent-trail-truth (atom nil)
+                !flow-session-truth (atom nil)
+                !workspace-truth (atom nil)]
+            ;; Reactive sync: Rama PState → Electric → client atom.
+            ;; Re-runs whenever the server-side PState changes.
+            (reset! !sidebar-truth (fv/WatchSidebarTruth))
+            (reset! !settings-truth (fv/WatchUserSettings))
+            (reset! !agent-trail-truth (fv/WatchAgentTrail))
+            (reset! !flow-session-truth (fv/WatchFlowSession))
+            (reset! !workspace-truth (fv/WatchWorkspaceTruth))
+            ;; Sidebar visible: default true, but respect persisted workspace truth.
+            ;; Must be initialized AFTER workspace truth loads so install-sidebar-watch!
+            ;; sees the correct initial value and doesn't auto-show a hidden sidebar.
+            (let [!sidebar-visible (atom (get @!workspace-truth :sidebar-visible true))
+                  !file-load-request (atom nil)]
+            (when resources
+              (let [device (get resources :device)
+                    format (get resources :format)
+                    font-manifest (get resources :font-manifest)
+                    font-config (get resources :font-config)
+                    font-assets (get resources :font-assets)
+                    pipelines (editor/create-editor-state resources)]
+                (js/console.log "[BOOT] Client resources ready"
+                                {:font-id (:id font-config)
+                                 :font-backend (:backend font-assets)
+                                 :font-manifest-count (count (:fonts font-manifest))
+                                 :format format})
+
+                (let [lines (str/split-lines file-content)
+                      tokenized-lines (mapv tokenize-line lines)
+                      gutter-w 40
+                      layout-x (+ 50 gutter-w)
+                      font-defaults (:defaults font-config)
+                      font-size (or (:fontSize font-defaults) 19)
+                      dpr (or (.-devicePixelRatio js/window) 1)
+                      snap-step (/ 1 dpr)
+                      snap (fn [v] (* (Math/round (/ v snap-step)) snap-step))
+                      char-width (or (:charWidth font-config) 0.56)
+                      char-advance (snap (* font-size char-width))
+                      line-h (snap (* font-size (or (:lineHeight font-defaults) 1.2)))
+                      layout-result (layout-tokens tokenized-lines layout-x 100 font-size [] #{} char-advance line-h)
+                      render-ops (:render-ops layout-result)
+                      line-lengths (mapv count lines)]
+
+                  (let [geometry (Prepare-Geometry device pipelines render-ops font-assets font-config)]
+
+                    ;; Extract preview overlay (hidden by default, shown when extract mode active)
+                    (let [preview-el-atom (atom nil)]
+                      (dom/div
+                        (dom/props {:id "extract-preview-overlay"
+                                    :style {:position "fixed"
+                                            :top "0" :left "0"
+                                            :width "50vw" :height "100vh"
+                                            :display "none"
+                                            :overflow "auto"
+                                            :background "#111"
+                                            :border-right "1px solid #333"
+                                            :z-index "10"
+                                            :padding "16px"
+                                            :box-sizing "border-box"}})
+                        (reset! preview-el-atom dom/node))
+
+                      ;; Full-width canvas (sidebar rendered on GPU, no DOM element needed)
+                      (dom/canvas
+                        (dom/props {:id "webgpu-canvas"
+                                    :style {:width "100vw"
+                                            :height "100vh"
+                                            :display "block"}})
+                        (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
+                          (let [raw-client-width (max 1 (.-clientWidth dom/node))
+                                raw-client-height (max 1 (.-clientHeight dom/node))
+                                window-width (max 1 (or (.-innerWidth js/window) raw-client-width))
+                                window-height (max 1 (or (.-innerHeight js/window) raw-client-height))
+                                client-width (max raw-client-width window-width)
+                                client-height (max raw-client-height window-height)
+                                dpr (or (.-devicePixelRatio js/window) 1)
+                                backing-width (Math/floor (* client-width dpr))
+                                backing-height (Math/floor (* client-height dpr))]
+                            (set! (.-width dom/node) backing-width)
+                            (set! (.-height dom/node) backing-height)
+                            (js/console.log "[BOOT] Primed canvas backing size"
+                                            (str "{\"clientWidth\":" raw-client-width
+                                                 ",\"clientHeight\":" raw-client-height
+                                                 ",\"effectiveWidth\":" client-width
+                                                 ",\"effectiveHeight\":" client-height
+                                                 ",\"dpr\":" dpr
+                                                 ",\"backingWidth\":" backing-width
+                                                 ",\"backingHeight\":" backing-height "}")))
+                          (js/console.log "[BOOT] Configuring WebGPU canvas"
+                                          (str "{\"clientWidth\":" (.-clientWidth dom/node)
+                                               ",\"clientHeight\":" (.-clientHeight dom/node)
+                                               ",\"effectiveWidth\":" (max (max 1 (.-clientWidth dom/node))
+                                                                           (max 1 (or (.-innerWidth js/window)
+                                                                                      (.-clientWidth dom/node))))
+                                               ",\"effectiveHeight\":" (max (max 1 (.-clientHeight dom/node))
+                                                                            (max 1 (or (.-innerHeight js/window)
+                                                                                       (.-clientHeight dom/node))))
+                                               ",\"devicePixelRatio\":" (or (.-devicePixelRatio js/window) 1)
+                                               ",\"canvasWidth\":" (.-width dom/node)
+                                               ",\"canvasHeight\":" (.-height dom/node)
+                                               ",\"format\":\"" format "\""
+                                               ",\"copyDst\":true}"))
+                          (.configure ^js ctx
+                            (clj->js {:device device
+                                      :format format
+                                      :alphaMode "premultiplied"}))
+                          (js/console.log "[BOOT] Starting runtime loop"
+                                          {:initial-file (:path file-info)
+                                           :font-id (:id font-config)
+                                           :font-backend (:backend font-assets)})
+                          (e/Task (loop/start-loop! dom/node device ctx geometry line-lengths
+                                                    lines tokenize-line layout-tokens
+                                                    find-matching-bracket detect-fold-regions
+                                                    find-form-at-cursor sci-eval-form font-assets
+                                                    :font-manifest font-manifest
+                                                    :gpu-budget (:gpu-budget resources)
+                                                    :!sidebar-visible !sidebar-visible
+                                                    :!file-load-request !file-load-request
+                                                    :!preview-el preview-el-atom
+                                                    :!remote-sidebar-truth !sidebar-truth
+                                                    :!remote-settings-truth !settings-truth
+                                                    :!remote-agent-trail !agent-trail-truth
+                                                    :!remote-flow-session !flow-session-truth
+                                                    :!remote-workspace-truth !workspace-truth
+                                                    :initial-file file-info))))))))))))))))
