@@ -540,39 +540,17 @@
                                             :height "100vh"
                                             :display "block"}})
                         (let [ctx (.getContext dom/node "webgpu" (clj->js {:alpha true}))]
-                          (let [raw-client-width (max 1 (.-clientWidth dom/node))
-                                raw-client-height (max 1 (.-clientHeight dom/node))
-                                window-width (max 1 (or (.-innerWidth js/window) raw-client-width))
-                                window-height (max 1 (or (.-innerHeight js/window) raw-client-height))
-                                client-width (max raw-client-width window-width)
-                                client-height (max raw-client-height window-height)
-                                dpr (or (.-devicePixelRatio js/window) 1)
-                                backing-width (Math/floor (* client-width dpr))
-                                backing-height (Math/floor (* client-height dpr))]
-                            (set! (.-width dom/node) backing-width)
-                            (set! (.-height dom/node) backing-height)
-                            (js/console.log "[BOOT] Primed canvas backing size"
-                                            (str "{\"clientWidth\":" raw-client-width
-                                                 ",\"clientHeight\":" raw-client-height
-                                                 ",\"effectiveWidth\":" client-width
-                                                 ",\"effectiveHeight\":" client-height
-                                                 ",\"dpr\":" dpr
-                                                 ",\"backingWidth\":" backing-width
-                                                 ",\"backingHeight\":" backing-height "}")))
-                          (js/console.log "[BOOT] Configuring WebGPU canvas"
-                                          (str "{\"clientWidth\":" (.-clientWidth dom/node)
-                                               ",\"clientHeight\":" (.-clientHeight dom/node)
-                                               ",\"effectiveWidth\":" (max (max 1 (.-clientWidth dom/node))
-                                                                           (max 1 (or (.-innerWidth js/window)
-                                                                                      (.-clientWidth dom/node))))
-                                               ",\"effectiveHeight\":" (max (max 1 (.-clientHeight dom/node))
-                                                                            (max 1 (or (.-innerHeight js/window)
-                                                                                       (.-clientHeight dom/node))))
-                                               ",\"devicePixelRatio\":" (or (.-devicePixelRatio js/window) 1)
-                                               ",\"canvasWidth\":" (.-width dom/node)
-                                               ",\"canvasHeight\":" (.-height dom/node)
-                                               ",\"format\":\"" format "\""
-                                               ",\"copyDst\":true}"))
+                          (let [boot-w (max 1 (.-clientWidth dom/node))
+                                boot-h (max 1 (.-clientHeight dom/node))
+                                boot-dpr (or (.-devicePixelRatio js/window) 1)]
+                            (set! (.-width dom/node) (Math/floor (* boot-w boot-dpr)))
+                            (set! (.-height dom/node) (Math/floor (* boot-h boot-dpr)))
+                            (js/console.log "[BOOT] Configuring WebGPU canvas"
+                                            (str "{\"clientWidth\":" (.-clientWidth dom/node)
+                                                 ",\"clientHeight\":" (.-clientHeight dom/node)
+                                                 ",\"devicePixelRatio\":" (or (.-devicePixelRatio js/window) 1)
+                                                 ",\"format\":\"" format "\""
+                                                 ",\"copyDst\":true}")))
                           (.configure ^js ctx
                             (clj->js {:device device
                                       :format format

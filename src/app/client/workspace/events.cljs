@@ -14,13 +14,9 @@
   (->> (m/observe
          (fn [!]
            (let [emit! (fn []
-                         (let [raw-width (max 1 (.-clientWidth canvas-node))
-                               raw-height (max 1 (.-clientHeight canvas-node))
-                               win-width (max 1 (or (.-innerWidth js/window) raw-width))
-                               win-height (max 1 (or (.-innerHeight js/window) raw-height))]
-                           (! {:width  (max raw-width win-width)
-                               :height (max raw-height win-height)
-                               :dpr    (or js/window.devicePixelRatio 1)})))]
+                         (! {:width  (max 1 (.-clientWidth canvas-node))
+                             :height (max 1 (.-clientHeight canvas-node))
+                             :dpr    (or js/window.devicePixelRatio 1)}))]
              (if (exists? js/ResizeObserver)
                (let [obs (js/ResizeObserver. (fn [_entries] (emit!)))]
                  (.observe obs canvas-node)

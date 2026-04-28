@@ -32,30 +32,9 @@
     :as atoms}
    {:keys [layout-x layout-y gutter-w]}
    {:keys [device ctx geometry]}
-   {:keys [tokenize-fn layout-fn detect-folds-fn find-bracket-fn]}]
-  (let [;; Dirty-present RAF: only fires when world-snapshot changes (Phase 6E)
-        !request-frame (volatile! nil)
-        >dirty-raf
-        (m/observe
-          (fn [!]
-            (let [pending? (volatile! false)
-                  raf-id (volatile! nil)
-                  request! (fn []
-                             (when-not @pending?
-                               (vreset! pending? true)
-                               (vreset! raf-id
-                                 (js/requestAnimationFrame
-                                   (fn [t]
-                                     (vreset! pending? false)
-                                     (vreset! raf-id nil)
-                                     (! t))))))]
-              (vreset! !request-frame request!)
-              (request!)  ;; ensure first frame renders
-              #(do (vreset! !request-frame nil)
-                   (when-let [id @raf-id]
-                     (js/cancelAnimationFrame id))))))
-
-        ;; Derived flows
+   {:keys [tokenize-fn layout-fn detect-folds-fn find-bracket-fn]}
+   >raf]
+  (let [;; Derived flows
         <fold-data    (<fold-state !editor-doc !folded-lines detect-folds-fn)
         <bracket-data (<bracket-match !editor-doc find-bracket-fn)
 
@@ -101,7 +80,6 @@
                                cmd-rects settings-rects settings-text
                                viewport scroll-y cmd-panel settings active-font agent-output
                                local-world]
-                            (when-let [req @!request-frame] (req))
                             {:text-data text-data
                              :editor-rect-data editor-rect-data
                              :sidebar-data sidebar-data
@@ -449,31 +427,41 @@
                                         :content-lines (count content-ops)
                                         :font-id (:id font-assets)
                                         :backend (:backend font-assets)}))
-                  raf-t3 (js/performance.now)]  ;; before draw
+                  raf-t3 (js/performance.now)  ;; before draw
+                  ;; Sync canvas pixel dimensions atomically with draw.
+                  ;; Setting canvas.width/height clears the swap chain, so this
+                  ;; MUST happen in the same RAF as the draw, not in the resize consumer.
+                  ^js canvas (.-canvas ctx)
+                  target-w (Math/floor (* (:width viewport) dpr))
+                  target-h (Math/floor (* (:height viewport) dpr))]
+            (when (not= (.-width canvas) target-w)
+              (set! (.-width canvas) target-w))
+            (when (not= (.-height canvas) target-h)
+              (set! (.-height canvas) target-h))
             (try
               (editor/draw-frame! device ctx
-                                  new-content-geo (pool/pool-draw-info !editor-pool) new-cmd-sys
-                                  (:camera-floats (:pipelines geometry))
-                                  (:pass-descriptor (:pipelines geometry))
-                                  0 (- scroll-y)
-                                  (:width viewport) (:height viewport)
-                                  :frame-idx frame-idx
-                                  :cmd-panel-visible cmd-visible
-                                  :cmd-panel-h cmd-panel-h
-                                  :chrome-text-sys new-chrome-geo
-                                  :chrome-base-line-count chrome-base-count
-                                  :settings-line-count settings-line-count
-                                  :settings-visible settings-visible
-                                  :settings-rect-sys new-settings-sys
-                                  :diagnostics-visible show-diagnostics?
-                                  :diagnostics-line-index diagnostics-line-index
-                                  :agent-visible agent-visible
-                                  :editor-shadow-pool-info (pool/pool-draw-info !editor-shadow-pool)
-                                  :sidebar-shadow-pool-info (pool/pool-draw-info !sidebar-shadow-pool)
-                                  :sidebar-pool-info (pool/pool-draw-info !sidebar-pool)
-                                  :dirty-rect dirty-rect
-                                  :render-target render-target
-                                  :clear-quad (:clear-quad (:pipelines geometry)))
+                                    new-content-geo (pool/pool-draw-info !editor-pool) new-cmd-sys
+                                    (:camera-floats (:pipelines geometry))
+                                    (:pass-descriptor (:pipelines geometry))
+                                    0 (- scroll-y)
+                                    (:width viewport) (:height viewport)
+                                    :frame-idx frame-idx
+                                    :cmd-panel-visible cmd-visible
+                                    :cmd-panel-h cmd-panel-h
+                                    :chrome-text-sys new-chrome-geo
+                                    :chrome-base-line-count chrome-base-count
+                                    :settings-line-count settings-line-count
+                                    :settings-visible settings-visible
+                                    :settings-rect-sys new-settings-sys
+                                    :diagnostics-visible show-diagnostics?
+                                    :diagnostics-line-index diagnostics-line-index
+                                    :agent-visible agent-visible
+                                    :editor-shadow-pool-info (pool/pool-draw-info !editor-shadow-pool)
+                                    :sidebar-shadow-pool-info (pool/pool-draw-info !sidebar-shadow-pool)
+                                    :sidebar-pool-info (pool/pool-draw-info !sidebar-pool)
+                                    :dirty-rect dirty-rect
+                                    :render-target render-target
+                                    :clear-quad (:clear-quad (:pipelines geometry)))
               (catch :default err
                 (js/console.error "[RENDER/DRAW-FAIL]"
                                   err
@@ -564,4 +552,4 @@
        :prev-font-backend (:backend @!font-assets)
        :frame-idx 0})
 
-      (m/sample vector <world-snapshot >dirty-raf))))
+      (m/sample vector <world-snapshot >raf))))

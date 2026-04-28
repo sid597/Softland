@@ -26,13 +26,9 @@
               :showDiagnostics {:default false}}})
 
 (defn- initial-viewport [node]
-  (let [win-w (or (.-innerWidth js/window) 0)
-        win-h (or (.-innerHeight js/window) 0)
-        node-w (or (.-clientWidth node) 0)
-        node-h (or (.-clientHeight node) 0)]
-    {:width (max 1 node-w win-w)
-     :height (max 1 node-h win-h)
-     :dpr (or (.-devicePixelRatio js/window) 1)}))
+  {:width  (max 1 (or (.-clientWidth node) 0))
+   :height (max 1 (or (.-clientHeight node) 0))
+   :dpr    (or (.-devicePixelRatio js/window) 1)})
 
 (defn make-runtime-state
   "Create all runtime atoms and layout constants. Returns the rt context map.

@@ -3,6 +3,7 @@
     {
       "name": "Ubuntu Sans Mono",
       "id": "ubuntu-sans-mono",
+      "available": false,
       "atlas": "ubuntu_sans_mono_atlas.png",
       "metrics": "ubuntu_sans_mono_atlas.json",
       "charWidth": 0.56,
@@ -18,6 +19,7 @@
     {
       "name": "Ubuntu Mono",
       "id": "ubuntu-mono",
+      "available": false,
       "atlas": "ubuntu_mono_atlas.png",
       "metrics": "ubuntu_mono_atlas.json",
       "charWidth": 0.56,
@@ -35,7 +37,7 @@
       "id": "dejavu-sans-mono",
       "atlas": "dejavu_sans_mono_atlas.png",
       "metrics": "dejavu_sans_mono_atlas.json",
-      "preferredBackend": "msdf",
+      "preferredBackend": "slug",
       "slug": {
         "meta": "dejavu_sans_mono_slug_meta.json",
         "curve": "dejavu_sans_mono_slug_curve.bin",
@@ -55,6 +57,7 @@
     {
       "name": "Noto Sans Mono",
       "id": "noto-sans-mono",
+      "available": false,
       "atlas": "noto_sans_mono_atlas.png",
       "metrics": "noto_sans_mono_atlas.json",
       "charWidth": 0.60,
