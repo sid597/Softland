@@ -36,10 +36,6 @@
   [{:id :theme-id :label "Theme" :val (themes/theme-index (:theme-id settings)) :min 0 :max (dec (count themes/theme-list)) :discrete true}
    {:id :font-size :label "Font Size" :val (:font-size settings) :min 8 :max 40}
    {:id :line-height :label "Line Height" :val (:line-height settings) :min 1.0 :max 2.0}
-   ;; Some fonts/manifests legitimately default above 12; keep the slider domain wide enough
-   ;; so the thumb never escapes the track.
-   {:id :px-range :label "pxRange" :val (:px-range settings) :min 4 :max 32}
-   {:id :sharpness :label "Sharpness" :val (:sharpness settings) :min -0.2 :max 0.2}
    {:id :snap-to-pixel? :label "Snap" :val (if (:snap-to-pixel? settings) 1 0) :min 0 :max 1}
    {:id :show-diagnostics? :label "Diagnostics" :val (if (:show-diagnostics? settings) 1 0) :min 0 :max 1}])
 
@@ -262,7 +258,6 @@
                                                            theme (themes/get-theme tid)]
                                                        (or (:name theme) (name tid)))
                                            :line-height (.toFixed (:val slider) 1)
-                                           :sharpness (.toFixed (:val slider) 2)
                                            :snap-to-pixel? (if (pos? (:val slider)) "On" "Off")
                                            :show-diagnostics? (if (pos? (:val slider)) "On" "Off")
                                            (str (:val slider)))

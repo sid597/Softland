@@ -327,6 +327,7 @@
         _ (interop/install-window-globals! atoms (:show-flow-info! agent-api))
 
         ;; ── Event flows (fresh per instance) ────────────────────────
+        >raf            (events/make-raf-flow)
         >blink-timer    (events/make-blink-timer)
         >shimmer-timer  (events/make-blink-timer)
         >resize         (events/>canvas-resize node)
@@ -355,28 +356,17 @@
       (->> >shimmer-timer
            (m/reduce (fn [_ v] (reset! (:!shimmer-phase atoms) v) nil) nil))
 
-      ;; Viewport resize
+      ;; Viewport resize — update atom + sync canvas pixel dimensions immediately.
+      ;; Setting canvas.width/height clears the swap chain, but unconditional RAF
+      ;; redraws within 16ms. Without immediate sync, the browser stretches the
+      ;; old pixel buffer to fit the new CSS box, causing visible flickering.
       (->> >resize
            (m/reduce
              (fn [_ {:keys [width height dpr]}]
-               (let [safe-width (max 1 width)
-                     safe-height (max 1 height)
-                     safe-dpr (or dpr 1)
-                     backing-width (Math/floor (* safe-width safe-dpr))
-                     backing-height (Math/floor (* safe-height safe-dpr))]
-                 (reset! (:!viewport atoms) {:width safe-width :height safe-height :dpr safe-dpr})
-                 (set! (.-width node) backing-width)
-                 (set! (.-height node) backing-height)
-                 ;; No .configure() here — changing canvas.width/height is sufficient.
-                 ;; WebGPU auto-creates new swap chain textures on the next .getCurrentTexture().
-                 ;; Calling .configure() would unconfigure the context, blanking the canvas
-                 ;; until a new frame is presented — causing a black screen flash or worse.
-                 (js/console.log "[RESIZE] Canvas backing resized"
-                                 (str "{\"width\":" safe-width
-                                      ",\"height\":" safe-height
-                                      ",\"dpr\":" safe-dpr
-                                      ",\"backingWidth\":" backing-width
-                                      ",\"backingHeight\":" backing-height "}")))
+               (let [safe-dpr (or dpr 1)]
+                 (reset! (:!viewport atoms) {:width width :height height :dpr safe-dpr})
+                 (set! (.-width node) (Math/floor (* width safe-dpr)))
+                 (set! (.-height node) (Math/floor (* height safe-dpr))))
                nil)
              nil))
 
@@ -391,4 +381,4 @@
       (kbd/settings-keys-consumer atoms <settings-keyboard)
 
       ;; Render loop (the terminal consumer)
-      (render/render-consumer atoms layout gpu deps))))
+      (render/render-consumer atoms layout gpu deps >raf))))

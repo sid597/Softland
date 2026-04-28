@@ -297,7 +297,7 @@
     @location(0) texcoord: vec2<f32>,
     @location(1) color: vec4<f32>,
     @location(2) banding: vec4<f32>,
-    @location(3) glyph: vec4<u32>,
+    @location(3) @interpolate(flat) glyph: vec4<u32>,
   };
 
   @vertex
@@ -341,6 +341,8 @@
 
   @group(0) @binding(0) var curveTexture: texture_2d<f32>;
   @group(0) @binding(1) var bandTexture: texture_2d<u32>;
+  struct SlugParams { sharpness: f32, padding1: f32, padding2: f32, padding3: f32, };
+  @group(0) @binding(3) var<uniform> params: SlugParams;
 
   fn saturate(x: f32) -> f32 {
     return clamp(x, 0.0, 1.0);
@@ -388,9 +390,9 @@
   }
 
   fn calc_band_loc(glyph_loc: vec2<i32>, offset: u32) -> vec2<i32> {
-    let width = 1i << i32(kLogBandTextureWidth);
+    let width = 1i << kLogBandTextureWidth;
     var x = glyph_loc.x + i32(offset);
-    var y = glyph_loc.y + (x >> i32(kLogBandTextureWidth));
+    var y = glyph_loc.y + (x >> kLogBandTextureWidth);
     x = x & (width - 1);
     return vec2<i32>(x, y);
   }
@@ -469,9 +471,9 @@
   fn main(@location(0) texcoord: vec2<f32>,
           @location(1) color: vec4<f32>,
           @location(2) banding: vec4<f32>,
-          @location(3) glyph: vec4<u32>) -> @location(0) vec4<f32> {
+          @location(3) @interpolate(flat) glyph: vec4<u32>) -> @location(0) vec4<f32> {
     let coverage = slug_render(texcoord, banding, glyph);
-    return vec4<f32>(color.rgb, coverage * color.a);
+    return vec4<f32>(color.rgb, saturate(coverage + params.sharpness) * color.a);
   }")
 
 ;; Calculate bracket highlight rectangles
@@ -571,12 +573,13 @@
                         {:binding 2 :resource {:buffer camera-buffer}}
                         {:binding 3 :resource {:buffer sizes-buffer}}]})))
 
-(defn- create-slug-bind-group [^js/GPUDevice device layout curve-view band-view camera-buffer]
+(defn- create-slug-bind-group [^js/GPUDevice device layout curve-view band-view camera-buffer sizes-buffer]
   (.createBindGroup device
     (clj->js {:layout layout
               :entries [{:binding 0 :resource curve-view}
                         {:binding 1 :resource band-view}
-                        {:binding 2 :resource {:buffer camera-buffer}}]})))
+                        {:binding 2 :resource {:buffer camera-buffer}}
+                        {:binding 3 :resource {:buffer sizes-buffer}}]})))
 
 (defn- create-msdf-font-resources [^js/GPUDevice device tracker font-bitmap texture-label]
   (let [texture (.createTexture device (clj->js {:size {:width (.-width font-bitmap)
@@ -749,9 +752,14 @@
         fragment-module (.createShaderModule device (clj->js {:code slug-fragment-shader}))
         font-resources (create-slug-font-resources device tracker (:slug font-assets))
         instance-buffer (create-instance-buffer device tracker label initial-capacity slug-text-instance-stride)
+        sizes-buffer (.createBuffer device (clj->js {:size 16
+                                                     :usage (bit-or js/GPUBufferUsage.UNIFORM
+                                                                    js/GPUBufferUsage.COPY_DST)}))
+        _ (gpu-budget/register-buffer! tracker sizes-buffer "text/slug-params" 16 :active-bytes 16)
         bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility js/GPUShaderStage.FRAGMENT :texture {:sampleType "unfilterable-float"}}
                                                                      {:binding 1 :visibility js/GPUShaderStage.FRAGMENT :texture {:sampleType "uint"}}
-                                                                     {:binding 2 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}]}))
+                                                                     {:binding 2 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}
+                                                                     {:binding 3 :visibility js/GPUShaderStage.FRAGMENT :buffer {:type "uniform"}}]}))
         pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
         pipeline (.createRenderPipeline device
                    (clj->js {:layout pipeline-layout
@@ -771,7 +779,7 @@
                                                    :blend {:color {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}
                                                            :alpha {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}}}]}
                              :primitive {:topology "triangle-list"}}))
-        bind-group (create-slug-bind-group device bg-layout (:curve-texture-view font-resources) (:band-texture-view font-resources) camera-buffer)]
+        bind-group (create-slug-bind-group device bg-layout (:curve-texture-view font-resources) (:band-texture-view font-resources) camera-buffer sizes-buffer)]
     (js/console.log "[RENDERER] Init text system"
                     {:backend :slug
                      :label label
@@ -783,14 +791,14 @@
             :bind-group bind-group
             :bind-group-layout bg-layout
             :camera-uniform-buffer camera-buffer
-            :sizes-uniform-buffer nil
+            :sizes-uniform-buffer sizes-buffer
             :instance-buffer instance-buffer
             :instance-stride slug-text-instance-stride
             :num-instances 0
             :gpu-tracker tracker
             :gpu-label label
             :owns-font-resources? true
-            :owns-sizing-buffer? false})))
+            :owns-sizing-buffer? true})))
 
 (defn init-text-system
   [^js/GPUDevice device fformat camera-buffer font-assets & {:as opts}]
@@ -845,7 +853,8 @@
                                                     (:bind-group-layout text-sys)
                                                     (:curve-texture-view font-resources)
                                                     (:band-texture-view font-resources)
-                                                    (:camera-uniform-buffer text-sys))
+                                                    (:camera-uniform-buffer text-sys)
+                                                    (:sizes-uniform-buffer text-sys))
                 :owns-font-resources? true})))))
 
 (defn share-font-resources
@@ -1374,6 +1383,11 @@
             new-buffer (ensure-text-instance-buffer device renderer-state required-size active-bytes)]
         (pack-slug-instances! float-view uint-view shaped-lines)
         (.writeBuffer (.-queue device) new-buffer 0 upload-view)
+        ;; Slug renders raw mathematical coverage — no sharpness bias.
+        ;; The uniform exists (pipeline expects binding 3) but stays at 0.
+        (when-let [sizes-buffer (:sizes-uniform-buffer renderer-state)]
+          (let [sizes (js/Float32Array. #js [0.0 0.0 0.0 0.0])]
+            (.writeBuffer (.-queue device) sizes-buffer 0 sizes)))
         (gpu-budget/set-active-bytes! (:gpu-tracker renderer-state) new-buffer active-bytes)
         (assoc renderer-state
                :instance-buffer new-buffer
@@ -1475,6 +1489,50 @@
   (aset floats 4 w)
   (aset floats 5 h)
   (.writeBuffer (.-queue device) camera-buffer 0 floats))
+
+(defn draw-comparison-frame!
+  "Draw two text systems side-by-side: left = primary backend, right = comparison backend.
+   Each half gets screen_dimensions = (w/2, h) so text renders at full scale.
+   Rects, shadows, chrome are skipped — this is a pure text rendering comparison."
+  [^js device ^js context primary-sys comparison-sys ^js camera-floats pan-x pan-y w h]
+  (let [half-w (/ w 2.0)
+        dpr (or (.-devicePixelRatio js/window) 1)
+        phys-w (Math/floor (* w dpr))
+        phys-h (Math/floor (* h dpr))
+        phys-half-w (Math/floor (* half-w dpr))
+        ;; Scratch buffer for comparison camera (avoid mutating camera-floats twice for same buffer)
+        comp-floats (js/Float32Array. 6)]
+    ;; Update both cameras — each sees half-width viewport
+    (update-camera device (:camera-uniform-buffer primary-sys) camera-floats pan-x pan-y 1.0 half-w h)
+    (update-camera device (:camera-uniform-buffer comparison-sys) comp-floats pan-x pan-y 1.0 half-w h)
+
+    (let [encoder (.createCommandEncoder device)
+          swap-texture (.getCurrentTexture context)
+          swap-view (.createView swap-texture)
+          pass (.beginRenderPass encoder
+                 (clj->js {:colorAttachments [{:view swap-view
+                                               :clearValue {:r 0.06 :g 0.06 :b 0.06 :a 1.0}
+                                               :loadOp "clear"
+                                               :storeOp "store"}]}))]
+
+      ;; Left half — primary backend
+      (.setViewport pass 0 0 phys-half-w phys-h 0 1)
+      (when (and primary-sys (> (:num-instances primary-sys) 0))
+        (.setPipeline pass (:pipeline primary-sys))
+        (.setBindGroup pass 0 (:bind-group primary-sys))
+        (.setVertexBuffer pass 0 (:instance-buffer primary-sys))
+        (.draw pass 6 (:num-instances primary-sys) 0 0))
+
+      ;; Right half — comparison backend
+      (.setViewport pass phys-half-w 0 (- phys-w phys-half-w) phys-h 0 1)
+      (when (and comparison-sys (> (:num-instances comparison-sys) 0))
+        (.setPipeline pass (:pipeline comparison-sys))
+        (.setBindGroup pass 0 (:bind-group comparison-sys))
+        (.setVertexBuffer pass 0 (:instance-buffer comparison-sys))
+        (.draw pass 6 (:num-instances comparison-sys) 0 0))
+
+      (.end pass)
+      (.submit (.-queue device) #js [(.finish encoder)]))))
 
 
 (defn draw-frame! [^js device ^js context text-sys editor-pool-info cmd-rect-sys camera-floats _ignored_pass_descriptor pan-x pan-y w h

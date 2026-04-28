@@ -121,7 +121,8 @@
                    (reset! !redo-stack [])
                    (reset! !folded-lines #{})
                    (reset! !caret-visible true)
-                   (when-not (:visible @!cmd-panel) (reset! !focus :editor))
+                   (when-not (or (:visible @!cmd-panel) (:visible @!settings))
+                     (reset! !focus :editor))
                    (reset! !file-load-request nil))))
              nil)
            nil))
@@ -392,8 +393,6 @@
                                  (swap! !settings assoc :theme-id (nth themes/theme-list new-idx)))
                   :font-size   (swap! !settings update :font-size #(max 8 (dec %)))
                   :line-height (swap! !settings update :line-height #(max 1.0 (- % 0.1)))
-                  :px-range    (swap! !settings update :px-range #(max 4 (dec %)))
-                  :sharpness   (swap! !settings update :sharpness #(max -0.2 (- % 0.02)))
                   :snap-to-pixel? (swap! !settings assoc :snap-to-pixel? false)
                   :show-diagnostics? (swap! !settings assoc :show-diagnostics? false))))
 
@@ -407,8 +406,6 @@
                                  (swap! !settings assoc :theme-id (nth themes/theme-list new-idx)))
                   :font-size   (swap! !settings update :font-size #(min 40 (inc %)))
                   :line-height (swap! !settings update :line-height #(min 2.0 (+ % 0.1)))
-                  :px-range    (swap! !settings update :px-range #(min 32 (inc %)))
-                  :sharpness   (swap! !settings update :sharpness #(min 0.2 (+ % 0.02)))
                   :snap-to-pixel? (swap! !settings assoc :snap-to-pixel? true)
                   :show-diagnostics? (swap! !settings assoc :show-diagnostics? true))))
 
