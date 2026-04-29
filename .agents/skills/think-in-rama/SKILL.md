@@ -24,6 +24,7 @@ For the specific Softland policy/throughput debate, read:
 docs/current-mental-model/architecture/action-request-kernel-routing.md
 docs/current-mental-model/architecture/rama-policy-throughput-post.md
 docs/current-mental-model/architecture/rama-blog-patterns.md
+docs/current-mental-model/architecture/prompt-to-implementation-lossiness.md
 ```
 
 ## Core Stance
@@ -43,16 +44,29 @@ hidden source of truth.
 
 When reviewing or designing Rama work:
 
-1. Identify the new data entering the world.
-2. Distinguish request/proposal from accepted fact.
-3. Identify the entity whose local ordering matters.
-4. Choose depot boundaries by relatedness, ordering, locality, and topology consumers.
-5. Choose partition/routing keys before writing topology code.
-6. Shape PStates around the questions/actions they must serve.
-7. Place authoritative policy decisions inside Rama when they affect world truth.
-8. Choose stream for interactive low-latency actions and microbatch for bulk/derived work.
-9. Use query topologies for clustered reads or allowed-action decisions that should not live in UI code.
-10. Preserve traceability from projection item to request, decision, event, and materialized state.
+1. Restate the contract before editing so interpretation is visible.
+2. Identify the new data entering the world.
+3. Distinguish request/proposal from accepted fact.
+4. Identify the entity whose local ordering matters.
+5. Choose depot boundaries by relatedness, ordering, locality, and topology consumers.
+6. Choose partition/routing keys before writing topology code.
+7. Shape PStates around the questions/actions they must serve.
+8. Place authoritative policy decisions inside Rama when they affect world truth.
+9. Choose stream for interactive low-latency actions and microbatch for bulk/derived work.
+10. Use query topologies for clustered reads or allowed-action decisions that should not live in UI code.
+11. Preserve traceability from projection item to request, decision, event, and materialized state.
+12. Name the tests that would fail if the contract was misunderstood.
+
+Preflight for implementation:
+
+```text
+What is the first physical record Rama sees?
+What fields must accepted/rejected ActionDecision carry?
+Can ActionRequest contain any event id, and under what explicit name?
+Does common request validation run before dispatch for every request?
+Is :routing/key semantic identity or exact physical locality?
+Which tests prove those answers?
+```
 
 ## Softland Defaults
 

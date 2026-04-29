@@ -13,7 +13,8 @@ This folder is the current working mental model for the Rama/text/world-kernel w
 5. `architecture/rama-world-kernel-v0-pr-trail.md`
 6. `architecture/rama-policy-throughput-post.md`
 7. `architecture/rama-blog-patterns.md`
-8. `implementation-review-prompt.md`
+8. `architecture/prompt-to-implementation-lossiness.md`
+9. `implementation-review-prompt.md`
 
 ## Current Center
 

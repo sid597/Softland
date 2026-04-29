@@ -1,4 +1,4 @@
 interface:
   display_name: "Think In Rama"
   short_description: "Rama-first backend architecture"
-  default_prompt: "Use the Think In Rama skill to review this Rama design for depot boundaries, partitioning, policy placement, PState shape, topology choice, traceability, and throughput risks."
+  default_prompt: "Use the Think In Rama skill to restate the contract before editing, then review this Rama design for depot boundaries, partitioning, policy placement, PState shape, topology choice, traceability, and throughput risks."

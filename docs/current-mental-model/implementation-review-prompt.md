@@ -42,8 +42,20 @@ Before changing code, read:
 4. docs/current-mental-model/architecture/rama-world-kernel-v0-pr-trail.md
 5. docs/current-mental-model/architecture/rama-policy-throughput-post.md
 6. docs/current-mental-model/architecture/rama-blog-patterns.md
-7. docs/architecture/think-in-rama.md
-8. .agents/skills/think-in-rama/SKILL.md
+7. docs/current-mental-model/architecture/prompt-to-implementation-lossiness.md
+8. docs/architecture/think-in-rama.md
+9. .agents/skills/think-in-rama/SKILL.md
+
+Preflight before editing:
+
+1. Restate the first physical record Rama sees.
+2. Restate the accepted ActionDecision fields.
+3. Restate the rejected ActionDecision fields.
+4. State whether ActionRequest may contain any event id, and under what explicit name.
+5. State whether common request validation happens before dispatch for every request.
+6. State whether :routing/key is the semantic identity key or exact physical locality key.
+7. Name the PState reads/writes expected to be local after depot routing.
+8. Name the tests that would fail if this interpretation is wrong.
 
 Review the current implementation against the settled model:
 
@@ -62,6 +74,20 @@ Important constraints:
 - Authenticate at the edge; authorize/validate world truth inside Rama from PStates.
 - Do not add Rama I/O just because it makes code simpler.
 - Do not send one Rama write per keystroke; follow the collaborative editor pattern of local buffer, semantic edit object/batch, document-keyed depot, and local transform.
+
+V1 acceptance criteria:
+
+- Accepted ActionDecision includes :decision/id, :decision/status, :request/id,
+  :request/type, :routing/key, and :event/id.
+- Rejected ActionDecision includes :decision/id, :decision/status, :request/id,
+  :request/type, :routing/key, :reason, and :errors, with no :event/id.
+- Every request passes common request validation before action-specific logic.
+- Malformed unknown actions fail request validation before unknown-action dispatch.
+- Normal request helper APIs do not accept ambiguous :event-id; deterministic
+  tests must use explicit :proposed-event-id or :proposed/event-id if needed.
+- :routing/key is either the exact physical locality key for required PState
+  reads/writes, or the implementation documents the remaining re-hash as
+  transitional.
 
 Review questions:
 
