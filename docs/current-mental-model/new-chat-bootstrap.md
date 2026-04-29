@@ -13,7 +13,8 @@ Before answering, read:
 4. docs/current-mental-model/architecture/action-request-kernel-routing.md
 5. docs/current-mental-model/architecture/rama-world-kernel-v0-pr-trail.md
 6. docs/current-mental-model/architecture/rama-policy-throughput-post.md
-7. docs/current-mental-model/implementation-review-prompt.md
+7. docs/current-mental-model/architecture/rama-blog-patterns.md
+8. docs/current-mental-model/implementation-review-prompt.md
 
 Ignore older Softland lore unless I explicitly ask for it. Give highest weight to the April 28 current mental model.
 
@@ -81,7 +82,7 @@ ActionRequest gets :routing/key
   -> policy state becomes real PStates
   -> accepted KernelEvent/rejected ActionDecision trail remains intact
 
-Never add Rama I/O just because the code looks simpler. Batch high-frequency UI gestures into meaningful durable actions.
+Never add Rama I/O just because the code looks simpler. Follow the collaborative editor pattern: local buffer -> semantic edit object/batch -> document-keyed depot -> local transform.
 
 V0 proof covered:
 

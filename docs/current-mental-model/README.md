@@ -12,7 +12,8 @@ This folder is the current working mental model for the Rama/text/world-kernel w
 4. `architecture/action-request-kernel-routing.md`
 5. `architecture/rama-world-kernel-v0-pr-trail.md`
 6. `architecture/rama-policy-throughput-post.md`
-7. `implementation-review-prompt.md`
+7. `architecture/rama-blog-patterns.md`
+8. `implementation-review-prompt.md`
 
 ## Current Center
 
@@ -140,9 +141,10 @@ add :routing/key to ActionRequest
   -> keep request/decision/event traceability intact
 ```
 
-Do not make every physical UI gesture a world action. High-frequency gestures
-such as typing should be buffered/batched into semantic operations before they
-enter Rama.
+Do not make every physical UI gesture a world action. For typing, follow the
+collaborative editor pattern: local buffer, versioned edit operation or edit
+batch, artifact/document-keyed depot, and Rama-side transform/decision. See
+`architecture/rama-blog-patterns.md`.
 
 V0 proof covered:
 

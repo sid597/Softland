@@ -14,8 +14,9 @@ Before changing code, read:
 3. docs/current-mental-model/architecture/action-request-kernel-routing.md
 4. docs/current-mental-model/architecture/rama-world-kernel-v0-pr-trail.md
 5. docs/current-mental-model/architecture/rama-policy-throughput-post.md
-6. docs/architecture/think-in-rama.md
-7. .agents/skills/think-in-rama/SKILL.md
+6. docs/current-mental-model/architecture/rama-blog-patterns.md
+7. docs/architecture/think-in-rama.md
+8. .agents/skills/think-in-rama/SKILL.md
 
 Review the current implementation against the settled model:
 
@@ -33,7 +34,7 @@ Important constraints:
 - Routing is not approval. Routing finds the state locality needed for Rama to decide.
 - Authenticate at the edge; authorize/validate world truth inside Rama from PStates.
 - Do not add Rama I/O just because it makes code simpler.
-- Do not send one Rama action per keystroke; batch high-frequency UI gestures into semantic operations.
+- Do not send one Rama write per keystroke; follow the collaborative editor pattern of local buffer, semantic edit object/batch, document-keyed depot, and local transform.
 
 Review questions:
 
@@ -45,6 +46,8 @@ Review questions:
 6. Does unit/status-set route by artifact, unit, branch, or a compound key?
 7. Which code paths still append compatibility requests that should become real world actions?
 8. What is the smallest next patch that improves Rama locality without expanding scope?
+9. If implementing text edits, what is the edit object/batch shape and where is client buffering acknowledged?
+10. Which reads should become query topologies to avoid client-side loops/roundtrips?
 
 Output:
 

@@ -23,6 +23,7 @@ For the specific Softland policy/throughput debate, read:
 ```text
 docs/current-mental-model/architecture/action-request-kernel-routing.md
 docs/current-mental-model/architecture/rama-policy-throughput-post.md
+docs/current-mental-model/architecture/rama-blog-patterns.md
 ```
 
 ## Core Stance
@@ -103,6 +104,10 @@ and unnecessary partition hops are the smell.
 Never trade Rama I/O efficiency for code simplicity. Prefer a little more code
 over extra per-query/per-action disk reads, network hops, or hot-path PState
 writes.
+
+For editor-like work, use the collaborative editor pattern: local buffer,
+semantic edit object or edit batch, depot keyed by document/artifact id, local
+transform against versioned edit history, and reactive reads for client updates.
 
 ## Red Flags
 

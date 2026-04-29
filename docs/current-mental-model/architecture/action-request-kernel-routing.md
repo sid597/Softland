@@ -4,10 +4,10 @@ Status: clarification note, 2026-04-29.
 
 This note exists because the mental model shifted during implementation.
 
-Old simplified model:
+Retired simplified model:
 
 ```text
-projection -> typed event -> Rama -> materialized state
+projection -> request-less accepted event -> Rama -> materialized state
 ```
 
 Corrected model:
@@ -516,8 +516,8 @@ gesture.
 For an editor:
 
 ```text
-bad: one ActionRequest per keystroke
-good: local typing buffer -> semantic text/edit-batch request
+bad: one Rama write per physical keypress
+good: local typing buffer -> semantic edit object or text/edit-batch request
 ```
 
 Authorize at the largest safe scope:
@@ -540,6 +540,18 @@ Store only the records needed for replay, audit, projection, recovery, or
 debugging. If a hot path can return accepted decision data via stream ack and
 derive accepted state from `KernelEvent`, do not add extra PState writes just to
 make a diagram prettier.
+
+The collaborative editor article gives the concrete pattern:
+
+```text
+browser buffers pending edits
+browser sends one edit/change at a time
+each edit carries document id + version + operation
+Rama hashes the depot by document id
+Rama transforms stale edits against missed edits
+Rama updates $$docs and subindexed $$edits locally
+browser learns new versions through reactive/proxy reads
+```
 
 ## Concrete Example: Reject A Unit
 
