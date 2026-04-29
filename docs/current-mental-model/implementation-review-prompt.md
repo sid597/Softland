@@ -9,37 +9,30 @@ We are working in /mnt/data/projects/Softland.
 
 Branch protocol:
 
-- The current mental-model docs live on local branch docs/current-mental-model-local.
-- main intentionally does not contain these private docs.
-- Preferred path when the current checkout has unrelated local changes: create a
-  separate git worktree for implementation so the dirty checkout is left alone:
-
-  git worktree add ../Softland-rama-v1 -b impl/rama-world-kernel-v1 main
-  cd ../Softland-rama-v1
-  git restore --source=docs/current-mental-model-local --worktree docs/current-mental-model .agents/skills/think-in-rama
-
-- If the current checkout is clean, an in-place implementation branch is also
-  acceptable:
-
-  git switch main
-  git switch -c impl/rama-world-kernel-v1
-  git restore --source=docs/current-mental-model-local --worktree docs/current-mental-model .agents/skills/think-in-rama
-
+- The current mental-model docs live on local branch
+  docs/current-mental-model-local.
+- This branch is private/local. Do not push it.
+- Do not merge this private branch into main.
+- Work may happen directly on this private branch, or on a private branch made
+  from it, because commits are not public until pushed.
+- Build and test may run on the private branch.
+- Keep docs changes and code/test changes in separate commits.
+- If docs need to change during implementation, update and commit docs locally.
+- If code needs to change, commit only explicit code/test paths, for example
+  `git add src test`; never use `git add -A`.
 - Never use `git reset --hard`, `git clean`, or path-wide `git restore` to make
-  room for the implementation branch unless the user explicitly asks for it.
-- Do not stage or commit docs on the implementation branch.
-- Commit only code/test changes unless the user explicitly requests another
-  local docs commit.
-- If docs need to change during implementation:
-  - small clarification needed for the current patch: edit the sidecar docs in
-    the working tree, but do not commit them on the code branch
-  - big architecture rethink: pause implementation, update and commit the docs
-    on docs/current-mental-model-local first, then resume code work
-- At the end of implementation, split history intentionally:
-  - code/test changes commit on the implementation branch
-  - learned docs updates commit separately on docs/current-mental-model-local
-- When committing code with sidecar docs present, stage explicit paths only
-  such as `git add src test`; never use `git add -A`.
+  room for implementation unless the user explicitly asks for it.
+
+When implementation is ready to share, export code only:
+
+```bash
+git switch main
+git switch -c impl/rama-world-kernel-v1-public
+git cherry-pick <code-commit-1> <code-commit-2>
+```
+
+The public branch receives only selected code/test commits. The private docs
+commits stay local forever.
 
 Before changing code, read:
 
