@@ -11,13 +11,22 @@ Branch protocol:
 
 - The current mental-model docs live on local branch docs/current-mental-model-local.
 - main intentionally does not contain these private docs.
-- For implementation, start a code branch from main, then restore the docs as a
-  local uncommitted sidecar:
+- Preferred path when the current checkout has unrelated local changes: create a
+  separate git worktree for implementation so the dirty checkout is left alone:
+
+  git worktree add ../Softland-rama-v1 -b impl/rama-world-kernel-v1 main
+  cd ../Softland-rama-v1
+  git restore --source=docs/current-mental-model-local --worktree docs/current-mental-model .agents/skills/think-in-rama
+
+- If the current checkout is clean, an in-place implementation branch is also
+  acceptable:
 
   git switch main
   git switch -c impl/rama-world-kernel-v1
   git restore --source=docs/current-mental-model-local --worktree docs/current-mental-model .agents/skills/think-in-rama
 
+- Never use `git reset --hard`, `git clean`, or path-wide `git restore` to make
+  room for the implementation branch unless the user explicitly asks for it.
 - Do not stage or commit docs on the implementation branch.
 - Commit only code/test changes unless the user explicitly requests another
   local docs commit.
