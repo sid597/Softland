@@ -188,8 +188,8 @@ The first physical record Rama sees for a world write is an `ActionRequest`.
 Rama records an `ActionDecision`:
 
 ```text
-accepted decision -> points to KernelEvent
-rejected decision -> reason/errors, no KernelEvent
+accepted decision -> carries :event/id and may include/point to KernelEvent
+rejected decision -> carries :event/id nil plus :decision/reason/errors, no KernelEvent
 ```
 
 The same shared contracts appear in request and accepted event. The difference

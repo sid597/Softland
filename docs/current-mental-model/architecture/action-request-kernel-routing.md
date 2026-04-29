@@ -198,6 +198,8 @@ Accepted:
 {:decision/id "req_2/decision"
  :decision/status :accepted
  :request/id "req_2"
+ :request/type :unit/status-set
+ :routing/key [:artifact "art_1"]
  :event/id "req_2/event"
  :event <KernelEvent>
  :decided-at ...}
@@ -209,12 +211,16 @@ Rejected:
 {:decision/id "req_2/decision"
  :decision/status :rejected
  :request/id "req_2"
- :reason :actor-not-authorized
+ :request/type :unit/status-set
+ :routing/key [:artifact "art_1"]
+ :event/id nil
+ :decision/reason :actor-not-authorized
  :errors [...]
  :decided-at ...}
 ```
 
-Rejected requests are not world facts. They are still part of the trail.
+Rejected requests are not world facts. They do not produce a `KernelEvent`, but
+the decision envelope stays stable by carrying `:event/id nil`.
 
 Storage model:
 
@@ -489,6 +495,7 @@ Example accepted decision:
  :decision/status :accepted
  :request/id "req_1"
  :request/type :unit/status-set
+ :routing/key [:artifact "art_1"]
  :event/id "evt_2"
  :decided-at 1777400000012}
 ```
@@ -500,7 +507,9 @@ Example rejected decision:
  :decision/status :rejected
  :request/id "req_1"
  :request/type :unit/status-set
- :reason :actor-not-authorized
+ :routing/key [:artifact "art_1"]
+ :event/id nil
+ :decision/reason :actor-not-authorized
  :errors []
  :decided-at 1777400000012}
 ```

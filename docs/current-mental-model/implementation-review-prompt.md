@@ -80,7 +80,7 @@ V1 acceptance criteria:
 - Accepted ActionDecision includes :decision/id, :decision/status, :request/id,
   :request/type, :routing/key, and :event/id.
 - Rejected ActionDecision includes :decision/id, :decision/status, :request/id,
-  :request/type, :routing/key, :reason, and :errors, with no :event/id.
+  :request/type, :routing/key, :event/id nil, :decision/reason, and :errors.
 - Every request passes common request validation before action-specific logic.
 - Malformed unknown actions fail request validation before unknown-action dispatch.
 - Normal request helper APIs do not accept ambiguous :event-id; deterministic

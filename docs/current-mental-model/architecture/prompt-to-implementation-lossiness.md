@@ -103,9 +103,9 @@ Rejected ActionDecision must include:
   :request/id
   :request/type
   :routing/key
-  :reason
+  :event/id nil
+  :decision/reason
   :errors
-  no :event/id
 
 Every request must pass common request validation before action-specific logic.
 
