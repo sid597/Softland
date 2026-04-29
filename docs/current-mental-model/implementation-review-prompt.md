@@ -21,6 +21,16 @@ Branch protocol:
 - Do not stage or commit docs on the implementation branch.
 - Commit only code/test changes unless the user explicitly requests another
   local docs commit.
+- If docs need to change during implementation:
+  - small clarification needed for the current patch: edit the sidecar docs in
+    the working tree, but do not commit them on the code branch
+  - big architecture rethink: pause implementation, update and commit the docs
+    on docs/current-mental-model-local first, then resume code work
+- At the end of implementation, split history intentionally:
+  - code/test changes commit on the implementation branch
+  - learned docs updates commit separately on docs/current-mental-model-local
+- When committing code with sidecar docs present, stage explicit paths only
+  such as `git add src test`; never use `git add -A`.
 
 Before changing code, read:
 
