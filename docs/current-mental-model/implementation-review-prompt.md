@@ -7,6 +7,21 @@ Use this to start the next implementation/review chat.
 ```text
 We are working in /mnt/data/projects/Softland.
 
+Branch protocol:
+
+- The current mental-model docs live on local branch docs/current-mental-model-local.
+- main intentionally does not contain these private docs.
+- For implementation, start a code branch from main, then restore the docs as a
+  local uncommitted sidecar:
+
+  git switch main
+  git switch -c impl/rama-world-kernel-v1
+  git restore --source=docs/current-mental-model-local --worktree docs/current-mental-model .agents/skills/think-in-rama
+
+- Do not stage or commit docs on the implementation branch.
+- Commit only code/test changes unless the user explicitly requests another
+  local docs commit.
+
 Before changing code, read:
 
 1. docs/current-mental-model/README.md
