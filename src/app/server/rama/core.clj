@@ -43,7 +43,9 @@
 ;;   PState readers -> projection items with target refs
 ;;
 ;; V0 still uses one depot. That depot is not a "test" event stream anymore: it
-;; receives ActionRequests, and Rama decides what becomes world truth.
+;; receives ActionRequests, and Rama decides what becomes world truth. V1 starts
+;; moving the physical shape toward Rama locality by routing requests by the
+;; world entity they affect instead of by request id.
 
 (def schema-version 1)
 (def default-branch-id "main")
@@ -53,8 +55,9 @@
   [{:contract :action-request
     :source-of-truth true
     :responsibility "Durable request for the world to interpret."
-    :minimum-keys [:request/id :request/type :request/time-ms :actor :branch
-                   :context :target :action :payload :causal :provenance]}
+    :minimum-keys [:request/id :request/type :request/time-ms :routing/key
+                   :actor :branch :context :target :action :payload :causal
+                   :provenance]}
    {:contract :event
     :source-of-truth true
     :responsibility "Durable accepted fact derived from an action request."
@@ -138,32 +141,65 @@
                               capability (conj capability))
      :visibility :private}))
 
+(declare artifact-id-from-unit-id)
+
+(def routing-key-contract
+  {:kind :semantic-vector
+   :transitional? true
+   :note "V1 routes the request depot by the semantic vector. Current PStates remain keyed by artifact id, so the topology still re-hashes to artifact id for local reads/writes."})
+
+(defn routing-key-for
+  [{:keys [request-id target payload]}]
+  (let [artifact-id (or (:artifact/id payload)
+                        (some-> (:unit/id payload) artifact-id-from-unit-id)
+                        (get-in target [:target/address :artifact/id])
+                        (when (= :artifact (:target/kind target))
+                          (:target/id target)))
+        target-kind (:target/kind target)
+        target-id (:target/id target)]
+    (cond
+      artifact-id [:artifact artifact-id]
+      target-id [(or target-kind :target) target-id]
+      request-id [:request request-id]
+      :else [:request "unkeyed"])))
+
 (defn action-request
   "Build the request envelope that enters Rama. This is intentionally not a
    validated/authorized world fact. Rama ETL records the request and decides."
-  [{:keys [request-id request-type time-ms actor branch context target action
-           payload causal provenance]}]
-  (let [action (merge {:action/type request-type
+  [opts]
+  (let [{:keys [request-id request-type time-ms actor branch context target action
+                payload causal provenance proposed-event-id]} opts
+        request-id (or request-id (random-id "req"))
+        payload (or payload {})
+        action (merge {:action/type request-type
                        :action/capability nil
                        :action/params {}}
                       action)
         target (merge {:target/kind :artifact
                        :target/id nil
                        :target/address nil}
-                      target)]
-    {:request/id (or request-id (random-id "req"))
-     :request/type (or request-type (:action/type action))
-     :request/time-ms (or time-ms (now-ms))
-     :request/schema-version schema-version
-     :actor (merge (default-actor) actor)
-     :branch (merge {:branch/id default-branch-id} branch)
-     :context (merge (default-context) context)
-     :target target
-     :action action
-     :payload (or payload {})
-     :causal (merge (default-causal) causal)
-     :provenance (or provenance {:source/type :manual
-                                 :source/ref nil})}))
+                      target)
+        routing-key (or (:routing/key opts)
+                        (:routing-key opts)
+                        (routing-key-for {:request-id request-id
+                                          :target target
+                                          :payload payload}))
+        proposed-event-id (or proposed-event-id (:proposed/event-id opts))]
+    (cond-> {:request/id request-id
+             :request/type (or request-type (:action/type action))
+             :request/time-ms (or time-ms (now-ms))
+             :request/schema-version schema-version
+             :routing/key routing-key
+             :actor (merge (default-actor) actor)
+             :branch (merge {:branch/id default-branch-id} branch)
+             :context (merge (default-context) context)
+             :target target
+             :action action
+             :payload payload
+             :causal (merge (default-causal) causal)
+             :provenance (or provenance {:source/type :manual
+                                         :source/ref nil})}
+      proposed-event-id (assoc :proposed/event-id proposed-event-id))))
 
 (defn kernel-event
   "Build the stable world-kernel event envelope. Carrier-specific facts belong
@@ -196,7 +232,7 @@
 
 (def required-request-keys
   [:request/id :request/type :request/time-ms :request/schema-version :actor
-   :branch :context :target :action :payload :causal :provenance])
+   :routing/key :branch :context :target :action :payload :causal :provenance])
 
 (def required-event-keys
   [:event/id :event/type :event/time-ms :event/schema-version :actor :branch
@@ -204,30 +240,57 @@
 
 (defn request-validation-errors
   [request]
-  (cond-> []
-    (not (map? request))
-    (conj {:type :request/not-map})
+  (let [request-type (:request/type request)
+        action-type (get-in request [:action :action/type])
+        routing-key (:routing/key request)]
+    (cond-> []
+      (not (map? request))
+      (conj {:type :request/not-map})
 
-    (and (map? request) (not-every? #(contains? request %) required-request-keys))
-    (conj {:type :request/missing-envelope-key
-           :missing (vec (remove #(contains? request %) required-request-keys))})
+      (and (map? request) (not-every? #(contains? request %) required-request-keys))
+      (conj {:type :request/missing-envelope-key
+             :missing (vec (remove #(contains? request %) required-request-keys))})
 
-    (and (map? request) (not (qualified-keyword? (:request/type request))))
-    (conj {:type :request/type-not-qualified-keyword
-           :value (:request/type request)})
+      (and (map? request) (contains? request :event/id))
+      (conj {:type :request/top-level-event-id
+             :value (:event/id request)})
 
-    (and (map? request)
-         (not (contains? actor-types (get-in request [:actor :actor/type]))))
-    (conj {:type :actor/invalid-type
-           :value (get-in request [:actor :actor/type])})
+      (and (map? request) (contains? (:payload request) :event/id))
+      (conj {:type :request/payload-event-id
+             :value (get-in request [:payload :event/id])})
 
-    (and (map? request)
-         (not (contains? target-kinds (get-in request [:target :target/kind]))))
-    (conj {:type :target/invalid-kind
-           :value (get-in request [:target :target/kind])})
+      (and (map? request) (not (qualified-keyword? (:request/type request))))
+      (conj {:type :request/type-not-qualified-keyword
+             :value (:request/type request)})
 
-    (and (map? request) (nil? (get-in request [:branch :branch/id])))
-    (conj {:type :branch/missing-id})))
+      (and (map? request) (not (qualified-keyword? action-type)))
+      (conj {:type :action/type-not-qualified-keyword
+             :value action-type})
+
+      (and (map? request) (not= request-type action-type))
+      (conj {:type :request/action-type-drift
+             :request/type request-type
+             :action/type action-type})
+
+      (and (map? request)
+           (or (not (vector? routing-key))
+               (empty? routing-key)
+               (some nil? routing-key)))
+      (conj {:type :routing/key-invalid
+             :value routing-key})
+
+      (and (map? request)
+           (not (contains? actor-types (get-in request [:actor :actor/type]))))
+      (conj {:type :actor/invalid-type
+             :value (get-in request [:actor :actor/type])})
+
+      (and (map? request)
+           (not (contains? target-kinds (get-in request [:target :target/kind]))))
+      (conj {:type :target/invalid-kind
+             :value (get-in request [:target :target/kind])})
+
+      (and (map? request) (nil? (get-in request [:branch :branch/id])))
+      (conj {:type :branch/missing-id}))))
 
 (defn event-validation-errors
   [event]
@@ -263,6 +326,10 @@
   [event]
   (empty? (event-validation-errors event)))
 
+(defn valid-request?
+  [request]
+  (empty? (request-validation-errors request)))
+
 (defn authorized-request?
   [request]
   (let [required (cond-> #{}
@@ -282,6 +349,7 @@
    :decision/status :accepted
    :request/id (:request/id request)
    :request/type (:request/type request)
+   :routing/key (:routing/key request)
    :event/id (:event/id event)
    :event event
    :decided-at (now-ms)})
@@ -292,7 +360,9 @@
    :decision/status :rejected
    :request/id (:request/id request)
    :request/type (:request/type request)
-   :reason reason
+   :routing/key (:routing/key request)
+   :event/id nil
+   :decision/reason reason
    :errors (vec errors)
    :decided-at (now-ms)})
 
@@ -371,7 +441,7 @@
                                  :source/ref nil})}))
 
 (defn ingest-text-request
-  [content & [{:keys [request-id event-id artifact-id revision-id source-type
+  [content & [{:keys [request-id proposed-event-id artifact-id revision-id source-type
                       actor branch context causal provenance time-ms]}]]
   (let [artifact-id (or artifact-id (random-id "art"))
         revision-id (or revision-id (random-id "rev"))
@@ -389,8 +459,9 @@
        :action {:action/type :artifact/ingest
                 :action/capability :artifact/create
                 :action/params {:artifact/type :text}}
-       :payload {:event/id event-id
-                 :artifact/id artifact-id
+       :routing/key [:artifact artifact-id]
+       :proposed-event-id proposed-event-id
+       :payload {:artifact/id artifact-id
                  :artifact/type :text
                  :source/type (or source-type :paste)
                  :text/content content
@@ -400,7 +471,7 @@
                                    :source/ref nil})})))
 
 (defn unit-status-request
-  [unit-id status & [{:keys [request-id event-id branch-id artifact-id reason
+  [unit-id status & [{:keys [request-id proposed-event-id branch-id artifact-id reason
                              actor context causal provenance time-ms]}]]
   (action-request
     {:request-id request-id
@@ -415,8 +486,9 @@
      :action {:action/type :unit/status-set
               :action/capability :unit/judge
               :action/params {:status status}}
-     :payload (cond-> {:event/id event-id
-                       :artifact/id (or artifact-id (artifact-id-from-unit-id unit-id))
+     :routing/key [:artifact (or artifact-id (artifact-id-from-unit-id unit-id))]
+     :proposed-event-id proposed-event-id
+     :payload (cond-> {:artifact/id (or artifact-id (artifact-id-from-unit-id unit-id))
                        :unit/id unit-id
                        :status status}
                 reason (assoc :reason reason))
@@ -448,7 +520,7 @@
     {:artifact-id (get-in request [:payload :artifact/id])
      :revision-id (get-in request [:payload :revision/id])
      :source-type (get-in request [:payload :source/type])
-     :event-id (or (get-in request [:payload :event/id])
+     :event-id (or (:proposed/event-id request)
                    (str (:request/id request) "/event"))
      :time-ms (:request/time-ms request)
      :actor (:actor request)
@@ -468,7 +540,7 @@
     (get-in request [:payload :status])
     {:artifact-id (get-in request [:payload :artifact/id])
      :reason (get-in request [:payload :reason])
-     :event-id (or (get-in request [:payload :event/id])
+     :event-id (or (:proposed/event-id request)
                    (str (:request/id request) "/event"))
      :time-ms (:request/time-ms request)
      :actor (:actor request)
@@ -615,6 +687,7 @@
 
 (defn request-id [request] (:request/id request))
 (defn request-action-type [request] (get-in request [:action :action/type]))
+(defn request-errors? [errors] (boolean (seq errors)))
 (defn request-artifact-id [request] (or (get-in request [:payload :artifact/id])
                                         (artifact-id-from-unit-id (get-in request [:payload :unit/id]))))
 (defn request-unit-id [request] (or (get-in request [:payload :unit/id])
@@ -656,7 +729,7 @@
    :event/id (:event/id event)})
 
 (defmodule world-kernel-module [setup topologies]
-  (declare-depot setup *world-requests-depot :random)
+  (declare-depot setup *world-requests-depot (hash-by :routing/key))
   (let [n (stream-topology topologies "world-kernel-topology")]
     (declare-pstate n $$requests-by-id {String (map-schema Keyword Object)})
     (declare-pstate n $$decisions-by-id {String (map-schema Keyword Object)})
@@ -674,13 +747,22 @@
       (source> *world-requests-depot :> *request)
       (request-id *request :> *request-id)
       (request-action-type *request :> *action-type)
-      (|hash *request-id)
-      (local-transform> [(keypath *request-id) (termval *request)] $$requests-by-id)
+      (request-validation-errors *request :> *request-errors)
 
       (<<cond
+        (case> (request-errors? *request-errors))
+        (rejected-decision *request :request-invalid *request-errors :> *decision)
+        (decision-id *decision :> *decision-id)
+        (|hash *request-id)
+        (local-transform> [(keypath *request-id) (termval *request)] $$requests-by-id)
+        (|hash *decision-id)
+        (local-transform> [(keypath *decision-id) (termval *decision)] $$decisions-by-id)
+
         (case> (= :artifact/ingest *action-type))
         (interpret-ingest-request *request :> *decision)
         (decision-id *decision :> *decision-id)
+        (|hash *request-id)
+        (local-transform> [(keypath *request-id) (termval *request)] $$requests-by-id)
         (|hash *decision-id)
         (local-transform> [(keypath *decision-id) (termval *decision)] $$decisions-by-id)
         (<<if (accepted-decision? *decision)
@@ -710,6 +792,8 @@
         (local-select> [(keypath *artifact-id) (keypath *unit-id)] $$units-by-artifact :> *unit)
         (interpret-status-request *request *unit :> *decision)
         (decision-id *decision :> *decision-id)
+        (|hash *request-id)
+        (local-transform> [(keypath *request-id) (termval *request)] $$requests-by-id)
         (|hash *decision-id)
         (local-transform> [(keypath *decision-id) (termval *decision)] $$decisions-by-id)
         (<<if (accepted-decision? *decision)
@@ -728,6 +812,8 @@
         (case> (= :compat/record *action-type))
         (interpret-compat-request *request :> *decision)
         (decision-id *decision :> *decision-id)
+        (|hash *request-id)
+        (local-transform> [(keypath *request-id) (termval *request)] $$requests-by-id)
         (|hash *decision-id)
         (local-transform> [(keypath *decision-id) (termval *decision)] $$decisions-by-id)
         (<<if (accepted-decision? *decision)
@@ -743,6 +829,8 @@
         (default>)
         (unknown-action-decision *request :> *decision)
         (decision-id *decision :> *decision-id)
+        (|hash *request-id)
+        (local-transform> [(keypath *request-id) (termval *request)] $$requests-by-id)
         (|hash *decision-id)
         (local-transform> [(keypath *decision-id) (termval *decision)] $$decisions-by-id)))))
 
@@ -905,7 +993,7 @@
 (defn run-v0-text-proof!
   [runtime content]
   (let [artifact-event (ingest-text! runtime content {:request-id "req_v0_ingest"
-                                                      :event-id "evt_v0_ingest"
+                                                      :proposed-event-id "evt_v0_ingest"
                                                       :artifact-id "art_v0"
                                                       :revision-id "rev_v0"})
         artifact-id (get-in artifact-event [:payload :artifact/id])
@@ -913,7 +1001,7 @@
         rejected-unit-id (:unit/id (second units))
         status-event (set-unit-status! runtime rejected-unit-id :rejected
                                        {:request-id "req_v0_reject"
-                                        :event-id "evt_v0_reject"
+                                        :proposed-event-id "evt_v0_reject"
                                         :artifact-id artifact-id
                                         :reason "V0 proof rejection"})]
     (await-materialized #(read-unit-statuses runtime default-branch-id)
