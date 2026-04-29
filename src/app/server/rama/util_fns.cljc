@@ -1,142 +1,176 @@
 (ns app.server.rama.util-fns
-  (:use [com.rpl.rama]
-        [com.rpl.rama.path])
-  (:require [com.rpl.rama.test :as rtest :refer [create-ipc launch-module!]]
-            [app.server.file :refer [save-event softland-edn]]
-            [missionary.core :as m]
-            [app.server.rama.core :refer [node-events-module]]))
+  (:require [clojure.string :as string]
+            [app.server.rama.core :as kernel]
+            [missionary.core :as m]))
 
+;; This namespace is now a thin adapter over the canonical world kernel.
+;; The old node-events module and its app-state PStates have been removed from
+;; Rama. Remaining legacy fn names are compatibility shims for server routes
+;; that have not yet been re-expressed as projection/action/kernel flows.
 
+(defonce !kernel-runtime
+  (delay
+    (println "--R--: Start canonical world kernel")
+    (let [runtime (kernel/start-kernel-runtime!)]
+      (println "--R--: World kernel ready" {:module (:module-name runtime)})
+      runtime)))
 
-(defrecord node-events [action-type node-data event-data])
-;; uuid is unique generate using (java.util.UUID/randomUUID)
-(defrecord registration [uuid username])
-(defrecord update-user-graph-settings [user-id graph-name settings-data event-data])
+(defn runtime
+  []
+  @!kernel-runtime)
 
+(defn append-action-request!
+  [request]
+  (kernel/append-action-request! (runtime) request))
 
+(defn ingest-text!
+  ([content] (kernel/ingest-text! (runtime) content))
+  ([content opts] (kernel/ingest-text! (runtime) content opts)))
 
-(defonce !rama-ipc (atom nil))
+(defn unitize-lines!
+  ([artifact-event] (kernel/unitize-lines! (runtime) artifact-event))
+  ([artifact-event opts] (kernel/unitize-lines! (runtime) artifact-event opts)))
 
+(defn set-unit-status!
+  ([unit-id status] (kernel/set-unit-status! (runtime) unit-id status))
+  ([unit-id status opts] (kernel/set-unit-status! (runtime) unit-id status opts)))
 
-(def ipc
-  (let [c (create-ipc)
-        module-name (get-module-name node-events-module)
-        launch-opts {:tasks 4 :threads 2}]
-    (println "--R--: Start ipc, launch module" {:module module-name
-                                                :launch-opts launch-opts})
-    (reset! !rama-ipc c)
-    (let [result (launch-module! c node-events-module launch-opts)]
-      (println "--R--: Rama IPC ready" {:module module-name})
-      result)))
+(defn get-artifact
+  [artifact-id]
+  (kernel/read-artifact (runtime) artifact-id))
 
+(defn get-text-head
+  [artifact-id]
+  (kernel/read-text-head (runtime) artifact-id))
 
-;; Foreign handles
+(defn get-canonical-view
+  ([artifact-id] (get-canonical-view kernel/default-branch-id artifact-id))
+  ([branch-id artifact-id]
+   (kernel/read-canonical-view (runtime) branch-id artifact-id)))
 
-(def event-depot                  (foreign-depot  @!rama-ipc (get-module-name node-events-module) "*node-events-depot"))
-(def event-id-pstate              (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$event-id-pstate"))
-(def agent-runs-pstate            (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$agent-runs-pstate"))
-(def cli-sessions-pstate          (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$cli-sessions-pstate"))
-(def user-registration-pstate     (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$user-registration-pstate"))
-(def user-registration-depot      (foreign-depot @!rama-ipc (get-module-name node-events-module) "*user-registration-depot"))
-(def  user-graph-settings-pstate  (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$user-graph-settings-pstate"))
-(def  user-graph-settings-depot   (foreign-depot @!rama-ipc (get-module-name node-events-module) "*user-graph-settings-depot"))
-(def sidebar-pstate              (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$sidebar-pstate"))
-(def settings-pstate             (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$settings-pstate"))
-(def agent-trails-pstate         (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$agent-trails-pstate"))
-(def flow-session-pstate         (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$flow-session-pstate"))
-(def editor-state-pstate         (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$editor-state-pstate"))
-(def workspace-truth-pstate      (foreign-pstate @!rama-ipc (get-module-name node-events-module) "$$workspace-truth-pstate"))
+(defn get-discarded-view
+  ([artifact-id] (get-discarded-view kernel/default-branch-id artifact-id))
+  ([branch-id artifact-id]
+   (kernel/read-discarded-view (runtime) branch-id artifact-id)))
 
+(defn run-v0-text-proof!
+  [content]
+  (kernel/run-v0-text-proof! (runtime) content))
 
-(defn update-event-id []
-  (foreign-append! event-depot (->node-events
-                                 :update-event-id
-                                 {}
-                                 {})
-    :append-ack))
-
-(defn get-user-id [username]
-  (first (foreign-select [username] user-registration-pstate)))
-
-
-(defn get-user-graph-settings [user-id graph-name]
-  (foreign-select [(keypath user-id) graph-name :ui-mode] user-graph-settings-pstate))
-
-
-(defn update-user-setting [settings-data event-data save? update?]
-  (let [user-id (get-user-id (:username event-data))
-        graph-name (:graph-name event-data)]
-    (do (foreign-append! user-graph-settings-depot (->update-user-graph-settings
-                                                     user-id
-                                                     graph-name
-                                                     settings-data
-                                                     event-data))
-        (when save? (save-event "update-user-setting" [settings-data event-data] softland-edn))
-        (when (or update?
-                (some? (:event-id event-data)))
-          (update-event-id)))))
-
-(defn register-user
-  ([username event-data]
-   (register-user username event-data false false))
-  ([username event-data save? update?]
-   (let [uuid (str (java.util.UUID/randomUUID))]
-     (do
-       (foreign-append! user-registration-depot (->registration
-                                                   uuid
-                                                   username)
-         :append-ack)
-       (when save? (save-event "register-user" [username] softland-edn))
-       (when (or update?
-                (some? (:event-id event-data)))
-          (update-event-id))))))
-
-
-(defn proxy-callback [emit]
+(defn proxy-callback
+  [emit]
   (fn [new-val _diff _old-val]
     (emit new-val)
     nil))
 
-
-(defn !subscribe [path pstate]
+(defn !subscribe
+  "Compatibility helper for older Electric call sites. New code should read
+   through kernel projections instead of subscribing to ad hoc PStates."
+  [path pstate]
   (->> (m/observe
          (fn [!]
-           ;; emit current value immediately, then stream updates
-           (! (first (foreign-select path pstate)))
-           ;; using subselect because foreign-proxy takes exactly one path
-           (let [proxy (foreign-proxy-async path pstate
-                         {:callback-fn (proxy-callback !)})]
-             #(.close @proxy))))
-    ; discard stale values, DOM doesn't support backpressure
-    (m/relieve {})))
+           (! {:deprecated true
+               :path path
+               :pstate (some-> pstate str)})
+           #()))
+       (m/relieve {})))
 
+;; ── Transitional local mirrors for routes not yet moved to kernel projections
+
+(defonce !cli-sessions (atom {}))
+(defonce !agent-runs (atom {}))
+(defonce !sidebar-truth-atom (atom {:project nil :expanded-dirs #{} :selected-file nil}))
+(defonce !settings-truth-atom (atom {}))
+(defonce !agent-trail-atom (atom nil))
+(defonce !workspace-truth-atom (atom {}))
+(defonce !editor-doc-atom (atom nil))
+(defonce !flow-session-atom (atom {}))
+
+(defn- relation-id
+  [& parts]
+  (string/join "::" (map #(or % "") parts)))
+
+(defn- append-compat-event!
+  [{:keys [event-type target-kind target-id action-type capability payload]}]
+  (append-action-request!
+    (kernel/compat-record-request
+      {:event-type event-type
+       :target-kind target-kind
+       :target-id target-id
+       :action-type action-type
+       :capability capability
+       :payload payload})))
+
+(defn update-event-id
+  []
+  (append-compat-event!
+    {:event-type :compat/event-id-tick
+     :target-kind :relation
+     :target-id "compat/event-id"
+     :action-type :compat/event-id-tick
+     :capability :world/append
+     :payload {}}))
+
+(defn register-user
+  ([username event-data]
+   (register-user username event-data false false))
+  ([username event-data _save? _update?]
+   (let [user-id (str "user/" username)]
+     (append-compat-event!
+       {:event-type :identity/user-registered
+        :target-kind :relation
+        :target-id user-id
+        :action-type :identity/register-user
+        :capability :world/append
+        :payload {:username username
+                  :event-data event-data}})
+     {:user-id user-id
+      :username username})))
+
+(defn get-user-id
+  [username]
+  (str "user/" username))
+
+(defn get-user-graph-settings
+  [_user-id _graph-name]
+  nil)
+
+(defn update-user-setting
+  [settings-data event-data _save? _update?]
+  (append-compat-event!
+    {:event-type :settings/user-setting-updated
+     :target-kind :relation
+     :target-id (relation-id "user-setting" (:username event-data) (:graph-name event-data))
+     :action-type :settings/update-user-setting
+     :capability :world/append
+     :payload {:settings-data settings-data
+               :event-data event-data}})
+  true)
 
 (defn get-cli-session
-  "Look up the saved CLI session for a file+provider pair (for --resume)."
   [file-path provider]
-  (first (foreign-select [(keypath file-path) (keypath provider)] cli-sessions-pstate)))
+  (get @!cli-sessions [file-path provider]))
 
 (defn update-cli-session
-  "Store/update the CLI session-id for a file+provider pair in Rama.
-   Called after a successful agent run to persist the session-id for --resume."
   [file-path provider session-id]
   (when (and (seq file-path) provider (seq session-id))
-    (foreign-append! event-depot
-      (->node-events :update-cli-session
-                     {}
-                     {:graph-name :main
-                      :file-path file-path
-                      :provider provider
-                      :session-id session-id})
-      :append-ack)))
+    (swap! !cli-sessions assoc [file-path provider]
+           {:session-id session-id
+            :last-active (System/currentTimeMillis)})
+    (append-compat-event!
+      {:event-type :cli/session-updated
+       :target-kind :relation
+       :target-id (relation-id "cli-session" file-path (name provider))
+       :action-type :cli/update-session
+       :capability :world/append
+       :payload {:file-path file-path
+                 :provider provider
+                 :session-id session-id}})
+    true))
 
 (defn submit-agent-run
-  "Append an :agent-run event and return the run-id.
-   Auto-injects session-id from previous sessions for --resume support."
   [request-data]
-  (let [run-id (or (:run-id request-data)
-                   (str (java.util.UUID/randomUUID)))
-        ;; Auto-inject session-id for --resume if not provided
+  (let [run-id (or (:run-id request-data) (str (java.util.UUID/randomUUID)))
         file-path (:file request-data)
         provider (:provider request-data)
         session (when (and file-path provider)
@@ -144,191 +178,155 @@
         request-data (cond-> (assoc request-data :run-id run-id)
                        (and session (not (:session-id request-data)))
                        (assoc :session-id (:session-id session)))
-        now-ms (System/currentTimeMillis)]
-    (foreign-append! event-depot
-      (->node-events :agent-run
-                     {}
-                     {:graph-name :main
-                      :run-id run-id
-                      :request-data request-data
-                      :create-time now-ms})
-      :append-ack)
+        run {:run-id run-id
+             :status :running
+             :provider provider
+             :prompt (:prompt request-data)
+             :request-data request-data
+             :started-at (System/currentTimeMillis)}]
+    (swap! !agent-runs assoc run-id run)
+    (append-compat-event!
+      {:event-type :agent/run-submitted
+       :target-kind :relation
+       :target-id run-id
+       :action-type :agent/submit-run
+       :capability :world/append
+       :payload run})
     run-id))
-
 
 (defn get-agent-run
   [run-id]
-  (first (foreign-select [(keypath run-id)] agent-runs-pstate)))
-
-
-;; ── Sidebar Rama helpers ──────────────────────────────────────────
+  (get @!agent-runs run-id))
 
 (defn get-sidebar-state
-  "Read the current sidebar committed truth from Rama."
   []
-  {:project       (first (foreign-select [:sidebar (keypath :project)] sidebar-pstate))
-   :expanded-dirs (or (first (foreign-select [:sidebar (keypath :expanded-dirs)] sidebar-pstate)) #{})
-   :selected-file (first (foreign-select [:sidebar (keypath :selected-file)] sidebar-pstate))})
+  @!sidebar-truth-atom)
 
-;; Server-side atom — the reactive source for Electric e/watch.
-;; Updated after each Rama write by emit-sidebar-event!.
-;; Initialized from Rama PState at boot (picks up persisted state).
-;;
-;; foreign-proxy-async is broken in Rama 1.6.0 test IPC:
-;;   - Root path [] -> RocksDBWrapper serialization failure
-;;   - Per-key paths -> WorpResolveTimeout / connection manager collapse
-;; The atom mirror approach bypasses proxy entirely and is proven stable.
-(defonce !sidebar-truth-atom
-  (atom (try (get-sidebar-state)
-             (catch Exception _ {:project nil :expanded-dirs #{} :selected-file nil}))))
+(defn- apply-sidebar-action
+  [state action-type data]
+  (case action-type
+    :sidebar/dir-toggle
+    (update state :expanded-dirs
+            (fn [dirs]
+              (let [dirs (or dirs #{})
+                    path (:path data)]
+                (if (contains? dirs path)
+                  (disj dirs path)
+                  (conj dirs path)))))
+
+    :sidebar/file-select
+    (assoc state :selected-file {:path (:path data)
+                                 :name (:name data)})
+
+    :sidebar/project-select
+    (assoc state
+           :project {:path (:path data)
+                     :name (:name data)}
+           :expanded-dirs #{}
+           :selected-file nil)
+
+    :sidebar/project-back
+    (assoc state
+           :project nil
+           :expanded-dirs #{}
+           :selected-file nil)
+
+    state))
 
 (defn emit-sidebar-event!
-  "Submit a sidebar action to Rama. Updates the server-side truth atom
-   (which Electric watches via e/watch) and returns the new state."
   [action-type data]
-  (foreign-append! event-depot
-    (->node-events action-type
-                   data
-                   {:graph-name :sidebar})
-    :append-ack)
-  (let [state (get-sidebar-state)]
-    (reset! !sidebar-truth-atom state)
-    state))
-
-;; ── Settings Rama helpers ────────────────────────────────────────
+  (append-compat-event!
+    {:event-type action-type
+     :target-kind :projection
+     :target-id "sidebar"
+     :action-type action-type
+     :capability :world/append
+     :payload data})
+  (swap! !sidebar-truth-atom apply-sidebar-action action-type data))
 
 (defn get-settings-state
-  "Read the current user settings from Rama."
   []
-  (or (first (foreign-select [:settings] settings-pstate)) {}))
-
-;; Server-side atom — reactive source for Electric e/watch.
-;; Same pattern as sidebar: atom mirror bypasses broken foreign-proxy-async.
-(defonce !settings-truth-atom
-  (atom (try (get-settings-state)
-             (catch Exception _ {}))))
+  @!settings-truth-atom)
 
 (defn emit-settings-event!
-  "Submit a settings update to Rama. Merges partial settings map.
-   Updates the server-side truth atom and returns the new state."
   [settings-data]
-  (foreign-append! event-depot
-    (->node-events :settings/update
-                   settings-data
-                   {:graph-name :settings})
-    :append-ack)
-  (let [state (get-settings-state)]
-    (reset! !settings-truth-atom state)
-    state))
-
-;; ── Agent Trail Rama helpers ─────────────────────────────────────
+  (append-compat-event!
+    {:event-type :settings/update
+     :target-kind :projection
+     :target-id "settings"
+     :action-type :settings/update
+     :capability :world/append
+     :payload settings-data})
+  (swap! !settings-truth-atom merge settings-data))
 
 (defn get-agent-trail
-  "Read a single completed trail from Rama by run-id."
   [run-id]
-  (first (foreign-select [(keypath run-id)] agent-trails-pstate)))
+  (when (= run-id (:run-id @!agent-trail-atom))
+    (:trail-data @!agent-trail-atom)))
 
 (defn get-latest-trail-run-id
-  "Read the :latest-run-id marker from agent trails.
-   Stored as a special key so we know which run to restore on reload."
   []
-  (first (foreign-select [(keypath "__latest") (keypath :run-id)] agent-trails-pstate)))
-
-;; Server-side atom — holds the most recently completed trail for Electric.
-;; On boot, tries to restore the latest trail from Rama.
-(defonce !agent-trail-atom
-  (atom (try
-          (when-let [run-id (get-latest-trail-run-id)]
-            (when-let [trail-data (get-agent-trail run-id)]
-              {:run-id run-id :trail-data trail-data}))
-          (catch Exception _ nil))))
+  (:run-id @!agent-trail-atom))
 
 (defn save-agent-trail!
-  "Persist a completed agent trail to Rama. Updates the latest-run marker
-   and the server-side atom for Electric."
   [run-id trail-data]
-  ;; Save the trail data
-  (foreign-append! event-depot
-    (->node-events :agent-trail/save-run
-                   {:run-id run-id :trail-data trail-data}
-                   {:graph-name :trails})
-    :append-ack)
-  ;; Update the latest-run marker
-  (foreign-append! event-depot
-    (->node-events :agent-trail/save-run
-                   {:run-id "__latest"
-                    :trail-data {:run-id run-id}}
-                   {:graph-name :trails})
-    :append-ack)
+  (append-compat-event!
+    {:event-type :agent-trail/saved
+     :target-kind :relation
+     :target-id run-id
+     :action-type :agent-trail/save
+     :capability :world/append
+     :payload {:run-id run-id
+               :trail-data trail-data}})
   (let [result {:run-id run-id :trail-data trail-data}]
     (reset! !agent-trail-atom result)
     result))
 
-;; ── Workspace Truth Rama helpers ─────────────────────────────────
-
 (defn get-workspace-truth
-  "Read workspace truth from Rama."
   []
-  (or (first (foreign-select [:workspace] workspace-truth-pstate)) {}))
-
-(defonce !workspace-truth-atom
-  (atom (try (get-workspace-truth)
-             (catch Exception _ {}))))
+  @!workspace-truth-atom)
 
 (defn emit-workspace-truth-event!
-  "Persist workspace truth fields to Rama."
   [truth-data]
-  (foreign-append! event-depot
-    (->node-events :workspace/save-truth
-                   truth-data
-                   {:graph-name :workspace})
-    :append-ack)
-  (let [state (get-workspace-truth)]
-    (reset! !workspace-truth-atom state)
-    state))
-
-;; ── Editor State Rama helpers ────────────────────────────────────
+  (append-compat-event!
+    {:event-type :workspace/save-truth
+     :target-kind :projection
+     :target-id "workspace"
+     :action-type :workspace/save-truth
+     :capability :world/append
+     :payload truth-data})
+  (swap! !workspace-truth-atom merge truth-data))
 
 (defn get-editor-doc
-  "Read editor document state for a file path from Rama."
   [file-path]
-  (first (foreign-select [(keypath file-path)] editor-state-pstate)))
-
-(defonce !editor-doc-atom (atom nil))
+  (get @!editor-doc-atom file-path))
 
 (defn save-editor-doc!
-  "Persist editor document state to Rama. Returns the round-trip time in ms."
   [file-path doc-state]
   (let [t0 (System/currentTimeMillis)]
-    (foreign-append! event-depot
-      (->node-events :editor/save-doc
-                     {:file-path file-path :doc-state doc-state}
-                     {:graph-name :editor})
-      :append-ack)
-    (let [t1 (System/currentTimeMillis)
-          latency (- t1 t0)]
-      (reset! !editor-doc-atom {:file-path file-path :doc-state doc-state :latency-ms latency})
-      {:ok true :latency-ms latency})))
-
-;; ── Flow Session Rama helpers ────────────────────────────────────
+    (append-compat-event!
+      {:event-type :editor/save-doc
+       :target-kind :artifact
+       :target-id file-path
+       :action-type :editor/save-doc
+       :capability :world/append
+       :payload {:file-path file-path
+                 :doc-state doc-state}})
+    (swap! !editor-doc-atom assoc file-path doc-state)
+    {:ok true
+     :latency-ms (- (System/currentTimeMillis) t0)}))
 
 (defn get-flow-session-state
-  "Read the current flow session from Rama."
   []
-  (or (first (foreign-select [:flow] flow-session-pstate)) {}))
-
-(defonce !flow-session-atom
-  (atom (try (get-flow-session-state)
-             (catch Exception _ {}))))
+  @!flow-session-atom)
 
 (defn emit-flow-session-event!
-  "Persist flow session FSM state to Rama. Merges provided fields."
   [flow-data]
-  (foreign-append! event-depot
-    (->node-events :flow/save-state
-                   flow-data
-                   {:graph-name :flow})
-    :append-ack)
-  (let [state (get-flow-session-state)]
-    (reset! !flow-session-atom state)
-    state))
+  (append-compat-event!
+    {:event-type :flow/save-state
+     :target-kind :projection
+     :target-id "flow"
+     :action-type :flow/save-state
+     :capability :world/append
+     :payload flow-data})
+  (swap! !flow-session-atom merge flow-data))
