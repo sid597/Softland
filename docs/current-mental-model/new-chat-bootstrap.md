@@ -10,8 +10,10 @@ Before answering, read:
 1. docs/current-mental-model/README.md
 2. docs/current-mental-model/conversation-trail.md
 3. docs/current-mental-model/rama-world-kernel-text-instance.md
-4. docs/current-mental-model/architecture/rama-world-kernel-v0-pr-trail.md
-5. docs/current-mental-model/architecture/rama-policy-throughput-post.md
+4. docs/current-mental-model/architecture/action-request-kernel-routing.md
+5. docs/current-mental-model/architecture/rama-world-kernel-v0-pr-trail.md
+6. docs/current-mental-model/architecture/rama-policy-throughput-post.md
+7. docs/current-mental-model/implementation-review-prompt.md
 
 Ignore older Softland lore unless I explicitly ask for it. Give highest weight to the April 28 current mental model.
 
@@ -37,11 +39,13 @@ projection contract
 policy contract
 distillation contract
 
-The first implementation focus is the general kernel data structure. The corrected V0 uses two envelopes:
+The event contract remains the accepted fact contract. The corrected lifecycle is:
 
 ActionRequest asks.
-KernelEvent happened.
 ActionDecision records the answer.
+KernelEvent happened.
+
+ActionRequest is not a text/PDF/chat/code instance. It is a lifecycle envelope inside the general kernel.
 
 KernelEvent =
   identity
@@ -76,6 +80,8 @@ ActionRequest gets :routing/key
   -> request depot hashes by routing key, not random/request-id
   -> policy state becomes real PStates
   -> accepted KernelEvent/rejected ActionDecision trail remains intact
+
+Never add Rama I/O just because the code looks simpler. Batch high-frequency UI gestures into meaningful durable actions.
 
 V0 proof covered:
 

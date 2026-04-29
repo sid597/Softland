@@ -29,6 +29,15 @@ is the durable answer; routing is how the request reaches the state needed to
 decide.
 ```
 
+The first physical record Rama sees for a user/world write is an
+`ActionRequest`, not a `KernelEvent`.
+
+The event contract still exists. It now means:
+
+```text
+KernelEvent = accepted world fact derived by Rama after decision
+```
+
 ## Is ActionRequest Another Instance?
 
 No.
@@ -93,7 +102,7 @@ Shape:
 
 ```clojure
 {:request/id ...
- :request/type :unit/status-set
+ :request/type :unit/status-set ; usually mirrors or derives from action/type
  :request/time-ms ...
  :request/schema-version 1
 
@@ -131,6 +140,53 @@ Shape:
 lack permission, the status can be invalid, or the request can be stale. That is
 why it needs a decision.
 
+`ActionRequest` should not have a top-level `:event/id`, because no event exists
+yet. For retries/client reconciliation, use explicit request-side fields:
+
+```text
+:idempotency/key
+:client/op-id
+:proposed/event-id  ; only if we intentionally support caller-proposed ids
+```
+
+Do not hide event identity inside arbitrary payload unless it is temporary test
+plumbing.
+
+### Action Object
+
+Keep `:action`. Do not collapse it into `:request/type`.
+
+`ActionRequest` is the whole envelope. `:action` is the operation object inside
+the envelope:
+
+```clojure
+:action {:action/type :unit/status-set
+         :action/capability :unit/judge
+         :action/params {:status :rejected
+                         :reason "not canonical"}}
+```
+
+`:action` is intentionally expressive. It can grow metadata without changing
+the envelope:
+
+```text
+capability
+params
+mode
+tool
+gesture
+intent
+operation family
+client/editor hints
+```
+
+Rule:
+
+```text
+:action/type is the canonical operation.
+:request/type may exist for dispatch/backcompat, but must not drift from action/type.
+```
+
 ### ActionDecision
 
 `ActionDecision` is the answer Rama records after checking current durable
@@ -159,6 +215,16 @@ Rejected:
 ```
 
 Rejected requests are not world facts. They are still part of the trail.
+
+Storage model:
+
+```text
+$$requests-by-id[request-id] = ActionRequest
+$$decisions-by-id[decision-id] = ActionDecision
+$$events-by-id[event-id] = KernelEvent, accepted only
+```
+
+The decision is not added to the request. It points back to the request.
 
 ### KernelEvent
 
@@ -203,7 +269,8 @@ Shape:
 
  :ordering {:key [:artifact "art_1"]}
 
- :policy {:required-capabilities #{:unit/judge}
+:policy {:required-capabilities #{:unit/judge}
+          :decision/id "req_2/decision"
           :visibility :private}
 
  :provenance {:source/type :action-request
@@ -393,6 +460,87 @@ Routing finds the decision locality.
 Authorization/validation decides world truth.
 ```
 
+## Accept Vs Reject
+
+These are not three requests. They are three records in one lifecycle.
+
+Accepted path:
+
+```text
+ActionRequest stored
+ActionDecision stored as accepted
+KernelEvent derived and stored
+PStates materialized from KernelEvent
+```
+
+Rejected path:
+
+```text
+ActionRequest stored
+ActionDecision stored as rejected
+no KernelEvent
+no world-state materialization
+```
+
+Example accepted decision:
+
+```clojure
+{:decision/id "req_1/decision"
+ :decision/status :accepted
+ :request/id "req_1"
+ :request/type :unit/status-set
+ :event/id "evt_2"
+ :decided-at 1777400000012}
+```
+
+Example rejected decision:
+
+```clojure
+{:decision/id "req_1/decision"
+ :decision/status :rejected
+ :request/id "req_1"
+ :request/type :unit/status-set
+ :reason :actor-not-authorized
+ :errors []
+ :decided-at 1777400000012}
+```
+
+## I/O Discipline
+
+Rama modules are production backends. Do not trade I/O efficiency for code
+simplicity.
+
+`ActionRequest` is for meaningful durable world actions, not every physical UI
+gesture.
+
+For an editor:
+
+```text
+bad: one ActionRequest per keystroke
+good: local typing buffer -> semantic text/edit-batch request
+```
+
+Authorize at the largest safe scope:
+
+```text
+Can actor edit this artifact/session/branch?
+```
+
+Then batch keystrokes into meaningful operations:
+
+```clojure
+{:action/type :text/edit-batch
+ :action/capability :text/edit
+ :action/params {:base-revision/id "rev_7"}
+ :payload {:ops [{:insert "hello" :at 42}
+                 {:delete 3 :at 50}]}}
+```
+
+Store only the records needed for replay, audit, projection, recovery, or
+debugging. If a hot path can return accepted decision data via stream ack and
+derive accepted state from `KernelEvent`, do not add extra PState writes just to
+make a diagram prettier.
+
 ## Concrete Example: Reject A Unit
 
 Projected row:
@@ -493,4 +641,3 @@ PStates materialize the accepted world
 ```
 
 This is the whole correction.
-

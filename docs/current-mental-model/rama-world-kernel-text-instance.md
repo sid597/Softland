@@ -13,7 +13,9 @@ The whole system should be understood as one loop:
 ```text
 Projection shows materialized state
   -> user/agent acts on a projected target
-  -> action interpreter turns that into a typed event
+  -> helper/API builds an ActionRequest
+  -> ActionRequest enters a Rama depot
+  -> Rama interpreter/policy derives accepted KernelEvent or rejected ActionDecision
   -> Rama ETL updates materialized state
   -> projection changes
 ```
@@ -26,9 +28,29 @@ The general kernel is independent of text, chat, PDF, code, image, or future for
 
 The first implementation focus is to work out the **general kernel data structure**. Text-specific payloads come after this boundary is stable.
 
+Post-V0 correction:
+
+```text
+ActionRequest asks.
+ActionDecision records the answer.
+KernelEvent happened.
+```
+
+`ActionRequest` is not another carrier/instance. It is a lifecycle envelope in
+the general kernel. Text, PDF, chat, code, image, and model artifacts are
+carriers.
+
+See:
+
+```text
+docs/current-mental-model/architecture/action-request-kernel-routing.md
+```
+
 ### Event Contract
 
-An event is the durable record that something entered or changed the world. Clients append events; they do not mutate PStates directly.
+An event is the durable record that Rama accepted something as having happened.
+Clients append `ActionRequest`s; Rama derives accepted `KernelEvent`s or
+rejected `ActionDecision`s. Clients do not mutate PStates directly.
 
 ```clojure
 {:event/id ...
@@ -67,7 +89,11 @@ An event is the durable record that something entered or changed the world. Clie
               :source/ref nil}}
 ```
 
-`event/type` says what happened. `target` says what it happened to. `action` says which capability/change is being requested or recorded. `payload` carries type-specific data. `ordering/key` is the local ordering key used for depot partitioning.
+`event/type` says what happened. `target` says what it happened to. `action`
+says which capability/change was accepted. `payload` carries type-specific data.
+`ordering/key` is the local ordering key for the accepted fact.
+
+Request routing uses `:routing/key` on `ActionRequest`.
 
 The kernel event answers:
 
@@ -136,6 +162,44 @@ KernelEvent =
 ```
 
 This is the object to work out before optimizing for text.
+
+### Request And Decision Contracts
+
+The first physical record Rama sees for a world write is an `ActionRequest`.
+
+```clojure
+{:request/id ...
+ :request/type :artifact/ingest
+ :request/time-ms ...
+ :request/schema-version 1
+ :routing/key [:artifact "..."]
+ :actor {...}
+ :branch {...}
+ :context {...}
+ :target {...}
+ :action {...}
+ :payload {...}
+ :causal {...}
+ :provenance {...}}
+```
+
+`ActionRequest` does not have a top-level `:event/id`; no event exists yet.
+
+Rama records an `ActionDecision`:
+
+```text
+accepted decision -> points to KernelEvent
+rejected decision -> reason/errors, no KernelEvent
+```
+
+The same shared contracts appear in request and accepted event. The difference
+is timing and ownership:
+
+```text
+ActionRequest is proposed by edge/helper.
+ActionDecision is recorded by Rama.
+KernelEvent is derived by Rama only after acceptance.
+```
 
 ### Target Contract
 
@@ -233,40 +297,48 @@ refinement maps preserve provenance
 
 ## Rama Mapping
 
-There are two separate choices:
+There are three separate choices:
 
 ```text
-logical event contract
+logical kernel contracts
+request/decision/event lifecycle
 physical depot layout
 ```
 
-The logical event envelope should be stable. Physical depots can start simple and later split by ordering/throughput needs.
+The logical kernel contracts should be stable. Physical depots can start simple
+and later split by ordering/throughput needs.
 
 ### Depot Families
 
 Likely families:
 
 ```text
-*world-events-depot
-  generic early kernel event stream, hash by ordering/key
+*world-requests-depot
+  generic early request stream, hash by routing/key
 
-*artifact-events-depot
-  artifact ingestion and metadata events, hash by artifact id
+*artifact-requests-depot
+  artifact ingestion and metadata requests, hash by artifact id
 
-*text-events-depot
-  text operations and revision events, hash by artifact id
+*text-requests-depot
+  text operations and revision requests, hash by artifact id
 
-*unit-events-depot
-  unitization and unit status events, hash by artifact id or unit id
+*unit-requests-depot
+  unitization and unit status requests, hash by artifact id or unit id
 
-*branch-events-depot
-  branch, commit, fork, merge events, hash by branch id
+*branch-requests-depot
+  branch, commit, fork, merge requests, hash by branch id
 
-*policy-events-depot
+*policy-requests-depot
   grants/revocations/policy updates, hash by target or subject
+
+*accepted-events-depot
+  optional topology-owned derived stream, no client appends
 ```
 
-For the first implementation, it is acceptable to start with one generic depot if the event envelope includes `:ordering/key`. Splitting depots later should not change the event meaning.
+For the first implementation, it is acceptable to start with one generic request
+depot. The next implementation should add `:routing/key` and hash by that key.
+Splitting depots later should not change `ActionRequest`, `ActionDecision`, or
+`KernelEvent` meaning.
 
 ### PState Families
 
@@ -420,8 +492,9 @@ Ingest:
 
 ```text
 user pastes text
-  -> action request: artifact ingest
-  -> event: :artifact/ingested
+  -> ActionRequest: artifact ingest
+  -> ActionDecision: accepted or rejected
+  -> KernelEvent: :artifact/ingested, accepted only
   -> PStates: $$artifacts, $$text-revisions, $$artifact-heads
   -> projection: editor/document view shows text
 ```
@@ -440,9 +513,10 @@ Reject:
 ```text
 user rejects line 3
   -> projected target: unit id
-  -> action request: unit status set
-  -> policy check
-  -> event: :unit/status-set {:status :rejected}
+  -> ActionRequest: unit status set
+  -> Rama policy/state check
+  -> ActionDecision: accepted or rejected
+  -> KernelEvent: :unit/status-set {:status :rejected}, accepted only
   -> PState: $$unit-status-by-branch
   -> projection: canonical view hides/dims it
   -> discarded index keeps it available for later learning/debug
@@ -453,7 +527,7 @@ user rejects line 3
 The first development pass should not build a full editor ontology. It should implement the smallest loop that proves the contracts:
 
 ```text
-generic event envelope
+generic lifecycle envelopes
 kernel reference types
 target refs
 branch id
@@ -476,25 +550,26 @@ unit status update
 The first pass is real when all of this works:
 
 ```text
-1. Ingest one text artifact through a Rama event.
+1. Ingest one text artifact through an ActionRequest.
 2. Query materialized artifact/text state from a PState.
 3. Derive at least line or paragraph units.
 4. Show units in a projection with stable target refs.
-5. Accept/reject one unit through an action -> event -> PState update.
+5. Accept/reject one unit through ActionRequest -> ActionDecision -> KernelEvent -> PState update.
 6. Query canonical view and discarded view separately.
-7. Preserve provenance back to the raw artifact/event.
+7. Preserve provenance back to the raw artifact/request/decision/event.
 ```
 
 ## Design Rules
 
 ```text
-Events are truth. PStates are derived.
+Accepted KernelEvents are truth. ActionRequests are proposals. PStates are derived.
 Text is an instance, not the ontology.
 Actions target capabilities, not widgets.
 Every meaningful projection item carries a target ref.
-Every durable action becomes an event.
+Every accepted durable action becomes an event.
 Permission gates observations, not only objects.
 Raw artifacts stay; distillers can improve later.
+Do not make every high-frequency UI gesture a world action.
 ```
 
 ## Open Decisions
@@ -502,10 +577,10 @@ Raw artifacts stay; distillers can improve later.
 These should remain explicit during implementation:
 
 ```text
-One generic world depot first, or separate depot families immediately?
+One generic request depot first, or separate request depot families immediately?
 Snapshot text revisions first, or operation log first?
 What is the first anchor representation?
 Is branch id required for every event, or only interpretation/status events?
-Where is policy enforced first: append path, query path, projection path, or all three?
+Where is policy enforced first: edge guard, Rama write decision, query path, projection path, or all?
 Which unitization is V0: line, paragraph, or manually selected range?
 ```

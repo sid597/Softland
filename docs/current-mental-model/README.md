@@ -9,8 +9,10 @@ This folder is the current working mental model for the Rama/text/world-kernel w
 1. `new-chat-bootstrap.md`
 2. `conversation-trail.md`
 3. `rama-world-kernel-text-instance.md`
-4. `architecture/rama-world-kernel-v0-pr-trail.md`
-5. `architecture/rama-policy-throughput-post.md`
+4. `architecture/action-request-kernel-routing.md`
+5. `architecture/rama-world-kernel-v0-pr-trail.md`
+6. `architecture/rama-policy-throughput-post.md`
+7. `implementation-review-prompt.md`
 
 ## Current Center
 
@@ -28,15 +30,18 @@ Projection shows materialized state
 
 Everything else is a contract inside this loop.
 
-## First Implementation Focus
+## Current Kernel Shape
 
-The first step is to work out the **general kernel data structure**, not the text data model. The corrected V0 has two envelopes:
+The general kernel is still the outer shared structure. It was not replaced by
+`ActionRequest`. The correction was to add lifecycle around the event contract:
 
 ```text
 ActionRequest asks.
-KernelEvent happened.
 ActionDecision records the answer.
+KernelEvent happened.
 ```
+
+The event contract remains the accepted fact contract:
 
 ```text
 KernelEvent =
@@ -56,6 +61,27 @@ KernelEvent =
 
 Text-specific, PDF-specific, chat-specific, and code-specific details plug into `payload` and `target/address`. They should not change the kernel envelope.
 
+The same shared contracts appear in the request and accepted event:
+
+```text
+actor
+branch
+context
+target
+action
+payload
+causality
+policy/provenance
+```
+
+What changes is timing and ownership:
+
+```text
+ActionRequest is proposed by the edge/helper.
+ActionDecision is recorded by Rama.
+KernelEvent is derived by Rama only after acceptance.
+```
+
 ## Key Correction
 
 Text is not the ontology. Text is the first carrier we use to exercise the general kernel.
@@ -73,6 +99,9 @@ projection contract
 policy contract
 distillation contract
 ```
+
+`ActionRequest` is not a text/PDF/chat/code instance. It is a lifecycle envelope
+inside the general kernel. Text/PDF/chat/code are carriers.
 
 Text plugs into this kernel as one instance:
 
@@ -110,6 +139,10 @@ add :routing/key to ActionRequest
   -> add real policy PStates
   -> keep request/decision/event traceability intact
 ```
+
+Do not make every physical UI gesture a world action. High-frequency gestures
+such as typing should be buffered/batched into semantic operations before they
+enter Rama.
 
 V0 proof covered:
 

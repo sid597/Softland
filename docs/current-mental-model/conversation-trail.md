@@ -157,12 +157,15 @@ distillation plane
 
 ## Final Current Model
 
-The model clicked when expressed as a single loop:
+The model first clicked when expressed as a single loop, and was later corrected
+to split request from accepted event:
 
 ```text
 Projection shows materialized state
   -> user/agent acts on a projected target
-  -> action interpreter turns that into a typed event
+  -> helper/API builds an ActionRequest
+  -> ActionRequest enters a Rama depot
+  -> Rama interpreter/policy derives accepted KernelEvent or rejected ActionDecision
   -> Rama ETL updates materialized state
   -> projection changes
 ```
@@ -170,7 +173,9 @@ Projection shows materialized state
 The general kernel is the set of contracts inside this loop:
 
 ```text
-event
+action request
+action decision
+event / accepted fact
 target
 action
 materialization

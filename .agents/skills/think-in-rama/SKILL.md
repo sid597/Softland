@@ -1,0 +1,137 @@
+---
+name: think-in-rama
+description: Use when designing, reviewing, or implementing Rama-backed Softland architecture, especially depot boundaries, PState shape, stream vs microbatch topology choice, partitioning/routing keys, ActionRequest/KernelEvent semantics, policy placement, accepted/rejected decision trails, throughput concerns, or migration away from app-shaped modules toward Rama-first systems.
+---
+
+# Think In Rama
+
+## Overview
+
+Think from Rama as the application substrate, not Rama as a database attached to
+an app server. New data enters through depots, topologies own interpretation and
+state transitions, PStates are materialized views, and queries/projections read
+those views.
+
+For substantial architecture work, read:
+
+```text
+docs/architecture/think-in-rama.md
+```
+
+For the specific Softland policy/throughput debate, read:
+
+```text
+docs/current-mental-model/architecture/action-request-kernel-routing.md
+docs/current-mental-model/architecture/rama-policy-throughput-post.md
+```
+
+## Core Stance
+
+Prefer this loop:
+
+```text
+Projection -> ActionRequest -> depot -> Rama decision
+  -> accepted KernelEvent or rejected ActionDecision
+  -> PState materialization -> Projection
+```
+
+Do not let the API, UI, helper namespace, or current app module shape become the
+hidden source of truth.
+
+## Review Workflow
+
+When reviewing or designing Rama work:
+
+1. Identify the new data entering the world.
+2. Distinguish request/proposal from accepted fact.
+3. Identify the entity whose local ordering matters.
+4. Choose depot boundaries by relatedness, ordering, locality, and topology consumers.
+5. Choose partition/routing keys before writing topology code.
+6. Shape PStates around the questions/actions they must serve.
+7. Place authoritative policy decisions inside Rama when they affect world truth.
+8. Choose stream for interactive low-latency actions and microbatch for bulk/derived work.
+9. Use query topologies for clustered reads or allowed-action decisions that should not live in UI code.
+10. Preserve traceability from projection item to request, decision, event, and materialized state.
+
+## Softland Defaults
+
+Use these defaults unless the codebase or user explicitly proves otherwise:
+
+```text
+ActionRequest is depot input.
+ActionDecision is the durable answer.
+KernelEvent is an accepted world fact.
+PStates are derived materialized views.
+Projection items carry target refs.
+Policy decisions happen in Rama if they must be replayable/auditable.
+Routing key follows the affected world entity.
+Request id is an index key, not usually a locality key.
+Depots split by relatedness/local ordering/locality, not by old namespaces.
+Topology-owned derived depots should reject client appends.
+```
+
+## Policy Placement
+
+Separate these layers:
+
+```text
+edge guard: session, payload size, rate limit
+request typing/routing: construct envelope and routing key
+authoritative decision: target existence, permission, transition validity
+projection filtering: what this actor can see and why
+```
+
+Edge guards and request packaging may happen before append. Authoritative world
+decisions should happen after depot entry inside Rama, from durable PStates.
+
+## Throughput Rubric
+
+Treat throughput as a locality question:
+
+```text
+Is the depot keyed by the entity being changed?
+Does the topology start near the PState shard it needs?
+Are we hashing by request id before business logic?
+Are unrelated request families forcing filtering in one topology?
+Are global/all-partition operations rare and intentional?
+Could microbatch replace per-record stream work for derived rebuilds?
+```
+
+Request-first is not the throughput smell. Random generic depots, wrong keys,
+and unnecessary partition hops are the smell.
+
+Never trade Rama I/O efficiency for code simplicity. Prefer a little more code
+over extra per-query/per-action disk reads, network hops, or hot-path PState
+writes.
+
+## Red Flags
+
+Push back when you see:
+
+```text
+"Validate everything before Rama."
+"One world depot forever."
+"This PState is source truth."
+"We will add partitioning later."
+"The UI knows whether this is allowed."
+"Rejected actions can disappear."
+"Key it by request id because every request has one."
+"Append accepted events built outside Rama for user actions."
+"The projection hides something but cannot explain why."
+```
+
+## Output Style
+
+For architecture answers, give the user:
+
+```text
+current shape
+Rama-shaped concern
+recommended shape
+why it preserves traceability
+what code/doc should change next
+```
+
+For code changes, prefer small patches that move the system toward the loop
+above without preserving old app-shaped module boundaries just because they
+already exist.
