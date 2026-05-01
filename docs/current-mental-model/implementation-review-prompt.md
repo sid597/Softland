@@ -1,8 +1,9 @@
 # Implementation Review Prompt
 
-Status: next implementation prompt, 2026-04-29.
+Status: implementation/review prompt, 2026-05-01.
 
-Use this to start the next implementation/review chat.
+Use this only after the user has chosen to review or change code. Do not treat
+it as the default global-context bootstrap.
 
 ```text
 We are working in /mnt/data/projects/Softland.

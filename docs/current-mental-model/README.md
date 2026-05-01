@@ -1,21 +1,28 @@
 # Current Mental Model
 
-Status: bootstrap pack, 2026-04-28.
+Status: global context pack, 2026-05-01.
 
 This folder is the current working mental model for the Rama/text/world-kernel work. Use it to start new chats without rehydrating the whole prior conversation.
 
+This is not the same thing as a task handoff. Global context tells a new session
+how to think with us; a handoff tells it what to execute next. See
+`context-map.md`.
+
 ## Read Order
 
-1. `new-chat-bootstrap.md`
-2. `conversation-trail.md`
-3. `rama-world-kernel-text-instance.md`
-4. `architecture/action-request-kernel-routing.md`
-5. `architecture/logical-lifecycle-and-derived-depots.md`
-6. `architecture/rama-world-kernel-v0-pr-trail.md`
-7. `architecture/rama-policy-throughput-post.md`
-8. `architecture/rama-blog-patterns.md`
-9. `architecture/prompt-to-implementation-lossiness.md`
-10. `implementation-review-prompt.md`
+1. `context-map.md`
+2. `new-chat-bootstrap.md`
+3. `conversation-trail.md`
+4. `rama-world-kernel-text-instance.md`
+5. `architecture/action-request-kernel-routing.md`
+6. `architecture/logical-lifecycle-and-derived-depots.md`
+7. `architecture/rama-world-kernel-v0-pr-trail.md`
+8. `architecture/rama-policy-throughput-post.md`
+9. `architecture/rama-blog-patterns.md`
+10. `architecture/prompt-to-implementation-lossiness.md`
+
+Read `implementation-review-prompt.md` only when the user is ready to review or
+change code. Do not treat it as the default bootstrap for open-ended discussion.
 
 ## Active Explorations
 
@@ -135,17 +142,18 @@ Module = implementation boundary
 Walkthrough = one vertical path through all contracts
 ```
 
-## Next Development Move
+## Current Implementation State
 
-Do not start with a full editor.
+V0 and V1 prove the request-first loop in code. The global context does not
+prescribe the next implementation direction.
 
-V0 now proves the request-first loop. The next development move is to make the physical Rama shape more Ramanian:
+Open design pressure to preserve:
 
 ```text
-add :routing/key to ActionRequest
-  -> hash request depot by routing key, not random/request-id
-  -> add real policy PStates
-  -> keep request/decision/event traceability intact
+physical routing/locality still needs clearer Rama shape
+policy state is not yet a full Rama-owned authorization model
+future depot splitting remains a systems question
+editor/write batching remains a systems question
 ```
 
 Do not make every physical UI gesture a world action. For typing, follow the

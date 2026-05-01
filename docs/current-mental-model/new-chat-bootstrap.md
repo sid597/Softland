@@ -1,22 +1,27 @@
 # New Chat Bootstrap
 
-Use this prompt to start a new chat.
+Use this prompt to start a new chat when the next direction is open and the new
+session needs global context at the right level.
 
 ```text
 We are working in /mnt/data/projects/Softland.
 
 Before answering, read:
 
-1. docs/current-mental-model/README.md
-2. docs/current-mental-model/conversation-trail.md
-3. docs/current-mental-model/rama-world-kernel-text-instance.md
-4. docs/current-mental-model/architecture/action-request-kernel-routing.md
-5. docs/current-mental-model/architecture/rama-world-kernel-v0-pr-trail.md
-6. docs/current-mental-model/architecture/rama-policy-throughput-post.md
-7. docs/current-mental-model/architecture/rama-blog-patterns.md
-8. docs/current-mental-model/implementation-review-prompt.md
+1. docs/current-mental-model/context-map.md
+2. docs/current-mental-model/README.md
+3. docs/current-mental-model/conversation-trail.md
+4. docs/current-mental-model/rama-world-kernel-text-instance.md
+5. docs/current-mental-model/architecture/action-request-kernel-routing.md
+6. docs/current-mental-model/architecture/logical-lifecycle-and-derived-depots.md
+7. docs/current-mental-model/architecture/rama-policy-throughput-post.md
+8. docs/current-mental-model/architecture/rama-blog-patterns.md
 
 Ignore older Softland lore unless I explicitly ask for it. Give highest weight to the April 28 current mental model.
+
+Do not assume there is an active implementation handoff. I may be bringing a new
+potential direction to discuss. Use the current mental model as context, not as
+marching orders.
 
 The current center:
 
@@ -73,14 +78,12 @@ Instance = concrete carrier, e.g. text/chat/PDF/code
 Module = implementation boundary
 Walkthrough = one vertical path through all contracts
 
-Current next development move:
+Current implementation state:
 
-Make the physical Rama shape more Ramanian:
-
-ActionRequest gets :routing/key
-  -> request depot hashes by routing key, not random/request-id
-  -> policy state becomes real PStates
-  -> accepted KernelEvent/rejected ActionDecision trail remains intact
+V0 and V1 prove the request-first loop in code. There is no active next
+implementation direction by default. Treat physical routing/locality, policy
+state, depot splitting, and editor batching as open systems questions unless I
+explicitly choose one.
 
 Never add Rama I/O just because the code looks simpler. Follow the collaborative editor pattern: local buffer -> semantic edit object/batch -> document-keyed depot -> local transform.
 
@@ -99,6 +102,6 @@ Here is the contract.
 Here is the kernel data structure.
 Here is how it wires to Rama.
 Here is how text instantiates it.
-Here is the next implementation boundary.
+Here is what is settled vs still open.
 Here are the open choices and tradeoffs.
 ```

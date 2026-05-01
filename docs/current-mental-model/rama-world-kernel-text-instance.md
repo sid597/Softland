@@ -291,7 +291,7 @@ Distillers turn raw artifacts/events into derived units, relations, summaries, o
 ```text
 raw artifact stays
 distiller v1 derives units
-distiller v2 may derive better units later
+a later distiller may derive better units
 refinement maps preserve provenance
 ```
 
@@ -335,10 +335,11 @@ Likely families:
   optional topology-owned derived stream, no client appends
 ```
 
-For the first implementation, it is acceptable to start with one generic request
-depot. The next implementation should add `:routing/key` and hash by that key.
-Splitting depots later should not change `ActionRequest`, `ActionDecision`, or
-`KernelEvent` meaning.
+For the first implementation, it was acceptable to start with one generic request
+depot. The current code has moved requests toward `:routing/key`; the remaining
+question is how far physical co-location and depot splitting should go for each
+action family. Splitting depots later should not change `ActionRequest`,
+`ActionDecision`, or `KernelEvent` meaning.
 
 ### PState Families
 

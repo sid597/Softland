@@ -746,7 +746,8 @@ logic to start on the request-id partition.
 Do not split too early by current namespace/module names. Split by world
 semantics and throughput shape.
 
-Likely V1/V2 physical depots:
+Possible future physical depots, if action families and throughput shape justify
+the split:
 
 ```text
 *artifact-requests-depot

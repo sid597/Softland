@@ -242,7 +242,7 @@ Here is the contract.
 Here is the kernel data structure.
 Here is how it wires to Rama.
 Here is how text instantiates it.
-Here is the next implementation boundary.
+Here is the current implementation boundary, if relevant.
 Here are the open choices and tradeoffs.
 ```
 
