@@ -27,6 +27,13 @@ docs/current-mental-model/architecture/rama-blog-patterns.md
 docs/current-mental-model/architecture/prompt-to-implementation-lossiness.md
 ```
 
+For policy granularity questions, especially "do we need a row per tiny unit?",
+read:
+
+```text
+docs/current-mental-model/architecture/policy-granularity-mastodon-parallel.md
+```
+
 ## Core Stance
 
 Prefer this loop:

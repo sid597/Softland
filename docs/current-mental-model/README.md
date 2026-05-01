@@ -16,6 +16,11 @@ This folder is the current working mental model for the Rama/text/world-kernel w
 8. `architecture/prompt-to-implementation-lossiness.md`
 9. `implementation-review-prompt.md`
 
+## Active Explorations
+
+- `architecture/policy-granularity-mastodon-parallel.md` — open question on
+  fine-grained policy behavior without per-unit permission materialization.
+
 ## Current Center
 
 The system is one loop:
