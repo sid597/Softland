@@ -22,6 +22,7 @@ For the specific Softland policy/throughput debate, read:
 
 ```text
 docs/current-mental-model/architecture/action-request-kernel-routing.md
+docs/current-mental-model/architecture/logical-lifecycle-and-derived-depots.md
 docs/current-mental-model/architecture/rama-policy-throughput-post.md
 docs/current-mental-model/architecture/rama-blog-patterns.md
 docs/current-mental-model/architecture/prompt-to-implementation-lossiness.md

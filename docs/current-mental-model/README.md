@@ -10,11 +10,12 @@ This folder is the current working mental model for the Rama/text/world-kernel w
 2. `conversation-trail.md`
 3. `rama-world-kernel-text-instance.md`
 4. `architecture/action-request-kernel-routing.md`
-5. `architecture/rama-world-kernel-v0-pr-trail.md`
-6. `architecture/rama-policy-throughput-post.md`
-7. `architecture/rama-blog-patterns.md`
-8. `architecture/prompt-to-implementation-lossiness.md`
-9. `implementation-review-prompt.md`
+5. `architecture/logical-lifecycle-and-derived-depots.md`
+6. `architecture/rama-world-kernel-v0-pr-trail.md`
+7. `architecture/rama-policy-throughput-post.md`
+8. `architecture/rama-blog-patterns.md`
+9. `architecture/prompt-to-implementation-lossiness.md`
+10. `implementation-review-prompt.md`
 
 ## Active Explorations
 
