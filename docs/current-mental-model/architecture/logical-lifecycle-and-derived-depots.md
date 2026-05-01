@@ -9,6 +9,25 @@ When we add more depots, does the world-kernel flow change?
 After KernelEvent, do we need another depot based on artifact type or params?
 ```
 
+Origin prompt:
+
+```text
+Projection -> ActionRequest -> Depot -> Topology -> ActionDecision
+  -> KernelEvent? -> PStates -> Projection
+
+this will change when we have more depots right???? ok wait does after te
+kernelEvent we need to have another depot that this gets added to based on the
+artifact type or other params???
+```
+
+Why this matters:
+
+```text
+This is a recurring systems-level question. Until Rama trails preserve this
+automatically, keep the user prompt or question that forced the distinction into
+existence.
+```
+
 ## Short Answer
 
 The physical topology will change as Softland grows.

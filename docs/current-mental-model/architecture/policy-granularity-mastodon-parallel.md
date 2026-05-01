@@ -7,6 +7,23 @@ Rama's Mastodon implementation may be a useful analogy for how to support
 fine-grained behavior without naively materializing permissions for every actor
 and every tiny unit.
 
+Origin prompt:
+
+```text
+does this not have parallels with the mastadom implementation by rama???? don't
+they have fine grained?? i think they do over each post .. you can goas free
+non registered user just scroll, or signup and write, follow, but who you follow
+and what you see depends on a query ... then you can do the same to other users
+```
+
+Why this matters:
+
+```text
+This is an active systems-level question, not a settled design. Preserve the
+question that opened the thread so future review can recover the original
+pressure.
+```
+
 ## The Question
 
 Softland wants very fine-grained addressability:
