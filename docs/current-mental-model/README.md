@@ -2,7 +2,9 @@
 
 Status: global context pack, 2026-05-01.
 
-This folder is the current working mental model for the Rama/text/world-kernel work. Use it to start new chats without rehydrating the whole prior conversation.
+This folder is the current working mental model for the Rama/world-kernel and
+dogfood-runtime work. Use it to start new chats without rehydrating the whole
+prior conversation.
 
 This is not the same thing as a task handoff. Global context tells a new session
 how to think with us; a handoff tells it what to execute next. See
@@ -13,21 +15,40 @@ how to think with us; a handoff tells it what to execute next. See
 1. `context-map.md`
 2. `new-chat-bootstrap.md`
 3. `conversation-trail.md`
-4. `rama-world-kernel-text-instance.md`
-5. `architecture/action-request-kernel-routing.md`
-6. `architecture/logical-lifecycle-and-derived-depots.md`
-7. `architecture/rama-world-kernel-v0-pr-trail.md`
-8. `architecture/rama-policy-throughput-post.md`
-9. `architecture/rama-blog-patterns.md`
-10. `architecture/prompt-to-implementation-lossiness.md`
+4. `trails/2026-05-02-slice-a-cross-model-experiment.md`
+5. `rama-world-kernel-text-instance.md`
+6. `architecture/action-request-kernel-routing.md`
+7. `architecture/logical-lifecycle-and-derived-depots.md`
+8. `architecture/dogfood-runtime/README.md`
+9. `architecture/dogfood-runtime/compute-track.md`
+10. `architecture/dogfood-runtime/agent-track-aor.md`
+11. `architecture/dogfood-runtime/three-depot-current-system.md`
+12. `architecture/dogfood-runtime/slice-a-compute-run-command.md`
+13. `architecture/rama-world-kernel-v0-pr-trail.md`
+14. `architecture/rama-policy-throughput-post.md`
+15. `architecture/rama-blog-patterns.md`
+16. `architecture/prompt-to-implementation-lossiness.md`
+17. `architecture/cross-model-architecture-loop.md`
 
 Read `implementation-review-prompt.md` only when the user is ready to review or
 change code. Do not treat it as the default bootstrap for open-ended discussion.
+
+Read `implementation-slice-a-compute-run-command-prompt.md` only when the user
+has chosen to implement Slice A.
 
 ## Active Explorations
 
 - `architecture/policy-granularity-mastodon-parallel.md` — open question on
   fine-grained policy behavior without per-unit permission materialization.
+- `architecture/cross-model-architecture-loop.md` — workflow note on using
+  Claude for broad architecture initialization, Codex for contract review/gate,
+  Claude for ingestion/redraw, and Codex for implementation.
+
+## Current Trace Captures
+
+- `trails/2026-05-02-slice-a-cross-model-experiment.md` — pre-Rama trace of
+  how the Slice A compute spine emerged from Claude/Codex/user review loops,
+  including artifact lineage, durable decisions, and the implementation handoff.
 
 ## Current Center
 
@@ -44,6 +65,57 @@ Projection shows materialized state
 ```
 
 Everything else is a contract inside this loop.
+
+## Current Dogfood Runtime Direction
+
+The new direction is to make Softland dogfood itself through Rama, with two
+execution tracks and three conceptual depot families.
+
+Execution tracks:
+
+```text
+compute track
+  = build / test / run / deploy / serve / command execution
+
+LLM-agent track
+  = chat / AOR-style agents / Codex / Claude / streamed reasoning / patches
+```
+
+Conceptual depot families:
+
+```text
+WorldDepot
+  -> truth: objects, refs, versions, decisions, accepted facts
+
+ComputeDepot
+  -> physical execution: builds, tests, commands, deploys, artifacts, logs
+
+LLMDepot
+  -> epistemic / agent execution: chat, AOR agents, Codex, Claude, patches,
+     streamed tokens, tool traces
+```
+
+The key runtime rule:
+
+```text
+workers and agents stream observations back into Rama
+Rama materializes live PStates
+the UI reads Rama
+workers and agents do not stream directly to the UI as source of truth
+```
+
+See `architecture/dogfood-runtime/`.
+
+Current first vertical candidate:
+
+```text
+architecture/dogfood-runtime/slice-a-compute-run-command.md
+  -> Slice A compute spine: one local command run, Rama-owned claim,
+     claim-tokened observations, and one live UI-readable PState.
+```
+
+This is stable architecture context. It becomes an implementation handoff only
+when the user explicitly chooses to start coding from it.
 
 ## Current Kernel Shape
 
@@ -154,6 +226,7 @@ physical routing/locality still needs clearer Rama shape
 policy state is not yet a full Rama-owned authorization model
 future depot splitting remains a systems question
 editor/write batching remains a systems question
+compute and LLM observation depots need exact routing/PState design
 ```
 
 Do not make every physical UI gesture a world action. For typing, follow the

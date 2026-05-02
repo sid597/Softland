@@ -28,6 +28,10 @@ implementation-review-prompt.md
   -> implementation/review prompt
   -> use only when the user is ready to inspect or change code
 
+implementation-slice-a-compute-run-command-prompt.md
+  -> active Slice A implementation prompt
+  -> use only when the user has chosen to implement the compute spine
+
 docs/sessions/next-prompt.md
   -> task handoff
   -> use only when there is an active next task to resume
@@ -55,6 +59,11 @@ conversation-trail.md
   -> compact narrative of how the model evolved
   -> useful when the user asks "how did we get here?"
 
+trails/*.md
+  -> pre-Rama trace captures for important reasoning/build episodes
+  -> preserve origin pressure, artifact lineage, decisions, handoffs, and later
+     implementation proof while Rama trail storage does not exist yet
+
 rama-world-kernel-text-instance.md
   -> concrete vertical walkthrough through the kernel using text
   -> use when abstractions feel floaty
@@ -67,9 +76,25 @@ implementation-review-prompt.md
   -> code-review / implementation prompt
   -> includes preflight questions, acceptance criteria, and anti-lossiness checks
 
+implementation-slice-a-compute-run-command-prompt.md
+  -> Slice A compute-run implementation prompt
+  -> turns the canonical compute-spine architecture into a planning and coding
+     session
+
 architecture/*.md
   -> durable architecture notes, open questions, and settled distinctions
   -> one file per recurring systems-level question
+
+architecture/dogfood-runtime/*.md
+  -> current Rama/AOR dogfood runtime direction
+  -> compute track, LLM-agent track, the three-depot system shape, and the
+     current Slice A compute-spine candidate
+  -> not a task handoff
+
+trails/2026-05-02-slice-a-cross-model-experiment.md
+  -> trace of the Slice A Claude/Codex/user experiment before Rama can store
+     trails natively
+  -> use when asking how the compute-spine decision emerged
 ```
 
 ## Architecture File Roles
@@ -95,6 +120,30 @@ architecture/rama-world-kernel-v0-pr-trail.md
 
 architecture/prompt-to-implementation-lossiness.md
   -> how discussed model gets lost during implementation, and the guardrail
+
+architecture/cross-model-architecture-loop.md
+  -> workflow insight from the Slice A experiment: Claude initializes, Codex
+     gates, Claude ingests/redraws, Codex implements
+
+architecture/dogfood-runtime/README.md
+  -> overview of the new dogfood runtime direction
+
+architecture/dogfood-runtime/compute-track.md
+  -> build/test/run/deploy/serve execution through Rama-owned run state and
+     observation streams
+
+architecture/dogfood-runtime/agent-track-aor.md
+  -> AOR-shaped LLM/agent execution through Rama-owned run state and streaming
+     observation depots
+
+architecture/dogfood-runtime/three-depot-current-system.md
+  -> current three conceptual depot families: World, Compute, LLM-agent
+
+architecture/dogfood-runtime/slice-a-compute-run-command.md
+  -> canonical candidate for the first dogfood-runtime vertical slice:
+     :compute/run-command through Rama-owned claim, observations, and live view
+  -> use as architecture context for implementation discussion, not as an
+     automatic handoff
 ```
 
 ## What Counts As Global Context
@@ -111,6 +160,9 @@ KernelEvent happened only if accepted.
 Rejected decisions are durable but are not world facts.
 PStates are materialized/queryable world views.
 Text is the first carrier; it is not the ontology.
+Dogfood runtime direction: WorldDepot is truth, ComputeDepot does physical
+execution, LLMDepot does epistemic/agent execution.
+Workers and agents stream observations back into Rama; the UI reads Rama.
 ```
 
 Global context should not say:
