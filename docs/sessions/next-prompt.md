@@ -6,7 +6,7 @@ For a new session, start from:
 
 ```text
 docs/current-mental-model/context-map.md
-docs/current-mental-model/implementation-slice-a-compute-run-command-prompt.md
+docs/current-mental-model/90-prompts/implementation-slice-a-compute-run-command-prompt.md
 ```
 
 The user has chosen to start implementing the first dogfood-runtime vertical:
@@ -55,7 +55,7 @@ For this implementation handoff, read these before editing:
 ```text
 .agents/skills/think-in-rama/SKILL.md
 docs/current-mental-model/README.md
-docs/current-mental-model/implementation-slice-a-compute-run-command-prompt.md
+docs/current-mental-model/90-prompts/implementation-slice-a-compute-run-command-prompt.md
 docs/current-mental-model/architecture/action-request-kernel-routing.md
 docs/current-mental-model/architecture/logical-lifecycle-and-derived-depots.md
 docs/current-mental-model/architecture/dogfood-runtime/README.md
@@ -199,7 +199,7 @@ full UI polish beyond the minimal live state proof
 Before coding, follow the preflight in:
 
 ```text
-docs/current-mental-model/implementation-slice-a-compute-run-command-prompt.md
+docs/current-mental-model/90-prompts/implementation-slice-a-compute-run-command-prompt.md
 ```
 
 The first pass should prove:

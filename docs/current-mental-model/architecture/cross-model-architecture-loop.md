@@ -262,7 +262,7 @@ That file is the current canonical architecture candidate for the first
 dogfood-runtime vertical. The next implementation prompt is:
 
 ```text
-implementation-slice-a-compute-run-command-prompt.md
+90-prompts/implementation-slice-a-compute-run-command-prompt.md
 ```
 
 The episode trace is:

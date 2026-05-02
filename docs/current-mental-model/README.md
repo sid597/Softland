@@ -13,27 +13,28 @@ how to think with us; a handoff tells it what to execute next. See
 ## Read Order
 
 1. `context-map.md`
-2. `new-chat-bootstrap.md`
-3. `conversation-trail.md`
-4. `trails/2026-05-02-slice-a-cross-model-experiment.md`
-5. `rama-world-kernel-text-instance.md`
-6. `architecture/action-request-kernel-routing.md`
-7. `architecture/logical-lifecycle-and-derived-depots.md`
-8. `architecture/dogfood-runtime/README.md`
-9. `architecture/dogfood-runtime/compute-track.md`
-10. `architecture/dogfood-runtime/agent-track-aor.md`
-11. `architecture/dogfood-runtime/three-depot-current-system.md`
-12. `architecture/dogfood-runtime/slice-a-compute-run-command.md`
-13. `architecture/rama-world-kernel-v0-pr-trail.md`
-14. `architecture/rama-policy-throughput-post.md`
-15. `architecture/rama-blog-patterns.md`
-16. `architecture/prompt-to-implementation-lossiness.md`
-17. `architecture/cross-model-architecture-loop.md`
+2. `00-start-here/where-is-what.md`
+3. `00-start-here/new-chat-bootstrap.md`
+4. `00-start-here/conversation-trail.md`
+5. `trails/2026-05-02-slice-a-cross-model-experiment.md`
+6. `10-anchors/rama-world-kernel-text-instance.md`
+7. `architecture/action-request-kernel-routing.md`
+8. `architecture/logical-lifecycle-and-derived-depots.md`
+9. `architecture/dogfood-runtime/README.md`
+10. `architecture/dogfood-runtime/compute-track.md`
+11. `architecture/dogfood-runtime/agent-track-aor.md`
+12. `architecture/dogfood-runtime/three-depot-current-system.md`
+13. `architecture/dogfood-runtime/slice-a-compute-run-command.md`
+14. `architecture/rama-world-kernel-v0-pr-trail.md`
+15. `architecture/rama-policy-throughput-post.md`
+16. `architecture/rama-blog-patterns.md`
+17. `architecture/prompt-to-implementation-lossiness.md`
+18. `architecture/cross-model-architecture-loop.md`
 
-Read `implementation-review-prompt.md` only when the user is ready to review or
+Read `90-prompts/implementation-review-prompt.md` only when the user is ready to review or
 change code. Do not treat it as the default bootstrap for open-ended discussion.
 
-Read `implementation-slice-a-compute-run-command-prompt.md` only when the user
+Read `90-prompts/implementation-slice-a-compute-run-command-prompt.md` only when the user
 has chosen to implement Slice A.
 
 ## Active Explorations

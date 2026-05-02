@@ -2,7 +2,7 @@
 
 Canonical current mental model moved to:
 
-`docs/current-mental-model/rama-world-kernel-text-instance.md`
+`docs/current-mental-model/10-anchors/rama-world-kernel-text-instance.md`
 
 Use that folder as the new-chat/bootstrap context pack. This architecture path remains only as a pointer so the model does not diverge in two places.
 

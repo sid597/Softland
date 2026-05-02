@@ -38,7 +38,7 @@ commits stay local forever.
 Before changing code, read:
 
 1. docs/current-mental-model/README.md
-2. docs/current-mental-model/rama-world-kernel-text-instance.md
+2. docs/current-mental-model/10-anchors/rama-world-kernel-text-instance.md
 3. docs/current-mental-model/architecture/action-request-kernel-routing.md
 4. docs/current-mental-model/architecture/rama-world-kernel-v0-pr-trail.md
 5. docs/current-mental-model/architecture/rama-policy-throughput-post.md

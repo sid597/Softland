@@ -2,7 +2,7 @@
 
 Status: context note, 2026-04-28.
 
-This note explains how we arrived at `rama-world-kernel-text-instance.md`. It is not a transcript. It preserves the conceptual path so a new chat can understand why the current model has the shape it has.
+This note explains how we arrived at `10-anchors/rama-world-kernel-text-instance.md`. It is not a transcript. It preserves the conceptual path so a new chat can understand why the current model has the shape it has.
 
 ## Starting Pressure
 
@@ -253,4 +253,89 @@ word lists with no wiring
 choosing a path without presenting the tree
 collapsing conceptual planes into implementation slices
 making text/editor the ontology
+```
+
+## 2026-05-01: Dogfood Runtime Direction
+
+The user then shifted from the text-instance kernel walkthrough to the first
+major dogfood direction:
+
+```text
+store Softland through Rama
+use Rama to build/test/run/deploy/serve Softland
+use Rama/AOR-style execution for LLM agents, Codex, Claude, and streamed patches
+```
+
+The important correction was that the first useful system is not "code as the
+bottom layer". The current focus is narrower and more concrete:
+
+```text
+two execution tracks
+  1. compute
+  2. LLM-agent
+
+three conceptual depot families
+  1. World
+  2. Compute
+  3. LLM-agent
+```
+
+The user also caught a missing architecture arrow:
+
+```text
+worker/agent -> Rama -> PStates -> Softland UI
+```
+
+This means:
+
+```text
+Workers and agents do not stream directly to the UI as source of truth.
+They stream observations back into Rama.
+Softland reads the materialized Rama state.
+```
+
+AOR supplied the key implementation pattern for the agent track:
+
+```text
+agent depot
+  -> topology creates invoke/node state
+  -> module-owned async executor runs node work
+  -> streaming depot receives chunks
+  -> PStates materialize live run state
+  -> UI watches Rama
+```
+
+The corresponding Softland shape:
+
+```text
+LLMDepot
+  -> AgentTopology
+  -> AgentRunPState
+  -> AgentExecutor
+  -> LLMObservationDepot
+  -> LLMViewsPState
+  -> Softland UI
+```
+
+Compute uses the same back-arrow but with runner-like execution:
+
+```text
+ComputeDepot
+  -> ComputeTopology
+  -> ComputeRunPState
+  -> ComputeExecutor
+  -> ComputeObservationDepot
+  -> ComputeViewsPState
+  -> Softland UI
+```
+
+The stable boundary:
+
+```text
+WorldDepot is truth.
+ComputeDepot does physical execution.
+LLMDepot does epistemic / agent execution.
+
+Compute and LLM can propose, observe, and request world changes.
+They do not secretly mutate WorldPStates.
 ```

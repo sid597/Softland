@@ -124,7 +124,7 @@ A8  Parts-flow artifact
     This became the best canonical architecture artifact.
 
 A9  Implementation handoff
-    docs/current-mental-model/implementation-slice-a-compute-run-command-prompt.md
+    docs/current-mental-model/90-prompts/implementation-slice-a-compute-run-command-prompt.md
 ```
 
 ## Durable Decisions
@@ -220,7 +220,7 @@ docs/current-mental-model/architecture/cross-model-architecture-loop.md
 Implementation handoff:
 
 ```text
-docs/current-mental-model/implementation-slice-a-compute-run-command-prompt.md
+docs/current-mental-model/90-prompts/implementation-slice-a-compute-run-command-prompt.md
 ```
 
 Active session handoff:

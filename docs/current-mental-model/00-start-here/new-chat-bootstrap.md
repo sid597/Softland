@@ -10,9 +10,9 @@ Before answering, read:
 
 1. docs/current-mental-model/context-map.md
 2. docs/current-mental-model/README.md
-3. docs/current-mental-model/conversation-trail.md
+3. docs/current-mental-model/00-start-here/conversation-trail.md
 4. docs/current-mental-model/trails/2026-05-02-slice-a-cross-model-experiment.md
-5. docs/current-mental-model/rama-world-kernel-text-instance.md
+5. docs/current-mental-model/10-anchors/rama-world-kernel-text-instance.md
 6. docs/current-mental-model/architecture/action-request-kernel-routing.md
 7. docs/current-mental-model/architecture/logical-lifecycle-and-derived-depots.md
 8. docs/current-mental-model/architecture/dogfood-runtime/README.md

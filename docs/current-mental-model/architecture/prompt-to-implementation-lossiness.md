@@ -128,7 +128,7 @@ Do not create a new skill yet.
 This learning is currently Rama-specific enough to live in:
 
 ```text
-docs/current-mental-model/implementation-review-prompt.md
+docs/current-mental-model/90-prompts/implementation-review-prompt.md
 .agents/skills/think-in-rama/SKILL.md
 ```
 

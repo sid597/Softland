@@ -20,15 +20,19 @@ new direction with the user without assuming any named next implementation.
 Use these by intent:
 
 ```text
-new-chat-bootstrap.md
+00-start-here/where-is-what.md
+  -> human routing map
+  -> use when asking "where does this go?" or "where is that model?"
+
+00-start-here/new-chat-bootstrap.md
   -> global context bootstrap
   -> use when starting a new conversation and the next direction is not fixed
 
-implementation-review-prompt.md
+90-prompts/implementation-review-prompt.md
   -> implementation/review prompt
   -> use only when the user is ready to inspect or change code
 
-implementation-slice-a-compute-run-command-prompt.md
+90-prompts/implementation-slice-a-compute-run-command-prompt.md
   -> active Slice A implementation prompt
   -> use only when the user has chosen to implement the compute spine
 
@@ -38,7 +42,7 @@ docs/sessions/next-prompt.md
 ```
 
 If the user says they have a new direction to discuss, start from
-`new-chat-bootstrap.md`, not `docs/sessions/next-prompt.md`.
+`00-start-here/new-chat-bootstrap.md`, not `docs/sessions/next-prompt.md`.
 
 ## Where Things Go
 
@@ -51,11 +55,15 @@ context-map.md
   -> meta map of this folder
   -> where to put global context vs handoff vs exploration vs implementation notes
 
-new-chat-bootstrap.md
+00-start-here/where-is-what.md
+  -> human routing map of folders, high-value files, and where new information
+     belongs
+
+00-start-here/new-chat-bootstrap.md
   -> copy/paste prompt for a fresh chat
   -> should give the model the right altitude without prescribing the next task
 
-conversation-trail.md
+00-start-here/conversation-trail.md
   -> compact narrative of how the model evolved
   -> useful when the user asks "how did we get here?"
 
@@ -64,19 +72,19 @@ trails/*.md
   -> preserve origin pressure, artifact lineage, decisions, handoffs, and later
      implementation proof while Rama trail storage does not exist yet
 
-rama-world-kernel-text-instance.md
+10-anchors/rama-world-kernel-text-instance.md
   -> concrete vertical walkthrough through the kernel using text
   -> use when abstractions feel floaty
 
-rama-world-kernel-v1-wall-map.txt
+10-anchors/rama-world-kernel-v1-wall-map.txt
   -> visual/ascii map of the current Rama system shape
   -> use when the user wants to build the model spatially
 
-implementation-review-prompt.md
+90-prompts/implementation-review-prompt.md
   -> code-review / implementation prompt
   -> includes preflight questions, acceptance criteria, and anti-lossiness checks
 
-implementation-slice-a-compute-run-command-prompt.md
+90-prompts/implementation-slice-a-compute-run-command-prompt.md
   -> Slice A compute-run implementation prompt
   -> turns the canonical compute-spine architecture into a planning and coding
      session

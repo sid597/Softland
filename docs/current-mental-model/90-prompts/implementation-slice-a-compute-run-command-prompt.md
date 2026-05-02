@@ -37,7 +37,7 @@ Before coding, read:
 1. .agents/skills/think-in-rama/SKILL.md
 2. docs/current-mental-model/context-map.md
 3. docs/current-mental-model/README.md
-4. docs/current-mental-model/implementation-review-prompt.md
+4. docs/current-mental-model/90-prompts/implementation-review-prompt.md
 5. docs/current-mental-model/architecture/dogfood-runtime/README.md
 6. docs/current-mental-model/architecture/dogfood-runtime/slice-a-compute-run-command.md
 7. docs/reference/rama/28-clj-defining-modules.md
