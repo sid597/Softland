@@ -261,6 +261,47 @@ There is no daemon, no TaskGlobal, no watcher, and no automatic background
 runner yet.
 ```
 
+Who does the repeated reads / ticks:
+
+```text
+Current A.0:
+  The caller/test does it by explicitly invoking:
+
+    run-one-pending-local!
+
+  That helper is the executor tick.
+
+  It performs the loop in a compressed synchronous form:
+    1. read $$compute-pending-by-task["local"]
+    2. append claim to *compute-claim-depot
+    3. wait/read $$compute-runs[run-id] for durable grant
+    4. spawn OS process only if the grant matches
+    5. append :started/:stdout/:stderr/:exit to *compute-obs-depot
+
+  Nothing in A.0 wakes this helper automatically.
+  If nobody calls run-one-pending-local!, pending runs stay pending.
+
+Future Slice:
+  A real ComputeExecutor loop owns those ticks.
+
+  Preferred Rama-integrated owner:
+    ComputeExecutorTaskGlobal
+      - owns per-task executor state
+      - owns a virtual-thread pool or equivalent worker pool
+      - periodically or reactively checks pending work
+      - appends claims and observations through foreign depots
+
+  Alternative deployment shape:
+    an always-running local executor process/service
+      - reads Rama PStates through clients
+      - appends Rama depots through clients
+      - still does not write PStates directly
+
+  In both shapes, ComputeTopology does not call the executor.
+  The executor comes back later on its own loop and reads newly materialized
+  PState state.
+```
+
 Future Rama-native shape:
 
 ```text
@@ -301,6 +342,14 @@ not one forward pipeline, but repeated loops:
 actor appends depot
   -> topology writes PState truth
   -> actor reads PState truth back
+```
+
+Back-arrow meaning:
+
+```text
+A back-arrow to ComputeExecutor is not a function call from Rama.
+It means the same executor reads a PState later, on its next tick/loop, after
+Rama has consumed the depot record and materialized new state.
 ```
 
 Full Slice A loop:
