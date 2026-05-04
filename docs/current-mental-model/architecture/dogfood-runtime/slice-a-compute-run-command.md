@@ -1,12 +1,22 @@
 # Slice A — :compute/run-command  (Architecture)
 
-Status: locked contract, 2026-05-02. Post Codex 3-round gate.
+Status: implemented Slice A.0, 2026-05-04. Contract originally locked
+2026-05-02 after the Codex 3-round gate.
 
 First vertical slice of the dogfood runtime. Hello/false proof for the compute
 track. Cancel + restart-reconcile deferred to slice A2.
 
-Implementation target: `src/app/server/rama/dogfood/compute.clj` (sibling to
-`core.clj`, which remains the V0/V1 text-instance proof).
+Implementation:
+
+```text
+src/app/server/rama/dogfood/compute.clj
+test/app/server/rama/dogfood_compute_test.clj
+```
+
+`core.clj` remains the V0/V1 text-instance proof. Slice A.0 now uses a
+module-owned `ComputeExecutorTaskGlobal` for normal execution. The
+`run-one-pending-local!` helper remains as a manual/test path for the explicit
+`"local"` inbox, not the normal executor architecture.
 
 ## Architectural Shape — 4-Tier Read/Write Asymmetry
 
@@ -83,11 +93,11 @@ rule is just this asymmetry, applied recursively.
     │  e/watch $$compute-    │        │  prepareForTask:        │
     │    views[run-id]       │        │    capture task-id      │
     │                        │        │                         │
-    │  renders status,       │        │  tick:                  │
-    │  stdout-tail,          │        │   read pending queue    │
-    │  exit-code             │        │   append claim          │
+    │  renders status,       │        │  reconcile loop:        │
+    │  stdout-tail,          │        │   read task inbox       │
+    │  exit-code             │        │   append task claim     │
     │                        │        │   await grant (3-state) │
-    │                        │        │   spawn child process   │
+    │                        │        │   submit worker job     │
     │                        │        │   stream observations   │
     └────────────────────────┘        └─────────────────────────┘
 ```
@@ -105,14 +115,14 @@ rule is just this asymmetry, applied recursively.
   ┌─[ Step 2 ]──────────── REQUEST BRANCH ────────────────────────┐
   │  validate (compute-target-kinds includes :workspace)          │
   │  decide → ActionDecision                                      │
-  │  write three PStates on this task partition:                  │
+  │  assign executor/task-id for this Rama task and write:        │
   │     $$compute-runs[rid]               :status :pending        │
   │     $$compute-decisions-by-run-id[rid] full decision shape    │
-  │     $$compute-pending-by-task          append rid             │
+  │     $$compute-pending-by-task[task-id] append rid             │
   └────────────────────────────────────────────────────────────────┘
                           ▼
   ┌─[ Step 3 ]──────────── EXECUTOR — discover ───────────────────┐
-  │  Each tick on task T:                                         │
+  │  On reconcile wake for task T:                                │
   │     foreign-proxy/select                                      │
   │       $$compute-pending-by-task                               │
   │       {:pkey task-id}    →   vector of pending rids           │
@@ -122,7 +132,7 @@ rule is just this asymmetry, applied recursively.
   │  For each pending rid not yet in local registry:              │
   │     generate claim-token (uuid)                               │
   │     foreign-append! *compute-claim-depot                      │
-  │       {:run/id, :executor/id, :claim-token}                   │
+  │       {:run/id, :executor/id, :executor/task-id, :claim-token} │
   │       :append-ack                                             │
   │     local-registry[rid] = {:awaiting-grant token}             │
   └────────────────────────────────────────────────────────────────┘
@@ -144,7 +154,7 @@ rule is just this asymmetry, applied recursively.
   │       (:status :launching) ∧ (:claimed-by us)                 │
   │       ∧ (:claim-token ours)                                   │
   │                                                               │
-  │     NOT-YET-PROCESSED  → keep awaiting next tick              │
+  │     NOT-YET-PROCESSED  → keep awaiting next reconcile         │
   │       (nil? row) OR (:status :pending)                        │
   │                                                               │
   │     CONFLICT-OR-PAST   → drop from local registry             │
@@ -248,80 +258,40 @@ PStates
   = official materialized state after topology validates/folds depot records.
 ```
 
-Current A.0 implementation status:
-
-```text
-The executor is only a manually-called local Clojure helper:
-
-  run-one-pending-local!
-
-It runs in the caller/test JVM, reads PStates through foreign-select, appends
-claim/observation depot records, and uses ProcessBuilder for the child process.
-There is no daemon, no TaskGlobal, no watcher, and no automatic background
-runner yet.
-```
-
-Who does the repeated reads / ticks:
-
-```text
-Current A.0:
-  The caller/test does it by explicitly invoking:
-
-    run-one-pending-local!
-
-  That helper is the executor tick.
-
-  It performs the loop in a compressed synchronous form:
-    1. read $$compute-pending-by-task["local"]
-    2. append claim to *compute-claim-depot
-    3. wait/read $$compute-runs[run-id] for durable grant
-    4. spawn OS process only if the grant matches
-    5. append :started/:stdout/:stderr/:exit to *compute-obs-depot
-
-  Nothing in A.0 wakes this helper automatically.
-  If nobody calls run-one-pending-local!, pending runs stay pending.
-
-Future Slice:
-  A real ComputeExecutor loop owns those ticks.
-
-  Preferred Rama-integrated owner:
-    ComputeExecutorTaskGlobal
-      - owns per-task executor state
-      - owns a virtual-thread pool or equivalent worker pool
-      - periodically or reactively checks pending work
-      - appends claims and observations through foreign depots
-
-  Alternative deployment shape:
-    an always-running local executor process/service
-      - reads Rama PStates through clients
-      - appends Rama depots through clients
-      - still does not write PStates directly
-
-  In both shapes, ComputeTopology does not call the executor.
-  The executor comes back later on its own loop and reads newly materialized
-  PState state.
-```
-
-Future Rama-native shape:
+Implemented A.0 executor status:
 
 ```text
 ComputeExecutorTaskGlobal
+  declared in compute-module as *compute-executor
   prepareForTask(task-id)
-  owns per-task executor state and/or virtual thread pool
+    - captures the Rama task id
+    - opens foreign depot/PState clients through the cluster retriever
+    - owns process-local per-task registry state
+    - owns a daemon reconcile scheduler
+    - owns a daemon worker pool for command processes
 
-RamaClientsTaskGlobal
-  opens foreign depot/PState clients needed by out-of-band tasks
+normal request path
+  :compute/run-command enters *compute-depot
+  request branch assigns :executor/task-id from the current Rama task
+  topology writes $$compute-pending-by-task[executor-task-id] -> run-id
+  that task's ComputeExecutorTaskGlobal reads its own inbox
 
-executor tick / reactive trigger
-  reads the task-local pending inbox
-  appends claim
-  waits for durable grant in $$compute-runs
-  submits command execution to virtual thread pool
-  appends :started/:stdout/:stderr/:exit observations to *compute-obs-depot
+reconcile loop
+  read task-local pending inbox
+  append claim with run-id + executor-id + executor/task-id + claim-token
+  read $$compute-runs for durable grant
+  if grant matches, submit command execution to worker pool
+  command worker appends :started/:stdout/:stderr/:exit observations
+
+manual/test path
+  run-one-pending-local! still exists for explicit local protocol tests.
+  It targets $$compute-pending-by-task["local"] unless given a task id.
+  This is not the normal module-owned executor path.
 
 ComputeTopology
   remains the state machine
   never waits for the command to finish
+  remains the only writer of PStates
 ```
 
 Fault-tolerance implication:
@@ -348,14 +318,15 @@ Back-arrow meaning:
 
 ```text
 A back-arrow to ComputeExecutor is not a function call from Rama.
-It means the same executor reads a PState later, on its next tick/loop, after
-Rama has consumed the depot record and materialized new state.
+It means the same module-owned executor reads a PState later, on its own
+reconcile loop, after Rama has consumed the depot record and materialized new
+state.
 ```
 
 Full Slice A loop:
 
 ```text
-                         SLICE A.0 COMPUTE RUNTIME
+                      SLICE A.0 TASKGLOBAL COMPUTE RUNTIME
                       loop view, with explicit back-arrows
 
 
@@ -393,7 +364,7 @@ Full Slice A loop:
 │ by-run-id            │   │                      │   │ by-task              │
 │                      │   │ truth row             │   │ executor inbox       │
 │ accepted/rejected    │   │                      │   │                      │
-│ request decision     │   │ :status :pending      │   │ "local" -> run-id    │
+│ request decision     │   │ :status :pending      │   │ task-id -> run-id    │
 └──────────────────────┘   └──────────┬───────────┘   └──────────┬───────────┘
                                        │                          │
                                        │ project                  │
@@ -421,7 +392,7 @@ Full Slice A loop:
 │                                                                              │
 │                         *compute-claim-depot                                  │
 │                                                                              │
-│                    run-id + executor-id + claim-token                         │
+│             run-id + executor-id + executor/task-id + claim-token             │
 └────────────────────────────────────┬─────────────────────────────────────────┘
                                      │
                                      │ Rama stream topology consumes
@@ -542,14 +513,15 @@ Full Slice A loop:
 
 Compressed loop, lane view:
 
-Important: there is one `ComputeExecutor` in this view. It is shown as one lane
-on the right. The executor is not created by the topology and the topology does
+Important: there is one `ComputeExecutor` lane in this view. In the implementation
+that lane is a module-owned TaskGlobal instance per Rama task, not topology
+event code. The executor is not created by the topology and the topology does
 not call it. The same executor reads Rama state, appends depot records, then
 reads Rama state again.
 
 ```text
                  UI                    RAMA                         COMPUTE EXECUTOR
-                 │                     depots/topology/PStates       one executor actor
+                 │                     depots/topology/PStates       TaskGlobal per task
                  │                                                  │
 1. request       │ append run request                               │
                  ├──────────────────▶ *compute-depot                │
@@ -569,6 +541,7 @@ reads Rama state again.
                  │                    -> $$compute-runs              │
                  │                       status: :launching          │
                  │                       claimed-by: executor        │
+                 │                       executor/task-id: task-id   │
                  │                       claim-token: token          │
                  │                    -> remove pending              │
                  │                    -> $$compute-views             │

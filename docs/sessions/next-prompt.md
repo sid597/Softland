@@ -1,17 +1,25 @@
-# Session Resume — Active Slice A Implementation Handoff
+# Session Resume — Slice A TaskGlobal Context
 
-Status: active implementation handoff, 2026-05-02.
+Status: Slice A TaskGlobal implementation context, 2026-05-04.
+
+This file is a resume pointer for the current Slice A work. Before acting, check
+`git status --short` and recent `git log` because docs and code/test changes are
+intentionally committed separately in this project.
 
 For a new session, start from:
 
 ```text
 docs/current-mental-model/context-map.md
-docs/current-mental-model/90-prompts/implementation-slice-a-compute-run-command-prompt.md
+docs/current-mental-model/architecture/dogfood-runtime/README.md
+docs/current-mental-model/architecture/dogfood-runtime/slice-a-compute-run-command.md
 ```
 
-The user has chosen to start implementing the first dogfood-runtime vertical:
-Slice A `:compute/run-command`. Use the implementation prompt above to plan and
-implement the smallest safe Slice A.0. Do not restart architecture selection.
+The old implementation prompt is now historical provenance, not the active
+starting point:
+
+```text
+docs/current-mental-model/90-prompts/implementation-slice-a-compute-run-command-prompt.md
+```
 
 ## Starting Point
 
@@ -46,16 +54,15 @@ test/app/server/rama/world_kernel_test.clj
 
 The private docs branch contains the current mental model and implementation
 trail. Keep docs commits local/private unless the user explicitly changes that
-rule.
+rule. Do not mix docs with code/test commits.
 
 ## Read Order
 
-For this implementation handoff, read these before editing:
+For architecture/code context, read these before editing:
 
 ```text
 .agents/skills/think-in-rama/SKILL.md
 docs/current-mental-model/README.md
-docs/current-mental-model/90-prompts/implementation-slice-a-compute-run-command-prompt.md
 docs/current-mental-model/architecture/action-request-kernel-routing.md
 docs/current-mental-model/architecture/logical-lifecycle-and-derived-depots.md
 docs/current-mental-model/architecture/dogfood-runtime/README.md
@@ -74,7 +81,9 @@ For code, inspect:
 
 ```text
 src/app/server/rama/core.clj
+src/app/server/rama/dogfood/compute.clj
 test/app/server/rama/world_kernel_test.clj
+test/app/server/rama/dogfood_compute_test.clj
 ```
 
 ## Canonical Loop
@@ -165,9 +174,9 @@ authorized-request? checks capabilities in the request envelope.
 Real policy must move into Rama-owned PStates/mirrors.
 ```
 
-## Active Implementation Handoff
+## Slice A TaskGlobal Shape
 
-Implement Slice A.0:
+Slice A.0 is:
 
 ```text
 :compute/run-command
@@ -177,14 +186,51 @@ Implement Slice A.0:
   -> live UI-readable PState
 ```
 
-Primary implementation target:
+Primary implementation files:
 
 ```text
 src/app/server/rama/dogfood/compute.clj
 test/app/server/rama/dogfood_compute_test.clj
 ```
 
-Do not implement in this slice:
+The architecture is now TaskGlobal-shaped:
+
+```text
+*compute-depot
+  -> ComputeTopology request branch
+  -> $$compute-runs
+  -> $$compute-pending-by-task[executor-task-id]
+  -> ComputeExecutorTaskGlobal reconcile loop
+  -> *compute-claim-depot
+  -> ComputeTopology claim branch
+  -> durable grant in $$compute-runs
+  -> worker pool spawns command
+  -> *compute-obs-depot
+  -> ComputeTopology observation branch
+  -> $$compute-views
+```
+
+The executor is not topology code. It is a module-owned out-of-band worker that
+reads PStates and writes depots. The topology remains the only PState writer.
+
+`run-one-pending-local!` still exists, but only as a manual/protocol test helper
+for the explicit `"local"` pending inbox. Normal requests are assigned an
+`:executor/task-id` and are picked up by `ComputeExecutorTaskGlobal`.
+
+Focused test command used for this slice:
+
+```bash
+clj -M:test -e '(require (quote app.server.rama.dogfood-compute-test)) (let [res (clojure.test/run-tests (quote app.server.rama.dogfood-compute-test)) ok? (and (zero? (:fail res)) (zero? (:error res)))] (shutdown-agents) (System/exit (if ok? 0 1)))'
+```
+
+Expected result:
+
+```text
+Ran 4 tests containing 36 assertions.
+0 failures, 0 errors.
+```
+
+Do not treat these as implemented by Slice A.0:
 
 ```text
 LLM / Codex / Claude agent track
@@ -196,20 +242,16 @@ Compute -> World mutation bridge
 full UI polish beyond the minimal live state proof
 ```
 
-Before coding, follow the preflight in:
-
-```text
-docs/current-mental-model/90-prompts/implementation-slice-a-compute-run-command-prompt.md
-```
-
-The first pass should prove:
-
-```text
-["echo" "hello"] -> :succeeded with stdout in live view
-["false"]        -> :failed with nonzero exit code
-double claim     -> only one durable winner, no double spawn
-```
-
 The concurrent architecture exploration is the LLM/agent mirror of this spine.
 That work should not block Slice A.0 implementation and should not be
 implemented in the compute patch.
+
+Commit hygiene:
+
+```text
+- Never read src/app/server/env.clj.
+- Do not commit .gitignore changes.
+- Do not use git reset --hard, git clean, or broad git restore.
+- Ignore unrelated dirty worktree files unless they block the task.
+- Commit docs separately from code/test files.
+```

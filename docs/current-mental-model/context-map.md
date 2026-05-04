@@ -148,8 +148,9 @@ architecture/dogfood-runtime/three-depot-current-system.md
   -> current three conceptual depot families: World, Compute, LLM-agent
 
 architecture/dogfood-runtime/slice-a-compute-run-command.md
-  -> canonical candidate for the first dogfood-runtime vertical slice:
-     :compute/run-command through Rama-owned claim, observations, and live view
+  -> implemented Slice A.0 spine for the first dogfood-runtime vertical slice:
+     :compute/run-command through TaskGlobal-owned claim/reconcile,
+     observations, and live view
   -> use as architecture context for implementation discussion, not as an
      automatic handoff
 ```

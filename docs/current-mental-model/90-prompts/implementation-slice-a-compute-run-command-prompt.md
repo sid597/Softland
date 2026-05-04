@@ -1,11 +1,26 @@
 # Implementation Prompt -- Slice A Compute Run Command
 
-Status: task handoff prompt, 2026-05-02.
+Status: historical implementation handoff, implemented 2026-05-04.
 
-Use this only after the user explicitly chooses to implement Slice A. It turns
-the architecture in `architecture/dogfood-runtime/slice-a-compute-run-command.md`
-into a planning-and-implementation session. It is not the default bootstrap for
-open-ended architecture discussion.
+This prompt is archived as the handoff that produced Slice A.0. It should not be
+used as an active "start implementation" prompt unless the user explicitly asks
+to replay or audit the original implementation session.
+
+Implemented result:
+
+```text
+src/app/server/rama/dogfood/compute.clj
+test/app/server/rama/dogfood_compute_test.clj
+```
+
+The implementation uses `ComputeExecutorTaskGlobal` as the normal module-owned
+executor. Normal `:compute/run-command` requests are assigned an
+`:executor/task-id`, materialized under `$$compute-pending-by-task`, claimed
+through `*compute-claim-depot`, and executed only after the durable grant is
+visible in `$$compute-runs`. The `run-one-pending-local!` helper remains for the
+explicit `"local"` manual/test inbox.
+
+The original copy/paste prompt is retained below for provenance.
 
 ## Copy/Paste Prompt
 

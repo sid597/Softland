@@ -1,6 +1,6 @@
 # Dogfood Runtime Direction
 
-Status: current architecture direction, 2026-05-01.
+Status: current architecture direction, updated 2026-05-04.
 
 This folder captures the current direction that emerged from the Rama/AOR
 discussion:
@@ -55,11 +55,12 @@ definitive tracks"
 4. slice-a-compute-run-command.md
 ```
 
-`slice-a-compute-run-command.md` is the current canonical candidate for the
-first vertical slice. It captures the post-review compute spine: UI/executor
-append depots, one topology owns PState writes, executor claims through Rama
-before spawning, observations stream back through Rama, and UI reads Rama
-PStates. It is architecture context, not an automatic implementation handoff.
+`slice-a-compute-run-command.md` is the implemented Slice A.0 spine for the
+first vertical slice. It captures the post-review compute shape: UI/executor
+append depots, one topology owns PState writes, `ComputeExecutorTaskGlobal`
+claims through Rama before spawning work, observations stream back through Rama,
+and UI reads Rama PStates. It is architecture context, not an automatic
+implementation handoff.
 
 ## Settled For Now
 
@@ -140,7 +141,7 @@ is dirtier and should be treated more like a runner:
 ComputeDepot
   -> ComputeTopology
   -> ComputeRunPState
-  -> ComputeExecutor
+  -> ComputeExecutorTaskGlobal
   -> ComputeObservationDepot
   -> ComputeViewsPState
   -> Softland UI
