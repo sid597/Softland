@@ -16,6 +16,7 @@
     :codex/approval-request
     :codex/token-usage
     :codex/tool-call
+    :codex/patch-proposal
     :codex/run-finished
     :codex/run-failed})
 
@@ -271,6 +272,8 @@
      :item-order []
      :raw-response-items {}
      :tool-calls-by-id {}
+     :patch-proposals-by-id {}
+     :patch-proposal-order []
      :approvals-pending {}
      :approvals-by-id {}
      :controls-by-id {}
@@ -490,14 +493,16 @@
        :codex/event-params (:codex/event-params opts)
        :raw/json (or (:raw/json opts) (:raw-json opts) {})}
       (select-keys opts
-                   [:llm-item/id :native/item-id :item/type :content/text
+                   [:world-thread/id :world-turn/id
+                    :llm-item/id :native/item-id :item/type :content/text
                     :content/hash :approval/id :approval/type
                     :native/json-rpc-request-id :tokens/input-total
                     :tokens/cached-input :tokens/output
                     :tokens/reasoning-output :model/context-window
                     :subscription/messages-used :billing/mode
                     :tool-call/id :tool-call/type :tool-call/name
-                    :tool-call/status :error]))))
+                    :tool-call/status :patch-proposal/id :turn-diff/id
+                    :patch/files :summary/text :error]))))
 
 (defn observation->item-row
   [obs]
@@ -567,6 +572,28 @@
    :received-at-ms (:received-at-ms obs)
    :raw/json (:raw/json obs)})
 
+(defn observation->patch-proposal-row
+  [obs]
+  (let [proposal-id (or (:patch-proposal/id obs)
+                        (:turn-diff/id obs)
+                        (:observation/id obs))]
+    {:patch-proposal/id proposal-id
+     :turn-diff/id (or (:turn-diff/id obs) proposal-id)
+     :llm-turn-run/id (:llm-turn-run/id obs)
+     :llm-thread/id (:llm-thread/id obs)
+     :sequence (:sequence obs)
+     :status :pending
+     :patch/files (:patch/files obs)
+     :summary/text (:summary/text obs)
+     :received-at-ms (:received-at-ms obs)
+     :raw/json (:raw/json obs)}))
+
+(defn add-patch-proposal
+  [run-row proposal]
+  (-> run-row
+      (assoc-in [:patch-proposals-by-id (:patch-proposal/id proposal)] proposal)
+      (update :patch-proposal-order conj-distinct (:patch-proposal/id proposal))))
+
 (defn add-raw-response-item
   [run-row obs]
   (assoc-in run-row [:raw-response-items (:observation/id obs)] (:raw/json obs)))
@@ -619,6 +646,11 @@
       (-> run-row
           (assoc-in [:tool-calls-by-id (or (:tool-call/id obs) (:observation/id obs))]
                     (observation->tool-call-row obs))
+          (assoc :updated-at t))
+
+      :codex/patch-proposal
+      (-> run-row
+          (add-patch-proposal (observation->patch-proposal-row obs))
           (assoc :updated-at t))
 
       :codex/run-finished
