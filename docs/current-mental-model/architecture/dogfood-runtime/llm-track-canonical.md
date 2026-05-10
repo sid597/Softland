@@ -1113,8 +1113,14 @@ versions of this doc):
    $$llm-items-by-run           $$llm-items-by-thread
                               + $$llm-items-by-turn-run
 
-   $$llm-conversation-graph     $$llm-thread-graph
-   (keyed by run-id)            (keyed by thread-id; DAG of forks)
+   $$llm-conversation-graph     $$world-thread-graph
+   (keyed by run-id)          + $$llm-thread-graph
+
+                                $$world-thread-graph:
+                                  user-facing fork/reconciliation DAG
+
+                                $$llm-thread-graph:
+                                  native executor fork lineage
 
    (new)                        $$context-bundles  (one per turn;
                                                     immutable;
@@ -1508,11 +1514,14 @@ Both are world-only WorldTurns. NO LLMTurnRun.
         sends thread/fork {threadId: A.codex-thread-id, ...config}
           → gets new threadId thread-B (Codex-side, thread-LEVEL
             fork — see §4)
-        records new threadId on $$llm-threads[chat-B]
+        appends fork-completed observation with new threadId
+        LLMTopology records new threadId on $$llm-threads[chat-B]
         sends turn/start {threadId: thread-B, input: B-1.rendered}
    
    6. Streams parallel to chat-A; canvas shows two sibling WorldThreads.
-   7. $$llm-thread-graph updates with chat-A → chat-B edge.
+   7. $$world-thread-graph updates with chat-A → chat-B edge.
+      $$llm-thread-graph records native thread-A → native thread-B
+      executor lineage.
 ```
 
 NOTE: Codex's `thread/fork` is **thread-level only** (no fromItemId).
@@ -1658,8 +1667,10 @@ which v2 (post-Codex) backgrounded but did NOT remove.
 ```text
    CONCEPT                        WHERE IT LIVES IN V2+BREADTH
 
-   Forks / DAG of threads         :parent-thread/id on $$llm-threads;
-                                  $$llm-thread-graph PState
+   Forks / DAG of threads         :parent-thread/id on $$world-threads;
+                                  $$world-thread-graph PState
+
+   Native fork lineage            $$llm-thread-graph PState
 
    Plurality / disagreement       enabled by thread DAG;
                                   no automatic reconciliation

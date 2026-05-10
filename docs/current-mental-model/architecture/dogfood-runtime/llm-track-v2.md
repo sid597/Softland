@@ -181,8 +181,14 @@ on the LLMThread. Most user moves never involve the model.
    $$llm-items-by-run           $$llm-items-by-thread
                               + $$llm-items-by-turn-run
 
-   $$llm-conversation-graph     $$llm-thread-graph
-   (keyed by run-id)            (keyed by thread-id; DAG of forks)
+   $$llm-conversation-graph     $$world-thread-graph
+   (keyed by run-id)          + $$llm-thread-graph
+
+                                $$world-thread-graph:
+                                  user-facing fork/reconciliation DAG
+
+                                $$llm-thread-graph:
+                                  native executor fork lineage
 
    (new)                        $$context-bundles  (one per turn;
                                                     immutable;
@@ -290,8 +296,10 @@ send" section.)
 ```text
   CONCEPT                        WHERE IT LIVES IN V2+BREADTH
 
-  Forks / DAG of threads         :parent-thread/id on $$llm-threads
-                                 $$llm-thread-graph PState
+  Forks / DAG of threads         :parent-thread/id on $$world-threads
+                                 $$world-thread-graph PState
+
+  Native fork lineage            $$llm-thread-graph PState
 
   Plurality / disagreement       enabled by thread DAG;
                                  no automatic reconciliation
