@@ -329,6 +329,13 @@
                                            (:native/codex-thread-id base)))
         (update :turn-run/ids conj-distinct (:llm-turn-run/id run-row)))))
 
+(defn bind-run-to-existing-thread
+  [run-row existing-thread-row]
+  (cond-> run-row
+    (and (nil? (:native/codex-thread-id run-row))
+         (some? (:native/codex-thread-id existing-thread-row)))
+    (assoc :native/codex-thread-id (:native/codex-thread-id existing-thread-row))))
+
 (defn run-items-vector
   [run-row]
   (vec (keep #(get-in run-row [:items-by-id %]) (:item-order run-row))))
@@ -559,10 +566,30 @@
   [run-row obs]
   (assoc-in run-row [:raw-response-items (:observation/id obs)] (:raw/json obs)))
 
+(defn observation-native-thread-id
+  [obs]
+  (or (:native/codex-thread-id obs)
+      (get-in obs [:codex/event-params :thread/id])
+      (get-in obs [:codex/event-params :thread-id])
+      (get-in obs [:codex/event-params :thread_id])
+      (get-in obs [:raw/json :thread/id])
+      (get-in obs [:raw/json :thread-id])
+      (get-in obs [:raw/json :thread_id])))
+
+(defn bind-run-to-observation-thread
+  [run-row obs]
+  (if-let [native-thread-id (observation-native-thread-id obs)]
+    (assoc run-row
+           :native/codex-thread-id
+           (or (:native/codex-thread-id run-row) native-thread-id))
+    run-row))
+
 (defn apply-observation-effect
   [run-row obs]
   (let [t (or (:received-at-ms obs) (now-ms))
-        run-row (add-raw-response-item run-row obs)]
+        run-row (-> run-row
+                    (add-raw-response-item obs)
+                    (bind-run-to-observation-thread obs))]
     (case (:observation/type obs)
       :codex/item-completed
       (-> run-row
@@ -817,24 +844,26 @@
         (initial-turn-run-row *decision :> *run-row)
         (current-task-id :> *current-task-id)
         (assign-executor-task *run-row *current-task-id :> *assigned-run-row)
-        (run-executor-task-id *assigned-run-row :> *executor-task-id)
-        (run-view *assigned-run-row :> *view)
-        (pending-entry *assigned-run-row :> *pending-entry)
-        (turn-run-summary *assigned-run-row :> *run-summary)
         (run-thread-id *assigned-run-row :> *thread-id)
+        (|hash *thread-id)
+        (local-select> [(keypath *thread-id)] $$llm-threads :> *existing-thread-row)
+        (bind-run-to-existing-thread *assigned-run-row *existing-thread-row :> *bound-run-row)
+        (run-executor-task-id *bound-run-row :> *executor-task-id)
+        (run-view *bound-run-row :> *view)
+        (pending-entry *bound-run-row :> *pending-entry)
+        (turn-run-summary *bound-run-row :> *run-summary)
         (run-world-thread-id *assigned-run-row :> *world-thread-id)
         (run-world-turn-id *assigned-run-row :> *world-turn-id)
-        (local-transform> [(keypath *run-id) (termval *assigned-run-row)] $$llm-turn-runs)
+        (upsert-thread-row *existing-thread-row *bound-run-row :> *thread-row)
+        (local-transform> [(keypath *thread-id) (termval *thread-row)] $$llm-threads)
+        (local-transform> [(keypath *thread-id) (keypath *run-id) (termval *run-summary)] $$llm-turn-runs-by-thread)
+        (|hash *run-id)
+        (local-transform> [(keypath *run-id) (termval *bound-run-row)] $$llm-turn-runs)
         (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
         (|hash *world-turn-id)
         (local-transform> [(keypath *world-turn-id) (termval *run-id)] $$llm-turn-run-by-world-turn)
         (|hash *executor-task-id)
         (local-transform> [(keypath *executor-task-id) (keypath *run-id) (termval *pending-entry)] $$llm-pending-by-task)
-        (|hash *thread-id)
-        (local-select> [(keypath *thread-id)] $$llm-threads :> *existing-thread-row)
-        (upsert-thread-row *existing-thread-row *assigned-run-row :> *thread-row)
-        (local-transform> [(keypath *thread-id) (termval *thread-row)] $$llm-threads)
-        (local-transform> [(keypath *thread-id) (keypath *run-id) (termval *run-summary)] $$llm-turn-runs-by-thread)
         (|hash *world-thread-id)
         (local-transform> [(keypath *world-thread-id) (termval *thread-id)] $$llm-thread-by-world-thread))
 
@@ -864,6 +893,7 @@
         (run-approvals-by-id *updated-run-row :> *approvals-by-id)
         (run-token-usage *updated-run-row :> *token-usage)
         (run-thread-id *updated-run-row :> *thread-id)
+        (turn-run-summary *updated-run-row :> *run-summary)
         (local-transform> [(keypath *run-id) (termval *updated-run-row)] $$llm-turn-runs)
         (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
         (local-transform> [(keypath *run-id) (termval *items-by-id)] $$llm-items-by-turn-run)
@@ -872,6 +902,10 @@
         (local-transform> [(keypath *run-id) (termval *approvals-by-id)] $$llm-approvals-by-run-id)
         (local-transform> [(keypath *run-id) (termval *token-usage)] $$llm-token-usage-by-run-id)
         (|hash *thread-id)
+        (local-select> [(keypath *thread-id)] $$llm-threads :> *existing-thread-row)
+        (upsert-thread-row *existing-thread-row *updated-run-row :> *thread-row)
+        (local-transform> [(keypath *thread-id) (termval *thread-row)] $$llm-threads)
+        (local-transform> [(keypath *thread-id) (keypath *run-id) (termval *run-summary)] $$llm-turn-runs-by-thread)
         (local-transform> [(keypath *thread-id) (keypath *run-id) (termval *items-by-id)] $$llm-items-by-thread)
         (<<if (observation-approval-materialized? *updated-run-row *obs)
           (observation->approval-row *obs :> *approval)
