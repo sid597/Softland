@@ -327,6 +327,7 @@
   (cond
     (:object/id ref) (str "object:" (:object/id ref))
     (:slice/id ref) (str "slice:" (:slice/id ref))
+    (:derivative/id ref) (str "user-authored-derivative:" (:derivative/id ref))
     (:world-turn/id ref) (str "world-turn:" (:world-turn/id ref))
     :else (pr-str ref)))
 
@@ -759,6 +760,190 @@
     (:request/time-ms llm-request)
     (:request/id llm-request)))
 
+(defn content-hash
+  [text]
+  (str "sha256:" (kernel/sha-256 (or text ""))))
+
+(defn material-request?
+  [request-type]
+  (contains? #{:world-turn/slice-create
+               :world-turn/comment-create
+               :world-turn/derivative-create}
+             request-type))
+
+(defn request-source
+  [request]
+  (or (get-in request [:payload :source])
+      (get-in request [:payload :target])
+      (first (get-in request [:payload :refs]))))
+
+(defn raw-llm-source?
+  [request]
+  (not (blank-string? (get (request-source request) :llm-item/id))))
+
+(defn source-content-text
+  [request]
+  (or (get-in request [:payload :source :content/text])
+      (get-in request [:payload :source :snapshot/text])
+      (get-in request [:payload :source :text])
+      (get-in request [:payload :content/text])
+      (get-in request [:payload :prompt/text])
+      ""))
+
+(defn source-content-hash
+  [request]
+  (or (get-in request [:payload :source :content/hash])
+      (get-in request [:payload :source :snapshot/hash])
+      (content-hash (source-content-text request))))
+
+(defn request-slice-id
+  [request]
+  (or (get-in request [:payload :slice/id])
+      (:slice/id request)
+      (str (:request/id request) "/slice")))
+
+(defn request-overlay-id
+  [request]
+  (or (get-in request [:payload :overlay/id])
+      (:overlay/id request)
+      (str (:request/id request) "/overlay")))
+
+(defn request-derivative-id
+  [request]
+  (or (get-in request [:payload :derivative/id])
+      (:derivative/id request)
+      (str (:request/id request) "/derivative")))
+
+(defn slice-row
+  [request turn-event]
+  (let [snapshot-text (or (get-in request [:payload :slice/snapshot-text])
+                          (get-in request [:payload :snapshot/text])
+                          (get-in request [:payload :content/text])
+                          (source-content-text request))]
+    {:slice/id (request-slice-id request)
+     :world-thread/id (request-thread-id request)
+     :world-turn/id (:world-turn/id turn-event)
+     :source (request-source request)
+     :source/content-hash (source-content-hash request)
+     :snapshot/text snapshot-text
+     :snapshot/hash (content-hash snapshot-text)
+     :created-at-ms (:event/time-ms turn-event)
+     :created-by (:actor request)}))
+
+(defn overlay-row
+  [request turn-event]
+  {:overlay/id (request-overlay-id request)
+   :overlay/type :comment
+   :world-thread/id (request-thread-id request)
+   :world-turn/id (:world-turn/id turn-event)
+   :target (request-source request)
+   :body/text (get-in request [:payload :prompt/text])
+   :created-at-ms (:event/time-ms turn-event)
+   :created-by (:actor request)})
+
+(defn derivative-row
+  [request turn-event]
+  (let [text (or (get-in request [:payload :content/text])
+                 (get-in request [:payload :prompt/text])
+                 "")]
+    {:derivative/id (request-derivative-id request)
+     :world-thread/id (request-thread-id request)
+     :world-turn/id (:world-turn/id turn-event)
+     :source (request-source request)
+     :source/content-hash (source-content-hash request)
+     :content/text text
+     :content/hash (content-hash text)
+     :authorship :user
+     :render/as :user-authored
+     :created-at-ms (:event/time-ms turn-event)
+     :created-by (:actor request)}))
+
+(defn slice-row-id [slice] (:slice/id slice))
+(defn overlay-row-id [overlay] (:overlay/id overlay))
+(defn derivative-row-id [derivative] (:derivative/id derivative))
+
+(defn raw-llm-item-object-row
+  [request]
+  (let [source (request-source request)
+        item-id (:llm-item/id source)]
+    {:object/id (catalog-object-id :llm-item item-id)
+     :object/type :llm-item
+     :source/type :llm-item
+     :source/id item-id
+     :llm-item/id item-id
+     :llm-turn-run/id (:llm-turn-run/id source)
+     :llm-thread/id (:llm-thread/id source)
+     :content/hash (source-content-hash request)
+     :visibility :public-material
+     :promoted-at-ms (:request/time-ms request)
+     :promoted-by-request/id (:request/id request)}))
+
+(defn slice-object-row
+  [slice]
+  {:object/id (catalog-object-id :slice (:slice/id slice))
+   :object/type :slice
+   :source/type :slice
+   :source/id (:slice/id slice)
+   :slice/id (:slice/id slice)
+   :world-thread/id (:world-thread/id slice)
+   :world-turn/id (:world-turn/id slice)
+   :snapshot/hash (:snapshot/hash slice)
+   :source/content-hash (:source/content-hash slice)
+   :created-at-ms (:created-at-ms slice)})
+
+(defn overlay-object-row
+  [overlay]
+  {:object/id (catalog-object-id :overlay (:overlay/id overlay))
+   :object/type :overlay
+   :source/type :overlay
+   :source/id (:overlay/id overlay)
+   :overlay/id (:overlay/id overlay)
+   :overlay/type (:overlay/type overlay)
+   :world-thread/id (:world-thread/id overlay)
+   :world-turn/id (:world-turn/id overlay)
+   :created-at-ms (:created-at-ms overlay)})
+
+(defn derivative-object-row
+  [derivative]
+  {:object/id (catalog-object-id :derivative (:derivative/id derivative))
+   :object/type :derivative
+   :source/type :derivative
+   :source/id (:derivative/id derivative)
+   :derivative/id (:derivative/id derivative)
+   :world-thread/id (:world-thread/id derivative)
+   :world-turn/id (:world-turn/id derivative)
+   :content/hash (:content/hash derivative)
+   :authorship (:authorship derivative)
+   :render/as (:render/as derivative)
+   :created-at-ms (:created-at-ms derivative)})
+
+(defn source-slice-edge
+  [raw-object slice]
+  (artifact-edge
+    (:object/id raw-object)
+    :sliced-into
+    (catalog-object-id :slice (:slice/id slice))
+    (:created-at-ms slice)
+    (:world-turn/id slice)))
+
+(defn source-overlay-edge
+  [raw-object overlay]
+  (artifact-edge
+    (:object/id raw-object)
+    :commented-by
+    (catalog-object-id :overlay (:overlay/id overlay))
+    (:created-at-ms overlay)
+    (:world-turn/id overlay)))
+
+(defn source-derivative-edge
+  [raw-object derivative]
+  (artifact-edge
+    (:object/id raw-object)
+    :derived-into
+    (catalog-object-id :derivative (:derivative/id derivative))
+    (:created-at-ms derivative)
+    (:world-turn/id derivative)))
+
 (defmodule world-module [setup topologies]
   (mirror-depot setup *llm-depot (get-module-name llm/llm-module) "*llm-depot")
   (mirror-depot setup *llm-control-depot (get-module-name llm/llm-module) "*llm-control-depot")
@@ -781,6 +966,9 @@
     (declare-pstate n $$objects {String Object})
     (declare-pstate n $$artifact-graph {String Object})
     (declare-pstate n $$artifact-graph-in {String Object})
+    (declare-pstate n $$slices {String Object})
+    (declare-pstate n $$overlays {String Object})
+    (declare-pstate n $$derivatives {String Object})
 
     (<<sources n
       (source> *world-action-depot :> *request)
@@ -1004,7 +1192,70 @@
           (|hash *thread-turn-to)
           (local-transform> [(keypath *thread-turn-to) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph-in)
           (|hash *turn-object-id)
-          (local-transform> [(keypath *turn-object-id) (termval *turn-object)] $$objects))
+          (local-transform> [(keypath *turn-object-id) (termval *turn-object)] $$objects)
+          (<<if (= :world-turn/slice-create *request-type)
+            (slice-row *request *turn-event :> *slice-row)
+            (slice-object-row *slice-row :> *slice-object)
+            (slice-row-id *slice-row :> *slice-id)
+            (object-row-id *slice-object :> *slice-object-id)
+            (|hash *slice-id)
+            (local-transform> [(keypath *slice-id) (termval *slice-row)] $$slices)
+            (|hash *slice-object-id)
+            (local-transform> [(keypath *slice-object-id) (termval *slice-object)] $$objects)
+            (<<if (raw-llm-source? *request)
+              (raw-llm-item-object-row *request :> *raw-object)
+              (source-slice-edge *raw-object *slice-row :> *source-edge)
+              (object-row-id *raw-object :> *raw-object-id)
+              (artifact-edge-id *source-edge :> *source-edge-id)
+              (artifact-edge-from *source-edge :> *source-edge-from)
+              (artifact-edge-to *source-edge :> *source-edge-to)
+              (|hash *raw-object-id)
+              (local-transform> [(keypath *raw-object-id) (termval *raw-object)] $$objects)
+              (local-transform> [(keypath *source-edge-from) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph)
+              (|hash *source-edge-to)
+              (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in)))
+          (<<if (= :world-turn/comment-create *request-type)
+            (overlay-row *request *turn-event :> *overlay-row)
+            (overlay-object-row *overlay-row :> *overlay-object)
+            (overlay-row-id *overlay-row :> *overlay-id)
+            (object-row-id *overlay-object :> *overlay-object-id)
+            (|hash *overlay-id)
+            (local-transform> [(keypath *overlay-id) (termval *overlay-row)] $$overlays)
+            (|hash *overlay-object-id)
+            (local-transform> [(keypath *overlay-object-id) (termval *overlay-object)] $$objects)
+            (<<if (raw-llm-source? *request)
+              (raw-llm-item-object-row *request :> *raw-object)
+              (source-overlay-edge *raw-object *overlay-row :> *source-edge)
+              (object-row-id *raw-object :> *raw-object-id)
+              (artifact-edge-id *source-edge :> *source-edge-id)
+              (artifact-edge-from *source-edge :> *source-edge-from)
+              (artifact-edge-to *source-edge :> *source-edge-to)
+              (|hash *raw-object-id)
+              (local-transform> [(keypath *raw-object-id) (termval *raw-object)] $$objects)
+              (local-transform> [(keypath *source-edge-from) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph)
+              (|hash *source-edge-to)
+              (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in)))
+          (<<if (= :world-turn/derivative-create *request-type)
+            (derivative-row *request *turn-event :> *derivative-row)
+            (derivative-object-row *derivative-row :> *derivative-object)
+            (derivative-row-id *derivative-row :> *derivative-id)
+            (object-row-id *derivative-object :> *derivative-object-id)
+            (|hash *derivative-id)
+            (local-transform> [(keypath *derivative-id) (termval *derivative-row)] $$derivatives)
+            (|hash *derivative-object-id)
+            (local-transform> [(keypath *derivative-object-id) (termval *derivative-object)] $$objects)
+            (<<if (raw-llm-source? *request)
+              (raw-llm-item-object-row *request :> *raw-object)
+              (source-derivative-edge *raw-object *derivative-row :> *source-edge)
+              (object-row-id *raw-object :> *raw-object-id)
+              (artifact-edge-id *source-edge :> *source-edge-id)
+              (artifact-edge-from *source-edge :> *source-edge-from)
+              (artifact-edge-to *source-edge :> *source-edge-to)
+              (|hash *raw-object-id)
+              (local-transform> [(keypath *raw-object-id) (termval *raw-object)] $$objects)
+              (local-transform> [(keypath *source-edge-from) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph)
+              (|hash *source-edge-to)
+              (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in))))
 
         (default>)
         (rejected-decision *request :request/type-invalid :> *decision)
@@ -1041,6 +1292,9 @@
      :objects (foreign-pstate ipc module-name "$$objects")
      :artifact-graph (foreign-pstate ipc module-name "$$artifact-graph")
      :artifact-graph-in (foreign-pstate ipc module-name "$$artifact-graph-in")
+     :slices (foreign-pstate ipc module-name "$$slices")
+     :overlays (foreign-pstate ipc module-name "$$overlays")
+     :derivatives (foreign-pstate ipc module-name "$$derivatives")
      :llm-depot (foreign-depot ipc llm-module-name "*llm-depot")
      :llm-claim-depot (foreign-depot ipc llm-module-name "*llm-claim-depot")
      :llm-obs-depot (foreign-depot ipc llm-module-name "*llm-obs-depot")
@@ -1149,6 +1403,18 @@
   [runtime object-id]
   (or (select-pstate-one (:artifact-graph-in runtime) [(keypath object-id)])
       {}))
+
+(defn read-slice
+  [runtime slice-id]
+  (select-pstate-one (:slices runtime) [(keypath slice-id)]))
+
+(defn read-overlay
+  [runtime overlay-id]
+  (select-pstate-one (:overlays runtime) [(keypath overlay-id)]))
+
+(defn read-derivative
+  [runtime derivative-id]
+  (select-pstate-one (:derivatives runtime) [(keypath derivative-id)]))
 
 (defn await-materialized
   ([read-f pred]

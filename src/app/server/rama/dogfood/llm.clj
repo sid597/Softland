@@ -517,9 +517,11 @@
 
 (defn add-item
   [run-row item]
-  (-> run-row
-      (assoc-in [:items-by-id (:llm-item/id item)] item)
-      (update :item-order conj-distinct (:llm-item/id item))))
+  (if (get-in run-row [:items-by-id (:llm-item/id item)])
+    run-row
+    (-> run-row
+        (assoc-in [:items-by-id (:llm-item/id item)] item)
+        (update :item-order conj-distinct (:llm-item/id item)))))
 
 (defn observation->approval-row
   [obs]
@@ -695,6 +697,10 @@
 (defn item-row-id
   [item-row]
   (:llm-item/id item-row))
+
+(defn keep-existing-item-row
+  [existing item-row]
+  (or existing item-row))
 
 (defn run-items-by-id [run-row] (:items-by-id run-row))
 (defn run-raw-response-items [run-row] (:raw-response-items run-row))
@@ -928,7 +934,9 @@
           (observation->item-row *obs :> *item-row)
           (item-row-id *item-row :> *item-id)
           (|hash *item-id)
-          (local-transform> [(keypath *item-id) (termval *item-row)] $$llm-item-by-id)))
+          (local-select> [(keypath *item-id)] $$llm-item-by-id :> *existing-item-row)
+          (keep-existing-item-row *existing-item-row *item-row :> *indexed-item-row)
+          (local-transform> [(keypath *item-id) (termval *indexed-item-row)] $$llm-item-by-id)))
 
       (source> *llm-control-depot :> *control)
       (control-run-id *control :> *run-id)
