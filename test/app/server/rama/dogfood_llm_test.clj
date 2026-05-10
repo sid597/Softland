@@ -370,3 +370,126 @@
             (is (= run-id (:llm-turn-run/id approval)))
             (is (= :blocked-awaiting-approval
                    (:status (llm/read-run runtime run-id))))))))))
+
+(deftest fake-executor-claim-and-stream-test
+  (with-llm-runtime
+    (fn [runtime]
+      (testing "executor boundary claims from Rama, loads bundle, then streams adapter observations"
+        (let [run-id "run_fake_executor"
+              _ (append-run-and-await-pending! runtime run-id)
+              loaded-bundles (atom [])
+              result (llm/run-one-pending-with-adapter!
+                       runtime
+                       {:executor-id "executor-fake"
+                        :load-context-bundle (fn [bundle-id]
+                                               (swap! loaded-bundles conj bundle-id)
+                                               {:context-bundle/id bundle-id
+                                                :rendered/model-input "hello model"})
+                        :adapter (llm/fake-codex-adapter
+                                   [{:observation/type :codex/item-completed
+                                     :observation-id "obs-fake-item"
+                                     :llm-item/id "item-fake"
+                                     :content/text "fake adapter reply"
+                                     :raw/json {:event "item/completed"}}
+                                    {:observation/type :codex/token-usage
+                                     :observation-id "obs-fake-usage"
+                                     :tokens/input-total 12
+                                     :tokens/cached-input 4
+                                     :tokens/output 3}
+                                    {:observation/type :codex/run-finished
+                                     :observation-id "obs-fake-finish"}])})
+              view (llm/await-view runtime run-id #(= :succeeded (:status %)))]
+          (is (= :granted-to-us (:claim-state result)))
+          (is (:spawned? result))
+          (is (:spawned-after-grant? result))
+          (is (= 3 (:observations-appended result)))
+          (is (= [(str run-id "/bundle")] @loaded-bundles))
+          (is (= "fake adapter reply"
+                 (get-in (llm/read-items-by-run runtime run-id)
+                         ["item-fake" :content/text])))
+          (is (= 12 (get-in view [:token-usage :tokens/input-total]))))))))
+
+(deftest stale-approval-on-executor-death-test
+  (with-llm-runtime
+    (fn [runtime]
+      (testing "executor death expires unresolved approvals and fails the run"
+        (let [run-id "run_stale_approval"
+              _ (append-run-and-await-pending! runtime run-id)
+              claim (llm/claim-record
+                      run-id
+                      "llm-thread-A"
+                      "executor-stale"
+                      {:claim-token "claim-token-stale"
+                       :executor-task-id llm/pending-task-id})
+              approval-id "approval-stale"]
+          (llm/append-claim! runtime claim)
+          (llm/await-run runtime run-id #(= :claimed (:status %)))
+          (llm/append-observation!
+            runtime
+            (llm/observation
+              run-id
+              "llm-thread-A"
+              :codex/approval-request
+              0
+              {:observation-id "obs-stale-approval"
+               :approval/id approval-id
+               :approval/type :exec
+               :native/json-rpc-request-id 88
+               :codex/event-method "item/cmdExec/requestApproval"}))
+          (llm/await-materialized #(llm/read-pending-approval runtime approval-id) some?)
+          (let [result (llm/mark-stale-approvals!
+                         runtime
+                         run-id
+                         {:executor-id "executor-stale"
+                          :time-ms 200})
+                run (llm/await-run runtime run-id #(= :failed (:status %)))
+                approval (get (llm/read-approvals-by-run runtime run-id) approval-id)]
+            (is (= [approval-id] (:stale-approval-ids result)))
+            (is (= :failed (:action result)))
+            (is (= :expired (:status approval)))
+            (is (= :executor-stale (:reason (llm/read-control runtime
+                                                              (str run-id "/stale-approval/" approval-id)))))
+            (is (nil? (llm/await-materialized
+                        #(llm/read-pending-approval runtime approval-id)
+                        nil?)))
+            (is (= :approval/declined (get-in run [:error :reason])))))))))
+
+(deftest run-failed-policy-on-stale-approval-test
+  (with-llm-runtime
+    (fn [runtime]
+      (testing "stale approval follows the recorded fail policy for this MVP slice"
+        (let [run-id "run_stale_policy"
+              request (llm/turn-run-request
+                        "chat-policy"
+                        "WT-policy"
+                        "B-policy"
+                        {:llm-turn-run-id run-id
+                         :llm-thread-id "llm-thread-policy"
+                         :request-id "req-policy"
+                         :time-ms 1
+                         :executor-task-id llm/pending-task-id
+                         :run-restart-policy :fail-on-stale-approval})
+              approval-id "approval-policy"]
+          (llm/append-turn-run-request! runtime request)
+          (llm/await-run runtime run-id #(= :pending (:status %)))
+          (llm/append-observation!
+            runtime
+            (llm/observation
+              run-id
+              "llm-thread-policy"
+              :codex/approval-request
+              0
+              {:observation-id "obs-policy-approval"
+               :approval/id approval-id
+               :native/json-rpc-request-id 99}))
+          (llm/await-materialized #(llm/read-pending-approval runtime approval-id) some?)
+          (let [result (llm/mark-stale-approvals!
+                         runtime
+                         run-id
+                         {:executor-id "executor-policy"
+                          :time-ms 250})
+                run (llm/await-run runtime run-id #(= :failed (:status %)))]
+            (is (= :fail-on-stale-approval (:run/restart-policy result)))
+            (is (= :fail-on-stale-approval (:run/restart-policy run)))
+            (is (= :failed (:action result)))
+            (is (= :expired (get-in run [:error :decision])))))))))
