@@ -20,6 +20,14 @@ breadth concepts are structurally hooked but require elaboration.
   - multi-WorldThread bundles (reconciliation)
   - reverse-MCP (custom tools — agent reads world state)
   - typed projections (discourse graph as filter on artifact graph)
+- **2026-05-10 v2.1 (post-second-review)**: three additional repairs:
+  - **WorldTurn added** between WorldThread and ContextBundle (not
+    every user move triggers an LLM execution).
+  - **Pattern X removed** as a valid architecture path. World-first
+    is the only canonical send.
+  - **Fork semantics corrected** to thread-level only (Codex's
+    `thread/fork` takes `threadId` + config; no `fromItemId`).
+    Softland owns span anchoring via slice-and-quote.
 
 ## Three Thin Views (canonical entry points)
 
@@ -30,8 +38,15 @@ of this doc for reference.
 ### View A — Thin spine (flow, with breadth labels in margin)
 
 ```text
-   WorldThread chat-A         ← composed view; drafts / slices / edits / forks
+   WorldThread chat-A         ← long-lived chat container
          │                    ★ :parent-thread/id makes threads a DAG
+         ▼
+   WorldTurn WT-N             ← ONE user move
+         │                       (compose-and-send / slice / edit /
+         │                        accept-patch / cancel / fork / ...)
+         │
+         │  only :compose-and-send WorldTurns continue down
+         │
          │ SEND               ★ may aggregate multiple WorldThreads (reconcile)
          ▼
    ContextBundle ctx-N        ← immutable model input for ONE turn
@@ -45,6 +60,10 @@ of this doc for reference.
          ▼
    Object Catalog + Graph     ← citeable identity, typed edges
                               ★ discourse graph = filter {Q,C,E,D,R,F}
+
+   Non-:compose-and-send WorldTurns route directly to world artifacts
+   (overlays / derivatives / decisions) without ContextBundle or
+   LLMTurnRun.
 ```
 
 ### View B — Thin containment (nesting / what-owns-what)
@@ -53,24 +72,28 @@ of this doc for reference.
    WorldThread chat-A
          │
          ▼
-   LLMThread codex-thread-123
+   LLMThread codex-thread-123                 (parallel structure on
+         │                                     the execution side)
          │
-         ├── TurnRun run-1
-         │     ├── ContextBundle ctx-1   (frozen at SEND)
-         │     └── items                  (user / assistant / tool / reasoning)
+         │  WorldTurns and their consequences:
          │
-         ├── TurnRun run-2
-         │     ├── ContextBundle ctx-2
-         │     └── items
+         ├── WT-1 (compose & send)  ──► ContextBundle B-1 ──► LLMTurnRun run-1
+         │                                                          └─ items
          │
-         └── TurnRun run-3
-               ├── ContextBundle ctx-3
-               └── items
+         ├── WT-2 (slice paragraph) ──► world overlay only (no LLM)
+         │
+         ├── WT-3 (edit derivative) ──► world derivative only (no LLM)
+         │
+         ├── WT-4 (follow-up & send)──► ContextBundle B-4 ──► LLMTurnRun run-2
+         │                                                          └─ items
+         │
+         └── WT-5 (accept patch)    ──► world catalog mutation (no LLM)
 ```
 
-ContextBundle and items are siblings of each TurnRun, not predecessors —
-the bundle is the turn's input, items are the turn's output, both keyed
-by run-id.
+ContextBundle and items are siblings of each LLMTurnRun, not
+predecessors. WorldTurns are NOT all paired with LLMTurnRuns — only
+`:compose-and-send` WorldTurns produce a ContextBundle + LLMTurnRun
+on the LLMThread. Most user moves never involve the model.
 
 ### View C — Thin fork DAG (plurality across chats)
 
@@ -188,23 +211,19 @@ by run-id.
      that view as fresh input."
 ```
 
-## Pattern X vs Pattern Y
+## World-first send (canonical)
+
+All user intents flow through the World track first. There is **no**
+direct UI → `*llm-depot` path. (Earlier versions of this doc listed a
+"Pattern X" — direct-to-LLM — as acceptable for MVP. That option has
+been removed. World-first is the only canonical path.)
 
 ```text
-  PATTERN X — DIRECT (acceptable for MVP)
-
-    UI ──► *llm-depot ──► LLMTopology ──► $$llm-threads,
-                                          $$llm-turn-runs
-                                       ──► (catalog updated downstream)
-
-
-  PATTERN Y — WORLD-FIRST (canonical long-term)
-
     UI ──► *world-action ──► WorldTopology
                                   │
-                                  │ creates citeable pending
-                                  │ chat/turn object in $$objects
-                                  │ (visible BEFORE run starts)
+                                  │ creates WorldTurn + ContextBundle
+                                  │ + pending citeable object in $$objects
+                                  │ (citeable BEFORE LLM run starts)
                                   │
                                   │ foreign-append
                                   ▼
@@ -220,25 +239,51 @@ by run-id.
                               raw items + catalog refs
 ```
 
-For Sid's "everything is part of the world" instinct, Pattern Y is the
-canonical shape. Pattern X is a refactor-later concession to MVP simplicity.
+Why world-first is the only path: every LLM execution should have a
+world-side authored intent behind it. Capability checks, approval
+gating, provenance, and catalog citeability all live in the World
+track. Bypassing world creates an asymmetry where some chats are
+first-class citeable objects and others aren't — exactly what
+collapses Softland into a chat app.
+
+## Codex fork semantics (thread-level only)
+
+Codex's `app-server thread/fork` takes `threadId` + config overrides
+ONLY. No `fromItemId`. No `excludeTurns`. Earlier inference of
+item-boundary fork was wrong. Confirmed by regenerating the local
+TypeScript schema.
+
+```text
+   Codex fork    = thread-LEVEL fork (whole history copied)
+   Softland      = owns span/item anchoring via slice-and-quote:
+                     1. create $$slices[S-1] with content snapshot
+                     2. thread/fork {threadId, ...config} → new thread
+                     3. turn/start with input quoting S-1.content
+```
+
+Span semantics live in Softland data (`$$slices`, `$$artifact-graph`),
+not in the Codex wire.
 
 ## Open Decisions (Sid-decidable, not cross-model decidable)
 
 1. **ContextBundle physical home.** Three options:
    - Own depot (`*context-bundle-depot`) — auditable, replayable
-   - Topology-internal (composed at SEND time, stored as part of `$$llm-turn-runs`)
-   - World track (composed by WorldTopology, foreign-appended to LLMDepot)
+   - Topology-internal (composed in WorldTopology at SEND time,
+     stored in `$$context-bundles` before foreign-append to LLMDepot)
+   - World track sub-component
+   (Either way it's authored on the World/Context side per world-first;
+   the choice is where in that side it physically lives.)
 
 2. **World derivatives organization.** Single PState (`$$world-derivatives`)
    vs kind-typed many (`$$edited-messages`, `$$curated-excerpts`,
    `$$synthesized-notes`). Trade-off: simplicity vs queryability.
 
-3. **MVP commitment.** Pattern X day-one (and refactor later) or Pattern Y
-   day-one? Trade-off: ship speed vs eventual rework.
-
-4. **Derivative versioning.** Edit twice → keep both versions, or single
+3. **Derivative versioning.** Edit twice → keep both versions, or single
    mutable artifact? Trade-off: history vs storage.
+
+(Earlier versions of this doc listed "Pattern X vs Pattern Y" as an open
+decision. **Closed**: world-first / Pattern Y is canonical. See "World-first
+send" section.)
 
 ## What Was Compressed By Codex (preserved as breadth labels)
 
@@ -279,17 +324,19 @@ canonical shape. Pattern X is a refactor-later concession to MVP simplicity.
 ## Bottom Line
 
 ```text
-  v2 is the SPINE.
+  v2.1 is the SPINE.
   The four breadth labels keep v2 from collapsing into a chat-app
   architecture.
 
-  ACCEPT (from Codex gate):
-    - Four-class artifact taxonomy
-    - Three-level naming (Thread / TurnRun / Item)
+  CANONICAL (post-second-review):
+    - Four-class artifact taxonomy (raw / overlay / derivative / bundle)
+    - Five-level naming (WorldThread / WorldTurn / [ContextBundle /
+      LLMTurnRun] / LLMItem; LLMThread parallel on execution side)
     - ContextBundle as first-class (HOME: World/Context track)
-    - Pattern Y as canonical (Pattern X for MVP)
+    - World-first send (the only path; Pattern X removed)
+    - Codex thread/fork is thread-level only; Softland owns span anchoring
 
-  ADD (so breadth stays visible):
+  BREADTH LABELS (must stay visible):
     - parent-thread-id field        (forks)
     - multi-WorldThread bundles     (reconciliation)
     - reverse-MCP back-arrow        (custom tools)
@@ -320,17 +367,27 @@ picture.
                        │
                        ▼
    ┌─────────────────────────────────────────────────┐
-   │ WorldThread (composed view)                     │
-   │   drafts, slices, comments, annotations,        │
-   │   edited derivatives, forks, refs               │
-   │   + pointers into raw LLM items                 │
+   │ WorldThread (long-lived chat container)         │
+   │   refs + pointers into world artifacts and      │
+   │   raw LLM items                                  │
    │                                                  │
    │   ◄── :parent-thread/id                         │  ★ DAG of forks
    │       (threads form a DAG via parent refs;      │
    │        plurality is preserved by default)       │
    └────────────────────┬────────────────────────────┘
                         │
-                        │ SEND
+                        ▼
+   ┌─────────────────────────────────────────────────┐
+   │ WorldTurn (one user move)                       │
+   │   kind: :compose-and-send | :slice | :edit |    │
+   │         :accept-patch | :cancel | :fork |       │
+   │         :reconcile | :abandon | ...             │
+   │                                                  │
+   │   only :compose-and-send continues to LLM;      │
+   │   other kinds write to world artifacts only     │
+   └────────────────────┬────────────────────────────┘
+                        │
+                        │ SEND  (only :compose-and-send)
                         │ (freeze the composed view)
                         │ (may aggregate from MULTIPLE                ★ reconciliation
                         │  WorldThreads → synthesis input)

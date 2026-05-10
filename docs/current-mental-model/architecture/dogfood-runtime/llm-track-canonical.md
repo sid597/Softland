@@ -9,6 +9,29 @@ This doc is intentionally long. Each section is self-contained enough that
 an answer to a specific user question lives in one place. Use the Question
 Index (§15) as a jump table.
 
+## §0.1 Revision history
+
+- **2026-05-10 v1**: initial canonical written from session synthesis.
+- **2026-05-10 v2 (post-Codex-review)**: five patches applied, no
+  ontology thrown away:
+  1. **Pattern X removed.** World-first / Pattern Y is the sole canonical
+     architecture. Direct UI → LLM-depot path eliminated.
+  2. **WorldTurn added** as a layer between WorldThread and
+     ContextBundle. Not every user move is an LLM execution — slicing,
+     editing, accepting patches, cancelling, reconciling are all
+     WorldTurns that may or may not produce an LLMTurnRun.
+  3. **§9 lifecycle flows rewritten** around `*world-action →
+     WorldTurn → (optional ContextBundle → LLMTurnRun)`.
+  4. **Fork semantics corrected.** Codex `app-server thread/fork` is
+     thread-level only (takes `threadId` + config; no `fromItemId`).
+     Softland owns span/item anchoring via slice-and-quote. Earlier
+     "fromItemId" inference was wrong.
+  5. **Cost/caching language corrected.** `previous_response_id` is a
+     client-side state convenience, not billing-free. Prompt caching
+     reduces input cost on matching prefixes ≥1024 tokens within TTL,
+     but cached tokens still count as input usage and against rate
+     limits. Subscription quota tracked separately from API token billing.
+
 ## §0 How to read this doc
 
 ```text
@@ -421,138 +444,200 @@ credential material (it is — JWTs live only in HTTPS requests upstream).
 
 ## §3 Cost & caching
 
-Two layers compose. Most "prompt caching" articles only describe Layer 2;
-the big lever for forking is actually Layer 1.
+Two distinct concerns: **state management** (how history flows through
+the API) and **billing impact** (what you actually pay). Earlier framing
+of this doc conflated these. Corrected below per official OpenAI docs.
 
-### §3.1 Layer 1 — Responses API server-side state
+### §3.1 Server-side state (`previous_response_id`) — convenience, not free
 
-Each Codex turn produces a `response.id` stored on OpenAI's side. The
-next turn submits ONLY new user input + `previous_response_id`. The
-server rehydrates the conversation context.
+The OpenAI Responses API supports chaining via `previous_response_id`.
+On a follow-up turn, you submit only new user input + a pointer to the
+prior response.id; the server reconstructs the conversation context
+without you re-sending the full history.
 
 ```text
-   TTL: ~30 days (Responses API default)
-   Cost: ~free for inherited context
-   Controlled by: disable_response_storage (off = chaining on)
+   What it gives you:    client-side state convenience —
+                         no need to ship the full history each turn
+
+   What it does NOT give: free inheritance of input tokens
+                          (per OpenAI docs, ALL previous input tokens
+                           in the chain are billed as input tokens
+                           on each turn)
+
+   TTL:    stored responses persist ~30 days for retrieval
+   Toggle: disable_response_storage = true forces full-history submission
+           (and disables chaining)
 ```
 
-### §3.2 Layer 2 — automatic prefix caching
+This is a **wire/state convenience**, not a billing optimization. Cost
+reduction comes from §3.2 (prompt caching), which is independent.
 
-OpenAI hashes prefixes; identical prefixes within the TTL get reused.
+### §3.2 Prompt caching — automatic, partial cost reduction
+
+OpenAI's prompt cache automatically reuses identical prefixes within a
+short TTL when the prefix is ≥ 1024 tokens.
 
 ```text
-   TTL: ~5–10 min
-   Cost reduction: cached input tokens billed at ~50%
+   What it gives you:   reduced latency + reduced input cost on cached
+                        prefixes; cached input tokens billed at ~50%
+                        of the standard input rate
+
+   What it does NOT do: make cached tokens free or invisible.
+                        Cached tokens still count as input usage and
+                        still count against rate limits.
+
+   TTL:        ~5–10 minutes between identical-prefix submissions
    Min prefix: 1024 tokens
-   Controlled by: nothing (automatic, no API surface)
-   Visible via: cached_input_tokens in TokenUsage events
+   Visibility: cached_input_tokens in TokenUsage events
 ```
 
-### §3.3 10-fork scenario, concrete
+### §3.3 10-fork scenario, honestly
 
-**Storage on (default), all forks fired within an hour:**
+Setup: base chat with a 50K-token prefix, 10 parallel forks fired
+within Layer 2 TTL window.
 
 ```text
-   Base chat: 10 turns, ~50K-token prefix, last response_id R0.
+   Per fork's first turn:
+     - The full 50K prefix is on the wire and IS BILLED as input
+       tokens. previous_response_id can carry server-side state but
+       does NOT make the inherited input tokens free.
+     - With prompt caching active (within TTL), forks 2–10 see most
+       of the prefix as cache hits:
+         fork 1:    50K input @ full rate (warms cache)
+         forks 2-10: 50K input @ ~50% (cache hit) for byte-identical
+                     prefix; cached tokens still count as input usage
+     - Output: paid normally per fork.
 
-   Fork 1 first turn: input = ~50 tokens (just the new prompt) +
-                      references R0
-                      → server rehydrates 50K context from R0
-                      → wire-cost: ~50 input tokens
-   Forks 2-10 first turns: same — ~50 tokens each
-   
-   Total wire input across 10 forks' first turns: ~500 tokens.
-   Output: paid normally per fork.
+   Total input billing across 10 forks' first turns:
+     50K + 9 × 50K × 0.5 = 275K input-token-equivalent
+     (vs 500K without any caching)
+
+   Cache-cold scenarios (e.g. forks spread across a day):
+     10 × 50K = 500K input tokens at full rate
 ```
 
-**Storage off (privacy mode), batched within 5 min:**
+Caching is a real saving but **not** the "near-free for inherited
+context" framing the v1 of this doc had. The wire still carries the
+prefix; the bill still counts the prefix; caching reduces the
+per-token rate within the TTL window.
+
+### §3.4 ChatGPT subscription vs API — different cost shapes
+
+The runner uses ChatGPT subscription auth (Codex's `auth_mode:
+"chatgpt"`). For subscription:
 
 ```text
-   Each fork's first turn submits the full 50K prefix.
-   Fork 1: 50K full-rate input
-   Forks 2-10: 50K cache-hit input @ 50% (Layer 2)
-   
-   Total wire input: 50K + 9 × 50K × 0.5 = 275K tokens
-                     (vs 500K without any caching).
+   Cost shape:    quota / messages-per-window, NOT dollars-per-token
+   Each turn:     1 message against the subscription quota
+   Caching:       still happens internally (latency benefit)
+                  — does NOT reduce message-count cost
+   Rate limits:   plan-based message-per-window limits
+                  (e.g., GPT-5 messages per 5-hour window on Plus)
+   Display:       "X of Y messages this window"
+                  (not "$X spent")
 ```
 
-**Storage off, spread over a day:**
+**Don't infer API billing semantics from subscription experience.**
+Track subscription quota separately from API token counts. Both are
+useful; neither replaces the other. The harness should expose both
+in `$$llm-cost-by-run-id`:
 
 ```text
-   Layer 2 cache TTL has expired between forks.
-   Each fork: 50K full-rate input.
-   Total: 10 × 50K = 500K tokens. 2× more than batched.
-```
-
-### §3.4 Subscription vs API
-
-```text
-   API-billed user:
-     cost = dollars per token
-     caching = direct dollar savings
-   
-   ChatGPT subscription user (Sid):
-     cost = messages-against-quota
-     caching = saves *latency*, not dollars
-     each turn/start = 1 message from your quota
-     
-   For Softland: surface "X of Y messages this window" not "$X spent."
-   Track both modes; UI shows whichever applies to the runner's auth.
+   :tokens-input-total
+   :tokens-cached-input
+   :tokens-output
+   :tokens-reasoning-output
+   :messages-used        ← subscription quota
+   :rate-limits          ← from TokenCount events
 ```
 
 ### §3.5 Compaction interaction
 
-`Compact` op rewrites prefix as a summary. After compaction:
-- Layer 1 chain unbroken (new summary is a new response_id, chains forward)
-- Layer 2 cache for OLD prefix invalidated (new compacted prefix is
-  fresh content)
-- Total tokens from compaction point forward are smaller
+`Compact` op rewrites prefix as a summary. Effects:
+
+```text
+   - State chain unbroken: new summary becomes a new response_id and
+     chains forward via previous_response_id.
+   - Prompt cache invalidated for the OLD prefix: the new compacted
+     prefix is fresh content; first reuse pays full rate; subsequent
+     reuses can hit cache again.
+   - Total tokens forward smaller because summary < full history,
+     so future input bills are smaller per turn.
+```
 
 **Compact-then-fork** is usually cheaper than **fork-then-compact** —
-all forks inherit the compacted summary.
+all forks inherit the compacted summary and the smaller per-turn bill.
 
 Compaction is destructive to the trail from the model's perspective
-(model only sees the summary on subsequent runs). Softland's trail in
-Rama survives compaction. Surface compaction as a marker on the canvas:
-"compacted at this point; downstream model sees a summary, but you still
+(model only sees the summary on subsequent runs). Softland's depot log
++ ContextBundles preserve the full pre-compaction trail; the model
+sees only the summary. Surface compaction as a marker on the canvas:
+"compacted at this point; downstream model sees a summary, you still
 see the full trail."
 
 ---
 
 ## §4 Forking semantics
 
-Codex natively supports forking:
+Codex natively supports thread-level forking:
 - `codex fork` CLI subcommand (auxiliary)
 - `SessionConfiguredEvent.forked_from_id: Option<ThreadId>` (protocol)
-- Inferred wire method on `app-server`: `thread/fork {threadId,
-  fromItemId}` (verify against ClientRequest schema; protocol field
-  `forked_from_id` is confirmed)
+- `app-server` wire method: `thread/fork {threadId, ...config-overrides}`
+  — confirmed against the regenerated TypeScript schema. **No
+  `fromItemId` field. No `excludeTurns` field.** Earlier inference of
+  item-boundary fork in this doc was wrong.
 
-When you fork thread T at item I:
-- New thread T' is created
-- Its history is the prefix of T up to and including I
-- T' has its own threadId and rolloutPath
-- Both threads run in parallel; neither's events leak into the other
-- T'.forked_from_id == T
+What Codex does:
 
-A fork = "copy history list to here, give it a new ID, continue."
+```text
+   Codex fork    = thread-LEVEL fork
+                   takes: threadId + config overrides
+                   produces: new threadId, full history copied
+                   does NOT support: item-boundary or span-boundary fork
+```
 
-### §4.1 Span-anchored forks (Softland-side overlay)
+A fork = "copy the WHOLE thread history to a new threadId; continue
+from there with new turns."
 
-Codex forks at item boundaries. To fork at a span (substring of an
-item):
+### §4.1 Span-anchored forks (Softland-side procedure)
 
-1. User selects span S of item I in run-A
-2. Softland sends `thread/fork {threadId: A.thread, fromItemId: I}` →
-   gets thread-B
-3. Softland creates run-B in `$$llm-threads` with `:parent-run/id A`,
-   `:fork/anchor {:item/id I :span S}`
-4. Softland sends `turn/start {threadId: thread-B, input: [{type:"text",
-   text: "Re: '" + S + "' — <user question>"}]}`
+Since Codex doesn't natively understand "fork at a substring," Softland
+implements span anchoring on top of Codex's thread-level fork:
 
-Span semantics live in Softland's data, not Codex. The model sees the
-quoted span as part of the new user message; Codex doesn't natively
-understand "span anchors."
+```text
+   1. User selects span S of item I in run-A within chat-A.
+
+   2. Softland creates a slice artifact with content snapshot:
+        $$slices[S-1] = {target:  chat-A.run-1.item-I7
+                         span:    [142, 281]
+                         content: <quoted text snapshot>}
+      (Snapshot is critical — the slice survives even if the source
+       is later edited or compacted.)
+
+   3. Softland sends thread/fork {threadId: A.codex-thread,
+                                  ...config-overrides}
+      to Codex → gets new threadId thread-B (whole-thread fork).
+
+   4. Softland creates new WorldThread chat-B in $$world-threads with:
+        :parent-thread chat-A
+        :fork/anchor   slice S-1
+        :llm-thread    thread-B
+
+   5. Softland sends turn/start {threadId: thread-B,
+                                 input: [{type:"text",
+                                          text: "Re: '<S-1.content>':
+                                                 <user question>"}]}
+      as the first turn of the new fork.
+
+   6. The model sees the quoted snapshot in its turn input.
+      Codex thread B continues, separate from A.
+```
+
+Span semantics live entirely in Softland's data
+(`$$slices`, `$$artifact-graph`), not in the Codex wire. The model only
+ever sees the literal quoted snapshot in the turn input. The slice's
+`content` snapshot is the durable bridge — it survives even if the
+original item is later edited or compacted.
 
 ### §4.2 Reconciliation (multi-parent, late-bound)
 
@@ -858,8 +943,16 @@ for full-detail reference.
 #### View A — Spine (flow + breadth labels)
 
 ```text
-   WorldThread chat-A         ← composed view; drafts / slices / edits / forks
+   WorldThread chat-A         ← composed view; long-lived chat container
          │                    ★ :parent-thread/id makes threads a DAG
+         ▼
+   WorldTurn WT-N             ← ONE user move
+         │                       (slice / edit / accept-patch / cancel /
+         │                        ... do NOT continue down this path —
+         │                        they write directly to world artifacts)
+         │
+         │  ── only :compose-and-send WorldTurns continue ──
+         │
          │ SEND               ★ may aggregate multiple WorldThreads (reconcile)
          ▼
    ContextBundle ctx-N        ← immutable model input for ONE turn
@@ -875,29 +968,49 @@ for full-detail reference.
                               ★ discourse graph = filter {Q,C,E,D,R,F}
 ```
 
+Non-`:compose-and-send` WorldTurns route directly to world artifacts:
+
+```text
+   WorldTurn (slice / edit / accept-patch / cancel / abandon)
+         │
+         ▼
+   World overlays / derivatives / decisions
+         │
+         ▼
+   Object Catalog + Graph
+```
+
+These never produce a ContextBundle or LLMTurnRun.
+
 #### View B — Containment (nesting / what-owns-what)
 
 ```text
    WorldThread chat-A
          │
          ▼
-   LLMThread codex-thread-123
+   LLMThread codex-thread-123                 (parallel structure on
+         │                                     the execution side)
          │
-         ├── TurnRun run-1
-         │     ├── ContextBundle ctx-1   (frozen at SEND)
-         │     └── items                  (user / assistant / tool / reasoning)
+         │  WorldTurns and their consequences:
          │
-         ├── TurnRun run-2
-         │     ├── ContextBundle ctx-2
-         │     └── items
+         ├── WT-1 (compose & send)  ──► ContextBundle B-1 ──► LLMTurnRun run-1
+         │                                                          └─ items
          │
-         └── TurnRun run-3
-               ├── ContextBundle ctx-3
-               └── items
+         ├── WT-2 (slice paragraph) ──► world overlay only (no LLM)
+         │
+         ├── WT-3 (edit derivative) ──► world derivative only (no LLM)
+         │
+         ├── WT-4 (follow-up & send)──► ContextBundle B-4 ──► LLMTurnRun run-2
+         │                                                          └─ items
+         │
+         └── WT-5 (accept patch)    ──► world catalog mutation (no LLM)
 ```
 
-ContextBundle and items are SIBLINGS of each TurnRun, not predecessors.
-Bundle is the input; items are the output; both keyed by run-id.
+ContextBundle and items are SIBLINGS of each LLMTurnRun, not
+predecessors. WorldTurns are NOT all paired with LLMTurnRuns — only
+`:compose-and-send` WorldTurns produce a ContextBundle + LLMTurnRun
+on the LLMThread. This asymmetry is critical: most user moves never
+involve the model.
 
 #### View C — Fork DAG (plurality across chats)
 
@@ -931,25 +1044,63 @@ Bundle is the input; items are the output; both keyed by run-id.
    "give me everything at once"             Fat composite (§7.6)
 ```
 
-### §7.3 Three-level naming
+### §7.3 Five-level naming
 
 ```text
-   WorldThread (chat-A)            ← user's "the chat"
+   WorldThread (chat-A)              ← user's "the chat" (long-lived)
         │
         ▼
-   LLMThread (codex-thread-123)    ← one logical conversation with the model
+   WorldTurn (WT-1, WT-2, ...)       ← ONE user move
+        │                              (compose & send / slice / edit /
+        │                               accept-patch / fork / reconcile /
+        │                               cancel / abandon / ...)
         │
-        ├── LLMTurnRun run-1        ← ONE Send → ONE execution
-        │     └─ items
-        ├── LLMTurnRun run-2
-        │     └─ items
-        └── LLMTurnRun run-3
-              └─ items
+        │  Only some WorldTurns trigger LLM execution:
+        │    :compose-and-send   →  ContextBundle + LLMTurnRun
+        │    :slice / :edit / :accept-patch / :cancel / ... → world
+        │                            artifacts only (no LLM)
+        │
+        ▼  (when WT triggers LLM)
+   ContextBundle (B-1, B-2, ...)     ← frozen input for ONE LLM execution
+        │
+        ▼
+   LLMTurnRun (run-1, run-2, ...)    ← ONE model execution
+        │  (paired with one LLMThread on the model side)
+        │
+        ▼
+   items                              ← what the model emitted
+                                       (user-as-sent, assistant, tool,
+                                        reasoning, token usage)
 ```
 
-"Run" reserved for execution. Threads/sessions own runs. (Important
-naming hygiene: avoid using "run" for the whole chat — confuses
-implementation.)
+Parallel structure on the execution side:
+
+```text
+   LLMThread (codex-thread-123)      ← Codex-side native thread
+                                       (long-lived; one logical
+                                        conversation with the model)
+        │  every LLMTurnRun belongs to one LLMThread
+        ▼
+   LLMTurnRun (run-1, run-2, ...)
+```
+
+For V0: one WorldThread → one LLMThread. The LLMThread is bound when
+the first LLM-triggering WorldTurn fires. Subsequent triggering
+WorldTurns reuse it (`turn/start` with same `threadId`). Forks create
+a new WorldThread + new LLMThread (Codex's `thread/fork` produces a
+new threadId).
+
+**Naming hygiene** (this is the layer that was missing from earlier
+versions of this doc):
+
+- "Run" is reserved for **execution**. NOT for the whole chat.
+- WorldTurn = the **user-time** unit (a user move).
+- LLMTurnRun = the **execution-time** unit (one model execution).
+- **Many WorldTurns produce no LLMTurnRun**: slicing, editing,
+  accepting patches, cancelling, and abandoning drafts are all
+  WorldTurns that mutate world state without ever touching the LLM.
+  Without WorldTurn as a layer, the doc collapsed "user move" into
+  "LLM execution" and lost the structure.
 
 ### §7.4 PState renames from v1
 
@@ -1012,17 +1163,27 @@ discourse, the labels are right there.
                        │
                        ▼
    ┌─────────────────────────────────────────────────┐
-   │ WorldThread (composed view)                     │
-   │   drafts, slices, comments, annotations,        │
-   │   edited derivatives, forks, refs               │
-   │   + pointers into raw LLM items                 │
+   │ WorldThread (long-lived chat container)         │
+   │   refs + pointers into world artifacts and      │
+   │   raw LLM items                                  │
    │                                                  │
    │   ◄── :parent-thread/id                         │  ★ DAG of forks
    │       (threads form a DAG via parent refs;      │
    │        plurality is preserved by default)       │
    └────────────────────┬────────────────────────────┘
                         │
-                        │ SEND
+                        ▼
+   ┌─────────────────────────────────────────────────┐
+   │ WorldTurn (one user move)                       │
+   │   kind: :compose-and-send | :slice | :edit |    │
+   │         :accept-patch | :cancel | :fork |       │
+   │         :reconcile | :abandon | ...             │
+   │                                                  │
+   │   only :compose-and-send continues to LLM;      │
+   │   other kinds write to world artifacts only     │
+   └────────────────────┬────────────────────────────┘
+                        │
+                        │ SEND  (only :compose-and-send)
                         │ (freeze the composed view)
                         │ (may aggregate from MULTIPLE                ★ reconciliation
                         │  WorldThreads → synthesis input)
@@ -1067,6 +1228,16 @@ discourse, the labels are right there.
    │     artifact/kind ∈ {Q,C,E,D,R,F}               │
    │   (no separate substrate; filtered view)        │
    └─────────────────────────────────────────────────┘
+
+   For non-:compose-and-send WorldTurns, the path branches at WorldTurn:
+   
+   WorldTurn (slice/edit/accept-patch/cancel/abandon)
+        │
+        ▼
+   World overlays / derivatives / decisions
+        │
+        ▼
+   Object Catalog + Artifact Graph
 ```
 
 ---
@@ -1103,204 +1274,351 @@ never silently mutates world state.
 - A failing build can auto-mint `:llm/codex-run` with prompt "the build
   failed with X, propose a fix" — the dogfood loop in its purest form
 
-### §8.3 Pattern X vs Pattern Y
+### §8.3 World-first send (canonical)
+
+All user intents flow through the World track first. There is **no**
+direct UI → `*llm-depot` path. (Earlier versions of this doc listed a
+"Pattern X" — direct-to-LLM — as acceptable for MVP. That option has
+been removed. World-first is canonical, not negotiable.)
 
 ```text
-   PATTERN X — DIRECT (acceptable for MVP)
-
-   UI ──► *llm-depot ──► LLMTopology ──► $$llm-threads,
-                                          $$llm-turn-runs
-                                       ──► (catalog updated downstream)
-
-
-   PATTERN Y — WORLD-FIRST (canonical long-term)
-
-   UI ──► *world-action ──► WorldTopology
-                                 │
-                                 │ creates citeable pending
-                                 │ chat/turn object in $$objects
-                                 │ (visible BEFORE run starts)
-                                 │
-                                 │ foreign-append
-                                 ▼
-                              *llm-depot
-                                 │
-                                 ▼
-                              LLMTopology
-                                 │
-                                 ▼
-                              LLMTurnRun streams
-                                 │
-                                 ▼
-                              raw items + catalog refs
+   UI                                 user clicks SEND on a WorldTurn
+    │
+    │
+    ▼
+   *world-action
+    │  "this user authored a turn intent"
+    │
+    ▼
+   WorldTopology
+    │  creates WorldTurn + ContextBundle
+    │  + pending citeable object in $$objects
+    │  (citeable BEFORE the LLM run starts)
+    │
+    │  foreign-append
+    ▼
+   *llm-depot
+    │  "execute this ContextBundle"
+    │
+    ▼
+   LLMTopology
+    │
+    ▼
+   LLMExecutor
+    │  spawns/reuses Codex; sends turn/start with threadId
+    │
+    ▼
+   *llm-obs-depot streams
+    │
+    ▼
+   LLMTopology folds
+    │
+    ▼
+   $$llm-turn-runs / $$llm-items / $$llm-views
+    │  catalog-back to world via foreign-append
+    ▼
+   $$objects / $$artifact-graph
 ```
 
-Pattern Y matches Sid's "everything is part of the world" instinct.
-Pattern X is a refactor-later concession to MVP simplicity.
+**Why world-first (and why direct-to-LLM was rejected):**
+
+- Every LLM execution should have a world-side authored intent behind
+  it. Capability checks, approval gating, provenance, and catalog
+  citeability all live in the World track.
+- Bypassing world for "speed" creates an architecture where some
+  chats are first-class citeable objects (the ones that happen to go
+  through world later) and others aren't (the ones that didn't). That
+  asymmetry is exactly what collapses Softland into a chat app.
+- `previous_response_id` is server-side state, not a Softland-side
+  identity. Softland needs its own pending-object identity that exists
+  before any LLM streaming begins. World-first guarantees that.
+
+Pattern Y is the only path. The "Pattern X for MVP" option was a
+mistake by an earlier draft of this doc.
 
 ---
 
 ## §9 Lifecycle scenarios
 
-### §9.1 Fresh run
+Every flow starts at `*world-action`. WorldTurn is the unit of user
+move. Only `:compose-and-send` WorldTurns produce a ContextBundle +
+LLMTurnRun; other WorldTurn kinds write world artifacts only.
+
+### §9.1 Fresh run (first user prompt in a new chat)
 
 ```text
-   1. UI authors prompt; pulls refs from canvas/notes/prior chats
-      (resolves through $$objects).
-   2. UI optionally saves draft as a world artifact.
-   3. UI clicks SEND.
-   4. (Pattern X) UI appends :llm/codex-run to *llm-depot
-      (Pattern Y) UI appends :llm-run/intent to *world-action
-      → WorldTopology creates pending $$objects[chat-A]
-      → foreign-appends to *llm-depot
-   5. LLMTopology validates capability, decides accept, writes
-      $$llm-threads[A] :status :pending,
-      $$llm-decisions-by-run-id[A], $$llm-pending-by-task.
+   1. UI authors a draft: prompt + refs (notes, prior chats, slices).
+      Draft optionally saved as a WorldDraft artifact in *world-action
+      (intermediate non-send WorldTurn).
+   
+   2. User clicks SEND.
+   
+   3. UI appends *world-action :world-turn/compose-and-send
+      with WorldThread chat-A (new), draft content, refs.
+   
+   4. WorldTopology:
+        creates WorldThread chat-A in $$world-threads
+        creates WorldTurn WT-1 in $$world-turns (kind :compose-and-send)
+        composes ContextBundle B-1 from draft + refs (renders quoted
+          slices, notes, system instructions into immutable input)
+        creates pending citeable object $$objects[chat-A]
+        foreign-append to *llm-depot:
+          {:llm/turn-run-request
+           :context-bundle B-1
+           :world-thread chat-A
+           :world-turn WT-1}
+   
+   5. LLMTopology validates capability, mints decision, writes
+      $$llm-threads[A] :status :pending (new LLMThread bound to
+      WorldThread chat-A), $$llm-turn-runs[run-1] :status :pending,
+      $$llm-pending-by-task.
+   
    6. LLMExecutor reconciles, claims, gets durable grant from PState
       (3-state await), spawns Codex app-server child, sends
-      initialize → initialized → thread/start → turn/start.
+      initialize → initialized → thread/start → turn/start (with
+      ContextBundle B-1 rendered as input).
+   
    7. Codex streams events; executor appends to *llm-obs-depot;
-      OBS branch folds into PStates (with sequence buffering).
-   8. UI watches $$llm-views[A] — canvas spawns a node, run-detail
-      view auto-opens, reasoning streams in real-time.
-   9. Codex emits TurnDiff, turn/completed; OBS branch closes the turn,
-      status :succeeded.
+      OBS branch folds into $$llm-items-by-turn-run, $$llm-views.
+   
+   8. UI watches $$llm-views[run-1] — canvas shows the chat-A node,
+      run-detail view auto-opens, reasoning streams in real-time.
+   
+   9. Codex emits TurnDiff, turn/completed; OBS branch closes
+      LLMTurnRun run-1 :status :succeeded; closes WorldTurn WT-1.
 ```
 
-### §9.2 Follow-up turn (multi-turn in same thread)
+### §9.2 Follow-up turn (new WorldTurn in same WorldThread)
 
 ```text
-   1. UI renders WorldThread: raw LLM items + world overlays + slices
-      + edited derivatives + artifact-graph edges.
-   2. User composes follow-up prompt referencing slices/notes/edits.
-   3. UI clicks SEND.
-   4. UI appends :llm/codex-turn to *llm-depot with :run-id A.
-   5. LLMTopology appends turn-2 to thread A.
-   6. LLMExecutor sends turn/start to existing Codex thread (same
-      Codex child process, same threadId).
-   7. Streams $$llm-turns[A][T-2].
+   1. UI renders WorldThread chat-A: raw LLM items + world overlays
+      + slices + edited derivatives + artifact-graph edges.
+   
+   2. User composes a follow-up referencing slices/notes/edits.
+   
+   3. User clicks SEND.
+   
+   4. UI appends *world-action :world-turn/compose-and-send
+      with WorldThread chat-A (existing), draft content, refs.
+   
+   5. WorldTopology:
+        creates WorldTurn WT-4 in $$world-turns (within chat-A)
+        composes ContextBundle B-4 (renders new draft + refs;
+          may include world derivatives instead of raw items if the
+          user authored derivative replacements)
+        foreign-append to *llm-depot:
+          {:llm/turn-run-request
+           :context-bundle B-4
+           :world-thread chat-A
+           :world-turn WT-4}
+   
+   6. LLMTopology writes $$llm-turn-runs[run-2] (new TurnRun on the
+      EXISTING $$llm-threads[A] — reusing the bound LLMThread).
+   
+   7. LLMExecutor sends turn/start (same Codex thread, same threadId;
+      new turn input from B-4) — reuses the existing Codex child
+      process. NO new thread/start.
+   
+   8. Streams $$llm-items-by-turn-run[run-2].
 ```
 
-### §9.3 Slice an assistant reply
+This is NOT "appending turn-2 to run A." Run-A and run-2 are
+different LLMTurnRuns. They share the SAME LLMThread (codex-thread).
+
+### §9.3 Slice an assistant reply (no LLM)
 
 ```text
-   1. User selects span in msg-4 of run-A.
+   1. User selects span in msg-4 of LLMTurnRun run-1 within chat-A.
    2. UI clicks "slice".
-   3. UI appends *world-action :slice/create
-      with target chat-A.item-I7, span [142, 281].
-   4. WorldTopology writes:
-        $$slices[S-1]                 (or $$world-overlays[S-1])
-        $$objects[S-1]                (catalog entry; kind :slice)
-        $$artifact-graph += edge {S-1 :slice-of chat-A.item-I7
-                                  :span [142, 281]}
-   5. LLM PState UNCHANGED. The raw item is immutable.
+   3. UI appends *world-action :world-turn/slice-create
+      with target chat-A.run-1.item-I7, span [142, 281], content
+      snapshot of the selected text.
+   4. WorldTopology:
+        creates WorldTurn WT-2 in $$world-turns (kind :slice)
+        creates $$slices[S-1] with
+          {target:  chat-A.run-1.item-I7
+           span:    [142, 281]
+           content: <snapshot at slice time>}
+        $$objects[S-1] :artifact/kind :slice
+        $$artifact-graph += edge {S-1 :slice-of chat-A.run-1.item-I7}
+   5. LLM PState UNCHANGED. Raw item is immutable.
    6. UI renders slice marker on the message in run-detail view.
+   7. NO ContextBundle, NO LLMTurnRun. Pure world-side WorldTurn.
 ```
 
-### §9.4 Edit an assistant reply
+### §9.4 Edit an assistant reply (no LLM)
 
-Two distinct operations:
+Two distinct operations under different WorldTurn kinds:
 
-**Annotate the original** (overlay):
+**Annotate the original** (overlay — kind `:comment-create`):
 ```text
-   1. UI appends *world-action :comment/create
-      with target chat-A.item-I7, text "actually...".
-   2. WorldTopology writes $$comments[C-1], $$objects[C-1],
-      $$artifact-graph edge {C-1 :comment-on chat-A.item-I7}.
+   1. UI appends *world-action :world-turn/comment-create
+      with target chat-A.run-1.item-I7, text "actually...".
+   2. WorldTopology:
+        creates WorldTurn WT-3a (kind :comment-create)
+        $$comments[C-1], $$objects[C-1]
+        $$artifact-graph += {C-1 :comment-on chat-A.run-1.item-I7}
    3. Original raw item unchanged. Comment travels alongside.
 ```
 
-**Create an edited derivative** (replacement-version):
+**Create an edited derivative** (replacement-version — kind `:derivative-create`):
 ```text
-   1. UI appends *world-action :derivative/create
-      with :derivative-of chat-A.item-I7, content <new text>.
-   2. WorldTopology writes $$world-derivatives[D-1], $$objects[D-1],
-      $$artifact-graph edge {D-1 :derivative-of chat-A.item-I7}.
-   3. Future ContextBundle may render D-1 *instead of* the raw item.
+   1. UI appends *world-action :world-turn/derivative-create
+      with :derivative-of chat-A.run-1.item-I7, content <new text>.
+   2. WorldTopology:
+        creates WorldTurn WT-3b (kind :derivative-create)
+        $$world-derivatives[D-1], $$objects[D-1]
+        $$artifact-graph += {D-1 :derivative-of chat-A.run-1.item-I7}
+   3. Future ContextBundle may render D-1 instead of the raw item.
    4. Raw item still unchanged — derivative is a sibling/alternative.
 ```
+
+Both are world-only WorldTurns. NO LLMTurnRun.
 
 ### §9.5 Fork from a paragraph (span-anchored)
 
 ```text
-   1. User selects span in msg-4 of run-A. Clicks "fork on this".
-   2. UI mints new run-id (say run-B).
-   3. UI appends :llm/codex-fork to *llm-depot with
-      :parent-run/id A, :fork/anchor {:item/id I-7 :span [142, 281]}.
-   4. LLMTopology validates parent/anchor, writes $$llm-threads[B]
-      :parent-run/id A :fork/anchor :status :pending.
-   5. GRAPH branch updates $$llm-thread-graph adding new node + edge.
-   6. LLMExecutor claims; sends thread/fork {threadId: A.thread,
-      fromItemId: I-7} to Codex; gets new threadId; sends turn/start
-      with quoted-span prompt.
-   7. Streams parallel to A; canvas now shows two sibling nodes.
-   8. $$llm-cost-by-subtree updates rollup.
+   1. User selects span in msg-4 of run-1 within chat-A. Clicks
+      "fork on this".
+   
+   2. UI appends *world-action :world-turn/fork-create
+      with parent WorldThread chat-A, fork anchor (slice S-1 from §9.3,
+      or auto-created here), and follow-up prompt.
+   
+   3. WorldTopology:
+        creates WorldThread chat-B with :parent-thread chat-A
+                                       :fork/anchor S-1
+        creates WorldTurn WT-fork in chat-A (the act of forking)
+        creates WorldTurn WT-1 in chat-B (the new prompt as the
+                                          first move of the fork)
+        composes ContextBundle B-1 (rendered from prompt + quoted
+          slice snapshot S-1.content)
+        foreign-append to *llm-depot:
+          {:llm/turn-run-request
+           :context-bundle B-1
+           :world-thread chat-B
+           :world-turn WT-1
+           :codex-fork {:from-thread A.codex-thread-id}}
+   
+   4. LLMTopology:
+        creates new LLMThread for chat-B
+        creates LLMTurnRun run-1 (chat-B's first run)
+   
+   5. LLMExecutor:
+        sends thread/fork {threadId: A.codex-thread-id, ...config}
+          → gets new threadId thread-B (Codex-side, thread-LEVEL
+            fork — see §4)
+        records new threadId on $$llm-threads[chat-B]
+        sends turn/start {threadId: thread-B, input: B-1.rendered}
+   
+   6. Streams parallel to chat-A; canvas shows two sibling WorldThreads.
+   7. $$llm-thread-graph updates with chat-A → chat-B edge.
 ```
 
-### §9.6 Reconciliation
+NOTE: Codex's `thread/fork` is **thread-level only** (no fromItemId).
+The span anchoring is Softland's concept; the model just sees the
+quoted snapshot in the new turn input. See §4.1 for the procedure.
+
+### §9.6 Reconciliation (multi-parent, late-bound)
 
 ```text
-   1. User selects two leaf forks (B, C). Clicks "synthesize".
-   2. UI mints synthesis run-id (say run-S). Appends :llm/codex-reconcile
-      to *llm-depot with :parent-run/ids [B, C] and synthesis prompt.
-   3. LLMTopology writes $$llm-threads[S] :parent-run/id [B C]
-      :status :pending.
-   4. GRAPH branch creates a multi-parent node (DAG now has a merge).
-   5. LLMExecutor: this is a NEW thread (Codex doesn't fork from multiple).
-      Sends thread/start with system message including both parents'
-      final messages and reasoning summaries as context.
-      Then turn/start with synthesis prompt.
+   1. User selects two leaf forks chat-B, chat-C. Clicks "synthesize".
+   
+   2. UI appends *world-action :world-turn/reconcile-create
+      with :parent-threads [chat-B chat-C] and synthesis prompt.
+   
+   3. WorldTopology:
+        creates WorldThread chat-S with :parent-threads [chat-B chat-C]
+          (multi-parent — DAG has a merge node)
+        creates WorldTurn WT-1 in chat-S
+        composes ContextBundle B-1 aggregating from BOTH parents
+          (renders final messages, key reasoning, accepted patches,
+           and any user-authored synthesis notes from chat-B AND
+           chat-C as input)
+        foreign-append to *llm-depot
+   
+   4. LLMTopology creates new LLMThread for chat-S (Codex's
+      thread/fork doesn't support multi-parent, so this is a fresh
+      thread).
+   
+   5. LLMExecutor sends thread/start (fresh Codex thread) with the
+      aggregated ContextBundle as initial input. Then turn/start.
+   
    6. Streams; result is a synthesis run that holds the *transformed*
-      understanding while parents B and C remain untouched as preserved
-      plurality.
+      understanding while parents B and C remain untouched as
+      preserved plurality.
 ```
 
-### §9.7 World-write proposal (TurnDiff → patch acceptance)
+### §9.7 Accept proposed patch (no LLM)
 
 ```text
-   1. Run-A produces TurnDiff event with a unified diff.
-   2. OBS branch emits a :world-action :patch/apply-proposed to
-      *world-action (auto-derived ActionRequest with provenance run-id).
-   3. WorldTopology raises a decision row in $$objects-pending-decision.
-   4. UI shows the proposed patch in the world-side review queue.
-   5. Sid accepts; WorldTopology applies; $$patches-applied,
-      $$objects update; $$activity-timeline records the moment.
-   6. The applied patch's commit-id is referenced back on
-      $$llm-threads[A] :produced-artifacts so the provenance chain
-      is closed.
+   1. Run-1 in chat-A previously produced a TurnDiff event during an
+      LLMTurnRun. OBS branch had emitted *world-action
+      :patch/proposed with provenance.
+   
+   2. WorldTopology raised pending decision $$objects-pending-decision.
+   
+   3. UI shows the proposed patch in the world-side review queue.
+   
+   4. User clicks Accept.
+   
+   5. UI appends *world-action :world-turn/patch-accept
+      with patch ref.
+   
+   6. WorldTopology:
+        creates WorldTurn WT-5 in chat-A (kind :patch-accept)
+        applies patch; produces commit hash
+        $$patches-applied, $$objects update
+        $$activity-timeline records the moment
+        commit hash referenced back on $$llm-threads[A]
+          :produced-artifacts via foreign-append
+   
+   7. NO ContextBundle, NO LLMTurnRun. World-only WorldTurn.
 ```
 
-### §9.8 Cancel
+### §9.8 Cancel an in-flight LLMTurnRun
 
 ```text
-   1. UI appends :llm/cancel to *llm-cancel-depot.
-   2. CANCEL branch writes $$llm-threads[A] :status :cancel-requested.
-   3. LLMExecutor reads marker, sends Op::Interrupt and
-      Op::CleanBackgroundTerminals to Codex.
-   4. Codex emits TurnAborted{reason: Interrupted}; OBS branch updates
-      $$llm-threads[A] :status :cancelled.
-   5. Executor removes run from process pool; child exits cleanly.
+   1. UI appends *world-action :world-turn/cancel
+      with target LLMTurnRun run-N.
+   
+   2. WorldTopology:
+        creates WorldTurn WT-cancel
+        foreign-appends to *llm-cancel-depot
+   
+   3. CANCEL branch writes $$llm-turn-runs[run-N]
+      :status :cancel-requested.
+   
+   4. LLMExecutor reads marker, sends Op::Interrupt and
+      Op::CleanBackgroundTerminals to the Codex child for the
+      relevant LLMThread.
+   
+   5. Codex emits TurnAborted{reason: Interrupted}; OBS branch
+      updates $$llm-turn-runs[run-N] :status :cancelled; closes
+      WorldTurn WT-cancel.
 ```
 
-### §9.9 Replay & time-travel
+### §9.9 Replay & time-travel (UI/query, not a WorldTurn)
 
 Three storage layers, increasing fidelity:
 
 ```text
    1. Codex's rollout JSONL at ~/.codex/sessions/.../rollout-*.jsonl.
-      Curated subset (drops deltas, approvals). Cross-tool compatibility
-      (codex resume <session-id> works).
+      Curated subset (drops deltas, approvals). Cross-tool
+      compatibility (codex resume <session-id> works).
    
-   2. Softland's *llm-obs-depot in Rama. Full event stream, append-only.
-      Reconstruct any run's full trail at any point in time by replaying
-      the depot up to a given sequence.
+   2. Softland's *llm-obs-depot in Rama. Full event stream,
+      append-only. Reconstruct any LLMTurnRun's full trail at any
+      point in time by replaying the depot up to a given sequence.
    
-   3. ContextBundles in $$context-bundles. Per-turn replay primitive —
-      exact input the model received for any turn.
+   3. ContextBundles in $$context-bundles. Per-turn replay primitive
+      — exact input the model received for any turn.
 ```
 
-Time-travel queries: read PStates *as of* a given depot sequence. Rama's
-PState model + history navigation gives you this without extra plumbing.
+Time-travel queries: read PStates *as of* a given depot sequence.
+Rama's PState model + history navigation gives this without extra
+plumbing. **Replay is a query/view operation, not a WorldTurn** —
+no new artifact is created by reading.
 
 ---
 
@@ -1309,23 +1627,25 @@ PState model + history navigation gives you this without extra plumbing.
 ```text
    1. ContextBundle physical home.
         Own depot (*context-bundle-depot)? Topology-internal (composed
-        at SEND time, stored as part of $$llm-turn-runs)? Or world track
-        (composed by WorldTopology, foreign-appended to *llm-depot)?
-        Trade-off: auditability vs hop count.
+        in WorldTopology at SEND time, stored as part of $$context-
+        bundles before foreign-append to *llm-depot)? Trade-off:
+        auditability vs hop count. (Either way it's authored on the
+        World/Context side per §8.3 world-first; the choice is where
+        in that side it physically lives.)
 
    2. World derivatives organization.
         Single PState ($$world-derivatives) vs kind-typed many
         ($$edited-messages, $$curated-excerpts, $$synthesized-notes).
         Trade-off: simplicity vs queryability.
 
-   3. MVP commitment.
-        Pattern X day-one (and refactor to Y later) or Pattern Y
-        day-one? Trade-off: ship speed vs eventual rework.
-
-   4. Derivative versioning.
+   3. Derivative versioning.
         Edit twice → keep both versions, or single mutable artifact?
         Trade-off: history vs storage.
 ```
+
+(The "Pattern X vs Pattern Y" question that earlier versions of this
+doc listed here is **closed**. World-first / Pattern Y is canonical;
+see §8.3.)
 
 ---
 
