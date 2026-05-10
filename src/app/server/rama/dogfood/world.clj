@@ -639,6 +639,126 @@
   [thread-row turn-order]
   (assoc thread-row :turn-count (count turn-order)))
 
+(defn catalog-object-id
+  [object-type source-id]
+  (str (name object-type) ":" source-id))
+
+(defn object-row-id
+  [object-row]
+  (:object/id object-row))
+
+(defn world-thread-object-row
+  [thread-row]
+  {:object/id (catalog-object-id :world-thread (:world-thread/id thread-row))
+   :object/type :world-thread
+   :source/type :world-thread
+   :source/id (:world-thread/id thread-row)
+   :world-thread/id (:world-thread/id thread-row)
+   :title (:title thread-row)
+   :status (:status thread-row)
+   :turn-count (:turn-count thread-row)
+   :created-at-ms (:created-at-ms thread-row)
+   :updated-at-ms (:updated-at-ms thread-row)})
+
+(defn world-turn-object-row
+  [turn-row]
+  {:object/id (catalog-object-id :world-turn (:world-turn/id turn-row))
+   :object/type :world-turn
+   :source/type :world-turn
+   :source/id (:world-turn/id turn-row)
+   :world-thread/id (:world-thread/id turn-row)
+   :world-turn/id (:world-turn/id turn-row)
+   :world-turn/kind (:world-turn/kind turn-row)
+   :context-bundle/id (:context-bundle/id turn-row)
+   :created-at-ms (:created-at-ms turn-row)
+   :updated-at-ms (:updated-at-ms turn-row)})
+
+(defn context-bundle-object-row
+  [bundle]
+  {:object/id (catalog-object-id :context-bundle (:context-bundle/id bundle))
+   :object/type :context-bundle
+   :source/type :context-bundle
+   :source/id (:context-bundle/id bundle)
+   :world-thread/id (:world-thread/id bundle)
+   :world-turn/id (:world-turn/id bundle)
+   :context-bundle/id (:context-bundle/id bundle)
+   :context-bundle/hash (:context-bundle/hash bundle)
+   :created-at-ms (:created-at-ms bundle)
+   :updated-at-ms (:created-at-ms bundle)})
+
+(defn llm-turn-run-object-row
+  [llm-request]
+  {:object/id (catalog-object-id :llm-turn-run (:llm-turn-run/id llm-request))
+   :object/type :llm-turn-run
+   :source/type :llm-turn-run
+   :source/id (:llm-turn-run/id llm-request)
+   :world-thread/id (:world-thread/id llm-request)
+   :world-turn/id (:world-turn/id llm-request)
+   :context-bundle/id (:context-bundle/id llm-request)
+   :llm-thread/id (:llm-thread/id llm-request)
+   :llm-turn-run/id (:llm-turn-run/id llm-request)
+   :llm/request-id (:request/id llm-request)
+   :status :requested
+   :created-at-ms (:request/time-ms llm-request)
+   :updated-at-ms (:request/time-ms llm-request)})
+
+(defn artifact-edge
+  [from-object-id relation to-object-id time-ms request-id]
+  {:artifact-edge/id (str from-object-id "->" (name relation) "->" to-object-id)
+   :artifact-edge/type relation
+   :from/object-id from-object-id
+   :to/object-id to-object-id
+   :request/id request-id
+   :created-at-ms time-ms})
+
+(defn artifact-edge-id
+  [edge]
+  (:artifact-edge/id edge))
+
+(defn artifact-edge-from
+  [edge]
+  (:from/object-id edge))
+
+(defn artifact-edge-to
+  [edge]
+  (:to/object-id edge))
+
+(defn thread-turn-edge
+  [thread-row turn-row]
+  (artifact-edge
+    (catalog-object-id :world-thread (:world-thread/id thread-row))
+    :contains
+    (catalog-object-id :world-turn (:world-turn/id turn-row))
+    (:created-at-ms turn-row)
+    (:request/id turn-row)))
+
+(defn turn-bundle-edge
+  [turn-row bundle]
+  (artifact-edge
+    (catalog-object-id :world-turn (:world-turn/id turn-row))
+    :freezes-context
+    (catalog-object-id :context-bundle (:context-bundle/id bundle))
+    (:created-at-ms bundle)
+    (:request/id turn-row)))
+
+(defn turn-llm-run-edge
+  [turn-row llm-request]
+  (artifact-edge
+    (catalog-object-id :world-turn (:world-turn/id turn-row))
+    :requests-run
+    (catalog-object-id :llm-turn-run (:llm-turn-run/id llm-request))
+    (:request/time-ms llm-request)
+    (:request/id turn-row)))
+
+(defn bundle-llm-run-edge
+  [bundle llm-request]
+  (artifact-edge
+    (catalog-object-id :context-bundle (:context-bundle/id bundle))
+    :feeds-run
+    (catalog-object-id :llm-turn-run (:llm-turn-run/id llm-request))
+    (:request/time-ms llm-request)
+    (:request/id llm-request)))
+
 (defmodule world-module [setup topologies]
   (mirror-depot setup *llm-depot (get-module-name llm/llm-module) "*llm-depot")
   (mirror-depot setup *llm-control-depot (get-module-name llm/llm-module) "*llm-control-depot")
@@ -658,6 +778,9 @@
     (declare-pstate n $$world-llm-run-by-turn {String String})
     (declare-pstate n $$world-llm-controls {String Object})
     (declare-pstate n $$world-llm-control-by-turn {String String})
+    (declare-pstate n $$objects {String Object})
+    (declare-pstate n $$artifact-graph {String Object})
+    (declare-pstate n $$artifact-graph-in {String Object})
 
     (<<sources n
       (source> *world-action-depot :> *request)
@@ -680,10 +803,14 @@
           (event-id *thread-event :> *event-id)
           (thread-row *existing-thread *thread-event :> *thread-row)
           (world-thread-id-from-event *thread-event :> *event-thread-id)
+          (world-thread-object-row *thread-row :> *thread-object)
+          (object-row-id *thread-object :> *thread-object-id)
           (|hash *event-id)
           (local-transform> [(keypath *event-id) (termval *thread-event)] $$world-events-by-id)
           (|hash *event-thread-id)
-          (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads))
+          (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads)
+          (|hash *thread-object-id)
+          (local-transform> [(keypath *thread-object-id) (termval *thread-object)] $$objects))
 
         (case> (= :world-turn/compose-and-send *request-type))
         (request-idempotency-key *request :> *idempotency-key)
@@ -729,6 +856,30 @@
             (local-select> [(keypath *event-thread-id)] $$world-turns-by-thread :> *existing-turn-order)
             (add-turn-id *existing-turn-order *turn-id :> *turn-order)
             (bump-thread-turn-count *base-thread-row *turn-order :> *thread-row)
+            (world-thread-object-row *thread-row :> *thread-object)
+            (world-turn-object-row *turn-row :> *turn-object)
+            (context-bundle-object-row *bundle :> *bundle-object)
+            (llm-turn-run-object-row *llm-request :> *llm-run-object)
+            (thread-turn-edge *thread-row *turn-row :> *thread-turn-edge)
+            (turn-bundle-edge *turn-row *bundle :> *turn-bundle-edge)
+            (turn-llm-run-edge *turn-row *llm-request :> *turn-llm-run-edge)
+            (bundle-llm-run-edge *bundle *llm-request :> *bundle-llm-run-edge)
+            (object-row-id *thread-object :> *thread-object-id)
+            (object-row-id *turn-object :> *turn-object-id)
+            (object-row-id *bundle-object :> *bundle-object-id)
+            (object-row-id *llm-run-object :> *llm-run-object-id)
+            (artifact-edge-id *thread-turn-edge :> *thread-turn-edge-id)
+            (artifact-edge-id *turn-bundle-edge :> *turn-bundle-edge-id)
+            (artifact-edge-id *turn-llm-run-edge :> *turn-llm-run-edge-id)
+            (artifact-edge-id *bundle-llm-run-edge :> *bundle-llm-run-edge-id)
+            (artifact-edge-from *thread-turn-edge :> *thread-turn-from)
+            (artifact-edge-to *thread-turn-edge :> *thread-turn-to)
+            (artifact-edge-from *turn-bundle-edge :> *turn-bundle-from)
+            (artifact-edge-to *turn-bundle-edge :> *turn-bundle-to)
+            (artifact-edge-from *turn-llm-run-edge :> *turn-llm-run-from)
+            (artifact-edge-to *turn-llm-run-edge :> *turn-llm-run-to)
+            (artifact-edge-from *bundle-llm-run-edge :> *bundle-llm-run-from)
+            (artifact-edge-to *bundle-llm-run-edge :> *bundle-llm-run-to)
             (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads)
             (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$world-turns-by-thread)
             (|hash *turn-id)
@@ -741,6 +892,26 @@
             (local-transform> [(keypath *llm-run-id) (termval *llm-request)] $$world-llm-run-requests)
             (|hash *idempotency-key)
             (local-transform> [(keypath *idempotency-key) (termval *dedupe-row)] $$world-send-by-idempotency)
+            (|hash *thread-object-id)
+            (local-transform> [(keypath *thread-object-id) (termval *thread-object)] $$objects)
+            (local-transform> [(keypath *thread-turn-from) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph)
+            (|hash *thread-turn-to)
+            (local-transform> [(keypath *thread-turn-to) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph-in)
+            (|hash *turn-object-id)
+            (local-transform> [(keypath *turn-object-id) (termval *turn-object)] $$objects)
+            (local-transform> [(keypath *turn-bundle-from) (keypath *turn-bundle-edge-id) (termval *turn-bundle-edge)] $$artifact-graph)
+            (local-transform> [(keypath *turn-llm-run-from) (keypath *turn-llm-run-edge-id) (termval *turn-llm-run-edge)] $$artifact-graph)
+            (|hash *turn-bundle-to)
+            (local-transform> [(keypath *turn-bundle-to) (keypath *turn-bundle-edge-id) (termval *turn-bundle-edge)] $$artifact-graph-in)
+            (|hash *turn-llm-run-to)
+            (local-transform> [(keypath *turn-llm-run-to) (keypath *turn-llm-run-edge-id) (termval *turn-llm-run-edge)] $$artifact-graph-in)
+            (|hash *bundle-object-id)
+            (local-transform> [(keypath *bundle-object-id) (termval *bundle-object)] $$objects)
+            (local-transform> [(keypath *bundle-llm-run-from) (keypath *bundle-llm-run-edge-id) (termval *bundle-llm-run-edge)] $$artifact-graph)
+            (|hash *bundle-llm-run-to)
+            (local-transform> [(keypath *bundle-llm-run-to) (keypath *bundle-llm-run-edge-id) (termval *bundle-llm-run-edge)] $$artifact-graph-in)
+            (|hash *llm-run-object-id)
+            (local-transform> [(keypath *llm-run-object-id) (termval *llm-run-object)] $$objects)
             (|hash$$ *llm-depot *llm-run-id)
             (depot-partition-append! *llm-depot *llm-request :append-ack)))
 
@@ -766,6 +937,14 @@
           (world-thread-event *request *existing-thread :> *thread-event)
           (thread-row *existing-thread *thread-event :> *base-thread-row)
           (bump-thread-turn-count *base-thread-row *turn-order :> *thread-row)
+          (world-thread-object-row *thread-row :> *thread-object)
+          (world-turn-object-row *turn-row :> *turn-object)
+          (thread-turn-edge *thread-row *turn-row :> *thread-turn-edge)
+          (object-row-id *thread-object :> *thread-object-id)
+          (object-row-id *turn-object :> *turn-object-id)
+          (artifact-edge-id *thread-turn-edge :> *thread-turn-edge-id)
+          (artifact-edge-from *thread-turn-edge :> *thread-turn-from)
+          (artifact-edge-to *thread-turn-edge :> *thread-turn-to)
           (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads)
           (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$world-turns-by-thread)
           (|hash *turn-event-id)
@@ -777,6 +956,13 @@
           (local-transform> [(keypath *turn-id) (termval *control-id)] $$world-llm-control-by-turn)
           (|hash *control-id)
           (local-transform> [(keypath *control-id) (termval *control)] $$world-llm-controls)
+          (|hash *thread-object-id)
+          (local-transform> [(keypath *thread-object-id) (termval *thread-object)] $$objects)
+          (local-transform> [(keypath *thread-turn-from) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph)
+          (|hash *thread-turn-to)
+          (local-transform> [(keypath *thread-turn-to) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph-in)
+          (|hash *turn-object-id)
+          (local-transform> [(keypath *turn-object-id) (termval *turn-object)] $$objects)
           (|hash$$ *llm-control-depot *control-run-id)
           (depot-partition-append! *llm-control-depot *control :append-ack))
 
@@ -797,13 +983,28 @@
           (world-thread-event *request *existing-thread :> *thread-event)
           (thread-row *existing-thread *thread-event :> *base-thread-row)
           (bump-thread-turn-count *base-thread-row *turn-order :> *thread-row)
+          (world-thread-object-row *thread-row :> *thread-object)
+          (world-turn-object-row *turn-row :> *turn-object)
+          (thread-turn-edge *thread-row *turn-row :> *thread-turn-edge)
+          (object-row-id *thread-object :> *thread-object-id)
+          (object-row-id *turn-object :> *turn-object-id)
+          (artifact-edge-id *thread-turn-edge :> *thread-turn-edge-id)
+          (artifact-edge-from *thread-turn-edge :> *thread-turn-from)
+          (artifact-edge-to *thread-turn-edge :> *thread-turn-to)
           (|hash *turn-event-id)
           (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$world-events-by-id)
           (|hash *event-thread-id)
           (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads)
           (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$world-turns-by-thread)
           (|hash *turn-id)
-          (local-transform> [(keypath *turn-id) (termval *turn-row)] $$world-turns))
+          (local-transform> [(keypath *turn-id) (termval *turn-row)] $$world-turns)
+          (|hash *thread-object-id)
+          (local-transform> [(keypath *thread-object-id) (termval *thread-object)] $$objects)
+          (local-transform> [(keypath *thread-turn-from) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph)
+          (|hash *thread-turn-to)
+          (local-transform> [(keypath *thread-turn-to) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph-in)
+          (|hash *turn-object-id)
+          (local-transform> [(keypath *turn-object-id) (termval *turn-object)] $$objects))
 
         (default>)
         (rejected-decision *request :request/type-invalid :> *decision)
@@ -837,6 +1038,9 @@
      :world-llm-run-by-turn (foreign-pstate ipc module-name "$$world-llm-run-by-turn")
      :world-llm-controls (foreign-pstate ipc module-name "$$world-llm-controls")
      :world-llm-control-by-turn (foreign-pstate ipc module-name "$$world-llm-control-by-turn")
+     :objects (foreign-pstate ipc module-name "$$objects")
+     :artifact-graph (foreign-pstate ipc module-name "$$artifact-graph")
+     :artifact-graph-in (foreign-pstate ipc module-name "$$artifact-graph-in")
      :llm-depot (foreign-depot ipc llm-module-name "*llm-depot")
      :llm-claim-depot (foreign-depot ipc llm-module-name "*llm-claim-depot")
      :llm-obs-depot (foreign-depot ipc llm-module-name "*llm-obs-depot")
@@ -931,6 +1135,20 @@
 (defn read-llm-control-by-turn
   [runtime world-turn-id]
   (select-pstate-one (:world-llm-control-by-turn runtime) [(keypath world-turn-id)]))
+
+(defn read-object
+  [runtime object-id]
+  (select-pstate-one (:objects runtime) [(keypath object-id)]))
+
+(defn read-artifact-graph
+  [runtime object-id]
+  (or (select-pstate-one (:artifact-graph runtime) [(keypath object-id)])
+      {}))
+
+(defn read-artifact-graph-in
+  [runtime object-id]
+  (or (select-pstate-one (:artifact-graph-in runtime) [(keypath object-id)])
+      {}))
 
 (defn await-materialized
   ([read-f pred]

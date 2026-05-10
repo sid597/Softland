@@ -684,6 +684,18 @@
   (and (= :codex/approval-request (:observation/type obs))
        (<= (long (:sequence obs)) (long (:last-seq run-row)))))
 
+(defn indexable-item-observation?
+  [run-row obs]
+  (and (= :codex/item-completed (:observation/type obs))
+       (= (:llm-turn-run/id run-row) (:llm-turn-run/id obs))
+       (= (:llm-thread/id run-row) (:llm-thread/id obs))
+       (valid-observation-routing? obs)
+       (valid-observation-sequence? obs)))
+
+(defn item-row-id
+  [item-row]
+  (:llm-item/id item-row))
+
 (defn run-items-by-id [run-row] (:items-by-id run-row))
 (defn run-raw-response-items [run-row] (:raw-response-items run-row))
 (defn run-tool-calls-by-id [run-row] (:tool-calls-by-id run-row))
@@ -911,7 +923,12 @@
           (observation->approval-row *obs :> *approval)
           (approval-id *approval :> *approval-id)
           (|hash *approval-id)
-          (local-transform> [(keypath *approval-id) (termval *approval)] $$llm-approvals-pending)))
+          (local-transform> [(keypath *approval-id) (termval *approval)] $$llm-approvals-pending))
+        (<<if (indexable-item-observation? *run-row *obs)
+          (observation->item-row *obs :> *item-row)
+          (item-row-id *item-row :> *item-id)
+          (|hash *item-id)
+          (local-transform> [(keypath *item-id) (termval *item-row)] $$llm-item-by-id)))
 
       (source> *llm-control-depot :> *control)
       (control-run-id *control :> *run-id)
@@ -1180,6 +1197,10 @@
   [runtime thread-id]
   (or (select-pstate-one (:llm-items-by-thread runtime) [(keypath thread-id)])
       {}))
+
+(defn read-item-by-id
+  [runtime item-id]
+  (select-pstate-one (:llm-item-by-id runtime) [(keypath item-id)]))
 
 (defn read-runs-by-thread
   [runtime thread-id]

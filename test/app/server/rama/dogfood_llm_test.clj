@@ -283,10 +283,13 @@
 
           (let [view (llm/await-view runtime run-id #(= :succeeded (:status %)))
                 items (llm/read-items-by-run runtime run-id)
+                indexed-item (llm/read-item-by-id runtime "item-0")
                 usage (llm/read-token-usage runtime run-id)]
             (is (= :succeeded (:status view)))
             (is (= ["item-0"] (mapv :llm-item/id (:items view))))
             (is (= "hello from codex" (get-in items ["item-0" :content/text])))
+            (is (= "hello from codex" (:content/text indexed-item)))
+            (is (= run-id (:llm-turn-run/id indexed-item)))
             (is (= 50000 (:tokens/input-total usage)))
             (is (= 45000 (:tokens/cached-input usage)))
             (is (= 8000 (:tokens/reasoning-output usage)))))))))
