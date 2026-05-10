@@ -1,0 +1,872 @@
+(ns app.server.rama.dogfood.llm
+  (:use [com.rpl.rama]
+        [com.rpl.rama.path]
+        [com.rpl.rama.ops])
+  (:require [app.server.rama.core :as kernel]
+            [clojure.string :as str]
+            [com.rpl.rama.test :refer [create-ipc launch-module!]])
+  (:import (java.util UUID)))
+
+(def schema-version 1)
+(def pending-task-id "local")
+(def default-error-limit 50)
+
+(def observation-types
+  #{:codex/item-completed
+    :codex/approval-request
+    :codex/token-usage
+    :codex/tool-call
+    :codex/run-finished
+    :codex/run-failed})
+
+(def terminal-statuses
+  #{:succeeded :failed :cancelled})
+
+(def forbidden-payload-execution-option-keys
+  #{:model :approval-policy :sandbox :cwd :execution/options})
+
+(defn now-ms [] (kernel/now-ms))
+(defn random-id [prefix] (kernel/random-id prefix))
+
+(defn llm-routing-key
+  [run-id]
+  [:llm-run run-id])
+
+(defn normalize-task-id
+  [task-id]
+  (when (some? task-id)
+    (str task-id)))
+
+(defn blank-string?
+  [x]
+  (or (not (string? x)) (str/blank? x)))
+
+(defn opts-executor-task-id
+  [opts]
+  (normalize-task-id
+    (or (:executor-task-id opts)
+        (:executor/task-id opts))))
+
+(defn request-executor-task-id
+  [request]
+  (normalize-task-id
+    (or (get-in request [:payload :executor/task-id])
+        (get-in request [:executor :executor/task-id]))))
+
+(defn turn-run-request
+  "Build the LLMTopology input record. In the full system WorldTopology is the
+   only writer of this value to *llm-depot after it has accepted a WorldTurn and
+   frozen the ContextBundle."
+  [world-thread-id world-turn-id context-bundle-id & [opts]]
+  (let [run-id (or (:llm-turn-run-id opts) (:llm-turn-run/id opts) (random-id "llm-run"))
+        llm-thread-id (or (:llm-thread-id opts) (:llm-thread/id opts) (random-id "llm-thread"))
+        request-id (or (:request-id opts) (:request/id opts) (random-id "llm-req"))
+        time-ms (or (:time-ms opts) (now-ms))
+        executor-task-id (opts-executor-task-id opts)]
+    {:request/id request-id
+     :request/type :llm/turn-run-request
+     :request/schema-version schema-version
+     :request/time-ms time-ms
+     :idempotency/key (or (:idempotency-key opts)
+                          (:idempotency/key opts)
+                          (str "world-event:" world-turn-id ":" context-bundle-id))
+     :routing/key (llm-routing-key run-id)
+     :world-thread/id world-thread-id
+     :world-turn/id world-turn-id
+     :context-bundle/id context-bundle-id
+     :llm-thread/id llm-thread-id
+     :llm-turn-run/id run-id
+     :executor {:agent/kind (or (:agent-kind opts) :codex)
+                :native/thread-id (:native/thread-id opts)
+                :fork/from-native-thread-id (:fork/from-native-thread-id opts)}
+     :payload (cond-> {:context-bundle/id context-bundle-id
+                       :executor/pool (or (:executor-pool opts) :local-codex)
+                       :executor/hints (or (:executor-hints opts) {:interactive? true})}
+                executor-task-id
+                (assoc :executor/task-id executor-task-id))}))
+
+(def required-request-keys
+  [:request/id :request/type :request/schema-version :request/time-ms
+   :idempotency/key :routing/key :world-thread/id :world-turn/id
+   :context-bundle/id :llm-thread/id :llm-turn-run/id :executor :payload])
+
+(defn request-validation-errors
+  [request]
+  (let [run-id (:llm-turn-run/id request)
+        context-bundle-id (:context-bundle/id request)
+        payload-context-bundle-id (get-in request [:payload :context-bundle/id])
+        forbidden-options (vec (filter #(contains? (:payload request) %)
+                                       forbidden-payload-execution-option-keys))]
+    (cond-> []
+      (not (map? request))
+      (conj {:type :request/not-map})
+
+      (and (map? request) (not-every? #(contains? request %) required-request-keys))
+      (conj {:type :request/missing-envelope-key
+             :missing (vec (remove #(contains? request %) required-request-keys))})
+
+      (and (map? request) (not= :llm/turn-run-request (:request/type request)))
+      (conj {:type :request/type-invalid
+             :value (:request/type request)})
+
+      (and (map? request) (blank-string? (:request/id request)))
+      (conj {:type :request/id-invalid
+             :value (:request/id request)})
+
+      (and (map? request) (blank-string? (:idempotency/key request)))
+      (conj {:type :idempotency/key-invalid
+             :value (:idempotency/key request)})
+
+      (and (map? request) (blank-string? run-id))
+      (conj {:type :llm-turn-run/id-invalid
+             :value run-id})
+
+      (and (map? request) (not= (llm-routing-key run-id) (:routing/key request)))
+      (conj {:type :routing/key-invalid
+             :value (:routing/key request)
+             :expected (llm-routing-key run-id)})
+
+      (and (map? request) (blank-string? (:world-thread/id request)))
+      (conj {:type :world-thread/id-invalid
+             :value (:world-thread/id request)})
+
+      (and (map? request) (blank-string? (:world-turn/id request)))
+      (conj {:type :world-turn/id-invalid
+             :value (:world-turn/id request)})
+
+      (and (map? request) (blank-string? context-bundle-id))
+      (conj {:type :context-bundle/id-invalid
+             :value context-bundle-id})
+
+      (and (map? request) (not= context-bundle-id payload-context-bundle-id))
+      (conj {:type :context-bundle/payload-drift
+             :context-bundle/id context-bundle-id
+             :payload/context-bundle-id payload-context-bundle-id})
+
+      (and (map? request) (blank-string? (:llm-thread/id request)))
+      (conj {:type :llm-thread/id-invalid
+             :value (:llm-thread/id request)})
+
+      (and (map? request) (not (keyword? (get-in request [:executor :agent/kind]))))
+      (conj {:type :executor/agent-kind-invalid
+             :value (get-in request [:executor :agent/kind])})
+
+      (and (map? request) (seq forbidden-options))
+      (conj {:type :payload/execution-options-not-bundle-owned
+             :keys forbidden-options}))))
+
+(defn request-errors? [errors] (boolean (seq errors)))
+(defn request-run-id [request] (:llm-turn-run/id request))
+(defn decision-run-id [decision] (:llm-turn-run/id decision))
+(defn decision-accepted? [decision] (= :accepted (:decision/status decision)))
+
+(defn decision-id-for-run-id
+  [run-id]
+  (str run-id "/decision"))
+
+(defn decision-time-ms
+  [request]
+  (:request/time-ms request))
+
+(defn run-event
+  [request]
+  {:event/id (str (:request/id request) "/event")
+   :event/type :llm-turn-run/requested
+   :event/time-ms (:request/time-ms request)
+   :event/schema-version schema-version
+   :request/id (:request/id request)
+   :routing/key (:routing/key request)
+   :world-thread/id (:world-thread/id request)
+   :world-turn/id (:world-turn/id request)
+   :context-bundle/id (:context-bundle/id request)
+   :llm-thread/id (:llm-thread/id request)
+   :llm-turn-run/id (:llm-turn-run/id request)
+   :executor (:executor request)
+   :payload (:payload request)})
+
+(defn accepted-decision
+  [request event]
+  {:decision/id (decision-id-for-run-id (:llm-turn-run/id request))
+   :decision/status :accepted
+   :llm-turn-run/id (:llm-turn-run/id request)
+   :request/id (:request/id request)
+   :request/type (:request/type request)
+   :routing/key (:routing/key request)
+   :event/id (:event/id event)
+   :event/ids [(:event/id event)]
+   :event event
+   :decided-at (decision-time-ms request)})
+
+(defn rejected-decision
+  [request reason & [errors]]
+  {:decision/id (decision-id-for-run-id (:llm-turn-run/id request))
+   :decision/status :rejected
+   :llm-turn-run/id (:llm-turn-run/id request)
+   :request/id (:request/id request)
+   :request/type (:request/type request)
+   :routing/key (:routing/key request)
+   :event/id nil
+   :event/ids []
+   :decision/reason reason
+   :errors (vec errors)
+   :decided-at (decision-time-ms request)})
+
+(defn interpret-turn-run-request
+  [request]
+  (let [errors (request-validation-errors request)]
+    (if (seq errors)
+      (rejected-decision request :request-invalid errors)
+      (accepted-decision request (run-event request)))))
+
+(defn conj-distinct
+  [xs x]
+  (let [v (vec xs)]
+    (if (some #{x} v)
+      v
+      (conj v x))))
+
+(defn initial-turn-run-row
+  [decision]
+  (let [event (:event decision)
+        payload (:payload event)
+        time-ms (:event/time-ms event)]
+    {:llm-turn-run/id (:llm-turn-run/id decision)
+     :llm-thread/id (:llm-thread/id event)
+     :world-thread/id (:world-thread/id event)
+     :world-turn/id (:world-turn/id event)
+     :context-bundle/id (:context-bundle/id event)
+     :request/id (:request/id decision)
+     :decision/id (:decision/id decision)
+     :status :pending
+     :agent/kind (get-in event [:executor :agent/kind])
+     :native/codex-thread-id (get-in event [:executor :native/thread-id])
+     :fork/from-native-thread-id (get-in event [:executor :fork/from-native-thread-id])
+     :executor/pool (:executor/pool payload)
+     :executor/hints (:executor/hints payload)
+     :executor/task-id (request-executor-task-id event)
+     :created-at time-ms
+     :updated-at time-ms
+     :claimed-by nil
+     :claim/token nil
+     :claimed-at nil
+     :started-at nil
+     :finished-at nil
+     :last-seq -1
+     :obs-buffer {}
+     :items-by-id {}
+     :item-order []
+     :raw-response-items {}
+     :tool-calls-by-id {}
+     :approvals-pending {}
+     :approvals-by-id {}
+     :token-usage {}
+     :observation-errors []}))
+
+(defn assign-executor-task
+  [run-row current-task-id]
+  (let [executor-task-id (or (:executor/task-id run-row)
+                             (normalize-task-id current-task-id)
+                             pending-task-id)]
+    (assoc run-row :executor/task-id executor-task-id)))
+
+(defn run-executor-task-id [run-row] (:executor/task-id run-row))
+(defn run-thread-id [run-row] (:llm-thread/id run-row))
+(defn run-world-thread-id [run-row] (:world-thread/id run-row))
+(defn run-world-turn-id [run-row] (:world-turn/id run-row))
+(defn known-run-row? [run-row] (some? run-row))
+
+(defn turn-run-summary
+  [run-row]
+  (select-keys run-row
+               [:llm-turn-run/id :request/id :status :world-turn/id
+                :context-bundle/id :created-at :updated-at
+                :native/codex-thread-id]))
+
+(defn pending-entry
+  [run-row]
+  {:llm-turn-run/id (:llm-turn-run/id run-row)
+   :llm-thread/id (:llm-thread/id run-row)
+   :request/id (:request/id run-row)
+   :context-bundle/id (:context-bundle/id run-row)
+   :executor/task-id (:executor/task-id run-row)
+   :created-at (:created-at run-row)
+   :status (:status run-row)})
+
+(defn upsert-thread-row
+  [existing run-row]
+  (let [time-ms (:updated-at run-row)
+        base (or existing
+                 {:llm-thread/id (:llm-thread/id run-row)
+                  :world-thread/id (:world-thread/id run-row)
+                  :agent/kind (:agent/kind run-row)
+                  :native/codex-thread-id (:native/codex-thread-id run-row)
+                  :created-at (:created-at run-row)
+                  :turn-run/ids []})]
+    (-> base
+        (assoc :updated-at time-ms
+               :world-thread/id (:world-thread/id run-row)
+               :agent/kind (:agent/kind run-row)
+               :native/codex-thread-id (or (:native/codex-thread-id run-row)
+                                           (:native/codex-thread-id base)))
+        (update :turn-run/ids conj-distinct (:llm-turn-run/id run-row)))))
+
+(defn run-items-vector
+  [run-row]
+  (vec (keep #(get-in run-row [:items-by-id %]) (:item-order run-row))))
+
+(defn run-view
+  [run-row]
+  (assoc (select-keys run-row
+                      [:llm-turn-run/id :llm-thread/id :world-thread/id
+                       :world-turn/id :context-bundle/id :request/id :status
+                       :agent/kind :native/codex-thread-id :executor/task-id
+                       :claimed-by :started-at :finished-at :created-at
+                       :updated-at :last-seq :token-usage :observation-errors])
+         :items (run-items-vector run-row)
+         :approvals-pending (vec (vals (:approvals-pending run-row)))))
+
+(defn claim-record
+  [run-id llm-thread-id executor-id & [opts]]
+  (let [task-id (or (opts-executor-task-id opts) pending-task-id)]
+    {:claim/id (or (:claim-id opts) (random-id "claim"))
+     :llm-turn-run/id run-id
+     :llm-thread/id llm-thread-id
+     :executor/id executor-id
+     :executor/task-id task-id
+     :claim/token (or (:claim-token opts) (str (UUID/randomUUID)))
+     :claimed-at-ms (or (:claimed-at-ms opts) (:claimed-at opts) (now-ms))
+     :routing/key (llm-routing-key run-id)}))
+
+(defn claim-run-id [claim] (:llm-turn-run/id claim))
+(defn observation-run-id [obs] (:llm-turn-run/id obs))
+
+(defn valid-claim?
+  [claim]
+  (and (map? claim)
+       (not (blank-string? (:llm-turn-run/id claim)))
+       (not (blank-string? (:llm-thread/id claim)))
+       (not (blank-string? (:executor/id claim)))
+       (not (blank-string? (:executor/task-id claim)))
+       (not (blank-string? (:claim/token claim)))
+       (= (llm-routing-key (:llm-turn-run/id claim)) (:routing/key claim))))
+
+(defn grantable-claim?
+  [run-row claim]
+  (and (valid-claim? claim)
+       (= :pending (:status run-row))
+       (= (:llm-turn-run/id run-row) (:llm-turn-run/id claim))
+       (= (:llm-thread/id run-row) (:llm-thread/id claim))
+       (= (:executor/task-id run-row) (:executor/task-id claim))))
+
+(defn grant-claim
+  [run-row claim]
+  (let [t (or (:claimed-at-ms claim) (now-ms))]
+    (assoc run-row
+           :status :claimed
+           :claimed-by (:executor/id claim)
+           :claim/token (:claim/token claim)
+           :claimed-at t
+           :updated-at t)))
+
+(defn claim-state
+  [run-row claim]
+  (cond
+    (nil? run-row) :not-yet-processed
+    (and (= :claimed (:status run-row))
+         (= (:executor/id claim) (:claimed-by run-row))
+         (= (:claim/token claim) (:claim/token run-row))) :granted-to-us
+    (= :pending (:status run-row)) :not-yet-processed
+    :else :conflict-or-past))
+
+(defn append-bounded
+  [xs x limit]
+  (let [v (conj (vec xs) x)
+        c (count v)]
+    (if (> c limit)
+      (subvec v (- c limit))
+      v)))
+
+(defn observation-error
+  [reason run-row obs]
+  {:reason reason
+   :llm-turn-run/id (:llm-turn-run/id run-row)
+   :observation/type (:observation/type obs)
+   :sequence (:sequence obs)
+   :received-at-ms (or (:received-at-ms obs) (now-ms))})
+
+(defn add-observation-error
+  [run-row reason obs]
+  (let [t (or (:received-at-ms obs) (now-ms))]
+    (-> run-row
+        (update :observation-errors
+                append-bounded
+                (observation-error reason run-row obs)
+                default-error-limit)
+        (assoc :updated-at t))))
+
+(defn valid-observation-sequence?
+  [obs]
+  (let [seq-id (:sequence obs)]
+    (and (integer? seq-id) (not (neg? seq-id)))))
+
+(defn valid-observation-routing?
+  [obs]
+  (= (llm-routing-key (:llm-turn-run/id obs)) (:routing/key obs)))
+
+(defn observation
+  [run-id llm-thread-id observation-type sequence & [opts]]
+  (let [obs-id (or (:observation-id opts) (:observation/id opts) (random-id "obs"))
+        received-at (or (:received-at-ms opts) (:observed-at opts) (now-ms))]
+    (merge
+      {:observation/id obs-id
+       :observation/type observation-type
+       :observation/schema-version schema-version
+       :routing/key (llm-routing-key run-id)
+       :llm-turn-run/id run-id
+       :llm-thread/id llm-thread-id
+       :native/codex-thread-id (:native/codex-thread-id opts)
+       :native/codex-turn-id (:native/codex-turn-id opts)
+       :sequence sequence
+       :received-at-ms received-at
+       :codex/event-method (:codex/event-method opts)
+       :codex/event-params (:codex/event-params opts)
+       :raw/json (or (:raw/json opts) (:raw-json opts) {})}
+      (select-keys opts
+                   [:llm-item/id :native/item-id :item/type :content/text
+                    :content/hash :approval/id :approval/type
+                    :native/json-rpc-request-id :tokens/input-total
+                    :tokens/cached-input :tokens/output
+                    :tokens/reasoning-output :model/context-window
+                    :subscription/messages-used :billing/mode
+                    :tool-call/id :tool-call/type :tool-call/name
+                    :tool-call/status :error]))))
+
+(defn observation->item-row
+  [obs]
+  (let [text (or (:content/text obs)
+                 (get-in obs [:codex/event-params :content])
+                 "")
+        item-id (or (:llm-item/id obs)
+                    (:native/item-id obs)
+                    (:observation/id obs))]
+    {:llm-item/id item-id
+     :llm-turn-run/id (:llm-turn-run/id obs)
+     :llm-thread/id (:llm-thread/id obs)
+     :native/item-id (:native/item-id obs)
+     :item/type (or (:item/type obs) :assistant-message)
+     :item/order (:sequence obs)
+     :content/text text
+     :content/hash (or (:content/hash obs) (str "sha256:" (kernel/sha-256 text)))
+     :source :codex
+     :created-at-ms (:received-at-ms obs)}))
+
+(defn add-item
+  [run-row item]
+  (-> run-row
+      (assoc-in [:items-by-id (:llm-item/id item)] item)
+      (update :item-order conj-distinct (:llm-item/id item))))
+
+(defn observation->approval-row
+  [obs]
+  {:approval/id (or (:approval/id obs) (:observation/id obs))
+   :approval/type (or (:approval/type obs) :exec)
+   :llm-turn-run/id (:llm-turn-run/id obs)
+   :llm-thread/id (:llm-thread/id obs)
+   :native/json-rpc-request-id (:native/json-rpc-request-id obs)
+   :codex/event-method (:codex/event-method obs)
+   :codex/event-params (:codex/event-params obs)
+   :sequence (:sequence obs)
+   :status :pending
+   :received-at-ms (:received-at-ms obs)})
+
+(defn add-approval
+  [run-row approval]
+  (-> run-row
+      (assoc :status :blocked-awaiting-approval)
+      (assoc-in [:approvals-pending (:approval/id approval)] approval)
+      (assoc-in [:approvals-by-id (:approval/id approval)] approval)))
+
+(def token-usage-keys
+  [:tokens/input-total :tokens/cached-input :tokens/output
+   :tokens/reasoning-output :model/context-window
+   :subscription/messages-used :billing/mode])
+
+(defn observation->token-usage
+  [obs]
+  (select-keys obs token-usage-keys))
+
+(defn observation->tool-call-row
+  [obs]
+  {:tool-call/id (or (:tool-call/id obs) (:observation/id obs))
+   :tool-call/type (:tool-call/type obs)
+   :tool-call/name (:tool-call/name obs)
+   :tool-call/status (:tool-call/status obs)
+   :llm-turn-run/id (:llm-turn-run/id obs)
+   :llm-thread/id (:llm-thread/id obs)
+   :sequence (:sequence obs)
+   :received-at-ms (:received-at-ms obs)
+   :raw/json (:raw/json obs)})
+
+(defn add-raw-response-item
+  [run-row obs]
+  (assoc-in run-row [:raw-response-items (:observation/id obs)] (:raw/json obs)))
+
+(defn apply-observation-effect
+  [run-row obs]
+  (let [t (or (:received-at-ms obs) (now-ms))
+        run-row (add-raw-response-item run-row obs)]
+    (case (:observation/type obs)
+      :codex/item-completed
+      (-> run-row
+          (add-item (observation->item-row obs))
+          (assoc :status (if (contains? #{:pending :claimed} (:status run-row))
+                           :running
+                           (:status run-row))
+                 :started-at (or (:started-at run-row) t)
+                 :updated-at t))
+
+      :codex/approval-request
+      (-> run-row
+          (add-approval (observation->approval-row obs))
+          (assoc :updated-at t))
+
+      :codex/token-usage
+      (-> run-row
+          (update :token-usage merge (observation->token-usage obs))
+          (assoc :updated-at t))
+
+      :codex/tool-call
+      (-> run-row
+          (assoc-in [:tool-calls-by-id (or (:tool-call/id obs) (:observation/id obs))]
+                    (observation->tool-call-row obs))
+          (assoc :updated-at t))
+
+      :codex/run-finished
+      (assoc run-row
+             :status :succeeded
+             :finished-at t
+             :updated-at t)
+
+      :codex/run-failed
+      (assoc run-row
+             :status :failed
+             :error (:error obs)
+             :finished-at t
+             :updated-at t)
+
+      (add-observation-error run-row :observation/type-invalid obs))))
+
+(declare drain-observation-buffer)
+
+(defn apply-observation-in-order
+  [run-row obs]
+  (-> run-row
+      (apply-observation-effect obs)
+      (assoc :last-seq (:sequence obs))))
+
+(defn drain-observation-buffer
+  [run-row]
+  (loop [row run-row]
+    (let [next-seq (inc (long (:last-seq row)))
+          obs (get-in row [:obs-buffer next-seq])]
+      (if obs
+        (recur (-> row
+                   (update :obs-buffer dissoc next-seq)
+                   (apply-observation-in-order obs)))
+        row))))
+
+(defn fold-observation
+  [run-row obs]
+  (let [seq-id (:sequence obs)
+        expected (inc (long (:last-seq run-row)))]
+    (cond
+      (not= (:llm-turn-run/id run-row) (:llm-turn-run/id obs))
+      (add-observation-error run-row :observation/run-mismatch obs)
+
+      (not= (:llm-thread/id run-row) (:llm-thread/id obs))
+      (add-observation-error run-row :observation/thread-mismatch obs)
+
+      (not (valid-observation-routing? obs))
+      (add-observation-error run-row :observation/routing-key-invalid obs)
+
+      (not (contains? observation-types (:observation/type obs)))
+      (add-observation-error run-row :observation/type-invalid obs)
+
+      (not (valid-observation-sequence? obs))
+      (add-observation-error run-row :observation/sequence-invalid obs)
+
+      (< seq-id expected)
+      run-row
+
+      (= seq-id expected)
+      (drain-observation-buffer (apply-observation-in-order run-row obs))
+
+      :else
+      (assoc-in run-row [:obs-buffer seq-id] obs))))
+
+(defn observation-approval-materialized?
+  [run-row obs]
+  (and (= :codex/approval-request (:observation/type obs))
+       (<= (long (:sequence obs)) (long (:last-seq run-row)))))
+
+(defn run-items-by-id [run-row] (:items-by-id run-row))
+(defn run-raw-response-items [run-row] (:raw-response-items run-row))
+(defn run-tool-calls-by-id [run-row] (:tool-calls-by-id run-row))
+(defn run-approvals-by-id [run-row] (:approvals-by-id run-row))
+(defn run-token-usage [run-row] (:token-usage run-row))
+(defn approval-id [approval] (:approval/id approval))
+
+(defmodule llm-module [setup topologies]
+  (declare-depot setup *llm-depot (hash-by :llm-turn-run/id))
+  (declare-depot setup *llm-claim-depot (hash-by :llm-turn-run/id))
+  (declare-depot setup *llm-obs-depot (hash-by :llm-turn-run/id))
+  (let [n (stream-topology topologies "llm-track-topology")]
+    (declare-pstate n $$llm-threads {String Object})
+    (declare-pstate n $$llm-thread-by-world-thread {String String})
+    (declare-pstate n $$llm-thread-graph {String Object})
+    (declare-pstate n $$llm-turn-runs {String Object})
+    (declare-pstate n $$llm-turn-runs-by-thread {String Object})
+    (declare-pstate n $$llm-turn-run-by-world-turn {String String})
+    (declare-pstate n $$llm-decisions-by-run-id {String Object})
+    (declare-pstate n $$llm-pending-by-task {String Object})
+    (declare-pstate n $$llm-items-by-turn-run {String Object})
+    (declare-pstate n $$llm-items-by-thread {String Object})
+    (declare-pstate n $$llm-item-by-id {String Object})
+    (declare-pstate n $$llm-raw-response-items {String Object})
+    (declare-pstate n $$llm-tool-calls-by-run-id {String Object})
+    (declare-pstate n $$llm-approvals-pending {String Object})
+    (declare-pstate n $$llm-approvals-by-run-id {String Object})
+    (declare-pstate n $$llm-token-usage-by-run-id {String Object})
+    (declare-pstate n $$llm-cost-by-thread {String Object})
+    (declare-pstate n $$llm-views {String Object})
+
+    (<<sources n
+      (source> *llm-depot :> *request)
+      (interpret-turn-run-request *request :> *decision)
+      (decision-run-id *decision :> *run-id)
+      (|hash *run-id)
+      (local-transform> [(keypath *run-id) (termval *decision)] $$llm-decisions-by-run-id)
+      (<<if (decision-accepted? *decision)
+        (initial-turn-run-row *decision :> *run-row)
+        (current-task-id :> *current-task-id)
+        (assign-executor-task *run-row *current-task-id :> *assigned-run-row)
+        (run-executor-task-id *assigned-run-row :> *executor-task-id)
+        (run-view *assigned-run-row :> *view)
+        (pending-entry *assigned-run-row :> *pending-entry)
+        (turn-run-summary *assigned-run-row :> *run-summary)
+        (run-thread-id *assigned-run-row :> *thread-id)
+        (run-world-thread-id *assigned-run-row :> *world-thread-id)
+        (run-world-turn-id *assigned-run-row :> *world-turn-id)
+        (local-transform> [(keypath *run-id) (termval *assigned-run-row)] $$llm-turn-runs)
+        (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
+        (|hash *world-turn-id)
+        (local-transform> [(keypath *world-turn-id) (termval *run-id)] $$llm-turn-run-by-world-turn)
+        (|hash *executor-task-id)
+        (local-transform> [(keypath *executor-task-id) (keypath *run-id) (termval *pending-entry)] $$llm-pending-by-task)
+        (|hash *thread-id)
+        (local-select> [(keypath *thread-id)] $$llm-threads :> *existing-thread-row)
+        (upsert-thread-row *existing-thread-row *assigned-run-row :> *thread-row)
+        (local-transform> [(keypath *thread-id) (termval *thread-row)] $$llm-threads)
+        (local-transform> [(keypath *thread-id) (keypath *run-id) (termval *run-summary)] $$llm-turn-runs-by-thread)
+        (|hash *world-thread-id)
+        (local-transform> [(keypath *world-thread-id) (termval *thread-id)] $$llm-thread-by-world-thread))
+
+      (source> *llm-claim-depot :> *claim)
+      (claim-run-id *claim :> *run-id)
+      (|hash *run-id)
+      (local-select> [(keypath *run-id)] $$llm-turn-runs :> *run-row)
+      (<<if (grantable-claim? *run-row *claim)
+        (grant-claim *run-row *claim :> *claimed-run-row)
+        (run-executor-task-id *claimed-run-row :> *executor-task-id)
+        (run-view *claimed-run-row :> *view)
+        (local-transform> [(keypath *run-id) (termval *claimed-run-row)] $$llm-turn-runs)
+        (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
+        (|hash *executor-task-id)
+        (local-transform> [(keypath *executor-task-id) (keypath *run-id) NONE>] $$llm-pending-by-task))
+
+      (source> *llm-obs-depot {:retry-mode :all-after} :> *obs)
+      (observation-run-id *obs :> *run-id)
+      (|hash *run-id)
+      (local-select> [(keypath *run-id)] $$llm-turn-runs :> *run-row)
+      (<<if (known-run-row? *run-row)
+        (fold-observation *run-row *obs :> *updated-run-row)
+        (run-view *updated-run-row :> *view)
+        (run-items-by-id *updated-run-row :> *items-by-id)
+        (run-raw-response-items *updated-run-row :> *raw-response-items)
+        (run-tool-calls-by-id *updated-run-row :> *tool-calls-by-id)
+        (run-approvals-by-id *updated-run-row :> *approvals-by-id)
+        (run-token-usage *updated-run-row :> *token-usage)
+        (run-thread-id *updated-run-row :> *thread-id)
+        (local-transform> [(keypath *run-id) (termval *updated-run-row)] $$llm-turn-runs)
+        (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
+        (local-transform> [(keypath *run-id) (termval *items-by-id)] $$llm-items-by-turn-run)
+        (local-transform> [(keypath *run-id) (termval *raw-response-items)] $$llm-raw-response-items)
+        (local-transform> [(keypath *run-id) (termval *tool-calls-by-id)] $$llm-tool-calls-by-run-id)
+        (local-transform> [(keypath *run-id) (termval *approvals-by-id)] $$llm-approvals-by-run-id)
+        (local-transform> [(keypath *run-id) (termval *token-usage)] $$llm-token-usage-by-run-id)
+        (|hash *thread-id)
+        (local-transform> [(keypath *thread-id) (keypath *run-id) (termval *items-by-id)] $$llm-items-by-thread)
+        (<<if (observation-approval-materialized? *updated-run-row *obs)
+          (observation->approval-row *obs :> *approval)
+          (approval-id *approval :> *approval-id)
+          (|hash *approval-id)
+          (local-transform> [(keypath *approval-id) (termval *approval)] $$llm-approvals-pending))))))
+
+(defn start-llm-runtime!
+  []
+  (let [ipc (create-ipc)
+        module-name (get-module-name llm-module)
+        launch-opts {:tasks 4 :threads 2}]
+    (launch-module! ipc llm-module launch-opts)
+    {:ipc ipc
+     :module-name module-name
+     :llm-depot (foreign-depot ipc module-name "*llm-depot")
+     :llm-claim-depot (foreign-depot ipc module-name "*llm-claim-depot")
+     :llm-obs-depot (foreign-depot ipc module-name "*llm-obs-depot")
+     :llm-threads (foreign-pstate ipc module-name "$$llm-threads")
+     :llm-thread-by-world-thread (foreign-pstate ipc module-name "$$llm-thread-by-world-thread")
+     :llm-turn-runs (foreign-pstate ipc module-name "$$llm-turn-runs")
+     :llm-turn-runs-by-thread (foreign-pstate ipc module-name "$$llm-turn-runs-by-thread")
+     :llm-turn-run-by-world-turn (foreign-pstate ipc module-name "$$llm-turn-run-by-world-turn")
+     :llm-decisions-by-run-id (foreign-pstate ipc module-name "$$llm-decisions-by-run-id")
+     :llm-pending-by-task (foreign-pstate ipc module-name "$$llm-pending-by-task")
+     :llm-items-by-turn-run (foreign-pstate ipc module-name "$$llm-items-by-turn-run")
+     :llm-items-by-thread (foreign-pstate ipc module-name "$$llm-items-by-thread")
+     :llm-item-by-id (foreign-pstate ipc module-name "$$llm-item-by-id")
+     :llm-raw-response-items (foreign-pstate ipc module-name "$$llm-raw-response-items")
+     :llm-tool-calls-by-run-id (foreign-pstate ipc module-name "$$llm-tool-calls-by-run-id")
+     :llm-approvals-pending (foreign-pstate ipc module-name "$$llm-approvals-pending")
+     :llm-approvals-by-run-id (foreign-pstate ipc module-name "$$llm-approvals-by-run-id")
+     :llm-token-usage-by-run-id (foreign-pstate ipc module-name "$$llm-token-usage-by-run-id")
+     :llm-views (foreign-pstate ipc module-name "$$llm-views")}))
+
+(defn close-llm-runtime!
+  [runtime]
+  (when-let [ipc (:ipc runtime)]
+    (try
+      (.close ipc)
+      (catch Exception _ nil))))
+
+(defn append-turn-run-request!
+  ([runtime request]
+   (append-turn-run-request! runtime request :append-ack))
+  ([runtime request ack-level]
+   (foreign-append! (:llm-depot runtime) request ack-level)
+   request))
+
+(defn append-claim!
+  ([runtime claim]
+   (append-claim! runtime claim :append-ack))
+  ([runtime claim ack-level]
+   (foreign-append! (:llm-claim-depot runtime) claim ack-level)
+   claim))
+
+(defn append-observation!
+  ([runtime obs]
+   (append-observation! runtime obs :append-ack))
+  ([runtime obs ack-level]
+   (foreign-append! (:llm-obs-depot runtime) obs ack-level)
+   obs))
+
+(defn select-pstate-one
+  [pstate path]
+  (first (foreign-select path pstate)))
+
+(defn read-thread
+  [runtime thread-id]
+  (select-pstate-one (:llm-threads runtime) [(keypath thread-id)]))
+
+(defn read-thread-binding
+  [runtime world-thread-id]
+  (select-pstate-one (:llm-thread-by-world-thread runtime) [(keypath world-thread-id)]))
+
+(defn read-run
+  [runtime run-id]
+  (select-pstate-one (:llm-turn-runs runtime) [(keypath run-id)]))
+
+(defn read-run-for-world-turn
+  [runtime world-turn-id]
+  (select-pstate-one (:llm-turn-run-by-world-turn runtime) [(keypath world-turn-id)]))
+
+(defn read-decision
+  [runtime run-id]
+  (select-pstate-one (:llm-decisions-by-run-id runtime) [(keypath run-id)]))
+
+(defn read-view
+  [runtime run-id]
+  (select-pstate-one (:llm-views runtime) [(keypath run-id)]))
+
+(defn read-pending
+  ([runtime]
+   (read-pending runtime pending-task-id))
+  ([runtime task-id]
+   (or (select-pstate-one (:llm-pending-by-task runtime) [(keypath task-id)])
+       {})))
+
+(defn read-items-by-run
+  [runtime run-id]
+  (or (select-pstate-one (:llm-items-by-turn-run runtime) [(keypath run-id)])
+      {}))
+
+(defn read-items-by-thread
+  [runtime thread-id]
+  (or (select-pstate-one (:llm-items-by-thread runtime) [(keypath thread-id)])
+      {}))
+
+(defn read-runs-by-thread
+  [runtime thread-id]
+  (or (select-pstate-one (:llm-turn-runs-by-thread runtime) [(keypath thread-id)])
+      {}))
+
+(defn read-raw-response-items
+  [runtime run-id]
+  (or (select-pstate-one (:llm-raw-response-items runtime) [(keypath run-id)])
+      {}))
+
+(defn read-tool-calls-by-run
+  [runtime run-id]
+  (or (select-pstate-one (:llm-tool-calls-by-run-id runtime) [(keypath run-id)])
+      {}))
+
+(defn read-approvals-by-run
+  [runtime run-id]
+  (or (select-pstate-one (:llm-approvals-by-run-id runtime) [(keypath run-id)])
+      {}))
+
+(defn read-token-usage
+  [runtime run-id]
+  (or (select-pstate-one (:llm-token-usage-by-run-id runtime) [(keypath run-id)])
+      {}))
+
+(defn read-pending-approval
+  [runtime approval-id]
+  (select-pstate-one (:llm-approvals-pending runtime) [(keypath approval-id)]))
+
+(defn await-materialized
+  ([read-f pred]
+   (await-materialized read-f pred 2000))
+  ([read-f pred timeout-ms]
+   (let [deadline (+ (System/currentTimeMillis) timeout-ms)]
+     (loop [value (read-f)]
+       (cond
+         (pred value) value
+         (>= (System/currentTimeMillis) deadline) value
+         :else (do
+                 (Thread/sleep 25)
+                 (recur (read-f))))))))
+
+(defn await-decision
+  [runtime run-id]
+  (await-materialized #(read-decision runtime run-id) some?))
+
+(defn await-run
+  ([runtime run-id]
+   (await-run runtime run-id some?))
+  ([runtime run-id pred]
+   (await-materialized #(read-run runtime run-id) pred)))
+
+(defn await-view
+  ([runtime run-id pred]
+   (await-view runtime run-id pred 2000))
+  ([runtime run-id pred timeout-ms]
+   (await-materialized #(read-view runtime run-id) pred timeout-ms)))
