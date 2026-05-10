@@ -400,6 +400,112 @@
           (is (nil? (world/read-llm-run-by-turn runtime "WT-world-only-derivative")))
           (is (empty? (llm/read-pending runtime llm/pending-task-id))))))))
 
+(deftest fork-span-softland-anchor-test
+  (with-world-runtime
+    (fn [runtime]
+      (testing "fork-from-span anchors a child world on a reusable slice and Codex thread fork"
+        (let [parent-thread-id "chat-fork-parent"
+              child-thread-id "chat-fork-child"
+              parent-native-thread-id "codex-native-parent"
+              child-native-thread-id "codex-native-child"
+              source-text "The span that becomes its own local world."
+              source-hash (world/content-hash source-text)
+              create-parent (world/world-thread-create-request
+                              parent-thread-id
+                              {:request-id "req-fork-parent"
+                               :time-ms 250
+                               :title "Fork parent"})
+              fork-request (world/world-action-request
+                             :world-thread/fork-from-span
+                             child-thread-id
+                             {:request-id "req-fork-child"
+                              :time-ms 251
+                              :title "Fork child"
+                              :payload {:parent-thread/id parent-thread-id
+                                        :world-turn/id "WT-fork-child"
+                                        :context-bundle/id "B-fork-child"
+                                        :slice/id "slice-fork-anchor"
+                                        :llm-turn-run/id "run-fork-child"
+                                        :llm-thread/id "llm-thread-fork-child"
+                                        :prompt/text "Explore the forked span."
+                                        :refs [{:slice/id "slice-fork-anchor"}]
+                                        :source {:llm-item/id "item-fork-source"
+                                                 :content/text source-text
+                                                 :content/hash source-hash}
+                                        :fork/from-native-thread-id parent-native-thread-id
+                                        :native/codex-thread-id child-native-thread-id
+                                        :executor/task-id llm/pending-task-id}})]
+          (append-and-await-decision! runtime create-parent)
+          (let [decision (append-and-await-decision! runtime fork-request)
+                child-thread (world/await-thread runtime child-thread-id #(= 1 (:turn-count %)))
+                slice (world/await-materialized
+                        #(world/read-slice runtime "slice-fork-anchor")
+                        some?)
+                bundle (world/await-materialized
+                         #(world/read-context-bundle runtime "B-fork-child")
+                         some?)
+                llm-request (world/await-materialized
+                              #(world/read-llm-run-request runtime "run-fork-child")
+                              some?)
+                llm-run (llm/await-run runtime "run-fork-child" #(= :pending (:status %)))]
+            (is (= :accepted (:decision/status decision)))
+            (is (= parent-thread-id (:parent-thread/id child-thread)))
+            (is (contains? (world/read-thread-graph runtime parent-thread-id)
+                           child-thread-id))
+            (is (= source-text (:snapshot/text slice)))
+            (is (= source-hash (:source/content-hash slice)))
+            (is (str/includes? (:rendered/model-input bundle)
+                               "slice:slice-fork-anchor"))
+            (is (= parent-native-thread-id
+                   (get-in llm-request [:executor :fork/from-native-thread-id])))
+            (is (= child-native-thread-id
+                   (get-in llm-request [:executor :native/thread-id])))
+            (is (= parent-native-thread-id (:fork/from-native-thread-id llm-run)))
+            (is (= child-native-thread-id (:native/codex-thread-id llm-run)))))))))
+
+(deftest fork-binding-before-turn-start-test
+  (with-world-runtime
+    (fn [runtime]
+      (testing "the executor does not start a forked child turn until native binding is durable"
+        (let [parent-thread-id "chat-fork-wait-parent"
+              child-thread-id "chat-fork-wait-child"
+              adapter-called? (atom false)
+              create-parent (world/world-thread-create-request
+                              parent-thread-id
+                              {:request-id "req-fork-wait-parent"
+                               :time-ms 260})
+              fork-request (world/world-action-request
+                             :world-thread/fork-from-span
+                             child-thread-id
+                             {:request-id "req-fork-wait-child"
+                              :time-ms 261
+                              :payload {:parent-thread/id parent-thread-id
+                                        :world-turn/id "WT-fork-wait-child"
+                                        :context-bundle/id "B-fork-wait-child"
+                                        :slice/id "slice-fork-wait"
+                                        :llm-turn-run/id "run-fork-wait-child"
+                                        :llm-thread/id "llm-thread-fork-wait-child"
+                                        :prompt/text "Wait for fork binding."
+                                        :source {:llm-item/id "item-fork-wait"
+                                                 :content/text "fork wait source"}
+                                        :fork/from-native-thread-id "codex-native-parent-wait"
+                                        :executor/task-id llm/pending-task-id}})]
+          (append-and-await-decision! runtime create-parent)
+          (append-and-await-decision! runtime fork-request)
+          (llm/await-run runtime "run-fork-wait-child" #(= :pending (:status %)))
+          (let [result (llm/run-one-pending-with-adapter!
+                         runtime
+                         {:executor-id "executor-fork-wait"
+                          :adapter (fn [_ctx]
+                                     (reset! adapter-called? true)
+                                     [])})
+                run (llm/read-run runtime "run-fork-wait-child")]
+            (is (false? (:spawned? result)))
+            (is (= :fork-binding-not-durable (:reason result)))
+            (is (false? @adapter-called?))
+            (is (= :pending (:status run)))
+            (is (nil? (:claimed-by run)))))))))
+
 (deftest world-only-turn-no-context-bundle-test
   (with-world-runtime
     (fn [runtime]

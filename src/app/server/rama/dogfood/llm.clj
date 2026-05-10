@@ -293,6 +293,9 @@
 (defn run-world-turn-id [run-row] (:world-turn/id run-row))
 (defn known-run-row? [run-row] (some? run-row))
 (defn terminal-run-row? [run-row] (contains? terminal-statuses (:status run-row)))
+(defn fork-binding-required? [run-row]
+  (and (:fork/from-native-thread-id run-row)
+       (nil? (:native/codex-thread-id run-row))))
 
 (defn turn-run-summary
   [run-row]
@@ -1099,14 +1102,26 @@
                  timeout-ms 2000}}]
   (when-let [pending-entry (first-pending-entry runtime task-id)]
     (let [run-id (:llm-turn-run/id pending-entry)
-          claim-result (claim-run! runtime run-id executor-id {:timeout-ms timeout-ms
-                                                               :executor-task-id task-id})
+          pending-run-row (read-run runtime run-id)
+          claim-result (when-not (fork-binding-required? pending-run-row)
+                         (claim-run! runtime run-id executor-id {:timeout-ms timeout-ms
+                                                                 :executor-task-id task-id}))
           granted? (= :granted-to-us (:claim-state claim-result))
           run-row (:run claim-result)
           bundle (when (and granted? load-context-bundle)
                    (load-context-bundle (:context-bundle/id run-row)))]
-      (if-not granted?
+      (cond
+        (fork-binding-required? pending-run-row)
+        {:run pending-run-row
+         :pending pending-entry
+         :spawned? false
+         :observations-appended 0
+         :reason :fork-binding-not-durable}
+
+        (not granted?)
         (assoc claim-result :spawned? false :observations-appended 0)
+
+        :else
         (let [ctx {:run run-row
                    :pending pending-entry
                    :claim (:claim claim-result)
