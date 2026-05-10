@@ -493,3 +493,89 @@
             (is (= :fail-on-stale-approval (:run/restart-policy run)))
             (is (= :failed (:action result)))
             (is (= :expired (get-in run [:error :decision])))))))))
+
+(deftest follow-up-new-run-same-thread-test
+  (with-llm-runtime
+    (fn [runtime]
+      (testing "a follow-up creates a new LLMTurnRun on the bound LLMThread"
+        (let [thread-id "llm-thread-follow-up"
+              world-thread-id "chat-follow-up"
+              native-thread-id "codex-native-thread-follow-up"
+              first-run-id "run-follow-up-first"
+              second-run-id "run-follow-up-second"
+              first-request (llm/turn-run-request
+                              world-thread-id
+                              "WT-follow-up-1"
+                              "B-follow-up-1"
+                              {:llm-turn-run-id first-run-id
+                               :llm-thread-id thread-id
+                               :request-id "req-follow-up-1"
+                               :time-ms 1
+                               :executor-task-id llm/pending-task-id})
+              second-request (llm/turn-run-request
+                               world-thread-id
+                               "WT-follow-up-2"
+                               "B-follow-up-2"
+                               {:llm-turn-run-id second-run-id
+                                :llm-thread-id thread-id
+                                :request-id "req-follow-up-2"
+                                :time-ms 10
+                                :executor-task-id llm/pending-task-id})
+              executor-ctx (atom nil)]
+          (llm/append-turn-run-request! runtime first-request)
+          (llm/await-run runtime first-run-id #(= :pending (:status %)))
+          (llm/run-one-pending-with-adapter!
+            runtime
+            {:executor-id "executor-follow-up-first"
+             :adapter (llm/fake-codex-adapter
+                        [{:observation/type :codex/item-completed
+                          :observation-id "obs-follow-up-first-item"
+                          :native/codex-thread-id native-thread-id
+                          :llm-item/id "item-follow-up-first"
+                          :content/text "first turn reply"}
+                         {:observation/type :codex/run-finished
+                          :observation-id "obs-follow-up-first-finish"
+                          :native/codex-thread-id native-thread-id}])})
+          (llm/await-view runtime first-run-id #(= :succeeded (:status %)))
+          (llm/await-materialized
+            #(llm/read-thread runtime thread-id)
+            #(= native-thread-id (:native/codex-thread-id %)))
+
+          (llm/append-turn-run-request! runtime second-request)
+          (let [second-run (llm/await-run
+                             runtime
+                             second-run-id
+                             #(= native-thread-id (:native/codex-thread-id %)))
+                thread (llm/read-thread runtime thread-id)]
+            (is (= :pending (:status second-run)))
+            (is (= thread-id (:llm-thread/id second-run)))
+            (is (= native-thread-id (:native/codex-thread-id second-run)))
+            (is (= [first-run-id second-run-id] (:turn-run/ids thread)))
+            (is (= first-run-id
+                   (llm/read-run-for-world-turn runtime "WT-follow-up-1")))
+            (is (= second-run-id
+                   (llm/read-run-for-world-turn runtime "WT-follow-up-2"))))
+
+          (llm/run-one-pending-with-adapter!
+            runtime
+            {:executor-id "executor-follow-up-second"
+             :adapter (fn [ctx]
+                        (reset! executor-ctx ctx)
+                        [{:observation/type :codex/item-completed
+                          :observation-id "obs-follow-up-second-item"
+                          :native/codex-thread-id native-thread-id
+                          :llm-item/id "item-follow-up-second"
+                          :content/text "second turn reply"}
+                         {:observation/type :codex/run-finished
+                          :observation-id "obs-follow-up-second-finish"
+                          :native/codex-thread-id native-thread-id}])})
+          (llm/await-view runtime second-run-id #(= :succeeded (:status %)))
+
+          (is (= native-thread-id
+                 (get-in @executor-ctx [:run :native/codex-thread-id])))
+          (is (= #{"item-follow-up-first"}
+                 (set (keys (llm/read-items-by-run runtime first-run-id)))))
+          (is (= #{"item-follow-up-second"}
+                 (set (keys (llm/read-items-by-run runtime second-run-id)))))
+          (is (= #{first-run-id second-run-id}
+                 (set (keys (llm/read-runs-by-thread runtime thread-id))))))))))
