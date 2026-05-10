@@ -3,6 +3,7 @@
         [com.rpl.rama.path]
         [com.rpl.rama.ops])
   (:require [app.server.rama.core :as kernel]
+            [app.server.rama.dogfood.llm :as llm]
             [clojure.string :as str]
             [com.rpl.rama.test :refer [create-ipc launch-module!]]))
 
@@ -139,6 +140,7 @@
 
 (defn request-type [request] (:request/type request))
 (defn request-id [request] (:request/id request))
+(defn request-idempotency-key [request] (:idempotency/key request))
 (defn request-errors? [errors] (boolean (seq errors)))
 (defn world-only-turn-request? [request-type] (contains? world-only-turn-request-types request-type))
 
@@ -198,7 +200,10 @@
 
 (defn accepted-decision
   [request primary-event events-by-role]
-  (let [events (vec (keep events-by-role [:thread :turn :context-bundle :llm-turn-run]))]
+  (let [events (vec (keep events-by-role [:thread :turn :context-bundle :llm-turn-run]))
+        turn-event (:turn events-by-role)
+        bundle-event (:context-bundle events-by-role)
+        llm-run-event (:llm-turn-run events-by-role)]
     {:decision/id (decision-id-for-request-id (:request/id request))
      :decision/status :accepted
      :request/id (:request/id request)
@@ -207,6 +212,13 @@
      :event/id (:event/id primary-event)
      :event/ids (mapv :event/id events)
      :events events-by-role
+     :world-thread/id (request-thread-id request)
+     :world-turn/id (:world-turn/id turn-event)
+     :context-bundle/id (:context-bundle/id bundle-event)
+     :context-bundle/hash (:context-bundle/hash bundle-event)
+     :llm-thread/id (:llm-thread/id llm-run-event)
+     :llm-turn-run/id (:llm-turn-run/id llm-run-event)
+     :llm/request-id (:llm/request-id llm-run-event)
      :decided-at-ms (:request/time-ms request)}))
 
 (defn rejected-decision
@@ -227,6 +239,7 @@
 (defn decision-thread-event [decision] (get-in decision [:events :thread]))
 (defn decision-turn-event [decision] (get-in decision [:events :turn]))
 (defn decision-bundle-event [decision] (get-in decision [:events :context-bundle]))
+(defn decision-llm-run-event [decision] (get-in decision [:events :llm-turn-run]))
 (defn decision-event-id [decision] (:event/id decision))
 (defn event-id [event] (:event/id event))
 
@@ -337,6 +350,66 @@
           :context-bundle/id (:context-bundle/id bundle)
           :context-bundle/hash (:context-bundle/hash bundle)}))
 
+(defn request-llm-thread-id
+  [request]
+  (or (get-in request [:payload :llm-thread/id])
+      (:llm-thread/id request)
+      (str "llm-thread:" (request-thread-id request))))
+
+(defn request-llm-run-id
+  [request]
+  (or (get-in request [:payload :llm-turn-run/id])
+      (:llm-turn-run/id request)
+      (str (:request/id request) "/llm-run")))
+
+(defn request-llm-request-id
+  [request]
+  (or (get-in request [:payload :llm-request/id])
+      (:llm-request/id request)
+      (str (:request/id request) "/llm-request")))
+
+(defn world->llm-turn-run-request
+  [request turn-event bundle]
+  (let [run-id (request-llm-run-id request)
+        llm-thread-id (request-llm-thread-id request)
+        executor-task-id (or (get-in request [:payload :executor/task-id])
+                             (get-in request [:payload :llm/options :executor/task-id])
+                             (get-in request [:payload :execution/options :executor/task-id]))]
+    (llm/turn-run-request
+      (request-thread-id request)
+      (:world-turn/id turn-event)
+      (:context-bundle/id bundle)
+      (cond-> {:llm-turn-run-id run-id
+               :llm-thread-id llm-thread-id
+               :request-id (request-llm-request-id request)
+               :time-ms (:request/time-ms request)
+               :idempotency-key (str "world-event:" (:request/id request) ":"
+                                     (:world-turn/id turn-event) ":"
+                                     (:context-bundle/id bundle))
+               :agent-kind (or (get-in bundle [:execution/options :agent/kind])
+                               :codex)
+               :native/thread-id (get-in request [:payload :native/codex-thread-id])
+               :executor-pool (or (get-in request [:payload :executor/pool])
+                                  :local-codex)
+               :executor-hints (or (get-in request [:payload :executor/hints])
+                                   {:interactive? true})}
+        executor-task-id (assoc :executor-task-id executor-task-id)))))
+
+(defn llm-run-requested-event
+  [request turn-event bundle llm-request]
+  (merge (base-event request :llm-turn-run/requested "llm-turn-run")
+         {:world-turn/id (:world-turn/id turn-event)
+          :context-bundle/id (:context-bundle/id bundle)
+          :context-bundle/hash (:context-bundle/hash bundle)
+          :llm-thread/id (:llm-thread/id llm-request)
+          :llm-turn-run/id (:llm-turn-run/id llm-request)
+          :llm/request-id (:request/id llm-request)
+          :llm/request llm-request}))
+
+(defn llm-run-id-from-request
+  [llm-request]
+  (:llm-turn-run/id llm-request))
+
 (defn validate-or-reject
   [request]
   (let [errors (request-validation-errors request)]
@@ -355,12 +428,57 @@
       (let [thread-event (world-thread-event request existing-thread)
             turn-event (world-turn-event request)
             bundle (context-bundle-row request turn-event)
-            bundle-event (context-bundle-event request turn-event bundle)]
+            bundle-event (context-bundle-event request turn-event bundle)
+            llm-request (world->llm-turn-run-request request turn-event bundle)
+            llm-run-event (llm-run-requested-event request turn-event bundle llm-request)]
         (accepted-decision request
                            turn-event
                            {:thread thread-event
                             :turn turn-event
-                            :context-bundle bundle-event}))))
+                            :context-bundle bundle-event
+                            :llm-turn-run llm-run-event}))))
+
+(defn dedupe-row
+  [request decision bundle llm-request]
+  {:idempotency/key (:idempotency/key request)
+   :request/id (:request/id request)
+   :decision/status (:decision/status decision)
+   :routing/key (:routing/key request)
+   :event/id (:event/id decision)
+   :event/ids (:event/ids decision)
+   :events (:events decision)
+   :world-thread/id (request-thread-id request)
+   :world-turn/id (get-in decision [:events :turn :world-turn/id])
+   :context-bundle/id (:context-bundle/id bundle)
+   :context-bundle/hash (:context-bundle/hash bundle)
+   :llm-thread/id (:llm-thread/id llm-request)
+   :llm-turn-run/id (:llm-turn-run/id llm-request)
+   :llm/request-id (:request/id llm-request)
+   :llm/request llm-request})
+
+(defn idempotency-hit? [row] (some? row))
+
+(defn idempotent-decision
+  [request existing-row]
+  {:decision/id (decision-id-for-request-id (:request/id request))
+   :decision/status (:decision/status existing-row)
+   :request/id (:request/id request)
+   :request/type (:request/type request)
+   :routing/key (:routing/key request)
+   :event/id (:event/id existing-row)
+   :event/ids (:event/ids existing-row)
+   :events (:events existing-row)
+   :world-thread/id (:world-thread/id existing-row)
+   :world-turn/id (:world-turn/id existing-row)
+   :context-bundle/id (:context-bundle/id existing-row)
+   :context-bundle/hash (:context-bundle/hash existing-row)
+   :llm-thread/id (:llm-thread/id existing-row)
+   :llm-turn-run/id (:llm-turn-run/id existing-row)
+   :llm/request-id (:llm/request-id existing-row)
+   :idempotency/key (:idempotency/key request)
+   :idempotency/replayed? true
+   :idempotency/original-request-id (:request/id existing-row)
+   :decided-at-ms (:request/time-ms request)})
 
 (defn interpret-world-only-turn
   [request existing-thread]
@@ -427,6 +545,7 @@
   (assoc thread-row :turn-count (count turn-order)))
 
 (defmodule world-module [setup topologies]
+  (mirror-depot setup *llm-depot (get-module-name llm/llm-module) "*llm-depot")
   (declare-depot setup *world-action-depot (hash-by :routing/key))
   (let [n (stream-topology topologies "world-chat-topology")]
     (declare-pstate n $$world-requests-by-id {String Object})
@@ -438,6 +557,9 @@
     (declare-pstate n $$world-turns-by-thread {String Object})
     (declare-pstate n $$context-bundles {String Object})
     (declare-pstate n $$context-bundles-by-turn {String String})
+    (declare-pstate n $$world-send-by-idempotency {String Object})
+    (declare-pstate n $$world-llm-run-requests {String Object})
+    (declare-pstate n $$world-llm-run-by-turn {String String})
 
     (<<sources n
       (source> *world-action-depot :> *request)
@@ -466,40 +588,63 @@
           (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads))
 
         (case> (= :world-turn/compose-and-send *request-type))
-        (interpret-compose-and-send *request *existing-thread :> *decision)
-        (decision-id *decision :> *decision-id)
-        (|hash *decision-id)
-        (local-transform> [(keypath *decision-id) (termval *decision)] $$world-decisions-by-id)
-        (<<if (decision-accepted? *decision)
-          (decision-thread-event *decision :> *thread-event)
-          (decision-turn-event *decision :> *turn-event)
-          (decision-bundle-event *decision :> *bundle-event)
-          (event-id *thread-event :> *thread-event-id)
-          (event-id *turn-event :> *turn-event-id)
-          (event-id *bundle-event :> *bundle-event-id)
-          (world-thread-id-from-event *thread-event :> *event-thread-id)
-          (turn-id-from-event *turn-event :> *turn-id)
-          (context-bundle-id-from-event *bundle-event :> *bundle-id)
-          (context-bundle-row *request *turn-event :> *bundle)
-          (thread-row *existing-thread *thread-event :> *base-thread-row)
-          (turn-row *turn-event *bundle-id :> *turn-row)
-          (|hash *thread-event-id)
-          (local-transform> [(keypath *thread-event-id) (termval *thread-event)] $$world-events-by-id)
-          (|hash *turn-event-id)
-          (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$world-events-by-id)
-          (|hash *bundle-event-id)
-          (local-transform> [(keypath *bundle-event-id) (termval *bundle-event)] $$world-events-by-id)
-          (|hash *event-thread-id)
-          (local-select> [(keypath *event-thread-id)] $$world-turns-by-thread :> *existing-turn-order)
-          (add-turn-id *existing-turn-order *turn-id :> *turn-order)
-          (bump-thread-turn-count *base-thread-row *turn-order :> *thread-row)
-          (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads)
-          (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$world-turns-by-thread)
-          (|hash *turn-id)
-          (local-transform> [(keypath *turn-id) (termval *turn-row)] $$world-turns)
-          (local-transform> [(keypath *turn-id) (termval *bundle-id)] $$context-bundles-by-turn)
-          (|hash *bundle-id)
-          (local-transform> [(keypath *bundle-id) (termval *bundle)] $$context-bundles))
+        (request-idempotency-key *request :> *idempotency-key)
+        (|hash *idempotency-key)
+        (local-select> [(keypath *idempotency-key)] $$world-send-by-idempotency :> *idempotency-row)
+        (<<if (idempotency-hit? *idempotency-row)
+          (idempotent-decision *request *idempotency-row :> *decision)
+          (decision-id *decision :> *decision-id)
+          (|hash *decision-id)
+          (local-transform> [(keypath *decision-id) (termval *decision)] $$world-decisions-by-id))
+        (<<if (not (idempotency-hit? *idempotency-row))
+          (interpret-compose-and-send *request *existing-thread :> *decision)
+          (decision-id *decision :> *decision-id)
+          (|hash *decision-id)
+          (local-transform> [(keypath *decision-id) (termval *decision)] $$world-decisions-by-id)
+          (<<if (decision-accepted? *decision)
+            (decision-thread-event *decision :> *thread-event)
+            (decision-turn-event *decision :> *turn-event)
+            (decision-bundle-event *decision :> *bundle-event)
+            (decision-llm-run-event *decision :> *llm-run-event)
+            (event-id *thread-event :> *thread-event-id)
+            (event-id *turn-event :> *turn-event-id)
+            (event-id *bundle-event :> *bundle-event-id)
+            (event-id *llm-run-event :> *llm-run-event-id)
+            (world-thread-id-from-event *thread-event :> *event-thread-id)
+            (turn-id-from-event *turn-event :> *turn-id)
+            (context-bundle-id-from-event *bundle-event :> *bundle-id)
+            (context-bundle-row *request *turn-event :> *bundle)
+            (world->llm-turn-run-request *request *turn-event *bundle :> *llm-request)
+            (llm-run-id-from-request *llm-request :> *llm-run-id)
+            (thread-row *existing-thread *thread-event :> *base-thread-row)
+            (turn-row *turn-event *bundle-id :> *turn-row)
+            (dedupe-row *request *decision *bundle *llm-request :> *dedupe-row)
+            (|hash *thread-event-id)
+            (local-transform> [(keypath *thread-event-id) (termval *thread-event)] $$world-events-by-id)
+            (|hash *turn-event-id)
+            (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$world-events-by-id)
+            (|hash *bundle-event-id)
+            (local-transform> [(keypath *bundle-event-id) (termval *bundle-event)] $$world-events-by-id)
+            (|hash *llm-run-event-id)
+            (local-transform> [(keypath *llm-run-event-id) (termval *llm-run-event)] $$world-events-by-id)
+            (|hash *event-thread-id)
+            (local-select> [(keypath *event-thread-id)] $$world-turns-by-thread :> *existing-turn-order)
+            (add-turn-id *existing-turn-order *turn-id :> *turn-order)
+            (bump-thread-turn-count *base-thread-row *turn-order :> *thread-row)
+            (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads)
+            (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$world-turns-by-thread)
+            (|hash *turn-id)
+            (local-transform> [(keypath *turn-id) (termval *turn-row)] $$world-turns)
+            (local-transform> [(keypath *turn-id) (termval *bundle-id)] $$context-bundles-by-turn)
+            (local-transform> [(keypath *turn-id) (termval *llm-run-id)] $$world-llm-run-by-turn)
+            (|hash *bundle-id)
+            (local-transform> [(keypath *bundle-id) (termval *bundle)] $$context-bundles)
+            (|hash *llm-run-id)
+            (local-transform> [(keypath *llm-run-id) (termval *llm-request)] $$world-llm-run-requests)
+            (|hash *idempotency-key)
+            (local-transform> [(keypath *idempotency-key) (termval *dedupe-row)] $$world-send-by-idempotency)
+            (|hash$$ *llm-depot *llm-run-id)
+            (depot-partition-append! *llm-depot *llm-request :append-ack)))
 
         (case> (world-only-turn-request? *request-type))
         (interpret-world-only-turn *request *existing-thread :> *decision)
@@ -535,11 +680,14 @@
 (defn start-world-runtime!
   []
   (let [ipc (create-ipc)
+        llm-module-name (get-module-name llm/llm-module)
         module-name (get-module-name world-module)
         launch-opts {:tasks 4 :threads 2}]
+    (launch-module! ipc llm/llm-module launch-opts)
     (launch-module! ipc world-module launch-opts)
     {:ipc ipc
      :module-name module-name
+     :llm-module-name llm-module-name
      :world-action-depot (foreign-depot ipc module-name "*world-action-depot")
      :world-requests-by-id (foreign-pstate ipc module-name "$$world-requests-by-id")
      :world-decisions-by-id (foreign-pstate ipc module-name "$$world-decisions-by-id")
@@ -549,7 +697,29 @@
      :world-turns (foreign-pstate ipc module-name "$$world-turns")
      :world-turns-by-thread (foreign-pstate ipc module-name "$$world-turns-by-thread")
      :context-bundles (foreign-pstate ipc module-name "$$context-bundles")
-     :context-bundles-by-turn (foreign-pstate ipc module-name "$$context-bundles-by-turn")}))
+     :context-bundles-by-turn (foreign-pstate ipc module-name "$$context-bundles-by-turn")
+     :world-send-by-idempotency (foreign-pstate ipc module-name "$$world-send-by-idempotency")
+     :world-llm-run-requests (foreign-pstate ipc module-name "$$world-llm-run-requests")
+     :world-llm-run-by-turn (foreign-pstate ipc module-name "$$world-llm-run-by-turn")
+     :llm-depot (foreign-depot ipc llm-module-name "*llm-depot")
+     :llm-claim-depot (foreign-depot ipc llm-module-name "*llm-claim-depot")
+     :llm-obs-depot (foreign-depot ipc llm-module-name "*llm-obs-depot")
+     :llm-threads (foreign-pstate ipc llm-module-name "$$llm-threads")
+     :llm-thread-by-world-thread (foreign-pstate ipc llm-module-name "$$llm-thread-by-world-thread")
+     :llm-turn-runs (foreign-pstate ipc llm-module-name "$$llm-turn-runs")
+     :llm-turn-runs-by-thread (foreign-pstate ipc llm-module-name "$$llm-turn-runs-by-thread")
+     :llm-turn-run-by-world-turn (foreign-pstate ipc llm-module-name "$$llm-turn-run-by-world-turn")
+     :llm-decisions-by-run-id (foreign-pstate ipc llm-module-name "$$llm-decisions-by-run-id")
+     :llm-pending-by-task (foreign-pstate ipc llm-module-name "$$llm-pending-by-task")
+     :llm-items-by-turn-run (foreign-pstate ipc llm-module-name "$$llm-items-by-turn-run")
+     :llm-items-by-thread (foreign-pstate ipc llm-module-name "$$llm-items-by-thread")
+     :llm-item-by-id (foreign-pstate ipc llm-module-name "$$llm-item-by-id")
+     :llm-raw-response-items (foreign-pstate ipc llm-module-name "$$llm-raw-response-items")
+     :llm-tool-calls-by-run-id (foreign-pstate ipc llm-module-name "$$llm-tool-calls-by-run-id")
+     :llm-approvals-pending (foreign-pstate ipc llm-module-name "$$llm-approvals-pending")
+     :llm-approvals-by-run-id (foreign-pstate ipc llm-module-name "$$llm-approvals-by-run-id")
+     :llm-token-usage-by-run-id (foreign-pstate ipc llm-module-name "$$llm-token-usage-by-run-id")
+     :llm-views (foreign-pstate ipc llm-module-name "$$llm-views")}))
 
 (defn close-world-runtime!
   [runtime]
@@ -602,6 +772,18 @@
 (defn read-context-bundle-by-turn
   [runtime world-turn-id]
   (select-pstate-one (:context-bundles-by-turn runtime) [(keypath world-turn-id)]))
+
+(defn read-send-by-idempotency
+  [runtime idempotency-key]
+  (select-pstate-one (:world-send-by-idempotency runtime) [(keypath idempotency-key)]))
+
+(defn read-llm-run-request
+  [runtime llm-turn-run-id]
+  (select-pstate-one (:world-llm-run-requests runtime) [(keypath llm-turn-run-id)]))
+
+(defn read-llm-run-by-turn
+  [runtime world-turn-id]
+  (select-pstate-one (:world-llm-run-by-turn runtime) [(keypath world-turn-id)]))
 
 (defn await-materialized
   ([read-f pred]
