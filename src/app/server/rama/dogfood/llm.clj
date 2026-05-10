@@ -22,6 +22,15 @@
 (def terminal-statuses
   #{:succeeded :failed :cancelled})
 
+(def control-types
+  #{:approval/resolve
+    :turn/cancel
+    :compact/request
+    :turn/steer})
+
+(def terminal-approval-decisions
+  #{:denied :declined :rejected :expired :timeout})
+
 (def forbidden-payload-execution-option-keys
   #{:model :approval-policy :sandbox :cwd :execution/options})
 
@@ -259,6 +268,10 @@
      :tool-calls-by-id {}
      :approvals-pending {}
      :approvals-by-id {}
+     :controls-by-id {}
+     :control-order []
+     :compactions []
+     :steers []
      :token-usage {}
      :observation-errors []}))
 
@@ -274,6 +287,7 @@
 (defn run-world-thread-id [run-row] (:world-thread/id run-row))
 (defn run-world-turn-id [run-row] (:world-turn/id run-row))
 (defn known-run-row? [run-row] (some? run-row))
+(defn terminal-run-row? [run-row] (contains? terminal-statuses (:status run-row)))
 
 (defn turn-run-summary
   [run-row]
@@ -339,6 +353,35 @@
 
 (defn claim-run-id [claim] (:llm-turn-run/id claim))
 (defn observation-run-id [obs] (:llm-turn-run/id obs))
+
+(defn control-record
+  [run-id control-type & [opts]]
+  {:control/id (or (:control-id opts) (:control/id opts) (random-id "llm-control"))
+   :control/type control-type
+   :control/schema-version schema-version
+   :routing/key (llm-routing-key run-id)
+   :llm-turn-run/id run-id
+   :llm-thread/id (:llm-thread/id opts)
+   :world-thread/id (:world-thread/id opts)
+   :world-turn/id (:world-turn/id opts)
+   :approval/id (:approval/id opts)
+   :native/json-rpc-request-id (:native/json-rpc-request-id opts)
+   :decision (:decision opts)
+   :actor (or (:actor opts) {:actor/id "system" :actor/type :system})
+   :time-ms (or (:time-ms opts) (now-ms))
+   :reason (:reason opts)
+   :payload (or (:payload opts) {})})
+
+(defn control-run-id [control] (:llm-turn-run/id control))
+(defn control-id [control] (:control/id control))
+
+(defn valid-control?
+  [control]
+  (and (map? control)
+       (contains? control-types (:control/type control))
+       (not (blank-string? (:control/id control)))
+       (not (blank-string? (:llm-turn-run/id control)))
+       (= (llm-routing-key (:llm-turn-run/id control)) (:routing/key control))))
 
 (defn valid-claim?
   [claim]
@@ -614,12 +657,129 @@
 (defn run-tool-calls-by-id [run-row] (:tool-calls-by-id run-row))
 (defn run-approvals-by-id [run-row] (:approvals-by-id run-row))
 (defn run-token-usage [run-row] (:token-usage run-row))
+(defn run-controls-by-id [run-row] (:controls-by-id run-row))
 (defn approval-id [approval] (:approval/id approval))
+(defn control-approval-id [control] (:approval/id control))
+(defn control-has-approval? [control] (not (blank-string? (:approval/id control))))
+
+(defn record-control
+  [run-row control]
+  (-> run-row
+      (assoc-in [:controls-by-id (:control/id control)] control)
+      (update :control-order conj-distinct (:control/id control))))
+
+(defn approval-resolution-status
+  [decision]
+  (case decision
+    :approved :approved
+    :allow :approved
+    :denied :denied
+    :declined :declined
+    :rejected :rejected
+    :expired :expired
+    :timeout :expired
+    decision))
+
+(defn approval-terminal-decision?
+  [decision]
+  (contains? terminal-approval-decisions decision))
+
+(defn resolve-approval
+  [run-row control]
+  (let [approval-id (:approval/id control)
+        decision (or (:decision control) :approved)
+        status (approval-resolution-status decision)
+        t (:time-ms control)
+        existing (or (get-in run-row [:approvals-by-id approval-id])
+                     {:approval/id approval-id
+                      :llm-turn-run/id (:llm-turn-run/id control)
+                      :llm-thread/id (:llm-thread/id control)})
+        approval (assoc existing
+                        :status status
+                        :decision decision
+                        :resolved-at-ms t
+                        :resolved-by (:actor control)
+                        :control/id (:control/id control)
+                        :native/json-rpc-request-id
+                        (or (:native/json-rpc-request-id control)
+                            (:native/json-rpc-request-id existing)))
+        pending-after (dissoc (:approvals-pending run-row) approval-id)
+        failed? (approval-terminal-decision? decision)]
+    (cond-> (-> run-row
+                (assoc-in [:approvals-by-id approval-id] approval)
+                (assoc :approvals-pending pending-after
+                       :updated-at t))
+      (and (not failed?)
+           (= :blocked-awaiting-approval (:status run-row))
+           (empty? pending-after))
+      (assoc :status :running)
+
+      failed?
+      (assoc :status :failed
+             :finished-at t
+             :error {:reason :approval/declined
+                     :decision decision
+                     :approval/id approval-id
+                     :control/id (:control/id control)}))))
+
+(defn cancel-run
+  [run-row control]
+  (let [t (:time-ms control)]
+    (assoc run-row
+           :status :cancelled
+           :finished-at t
+           :updated-at t
+           :cancelled-by (:actor control)
+           :cancel/reason (:reason control))))
+
+(defn add-compaction
+  [run-row control]
+  (-> run-row
+      (update :compactions conj {:control/id (:control/id control)
+                                 :time-ms (:time-ms control)
+                                 :actor (:actor control)
+                                 :payload (:payload control)})
+      (assoc :updated-at (:time-ms control))))
+
+(defn add-steer
+  [run-row control]
+  (-> run-row
+      (update :steers conj {:control/id (:control/id control)
+                            :time-ms (:time-ms control)
+                            :actor (:actor control)
+                            :payload (:payload control)})
+      (assoc :updated-at (:time-ms control))))
+
+(defn fold-control
+  [run-row control]
+  (let [run-row (record-control run-row control)]
+    (cond
+      (not (valid-control? control))
+      (add-observation-error run-row :control/invalid control)
+
+      (not= (:llm-turn-run/id run-row) (:llm-turn-run/id control))
+      (add-observation-error run-row :control/run-mismatch control)
+
+      (= :approval/resolve (:control/type control))
+      (resolve-approval run-row control)
+
+      (= :turn/cancel (:control/type control))
+      (cancel-run run-row control)
+
+      (= :compact/request (:control/type control))
+      (add-compaction run-row control)
+
+      (= :turn/steer (:control/type control))
+      (add-steer run-row control)
+
+      :else
+      (add-observation-error run-row :control/type-invalid control))))
 
 (defmodule llm-module [setup topologies]
   (declare-depot setup *llm-depot (hash-by :llm-turn-run/id))
   (declare-depot setup *llm-claim-depot (hash-by :llm-turn-run/id))
   (declare-depot setup *llm-obs-depot (hash-by :llm-turn-run/id))
+  (declare-depot setup *llm-control-depot (hash-by :llm-turn-run/id))
   (let [n (stream-topology topologies "llm-track-topology")]
     (declare-pstate n $$llm-threads {String Object})
     (declare-pstate n $$llm-thread-by-world-thread {String String})
@@ -638,6 +798,8 @@
     (declare-pstate n $$llm-approvals-by-run-id {String Object})
     (declare-pstate n $$llm-token-usage-by-run-id {String Object})
     (declare-pstate n $$llm-cost-by-thread {String Object})
+    (declare-pstate n $$llm-controls-by-run-id {String Object})
+    (declare-pstate n $$llm-control-by-id {String Object})
     (declare-pstate n $$llm-views {String Object})
 
     (<<sources n
@@ -710,7 +872,32 @@
           (observation->approval-row *obs :> *approval)
           (approval-id *approval :> *approval-id)
           (|hash *approval-id)
-          (local-transform> [(keypath *approval-id) (termval *approval)] $$llm-approvals-pending))))))
+          (local-transform> [(keypath *approval-id) (termval *approval)] $$llm-approvals-pending)))
+
+      (source> *llm-control-depot :> *control)
+      (control-run-id *control :> *run-id)
+      (|hash *run-id)
+      (local-select> [(keypath *run-id)] $$llm-turn-runs :> *run-row)
+      (<<if (known-run-row? *run-row)
+        (fold-control *run-row *control :> *updated-run-row)
+        (run-view *updated-run-row :> *view)
+        (run-approvals-by-id *updated-run-row :> *approvals-by-id)
+        (run-controls-by-id *updated-run-row :> *controls-by-id)
+        (run-executor-task-id *updated-run-row :> *executor-task-id)
+        (control-id *control :> *control-id)
+        (local-transform> [(keypath *run-id) (termval *updated-run-row)] $$llm-turn-runs)
+        (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
+        (local-transform> [(keypath *run-id) (termval *approvals-by-id)] $$llm-approvals-by-run-id)
+        (local-transform> [(keypath *run-id) (termval *controls-by-id)] $$llm-controls-by-run-id)
+        (|hash *control-id)
+        (local-transform> [(keypath *control-id) (termval *control)] $$llm-control-by-id)
+        (<<if (control-has-approval? *control)
+          (control-approval-id *control :> *approval-id)
+          (|hash *approval-id)
+          (local-transform> [(keypath *approval-id) NONE>] $$llm-approvals-pending))
+        (<<if (terminal-run-row? *updated-run-row)
+          (|hash *executor-task-id)
+          (local-transform> [(keypath *executor-task-id) (keypath *run-id) NONE>] $$llm-pending-by-task))))))
 
 (defn start-llm-runtime!
   []
@@ -723,6 +910,7 @@
      :llm-depot (foreign-depot ipc module-name "*llm-depot")
      :llm-claim-depot (foreign-depot ipc module-name "*llm-claim-depot")
      :llm-obs-depot (foreign-depot ipc module-name "*llm-obs-depot")
+     :llm-control-depot (foreign-depot ipc module-name "*llm-control-depot")
      :llm-threads (foreign-pstate ipc module-name "$$llm-threads")
      :llm-thread-by-world-thread (foreign-pstate ipc module-name "$$llm-thread-by-world-thread")
      :llm-turn-runs (foreign-pstate ipc module-name "$$llm-turn-runs")
@@ -738,6 +926,8 @@
      :llm-approvals-pending (foreign-pstate ipc module-name "$$llm-approvals-pending")
      :llm-approvals-by-run-id (foreign-pstate ipc module-name "$$llm-approvals-by-run-id")
      :llm-token-usage-by-run-id (foreign-pstate ipc module-name "$$llm-token-usage-by-run-id")
+     :llm-controls-by-run-id (foreign-pstate ipc module-name "$$llm-controls-by-run-id")
+     :llm-control-by-id (foreign-pstate ipc module-name "$$llm-control-by-id")
      :llm-views (foreign-pstate ipc module-name "$$llm-views")}))
 
 (defn close-llm-runtime!
@@ -767,6 +957,13 @@
   ([runtime obs ack-level]
    (foreign-append! (:llm-obs-depot runtime) obs ack-level)
    obs))
+
+(defn append-control!
+  ([runtime control]
+   (append-control! runtime control :append-ack))
+  ([runtime control ack-level]
+   (foreign-append! (:llm-control-depot runtime) control ack-level)
+   control))
 
 (defn select-pstate-one
   [pstate path]
@@ -832,6 +1029,15 @@
   [runtime run-id]
   (or (select-pstate-one (:llm-approvals-by-run-id runtime) [(keypath run-id)])
       {}))
+
+(defn read-controls-by-run
+  [runtime run-id]
+  (or (select-pstate-one (:llm-controls-by-run-id runtime) [(keypath run-id)])
+      {}))
+
+(defn read-control
+  [runtime control-id]
+  (select-pstate-one (:llm-control-by-id runtime) [(keypath control-id)]))
 
 (defn read-token-usage
   [runtime run-id]

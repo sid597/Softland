@@ -17,6 +17,41 @@
   (world/append-world-action! runtime request)
   (world/await-decision runtime (:request/id request)))
 
+(defn append-send-and-await-run!
+  [runtime {:keys [world-thread-id world-turn-id bundle-id run-id thread-id request-id]}]
+  (let [request (world/compose-and-send-request
+                  world-thread-id
+                  (str "Prompt for " run-id)
+                  {:request-id request-id
+                   :time-ms 100
+                   :payload {:world-turn/id world-turn-id
+                             :context-bundle/id bundle-id
+                             :llm-turn-run/id run-id
+                             :llm-thread/id thread-id
+                             :executor/task-id llm/pending-task-id}})]
+    (append-and-await-decision! runtime request)
+    (llm/await-run runtime run-id #(= :pending (:status %)))
+    request))
+
+(defn append-approval-observation!
+  [runtime {:keys [run-id thread-id approval-id native-id]}]
+  (llm/append-observation!
+    runtime
+    (llm/observation
+      run-id
+      thread-id
+      :codex/approval-request
+      0
+      {:observation-id (str approval-id "/obs")
+       :approval/id approval-id
+       :approval/type :exec
+       :native/json-rpc-request-id native-id
+       :codex/event-method "item/cmdExec/requestApproval"
+       :codex/event-params {:cmd "echo approval"}}))
+  (llm/await-materialized
+    #(llm/read-pending-approval runtime approval-id)
+    some?))
+
 (deftest world-thread-create-test
   (with-world-runtime
     (fn [runtime]
@@ -166,8 +201,11 @@
           (is (= "req-world-first/llm-request" (:request/id llm-request)))
           (is (= :accepted (:decision/status llm-decision)))
           (is (= "B-world-first" (:context-bundle/id llm-run)))
-          (is (contains? (llm/read-pending runtime llm/pending-task-id)
-                         "run-world-first")))))))
+          (is (contains?
+                (llm/await-materialized
+                  #(llm/read-pending runtime llm/pending-task-id)
+                  #(contains? % "run-world-first"))
+                "run-world-first")))))))
 
 (deftest context-bundle-before-run-test
   (with-world-runtime
@@ -206,8 +244,12 @@
                                    :context-bundle/id "B-one-bundle"
                                    :llm-turn-run/id "run-one-bundle"}})
               decision (append-and-await-decision! runtime request)
-              bundle-id (world/read-context-bundle-by-turn runtime "WT-one-bundle")
-              run-id (world/read-llm-run-by-turn runtime "WT-one-bundle")
+              bundle-id (world/await-materialized
+                          #(world/read-context-bundle-by-turn runtime "WT-one-bundle")
+                          some?)
+              run-id (world/await-materialized
+                       #(world/read-llm-run-by-turn runtime "WT-one-bundle")
+                       some?)
               llm-run (llm/await-run runtime "run-one-bundle"
                                      #(= :pending (:status %)))]
           (is (= "B-one-bundle" bundle-id))
@@ -291,3 +333,205 @@
           (is (= "run-idem-A"
                  (:llm-turn-run/id
                   (world/read-send-by-idempotency runtime "idem-same-send")))))))))
+
+(deftest approval-world-first-test
+  (with-world-runtime
+    (fn [runtime]
+      (testing "approval resolution enters World and derives an LLM control record"
+        (let [ids {:world-thread-id "chat-approval"
+                   :world-turn-id "WT-approval-send"
+                   :bundle-id "B-approval"
+                   :run-id "run-approval-world-first"
+                   :thread-id "llm-thread-approval"
+                   :request-id "req-approval-send"}
+              approval-id "approval-world-first"
+              native-id 44
+              _ (append-send-and-await-run! runtime ids)
+              _ (append-approval-observation!
+                  runtime
+                  {:run-id (:run-id ids)
+                   :thread-id (:thread-id ids)
+                   :approval-id approval-id
+                   :native-id native-id})
+              control-request (world/world-only-turn-request
+                                :world-turn/tool-approval-resolve
+                                (:world-thread-id ids)
+                                {:request-id "req-approval-resolve"
+                                 :time-ms 110
+                                 :payload {:world-turn/id "WT-approval-resolve"
+                                           :llm-turn-run/id (:run-id ids)
+                                           :approval/id approval-id
+                                           :native/json-rpc-request-id native-id
+                                           :decision :approved}})
+              decision (append-and-await-decision! runtime control-request)
+              run (llm/await-run runtime (:run-id ids) #(= :running (:status %)))
+              approval (get (llm/read-approvals-by-run runtime (:run-id ids)) approval-id)
+              control (llm/read-control runtime "req-approval-resolve/llm-control")]
+          (is (= :accepted (:decision/status decision)))
+          (is (= :approval/resolve (:llm-control/type decision)))
+          (is (= "WT-approval-resolve" (:world-turn/id decision)))
+          (is (= "req-approval-resolve/llm-control"
+                 (world/read-llm-control-by-turn runtime "WT-approval-resolve")))
+          (is (= :approval/resolve (:control/type control)))
+          (is (= native-id (:native/json-rpc-request-id control)))
+          (is (= :running (:status run)))
+          (is (= :approved (:status approval)))
+          (is (nil? (llm/await-materialized
+                      #(llm/read-pending-approval runtime approval-id)
+                      nil?))))))))
+
+(deftest approval-is-not-patch-acceptance-test
+  (with-world-runtime
+    (fn [runtime]
+      (testing "tool approval resolution is separate from patch acceptance"
+        (let [ids {:world-thread-id "chat-approval-not-patch"
+                   :world-turn-id "WT-approval-not-patch-send"
+                   :bundle-id "B-approval-not-patch"
+                   :run-id "run-approval-not-patch"
+                   :thread-id "llm-thread-approval-not-patch"
+                   :request-id "req-approval-not-patch-send"}
+              approval-id "approval-not-patch"
+              _ (append-send-and-await-run! runtime ids)
+              _ (append-approval-observation!
+                  runtime
+                  {:run-id (:run-id ids)
+                   :thread-id (:thread-id ids)
+                   :approval-id approval-id
+                   :native-id 55})
+              approval-request (world/world-only-turn-request
+                                 :world-turn/tool-approval-resolve
+                                 (:world-thread-id ids)
+                                 {:request-id "req-approval-not-patch"
+                                  :time-ms 120
+                                  :payload {:world-turn/id "WT-approval-not-patch"
+                                            :llm-turn-run/id (:run-id ids)
+                                            :approval/id approval-id
+                                            :native/json-rpc-request-id 55
+                                            :decision :approved}})
+              patch-request (world/world-only-turn-request
+                              :world-turn/patch-accept
+                              (:world-thread-id ids)
+                              {:request-id "req-patch-accept-not-approval"
+                               :time-ms 121
+                               :payload {:world-turn/id "WT-patch-accept"
+                                         :prompt/text "accept patch"}})
+              approval-decision (append-and-await-decision! runtime approval-request)
+              patch-decision (append-and-await-decision! runtime patch-request)]
+          (is (= :approval/resolve (:llm-control/type approval-decision)))
+          (is (= :world-turn/tool-approval-resolve
+                 (:world-turn/kind (world/read-turn runtime "WT-approval-not-patch"))))
+          (is (= :accepted (:decision/status patch-decision)))
+          (is (= :world-turn/patch-accept
+                 (:world-turn/kind (world/read-turn runtime "WT-patch-accept"))))
+          (is (nil? (:llm-control/type patch-decision)))
+          (is (nil? (world/read-llm-control-by-turn runtime "WT-patch-accept"))))))))
+
+(deftest cancel-world-first-test
+  (with-world-runtime
+    (fn [runtime]
+      (testing "cancel enters World first and derives an LLM cancel control"
+        (let [ids {:world-thread-id "chat-cancel"
+                   :world-turn-id "WT-cancel-send"
+                   :bundle-id "B-cancel"
+                   :run-id "run-cancel-world-first"
+                   :thread-id "llm-thread-cancel"
+                   :request-id "req-cancel-send"}
+              _ (append-send-and-await-run! runtime ids)
+              request (world/world-only-turn-request
+                        :world-turn/cancel
+                        (:world-thread-id ids)
+                        {:request-id "req-cancel"
+                         :time-ms 130
+                         :payload {:world-turn/id "WT-cancel"
+                                   :llm-turn-run/id (:run-id ids)
+                                   :reason :user-request}})
+              decision (append-and-await-decision! runtime request)
+              run (llm/await-run runtime (:run-id ids) #(= :cancelled (:status %)))
+              control (llm/await-materialized
+                        #(llm/read-control runtime "req-cancel/llm-control")
+                        some?)]
+          (is (= :accepted (:decision/status decision)))
+          (is (= :turn/cancel (:llm-control/type decision)))
+          (is (= :turn/cancel (:control/type control)))
+          (is (= :cancelled (:status run)))
+          (is (nil? (get (llm/read-pending runtime llm/pending-task-id)
+                         (:run-id ids)))))))))
+
+(deftest compaction-world-first-test
+  (with-world-runtime
+    (fn [runtime]
+      (testing "compaction request enters World first and records an LLM control"
+        (let [ids {:world-thread-id "chat-compact"
+                   :world-turn-id "WT-compact-send"
+                   :bundle-id "B-compact"
+                   :run-id "run-compact-world-first"
+                   :thread-id "llm-thread-compact"
+                   :request-id "req-compact-send"}
+              _ (append-send-and-await-run! runtime ids)
+              request (world/world-only-turn-request
+                        :world-turn/compact-request
+                        (:world-thread-id ids)
+                        {:request-id "req-compact"
+                         :time-ms 140
+                         :payload {:world-turn/id "WT-compact"
+                                   :llm-turn-run/id (:run-id ids)
+                                   :strategy :summarize-prefix}})
+              decision (append-and-await-decision! runtime request)
+              control (llm/await-materialized
+                        #(llm/read-control runtime "req-compact/llm-control")
+                        some?)
+              run (llm/read-run runtime (:run-id ids))]
+          (is (= :accepted (:decision/status decision)))
+          (is (= :compact/request (:llm-control/type decision)))
+          (is (= :compact/request (:control/type control)))
+          (is (= :pending (:status run)))
+          (is (= [{:control/id "req-compact/llm-control"
+                   :time-ms 140
+                   :actor {:actor/id "system" :actor/type :system}
+                   :payload {:world-thread/id "chat-compact"
+                             :world-turn/id "WT-compact"
+                             :llm-turn-run/id "run-compact-world-first"
+                             :strategy :summarize-prefix}}]
+                 (:compactions run))))))))
+
+(deftest approval-timeout-test
+  (with-world-runtime
+    (fn [runtime]
+      (testing "approval timeout is durably recorded as an expired approval"
+        (let [ids {:world-thread-id "chat-timeout"
+                   :world-turn-id "WT-timeout-send"
+                   :bundle-id "B-timeout"
+                   :run-id "run-approval-timeout"
+                   :thread-id "llm-thread-timeout"
+                   :request-id "req-timeout-send"}
+              approval-id "approval-timeout"
+              _ (append-send-and-await-run! runtime ids)
+              _ (append-approval-observation!
+                  runtime
+                  {:run-id (:run-id ids)
+                   :thread-id (:thread-id ids)
+                   :approval-id approval-id
+                   :native-id 66})
+              request (world/world-only-turn-request
+                        :world-turn/tool-approval-resolve
+                        (:world-thread-id ids)
+                        {:request-id "req-approval-timeout"
+                         :time-ms 150
+                         :payload {:world-turn/id "WT-approval-timeout"
+                                   :llm-turn-run/id (:run-id ids)
+                                   :approval/id approval-id
+                                   :native/json-rpc-request-id 66
+                                   :decision :expired
+                                   :reason :timeout}})
+              decision (append-and-await-decision! runtime request)
+              run (llm/await-run runtime (:run-id ids) #(= :failed (:status %)))
+              approval (get (llm/read-approvals-by-run runtime (:run-id ids)) approval-id)]
+          (is (= :accepted (:decision/status decision)))
+          (is (= :approval/resolve (:llm-control/type decision)))
+          (is (= :expired (:status approval)))
+          (is (= :expired (:decision approval)))
+          (is (nil? (llm/await-materialized
+                      #(llm/read-pending-approval runtime approval-id)
+                      nil?)))
+          (is (= :approval/declined (get-in run [:error :reason])))
+          (is (= :expired (get-in run [:error :decision]))))))))

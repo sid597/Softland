@@ -18,8 +18,17 @@
     :world-turn/derivative-create
     :world-turn/patch-accept
     :world-turn/patch-reject
+    :world-turn/tool-approval-resolve
     :world-turn/cancel
+    :world-turn/compact-request
+    :world-turn/steer
     :world-turn/abandon})
+
+(def world-control-request-types
+  #{:world-turn/tool-approval-resolve
+    :world-turn/cancel
+    :world-turn/compact-request
+    :world-turn/steer})
 
 (def world-only-turn-request-types
   (disj world-turn-request-types :world-turn/compose-and-send))
@@ -52,7 +61,10 @@
     :world-turn/derivative-create :world-turn/write
     :world-turn/patch-accept :world-turn/write
     :world-turn/patch-reject :world-turn/write
+    :world-turn/tool-approval-resolve :llm/control
     :world-turn/cancel :world-turn/control
+    :world-turn/compact-request :llm/control
+    :world-turn/steer :llm/control
     :world-turn/abandon :world-turn/control
     :world/write))
 
@@ -143,6 +155,7 @@
 (defn request-idempotency-key [request] (:idempotency/key request))
 (defn request-errors? [errors] (boolean (seq errors)))
 (defn world-only-turn-request? [request-type] (contains? world-only-turn-request-types request-type))
+(defn world-control-request? [request-type] (contains? world-control-request-types request-type))
 
 (defn request-validation-errors
   [request]
@@ -200,10 +213,11 @@
 
 (defn accepted-decision
   [request primary-event events-by-role]
-  (let [events (vec (keep events-by-role [:thread :turn :context-bundle :llm-turn-run]))
+  (let [events (vec (keep events-by-role [:thread :turn :context-bundle :llm-turn-run :llm-control]))
         turn-event (:turn events-by-role)
         bundle-event (:context-bundle events-by-role)
-        llm-run-event (:llm-turn-run events-by-role)]
+        llm-run-event (:llm-turn-run events-by-role)
+        llm-control-event (:llm-control events-by-role)]
     {:decision/id (decision-id-for-request-id (:request/id request))
      :decision/status :accepted
      :request/id (:request/id request)
@@ -219,6 +233,9 @@
      :llm-thread/id (:llm-thread/id llm-run-event)
      :llm-turn-run/id (:llm-turn-run/id llm-run-event)
      :llm/request-id (:llm/request-id llm-run-event)
+     :llm-control/id (:llm-control/id llm-control-event)
+     :llm-control/type (:llm-control/type llm-control-event)
+     :approval/id (:approval/id llm-control-event)
      :decided-at-ms (:request/time-ms request)}))
 
 (defn rejected-decision
@@ -240,6 +257,7 @@
 (defn decision-turn-event [decision] (get-in decision [:events :turn]))
 (defn decision-bundle-event [decision] (get-in decision [:events :context-bundle]))
 (defn decision-llm-run-event [decision] (get-in decision [:events :llm-turn-run]))
+(defn decision-llm-control-event [decision] (get-in decision [:events :llm-control]))
 (defn decision-event-id [decision] (:event/id decision))
 (defn event-id [event] (:event/id event))
 
@@ -410,6 +428,60 @@
   [llm-request]
   (:llm-turn-run/id llm-request))
 
+(defn request-control-type
+  [request]
+  (case (:request/type request)
+    :world-turn/tool-approval-resolve :approval/resolve
+    :world-turn/cancel :turn/cancel
+    :world-turn/compact-request :compact/request
+    :world-turn/steer :turn/steer))
+
+(defn request-control-id
+  [request]
+  (or (get-in request [:payload :control/id])
+      (:control/id request)
+      (str (:request/id request) "/llm-control")))
+
+(defn request-control-run-id
+  [request]
+  (or (get-in request [:payload :llm-turn-run/id])
+      (:llm-turn-run/id request)))
+
+(defn world->llm-control-record
+  [request turn-event]
+  (llm/control-record
+    (request-control-run-id request)
+    (request-control-type request)
+    {:control-id (request-control-id request)
+     :llm-thread/id (get-in request [:payload :llm-thread/id])
+     :world-thread/id (request-thread-id request)
+     :world-turn/id (:world-turn/id turn-event)
+     :approval/id (get-in request [:payload :approval/id])
+     :native/json-rpc-request-id (get-in request [:payload :native/json-rpc-request-id])
+     :decision (get-in request [:payload :decision])
+     :actor (:actor request)
+     :time-ms (:request/time-ms request)
+     :reason (get-in request [:payload :reason])
+     :payload (:payload request)}))
+
+(defn llm-control-event
+  [request turn-event control]
+  (merge (base-event request :llm-control/requested "llm-control")
+         {:world-turn/id (:world-turn/id turn-event)
+          :llm-control/id (:control/id control)
+          :llm-control/type (:control/type control)
+          :llm-turn-run/id (:llm-turn-run/id control)
+          :approval/id (:approval/id control)
+          :control control}))
+
+(defn llm-control-run-id
+  [control]
+  (:llm-turn-run/id control))
+
+(defn llm-control-id
+  [control]
+  (:control/id control))
+
 (defn validate-or-reject
   [request]
   (let [errors (request-validation-errors request)]
@@ -489,6 +561,29 @@
       (let [turn-event (world-turn-event request)]
         (accepted-decision request turn-event {:turn turn-event})))))
 
+(defn interpret-control-turn
+  [request existing-thread]
+  (cond
+    (validate-or-reject request)
+    (validate-or-reject request)
+
+    (nil? existing-thread)
+    (rejected-decision request :world-thread/not-found)
+
+    (blank-string? (request-control-run-id request))
+    (rejected-decision request :llm-turn-run/id-invalid)
+
+    (and (= :world-turn/tool-approval-resolve (:request/type request))
+         (blank-string? (get-in request [:payload :approval/id])))
+    (rejected-decision request :approval/id-invalid)
+
+    :else
+    (let [turn-event (world-turn-event request)
+          control (world->llm-control-record request turn-event)
+          control-event (llm-control-event request turn-event control)]
+      (accepted-decision request turn-event {:turn turn-event
+                                             :llm-control control-event}))))
+
 (defn thread-row
   [existing-thread thread-event]
   (let [time-ms (:event/time-ms thread-event)]
@@ -546,6 +641,7 @@
 
 (defmodule world-module [setup topologies]
   (mirror-depot setup *llm-depot (get-module-name llm/llm-module) "*llm-depot")
+  (mirror-depot setup *llm-control-depot (get-module-name llm/llm-module) "*llm-control-depot")
   (declare-depot setup *world-action-depot (hash-by :routing/key))
   (let [n (stream-topology topologies "world-chat-topology")]
     (declare-pstate n $$world-requests-by-id {String Object})
@@ -560,6 +656,8 @@
     (declare-pstate n $$world-send-by-idempotency {String Object})
     (declare-pstate n $$world-llm-run-requests {String Object})
     (declare-pstate n $$world-llm-run-by-turn {String String})
+    (declare-pstate n $$world-llm-controls {String Object})
+    (declare-pstate n $$world-llm-control-by-turn {String String})
 
     (<<sources n
       (source> *world-action-depot :> *request)
@@ -646,6 +744,42 @@
             (|hash$$ *llm-depot *llm-run-id)
             (depot-partition-append! *llm-depot *llm-request :append-ack)))
 
+        (case> (world-control-request? *request-type))
+        (interpret-control-turn *request *existing-thread :> *decision)
+        (decision-id *decision :> *decision-id)
+        (|hash *decision-id)
+        (local-transform> [(keypath *decision-id) (termval *decision)] $$world-decisions-by-id)
+        (<<if (decision-accepted? *decision)
+          (decision-turn-event *decision :> *turn-event)
+          (decision-llm-control-event *decision :> *control-event)
+          (event-id *turn-event :> *turn-event-id)
+          (event-id *control-event :> *control-event-id)
+          (world-thread-id-from-event *turn-event :> *event-thread-id)
+          (turn-id-from-event *turn-event :> *turn-id)
+          (world->llm-control-record *request *turn-event :> *control)
+          (llm-control-run-id *control :> *control-run-id)
+          (llm-control-id *control :> *control-id)
+          (turn-row *turn-event nil :> *turn-row)
+          (|hash *event-thread-id)
+          (local-select> [(keypath *event-thread-id)] $$world-turns-by-thread :> *existing-turn-order)
+          (add-turn-id *existing-turn-order *turn-id :> *turn-order)
+          (world-thread-event *request *existing-thread :> *thread-event)
+          (thread-row *existing-thread *thread-event :> *base-thread-row)
+          (bump-thread-turn-count *base-thread-row *turn-order :> *thread-row)
+          (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads)
+          (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$world-turns-by-thread)
+          (|hash *turn-event-id)
+          (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$world-events-by-id)
+          (|hash *control-event-id)
+          (local-transform> [(keypath *control-event-id) (termval *control-event)] $$world-events-by-id)
+          (|hash *turn-id)
+          (local-transform> [(keypath *turn-id) (termval *turn-row)] $$world-turns)
+          (local-transform> [(keypath *turn-id) (termval *control-id)] $$world-llm-control-by-turn)
+          (|hash *control-id)
+          (local-transform> [(keypath *control-id) (termval *control)] $$world-llm-controls)
+          (|hash$$ *llm-control-depot *control-run-id)
+          (depot-partition-append! *llm-control-depot *control :append-ack))
+
         (case> (world-only-turn-request? *request-type))
         (interpret-world-only-turn *request *existing-thread :> *decision)
         (decision-id *decision :> *decision-id)
@@ -701,9 +835,12 @@
      :world-send-by-idempotency (foreign-pstate ipc module-name "$$world-send-by-idempotency")
      :world-llm-run-requests (foreign-pstate ipc module-name "$$world-llm-run-requests")
      :world-llm-run-by-turn (foreign-pstate ipc module-name "$$world-llm-run-by-turn")
+     :world-llm-controls (foreign-pstate ipc module-name "$$world-llm-controls")
+     :world-llm-control-by-turn (foreign-pstate ipc module-name "$$world-llm-control-by-turn")
      :llm-depot (foreign-depot ipc llm-module-name "*llm-depot")
      :llm-claim-depot (foreign-depot ipc llm-module-name "*llm-claim-depot")
      :llm-obs-depot (foreign-depot ipc llm-module-name "*llm-obs-depot")
+     :llm-control-depot (foreign-depot ipc llm-module-name "*llm-control-depot")
      :llm-threads (foreign-pstate ipc llm-module-name "$$llm-threads")
      :llm-thread-by-world-thread (foreign-pstate ipc llm-module-name "$$llm-thread-by-world-thread")
      :llm-turn-runs (foreign-pstate ipc llm-module-name "$$llm-turn-runs")
@@ -719,6 +856,8 @@
      :llm-approvals-pending (foreign-pstate ipc llm-module-name "$$llm-approvals-pending")
      :llm-approvals-by-run-id (foreign-pstate ipc llm-module-name "$$llm-approvals-by-run-id")
      :llm-token-usage-by-run-id (foreign-pstate ipc llm-module-name "$$llm-token-usage-by-run-id")
+     :llm-controls-by-run-id (foreign-pstate ipc llm-module-name "$$llm-controls-by-run-id")
+     :llm-control-by-id (foreign-pstate ipc llm-module-name "$$llm-control-by-id")
      :llm-views (foreign-pstate ipc llm-module-name "$$llm-views")}))
 
 (defn close-world-runtime!
@@ -784,6 +923,14 @@
 (defn read-llm-run-by-turn
   [runtime world-turn-id]
   (select-pstate-one (:world-llm-run-by-turn runtime) [(keypath world-turn-id)]))
+
+(defn read-llm-control
+  [runtime control-id]
+  (select-pstate-one (:world-llm-controls runtime) [(keypath control-id)]))
+
+(defn read-llm-control-by-turn
+  [runtime world-turn-id]
+  (select-pstate-one (:world-llm-control-by-turn runtime) [(keypath world-turn-id)]))
 
 (defn await-materialized
   ([read-f pred]
