@@ -125,6 +125,70 @@
           (is (str/includes? (:rendered/model-input bundle) "object:note-17"))
           (is (str/includes? (:rendered/model-input bundle) "slice:slice-3")))))))
 
+(deftest world-catalog-materializes-eager-objects-test
+  (with-world-runtime
+    (fn [runtime]
+      (testing "accepted world facts become catalog objects and relation edges"
+        (let [request (world/compose-and-send-request
+                        "chat-catalog"
+                        "Catalog this send."
+                        {:request-id "req-catalog"
+                         :time-ms 15
+                         :title "Catalog chat"
+                         :payload {:world-turn/id "WT-catalog"
+                                   :context-bundle/id "B-catalog"
+                                   :llm-turn-run/id "run-catalog"
+                                   :llm-thread/id "llm-thread-catalog"}})
+              _decision (append-and-await-decision! runtime request)
+              thread-object-id (world/catalog-object-id :world-thread "chat-catalog")
+              turn-object-id (world/catalog-object-id :world-turn "WT-catalog")
+              bundle-object-id (world/catalog-object-id :context-bundle "B-catalog")
+              run-object-id (world/catalog-object-id :llm-turn-run "run-catalog")
+              thread-object (world/await-materialized
+                              #(world/read-object runtime thread-object-id)
+                              some?)
+              turn-object (world/await-materialized
+                            #(world/read-object runtime turn-object-id)
+                            some?)
+              bundle-object (world/await-materialized
+                              #(world/read-object runtime bundle-object-id)
+                              some?)
+              run-object (world/await-materialized
+                           #(world/read-object runtime run-object-id)
+                           some?)
+              thread-out (world/await-materialized
+                           #(world/read-artifact-graph runtime thread-object-id)
+                           #(= #{turn-object-id}
+                               (set (map :to/object-id (vals %)))))
+              turn-out (world/await-materialized
+                         #(world/read-artifact-graph runtime turn-object-id)
+                         #(= #{bundle-object-id run-object-id}
+                             (set (map :to/object-id (vals %)))))
+              bundle-out (world/await-materialized
+                           #(world/read-artifact-graph runtime bundle-object-id)
+                           #(= #{run-object-id}
+                               (set (map :to/object-id (vals %)))))
+              run-in (world/await-materialized
+                       #(world/read-artifact-graph-in runtime run-object-id)
+                       #(= #{turn-object-id bundle-object-id}
+                           (set (map :from/object-id (vals %)))))]
+          (is (= :world-thread (:object/type thread-object)))
+          (is (= :world-turn (:object/type turn-object)))
+          (is (= :context-bundle (:object/type bundle-object)))
+          (is (= :llm-turn-run (:object/type run-object)))
+          (is (= "Catalog chat" (:title thread-object)))
+          (is (= "B-catalog" (:context-bundle/id turn-object)))
+          (is (= "WT-catalog" (:world-turn/id bundle-object)))
+          (is (= "llm-thread-catalog" (:llm-thread/id run-object)))
+          (is (= #{turn-object-id}
+                 (set (map :to/object-id (vals thread-out)))))
+          (is (= #{bundle-object-id run-object-id}
+                 (set (map :to/object-id (vals turn-out)))))
+          (is (= #{run-object-id}
+                 (set (map :to/object-id (vals bundle-out)))))
+          (is (= #{turn-object-id bundle-object-id}
+                 (set (map :from/object-id (vals run-in))))))))))
+
 (deftest world-only-turn-no-context-bundle-test
   (with-world-runtime
     (fn [runtime]
@@ -366,7 +430,9 @@
               decision (append-and-await-decision! runtime control-request)
               run (llm/await-run runtime (:run-id ids) #(= :running (:status %)))
               approval (get (llm/read-approvals-by-run runtime (:run-id ids)) approval-id)
-              control (llm/read-control runtime "req-approval-resolve/llm-control")]
+              control (llm/await-materialized
+                        #(llm/read-control runtime "req-approval-resolve/llm-control")
+                        some?)]
           (is (= :accepted (:decision/status decision)))
           (is (= :approval/resolve (:llm-control/type decision)))
           (is (= "WT-approval-resolve" (:world-turn/id decision)))
@@ -454,8 +520,10 @@
           (is (= :turn/cancel (:llm-control/type decision)))
           (is (= :turn/cancel (:control/type control)))
           (is (= :cancelled (:status run)))
-          (is (nil? (get (llm/read-pending runtime llm/pending-task-id)
-                         (:run-id ids)))))))))
+          (is (nil? (llm/await-materialized
+                      #(get (llm/read-pending runtime llm/pending-task-id)
+                            (:run-id ids))
+                      nil?))))))))
 
 (deftest compaction-world-first-test
   (with-world-runtime
