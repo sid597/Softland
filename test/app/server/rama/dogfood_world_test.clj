@@ -506,6 +506,110 @@
             (is (= :pending (:status run)))
             (is (nil? (:claimed-by run)))))))))
 
+(deftest patch-proposal-creation-test
+  (with-world-runtime
+    (fn [runtime]
+      (testing "patch-like LLM observations become pending world proposals"
+        (let [ids {:world-thread-id "chat-patch-proposal"
+                   :world-turn-id "WT-patch-source"
+                   :bundle-id "B-patch-source"
+                   :run-id "run-patch-proposal"
+                   :thread-id "llm-thread-patch-proposal"
+                   :request-id "req-patch-source"}
+              proposal-id "patch-proposal-1"
+              _ (append-send-and-await-run! runtime ids)]
+          (world/append-llm-observation!
+            runtime
+            (llm/observation
+              (:run-id ids)
+              (:thread-id ids)
+              :codex/patch-proposal
+              0
+              {:observation-id "obs-patch-proposal-1"
+               :world-thread/id (:world-thread-id ids)
+               :world-turn/id (:world-turn-id ids)
+               :patch-proposal/id proposal-id
+               :turn-diff/id "turn-diff-1"
+               :summary/text "Update the parser."
+               :patch/files [{:path "src/app/parser.clj"
+                              :hunks 2}]}))
+          (let [proposal (world/await-materialized
+                           #(world/read-patch-proposal runtime proposal-id)
+                           some?)]
+            (is (= :pending (:status proposal)))
+            (is (= (:run-id ids) (:llm-turn-run/id proposal)))
+            (is (= (:world-thread-id ids) (:world-thread/id proposal)))
+            (is (= "Update the parser." (:summary/text proposal)))
+            (is (= [{:path "src/app/parser.clj" :hunks 2}]
+                   (:patch/files proposal)))))))))
+
+(deftest patch-accept-reject-world-turns-test
+  (with-world-runtime
+    (fn [runtime]
+      (testing "patch acceptance and rejection are world turns, not tool approvals"
+        (let [ids {:world-thread-id "chat-patch-resolution"
+                   :world-turn-id "WT-patch-resolution-source"
+                   :bundle-id "B-patch-resolution-source"
+                   :run-id "run-patch-resolution"
+                   :thread-id "llm-thread-patch-resolution"
+                   :request-id "req-patch-resolution-source"}
+              accept-id "patch-proposal-accept"
+              reject-id "patch-proposal-reject"
+              _ (append-send-and-await-run! runtime ids)]
+          (doseq [[proposal-id sequence] [[accept-id 0] [reject-id 1]]]
+            (world/append-llm-observation!
+              runtime
+              (llm/observation
+                (:run-id ids)
+                (:thread-id ids)
+                :codex/patch-proposal
+                sequence
+                {:observation-id (str "obs-" proposal-id)
+                 :world-thread/id (:world-thread-id ids)
+                 :world-turn/id (:world-turn-id ids)
+                 :patch-proposal/id proposal-id
+                 :summary/text proposal-id})))
+          (world/await-materialized
+            #(world/read-patch-proposal runtime accept-id)
+            #(= :pending (:status %)))
+          (world/await-materialized
+            #(world/read-patch-proposal runtime reject-id)
+            #(= :pending (:status %)))
+          (let [accept-request (world/world-only-turn-request
+                                 :world-turn/patch-accept
+                                 (:world-thread-id ids)
+                                 {:request-id "req-patch-accept"
+                                  :time-ms 270
+                                  :payload {:world-turn/id "WT-patch-accept"
+                                            :patch-proposal/id accept-id
+                                            :prompt/text "Accept this patch."}})
+                reject-request (world/world-only-turn-request
+                                 :world-turn/patch-reject
+                                 (:world-thread-id ids)
+                                 {:request-id "req-patch-reject"
+                                  :time-ms 271
+                                  :payload {:world-turn/id "WT-patch-reject"
+                                            :patch-proposal/id reject-id
+                                            :prompt/text "Reject this patch."
+                                            :reason :not-right-shape}})
+                accept-decision (append-and-await-decision! runtime accept-request)
+                reject-decision (append-and-await-decision! runtime reject-request)
+                accepted (world/await-materialized
+                           #(world/read-patch-proposal runtime accept-id)
+                           #(= :accepted (:status %)))
+                rejected (world/await-materialized
+                           #(world/read-patch-proposal runtime reject-id)
+                           #(= :rejected (:status %)))]
+            (is (= :accepted (:decision/status accept-decision)))
+            (is (= :accepted (:decision/status reject-decision)))
+            (is (= "WT-patch-accept" (:resolution/world-turn-id accepted)))
+            (is (= "WT-patch-reject" (:resolution/world-turn-id rejected)))
+            (is (= :not-right-shape (:reason rejected)))
+            (is (nil? (:llm-control/type accept-decision)))
+            (is (nil? (:llm-control/type reject-decision)))
+            (is (nil? (world/read-llm-control-by-turn runtime "WT-patch-accept")))
+            (is (nil? (world/read-llm-control-by-turn runtime "WT-patch-reject")))))))))
+
 (deftest world-only-turn-no-context-bundle-test
   (with-world-runtime
     (fn [runtime]

@@ -16,6 +16,7 @@
     :world-turn/comment-create
     :world-turn/slice-create
     :world-turn/derivative-create
+    :world-turn/patch-proposal-create
     :world-turn/patch-accept
     :world-turn/patch-reject
     :world-turn/tool-approval-resolve
@@ -64,6 +65,7 @@
     :world-turn/comment-create :world-turn/write
     :world-turn/slice-create :world-turn/write
     :world-turn/derivative-create :world-turn/write
+    :world-turn/patch-proposal-create :world-patch/ingest
     :world-turn/patch-accept :world-turn/write
     :world-turn/patch-reject :world-turn/write
     :world-turn/tool-approval-resolve :llm/control
@@ -988,6 +990,79 @@
     (:created-at-ms derivative)
     (:world-turn/id derivative)))
 
+(defn patch-proposal-observation?
+  [obs]
+  (= :codex/patch-proposal (:observation/type obs)))
+
+(defn request-observation
+  [request]
+  (get-in request [:payload :observation]))
+
+(defn patch-proposal-id-from-observation
+  [obs]
+  (or (:patch-proposal/id obs)
+      (:turn-diff/id obs)
+      (:observation/id obs)))
+
+(defn patch-proposal-row
+  [obs]
+  (let [proposal-id (patch-proposal-id-from-observation obs)]
+    {:patch-proposal/id proposal-id
+     :turn-diff/id (or (:turn-diff/id obs) proposal-id)
+     :llm-turn-run/id (:llm-turn-run/id obs)
+     :llm-thread/id (:llm-thread/id obs)
+     :world-thread/id (:world-thread/id obs)
+     :world-turn/id (:world-turn/id obs)
+     :status :pending
+     :patch/files (:patch/files obs)
+     :summary/text (:summary/text obs)
+     :created-at-ms (:received-at-ms obs)
+     :observation/id (:observation/id obs)
+     :raw/json (:raw/json obs)}))
+
+(defn patch-proposal-row-from-request
+  [request]
+  {:patch-proposal/id (get-in request [:payload :patch-proposal/id])
+   :turn-diff/id (get-in request [:payload :turn-diff/id])
+   :llm-turn-run/id (get-in request [:payload :llm-turn-run/id])
+   :llm-thread/id (get-in request [:payload :llm-thread/id])
+   :world-thread/id (request-thread-id request)
+   :world-turn/id (get-in request [:payload :source-world-turn/id])
+   :status :pending
+   :patch/files (get-in request [:payload :patch/files])
+   :summary/text (get-in request [:payload :summary/text])
+   :created-at-ms (:request/time-ms request)
+   :observation/id (get-in request [:payload :observation/id])
+   :raw/json (get-in request [:payload :raw/json])})
+
+(defn patch-decision-request?
+  [request-type]
+  (contains? #{:world-turn/patch-accept :world-turn/patch-reject} request-type))
+
+(defn request-patch-proposal-id
+  [request]
+  (or (get-in request [:payload :patch-proposal/id])
+      (:patch-proposal/id request)))
+
+(defn patch-decision-status
+  [request-type]
+  (case request-type
+    :world-turn/patch-accept :accepted
+    :world-turn/patch-reject :rejected))
+
+(defn apply-patch-decision
+  [existing request turn-event]
+  (let [proposal-id (request-patch-proposal-id request)
+        t (:event/time-ms turn-event)]
+    (assoc (or existing {:patch-proposal/id proposal-id})
+           :patch-proposal/id proposal-id
+           :status (patch-decision-status (:request/type request))
+           :resolved-at-ms t
+           :resolved-by (:actor request)
+           :resolution/world-turn-id (:world-turn/id turn-event)
+           :resolution/request-id (:request/id request)
+           :reason (get-in request [:payload :reason]))))
+
 (defmodule world-module [setup topologies]
   (mirror-depot setup *llm-depot (get-module-name llm/llm-module) "*llm-depot")
   (mirror-depot setup *llm-control-depot (get-module-name llm/llm-module) "*llm-control-depot")
@@ -1013,6 +1088,7 @@
     (declare-pstate n $$slices {String Object})
     (declare-pstate n $$overlays {String Object})
     (declare-pstate n $$derivatives {String Object})
+    (declare-pstate n $$world-patch-proposals {String Object})
 
     (<<sources n
       (source> *world-action-depot :> *request)
@@ -1357,7 +1433,18 @@
               (local-transform> [(keypath *raw-object-id) (termval *raw-object)] $$objects)
               (local-transform> [(keypath *source-edge-from) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph)
               (|hash *source-edge-to)
-              (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in))))
+              (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in)))
+          (<<if (= :world-turn/patch-proposal-create *request-type)
+            (patch-proposal-row-from-request *request :> *patch-proposal)
+            (request-patch-proposal-id *request :> *patch-proposal-id)
+            (|hash *patch-proposal-id)
+            (local-transform> [(keypath *patch-proposal-id) (termval *patch-proposal)] $$world-patch-proposals))
+          (<<if (patch-decision-request? *request-type)
+            (request-patch-proposal-id *request :> *patch-proposal-id)
+            (|hash *patch-proposal-id)
+            (local-select> [(keypath *patch-proposal-id)] $$world-patch-proposals :> *existing-patch-proposal)
+            (apply-patch-decision *existing-patch-proposal *request *turn-event :> *patch-proposal)
+            (local-transform> [(keypath *patch-proposal-id) (termval *patch-proposal)] $$world-patch-proposals)))
 
         (default>)
         (rejected-decision *request :request/type-invalid :> *decision)
@@ -1397,6 +1484,7 @@
      :slices (foreign-pstate ipc module-name "$$slices")
      :overlays (foreign-pstate ipc module-name "$$overlays")
      :derivatives (foreign-pstate ipc module-name "$$derivatives")
+     :world-patch-proposals (foreign-pstate ipc module-name "$$world-patch-proposals")
      :llm-depot (foreign-depot ipc llm-module-name "*llm-depot")
      :llm-claim-depot (foreign-depot ipc llm-module-name "*llm-claim-depot")
      :llm-obs-depot (foreign-depot ipc llm-module-name "*llm-obs-depot")
@@ -1433,6 +1521,33 @@
   ([runtime request ack-level]
    (foreign-append! (:world-action-depot runtime) request ack-level)
    request))
+
+(defn append-llm-observation!
+  ([runtime obs]
+   (append-llm-observation! runtime obs :append-ack))
+  ([runtime obs ack-level]
+   (llm/append-observation! runtime obs ack-level)
+   (append-world-action!
+     runtime
+     (world-action-request
+       :world-turn/patch-proposal-create
+       (or (:world-thread/id obs) (:llm-thread/id obs))
+        {:request-id (str (:observation/id obs) "/world-patch-proposal")
+        :time-ms (:received-at-ms obs)
+        :payload {:world-turn/id (str (:observation/id obs) "/world-patch-proposal-turn")
+                  :patch-proposal/id (patch-proposal-id-from-observation obs)
+                  :turn-diff/id (or (:turn-diff/id obs)
+                                    (patch-proposal-id-from-observation obs))
+                  :llm-turn-run/id (:llm-turn-run/id obs)
+                  :llm-thread/id (:llm-thread/id obs)
+                  :source-world-turn/id (:world-turn/id obs)
+                  :prompt/text (:summary/text obs)
+                  :summary/text (:summary/text obs)
+                  :patch/files (:patch/files obs)
+                  :observation/id (:observation/id obs)
+                  :raw/json (:raw/json obs)}})
+     ack-level)
+   obs))
 
 (defn select-pstate-one
   [pstate path]
@@ -1522,6 +1637,10 @@
 (defn read-derivative
   [runtime derivative-id]
   (select-pstate-one (:derivatives runtime) [(keypath derivative-id)]))
+
+(defn read-patch-proposal
+  [runtime patch-proposal-id]
+  (select-pstate-one (:world-patch-proposals runtime) [(keypath patch-proposal-id)]))
 
 (defn await-materialized
   ([read-f pred]
