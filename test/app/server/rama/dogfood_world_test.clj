@@ -52,6 +52,21 @@
     #(llm/read-pending-approval runtime approval-id)
     some?))
 
+(defn append-raw-item-observation!
+  [runtime {:keys [run-id thread-id item-id text sequence]}]
+  (llm/append-observation!
+    runtime
+    (llm/observation
+      run-id
+      thread-id
+      :codex/item-completed
+      sequence
+      {:observation-id (str item-id "/obs/" sequence)
+       :llm-item/id item-id
+       :content/text text}))
+  (llm/await-run runtime run-id #(<= (long sequence) (long (:last-seq %))))
+  (llm/await-materialized #(llm/read-item-by-id runtime item-id) some?))
+
 (deftest world-thread-create-test
   (with-world-runtime
     (fn [runtime]
@@ -188,6 +203,202 @@
                  (set (map :to/object-id (vals bundle-out)))))
           (is (= #{turn-object-id bundle-object-id}
                  (set (map :from/object-id (vals run-in))))))))))
+
+(deftest slice-raw-immutability-test
+  (with-world-runtime
+    (fn [runtime]
+      (testing "slice snapshots do not mutate raw LLM items or get rewritten by later observations"
+        (let [ids {:world-thread-id "chat-slice-immutability"
+                   :world-turn-id "WT-slice-source-send"
+                   :bundle-id "B-slice-source"
+                   :run-id "run-slice-source"
+                   :thread-id "llm-thread-slice-source"
+                   :request-id "req-slice-source-send"}
+              item-id "item-slice-source"
+              original-text "Original raw answer."
+              mutated-text "Mutated duplicate answer."
+              _ (append-send-and-await-run! runtime ids)
+              raw-item (append-raw-item-observation!
+                         runtime
+                         {:run-id (:run-id ids)
+                          :thread-id (:thread-id ids)
+                          :item-id item-id
+                          :text original-text
+                          :sequence 0})
+              raw-object-id (world/catalog-object-id :llm-item item-id)
+              slice-request (world/world-only-turn-request
+                              :world-turn/slice-create
+                              (:world-thread-id ids)
+                              {:request-id "req-slice-create"
+                               :time-ms 210
+                               :payload {:world-turn/id "WT-slice-create"
+                                         :slice/id "slice-immutability"
+                                         :prompt/text "Make this excerpt public."
+                                         :source {:llm-item/id item-id
+                                                  :llm-turn-run/id (:run-id ids)
+                                                  :llm-thread/id (:thread-id ids)
+                                                  :content/text original-text
+                                                  :content/hash (:content/hash raw-item)}}})]
+          (is (nil? (world/read-object runtime raw-object-id)))
+          (append-and-await-decision! runtime slice-request)
+          (let [slice (world/await-materialized
+                        #(world/read-slice runtime "slice-immutability")
+                        some?)]
+            (append-raw-item-observation!
+              runtime
+              {:run-id (:run-id ids)
+               :thread-id (:thread-id ids)
+               :item-id item-id
+               :text mutated-text
+               :sequence 1})
+            (is (= original-text (:snapshot/text slice)))
+            (is (= (:content/hash raw-item) (:source/content-hash slice)))
+            (is (= original-text
+                   (:content/text (llm/read-item-by-id runtime item-id))))
+            (is (= original-text
+                   (get-in (llm/read-items-by-run runtime (:run-id ids))
+                           [item-id :content/text])))
+            (is (= :llm-item
+                   (:object/type
+                    (world/await-materialized
+                      #(world/read-object runtime raw-object-id)
+                      some?))))))))))
+
+(deftest slice-source-hash-test
+  (with-world-runtime
+    (fn [runtime]
+      (testing "a slice records both its snapshot hash and the source content hash"
+        (let [create-request (world/world-thread-create-request
+                               "chat-slice-hash"
+                               {:request-id "req-slice-hash-thread"
+                                :time-ms 220})
+              source-hash (world/content-hash "larger source material")
+              slice-request (world/world-only-turn-request
+                              :world-turn/slice-create
+                              "chat-slice-hash"
+                              {:request-id "req-slice-hash"
+                               :time-ms 221
+                               :payload {:world-turn/id "WT-slice-hash"
+                                         :slice/id "slice-hash"
+                                         :snapshot/text "selected source"
+                                         :source {:llm-item/id "item-slice-hash"
+                                                  :content/hash source-hash}}})]
+          (append-and-await-decision! runtime create-request)
+          (append-and-await-decision! runtime slice-request)
+          (let [slice (world/await-materialized
+                        #(world/read-slice runtime "slice-hash")
+                        some?)]
+            (is (= source-hash (:source/content-hash slice)))
+            (is (= (world/content-hash "selected source") (:snapshot/hash slice)))
+            (is (not= (:source/content-hash slice) (:snapshot/hash slice)))))))))
+
+(deftest derivative-renders-as-user-authored-test
+  (with-world-runtime
+    (fn [runtime]
+      (testing "derivatives are stored and rendered as user-authored material"
+        (let [create-request (world/world-thread-create-request
+                               "chat-derivative"
+                               {:request-id "req-derivative-thread"
+                                :time-ms 230})
+              derivative-request (world/world-only-turn-request
+                                   :world-turn/derivative-create
+                                   "chat-derivative"
+                                   {:request-id "req-derivative"
+                                    :time-ms 231
+                                    :actor {:actor/id "sid"
+                                            :actor/type :human}
+                                    :payload {:world-turn/id "WT-derivative"
+                                              :derivative/id "derivative-user"
+                                              :content/text "My rewritten understanding."
+                                              :source {:llm-item/id "item-derivative-source"
+                                                       :content/text "model draft"}}})
+              send-request (world/compose-and-send-request
+                             "chat-derivative"
+                             "Use this derivative."
+                             {:request-id "req-derivative-send"
+                              :time-ms 232
+                              :payload {:world-turn/id "WT-derivative-send"
+                                        :context-bundle/id "B-derivative-send"
+                                        :llm-turn-run/id "run-derivative-send"
+                                        :refs [{:derivative/id "derivative-user"}]}})]
+          (append-and-await-decision! runtime create-request)
+          (append-and-await-decision! runtime derivative-request)
+          (let [derivative (world/await-materialized
+                             #(world/read-derivative runtime "derivative-user")
+                             some?)
+                derivative-object (world/await-materialized
+                                    #(world/read-object
+                                       runtime
+                                       (world/catalog-object-id :derivative "derivative-user"))
+                                    some?)]
+            (is (= :user (:authorship derivative)))
+            (is (= :user-authored (:render/as derivative)))
+            (is (= :user (:authorship derivative-object))))
+          (append-and-await-decision! runtime send-request)
+          (let [bundle (world/await-materialized
+                         #(world/read-context-bundle runtime "B-derivative-send")
+                         some?)]
+            (is (str/includes? (:rendered/model-input bundle)
+                               "user-authored-derivative:derivative-user"))))))))
+
+(deftest world-only-turn-no-llm-side-effect-test
+  (with-world-runtime
+    (fn [runtime]
+      (testing "slice, comment, and derivative turns stay world-only"
+        (let [create-request (world/world-thread-create-request
+                               "chat-world-only-material"
+                               {:request-id "req-world-only-material-thread"
+                                :time-ms 240})
+              slice-request (world/world-only-turn-request
+                              :world-turn/slice-create
+                              "chat-world-only-material"
+                              {:request-id "req-world-only-slice"
+                               :time-ms 241
+                               :payload {:world-turn/id "WT-world-only-slice"
+                                         :slice/id "slice-world-only"
+                                         :snapshot/text "world only slice"
+                                         :source {:llm-item/id "item-world-only"
+                                                  :content/text "raw"}}})
+              comment-request (world/world-only-turn-request
+                                :world-turn/comment-create
+                                "chat-world-only-material"
+                                {:request-id "req-world-only-comment"
+                                 :time-ms 242
+                                 :payload {:world-turn/id "WT-world-only-comment"
+                                           :overlay/id "overlay-world-only"
+                                           :prompt/text "A note on the raw item."
+                                           :source {:llm-item/id "item-world-only"
+                                                    :content/text "raw"}}})
+              derivative-request (world/world-only-turn-request
+                                   :world-turn/derivative-create
+                                   "chat-world-only-material"
+                                   {:request-id "req-world-only-derivative"
+                                    :time-ms 243
+                                    :payload {:world-turn/id "WT-world-only-derivative"
+                                              :derivative/id "derivative-world-only"
+                                              :content/text "user rewrite"
+                                              :source {:llm-item/id "item-world-only"
+                                                       :content/text "raw"}}})]
+          (append-and-await-decision! runtime create-request)
+          (append-and-await-decision! runtime slice-request)
+          (append-and-await-decision! runtime comment-request)
+          (append-and-await-decision! runtime derivative-request)
+          (is (some? (world/await-materialized
+                       #(world/read-slice runtime "slice-world-only")
+                       some?)))
+          (is (some? (world/await-materialized
+                       #(world/read-overlay runtime "overlay-world-only")
+                       some?)))
+          (is (some? (world/await-materialized
+                       #(world/read-derivative runtime "derivative-world-only")
+                       some?)))
+          (is (nil? (world/read-context-bundle-by-turn runtime "WT-world-only-slice")))
+          (is (nil? (world/read-llm-run-by-turn runtime "WT-world-only-slice")))
+          (is (nil? (world/read-context-bundle-by-turn runtime "WT-world-only-comment")))
+          (is (nil? (world/read-llm-run-by-turn runtime "WT-world-only-comment")))
+          (is (nil? (world/read-context-bundle-by-turn runtime "WT-world-only-derivative")))
+          (is (nil? (world/read-llm-run-by-turn runtime "WT-world-only-derivative")))
+          (is (empty? (llm/read-pending runtime llm/pending-task-id))))))))
 
 (deftest world-only-turn-no-context-bundle-test
   (with-world-runtime
