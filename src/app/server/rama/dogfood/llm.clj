@@ -90,7 +90,10 @@
                 :fork/from-native-thread-id (:fork/from-native-thread-id opts)}
      :payload (cond-> {:context-bundle/id context-bundle-id
                        :executor/pool (or (:executor-pool opts) :local-codex)
-                       :executor/hints (or (:executor-hints opts) {:interactive? true})}
+                       :executor/hints (or (:executor-hints opts) {:interactive? true})
+                       :run/restart-policy (or (:run-restart-policy opts)
+                                               (:run/restart-policy opts)
+                                               :fail-on-stale-approval)}
                 executor-task-id
                 (assoc :executor/task-id executor-task-id))}))
 
@@ -253,6 +256,8 @@
      :executor/pool (:executor/pool payload)
      :executor/hints (:executor/hints payload)
      :executor/task-id (request-executor-task-id event)
+     :run/restart-policy (or (:run/restart-policy payload)
+                             :fail-on-stale-approval)
      :created-at time-ms
      :updated-at time-ms
      :claimed-by nil
@@ -964,6 +969,138 @@
   ([runtime control ack-level]
    (foreign-append! (:llm-control-depot runtime) control ack-level)
    control))
+
+(declare read-pending read-run await-materialized await-run)
+
+(defn first-pending-entry
+  ([runtime]
+   (first-pending-entry runtime pending-task-id))
+  ([runtime task-id]
+   (some->> (read-pending runtime task-id)
+            (sort-by key)
+            first
+            val)))
+
+(defn await-claim-resolution
+  ([runtime claim]
+   (await-claim-resolution runtime claim 2000))
+  ([runtime claim timeout-ms]
+   (await-materialized
+     (fn []
+       (let [row (read-run runtime (:llm-turn-run/id claim))]
+         {:claim claim
+          :run row
+          :claim-state (claim-state row claim)}))
+     #(not= :not-yet-processed (:claim-state %))
+     timeout-ms)))
+
+(defn claim-run!
+  ([runtime run-id executor-id]
+   (claim-run! runtime run-id executor-id {}))
+  ([runtime run-id executor-id opts]
+   (let [run-row (read-run runtime run-id)
+         opts (cond-> opts
+                (and run-row (not (opts-executor-task-id opts)))
+                (assoc :executor-task-id (:executor/task-id run-row)))
+         claim (claim-record run-id
+                             (or (:llm-thread/id opts) (:llm-thread/id run-row))
+                             executor-id
+                             opts)]
+     (append-claim! runtime claim)
+     (await-claim-resolution runtime claim (or (:timeout-ms opts) 2000)))))
+
+(defn fake-codex-adapter
+  [events]
+  {:run-turn (fn [_ctx] events)})
+
+(defn run-adapter-turn
+  [adapter ctx]
+  (cond
+    (fn? adapter) (adapter ctx)
+    (and (map? adapter) (fn? (:run-turn adapter))) ((:run-turn adapter) ctx)
+    :else (throw (ex-info "Invalid Codex adapter" {:adapter adapter}))))
+
+(defn adapter-event->observation
+  [run-row sequence event]
+  (let [event (assoc event
+                     :observation-id (or (:observation-id event)
+                                         (:observation/id event)
+                                         (str (:llm-turn-run/id run-row) "/adapter-obs-" sequence)))]
+    (observation
+      (:llm-turn-run/id run-row)
+      (:llm-thread/id run-row)
+      (:observation/type event)
+      sequence
+      event)))
+
+(defn run-one-pending-with-adapter!
+  [runtime {:keys [task-id executor-id adapter load-context-bundle timeout-ms]
+            :or {task-id pending-task-id
+                 executor-id "llm-executor-local"
+                 timeout-ms 2000}}]
+  (when-let [pending-entry (first-pending-entry runtime task-id)]
+    (let [run-id (:llm-turn-run/id pending-entry)
+          claim-result (claim-run! runtime run-id executor-id {:timeout-ms timeout-ms
+                                                               :executor-task-id task-id})
+          granted? (= :granted-to-us (:claim-state claim-result))
+          run-row (:run claim-result)
+          bundle (when (and granted? load-context-bundle)
+                   (load-context-bundle (:context-bundle/id run-row)))]
+      (if-not granted?
+        (assoc claim-result :spawned? false :observations-appended 0)
+        (let [ctx {:run run-row
+                   :pending pending-entry
+                   :claim (:claim claim-result)
+                   :context-bundle bundle}
+              events (vec (run-adapter-turn adapter ctx))
+              observations (map-indexed #(adapter-event->observation run-row %1 %2)
+                                        events)]
+          (doseq [obs observations]
+            (append-observation! runtime obs))
+          {:claim (:claim claim-result)
+           :claim-state (:claim-state claim-result)
+           :run run-row
+           :context-bundle bundle
+           :spawned? true
+           :spawned-after-grant? true
+           :observations-appended (count observations)
+           :observations (vec observations)})))))
+
+(defn stale-approval-control
+  [run-row approval opts]
+  (control-record
+    (:llm-turn-run/id run-row)
+    :approval/resolve
+    {:control-id (or (:control-id opts)
+                     (str (:llm-turn-run/id run-row)
+                          "/stale-approval/"
+                          (:approval/id approval)))
+     :llm-thread/id (:llm-thread/id run-row)
+     :world-thread/id (:world-thread/id run-row)
+     :world-turn/id (:world-turn/id run-row)
+     :approval/id (:approval/id approval)
+     :native/json-rpc-request-id (:native/json-rpc-request-id approval)
+     :decision :expired
+     :actor (or (:actor opts) {:actor/id "llm-executor" :actor/type :system})
+     :time-ms (or (:time-ms opts) (now-ms))
+     :reason (or (:reason opts) :executor-stale)
+     :payload {:executor/id (:executor-id opts)
+               :run/restart-policy (:run/restart-policy run-row)}}))
+
+(defn mark-stale-approvals!
+  ([runtime run-id]
+   (mark-stale-approvals! runtime run-id {}))
+  ([runtime run-id opts]
+   (let [run-row (read-run runtime run-id)
+         approvals (vec (vals (:approvals-pending run-row)))]
+     (doseq [approval approvals]
+       (append-control! runtime (stale-approval-control run-row approval opts)))
+     (when (seq approvals)
+       (await-run runtime run-id #(contains? terminal-statuses (:status %))))
+     {:llm-turn-run/id run-id
+      :run/restart-policy (:run/restart-policy run-row)
+      :stale-approval-ids (mapv :approval/id approvals)
+      :action (if (seq approvals) :failed :none)})))
 
 (defn select-pstate-one
   [pstate path]
