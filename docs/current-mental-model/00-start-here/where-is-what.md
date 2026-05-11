@@ -1,6 +1,6 @@
 # Where Is What
 
-Status: human routing map for `docs/current-mental-model`, 2026-05-02.
+Status: human routing map for `docs/current-mental-model`, 2026-05-11.
 
 This page answers the practical question: "where do I look or write this?"
 
@@ -55,8 +55,13 @@ docs/sessions/next-prompt.md
   Full visual wall artifact for the current Rama kernel shape.
 
 architecture/dogfood-runtime/slice-a-compute-run-command.md
-  Canonical Slice A compute-run architecture.
+  Implemented Slice A compute-run architecture.
   Also contains the executor-placement origin question and Rama/AOR answer.
+
+architecture/dogfood-runtime/llm-track-slice-roadmap.md
+  Implemented LLM contract MVP record.
+  Start here for the slice commits, verification counts, and cost-rollup
+  simplification note.
 
 architecture/dogfood-runtime/compute-track.md
   General compute track: build/test/run/deploy/serve through Rama.
@@ -65,7 +70,8 @@ architecture/dogfood-runtime/agent-track-aor.md
   LLM/agent track and AOR-shaped long-running execution.
 
 90-prompts/implementation-slice-a-compute-run-command-prompt.md
-  Slice A implementation prompt. Do not use for open-ended architecture.
+  Historical Slice A implementation prompt. Do not use for open-ended
+  architecture or as a current handoff.
 ```
 
 ## Where To Put New Information

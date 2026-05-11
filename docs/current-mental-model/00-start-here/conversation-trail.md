@@ -1,6 +1,6 @@
 # Conversation Trail
 
-Status: context note, 2026-04-28.
+Status: context note, 2026-05-11.
 
 This note explains how we arrived at `10-anchors/rama-world-kernel-text-instance.md`. It is not a transcript. It preserves the conceptual path so a new chat can understand why the current model has the shape it has.
 
@@ -339,3 +339,54 @@ LLMDepot does epistemic / agent execution.
 Compute and LLM can propose, observe, and request world changes.
 They do not secretly mutate WorldPStates.
 ```
+
+## 2026-05-11: LLM Contract MVP Landed
+
+The LLM-agent track moved from architecture contract to an implemented Rama
+spine. The important shape is world-first:
+
+```text
+World action
+  -> WorldTurn
+  -> frozen ContextBundle
+  -> derived LLM run request
+  -> LLM run lifecycle / controls / executor claim
+  -> observations
+  -> raw items, catalog materialization, projections, patch proposals, costs
+```
+
+The implementation proved the same core rule as the dogfood direction:
+
+```text
+helpers and executors append depots only
+topologies write PStates
+derived projections are rebuildable from canonical state and depot history
+```
+
+What the MVP includes:
+
+```text
+WorldTurns and ContextBundles
+LLMThread / LLMTurnRun lifecycle
+world-first approval, cancel, compact, and steer controls
+executor claim/grant/observation boundary
+follow-up runs on bound native threads
+raw LLM item indexes and object catalog rows
+slices, overlays, derivatives
+fork/reconciliation flows
+patch proposal creation and accept/reject turns
+rebuildable projections
+per-thread token/cost rollups
+```
+
+The topology simplification around cost rollups is explicitly documented
+because it is the kind of tradeoff future sessions could otherwise forget:
+
+```text
+lost: hot-path self-repair if $$llm-cost-by-thread is manually corrupted
+kept: deterministic replay from depot history and no double-counting
+repair: rebuild the rollup from canonical run token usage
+```
+
+The durable implementation record is
+`architecture/dogfood-runtime/llm-track-slice-roadmap.md`.

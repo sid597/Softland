@@ -1,6 +1,6 @@
 # Current Mental Model
 
-Status: global context pack, 2026-05-01.
+Status: global context pack, 2026-05-11.
 
 This folder is the current working mental model for the Rama/world-kernel and
 dogfood-runtime work. Use it to start new chats without rehydrating the whole
@@ -25,17 +25,24 @@ how to think with us; a handoff tells it what to execute next. See
 11. `architecture/dogfood-runtime/agent-track-aor.md`
 12. `architecture/dogfood-runtime/three-depot-current-system.md`
 13. `architecture/dogfood-runtime/slice-a-compute-run-command.md`
-14. `architecture/rama-world-kernel-v0-pr-trail.md`
-15. `architecture/rama-policy-throughput-post.md`
-16. `architecture/rama-blog-patterns.md`
-17. `architecture/prompt-to-implementation-lossiness.md`
-18. `architecture/cross-model-architecture-loop.md`
+14. `architecture/dogfood-runtime/llm-track-v2.md`
+15. `architecture/dogfood-runtime/llm-track-canonical.md`
+16. `architecture/dogfood-runtime/llm-track-derived-contract.md`
+17. `architecture/dogfood-runtime/llm-track-slice-roadmap.md`
+18. `architecture/dogfood-runtime/llm-track-claude-research.md`
+19. `architecture/dogfood-runtime/transcript-capture.md`
+20. `architecture/rama-world-kernel-v0-pr-trail.md`
+21. `architecture/rama-policy-throughput-post.md`
+22. `architecture/rama-blog-patterns.md`
+23. `architecture/prompt-to-implementation-lossiness.md`
+24. `architecture/cross-model-architecture-loop.md`
 
 Read `90-prompts/implementation-review-prompt.md` only when the user is ready to review or
 change code. Do not treat it as the default bootstrap for open-ended discussion.
 
-Read `90-prompts/implementation-slice-a-compute-run-command-prompt.md` only when the user
-has chosen to implement Slice A.
+`90-prompts/implementation-slice-a-compute-run-command-prompt.md` is historical
+now that Slice A.0 has landed; read it only to understand the original
+implementation protocol.
 
 ## Active Explorations
 
@@ -107,16 +114,22 @@ workers and agents do not stream directly to the UI as source of truth
 
 See `architecture/dogfood-runtime/`.
 
-Current first vertical candidate:
+Implemented verticals:
 
 ```text
 architecture/dogfood-runtime/slice-a-compute-run-command.md
   -> Slice A compute spine: one local command run, Rama-owned claim,
      claim-tokened observations, and one live UI-readable PState.
+
+architecture/dogfood-runtime/llm-track-slice-roadmap.md
+  -> LLM contract MVP: world-first chat turns, frozen ContextBundles,
+     LLM run lifecycle, controls, executor claims, raw items, catalog
+     materialization, slices, forks, patch proposals, projections, and
+     cost rollups.
 ```
 
-This is stable architecture context. It becomes an implementation handoff only
-when the user explicitly chooses to start coding from it.
+These are stable architecture context plus implementation records. They are not
+the current session handoff.
 
 ## Current Kernel Shape
 
@@ -217,8 +230,9 @@ Walkthrough = one vertical path through all contracts
 
 ## Current Implementation State
 
-V0 and V1 prove the request-first loop in code. The global context does not
-prescribe the next implementation direction.
+V0 and V1 prove the request-first loop in code. The compute Slice A.0 and LLM
+contract MVP prove the same runtime shape for dogfood execution. The global
+context does not prescribe the next implementation direction.
 
 Open design pressure to preserve:
 
@@ -227,7 +241,9 @@ physical routing/locality still needs clearer Rama shape
 policy state is not yet a full Rama-owned authorization model
 future depot splitting remains a systems question
 editor/write batching remains a systems question
-compute and LLM observation depots need exact routing/PState design
+LLM UI integration and real executor wiring remain separate from the contract MVP
+transcript capture / passive observation is designed but not implemented
+full repair/rebuild tooling for derived rollups is still future work
 ```
 
 Do not make every physical UI gesture a world action. For typing, follow the

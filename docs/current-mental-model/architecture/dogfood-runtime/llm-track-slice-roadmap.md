@@ -1,18 +1,111 @@
 # LLM Track Contract Slice Roadmap
 
-Status: implementation roadmap derived from `llm-track-derived-contract.md`,
-2026-05-10. Slice-roadmap depth (not exhaustive schema spec). Vertical
-green slices; each commit is independently green.
+Status: implemented green MVP, 2026-05-11. Originally derived from
+`llm-track-derived-contract.md`, 2026-05-10. Slice-roadmap depth (not
+exhaustive schema spec). The plan below is retained as the roadmap that was
+executed.
+
+Implementation files:
+
+```text
+src/app/server/rama/dogfood/llm.clj
+src/app/server/rama/dogfood/world.clj
+test/app/server/rama/dogfood_llm_test.clj
+test/app/server/rama/dogfood_world_test.clj
+```
+
+The MVP landed as green vertical slices from `d7baea4` through `5402128`, with
+`287699c` adding the inline cost-rollup tradeoff note requested after the
+topology simplification.
+
+Commit trace:
+
+```text
+d7baea4 llm: add dogfood LLM run lifecycle
+3ebb272 world: add chat turns and context bundles
+2cae951 llm: bridge compose send through world
+bc56b16 llm: add world-first run controls
+a330c26 llm: run Codex executor from Rama claims
+ccfa4dc llm: support follow-up runs on bound threads
+3ea1855 world: materialize catalog and raw item indexes
+6de66b0 world: add slices overlays and derivatives
+c812646 world: add LLM fork flows
+584f8c5 world: ingest LLM patch proposals
+340a173 world: add rebuildable projections
+5402128 harden: add llm cost rollups
+287699c llm: document cost rollup tradeoff
+```
+
+## Implementation Result
+
+Implemented:
+
+- LLM run lifecycle, writer-asymmetry property coverage, and replayable
+  depot-derived PState materialization.
+- World-side chat turns, context bundles, and the world-first bridge that
+  derives LLM run requests only after World accepts the user turn.
+- Idempotent compose-and-send: replaying the same world send does not mint
+  duplicate turns, bundles, or runs.
+- World-first control flow for approvals, cancel, compact, and steer, including
+  approval timeout behavior.
+- Executor boundary: pending-run reader, Rama claim, durable grant wait, bundle
+  load, fake Codex adapter in tests, observations, and stale approval handling.
+- Follow-up runs bound to the same LLMThread/native thread without appending a
+  second turn to an old run.
+- Catalog/raw item indexing, slices, overlays, derivatives, fork/reconciliation
+  flows, patch proposals, rebuildable projections, and token/cost rollups.
+
+Verification recorded at the end of implementation:
+
+```text
+Focused LLM:       10 tests,  80 assertions, 0 failures, 0 errors
+Focused World:     25 tests, 198 assertions, 0 failures, 0 errors
+Focused LLM+World: 35 tests, 278 assertions, 0 failures, 0 errors
+Combined Rama:     46 tests, 383 assertions, 0 failures, 0 errors
+```
+
+The final comment-only commit (`287699c`) was checked with `git diff --check`;
+the full Rama suite was not rerun for that comment-only change.
+
+### Cost Rollup Simplification Note
+
+The topology simplification did not remove user-facing LLM contract behavior.
+It changed how `$$llm-cost-by-thread` is maintained in the hot observation path.
+
+What was lost:
+
+- The earlier version recomputed a thread's cost totals from every `:runs` entry
+  on each token-usage observation.
+- That recompute shape was more self-repairing if the rollup PState itself were
+  manually corrupted.
+
+What replaced it:
+
+- The implemented version applies a per-run usage delta.
+- It still replays deterministically from depot history.
+- It avoids double-counting when the same run's usage is updated.
+- It avoids the repeated embedded-Rama deploy fragility hit by the recompute
+  topology.
+
+Repair rule:
+
+```text
+If $$llm-cost-by-thread is ever suspected corrupt, rebuild it from canonical
+run token usage rather than relying on the hot observation topology to
+self-repair it.
+```
+
+The inline code note lives above `apply-token-usage-delta` in
+`src/app/server/rama/dogfood/llm.clj`.
 
 ## Summary
 
-Use slice-roadmap planning for the full remaining LLM contract and commit
-green vertical slices as we go. The roadmap keeps slice size sane, moves
-idempotency to the first bridge point where double-send matters, adds the
-writer-asymmetry property test from slice 1, and explicitly defers
-non-MVP contract surface.
+This roadmap used slice-roadmap planning for the LLM contract and committed
+green vertical slices as they landed. It kept slice size sane, moved idempotency
+to the first bridge point where double-send matters, added the writer-asymmetry
+property test from slice 1, and explicitly deferred non-MVP contract surface.
 
-Implementation order:
+Implemented order:
 
 ```text
 LLM spine
@@ -29,7 +122,7 @@ LLM spine
                       → Hardening
 ```
 
-## Slice And Commit Plan
+## Executed Slice And Commit Plan
 
 ### 1. `llm: add dogfood LLM run lifecycle`
 

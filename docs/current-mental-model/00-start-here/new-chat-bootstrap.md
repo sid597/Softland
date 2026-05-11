@@ -20,12 +20,16 @@ Before answering, read:
 10. docs/current-mental-model/architecture/dogfood-runtime/agent-track-aor.md
 11. docs/current-mental-model/architecture/dogfood-runtime/three-depot-current-system.md
 12. docs/current-mental-model/architecture/dogfood-runtime/slice-a-compute-run-command.md
-13. docs/current-mental-model/architecture/rama-policy-throughput-post.md
-14. docs/current-mental-model/architecture/rama-blog-patterns.md
+13. docs/current-mental-model/architecture/dogfood-runtime/llm-track-slice-roadmap.md
+14. docs/current-mental-model/architecture/dogfood-runtime/llm-track-claude-research.md
+15. docs/current-mental-model/architecture/dogfood-runtime/transcript-capture.md
+16. docs/current-mental-model/architecture/rama-policy-throughput-post.md
+17. docs/current-mental-model/architecture/rama-blog-patterns.md
 
 Ignore older Softland lore unless I explicitly ask for it. Give highest weight
 to the current mental model in this folder, especially the April 28 kernel
-correction and the May 1 dogfood-runtime direction.
+correction, the May 1 dogfood-runtime direction, and the May 11 LLM contract
+MVP implementation record.
 
 Do not assume there is an active implementation handoff. I may be bringing a new
 potential direction to discuss. Use the current mental model as context, not as
@@ -88,12 +92,13 @@ Walkthrough = one vertical path through all contracts
 
 Current implementation state:
 
-V0 and V1 prove the request-first loop in code. This bootstrap alone does not
-choose an implementation direction. If I say to resume active implementation
-work, read `docs/sessions/next-prompt.md`; it may name a currently chosen
-handoff. Otherwise treat physical routing/locality, policy state, depot
-splitting, and editor batching as open systems questions unless I explicitly
-choose one.
+V0 and V1 prove the request-first loop in code. Compute Slice A.0 and the LLM
+contract MVP prove Rama-backed dogfood execution spines. This bootstrap alone
+does not choose an implementation direction. If I say to resume active
+implementation work, read `docs/sessions/next-prompt.md`; it may name a
+currently chosen handoff. Otherwise treat physical routing/locality, policy
+state, depot splitting, UI integration, real executor wiring, passive capture,
+and editor batching as open systems questions unless I explicitly choose one.
 
 Never add Rama I/O just because the code looks simpler. Follow the collaborative editor pattern: local buffer -> semantic edit object/batch -> document-keyed depot -> local transform.
 
@@ -106,7 +111,7 @@ V0 proof covered:
 5. Query canonical and discarded views separately.
 6. Preserve provenance back to raw artifact/event.
 
-Current new direction:
+Current dogfood runtime direction:
 
 Softland should dogfood itself through Rama with two execution tracks and three
 conceptual depot families.
@@ -131,16 +136,23 @@ Workers and agents stream observations back into Rama. Rama materializes live
 PStates. The UI reads Rama. Workers and agents do not stream directly to the UI
 as the source of truth.
 
-Current first vertical candidate:
+Implemented dogfood-runtime verticals:
 
-Slice A is `:compute/run-command` through a compute spine:
+Compute Slice A.0 is `:compute/run-command` through a compute spine:
 
 UI/executor append depots only; one topology owns PState writes; executor
 claims through Rama before spawning; observations carry claim authority back
 into Rama; UI reads the live PState projection.
 
-This slice is architecture context. It is not a forced task handoff unless I
-explicitly say we are starting implementation.
+The LLM contract MVP is the world-first Codex-backed LLM spine:
+
+World action -> WorldTurn -> frozen ContextBundle -> derived LLM run request
+-> LLM lifecycle/control/executor claim -> observations -> raw items/catalog
+-> slices/forks/patch proposals/projections/cost rollups.
+
+These slices are architecture context and implementation records. They are not
+a forced task handoff unless I explicitly say we are starting new implementation
+from them.
 
 AOR is the main pattern for the agent track:
 
@@ -152,7 +164,7 @@ agent depot
   -> UI watches Rama
 
 This is a current direction, not a forced task handoff. Ask what exact vertical
-slice to implement before changing code.
+slice to implement before changing code if the user has not already named one.
 
 When answering, do not give word-porn abstractions. Answer in context:
 

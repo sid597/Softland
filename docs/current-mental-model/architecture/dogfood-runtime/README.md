@@ -1,6 +1,6 @@
 # Dogfood Runtime Direction
 
-Status: current architecture direction, updated 2026-05-04.
+Status: current architecture direction, updated 2026-05-11.
 
 This folder captures the current direction that emerged from the Rama/AOR
 discussion:
@@ -53,6 +53,12 @@ definitive tracks"
 2. agent-track-aor.md
 3. three-depot-current-system.md
 4. slice-a-compute-run-command.md
+5. llm-track-v2.md
+6. llm-track-canonical.md
+7. llm-track-derived-contract.md
+8. llm-track-slice-roadmap.md
+9. llm-track-claude-research.md
+10. transcript-capture.md
 ```
 
 `slice-a-compute-run-command.md` is the implemented Slice A.0 spine for the
@@ -61,6 +67,37 @@ append depots, one topology owns PState writes, `ComputeExecutorTaskGlobal`
 claims through Rama before spawning work, observations stream back through Rama,
 and UI reads Rama PStates. It is architecture context, not an automatic
 implementation handoff.
+
+`llm-track-slice-roadmap.md` is now both the post-review roadmap and the
+implementation record for the first LLM contract MVP. It points at the code and
+test files, the slice commits, the verification counts, and the exact cost
+rollup simplification tradeoff that was documented inline after implementation.
+
+`llm-track-claude-research.md` and `transcript-capture.md` are adjacent
+architecture notes, not part of the completed Codex-backed LLM MVP. They capture
+Claude executor surface research and a first passive transcript-capture slice.
+
+## Implementation State
+
+The dogfood runtime now has two implemented Rama-backed vertical spines:
+
+```text
+Compute Slice A.0
+  src/app/server/rama/dogfood/compute.clj
+  test/app/server/rama/dogfood_compute_test.clj
+
+LLM contract MVP
+  src/app/server/rama/dogfood/world.clj
+  src/app/server/rama/dogfood/llm.clj
+  test/app/server/rama/dogfood_world_test.clj
+  test/app/server/rama/dogfood_llm_test.clj
+```
+
+The LLM MVP is intentionally contract-first, not UI-complete. It proves the
+World -> ContextBundle -> LLM run -> observations -> World/catalog/projection
+loop in Rama with fake-executor coverage. Real UI workflows, reverse-MCP/custom
+tools, full discourse graph projection, model-comparison lanes, and semantic
+zoom integration remain outside this MVP.
 
 ## Settled For Now
 

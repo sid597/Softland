@@ -33,8 +33,8 @@ Use these by intent:
   -> use only when the user is ready to inspect or change code
 
 90-prompts/implementation-slice-a-compute-run-command-prompt.md
-  -> active Slice A implementation prompt
-  -> use only when the user has chosen to implement the compute spine
+  -> historical Slice A implementation prompt
+  -> use only to understand the original compute-spine implementation protocol
 
 docs/sessions/next-prompt.md
   -> task handoff
@@ -85,9 +85,9 @@ trails/*.md
   -> includes preflight questions, acceptance criteria, and anti-lossiness checks
 
 90-prompts/implementation-slice-a-compute-run-command-prompt.md
-  -> Slice A compute-run implementation prompt
-  -> turns the canonical compute-spine architecture into a planning and coding
-     session
+  -> historical Slice A compute-run implementation prompt
+  -> use to understand how the compute-spine implementation was kicked off, not
+     as an active handoff
 
 architecture/*.md
   -> durable architecture notes, open questions, and settled distinctions
@@ -95,8 +95,8 @@ architecture/*.md
 
 architecture/dogfood-runtime/*.md
   -> current Rama/AOR dogfood runtime direction
-  -> compute track, LLM-agent track, the three-depot system shape, and the
-     current Slice A compute-spine candidate
+  -> compute track, LLM-agent track, the three-depot system shape, the
+     implemented Slice A compute spine, and the implemented LLM contract MVP
   -> not a task handoff
 
 trails/2026-05-02-slice-a-cross-model-experiment.md
@@ -153,6 +153,20 @@ architecture/dogfood-runtime/slice-a-compute-run-command.md
      observations, and live view
   -> use as architecture context for implementation discussion, not as an
      automatic handoff
+
+architecture/dogfood-runtime/llm-track-slice-roadmap.md
+  -> implemented LLM contract MVP record: world-first turns, ContextBundles,
+     LLM runs, controls, executor claims, catalog/slices/forks/patch proposals,
+     projections, costs, test counts, and slice commits
+  -> use as architecture context and implementation proof, not as an automatic
+     next-task handoff
+
+architecture/dogfood-runtime/llm-track-claude-research.md
+  -> Claude executor surface research adjacent to the Codex-backed LLM MVP
+
+architecture/dogfood-runtime/transcript-capture.md
+  -> candidate passive-observation slice for harvesting/watching Claude
+     transcripts; not implemented in the LLM MVP
 ```
 
 ## What Counts As Global Context
@@ -172,6 +186,8 @@ Text is the first carrier; it is not the ontology.
 Dogfood runtime direction: WorldDepot is truth, ComputeDepot does physical
 execution, LLMDepot does epistemic/agent execution.
 Workers and agents stream observations back into Rama; the UI reads Rama.
+Compute Slice A.0 and the LLM contract MVP are implemented vertical spines, but
+they do not choose the next task.
 ```
 
 Global context should not say:
