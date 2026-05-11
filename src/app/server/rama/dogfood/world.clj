@@ -1656,6 +1656,7 @@
      :llm-approvals-pending (foreign-pstate ipc llm-module-name "$$llm-approvals-pending")
      :llm-approvals-by-run-id (foreign-pstate ipc llm-module-name "$$llm-approvals-by-run-id")
      :llm-token-usage-by-run-id (foreign-pstate ipc llm-module-name "$$llm-token-usage-by-run-id")
+     :llm-cost-by-thread (foreign-pstate ipc llm-module-name "$$llm-cost-by-thread")
      :llm-controls-by-run-id (foreign-pstate ipc llm-module-name "$$llm-controls-by-run-id")
      :llm-control-by-id (foreign-pstate ipc llm-module-name "$$llm-control-by-id")
      :llm-views (foreign-pstate ipc llm-module-name "$$llm-views")

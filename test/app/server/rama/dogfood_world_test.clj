@@ -131,6 +131,129 @@
                             #(= #{turn-object-id bundle-object-id}
                                 (relation-sources %)))}}))))
 
+(def world-replay-ids
+  {:world-thread-id "chat-world-property"
+   :world-turn-id "WT-world-property-send"
+   :bundle-id "B-world-property"
+   :run-id "run-world-property"
+   :thread-id "llm-thread-world-property"
+   :request-id "req-world-property-send"
+   :item-id "item-world-property"
+   :control-id "req-world-property-compact/llm-control"
+   :slice-id "slice-world-property"})
+
+(defn world-property-empty-snapshot
+  [runtime]
+  (let [{:keys [world-thread-id run-id thread-id item-id control-id slice-id]} world-replay-ids]
+    {:thread (world/read-thread runtime world-thread-id)
+     :chat-canvas (world/read-chat-canvas-projection runtime world-thread-id)
+     :llm-run (llm/read-run runtime run-id)
+     :llm-thread (llm/read-thread runtime thread-id)
+     :llm-run-detail (llm/read-run-detail-projection runtime run-id)
+     :llm-cost (llm/read-cost-by-thread runtime thread-id)
+     :llm-control (llm/read-control runtime control-id)
+     :raw-object (world/read-object runtime (world/catalog-object-id :llm-item item-id))
+     :slice (world/read-slice runtime slice-id)}))
+
+(defn materialized-world-replay-snapshot
+  []
+  (with-world-runtime
+    (fn [runtime]
+      (let [{:keys [world-thread-id world-turn-id bundle-id run-id thread-id
+                    request-id item-id control-id slice-id]} world-replay-ids
+            send-request (world/compose-and-send-request
+                           world-thread-id
+                           "Replay this world input."
+                           {:request-id request-id
+                            :time-ms 300
+                            :title "World property"
+                            :payload {:world-turn/id world-turn-id
+                                      :context-bundle/id bundle-id
+                                      :llm-turn-run/id run-id
+                                      :llm-thread/id thread-id
+                                      :executor/task-id llm/pending-task-id}})
+            item-observation (llm/observation
+                               run-id
+                               thread-id
+                               :codex/item-completed
+                               0
+                               {:observation-id "obs-world-property-item"
+                                :received-at-ms 310
+                                :llm-item/id item-id
+                                :content/text "World property item."
+                                :raw/json {:event "item/completed"}})
+            usage-observation (llm/observation
+                                run-id
+                                thread-id
+                                :codex/token-usage
+                                1
+                                {:observation-id "obs-world-property-usage"
+                                 :received-at-ms 311
+                                 :tokens/input-total 21
+                                 :tokens/cached-input 8
+                                 :tokens/output 5
+                                 :tokens/reasoning-output 3})
+            compact-request (world/world-only-turn-request
+                              :world-turn/compact-request
+                              world-thread-id
+                              {:request-id "req-world-property-compact"
+                               :time-ms 320
+                               :payload {:world-turn/id "WT-world-property-compact"
+                                         :llm-turn-run/id run-id
+                                         :strategy :summarize-prefix}})
+            slice-request (world/world-only-turn-request
+                            :world-turn/slice-create
+                            world-thread-id
+                            {:request-id "req-world-property-slice"
+                             :time-ms 330
+                             :payload {:world-turn/id "WT-world-property-slice"
+                                       :slice/id slice-id
+                                       :snapshot/text "World property item."
+                                       :source {:llm-item/id item-id
+                                                :llm-turn-run/id run-id
+                                                :llm-thread/id thread-id
+                                                :content/text "World property item."
+                                                :content/hash (world/content-hash
+                                                                "World property item.")}}})
+            thread-object-id (world/catalog-object-id :world-thread world-thread-id)
+            turn-object-id (world/catalog-object-id :world-turn world-turn-id)
+            raw-object-id (world/catalog-object-id :llm-item item-id)
+            slice-object-id (world/catalog-object-id :slice slice-id)]
+        (append-and-await-decision! runtime send-request)
+        (llm/await-run runtime run-id #(= :pending (:status %)))
+        (llm/append-observation! runtime item-observation)
+        (llm/await-materialized #(llm/read-item-by-id runtime item-id) some?)
+        (llm/append-observation! runtime usage-observation)
+        (llm/await-materialized
+          #(llm/read-cost-by-thread runtime thread-id)
+          #(= 21 (get-in % [:tokens :tokens/input-total])))
+        (append-and-await-decision! runtime compact-request)
+        (llm/await-materialized #(llm/read-control runtime control-id) some?)
+        (append-and-await-decision! runtime slice-request)
+        (world/await-materialized #(world/read-slice runtime slice-id) some?)
+        {:world {:thread (world/read-thread runtime world-thread-id)
+                 :turn-order (world/read-turns-by-thread runtime world-thread-id)
+                 :bundle (world/read-context-bundle runtime bundle-id)
+                 :slice (world/read-slice runtime slice-id)
+                 :control (world/read-llm-control runtime control-id)}
+         :llm {:run (llm/read-run runtime run-id)
+               :view (llm/read-view runtime run-id)
+               :run-detail (llm/read-run-detail-projection runtime run-id)
+               :cost (llm/read-cost-by-thread runtime thread-id)
+               :control (llm/read-control runtime control-id)
+               :items (llm/read-items-by-run runtime run-id)}
+         :catalog {:thread (world/read-object runtime thread-object-id)
+                   :turn (world/read-object runtime turn-object-id)
+                   :raw (world/read-object runtime raw-object-id)
+                   :slice (world/read-object runtime slice-object-id)}
+         :projections {:chat-canvas (world/read-chat-canvas-projection runtime world-thread-id)
+                       :thread-detail (world/read-object-detail-projection runtime thread-object-id)
+                       :raw-detail (world/read-object-detail-projection runtime raw-object-id)
+                       :slice-detail (world/read-object-detail-projection runtime slice-object-id)
+                       :thread-relations (world/read-object-relations-projection runtime thread-object-id)
+                       :raw-relations (world/read-object-relations-projection runtime raw-object-id)
+                       :slice-relations (world/read-object-relations-projection runtime slice-object-id)}}))))
+
 (deftest world-thread-create-test
   (with-world-runtime
     (fn [runtime]
@@ -289,6 +412,73 @@
       (is (= #{(world/catalog-object-id :context-bundle "B-projection")
                (world/catalog-object-id :llm-turn-run "run-projection")}
              (relation-targets turn-relations))))))
+
+(deftest world-writer-asymmetry-property-test
+  (testing "world and LLM record builders do not mutate PStates before depot append"
+    (with-world-runtime
+      (fn [runtime]
+        (let [before (world-property-empty-snapshot runtime)
+              {:keys [world-thread-id world-turn-id bundle-id run-id thread-id
+                      item-id slice-id]} world-replay-ids]
+          (world/compose-and-send-request
+            world-thread-id
+            "Replay this world input."
+            {:request-id "req-world-property-send"
+             :time-ms 300
+             :payload {:world-turn/id world-turn-id
+                       :context-bundle/id bundle-id
+                       :llm-turn-run/id run-id
+                       :llm-thread/id thread-id}})
+          (llm/observation
+            run-id
+            thread-id
+            :codex/item-completed
+            0
+            {:observation-id "obs-world-property-item"
+             :received-at-ms 310
+             :llm-item/id item-id})
+          (world/world-only-turn-request
+            :world-turn/slice-create
+            world-thread-id
+            {:request-id "req-world-property-slice"
+             :time-ms 330
+             :payload {:world-turn/id "WT-world-property-slice"
+                       :slice/id slice-id}})
+          (is (= before (world-property-empty-snapshot runtime)))))))
+
+  (testing "the same depot inputs rebuild the same World, LLM, control, catalog, and projection surfaces"
+    (let [snapshot-a (materialized-world-replay-snapshot)
+          snapshot-b (materialized-world-replay-snapshot)
+          {:keys [world-thread-id item-id slice-id]} world-replay-ids
+          raw-object-id (world/catalog-object-id :llm-item item-id)
+          slice-object-id (world/catalog-object-id :slice slice-id)
+          raw-relations (get-in snapshot-a [:projections :raw-relations])
+          slice-relations (get-in snapshot-a [:projections :slice-relations])]
+      (is (= snapshot-a snapshot-b))
+      (is (= ["WT-world-property-send"
+              "WT-world-property-compact"
+              "WT-world-property-slice"]
+             (get-in snapshot-a [:world :turn-order])))
+      (is (= :compact/request
+             (get-in snapshot-a [:llm :control :control/type])))
+      (is (= 21
+             (get-in snapshot-a [:llm :cost :tokens :tokens/input-total])))
+      (is (= :llm-thread-cost-rollup
+             (get-in snapshot-a [:llm :cost :projection/type])))
+      (is (= :llm-run-detail
+             (get-in snapshot-a [:llm :run-detail :projection/type])))
+      (is (= "WT-world-property-slice"
+             (get-in snapshot-a [:projections :chat-canvas :latest-turn :world-turn/id])))
+      (is (= :llm-item
+             (get-in snapshot-a [:catalog :raw :object/type])))
+      (is (= :slice
+             (get-in snapshot-a [:catalog :slice :object/type])))
+      (is (= :object-detail
+             (get-in snapshot-a [:projections :raw-detail :projection/type])))
+      (is (= #{slice-object-id} (relation-targets raw-relations)))
+      (is (= #{raw-object-id} (relation-sources slice-relations)))
+      (is (= world-thread-id
+             (get-in snapshot-a [:world :thread :world-thread/id]))))))
 
 (deftest slice-raw-immutability-test
   (with-world-runtime
