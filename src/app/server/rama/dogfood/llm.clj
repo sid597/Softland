@@ -376,6 +376,12 @@
   (let [v (get usage k)]
     (if (number? v) v 0)))
 
+;; Keep the hot observation topology incremental. A previous version recomputed
+;; totals from every entry in :runs on each token observation, which was more
+;; self-repairing if the rollup PState was manually corrupted but made repeated
+;; embedded Rama deploys fragile. This delta form still replays deterministically
+;; from depot history and avoids double-counting updated usage for the same run;
+;; full repair should rebuild $$llm-cost-by-thread from canonical run token usage.
 (defn apply-token-usage-delta
   [totals previous-usage usage]
   (reduce (fn [acc k]
