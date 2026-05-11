@@ -3,13 +3,23 @@
         [com.rpl.rama.path]
         [com.rpl.rama.ops])
   (:require [app.server.rama.core :as kernel]
+            [clojure.data.json :as json]
             [clojure.string :as str]
             [com.rpl.rama.test :refer [create-ipc launch-module!]])
-  (:import (java.util UUID)))
+  (:import (java.io BufferedReader File InputStreamReader OutputStreamWriter)
+           (java.util UUID)
+           (java.util.concurrent TimeUnit)))
 
 (def schema-version 1)
 (def pending-task-id "local")
 (def default-error-limit 50)
+(def default-claude-timeout-ms 120000)
+
+(def llm-backends
+  #{:codex :claude})
+
+(def claude-auth-modes
+  #{:subscription :api-key})
 
 (def observation-types
   #{:codex/item-completed
@@ -18,7 +28,23 @@
     :codex/tool-call
     :codex/patch-proposal
     :codex/run-finished
-    :codex/run-failed})
+    :codex/run-failed
+    :claude/system-init
+    :claude/stream-delta
+    :claude/message
+    :claude/user-message
+    :claude/tool-call
+    :claude/tool-result
+    :claude/hook-event
+    :claude/control-response
+    :claude/rate-limit
+    :claude/auth
+    :claude/api-retry
+    :claude/compact-boundary
+    :claude/source-boundary
+    :claude/tombstone
+    :claude/result
+    :claude/run-failed})
 
 (def terminal-statuses
   #{:succeeded :failed :cancelled})
@@ -34,6 +60,23 @@
 
 (def forbidden-payload-execution-option-keys
   #{:model :approval-policy :sandbox :cwd :execution/options})
+
+(def sensitive-env-keys
+  #{"CLAUDE_CODE_OAUTH_TOKEN"
+    "ANTHROPIC_AUTH_TOKEN"
+    "ANTHROPIC_API_KEY"
+    "OPENAI_API_KEY"
+    "GEMINI_API_KEY"
+    "GOOGLE_API_KEY"
+    "GOOGLE_GENERATIVE_AI_API_KEY"
+    "AZURE_OPENAI_API_KEY"
+    "AWS_ACCESS_KEY_ID"
+    "AWS_SECRET_ACCESS_KEY"
+    "AWS_SESSION_TOKEN"})
+
+(def sensitive-key-names
+  #{"api_key" "apikey" "api-key" "token" "auth_token" "auth-token"
+    "oauth_token" "oauth-token" "password" "secret" "authorization"})
 
 (defn now-ms [] (kernel/now-ms))
 (defn random-id [prefix] (kernel/random-id prefix))
@@ -57,11 +100,53 @@
     (or (:executor-task-id opts)
         (:executor/task-id opts))))
 
+(defn opts-backend
+  [opts]
+  (or (:llm/backend opts)
+      (:backend opts)
+      (:agent-kind opts)
+      (get-in opts [:executor :agent/kind])
+      :codex))
+
+(defn normalize-backend
+  [backend]
+  (or backend :codex))
+
+(defn normalize-auth-mode
+  [backend auth-mode]
+  (cond
+    (some? auth-mode) auth-mode
+    (= :claude backend) :subscription
+    :else nil))
+
 (defn request-executor-task-id
   [request]
   (normalize-task-id
     (or (get-in request [:payload :executor/task-id])
         (get-in request [:executor :executor/task-id]))))
+
+(defn request-backend
+  [request]
+  (normalize-backend
+    (or (:llm/backend request)
+        (get-in request [:executor :agent/kind]))))
+
+(defn request-auth-mode
+  [request]
+  (normalize-auth-mode (request-backend request) (:llm/auth-mode request)))
+
+(defn normalize-turn-run-request
+  [request]
+  (if (map? request)
+    (let [backend (request-backend request)
+          auth-mode (request-auth-mode request)]
+      (cond-> (assoc request
+                     :llm/backend backend
+                     :executor (assoc (:executor request)
+                                      :agent/kind backend))
+        auth-mode
+        (assoc :llm/auth-mode auth-mode)))
+    request))
 
 (defn turn-run-request
   "Build the LLMTopology input record. In the full system WorldTopology is the
@@ -72,31 +157,41 @@
         llm-thread-id (or (:llm-thread-id opts) (:llm-thread/id opts) (random-id "llm-thread"))
         request-id (or (:request-id opts) (:request/id opts) (random-id "llm-req"))
         time-ms (or (:time-ms opts) (now-ms))
+        backend (normalize-backend (opts-backend opts))
+        auth-mode (normalize-auth-mode backend (or (:llm/auth-mode opts)
+                                                   (:auth-mode opts)))
+        default-executor-pool (case backend
+                                :claude :local-claude
+                                :local-codex)
         executor-task-id (opts-executor-task-id opts)]
-    {:request/id request-id
-     :request/type :llm/turn-run-request
-     :request/schema-version schema-version
-     :request/time-ms time-ms
-     :idempotency/key (or (:idempotency-key opts)
-                          (:idempotency/key opts)
-                          (str "world-event:" world-turn-id ":" context-bundle-id))
-     :routing/key (llm-routing-key run-id)
-     :world-thread/id world-thread-id
-     :world-turn/id world-turn-id
-     :context-bundle/id context-bundle-id
-     :llm-thread/id llm-thread-id
-     :llm-turn-run/id run-id
-     :executor {:agent/kind (or (:agent-kind opts) :codex)
-                :native/thread-id (:native/thread-id opts)
-                :fork/from-native-thread-id (:fork/from-native-thread-id opts)}
-     :payload (cond-> {:context-bundle/id context-bundle-id
-                       :executor/pool (or (:executor-pool opts) :local-codex)
-                       :executor/hints (or (:executor-hints opts) {:interactive? true})
-                       :run/restart-policy (or (:run-restart-policy opts)
-                                               (:run/restart-policy opts)
-                                               :fail-on-stale-approval)}
-                executor-task-id
-                (assoc :executor/task-id executor-task-id))}))
+    (cond-> {:request/id request-id
+             :request/type :llm/turn-run-request
+             :request/schema-version schema-version
+             :request/time-ms time-ms
+             :idempotency/key (or (:idempotency-key opts)
+                                  (:idempotency/key opts)
+                                  (str "world-event:" world-turn-id ":" context-bundle-id))
+             :routing/key (llm-routing-key run-id)
+             :world-thread/id world-thread-id
+             :world-turn/id world-turn-id
+             :context-bundle/id context-bundle-id
+             :llm-thread/id llm-thread-id
+             :llm-turn-run/id run-id
+             :llm/backend backend
+             :executor {:agent/kind backend
+                        :native/thread-id (:native/thread-id opts)
+                        :fork/from-native-thread-id (:fork/from-native-thread-id opts)}
+             :payload (cond-> {:context-bundle/id context-bundle-id
+                               :executor/pool (or (:executor-pool opts)
+                                                  default-executor-pool)
+                               :executor/hints (or (:executor-hints opts) {:interactive? true})
+                               :run/restart-policy (or (:run-restart-policy opts)
+                                                       (:run/restart-policy opts)
+                                                       :fail-on-stale-approval)}
+                        executor-task-id
+                        (assoc :executor/task-id executor-task-id))}
+      auth-mode
+      (assoc :llm/auth-mode auth-mode))))
 
 (def required-request-keys
   [:request/id :request/type :request/schema-version :request/time-ms
@@ -105,9 +200,12 @@
 
 (defn request-validation-errors
   [request]
-  (let [run-id (:llm-turn-run/id request)
+  (let [request (normalize-turn-run-request request)
+        run-id (:llm-turn-run/id request)
         context-bundle-id (:context-bundle/id request)
         payload-context-bundle-id (get-in request [:payload :context-bundle/id])
+        backend (:llm/backend request)
+        auth-mode (:llm/auth-mode request)
         forbidden-options (vec (filter #(contains? (:payload request) %)
                                        forbidden-payload-execution-option-keys))]
     (cond-> []
@@ -160,9 +258,29 @@
       (conj {:type :llm-thread/id-invalid
              :value (:llm-thread/id request)})
 
+      (and (map? request) (not (contains? llm-backends backend)))
+      (conj {:type :llm/backend-invalid
+             :value backend
+             :allowed llm-backends})
+
+      (and (map? request) (not= backend (get-in request [:executor :agent/kind])))
+      (conj {:type :executor/agent-kind-backend-drift
+             :llm/backend backend
+             :executor/agent-kind (get-in request [:executor :agent/kind])})
+
       (and (map? request) (not (keyword? (get-in request [:executor :agent/kind]))))
       (conj {:type :executor/agent-kind-invalid
              :value (get-in request [:executor :agent/kind])})
+
+      (and (map? request) (= :passive-observe auth-mode))
+      (conj {:type :llm/auth-mode-passive-observe-not-active
+             :value auth-mode})
+
+      (and (map? request) (= :claude backend) (not (contains? claude-auth-modes auth-mode)))
+      (conj {:type :llm/auth-mode-invalid
+             :llm/backend backend
+             :value auth-mode
+             :allowed claude-auth-modes})
 
       (and (map? request) (seq forbidden-options))
       (conj {:type :payload/execution-options-not-bundle-owned
@@ -183,7 +301,8 @@
 
 (defn run-event
   [request]
-  {:event/id (str (:request/id request) "/event")
+  (let [request (normalize-turn-run-request request)]
+    {:event/id (str (:request/id request) "/event")
    :event/type :llm-turn-run/requested
    :event/time-ms (:request/time-ms request)
    :event/schema-version schema-version
@@ -194,8 +313,10 @@
    :context-bundle/id (:context-bundle/id request)
    :llm-thread/id (:llm-thread/id request)
    :llm-turn-run/id (:llm-turn-run/id request)
+   :llm/backend (:llm/backend request)
+   :llm/auth-mode (:llm/auth-mode request)
    :executor (:executor request)
-   :payload (:payload request)})
+   :payload (:payload request)}))
 
 (defn accepted-decision
   [request event]
@@ -226,7 +347,8 @@
 
 (defn interpret-turn-run-request
   [request]
-  (let [errors (request-validation-errors request)]
+  (let [request (normalize-turn-run-request request)
+        errors (request-validation-errors request)]
     (if (seq errors)
       (rejected-decision request :request-invalid errors)
       (accepted-decision request (run-event request)))))
@@ -242,7 +364,11 @@
   [decision]
   (let [event (:event decision)
         payload (:payload event)
-        time-ms (:event/time-ms event)]
+        time-ms (:event/time-ms event)
+        backend (or (:llm/backend event)
+                    (get-in event [:executor :agent/kind])
+                    :codex)
+        native-thread-id (get-in event [:executor :native/thread-id])]
     {:llm-turn-run/id (:llm-turn-run/id decision)
      :llm-thread/id (:llm-thread/id event)
      :world-thread/id (:world-thread/id event)
@@ -251,8 +377,11 @@
      :request/id (:request/id decision)
      :decision/id (:decision/id decision)
      :status :pending
+     :llm/backend backend
+     :llm/auth-mode (:llm/auth-mode event)
      :agent/kind (get-in event [:executor :agent/kind])
-     :native/codex-thread-id (get-in event [:executor :native/thread-id])
+     :native/codex-thread-id (when (= :codex backend) native-thread-id)
+     :native/claude-session-id (when (= :claude backend) native-thread-id)
      :fork/from-native-thread-id (get-in event [:executor :fork/from-native-thread-id])
      :executor/pool (:executor/pool payload)
      :executor/hints (:executor/hints payload)
@@ -298,14 +427,17 @@
 (defn terminal-run-row? [run-row] (contains? terminal-statuses (:status run-row)))
 (defn fork-binding-required? [run-row]
   (and (:fork/from-native-thread-id run-row)
-       (nil? (:native/codex-thread-id run-row))))
+       (case (:llm/backend run-row)
+         :claude (nil? (:native/claude-session-id run-row))
+         (nil? (:native/codex-thread-id run-row)))))
 
 (defn turn-run-summary
   [run-row]
   (select-keys run-row
                [:llm-turn-run/id :request/id :status :world-turn/id
                 :context-bundle/id :created-at :updated-at
-                :native/codex-thread-id]))
+                :llm/backend :native/codex-thread-id
+                :native/claude-session-id]))
 
 (defn pending-entry
   [run-row]
@@ -324,15 +456,20 @@
                  {:llm-thread/id (:llm-thread/id run-row)
                   :world-thread/id (:world-thread/id run-row)
                   :agent/kind (:agent/kind run-row)
+                  :llm/backend (:llm/backend run-row)
                   :native/codex-thread-id (:native/codex-thread-id run-row)
+                  :native/claude-session-id (:native/claude-session-id run-row)
                   :created-at (:created-at run-row)
                   :turn-run/ids []})]
     (-> base
         (assoc :updated-at time-ms
                :world-thread/id (:world-thread/id run-row)
                :agent/kind (:agent/kind run-row)
+               :llm/backend (:llm/backend run-row)
                :native/codex-thread-id (or (:native/codex-thread-id run-row)
-                                           (:native/codex-thread-id base)))
+                                           (:native/codex-thread-id base))
+               :native/claude-session-id (or (:native/claude-session-id run-row)
+                                             (:native/claude-session-id base)))
         (update :turn-run/ids conj-distinct (:llm-turn-run/id run-row)))))
 
 (defn bind-run-to-existing-thread
@@ -340,7 +477,11 @@
   (cond-> run-row
     (and (nil? (:native/codex-thread-id run-row))
          (some? (:native/codex-thread-id existing-thread-row)))
-    (assoc :native/codex-thread-id (:native/codex-thread-id existing-thread-row))))
+    (assoc :native/codex-thread-id (:native/codex-thread-id existing-thread-row))
+
+    (and (nil? (:native/claude-session-id run-row))
+         (some? (:native/claude-session-id existing-thread-row)))
+    (assoc :native/claude-session-id (:native/claude-session-id existing-thread-row))))
 
 (defn run-items-vector
   [run-row]
@@ -351,7 +492,9 @@
   (assoc (select-keys run-row
                       [:llm-turn-run/id :llm-thread/id :world-thread/id
                        :world-turn/id :context-bundle/id :request/id :status
-                       :agent/kind :native/codex-thread-id :executor/task-id
+                       :llm/backend :llm/auth-mode :agent/kind
+                       :native/codex-thread-id :native/claude-session-id
+                       :executor/task-id
                        :claimed-by :started-at :finished-at :created-at
                        :updated-at :last-seq :token-usage :observation-errors])
          :items (run-items-vector run-row)
@@ -547,12 +690,19 @@
        :routing/key (llm-routing-key run-id)
        :llm-turn-run/id run-id
        :llm-thread/id llm-thread-id
+       :llm/backend (or (:llm/backend opts)
+                        (:backend opts)
+                        (when (namespace observation-type)
+                          (keyword (namespace observation-type))))
        :native/codex-thread-id (:native/codex-thread-id opts)
        :native/codex-turn-id (:native/codex-turn-id opts)
+       :native/claude-session-id (:native/claude-session-id opts)
        :sequence sequence
        :received-at-ms received-at
        :codex/event-method (:codex/event-method opts)
        :codex/event-params (:codex/event-params opts)
+       :claude/event-type (:claude/event-type opts)
+       :claude/event (:claude/event opts)
        :raw/json (or (:raw/json opts) (:raw-json opts) {})}
       (select-keys opts
                    [:world-thread/id :world-turn/id
@@ -564,12 +714,60 @@
                     :subscription/messages-used :billing/mode
                     :tool-call/id :tool-call/type :tool-call/name
                     :tool-call/status :patch-proposal/id :turn-diff/id
-                    :patch/files :summary/text :error]))))
+                    :patch/files :summary/text :error
+                    :result/status :result/cost-usd :result/text
+                    :provider/native-redacted]))))
+
+(defn sensitive-key?
+  [k]
+  (let [s (-> k name str/lower-case)]
+    (or (contains? sensitive-key-names s)
+        (str/includes? s "token")
+        (str/includes? s "secret")
+        (str/includes? s "password")
+        (str/includes? s "authorization")
+        (str/includes? s "api-key")
+        (str/includes? s "api_key"))))
+
+(defn redact-provider-payload
+  [x]
+  (cond
+    (map? x)
+    (into (empty x)
+          (map (fn [[k v]]
+                 [k (if (sensitive-key? k)
+                      "[REDACTED]"
+                      (redact-provider-payload v))]))
+          x)
+
+    (vector? x)
+    (mapv redact-provider-payload x)
+
+    (sequential? x)
+    (mapv redact-provider-payload x)
+
+    :else x))
+
+(defn observation-source
+  [obs]
+  (or (:llm/backend obs)
+      (when (namespace (:observation/type obs))
+        (keyword (namespace (:observation/type obs))))
+      :codex))
+
+(defn claude-observation-type?
+  [obs]
+  (= :claude (observation-source obs)))
+
+(defn item-source
+  [obs]
+  (observation-source obs))
 
 (defn observation->item-row
   [obs]
   (let [text (or (:content/text obs)
                  (get-in obs [:codex/event-params :content])
+                 (get-in obs [:claude/event :content])
                  "")
         item-id (or (:llm-item/id obs)
                     (:native/item-id obs)
@@ -582,7 +780,7 @@
      :item/order (:sequence obs)
      :content/text text
      :content/hash (or (:content/hash obs) (str "sha256:" (kernel/sha-256 text)))
-     :source :codex
+     :source (item-source obs)
      :created-at-ms (:received-at-ms obs)}))
 
 (defn add-item
@@ -632,6 +830,7 @@
    :llm-thread/id (:llm-thread/id obs)
    :sequence (:sequence obs)
    :received-at-ms (:received-at-ms obs)
+   :source (observation-source obs)
    :raw/json (:raw/json obs)})
 
 (defn observation->patch-proposal-row
@@ -670,13 +869,26 @@
       (get-in obs [:raw/json :thread-id])
       (get-in obs [:raw/json :thread_id])))
 
+(defn observation-native-claude-session-id
+  [obs]
+  (or (:native/claude-session-id obs)
+      (get-in obs [:claude/event :session_id])
+      (get-in obs [:claude/event :session-id])
+      (get-in obs [:raw/json :session_id])
+      (get-in obs [:raw/json :session-id])))
+
 (defn bind-run-to-observation-thread
   [run-row obs]
-  (if-let [native-thread-id (observation-native-thread-id obs)]
-    (assoc run-row
-           :native/codex-thread-id
-           (or (:native/codex-thread-id run-row) native-thread-id))
-    run-row))
+  (cond-> run-row
+    (observation-native-thread-id obs)
+    (assoc :native/codex-thread-id
+           (or (:native/codex-thread-id run-row)
+               (observation-native-thread-id obs)))
+
+    (observation-native-claude-session-id obs)
+    (assoc :native/claude-session-id
+           (or (:native/claude-session-id run-row)
+               (observation-native-claude-session-id obs)))))
 
 (defn apply-observation-effect
   [run-row obs]
@@ -722,6 +934,113 @@
              :updated-at t)
 
       :codex/run-failed
+      (assoc run-row
+             :status :failed
+             :error (:error obs)
+             :finished-at t
+             :updated-at t)
+
+      :claude/system-init
+      (assoc run-row
+             :status (if (contains? #{:pending :claimed} (:status run-row))
+                       :running
+                       (:status run-row))
+             :started-at (or (:started-at run-row) t)
+             :updated-at t)
+
+      :claude/stream-delta
+      (-> run-row
+          (add-item (observation->item-row obs))
+          (assoc :status (if (contains? #{:pending :claimed} (:status run-row))
+                           :running
+                           (:status run-row))
+                 :started-at (or (:started-at run-row) t)
+                 :updated-at t))
+
+      :claude/message
+      (cond-> (assoc run-row
+                     :status (if (contains? #{:pending :claimed} (:status run-row))
+                               :running
+                               (:status run-row))
+                     :started-at (or (:started-at run-row) t)
+                     :updated-at t)
+        (seq (:content/text obs))
+        (add-item (observation->item-row obs))
+        (seq (observation->token-usage obs))
+        (update :token-usage merge (observation->token-usage obs)))
+
+      :claude/user-message
+      (-> run-row
+          (add-item (observation->item-row obs))
+          (assoc :updated-at t))
+
+      :claude/tool-call
+      (-> run-row
+          (assoc-in [:tool-calls-by-id (or (:tool-call/id obs) (:observation/id obs))]
+                    (observation->tool-call-row obs))
+          (assoc :status (if (contains? #{:pending :claimed} (:status run-row))
+                           :running
+                           (:status run-row))
+                 :started-at (or (:started-at run-row) t)
+                 :updated-at t))
+
+      :claude/tool-result
+      (-> run-row
+          (add-item (observation->item-row obs))
+          (assoc-in [:tool-calls-by-id (or (:tool-call/id obs) (:observation/id obs))]
+                    (observation->tool-call-row
+                      (assoc obs :tool-call/status (or (:tool-call/status obs) :completed))))
+          (assoc :updated-at t))
+
+      :claude/hook-event
+      (cond-> (assoc run-row :updated-at t)
+        (:approval/id obs)
+        (add-approval (observation->approval-row obs)))
+
+      :claude/control-response
+      (assoc run-row :updated-at t)
+
+      :claude/rate-limit
+      (assoc run-row
+             :status :failed
+             :error (or (:error obs) {:reason :claude/rate-limit})
+             :finished-at t
+             :updated-at t)
+
+      :claude/auth
+      (assoc run-row
+             :status :failed
+             :error (or (:error obs) {:reason :claude/auth})
+             :finished-at t
+             :updated-at t)
+
+      :claude/api-retry
+      (assoc run-row :updated-at t)
+
+      :claude/compact-boundary
+      (-> run-row
+          (update :compactions conj {:observation/id (:observation/id obs)
+                                     :sequence (:sequence obs)
+                                     :received-at-ms t
+                                     :payload (:provider/native-redacted obs)})
+          (assoc :updated-at t))
+
+      :claude/source-boundary
+      (assoc run-row :updated-at t)
+
+      :claude/tombstone
+      (assoc run-row :updated-at t)
+
+      :claude/result
+      (assoc run-row
+             :status (if (contains? #{:failed :error} (:result/status obs))
+                       :failed
+                       :succeeded)
+             :error (:error obs)
+             :finished-at t
+             :updated-at t)
+
+      :claude/run-failed
       (assoc run-row
              :status :failed
              :error (:error obs)
@@ -780,12 +1099,20 @@
 
 (defn observation-approval-materialized?
   [run-row obs]
-  (and (= :codex/approval-request (:observation/type obs))
+  (and (contains? #{:codex/approval-request :claude/hook-event}
+                  (:observation/type obs))
+       (:approval/id obs)
        (<= (long (:sequence obs)) (long (:last-seq run-row)))))
 
 (defn indexable-item-observation?
   [run-row obs]
-  (and (= :codex/item-completed (:observation/type obs))
+  (and (contains? #{:codex/item-completed
+                   :claude/stream-delta
+                   :claude/message
+                   :claude/user-message
+                   :claude/tool-result}
+                 (:observation/type obs))
+       (seq (:content/text obs))
        (= (:llm-turn-run/id run-row) (:llm-turn-run/id obs))
        (= (:llm-thread/id run-row) (:llm-thread/id obs))
        (valid-observation-routing? obs)
@@ -1179,6 +1506,362 @@
      (append-claim! runtime claim)
      (await-claim-resolution runtime claim (or (:timeout-ms opts) 2000)))))
 
+(defn claude-stream-argv
+  [run-row & [opts]]
+  (let [auth-mode (or (:llm/auth-mode run-row) (:llm/auth-mode opts) :subscription)
+        session-id (or (:native/claude-session-id run-row)
+                       (:native/thread-id opts))]
+    (vec (concat ["claude" "-p"]
+                 (when (= :api-key auth-mode) ["--bare"])
+                 (when (seq session-id) ["--resume" session-id])
+                 ["--input-format" "stream-json"
+                  "--output-format" "stream-json"
+                  "--include-partial-messages"
+                  "--include-hook-events"
+                  "--replay-user-messages"]))))
+
+(defn resolve-secret-value
+  [secret-handle opts]
+  (when secret-handle
+    (if-let [resolver (:secret-resolver opts)]
+      (resolver secret-handle)
+      (:anthropic-api-key opts))))
+
+(defn claude-child-env
+  [auth-mode opts]
+  (let [base-env (or (:env opts) (System/getenv))
+        stripped (apply dissoc (into {} base-env) sensitive-env-keys)]
+    (case auth-mode
+      :subscription stripped
+      :api-key (let [api-key (resolve-secret-value (:anthropic-api-key-secret opts) opts)]
+                 (if (str/blank? (str api-key))
+                   (throw (ex-info "Claude API-key mode requires a secret handle"
+                                   {:llm/backend :claude
+                                    :llm/auth-mode :api-key}))
+                   (assoc stripped "ANTHROPIC_API_KEY" api-key)))
+      (throw (ex-info "Unsupported Claude auth mode"
+                      {:llm/backend :claude
+                       :llm/auth-mode auth-mode})))))
+
+(defn redacted-env-preview
+  [env]
+  (into {}
+        (map (fn [[k v]]
+               [k (if (contains? sensitive-env-keys k)
+                    "[REDACTED]"
+                    v)]))
+        env))
+
+(defn claude-process-spec
+  [run-row context-bundle opts]
+  (let [auth-mode (or (:llm/auth-mode run-row) (:llm/auth-mode opts) :subscription)
+        argv (claude-stream-argv run-row (assoc opts :llm/auth-mode auth-mode))
+        child-env (claude-child-env auth-mode opts)]
+    {:argv argv
+     :cwd (or (:cwd opts) (System/getProperty "user.dir"))
+     :env child-env
+     :redacted-env (redacted-env-preview child-env)
+     :llm/backend :claude
+     :llm/auth-mode auth-mode
+     :context-bundle/id (:context-bundle/id context-bundle)}))
+
+(defn claude-user-envelope
+  [context-bundle]
+  {:type "user"
+   :message {:role "user"
+             :content [{:type "text"
+                        :text (str (or (:rendered/model-input context-bundle)
+                                       (:prompt/text context-bundle)
+                                       ""))}]}})
+
+(defn claude-json-read
+  [line]
+  (json/read-str line :key-fn keyword))
+
+(defn safe-claude-json-read
+  [line]
+  (try
+    {:ok true :value (claude-json-read line)}
+    (catch Throwable t
+      {:ok false
+       :error {:reason :invalid-json
+               :message (.getMessage t)
+               :raw-preview (subs (str line) 0 (min 200 (count (str line))))}})))
+
+(defn claude-usage->token-usage
+  [usage]
+  (cond-> {}
+    (number? (:input_tokens usage))
+    (assoc :tokens/input-total (:input_tokens usage))
+    (number? (:cache_read_input_tokens usage))
+    (assoc :tokens/cached-input (:cache_read_input_tokens usage))
+    (number? (:output_tokens usage))
+    (assoc :tokens/output (:output_tokens usage))))
+
+(defn claude-stream-line->adapter-events
+  [state line]
+  (let [{:keys [ok value error]} (safe-claude-json-read line)
+        sequence-base (:line-index state)
+        next-state (update state :line-index (fnil inc 0))
+        redacted (when ok (redact-provider-payload value))
+        event-id (fn [suffix] (str "claude-line-" sequence-base "-" suffix))
+        base (fn [observation-type suffix payload]
+               (merge {:observation/type observation-type
+                       :observation-id (event-id suffix)
+                       :llm/backend :claude
+                       :claude/event-type (or (:type value)
+                                              (get-in value [:event :type]))
+                       :claude/event redacted
+                       :provider/native-redacted redacted
+                       :raw/json redacted}
+                      payload))]
+    (if-not ok
+      [next-state [(base :claude/run-failed
+                         "invalid-json"
+                         {:result/status :failed
+                          :error error})]]
+      (case (:type value)
+        "system"
+        [(assoc next-state :session-id (:session_id value))
+         [(base :claude/system-init
+                "system"
+                {:native/claude-session-id (:session_id value)})]]
+
+        "assistant"
+        (let [text (->> (get-in value [:message :content])
+                        (filter #(= "text" (:type %)))
+                        (map :text)
+                        (str/join "\n"))]
+          [next-state
+           (cond-> []
+             (seq text)
+             (conj (base :claude/message
+                         "assistant"
+                         {:llm-item/id (or (get-in value [:message :id])
+                                           (event-id "assistant-item"))
+                          :native/item-id (get-in value [:message :id])
+                          :item/type :assistant-message
+                          :content/text text})))])
+
+        "stream_event"
+        (let [inner (:event value)
+              inner-type (:type inner)]
+          (case inner-type
+            "message_start"
+            [next-state
+             [(base :claude/message
+                    "message-start"
+                    (merge {:native/item-id (get-in inner [:message :id])
+                            :llm-item/id (get-in inner [:message :id])}
+                           (claude-usage->token-usage (get-in inner [:message :usage]))))]]
+
+            "message_delta"
+            [next-state
+             [(base :claude/message
+                    "message-delta"
+                    (claude-usage->token-usage (:usage inner)))]]
+
+            "content_block_start"
+            (let [idx (:index inner)
+                  block (:content_block inner)]
+              (case (:type block)
+                "tool_use"
+                [(assoc-in next-state [:tool-id-by-block idx] (:id block))
+                 [(base :claude/tool-call
+                        (str "tool-call-" idx)
+                        {:tool-call/id (:id block)
+                         :tool-call/type :claude-tool-use
+                         :tool-call/name (:name block)
+                         :tool-call/status :requested})]]
+
+                "tool_result"
+                [next-state
+                 [(base :claude/tool-result
+                        (str "tool-result-" idx)
+                        {:llm-item/id (or (:tool_use_id block)
+                                          (event-id (str "tool-result-item-" idx)))
+                         :native/item-id (:tool_use_id block)
+                         :item/type :tool-result
+                         :tool-call/id (:tool_use_id block)
+                         :tool-call/type :claude-tool-use
+                         :tool-call/status :completed
+                         :content/text (str (:content block))})]]
+
+                [next-state
+                 [(base :claude/stream-delta
+                        (str "content-block-start-" idx)
+                        {:item/type :assistant-event
+                         :content/text ""})]]))
+
+            "content_block_delta"
+            (let [idx (:index inner)
+                  delta (:delta inner)]
+              (case (:type delta)
+                "text_delta"
+                [next-state
+                 [(base :claude/stream-delta
+                        (str "text-delta-" idx)
+                        {:llm-item/id (event-id (str "text-" idx))
+                         :item/type :assistant-message
+                         :content/text (:text delta)})]]
+
+                "input_json_delta"
+                [next-state
+                 [(base :claude/tool-call
+                        (str "tool-input-" idx)
+                        {:tool-call/id (get-in state [:tool-id-by-block idx])
+                         :tool-call/type :claude-tool-use
+                         :tool-call/status :input-delta
+                         :content/text (:partial_json delta)})]]
+
+                [next-state
+                 [(base :claude/stream-delta
+                        (str "delta-" idx)
+                        {:item/type :assistant-event
+                         :content/text (str delta)})]]))
+
+            "content_block_stop"
+            [next-state
+             [(base :claude/stream-delta
+                    (str "block-stop-" (:index inner))
+                    {:item/type :assistant-event
+                     :content/text ""})]]
+
+            [next-state
+             [(base :claude/message
+                    (str "stream-" inner-type)
+                    {})]]))
+
+        "hook_event"
+        [next-state
+         [(base :claude/hook-event
+                "hook"
+                {:approval/id (:approval_id value)
+                 :approval/type (keyword (or (:permission_type value) "tool"))
+                 :content/text (str (:message value))})]]
+
+        "control_response"
+        [next-state [(base :claude/control-response "control" {})]]
+
+        "rate_limit"
+        [next-state
+         [(base :claude/rate-limit
+                "rate-limit"
+                {:result/status :failed
+                 :error {:reason :claude/rate-limit
+                         :message (:message value)}})]]
+
+        "auth"
+        [next-state
+         [(base :claude/auth
+                "auth"
+                {:result/status :failed
+                 :error {:reason :claude/auth
+                         :message (:message value)}})]]
+
+        "api_retry"
+        [next-state [(base :claude/api-retry "api-retry" {})]]
+
+        "compact"
+        [next-state [(base :claude/compact-boundary "compact" {})]]
+
+        "compact_boundary"
+        [next-state [(base :claude/compact-boundary "compact-boundary" {})]]
+
+        "source_boundary"
+        [next-state [(base :claude/source-boundary "source-boundary" {})]]
+
+        "tombstone"
+        [next-state [(base :claude/tombstone "tombstone" {})]]
+
+        "result"
+        [next-state
+         [(base :claude/result
+                "result"
+                {:native/claude-session-id (:session_id value)
+                 :result/status (if (:is_error value) :failed :succeeded)
+                 :result/cost-usd (:total_cost_usd value)
+                 :result/text (:result value)
+                 :content/text (or (:result value) "")})]]
+
+        [next-state
+         [(base :claude/message
+                (str "unknown-" (:type value))
+                {})]]))))
+
+(defn claude-stream-json-lines->events
+  [lines]
+  (:events
+   (reduce (fn [{:keys [state events]} line]
+             (let [[state* emitted] (claude-stream-line->adapter-events state line)]
+               {:state state*
+                :events (into events emitted)}))
+           {:state {:line-index 0
+                    :tool-id-by-block {}}
+            :events []}
+           lines)))
+
+(defn stream-lines
+  [stream]
+  (with-open [reader (BufferedReader. (InputStreamReader. stream))]
+    (doall (line-seq reader))))
+
+(defn write-claude-input!
+  [process context-bundle]
+  (with-open [writer (OutputStreamWriter. (.getOutputStream process) "UTF-8")]
+    (.write writer (json/write-str (claude-user-envelope context-bundle)))
+    (.write writer "\n")
+    (.flush writer)))
+
+(defn run-claude-process->events
+  [run-row context-bundle opts]
+  (let [{:keys [argv cwd env]} (claude-process-spec run-row context-bundle opts)
+        pb (ProcessBuilder. ^java.util.List argv)
+        timeout-ms (long (or (:timeout-ms opts) default-claude-timeout-ms))]
+    (when-not (str/blank? cwd)
+      (.directory pb (File. cwd)))
+    (let [process-env (.environment pb)]
+      (.clear process-env)
+      (doseq [[k v] env]
+        (.put process-env k v)))
+    (try
+      (let [process (.start pb)
+            _ (write-claude-input! process context-bundle)
+            stdout-lines (future (stream-lines (.getInputStream process)))
+            stderr-lines (future (stream-lines (.getErrorStream process)))
+            exited? (.waitFor process timeout-ms TimeUnit/MILLISECONDS)
+            exit-code (if exited?
+                        (.exitValue process)
+                        (do
+                          (.destroyForcibly process)
+                          124))
+            events (claude-stream-json-lines->events @stdout-lines)]
+        (cond-> events
+          (not (zero? exit-code))
+          (conj {:observation/type :claude/run-failed
+                 :observation-id (str (:llm-turn-run/id run-row) "/claude-exit")
+                 :llm/backend :claude
+                 :result/status :failed
+                 :error {:reason :claude/exit-nonzero
+                         :exit-code exit-code
+                         :stderr-tail (take-last 20 @stderr-lines)}
+                 :raw/json {}})))
+      (catch Throwable t
+        [{:observation/type :claude/run-failed
+          :observation-id (str (:llm-turn-run/id run-row) "/claude-spawn-error")
+          :llm/backend :claude
+          :result/status :failed
+          :error {:reason :claude/spawn-error
+                  :message (.getMessage t)}
+          :raw/json {}}]))))
+
+(defn claude-stream-json-adapter
+  [& [opts]]
+  {:run-turn (fn [{:keys [run context-bundle]}]
+               (if-let [lines (:lines opts)]
+                 (claude-stream-json-lines->events lines)
+                 (run-claude-process->events run context-bundle opts)))})
+
 (defn fake-codex-adapter
   [events]
   {:run-turn (fn [_ctx] events)})
@@ -1247,6 +1930,15 @@
            :spawned-after-grant? true
            :observations-appended (count observations)
            :observations (vec observations)})))))
+
+(defn run-one-pending-with-claude!
+  [runtime opts]
+  (run-one-pending-with-adapter!
+    runtime
+    (merge {:task-id pending-task-id
+            :executor-id "claude-executor-local"
+            :adapter (claude-stream-json-adapter opts)}
+           opts)))
 
 (defn stale-approval-control
   [run-row approval opts]

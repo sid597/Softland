@@ -1,6 +1,24 @@
 (ns app.server.rama.dogfood-llm-test
   (:require [app.server.rama.dogfood.llm :as llm]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]))
+
+(def claude-stream-sample-lines
+  ["{\"type\":\"system\",\"session_id\":\"sesh_123\"}"
+   "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_start\",\"message\":{\"id\":\"msg_013Zva2CMHLNnXjNJJKqJ2EF\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"claude-3-5-sonnet-20241022\",\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":2095,\"output_tokens\":1}}}}"
+   "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}}"
+   "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"I will check the\"}}}"
+   "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\" current directory.\"}}}"
+   "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_stop\",\"index\":0}}"
+   "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_01T1x1fJ34qAmk2tTg\",\"name\":\"ls\",\"input\":{}}}}"
+   "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"pa\"}}}"
+   "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"th\\\": \\\".\\\"}\"}}}"
+   "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_stop\",\"index\":1}}"
+   "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":80}}}"
+   "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_stop\"}}"
+   "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"index\":2,\"content_block\":{\"type\":\"tool_result\",\"tool_use_id\":\"toolu_01T1x1fJ34qAmk2tTg\",\"content\":\"file1.txt\\nfile2.txt\"}}}"
+   "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_stop\",\"index\":2}}"
+   "{\"type\":\"result\",\"session_id\":\"sesh_123\",\"total_cost_usd\":0.0001}"])
 
 (defn with-llm-runtime
   [f]
@@ -199,7 +217,128 @@
             (set (map :type
                       (llm/request-validation-errors
                         (assoc-in request [:payload :model] "gpt-5.2-codex"))))
-            :payload/execution-options-not-bundle-owned)))))
+            :payload/execution-options-not-bundle-owned))))
+
+  (testing "missing backend stays Codex-compatible while Claude is scalar-discriminated"
+    (let [legacy-request (dissoc (llm/turn-run-request
+                                   "chat-legacy"
+                                   "WT-legacy"
+                                   "B-legacy"
+                                   {:llm-turn-run-id "run-legacy"})
+                                 :llm/backend)
+          normalized (llm/normalize-turn-run-request legacy-request)
+          claude-request (llm/turn-run-request
+                           "chat-claude"
+                           "WT-claude"
+                           "B-claude"
+                           {:llm-turn-run-id "run-claude"
+                            :llm/backend :claude
+                            :llm/auth-mode :subscription})]
+      (is (= :codex (:llm/backend normalized)))
+      (is (= :codex (get-in normalized [:executor :agent/kind])))
+      (is (empty? (llm/request-validation-errors normalized)))
+      (is (= :claude (:llm/backend claude-request)))
+      (is (= :claude (get-in claude-request [:executor :agent/kind])))
+      (is (= :subscription (:llm/auth-mode claude-request)))
+      (is (= :local-claude (get-in claude-request [:payload :executor/pool])))
+      (is (empty? (llm/request-validation-errors claude-request)))))
+
+  (testing "passive observation is rejected on active LLM run requests"
+    (let [request (llm/turn-run-request
+                    "chat-passive"
+                    "WT-passive"
+                    "B-passive"
+                    {:llm-turn-run-id "run-passive"
+                     :llm/backend :claude
+                     :llm/auth-mode :passive-observe})
+          errors (llm/request-validation-errors request)]
+      (is (contains? (set (map :type errors))
+                     :llm/auth-mode-passive-observe-not-active)))))
+
+(deftest claude-spawn-env-contract-test
+  (testing "subscription mode uses stream-json flags, omits --bare, and strips auth env"
+    (let [run-row {:llm-turn-run/id "run-claude-sub"
+                   :llm/backend :claude
+                   :llm/auth-mode :subscription}
+          argv (llm/claude-stream-argv run-row)
+          env (llm/claude-child-env
+                :subscription
+                {:env {"CLAUDE_CODE_OAUTH_TOKEN" "oauth-secret"
+                       "ANTHROPIC_API_KEY" "api-secret"
+                       "KEEP_ME" "ok"}})]
+      (is (= ["claude" "-p"] (subvec argv 0 2)))
+      (is (some #{"--input-format"} argv))
+      (is (some #{"stream-json"} argv))
+      (is (some #{"--output-format"} argv))
+      (is (some #{"--include-partial-messages"} argv))
+      (is (some #{"--include-hook-events"} argv))
+      (is (some #{"--replay-user-messages"} argv))
+      (is (not (some #{"--bare"} argv)))
+      (is (= {"KEEP_ME" "ok"} env))))
+
+  (testing "api-key mode uses --bare and injects only the resolved Anthropic key"
+    (let [run-row {:llm-turn-run/id "run-claude-api"
+                   :llm/backend :claude
+                   :llm/auth-mode :api-key}
+          argv (llm/claude-stream-argv run-row)
+          env (llm/claude-child-env
+                :api-key
+                {:env {"CLAUDE_CODE_OAUTH_TOKEN" "oauth-secret"
+                       "ANTHROPIC_AUTH_TOKEN" "auth-secret"
+                       "KEEP_ME" "ok"}
+                 :anthropic-api-key-secret :sid-secret
+                 :secret-resolver {:sid-secret "api-secret"}})]
+      (is (some #{"--bare"} argv))
+      (is (= "api-secret" (get env "ANTHROPIC_API_KEY")))
+      (is (= "ok" (get env "KEEP_ME")))
+      (is (not (contains? env "CLAUDE_CODE_OAUTH_TOKEN")))
+      (is (not (contains? env "ANTHROPIC_AUTH_TOKEN"))))))
+
+(deftest claude-stream-json-adapter-fold-test
+  (with-llm-runtime
+    (fn [runtime]
+      (testing "Claude stream-json lines fold into the generic LLM run surface"
+        (let [run-id "run_claude_stream"
+              request (llm/turn-run-request
+                        "chat-claude-stream"
+                        "WT-claude-stream"
+                        "B-claude-stream"
+                        {:llm-turn-run-id run-id
+                         :llm-thread-id "llm-thread-claude-stream"
+                         :request-id "req-claude-stream"
+                         :time-ms 1
+                         :llm/backend :claude
+                         :llm/auth-mode :subscription
+                         :executor-task-id llm/pending-task-id})
+              redacted-events (llm/claude-stream-json-lines->events
+                                ["{\"type\":\"system\",\"session_id\":\"sesh_secret\",\"api_key\":\"never-store-me\"}"
+                                 "{\"type\":\"result\",\"session_id\":\"sesh_secret\",\"total_cost_usd\":0.1}"])]
+          (llm/append-turn-run-request! runtime request)
+          (llm/await-run runtime run-id #(= :pending (:status %)))
+          (let [result (llm/run-one-pending-with-claude!
+                         runtime
+                         {:executor-id "executor-claude-stream"
+                          :load-context-bundle (fn [bundle-id]
+                                                  {:context-bundle/id bundle-id
+                                                   :rendered/model-input "hello claude"})
+                          :lines claude-stream-sample-lines})
+                view (llm/await-view runtime run-id #(= :succeeded (:status %)))
+                run (llm/read-run runtime run-id)
+                tool-calls (llm/read-tool-calls-by-run runtime run-id)
+                raw-items (llm/read-raw-response-items runtime run-id)]
+            (is (= :granted-to-us (:claim-state result)))
+            (is (= :claude (:llm/backend run)))
+            (is (= :subscription (:llm/auth-mode run)))
+            (is (= "sesh_123" (:native/claude-session-id run)))
+            (is (= :succeeded (:status view)))
+            (is (some #(= :claude (:source %)) (:items view)))
+            (is (seq tool-calls))
+            (is (= 2095 (get-in view [:token-usage :tokens/input-total])))
+            (is (= 80 (get-in view [:token-usage :tokens/output])))
+            (is (every? #(not (str/includes? (pr-str %) "never-store-me"))
+                        redacted-events))
+            (is (every? #(not (str/includes? (pr-str %) "never-store-me"))
+                        (vals raw-items)))))))))
 
 (deftest pstate-writer-asymmetry-property-test
   (testing "record builders do not mutate PStates; only depot appends do"

@@ -414,8 +414,10 @@
                :idempotency-key (str "world-event:" (:request/id request) ":"
                                      (:world-turn/id turn-event) ":"
                                      (:context-bundle/id bundle))
-               :agent-kind (or (get-in bundle [:execution/options :agent/kind])
-                               :codex)
+               :llm/backend (or (get-in bundle [:execution/options :llm/backend])
+                                (get-in bundle [:execution/options :agent/kind])
+                                :codex)
+               :llm/auth-mode (get-in bundle [:execution/options :llm/auth-mode])
                :native/thread-id (get-in request [:payload :native/codex-thread-id])
                :fork/from-native-thread-id (get-in request [:payload :fork/from-native-thread-id])
                :executor-pool (or (get-in request [:payload :executor/pool])
