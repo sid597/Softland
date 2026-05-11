@@ -133,7 +133,8 @@
    :tool-calls-by-run (llm/read-tool-calls-by-run runtime run-id)
    :approvals-by-run (llm/read-approvals-by-run runtime run-id)
    :pending-approval (llm/read-pending-approval runtime approval-id)
-   :token-usage (llm/read-token-usage runtime run-id)})
+   :token-usage (llm/read-token-usage runtime run-id)
+   :run-detail-projection (llm/read-run-detail-projection runtime run-id)})
 
 (defn append-llm-spine-record!
   [runtime ids [record-kind record]]
@@ -282,10 +283,17 @@
               {:observation-id "obs-finish-2"}))
 
           (let [view (llm/await-view runtime run-id #(= :succeeded (:status %)))
+                run-detail (llm/await-materialized
+                             #(llm/read-run-detail-projection runtime run-id)
+                             #(= :succeeded (:status %)))
                 items (llm/read-items-by-run runtime run-id)
                 indexed-item (llm/read-item-by-id runtime "item-0")
                 usage (llm/read-token-usage runtime run-id)]
             (is (= :succeeded (:status view)))
+            (is (= :llm-run-detail (:projection/type run-detail)))
+            (is (= :llm-turn-runs (:projection/source run-detail)))
+            (is (= ["item-0"] (mapv :llm-item/id (:items run-detail))))
+            (is (= 50000 (get-in run-detail [:token-usage :tokens/input-total])))
             (is (= ["item-0"] (mapv :llm-item/id (:items view))))
             (is (= "hello from codex" (get-in items ["item-0" :content/text])))
             (is (= "hello from codex" (:content/text indexed-item)))
