@@ -357,6 +357,16 @@
          :items (run-items-vector run-row)
          :approvals-pending (vec (vals (:approvals-pending run-row)))))
 
+(defn run-detail-projection
+  [run-row]
+  (assoc (run-view run-row)
+         :projection/type :llm-run-detail
+         :projection/source :llm-turn-runs
+         :controls (vec (keep #(get-in run-row [:controls-by-id %])
+                              (:control-order run-row)))
+         :patch-proposals (vec (keep #(get-in run-row [:patch-proposals-by-id %])
+                                     (:patch-proposal-order run-row)))))
+
 (defn claim-record
   [run-id llm-thread-id executor-id & [opts]]
   (let [task-id (or (opts-executor-task-id opts) pending-task-id)]
@@ -886,6 +896,7 @@
     (declare-pstate n $$llm-controls-by-run-id {String Object})
     (declare-pstate n $$llm-control-by-id {String Object})
     (declare-pstate n $$llm-views {String Object})
+    (declare-pstate n $$projection-run-detail {String Object})
 
     (<<sources n
       (source> *llm-depot :> *request)
@@ -903,6 +914,7 @@
         (bind-run-to-existing-thread *assigned-run-row *existing-thread-row :> *bound-run-row)
         (run-executor-task-id *bound-run-row :> *executor-task-id)
         (run-view *bound-run-row :> *view)
+        (run-detail-projection *bound-run-row :> *run-detail)
         (pending-entry *bound-run-row :> *pending-entry)
         (turn-run-summary *bound-run-row :> *run-summary)
         (run-world-thread-id *assigned-run-row :> *world-thread-id)
@@ -913,6 +925,7 @@
         (|hash *run-id)
         (local-transform> [(keypath *run-id) (termval *bound-run-row)] $$llm-turn-runs)
         (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
+        (local-transform> [(keypath *run-id) (termval *run-detail)] $$projection-run-detail)
         (|hash *world-turn-id)
         (local-transform> [(keypath *world-turn-id) (termval *run-id)] $$llm-turn-run-by-world-turn)
         (|hash *executor-task-id)
@@ -928,8 +941,10 @@
         (grant-claim *run-row *claim :> *claimed-run-row)
         (run-executor-task-id *claimed-run-row :> *executor-task-id)
         (run-view *claimed-run-row :> *view)
+        (run-detail-projection *claimed-run-row :> *run-detail)
         (local-transform> [(keypath *run-id) (termval *claimed-run-row)] $$llm-turn-runs)
         (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
+        (local-transform> [(keypath *run-id) (termval *run-detail)] $$projection-run-detail)
         (|hash *executor-task-id)
         (local-transform> [(keypath *executor-task-id) (keypath *run-id) NONE>] $$llm-pending-by-task))
 
@@ -940,6 +955,7 @@
       (<<if (known-run-row? *run-row)
         (fold-observation *run-row *obs :> *updated-run-row)
         (run-view *updated-run-row :> *view)
+        (run-detail-projection *updated-run-row :> *run-detail)
         (run-items-by-id *updated-run-row :> *items-by-id)
         (run-raw-response-items *updated-run-row :> *raw-response-items)
         (run-tool-calls-by-id *updated-run-row :> *tool-calls-by-id)
@@ -949,6 +965,7 @@
         (turn-run-summary *updated-run-row :> *run-summary)
         (local-transform> [(keypath *run-id) (termval *updated-run-row)] $$llm-turn-runs)
         (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
+        (local-transform> [(keypath *run-id) (termval *run-detail)] $$projection-run-detail)
         (local-transform> [(keypath *run-id) (termval *items-by-id)] $$llm-items-by-turn-run)
         (local-transform> [(keypath *run-id) (termval *raw-response-items)] $$llm-raw-response-items)
         (local-transform> [(keypath *run-id) (termval *tool-calls-by-id)] $$llm-tool-calls-by-run-id)
@@ -980,12 +997,14 @@
       (<<if (known-run-row? *run-row)
         (fold-control *run-row *control :> *updated-run-row)
         (run-view *updated-run-row :> *view)
+        (run-detail-projection *updated-run-row :> *run-detail)
         (run-approvals-by-id *updated-run-row :> *approvals-by-id)
         (run-controls-by-id *updated-run-row :> *controls-by-id)
         (run-executor-task-id *updated-run-row :> *executor-task-id)
         (control-id *control :> *control-id)
         (local-transform> [(keypath *run-id) (termval *updated-run-row)] $$llm-turn-runs)
         (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
+        (local-transform> [(keypath *run-id) (termval *run-detail)] $$projection-run-detail)
         (local-transform> [(keypath *run-id) (termval *approvals-by-id)] $$llm-approvals-by-run-id)
         (local-transform> [(keypath *run-id) (termval *controls-by-id)] $$llm-controls-by-run-id)
         (|hash *control-id)
@@ -1027,7 +1046,8 @@
      :llm-token-usage-by-run-id (foreign-pstate ipc module-name "$$llm-token-usage-by-run-id")
      :llm-controls-by-run-id (foreign-pstate ipc module-name "$$llm-controls-by-run-id")
      :llm-control-by-id (foreign-pstate ipc module-name "$$llm-control-by-id")
-     :llm-views (foreign-pstate ipc module-name "$$llm-views")}))
+     :llm-views (foreign-pstate ipc module-name "$$llm-views")
+     :projection-run-detail (foreign-pstate ipc module-name "$$projection-run-detail")}))
 
 (defn close-llm-runtime!
   [runtime]
@@ -1235,6 +1255,10 @@
 (defn read-view
   [runtime run-id]
   (select-pstate-one (:llm-views runtime) [(keypath run-id)]))
+
+(defn read-run-detail-projection
+  [runtime run-id]
+  (select-pstate-one (:projection-run-detail runtime) [(keypath run-id)]))
 
 (defn read-pending
   ([runtime]

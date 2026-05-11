@@ -1063,6 +1063,74 @@
            :resolution/request-id (:request/id request)
            :reason (get-in request [:payload :reason]))))
 
+(defn turn-projection-row
+  [turn-row]
+  (select-keys turn-row
+               [:world-turn/id :world-thread/id :world-turn/kind
+                :context-bundle/id :request/id :prompt/text :refs
+                :created-at-ms :updated-at-ms]))
+
+(defn chat-canvas-projection
+  [thread-row turn-order latest-turn]
+  (cond-> {:projection/type :chat-canvas
+           :projection/source :world-canonical-pstates
+           :world-thread/id (:world-thread/id thread-row)
+           :title (:title thread-row)
+           :status (:status thread-row)
+           :turn-count (:turn-count thread-row)
+           :turn-order (vec (or turn-order []))
+           :updated-at-ms (:updated-at-ms thread-row)}
+    latest-turn (assoc :latest-turn (turn-projection-row latest-turn))))
+
+(defn object-detail-projection
+  [object-row]
+  (assoc object-row
+         :projection/type :object-detail
+         :projection/source :objects))
+
+(defn empty-object-relations-projection
+  [object-id]
+  {:projection/type :object-relations
+   :projection/source :artifact-graph
+   :object/id object-id
+   :out {}
+   :in {}})
+
+(defn add-projection-out-edge
+  [existing object-id edge]
+  (assoc-in (or existing (empty-object-relations-projection object-id))
+            [:out (:artifact-edge/id edge)]
+            edge))
+
+(defn add-projection-in-edge
+  [existing object-id edge]
+  (assoc-in (or existing (empty-object-relations-projection object-id))
+            [:in (:artifact-edge/id edge)]
+            edge))
+
+(defn turn-object-relations-projection
+  [object-id incoming-edge bundle-edge llm-run-edge]
+  (-> (empty-object-relations-projection object-id)
+      (add-projection-in-edge object-id incoming-edge)
+      (add-projection-out-edge object-id bundle-edge)
+      (add-projection-out-edge object-id llm-run-edge)))
+
+(defn bundle-object-relations-projection
+  [object-id incoming-edge llm-run-edge]
+  (-> (empty-object-relations-projection object-id)
+      (add-projection-in-edge object-id incoming-edge)
+      (add-projection-out-edge object-id llm-run-edge)))
+
+(defn llm-run-object-relations-projection
+  [object-id turn-edge bundle-edge]
+  (-> (empty-object-relations-projection object-id)
+      (add-projection-in-edge object-id turn-edge)
+      (add-projection-in-edge object-id bundle-edge)))
+
+(defn one-incoming-relation-projection
+  [object-id incoming-edge]
+  (add-projection-in-edge nil object-id incoming-edge))
+
 (defmodule world-module [setup topologies]
   (mirror-depot setup *llm-depot (get-module-name llm/llm-module) "*llm-depot")
   (mirror-depot setup *llm-control-depot (get-module-name llm/llm-module) "*llm-control-depot")
@@ -1089,6 +1157,9 @@
     (declare-pstate n $$overlays {String Object})
     (declare-pstate n $$derivatives {String Object})
     (declare-pstate n $$world-patch-proposals {String Object})
+    (declare-pstate n $$projection-chat-canvas {String Object})
+    (declare-pstate n $$projection-object-detail {String Object})
+    (declare-pstate n $$projection-object-relations {String Object})
 
     (<<sources n
       (source> *world-action-depot :> *request)
@@ -1113,12 +1184,16 @@
           (world-thread-id-from-event *thread-event :> *event-thread-id)
           (world-thread-object-row *thread-row :> *thread-object)
           (object-row-id *thread-object :> *thread-object-id)
+          (chat-canvas-projection *thread-row nil nil :> *chat-canvas)
+          (object-detail-projection *thread-object :> *thread-object-detail)
           (|hash *event-id)
           (local-transform> [(keypath *event-id) (termval *thread-event)] $$world-events-by-id)
           (|hash *event-thread-id)
           (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads)
+          (local-transform> [(keypath *event-thread-id) (termval *chat-canvas)] $$projection-chat-canvas)
           (|hash *thread-object-id)
-          (local-transform> [(keypath *thread-object-id) (termval *thread-object)] $$objects))
+          (local-transform> [(keypath *thread-object-id) (termval *thread-object)] $$objects)
+          (local-transform> [(keypath *thread-object-id) (termval *thread-object-detail)] $$projection-object-detail))
 
         (case> (= :world-turn/compose-and-send *request-type))
         (request-idempotency-key *request :> *idempotency-key)
@@ -1188,8 +1263,23 @@
             (artifact-edge-to *turn-llm-run-edge :> *turn-llm-run-to)
             (artifact-edge-from *bundle-llm-run-edge :> *bundle-llm-run-from)
             (artifact-edge-to *bundle-llm-run-edge :> *bundle-llm-run-to)
+            (chat-canvas-projection *thread-row *turn-order *turn-row :> *chat-canvas)
+            (object-detail-projection *thread-object :> *thread-object-detail)
+            (object-detail-projection *turn-object :> *turn-object-detail)
+            (object-detail-projection *bundle-object :> *bundle-object-detail)
+            (object-detail-projection *llm-run-object :> *llm-run-object-detail)
+            (turn-object-relations-projection
+              *turn-object-id *thread-turn-edge *turn-bundle-edge *turn-llm-run-edge
+              :> *turn-relations)
+            (bundle-object-relations-projection
+              *bundle-object-id *turn-bundle-edge *bundle-llm-run-edge
+              :> *bundle-relations)
+            (llm-run-object-relations-projection
+              *llm-run-object-id *turn-llm-run-edge *bundle-llm-run-edge
+              :> *llm-run-relations)
             (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads)
             (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$world-turns-by-thread)
+            (local-transform> [(keypath *event-thread-id) (termval *chat-canvas)] $$projection-chat-canvas)
             (|hash *turn-id)
             (local-transform> [(keypath *turn-id) (termval *turn-row)] $$world-turns)
             (local-transform> [(keypath *turn-id) (termval *bundle-id)] $$context-bundles-by-turn)
@@ -1202,11 +1292,17 @@
             (local-transform> [(keypath *idempotency-key) (termval *dedupe-row)] $$world-send-by-idempotency)
             (|hash *thread-object-id)
             (local-transform> [(keypath *thread-object-id) (termval *thread-object)] $$objects)
+            (local-transform> [(keypath *thread-object-id) (termval *thread-object-detail)] $$projection-object-detail)
+            (local-select> [(keypath *thread-object-id)] $$projection-object-relations :> *thread-relations-existing)
+            (add-projection-out-edge *thread-relations-existing *thread-object-id *thread-turn-edge :> *thread-relations)
+            (local-transform> [(keypath *thread-object-id) (termval *thread-relations)] $$projection-object-relations)
             (local-transform> [(keypath *thread-turn-from) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph)
             (|hash *thread-turn-to)
             (local-transform> [(keypath *thread-turn-to) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph-in)
             (|hash *turn-object-id)
             (local-transform> [(keypath *turn-object-id) (termval *turn-object)] $$objects)
+            (local-transform> [(keypath *turn-object-id) (termval *turn-object-detail)] $$projection-object-detail)
+            (local-transform> [(keypath *turn-object-id) (termval *turn-relations)] $$projection-object-relations)
             (local-transform> [(keypath *turn-bundle-from) (keypath *turn-bundle-edge-id) (termval *turn-bundle-edge)] $$artifact-graph)
             (local-transform> [(keypath *turn-llm-run-from) (keypath *turn-llm-run-edge-id) (termval *turn-llm-run-edge)] $$artifact-graph)
             (|hash *turn-bundle-to)
@@ -1215,11 +1311,15 @@
             (local-transform> [(keypath *turn-llm-run-to) (keypath *turn-llm-run-edge-id) (termval *turn-llm-run-edge)] $$artifact-graph-in)
             (|hash *bundle-object-id)
             (local-transform> [(keypath *bundle-object-id) (termval *bundle-object)] $$objects)
+            (local-transform> [(keypath *bundle-object-id) (termval *bundle-object-detail)] $$projection-object-detail)
+            (local-transform> [(keypath *bundle-object-id) (termval *bundle-relations)] $$projection-object-relations)
             (local-transform> [(keypath *bundle-llm-run-from) (keypath *bundle-llm-run-edge-id) (termval *bundle-llm-run-edge)] $$artifact-graph)
             (|hash *bundle-llm-run-to)
             (local-transform> [(keypath *bundle-llm-run-to) (keypath *bundle-llm-run-edge-id) (termval *bundle-llm-run-edge)] $$artifact-graph-in)
             (|hash *llm-run-object-id)
             (local-transform> [(keypath *llm-run-object-id) (termval *llm-run-object)] $$objects)
+            (local-transform> [(keypath *llm-run-object-id) (termval *llm-run-object-detail)] $$projection-object-detail)
+            (local-transform> [(keypath *llm-run-object-id) (termval *llm-run-relations)] $$projection-object-relations)
             (|hash$$ *llm-depot *llm-run-id)
             (depot-partition-append! *llm-depot *llm-request :append-ack)))
 
@@ -1311,8 +1411,13 @@
           (artifact-edge-id *thread-turn-edge :> *thread-turn-edge-id)
           (artifact-edge-from *thread-turn-edge :> *thread-turn-from)
           (artifact-edge-to *thread-turn-edge :> *thread-turn-to)
+          (chat-canvas-projection *thread-row *turn-order *turn-row :> *chat-canvas)
+          (object-detail-projection *thread-object :> *thread-object-detail)
+          (object-detail-projection *turn-object :> *turn-object-detail)
+          (one-incoming-relation-projection *turn-object-id *thread-turn-edge :> *turn-relations)
           (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads)
           (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$world-turns-by-thread)
+          (local-transform> [(keypath *event-thread-id) (termval *chat-canvas)] $$projection-chat-canvas)
           (|hash *turn-event-id)
           (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$world-events-by-id)
           (|hash *control-event-id)
@@ -1324,11 +1429,17 @@
           (local-transform> [(keypath *control-id) (termval *control)] $$world-llm-controls)
           (|hash *thread-object-id)
           (local-transform> [(keypath *thread-object-id) (termval *thread-object)] $$objects)
+          (local-transform> [(keypath *thread-object-id) (termval *thread-object-detail)] $$projection-object-detail)
+          (local-select> [(keypath *thread-object-id)] $$projection-object-relations :> *thread-relations-existing)
+          (add-projection-out-edge *thread-relations-existing *thread-object-id *thread-turn-edge :> *thread-relations)
+          (local-transform> [(keypath *thread-object-id) (termval *thread-relations)] $$projection-object-relations)
           (local-transform> [(keypath *thread-turn-from) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph)
           (|hash *thread-turn-to)
           (local-transform> [(keypath *thread-turn-to) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph-in)
           (|hash *turn-object-id)
           (local-transform> [(keypath *turn-object-id) (termval *turn-object)] $$objects)
+          (local-transform> [(keypath *turn-object-id) (termval *turn-object-detail)] $$projection-object-detail)
+          (local-transform> [(keypath *turn-object-id) (termval *turn-relations)] $$projection-object-relations)
           (|hash$$ *llm-control-depot *control-run-id)
           (depot-partition-append! *llm-control-depot *control :append-ack))
 
@@ -1357,29 +1468,42 @@
           (artifact-edge-id *thread-turn-edge :> *thread-turn-edge-id)
           (artifact-edge-from *thread-turn-edge :> *thread-turn-from)
           (artifact-edge-to *thread-turn-edge :> *thread-turn-to)
+          (chat-canvas-projection *thread-row *turn-order *turn-row :> *chat-canvas)
+          (object-detail-projection *thread-object :> *thread-object-detail)
+          (object-detail-projection *turn-object :> *turn-object-detail)
+          (one-incoming-relation-projection *turn-object-id *thread-turn-edge :> *turn-relations)
           (|hash *turn-event-id)
           (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$world-events-by-id)
           (|hash *event-thread-id)
           (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads)
           (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$world-turns-by-thread)
+          (local-transform> [(keypath *event-thread-id) (termval *chat-canvas)] $$projection-chat-canvas)
           (|hash *turn-id)
           (local-transform> [(keypath *turn-id) (termval *turn-row)] $$world-turns)
           (|hash *thread-object-id)
           (local-transform> [(keypath *thread-object-id) (termval *thread-object)] $$objects)
+          (local-transform> [(keypath *thread-object-id) (termval *thread-object-detail)] $$projection-object-detail)
+          (local-select> [(keypath *thread-object-id)] $$projection-object-relations :> *thread-relations-existing)
+          (add-projection-out-edge *thread-relations-existing *thread-object-id *thread-turn-edge :> *thread-relations)
+          (local-transform> [(keypath *thread-object-id) (termval *thread-relations)] $$projection-object-relations)
           (local-transform> [(keypath *thread-turn-from) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph)
           (|hash *thread-turn-to)
           (local-transform> [(keypath *thread-turn-to) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph-in)
           (|hash *turn-object-id)
           (local-transform> [(keypath *turn-object-id) (termval *turn-object)] $$objects)
+          (local-transform> [(keypath *turn-object-id) (termval *turn-object-detail)] $$projection-object-detail)
+          (local-transform> [(keypath *turn-object-id) (termval *turn-relations)] $$projection-object-relations)
           (<<if (= :world-turn/slice-create *request-type)
             (slice-row *request *turn-event :> *slice-row)
             (slice-object-row *slice-row :> *slice-object)
             (slice-row-id *slice-row :> *slice-id)
             (object-row-id *slice-object :> *slice-object-id)
+            (object-detail-projection *slice-object :> *slice-object-detail)
             (|hash *slice-id)
             (local-transform> [(keypath *slice-id) (termval *slice-row)] $$slices)
             (|hash *slice-object-id)
             (local-transform> [(keypath *slice-object-id) (termval *slice-object)] $$objects)
+            (local-transform> [(keypath *slice-object-id) (termval *slice-object-detail)] $$projection-object-detail)
             (<<if (raw-llm-source? *request)
               (raw-llm-item-object-row *request :> *raw-object)
               (source-slice-edge *raw-object *slice-row :> *source-edge)
@@ -1387,20 +1511,29 @@
               (artifact-edge-id *source-edge :> *source-edge-id)
               (artifact-edge-from *source-edge :> *source-edge-from)
               (artifact-edge-to *source-edge :> *source-edge-to)
+              (object-detail-projection *raw-object :> *raw-object-detail)
+              (one-incoming-relation-projection *source-edge-to *source-edge :> *source-target-relations)
               (|hash *raw-object-id)
               (local-transform> [(keypath *raw-object-id) (termval *raw-object)] $$objects)
+              (local-transform> [(keypath *raw-object-id) (termval *raw-object-detail)] $$projection-object-detail)
+              (local-select> [(keypath *raw-object-id)] $$projection-object-relations :> *raw-relations-existing)
+              (add-projection-out-edge *raw-relations-existing *raw-object-id *source-edge :> *raw-relations)
+              (local-transform> [(keypath *raw-object-id) (termval *raw-relations)] $$projection-object-relations)
               (local-transform> [(keypath *source-edge-from) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph)
               (|hash *source-edge-to)
-              (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in)))
+              (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in)
+              (local-transform> [(keypath *source-edge-to) (termval *source-target-relations)] $$projection-object-relations)))
           (<<if (= :world-turn/comment-create *request-type)
             (overlay-row *request *turn-event :> *overlay-row)
             (overlay-object-row *overlay-row :> *overlay-object)
             (overlay-row-id *overlay-row :> *overlay-id)
             (object-row-id *overlay-object :> *overlay-object-id)
+            (object-detail-projection *overlay-object :> *overlay-object-detail)
             (|hash *overlay-id)
             (local-transform> [(keypath *overlay-id) (termval *overlay-row)] $$overlays)
             (|hash *overlay-object-id)
             (local-transform> [(keypath *overlay-object-id) (termval *overlay-object)] $$objects)
+            (local-transform> [(keypath *overlay-object-id) (termval *overlay-object-detail)] $$projection-object-detail)
             (<<if (raw-llm-source? *request)
               (raw-llm-item-object-row *request :> *raw-object)
               (source-overlay-edge *raw-object *overlay-row :> *source-edge)
@@ -1408,20 +1541,29 @@
               (artifact-edge-id *source-edge :> *source-edge-id)
               (artifact-edge-from *source-edge :> *source-edge-from)
               (artifact-edge-to *source-edge :> *source-edge-to)
+              (object-detail-projection *raw-object :> *raw-object-detail)
+              (one-incoming-relation-projection *source-edge-to *source-edge :> *source-target-relations)
               (|hash *raw-object-id)
               (local-transform> [(keypath *raw-object-id) (termval *raw-object)] $$objects)
+              (local-transform> [(keypath *raw-object-id) (termval *raw-object-detail)] $$projection-object-detail)
+              (local-select> [(keypath *raw-object-id)] $$projection-object-relations :> *raw-relations-existing)
+              (add-projection-out-edge *raw-relations-existing *raw-object-id *source-edge :> *raw-relations)
+              (local-transform> [(keypath *raw-object-id) (termval *raw-relations)] $$projection-object-relations)
               (local-transform> [(keypath *source-edge-from) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph)
               (|hash *source-edge-to)
-              (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in)))
+              (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in)
+              (local-transform> [(keypath *source-edge-to) (termval *source-target-relations)] $$projection-object-relations)))
           (<<if (= :world-turn/derivative-create *request-type)
             (derivative-row *request *turn-event :> *derivative-row)
             (derivative-object-row *derivative-row :> *derivative-object)
             (derivative-row-id *derivative-row :> *derivative-id)
             (object-row-id *derivative-object :> *derivative-object-id)
+            (object-detail-projection *derivative-object :> *derivative-object-detail)
             (|hash *derivative-id)
             (local-transform> [(keypath *derivative-id) (termval *derivative-row)] $$derivatives)
             (|hash *derivative-object-id)
             (local-transform> [(keypath *derivative-object-id) (termval *derivative-object)] $$objects)
+            (local-transform> [(keypath *derivative-object-id) (termval *derivative-object-detail)] $$projection-object-detail)
             (<<if (raw-llm-source? *request)
               (raw-llm-item-object-row *request :> *raw-object)
               (source-derivative-edge *raw-object *derivative-row :> *source-edge)
@@ -1429,11 +1571,18 @@
               (artifact-edge-id *source-edge :> *source-edge-id)
               (artifact-edge-from *source-edge :> *source-edge-from)
               (artifact-edge-to *source-edge :> *source-edge-to)
+              (object-detail-projection *raw-object :> *raw-object-detail)
+              (one-incoming-relation-projection *source-edge-to *source-edge :> *source-target-relations)
               (|hash *raw-object-id)
               (local-transform> [(keypath *raw-object-id) (termval *raw-object)] $$objects)
+              (local-transform> [(keypath *raw-object-id) (termval *raw-object-detail)] $$projection-object-detail)
+              (local-select> [(keypath *raw-object-id)] $$projection-object-relations :> *raw-relations-existing)
+              (add-projection-out-edge *raw-relations-existing *raw-object-id *source-edge :> *raw-relations)
+              (local-transform> [(keypath *raw-object-id) (termval *raw-relations)] $$projection-object-relations)
               (local-transform> [(keypath *source-edge-from) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph)
               (|hash *source-edge-to)
-              (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in)))
+              (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in)
+              (local-transform> [(keypath *source-edge-to) (termval *source-target-relations)] $$projection-object-relations)))
           (<<if (= :world-turn/patch-proposal-create *request-type)
             (patch-proposal-row-from-request *request :> *patch-proposal)
             (request-patch-proposal-id *request :> *patch-proposal-id)
@@ -1485,6 +1634,9 @@
      :overlays (foreign-pstate ipc module-name "$$overlays")
      :derivatives (foreign-pstate ipc module-name "$$derivatives")
      :world-patch-proposals (foreign-pstate ipc module-name "$$world-patch-proposals")
+     :projection-chat-canvas (foreign-pstate ipc module-name "$$projection-chat-canvas")
+     :projection-object-detail (foreign-pstate ipc module-name "$$projection-object-detail")
+     :projection-object-relations (foreign-pstate ipc module-name "$$projection-object-relations")
      :llm-depot (foreign-depot ipc llm-module-name "*llm-depot")
      :llm-claim-depot (foreign-depot ipc llm-module-name "*llm-claim-depot")
      :llm-obs-depot (foreign-depot ipc llm-module-name "*llm-obs-depot")
@@ -1506,7 +1658,8 @@
      :llm-token-usage-by-run-id (foreign-pstate ipc llm-module-name "$$llm-token-usage-by-run-id")
      :llm-controls-by-run-id (foreign-pstate ipc llm-module-name "$$llm-controls-by-run-id")
      :llm-control-by-id (foreign-pstate ipc llm-module-name "$$llm-control-by-id")
-     :llm-views (foreign-pstate ipc llm-module-name "$$llm-views")}))
+     :llm-views (foreign-pstate ipc llm-module-name "$$llm-views")
+     :projection-run-detail (foreign-pstate ipc llm-module-name "$$projection-run-detail")}))
 
 (defn close-world-runtime!
   [runtime]
@@ -1625,6 +1778,19 @@
   [runtime object-id]
   (or (select-pstate-one (:artifact-graph-in runtime) [(keypath object-id)])
       {}))
+
+(defn read-chat-canvas-projection
+  [runtime world-thread-id]
+  (select-pstate-one (:projection-chat-canvas runtime) [(keypath world-thread-id)]))
+
+(defn read-object-detail-projection
+  [runtime object-id]
+  (select-pstate-one (:projection-object-detail runtime) [(keypath object-id)]))
+
+(defn read-object-relations-projection
+  [runtime object-id]
+  (or (select-pstate-one (:projection-object-relations runtime) [(keypath object-id)])
+      (empty-object-relations-projection object-id)))
 
 (defn read-slice
   [runtime slice-id]

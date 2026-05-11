@@ -67,6 +67,70 @@
   (llm/await-run runtime run-id #(<= (long sequence) (long (:last-seq %))))
   (llm/await-materialized #(llm/read-item-by-id runtime item-id) some?))
 
+(defn relation-targets
+  [relations]
+  (set (map :to/object-id (vals (:out relations)))))
+
+(defn relation-sources
+  [relations]
+  (set (map :from/object-id (vals (:in relations)))))
+
+(defn materialized-projection-snapshot
+  []
+  (with-world-runtime
+    (fn [runtime]
+      (let [request (world/compose-and-send-request
+                      "chat-projection"
+                      "Render the projections."
+                      {:request-id "req-projection"
+                       :time-ms 17
+                       :title "Projection chat"
+                       :payload {:world-turn/id "WT-projection"
+                                 :context-bundle/id "B-projection"
+                                 :llm-turn-run/id "run-projection"
+                                 :llm-thread/id "llm-thread-projection"
+                                 :executor/task-id llm/pending-task-id}})
+            _ (append-and-await-decision! runtime request)
+            _ (llm/await-run runtime "run-projection" #(= :pending (:status %)))
+            thread-object-id (world/catalog-object-id :world-thread "chat-projection")
+            turn-object-id (world/catalog-object-id :world-turn "WT-projection")
+            bundle-object-id (world/catalog-object-id :context-bundle "B-projection")
+            run-object-id (world/catalog-object-id :llm-turn-run "run-projection")]
+        {:chat-canvas (world/await-materialized
+                        #(world/read-chat-canvas-projection runtime "chat-projection")
+                        #(= ["WT-projection"] (:turn-order %)))
+         :run-detail (llm/await-materialized
+                       #(llm/read-run-detail-projection runtime "run-projection")
+                       #(= :pending (:status %)))
+         :object-detail {:thread (world/await-materialized
+                                   #(world/read-object-detail-projection runtime thread-object-id)
+                                   #(= :world-thread (:object/type %)))
+                         :turn (world/await-materialized
+                                 #(world/read-object-detail-projection runtime turn-object-id)
+                                 #(= :world-turn (:object/type %)))
+                         :bundle (world/await-materialized
+                                   #(world/read-object-detail-projection runtime bundle-object-id)
+                                   #(= :context-bundle (:object/type %)))
+                         :run (world/await-materialized
+                                #(world/read-object-detail-projection runtime run-object-id)
+                                #(= :llm-turn-run (:object/type %)))}
+         :relations {:thread (world/await-materialized
+                               #(world/read-object-relations-projection runtime thread-object-id)
+                               #(= #{turn-object-id} (relation-targets %)))
+                     :turn (world/await-materialized
+                             #(world/read-object-relations-projection runtime turn-object-id)
+                             #(and (= #{thread-object-id} (relation-sources %))
+                                   (= #{bundle-object-id run-object-id}
+                                      (relation-targets %))))
+                     :bundle (world/await-materialized
+                               #(world/read-object-relations-projection runtime bundle-object-id)
+                               #(and (= #{turn-object-id} (relation-sources %))
+                                     (= #{run-object-id} (relation-targets %))))
+                     :run (world/await-materialized
+                            #(world/read-object-relations-projection runtime run-object-id)
+                            #(= #{turn-object-id bundle-object-id}
+                                (relation-sources %)))}}))))
+
 (deftest world-thread-create-test
   (with-world-runtime
     (fn [runtime]
@@ -203,6 +267,28 @@
                  (set (map :to/object-id (vals bundle-out)))))
           (is (= #{turn-object-id bundle-object-id}
                  (set (map :from/object-id (vals run-in))))))))))
+
+(deftest projection-rebuildability-test
+  (testing "projection PStates are rebuildable from the same canonical World and LLM inputs"
+    (let [snapshot-a (materialized-projection-snapshot)
+          snapshot-b (materialized-projection-snapshot)
+          chat-canvas (:chat-canvas snapshot-a)
+          run-detail (:run-detail snapshot-a)
+          thread-detail (get-in snapshot-a [:object-detail :thread])
+          turn-relations (get-in snapshot-a [:relations :turn])]
+      (is (= snapshot-a snapshot-b))
+      (is (= :chat-canvas (:projection/type chat-canvas)))
+      (is (= :world-canonical-pstates (:projection/source chat-canvas)))
+      (is (= "Projection chat" (:title chat-canvas)))
+      (is (= "WT-projection" (get-in chat-canvas [:latest-turn :world-turn/id])))
+      (is (= :llm-run-detail (:projection/type run-detail)))
+      (is (= :object-detail (:projection/type thread-detail)))
+      (is (= :object-relations (:projection/type turn-relations)))
+      (is (= #{(world/catalog-object-id :world-thread "chat-projection")}
+             (relation-sources turn-relations)))
+      (is (= #{(world/catalog-object-id :context-bundle "B-projection")
+               (world/catalog-object-id :llm-turn-run "run-projection")}
+             (relation-targets turn-relations))))))
 
 (deftest slice-raw-immutability-test
   (with-world-runtime
