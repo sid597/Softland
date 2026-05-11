@@ -134,6 +134,7 @@
    :approvals-by-run (llm/read-approvals-by-run runtime run-id)
    :pending-approval (llm/read-pending-approval runtime approval-id)
    :token-usage (llm/read-token-usage runtime run-id)
+   :cost-by-thread (llm/read-cost-by-thread runtime thread-id)
    :run-detail-projection (llm/read-run-detail-projection runtime run-id)})
 
 (defn append-llm-spine-record!
@@ -216,6 +217,8 @@
       (is (= snapshot-a snapshot-b))
       (is (= :blocked-awaiting-approval (get-in snapshot-a [:run :status])))
       (is (= 100 (get-in snapshot-a [:decision :decided-at])))
+      (is (= 10 (get-in snapshot-a [:cost-by-thread :tokens :tokens/input-total])))
+      (is (= 2 (get-in snapshot-a [:cost-by-thread :tokens :tokens/reasoning-output])))
       (is (contains? (get-in snapshot-a [:approvals-by-run]) (:approval-id ids))))))
 
 (deftest llm-claim-and-observation-lifecycle-test
@@ -301,6 +304,57 @@
             (is (= 50000 (:tokens/input-total usage)))
             (is (= 45000 (:tokens/cached-input usage)))
             (is (= 8000 (:tokens/reasoning-output usage)))))))))
+
+(deftest cost-rollup-by-thread-test
+  (with-llm-runtime
+    (fn [runtime]
+      (testing "token usage observations roll up per LLM thread without double-counting runs"
+        (let [first-run-id "run_cost_first"
+              second-run-id "run_cost_second"
+              thread-id "llm-thread-A"]
+          (append-run-and-await-pending! runtime first-run-id)
+          (llm/append-observation!
+            runtime
+            (llm/observation
+              first-run-id
+              thread-id
+              :codex/token-usage
+              0
+              {:observation-id "obs-cost-first"
+               :tokens/input-total 10
+               :tokens/cached-input 4
+               :tokens/output 3
+               :tokens/reasoning-output 2}))
+          (llm/await-materialized
+            #(llm/read-cost-by-thread runtime thread-id)
+            #(= 1 (:run-count %)))
+
+          (append-run-and-await-pending! runtime second-run-id)
+          (llm/append-observation!
+            runtime
+            (llm/observation
+              second-run-id
+              thread-id
+              :codex/token-usage
+              0
+              {:observation-id "obs-cost-second"
+               :tokens/input-total 7
+               :tokens/cached-input 1
+               :tokens/output 5
+               :tokens/reasoning-output 0}))
+
+          (let [rollup (llm/await-materialized
+                         #(llm/read-cost-by-thread runtime thread-id)
+                         #(= 2 (:run-count %)))]
+            (is (= :llm-thread-cost-rollup (:projection/type rollup)))
+            (is (= :llm-token-usage-by-run-id (:projection/source rollup)))
+            (is (= 17 (get-in rollup [:tokens :tokens/input-total])))
+            (is (= 5 (get-in rollup [:tokens :tokens/cached-input])))
+            (is (= 8 (get-in rollup [:tokens :tokens/output])))
+            (is (= 2 (get-in rollup [:tokens :tokens/reasoning-output])))
+            (is (= #{first-run-id second-run-id} (set (keys (:runs rollup)))))
+            (is (= 10 (get-in rollup [:runs first-run-id :token-usage :tokens/input-total])))
+            (is (= 7 (get-in rollup [:runs second-run-id :token-usage :tokens/input-total])))))))))
 
 (deftest obs-sequence-buffer-test
   (with-llm-runtime

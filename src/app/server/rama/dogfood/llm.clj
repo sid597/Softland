@@ -367,6 +367,52 @@
          :patch-proposals (vec (keep #(get-in run-row [:patch-proposals-by-id %])
                                      (:patch-proposal-order run-row)))))
 
+(def cost-rollup-token-keys
+  [:tokens/input-total :tokens/cached-input :tokens/output
+   :tokens/reasoning-output])
+
+(defn numeric-token-value
+  [usage k]
+  (let [v (get usage k)]
+    (if (number? v) v 0)))
+
+(defn apply-token-usage-delta
+  [totals previous-usage usage]
+  (reduce (fn [acc k]
+            (assoc acc k (+ (numeric-token-value acc k)
+                            (- (numeric-token-value usage k)
+                               (numeric-token-value previous-usage k)))))
+          (or totals {})
+          cost-rollup-token-keys))
+
+(defn cost-rollup-run-entry
+  [run-row]
+  {:llm-turn-run/id (:llm-turn-run/id run-row)
+   :world-turn/id (:world-turn/id run-row)
+   :context-bundle/id (:context-bundle/id run-row)
+   :status (:status run-row)
+   :token-usage (:token-usage run-row)
+   :updated-at (:updated-at run-row)})
+
+(defn cost-rollup-for-thread
+  [existing run-row]
+  (let [run-id (:llm-turn-run/id run-row)
+        usage (:token-usage run-row)
+        existing-runs (or (:runs existing) {})
+        previous-usage (get-in existing-runs [run-id :token-usage])
+        runs (cond-> existing-runs
+               (seq usage) (assoc run-id (cost-rollup-run-entry run-row)))
+        totals (cond-> (:tokens existing)
+                 (seq usage) (apply-token-usage-delta previous-usage usage))]
+    {:projection/type :llm-thread-cost-rollup
+     :projection/source :llm-token-usage-by-run-id
+     :llm-thread/id (:llm-thread/id run-row)
+     :world-thread/id (:world-thread/id run-row)
+     :run-count (count runs)
+     :runs runs
+     :tokens totals
+     :updated-at (:updated-at run-row)}))
+
 (defn claim-record
   [run-id llm-thread-id executor-id & [opts]]
   (let [task-id (or (opts-executor-task-id opts) pending-task-id)]
@@ -973,10 +1019,13 @@
         (local-transform> [(keypath *run-id) (termval *token-usage)] $$llm-token-usage-by-run-id)
         (|hash *thread-id)
         (local-select> [(keypath *thread-id)] $$llm-threads :> *existing-thread-row)
+        (local-select> [(keypath *thread-id)] $$llm-cost-by-thread :> *existing-cost-rollup)
         (upsert-thread-row *existing-thread-row *updated-run-row :> *thread-row)
+        (cost-rollup-for-thread *existing-cost-rollup *updated-run-row :> *cost-rollup)
         (local-transform> [(keypath *thread-id) (termval *thread-row)] $$llm-threads)
         (local-transform> [(keypath *thread-id) (keypath *run-id) (termval *run-summary)] $$llm-turn-runs-by-thread)
         (local-transform> [(keypath *thread-id) (keypath *run-id) (termval *items-by-id)] $$llm-items-by-thread)
+        (local-transform> [(keypath *thread-id) (termval *cost-rollup)] $$llm-cost-by-thread)
         (<<if (observation-approval-materialized? *updated-run-row *obs)
           (observation->approval-row *obs :> *approval)
           (approval-id *approval :> *approval-id)
@@ -1044,6 +1093,7 @@
      :llm-approvals-pending (foreign-pstate ipc module-name "$$llm-approvals-pending")
      :llm-approvals-by-run-id (foreign-pstate ipc module-name "$$llm-approvals-by-run-id")
      :llm-token-usage-by-run-id (foreign-pstate ipc module-name "$$llm-token-usage-by-run-id")
+     :llm-cost-by-thread (foreign-pstate ipc module-name "$$llm-cost-by-thread")
      :llm-controls-by-run-id (foreign-pstate ipc module-name "$$llm-controls-by-run-id")
      :llm-control-by-id (foreign-pstate ipc module-name "$$llm-control-by-id")
      :llm-views (foreign-pstate ipc module-name "$$llm-views")
@@ -1313,6 +1363,11 @@
 (defn read-token-usage
   [runtime run-id]
   (or (select-pstate-one (:llm-token-usage-by-run-id runtime) [(keypath run-id)])
+      {}))
+
+(defn read-cost-by-thread
+  [runtime thread-id]
+  (or (select-pstate-one (:llm-cost-by-thread runtime) [(keypath thread-id)])
       {}))
 
 (defn read-pending-approval
