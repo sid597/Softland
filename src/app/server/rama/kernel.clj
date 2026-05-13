@@ -12,11 +12,12 @@
 ;;
 ;;   In CT terms:
 ;;     prose + KERNEL-SHAPE  =  the *theory* of a kernel
-;;     5 modules under kernels/  =  *models* of that theory
+;;     5 Rama instance files     =  *models* of that theory
 ;;     (hypothetical) generator-defkernel  =  a *functor* from DomainDesc to Module — DEFERRED
 ;;
 ;;   In Rama terms: each kernel-instance is a (defmodule ...). In our architecture we call them
-;;   kernels because that's the role they play. All three labels point at the same five files.
+;;   kernels because that's the role they play. The shared core is not an instance; it holds
+;;   the common contracts those instance files use.
 ;;
 ;; ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 ;;
@@ -25,9 +26,10 @@
 ;;
 ;;   The codebase contains FIVE instances of the same shape:
 ;;
-;;     text-kernel        V0/V1 text-artifact module (was `world-kernel-module` in src/app/server/rama/core.clj)
+;;     core               shared request/event contracts (src/app/server/rama/core.clj)
+;;     text-kernel        V0/V1 text-artifact module (src/app/server/rama/text_kernel.clj)
 ;;     space-kernel       chat threads, turns, objects, slices, overlays, derivatives, patches
-;;                          (was `world-module` in src/app/server/rama/dogfood/world.clj)
+;;                          (src/app/server/rama/dogfood/space.clj)
 ;;     compute-kernel     shell-command execution (src/app/server/rama/dogfood/compute.clj)
 ;;     llm-kernel         LLM turn-run execution (src/app/server/rama/dogfood/llm.clj)
 ;;     transcript-kernel  CLI transcript ingest (src/app/server/rama/dogfood/transcript.clj)
@@ -62,11 +64,11 @@
 ;;   │ Has no depot, no PState, no module.       │ Has its own depot family + topology       │ via code generation, if/when useful.      │
 ;;   │                                           │ + pstates + interpret-fn.                 │                                           │
 ;;   │ Lives as:                                 │                                           │ TODAY: not implemented.                   │
-;;   │   • the prose spec at the top of this     │   kernels/text.clj         text-kernel    │   The 5 modules are hand-written.         │
-;;   │     file                                  │   kernels/space.clj        space-kernel   │   defkernel is data-only; describes the   │
-;;   │   • (defkernel KERNEL-SHAPE ...)          │   kernels/compute.clj      compute-kernel │   shape, doesn't generate it.             │
-;;   │     at the bottom of this file            │   kernels/llm.clj          llm-kernel     │                                           │
-;;   │                                           │   kernels/transcript.clj   transcript-   │ FUTURE: deferred — see "WHY defkernel IS  │
+;;   │   • the prose spec at the top of this     │   text_kernel.clj          text-kernel    │   The 5 modules are hand-written.         │
+;;   │     file                                  │   dogfood/space.clj        space-kernel   │   defkernel is data-only; describes the   │
+;;   │   • (defkernel KERNEL-SHAPE ...)          │   dogfood/compute.clj      compute-kernel │   shape, doesn't generate it.             │
+;;   │     at the bottom of this file            │   dogfood/llm.clj          llm-kernel     │                                           │
+;;   │                                           │   dogfood/transcript.clj   transcript-   │ FUTURE: deferred — see "WHY defkernel IS  │
 ;;   │                                           │                            kernel         │   DATA, NOT GENERATION TODAY" below.      │
 ;;   │                                           │                                           │                                           │
 ;;   │  ↓ THE PATTERN ↓                          │  ↓ THE THINGS ↓                           │  ↓ (deferred) ↓                           │
@@ -77,7 +79,7 @@
 ;;     Q.  Is kernel a thing or a pattern?
 ;;     A.  Both, in two different places of this same file. The PROSE at the top is the
 ;;         pattern. The (defkernel KERNEL-SHAPE ...) form at the bottom is the pattern made
-;;         concrete and inspectable. Each kernels/*.clj is one instance.
+;;         concrete and inspectable. Each instance file is one model of the pattern.
 ;;
 ;;     Q.  Can a kernel be a depot?
 ;;     A.  The kernel pattern has no depot. Each kernel-instance has its own depot family.
@@ -204,7 +206,7 @@
 ;;      parameterized projection); others (feel, pacing) are not Set-shaped.  dynamic systems)     describe feel)
 ;;
 ;;  10. SOFTLAND-AS-A-PLACE                                                   NO                   N/A
-;;      "World is software, software is a place" is a design stance,          (design philosophy)
+;;      "Software is a place" is a design stance,                            (design philosophy)
 ;;      not a mathematical structure.
 ;;
 ;;   HONEST READING:
@@ -265,7 +267,7 @@
 ;;
 ;;   2. Strong schemas / contracts at every primitive             ◐ partial — contract is prose;              Convert to Malli; retrofit
 ;;      (so the LLM knows when its output is wrong)                 see kernel-contract-table in              to interpret-fn inputs /
-;;                                                                  text-kernel (currently core.clj)          outputs
+;;                                                                  core.clj                                 outputs
 ;;
 ;;   3. Worked examples / cookbook of compositions                ✓ the 5 existing kernels ARE the           Each :examples entry in
 ;;      (so the LLM can pattern-match)                              examples; KERNEL-SHAPE's :examples        KERNEL-SHAPE ties an abstract
@@ -336,15 +338,16 @@
 ;;         No behavior change anywhere else. The defkernel form is data-only; nothing in
 ;;         the rest of the codebase depends on it.
 ;;
-;;   PR 1  (after PR 0 lands)
+;;   PR 1  (this change)
 ;;         ──────────────────────────────────────────────────────────────────────────────────────────────
-;;         RENAME "world" → space / text / turn.   Mechanical, no structural change.
+;;         Mechanical rename + mechanical text/core file split. No behavior change.
+;;         No `kernels/` subdir. No defkernel code generation.
 ;;
-;;         Surface to enumerate during the PR:
+;;         HISTORICAL RENAME MAP (pre-PR1 name -> current name):
 ;;
 ;;           A. MODULES
-;;              world-kernel-module             →  text-kernel-module                  (in core.clj)
-;;              world-module                    →  space-module                        (in dogfood/world.clj)
+;;              world-kernel-module             →  text-kernel-module                  (in text_kernel.clj)
+;;              world-module                    →  space-kernel-module                 (in dogfood/space.clj)
 ;;              world-kernel-topology           →  text-kernel-topology
 ;;              world-chat-topology             →  space-topology
 ;;
@@ -381,10 +384,10 @@
 ;;              $$world-turns-by-thread         →  $$turns-by-space    (-by-* secondary index)
 ;;              $$world-send-by-idempotency     →  $$send-by-idempotency
 ;;              $$world-llm-run-requests        →  $$llm-run-requests   (drop "world-" — adds nothing)
-;;              $$world-llm-run-by-turn         →  $$llm-run-by-turn
+;;              $$world-llm-run-by-turn         →  $$llm-run-by-turn       (space-owned mirror)
 ;;              $$world-llm-controls            →  $$llm-controls
 ;;              $$world-llm-control-by-turn     →  $$llm-control-by-turn
-;;              $$world-patch-proposals         →  $$patch-proposals
+;;              $$world-patch-proposals         →  $$space-patch-proposals
 ;;
 ;;           E. FNS, VARS, NAMESPACE
 ;;              world-routing-key               →  space-routing-key
@@ -401,19 +404,19 @@
 ;;                                                                 HTTP handlers, tests)
 ;;
 ;;           G. RUNTIME ENTRYPOINTS
-;;              start-kernel-runtime!  / close-kernel-runtime!   rename in core.clj
+;;              start-kernel-runtime!  / close-kernel-runtime!   → start-text-runtime! / close-text-runtime!
 ;;              runtime map keys :world-requests-depot, :requests-by-id…  →  :text-* equivalents
 ;;
 ;;           H. ADAPTER LAYER
 ;;              src/app/server/rama/util_fns.cljc        :world/append capability decision
 ;;                                                       "world kernel" log strings
-;;                                                       alias of core as kernel
+;;                                                       core alias split from text-kernel alias
 ;;
 ;;           I. CROSS-MODULE INTERNAL REFS IN llm.clj
 ;;              :world-thread/id  →  :space/id   (LLM module's references into space vocab)
 ;;              :world-turn/id    →  :turn/id
 ;;              $$llm-thread-by-world-thread   →  $$llm-thread-by-space
-;;              $$llm-turn-run-by-world-turn   →  $$llm-run-by-turn   (or defer; decide in PR)
+;;              $$llm-turn-run-by-world-turn   →  $$llm-turn-run-by-turn
 ;;
 ;;           J. TESTS
 ;;              test/app/server/rama/world_kernel_test.clj   →  text_kernel_test.clj
@@ -421,40 +424,38 @@
 ;;              test/app/server/rama/dogfood_llm_test.clj    — rename expectations inside
 ;;
 ;;           K. ALIAS MIGRATION
-;;              (:require [app.server.rama.core :as kernel])  →  :as text-kernel
-;;              call sites: compute.clj, llm.clj, transcript.clj, util_fns.cljc, tests
+;;              (:require [app.server.rama.core :as kernel])  →  :as core
+;;              text runtime call sites also require app.server.rama.text-kernel
 ;;
-;;         No file moves beyond E (dogfood/world.clj → dogfood/space.clj).
-;;         No extraction. Pure rename PR.
+;;         File moves: core text instance -> text_kernel.clj; dogfood/world.clj -> dogfood/space.clj.
+;;         The extraction is only the shared core/text split, not a kernel abstraction.
 ;;
 ;;   ⚠ COLLISION NOTE for PR 1
 ;;
-;;     After PR 1, :world-turn/cancel and :world-turn/steer become :turn/cancel and
-;;     :turn/steer. But llm.clj ALREADY uses :turn/cancel and :turn/steer as :control/type
-;;     values (around llm.clj:1237–1247). Same keyword, two semantic contexts:
+;;     PR 1 makes the space request keywords :turn/cancel and :turn/steer. llm.clj also
+;;     uses :turn/cancel and :turn/steer as :control/type values. Same keyword, two
+;;     semantic contexts:
 ;;
-;;       {:request/type :turn/cancel}    ← from PR 1's rename (space-module request)
-;;       {:control/type :turn/cancel}    ← already exists (llm-module control)
+;;       {:request/type :turn/cancel}    ← space-kernel request
+;;       {:control/type :turn/cancel}    ← llm-kernel control
 ;;
-;;     Default proposal: intentional sharing — disambiguation is structural (which field
-;;     holds the keyword). Document in PR 1; add tests asserting no caller reads the wrong
-;;     field. Alternative: disambiguate (:turn-request/cancel vs :turn-control/cancel, etc.).
-;;     Avoid touching the stable LLM-side keywords.
+;;     This is intentional sharing: disambiguation is structural, by field. The code keeps
+;;     short NOTE comments at both dispatch sites and tests both sides of the collision.
 ;;
 ;; ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 ;;
-;;   FINAL FILE LAYOUT (after PR 1)
+;;   CURRENT FILE LAYOUT (after PR 1)
 ;;   ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 ;;
 ;;     src/app/server/rama/kernel.clj             ← THIS FILE: the shape (prose + KERNEL-SHAPE)
-;;     src/app/server/rama/core.clj               text-kernel-module        (renamed inside; file path stays for PR 1)
-;;     src/app/server/rama/dogfood/space.clj      space-kernel-module       (renamed file; was dogfood/world.clj)
+;;     src/app/server/rama/core.clj               shared contracts/utilities
+;;     src/app/server/rama/text_kernel.clj        text-kernel-module
+;;     src/app/server/rama/dogfood/space.clj      space-kernel-module
 ;;     src/app/server/rama/dogfood/compute.clj    compute-kernel-module
 ;;     src/app/server/rama/dogfood/transcript.clj transcript-kernel-module
 ;;     src/app/server/rama/dogfood/llm.clj        llm-kernel-module
 ;;
-;;   (Moving instances under a kernels/ subdir is a SEPARATE decision after PR 1 lands;
-;;    not required by the rename. PR 1 keeps current file paths except dogfood/world.clj.)
+;;   A kernels/ subdir remains a separate unchosen decision.
 ;;
 ;;   VOCABULARY LOCK  (once PR 1 lands)
 ;;
@@ -511,8 +512,8 @@
 
 (defkernel KERNEL-SHAPE
   ;; The current observed shape of a Softland kernel, derived from:
-  ;;     text-kernel        src/app/server/rama/core.clj                (was world-kernel-module)
-  ;;     space-kernel       src/app/server/rama/dogfood/world.clj       (was world-module)
+  ;;     text-kernel        src/app/server/rama/text_kernel.clj
+  ;;     space-kernel       src/app/server/rama/dogfood/space.clj
   ;;     compute-kernel     src/app/server/rama/dogfood/compute.clj
   ;;     transcript-kernel  src/app/server/rama/dogfood/transcript.clj
   ;;     llm-kernel         src/app/server/rama/dogfood/llm.clj
@@ -539,8 +540,8 @@
    :ingress-partitioner
    {:required? true
     :examples
-    {:text-kernel       :routing/key       ; transitional — kernel-contract-table
-     :space-kernel      :routing/key       ;   (core.clj:146) flags :routing/key as :transitional? true
+    {:text-kernel       :routing/key       ; transitional; text_kernel/routing-key-contract
+     :space-kernel      :routing/key
      :compute-kernel    :run/id
      :transcript-kernel :transcript/request-id
      :llm-kernel        :llm-turn-run/id}
@@ -561,8 +562,8 @@
     :write-via    :foreign-append!
     :ack-level    :append-ack
     :examples
-    {:text-kernel       '*world-requests-depot     ; → *text-requests-depot after PR 1
-     :space-kernel      '*world-action-depot       ; → *space-action-depot after PR 1
+    {:text-kernel       '*text-requests-depot
+     :space-kernel      '*space-action-depot
      :compute-kernel    '*compute-depot
      :transcript-kernel '*transcript-depot
      :llm-kernel        '*llm-depot}}
@@ -663,8 +664,8 @@
                      {:llm-kernel ['$$llm-turn-runs
                                    '$$llm-views
                                    '$$projection-run-detail
-                                   '$$llm-thread-by-world-thread    ; → $$llm-thread-by-space after PR 1
-                                   '$$llm-turn-run-by-world-turn]}}}}  ; → $$llm-run-by-turn (or defer)
+                                   '$$llm-thread-by-space
+                                   '$$llm-turn-run-by-turn]}}}}
 
    ;; ────────────────────────────────────────────────────────────────────────────────
    ;; INTERPRET FN  (always present)
@@ -677,10 +678,10 @@
     :signature '(fn [request existing-state] => decision-or-events)
     :examples
     {:text-kernel       "interpret-* fns dispatched by case>: :artifact/ingest,
-                         :unit/status-set, :compat/record  — see core.clj:752–828"
-     :space-kernel      "interpret-* fns dispatched by case>: :world-thread/create,
-                         :world-turn/compose-and-send, :world-thread/fork-from-span,
-                         control variants — see dogfood/world.clj:1176–1604"
+                         :unit/status-set, :compat/record — see text_kernel.clj"
+     :space-kernel      "interpret-* fns dispatched by case>: :space/create,
+                         :turn/compose-and-send, :space/fork-from-span,
+                         control variants — see dogfood/space.clj"
      :compute-kernel    'interpret-run-command-request
      :transcript-kernel 'request-validation-errors
      :llm-kernel        'interpret-turn-run-request}}
@@ -698,11 +699,11 @@
                           revision-materialization
                           branch-materialization
                           status-materialization
-                          units-by-id-materialization]                ; core.clj:667–729
+                          units-by-id-materialization]
      :space-kernel      "many — thread-row, turn-row, bundle, llm-request,
                          object/turn/bundle/llm-run materializations,
                          chat-canvas, object-detail, object-relations projections
-                         — see dogfood/world.clj:1180–1604"
+                         — see dogfood/space.clj"
      :compute-kernel    '[initial-run-row
                           assign-executor-task
                           pending-entry

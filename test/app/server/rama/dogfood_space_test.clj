@@ -1,30 +1,30 @@
-(ns app.server.rama.dogfood-world-test
+(ns app.server.rama.dogfood-space-test
   (:require [app.server.rama.dogfood.llm :as llm]
-            [app.server.rama.dogfood.world :as world]
+            [app.server.rama.dogfood.space :as space]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]))
 
-(defn with-world-runtime
+(defn with-space-runtime
   [f]
-  (let [runtime (world/start-world-runtime!)]
+  (let [runtime (space/start-space-runtime!)]
     (try
       (f runtime)
       (finally
-        (world/close-world-runtime! runtime)))))
+        (space/close-space-runtime! runtime)))))
 
 (defn append-and-await-decision!
   [runtime request]
-  (world/append-world-action! runtime request)
-  (world/await-decision runtime (:request/id request)))
+  (space/append-space-action! runtime request)
+  (space/await-decision runtime (:request/id request)))
 
 (defn append-send-and-await-run!
-  [runtime {:keys [world-thread-id world-turn-id bundle-id run-id thread-id request-id]}]
-  (let [request (world/compose-and-send-request
-                  world-thread-id
+  [runtime {:keys [space-id turn-id bundle-id run-id thread-id request-id]}]
+  (let [request (space/compose-and-send-request
+                  space-id
                   (str "Prompt for " run-id)
                   {:request-id request-id
                    :time-ms 100
-                   :payload {:world-turn/id world-turn-id
+                   :payload {:turn/id turn-id
                              :context-bundle/id bundle-id
                              :llm-turn-run/id run-id
                              :llm-thread/id thread-id
@@ -77,97 +77,97 @@
 
 (defn materialized-projection-snapshot
   []
-  (with-world-runtime
+  (with-space-runtime
     (fn [runtime]
-      (let [request (world/compose-and-send-request
+      (let [request (space/compose-and-send-request
                       "chat-projection"
                       "Render the projections."
                       {:request-id "req-projection"
                        :time-ms 17
                        :title "Projection chat"
-                       :payload {:world-turn/id "WT-projection"
+                       :payload {:turn/id "WT-projection"
                                  :context-bundle/id "B-projection"
                                  :llm-turn-run/id "run-projection"
                                  :llm-thread/id "llm-thread-projection"
                                  :executor/task-id llm/pending-task-id}})
             _ (append-and-await-decision! runtime request)
             _ (llm/await-run runtime "run-projection" #(= :pending (:status %)))
-            thread-object-id (world/catalog-object-id :world-thread "chat-projection")
-            turn-object-id (world/catalog-object-id :world-turn "WT-projection")
-            bundle-object-id (world/catalog-object-id :context-bundle "B-projection")
-            run-object-id (world/catalog-object-id :llm-turn-run "run-projection")]
-        {:chat-canvas (world/await-materialized
-                        #(world/read-chat-canvas-projection runtime "chat-projection")
+            thread-object-id (space/catalog-object-id :space "chat-projection")
+            turn-object-id (space/catalog-object-id :turn "WT-projection")
+            bundle-object-id (space/catalog-object-id :context-bundle "B-projection")
+            run-object-id (space/catalog-object-id :llm-turn-run "run-projection")]
+        {:chat-canvas (space/await-materialized
+                        #(space/read-chat-canvas-projection runtime "chat-projection")
                         #(= ["WT-projection"] (:turn-order %)))
          :run-detail (llm/await-materialized
                        #(llm/read-run-detail-projection runtime "run-projection")
                        #(= :pending (:status %)))
-         :object-detail {:thread (world/await-materialized
-                                   #(world/read-object-detail-projection runtime thread-object-id)
-                                   #(= :world-thread (:object/type %)))
-                         :turn (world/await-materialized
-                                 #(world/read-object-detail-projection runtime turn-object-id)
-                                 #(= :world-turn (:object/type %)))
-                         :bundle (world/await-materialized
-                                   #(world/read-object-detail-projection runtime bundle-object-id)
+         :object-detail {:thread (space/await-materialized
+                                   #(space/read-object-detail-projection runtime thread-object-id)
+                                   #(= :space (:object/type %)))
+                         :turn (space/await-materialized
+                                 #(space/read-object-detail-projection runtime turn-object-id)
+                                 #(= :turn (:object/type %)))
+                         :bundle (space/await-materialized
+                                   #(space/read-object-detail-projection runtime bundle-object-id)
                                    #(= :context-bundle (:object/type %)))
-                         :run (world/await-materialized
-                                #(world/read-object-detail-projection runtime run-object-id)
+                         :run (space/await-materialized
+                                #(space/read-object-detail-projection runtime run-object-id)
                                 #(= :llm-turn-run (:object/type %)))}
-         :relations {:thread (world/await-materialized
-                               #(world/read-object-relations-projection runtime thread-object-id)
+         :relations {:thread (space/await-materialized
+                               #(space/read-object-relations-projection runtime thread-object-id)
                                #(= #{turn-object-id} (relation-targets %)))
-                     :turn (world/await-materialized
-                             #(world/read-object-relations-projection runtime turn-object-id)
+                     :turn (space/await-materialized
+                             #(space/read-object-relations-projection runtime turn-object-id)
                              #(and (= #{thread-object-id} (relation-sources %))
                                    (= #{bundle-object-id run-object-id}
                                       (relation-targets %))))
-                     :bundle (world/await-materialized
-                               #(world/read-object-relations-projection runtime bundle-object-id)
+                     :bundle (space/await-materialized
+                               #(space/read-object-relations-projection runtime bundle-object-id)
                                #(and (= #{turn-object-id} (relation-sources %))
                                      (= #{run-object-id} (relation-targets %))))
-                     :run (world/await-materialized
-                            #(world/read-object-relations-projection runtime run-object-id)
+                     :run (space/await-materialized
+                            #(space/read-object-relations-projection runtime run-object-id)
                             #(= #{turn-object-id bundle-object-id}
                                 (relation-sources %)))}}))))
 
-(def world-replay-ids
-  {:world-thread-id "chat-world-property"
-   :world-turn-id "WT-world-property-send"
-   :bundle-id "B-world-property"
-   :run-id "run-world-property"
-   :thread-id "llm-thread-world-property"
-   :request-id "req-world-property-send"
-   :item-id "item-world-property"
-   :control-id "req-world-property-compact/llm-control"
-   :slice-id "slice-world-property"})
+(def space-replay-ids
+  {:space-id "chat-space-property"
+   :turn-id "WT-space-property-send"
+   :bundle-id "B-space-property"
+   :run-id "run-space-property"
+   :thread-id "llm-thread-space-property"
+   :request-id "req-space-property-send"
+   :item-id "item-space-property"
+   :control-id "req-space-property-compact/llm-control"
+   :slice-id "slice-space-property"})
 
-(defn world-property-empty-snapshot
+(defn space-property-empty-snapshot
   [runtime]
-  (let [{:keys [world-thread-id run-id thread-id item-id control-id slice-id]} world-replay-ids]
-    {:thread (world/read-thread runtime world-thread-id)
-     :chat-canvas (world/read-chat-canvas-projection runtime world-thread-id)
+  (let [{:keys [space-id run-id thread-id item-id control-id slice-id]} space-replay-ids]
+    {:thread (space/read-space runtime space-id)
+     :chat-canvas (space/read-chat-canvas-projection runtime space-id)
      :llm-run (llm/read-run runtime run-id)
      :llm-thread (llm/read-thread runtime thread-id)
      :llm-run-detail (llm/read-run-detail-projection runtime run-id)
      :llm-cost (llm/read-cost-by-thread runtime thread-id)
      :llm-control (llm/read-control runtime control-id)
-     :raw-object (world/read-object runtime (world/catalog-object-id :llm-item item-id))
-     :slice (world/read-slice runtime slice-id)}))
+     :raw-object (space/read-object runtime (space/catalog-object-id :llm-item item-id))
+     :slice (space/read-slice runtime slice-id)}))
 
-(defn materialized-world-replay-snapshot
+(defn materialized-space-replay-snapshot
   []
-  (with-world-runtime
+  (with-space-runtime
     (fn [runtime]
-      (let [{:keys [world-thread-id world-turn-id bundle-id run-id thread-id
-                    request-id item-id control-id slice-id]} world-replay-ids
-            send-request (world/compose-and-send-request
-                           world-thread-id
-                           "Replay this world input."
+      (let [{:keys [space-id turn-id bundle-id run-id thread-id
+                    request-id item-id control-id slice-id]} space-replay-ids
+            send-request (space/compose-and-send-request
+                           space-id
+                           "Replay this space input."
                            {:request-id request-id
                             :time-ms 300
-                            :title "World property"
-                            :payload {:world-turn/id world-turn-id
+                            :title "Space property"
+                            :payload {:turn/id turn-id
                                       :context-bundle/id bundle-id
                                       :llm-turn-run/id run-id
                                       :llm-thread/id thread-id
@@ -177,48 +177,48 @@
                                thread-id
                                :codex/item-completed
                                0
-                               {:observation-id "obs-world-property-item"
+                               {:observation-id "obs-space-property-item"
                                 :received-at-ms 310
                                 :llm-item/id item-id
-                                :content/text "World property item."
+                                :content/text "Space property item."
                                 :raw/json {:event "item/completed"}})
             usage-observation (llm/observation
                                 run-id
                                 thread-id
                                 :codex/token-usage
                                 1
-                                {:observation-id "obs-world-property-usage"
+                                {:observation-id "obs-space-property-usage"
                                  :received-at-ms 311
                                  :tokens/input-total 21
                                  :tokens/cached-input 8
                                  :tokens/output 5
                                  :tokens/reasoning-output 3})
-            compact-request (world/world-only-turn-request
-                              :world-turn/compact-request
-                              world-thread-id
-                              {:request-id "req-world-property-compact"
+            compact-request (space/space-turn-request
+                              :turn/compact-request
+                              space-id
+                              {:request-id "req-space-property-compact"
                                :time-ms 320
-                               :payload {:world-turn/id "WT-world-property-compact"
+                               :payload {:turn/id "WT-space-property-compact"
                                          :llm-turn-run/id run-id
                                          :strategy :summarize-prefix}})
-            slice-request (world/world-only-turn-request
-                            :world-turn/slice-create
-                            world-thread-id
-                            {:request-id "req-world-property-slice"
+            slice-request (space/space-turn-request
+                            :turn/slice-create
+                            space-id
+                            {:request-id "req-space-property-slice"
                              :time-ms 330
-                             :payload {:world-turn/id "WT-world-property-slice"
+                             :payload {:turn/id "WT-space-property-slice"
                                        :slice/id slice-id
-                                       :snapshot/text "World property item."
+                                       :snapshot/text "Space property item."
                                        :source {:llm-item/id item-id
                                                 :llm-turn-run/id run-id
                                                 :llm-thread/id thread-id
-                                                :content/text "World property item."
-                                                :content/hash (world/content-hash
-                                                                "World property item.")}}})
-            thread-object-id (world/catalog-object-id :world-thread world-thread-id)
-            turn-object-id (world/catalog-object-id :world-turn world-turn-id)
-            raw-object-id (world/catalog-object-id :llm-item item-id)
-            slice-object-id (world/catalog-object-id :slice slice-id)]
+                                                :content/text "Space property item."
+                                                :content/hash (space/content-hash
+                                                                "Space property item.")}}})
+            thread-object-id (space/catalog-object-id :space space-id)
+            turn-object-id (space/catalog-object-id :turn turn-id)
+            raw-object-id (space/catalog-object-id :llm-item item-id)
+            slice-object-id (space/catalog-object-id :slice slice-id)]
         (append-and-await-decision! runtime send-request)
         (llm/await-run runtime run-id #(= :pending (:status %)))
         (llm/append-observation! runtime item-observation)
@@ -230,35 +230,64 @@
         (append-and-await-decision! runtime compact-request)
         (llm/await-materialized #(llm/read-control runtime control-id) some?)
         (append-and-await-decision! runtime slice-request)
-        (world/await-materialized #(world/read-slice runtime slice-id) some?)
-        {:world {:thread (world/read-thread runtime world-thread-id)
-                 :turn-order (world/read-turns-by-thread runtime world-thread-id)
-                 :bundle (world/read-context-bundle runtime bundle-id)
-                 :slice (world/read-slice runtime slice-id)
-                 :control (world/read-llm-control runtime control-id)}
+        (space/await-materialized #(space/read-slice runtime slice-id) some?)
+        {:space {:thread (space/read-space runtime space-id)
+                 :turn-order (space/read-turns-by-space runtime space-id)
+                 :bundle (space/read-context-bundle runtime bundle-id)
+                 :slice (space/read-slice runtime slice-id)
+                 :control (space/read-llm-control runtime control-id)}
          :llm {:run (llm/read-run runtime run-id)
                :view (llm/read-view runtime run-id)
                :run-detail (llm/read-run-detail-projection runtime run-id)
                :cost (llm/read-cost-by-thread runtime thread-id)
                :control (llm/read-control runtime control-id)
                :items (llm/read-items-by-run runtime run-id)}
-         :catalog {:thread (world/read-object runtime thread-object-id)
-                   :turn (world/read-object runtime turn-object-id)
-                   :raw (world/read-object runtime raw-object-id)
-                   :slice (world/read-object runtime slice-object-id)}
-         :projections {:chat-canvas (world/read-chat-canvas-projection runtime world-thread-id)
-                       :thread-detail (world/read-object-detail-projection runtime thread-object-id)
-                       :raw-detail (world/read-object-detail-projection runtime raw-object-id)
-                       :slice-detail (world/read-object-detail-projection runtime slice-object-id)
-                       :thread-relations (world/read-object-relations-projection runtime thread-object-id)
-                       :raw-relations (world/read-object-relations-projection runtime raw-object-id)
-                       :slice-relations (world/read-object-relations-projection runtime slice-object-id)}}))))
+         :catalog {:thread (space/read-object runtime thread-object-id)
+                   :turn (space/read-object runtime turn-object-id)
+                   :raw (space/read-object runtime raw-object-id)
+                   :slice (space/read-object runtime slice-object-id)}
+         :projections {:chat-canvas (space/read-chat-canvas-projection runtime space-id)
+                       :thread-detail (space/read-object-detail-projection runtime thread-object-id)
+                       :raw-detail (space/read-object-detail-projection runtime raw-object-id)
+                       :slice-detail (space/read-object-detail-projection runtime slice-object-id)
+                       :thread-relations (space/read-object-relations-projection runtime thread-object-id)
+                       :raw-relations (space/read-object-relations-projection runtime raw-object-id)
+                       :slice-relations (space/read-object-relations-projection runtime slice-object-id)}}))))
 
-(deftest world-thread-create-test
-  (with-world-runtime
+(deftest turn-control-keyword-discriminator-test
+  (testing "space requests discriminate overlapping turn keywords by request/type"
+    (doseq [request-type [:turn/cancel :turn/steer]]
+      (let [request (space/space-turn-request
+                      request-type
+                      (str "chat-" (name request-type))
+                      {:request-id (str "req-" (name request-type))
+                       :payload {:turn/id (str "WT-" (name request-type))
+                                 :llm-turn-run/id (str "run-" (name request-type))}})]
+        (is (empty? (space/request-validation-errors
+                      (assoc request :control/type :not-the-discriminator))))
+        (is (= request-type (:request/type request))))))
+
+  (testing "LLM controls discriminate by control/type and run requests reject turn controls"
+    (doseq [control-type [:turn/cancel :turn/steer]]
+      (let [run-id (str "run-" (name control-type))
+            control (llm/control-record run-id control-type)
+            run-request (llm/turn-run-request
+                          "chat-discriminator"
+                          (str "WT-" (name control-type))
+                          (str "B-" (name control-type))
+                          {:llm-turn-run-id run-id})
+            rejected-run-request (assoc run-request :request/type control-type)
+            error-types (set (map :type
+                                  (llm/request-validation-errors rejected-run-request)))]
+        (is (llm/valid-control? control))
+        (is (empty? (llm/request-validation-errors run-request)))
+        (is (contains? error-types :request/type-invalid))))))
+
+(deftest space-create-test
+  (with-space-runtime
     (fn [runtime]
-      (testing "world-thread/create materializes a user-facing WorldThread"
-        (let [request (world/world-thread-create-request
+      (testing "space/create materializes a user-facing Space"
+        (let [request (space/space-create-request
                         "chat-A"
                         {:request-id "req-create-chat-A"
                          :time-ms 1
@@ -266,28 +295,28 @@
                          :actor {:actor/id "sid"
                                  :actor/type :human}})
               decision (append-and-await-decision! runtime request)
-              thread (world/await-thread runtime "chat-A" some?)]
+              thread (space/await-space runtime "chat-A" some?)]
           (is (= :accepted (:decision/status decision)))
-          (is (= [:world-thread "chat-A"] (:routing/key decision)))
-          (is (= ["req-create-chat-A/event/world-thread"] (:event/ids decision)))
+          (is (= [:space "chat-A"] (:routing/key decision)))
+          (is (= ["req-create-chat-A/event/space"] (:event/ids decision)))
           (is (= "Chat A" (:title thread)))
           (is (= :active (:status thread)))
           (is (= 0 (:turn-count thread)))
-          (is (= [] (world/read-turns-by-thread runtime "chat-A")))
-          (is (= :world-thread/created
-                 (:event/type (world/read-event runtime (:event/id decision))))))))))
+          (is (= [] (space/read-turns-by-space runtime "chat-A")))
+          (is (= :space/created
+                 (:event/type (space/read-event runtime (:event/id decision))))))))))
 
 (deftest compose-and-send-freezes-context-bundle-test
-  (with-world-runtime
+  (with-space-runtime
     (fn [runtime]
       (testing "compose-and-send creates thread, turn, order row, and immutable bundle"
-        (let [request (world/compose-and-send-request
+        (let [request (space/compose-and-send-request
                         "chat-B"
                         "Explain the contract."
                         {:request-id "req-send-chat-B"
                          :time-ms 10
                          :title "Contract chat"
-                         :payload {:world-turn/id "WT-1"
+                         :payload {:turn/id "WT-1"
                                    :context-bundle/id "B-1"
                                    :refs [{:object/id "note-17"}
                                           {:slice/id "slice-3"}]
@@ -298,22 +327,22 @@
                                                  :cwd "/mnt/data/projects/Softland"
                                                  :executor/pool :not-bundle-owned}}})
               decision (append-and-await-decision! runtime request)
-              thread (world/await-thread runtime "chat-B" #(= 1 (:turn-count %)))
-              turn (world/await-turn runtime "WT-1" some?)
-              bundle (world/await-materialized
-                       #(world/read-context-bundle runtime "B-1")
+              thread (space/await-space runtime "chat-B" #(= 1 (:turn-count %)))
+              turn (space/await-turn runtime "WT-1" some?)
+              bundle (space/await-materialized
+                       #(space/read-context-bundle runtime "B-1")
                        some?)]
           (is (= :accepted (:decision/status decision)))
-          (is (= ["req-send-chat-B/event/world-thread"
-                  "req-send-chat-B/event/world-turn"
+          (is (= ["req-send-chat-B/event/space"
+                  "req-send-chat-B/event/turn"
                   "req-send-chat-B/event/context-bundle"
                   "req-send-chat-B/event/llm-turn-run"]
                  (:event/ids decision)))
           (is (= "Contract chat" (:title thread)))
-          (is (= ["WT-1"] (world/read-turns-by-thread runtime "chat-B")))
-          (is (= :compose-and-send (:world-turn/kind turn)))
+          (is (= ["WT-1"] (space/read-turns-by-space runtime "chat-B")))
+          (is (= :compose-and-send (:turn/kind turn)))
           (is (= "B-1" (:context-bundle/id turn)))
-          (is (= "B-1" (world/read-context-bundle-by-turn runtime "WT-1")))
+          (is (= "B-1" (space/read-context-bundle-by-turn runtime "WT-1")))
           (is (= {:agent/kind :codex
                   :model "gpt-5.2-codex"
                   :approval-policy :on-request
@@ -327,60 +356,60 @@
           (is (str/includes? (:rendered/model-input bundle) "object:note-17"))
           (is (str/includes? (:rendered/model-input bundle) "slice:slice-3")))))))
 
-(deftest world-catalog-materializes-eager-objects-test
-  (with-world-runtime
+(deftest space-catalog-materializes-eager-objects-test
+  (with-space-runtime
     (fn [runtime]
-      (testing "accepted world facts become catalog objects and relation edges"
-        (let [request (world/compose-and-send-request
+      (testing "accepted space facts become catalog objects and relation edges"
+        (let [request (space/compose-and-send-request
                         "chat-catalog"
                         "Catalog this send."
                         {:request-id "req-catalog"
                          :time-ms 15
                          :title "Catalog chat"
-                         :payload {:world-turn/id "WT-catalog"
+                         :payload {:turn/id "WT-catalog"
                                    :context-bundle/id "B-catalog"
                                    :llm-turn-run/id "run-catalog"
                                    :llm-thread/id "llm-thread-catalog"}})
               _decision (append-and-await-decision! runtime request)
-              thread-object-id (world/catalog-object-id :world-thread "chat-catalog")
-              turn-object-id (world/catalog-object-id :world-turn "WT-catalog")
-              bundle-object-id (world/catalog-object-id :context-bundle "B-catalog")
-              run-object-id (world/catalog-object-id :llm-turn-run "run-catalog")
-              thread-object (world/await-materialized
-                              #(world/read-object runtime thread-object-id)
+              thread-object-id (space/catalog-object-id :space "chat-catalog")
+              turn-object-id (space/catalog-object-id :turn "WT-catalog")
+              bundle-object-id (space/catalog-object-id :context-bundle "B-catalog")
+              run-object-id (space/catalog-object-id :llm-turn-run "run-catalog")
+              thread-object (space/await-materialized
+                              #(space/read-object runtime thread-object-id)
                               some?)
-              turn-object (world/await-materialized
-                            #(world/read-object runtime turn-object-id)
+              turn-object (space/await-materialized
+                            #(space/read-object runtime turn-object-id)
                             some?)
-              bundle-object (world/await-materialized
-                              #(world/read-object runtime bundle-object-id)
+              bundle-object (space/await-materialized
+                              #(space/read-object runtime bundle-object-id)
                               some?)
-              run-object (world/await-materialized
-                           #(world/read-object runtime run-object-id)
+              run-object (space/await-materialized
+                           #(space/read-object runtime run-object-id)
                            some?)
-              thread-out (world/await-materialized
-                           #(world/read-artifact-graph runtime thread-object-id)
+              thread-out (space/await-materialized
+                           #(space/read-artifact-graph runtime thread-object-id)
                            #(= #{turn-object-id}
                                (set (map :to/object-id (vals %)))))
-              turn-out (world/await-materialized
-                         #(world/read-artifact-graph runtime turn-object-id)
+              turn-out (space/await-materialized
+                         #(space/read-artifact-graph runtime turn-object-id)
                          #(= #{bundle-object-id run-object-id}
                              (set (map :to/object-id (vals %)))))
-              bundle-out (world/await-materialized
-                           #(world/read-artifact-graph runtime bundle-object-id)
+              bundle-out (space/await-materialized
+                           #(space/read-artifact-graph runtime bundle-object-id)
                            #(= #{run-object-id}
                                (set (map :to/object-id (vals %)))))
-              run-in (world/await-materialized
-                       #(world/read-artifact-graph-in runtime run-object-id)
+              run-in (space/await-materialized
+                       #(space/read-artifact-graph-in runtime run-object-id)
                        #(= #{turn-object-id bundle-object-id}
                            (set (map :from/object-id (vals %)))))]
-          (is (= :world-thread (:object/type thread-object)))
-          (is (= :world-turn (:object/type turn-object)))
+          (is (= :space (:object/type thread-object)))
+          (is (= :turn (:object/type turn-object)))
           (is (= :context-bundle (:object/type bundle-object)))
           (is (= :llm-turn-run (:object/type run-object)))
           (is (= "Catalog chat" (:title thread-object)))
           (is (= "B-catalog" (:context-bundle/id turn-object)))
-          (is (= "WT-catalog" (:world-turn/id bundle-object)))
+          (is (= "WT-catalog" (:turn/id bundle-object)))
           (is (= "llm-thread-catalog" (:llm-thread/id run-object)))
           (is (= #{turn-object-id}
                  (set (map :to/object-id (vals thread-out)))))
@@ -392,7 +421,7 @@
                  (set (map :from/object-id (vals run-in))))))))))
 
 (deftest projection-rebuildability-test
-  (testing "projection PStates are rebuildable from the same canonical World and LLM inputs"
+  (testing "projection PStates are rebuildable from the same canonical Space and LLM inputs"
     (let [snapshot-a (materialized-projection-snapshot)
           snapshot-b (materialized-projection-snapshot)
           chat-canvas (:chat-canvas snapshot-a)
@@ -401,31 +430,31 @@
           turn-relations (get-in snapshot-a [:relations :turn])]
       (is (= snapshot-a snapshot-b))
       (is (= :chat-canvas (:projection/type chat-canvas)))
-      (is (= :world-canonical-pstates (:projection/source chat-canvas)))
+      (is (= :space-canonical-pstates (:projection/source chat-canvas)))
       (is (= "Projection chat" (:title chat-canvas)))
-      (is (= "WT-projection" (get-in chat-canvas [:latest-turn :world-turn/id])))
+      (is (= "WT-projection" (get-in chat-canvas [:latest-turn :turn/id])))
       (is (= :llm-run-detail (:projection/type run-detail)))
       (is (= :object-detail (:projection/type thread-detail)))
       (is (= :object-relations (:projection/type turn-relations)))
-      (is (= #{(world/catalog-object-id :world-thread "chat-projection")}
+      (is (= #{(space/catalog-object-id :space "chat-projection")}
              (relation-sources turn-relations)))
-      (is (= #{(world/catalog-object-id :context-bundle "B-projection")
-               (world/catalog-object-id :llm-turn-run "run-projection")}
+      (is (= #{(space/catalog-object-id :context-bundle "B-projection")
+               (space/catalog-object-id :llm-turn-run "run-projection")}
              (relation-targets turn-relations))))))
 
-(deftest world-writer-asymmetry-property-test
-  (testing "world and LLM record builders do not mutate PStates before depot append"
-    (with-world-runtime
+(deftest space-writer-asymmetry-property-test
+  (testing "space and LLM record builders do not mutate PStates before depot append"
+    (with-space-runtime
       (fn [runtime]
-        (let [before (world-property-empty-snapshot runtime)
-              {:keys [world-thread-id world-turn-id bundle-id run-id thread-id
-                      item-id slice-id]} world-replay-ids]
-          (world/compose-and-send-request
-            world-thread-id
-            "Replay this world input."
-            {:request-id "req-world-property-send"
+        (let [before (space-property-empty-snapshot runtime)
+              {:keys [space-id turn-id bundle-id run-id thread-id
+                      item-id slice-id]} space-replay-ids]
+          (space/compose-and-send-request
+            space-id
+            "Replay this space input."
+            {:request-id "req-space-property-send"
              :time-ms 300
-             :payload {:world-turn/id world-turn-id
+             :payload {:turn/id turn-id
                        :context-bundle/id bundle-id
                        :llm-turn-run/id run-id
                        :llm-thread/id thread-id}})
@@ -434,31 +463,31 @@
             thread-id
             :codex/item-completed
             0
-            {:observation-id "obs-world-property-item"
+            {:observation-id "obs-space-property-item"
              :received-at-ms 310
              :llm-item/id item-id})
-          (world/world-only-turn-request
-            :world-turn/slice-create
-            world-thread-id
-            {:request-id "req-world-property-slice"
+          (space/space-turn-request
+            :turn/slice-create
+            space-id
+            {:request-id "req-space-property-slice"
              :time-ms 330
-             :payload {:world-turn/id "WT-world-property-slice"
+             :payload {:turn/id "WT-space-property-slice"
                        :slice/id slice-id}})
-          (is (= before (world-property-empty-snapshot runtime)))))))
+          (is (= before (space-property-empty-snapshot runtime)))))))
 
-  (testing "the same depot inputs rebuild the same World, LLM, control, catalog, and projection surfaces"
-    (let [snapshot-a (materialized-world-replay-snapshot)
-          snapshot-b (materialized-world-replay-snapshot)
-          {:keys [world-thread-id item-id slice-id]} world-replay-ids
-          raw-object-id (world/catalog-object-id :llm-item item-id)
-          slice-object-id (world/catalog-object-id :slice slice-id)
+  (testing "the same depot inputs rebuild the same Space, LLM, control, catalog, and projection surfaces"
+    (let [snapshot-a (materialized-space-replay-snapshot)
+          snapshot-b (materialized-space-replay-snapshot)
+          {:keys [space-id item-id slice-id]} space-replay-ids
+          raw-object-id (space/catalog-object-id :llm-item item-id)
+          slice-object-id (space/catalog-object-id :slice slice-id)
           raw-relations (get-in snapshot-a [:projections :raw-relations])
           slice-relations (get-in snapshot-a [:projections :slice-relations])]
       (is (= snapshot-a snapshot-b))
-      (is (= ["WT-world-property-send"
-              "WT-world-property-compact"
-              "WT-world-property-slice"]
-             (get-in snapshot-a [:world :turn-order])))
+      (is (= ["WT-space-property-send"
+              "WT-space-property-compact"
+              "WT-space-property-slice"]
+             (get-in snapshot-a [:space :turn-order])))
       (is (= :compact/request
              (get-in snapshot-a [:llm :control :control/type])))
       (is (= 21
@@ -467,8 +496,8 @@
              (get-in snapshot-a [:llm :cost :projection/type])))
       (is (= :llm-run-detail
              (get-in snapshot-a [:llm :run-detail :projection/type])))
-      (is (= "WT-world-property-slice"
-             (get-in snapshot-a [:projections :chat-canvas :latest-turn :world-turn/id])))
+      (is (= "WT-space-property-slice"
+             (get-in snapshot-a [:projections :chat-canvas :latest-turn :turn/id])))
       (is (= :llm-item
              (get-in snapshot-a [:catalog :raw :object/type])))
       (is (= :slice
@@ -477,15 +506,15 @@
              (get-in snapshot-a [:projections :raw-detail :projection/type])))
       (is (= #{slice-object-id} (relation-targets raw-relations)))
       (is (= #{raw-object-id} (relation-sources slice-relations)))
-      (is (= world-thread-id
-             (get-in snapshot-a [:world :thread :world-thread/id]))))))
+      (is (= space-id
+             (get-in snapshot-a [:space :thread :space/id]))))))
 
 (deftest slice-raw-immutability-test
-  (with-world-runtime
+  (with-space-runtime
     (fn [runtime]
       (testing "slice snapshots do not mutate raw LLM items or get rewritten by later observations"
-        (let [ids {:world-thread-id "chat-slice-immutability"
-                   :world-turn-id "WT-slice-source-send"
+        (let [ids {:space-id "chat-slice-immutability"
+                   :turn-id "WT-slice-source-send"
                    :bundle-id "B-slice-source"
                    :run-id "run-slice-source"
                    :thread-id "llm-thread-slice-source"
@@ -501,13 +530,13 @@
                           :item-id item-id
                           :text original-text
                           :sequence 0})
-              raw-object-id (world/catalog-object-id :llm-item item-id)
-              slice-request (world/world-only-turn-request
-                              :world-turn/slice-create
-                              (:world-thread-id ids)
+              raw-object-id (space/catalog-object-id :llm-item item-id)
+              slice-request (space/space-turn-request
+                              :turn/slice-create
+                              (:space-id ids)
                               {:request-id "req-slice-create"
                                :time-ms 210
-                               :payload {:world-turn/id "WT-slice-create"
+                               :payload {:turn/id "WT-slice-create"
                                          :slice/id "slice-immutability"
                                          :prompt/text "Make this excerpt public."
                                          :source {:llm-item/id item-id
@@ -515,10 +544,10 @@
                                                   :llm-thread/id (:thread-id ids)
                                                   :content/text original-text
                                                   :content/hash (:content/hash raw-item)}}})]
-          (is (nil? (world/read-object runtime raw-object-id)))
+          (is (nil? (space/read-object runtime raw-object-id)))
           (append-and-await-decision! runtime slice-request)
-          (let [slice (world/await-materialized
-                        #(world/read-slice runtime "slice-immutability")
+          (let [slice (space/await-materialized
+                        #(space/read-slice runtime "slice-immutability")
                         some?)]
             (append-raw-item-observation!
               runtime
@@ -536,169 +565,169 @@
                            [item-id :content/text])))
             (is (= :llm-item
                    (:object/type
-                    (world/await-materialized
-                      #(world/read-object runtime raw-object-id)
+                    (space/await-materialized
+                      #(space/read-object runtime raw-object-id)
                       some?))))))))))
 
 (deftest slice-source-hash-test
-  (with-world-runtime
+  (with-space-runtime
     (fn [runtime]
       (testing "a slice records both its snapshot hash and the source content hash"
-        (let [create-request (world/world-thread-create-request
+        (let [create-request (space/space-create-request
                                "chat-slice-hash"
                                {:request-id "req-slice-hash-thread"
                                 :time-ms 220})
-              source-hash (world/content-hash "larger source material")
-              slice-request (world/world-only-turn-request
-                              :world-turn/slice-create
+              source-hash (space/content-hash "larger source material")
+              slice-request (space/space-turn-request
+                              :turn/slice-create
                               "chat-slice-hash"
                               {:request-id "req-slice-hash"
                                :time-ms 221
-                               :payload {:world-turn/id "WT-slice-hash"
+                               :payload {:turn/id "WT-slice-hash"
                                          :slice/id "slice-hash"
                                          :snapshot/text "selected source"
                                          :source {:llm-item/id "item-slice-hash"
                                                   :content/hash source-hash}}})]
           (append-and-await-decision! runtime create-request)
           (append-and-await-decision! runtime slice-request)
-          (let [slice (world/await-materialized
-                        #(world/read-slice runtime "slice-hash")
+          (let [slice (space/await-materialized
+                        #(space/read-slice runtime "slice-hash")
                         some?)]
             (is (= source-hash (:source/content-hash slice)))
-            (is (= (world/content-hash "selected source") (:snapshot/hash slice)))
+            (is (= (space/content-hash "selected source") (:snapshot/hash slice)))
             (is (not= (:source/content-hash slice) (:snapshot/hash slice)))))))))
 
 (deftest derivative-renders-as-user-authored-test
-  (with-world-runtime
+  (with-space-runtime
     (fn [runtime]
       (testing "derivatives are stored and rendered as user-authored material"
-        (let [create-request (world/world-thread-create-request
+        (let [create-request (space/space-create-request
                                "chat-derivative"
                                {:request-id "req-derivative-thread"
                                 :time-ms 230})
-              derivative-request (world/world-only-turn-request
-                                   :world-turn/derivative-create
+              derivative-request (space/space-turn-request
+                                   :turn/derivative-create
                                    "chat-derivative"
                                    {:request-id "req-derivative"
                                     :time-ms 231
                                     :actor {:actor/id "sid"
                                             :actor/type :human}
-                                    :payload {:world-turn/id "WT-derivative"
+                                    :payload {:turn/id "WT-derivative"
                                               :derivative/id "derivative-user"
                                               :content/text "My rewritten understanding."
                                               :source {:llm-item/id "item-derivative-source"
                                                        :content/text "model draft"}}})
-              send-request (world/compose-and-send-request
+              send-request (space/compose-and-send-request
                              "chat-derivative"
                              "Use this derivative."
                              {:request-id "req-derivative-send"
                               :time-ms 232
-                              :payload {:world-turn/id "WT-derivative-send"
+                              :payload {:turn/id "WT-derivative-send"
                                         :context-bundle/id "B-derivative-send"
                                         :llm-turn-run/id "run-derivative-send"
                                         :refs [{:derivative/id "derivative-user"}]}})]
           (append-and-await-decision! runtime create-request)
           (append-and-await-decision! runtime derivative-request)
-          (let [derivative (world/await-materialized
-                             #(world/read-derivative runtime "derivative-user")
+          (let [derivative (space/await-materialized
+                             #(space/read-derivative runtime "derivative-user")
                              some?)
-                derivative-object (world/await-materialized
-                                    #(world/read-object
+                derivative-object (space/await-materialized
+                                    #(space/read-object
                                        runtime
-                                       (world/catalog-object-id :derivative "derivative-user"))
+                                       (space/catalog-object-id :derivative "derivative-user"))
                                     some?)]
             (is (= :user (:authorship derivative)))
             (is (= :user-authored (:render/as derivative)))
             (is (= :user (:authorship derivative-object))))
           (append-and-await-decision! runtime send-request)
-          (let [bundle (world/await-materialized
-                         #(world/read-context-bundle runtime "B-derivative-send")
+          (let [bundle (space/await-materialized
+                         #(space/read-context-bundle runtime "B-derivative-send")
                          some?)]
             (is (str/includes? (:rendered/model-input bundle)
                                "user-authored-derivative:derivative-user"))))))))
 
-(deftest world-only-turn-no-llm-side-effect-test
-  (with-world-runtime
+(deftest space-only-turn-no-llm-side-effect-test
+  (with-space-runtime
     (fn [runtime]
-      (testing "slice, comment, and derivative turns stay world-only"
-        (let [create-request (world/world-thread-create-request
-                               "chat-world-only-material"
-                               {:request-id "req-world-only-material-thread"
+      (testing "slice, comment, and derivative turns stay space-only"
+        (let [create-request (space/space-create-request
+                               "chat-space-only-material"
+                               {:request-id "req-space-only-material-thread"
                                 :time-ms 240})
-              slice-request (world/world-only-turn-request
-                              :world-turn/slice-create
-                              "chat-world-only-material"
-                              {:request-id "req-world-only-slice"
+              slice-request (space/space-turn-request
+                              :turn/slice-create
+                              "chat-space-only-material"
+                              {:request-id "req-space-only-slice"
                                :time-ms 241
-                               :payload {:world-turn/id "WT-world-only-slice"
-                                         :slice/id "slice-world-only"
-                                         :snapshot/text "world only slice"
-                                         :source {:llm-item/id "item-world-only"
+                               :payload {:turn/id "WT-space-only-slice"
+                                         :slice/id "slice-space-only"
+                                         :snapshot/text "space only slice"
+                                         :source {:llm-item/id "item-space-only"
                                                   :content/text "raw"}}})
-              comment-request (world/world-only-turn-request
-                                :world-turn/comment-create
-                                "chat-world-only-material"
-                                {:request-id "req-world-only-comment"
+              comment-request (space/space-turn-request
+                                :turn/comment-create
+                                "chat-space-only-material"
+                                {:request-id "req-space-only-comment"
                                  :time-ms 242
-                                 :payload {:world-turn/id "WT-world-only-comment"
-                                           :overlay/id "overlay-world-only"
+                                 :payload {:turn/id "WT-space-only-comment"
+                                           :overlay/id "overlay-space-only"
                                            :prompt/text "A note on the raw item."
-                                           :source {:llm-item/id "item-world-only"
+                                           :source {:llm-item/id "item-space-only"
                                                     :content/text "raw"}}})
-              derivative-request (world/world-only-turn-request
-                                   :world-turn/derivative-create
-                                   "chat-world-only-material"
-                                   {:request-id "req-world-only-derivative"
+              derivative-request (space/space-turn-request
+                                   :turn/derivative-create
+                                   "chat-space-only-material"
+                                   {:request-id "req-space-only-derivative"
                                     :time-ms 243
-                                    :payload {:world-turn/id "WT-world-only-derivative"
-                                              :derivative/id "derivative-world-only"
+                                    :payload {:turn/id "WT-space-only-derivative"
+                                              :derivative/id "derivative-space-only"
                                               :content/text "user rewrite"
-                                              :source {:llm-item/id "item-world-only"
+                                              :source {:llm-item/id "item-space-only"
                                                        :content/text "raw"}}})]
           (append-and-await-decision! runtime create-request)
           (append-and-await-decision! runtime slice-request)
           (append-and-await-decision! runtime comment-request)
           (append-and-await-decision! runtime derivative-request)
-          (is (some? (world/await-materialized
-                       #(world/read-slice runtime "slice-world-only")
+          (is (some? (space/await-materialized
+                       #(space/read-slice runtime "slice-space-only")
                        some?)))
-          (is (some? (world/await-materialized
-                       #(world/read-overlay runtime "overlay-world-only")
+          (is (some? (space/await-materialized
+                       #(space/read-overlay runtime "overlay-space-only")
                        some?)))
-          (is (some? (world/await-materialized
-                       #(world/read-derivative runtime "derivative-world-only")
+          (is (some? (space/await-materialized
+                       #(space/read-derivative runtime "derivative-space-only")
                        some?)))
-          (is (nil? (world/read-context-bundle-by-turn runtime "WT-world-only-slice")))
-          (is (nil? (world/read-llm-run-by-turn runtime "WT-world-only-slice")))
-          (is (nil? (world/read-context-bundle-by-turn runtime "WT-world-only-comment")))
-          (is (nil? (world/read-llm-run-by-turn runtime "WT-world-only-comment")))
-          (is (nil? (world/read-context-bundle-by-turn runtime "WT-world-only-derivative")))
-          (is (nil? (world/read-llm-run-by-turn runtime "WT-world-only-derivative")))
+          (is (nil? (space/read-context-bundle-by-turn runtime "WT-space-only-slice")))
+          (is (nil? (space/read-llm-run-by-turn runtime "WT-space-only-slice")))
+          (is (nil? (space/read-context-bundle-by-turn runtime "WT-space-only-comment")))
+          (is (nil? (space/read-llm-run-by-turn runtime "WT-space-only-comment")))
+          (is (nil? (space/read-context-bundle-by-turn runtime "WT-space-only-derivative")))
+          (is (nil? (space/read-llm-run-by-turn runtime "WT-space-only-derivative")))
           (is (empty? (llm/read-pending runtime llm/pending-task-id))))))))
 
 (deftest fork-span-softland-anchor-test
-  (with-world-runtime
+  (with-space-runtime
     (fn [runtime]
-      (testing "fork-from-span anchors a child world on a reusable slice and Codex thread fork"
+      (testing "fork-from-span anchors a child space on a reusable slice and Codex thread fork"
         (let [parent-thread-id "chat-fork-parent"
               child-thread-id "chat-fork-child"
               parent-native-thread-id "codex-native-parent"
               child-native-thread-id "codex-native-child"
-              source-text "The span that becomes its own local world."
-              source-hash (world/content-hash source-text)
-              create-parent (world/world-thread-create-request
+              source-text "The span that becomes its own local space."
+              source-hash (space/content-hash source-text)
+              create-parent (space/space-create-request
                               parent-thread-id
                               {:request-id "req-fork-parent"
                                :time-ms 250
                                :title "Fork parent"})
-              fork-request (world/world-action-request
-                             :world-thread/fork-from-span
+              fork-request (space/space-action-request
+                             :space/fork-from-span
                              child-thread-id
                              {:request-id "req-fork-child"
                               :time-ms 251
                               :title "Fork child"
-                              :payload {:parent-thread/id parent-thread-id
-                                        :world-turn/id "WT-fork-child"
+                              :payload {:parent-space/id parent-thread-id
+                                        :turn/id "WT-fork-child"
                                         :context-bundle/id "B-fork-child"
                                         :slice/id "slice-fork-anchor"
                                         :llm-turn-run/id "run-fork-child"
@@ -713,20 +742,20 @@
                                         :executor/task-id llm/pending-task-id}})]
           (append-and-await-decision! runtime create-parent)
           (let [decision (append-and-await-decision! runtime fork-request)
-                child-thread (world/await-thread runtime child-thread-id #(= 1 (:turn-count %)))
-                slice (world/await-materialized
-                        #(world/read-slice runtime "slice-fork-anchor")
+                child-thread (space/await-space runtime child-thread-id #(= 1 (:turn-count %)))
+                slice (space/await-materialized
+                        #(space/read-slice runtime "slice-fork-anchor")
                         some?)
-                bundle (world/await-materialized
-                         #(world/read-context-bundle runtime "B-fork-child")
+                bundle (space/await-materialized
+                         #(space/read-context-bundle runtime "B-fork-child")
                          some?)
-                llm-request (world/await-materialized
-                              #(world/read-llm-run-request runtime "run-fork-child")
+                llm-request (space/await-materialized
+                              #(space/read-llm-run-request runtime "run-fork-child")
                               some?)
                 llm-run (llm/await-run runtime "run-fork-child" #(= :pending (:status %)))]
             (is (= :accepted (:decision/status decision)))
-            (is (= parent-thread-id (:parent-thread/id child-thread)))
-            (is (contains? (world/read-thread-graph runtime parent-thread-id)
+            (is (= parent-thread-id (:parent-space/id child-thread)))
+            (is (contains? (space/read-space-graph runtime parent-thread-id)
                            child-thread-id))
             (is (= source-text (:snapshot/text slice)))
             (is (= source-hash (:source/content-hash slice)))
@@ -740,23 +769,23 @@
             (is (= child-native-thread-id (:native/codex-thread-id llm-run)))))))))
 
 (deftest fork-binding-before-turn-start-test
-  (with-world-runtime
+  (with-space-runtime
     (fn [runtime]
       (testing "the executor does not start a forked child turn until native binding is durable"
         (let [parent-thread-id "chat-fork-wait-parent"
               child-thread-id "chat-fork-wait-child"
               adapter-called? (atom false)
-              create-parent (world/world-thread-create-request
+              create-parent (space/space-create-request
                               parent-thread-id
                               {:request-id "req-fork-wait-parent"
                                :time-ms 260})
-              fork-request (world/world-action-request
-                             :world-thread/fork-from-span
+              fork-request (space/space-action-request
+                             :space/fork-from-span
                              child-thread-id
                              {:request-id "req-fork-wait-child"
                               :time-ms 261
-                              :payload {:parent-thread/id parent-thread-id
-                                        :world-turn/id "WT-fork-wait-child"
+                              :payload {:parent-space/id parent-thread-id
+                                        :turn/id "WT-fork-wait-child"
                                         :context-bundle/id "B-fork-wait-child"
                                         :slice/id "slice-fork-wait"
                                         :llm-turn-run/id "run-fork-wait-child"
@@ -783,18 +812,18 @@
             (is (nil? (:claimed-by run)))))))))
 
 (deftest patch-proposal-creation-test
-  (with-world-runtime
+  (with-space-runtime
     (fn [runtime]
-      (testing "patch-like LLM observations become pending world proposals"
-        (let [ids {:world-thread-id "chat-patch-proposal"
-                   :world-turn-id "WT-patch-source"
+      (testing "patch-like LLM observations become pending space proposals"
+        (let [ids {:space-id "chat-patch-proposal"
+                   :turn-id "WT-patch-source"
                    :bundle-id "B-patch-source"
                    :run-id "run-patch-proposal"
                    :thread-id "llm-thread-patch-proposal"
                    :request-id "req-patch-source"}
               proposal-id "patch-proposal-1"
               _ (append-send-and-await-run! runtime ids)]
-          (world/append-llm-observation!
+          (space/append-llm-observation!
             runtime
             (llm/observation
               (:run-id ids)
@@ -802,29 +831,29 @@
               :codex/patch-proposal
               0
               {:observation-id "obs-patch-proposal-1"
-               :world-thread/id (:world-thread-id ids)
-               :world-turn/id (:world-turn-id ids)
+               :space/id (:space-id ids)
+               :turn/id (:turn-id ids)
                :patch-proposal/id proposal-id
                :turn-diff/id "turn-diff-1"
                :summary/text "Update the parser."
                :patch/files [{:path "src/app/parser.clj"
                               :hunks 2}]}))
-          (let [proposal (world/await-materialized
-                           #(world/read-patch-proposal runtime proposal-id)
+          (let [proposal (space/await-materialized
+                           #(space/read-patch-proposal runtime proposal-id)
                            some?)]
             (is (= :pending (:status proposal)))
             (is (= (:run-id ids) (:llm-turn-run/id proposal)))
-            (is (= (:world-thread-id ids) (:world-thread/id proposal)))
+            (is (= (:space-id ids) (:space/id proposal)))
             (is (= "Update the parser." (:summary/text proposal)))
             (is (= [{:path "src/app/parser.clj" :hunks 2}]
                    (:patch/files proposal)))))))))
 
-(deftest patch-accept-reject-world-turns-test
-  (with-world-runtime
+(deftest patch-accept-reject-turns-test
+  (with-space-runtime
     (fn [runtime]
-      (testing "patch acceptance and rejection are world turns, not tool approvals"
-        (let [ids {:world-thread-id "chat-patch-resolution"
-                   :world-turn-id "WT-patch-resolution-source"
+      (testing "patch acceptance and rejection are space turns, not tool approvals"
+        (let [ids {:space-id "chat-patch-resolution"
+                   :turn-id "WT-patch-resolution-source"
                    :bundle-id "B-patch-resolution-source"
                    :run-id "run-patch-resolution"
                    :thread-id "llm-thread-patch-resolution"
@@ -833,7 +862,7 @@
               reject-id "patch-proposal-reject"
               _ (append-send-and-await-run! runtime ids)]
           (doseq [[proposal-id sequence] [[accept-id 0] [reject-id 1]]]
-            (world/append-llm-observation!
+            (space/append-llm-observation!
               runtime
               (llm/observation
                 (:run-id ids)
@@ -841,148 +870,148 @@
                 :codex/patch-proposal
                 sequence
                 {:observation-id (str "obs-" proposal-id)
-                 :world-thread/id (:world-thread-id ids)
-                 :world-turn/id (:world-turn-id ids)
+                 :space/id (:space-id ids)
+                 :turn/id (:turn-id ids)
                  :patch-proposal/id proposal-id
                  :summary/text proposal-id})))
-          (world/await-materialized
-            #(world/read-patch-proposal runtime accept-id)
+          (space/await-materialized
+            #(space/read-patch-proposal runtime accept-id)
             #(= :pending (:status %)))
-          (world/await-materialized
-            #(world/read-patch-proposal runtime reject-id)
+          (space/await-materialized
+            #(space/read-patch-proposal runtime reject-id)
             #(= :pending (:status %)))
-          (let [accept-request (world/world-only-turn-request
-                                 :world-turn/patch-accept
-                                 (:world-thread-id ids)
+          (let [accept-request (space/space-turn-request
+                                 :turn/patch-accept
+                                 (:space-id ids)
                                  {:request-id "req-patch-accept"
                                   :time-ms 270
-                                  :payload {:world-turn/id "WT-patch-accept"
+                                  :payload {:turn/id "WT-patch-accept"
                                             :patch-proposal/id accept-id
                                             :prompt/text "Accept this patch."}})
-                reject-request (world/world-only-turn-request
-                                 :world-turn/patch-reject
-                                 (:world-thread-id ids)
+                reject-request (space/space-turn-request
+                                 :turn/patch-reject
+                                 (:space-id ids)
                                  {:request-id "req-patch-reject"
                                   :time-ms 271
-                                  :payload {:world-turn/id "WT-patch-reject"
+                                  :payload {:turn/id "WT-patch-reject"
                                             :patch-proposal/id reject-id
                                             :prompt/text "Reject this patch."
                                             :reason :not-right-shape}})
                 accept-decision (append-and-await-decision! runtime accept-request)
                 reject-decision (append-and-await-decision! runtime reject-request)
-                accepted (world/await-materialized
-                           #(world/read-patch-proposal runtime accept-id)
+                accepted (space/await-materialized
+                           #(space/read-patch-proposal runtime accept-id)
                            #(= :accepted (:status %)))
-                rejected (world/await-materialized
-                           #(world/read-patch-proposal runtime reject-id)
+                rejected (space/await-materialized
+                           #(space/read-patch-proposal runtime reject-id)
                            #(= :rejected (:status %)))]
             (is (= :accepted (:decision/status accept-decision)))
             (is (= :accepted (:decision/status reject-decision)))
-            (is (= "WT-patch-accept" (:resolution/world-turn-id accepted)))
-            (is (= "WT-patch-reject" (:resolution/world-turn-id rejected)))
+            (is (= "WT-patch-accept" (:resolution/turn-id accepted)))
+            (is (= "WT-patch-reject" (:resolution/turn-id rejected)))
             (is (= :not-right-shape (:reason rejected)))
             (is (nil? (:llm-control/type accept-decision)))
             (is (nil? (:llm-control/type reject-decision)))
-            (is (nil? (world/read-llm-control-by-turn runtime "WT-patch-accept")))
-            (is (nil? (world/read-llm-control-by-turn runtime "WT-patch-reject")))))))))
+            (is (nil? (space/read-llm-control-by-turn runtime "WT-patch-accept")))
+            (is (nil? (space/read-llm-control-by-turn runtime "WT-patch-reject")))))))))
 
-(deftest world-only-turn-no-context-bundle-test
-  (with-world-runtime
+(deftest space-only-turn-no-context-bundle-test
+  (with-space-runtime
     (fn [runtime]
-      (testing "world-only turns are ordered material but do not freeze a model input"
-        (let [create-request (world/world-thread-create-request
+      (testing "space-only turns are ordered material but do not freeze a model input"
+        (let [create-request (space/space-create-request
                                "chat-C"
                                {:request-id "req-create-chat-C"
                                 :time-ms 20})
-              comment-request (world/world-only-turn-request
-                                :world-turn/comment-create
+              comment-request (space/space-turn-request
+                                :turn/comment-create
                                 "chat-C"
                                 {:request-id "req-comment-chat-C"
                                  :time-ms 21
-                                 :payload {:world-turn/id "WT-comment"
+                                 :payload {:turn/id "WT-comment"
                                            :prompt/text "Actually, pin this nuance."
-                                           :refs [{:world-turn/id "WT-older"}]}})]
+                                           :refs [{:turn/id "WT-older"}]}})]
           (append-and-await-decision! runtime create-request)
           (let [decision (append-and-await-decision! runtime comment-request)
-                turn (world/await-turn runtime "WT-comment" some?)
-                thread (world/await-thread runtime "chat-C" #(= 1 (:turn-count %)))]
+                turn (space/await-turn runtime "WT-comment" some?)
+                thread (space/await-space runtime "chat-C" #(= 1 (:turn-count %)))]
             (is (= :accepted (:decision/status decision)))
-            (is (= ["req-comment-chat-C/event/world-turn"] (:event/ids decision)))
-            (is (= :world-turn/comment-create (:world-turn/kind turn)))
+            (is (= ["req-comment-chat-C/event/turn"] (:event/ids decision)))
+            (is (= :turn/comment-create (:turn/kind turn)))
             (is (= "Actually, pin this nuance." (:prompt/text turn)))
-            (is (= ["WT-comment"] (world/read-turns-by-thread runtime "chat-C")))
+            (is (= ["WT-comment"] (space/read-turns-by-space runtime "chat-C")))
             (is (= 1 (:turn-count thread)))
-            (is (nil? (world/read-context-bundle-by-turn runtime "WT-comment")))))))))
+            (is (nil? (space/read-context-bundle-by-turn runtime "WT-comment")))))))))
 
-(deftest world-only-turn-requires-thread-test
-  (with-world-runtime
+(deftest space-only-turn-requires-thread-test
+  (with-space-runtime
     (fn [runtime]
-      (testing "world-only turns cannot invent their containing WorldThread"
-        (let [request (world/world-only-turn-request
-                        :world-turn/comment-create
+      (testing "space-only turns cannot invent their containing Space"
+        (let [request (space/space-turn-request
+                        :turn/comment-create
                         "missing-chat"
                         {:request-id "req-comment-missing"
                          :time-ms 30
-                         :payload {:world-turn/id "WT-missing"
+                         :payload {:turn/id "WT-missing"
                                    :prompt/text "No container."}})
               decision (append-and-await-decision! runtime request)]
           (is (= :rejected (:decision/status decision)))
-          (is (= :world-thread/not-found (:decision/reason decision)))
-          (is (nil? (world/read-turn runtime "WT-missing"))))))))
+          (is (= :space/not-found (:decision/reason decision)))
+          (is (nil? (space/read-turn runtime "WT-missing"))))))))
 
-(deftest world-first-send-test
-  (with-world-runtime
+(deftest space-first-send-test
+  (with-space-runtime
     (fn [runtime]
-      (testing "the user send enters World first and World derives the LLM run request"
-        (let [request (world/compose-and-send-request
-                        "chat-world-first"
-                        "Start from the world."
-                        {:request-id "req-world-first"
+      (testing "the user send enters Space first and Space derives the LLM run request"
+        (let [request (space/compose-and-send-request
+                        "chat-space-first"
+                        "Start from the space."
+                        {:request-id "req-space-first"
                          :time-ms 40
-                         :idempotency-key "idem-world-first"
-                         :payload {:world-turn/id "WT-world-first"
-                                   :context-bundle/id "B-world-first"
-                                   :llm-turn-run/id "run-world-first"
-                                   :llm-thread/id "llm-thread-world-first"
+                         :idempotency-key "idem-space-first"
+                         :payload {:turn/id "WT-space-first"
+                                   :context-bundle/id "B-space-first"
+                                   :llm-turn-run/id "run-space-first"
+                                   :llm-thread/id "llm-thread-space-first"
                                    :executor/task-id llm/pending-task-id}})
               decision (append-and-await-decision! runtime request)
-              llm-request (world/await-materialized
-                            #(world/read-llm-run-request runtime "run-world-first")
+              llm-request (space/await-materialized
+                            #(space/read-llm-run-request runtime "run-space-first")
                             some?)
-              llm-decision (llm/await-decision runtime "run-world-first")
-              llm-run (llm/await-run runtime "run-world-first"
+              llm-decision (llm/await-decision runtime "run-space-first")
+              llm-run (llm/await-run runtime "run-space-first"
                                      #(= :pending (:status %)))]
           (is (= :accepted (:decision/status decision)))
-          (is (= "WT-world-first" (:world-turn/id decision)))
-          (is (= "B-world-first" (:context-bundle/id decision)))
-          (is (= "run-world-first" (:llm-turn-run/id decision)))
+          (is (= "WT-space-first" (:turn/id decision)))
+          (is (= "B-space-first" (:context-bundle/id decision)))
+          (is (= "run-space-first" (:llm-turn-run/id decision)))
           (is (= :llm/turn-run-request (:request/type llm-request)))
-          (is (= "WT-world-first" (:world-turn/id llm-request)))
-          (is (= "B-world-first" (:context-bundle/id llm-request)))
-          (is (= "req-world-first/llm-request" (:request/id llm-request)))
+          (is (= "WT-space-first" (:turn/id llm-request)))
+          (is (= "B-space-first" (:context-bundle/id llm-request)))
+          (is (= "req-space-first/llm-request" (:request/id llm-request)))
           (is (= :accepted (:decision/status llm-decision)))
-          (is (= "B-world-first" (:context-bundle/id llm-run)))
+          (is (= "B-space-first" (:context-bundle/id llm-run)))
           (is (contains?
                 (llm/await-materialized
                   #(llm/read-pending runtime llm/pending-task-id)
-                  #(contains? % "run-world-first"))
-                "run-world-first")))))))
+                  #(contains? % "run-space-first"))
+                "run-space-first")))))))
 
 (deftest context-bundle-before-run-test
-  (with-world-runtime
+  (with-space-runtime
     (fn [runtime]
-      (testing "World materializes the bundle that the bridged LLM run points at"
-        (let [request (world/compose-and-send-request
+      (testing "Space materializes the bundle that the bridged LLM run points at"
+        (let [request (space/compose-and-send-request
                         "chat-bundle-before-run"
                         "Freeze this before execution."
                         {:request-id "req-bundle-before-run"
                          :time-ms 50
-                         :payload {:world-turn/id "WT-bundle-before-run"
+                         :payload {:turn/id "WT-bundle-before-run"
                                    :context-bundle/id "B-bundle-before-run"
                                    :llm-turn-run/id "run-bundle-before-run"}})
               decision (append-and-await-decision! runtime request)
-              bundle (world/await-materialized
-                       #(world/read-context-bundle runtime "B-bundle-before-run")
+              bundle (space/await-materialized
+                       #(space/read-context-bundle runtime "B-bundle-before-run")
                        some?)
               llm-run (llm/await-run runtime "run-bundle-before-run"
                                      #(= :pending (:status %)))]
@@ -990,26 +1019,26 @@
           (is (= (:context-bundle/hash bundle) (:context-bundle/hash decision)))
           (is (= (:context-bundle/id bundle) (:context-bundle/id llm-run)))
           (is (= "run-bundle-before-run"
-                 (world/read-llm-run-by-turn runtime "WT-bundle-before-run"))))))))
+                 (space/read-llm-run-by-turn runtime "WT-bundle-before-run"))))))))
 
 (deftest one-bundle-per-run-test
-  (with-world-runtime
+  (with-space-runtime
     (fn [runtime]
       (testing "one compose-and-send creates exactly one bundle and one run"
-        (let [request (world/compose-and-send-request
+        (let [request (space/compose-and-send-request
                         "chat-one-bundle"
                         "One run, one bundle."
                         {:request-id "req-one-bundle"
                          :time-ms 60
-                         :payload {:world-turn/id "WT-one-bundle"
+                         :payload {:turn/id "WT-one-bundle"
                                    :context-bundle/id "B-one-bundle"
                                    :llm-turn-run/id "run-one-bundle"}})
               decision (append-and-await-decision! runtime request)
-              bundle-id (world/await-materialized
-                          #(world/read-context-bundle-by-turn runtime "WT-one-bundle")
+              bundle-id (space/await-materialized
+                          #(space/read-context-bundle-by-turn runtime "WT-one-bundle")
                           some?)
-              run-id (world/await-materialized
-                       #(world/read-llm-run-by-turn runtime "WT-one-bundle")
+              run-id (space/await-materialized
+                       #(space/read-llm-run-by-turn runtime "WT-one-bundle")
                        some?)
               llm-run (llm/await-run runtime "run-one-bundle"
                                      #(= :pending (:status %)))]
@@ -1017,31 +1046,31 @@
           (is (= "run-one-bundle" run-id))
           (is (= "B-one-bundle" (:context-bundle/id llm-run)))
           (is (= "run-one-bundle" (:llm-turn-run/id decision)))
-          (is (= ["WT-one-bundle"] (world/read-turns-by-thread runtime "chat-one-bundle"))))))))
+          (is (= ["WT-one-bundle"] (space/read-turns-by-space runtime "chat-one-bundle"))))))))
 
 (deftest accepted-decision-fields-test
-  (with-world-runtime
+  (with-space-runtime
     (fn [runtime]
       (testing "accepted compose decisions expose the sibling facts needed by projections"
-        (let [request (world/compose-and-send-request
+        (let [request (space/compose-and-send-request
                         "chat-decision-fields"
                         "Expose the accepted fields."
                         {:request-id "req-decision-fields"
                          :time-ms 70
-                         :payload {:world-turn/id "WT-decision-fields"
+                         :payload {:turn/id "WT-decision-fields"
                                    :context-bundle/id "B-decision-fields"
                                    :llm-turn-run/id "run-decision-fields"
                                    :llm-thread/id "llm-thread-decision-fields"}})
               decision (append-and-await-decision! runtime request)]
           (is (= :accepted (:decision/status decision)))
-          (is (= "req-decision-fields/event/world-turn" (:event/id decision)))
-          (is (= ["req-decision-fields/event/world-thread"
-                  "req-decision-fields/event/world-turn"
+          (is (= "req-decision-fields/event/turn" (:event/id decision)))
+          (is (= ["req-decision-fields/event/space"
+                  "req-decision-fields/event/turn"
                   "req-decision-fields/event/context-bundle"
                   "req-decision-fields/event/llm-turn-run"]
                  (:event/ids decision)))
-          (is (= "chat-decision-fields" (:world-thread/id decision)))
-          (is (= "WT-decision-fields" (:world-turn/id decision)))
+          (is (= "chat-decision-fields" (:space/id decision)))
+          (is (= "WT-decision-fields" (:turn/id decision)))
           (is (= "B-decision-fields" (:context-bundle/id decision)))
           (is (str/starts-with? (:context-bundle/hash decision) "sha256:"))
           (is (= "llm-thread-decision-fields" (:llm-thread/id decision)))
@@ -1049,26 +1078,26 @@
           (is (= "req-decision-fields/llm-request" (:llm/request-id decision))))))))
 
 (deftest idempotency-test
-  (with-world-runtime
+  (with-space-runtime
     (fn [runtime]
       (testing "replaying the same send key does not mint duplicate turns, bundles, or runs"
-        (let [request-a (world/compose-and-send-request
+        (let [request-a (space/compose-and-send-request
                           "chat-idempotent"
                           "Send once."
                           {:request-id "req-idem-A"
                            :time-ms 80
                            :idempotency-key "idem-same-send"
-                           :payload {:world-turn/id "WT-idem-A"
+                           :payload {:turn/id "WT-idem-A"
                                      :context-bundle/id "B-idem-A"
                                      :llm-turn-run/id "run-idem-A"
                                      :llm-thread/id "llm-thread-idem"}})
-              request-b (world/compose-and-send-request
+              request-b (space/compose-and-send-request
                           "chat-idempotent"
                           "Send once, replayed."
                           {:request-id "req-idem-B"
                            :time-ms 81
                            :idempotency-key "idem-same-send"
-                           :payload {:world-turn/id "WT-idem-B"
+                           :payload {:turn/id "WT-idem-B"
                                      :context-bundle/id "B-idem-B"
                                      :llm-turn-run/id "run-idem-B"
                                      :llm-thread/id "llm-thread-idem"}})
@@ -1079,33 +1108,33 @@
           (is (= :accepted (:decision/status decision-b)))
           (is (:idempotency/replayed? decision-b))
           (is (= (:event/ids decision-a) (:event/ids decision-b)))
-          (is (= "WT-idem-A" (:world-turn/id decision-b)))
+          (is (= "WT-idem-A" (:turn/id decision-b)))
           (is (= "B-idem-A" (:context-bundle/id decision-b)))
           (is (= "run-idem-A" (:llm-turn-run/id decision-b)))
-          (is (= ["WT-idem-A"] (world/read-turns-by-thread runtime "chat-idempotent")))
-          (is (= "B-idem-A" (world/read-context-bundle-by-turn runtime "WT-idem-A")))
-          (is (nil? (world/read-context-bundle-by-turn runtime "WT-idem-B")))
-          (is (some? (world/read-context-bundle runtime "B-idem-A")))
-          (is (nil? (world/read-context-bundle runtime "B-idem-B")))
-          (is (some? (world/read-llm-run-request runtime "run-idem-A")))
-          (is (nil? (world/read-llm-run-request runtime "run-idem-B")))
+          (is (= ["WT-idem-A"] (space/read-turns-by-space runtime "chat-idempotent")))
+          (is (= "B-idem-A" (space/read-context-bundle-by-turn runtime "WT-idem-A")))
+          (is (nil? (space/read-context-bundle-by-turn runtime "WT-idem-B")))
+          (is (some? (space/read-context-bundle runtime "B-idem-A")))
+          (is (nil? (space/read-context-bundle runtime "B-idem-B")))
+          (is (some? (space/read-llm-run-request runtime "run-idem-A")))
+          (is (nil? (space/read-llm-run-request runtime "run-idem-B")))
           (is (some? (llm/read-run runtime "run-idem-A")))
           (is (nil? (llm/read-run runtime "run-idem-B")))
           (is (= "run-idem-A"
                  (:llm-turn-run/id
-                  (world/read-send-by-idempotency runtime "idem-same-send")))))))))
+                  (space/read-send-by-idempotency runtime "idem-same-send")))))))))
 
-(deftest approval-world-first-test
-  (with-world-runtime
+(deftest approval-space-first-test
+  (with-space-runtime
     (fn [runtime]
-      (testing "approval resolution enters World and derives an LLM control record"
-        (let [ids {:world-thread-id "chat-approval"
-                   :world-turn-id "WT-approval-send"
+      (testing "approval resolution enters Space and derives an LLM control record"
+        (let [ids {:space-id "chat-approval"
+                   :turn-id "WT-approval-send"
                    :bundle-id "B-approval"
-                   :run-id "run-approval-world-first"
+                   :run-id "run-approval-space-first"
                    :thread-id "llm-thread-approval"
                    :request-id "req-approval-send"}
-              approval-id "approval-world-first"
+              approval-id "approval-space-first"
               native-id 44
               _ (append-send-and-await-run! runtime ids)
               _ (append-approval-observation!
@@ -1114,12 +1143,12 @@
                    :thread-id (:thread-id ids)
                    :approval-id approval-id
                    :native-id native-id})
-              control-request (world/world-only-turn-request
-                                :world-turn/tool-approval-resolve
-                                (:world-thread-id ids)
+              control-request (space/space-turn-request
+                                :turn/tool-approval-resolve
+                                (:space-id ids)
                                 {:request-id "req-approval-resolve"
                                  :time-ms 110
-                                 :payload {:world-turn/id "WT-approval-resolve"
+                                 :payload {:turn/id "WT-approval-resolve"
                                            :llm-turn-run/id (:run-id ids)
                                            :approval/id approval-id
                                            :native/json-rpc-request-id native-id
@@ -1132,9 +1161,9 @@
                         some?)]
           (is (= :accepted (:decision/status decision)))
           (is (= :approval/resolve (:llm-control/type decision)))
-          (is (= "WT-approval-resolve" (:world-turn/id decision)))
+          (is (= "WT-approval-resolve" (:turn/id decision)))
           (is (= "req-approval-resolve/llm-control"
-                 (world/read-llm-control-by-turn runtime "WT-approval-resolve")))
+                 (space/read-llm-control-by-turn runtime "WT-approval-resolve")))
           (is (= :approval/resolve (:control/type control)))
           (is (= native-id (:native/json-rpc-request-id control)))
           (is (= :running (:status run)))
@@ -1144,11 +1173,11 @@
                       nil?))))))))
 
 (deftest approval-is-not-patch-acceptance-test
-  (with-world-runtime
+  (with-space-runtime
     (fn [runtime]
       (testing "tool approval resolution is separate from patch acceptance"
-        (let [ids {:world-thread-id "chat-approval-not-patch"
-                   :world-turn-id "WT-approval-not-patch-send"
+        (let [ids {:space-id "chat-approval-not-patch"
+                   :turn-id "WT-approval-not-patch-send"
                    :bundle-id "B-approval-not-patch"
                    :run-id "run-approval-not-patch"
                    :thread-id "llm-thread-approval-not-patch"
@@ -1161,51 +1190,51 @@
                    :thread-id (:thread-id ids)
                    :approval-id approval-id
                    :native-id 55})
-              approval-request (world/world-only-turn-request
-                                 :world-turn/tool-approval-resolve
-                                 (:world-thread-id ids)
+              approval-request (space/space-turn-request
+                                 :turn/tool-approval-resolve
+                                 (:space-id ids)
                                  {:request-id "req-approval-not-patch"
                                   :time-ms 120
-                                  :payload {:world-turn/id "WT-approval-not-patch"
+                                  :payload {:turn/id "WT-approval-not-patch"
                                             :llm-turn-run/id (:run-id ids)
                                             :approval/id approval-id
                                             :native/json-rpc-request-id 55
                                             :decision :approved}})
-              patch-request (world/world-only-turn-request
-                              :world-turn/patch-accept
-                              (:world-thread-id ids)
+              patch-request (space/space-turn-request
+                              :turn/patch-accept
+                              (:space-id ids)
                               {:request-id "req-patch-accept-not-approval"
                                :time-ms 121
-                               :payload {:world-turn/id "WT-patch-accept"
+                               :payload {:turn/id "WT-patch-accept"
                                          :prompt/text "accept patch"}})
               approval-decision (append-and-await-decision! runtime approval-request)
               patch-decision (append-and-await-decision! runtime patch-request)]
           (is (= :approval/resolve (:llm-control/type approval-decision)))
-          (is (= :world-turn/tool-approval-resolve
-                 (:world-turn/kind (world/read-turn runtime "WT-approval-not-patch"))))
+          (is (= :turn/tool-approval-resolve
+                 (:turn/kind (space/read-turn runtime "WT-approval-not-patch"))))
           (is (= :accepted (:decision/status patch-decision)))
-          (is (= :world-turn/patch-accept
-                 (:world-turn/kind (world/read-turn runtime "WT-patch-accept"))))
+          (is (= :turn/patch-accept
+                 (:turn/kind (space/read-turn runtime "WT-patch-accept"))))
           (is (nil? (:llm-control/type patch-decision)))
-          (is (nil? (world/read-llm-control-by-turn runtime "WT-patch-accept"))))))))
+          (is (nil? (space/read-llm-control-by-turn runtime "WT-patch-accept"))))))))
 
-(deftest cancel-world-first-test
-  (with-world-runtime
+(deftest cancel-space-first-test
+  (with-space-runtime
     (fn [runtime]
-      (testing "cancel enters World first and derives an LLM cancel control"
-        (let [ids {:world-thread-id "chat-cancel"
-                   :world-turn-id "WT-cancel-send"
+      (testing "cancel enters Space first and derives an LLM cancel control"
+        (let [ids {:space-id "chat-cancel"
+                   :turn-id "WT-cancel-send"
                    :bundle-id "B-cancel"
-                   :run-id "run-cancel-world-first"
+                   :run-id "run-cancel-space-first"
                    :thread-id "llm-thread-cancel"
                    :request-id "req-cancel-send"}
               _ (append-send-and-await-run! runtime ids)
-              request (world/world-only-turn-request
-                        :world-turn/cancel
-                        (:world-thread-id ids)
+              request (space/space-turn-request
+                        :turn/cancel
+                        (:space-id ids)
                         {:request-id "req-cancel"
                          :time-ms 130
-                         :payload {:world-turn/id "WT-cancel"
+                         :payload {:turn/id "WT-cancel"
                                    :llm-turn-run/id (:run-id ids)
                                    :reason :user-request}})
               decision (append-and-await-decision! runtime request)
@@ -1222,23 +1251,23 @@
                             (:run-id ids))
                       nil?))))))))
 
-(deftest compaction-world-first-test
-  (with-world-runtime
+(deftest compaction-space-first-test
+  (with-space-runtime
     (fn [runtime]
-      (testing "compaction request enters World first and records an LLM control"
-        (let [ids {:world-thread-id "chat-compact"
-                   :world-turn-id "WT-compact-send"
+      (testing "compaction request enters Space first and records an LLM control"
+        (let [ids {:space-id "chat-compact"
+                   :turn-id "WT-compact-send"
                    :bundle-id "B-compact"
-                   :run-id "run-compact-world-first"
+                   :run-id "run-compact-space-first"
                    :thread-id "llm-thread-compact"
                    :request-id "req-compact-send"}
               _ (append-send-and-await-run! runtime ids)
-              request (world/world-only-turn-request
-                        :world-turn/compact-request
-                        (:world-thread-id ids)
+              request (space/space-turn-request
+                        :turn/compact-request
+                        (:space-id ids)
                         {:request-id "req-compact"
                          :time-ms 140
-                         :payload {:world-turn/id "WT-compact"
+                         :payload {:turn/id "WT-compact"
                                    :llm-turn-run/id (:run-id ids)
                                    :strategy :summarize-prefix}})
               decision (append-and-await-decision! runtime request)
@@ -1253,18 +1282,18 @@
           (is (= [{:control/id "req-compact/llm-control"
                    :time-ms 140
                    :actor {:actor/id "system" :actor/type :system}
-                   :payload {:world-thread/id "chat-compact"
-                             :world-turn/id "WT-compact"
-                             :llm-turn-run/id "run-compact-world-first"
+                   :payload {:space/id "chat-compact"
+                             :turn/id "WT-compact"
+                             :llm-turn-run/id "run-compact-space-first"
                              :strategy :summarize-prefix}}]
                  (:compactions run))))))))
 
 (deftest approval-timeout-test
-  (with-world-runtime
+  (with-space-runtime
     (fn [runtime]
       (testing "approval timeout is durably recorded as an expired approval"
-        (let [ids {:world-thread-id "chat-timeout"
-                   :world-turn-id "WT-timeout-send"
+        (let [ids {:space-id "chat-timeout"
+                   :turn-id "WT-timeout-send"
                    :bundle-id "B-timeout"
                    :run-id "run-approval-timeout"
                    :thread-id "llm-thread-timeout"
@@ -1277,12 +1306,12 @@
                    :thread-id (:thread-id ids)
                    :approval-id approval-id
                    :native-id 66})
-              request (world/world-only-turn-request
-                        :world-turn/tool-approval-resolve
-                        (:world-thread-id ids)
+              request (space/space-turn-request
+                        :turn/tool-approval-resolve
+                        (:space-id ids)
                         {:request-id "req-approval-timeout"
                          :time-ms 150
-                         :payload {:world-turn/id "WT-approval-timeout"
+                         :payload {:turn/id "WT-approval-timeout"
                                    :llm-turn-run/id (:run-id ids)
                                    :approval/id approval-id
                                    :native/json-rpc-request-id 66

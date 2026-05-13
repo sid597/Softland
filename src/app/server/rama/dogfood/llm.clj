@@ -2,7 +2,7 @@
   (:use [com.rpl.rama]
         [com.rpl.rama.path]
         [com.rpl.rama.ops])
-  (:require [app.server.rama.core :as kernel]
+  (:require [app.server.rama.core :as core]
             [clojure.data.json :as json]
             [clojure.string :as str]
             [com.rpl.rama.test :refer [create-ipc launch-module!]])
@@ -78,8 +78,8 @@
   #{"api_key" "apikey" "api-key" "token" "auth_token" "auth-token"
     "oauth_token" "oauth-token" "password" "secret" "authorization"})
 
-(defn now-ms [] (kernel/now-ms))
-(defn random-id [prefix] (kernel/random-id prefix))
+(defn now-ms [] (core/now-ms))
+(defn random-id [prefix] (core/random-id prefix))
 
 (defn llm-routing-key
   [run-id]
@@ -149,10 +149,10 @@
     request))
 
 (defn turn-run-request
-  "Build the LLMTopology input record. In the full system WorldTopology is the
-   only writer of this value to *llm-depot after it has accepted a WorldTurn and
+  "Build the LLMTopology input record. In the full system SpaceTopology is the
+   only writer of this value to *llm-depot after it has accepted a Turn and
    frozen the ContextBundle."
-  [world-thread-id world-turn-id context-bundle-id & [opts]]
+  [space-id turn-id context-bundle-id & [opts]]
   (let [run-id (or (:llm-turn-run-id opts) (:llm-turn-run/id opts) (random-id "llm-run"))
         llm-thread-id (or (:llm-thread-id opts) (:llm-thread/id opts) (random-id "llm-thread"))
         request-id (or (:request-id opts) (:request/id opts) (random-id "llm-req"))
@@ -170,10 +170,10 @@
              :request/time-ms time-ms
              :idempotency/key (or (:idempotency-key opts)
                                   (:idempotency/key opts)
-                                  (str "world-event:" world-turn-id ":" context-bundle-id))
+                                  (str "space-event:" turn-id ":" context-bundle-id))
              :routing/key (llm-routing-key run-id)
-             :world-thread/id world-thread-id
-             :world-turn/id world-turn-id
+             :space/id space-id
+             :turn/id turn-id
              :context-bundle/id context-bundle-id
              :llm-thread/id llm-thread-id
              :llm-turn-run/id run-id
@@ -195,7 +195,7 @@
 
 (def required-request-keys
   [:request/id :request/type :request/schema-version :request/time-ms
-   :idempotency/key :routing/key :world-thread/id :world-turn/id
+   :idempotency/key :routing/key :space/id :turn/id
    :context-bundle/id :llm-thread/id :llm-turn-run/id :executor :payload])
 
 (defn request-validation-errors
@@ -237,13 +237,13 @@
              :value (:routing/key request)
              :expected (llm-routing-key run-id)})
 
-      (and (map? request) (blank-string? (:world-thread/id request)))
-      (conj {:type :world-thread/id-invalid
-             :value (:world-thread/id request)})
+      (and (map? request) (blank-string? (:space/id request)))
+      (conj {:type :space/id-invalid
+             :value (:space/id request)})
 
-      (and (map? request) (blank-string? (:world-turn/id request)))
-      (conj {:type :world-turn/id-invalid
-             :value (:world-turn/id request)})
+      (and (map? request) (blank-string? (:turn/id request)))
+      (conj {:type :turn/id-invalid
+             :value (:turn/id request)})
 
       (and (map? request) (blank-string? context-bundle-id))
       (conj {:type :context-bundle/id-invalid
@@ -308,8 +308,8 @@
    :event/schema-version schema-version
    :request/id (:request/id request)
    :routing/key (:routing/key request)
-   :world-thread/id (:world-thread/id request)
-   :world-turn/id (:world-turn/id request)
+   :space/id (:space/id request)
+   :turn/id (:turn/id request)
    :context-bundle/id (:context-bundle/id request)
    :llm-thread/id (:llm-thread/id request)
    :llm-turn-run/id (:llm-turn-run/id request)
@@ -371,8 +371,8 @@
         native-thread-id (get-in event [:executor :native/thread-id])]
     {:llm-turn-run/id (:llm-turn-run/id decision)
      :llm-thread/id (:llm-thread/id event)
-     :world-thread/id (:world-thread/id event)
-     :world-turn/id (:world-turn/id event)
+     :space/id (:space/id event)
+     :turn/id (:turn/id event)
      :context-bundle/id (:context-bundle/id event)
      :request/id (:request/id decision)
      :decision/id (:decision/id decision)
@@ -421,8 +421,8 @@
 
 (defn run-executor-task-id [run-row] (:executor/task-id run-row))
 (defn run-thread-id [run-row] (:llm-thread/id run-row))
-(defn run-world-thread-id [run-row] (:world-thread/id run-row))
-(defn run-world-turn-id [run-row] (:world-turn/id run-row))
+(defn run-space-id [run-row] (:space/id run-row))
+(defn run-turn-id [run-row] (:turn/id run-row))
 (defn known-run-row? [run-row] (some? run-row))
 (defn terminal-run-row? [run-row] (contains? terminal-statuses (:status run-row)))
 (defn fork-binding-required? [run-row]
@@ -434,7 +434,7 @@
 (defn turn-run-summary
   [run-row]
   (select-keys run-row
-               [:llm-turn-run/id :request/id :status :world-turn/id
+               [:llm-turn-run/id :request/id :status :turn/id
                 :context-bundle/id :created-at :updated-at
                 :llm/backend :native/codex-thread-id
                 :native/claude-session-id]))
@@ -454,7 +454,7 @@
   (let [time-ms (:updated-at run-row)
         base (or existing
                  {:llm-thread/id (:llm-thread/id run-row)
-                  :world-thread/id (:world-thread/id run-row)
+                  :space/id (:space/id run-row)
                   :agent/kind (:agent/kind run-row)
                   :llm/backend (:llm/backend run-row)
                   :native/codex-thread-id (:native/codex-thread-id run-row)
@@ -463,7 +463,7 @@
                   :turn-run/ids []})]
     (-> base
         (assoc :updated-at time-ms
-               :world-thread/id (:world-thread/id run-row)
+               :space/id (:space/id run-row)
                :agent/kind (:agent/kind run-row)
                :llm/backend (:llm/backend run-row)
                :native/codex-thread-id (or (:native/codex-thread-id run-row)
@@ -490,8 +490,8 @@
 (defn run-view
   [run-row]
   (assoc (select-keys run-row
-                      [:llm-turn-run/id :llm-thread/id :world-thread/id
-                       :world-turn/id :context-bundle/id :request/id :status
+                      [:llm-turn-run/id :llm-thread/id :space/id
+                       :turn/id :context-bundle/id :request/id :status
                        :llm/backend :llm/auth-mode :agent/kind
                        :native/codex-thread-id :native/claude-session-id
                        :executor/task-id
@@ -537,7 +537,7 @@
 (defn cost-rollup-run-entry
   [run-row]
   {:llm-turn-run/id (:llm-turn-run/id run-row)
-   :world-turn/id (:world-turn/id run-row)
+   :turn/id (:turn/id run-row)
    :context-bundle/id (:context-bundle/id run-row)
    :status (:status run-row)
    :token-usage (:token-usage run-row)
@@ -556,7 +556,7 @@
     {:projection/type :llm-thread-cost-rollup
      :projection/source :llm-token-usage-by-run-id
      :llm-thread/id (:llm-thread/id run-row)
-     :world-thread/id (:world-thread/id run-row)
+     :space/id (:space/id run-row)
      :run-count (count runs)
      :runs runs
      :tokens totals
@@ -585,8 +585,8 @@
    :routing/key (llm-routing-key run-id)
    :llm-turn-run/id run-id
    :llm-thread/id (:llm-thread/id opts)
-   :world-thread/id (:world-thread/id opts)
-   :world-turn/id (:world-turn/id opts)
+   :space/id (:space/id opts)
+   :turn/id (:turn/id opts)
    :approval/id (:approval/id opts)
    :native/json-rpc-request-id (:native/json-rpc-request-id opts)
    :decision (:decision opts)
@@ -705,7 +705,7 @@
        :claude/event (:claude/event opts)
        :raw/json (or (:raw/json opts) (:raw-json opts) {})}
       (select-keys opts
-                   [:world-thread/id :world-turn/id
+                   [:space/id :turn/id
                     :llm-item/id :native/item-id :item/type :content/text
                     :content/hash :approval/id :approval/type
                     :native/json-rpc-request-id :tokens/input-total
@@ -779,7 +779,7 @@
      :item/type (or (:item/type obs) :assistant-message)
      :item/order (:sequence obs)
      :content/text text
-     :content/hash (or (:content/hash obs) (str "sha256:" (kernel/sha-256 text)))
+     :content/hash (or (:content/hash obs) (str "sha256:" (core/sha-256 text)))
      :source (item-source obs)
      :created-at-ms (:received-at-ms obs)}))
 
@@ -1227,6 +1227,8 @@
 (defn fold-control
   [run-row control]
   (let [run-row (record-control run-row control)]
+    ;; NOTE: :turn/cancel and :turn/steer can also appear as space request
+    ;; types. LLM control dispatch is authoritative on :control/type.
     (cond
       (not (valid-control? control))
       (add-observation-error run-row :control/invalid control)
@@ -1256,11 +1258,11 @@
   (declare-depot setup *llm-control-depot (hash-by :llm-turn-run/id))
   (let [n (stream-topology topologies "llm-track-topology")]
     (declare-pstate n $$llm-threads {String Object})
-    (declare-pstate n $$llm-thread-by-world-thread {String String})
+    (declare-pstate n $$llm-thread-by-space {String String})
     (declare-pstate n $$llm-thread-graph {String Object})
     (declare-pstate n $$llm-turn-runs {String Object})
     (declare-pstate n $$llm-turn-runs-by-thread {String Object})
-    (declare-pstate n $$llm-turn-run-by-world-turn {String String})
+    (declare-pstate n $$llm-turn-run-by-turn {String String})
     (declare-pstate n $$llm-decisions-by-run-id {String Object})
     (declare-pstate n $$llm-pending-by-task {String Object})
     (declare-pstate n $$llm-items-by-turn-run {String Object})
@@ -1296,8 +1298,8 @@
         (run-detail-projection *bound-run-row :> *run-detail)
         (pending-entry *bound-run-row :> *pending-entry)
         (turn-run-summary *bound-run-row :> *run-summary)
-        (run-world-thread-id *assigned-run-row :> *world-thread-id)
-        (run-world-turn-id *assigned-run-row :> *world-turn-id)
+        (run-space-id *assigned-run-row :> *space-id)
+        (run-turn-id *assigned-run-row :> *turn-id)
         (upsert-thread-row *existing-thread-row *bound-run-row :> *thread-row)
         (local-transform> [(keypath *thread-id) (termval *thread-row)] $$llm-threads)
         (local-transform> [(keypath *thread-id) (keypath *run-id) (termval *run-summary)] $$llm-turn-runs-by-thread)
@@ -1305,12 +1307,12 @@
         (local-transform> [(keypath *run-id) (termval *bound-run-row)] $$llm-turn-runs)
         (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
         (local-transform> [(keypath *run-id) (termval *run-detail)] $$projection-run-detail)
-        (|hash *world-turn-id)
-        (local-transform> [(keypath *world-turn-id) (termval *run-id)] $$llm-turn-run-by-world-turn)
+        (|hash *turn-id)
+        (local-transform> [(keypath *turn-id) (termval *run-id)] $$llm-turn-run-by-turn)
         (|hash *executor-task-id)
         (local-transform> [(keypath *executor-task-id) (keypath *run-id) (termval *pending-entry)] $$llm-pending-by-task)
-        (|hash *world-thread-id)
-        (local-transform> [(keypath *world-thread-id) (termval *thread-id)] $$llm-thread-by-world-thread))
+        (|hash *space-id)
+        (local-transform> [(keypath *space-id) (termval *thread-id)] $$llm-thread-by-space))
 
       (source> *llm-claim-depot :> *claim)
       (claim-run-id *claim :> *run-id)
@@ -1412,10 +1414,10 @@
      :llm-obs-depot (foreign-depot ipc module-name "*llm-obs-depot")
      :llm-control-depot (foreign-depot ipc module-name "*llm-control-depot")
      :llm-threads (foreign-pstate ipc module-name "$$llm-threads")
-     :llm-thread-by-world-thread (foreign-pstate ipc module-name "$$llm-thread-by-world-thread")
+     :llm-thread-by-space (foreign-pstate ipc module-name "$$llm-thread-by-space")
      :llm-turn-runs (foreign-pstate ipc module-name "$$llm-turn-runs")
      :llm-turn-runs-by-thread (foreign-pstate ipc module-name "$$llm-turn-runs-by-thread")
-     :llm-turn-run-by-world-turn (foreign-pstate ipc module-name "$$llm-turn-run-by-world-turn")
+     :llm-turn-run-by-turn (foreign-pstate ipc module-name "$$llm-turn-run-by-turn")
      :llm-decisions-by-run-id (foreign-pstate ipc module-name "$$llm-decisions-by-run-id")
      :llm-pending-by-task (foreign-pstate ipc module-name "$$llm-pending-by-task")
      :llm-items-by-turn-run (foreign-pstate ipc module-name "$$llm-items-by-turn-run")
@@ -1950,8 +1952,8 @@
                           "/stale-approval/"
                           (:approval/id approval)))
      :llm-thread/id (:llm-thread/id run-row)
-     :world-thread/id (:world-thread/id run-row)
-     :world-turn/id (:world-turn/id run-row)
+     :space/id (:space/id run-row)
+     :turn/id (:turn/id run-row)
      :approval/id (:approval/id approval)
      :native/json-rpc-request-id (:native/json-rpc-request-id approval)
      :decision :expired
@@ -1985,16 +1987,16 @@
   (select-pstate-one (:llm-threads runtime) [(keypath thread-id)]))
 
 (defn read-thread-binding
-  [runtime world-thread-id]
-  (select-pstate-one (:llm-thread-by-world-thread runtime) [(keypath world-thread-id)]))
+  [runtime space-id]
+  (select-pstate-one (:llm-thread-by-space runtime) [(keypath space-id)]))
 
 (defn read-run
   [runtime run-id]
   (select-pstate-one (:llm-turn-runs runtime) [(keypath run-id)]))
 
-(defn read-run-for-world-turn
-  [runtime world-turn-id]
-  (select-pstate-one (:llm-turn-run-by-world-turn runtime) [(keypath world-turn-id)]))
+(defn read-run-for-turn
+  [runtime turn-id]
+  (select-pstate-one (:llm-turn-run-by-turn runtime) [(keypath turn-id)]))
 
 (defn read-decision
   [runtime run-id]

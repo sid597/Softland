@@ -32,7 +32,7 @@
   [runtime run-id]
   (let [request (llm/turn-run-request
                   "chat-A"
-                  (str run-id "/world-turn")
+                  (str run-id "/turn")
                   (str run-id "/bundle")
                   {:llm-turn-run-id run-id
                    :llm-thread-id "llm-thread-A"
@@ -51,14 +51,14 @@
   []
   (let [run-id "run_writer_asymmetry"
         thread-id "llm-thread-writer-asymmetry"
-        world-thread-id "world-thread-writer-asymmetry"
-        world-turn-id "world-turn-writer-asymmetry"
+        space-id "space-writer-asymmetry"
+        turn-id "turn-writer-asymmetry"
         bundle-id "bundle-writer-asymmetry"
         executor-task-id llm/pending-task-id
         approval-id "approval-writer-asymmetry"
         request (llm/turn-run-request
-                  world-thread-id
-                  world-turn-id
+                  space-id
+                  turn-id
                   bundle-id
                   {:llm-turn-run-id run-id
                    :llm-thread-id thread-id
@@ -74,8 +74,8 @@
                  :executor-task-id executor-task-id})]
     {:ids {:run-id run-id
            :thread-id thread-id
-           :world-thread-id world-thread-id
-           :world-turn-id world-turn-id
+           :space-id space-id
+           :turn-id turn-id
            :executor-task-id executor-task-id
            :approval-id approval-id}
      :records [[:turn-run-request request]
@@ -135,15 +135,15 @@
                    :codex/event-params {:cmd "echo writer-asymmetry"}})]]}))
 
 (defn llm-spine-pstate-snapshot
-  [runtime {:keys [run-id thread-id world-thread-id world-turn-id
+  [runtime {:keys [run-id thread-id space-id turn-id
                    executor-task-id approval-id]}]
   {:decision (llm/read-decision runtime run-id)
    :run (llm/read-run runtime run-id)
    :view (llm/read-view runtime run-id)
    :thread (llm/read-thread runtime thread-id)
-   :thread-binding (llm/read-thread-binding runtime world-thread-id)
+   :thread-binding (llm/read-thread-binding runtime space-id)
    :runs-by-thread (llm/read-runs-by-thread runtime thread-id)
-   :run-by-world-turn (llm/read-run-for-world-turn runtime world-turn-id)
+   :run-by-turn (llm/read-run-for-turn runtime turn-id)
    :pending-by-task (llm/read-pending runtime executor-task-id)
    :items-by-run (llm/read-items-by-run runtime run-id)
    :items-by-thread (llm/read-items-by-thread runtime thread-id)
@@ -379,7 +379,7 @@
           (is (= (:routing/key request) (:routing/key decision)))
           (is (= [(str (:request/id request) "/event")] (:event/ids decision)))
           (is (= (str run-id "/bundle") (get-in request [:payload :context-bundle/id])))
-          (is (= run-id (llm/read-run-for-world-turn runtime (str run-id "/world-turn"))))
+          (is (= run-id (llm/read-run-for-turn runtime (str run-id "/turn"))))
           (is (= "llm-thread-A" (llm/read-thread-binding runtime "chat-A")))
           (is (contains? pending-before run-id))
 
@@ -703,12 +703,12 @@
     (fn [runtime]
       (testing "a follow-up creates a new LLMTurnRun on the bound LLMThread"
         (let [thread-id "llm-thread-follow-up"
-              world-thread-id "chat-follow-up"
+              space-id "chat-follow-up"
               native-thread-id "codex-native-thread-follow-up"
               first-run-id "run-follow-up-first"
               second-run-id "run-follow-up-second"
               first-request (llm/turn-run-request
-                              world-thread-id
+                              space-id
                               "WT-follow-up-1"
                               "B-follow-up-1"
                               {:llm-turn-run-id first-run-id
@@ -717,7 +717,7 @@
                                :time-ms 1
                                :executor-task-id llm/pending-task-id})
               second-request (llm/turn-run-request
-                               world-thread-id
+                               space-id
                                "WT-follow-up-2"
                                "B-follow-up-2"
                                {:llm-turn-run-id second-run-id
@@ -756,9 +756,9 @@
             (is (= native-thread-id (:native/codex-thread-id second-run)))
             (is (= [first-run-id second-run-id] (:turn-run/ids thread)))
             (is (= first-run-id
-                   (llm/read-run-for-world-turn runtime "WT-follow-up-1")))
+                   (llm/read-run-for-turn runtime "WT-follow-up-1")))
             (is (= second-run-id
-                   (llm/read-run-for-world-turn runtime "WT-follow-up-2"))))
+                   (llm/read-run-for-turn runtime "WT-follow-up-2"))))
 
           (llm/run-one-pending-with-adapter!
             runtime
