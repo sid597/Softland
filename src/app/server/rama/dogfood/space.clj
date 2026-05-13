@@ -1,54 +1,54 @@
-(ns app.server.rama.dogfood.world
+(ns app.server.rama.dogfood.space
   (:use [com.rpl.rama]
         [com.rpl.rama.path]
         [com.rpl.rama.ops])
-  (:require [app.server.rama.core :as kernel]
+  (:require [app.server.rama.core :as core]
             [app.server.rama.dogfood.llm :as llm]
             [clojure.string :as str]
             [com.rpl.rama.test :refer [create-ipc launch-module!]]))
 
 (def schema-version 1)
-(def default-world-branch-id "world/main")
+(def default-space-branch-id "space/main")
 
-(def world-turn-request-types
-  #{:world-turn/compose-and-send
-    :world-turn/draft-save
-    :world-turn/comment-create
-    :world-turn/slice-create
-    :world-turn/derivative-create
-    :world-turn/patch-proposal-create
-    :world-turn/patch-accept
-    :world-turn/patch-reject
-    :world-turn/tool-approval-resolve
-    :world-turn/cancel
-    :world-turn/compact-request
-    :world-turn/steer
-    :world-turn/abandon})
+(def turn-request-types
+  #{:turn/compose-and-send
+    :turn/draft-save
+    :turn/comment-create
+    :turn/slice-create
+    :turn/derivative-create
+    :turn/patch-proposal-create
+    :turn/patch-accept
+    :turn/patch-reject
+    :turn/tool-approval-resolve
+    :turn/cancel
+    :turn/compact-request
+    :turn/steer
+    :turn/abandon})
 
-(def world-thread-request-types
-  #{:world-thread/create
-    :world-thread/fork-from-span
-    :world-thread/reconcile})
+(def space-request-types
+  #{:space/create
+    :space/fork-from-span
+    :space/reconcile})
 
-(def world-control-request-types
-  #{:world-turn/tool-approval-resolve
-    :world-turn/cancel
-    :world-turn/compact-request
-    :world-turn/steer})
+(def space-control-request-types
+  #{:turn/tool-approval-resolve
+    :turn/cancel
+    :turn/compact-request
+    :turn/steer})
 
-(def world-only-turn-request-types
-  (disj world-turn-request-types :world-turn/compose-and-send))
+(def space-turn-request-types
+  (disj turn-request-types :turn/compose-and-send))
 
-(defn now-ms [] (kernel/now-ms))
-(defn random-id [prefix] (kernel/random-id prefix))
+(defn now-ms [] (core/now-ms))
+(defn random-id [prefix] (core/random-id prefix))
 
 (defn blank-string?
   [x]
   (or (not (string? x)) (str/blank? x)))
 
-(defn world-routing-key
-  [world-thread-id]
-  [:world-thread world-thread-id])
+(defn space-routing-key
+  [space-id]
+  [:space space-id])
 
 (defn normalize-actor
   [actor]
@@ -59,41 +59,41 @@
 (defn action-capability
   [request-type]
   (case request-type
-    :world-thread/create :world-thread/create
-    :world-turn/compose-and-send :llm/send-turn
-    :world-turn/draft-save :world-turn/write
-    :world-turn/comment-create :world-turn/write
-    :world-turn/slice-create :world-turn/write
-    :world-turn/derivative-create :world-turn/write
-    :world-turn/patch-proposal-create :world-patch/ingest
-    :world-turn/patch-accept :world-turn/write
-    :world-turn/patch-reject :world-turn/write
-    :world-turn/tool-approval-resolve :llm/control
-    :world-turn/cancel :world-turn/control
-    :world-turn/compact-request :llm/control
-    :world-turn/steer :llm/control
-    :world-turn/abandon :world-turn/control
-    :world-thread/fork-from-span :world-thread/fork
-    :world-thread/reconcile :world-thread/reconcile
-    :world/write))
+    :space/create :space/create
+    :turn/compose-and-send :llm/send-turn
+    :turn/draft-save :turn/write
+    :turn/comment-create :turn/write
+    :turn/slice-create :turn/write
+    :turn/derivative-create :turn/write
+    :turn/patch-proposal-create :space-patch/ingest
+    :turn/patch-accept :turn/write
+    :turn/patch-reject :turn/write
+    :turn/tool-approval-resolve :llm/control
+    :turn/cancel :turn/control
+    :turn/compact-request :llm/control
+    :turn/steer :llm/control
+    :turn/abandon :turn/control
+    :space/fork-from-span :space/fork
+    :space/reconcile :space/reconcile
+    :space/write))
 
-(defn world-action-request
-  [request-type world-thread-id & [opts]]
-  (let [request-id (or (:request-id opts) (:request/id opts) (random-id "world-req"))
+(defn space-action-request
+  [request-type space-id & [opts]]
+  (let [request-id (or (:request-id opts) (:request/id opts) (random-id "space-req"))
         time-ms (or (:time-ms opts) (:request/time-ms opts) (now-ms))
-        world-thread-id (or world-thread-id
-                            (:world-thread-id opts)
-                            (:world-thread/id opts)
-                            (get-in opts [:payload :world-thread/id]))
+        space-id (or space-id
+                            (:space-id opts)
+                            (:space/id opts)
+                            (get-in opts [:payload :space/id]))
         payload (merge (:payload opts)
                        (select-keys opts
                                     [:prompt/text :refs :llm/options
-                                     :execution/options :world-turn/kind
+                                     :execution/options :turn/kind
                                      :draft/id :title])
-                       {:world-thread/id world-thread-id})
+                       {:space/id space-id})
         routing-key (or (:routing/key opts)
                         (:routing-key opts)
-                        (world-routing-key world-thread-id))]
+                        (space-routing-key space-id))]
     {:request/id request-id
      :request/type request-type
      :request/schema-version schema-version
@@ -104,12 +104,12 @@
      :client/op-id (:client/op-id opts)
      :routing/key routing-key
      :actor (normalize-actor (:actor opts))
-     :branch (merge {:branch/id default-world-branch-id} (:branch opts))
+     :branch (merge {:branch/id default-space-branch-id} (:branch opts))
      :context (merge {:projection/id nil
                       :selection/id nil}
                      (:context opts))
-     :target {:target/kind :world-thread
-              :target/id world-thread-id}
+     :target {:target/kind :space
+              :target/id space-id}
      :action {:action/type request-type
               :action/capability (action-capability request-type)
               :action/params (or (:action/params opts) {})}
@@ -122,20 +122,20 @@
                      {:source/type :projection
                       :source/ref (:projection/id (:context opts))})}))
 
-(defn world-thread-create-request
-  [world-thread-id & [opts]]
-  (world-action-request :world-thread/create world-thread-id opts))
+(defn space-create-request
+  [space-id & [opts]]
+  (space-action-request :space/create space-id opts))
 
 (defn compose-and-send-request
-  [world-thread-id prompt-text & [opts]]
-  (world-action-request
-    :world-turn/compose-and-send
-    world-thread-id
+  [space-id prompt-text & [opts]]
+  (space-action-request
+    :turn/compose-and-send
+    space-id
     (assoc opts :prompt/text prompt-text)))
 
-(defn world-only-turn-request
-  [request-type world-thread-id & [opts]]
-  (world-action-request request-type world-thread-id opts))
+(defn space-turn-request
+  [request-type space-id & [opts]]
+  (space-action-request request-type space-id opts))
 
 (def required-request-keys
   [:request/id :request/type :request/schema-version :request/time-ms
@@ -143,14 +143,14 @@
 
 (defn request-thread-id
   [request]
-  (or (:world-thread/id request)
-      (get-in request [:payload :world-thread/id])
+  (or (:space/id request)
+      (get-in request [:payload :space/id])
       (get-in request [:target :target/id])))
 
 (defn request-turn-id
   [request]
-  (or (get-in request [:payload :world-turn/id])
-      (:world-turn/id request)
+  (or (get-in request [:payload :turn/id])
+      (:turn/id request)
       (str (:request/id request) "/turn")))
 
 (defn request-bundle-id
@@ -163,8 +163,8 @@
 (defn request-id [request] (:request/id request))
 (defn request-idempotency-key [request] (:idempotency/key request))
 (defn request-errors? [errors] (boolean (seq errors)))
-(defn world-only-turn-request? [request-type] (contains? world-only-turn-request-types request-type))
-(defn world-control-request? [request-type] (contains? world-control-request-types request-type))
+(defn space-turn-request? [request-type] (contains? space-turn-request-types request-type))
+(defn space-control-request? [request-type] (contains? space-control-request-types request-type))
 
 (defn request-validation-errors
   [request]
@@ -179,8 +179,8 @@
              :missing (vec (remove #(contains? request %) required-request-keys))})
 
       (and (map? request)
-           (not (or (contains? world-thread-request-types request-type)
-                    (contains? world-turn-request-types request-type))))
+           (not (or (contains? space-request-types request-type)
+                    (contains? turn-request-types request-type))))
       (conj {:type :request/type-invalid
              :value request-type})
 
@@ -193,13 +193,13 @@
              :value (:idempotency/key request)})
 
       (and (map? request) (blank-string? thread-id))
-      (conj {:type :world-thread/id-invalid
+      (conj {:type :space/id-invalid
              :value thread-id})
 
-      (and (map? request) (not= (world-routing-key thread-id) (:routing/key request)))
+      (and (map? request) (not= (space-routing-key thread-id) (:routing/key request)))
       (conj {:type :routing/key-invalid
              :value (:routing/key request)
-             :expected (world-routing-key thread-id)})
+             :expected (space-routing-key thread-id)})
 
       (and (map? request)
            (not= request-type (get-in request [:action :action/type])))
@@ -207,7 +207,7 @@
              :request/type request-type
              :action/type (get-in request [:action :action/type])})
 
-      (and (map? request) (= :world-turn/compose-and-send request-type)
+      (and (map? request) (= :turn/compose-and-send request-type)
            (blank-string? (get-in request [:payload :prompt/text])))
       (conj {:type :prompt/text-invalid
              :value (get-in request [:payload :prompt/text])}))))
@@ -235,8 +235,8 @@
      :event/id (:event/id primary-event)
      :event/ids (mapv :event/id events)
      :events events-by-role
-     :world-thread/id (request-thread-id request)
-     :world-turn/id (:world-turn/id turn-event)
+     :space/id (request-thread-id request)
+     :turn/id (:turn/id turn-event)
      :context-bundle/id (:context-bundle/id bundle-event)
      :context-bundle/hash (:context-bundle/hash bundle-event)
      :llm-thread/id (:llm-thread/id llm-run-event)
@@ -278,7 +278,7 @@
    :event/time-ms (:request/time-ms request)
    :request/id (:request/id request)
    :routing/key (:routing/key request)
-   :world-thread/id (request-thread-id request)
+   :space/id (request-thread-id request)
    :actor (:actor request)
    :branch (:branch request)
    :causal (merge {:parents []
@@ -287,36 +287,36 @@
    :provenance {:source/type :action-request
                 :source/ref (:request/id request)}})
 
-(defn world-thread-event
+(defn space-event
   [request existing-thread]
-  (let [parent-id (or (get-in request [:payload :parent-thread/id])
-                      (:parent-thread/id existing-thread))
-        parent-ids (or (get-in request [:payload :parent-thread/ids])
-                       (:parent-thread/ids existing-thread)
+  (let [parent-id (or (get-in request [:payload :parent-space/id])
+                      (:parent-space/id existing-thread))
+        parent-ids (or (get-in request [:payload :parent-space/ids])
+                       (:parent-space/ids existing-thread)
                        (when parent-id [parent-id])
                        [])]
     (merge (base-event request
                        (if existing-thread
-                         :world-thread/touched
-                         :world-thread/created)
-                       "world-thread")
-           {:world-thread/id (request-thread-id request)
+                         :space/touched
+                         :space/created)
+                       "space")
+           {:space/id (request-thread-id request)
             :title (or (get-in request [:payload :title])
                        (:title existing-thread)
                        (request-thread-id request))
-            :parent-thread/id parent-id
-            :parent-thread/ids (vec parent-ids)})))
+            :parent-space/id parent-id
+            :parent-space/ids (vec parent-ids)})))
 
-(defn world-turn-event
+(defn turn-event
   [request]
   (let [request-type (:request/type request)
-        turn-kind (if (= :world-turn/compose-and-send request-type)
+        turn-kind (if (= :turn/compose-and-send request-type)
                     :compose-and-send
-                    (or (get-in request [:payload :world-turn/kind])
+                    (or (get-in request [:payload :turn/kind])
                         request-type))]
-    (merge (base-event request :world-turn/created "world-turn")
-           {:world-turn/id (request-turn-id request)
-            :world-turn/kind turn-kind
+    (merge (base-event request :turn/created "turn")
+           {:turn/id (request-turn-id request)
+            :turn/kind turn-kind
             :prompt/text (get-in request [:payload :prompt/text])
             :refs (vec (or (get-in request [:payload :refs]) []))
             :draft/id (get-in request [:payload :draft/id])})))
@@ -337,7 +337,7 @@
     (:object/id ref) (str "object:" (:object/id ref))
     (:slice/id ref) (str "slice:" (:slice/id ref))
     (:derivative/id ref) (str "user-authored-derivative:" (:derivative/id ref))
-    (:world-turn/id ref) (str "world-turn:" (:world-turn/id ref))
+    (:turn/id ref) (str "turn:" (:turn/id ref))
     :else (pr-str ref)))
 
 (defn render-model-input
@@ -358,8 +358,8 @@
   [request turn-event]
   (let [rendered (render-model-input request)
         execution-options (bundle-execution-options request)
-        stable-material {:world-thread/id (request-thread-id request)
-                         :world-turn/id (:world-turn/id turn-event)
+        stable-material {:space/id (request-thread-id request)
+                         :turn/id (:turn/id turn-event)
                          :prompt/text (get-in request [:payload :prompt/text])
                          :refs (vec (or (get-in request [:payload :refs]) []))
                          :execution/options execution-options
@@ -368,13 +368,13 @@
            :context-bundle/id (request-bundle-id request)
            :request/id (:request/id request)
            :bundle/schema-version schema-version
-           :context-bundle/hash (str "sha256:" (kernel/sha-256 (pr-str stable-material)))
+           :context-bundle/hash (str "sha256:" (core/sha-256 (pr-str stable-material)))
            :created-at-ms (:request/time-ms request))))
 
 (defn context-bundle-event
   [request turn-event bundle]
   (merge (base-event request :context-bundle/frozen "context-bundle")
-         {:world-turn/id (:world-turn/id turn-event)
+         {:turn/id (:turn/id turn-event)
           :context-bundle/id (:context-bundle/id bundle)
           :context-bundle/hash (:context-bundle/hash bundle)}))
 
@@ -396,7 +396,7 @@
       (:llm-request/id request)
       (str (:request/id request) "/llm-request")))
 
-(defn world->llm-turn-run-request
+(defn space->llm-turn-run-request
   [request turn-event bundle]
   (let [run-id (request-llm-run-id request)
         llm-thread-id (request-llm-thread-id request)
@@ -405,14 +405,14 @@
                              (get-in request [:payload :execution/options :executor/task-id]))]
     (llm/turn-run-request
       (request-thread-id request)
-      (:world-turn/id turn-event)
+      (:turn/id turn-event)
       (:context-bundle/id bundle)
       (cond-> {:llm-turn-run-id run-id
                :llm-thread-id llm-thread-id
                :request-id (request-llm-request-id request)
                :time-ms (:request/time-ms request)
-               :idempotency-key (str "world-event:" (:request/id request) ":"
-                                     (:world-turn/id turn-event) ":"
+               :idempotency-key (str "space-event:" (:request/id request) ":"
+                                     (:turn/id turn-event) ":"
                                      (:context-bundle/id bundle))
                :llm/backend (or (get-in bundle [:execution/options :llm/backend])
                                 (get-in bundle [:execution/options :agent/kind])
@@ -429,7 +429,7 @@
 (defn llm-run-requested-event
   [request turn-event bundle llm-request]
   (merge (base-event request :llm-turn-run/requested "llm-turn-run")
-         {:world-turn/id (:world-turn/id turn-event)
+         {:turn/id (:turn/id turn-event)
           :context-bundle/id (:context-bundle/id bundle)
           :context-bundle/hash (:context-bundle/hash bundle)
           :llm-thread/id (:llm-thread/id llm-request)
@@ -443,11 +443,13 @@
 
 (defn request-control-type
   [request]
+  ;; NOTE: Some request/type values intentionally share the same keyword as the
+  ;; LLM control/type they derive. This dispatch is authoritative on :request/type.
   (case (:request/type request)
-    :world-turn/tool-approval-resolve :approval/resolve
-    :world-turn/cancel :turn/cancel
-    :world-turn/compact-request :compact/request
-    :world-turn/steer :turn/steer))
+    :turn/tool-approval-resolve :approval/resolve
+    :turn/cancel :turn/cancel
+    :turn/compact-request :compact/request
+    :turn/steer :turn/steer))
 
 (defn request-control-id
   [request]
@@ -460,15 +462,15 @@
   (or (get-in request [:payload :llm-turn-run/id])
       (:llm-turn-run/id request)))
 
-(defn world->llm-control-record
+(defn space->llm-control-record
   [request turn-event]
   (llm/control-record
     (request-control-run-id request)
     (request-control-type request)
     {:control-id (request-control-id request)
      :llm-thread/id (get-in request [:payload :llm-thread/id])
-     :world-thread/id (request-thread-id request)
-     :world-turn/id (:world-turn/id turn-event)
+     :space/id (request-thread-id request)
+     :turn/id (:turn/id turn-event)
      :approval/id (get-in request [:payload :approval/id])
      :native/json-rpc-request-id (get-in request [:payload :native/json-rpc-request-id])
      :decision (get-in request [:payload :decision])
@@ -480,7 +482,7 @@
 (defn llm-control-event
   [request turn-event control]
   (merge (base-event request :llm-control/requested "llm-control")
-         {:world-turn/id (:world-turn/id turn-event)
+         {:turn/id (:turn/id turn-event)
           :llm-control/id (:control/id control)
           :llm-control/type (:control/type control)
           :llm-turn-run/id (:llm-turn-run/id control)
@@ -504,17 +506,17 @@
 (defn interpret-thread-create
   [request existing-thread]
   (or (validate-or-reject request)
-      (let [thread-event (world-thread-event request existing-thread)]
+      (let [thread-event (space-event request existing-thread)]
         (accepted-decision request thread-event {:thread thread-event}))))
 
 (defn interpret-compose-and-send
   [request existing-thread]
   (or (validate-or-reject request)
-      (let [thread-event (world-thread-event request existing-thread)
-            turn-event (world-turn-event request)
+      (let [thread-event (space-event request existing-thread)
+            turn-event (turn-event request)
             bundle (context-bundle-row request turn-event)
             bundle-event (context-bundle-event request turn-event bundle)
-            llm-request (world->llm-turn-run-request request turn-event bundle)
+            llm-request (space->llm-turn-run-request request turn-event bundle)
             llm-run-event (llm-run-requested-event request turn-event bundle llm-request)]
         (accepted-decision request
                            turn-event
@@ -526,11 +528,11 @@
 (defn interpret-fork-from-span
   [request existing-thread]
   (or (validate-or-reject request)
-      (let [thread-event (world-thread-event request existing-thread)
-            turn-event (world-turn-event request)
+      (let [thread-event (space-event request existing-thread)
+            turn-event (turn-event request)
             bundle (context-bundle-row request turn-event)
             bundle-event (context-bundle-event request turn-event bundle)
-            llm-request (world->llm-turn-run-request request turn-event bundle)
+            llm-request (space->llm-turn-run-request request turn-event bundle)
             llm-run-event (llm-run-requested-event request turn-event bundle llm-request)]
         (accepted-decision request
                            turn-event
@@ -552,8 +554,8 @@
    :event/id (:event/id decision)
    :event/ids (:event/ids decision)
    :events (:events decision)
-   :world-thread/id (request-thread-id request)
-   :world-turn/id (get-in decision [:events :turn :world-turn/id])
+   :space/id (request-thread-id request)
+   :turn/id (get-in decision [:events :turn :turn/id])
    :context-bundle/id (:context-bundle/id bundle)
    :context-bundle/hash (:context-bundle/hash bundle)
    :llm-thread/id (:llm-thread/id llm-request)
@@ -573,8 +575,8 @@
    :event/id (:event/id existing-row)
    :event/ids (:event/ids existing-row)
    :events (:events existing-row)
-   :world-thread/id (:world-thread/id existing-row)
-   :world-turn/id (:world-turn/id existing-row)
+   :space/id (:space/id existing-row)
+   :turn/id (:turn/id existing-row)
    :context-bundle/id (:context-bundle/id existing-row)
    :context-bundle/hash (:context-bundle/hash existing-row)
    :llm-thread/id (:llm-thread/id existing-row)
@@ -585,13 +587,13 @@
    :idempotency/original-request-id (:request/id existing-row)
    :decided-at-ms (:request/time-ms request)})
 
-(defn interpret-world-only-turn
+(defn interpret-space-turn
   [request existing-thread]
   (if-let [rejection (validate-or-reject request)]
     rejection
     (if (nil? existing-thread)
-      (rejected-decision request :world-thread/not-found)
-      (let [turn-event (world-turn-event request)]
+      (rejected-decision request :space/not-found)
+      (let [turn-event (turn-event request)]
         (accepted-decision request turn-event {:turn turn-event})))))
 
 (defn interpret-control-turn
@@ -601,18 +603,18 @@
     (validate-or-reject request)
 
     (nil? existing-thread)
-    (rejected-decision request :world-thread/not-found)
+    (rejected-decision request :space/not-found)
 
     (blank-string? (request-control-run-id request))
     (rejected-decision request :llm-turn-run/id-invalid)
 
-    (and (= :world-turn/tool-approval-resolve (:request/type request))
+    (and (= :turn/tool-approval-resolve (:request/type request))
          (blank-string? (get-in request [:payload :approval/id])))
     (rejected-decision request :approval/id-invalid)
 
     :else
-    (let [turn-event (world-turn-event request)
-          control (world->llm-control-record request turn-event)
+    (let [turn-event (turn-event request)
+          control (space->llm-control-record request turn-event)
           control-event (llm-control-event request turn-event control)]
       (accepted-decision request turn-event {:turn turn-event
                                              :llm-control control-event}))))
@@ -621,21 +623,21 @@
   [existing-thread thread-event]
   (let [time-ms (:event/time-ms thread-event)]
     (-> (or existing-thread
-            {:world-thread/id (:world-thread/id thread-event)
+            {:space/id (:space/id thread-event)
              :created-at-ms time-ms
              :turn-count 0})
-        (assoc :world-thread/id (:world-thread/id thread-event)
+        (assoc :space/id (:space/id thread-event)
                :title (:title thread-event)
                :status :active
                :updated-at-ms time-ms
-               :parent-thread/id (:parent-thread/id thread-event)
-               :parent-thread/ids (vec (:parent-thread/ids thread-event))))))
+               :parent-space/id (:parent-space/id thread-event)
+               :parent-space/ids (vec (:parent-space/ids thread-event))))))
 
 (defn turn-row
   [turn-event context-bundle-id]
-  (cond-> {:world-turn/id (:world-turn/id turn-event)
-           :world-thread/id (:world-thread/id turn-event)
-           :world-turn/kind (:world-turn/kind turn-event)
+  (cond-> {:turn/id (:turn/id turn-event)
+           :space/id (:space/id turn-event)
+           :turn/kind (:turn/kind turn-event)
            :request/id (:request/id turn-event)
            :status :accepted
            :prompt/text (:prompt/text turn-event)
@@ -651,25 +653,25 @@
 
 (defn turn-id-from-event
   [turn-event]
-  (:world-turn/id turn-event))
+  (:turn/id turn-event))
 
-(defn world-thread-id-from-event
+(defn space-id-from-event
   [event]
-  (:world-thread/id event))
+  (:space/id event))
 
 (defn parent-thread-id-from-event
   [event]
-  (:parent-thread/id event))
+  (:parent-space/id event))
 
 (defn has-parent-thread?
   [thread-event]
-  (not (blank-string? (:parent-thread/id thread-event))))
+  (not (blank-string? (:parent-space/id thread-event))))
 
 (defn child-thread-edge
   [thread-event]
-  {:edge/type :world-thread/child
-   :parent-thread/id (:parent-thread/id thread-event)
-   :child-thread/id (:world-thread/id thread-event)
+  {:edge/type :space/child
+   :parent-space/id (:parent-space/id thread-event)
+   :child-space/id (:space/id thread-event)
    :created-at-ms (:event/time-ms thread-event)
    :request/id (:request/id thread-event)})
 
@@ -696,28 +698,28 @@
   [object-row]
   (:object/id object-row))
 
-(defn world-thread-object-row
+(defn space-object-row
   [thread-row]
-  {:object/id (catalog-object-id :world-thread (:world-thread/id thread-row))
-   :object/type :world-thread
-   :source/type :world-thread
-   :source/id (:world-thread/id thread-row)
-   :world-thread/id (:world-thread/id thread-row)
+  {:object/id (catalog-object-id :space (:space/id thread-row))
+   :object/type :space
+   :source/type :space
+   :source/id (:space/id thread-row)
+   :space/id (:space/id thread-row)
    :title (:title thread-row)
    :status (:status thread-row)
    :turn-count (:turn-count thread-row)
    :created-at-ms (:created-at-ms thread-row)
    :updated-at-ms (:updated-at-ms thread-row)})
 
-(defn world-turn-object-row
+(defn turn-object-row
   [turn-row]
-  {:object/id (catalog-object-id :world-turn (:world-turn/id turn-row))
-   :object/type :world-turn
-   :source/type :world-turn
-   :source/id (:world-turn/id turn-row)
-   :world-thread/id (:world-thread/id turn-row)
-   :world-turn/id (:world-turn/id turn-row)
-   :world-turn/kind (:world-turn/kind turn-row)
+  {:object/id (catalog-object-id :turn (:turn/id turn-row))
+   :object/type :turn
+   :source/type :turn
+   :source/id (:turn/id turn-row)
+   :space/id (:space/id turn-row)
+   :turn/id (:turn/id turn-row)
+   :turn/kind (:turn/kind turn-row)
    :context-bundle/id (:context-bundle/id turn-row)
    :created-at-ms (:created-at-ms turn-row)
    :updated-at-ms (:updated-at-ms turn-row)})
@@ -728,8 +730,8 @@
    :object/type :context-bundle
    :source/type :context-bundle
    :source/id (:context-bundle/id bundle)
-   :world-thread/id (:world-thread/id bundle)
-   :world-turn/id (:world-turn/id bundle)
+   :space/id (:space/id bundle)
+   :turn/id (:turn/id bundle)
    :context-bundle/id (:context-bundle/id bundle)
    :context-bundle/hash (:context-bundle/hash bundle)
    :created-at-ms (:created-at-ms bundle)
@@ -741,8 +743,8 @@
    :object/type :llm-turn-run
    :source/type :llm-turn-run
    :source/id (:llm-turn-run/id llm-request)
-   :world-thread/id (:world-thread/id llm-request)
-   :world-turn/id (:world-turn/id llm-request)
+   :space/id (:space/id llm-request)
+   :turn/id (:turn/id llm-request)
    :context-bundle/id (:context-bundle/id llm-request)
    :llm-thread/id (:llm-thread/id llm-request)
    :llm-turn-run/id (:llm-turn-run/id llm-request)
@@ -775,16 +777,16 @@
 (defn thread-turn-edge
   [thread-row turn-row]
   (artifact-edge
-    (catalog-object-id :world-thread (:world-thread/id thread-row))
+    (catalog-object-id :space (:space/id thread-row))
     :contains
-    (catalog-object-id :world-turn (:world-turn/id turn-row))
+    (catalog-object-id :turn (:turn/id turn-row))
     (:created-at-ms turn-row)
     (:request/id turn-row)))
 
 (defn turn-bundle-edge
   [turn-row bundle]
   (artifact-edge
-    (catalog-object-id :world-turn (:world-turn/id turn-row))
+    (catalog-object-id :turn (:turn/id turn-row))
     :freezes-context
     (catalog-object-id :context-bundle (:context-bundle/id bundle))
     (:created-at-ms bundle)
@@ -793,7 +795,7 @@
 (defn turn-llm-run-edge
   [turn-row llm-request]
   (artifact-edge
-    (catalog-object-id :world-turn (:world-turn/id turn-row))
+    (catalog-object-id :turn (:turn/id turn-row))
     :requests-run
     (catalog-object-id :llm-turn-run (:llm-turn-run/id llm-request))
     (:request/time-ms llm-request)
@@ -810,13 +812,13 @@
 
 (defn content-hash
   [text]
-  (str "sha256:" (kernel/sha-256 (or text ""))))
+  (str "sha256:" (core/sha-256 (or text ""))))
 
 (defn material-request?
   [request-type]
-  (contains? #{:world-turn/slice-create
-               :world-turn/comment-create
-               :world-turn/derivative-create}
+  (contains? #{:turn/slice-create
+               :turn/comment-create
+               :turn/derivative-create}
              request-type))
 
 (defn request-source
@@ -869,8 +871,8 @@
                           (get-in request [:payload :content/text])
                           (source-content-text request))]
     {:slice/id (request-slice-id request)
-     :world-thread/id (request-thread-id request)
-     :world-turn/id (:world-turn/id turn-event)
+     :space/id (request-thread-id request)
+     :turn/id (:turn/id turn-event)
      :source (request-source request)
      :source/content-hash (source-content-hash request)
      :snapshot/text snapshot-text
@@ -882,8 +884,8 @@
   [request turn-event]
   {:overlay/id (request-overlay-id request)
    :overlay/type :comment
-   :world-thread/id (request-thread-id request)
-   :world-turn/id (:world-turn/id turn-event)
+   :space/id (request-thread-id request)
+   :turn/id (:turn/id turn-event)
    :target (request-source request)
    :body/text (get-in request [:payload :prompt/text])
    :created-at-ms (:event/time-ms turn-event)
@@ -895,8 +897,8 @@
                  (get-in request [:payload :prompt/text])
                  "")]
     {:derivative/id (request-derivative-id request)
-     :world-thread/id (request-thread-id request)
-     :world-turn/id (:world-turn/id turn-event)
+     :space/id (request-thread-id request)
+     :turn/id (:turn/id turn-event)
      :source (request-source request)
      :source/content-hash (source-content-hash request)
      :content/text text
@@ -933,8 +935,8 @@
    :source/type :slice
    :source/id (:slice/id slice)
    :slice/id (:slice/id slice)
-   :world-thread/id (:world-thread/id slice)
-   :world-turn/id (:world-turn/id slice)
+   :space/id (:space/id slice)
+   :turn/id (:turn/id slice)
    :snapshot/hash (:snapshot/hash slice)
    :source/content-hash (:source/content-hash slice)
    :created-at-ms (:created-at-ms slice)})
@@ -947,8 +949,8 @@
    :source/id (:overlay/id overlay)
    :overlay/id (:overlay/id overlay)
    :overlay/type (:overlay/type overlay)
-   :world-thread/id (:world-thread/id overlay)
-   :world-turn/id (:world-turn/id overlay)
+   :space/id (:space/id overlay)
+   :turn/id (:turn/id overlay)
    :created-at-ms (:created-at-ms overlay)})
 
 (defn derivative-object-row
@@ -958,8 +960,8 @@
    :source/type :derivative
    :source/id (:derivative/id derivative)
    :derivative/id (:derivative/id derivative)
-   :world-thread/id (:world-thread/id derivative)
-   :world-turn/id (:world-turn/id derivative)
+   :space/id (:space/id derivative)
+   :turn/id (:turn/id derivative)
    :content/hash (:content/hash derivative)
    :authorship (:authorship derivative)
    :render/as (:render/as derivative)
@@ -972,7 +974,7 @@
     :sliced-into
     (catalog-object-id :slice (:slice/id slice))
     (:created-at-ms slice)
-    (:world-turn/id slice)))
+    (:turn/id slice)))
 
 (defn source-overlay-edge
   [raw-object overlay]
@@ -981,7 +983,7 @@
     :commented-by
     (catalog-object-id :overlay (:overlay/id overlay))
     (:created-at-ms overlay)
-    (:world-turn/id overlay)))
+    (:turn/id overlay)))
 
 (defn source-derivative-edge
   [raw-object derivative]
@@ -990,7 +992,7 @@
     :derived-into
     (catalog-object-id :derivative (:derivative/id derivative))
     (:created-at-ms derivative)
-    (:world-turn/id derivative)))
+    (:turn/id derivative)))
 
 (defn patch-proposal-observation?
   [obs]
@@ -1013,8 +1015,8 @@
      :turn-diff/id (or (:turn-diff/id obs) proposal-id)
      :llm-turn-run/id (:llm-turn-run/id obs)
      :llm-thread/id (:llm-thread/id obs)
-     :world-thread/id (:world-thread/id obs)
-     :world-turn/id (:world-turn/id obs)
+     :space/id (:space/id obs)
+     :turn/id (:turn/id obs)
      :status :pending
      :patch/files (:patch/files obs)
      :summary/text (:summary/text obs)
@@ -1028,8 +1030,8 @@
    :turn-diff/id (get-in request [:payload :turn-diff/id])
    :llm-turn-run/id (get-in request [:payload :llm-turn-run/id])
    :llm-thread/id (get-in request [:payload :llm-thread/id])
-   :world-thread/id (request-thread-id request)
-   :world-turn/id (get-in request [:payload :source-world-turn/id])
+   :space/id (request-thread-id request)
+   :turn/id (get-in request [:payload :source-turn/id])
    :status :pending
    :patch/files (get-in request [:payload :patch/files])
    :summary/text (get-in request [:payload :summary/text])
@@ -1039,7 +1041,7 @@
 
 (defn patch-decision-request?
   [request-type]
-  (contains? #{:world-turn/patch-accept :world-turn/patch-reject} request-type))
+  (contains? #{:turn/patch-accept :turn/patch-reject} request-type))
 
 (defn request-patch-proposal-id
   [request]
@@ -1049,8 +1051,8 @@
 (defn patch-decision-status
   [request-type]
   (case request-type
-    :world-turn/patch-accept :accepted
-    :world-turn/patch-reject :rejected))
+    :turn/patch-accept :accepted
+    :turn/patch-reject :rejected))
 
 (defn apply-patch-decision
   [existing request turn-event]
@@ -1061,22 +1063,22 @@
            :status (patch-decision-status (:request/type request))
            :resolved-at-ms t
            :resolved-by (:actor request)
-           :resolution/world-turn-id (:world-turn/id turn-event)
+           :resolution/turn-id (:turn/id turn-event)
            :resolution/request-id (:request/id request)
            :reason (get-in request [:payload :reason]))))
 
 (defn turn-projection-row
   [turn-row]
   (select-keys turn-row
-               [:world-turn/id :world-thread/id :world-turn/kind
+               [:turn/id :space/id :turn/kind
                 :context-bundle/id :request/id :prompt/text :refs
                 :created-at-ms :updated-at-ms]))
 
 (defn chat-canvas-projection
   [thread-row turn-order latest-turn]
   (cond-> {:projection/type :chat-canvas
-           :projection/source :world-canonical-pstates
-           :world-thread/id (:world-thread/id thread-row)
+           :projection/source :space-canonical-pstates
+           :space/id (:space/id thread-row)
            :title (:title thread-row)
            :status (:status thread-row)
            :turn-count (:turn-count thread-row)
@@ -1133,84 +1135,84 @@
   [object-id incoming-edge]
   (add-projection-in-edge nil object-id incoming-edge))
 
-(defmodule world-module [setup topologies]
+(defmodule space-kernel-module [setup topologies]
   (mirror-depot setup *llm-depot (get-module-name llm/llm-module) "*llm-depot")
   (mirror-depot setup *llm-control-depot (get-module-name llm/llm-module) "*llm-control-depot")
-  (declare-depot setup *world-action-depot (hash-by :routing/key))
-  (let [n (stream-topology topologies "world-chat-topology")]
-    (declare-pstate n $$world-requests-by-id {String Object})
-    (declare-pstate n $$world-decisions-by-id {String Object})
-    (declare-pstate n $$world-events-by-id {String Object})
-    (declare-pstate n $$world-threads {String Object})
-    (declare-pstate n $$world-thread-graph {String Object})
-    (declare-pstate n $$world-turns {String Object})
-    (declare-pstate n $$world-turns-by-thread {String Object})
+  (declare-depot setup *space-action-depot (hash-by :routing/key))
+  (let [n (stream-topology topologies "space-topology")]
+    (declare-pstate n $$space-requests-by-id {String Object})
+    (declare-pstate n $$space-decisions-by-id {String Object})
+    (declare-pstate n $$space-events-by-id {String Object})
+    (declare-pstate n $$spaces {String Object})
+    (declare-pstate n $$space-graph {String Object})
+    (declare-pstate n $$turns {String Object})
+    (declare-pstate n $$turns-by-space {String Object})
     (declare-pstate n $$context-bundles {String Object})
     (declare-pstate n $$context-bundles-by-turn {String String})
-    (declare-pstate n $$world-send-by-idempotency {String Object})
-    (declare-pstate n $$world-llm-run-requests {String Object})
-    (declare-pstate n $$world-llm-run-by-turn {String String})
-    (declare-pstate n $$world-llm-controls {String Object})
-    (declare-pstate n $$world-llm-control-by-turn {String String})
+    (declare-pstate n $$send-by-idempotency {String Object})
+    (declare-pstate n $$llm-run-requests {String Object})
+    (declare-pstate n $$llm-run-by-turn {String String})
+    (declare-pstate n $$llm-controls {String Object})
+    (declare-pstate n $$llm-control-by-turn {String String})
     (declare-pstate n $$objects {String Object})
     (declare-pstate n $$artifact-graph {String Object})
     (declare-pstate n $$artifact-graph-in {String Object})
     (declare-pstate n $$slices {String Object})
     (declare-pstate n $$overlays {String Object})
     (declare-pstate n $$derivatives {String Object})
-    (declare-pstate n $$world-patch-proposals {String Object})
+    (declare-pstate n $$space-patch-proposals {String Object})
     (declare-pstate n $$projection-chat-canvas {String Object})
     (declare-pstate n $$projection-object-detail {String Object})
     (declare-pstate n $$projection-object-relations {String Object})
 
     (<<sources n
-      (source> *world-action-depot :> *request)
+      (source> *space-action-depot :> *request)
       (request-id *request :> *request-id)
       (request-type *request :> *request-type)
       (request-thread-id *request :> *thread-id)
       (|hash *request-id)
-      (local-transform> [(keypath *request-id) (termval *request)] $$world-requests-by-id)
+      (local-transform> [(keypath *request-id) (termval *request)] $$space-requests-by-id)
       (|hash *thread-id)
-      (local-select> [(keypath *thread-id)] $$world-threads :> *existing-thread)
+      (local-select> [(keypath *thread-id)] $$spaces :> *existing-thread)
 
       (<<cond
-        (case> (= :world-thread/create *request-type))
+        (case> (= :space/create *request-type))
         (interpret-thread-create *request *existing-thread :> *decision)
         (decision-id *decision :> *decision-id)
         (|hash *decision-id)
-        (local-transform> [(keypath *decision-id) (termval *decision)] $$world-decisions-by-id)
+        (local-transform> [(keypath *decision-id) (termval *decision)] $$space-decisions-by-id)
         (<<if (decision-accepted? *decision)
           (decision-thread-event *decision :> *thread-event)
           (event-id *thread-event :> *event-id)
           (thread-row *existing-thread *thread-event :> *thread-row)
-          (world-thread-id-from-event *thread-event :> *event-thread-id)
-          (world-thread-object-row *thread-row :> *thread-object)
+          (space-id-from-event *thread-event :> *event-thread-id)
+          (space-object-row *thread-row :> *thread-object)
           (object-row-id *thread-object :> *thread-object-id)
           (chat-canvas-projection *thread-row nil nil :> *chat-canvas)
           (object-detail-projection *thread-object :> *thread-object-detail)
           (|hash *event-id)
-          (local-transform> [(keypath *event-id) (termval *thread-event)] $$world-events-by-id)
+          (local-transform> [(keypath *event-id) (termval *thread-event)] $$space-events-by-id)
           (|hash *event-thread-id)
-          (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads)
+          (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$spaces)
           (local-transform> [(keypath *event-thread-id) (termval *chat-canvas)] $$projection-chat-canvas)
           (|hash *thread-object-id)
           (local-transform> [(keypath *thread-object-id) (termval *thread-object)] $$objects)
           (local-transform> [(keypath *thread-object-id) (termval *thread-object-detail)] $$projection-object-detail))
 
-        (case> (= :world-turn/compose-and-send *request-type))
+        (case> (= :turn/compose-and-send *request-type))
         (request-idempotency-key *request :> *idempotency-key)
         (|hash *idempotency-key)
-        (local-select> [(keypath *idempotency-key)] $$world-send-by-idempotency :> *idempotency-row)
+        (local-select> [(keypath *idempotency-key)] $$send-by-idempotency :> *idempotency-row)
         (<<if (idempotency-hit? *idempotency-row)
           (idempotent-decision *request *idempotency-row :> *decision)
           (decision-id *decision :> *decision-id)
           (|hash *decision-id)
-          (local-transform> [(keypath *decision-id) (termval *decision)] $$world-decisions-by-id))
+          (local-transform> [(keypath *decision-id) (termval *decision)] $$space-decisions-by-id))
         (<<if (not (idempotency-hit? *idempotency-row))
           (interpret-compose-and-send *request *existing-thread :> *decision)
           (decision-id *decision :> *decision-id)
           (|hash *decision-id)
-          (local-transform> [(keypath *decision-id) (termval *decision)] $$world-decisions-by-id)
+          (local-transform> [(keypath *decision-id) (termval *decision)] $$space-decisions-by-id)
           (<<if (decision-accepted? *decision)
             (decision-thread-event *decision :> *thread-event)
             (decision-turn-event *decision :> *turn-event)
@@ -1220,29 +1222,29 @@
             (event-id *turn-event :> *turn-event-id)
             (event-id *bundle-event :> *bundle-event-id)
             (event-id *llm-run-event :> *llm-run-event-id)
-            (world-thread-id-from-event *thread-event :> *event-thread-id)
+            (space-id-from-event *thread-event :> *event-thread-id)
             (turn-id-from-event *turn-event :> *turn-id)
             (context-bundle-id-from-event *bundle-event :> *bundle-id)
             (context-bundle-row *request *turn-event :> *bundle)
-            (world->llm-turn-run-request *request *turn-event *bundle :> *llm-request)
+            (space->llm-turn-run-request *request *turn-event *bundle :> *llm-request)
             (llm-run-id-from-request *llm-request :> *llm-run-id)
             (thread-row *existing-thread *thread-event :> *base-thread-row)
             (turn-row *turn-event *bundle-id :> *turn-row)
             (dedupe-row *request *decision *bundle *llm-request :> *dedupe-row)
             (|hash *thread-event-id)
-            (local-transform> [(keypath *thread-event-id) (termval *thread-event)] $$world-events-by-id)
+            (local-transform> [(keypath *thread-event-id) (termval *thread-event)] $$space-events-by-id)
             (|hash *turn-event-id)
-            (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$world-events-by-id)
+            (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$space-events-by-id)
             (|hash *bundle-event-id)
-            (local-transform> [(keypath *bundle-event-id) (termval *bundle-event)] $$world-events-by-id)
+            (local-transform> [(keypath *bundle-event-id) (termval *bundle-event)] $$space-events-by-id)
             (|hash *llm-run-event-id)
-            (local-transform> [(keypath *llm-run-event-id) (termval *llm-run-event)] $$world-events-by-id)
+            (local-transform> [(keypath *llm-run-event-id) (termval *llm-run-event)] $$space-events-by-id)
             (|hash *event-thread-id)
-            (local-select> [(keypath *event-thread-id)] $$world-turns-by-thread :> *existing-turn-order)
+            (local-select> [(keypath *event-thread-id)] $$turns-by-space :> *existing-turn-order)
             (add-turn-id *existing-turn-order *turn-id :> *turn-order)
             (bump-thread-turn-count *base-thread-row *turn-order :> *thread-row)
-            (world-thread-object-row *thread-row :> *thread-object)
-            (world-turn-object-row *turn-row :> *turn-object)
+            (space-object-row *thread-row :> *thread-object)
+            (turn-object-row *turn-row :> *turn-object)
             (context-bundle-object-row *bundle :> *bundle-object)
             (llm-turn-run-object-row *llm-request :> *llm-run-object)
             (thread-turn-edge *thread-row *turn-row :> *thread-turn-edge)
@@ -1279,19 +1281,19 @@
             (llm-run-object-relations-projection
               *llm-run-object-id *turn-llm-run-edge *bundle-llm-run-edge
               :> *llm-run-relations)
-            (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads)
-            (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$world-turns-by-thread)
+            (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$spaces)
+            (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$turns-by-space)
             (local-transform> [(keypath *event-thread-id) (termval *chat-canvas)] $$projection-chat-canvas)
             (|hash *turn-id)
-            (local-transform> [(keypath *turn-id) (termval *turn-row)] $$world-turns)
+            (local-transform> [(keypath *turn-id) (termval *turn-row)] $$turns)
             (local-transform> [(keypath *turn-id) (termval *bundle-id)] $$context-bundles-by-turn)
-            (local-transform> [(keypath *turn-id) (termval *llm-run-id)] $$world-llm-run-by-turn)
+            (local-transform> [(keypath *turn-id) (termval *llm-run-id)] $$llm-run-by-turn)
             (|hash *bundle-id)
             (local-transform> [(keypath *bundle-id) (termval *bundle)] $$context-bundles)
             (|hash *llm-run-id)
-            (local-transform> [(keypath *llm-run-id) (termval *llm-request)] $$world-llm-run-requests)
+            (local-transform> [(keypath *llm-run-id) (termval *llm-request)] $$llm-run-requests)
             (|hash *idempotency-key)
-            (local-transform> [(keypath *idempotency-key) (termval *dedupe-row)] $$world-send-by-idempotency)
+            (local-transform> [(keypath *idempotency-key) (termval *dedupe-row)] $$send-by-idempotency)
             (|hash *thread-object-id)
             (local-transform> [(keypath *thread-object-id) (termval *thread-object)] $$objects)
             (local-transform> [(keypath *thread-object-id) (termval *thread-object-detail)] $$projection-object-detail)
@@ -1325,11 +1327,11 @@
             (|hash$$ *llm-depot *llm-run-id)
             (depot-partition-append! *llm-depot *llm-request :append-ack)))
 
-        (case> (= :world-thread/fork-from-span *request-type))
+        (case> (= :space/fork-from-span *request-type))
         (interpret-fork-from-span *request *existing-thread :> *decision)
         (decision-id *decision :> *decision-id)
         (|hash *decision-id)
-        (local-transform> [(keypath *decision-id) (termval *decision)] $$world-decisions-by-id)
+        (local-transform> [(keypath *decision-id) (termval *decision)] $$space-decisions-by-id)
         (<<if (decision-accepted? *decision)
           (decision-thread-event *decision :> *thread-event)
           (decision-turn-event *decision :> *turn-event)
@@ -1339,39 +1341,39 @@
           (event-id *turn-event :> *turn-event-id)
           (event-id *bundle-event :> *bundle-event-id)
           (event-id *llm-run-event :> *llm-run-event-id)
-          (world-thread-id-from-event *thread-event :> *event-thread-id)
+          (space-id-from-event *thread-event :> *event-thread-id)
           (parent-thread-id-from-event *thread-event :> *parent-thread-id)
           (turn-id-from-event *turn-event :> *turn-id)
           (context-bundle-id-from-event *bundle-event :> *bundle-id)
           (context-bundle-row *request *turn-event :> *bundle)
-          (world->llm-turn-run-request *request *turn-event *bundle :> *llm-request)
+          (space->llm-turn-run-request *request *turn-event *bundle :> *llm-request)
           (llm-run-id-from-request *llm-request :> *llm-run-id)
           (thread-row *existing-thread *thread-event :> *base-thread-row)
           (turn-row *turn-event *bundle-id :> *turn-row)
           (slice-row *request *turn-event :> *slice-row)
           (slice-row-id *slice-row :> *slice-id)
           (|hash *thread-event-id)
-          (local-transform> [(keypath *thread-event-id) (termval *thread-event)] $$world-events-by-id)
+          (local-transform> [(keypath *thread-event-id) (termval *thread-event)] $$space-events-by-id)
           (|hash *turn-event-id)
-          (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$world-events-by-id)
+          (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$space-events-by-id)
           (|hash *bundle-event-id)
-          (local-transform> [(keypath *bundle-event-id) (termval *bundle-event)] $$world-events-by-id)
+          (local-transform> [(keypath *bundle-event-id) (termval *bundle-event)] $$space-events-by-id)
           (|hash *llm-run-event-id)
-          (local-transform> [(keypath *llm-run-event-id) (termval *llm-run-event)] $$world-events-by-id)
+          (local-transform> [(keypath *llm-run-event-id) (termval *llm-run-event)] $$space-events-by-id)
           (|hash *event-thread-id)
-          (local-select> [(keypath *event-thread-id)] $$world-turns-by-thread :> *existing-turn-order)
+          (local-select> [(keypath *event-thread-id)] $$turns-by-space :> *existing-turn-order)
           (add-turn-id *existing-turn-order *turn-id :> *turn-order)
           (bump-thread-turn-count *base-thread-row *turn-order :> *thread-row)
-          (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads)
-          (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$world-turns-by-thread)
+          (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$spaces)
+          (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$turns-by-space)
           (<<if (has-parent-thread? *thread-event)
             (child-thread-edge *thread-event :> *child-edge)
             (|hash *parent-thread-id)
-            (local-transform> [(keypath *parent-thread-id) (keypath *event-thread-id) (termval *child-edge)] $$world-thread-graph))
+            (local-transform> [(keypath *parent-thread-id) (keypath *event-thread-id) (termval *child-edge)] $$space-graph))
           (|hash *turn-id)
-          (local-transform> [(keypath *turn-id) (termval *turn-row)] $$world-turns)
+          (local-transform> [(keypath *turn-id) (termval *turn-row)] $$turns)
           (local-transform> [(keypath *turn-id) (termval *bundle-id)] $$context-bundles-by-turn)
-          (local-transform> [(keypath *turn-id) (termval *llm-run-id)] $$world-llm-run-by-turn)
+          (local-transform> [(keypath *turn-id) (termval *llm-run-id)] $$llm-run-by-turn)
           (|hash *bundle-id)
           (local-transform> [(keypath *bundle-id) (termval *bundle)] $$context-bundles)
           (|hash *slice-id)
@@ -1379,34 +1381,34 @@
           (keep-existing-slice-row *existing-slice-row *slice-row :> *stored-slice-row)
           (local-transform> [(keypath *slice-id) (termval *stored-slice-row)] $$slices)
           (|hash *llm-run-id)
-          (local-transform> [(keypath *llm-run-id) (termval *llm-request)] $$world-llm-run-requests)
+          (local-transform> [(keypath *llm-run-id) (termval *llm-request)] $$llm-run-requests)
           (|hash$$ *llm-depot *llm-run-id)
           (depot-partition-append! *llm-depot *llm-request :append-ack))
 
-        (case> (world-control-request? *request-type))
+        (case> (space-control-request? *request-type))
         (interpret-control-turn *request *existing-thread :> *decision)
         (decision-id *decision :> *decision-id)
         (|hash *decision-id)
-        (local-transform> [(keypath *decision-id) (termval *decision)] $$world-decisions-by-id)
+        (local-transform> [(keypath *decision-id) (termval *decision)] $$space-decisions-by-id)
         (<<if (decision-accepted? *decision)
           (decision-turn-event *decision :> *turn-event)
           (decision-llm-control-event *decision :> *control-event)
           (event-id *turn-event :> *turn-event-id)
           (event-id *control-event :> *control-event-id)
-          (world-thread-id-from-event *turn-event :> *event-thread-id)
+          (space-id-from-event *turn-event :> *event-thread-id)
           (turn-id-from-event *turn-event :> *turn-id)
-          (world->llm-control-record *request *turn-event :> *control)
+          (space->llm-control-record *request *turn-event :> *control)
           (llm-control-run-id *control :> *control-run-id)
           (llm-control-id *control :> *control-id)
           (turn-row *turn-event nil :> *turn-row)
           (|hash *event-thread-id)
-          (local-select> [(keypath *event-thread-id)] $$world-turns-by-thread :> *existing-turn-order)
+          (local-select> [(keypath *event-thread-id)] $$turns-by-space :> *existing-turn-order)
           (add-turn-id *existing-turn-order *turn-id :> *turn-order)
-          (world-thread-event *request *existing-thread :> *thread-event)
+          (space-event *request *existing-thread :> *thread-event)
           (thread-row *existing-thread *thread-event :> *base-thread-row)
           (bump-thread-turn-count *base-thread-row *turn-order :> *thread-row)
-          (world-thread-object-row *thread-row :> *thread-object)
-          (world-turn-object-row *turn-row :> *turn-object)
+          (space-object-row *thread-row :> *thread-object)
+          (turn-object-row *turn-row :> *turn-object)
           (thread-turn-edge *thread-row *turn-row :> *thread-turn-edge)
           (object-row-id *thread-object :> *thread-object-id)
           (object-row-id *turn-object :> *turn-object-id)
@@ -1417,18 +1419,18 @@
           (object-detail-projection *thread-object :> *thread-object-detail)
           (object-detail-projection *turn-object :> *turn-object-detail)
           (one-incoming-relation-projection *turn-object-id *thread-turn-edge :> *turn-relations)
-          (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads)
-          (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$world-turns-by-thread)
+          (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$spaces)
+          (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$turns-by-space)
           (local-transform> [(keypath *event-thread-id) (termval *chat-canvas)] $$projection-chat-canvas)
           (|hash *turn-event-id)
-          (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$world-events-by-id)
+          (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$space-events-by-id)
           (|hash *control-event-id)
-          (local-transform> [(keypath *control-event-id) (termval *control-event)] $$world-events-by-id)
+          (local-transform> [(keypath *control-event-id) (termval *control-event)] $$space-events-by-id)
           (|hash *turn-id)
-          (local-transform> [(keypath *turn-id) (termval *turn-row)] $$world-turns)
-          (local-transform> [(keypath *turn-id) (termval *control-id)] $$world-llm-control-by-turn)
+          (local-transform> [(keypath *turn-id) (termval *turn-row)] $$turns)
+          (local-transform> [(keypath *turn-id) (termval *control-id)] $$llm-control-by-turn)
           (|hash *control-id)
-          (local-transform> [(keypath *control-id) (termval *control)] $$world-llm-controls)
+          (local-transform> [(keypath *control-id) (termval *control)] $$llm-controls)
           (|hash *thread-object-id)
           (local-transform> [(keypath *thread-object-id) (termval *thread-object)] $$objects)
           (local-transform> [(keypath *thread-object-id) (termval *thread-object-detail)] $$projection-object-detail)
@@ -1445,25 +1447,25 @@
           (|hash$$ *llm-control-depot *control-run-id)
           (depot-partition-append! *llm-control-depot *control :append-ack))
 
-        (case> (world-only-turn-request? *request-type))
-        (interpret-world-only-turn *request *existing-thread :> *decision)
+        (case> (space-turn-request? *request-type))
+        (interpret-space-turn *request *existing-thread :> *decision)
         (decision-id *decision :> *decision-id)
         (|hash *decision-id)
-        (local-transform> [(keypath *decision-id) (termval *decision)] $$world-decisions-by-id)
+        (local-transform> [(keypath *decision-id) (termval *decision)] $$space-decisions-by-id)
         (<<if (decision-accepted? *decision)
           (decision-turn-event *decision :> *turn-event)
           (event-id *turn-event :> *turn-event-id)
-          (world-thread-id-from-event *turn-event :> *event-thread-id)
+          (space-id-from-event *turn-event :> *event-thread-id)
           (turn-id-from-event *turn-event :> *turn-id)
           (turn-row *turn-event nil :> *turn-row)
           (|hash *event-thread-id)
-          (local-select> [(keypath *event-thread-id)] $$world-turns-by-thread :> *existing-turn-order)
+          (local-select> [(keypath *event-thread-id)] $$turns-by-space :> *existing-turn-order)
           (add-turn-id *existing-turn-order *turn-id :> *turn-order)
-          (world-thread-event *request *existing-thread :> *thread-event)
+          (space-event *request *existing-thread :> *thread-event)
           (thread-row *existing-thread *thread-event :> *base-thread-row)
           (bump-thread-turn-count *base-thread-row *turn-order :> *thread-row)
-          (world-thread-object-row *thread-row :> *thread-object)
-          (world-turn-object-row *turn-row :> *turn-object)
+          (space-object-row *thread-row :> *thread-object)
+          (turn-object-row *turn-row :> *turn-object)
           (thread-turn-edge *thread-row *turn-row :> *thread-turn-edge)
           (object-row-id *thread-object :> *thread-object-id)
           (object-row-id *turn-object :> *turn-object-id)
@@ -1475,13 +1477,13 @@
           (object-detail-projection *turn-object :> *turn-object-detail)
           (one-incoming-relation-projection *turn-object-id *thread-turn-edge :> *turn-relations)
           (|hash *turn-event-id)
-          (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$world-events-by-id)
+          (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$space-events-by-id)
           (|hash *event-thread-id)
-          (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$world-threads)
-          (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$world-turns-by-thread)
+          (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$spaces)
+          (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$turns-by-space)
           (local-transform> [(keypath *event-thread-id) (termval *chat-canvas)] $$projection-chat-canvas)
           (|hash *turn-id)
-          (local-transform> [(keypath *turn-id) (termval *turn-row)] $$world-turns)
+          (local-transform> [(keypath *turn-id) (termval *turn-row)] $$turns)
           (|hash *thread-object-id)
           (local-transform> [(keypath *thread-object-id) (termval *thread-object)] $$objects)
           (local-transform> [(keypath *thread-object-id) (termval *thread-object-detail)] $$projection-object-detail)
@@ -1495,7 +1497,7 @@
           (local-transform> [(keypath *turn-object-id) (termval *turn-object)] $$objects)
           (local-transform> [(keypath *turn-object-id) (termval *turn-object-detail)] $$projection-object-detail)
           (local-transform> [(keypath *turn-object-id) (termval *turn-relations)] $$projection-object-relations)
-          (<<if (= :world-turn/slice-create *request-type)
+          (<<if (= :turn/slice-create *request-type)
             (slice-row *request *turn-event :> *slice-row)
             (slice-object-row *slice-row :> *slice-object)
             (slice-row-id *slice-row :> *slice-id)
@@ -1525,7 +1527,7 @@
               (|hash *source-edge-to)
               (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in)
               (local-transform> [(keypath *source-edge-to) (termval *source-target-relations)] $$projection-object-relations)))
-          (<<if (= :world-turn/comment-create *request-type)
+          (<<if (= :turn/comment-create *request-type)
             (overlay-row *request *turn-event :> *overlay-row)
             (overlay-object-row *overlay-row :> *overlay-object)
             (overlay-row-id *overlay-row :> *overlay-id)
@@ -1555,7 +1557,7 @@
               (|hash *source-edge-to)
               (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in)
               (local-transform> [(keypath *source-edge-to) (termval *source-target-relations)] $$projection-object-relations)))
-          (<<if (= :world-turn/derivative-create *request-type)
+          (<<if (= :turn/derivative-create *request-type)
             (derivative-row *request *turn-event :> *derivative-row)
             (derivative-object-row *derivative-row :> *derivative-object)
             (derivative-row-id *derivative-row :> *derivative-id)
@@ -1585,57 +1587,57 @@
               (|hash *source-edge-to)
               (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in)
               (local-transform> [(keypath *source-edge-to) (termval *source-target-relations)] $$projection-object-relations)))
-          (<<if (= :world-turn/patch-proposal-create *request-type)
+          (<<if (= :turn/patch-proposal-create *request-type)
             (patch-proposal-row-from-request *request :> *patch-proposal)
             (request-patch-proposal-id *request :> *patch-proposal-id)
             (|hash *patch-proposal-id)
-            (local-transform> [(keypath *patch-proposal-id) (termval *patch-proposal)] $$world-patch-proposals))
+            (local-transform> [(keypath *patch-proposal-id) (termval *patch-proposal)] $$space-patch-proposals))
           (<<if (patch-decision-request? *request-type)
             (request-patch-proposal-id *request :> *patch-proposal-id)
             (|hash *patch-proposal-id)
-            (local-select> [(keypath *patch-proposal-id)] $$world-patch-proposals :> *existing-patch-proposal)
+            (local-select> [(keypath *patch-proposal-id)] $$space-patch-proposals :> *existing-patch-proposal)
             (apply-patch-decision *existing-patch-proposal *request *turn-event :> *patch-proposal)
-            (local-transform> [(keypath *patch-proposal-id) (termval *patch-proposal)] $$world-patch-proposals)))
+            (local-transform> [(keypath *patch-proposal-id) (termval *patch-proposal)] $$space-patch-proposals)))
 
         (default>)
         (rejected-decision *request :request/type-invalid :> *decision)
         (decision-id *decision :> *decision-id)
         (|hash *decision-id)
-        (local-transform> [(keypath *decision-id) (termval *decision)] $$world-decisions-by-id)))))
+        (local-transform> [(keypath *decision-id) (termval *decision)] $$space-decisions-by-id)))))
 
-(defn start-world-runtime!
+(defn start-space-runtime!
   []
   (let [ipc (create-ipc)
         llm-module-name (get-module-name llm/llm-module)
-        module-name (get-module-name world-module)
+        module-name (get-module-name space-kernel-module)
         launch-opts {:tasks 4 :threads 2}]
     (launch-module! ipc llm/llm-module launch-opts)
-    (launch-module! ipc world-module launch-opts)
+    (launch-module! ipc space-kernel-module launch-opts)
     {:ipc ipc
      :module-name module-name
      :llm-module-name llm-module-name
-     :world-action-depot (foreign-depot ipc module-name "*world-action-depot")
-     :world-requests-by-id (foreign-pstate ipc module-name "$$world-requests-by-id")
-     :world-decisions-by-id (foreign-pstate ipc module-name "$$world-decisions-by-id")
-     :world-events-by-id (foreign-pstate ipc module-name "$$world-events-by-id")
-     :world-threads (foreign-pstate ipc module-name "$$world-threads")
-     :world-thread-graph (foreign-pstate ipc module-name "$$world-thread-graph")
-     :world-turns (foreign-pstate ipc module-name "$$world-turns")
-     :world-turns-by-thread (foreign-pstate ipc module-name "$$world-turns-by-thread")
+     :space-action-depot (foreign-depot ipc module-name "*space-action-depot")
+     :space-requests-by-id (foreign-pstate ipc module-name "$$space-requests-by-id")
+     :space-decisions-by-id (foreign-pstate ipc module-name "$$space-decisions-by-id")
+     :space-events-by-id (foreign-pstate ipc module-name "$$space-events-by-id")
+     :spaces (foreign-pstate ipc module-name "$$spaces")
+     :space-graph (foreign-pstate ipc module-name "$$space-graph")
+     :turns (foreign-pstate ipc module-name "$$turns")
+     :turns-by-space (foreign-pstate ipc module-name "$$turns-by-space")
      :context-bundles (foreign-pstate ipc module-name "$$context-bundles")
      :context-bundles-by-turn (foreign-pstate ipc module-name "$$context-bundles-by-turn")
-     :world-send-by-idempotency (foreign-pstate ipc module-name "$$world-send-by-idempotency")
-     :world-llm-run-requests (foreign-pstate ipc module-name "$$world-llm-run-requests")
-     :world-llm-run-by-turn (foreign-pstate ipc module-name "$$world-llm-run-by-turn")
-     :world-llm-controls (foreign-pstate ipc module-name "$$world-llm-controls")
-     :world-llm-control-by-turn (foreign-pstate ipc module-name "$$world-llm-control-by-turn")
+     :send-by-idempotency (foreign-pstate ipc module-name "$$send-by-idempotency")
+     :llm-run-requests (foreign-pstate ipc module-name "$$llm-run-requests")
+     :llm-run-by-turn (foreign-pstate ipc module-name "$$llm-run-by-turn")
+     :llm-controls (foreign-pstate ipc module-name "$$llm-controls")
+     :llm-control-by-turn (foreign-pstate ipc module-name "$$llm-control-by-turn")
      :objects (foreign-pstate ipc module-name "$$objects")
      :artifact-graph (foreign-pstate ipc module-name "$$artifact-graph")
      :artifact-graph-in (foreign-pstate ipc module-name "$$artifact-graph-in")
      :slices (foreign-pstate ipc module-name "$$slices")
      :overlays (foreign-pstate ipc module-name "$$overlays")
      :derivatives (foreign-pstate ipc module-name "$$derivatives")
-     :world-patch-proposals (foreign-pstate ipc module-name "$$world-patch-proposals")
+     :space-patch-proposals (foreign-pstate ipc module-name "$$space-patch-proposals")
      :projection-chat-canvas (foreign-pstate ipc module-name "$$projection-chat-canvas")
      :projection-object-detail (foreign-pstate ipc module-name "$$projection-object-detail")
      :projection-object-relations (foreign-pstate ipc module-name "$$projection-object-relations")
@@ -1644,10 +1646,10 @@
      :llm-obs-depot (foreign-depot ipc llm-module-name "*llm-obs-depot")
      :llm-control-depot (foreign-depot ipc llm-module-name "*llm-control-depot")
      :llm-threads (foreign-pstate ipc llm-module-name "$$llm-threads")
-     :llm-thread-by-world-thread (foreign-pstate ipc llm-module-name "$$llm-thread-by-world-thread")
+     :llm-thread-by-space (foreign-pstate ipc llm-module-name "$$llm-thread-by-space")
      :llm-turn-runs (foreign-pstate ipc llm-module-name "$$llm-turn-runs")
      :llm-turn-runs-by-thread (foreign-pstate ipc llm-module-name "$$llm-turn-runs-by-thread")
-     :llm-turn-run-by-world-turn (foreign-pstate ipc llm-module-name "$$llm-turn-run-by-world-turn")
+     :llm-turn-run-by-turn (foreign-pstate ipc llm-module-name "$$llm-turn-run-by-turn")
      :llm-decisions-by-run-id (foreign-pstate ipc llm-module-name "$$llm-decisions-by-run-id")
      :llm-pending-by-task (foreign-pstate ipc llm-module-name "$$llm-pending-by-task")
      :llm-items-by-turn-run (foreign-pstate ipc llm-module-name "$$llm-items-by-turn-run")
@@ -1664,18 +1666,18 @@
      :llm-views (foreign-pstate ipc llm-module-name "$$llm-views")
      :projection-run-detail (foreign-pstate ipc llm-module-name "$$projection-run-detail")}))
 
-(defn close-world-runtime!
+(defn close-space-runtime!
   [runtime]
   (when-let [ipc (:ipc runtime)]
     (try
       (.close ipc)
       (catch Exception _ nil))))
 
-(defn append-world-action!
+(defn append-space-action!
   ([runtime request]
-   (append-world-action! runtime request :append-ack))
+   (append-space-action! runtime request :append-ack))
   ([runtime request ack-level]
-   (foreign-append! (:world-action-depot runtime) request ack-level)
+   (foreign-append! (:space-action-depot runtime) request ack-level)
    request))
 
 (defn append-llm-observation!
@@ -1683,20 +1685,20 @@
    (append-llm-observation! runtime obs :append-ack))
   ([runtime obs ack-level]
    (llm/append-observation! runtime obs ack-level)
-   (append-world-action!
+   (append-space-action!
      runtime
-     (world-action-request
-       :world-turn/patch-proposal-create
-       (or (:world-thread/id obs) (:llm-thread/id obs))
-        {:request-id (str (:observation/id obs) "/world-patch-proposal")
+     (space-action-request
+       :turn/patch-proposal-create
+       (or (:space/id obs) (:llm-thread/id obs))
+        {:request-id (str (:observation/id obs) "/space-patch-proposal")
         :time-ms (:received-at-ms obs)
-        :payload {:world-turn/id (str (:observation/id obs) "/world-patch-proposal-turn")
+        :payload {:turn/id (str (:observation/id obs) "/space-patch-proposal-turn")
                   :patch-proposal/id (patch-proposal-id-from-observation obs)
                   :turn-diff/id (or (:turn-diff/id obs)
                                     (patch-proposal-id-from-observation obs))
                   :llm-turn-run/id (:llm-turn-run/id obs)
                   :llm-thread/id (:llm-thread/id obs)
-                  :source-world-turn/id (:world-turn/id obs)
+                  :source-turn/id (:turn/id obs)
                   :prompt/text (:summary/text obs)
                   :summary/text (:summary/text obs)
                   :patch/files (:patch/files obs)
@@ -1711,33 +1713,33 @@
 
 (defn read-request
   [runtime request-id]
-  (select-pstate-one (:world-requests-by-id runtime) [(keypath request-id)]))
+  (select-pstate-one (:space-requests-by-id runtime) [(keypath request-id)]))
 
 (defn read-decision
   [runtime request-id]
-  (select-pstate-one (:world-decisions-by-id runtime)
+  (select-pstate-one (:space-decisions-by-id runtime)
                      [(keypath (decision-id-for-request-id request-id))]))
 
 (defn read-event
   [runtime event-id]
-  (select-pstate-one (:world-events-by-id runtime) [(keypath event-id)]))
+  (select-pstate-one (:space-events-by-id runtime) [(keypath event-id)]))
 
-(defn read-thread
-  [runtime world-thread-id]
-  (select-pstate-one (:world-threads runtime) [(keypath world-thread-id)]))
+(defn read-space
+  [runtime space-id]
+  (select-pstate-one (:spaces runtime) [(keypath space-id)]))
 
 (defn read-turn
-  [runtime world-turn-id]
-  (select-pstate-one (:world-turns runtime) [(keypath world-turn-id)]))
+  [runtime turn-id]
+  (select-pstate-one (:turns runtime) [(keypath turn-id)]))
 
-(defn read-turns-by-thread
-  [runtime world-thread-id]
-  (or (select-pstate-one (:world-turns-by-thread runtime) [(keypath world-thread-id)])
+(defn read-turns-by-space
+  [runtime space-id]
+  (or (select-pstate-one (:turns-by-space runtime) [(keypath space-id)])
       []))
 
-(defn read-thread-graph
-  [runtime world-thread-id]
-  (or (select-pstate-one (:world-thread-graph runtime) [(keypath world-thread-id)])
+(defn read-space-graph
+  [runtime space-id]
+  (or (select-pstate-one (:space-graph runtime) [(keypath space-id)])
       {}))
 
 (defn read-context-bundle
@@ -1745,28 +1747,28 @@
   (select-pstate-one (:context-bundles runtime) [(keypath context-bundle-id)]))
 
 (defn read-context-bundle-by-turn
-  [runtime world-turn-id]
-  (select-pstate-one (:context-bundles-by-turn runtime) [(keypath world-turn-id)]))
+  [runtime turn-id]
+  (select-pstate-one (:context-bundles-by-turn runtime) [(keypath turn-id)]))
 
 (defn read-send-by-idempotency
   [runtime idempotency-key]
-  (select-pstate-one (:world-send-by-idempotency runtime) [(keypath idempotency-key)]))
+  (select-pstate-one (:send-by-idempotency runtime) [(keypath idempotency-key)]))
 
 (defn read-llm-run-request
   [runtime llm-turn-run-id]
-  (select-pstate-one (:world-llm-run-requests runtime) [(keypath llm-turn-run-id)]))
+  (select-pstate-one (:llm-run-requests runtime) [(keypath llm-turn-run-id)]))
 
 (defn read-llm-run-by-turn
-  [runtime world-turn-id]
-  (select-pstate-one (:world-llm-run-by-turn runtime) [(keypath world-turn-id)]))
+  [runtime turn-id]
+  (select-pstate-one (:llm-run-by-turn runtime) [(keypath turn-id)]))
 
 (defn read-llm-control
   [runtime control-id]
-  (select-pstate-one (:world-llm-controls runtime) [(keypath control-id)]))
+  (select-pstate-one (:llm-controls runtime) [(keypath control-id)]))
 
 (defn read-llm-control-by-turn
-  [runtime world-turn-id]
-  (select-pstate-one (:world-llm-control-by-turn runtime) [(keypath world-turn-id)]))
+  [runtime turn-id]
+  (select-pstate-one (:llm-control-by-turn runtime) [(keypath turn-id)]))
 
 (defn read-object
   [runtime object-id]
@@ -1783,8 +1785,8 @@
       {}))
 
 (defn read-chat-canvas-projection
-  [runtime world-thread-id]
-  (select-pstate-one (:projection-chat-canvas runtime) [(keypath world-thread-id)]))
+  [runtime space-id]
+  (select-pstate-one (:projection-chat-canvas runtime) [(keypath space-id)]))
 
 (defn read-object-detail-projection
   [runtime object-id]
@@ -1809,7 +1811,7 @@
 
 (defn read-patch-proposal
   [runtime patch-proposal-id]
-  (select-pstate-one (:world-patch-proposals runtime) [(keypath patch-proposal-id)]))
+  (select-pstate-one (:space-patch-proposals runtime) [(keypath patch-proposal-id)]))
 
 (defn await-materialized
   ([read-f pred]
@@ -1828,10 +1830,10 @@
   [runtime request-id]
   (await-materialized #(read-decision runtime request-id) some?))
 
-(defn await-thread
-  [runtime world-thread-id pred]
-  (await-materialized #(read-thread runtime world-thread-id) pred))
+(defn await-space
+  [runtime space-id pred]
+  (await-materialized #(read-space runtime space-id) pred))
 
 (defn await-turn
-  [runtime world-turn-id pred]
-  (await-materialized #(read-turn runtime world-turn-id) pred))
+  [runtime turn-id pred]
+  (await-materialized #(read-turn runtime turn-id) pred))

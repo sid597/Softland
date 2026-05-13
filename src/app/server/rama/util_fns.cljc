@@ -1,18 +1,19 @@
 (ns app.server.rama.util-fns
   (:require [clojure.string :as string]
-            [app.server.rama.core :as kernel]
+            [app.server.rama.core :as core]
+            [app.server.rama.text-kernel :as text-kernel]
             [missionary.core :as m]))
 
-;; This namespace is now a thin adapter over the canonical world kernel.
+;; This namespace is now a thin adapter over the canonical text kernel.
 ;; The old node-events module and its app-state PStates have been removed from
 ;; Rama. Remaining legacy fn names are compatibility shims for server routes
 ;; that have not yet been re-expressed as projection/action/kernel flows.
 
 (defonce !kernel-runtime
   (delay
-    (println "--R--: Start canonical world kernel")
-    (let [runtime (kernel/start-kernel-runtime!)]
-      (println "--R--: World kernel ready" {:module (:module-name runtime)})
+    (println "--R--: Start canonical text kernel")
+    (let [runtime (text-kernel/start-text-runtime!)]
+      (println "--R--: Text kernel ready" {:module (:module-name runtime)})
       runtime)))
 
 (defn runtime
@@ -21,41 +22,41 @@
 
 (defn append-action-request!
   [request]
-  (kernel/append-action-request! (runtime) request))
+  (text-kernel/append-action-request! (runtime) request))
 
 (defn ingest-text!
-  ([content] (kernel/ingest-text! (runtime) content))
-  ([content opts] (kernel/ingest-text! (runtime) content opts)))
+  ([content] (text-kernel/ingest-text! (runtime) content))
+  ([content opts] (text-kernel/ingest-text! (runtime) content opts)))
 
 (defn unitize-lines!
-  ([artifact-event] (kernel/unitize-lines! (runtime) artifact-event))
-  ([artifact-event opts] (kernel/unitize-lines! (runtime) artifact-event opts)))
+  ([artifact-event] (text-kernel/unitize-lines! (runtime) artifact-event))
+  ([artifact-event opts] (text-kernel/unitize-lines! (runtime) artifact-event opts)))
 
 (defn set-unit-status!
-  ([unit-id status] (kernel/set-unit-status! (runtime) unit-id status))
-  ([unit-id status opts] (kernel/set-unit-status! (runtime) unit-id status opts)))
+  ([unit-id status] (text-kernel/set-unit-status! (runtime) unit-id status))
+  ([unit-id status opts] (text-kernel/set-unit-status! (runtime) unit-id status opts)))
 
 (defn get-artifact
   [artifact-id]
-  (kernel/read-artifact (runtime) artifact-id))
+  (text-kernel/read-artifact (runtime) artifact-id))
 
 (defn get-text-head
   [artifact-id]
-  (kernel/read-text-head (runtime) artifact-id))
+  (text-kernel/read-text-head (runtime) artifact-id))
 
 (defn get-canonical-view
-  ([artifact-id] (get-canonical-view kernel/default-branch-id artifact-id))
+  ([artifact-id] (get-canonical-view core/default-branch-id artifact-id))
   ([branch-id artifact-id]
-   (kernel/read-canonical-view (runtime) branch-id artifact-id)))
+   (text-kernel/read-canonical-view (runtime) branch-id artifact-id)))
 
 (defn get-discarded-view
-  ([artifact-id] (get-discarded-view kernel/default-branch-id artifact-id))
+  ([artifact-id] (get-discarded-view core/default-branch-id artifact-id))
   ([branch-id artifact-id]
-   (kernel/read-discarded-view (runtime) branch-id artifact-id)))
+   (text-kernel/read-discarded-view (runtime) branch-id artifact-id)))
 
 (defn run-v0-text-proof!
   [content]
-  (kernel/run-v0-text-proof! (runtime) content))
+  (text-kernel/run-v0-text-proof! (runtime) content))
 
 (defn proxy-callback
   [emit]
@@ -93,7 +94,7 @@
 (defn- append-compat-event!
   [{:keys [event-type target-kind target-id action-type capability payload]}]
   (append-action-request!
-    (kernel/compat-record-request
+    (core/compat-record-request
       {:event-type event-type
        :target-kind target-kind
        :target-id target-id
@@ -108,7 +109,7 @@
      :target-kind :relation
      :target-id "compat/event-id"
      :action-type :compat/event-id-tick
-     :capability :world/append
+     :capability :action/append
      :payload {}}))
 
 (defn register-user
@@ -121,7 +122,7 @@
         :target-kind :relation
         :target-id user-id
         :action-type :identity/register-user
-        :capability :world/append
+        :capability :action/append
         :payload {:username username
                   :event-data event-data}})
      {:user-id user-id
@@ -142,7 +143,7 @@
      :target-kind :relation
      :target-id (relation-id "user-setting" (:username event-data) (:graph-name event-data))
      :action-type :settings/update-user-setting
-     :capability :world/append
+     :capability :action/append
      :payload {:settings-data settings-data
                :event-data event-data}})
   true)
@@ -162,7 +163,7 @@
        :target-kind :relation
        :target-id (relation-id "cli-session" file-path (name provider))
        :action-type :cli/update-session
-       :capability :world/append
+       :capability :action/append
        :payload {:file-path file-path
                  :provider provider
                  :session-id session-id}})
@@ -190,7 +191,7 @@
        :target-kind :relation
        :target-id run-id
        :action-type :agent/submit-run
-       :capability :world/append
+       :capability :action/append
        :payload run})
     run-id))
 
@@ -240,7 +241,7 @@
      :target-kind :projection
      :target-id "sidebar"
      :action-type action-type
-     :capability :world/append
+     :capability :action/append
      :payload data})
   (swap! !sidebar-truth-atom apply-sidebar-action action-type data))
 
@@ -255,7 +256,7 @@
      :target-kind :projection
      :target-id "settings"
      :action-type :settings/update
-     :capability :world/append
+     :capability :action/append
      :payload settings-data})
   (swap! !settings-truth-atom merge settings-data))
 
@@ -275,7 +276,7 @@
      :target-kind :relation
      :target-id run-id
      :action-type :agent-trail/save
-     :capability :world/append
+     :capability :action/append
      :payload {:run-id run-id
                :trail-data trail-data}})
   (let [result {:run-id run-id :trail-data trail-data}]
@@ -293,7 +294,7 @@
      :target-kind :projection
      :target-id "workspace"
      :action-type :workspace/save-truth
-     :capability :world/append
+     :capability :action/append
      :payload truth-data})
   (swap! !workspace-truth-atom merge truth-data))
 
@@ -309,7 +310,7 @@
        :target-kind :artifact
        :target-id file-path
        :action-type :editor/save-doc
-       :capability :world/append
+       :capability :action/append
        :payload {:file-path file-path
                  :doc-state doc-state}})
     (swap! !editor-doc-atom assoc file-path doc-state)
@@ -327,6 +328,6 @@
      :target-kind :projection
      :target-id "flow"
      :action-type :flow/save-state
-     :capability :world/append
+     :capability :action/append
      :payload flow-data})
   (swap! !flow-session-atom merge flow-data))

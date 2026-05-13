@@ -2,7 +2,7 @@
   (:use [com.rpl.rama]
         [com.rpl.rama.path]
         [com.rpl.rama.ops])
-  (:require [app.server.rama.core :as kernel]
+  (:require [app.server.rama.core :as core]
             [clojure.string :as str]
             [com.rpl.rama.test :refer [create-ipc launch-module!]])
   (:import (clojure.lang Keyword)
@@ -30,12 +30,12 @@
 (def observation-types
   #{:started :stdout :stderr :exit})
 
-(defn now-ms [] (kernel/now-ms))
-(defn random-id [prefix] (kernel/random-id prefix))
+(defn now-ms [] (core/now-ms))
+(defn random-id [prefix] (core/random-id prefix))
 
 (defn default-compute-actor
   []
-  (update (kernel/default-actor)
+  (update (core/default-actor)
           :actor/capabilities
           (fn [caps] (conj (set caps) :compute/run))))
 
@@ -67,9 +67,9 @@
         cwd (str (or (:cwd opts) (System/getProperty "user.dir")))
         argv (normalize-argv argv)
         actor (merge (default-compute-actor) (:actor opts))
-        branch (merge {:branch/id kernel/default-branch-id} (:branch opts))
-        context (merge (kernel/default-context) (:context opts))
-        causal (merge (kernel/default-causal) (:causal opts))
+        branch (merge {:branch/id core/default-branch-id} (:branch opts))
+        context (merge (core/default-context) (:context opts))
+        causal (merge (core/default-causal) (:causal opts))
         executor-task-id (opts-executor-task-id opts)
         provenance (or (:provenance opts)
                        {:source/type :manual
@@ -149,7 +149,7 @@
              :expected (compute-routing-key run-id)})
 
       (and (map? request)
-           (not (contains? kernel/actor-types (get-in request [:actor :actor/type]))))
+           (not (contains? core/actor-types (get-in request [:actor :actor/type]))))
       (conj {:type :actor/invalid-type
              :value (get-in request [:actor :actor/type])})
 

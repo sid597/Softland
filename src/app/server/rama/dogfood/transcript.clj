@@ -2,7 +2,7 @@
   (:use [com.rpl.rama]
         [com.rpl.rama.path]
         [com.rpl.rama.ops])
-  (:require [app.server.rama.core :as kernel]
+  (:require [app.server.rama.core :as core]
             [app.server.rama.dogfood.llm :as llm]
             [clojure.data.json :as json]
             [clojure.java.io :as io]
@@ -33,8 +33,8 @@
 (def terminal-statuses
   #{:complete :failed :cancelled})
 
-(defn now-ms [] (kernel/now-ms))
-(defn random-id [prefix] (kernel/random-id prefix))
+(defn now-ms [] (core/now-ms))
+(defn random-id [prefix] (core/random-id prefix))
 
 (defn transcript-routing-key
   [request-id]
@@ -172,7 +172,7 @@
 
 (defn line-hash
   [line]
-  (str "sha256:" (kernel/sha-256 line)))
+  (str "sha256:" (core/sha-256 line)))
 
 (defn file-id
   [^File file]
