@@ -1,6 +1,6 @@
 # Dogfood Runtime Direction
 
-Status: current architecture direction, updated 2026-05-11.
+Status: current architecture direction, updated 2026-05-13.
 
 This folder captures the current direction that emerged from the Rama/AOR
 discussion:
@@ -18,10 +18,13 @@ The first concrete runtime has two execution tracks:
 
 The current system shape has three conceptual depot families:
 
-1. World
+1. Space (called World in older docs)
 2. Compute
 3. LLM-agent
 ```
+
+Naming note after `1ef1cbd`: old WorldThread/WorldTurn vocabulary maps to
+current space/turn vocabulary.
 
 This is not an implementation handoff. It is the current architectural shape to
 think with before choosing exact files to change.
@@ -87,14 +90,19 @@ Compute Slice A.0
   test/app/server/rama/dogfood_compute_test.clj
 
 LLM contract MVP
-  src/app/server/rama/dogfood/world.clj
+  src/app/server/rama/dogfood/space.clj
   src/app/server/rama/dogfood/llm.clj
-  test/app/server/rama/dogfood_world_test.clj
+  test/app/server/rama/dogfood_space_test.clj
   test/app/server/rama/dogfood_llm_test.clj
+
+Text kernel split
+  src/app/server/rama/core.clj
+  src/app/server/rama/text_kernel.clj
+  test/app/server/rama/text_kernel_test.clj
 ```
 
 The LLM MVP is intentionally contract-first, not UI-complete. It proves the
-World -> ContextBundle -> LLM run -> observations -> World/catalog/projection
+Space -> ContextBundle -> LLM run -> observations -> Space/catalog/projection
 loop in Rama with fake-executor coverage. Real UI workflows, reverse-MCP/custom
 tools, full discourse graph projection, model-comparison lanes, and semantic
 zoom integration remain outside this MVP.
@@ -102,14 +110,14 @@ zoom integration remain outside this MVP.
 ## Settled For Now
 
 ```text
-WorldDepot is truth.
+SpaceDepot is truth.
 ComputeDepot does physical execution.
 LLMDepot does epistemic / agent execution.
 
 Compute and LLM may produce observations, proposals, patches, artifacts, and
 requests.
 
-Compute and LLM do not secretly mutate WorldPStates.
+Compute and LLM do not secretly mutate Space PStates.
 
 The UI watches Rama.
 Workers and agents stream back into Rama.

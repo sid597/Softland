@@ -1,17 +1,26 @@
 # LLM Track Contract Slice Roadmap
 
-Status: implemented green MVP, 2026-05-11. Originally derived from
+Status: implemented green MVP, updated 2026-05-13. Originally derived from
 `llm-track-derived-contract.md`, 2026-05-10. Slice-roadmap depth (not
 exhaustive schema spec). The plan below is retained as the roadmap that was
 executed.
+
+Post-implementation vocabulary note: commit `1ef1cbd` mechanically renamed the
+dogfood runtime from world-thread/world-turn to space/turn and split the text
+kernel surface into shared `core.clj` plus `text_kernel.clj`. The slice prose
+below is historical; active code/tests use the names in this implementation
+file list.
 
 Implementation files:
 
 ```text
 src/app/server/rama/dogfood/llm.clj
-src/app/server/rama/dogfood/world.clj
+src/app/server/rama/dogfood/space.clj
+src/app/server/rama/core.clj
+src/app/server/rama/text_kernel.clj
 test/app/server/rama/dogfood_llm_test.clj
-test/app/server/rama/dogfood_world_test.clj
+test/app/server/rama/dogfood_space_test.clj
+test/app/server/rama/text_kernel_test.clj
 ```
 
 The MVP landed as green vertical slices from `d7baea4` through `5402128`, with
@@ -280,9 +289,10 @@ SLICE   TESTS
         expanded replay/property tests
 ```
 
-Each slice must pass its focused tests plus the combined Rama suite
-(`world-kernel-test`, `dogfood-compute-test`, `dogfood-llm-test`)
-before commit.
+Each slice had to pass its focused tests plus the combined Rama suite before
+commit. After `1ef1cbd`, the active focused test names are
+`text-kernel-test`, `dogfood-space-test`, `dogfood-compute-test`,
+`dogfood-llm-test`, and `dogfood-transcript-test`.
 
 ## Deferred To V1.x
 

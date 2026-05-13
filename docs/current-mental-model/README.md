@@ -1,10 +1,22 @@
 # Current Mental Model
 
-Status: global context pack, 2026-05-11.
+Status: global context pack, 2026-05-13.
 
-This folder is the current working mental model for the Rama/world-kernel and
+This folder is the current working mental model for the Rama kernel and
 dogfood-runtime work. Use it to start new chats without rehydrating the whole
 prior conversation.
+
+Post `1ef1cbd`, active code vocabulary is:
+
+```text
+shared kernel contracts  -> src/app/server/rama/core.clj
+text instance            -> src/app/server/rama/text_kernel.clj
+dogfood space runtime    -> src/app/server/rama/dogfood/space.clj
+LLM runtime              -> src/app/server/rama/dogfood/llm.clj
+```
+
+Older docs may still say world-kernel, world-thread, or world-turn. Treat those
+as historical vocabulary unless the doc explicitly says it is current.
 
 This is not the same thing as a task handoff. Global context tells a new session
 how to think with us; a handoff tells it what to execute next. See

@@ -28,8 +28,9 @@ Before answering, read:
 
 Ignore older Softland lore unless I explicitly ask for it. Give highest weight
 to the current mental model in this folder, especially the April 28 kernel
-correction, the May 1 dogfood-runtime direction, and the May 11 LLM contract
-MVP implementation record.
+correction, the May 1 dogfood-runtime direction, the May 11 LLM contract MVP
+implementation record, and the May 13 `1ef1cbd` rename/split that made active
+code vocabulary space/turn plus `core.clj`/`text_kernel.clj`.
 
 Do not assume there is an active implementation handoff. I may be bringing a new
 potential direction to discuss. Use the current mental model as context, not as
@@ -64,6 +65,16 @@ ActionDecision records the answer.
 KernelEvent happened.
 
 ActionRequest is not a text/PDF/chat/code instance. It is a lifecycle envelope inside the general kernel.
+
+Active source names after `1ef1cbd`:
+
+shared contracts: src/app/server/rama/core.clj
+text instance: src/app/server/rama/text_kernel.clj
+dogfood space runtime: src/app/server/rama/dogfood/space.clj
+LLM runtime: src/app/server/rama/dogfood/llm.clj
+
+Historical docs may say world-thread/world-turn. In current code, read those as
+space/turn unless the doc is explicitly preserving history.
 
 KernelEvent =
   identity

@@ -1,6 +1,6 @@
 # Where Is What
 
-Status: human routing map for `docs/current-mental-model`, 2026-05-11.
+Status: human routing map for `docs/current-mental-model`, 2026-05-13.
 
 This page answers the practical question: "where do I look or write this?"
 
@@ -26,7 +26,7 @@ architecture/
   Durable architecture notes and recurring systems-level distinctions.
 
 architecture/dogfood-runtime/
-  Runtime direction for World / Compute / LLM-agent depots.
+  Runtime direction for Space / Compute / LLM-agent depots.
 
 trails/
   Dated traces of important reasoning or implementation episodes until Rama
@@ -49,10 +49,11 @@ docs/sessions/next-prompt.md
   Short narrative of how the model got here.
 
 10-anchors/rama-world-kernel-text-instance.md
-  Concrete vertical walkthrough through the Rama world kernel using text.
+  Historical concrete vertical walkthrough through the Rama kernel using text.
+  Active text code now lives in text_kernel.clj; shared contracts live in core.clj.
 
 10-anchors/rama-world-kernel-v1-wall-map.txt
-  Full visual wall artifact for the current Rama kernel shape.
+  Full visual wall artifact for the pre-rename Rama kernel shape.
 
 architecture/dogfood-runtime/slice-a-compute-run-command.md
   Implemented Slice A compute-run architecture.

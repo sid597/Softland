@@ -73,11 +73,11 @@ trails/*.md
      implementation proof while Rama trail storage does not exist yet
 
 10-anchors/rama-world-kernel-text-instance.md
-  -> concrete vertical walkthrough through the kernel using text
+  -> historical concrete vertical walkthrough through the kernel using text
   -> use when abstractions feel floaty
 
 10-anchors/rama-world-kernel-v1-wall-map.txt
-  -> visual/ascii map of the current Rama system shape
+  -> visual/ascii map of the pre-rename Rama system shape
   -> use when the user wants to build the model spatially
 
 90-prompts/implementation-review-prompt.md
@@ -98,6 +98,9 @@ architecture/dogfood-runtime/*.md
   -> compute track, LLM-agent track, the three-depot system shape, the
      implemented Slice A compute spine, and the implemented LLM contract MVP
   -> not a task handoff
+
+Post `1ef1cbd`, active code uses space/turn vocabulary. Older docs that say
+world-thread/world-turn are historical unless explicitly marked current.
 
 trails/2026-05-02-slice-a-cross-model-experiment.md
   -> trace of the Slice A Claude/Codex/user experiment before Rama can store

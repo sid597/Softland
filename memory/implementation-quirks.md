@@ -116,7 +116,7 @@ If file-open latency matters, add a dedicated read-path timing log inside `fetch
 When a systems-level question creates a durable distinction or architecture
 note, preserve the user prompt/question that caused the note to exist.
 
-Use this especially for recurring Rama/world-kernel questions like:
+Use this especially for recurring Rama kernel questions like:
 
 - logical lifecycle vs physical depot layout
 - source-of-truth depots vs derived depots
@@ -137,3 +137,16 @@ Why this matters:
 This prevents docs from becoming contextless assertions. The point is not to
 quote every chat turn; it is to keep the pressure that made the distinction
 necessary.
+
+### Rama rename vocabulary after `1ef1cbd`
+Active code after the May 13 rename/split uses:
+
+- shared contracts: `src/app/server/rama/core.clj`
+- text instance: `src/app/server/rama/text_kernel.clj`
+- dogfood space runtime: `src/app/server/rama/dogfood/space.clj`
+- dogfood space tests: `test/app/server/rama/dogfood_space_test.clj`
+- text kernel tests: `test/app/server/rama/text_kernel_test.clj`
+
+Older docs may say world-kernel, world-thread, or world-turn. Preserve that
+when the doc is historical provenance, but use space/turn vocabulary for active
+code, new handoffs, and new tests.

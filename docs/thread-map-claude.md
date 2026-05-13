@@ -1,14 +1,16 @@
 # Softland Project Thread Map
 
 > **Author:** Claude (Opus 4.6), reconstructed from all project docs + session logs
-> **Date:** 2026-03-23 (updated 2026-05-11: Rama LLM contract MVP addendum)
+> **Date:** 2026-03-23 (updated 2026-05-13: Rama rename/text split addendum)
 > **Purpose:** Single visual document tracing every development thread, decision fork, and dependency across the original 37-session reconstruction, with later addenda for major runtime milestones
 > **Read time:** ~15 minutes
 > **Honesty note:** Every claim below cites its source. Decisions are tagged `[USER]`, `[AI]`, or `[JOINT]` to distinguish who decided what. Status conflicts between docs are flagged explicitly.
 >
 > **2026-03-29 addendum:** Sessions around the consensus refactor closed Phases `0-5` and `7` of the workspace substrate correction. The workspace now has semantic local-world derivation, keyed-diff proof, and workspace-truth persistence; Phase `6` differential pipeline is the next major thread.
 >
-> **2026-05-11 addendum:** The dogfood runtime now has an implemented Rama-backed LLM contract MVP. The completed slice chain covers WorldTurns, frozen ContextBundles, LLM run lifecycle, controls, executor claims, follow-up runs, raw LLM items, catalog/slice/derivative materialization, fork/reconciliation, patch proposals, rebuildable projections, and cost rollups. The implementation record is `docs/current-mental-model/architecture/dogfood-runtime/llm-track-slice-roadmap.md`; code is in `src/app/server/rama/dogfood/world.clj` and `src/app/server/rama/dogfood/llm.clj`.
+> **2026-05-11 addendum:** The dogfood runtime now has an implemented Rama-backed LLM contract MVP. The completed slice chain covers WorldTurns, frozen ContextBundles, LLM run lifecycle, controls, executor claims, follow-up runs, raw LLM items, catalog/slice/derivative materialization, fork/reconciliation, patch proposals, rebuildable projections, and cost rollups. The implementation record is `docs/current-mental-model/architecture/dogfood-runtime/llm-track-slice-roadmap.md`. At landing, code lived in `src/app/server/rama/dogfood/world.clj` and `src/app/server/rama/dogfood/llm.clj`; after `1ef1cbd`, active dogfood code is `space.clj` plus `llm.clj`.
+>
+> **2026-05-13 addendum:** Commit `1ef1cbd` performed PR1 as a mechanical rename plus file split, not codegen: the old text/world kernel surface is now shared contracts in `src/app/server/rama/core.clj` plus the text instance in `src/app/server/rama/text_kernel.clj`; the dogfood WorldThread/WorldTurn runtime is now space/turn vocabulary in `src/app/server/rama/dogfood/space.clj`. Active code should say space/turn; old world-thread/world-turn names in earlier docs are historical provenance unless explicitly marked current.
 
 ---
 

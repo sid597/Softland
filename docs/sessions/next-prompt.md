@@ -1,27 +1,12 @@
-# Session Resume — Slice A TaskGlobal Context
+# Session Resume — Rama Rename + Dogfood Runtime State
 
-Status: Slice A TaskGlobal implementation context, 2026-05-04.
+Status: post `1ef1cbd`, 2026-05-13.
 
-This file is a resume pointer for the current Slice A work. Before acting, check
-`git status --short` and recent `git log` because docs and code/test changes are
-intentionally committed separately in this project.
+This file is a task handoff only. It is not the global context pack. If the
+user opens with a new direction or a design question, start from
+`docs/current-mental-model/00-start-here/new-chat-bootstrap.md` instead.
 
-For a new session, start from:
-
-```text
-docs/current-mental-model/context-map.md
-docs/current-mental-model/architecture/dogfood-runtime/README.md
-docs/current-mental-model/architecture/dogfood-runtime/slice-a-compute-run-command.md
-```
-
-The old implementation prompt is now historical provenance, not the active
-starting point:
-
-```text
-docs/current-mental-model/90-prompts/implementation-slice-a-compute-run-command-prompt.md
-```
-
-## Starting Point
+## Branch / Commit State
 
 We are working in:
 
@@ -29,229 +14,209 @@ We are working in:
 /mnt/data/projects/Softland
 ```
 
-The private mental-model docs live on the local branch:
+The current branch is:
 
 ```text
 docs/current-mental-model-local
 ```
 
-This branch is private/local. Do not push it. Public code lives on `main`.
+This is the private/local docs branch. Do not push it unless the user changes
+that rule. Public code lives on `main`. Docs and code/test commits are allowed
+to be separate on this branch.
 
-Current public `main` already contains the V0 and V1 Rama kernel code:
-
-```text
-bc058a7 Implement Rama world kernel request pipeline
-d811906 Complete Rama world kernel V1 request contract
-```
-
-Those public commits touched only:
+Most recent code commit for this thread:
 
 ```text
-src/app/server/rama/core.clj
-src/app/server/rama/util_fns.cljc
-test/app/server/rama/world_kernel_test.clj
+1ef1cbd rama: split text kernel and rename space
 ```
 
-The private docs branch contains the current mental model and implementation
-trail. Keep docs commits local/private unless the user explicitly changes that
-rule. Do not mix docs with code/test commits.
-
-## Read Order
-
-For architecture/code context, read these before editing:
+That commit touched only:
 
 ```text
-.agents/skills/think-in-rama/SKILL.md
-docs/current-mental-model/README.md
-docs/current-mental-model/architecture/action-request-kernel-routing.md
-docs/current-mental-model/architecture/logical-lifecycle-and-derived-depots.md
-docs/current-mental-model/architecture/dogfood-runtime/README.md
-docs/current-mental-model/architecture/dogfood-runtime/slice-a-compute-run-command.md
-docs/current-mental-model/architecture/rama-blog-patterns.md
-docs/current-mental-model/architecture/rama-policy-throughput-post.md
-docs/current-mental-model/architecture/prompt-to-implementation-lossiness.md
-docs/reference/rama/28-clj-defining-modules.md
-docs/reference/rama/29-clj-dataflow-lang.md
-docs/reference/rama/15-pstates.md
-docs/reference/rama/11-stream-topologies.md
-docs/reference/rama/25-integrating.md
+src/app/server/rama/**
+test/app/server/rama/**
 ```
 
-For code, inspect:
+It completed PR1 as a mechanical vocabulary rename plus mechanical
+`core.clj`/`text_kernel.clj` split. It did not add `defkernel` generation and
+did not change Rama topology behavior.
+
+## Current Source Shape
+
+Active Rama source paths:
 
 ```text
 src/app/server/rama/core.clj
+  Shared contracts/utilities:
+  ActionRequest, ActionDecision, KernelEvent validation and helpers,
+  default actor/context/causal/policy helpers, ordering/routing helpers,
+  compat request/event helpers, and shared kernel-contract-table.
+
+src/app/server/rama/text_kernel.clj
+  V0/V1 text instance:
+  text-kernel-module, *text-requests-depot, text-kernel-topology,
+  text request/event builders, interpreters, materializations,
+  runtime lifecycle, append/read helpers.
+
+src/app/server/rama/dogfood/space.clj
+  Dogfood space runtime:
+  space-kernel-module, *space-action-depot, space-topology,
+  space/turn request builders, space/turn materializations,
+  LLM request/control mirrors derived from accepted space actions.
+
+src/app/server/rama/dogfood/llm.clj
+  LLM-owned runtime:
+  llm-run lifecycle, llm-turn-run concept, control handling,
+  executor claim/observation lifecycle, raw item/cost/run materializations.
+
 src/app/server/rama/dogfood/compute.clj
-test/app/server/rama/world_kernel_test.clj
+src/app/server/rama/dogfood/transcript.clj
+  Compute and transcript runtimes. These now require shared contracts as
+  app.server.rama.core, not as a kernel alias.
+```
+
+Active Rama test paths:
+
+```text
+test/app/server/rama/text_kernel_test.clj
+test/app/server/rama/dogfood_space_test.clj
+test/app/server/rama/dogfood_llm_test.clj
 test/app/server/rama/dogfood_compute_test.clj
+test/app/server/rama/dogfood_transcript_test.clj
 ```
 
-## Canonical Loop
+## Vocabulary
 
-The settled top-level lifecycle is:
+Use current names in active code and new docs:
 
 ```text
-Projection
-  -> ActionRequest
-  -> Depot
-  -> Topology
-  -> ActionDecision
-  -> KernelEvent?
-  -> PStates
-  -> Projection
+old world-thread     -> current space
+old world-turn       -> current turn
+old world.clj        -> current space.clj
+old world-kernel     -> current text-kernel for the text instance,
+                        or space-kernel for the dogfood runtime
+old :world/append    -> current :action/append
 ```
 
-Meaning:
+Semantic data changed too:
 
 ```text
-ActionRequest = proposed world change
-Depot = durable Rama entry point
-Topology = Rama-owned interpreter/decision logic
-ActionDecision = durable Rama answer
-KernelEvent = accepted world fact, only when accepted
-PStates = materialized/queryable world views
-Projection = inhabitable/readable world surface
+:world-thread/*       -> :space/*
+:world-turn/*         -> :turn/*
+:target/kind :world-thread -> :target/kind :space
+[:world-thread id]    -> [:space id]
+:parent-thread/id     -> :parent-space/id
+:child-thread/id      -> :child-space/id
+:source-world-turn/id -> :source-turn/id
+:resolution/world-turn-id -> :resolution/turn-id
 ```
 
-Rejected actions are durable decisions, not accepted world events:
+Historical docs may still say world-kernel, world-thread, or world-turn.
+Preserve that when the doc is provenance, but translate to space/turn when
+touching active code or writing a new handoff.
+
+## Runtime API Names
+
+Text runtime:
 
 ```clojure
-{:decision/status :rejected
- :request/id ...
- :request/type ...
- :routing/key ...
- :event/id nil
- :decision/reason ...
- :errors ...}
+text-kernel/start-text-runtime!
+text-kernel/close-text-runtime!
 ```
 
-Accepted decisions point to or contain the accepted event:
+Space runtime:
 
 ```clojure
-{:decision/status :accepted
- :request/id ...
- :request/type ...
- :routing/key ...
- :event/id ...
- :event ...}
+space/start-space-runtime!
+space/close-space-runtime!
+space/append-space-action!
+space/space-action-request
+space/space-create-request
+space/space-turn-request
+space/space-routing-key
+space/read-space
+space/read-turn
+space/read-turns-by-space
+space/read-space-graph
+space/await-space
+space/await-turn
 ```
 
-## Current Code Shape
-
-V1 currently has:
+LLM cross-module names:
 
 ```text
-*world-requests-depot hashed by :routing/key
-ActionRequest before KernelEvent
-ActionDecision for accepted/rejected outcomes
-KernelEvent only after acceptance
-request validation before action dispatch
-rejected decisions with :event/id nil and :decision/reason
-helper APIs using :proposed-event-id, not ambiguous :event-id
-tests proving the V1 contract
+$$llm-thread-by-space
+$$llm-turn-run-by-turn
+read-run-for-turn
 ```
 
-Covered action families:
+Do not rename LLM's own `llm-turn-run` concept. It is LLM-owned vocabulary.
+
+## Rama Safety Notes
+
+Keep these behavioral contracts unchanged unless the user explicitly starts a
+new architecture change:
 
 ```text
-:artifact/ingest
-:unit/status-set
-:compat/record
-unknown action rejection
+same depot boundaries
+same partitioning contracts
+same intra-topology |hash hops
+same mirror-depot plus depot-partition-append! semantics
+same :retry-mode :all-after on observation depots
 ```
 
-Important current limitation:
+The keyword collision between space requests and LLM controls is intentional:
 
 ```text
-:routing/key is canonical on requests, but some PStates still key by plain ids.
-This is documented as transitional, not final.
+space request validation dispatches on :request/type
+LLM control validation dispatches on :control/type
+LLM run request validation rejects :request/type :turn/cancel and :turn/steer
 ```
 
-Current policy is scaffolding:
+Tests for this live in `dogfood_space_test.clj`.
+
+## Verification From `1ef1cbd`
+
+Targeted Rama suite passed before commit:
 
 ```text
-authorized-request? checks capabilities in the request envelope.
-Real policy must move into Rama-owned PStates/mirrors.
-```
+Testing app.server.rama.text-kernel-test
+Testing app.server.rama.dogfood-space-test
+Testing app.server.rama.dogfood-llm-test
+Testing app.server.rama.dogfood-compute-test
+Testing app.server.rama.dogfood-transcript-test
 
-## Slice A TaskGlobal Shape
-
-Slice A.0 is:
-
-```text
-:compute/run-command
-  -> Rama-owned run lifecycle
-  -> Rama-owned claim before process spawn
-  -> claim-tokened stdout/stderr/exit observations
-  -> live UI-readable PState
-```
-
-Primary implementation files:
-
-```text
-src/app/server/rama/dogfood/compute.clj
-test/app/server/rama/dogfood_compute_test.clj
-```
-
-The architecture is now TaskGlobal-shaped:
-
-```text
-*compute-depot
-  -> ComputeTopology request branch
-  -> $$compute-runs
-  -> $$compute-pending-by-task[executor-task-id]
-  -> ComputeExecutorTaskGlobal reconcile loop
-  -> *compute-claim-depot
-  -> ComputeTopology claim branch
-  -> durable grant in $$compute-runs
-  -> worker pool spawns command
-  -> *compute-obs-depot
-  -> ComputeTopology observation branch
-  -> $$compute-views
-```
-
-The executor is not topology code. It is a module-owned out-of-band worker that
-reads PStates and writes depots. The topology remains the only PState writer.
-
-`run-one-pending-local!` still exists, but only as a manual/protocol test helper
-for the explicit `"local"` pending inbox. Normal requests are assigned an
-`:executor/task-id` and are picked up by `ComputeExecutorTaskGlobal`.
-
-Focused test command used for this slice:
-
-```bash
-clj -M:test -e '(require (quote app.server.rama.dogfood-compute-test)) (let [res (clojure.test/run-tests (quote app.server.rama.dogfood-compute-test)) ok? (and (zero? (:fail res)) (zero? (:error res)))] (shutdown-agents) (System/exit (if ok? 0 1)))'
-```
-
-Expected result:
-
-```text
-Ran 4 tests containing 36 assertions.
+Ran 52 tests containing 447 assertions.
 0 failures, 0 errors.
 ```
 
-Do not treat these as implemented by Slice A.0:
+Useful focused command:
 
-```text
-LLM / Codex / Claude agent track
-cancel
-restart reconcile / :lost
-serve / daemon lifecycle
-artifact production
-Compute -> World mutation bridge
-full UI polish beyond the minimal live state proof
+```bash
+clojure -M:test -e "(require 'clojure.test 'app.server.rama.text-kernel-test 'app.server.rama.dogfood-space-test 'app.server.rama.dogfood-llm-test 'app.server.rama.dogfood-compute-test 'app.server.rama.dogfood-transcript-test) (clojure.test/run-tests 'app.server.rama.text-kernel-test 'app.server.rama.dogfood-space-test 'app.server.rama.dogfood-llm-test 'app.server.rama.dogfood-compute-test 'app.server.rama.dogfood-transcript-test)"
 ```
 
-The concurrent architecture exploration is the LLM/agent mirror of this spine.
-That work should not block Slice A.0 implementation and should not be
-implemented in the compute patch.
+Rama test JVMs can linger after printing the summary. Check `ps` before
+assuming a failed hang.
 
-Commit hygiene:
+## Current Pending State
+
+There is no active implementation handoff from this file. The Rama rename/text
+split code is committed. If the user says "continue", first infer whether they
+mean:
 
 ```text
-- Never read src/app/server/env.clj.
-- Do not commit .gitignore changes.
-- Do not use git reset --hard, git clean, or broad git restore.
-- Ignore unrelated dirty worktree files unless they block the task.
-- Commit docs separately from code/test files.
+1. continue docs cleanup on the private branch
+2. inspect/review the `1ef1cbd` code commit
+3. start the next Rama dogfood runtime feature
 ```
+
+Do not assume a next feature just because this file exists.
+
+## Guardrails
+
+- Never read `src/app/server/env.clj`.
+- Do not use `git add -A`.
+- Keep docs-only commits and code/test commits separate unless the user says
+  otherwise.
+- Do not push `docs/current-mental-model-local`.

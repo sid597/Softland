@@ -5,8 +5,15 @@
 
 ---
 
+### Session 49 — Rama Space Rename + Text Kernel Split — 2026-05-13
+- **PR1 vocabulary landed.** Commit `1ef1cbd` completed the mechanical rename from dogfood world/thread/turn vocabulary to space/turn vocabulary and split the old text kernel surface into shared contracts plus a text instance. This was intentionally not `defkernel` generation and did not change Rama topology behavior.
+- **Current source shape.** Shared ActionRequest/ActionDecision/KernelEvent contracts and helpers live in `src/app/server/rama/core.clj`; the V0/V1 text instance lives in `src/app/server/rama/text_kernel.clj`; the dogfood space runtime lives in `src/app/server/rama/dogfood/space.clj`; LLM-owned run state remains in `src/app/server/rama/dogfood/llm.clj`.
+- **LLM bridge vocabulary updated.** LLM keeps its own `llm-turn-run` concept, while cross-module keys now bind by space/turn (`$$llm-thread-by-space`, `$$llm-turn-run-by-turn`, `read-run-for-turn`).
+- **Collision guard added.** Tests now cover the overlapping `:turn/cancel` / `:turn/steer` keywords: space requests discriminate by `:request/type`, LLM controls discriminate by `:control/type`, and LLM run requests reject control-shaped request types.
+- **Verification:** targeted Rama suite passed: `52 tests`, `447 assertions`, `0 failures`, `0 errors`.
+
 ### Session 48 — Rama LLM Contract MVP — 2026-05-11
-- **Slice roadmap executed.** The 12-slice LLM contract roadmap landed as green vertical slices from `d7baea4` through `5402128`, followed by `287699c` documenting the cost-rollup tradeoff inline. The completed code lives in `src/app/server/rama/dogfood/llm.clj` and `src/app/server/rama/dogfood/world.clj`, with coverage in `dogfood_llm_test.clj` and `dogfood_world_test.clj`.
+- **Slice roadmap executed.** The 12-slice LLM contract roadmap landed as green vertical slices from `d7baea4` through `5402128`, followed by `287699c` documenting the cost-rollup tradeoff inline. At landing, the completed code lived in `src/app/server/rama/dogfood/llm.clj` and `src/app/server/rama/dogfood/world.clj`, with coverage in `dogfood_llm_test.clj` and `dogfood_world_test.clj`. Post `1ef1cbd`, the dogfood world file/test are renamed to `space.clj` and `dogfood_space_test.clj`.
 - **World-first LLM loop implemented.** User sends enter World first, create WorldTurns, freeze ContextBundles, then derive LLM run requests. UI/helper paths do not append user sends directly to the LLM depot. Idempotency prevents duplicate turns, bundles, and runs on replay.
 - **Execution and control contract implemented.** LLM run lifecycle, approval/cancel/compact/steer controls, approval timeout, executor claims, durable grant wait, fake Codex adapter tests, observations, stale approval behavior, follow-up runs on bound native threads, and patch proposal ingestion all landed.
 - **Knowledge materialization landed.** Raw LLM item indexes, eager catalog rows, slices, overlays/comments, derivatives, fork/reconciliation flows, rebuildable projections, and per-thread token/cost rollups are now represented in the Rama dogfood runtime.
