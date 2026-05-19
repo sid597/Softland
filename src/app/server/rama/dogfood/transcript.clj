@@ -13,6 +13,23 @@
            (java.nio.file Files LinkOption)
            (java.util UUID)))
 
+;; ────────────────────────────────────────────────────────────────────────────────
+;;   TRANSCRIPT KERNEL
+;;
+;;   The Transcript Kernel is a passive observer of external chat logs: it
+;;   watches transcript files produced by CLI tools such as Claude and Codex,
+;;   harvests past content or tails live appends, parses and redacts each
+;;   line, deduplicates source material against a line ledger, and indexes
+;;   the resulting conversations and tool calls. It never participates in the
+;;   conversation, and that non-participation is the boundary that keeps it
+;;   orthogonal to Space.
+;;
+;;   Compressed:  external chat history becomes indexed, deduplicated source
+;;                material.
+;;
+;;   For the kernel taxonomy and KERNEL-SHAPE spec see app.server.rama.kernel.
+;; ────────────────────────────────────────────────────────────────────────────────
+
 (def schema-version 1)
 (def default-redaction-policy :standard)
 (def default-source-version :unknown)

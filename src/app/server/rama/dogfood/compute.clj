@@ -12,6 +12,23 @@
            (java.util.concurrent ConcurrentHashMap Executors ThreadFactory TimeUnit)
            (java.util.concurrent.atomic AtomicInteger)))
 
+;; ────────────────────────────────────────────────────────────────────────────────
+;;   COMPUTE KERNEL
+;;
+;;   The Compute Kernel runs requested workspace commands as physical work,
+;;   with a module-owned executor (`*compute-executor`, a reactive TaskGlobal)
+;;   polling pending rows and spawning the process. Claim and observation
+;;   depots stream the executor lock and process events — start, stdout,
+;;   stderr, exit — back into Rama state, the back-arrow that keeps the
+;;   kernel's recorded truth aligned with OS-level work.
+;;
+;;   Compressed:  requested workspace commands become observable run state.
+;;
+;;   Shape note:  this is the only kernel today that owns its executor via
+;;   `declare-object` + TaskGlobal — the work happens inside the Rama JVM.
+;;   For the kernel taxonomy and KERNEL-SHAPE spec see app.server.rama.kernel.
+;; ────────────────────────────────────────────────────────────────────────────────
+
 (def schema-version 1)
 (def pending-task-id "local")
 (def default-stdout-tail-limit 200)

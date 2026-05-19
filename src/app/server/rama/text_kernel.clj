@@ -11,11 +11,23 @@
             [com.rpl.rama.test :refer [create-ipc launch-module!]])
   (:import (clojure.lang Keyword)))
 
-;; Text kernel V0/V1.
+;; ────────────────────────────────────────────────────────────────────────────────
+;;   TEXT KERNEL  (V0 / V1)
 ;;
-;; Shared ActionRequest/KernelEvent envelope contracts live in app.server.rama.core.
-;; This namespace owns the text artifact depot, topology, text materializations,
-;; runtime lifecycle, append helpers, and projection readers.
+;;   The Text Kernel is the text-artifact model itself: artifacts, revisions,
+;;   branches, units, and declared policies live here. Its actions are
+;;   synchronous and intent-only — ingest text, set unit status per branch,
+;;   record compatibility — so the kernel needs no claim, observation, or
+;;   control depot; the whole decision and materialization happen inside the
+;;   request fold.
+;;
+;;   Compressed:  text becomes addressable, judgeable artifact units.
+;;
+;;   This namespace owns the text artifact depot, topology, text materializations,
+;;   runtime lifecycle, append helpers, and projection readers. Shared
+;;   ActionRequest / KernelEvent envelope contracts live in app.server.rama.core.
+;;   For the kernel taxonomy and KERNEL-SHAPE spec see app.server.rama.kernel.
+;; ────────────────────────────────────────────────────────────────────────────────
 
 (def line-distiller-id "text-line-v0")
 

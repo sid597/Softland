@@ -7,6 +7,35 @@
             [clojure.string :as str]
             [com.rpl.rama.test :refer [create-ipc launch-module!]]))
 
+;; ────────────────────────────────────────────────────────────────────────────────
+;;   SPACE KERNEL
+;;
+;;   The Space Kernel is the local-world kernel: it manages a graph of
+;;   inhabitable spaces — currently most visible as chat-thread work areas,
+;;   but meant to hold more shapes of work over time. Each space holds its
+;;   own turns, objects, slices, overlays, derivatives, patch proposals, and
+;;   projections. The kernel creates spaces and the turns that happen inside
+;;   them, freezes a context bundle per turn, accumulates the content
+;;   attached to those turns, and — on compose/fork flows that need external
+;;   model work — reaches across into the LLM Kernel through mirrored depots.
+;;   Many space requests are purely local; only some dispatch LLM runs or
+;;   controls.
+;;
+;;   Compressed:  conversation and intent become inhabitable local worlds.
+;;
+;;   Boundary:  Space manages chat as place; LLM executes model runs inside
+;;   that place. Space owns the turns and freezes the bundles; it never runs
+;;   the model itself — that crosses into llm-kernel via `mirror-depot`.
+;;
+;;   Scope note:  a single "space" is itself a small world (turns + objects +
+;;   slices + overlays + derivatives + patches + projections); the kernel
+;;   maintains many of them, related to each other through `$$space-graph`
+;;   and `:space/fork-from-span`. Chat-thread is the current concrete form;
+;;   the kernel's shape leaves room for other work-area shapes later.
+;;
+;;   For the kernel taxonomy and KERNEL-SHAPE spec see app.server.rama.kernel.
+;; ────────────────────────────────────────────────────────────────────────────────
+
 (def schema-version 1)
 (def default-space-branch-id "space/main")
 
