@@ -10,6 +10,28 @@
            (java.util UUID)
            (java.util.concurrent TimeUnit)))
 
+;; ────────────────────────────────────────────────────────────────────────────────
+;;   LLM KERNEL
+;;
+;;   The LLM Kernel runs provider-side turn-runs for chats that live in Space:
+;;   it organizes runs into LLM-side threads bound to spaces, then manages
+;;   each run's lifecycle through its depot family — requests as intent,
+;;   claims as executor locks, streamed observations as provider output /
+;;   tool calls / token usage, and controls as cancel, steer, approve, or
+;;   compact. It is the only kernel that currently carries a control depot,
+;;   because the present product surface expects users to intervene in model
+;;   runs mid-stream.
+;;
+;;   Compressed:  requested model work becomes observable agent-run state.
+;;
+;;   Boundary:  Space owns the chat-as-place; LLM owns the execution
+;;   underneath each turn. The executor for LLM work lives outside this
+;;   module as helper / runtime fns — distinct from compute-kernel, which
+;;   owns its executor via `declare-object`.
+;;
+;;   For the kernel taxonomy and KERNEL-SHAPE spec see app.server.rama.kernel.
+;; ────────────────────────────────────────────────────────────────────────────────
+
 (def schema-version 1)
 (def pending-task-id "local")
 (def default-error-limit 50)
