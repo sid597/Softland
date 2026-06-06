@@ -15,16 +15,18 @@ Before answering, read:
 5. docs/current-mental-model/10-anchors/rama-world-kernel-text-instance.md
 6. docs/current-mental-model/architecture/action-request-kernel-routing.md
 7. docs/current-mental-model/architecture/logical-lifecycle-and-derived-depots.md
-8. docs/current-mental-model/architecture/dogfood-runtime/README.md
-9. docs/current-mental-model/architecture/dogfood-runtime/compute-track.md
-10. docs/current-mental-model/architecture/dogfood-runtime/agent-track-aor.md
-11. docs/current-mental-model/architecture/dogfood-runtime/three-depot-current-system.md
-12. docs/current-mental-model/architecture/dogfood-runtime/slice-a-compute-run-command.md
-13. docs/current-mental-model/architecture/dogfood-runtime/llm-track-slice-roadmap.md
-14. docs/current-mental-model/architecture/dogfood-runtime/llm-track-claude-research.md
-15. docs/current-mental-model/architecture/dogfood-runtime/transcript-capture.md
-16. docs/current-mental-model/architecture/rama-policy-throughput-post.md
-17. docs/current-mental-model/architecture/rama-blog-patterns.md
+8. docs/current-mental-model/architecture/object-container-spec.md
+9. docs/current-mental-model/architecture/object-container-reviewer-world-model.md
+10. docs/current-mental-model/architecture/dogfood-runtime/README.md
+11. docs/current-mental-model/architecture/dogfood-runtime/compute-track.md
+12. docs/current-mental-model/architecture/dogfood-runtime/agent-track-aor.md
+13. docs/current-mental-model/architecture/dogfood-runtime/three-depot-current-system.md
+14. docs/current-mental-model/architecture/dogfood-runtime/slice-a-compute-run-command.md
+15. docs/current-mental-model/architecture/dogfood-runtime/llm-track-slice-roadmap.md
+16. docs/current-mental-model/architecture/dogfood-runtime/llm-track-claude-research.md
+17. docs/current-mental-model/architecture/dogfood-runtime/transcript-capture.md
+18. docs/current-mental-model/architecture/rama-policy-throughput-post.md
+19. docs/current-mental-model/architecture/rama-blog-patterns.md
 
 Ignore older Softland lore unless I explicitly ask for it. Give highest weight
 to the current mental model in this folder, especially the April 28 kernel
@@ -94,6 +96,14 @@ Text-specific, PDF-specific, chat-specific, and code-specific details plug into 
 
 Text is not the ontology. Text is the first carrier/instance used to exercise the kernel.
 
+Current object-container correction:
+
+ObjectContainer is the durable identity atom. SourceArtifact is immutable raw
+source. Revision is versioned authored content. DerivedUnit is distiller output
+until touched. CompositionEdge gives structure. Projection renders; Situate
+proposes relationship/context. The old textArtifact concept retires because it
+collapsed source, object identity, and revision into one text-shaped proof.
+
 Do not collapse planes into fake options. Distinguish:
 
 Plane = system-level concern / contract
@@ -121,6 +131,14 @@ V0 proof covered:
 4. Accept/reject one unit in a branch.
 5. Query canonical and discarded views separately.
 6. Preserve provenance back to raw artifact/event.
+
+Object-container first implementation direction, if explicitly chosen:
+
+Preserve raw source as SourceArtifact, seed a document ObjectContainer, derive
+markdown/plain-text units, render an outline, and prove that editing a derived
+unit graduates it to a durable ObjectContainer with a Revision and SourceAnchor.
+Do not start canvas, situate, global search, or full layer promotion before that
+spine proves the invariant.
 
 Current dogfood runtime direction:
 

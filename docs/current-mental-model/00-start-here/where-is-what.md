@@ -28,6 +28,10 @@ architecture/
 architecture/dogfood-runtime/
   Runtime direction for Space / Compute / LLM-agent depots.
 
+build/object-container/
+  Implementation-slice contracts for object-container work. Use only after the
+  object-container direction has been chosen for implementation.
+
 trails/
   Dated traces of important reasoning or implementation episodes until Rama
   stores trails natively.
@@ -70,6 +74,18 @@ architecture/dogfood-runtime/compute-track.md
 architecture/dogfood-runtime/agent-track-aor.md
   LLM/agent track and AOR-shaped long-running execution.
 
+architecture/object-container-spec.md
+  Settled object substrate: source, container, revision, derived unit,
+  composition, projection, situate, and graduation.
+
+architecture/object-container-reviewer-world-model.md
+  Codex reviewer lens for future sessions: where the spec fits in the kernel,
+  what is ready, and what first implementation must prove.
+
+build/object-container/IMPLICIT_SPEC.md
+  First implementation slice contract for markdown import, outline projection,
+  and graduate-on-edit. Use when implementing, not as default bootstrap.
+
 90-prompts/implementation-slice-a-compute-run-command-prompt.md
   Historical Slice A implementation prompt. Do not use for open-ended
   architecture or as a current handoff.
@@ -87,6 +103,10 @@ Rules about document routing
 Question-driven architecture distinction
   -> architecture/<topic>.md
   -> include "Origin question:" and "Why this matters:"
+
+Object-container implementation contract
+  -> build/object-container/<slice>.md
+  -> keep separate from global context and do not treat as an automatic handoff
 
 Dogfood runtime details
   -> architecture/dogfood-runtime/<track-or-slice>.md

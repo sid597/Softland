@@ -99,6 +99,10 @@ architecture/dogfood-runtime/*.md
      implemented Slice A compute spine, and the implemented LLM contract MVP
   -> not a task handoff
 
+build/object-container/*.md
+  -> implementation-slice contracts for object-container work
+  -> read only when the user has chosen to implement that slice
+
 Post `1ef1cbd`, active code uses space/turn vocabulary. Older docs that say
 world-thread/world-turn are historical unless explicitly marked current.
 
@@ -116,6 +120,18 @@ architecture/action-request-kernel-routing.md
 
 architecture/logical-lifecycle-and-derived-depots.md
   -> lifecycle vs physical depot layout, and source-of-truth vs derived depots
+
+architecture/object-container-spec.md
+  -> settled object substrate: SourceArtifact, ObjectContainer, Revision,
+     DerivedUnit, composition, projection, situate, and graduation
+
+architecture/object-container-reviewer-world-model.md
+  -> Codex reviewer lens for future sessions: kernel fit, readiness, first
+     slice gate, and red flags
+
+build/object-container/IMPLICIT_SPEC.md
+  -> first implementation slice contract for markdown import, outline, and
+     graduate-on-edit; not global context unless implementing
 
 architecture/policy-granularity-mastodon-parallel.md
   -> exploratory policy granularity note; not settled design
@@ -186,6 +202,8 @@ KernelEvent happened only if accepted.
 Rejected decisions are durable but are not world facts.
 PStates are materialized/queryable world views.
 Text is the first carrier; it is not the ontology.
+ObjectContainer is the durable identity atom; SourceArtifact preserves raw
+source; Revision stores authored content; DerivedUnit graduates on touch.
 Dogfood runtime direction: WorldDepot is truth, ComputeDepot does physical
 execution, LLMDepot does epistemic/agent execution.
 Workers and agents stream observations back into Rama; the UI reads Rama.
