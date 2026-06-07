@@ -36,6 +36,20 @@
   [file text]
   (spit file text :append true))
 
+(defn write-utf8!
+  "Write text to a file as explicit UTF-8 bytes (no platform-charset surprises).
+   Used for byte-correctness tests where the on-disk byte layout must be exact."
+  [file ^String text]
+  (with-open [w (io/writer file :encoding "UTF-8")]
+    (.write w text)))
+
+(defn write-bytes!
+  "Write raw bytes to a file — for invalid-UTF-8 / exact-byte-layout tests that a
+   UTF-8 writer could not produce."
+  [file ^bytes ba]
+  (with-open [out (java.io.FileOutputStream. ^File file)]
+    (.write out ba)))
+
 (defn valid-line
   "Produce a minimal valid JSONL line for Claude Code transcript.
    Options:
@@ -1346,3 +1360,157 @@
               "Secret API key must be redacted from all durable views")
           (is (not (str/includes? all-text "12345678901234567890"))
               "Secret suffix must be redacted"))))))
+
+;; ── F4: byte-correct transcript reader (source identity foundation) ───────────
+
+(deftest read-jsonl-byte-correct-utf8-test
+  ;; Pure reader-level test — no module needed.
+  (testing "F4: reader decodes UTF-8 and computes byte-correct offset/length/hash"
+    (let [dir (temp-dir)
+          file (io/file dir "utf8.jsonl")
+          ;; é,ö = 2 UTF-8 bytes each; 日/本/語 = 3 bytes each
+          text1 "héllo wörld 日本語"
+          text2 "second ascii line"
+          line1 (valid-line "conv-utf8" "msg-u1"
+                            :content (str "[{\"type\":\"text\",\"text\":\"" text1 "\"}]"))
+          line2 (valid-line "conv-utf8" "msg-u2"
+                            :content (str "[{\"type\":\"text\",\"text\":\"" text2 "\"}]"))
+          _ (write-utf8! file (str line1 "\n" line2 "\n"))
+          request (harvest-request "h-utf8-read" (.getPath dir))
+          observations (t/read-jsonl-observations request file 0)
+          [o1 o2] observations
+          line1-bytes (.getBytes line1 "UTF-8")
+          line2-bytes (.getBytes line2 "UTF-8")]
+
+      (is (= 2 (count observations)) "Should read exactly 2 lines")
+
+      ;; 1. Content decodes correctly — no Latin-1 mojibake.
+      ;;    The old RandomAccessFile.readLine path produced "hÃ©llo wÃ¶rld".
+      (let [decoded (get-in (:transcript/redacted-payload o1)
+                            [:message :content 0 :text])]
+        (is (= text1 decoded) "Multi-byte content must decode to the original string")
+        (is (not (str/includes? decoded "Ã"))
+            "No Latin-1 mojibake artifacts in decoded content"))
+
+      ;; 2. byte-length = true UTF-8 content bytes + 1 (the \n terminator).
+      (is (= (+ (alength line1-bytes) 1) (:source/byte-length o1))
+          "byte-length must match true UTF-8 byte count + terminator")
+      (is (= (+ (alength line2-bytes) 1) (:source/byte-length o2)))
+
+      ;; 3. Offsets do not cascade-drift: line 2 starts where line 1 ended.
+      (is (= 0 (:source/byte-offset o1)))
+      (is (= (:source/byte-length o1) (:source/byte-offset o2))
+          "Second line's byte-offset must equal first line's byte-length")
+
+      ;; 4. line-hash is computed over the exact on-disk content bytes.
+      (is (= (t/line-hash-bytes line1-bytes) (:source/line-hash o1))
+          "line-hash must hash the true content bytes")
+      (is (= (t/line-hash-bytes line2-bytes) (:source/line-hash o2))))))
+
+(deftest read-jsonl-no-trailing-newline-test
+  ;; Pure reader-level test — locks in the byte-length edge case the old reader
+  ;; got wrong (it added a phantom +1 to the final unterminated line).
+  (testing "F4: final line without trailing newline has byte-length = content bytes"
+    (let [dir (temp-dir)
+          file (io/file dir "no-nl.jsonl")
+          line1 (valid-line "conv-nonl" "msg-n1")
+          line2 (valid-line "conv-nonl" "msg-n2")
+          _ (write-utf8! file (str line1 "\n" line2))  ;; NO trailing newline
+          request (harvest-request "h-no-nl" (.getPath dir))
+          observations (t/read-jsonl-observations request file 0)
+          [o1 o2] observations
+          line1-bytes (.getBytes line1 "UTF-8")
+          line2-bytes (.getBytes line2 "UTF-8")]
+
+      (is (= 2 (count observations)))
+      (is (= (+ (alength line1-bytes) 1) (:source/byte-length o1))
+          "Terminated line includes its newline byte")
+      (is (= (alength line2-bytes) (:source/byte-length o2))
+          "Unterminated final line must not add a phantom terminator byte")
+      (is (= (:source/byte-length o1) (:source/byte-offset o2)))
+      ;; The accounting must sum exactly to the file size — the decisive check.
+      (is (= (.length file)
+             (+ (:source/byte-offset o2) (:source/byte-length o2)))
+          "Sum of offsets + lengths must equal the true file size"))))
+
+(deftest read-jsonl-empty-and-newline-terminated-test
+  ;; Pure reader-level test — no phantom trailing observation.
+  (testing "F4: empty file yields zero observations; a fully \\n-terminated file
+            yields exactly its line count (no phantom empty trailing line)"
+    (let [dir (temp-dir)
+          empty-file (io/file dir "empty.jsonl")
+          _ (write-utf8! empty-file "")
+          term-file (io/file dir "term.jsonl")
+          l1 (valid-line "conv-term" "msg-t1")
+          l2 (valid-line "conv-term" "msg-t2")
+          _ (write-utf8! term-file (str l1 "\n" l2 "\n"))
+          request (harvest-request "h-term" (.getPath dir))]
+      (is (= 0 (count (t/read-jsonl-observations request empty-file 0)))
+          "Empty file must produce zero observations")
+      (let [obs (t/read-jsonl-observations request term-file 0)]
+        (is (= 2 (count obs))
+            "Fully terminated file must produce exactly its line count")
+        (is (= (.length term-file)
+               (reduce + (map :source/byte-length obs)))
+            "Byte-lengths must sum to file size for a terminated file")))))
+
+(deftest harvest-preserves-non-ascii-content-test
+  (with-ingest-runtime
+    (fn [runtime]
+      (testing "F4: harvested container content + source anchor are byte-correct for UTF-8"
+        (let [dir (temp-dir)
+              file (io/file dir "utf8.jsonl")
+              text "héllo wörld 日本語 — ünïcode ✓"
+              line (valid-line "conv-utf8-h" "msg-utf8"
+                               :content (str "[{\"type\":\"text\",\"text\":\"" text "\"}]"))
+              _ (write-utf8! file (str line "\n"))
+              request (harvest-request "h-utf8" (.getPath dir))
+              _ (ti/harvest-ingest! runtime request)
+              source :claude-code
+              ck (ti/conv-key source "conv-utf8-h")
+              msg-hash (core/sha-256 "msg-utf8")
+              msg-id (ti/message-container-id ck msg-hash)
+              container (ti/read-container runtime msg-id)
+              anchor (com.rpl.rama/foreign-select-one
+                       [(com.rpl.rama.path/keypath msg-id)]
+                       (:source-anchors runtime))
+              line-bytes (.getBytes line "UTF-8")]
+
+          (is (some? container) "Message container should exist")
+          ;; Content round-trips with no mojibake.
+          (is (= text (:revision-content container))
+              "Container content must preserve multi-byte characters exactly")
+          (is (not (str/includes? (pr-str container) "Ã"))
+              "No Latin-1 mojibake in container")
+
+          ;; Source anchor reflects the true byte layout.
+          (is (some? anchor) "Source anchor should exist")
+          (is (= 0 (:byte-offset anchor)))
+          (is (= (+ (alength line-bytes) 1) (:byte-length anchor))
+              "Anchor byte-length must match true UTF-8 bytes + newline")
+          (is (= (t/line-hash-bytes line-bytes) (:line-hash anchor))
+              "Anchor line-hash must hash the true on-disk bytes"))))))
+
+(deftest read-jsonl-invalid-utf8-byte-correct-test
+  ;; Pure reader-level test. Invalid UTF-8 must degrade gracefully (parse-error,
+  ;; not corrupt truth) AND its source identity must still be computed from the
+  ;; raw bytes — NOT from a lossy U+FFFD re-encode (which is what hashing the
+  ;; decoded string would do).
+  (testing "F4: invalid UTF-8 bytes -> parse-error with byte-correct identity"
+    (let [dir (temp-dir)
+          file (io/file dir "bad-utf8.jsonl")
+          ;; 0xFF / 0xFE are never valid UTF-8 lead or continuation bytes.
+          line-bytes (byte-array [0x7B (unchecked-byte 0xFF) (unchecked-byte 0xFE) 0x7D])
+          file-bytes (byte-array [0x7B (unchecked-byte 0xFF) (unchecked-byte 0xFE) 0x7D 0x0A])
+          _ (write-bytes! file file-bytes)
+          request (harvest-request "h-bad-utf8" (.getPath dir))
+          observations (t/read-jsonl-observations request file 0)
+          o1 (first observations)]
+      (is (= 1 (count observations)))
+      (is (= :invalid-json (:transcript/parse-error-kind o1))
+          "Unparseable bytes must surface as a parse error, not corrupt truth")
+      (is (= 0 (:source/byte-offset o1)))
+      (is (= (+ (alength line-bytes) 1) (:source/byte-length o1))
+          "byte-length must reflect the raw on-disk bytes")
+      (is (= (t/line-hash-bytes line-bytes) (:source/line-hash o1))
+          "line-hash must hash the exact raw bytes, not a lossy U+FFFD re-encode"))))
