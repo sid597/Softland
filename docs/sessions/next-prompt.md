@@ -1,222 +1,98 @@
-# Session Resume — Rama Rename + Dogfood Runtime State
+# Next Session: Transcript Ingest F5-F6 Fixes
 
-Status: post `1ef1cbd`, 2026-05-13.
+## What was done (earlier this session, 2026-06-07)
 
-This file is a task handoff only. It is not the global context pack. If the
-user opens with a new direction or a design question, start from
-`docs/current-mental-model/00-start-here/new-chat-bootstrap.md` instead.
+Complete Rama 7-phase build of transcript ingest module + Codex review hardening (F1/F2/F3),
+then F4 (byte-correct reader) in this session.
 
-## Branch / Commit State
+### Commits on `docs/current-mental-model-local`:
 
-We are working in:
-
-```text
-/mnt/data/projects/Softland
+```
+cfcc559 rama: harden transcript ingest production boundaries (F1/F2/F3)
+3001f70 rama: add transcript ingest object-container module
+a60c921 docs: capture transcript ingest Rama phased build artifacts
 ```
 
-The current branch is:
+(F4 changes below are in the working tree, NOT yet committed — user has not asked to commit.)
 
-```text
-docs/current-mental-model-local
-```
+### Codex review findings — fixed:
 
-This is the private/local docs branch. Do not push it unless the user changes
-that rule. Public code lives on `main`. Docs and code/test commits are allowed
-to be separate on this branch.
+- F1 (critical): Observations now gate on `$$ingest-runs[request-id]` existence
+- F2 (high): `fold-claim-into-run` is monotonic — terminal states ignore late claims
+- F3 (critical): `redact-raw-string` with pattern-based secret detection applied pre-persist
+- F4 (high): byte-correct UTF-8 reader (see below)
 
-Most recent code commit for this thread:
+## F4 — DONE (2026-06-07, byte-correct transcript reader)
 
-```text
-1ef1cbd rama: split text kernel and rename space
-```
+Source identity foundation. `RandomAccessFile.readLine()` decodes with modified UTF-8
+(zero-extends each byte → char), corrupting content (`hé`→`hÃ©`), `byte-length`, and `line-hash`
+all at once. Fixed IN-PLACE in the shared reader so both transcript modules + the watch path benefit.
 
-That commit touched only:
+Changed:
+- `src/app/server/rama/core.clj` — added `sha-256-bytes` (byte-array hash); `sha-256` delegates to it.
+- `src/app/server/rama/dogfood/transcript.clj` — added `line-hash-bytes`; `transcript-observation`
+  now takes a precomputed byte-correct hash; **`read-jsonl-observations` rewritten** to read raw bytes
+  (`FileInputStream` channel position + `BufferedInputStream`), split on byte `0x0A`, decode UTF-8
+  explicitly, and compute `byte-offset` / `byte-length` (content + 1 for `\n`; +0 for an unterminated
+  final line) / `line-hash` from the exact byte slice.
+- `test/app/server/rama/dogfood/transcript_ingest_test.clj` — added `write-utf8!` + `write-bytes!`
+  helpers and 5 tests: `read-jsonl-byte-correct-utf8-test`, `read-jsonl-no-trailing-newline-test`,
+  `read-jsonl-empty-and-newline-terminated-test`, `read-jsonl-invalid-utf8-byte-correct-test`,
+  `harvest-preserves-non-ascii-content-test`.
 
-```text
-src/app/server/rama/**
-test/app/server/rama/**
-```
+Verified: pure reader tests 22/22; ingest suite 157/158; old transcript suite 20/20. Adversarial
+falsification workflow (4 lenses / 12 axes) found no real defect. The one flagged item — old↔new hash
+divergence for *invalid* UTF-8 — was rejected as a non-issue (fresh module, no persisted ledger, old
+hashes were corrupt by construction; valid-UTF-8 hashes are identical across the change). Gotcha
+captured in `memory/implementation-quirks.md` → "RandomAccessFile.readLine".
 
-It completed PR1 as a mechanical vocabulary rename plus mechanical
-`core.clj`/`text_kernel.clj` split. It did not add `defkernel` generation and
-did not change Rama topology behavior.
+KNOWN FLAKE (pre-existing, NOT F4): `tool-call-index-queryable-test` intermittently sees 0 instead of
+2 bash calls in the FULL suite (passes 3/3 in isolation). Root cause: the tool-call index is written
+by a cross-partition hop on the observation path that can lag the run-`:complete` signal that
+`harvest-ingest!` awaits. Fix the TEST to `await-materialized` on the tool-call index (not the run
+status) if it becomes annoying. Tangential to F5/F6.
 
-## Current Source Shape
+## What is incomplete — F5, F6 (do NOT combine into one session)
 
-Active Rama source paths:
+### F5 — tool_result materialization (do NEXT)
 
-```text
-src/app/server/rama/core.clj
-  Shared contracts/utilities:
-  ActionRequest, ActionDecision, KernelEvent validation and helpers,
-  default actor/context/causal/policy helpers, ordering/routing helpers,
-  compat request/event helpers, and shared kernel-contract-table.
+Actual `tool_result` events (user messages carrying `tool_result` content blocks) must populate
+the ToolResultContainer with redacted result content. Currently treated as regular messages.
 
-src/app/server/rama/text_kernel.clj
-  V0/V1 text instance:
-  text-kernel-module, *text-requests-depot, text-kernel-topology,
-  text request/event builders, interpreters, materializations,
-  runtime lifecycle, append/read helpers.
+Key area: `build-message-containers` in `transcript_ingest.clj` — needs event-type dispatch that
+recognizes tool_result content blocks and updates/creates result containers.
 
-src/app/server/rama/dogfood/space.clj
-  Dogfood space runtime:
-  space-kernel-module, *space-action-depot, space-topology,
-  space/turn request builders, space/turn materializations,
-  LLM request/control mirrors derived from accepted space actions.
-
-src/app/server/rama/dogfood/llm.clj
-  LLM-owned runtime:
-  llm-run lifecycle, llm-turn-run concept, control handling,
-  executor claim/observation lifecycle, raw item/cost/run materializations.
-
-src/app/server/rama/dogfood/compute.clj
-src/app/server/rama/dogfood/transcript.clj
-  Compute and transcript runtimes. These now require shared contracts as
-  app.server.rama.core, not as a kernel alias.
-```
-
-Active Rama test paths:
-
-```text
-test/app/server/rama/text_kernel_test.clj
-test/app/server/rama/dogfood_space_test.clj
-test/app/server/rama/dogfood_llm_test.clj
-test/app/server/rama/dogfood_compute_test.clj
-test/app/server/rama/dogfood_transcript_test.clj
-```
-
-## Vocabulary
-
-Use current names in active code and new docs:
-
-```text
-old world-thread     -> current space
-old world-turn       -> current turn
-old world.clj        -> current space.clj
-old world-kernel     -> current text-kernel for the text instance,
-                        or space-kernel for the dogfood runtime
-old :world/append    -> current :action/append
-```
-
-Semantic data changed too:
-
-```text
-:world-thread/*       -> :space/*
-:world-turn/*         -> :turn/*
-:target/kind :world-thread -> :target/kind :space
-[:world-thread id]    -> [:space id]
-:parent-thread/id     -> :parent-space/id
-:child-thread/id      -> :child-space/id
-:source-world-turn/id -> :source-turn/id
-:resolution/world-turn-id -> :resolution/turn-id
-```
-
-Historical docs may still say world-kernel, world-thread, or world-turn.
-Preserve that when the doc is provenance, but translate to space/turn when
-touching active code or writing a new handoff.
-
-## Runtime API Names
-
-Text runtime:
-
+Probe that should FAIL before fix, PASS after:
 ```clojure
-text-kernel/start-text-runtime!
-text-kernel/close-text-runtime!
+;; Ingest a tool_result JSONL line
+;; Assert: ToolResultContainer has redacted result content (not nil/empty)
+;; Assert: projection includes tool-result summary with actual content
 ```
 
-Space runtime:
+Note: the test ns already has `tool-result-line`, `standalone-tool-result-event-test`, and
+`orphaned-tool-result-test` scaffolding — but they currently only assert container existence / message
+ingestion, NOT that the result CONTENT is materialized. F5 must make the content assertion real.
 
-```clojure
-space/start-space-runtime!
-space/close-space-runtime!
-space/append-space-action!
-space/space-action-request
-space/space-create-request
-space/space-turn-request
-space/space-routing-key
-space/read-space
-space/read-turn
-space/read-turns-by-space
-space/read-space-graph
-space/await-space
-space/await-turn
-```
+### F6 — Source-ledger / retry ordering (do LAST, separately)
 
-LLM cross-module names:
+Topology/fault-tolerance design change. Source-ledger marker is written before cross-partition
+hops. If later hops fail and retry finds the ledger entry, audit/tool-call index rows are
+permanently lost.
 
-```text
-$$llm-thread-by-space
-$$llm-turn-run-by-turn
-read-run-for-turn
-```
+Fix direction: either move source-ledger to completion position (requires hop back to conv-key
+partition after all cross-partition writes), or make secondary indexes replayable/reconcilable
+independently of the source-ledger.
 
-Do not rename LLM's own `llm-turn-run` concept. It is LLM-owned vocabulary.
+This is NOT a small patch. Design the fix carefully.
 
-## Rama Safety Notes
+### Key Rama insight discovered this session:
 
-Keep these behavioral contracts unchanged unless the user explicitly starts a
-new architecture change:
+Rama's `hash-by` depot partitioner and `|hash` topology partitioner use DIFFERENT hash functions.
+Custom PState `key-partitioner` functions must match `|hash` (Clojure's `hash`). Topologies MUST
+`|hash` before `local-transform>` on key-partitioned PStates — relying on depot `hash-by` colocation
+is wrong. The object_container module gets this right (explicit `|hash` before writes).
 
-```text
-same depot boundaries
-same partitioning contracts
-same intra-topology |hash hops
-same mirror-depot plus depot-partition-append! semantics
-same :retry-mode :all-after on observation depots
-```
+### Memory saved:
 
-The keyword collision between space requests and LLM controls is intentional:
-
-```text
-space request validation dispatches on :request/type
-LLM control validation dispatches on :control/type
-LLM run request validation rejects :request/type :turn/cancel and :turn/steer
-```
-
-Tests for this live in `dogfood_space_test.clj`.
-
-## Verification From `1ef1cbd`
-
-Targeted Rama suite passed before commit:
-
-```text
-Testing app.server.rama.text-kernel-test
-Testing app.server.rama.dogfood-space-test
-Testing app.server.rama.dogfood-llm-test
-Testing app.server.rama.dogfood-compute-test
-Testing app.server.rama.dogfood-transcript-test
-
-Ran 52 tests containing 447 assertions.
-0 failures, 0 errors.
-```
-
-Useful focused command:
-
-```bash
-clojure -M:test -e "(require 'clojure.test 'app.server.rama.text-kernel-test 'app.server.rama.dogfood-space-test 'app.server.rama.dogfood-llm-test 'app.server.rama.dogfood-compute-test 'app.server.rama.dogfood-transcript-test) (clojure.test/run-tests 'app.server.rama.text-kernel-test 'app.server.rama.dogfood-space-test 'app.server.rama.dogfood-llm-test 'app.server.rama.dogfood-compute-test 'app.server.rama.dogfood-transcript-test)"
-```
-
-Rama test JVMs can linger after printing the summary. Check `ps` before
-assuming a failed hang.
-
-## Current Pending State
-
-There is no active implementation handoff from this file. The Rama rename/text
-split code is committed. If the user says "continue", first infer whether they
-mean:
-
-```text
-1. continue docs cleanup on the private branch
-2. inspect/review the `1ef1cbd` code commit
-3. start the next Rama dogfood runtime feature
-```
-
-Do not assume a next feature just because this file exists.
-
-## Guardrails
-
-- Never read `src/app/server/env.clj`.
-- Do not use `git add -A`.
-- Keep docs-only commits and code/test commits separate unless the user says
-  otherwise.
-- Do not push `docs/current-mental-model-local`.
+- `memory/feedback_transcript_ingest_review.md` — full review findings and meta-learning
+- `memory/implementation-quirks.md` — "RandomAccessFile.readLine" UTF-8 gotcha (F4)
