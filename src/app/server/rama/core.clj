@@ -57,11 +57,17 @@
   [prefix]
   (str prefix "_" (java.util.UUID/randomUUID)))
 
+(defn sha-256-bytes
+  "SHA-256 hex digest of a raw byte array. Use for byte-correct source identity
+   where the hash must reflect the exact on-disk bytes, not a re-encoded string
+   (decode->re-encode is lossy for invalid UTF-8)."
+  [^bytes ba]
+  (let [digest (.digest (MessageDigest/getInstance "SHA-256") ba)]
+    (apply str (map #(format "%02x" (bit-and % 0xff)) digest))))
+
 (defn sha-256
   [s]
-  (let [digest (.digest (MessageDigest/getInstance "SHA-256")
-                        (.getBytes (str s) "UTF-8"))]
-    (apply str (map #(format "%02x" (bit-and % 0xff)) digest))))
+  (sha-256-bytes (.getBytes (str s) "UTF-8")))
 
 (defn default-actor
   []

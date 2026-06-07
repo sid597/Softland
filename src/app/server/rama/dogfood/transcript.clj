@@ -8,7 +8,8 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [com.rpl.rama.test :refer [create-ipc launch-module!]])
-  (:import (java.io BufferedReader File RandomAccessFile)
+  (:import (java.io BufferedInputStream BufferedReader ByteArrayOutputStream
+                    File FileInputStream RandomAccessFile)
            (java.nio.charset StandardCharsets)
            (java.nio.file Files LinkOption)
            (java.util UUID)))
@@ -191,6 +192,14 @@
   [line]
   (str "sha256:" (core/sha-256 line)))
 
+(defn line-hash-bytes
+  "Byte-correct source-identity hash of a line's raw content bytes (terminator
+   excluded). Hashes the exact on-disk bytes so the hash is stable regardless of
+   how the line decodes — the basis for dedup key (source, file-id, byte-offset,
+   line-hash)."
+  [^bytes content-bytes]
+  (str "sha256:" (core/sha-256-bytes content-bytes)))
+
 (defn file-id
   [^File file]
   (try
@@ -283,14 +292,14 @@
     (subs s 0 (min 200 (count s)))))
 
 (defn transcript-observation
-  [request source source-version host-id file file-id byte-offset byte-length line]
+  [request source source-version host-id file file-id byte-offset byte-length line line-hash-val]
   (let [ingest-ts (str (java.time.Instant/ofEpochMilli (now-ms)))
         base {:transcript/source source
               :transcript/source-version (or source-version default-source-version)
               :source/file-id file-id
               :source/file-path (.getPath ^File file)
               :source/byte-offset byte-offset
-              :source/line-hash (line-hash line)
+              :source/line-hash line-hash-val
               :source/byte-length byte-length
               :transcript/ingest-timestamp ingest-ts
               :transcript/redactions []
@@ -347,25 +356,57 @@
          (sort-by #(.getPath ^File %)))))
 
 (defn read-jsonl-observations
+  "Read JSONL lines from `file` starting at byte `start-offset`, producing one
+   observation per line.
+
+   Reads raw bytes and decodes UTF-8 explicitly. `RandomAccessFile.readLine`
+   decodes with modified UTF-8 (zero-extends each byte into a char), corrupting
+   multi-byte characters AND inflating byte-length — which cascades into every
+   downstream byte offset and line hash. This reader computes source identity
+   from the actual byte slice instead:
+
+     byte-offset = offset of the line's first byte
+     byte-length = content bytes + 1 for the trailing \\n (0 if EOF is reached
+                   with no terminator — a partial trailing line)
+     line-hash   = sha256 of the exact content bytes (terminator excluded)
+
+   The line terminator is LF (\\n); a preceding CR, if present, stays in the
+   content byte slice (JSON tolerates trailing whitespace) so the hash remains a
+   faithful image of the on-disk bytes."
   [request file start-offset]
   (let [fid (file-id file)
         source (:transcript/source request)
         source-version (or (:transcript/source-version request) default-source-version)
         host-id (or (:transcript/host-id request) default-host-id)]
-    (with-open [raf (RandomAccessFile. file "r")]
-      (.seek raf (long start-offset))
-      (loop [offset (long start-offset)
-             observations []]
-        (let [line (.readLine raf)]
-          (if (nil? line)
-            observations
-            (let [bytes (.getBytes line StandardCharsets/UTF_8)
-                  byte-length (+ (alength bytes) 1)
-                  line-utf8 (String. bytes StandardCharsets/UTF_8)
-                  obs (transcript-observation
-                        request source source-version host-id file fid offset byte-length line-utf8)]
-              (recur (+ offset byte-length)
-                     (conj observations obs)))))))))
+    (with-open [fis (FileInputStream. ^File file)]
+      (.position (.getChannel fis) (long start-offset))
+      (let [in (BufferedInputStream. fis)]
+        (loop [offset (long start-offset)
+               observations []]
+          (let [baos (ByteArrayOutputStream.)
+                terminator (loop []
+                             (let [b (.read in)]
+                               (cond
+                                 (= b -1) :eof
+                                 (= b 10) :newline
+                                 :else (do (.write baos b) (recur)))))
+                content-bytes (.toByteArray baos)
+                n (alength content-bytes)]
+            (if (and (= terminator :eof) (zero? n))
+              ;; Clean EOF with nothing buffered (or file ended exactly on a
+              ;; newline) — no more lines.
+              observations
+              (let [byte-length (if (= terminator :newline) (inc n) n)
+                    line (String. content-bytes StandardCharsets/UTF_8)
+                    lh (line-hash-bytes content-bytes)
+                    obs (transcript-observation
+                          request source source-version host-id file fid
+                          offset byte-length line lh)]
+                (if (= terminator :eof)
+                  ;; Partial trailing line (no terminator) — last record.
+                  (conj observations obs)
+                  (recur (+ offset byte-length)
+                         (conj observations obs)))))))))))
 
 (defn source-file-state-entry
   [obs]
