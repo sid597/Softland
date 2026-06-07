@@ -1270,3 +1270,79 @@
           (is (contains? harvest-kinds :chat-message))
           (is (contains? watch-kinds :chat-message))
           ((:stop! watch)))))))
+
+;; ── Review probe tests (adversarial production boundary checks) ────────────────
+
+(deftest observation-without-accepted-request-test
+  (with-ingest-runtime
+    (fn [runtime]
+      (testing "F1: Observation without an accepted request must not create containers"
+        (let [dir (temp-dir)
+              file (io/file dir "rogue.jsonl")
+              _ (write-lines! file [(valid-line "rogue-conv" "rogue-msg")])
+              source :claude-code
+              fid (t/file-id file)
+              obs (first (t/read-jsonl-observations
+                           (harvest-request "no-such-request" (.getPath dir))
+                           file 0))
+              obs-with-ck (assoc obs :transcript/conv-key (ti/conv-key source "rogue-conv"))]
+          ;; Append observation WITHOUT submitting a request first
+          (ti/append-ingest-observation! runtime obs-with-ck)
+          (Thread/sleep 500)
+          (let [ck (ti/conv-key source "rogue-conv")
+                conv-id (ti/conversation-container-id ck)
+                container (ti/read-container runtime conv-id)]
+            (is (nil? (ti/read-ingest-run runtime "no-such-request"))
+                "No request should exist")
+            (is (nil? container)
+                "No container should be created without an accepted request")))))))
+
+(deftest late-claim-does-not-mutate-terminal-state-test
+  (with-ingest-runtime
+    (fn [runtime]
+      (testing "F2: Late claims cannot overwrite a terminal run status"
+        (let [request-id "probe-terminal"
+              request (harvest-request request-id (.getPath (temp-dir)))]
+          (ti/append-ingest-request! runtime request)
+          ;; Drive to :complete
+          (ti/append-ingest-claim!
+            runtime (t/transcript-run-status-record request-id :running))
+          (ti/append-ingest-claim!
+            runtime (t/transcript-run-status-record request-id :complete))
+          (Thread/sleep 300)
+          (let [run-complete (await-materialized
+                               #(ti/read-ingest-run runtime request-id)
+                               #(= :complete (:status %)))]
+            (is (= :complete (:status run-complete)))
+            ;; Late claim to :running — should be ignored
+            (ti/append-ingest-claim!
+              runtime (t/transcript-run-status-record request-id :running))
+            (Thread/sleep 300)
+            (let [run-after (ti/read-ingest-run runtime request-id)]
+              (is (= :complete (:status run-after))
+                  "Terminal :complete must not be overwritten by late :running claim"))))))))
+
+(deftest parse-error-preview-does-not-leak-secrets-test
+  (with-ingest-runtime
+    (fn [runtime]
+      (testing "F3: Malformed lines with secrets must have redacted previews"
+        (let [dir (temp-dir)
+              file (io/file dir "secrets.jsonl")
+              secret-line "{\"api_key\":\"sk-proj-secret-key-12345678901234567890\"}"
+              _ (write-lines! file [secret-line
+                                     (valid-line "conv-sec" "msg-sec")])
+              request (harvest-request "h-secrets" (.getPath dir))
+              _ (ti/harvest-ingest! runtime request)
+              ;; Parse error goes to file-path conversation
+              source :claude-code
+              pe-ck (ti/conv-key source (.getPath file))
+              pe-conv-id (ti/conversation-container-id pe-ck)
+              pe-proj (ti/read-conversation-projection runtime pe-conv-id)
+              pe-msgs (projection-messages pe-proj)
+              audit (ti/read-audit-entries runtime "h-secrets")
+              all-text (str (pr-str pe-proj) (pr-str audit))]
+          ;; Secret must not appear in any durable view
+          (is (not (str/includes? all-text "sk-proj-secret-key"))
+              "Secret API key must be redacted from all durable views")
+          (is (not (str/includes? all-text "12345678901234567890"))
+              "Secret suffix must be redacted"))))))

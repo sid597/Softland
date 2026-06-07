@@ -96,6 +96,25 @@
   (let [input (or (:input block) {})]
     (subs (pr-str input) 0 (min 200 (count (pr-str input))))))
 
+(def secret-patterns
+  [#"(?i)(sk-[a-zA-Z0-9]{20,})"
+   #"(?i)(AKIA[A-Z0-9]{16})"
+   #"(?i)(ghp_[a-zA-Z0-9]{36})"
+   #"(?i)(gho_[a-zA-Z0-9]{36})"
+   #"(?i)(xox[bpas]-[a-zA-Z0-9\-]+)"
+   #"(?i)(eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]+)"
+   #"(?i)[\"']?(api[_-]?key|secret|token|password|authorization)[\"']?\s*[:=]\s*[\"']?([^\s\"',}{]{8,})[\"']?"
+   #"(?i)[\"']?(api[_-]?key|secret|token|password|authorization)[\"']?\s*:\s*[\"']([^\"]{8,})[\"']"])
+
+(defn redact-raw-string
+  "Apply pattern-based secret redaction to a raw string. Used for malformed
+   JSON lines that cannot be structurally redacted."
+  [s]
+  (reduce (fn [text pattern]
+            (str/replace text pattern "<REDACTED>"))
+          (str s)
+          secret-patterns))
+
 ;; ── Custom partitioner ──────────────────────────────────────────────────────────
 
 (defn- extract-after-prefix
@@ -231,6 +250,13 @@
 (defn is-parse-error [obs]
   (some? (obs-parse-error-kind obs)))
 
+(defn run-accepted?
+  "True if the run exists — meaning a request was submitted and acknowledged.
+   Does not gate on run status: observations may arrive after the executor
+   sends :complete (different depots, no cross-depot ordering guarantee)."
+  [run-row]
+  (some? run-row))
+
 ;; ── Row construction helpers ────────────────────────────────────────────────────
 
 (defn make-initial-run-row
@@ -259,20 +285,25 @@
                   (request-time-ms request)
                   0 0 0 {:errors (vec errors)}))
 
+(def terminal-run-statuses #{:complete :failed :cancelled})
+
 (defn fold-claim-into-run
-  "Fold a claim (status update) into an existing IngestRunRow."
+  "Fold a claim (status update) into an existing IngestRunRow.
+   Terminal states are monotonic — late claims cannot overwrite them."
   [run-row claim]
-  (let [t (claim-time-ms claim)
-        counts (claim-counts claim)
-        err (claim-error claim)]
-    (-> run-row
-        (assoc :status (claim-status claim)
-               :updated-at-ms t)
-        (cond-> counts (-> (assoc :observed-line-count (or (:observed-line-count counts)
-                                                           (:observed-line-count run-row)))
-                           (assoc :parse-error-count (or (:parse-error-count counts)
-                                                         (:parse-error-count run-row))))
-                err (assoc :error err)))))
+  (if (contains? terminal-run-statuses (:status run-row))
+    run-row
+    (let [t (claim-time-ms claim)
+          counts (claim-counts claim)
+          err (claim-error claim)]
+      (-> run-row
+          (assoc :status (claim-status claim)
+                 :updated-at-ms t)
+          (cond-> counts (-> (assoc :observed-line-count (or (:observed-line-count counts)
+                                                             (:observed-line-count run-row)))
+                             (assoc :parse-error-count (or (:parse-error-count counts)
+                                                           (:parse-error-count run-row))))
+                  err (assoc :error err))))))
 
 (defn increment-run-progress
   "Increment observation counts on the run row. Approximate under retry."
@@ -551,20 +582,24 @@
 
       ;; ── Observation source ──────────────────────────────────────────────
       (source> *transcript-obs-depot {:retry-mode :all-after} :> *obs)
-      ;; Repartition to align with PState key-partitioners (Rama hash-by
-      ;; uses a different hash than Clojure's hash used by key-partitioners)
-      (obs-conv-key *obs :> *ck)
-      (|hash *ck)
-      (t/source-line-key *obs :> *line-key)
-      (local-select> [(keypath *line-key)] $$source-ledger :> *existing)
-      (<<if (nil? *existing)
-        ;; New source record — process it
-        (local-transform> [(keypath *line-key) (termval true)] $$source-ledger)
-        (core/now-ms :> *now)
-        (build-obs-materials *obs *ck *now :> *materials)
-        (obs-conversation-id *obs :> *conversation-id)
-        (conversation-container-id *ck :> *conv-container-id)
-        (obs-ingest-request-id *obs :> *request-id)
+      ;; Gate: verify the ingest request exists and is in an accepted state
+      ;; before materializing any durable facts
+      (obs-ingest-request-id *obs :> *request-id)
+      (|hash *request-id)
+      (local-select> [(keypath *request-id)] $$ingest-runs :> *run-check)
+      (<<if (run-accepted? *run-check)
+        ;; Repartition to conv-key for PState writes
+        (obs-conv-key *obs :> *ck)
+        (|hash *ck)
+        (t/source-line-key *obs :> *line-key)
+        (local-select> [(keypath *line-key)] $$source-ledger :> *existing)
+        (<<if (nil? *existing)
+          ;; New source record with accepted request — process it
+          (local-transform> [(keypath *line-key) (termval true)] $$source-ledger)
+          (core/now-ms :> *now)
+          (build-obs-materials *obs *ck *now :> *materials)
+          (obs-conversation-id *obs :> *conversation-id)
+          (conversation-container-id *ck :> *conv-container-id)
 
         ;; Write conversation container (idempotent — same conv-key always
         ;; produces same conv container ID)
@@ -665,7 +700,7 @@
           (|hash *tool-name)
           (local-transform>
             [(keypath *tool-name *ti-key) (termval *ti)]
-            $$tool-calls-by-name)))
+            $$tool-calls-by-name))))
 
       ;; ── File-state source ───────────────────────────────────────────────
       (source> *transcript-file-state-depot :> *fs)
@@ -806,6 +841,22 @@
 
 ;; ── Request construction ────────────────────────────────────────────────────────
 
+(defn redact-observation-preview
+  "Ensure parse-error previews are redacted before depot append."
+  [obs]
+  (if-let [preview (:transcript/redacted-preview obs)]
+    (assoc obs :transcript/redacted-preview (redact-raw-string preview))
+    obs))
+
+(defn prepare-observation
+  "Add conv-key and redact preview before depot append."
+  [obs source]
+  (let [conversation-id (obs-conversation-id obs)
+        ck (conv-key source conversation-id)]
+    (-> obs
+        (assoc :transcript/conv-key ck)
+        redact-observation-preview)))
+
 (defn transcript-ingest-request
   "Build a harvest or watch request map."
   [request-type & [opts]]
@@ -827,13 +878,9 @@
       (let [fid (t/file-id file)
             observations (t/read-jsonl-observations request file 0)
             sfk (t/source-file-key source fid)]
-        ;; Append per-line observations with conv-key computed before append
+        ;; Append per-line observations with conv-key and redacted previews
         (doseq [obs observations]
-          (let [conversation-id (obs-conversation-id obs)
-                ck (conv-key source conversation-id)]
-            (append-ingest-observation!
-              runtime
-              (assoc obs :transcript/conv-key ck))))
+          (append-ingest-observation! runtime (prepare-observation obs source)))
         ;; Append file-state observation
         (let [last-obs (last observations)
               conversation-id (if last-obs
@@ -893,11 +940,7 @@
                     (t/read-complete-appended-lines request file start-offset)]
                 (swap! offsets assoc sfk next-offset)
                 (doseq [obs observations]
-                  (let [conversation-id (obs-conversation-id obs)
-                        ck (conv-key source conversation-id)]
-                    (append-ingest-observation!
-                      runtime
-                      (assoc obs :transcript/conv-key ck))))
+                  (append-ingest-observation! runtime (prepare-observation obs source)))
                 (when (seq observations)
                   (let [last-obs (last observations)
                         conversation-id (obs-conversation-id last-obs)
