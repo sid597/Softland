@@ -1,6 +1,9 @@
 (ns app.server.rama.object-container-test
   (:require [app.server.rama.object-container :as oc]
+            [app.server.rama.object-container.markdown-adapter :as markdown-adapter]
             [app.server.rama.object-container.runtime :as ocr]
+            [app.server.rama.object-container.transcript-adapter :as transcript-adapter]
+            [app.server.rama.object-container.transcript-identity :as transcript-identity]
             [app.server.rama.dogfood.transcript :as transcript]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -81,7 +84,7 @@
 
 (defn derived-unit-id-for-outline-node
   [request outline-node]
-  (oc/derived-unit-id (:object/key request) (:block-path outline-node)))
+  (markdown-adapter/derived-unit-id (:object/key request) (:block-path outline-node)))
 
 (defn outline-node-at
   [runtime document-id block-path]
@@ -103,7 +106,7 @@
 
 (defn ingest!
   [runtime raw-text source-ref opts]
-  (let [request (oc/source-ingest-request raw-text source-ref opts)
+  (let [request (markdown-adapter/source-ingest-request raw-text source-ref opts)
         decision (append-and-await! runtime request)]
     {:request request
      :decision decision
@@ -182,8 +185,10 @@
           (is (= root-unit-id (:parent-slot-id paragraph-node)))
           (is (= :derived-unit (:target-kind paragraph-unit)))
           (is (= "A\nB" (:content-text paragraph-unit)))
-          (is (every? #(= oc/markdown-distiller-id (:distiller-id %)) units))
-          (is (every? #(= oc/markdown-distiller-version (:distiller-version %)) units))
+          (is (every? #(= markdown-adapter/markdown-distiller-id (:distiller-id %)) units))
+          (is (every? #(= markdown-adapter/markdown-distiller-version
+                          (:distiller-version %))
+                      units))
           (is (every? :source-anchor-id units))
           (is (= (mapv :source-anchor-id units) (mapv :source-anchor-id anchors)))
           (is (= (mapv :unit-id units) (mapv :target-id anchors)))
@@ -194,11 +199,12 @@
                  (mapv :child-slot-id root-children)))))
 
       (testing "same ref/hash re-ingest is idempotent and does not duplicate the outline"
-        (let [duplicate (oc/source-ingest-request "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
-                                                  "phase5/main.md"
-                                                  {:request/id "ingest-main-duplicate"
-                                                   :idempotency/key "different-ingest-idem"
-                                                   :time-ms 1100})
+        (let [duplicate (markdown-adapter/source-ingest-request
+                         "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
+                         "phase5/main.md"
+                         {:request/id "ingest-main-duplicate"
+                          :idempotency/key "different-ingest-idem"
+                          :time-ms 1100})
               decision (append-and-await! runtime duplicate)
               outline (ocr/read-outline runtime (document-id duplicate))]
           (is (= :accepted (:status decision)))
@@ -209,16 +215,18 @@
 
       (testing "back-to-back same ref/hash ingests dedupe before either decision is awaited"
         (let [raw "# Race\nSame source"
-              request-a (oc/source-ingest-request raw
-                                                  "phase5/race-ingest.md"
-                                                  {:request/id "ingest-race-a"
-                                                   :idempotency/key "ingest-race-a"
-                                                   :time-ms 1200})
-              request-b (oc/source-ingest-request raw
-                                                  "phase5/race-ingest.md"
-                                                  {:request/id "ingest-race-b"
-                                                   :idempotency/key "ingest-race-b"
-                                                   :time-ms 1201})
+              request-a (markdown-adapter/source-ingest-request
+                         raw
+                         "phase5/race-ingest.md"
+                         {:request/id "ingest-race-a"
+                          :idempotency/key "ingest-race-a"
+                          :time-ms 1200})
+              request-b (markdown-adapter/source-ingest-request
+                         raw
+                         "phase5/race-ingest.md"
+                         {:request/id "ingest-race-b"
+                          :idempotency/key "ingest-race-b"
+                          :time-ms 1201})
               _ (append-only! runtime request-a)
               _ (append-only! runtime request-b)
               decision-a (ocr/await-object-container-decision runtime request-a 5000)
@@ -240,10 +248,11 @@
           (is (= ["Race" "Same source"] (mapv :content-text outline)))))
 
       (testing "await-object-container-decision supports request-map and partition-key arities"
-        (let [request (oc/source-ingest-request "Await me"
-                                                "phase5/await-arity.md"
-                                                {:request/id "ingest-await-arity"
-                                                 :time-ms 1300})
+        (let [request (markdown-adapter/source-ingest-request
+                       "Await me"
+                       "phase5/await-arity.md"
+                       {:request/id "ingest-await-arity"
+                        :time-ms 1300})
               _ (append-only! runtime request)
               by-request (ocr/await-object-container-decision runtime request 5000)
               by-key (ocr/await-object-container-decision runtime
@@ -254,9 +263,10 @@
           (is (= by-request by-key))))
 
       (testing "editing a derived unit graduates once, preserves provenance, and updates outline content"
-        (let [main-request (oc/source-ingest-request "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
-                                                     "phase5/main.md"
-                                                     {:request/id "ingest-main-readonly"})
+        (let [main-request (markdown-adapter/source-ingest-request
+                            "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
+                            "phase5/main.md"
+                            {:request/id "ingest-main-readonly"})
               doc-id (document-id main-request)
               source-id (source-id main-request)
               outline-before (ocr/read-outline runtime doc-id)
@@ -310,12 +320,15 @@
           (is (= :object-container (:target-kind anchor-after)))))
 
       (testing "editing an already-graduated unit revises the same container"
-        (let [doc-id (document-id (oc/source-ingest-request "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
-                                                           "phase5/main.md"
-                                                           {}))
-              request (oc/source-ingest-request "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
-                                                "phase5/main.md"
-                                                {})
+        (let [doc-id (document-id
+                      (markdown-adapter/source-ingest-request
+                       "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
+                       "phase5/main.md"
+                       {}))
+              request (markdown-adapter/source-ingest-request
+                       "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
+                       "phase5/main.md"
+                       {})
               paragraph-node (second (ocr/read-outline runtime doc-id))
               paragraph-unit-id (derived-unit-id-for-outline-node request paragraph-node)
               existing-container-id (:target-id (ocr/read-unit runtime paragraph-unit-id))
@@ -386,9 +399,10 @@
           (is (= (:revision-id (first history)) (:parent-revision-id (second history))))))
 
       (testing "re-ingest cannot overwrite graduated authored content, even when the source ref changes hash"
-        (let [old-request (oc/source-ingest-request "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
-                                                    "phase5/main.md"
-                                                    {})
+        (let [old-request (markdown-adapter/source-ingest-request
+                           "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
+                           "phase5/main.md"
+                           {})
               old-doc-id (document-id old-request)
               old-paragraph-node (second (ocr/read-outline runtime old-doc-id))
               changed (ingest! runtime
@@ -404,12 +418,15 @@
           (is (= ["Root" "Changed source paragraph"] (mapv :content-text changed-outline)))))
 
 	      (testing "conflicting idempotency keys reject and duplicate request ids create no second revision"
-        (let [doc-id (document-id (oc/source-ingest-request "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
-                                                           "phase5/main.md"
-                                                           {}))
-              request (oc/source-ingest-request "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
-                                                "phase5/main.md"
-                                                {})
+        (let [doc-id (document-id
+                      (markdown-adapter/source-ingest-request
+                       "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
+                       "phase5/main.md"
+                       {}))
+              request (markdown-adapter/source-ingest-request
+                       "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
+                       "phase5/main.md"
+                       {})
               paragraph-node (second (ocr/read-outline runtime doc-id))
               paragraph-unit-id (derived-unit-id-for-outline-node request paragraph-node)
               container-id (:target-id (ocr/read-unit runtime paragraph-unit-id))
@@ -469,12 +486,15 @@
           (is (= "Request id first" (get-in request-row [:payload :content-text])))))
 
       (testing "stale same-client edit seq is rejected durably"
-        (let [doc-id (document-id (oc/source-ingest-request "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
-                                                           "phase5/main.md"
-                                                           {}))
-              request (oc/source-ingest-request "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
-                                                "phase5/main.md"
-                                                {})
+        (let [doc-id (document-id
+                      (markdown-adapter/source-ingest-request
+                       "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
+                       "phase5/main.md"
+                       {}))
+              request (markdown-adapter/source-ingest-request
+                       "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
+                       "phase5/main.md"
+                       {})
               paragraph-node (second (ocr/read-outline runtime doc-id))
               paragraph-unit-id (derived-unit-id-for-outline-node request paragraph-node)
               container-id (:target-id (ocr/read-unit runtime paragraph-unit-id))
@@ -497,10 +517,11 @@
           (is (= "Request id first" (:current-content-text (ocr/read-container runtime container-id))))))
 
       (testing "rejected requests are durable decisions and do not write target rows"
-        (let [object-key (:object/key (oc/source-ingest-request "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
-                                                                "phase5/main.md"
-                                                                {}))
-              missing-unit-id (oc/derived-unit-id object-key "999999")
+        (let [object-key (:object/key (markdown-adapter/source-ingest-request
+                                       "# Root\nA\nB\n\n- one\n- two\n\n## Next\nC"
+                                       "phase5/main.md"
+                                       {}))
+              missing-unit-id (markdown-adapter/derived-unit-id object-key "999999")
               missing-request (oc/object-edit-request :derived-unit
                                                       missing-unit-id
                                                       "Missing target"
@@ -518,10 +539,11 @@
           (is (nil? (ocr/read-unit runtime missing-unit-id)))))
 
       (testing "rejected source ingests are durable decisions and do not write source rows"
-        (let [request (-> (oc/source-ingest-request "Bad hash"
-                                                    "phase5/bad-source.md"
-                                                    {:request/id "ingest-bad-hash"
-                                                     :time-ms 7500})
+        (let [request (-> (markdown-adapter/source-ingest-request
+                           "Bad hash"
+                           "phase5/bad-source.md"
+                           {:request/id "ingest-bad-hash"
+                            :time-ms 7500})
                           (assoc-in [:payload :source-hash] "not-the-real-hash"))
               decision (append-and-await! runtime request)
               stored-request (ocr/read-request runtime request)
@@ -599,7 +621,7 @@
                   :id "toolu-1"
                   :name "Read"
                   :input {:file "src/app/server/rama/object_container.clj"}}])
-          request1 (oc/transcript-observation-import-request
+          request1 (transcript-adapter/transcript-observation-import-request
                     obs1
                     {:request/id "transcript-common-1"
                      :time-ms 10000})
@@ -617,7 +639,7 @@
                          :content "The file has the expected namespace."}])
                       :transcript/previous-message-container-id
                       (:container-id message1))
-          request2 (oc/transcript-observation-import-request
+          request2 (transcript-adapter/transcript-observation-import-request
                     obs2
                     {:request/id "transcript-common-2"
                      :time-ms 10100})
@@ -707,8 +729,8 @@
                       :transcript/paths [(.getPath file)]
                       :time-ms 12000})
 	            result (transcript/harvest-transcripts! runtime request)
-	            object-key (oc/transcript-object-key :claude-code "harvest-conv")
-	            conversation-id (oc/chat-conversation-id object-key)
+	            object-key (transcript-identity/transcript-object-key :claude-code "harvest-conv")
+	            conversation-id (transcript-identity/chat-conversation-id object-key)
 	            file-key (transcript/source-file-key :claude-code (transcript/file-id file))
 	            projection (ocr/read-transcript-conversation-projection runtime conversation-id)
 	            file-offset (ocr/read-transcript-file-offset runtime file-key)
@@ -781,8 +803,8 @@
               (str "{\"session_id\":\"watch-conv\",\"uuid\":\"watch-msg-1\","
                    "\"message\":{\"role\":\"assistant\",\"content\":\"watch me\"}}\n"))
         ((:poll-once! @handle))
-        (let [object-key (oc/transcript-object-key :claude-code "watch-conv")
-              conversation-id (oc/chat-conversation-id object-key)
+        (let [object-key (transcript-identity/transcript-object-key :claude-code "watch-conv")
+              conversation-id (transcript-identity/chat-conversation-id object-key)
               file-key (transcript/source-file-key :claude-code (transcript/file-id file))
               projection (ocr/read-transcript-conversation-projection runtime conversation-id)
               file-offset (ocr/read-transcript-file-offset runtime file-key)]
