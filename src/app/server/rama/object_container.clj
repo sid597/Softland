@@ -1,13 +1,16 @@
 ;; IMPORTANT: Before modifying this file, re-read
 ;; docs/current-mental-model/build/object-container/PLAN.md and check pending todos.
+;; Also re-read docs/current-mental-model/build/object-container-common-infra/PLAN.md
+;; for the common import substrate track.
 ;; Adhere to all previously decided design decisions.
 
 (ns app.server.rama.object-container
   (:use [com.rpl.rama]
-        [com.rpl.rama.path])
+        [com.rpl.rama.path]
+        [com.rpl.rama.ops])
   (:require [app.server.rama.core :as core]
-            [clojure.string :as str]
-            [com.rpl.rama.test :refer [create-ipc launch-module!]]))
+            [clojure.set :as set]
+            [clojure.string :as str]))
 
 ;; Object Container kernel, Slice 1.
 ;;
@@ -20,6 +23,16 @@
 (def markdown-distiller-version 1)
 (def object-key-separator (str (char 0)))
 (def default-outline-page-size 1000)
+(def default-transcript-offset-advance-limit 1000)
+(def transcript-control-request-types
+  #{:transcript/harvest
+    :transcript/watch
+    :transcript/run-status})
+(def transcript-file-state-request-type :transcript/file-state)
+(def transcript-sources #{:claude-code :codex :future/source})
+(def transcript-redaction-policies #{:standard})
+(def terminal-transcript-run-statuses #{:complete :failed :cancelled})
+(def transcript-source-line-complete-statuses #{:import-complete :parse-error-complete})
 
 (defprotocol IObjectContainerRequestPayload)
 (defprotocol IObjectContainerEventPayload)
@@ -53,13 +66,16 @@
 
 (defrecord UnitReadResult [unit graduation target-kind target-id content-text content-hash])
 
+(defrecord CommonMaterialBundle [containers derived-units anchors edges])
+
 (defrecord ObjectContainerRequestRow
   [audit-id partition-key request-id request-type routing-key idempotency-key actor target
    payload requested-at-ms raw-request])
 
 (defrecord ObjectContainerDecisionRow
   [decision-id audit-id partition-key request-id request-type idempotency-key status reason
-   errors event-id event-row decided-at-ms replayed-from-decision-id])
+   errors event-id event-row material-fingerprint import-completion-key
+   conflict-with-decision-id decided-at-ms replayed-from-decision-id])
 
 (defrecord ObjectContainerEventRow
   [event-id event-type object-key target-kind target-id actor payload event-time-ms
@@ -76,6 +92,11 @@
 (defrecord SourceIngestCompletionRow
   [source-id source-ref-key source-ref source-hash document-container-id derived-unit-count
    composition-edge-count completed-at-ms completed-by-request-id event-id])
+
+(defrecord ImportCompletionRow
+  [import-key object-key source-id material-fingerprint event-id decision-id containers-count
+   native-claims-count derived-units-count anchors-count edges-count projections-count
+   completed-at-ms completed-by-request-id])
 
 (defrecord ObjectContainerRow
   [container-id container-kind object-key visibility source-id source-anchor-id
@@ -101,7 +122,47 @@
 
 (defrecord CompositionEdgeRow
   [edge-id object-key document-container-id parent-slot-id child-slot-id child-order-key
-   parent-target-kind parent-target-id child-target-kind child-target-id event-id])
+   parent-target-kind parent-target-id child-target-kind child-target-id source-id
+   source-anchor-id event-id])
+
+(defrecord SourceMaterialRefRow
+  [source-id object-key target-kind target-id order-key event-id])
+
+(defrecord NativeIdentityClaimRow
+  [claim-key container-id container-kind object-key source-native-id source-id source-line-key
+   source-anchor-id content-hash anchor-hash material-fingerprint import-key claim-status
+   event-id accepted-at-ms])
+
+(defrecord TranscriptConversationProjectionRow
+  [projection-kind conversation-container-id order-key entry-kind container-id revision-id
+   source-anchor-id source-id source-ref source-line-key event-id request-id import-key
+   message-uuid role content-preview parse-error-kind])
+
+(defrecord TranscriptToolCallIndexRow
+  [projection-kind tool-name order-key tool-call-container-id conversation-container-id
+   message-container-id source-id source-ref source-line-key event-id request-id import-key])
+
+(defrecord TranscriptAuditEntryRow
+  [projection-kind request-id order-key entry-kind conversation-container-id container-id
+   source-id source-ref source-line-key parse-error-kind event-id import-key message])
+
+(defrecord TranscriptLastMessageRow
+  [projection-kind conversation-container-id message-container-id source-line-key order-key
+   event-id request-id import-key updated-at-ms])
+
+(defrecord TranscriptSourceLineStatusRow
+  [file-key order-key status import-key import-completion-key material-fingerprint
+   source-file-generation-key source-line-key source-id source-ref byte-offset byte-length
+   line-hash request-id parse-error-kind observed-at-ms completed-at-ms message])
+
+(defrecord TranscriptRunRow
+  [request-id request-type status source paths redaction-policy triggered-by created-at-ms
+   updated-at-ms observed-line-count parse-error-count containers-created-count error progress])
+
+(defrecord TranscriptFileOffsetRow
+  [file-key file-id file-path source file-generation-key file-stat-fingerprint
+   policy-version last-byte-offset observed-byte-offset line-count request-id resume-status
+   repair-needed previous-file-generation-key updated-at-ms error])
 
 (defrecord OutlineNodeRow
   [document-container-id node-slot-id block-path parent-slot-id target-kind target-id
@@ -114,6 +175,14 @@
 (defn string-present?
   [x]
   (and (string? x) (not (str/blank? x))))
+
+(defn append-bounded
+  [xs x limit]
+  (let [v (conj (vec (or xs [])) x)
+        n (count v)]
+    (if (> n limit)
+      (subvec v (- n limit))
+      v)))
 
 (defn actor-row
   [actor]
@@ -164,6 +233,10 @@
   (or (get-in request [:payload :revision-id])
       (str "rev:" object-key ":" (:request/id request))))
 
+(defn import-revision-id
+  [object-key target-id import-key]
+  (str "rev:" object-key ":" (core/sha-256 target-id) ":" (core/sha-256 import-key)))
+
 (defn event-id-for-request
   [object-key request]
   (str "evt:" object-key ":" (:request/id request)))
@@ -192,6 +265,17 @@
   [raw-text]
   (core/sha-256 (str raw-text)))
 
+(defn leading-object-key
+  [s]
+  (let [s (str s)]
+    (if (str/starts-with? s "chat:")
+      (let [parts (str/split s #":" 3)]
+        (if (>= (count parts) 2)
+          (str (first parts) ":" (second parts))
+          s))
+      (let [idx (str/index-of s ":")]
+        (if idx (subs s 0 idx) s)))))
+
 (defn positive-partition
   [num-partitions k]
   (if (pos? num-partitions)
@@ -202,39 +286,56 @@
   [id-or-key]
   (let [s (str id-or-key)]
     (cond
+      (str/starts-with? s "src:tr:")
+      (leading-object-key (subs s 7))
+
+      (str/starts-with? s "imp:tr:")
+      (leading-object-key (subs s 7))
+
+      (str/starts-with? s "imp:md:")
+      (leading-object-key (subs s 7))
+
       (str/starts-with? s "src:")
-      (subs s 4)
+      (leading-object-key (subs s 4))
+
+      (str/starts-with? s "oc:chat-conversation:")
+      (leading-object-key (subs s 21))
+
+      (str/starts-with? s "oc:chat-message:")
+      (leading-object-key (subs s 16))
+
+      (str/starts-with? s "oc:tool-call:")
+      (leading-object-key (subs s 13))
+
+      (str/starts-with? s "oc:tool-result:")
+      (leading-object-key (subs s 15))
+
+      (str/starts-with? s "oc:chat-artifact:")
+      (leading-object-key (subs s 17))
+
+      (str/starts-with? s "oc:run:")
+      (leading-object-key (subs s 7))
 
       (str/starts-with? s "oc:doc:")
       (subs s 7)
 
       (str/starts-with? s "du:")
-      (let [rest (subs s 3)
-            idx (str/index-of rest ":")]
-        (if idx (subs rest 0 idx) rest))
+      (leading-object-key (subs s 3))
 
       (str/starts-with? s "sa:")
-      (extract-object-key (subs s 3))
+      (leading-object-key (subs s 3))
 
       (str/starts-with? s "ce:")
-      (let [rest (subs s 3)
-            idx (str/index-of rest ":")]
-        (if idx (subs rest 0 idx) rest))
+      (leading-object-key (subs s 3))
 
       (str/starts-with? s "oc:block:")
-      (let [rest (subs s 9)
-            idx (str/index-of rest ":")]
-        (if idx (subs rest 0 idx) rest))
+      (leading-object-key (subs s 9))
 
       (str/starts-with? s "rev:")
-      (let [rest (subs s 4)
-            idx (str/index-of rest ":")]
-        (if idx (subs rest 0 idx) rest))
+      (leading-object-key (subs s 4))
 
       (str/starts-with? s "evt:")
-      (let [rest (subs s 4)
-            idx (str/index-of rest ":")]
-        (if idx (subs rest 0 idx) rest))
+      (leading-object-key (subs s 4))
 
       :else s)))
 
@@ -275,6 +376,15 @@
 (defn request-audit-id [request] (audit-id (request-partition-key request) (request-id request)))
 (defn request-object-key [request] (payload-object-key (request-payload request)))
 (defn request-source-ref-key [request] (request-partition-key request))
+
+(declare request-import-key
+         request-material-fingerprint
+         payload-source-artifacts
+         payload-object-containers
+         payload-derived-units
+         payload-source-anchors
+         payload-composition-edges
+         payload-source-line-statuses)
 
 (defn request-row
   [request]
@@ -318,6 +428,9 @@
                                   []
                                   (:event-id event)
                                   event
+                                  (request-material-fingerprint request)
+                                  (request-import-key request)
+                                  nil
                                   (core/now-ms)
                                   nil)))
 
@@ -335,8 +448,16 @@
                                   (vec errors)
                                   nil
                                   nil
+                                  (request-material-fingerprint request)
+                                  (request-import-key request)
+                                  nil
                                   (core/now-ms)
                                   nil)))
+
+(defn conflict-decision-row
+  [request reason errors prior-decision]
+  (assoc (rejected-decision-row request reason errors)
+         :conflict-with-decision-id (:decision-id prior-decision)))
 
 (defn replay-decision-row
   [request prior-decision]
@@ -348,6 +469,7 @@
            :request-id (request-id request)
            :request-type (request-type request)
            :idempotency-key (request-idempotency-key request)
+           :material-fingerprint (request-material-fingerprint request)
            :decided-at-ms (core/now-ms)
            :replayed-from-decision-id (:decision-id prior-decision))))
 
@@ -379,6 +501,40 @@
 (defn decision-event-id
   [decision]
   (:event-id decision))
+
+(defn decision-material-fingerprint
+  [decision]
+  (:material-fingerprint decision))
+
+(defn material-fingerprint-conflict?
+  [request prior-decision]
+  (and (some? prior-decision)
+       (not= (request-material-fingerprint request)
+             (decision-material-fingerprint prior-decision))))
+
+(defn material-fingerprint-conflict-error
+  [request prior-decision]
+  {:type :idempotency/material-fingerprint-conflict
+   :idempotency-key (request-idempotency-key request)
+   :expected (decision-material-fingerprint prior-decision)
+   :actual (request-material-fingerprint request)
+   :conflict-with-decision-id (:decision-id prior-decision)})
+
+(defn completion-material-fingerprint
+  [completion]
+  (:material-fingerprint completion))
+
+(defn completion-event-id
+  [completion]
+  (:event-id completion))
+
+(defn import-material-fingerprint-conflict-error
+  [request completion]
+  {:type :import/material-fingerprint-conflict
+   :import-key (request-import-key request)
+   :expected (completion-material-fingerprint completion)
+   :actual (request-material-fingerprint request)
+   :conflict-with-event-id (completion-event-id completion)})
 
 (defn source-request-validation-errors
   [request]
@@ -703,7 +859,21 @@
                                                     created-at
                                                     (request-id request)
                                                     event-id)
-        document-anchor-id (source-anchor-id document-id)
+	        document-anchor-id (source-anchor-id document-id)
+	        document-revision-id (import-revision-id object-key
+	                                                 document-id
+	                                                 source-hash-value)
+        document-revision-order-key (fixed-width-order-key created-at
+                                                           (request-id request))
+        document-revision (->RevisionRow document-revision-id
+                                         document-id
+                                         nil
+                                         raw-text
+                                         source-hash-value
+                                         document-revision-order-key
+                                         created-at
+                                         created-by
+                                         event-id)
         document-row (->ObjectContainerRow document-id
                                            :document
                                            object-key
@@ -712,9 +882,9 @@
                                            document-anchor-id
                                            nil
                                            document-id
-                                           nil
-                                           nil
-                                           nil
+                                           document-revision-id
+                                           raw-text
+                                           source-hash-value
                                            created-at
                                            created-by
                                            event-id)
@@ -794,6 +964,8 @@
                                                   parent-id
                                                   :derived-unit
                                                   unit-id
+                                                  source-id
+                                                  nil
                                                   event-id)))
                         blocks)]
     {:object-key object-key
@@ -806,11 +978,1254 @@
      :version-row version-row
      :completion-row completion-row
      :document-row document-row
+     :document-revision-row document-revision
      :document-anchor-row document-anchor
      :unit-rows unit-rows
      :unit-anchor-rows unit-anchor-rows
      :outline-rows outline-rows
      :edge-rows edge-rows}))
+
+(defn request-import-key [request] (:import/key request))
+(defn request-material-fingerprint [request] (:material/fingerprint request))
+
+(defn import-completion-row
+  [request event decision]
+  (let [payload (request-payload request)
+        source-rows (payload-source-artifacts payload)
+        container-rows (payload-object-containers payload)
+        derived-unit-rows (payload-derived-units payload)
+        anchor-rows (payload-source-anchors payload)
+        edge-rows (payload-composition-edges payload)
+        projection-hints (vec (:projection-hints payload))]
+    (->ImportCompletionRow (request-import-key request)
+                           (request-object-key request)
+                           (:source-id (first source-rows))
+                           (request-material-fingerprint request)
+                           (:event-id event)
+                           (:decision-id decision)
+                           (count container-rows)
+                           (count container-rows)
+                           (count derived-unit-rows)
+                           (count anchor-rows)
+                           (count edge-rows)
+                           (count projection-hints)
+	                           (core/now-ms)
+	                           (request-id request))))
+
+(defn source-ingest-completion-row
+  [request source-version-row event]
+  (let [payload (request-payload request)]
+    (->SourceIngestCompletionRow (:source-id source-version-row)
+                                (:source-ref-key source-version-row)
+                                (:source-ref source-version-row)
+                                (:source-hash source-version-row)
+                                (:document-container-id source-version-row)
+                                (count (payload-derived-units payload))
+                                (count (payload-composition-edges payload))
+                                (core/now-ms)
+                                (request-id request)
+                                (:event-id event))))
+
+(defn payload-source-artifacts [payload] (vec (:source-artifacts payload)))
+(defn payload-object-containers [payload] (vec (:object-containers payload)))
+(defn payload-revisions [payload] (vec (:revisions payload)))
+(defn payload-derived-units [payload] (vec (:derived-units payload)))
+(defn payload-source-anchors [payload] (vec (:source-anchors payload)))
+(defn payload-composition-edges [payload] (vec (:composition-edges payload)))
+(defn payload-source-versions [payload] (vec (:source-versions payload)))
+(defn payload-projection-hints [payload] (vec (:projection-hints payload)))
+(defn payload-source-line-statuses [payload] (vec (:source-line-statuses payload)))
+
+(defn projection-hint-fingerprint
+  [hint]
+  (select-keys hint
+               [:projection-kind
+                :document-container-id
+                :node-slot-id
+                :block-path
+                :parent-slot-id
+                :target-kind
+                :target-id
+                :source-anchor-id
+                :content-hash
+                :graduated
+                :container-id
+                :conversation-container-id
+                :order-key
+                :entry-kind
+                :revision-id
+                :source-id
+	                :source-ref
+	                :source-line-key
+	                :import-key
+	                :message-uuid
+                :role
+                :content-preview
+                :parse-error-kind
+                :tool-name
+                :tool-call-container-id
+                :message-container-id
+                :message]))
+
+(defn source-line-status-fingerprint
+  [row]
+  (select-keys row
+               [:file-key
+                :order-key
+                :status
+                :import-key
+                :material-fingerprint
+                :source-file-generation-key
+                :source-line-key
+                :source-id
+                :source-ref
+                :byte-offset
+                :byte-length
+	                :line-hash
+	                :parse-error-kind]))
+
+(defn native-claim-signature
+  [request container-row]
+  {:claim-key (:container-id container-row)
+   :container-id (:container-id container-row)
+   :container-kind (:container-kind container-row)
+   :object-key (:object-key container-row)
+   :source-native-id (:container-id container-row)
+   :source-id (:source-id container-row)
+   :source-line-key (request-import-key request)
+   :source-anchor-id (:source-anchor-id container-row)
+   :content-hash (:current-content-hash container-row)
+   :anchor-hash (:source-anchor-id container-row)
+   :material-fingerprint (request-material-fingerprint request)
+   :import-key (request-import-key request)})
+
+(defn duplicate-native-claim-conflicts
+  [request container-rows]
+  (->> container-rows
+       (group-by :container-id)
+       vals
+       (keep (fn [rows]
+               (when (> (count rows) 1)
+                 (let [signatures (mapv #(native-claim-signature request %) rows)
+                       distinct-signatures (vec (distinct signatures))]
+                   (when (> (count distinct-signatures) 1)
+                     {:container-id (:container-id (first rows))
+                      :claim-count (count rows)
+                      :distinct-claim-count (count distinct-signatures)})))))
+       vec))
+
+(defn import-request-validation-errors
+  [request]
+  (let [payload (request-payload request)
+        source-rows (payload-source-artifacts payload)
+        container-rows (payload-object-containers payload)
+        revision-rows (payload-revisions payload)
+        derived-unit-rows (payload-derived-units payload)
+        anchor-rows (payload-source-anchors payload)
+        source-ids (set (map :source-id source-rows))
+        container-ids (set (map :container-id container-rows))
+        derived-unit-ids (set (map :unit-id derived-unit-rows))
+        target-ids (set/union container-ids derived-unit-ids)
+        anchor-target-ids (set (map :target-id anchor-rows))
+	        anchor-source-ids (set (map :source-id anchor-rows))
+	        revision-ids (set (map :revision-id revision-rows))
+	        primary-source-row (first source-rows)
+	        missing-anchors (seq (set/difference target-ids anchor-target-ids))
+	        missing-anchor-sources (seq (set/difference anchor-source-ids source-ids))
+	        missing-anchor-targets (seq (set/difference anchor-target-ids target-ids))
+	        payload-source-hash-mismatch?
+	        (and (= :markdown (:source-format primary-source-row))
+	             (contains? payload :source-hash)
+	             (not= (:source-hash payload) (:source-hash primary-source-row)))
+	        source-hash-mismatches
+	        (seq
+	         (keep (fn [source-row]
+	                 (when (and (= :markdown (:source-format source-row))
+	                            (not= (:source-hash source-row)
+	                                  (source-hash (:source-raw-text source-row))))
+	                   {:type :source/hash-mismatch
+	                    :source-id (:source-id source-row)
+	                    :expected (source-hash (:source-raw-text source-row))
+	                    :actual (:source-hash source-row)}))
+	               source-rows))
+	        duplicate-native-conflicts (duplicate-native-claim-conflicts request container-rows)
+	        missing-current-revisions (seq (remove #(contains? revision-ids (:current-revision-id %))
+	                                               container-rows))]
+    (cond-> (vec (core/request-validation-errors request))
+      (not= :object-container/import-material (request-type request))
+      (conj {:type :request/type-invalid :value (request-type request)})
+
+      (not (string-present? (request-partition-key request)))
+      (conj {:type :partition/key-invalid :value (request-partition-key request)})
+
+      (not (string-present? (request-import-key request)))
+      (conj {:type :import/key-invalid :value (request-import-key request)})
+
+      (not (string-present? (request-object-key request)))
+      (conj {:type :object/key-invalid :value (request-object-key request)})
+
+      (not (string-present? (request-idempotency-key request)))
+      (conj {:type :idempotency/key-invalid :value (request-idempotency-key request)})
+
+      (not (string-present? (request-material-fingerprint request)))
+      (conj {:type :material/fingerprint-invalid
+             :value (request-material-fingerprint request)})
+
+      (not (core/authorized-request? request))
+      (conj {:type :actor-not-authorized})
+
+	      (empty? source-rows)
+	      (conj {:type :source-artifacts/missing})
+
+	      source-hash-mismatches
+	      (conj {:type :source/hash-mismatch
+	             :mismatches (vec source-hash-mismatches)})
+
+	      payload-source-hash-mismatch?
+	      (conj {:type :source/hash-mismatch
+	             :expected (:source-hash primary-source-row)
+	             :actual (:source-hash payload)})
+
+	      missing-current-revisions
+      (conj {:type :containers/current-revision-missing
+             :container-ids (mapv :container-id missing-current-revisions)})
+
+      (seq duplicate-native-conflicts)
+      (conj {:type :native-identity/duplicate-conflicting-candidates
+             :conflicts duplicate-native-conflicts})
+
+      missing-anchors
+      (conj {:type :source-anchors/missing-for-targets
+             :target-ids (vec missing-anchors)})
+
+      missing-anchor-sources
+      (conj {:type :source-anchors/source-missing
+             :source-ids (vec missing-anchor-sources)})
+
+      missing-anchor-targets
+      (conj {:type :source-anchors/target-missing
+             :target-ids (vec missing-anchor-targets)}))))
+
+(defn import-event-row
+  [request]
+  (let [object-key (request-object-key request)
+        event-id (event-id-for-request object-key request)]
+    (event-row event-id
+               :object-container/imported-source-record
+               object-key
+               :object-container-import
+               (request-import-key request)
+               (:actor request)
+               (request-payload request)
+               (:request/time-ms request)
+               request)))
+
+(defn transcript-object-key
+  [source conversation-id]
+  (str "chat:" (core/sha-256 (str (name source) ":" conversation-id))))
+
+(defn transcript-source-id
+  [object-key source-line-key]
+  (str "src:tr:" object-key ":" (core/sha-256 source-line-key)))
+
+(defn chat-conversation-id [object-key] (str "oc:chat-conversation:" object-key))
+(defn chat-message-id [object-key message-key] (str "oc:chat-message:" object-key ":" message-key))
+(defn tool-call-id [object-key tool-use-key] (str "oc:tool-call:" object-key ":" tool-use-key))
+(defn tool-result-id [object-key result-key] (str "oc:tool-result:" object-key ":" result-key))
+
+(defn transcript-content-blocks
+  [payload]
+  (let [content (or (get-in payload [:message :content])
+                    (:content payload)
+                    [])]
+    (if (sequential? content) content [])))
+
+(defn transcript-tool-result-blocks
+  [payload]
+  (filter #(and (map? %) (#{"tool_result" "tool-result"} (:type %)))
+          (transcript-content-blocks payload)))
+
+(defn transcript-tool-use-blocks
+  [payload]
+  (filter #(and (map? %) (#{"tool_use" "tool-use"} (:type %)))
+          (transcript-content-blocks payload)))
+
+(defn transcript-text-content
+  [payload]
+  (let [content (or (get-in payload [:message :content])
+                    (:content payload))]
+    (cond
+      (string? content) content
+      (sequential? content)
+      (str/join "\n"
+                (keep (fn [block]
+                        (when (and (map? block)
+                                   (#{"text" "tool_result" "tool-result"} (:type block)))
+                          (str (or (:text block) (:content block) ""))))
+	                      content))
+      :else "")))
+
+(defn transcript-role
+  [payload]
+  (or (get-in payload [:message :role])
+      (:role payload)))
+
+(defn transcript-content-preview
+  [content]
+  (let [s (str (or content ""))]
+    (subs s 0 (min 240 (count s)))))
+
+(defn transcript-conversation-projection-row
+  [conversation-container-id order-key entry-kind container-id revision-id source-anchor-id
+   source-id source-ref source-line-key event-id request-id import-key message-uuid role
+   content-preview parse-error-kind]
+  (->TranscriptConversationProjectionRow :transcript-conversation-projection
+                                         conversation-container-id
+                                         order-key
+                                         entry-kind
+                                         container-id
+                                         revision-id
+                                         source-anchor-id
+                                         source-id
+                                         source-ref
+                                         source-line-key
+                                         event-id
+                                         request-id
+                                         import-key
+                                         message-uuid
+                                         role
+                                         content-preview
+                                         parse-error-kind))
+
+(defn transcript-tool-call-index-row
+  [tool-name order-key tool-call-container-id conversation-container-id message-container-id
+   source-id source-ref source-line-key event-id request-id import-key]
+  (->TranscriptToolCallIndexRow :transcript-tool-call-index
+                                tool-name
+                                order-key
+                                tool-call-container-id
+                                conversation-container-id
+                                message-container-id
+                                source-id
+                                source-ref
+                                source-line-key
+                                event-id
+                                request-id
+                                import-key))
+
+(defn transcript-audit-entry-row
+  [request-id order-key entry-kind conversation-container-id container-id source-id
+   source-ref source-line-key parse-error-kind event-id import-key message]
+  (->TranscriptAuditEntryRow :transcript-audit-entry
+                             request-id
+                             order-key
+                             entry-kind
+                             conversation-container-id
+                             container-id
+                             source-id
+                             source-ref
+                             source-line-key
+                             parse-error-kind
+                             event-id
+                             import-key
+                             message))
+
+(defn transcript-last-message-row
+  [conversation-container-id message-container-id source-line-key order-key event-id
+   request-id import-key updated-at-ms]
+  (->TranscriptLastMessageRow :transcript-last-message
+                              conversation-container-id
+                              message-container-id
+                              source-line-key
+                              order-key
+                              event-id
+                              request-id
+                              import-key
+                              updated-at-ms))
+
+(defn transcript-source-file-key
+  ([m]
+   (or (:source/file-key m)
+       (when-let [file-id (:source/file-id m)]
+         (transcript-source-file-key (:transcript/source m) file-id))))
+  ([source file-id]
+   (str (name source) ":" (pr-str file-id))))
+
+(defn transcript-source-line-key
+  [obs]
+  (str (transcript-source-file-key (:transcript/source obs) (:source/file-id obs))
+       ":" (:source/byte-offset obs)
+       ":" (:source/line-hash obs)))
+
+(defn transcript-file-generation-key
+  [m]
+  (or (:source/file-generation-key m)
+      (:source/file-generation m)
+      (when-let [file-key (transcript-source-file-key m)]
+        (str file-key ":" (core/sha-256 (pr-str {:file-id (:source/file-id m)
+                                                 :path (:source/file-path m)}))))))
+
+(defn transcript-source-line-status-row
+  [obs import-key material-fingerprint source-id source-ref source-line-key order-key
+   request-id now]
+  (when-let [file-key (transcript-source-file-key obs)]
+    (->TranscriptSourceLineStatusRow file-key
+                                     order-key
+                                     :observed
+                                     import-key
+                                     nil
+                                     material-fingerprint
+                                     (transcript-file-generation-key obs)
+                                     source-line-key
+                                     source-id
+                                     source-ref
+                                     (long (or (:source/byte-offset obs) 0))
+                                     (long (or (:source/byte-length obs) 0))
+                                     (:source/line-hash obs)
+                                     request-id
+                                     (:transcript/parse-error-kind obs)
+                                     now
+                                     nil
+                                     nil)))
+
+(defn complete-transcript-source-line-status-row
+  [row completion]
+  (assoc row
+         :status (if (:parse-error-kind row) :parse-error-complete :import-complete)
+         :import-completion-key (:import-key completion)
+         :material-fingerprint (:material-fingerprint completion)
+         :completed-at-ms (:completed-at-ms completion)))
+
+(defn transcript-control-request-type
+  [request]
+  (or (:request/type request) (:claim/type request)))
+
+(defn transcript-control-request-id
+  [request]
+  (:transcript/request-id request))
+
+(defn transcript-control-validation-errors
+  [request]
+  (let [request-type (transcript-control-request-type request)]
+    (cond-> []
+      (not (map? request))
+      (conj {:type :request/not-map})
+
+      (and (map? request)
+           (not (contains? transcript-control-request-types request-type)))
+      (conj {:type :request/type-invalid :value request-type})
+
+      (and (map? request)
+           (not (string-present? (transcript-control-request-id request))))
+      (conj {:type :transcript/request-id-invalid
+             :value (transcript-control-request-id request)})
+
+      (and (map? request)
+           (#{:transcript/harvest :transcript/watch} request-type)
+	           (not (contains? transcript-sources (:transcript/source request))))
+      (conj {:type :transcript/source-invalid :value (:transcript/source request)})
+
+      (and (map? request)
+           (#{:transcript/harvest :transcript/watch} request-type)
+	           (not (contains? transcript-redaction-policies
+                           (:transcript/redaction-policy request))))
+      (conj {:type :transcript/redaction-policy-invalid
+             :value (:transcript/redaction-policy request)})
+
+      (and (map? request)
+           (#{:transcript/harvest :transcript/watch} request-type)
+           (not (sequential? (:transcript/paths request))))
+      (conj {:type :transcript/paths-invalid :value (:transcript/paths request)})
+
+      (and (map? request)
+           (= :transcript/run-status request-type)
+           (nil? (:status request)))
+      (conj {:type :transcript/status-invalid :value (:status request)}))))
+
+(defn transcript-run-progress
+  [existing progress]
+  (if progress
+    (append-bounded (:progress existing) progress 50)
+    (:progress existing)))
+
+(defn terminal-transcript-run?
+  [run-row]
+  (contains? terminal-transcript-run-statuses (:status run-row)))
+
+(defn transcript-initial-run-row
+  [request]
+  (let [now (long (or (:request/time-ms request) (:time-ms request) (core/now-ms)))]
+    (->TranscriptRunRow (transcript-control-request-id request)
+                        (transcript-control-request-type request)
+                        :accepted-running
+                        (:transcript/source request)
+                        (vec (:transcript/paths request))
+                        (:transcript/redaction-policy request)
+                        (:transcript/triggered-by request)
+                        now
+                        now
+                        0
+                        0
+                        0
+                        nil
+                        [])))
+
+(defn transcript-rejected-run-row
+  [request errors]
+  (let [now (long (or (:request/time-ms request) (:time-ms request) (core/now-ms)))]
+    (->TranscriptRunRow (transcript-control-request-id request)
+                        (transcript-control-request-type request)
+                        :failed
+                        (:transcript/source request)
+                        (vec (:transcript/paths request))
+                        (:transcript/redaction-policy request)
+                        (:transcript/triggered-by request)
+                        now
+                        now
+                        0
+                        0
+                        0
+                        {:errors (vec errors)}
+                        [])))
+
+(defn transcript-run-status-row
+  [existing request]
+  (if (terminal-transcript-run? existing)
+    existing
+    (let [now (long (or (:time-ms request) (:request/time-ms request) (core/now-ms)))
+          counts (:counts request)
+          base (or existing
+                   (->TranscriptRunRow (transcript-control-request-id request)
+                                       :transcript/run-status
+                                       nil
+                                       nil
+                                       []
+                                       nil
+                                       nil
+                                       now
+                                       now
+                                       0
+                                       0
+                                       0
+                                       nil
+                                       []))]
+      (-> base
+          (assoc :status (:status request)
+                 :updated-at-ms now
+                 :progress (transcript-run-progress base (:progress request)))
+          (cond-> (:error request) (assoc :error (:error request))
+                  (:observed-line-count counts)
+                  (assoc :observed-line-count (:observed-line-count counts))
+                  (:parse-error-count counts)
+                  (assoc :parse-error-count (:parse-error-count counts))
+                  (:containers-created-count counts)
+                  (assoc :containers-created-count (:containers-created-count counts)))))))
+
+(defn transcript-file-state-file-key [file-state]
+  (:source/file-key file-state))
+
+(defn transcript-file-state-source-lines [file-state]
+  (vec (or (:source/lines file-state)
+           (:source/source-lines file-state)
+           (:transcript/source-lines file-state)
+           [])))
+
+(defn transcript-file-state-validation-errors
+  [file-state]
+  (cond-> []
+    (not (map? file-state))
+    (conj {:type :file-state/not-map})
+
+    (and (map? file-state)
+         (:request/type file-state)
+         (not= transcript-file-state-request-type (:request/type file-state)))
+    (conj {:type :request/type-invalid :value (:request/type file-state)})
+
+    (and (map? file-state)
+         (not (string-present? (transcript-file-state-file-key file-state))))
+    (conj {:type :source/file-key-invalid
+           :value (transcript-file-state-file-key file-state)})))
+
+(defn transcript-file-state-stale?
+  [existing file-state]
+  (let [new-generation (transcript-file-generation-key file-state)
+        old-generation (:file-generation-key existing)
+        current-length (:source/current-byte-length file-state)
+        saved-offset (:last-byte-offset existing)]
+    (boolean
+     (or (:repair-needed file-state)
+         (:source/repair-needed file-state)
+         (and existing
+              new-generation
+              old-generation
+              (not= new-generation old-generation))
+         (and existing
+              (:source/file-id file-state)
+              (not= (:source/file-id file-state) (:file-id existing)))
+         (and existing
+              (:source/file-stat-fingerprint file-state)
+              (not= (:source/file-stat-fingerprint file-state)
+                    (:file-stat-fingerprint existing)))
+         (and existing
+              (:source/policy-version file-state)
+              (not= (:source/policy-version file-state) (:policy-version existing)))
+         (and current-length
+              saved-offset
+              (< (long current-length) (long saved-offset)))))))
+
+(defn transcript-source-line-range-cursor
+  [offset]
+  (format "%020d" (long (or offset 0))))
+
+(defn transcript-file-state-advance-limit
+  [file-state]
+  (long (or (:source/advance-limit file-state)
+            (:transcript/advance-limit file-state)
+            default-transcript-offset-advance-limit)))
+
+(defn transcript-file-offset-last-byte-offset
+  [row]
+  (:last-byte-offset row))
+
+(defn transcript-file-offset-row
+  [file-state existing errors]
+  (let [now (long (or (:time-ms file-state) (:request/time-ms file-state) (core/now-ms)))
+        rejected? (seq errors)
+        stale? (and (not rejected?) (transcript-file-state-stale? existing file-state))
+        requested-last-offset (long (or (:source/last-byte-offset file-state) 0))
+        observed-offset (long (or (:source/observed-byte-offset file-state)
+                                  requested-last-offset))
+        prior-safe-offset (long (or (:last-byte-offset existing) 0))
+        pending-observed-lines? (or (seq (transcript-file-state-source-lines file-state))
+                                    (> observed-offset prior-safe-offset))
+        safe-last-offset (cond
+                           stale? 0
+                           pending-observed-lines? prior-safe-offset
+                           :else requested-last-offset)
+        resume-status (cond
+                        rejected? :rejected
+                        stale? (or (:resume/status file-state)
+                                   :stale-after-file-change)
+                        pending-observed-lines? :observed-pending
+                        :else (or (:resume/status file-state) :safe))]
+    (->TranscriptFileOffsetRow (transcript-file-state-file-key file-state)
+                               (:source/file-id file-state)
+                               (:source/file-path file-state)
+                               (:transcript/source file-state)
+                               (transcript-file-generation-key file-state)
+                               (:source/file-stat-fingerprint file-state)
+                               (:source/policy-version file-state)
+                               safe-last-offset
+                               observed-offset
+                               (long (or (:source/line-count file-state) 0))
+                               (or (:transcript/ingest-request-id file-state)
+                                   (:transcript/request-id file-state)
+                                   (:request/id file-state))
+                               resume-status
+                               (boolean (or rejected? stale? pending-observed-lines?))
+                               (or (:previous/file-generation-key file-state)
+                                   (:file-generation-key existing))
+                               now
+                               (when rejected? {:errors (vec errors)}))))
+
+(defn transcript-source-line-page-values
+  [page]
+  (cond
+    (nil? page) []
+    (and (map? page) (not (contains? page :file-key))) (vec (vals page))
+    (sequential? page) (vec page)
+    :else [page]))
+
+(defn transcript-source-line-end-offset
+  [row]
+  (+ (long (or (:byte-offset row) 0))
+     (long (or (:byte-length row) 0))))
+
+(defn transcript-source-line-completion-by-order
+  [completed-rows]
+  (into {}
+        (map (fn [row] [(:order-key row) row]))
+        (transcript-source-line-page-values completed-rows)))
+
+(defn transcript-source-line-completion-match?
+  [observed completed]
+  (and (some? observed)
+       (some? completed)
+       (contains? transcript-source-line-complete-statuses (:status completed))
+       (string-present? (:import-key observed))
+       (string-present? (:material-fingerprint observed))
+       (= (:file-key observed) (:file-key completed))
+       (= (:order-key observed) (:order-key completed))
+       (= (:import-key observed) (:import-key completed))
+       (= (:material-fingerprint observed) (:material-fingerprint completed))
+       (= (:source-file-generation-key observed)
+          (:source-file-generation-key completed))
+       (= (:source-line-key observed) (:source-line-key completed))
+       (= (long (or (:byte-offset observed) 0))
+          (long (or (:byte-offset completed) 0)))
+       (= (long (or (:byte-length observed) 0))
+          (long (or (:byte-length completed) 0)))
+       (= (:line-hash observed) (:line-hash completed))))
+
+(defn transcript-advance-file-offset-row
+  [file-offset-row observed-rows completed-rows]
+  (if (or (:error file-offset-row)
+          (= :rejected (:resume-status file-offset-row))
+          (= :stale-after-file-change (:resume-status file-offset-row)))
+    file-offset-row
+    (let [observed-target (long (or (:observed-byte-offset file-offset-row) 0))
+          initial-safe-offset (long (or (:last-byte-offset file-offset-row) 0))
+          completed-by-order (transcript-source-line-completion-by-order completed-rows)
+          relevant-observed-rows (->> (transcript-source-line-page-values observed-rows)
+                                      (filter #(and (:order-key %)
+                                                    (< (long (or (:byte-offset %) 0))
+                                                       observed-target)))
+                                      (sort-by :order-key))
+          [safe-offset stopped-pending?]
+          (loop [current-safe-offset initial-safe-offset
+                 remaining relevant-observed-rows]
+            (if (empty? remaining)
+              [current-safe-offset false]
+              (let [observed-row (first remaining)
+                    start-offset (long (or (:byte-offset observed-row) 0))
+                    end-offset (transcript-source-line-end-offset observed-row)
+                    completed-row (get completed-by-order (:order-key observed-row))]
+                (cond
+                  (<= end-offset current-safe-offset)
+                  (recur current-safe-offset (rest remaining))
+
+                  (> start-offset current-safe-offset)
+                  [current-safe-offset true]
+
+                  (transcript-source-line-completion-match? observed-row completed-row)
+                  (recur (max current-safe-offset end-offset) (rest remaining))
+
+                  :else
+                  [current-safe-offset true]))))
+          pending? (or stopped-pending? (< safe-offset observed-target))]
+      (assoc file-offset-row
+             :last-byte-offset safe-offset
+             :resume-status (if pending? :observed-pending :safe)
+             :repair-needed (boolean pending?)))))
+
+(defn transcript-observed-source-line-status-row
+  [file-state line]
+  (let [file-key (transcript-file-state-file-key file-state)
+        offset (long (or (:source/byte-offset line) 0))
+        byte-length (long (or (:source/byte-length line) 0))
+        line-hash (:source/line-hash line)
+        order-key (or (:source-line/order-key line)
+                      (:order-key line)
+                      (format "%020d:%s" offset (core/sha-256 (str line-hash))))
+        source-line-key (or (:source-line/key line)
+                            (:source-line-key line)
+                            (:source/line-key line)
+                            (str file-key ":" offset ":" line-hash))
+        now (long (or (:time-ms line)
+                      (:time-ms file-state)
+                      (:request/time-ms file-state)
+                      (core/now-ms)))]
+    (->TranscriptSourceLineStatusRow file-key
+                                     order-key
+                                     (or (:status line) :observed)
+                                     (:import/key line)
+                                     (:import/completion-key line)
+                                     (:material/fingerprint line)
+                                     (or (:source/file-generation-key line)
+                                         (transcript-file-generation-key file-state))
+                                     source-line-key
+                                     (:source-id line)
+                                     (:source-ref line)
+                                     offset
+                                     byte-length
+                                     line-hash
+                                     (or (:transcript/ingest-request-id line)
+                                         (:transcript/ingest-request-id file-state)
+                                         (:transcript/request-id file-state))
+                                     (:transcript/parse-error-kind line)
+                                     now
+                                     (:completed-at-ms line)
+                                     (:message line))))
+
+(defn transcript-anchor-row
+  [object-key source-id source-ref source-hash target-kind target-id obs event-id]
+  (let [offset (long (or (:source/byte-offset obs) 0))
+        byte-length (long (or (:source/byte-length obs) 0))
+        anchor-hash (core/sha-256 (str source-id ":" target-id ":" (:source/line-hash obs)))]
+    (->SourceAnchorRow (str "sa:" object-key ":" (core/sha-256 target-id) ":" anchor-hash)
+                       target-kind
+                       target-id
+                       source-id
+                       source-ref
+                       source-hash
+                       offset
+                       (+ offset byte-length)
+                       (:source/line-hash obs)
+                       event-id)))
+
+(defn transcript-container-row
+  [container-id kind object-key source-id anchor-id revision-id content-text content-hash now actor-id event-id]
+  (->ObjectContainerRow container-id
+                       kind
+                       object-key
+                       :private
+                       source-id
+                       anchor-id
+                       nil
+                       container-id
+                       revision-id
+                       content-text
+                       content-hash
+                       now
+                       actor-id
+                       event-id))
+
+(defn transcript-revision-row
+  [revision-id container-id content-text content-hash order-key now actor-id event-id]
+  (->RevisionRow revision-id
+                 container-id
+                 nil
+                 content-text
+                 content-hash
+                 order-key
+                 now
+                 actor-id
+                 event-id))
+
+(defn transcript-composition-edge
+  [object-key edge-kind parent-kind parent-id child-kind child-id order-key source-id anchor-id event-id]
+  (->CompositionEdgeRow (str "ce:" object-key ":" (name edge-kind) ":"
+                            (core/sha-256 parent-id) ":" (core/sha-256 child-id))
+                        object-key
+                        parent-id
+                        parent-id
+                        child-id
+                        order-key
+                        parent-kind
+                        parent-id
+                        child-kind
+                        child-id
+                        source-id
+                        anchor-id
+                        event-id))
+
+(defn transcript-previous-message-container-id
+  [object-key obs opts]
+  (or (:transcript/previous-message-container-id obs)
+      (:transcript/previous-message-container-id opts)
+      (some-> (or (:transcript/previous-message-id obs)
+                  (:transcript/previous-message-id opts))
+              str)
+      (when-let [previous-uuid (or (:transcript/previous-message-uuid obs)
+                                   (:transcript/previous-message-uuid opts))]
+        (chat-message-id object-key (core/sha-256 (str previous-uuid))))
+      (when-let [previous-line-key (or (:transcript/previous-source-line-key obs)
+                                       (:transcript/previous-source-line-key opts)
+                                       (:source/previous-line-key obs)
+                                       (:source/previous-line-key opts))]
+        (chat-message-id object-key (core/sha-256 (str previous-line-key))))))
+
+(defn transcript-observation-import-request
+  ([obs]
+   (transcript-observation-import-request obs {}))
+  ([obs opts]
+   (let [source (or (:transcript/source obs) :transcript)
+         conversation-id (:transcript/conversation-id obs)
+         object-key (transcript-object-key source conversation-id)
+         source-line-key (transcript-source-line-key obs)
+         source-line-key-hash (core/sha-256 source-line-key)
+         source-id (transcript-source-id object-key source-line-key)
+         source-ref (str (:source/file-path obs) "#" (:source/byte-offset obs))
+         source-hash-value (or (:source/line-hash obs)
+                               (core/sha-256 (pr-str (:transcript/redacted-payload obs))))
+         request-id (or (:request/id opts)
+                        (:request-id opts)
+                        (str "import-tr:" source-line-key-hash))
+         import-key (str "imp:tr:" object-key ":" source-line-key-hash)
+         idempotency-key (or (:idempotency/key opts)
+                             (:idempotency-key opts)
+                             import-key)
+         now (long (or (:time-ms opts) (core/now-ms)))
+         actor (or (:actor opts)
+                   {:actor/id "system"
+                    :actor/type :system
+                    :actor/capabilities #{:object-container/import-material
+                                          :source/ingest
+                                          :object/edit}})
+         actor-id (:actor/id actor)
+         event-id (str "evt:" object-key ":" request-id)
+         order-key (format "%020d:%s" (long (or (:source/byte-offset obs) 0)) source-line-key-hash)
+         source-text (or (:transcript/redacted-preview obs)
+                         (pr-str (:transcript/redacted-payload obs))
+                         "")
+         source-row (->SourceArtifactRow source-id
+                                         source-ref
+                                         source-hash-value
+                                         :transcript
+                                         source-text
+                                         (chat-conversation-id object-key)
+                                         (long (count (.getBytes (str source-text) "UTF-8")))
+                                         now
+                                         actor-id
+                                         event-id)
+         source-version-row (->SourceVersionRow (source-ref-key source-ref)
+                                                source-ref
+                                                source-hash-value
+                                                source-id
+                                                (chat-conversation-id object-key)
+                                                object-key
+                                                order-key
+                                                now
+                                                event-id)
+         parse-error? (some? (:transcript/parse-error-kind obs))
+         conv-id (chat-conversation-id object-key)
+         conv-content (str "Conversation " conversation-id)
+         conv-hash (source-hash conv-content)
+	         conv-rev-id (import-revision-id object-key conv-id (str object-key ":conversation"))
+         conv-anchor (transcript-anchor-row object-key source-id source-ref source-hash-value
+                                           :object-container conv-id obs event-id)
+         conv-row (transcript-container-row conv-id :chat-conversation object-key source-id
+                                            (:source-anchor-id conv-anchor) conv-rev-id
+                                            conv-content conv-hash now actor-id event-id)
+         conv-rev (transcript-revision-row conv-rev-id conv-id conv-content conv-hash
+                                           order-key now actor-id event-id)
+         message-key (core/sha-256 (str (or (:transcript/message-uuid obs) source-line-key)))
+         message-id (chat-message-id object-key message-key)
+         previous-message-id (transcript-previous-message-container-id object-key obs opts)
+         message-content (transcript-text-content (:transcript/redacted-payload obs))
+         message-hash (source-hash message-content)
+         message-rev-id (import-revision-id object-key message-id import-key)
+         message-anchor (transcript-anchor-row object-key source-id source-ref source-hash-value
+                                              :object-container message-id obs event-id)
+         message-row (transcript-container-row message-id :chat-message object-key source-id
+                                               (:source-anchor-id message-anchor) message-rev-id
+                                               message-content message-hash now actor-id event-id)
+         message-rev (transcript-revision-row message-rev-id message-id message-content
+                                              message-hash order-key now actor-id event-id)
+         tool-use-rows
+         (vec
+	          (for [block (transcript-tool-use-blocks (:transcript/redacted-payload obs))
+                :let [tool-use-id (or (:id block) (:tool_use_id block) (:tool-use-id block))
+                      tool-key (core/sha-256 (str tool-use-id))
+                      container-id (tool-call-id object-key tool-key)
+                      content-text (pr-str (select-keys block [:name :input]))
+                      content-hash (source-hash content-text)
+                      revision-id (import-revision-id object-key container-id import-key)
+                      anchor (transcript-anchor-row object-key source-id source-ref source-hash-value
+                                                    :object-container container-id obs event-id)]
+                :when (string-present? (str tool-use-id))]
+            {:container (transcript-container-row container-id :tool-call object-key source-id
+                                                 (:source-anchor-id anchor) revision-id
+                                                 content-text content-hash now actor-id event-id)
+             :revision (transcript-revision-row revision-id container-id content-text content-hash
+                                                order-key now actor-id event-id)
+             :anchor anchor
+             :tool-use-id (str tool-use-id)
+             :tool-name (:name block)
+	             :edge (transcript-composition-edge object-key :produced
+	                                                :object-container message-id
+	                                                :object-container container-id
+	                                                order-key source-id (:source-anchor-id anchor) event-id)}))
+         tool-use-container-id-by-source-id
+         (into {}
+               (map (fn [{:keys [container tool-use-id]}]
+                      [tool-use-id (:container-id container)]))
+               tool-use-rows)
+         tool-result-rows
+         (vec
+          (for [block (transcript-tool-result-blocks (:transcript/redacted-payload obs))
+                :let [tool-use-id (or (:tool_use_id block) (:tool-use-id block) (:id block))
+                      tool-use-id-str (str tool-use-id)
+                      tool-parent-id (when (string-present? tool-use-id-str)
+                                       (or (get tool-use-container-id-by-source-id tool-use-id-str)
+                                           (tool-call-id object-key
+                                                         (core/sha-256 tool-use-id-str))))
+                      result-key (core/sha-256 (str tool-use-id ":" source-line-key))
+                      container-id (tool-result-id object-key result-key)
+                      content-text (str (or (:content block) (:text block) ""))
+                      content-hash (source-hash content-text)
+                      revision-id (import-revision-id object-key container-id import-key)
+                      anchor (transcript-anchor-row object-key source-id source-ref source-hash-value
+                                                    :object-container container-id obs event-id)]
+                :when (or (string-present? (str tool-use-id))
+                          (string-present? content-text))]
+            {:container (transcript-container-row container-id :tool-result object-key source-id
+                                                 (:source-anchor-id anchor) revision-id
+                                                 content-text content-hash now actor-id event-id)
+	             :revision (transcript-revision-row revision-id container-id content-text content-hash
+	                                                order-key now actor-id event-id)
+	             :anchor anchor
+	             :tool-use-id tool-use-id-str
+	             :edge (transcript-composition-edge object-key :produced
+	                                                :object-container (or tool-parent-id message-id)
+	                                                :object-container container-id
+	                                                order-key source-id (:source-anchor-id anchor) event-id)}))
+         containers (if parse-error?
+                      []
+                      (into [conv-row message-row] (map :container) (concat tool-use-rows tool-result-rows)))
+         revisions (if parse-error?
+                     []
+                     (into [conv-rev message-rev] (map :revision) (concat tool-use-rows tool-result-rows)))
+         anchors (if parse-error?
+                   []
+                   (into [conv-anchor message-anchor] (map :anchor) (concat tool-use-rows tool-result-rows)))
+	         contains-edge (when-not parse-error?
+	                         (transcript-composition-edge object-key :contains
+	                                                      :object-container conv-id
+	                                                      :object-container message-id
+	                                                      order-key source-id
+	                                                      (:source-anchor-id message-anchor)
+	                                                      event-id))
+	         follows-edge (when (and (not parse-error?) (string-present? previous-message-id))
+	                        (transcript-composition-edge object-key :follows
+	                                                     :object-container previous-message-id
+	                                                     :object-container message-id
+	                                                     order-key source-id
+	                                                     (:source-anchor-id message-anchor)
+	                                                     event-id))
+	         edges (if parse-error?
+	                 []
+	                 (into (cond-> [contains-edge]
+	                         follows-edge (conj follows-edge))
+	                       (map :edge)
+	                       (concat tool-use-rows tool-result-rows)))
+         message-role (transcript-role (:transcript/redacted-payload obs))
+         message-preview (transcript-content-preview message-content)
+         parse-error-kind (:transcript/parse-error-kind obs)
+         conversation-projection-hints
+         (if parse-error?
+           [(transcript-conversation-projection-row
+             conv-id
+             order-key
+             :parse-error
+             nil
+             nil
+             nil
+             source-id
+             source-ref
+             source-line-key
+             event-id
+             request-id
+             import-key
+             (:transcript/message-uuid obs)
+             message-role
+             (transcript-content-preview source-text)
+             parse-error-kind)]
+           (vec
+            (concat
+             [(transcript-conversation-projection-row
+               conv-id
+               order-key
+               :message
+               message-id
+               message-rev-id
+               (:source-anchor-id message-anchor)
+               source-id
+               source-ref
+               source-line-key
+               event-id
+               request-id
+               import-key
+               (:transcript/message-uuid obs)
+               message-role
+               message-preview
+               nil)]
+             (mapv (fn [{:keys [container revision anchor tool-name]}]
+                     (transcript-conversation-projection-row
+                      conv-id
+                      (str order-key ":tool-call:" (:container-id container))
+                      :tool-call
+                      (:container-id container)
+                      (:revision-id revision)
+                      (:source-anchor-id anchor)
+                      source-id
+                      source-ref
+                      source-line-key
+                      event-id
+                      request-id
+                      import-key
+                      (:transcript/message-uuid obs)
+                      message-role
+                      (transcript-content-preview tool-name)
+                      nil))
+                   tool-use-rows)
+             (mapv (fn [{:keys [container revision anchor]}]
+                     (transcript-conversation-projection-row
+                      conv-id
+                      (str order-key ":tool-result:" (:container-id container))
+                      :tool-result
+                      (:container-id container)
+                      (:revision-id revision)
+                      (:source-anchor-id anchor)
+                      source-id
+                      source-ref
+                      source-line-key
+                      event-id
+                      request-id
+                      import-key
+                      (:transcript/message-uuid obs)
+                      message-role
+                      (transcript-content-preview (:current-content-text container))
+                      nil))
+                   tool-result-rows))))
+         tool-call-index-hints
+         (mapv (fn [{:keys [container tool-use-id tool-name]}]
+                 (transcript-tool-call-index-row
+                  (str tool-name)
+                  (str source-line-key ":" tool-use-id)
+                  (:container-id container)
+                  conv-id
+                  message-id
+                  source-id
+                  source-ref
+                  source-line-key
+                  event-id
+                  request-id
+                  import-key))
+               tool-use-rows)
+         audit-hint (transcript-audit-entry-row
+                     request-id
+                     order-key
+                     (if parse-error? :parse-error :imported)
+                     conv-id
+                     (when-not parse-error? message-id)
+                     source-id
+                     source-ref
+                     source-line-key
+                     parse-error-kind
+                     event-id
+                     import-key
+                     (if parse-error?
+                       (str "Transcript parse error: " (name parse-error-kind))
+                       "Transcript source record imported"))
+         last-message-hint (when-not parse-error?
+                             (transcript-last-message-row conv-id
+                                                          message-id
+                                                          source-line-key
+                                                          order-key
+                                                          event-id
+                                                          request-id
+                                                          import-key
+                                                          now))
+         projection-hints (cond-> (vec conversation-projection-hints)
+                            (seq tool-call-index-hints) (into tool-call-index-hints)
+                            true (conj audit-hint)
+                            last-message-hint (conj last-message-hint))
+         source-line-status-hints (if-let [line-status-row
+                                           (transcript-source-line-status-row
+                                            obs
+                                            import-key
+                                            nil
+                                            source-id
+                                            source-ref
+                                            source-line-key
+                                            order-key
+                                            request-id
+                                            now)]
+                                    [line-status-row]
+                                    [])
+	         payload {:object-key object-key
+	                  :source-artifacts [source-row]
+	                  :object-containers containers
+	                  :revisions revisions
+	                  :derived-units []
+	                  :source-anchors anchors
+	                  :composition-edges edges
+	                  :source-versions [source-version-row]
+	                  :projection-hints projection-hints
+                      :source-line-statuses source-line-status-hints}
+	         fingerprint (core/sha-256
+	                      (pr-str
+	                       {:object-key object-key
+	                        :import-key import-key
+	                        :source-line-key source-line-key
+	                        :source-ref source-ref
+	                        :source-hash source-hash-value
+	                        :source-artifacts
+	                        (mapv #(select-keys %
+	                                            [:source-id
+	                                             :source-ref
+	                                             :source-hash
+	                                             :source-format
+	                                             :source-raw-text
+	                                             :document-container-id
+	                                             :content-byte-count])
+	                              [source-row])
+	                        :object-containers
+	                        (mapv #(select-keys %
+	                                            [:container-id
+	                                             :container-kind
+	                                             :object-key
+	                                             :visibility
+	                                             :source-id
+	                                             :source-anchor-id
+	                                             :source-unit-id
+	                                             :document-container-id
+	                                             :current-revision-id
+	                                             :current-content-hash])
+	                              containers)
+	                        :revisions
+	                        (mapv #(select-keys %
+	                                            [:revision-id
+	                                             :container-id
+	                                             :parent-revision-id
+	                                             :content-hash
+	                                             :order-key])
+	                              revisions)
+	                        :source-anchors
+	                        (mapv #(select-keys %
+	                                            [:source-anchor-id
+	                                             :target-kind
+	                                             :target-id
+	                                             :source-id
+	                                             :source-ref
+	                                             :source-hash
+	                                             :start-offset
+	                                             :end-offset
+	                                             :block-path])
+	                              anchors)
+	                        :composition-edges
+	                        (mapv #(select-keys %
+	                                            [:edge-id
+	                                             :object-key
+	                                             :document-container-id
+	                                             :parent-slot-id
+	                                             :child-slot-id
+	                                             :child-order-key
+	                                             :parent-target-kind
+	                                             :parent-target-id
+	                                             :child-target-kind
+	                                             :child-target-id
+	                                             :source-id
+	                                             :source-anchor-id])
+	                              edges)
+	                        :projection-hints
+	                        (mapv projection-hint-fingerprint projection-hints)
+                            :source-line-statuses
+                            (mapv source-line-status-fingerprint
+                                  source-line-status-hints)}))]
+     (assoc (core/action-request
+             {:request-id request-id
+              :request-type :object-container/import-material
+              :time-ms now
+              :actor actor
+              :target {:target/kind :object-container-import
+                       :target/id import-key
+                       :target/address {:source/ref source-ref
+                                        :source/hash source-hash-value
+                                        :object/key object-key}}
+              :action {:action/type :object-container/import-material
+                       :action/capability :object-container/import-material
+                       :action/params {:source/format :transcript}}
+              :routing/key [:object-container/import object-key]
+              :payload payload
+              :provenance {:source/type :transcript
+                           :source/ref source-ref}})
+            :partition/key object-key
+            :object/key object-key
+            :import/key import-key
+            :idempotency/key idempotency-key
+            :material/fingerprint fingerprint))))
 
 (defn materialization-object-key [m] (:object-key m))
 (defn materialization-source-ref-key [m] (:source-ref-key m))
@@ -820,6 +2235,7 @@
 (defn materialization-version-row [m] (:version-row m))
 (defn materialization-completion-row [m] (:completion-row m))
 (defn materialization-document-row [m] (:document-row m))
+(defn materialization-document-revision-row [m] (:document-revision-row m))
 (defn materialization-document-id [m] (:document-id m))
 (defn materialization-document-anchor-row [m] (:document-anchor-row m))
 (defn materialization-event [m] (:event m))
@@ -833,6 +2249,7 @@
 (defn row-source-hash [row] (:source-hash row))
 (defn row-document-container-id [row] (:document-container-id row))
 (defn row-container-id [row] (:container-id row))
+(defn row-container-kind [row] (:container-kind row))
 (defn row-current-revision-id [row] (:current-revision-id row))
 (defn row-current-content-text [row] (:current-content-text row))
 (defn row-current-content-hash [row] (:current-content-hash row))
@@ -847,12 +2264,94 @@
 (defn row-edge-id [row] (:edge-id row))
 (defn row-child-slot-id [row] (:child-slot-id row))
 (defn row-child-order-key [row] (:child-order-key row))
+(defn row-parent-slot-id* [row] (:parent-slot-id row))
+(defn row-file-key [row] (:file-key row))
+(defn projection-kind [row] (:projection-kind row))
+(defn projection-conversation-container-id [row] (:conversation-container-id row))
+(defn projection-tool-name [row] (:tool-name row))
+(defn projection-request-id [row] (:request-id row))
+
+(defn outline-projection-row
+  [row]
+  (->OutlineNodeRow (:document-container-id row)
+                    (:node-slot-id row)
+                    (:block-path row)
+                    (:parent-slot-id row)
+                    (:target-kind row)
+                    (:target-id row)
+                    (:source-anchor-id row)
+                    (:content-text row)
+                    (:content-hash row)
+                    (:graduated row)
+                    (:container-id row)
+                    (:event-id row)))
+(defn row-source-anchor-id* [row] (:source-anchor-id row))
 (defn row-lineage-key [row] (:lineage-key row))
 (defn row-edit-client-id [row] (:edit-client-id row))
 (defn row-edit-seq [row] (:edit-seq row))
 (defn row-event-id [row] (:event-id row))
 (defn edge-parent-slot-id [row] (:parent-slot-id row))
 (defn edge-child-order-key [row] (:child-order-key row))
+
+(defn source-material-ref-row
+  [source-id object-key target-kind target-id order-key event-id]
+  (->SourceMaterialRefRow source-id object-key target-kind target-id order-key event-id))
+
+(defn source-material-ref-key
+  [order-key target-id]
+  (str (or order-key "") ":" target-id))
+
+(defn composition-parent-ref-key
+  [edge-row]
+  (str (:parent-slot-id edge-row) ":" (:edge-id edge-row)))
+
+(defn native-identity-claim-row
+  [request container-row]
+  (->NativeIdentityClaimRow (:container-id container-row)
+                            (:container-id container-row)
+                            (:container-kind container-row)
+                            (:object-key container-row)
+                            (:container-id container-row)
+                            (:source-id container-row)
+                            (request-import-key request)
+                            (:source-anchor-id container-row)
+                            (:current-content-hash container-row)
+                            (:source-anchor-id container-row)
+                            (request-material-fingerprint request)
+                            (request-import-key request)
+                            :accepted
+                            (:event-id container-row)
+                            (core/now-ms)))
+
+(defn native-claim-compatible?
+  [incoming existing]
+  (or (nil? existing)
+      (and (= (:claim-key incoming) (:claim-key existing))
+           (= (:container-id incoming) (:container-id existing))
+           (= (:source-native-id incoming) (:source-native-id existing))
+           (= (:source-id incoming) (:source-id existing))
+           (= (:source-line-key incoming) (:source-line-key existing))
+           (= (:source-anchor-id incoming) (:source-anchor-id existing))
+           (= (:content-hash incoming) (:content-hash existing))
+           (= (:anchor-hash incoming) (:anchor-hash existing))
+           (= (:material-fingerprint incoming) (:material-fingerprint existing))
+           (= (:import-key incoming) (:import-key existing)))
+      (and (= (:claim-key incoming) (:claim-key existing))
+           (= (:container-id incoming) (:container-id existing))
+           (= (:container-kind incoming) (:container-kind existing))
+           (= (:object-key incoming) (:object-key existing))
+           (= (:source-native-id incoming) (:source-native-id existing))
+           (= (:content-hash incoming) (:content-hash existing)))))
+
+(defn native-claim-conflict-error
+  [incoming existing]
+  (when-not (native-claim-compatible? incoming existing)
+    {:type :native-identity/conflict
+     :container-id (:container-id incoming)
+     :existing-material-fingerprint (:material-fingerprint existing)
+     :incoming-material-fingerprint (:material-fingerprint incoming)
+     :existing-import-key (:import-key existing)
+     :incoming-import-key (:import-key incoming)}))
 
 (defn event-id-from-row [row] (:event-id row))
 (defn decision-row-id [row] (:decision-id row))
@@ -882,6 +2381,32 @@
                         (:derived-content-text unit)
                         (:derived-content-hash unit)))
     nil))
+
+(def common-material-categories
+  [:containers :derived-units :anchors :edges])
+
+(defn common-material-category-requested?
+  [categories category]
+  (contains? (set categories) category))
+
+(defn common-material-cursor
+  [cursor-map category]
+  (str (or (get cursor-map category) "")))
+
+(defn common-material-limit
+  [limit]
+  (long (or limit default-outline-page-size)))
+
+(defn material-ref-page-values
+  [page]
+  (vec (vals page)))
+
+(defn common-material-bundle
+  [containers derived-units anchors edges]
+  (->CommonMaterialBundle (vec containers)
+                          (vec derived-units)
+                          (vec anchors)
+                          (vec edges)))
 
 (defn edit-lineage-key
   [request derived-unit graduation container]
@@ -1071,9 +2596,9 @@
 (defn effect-has-outline? [effects] (some? (:outline-row effects)))
 (defn effect-has-edge? [effects] (some? (:edge-row effects)))
 
-(defn source-ingest-request
+(defn- source-ingest-kernel-request
   ([raw-text source-ref]
-   (source-ingest-request raw-text source-ref {}))
+   (source-ingest-kernel-request raw-text source-ref {}))
   ([raw-text source-ref opts]
    (let [raw-text (str raw-text)
          source-hash (or (:source/hash opts)
@@ -1085,12 +2610,24 @@
          request-id (or (:request/id opts)
                         (:request-id opts)
                         (core/random-id "req"))
+         idempotency-key (or (:idempotency/key opts)
+                             (:idempotency-key opts)
+                             (str "source/ingest:" source-ref-key ":" source-hash))
          payload (->SourceIngestPayload source-ref
                                         source-hash
                                         raw-text
                                         :markdown
                                         markdown-distiller-id
-                                        markdown-distiller-version)]
+                                        markdown-distiller-version)
+         material-fingerprint (core/sha-256
+                               (pr-str {:request/type :source/ingest
+                                        :partition/key source-ref-key
+                                        :object/key object-key
+                                        :source/ref source-ref
+                                        :source/hash source-hash
+                                        :source/format :markdown
+                                        :distiller/id markdown-distiller-id
+                                        :distiller/version markdown-distiller-version}))]
      (assoc (core/action-request
               {:request-id request-id
                :request-type :source/ingest
@@ -1115,10 +2652,187 @@
                                {:source/type :manual
                                 :source/ref source-ref})})
             :partition/key source-ref-key
-            :idempotency/key (or (:idempotency/key opts)
-                                 (:idempotency-key opts)
-                                 (str "source/ingest:" source-ref-key ":" source-hash))
-            :object/key object-key))))
+            :idempotency/key idempotency-key
+            :object/key object-key
+            :material/fingerprint material-fingerprint))))
+
+(defn import-material-fingerprint
+  [object-key import-key payload]
+  (core/sha-256
+   (pr-str
+	    {:request/type :object-container/import-material
+	     :object-key object-key
+	     :import-key import-key
+	     :source-ref (:source-ref payload)
+	     :source-hash (:source-hash payload)
+	     :source-format (:source-format payload)
+	     :source-artifacts
+     (mapv #(select-keys %
+                         [:source-id
+                          :source-ref
+                          :source-hash
+                          :source-format
+                          :source-raw-text
+                          :document-container-id
+                          :content-byte-count])
+           (payload-source-artifacts payload))
+     :object-containers
+     (mapv #(select-keys %
+                         [:container-id
+                          :container-kind
+                          :object-key
+                          :visibility
+                          :source-id
+                          :source-anchor-id
+                          :source-unit-id
+                          :document-container-id
+                          :current-revision-id
+                          :current-content-hash])
+           (payload-object-containers payload))
+     :revisions
+     (mapv #(select-keys %
+                         [:revision-id
+                          :container-id
+                          :parent-revision-id
+                          :content-hash])
+           (payload-revisions payload))
+     :derived-units
+     (mapv #(select-keys %
+                         [:unit-id
+                          :document-container-id
+                          :source-id
+                          :unit-kind
+                          :block-path
+                          :parent-slot-id
+                          :source-anchor-id
+                          :derived-content-hash
+                          :distiller-id
+                          :distiller-version])
+           (payload-derived-units payload))
+     :source-anchors
+     (mapv #(select-keys %
+                         [:source-anchor-id
+                          :target-kind
+                          :target-id
+                          :source-id
+                          :source-ref
+                          :source-hash
+                          :start-offset
+                          :end-offset
+                          :block-path])
+           (payload-source-anchors payload))
+     :composition-edges
+     (mapv #(select-keys %
+                         [:edge-id
+                          :object-key
+                          :document-container-id
+                          :parent-slot-id
+                          :child-slot-id
+                          :child-order-key
+                          :parent-target-kind
+                          :parent-target-id
+                          :child-target-kind
+                          :child-target-id
+                          :source-id
+                          :source-anchor-id])
+           (payload-composition-edges payload))
+     :source-versions
+     (mapv #(select-keys %
+                         [:source-ref-key
+                          :source-ref
+                          :source-hash
+                          :source-id
+                          :document-container-id
+                          :object-key])
+           (payload-source-versions payload))
+	     :projection-hints
+	     (mapv projection-hint-fingerprint
+	           (payload-projection-hints payload))
+	     :source-line-statuses
+	     (mapv source-line-status-fingerprint
+	           (payload-source-line-statuses payload))})))
+
+(defn markdown-import-key
+  [object-key source-ref-key source-hash]
+  (str "imp:md:" object-key ":" (core/sha-256 (str source-ref-key ":" source-hash))))
+
+(defn markdown-import-payload
+  [materialization]
+  {:object-key (:object-key materialization)
+   :source-ref (:source-ref (:source-row materialization))
+   :source-hash (:source-hash materialization)
+   :source-raw-text (:source-raw-text (:source-row materialization))
+   :source-format (:source-format (:source-row materialization))
+   :source-artifacts [(:source-row materialization)]
+   :object-containers [(:document-row materialization)]
+   :revisions [(:document-revision-row materialization)]
+   :derived-units (:unit-rows materialization)
+   :source-anchors (into [(:document-anchor-row materialization)]
+                         (:unit-anchor-rows materialization))
+   :composition-edges (:edge-rows materialization)
+   :source-versions [(:version-row materialization)]
+   :projection-hints (mapv #(assoc % :projection-kind :markdown-outline)
+                           (:outline-rows materialization))})
+
+(defn markdown-source-import-request
+  ([raw-text source-ref]
+   (markdown-source-import-request raw-text source-ref {}))
+  ([raw-text source-ref opts]
+   (let [legacy-request (source-ingest-kernel-request raw-text source-ref opts)
+         materialization (source-materialization legacy-request)
+         object-key (:object-key materialization)
+         source-ref-key (:source-ref-key materialization)
+         source-hash-value (:source-hash materialization)
+         source-row (:source-row materialization)
+         import-key (or (:import/key opts)
+                        (:import-key opts)
+                        (markdown-import-key object-key source-ref-key source-hash-value))
+         idempotency-key (or (:idempotency/key opts)
+                             (:idempotency-key opts)
+                             import-key)
+         payload (markdown-import-payload materialization)
+         material-fingerprint (import-material-fingerprint object-key import-key payload)
+         actor (or (:actor opts)
+                   {:actor/id "system"
+                    :actor/type :system
+                    :actor/capabilities #{:object-container/import-material
+                                          :source/ingest
+                                          :object/edit}})]
+     (assoc (core/action-request
+             {:request-id (request-id legacy-request)
+              :request-type :object-container/import-material
+              :time-ms (:request/time-ms legacy-request)
+              :actor actor
+              :branch (:branch legacy-request)
+              :context (:context legacy-request)
+              :target {:target/kind :object-container-import
+                       :target/id import-key
+                       :target/address {:source/ref source-ref
+                                        :source/hash source-hash-value
+                                        :object/key object-key}}
+              :action {:action/type :object-container/import-material
+                       :action/capability :object-container/import-material
+                       :action/params {:source/family :markdown
+                                       :source/format :markdown}}
+              :routing/key [:object-container/import object-key]
+              :payload payload
+              :causal (:causal legacy-request)
+              :provenance (or (:provenance opts)
+                              {:source/type :markdown
+                               :source/ref source-ref})})
+            :partition/key object-key
+            :object/key object-key
+            :import/key import-key
+            :source/family :markdown
+            :source/format (:source-format source-row)
+            :idempotency/key idempotency-key
+            :material/fingerprint material-fingerprint))))
+
+(defn source-ingest-request
+  ([raw-text source-ref]
+   (source-ingest-request raw-text source-ref {}))
+  ([raw-text source-ref opts]
+   (markdown-source-import-request raw-text source-ref opts)))
 
 (defn object-edit-request
   ([target-kind target-id content-text]
@@ -1149,7 +2863,21 @@
                                       (or (:edit/lineage-key opts)
                                           (:edit-lineage-key opts))
                                       (or (:revision/id opts)
-                                          (:revision-id opts)))]
+                                          (:revision-id opts)))
+         idempotency-key (or (:idempotency/key opts)
+                             (:idempotency-key opts)
+                             (str "object/edit:" object-key ":" target-id ":" request-id))
+         material-fingerprint (core/sha-256
+                               (pr-str {:request/type :object/edit
+                                        :partition/key object-key
+                                        :object/key object-key
+                                        :target/kind target-kind
+                                        :target/id target-id
+                                        :document/container-id document-id
+                                        :content/hash (:content-hash payload)
+                                        :edit/client-id (:edit-client-id payload)
+                                        :edit/seq (:edit-seq payload)
+                                        :edit/lineage-key (:edit-lineage-key payload)}))]
      (assoc (core/action-request
               {:request-id request-id
                :request-type :object/edit
@@ -1174,13 +2902,13 @@
                :provenance (or (:provenance opts)
                                {:source/type :manual
                                 :source/ref nil})})
-            :partition/key object-key
-            :idempotency/key (or (:idempotency/key opts)
-                                 (:idempotency-key opts)
-                                 (str "object/edit:" object-key ":" target-id ":" request-id))))))
+	            :partition/key object-key
+	            :idempotency/key idempotency-key
+	            :material/fingerprint material-fingerprint))))
 
 (defmodule object-container-module [setup topologies]
   (declare-depot setup *object-container-requests-depot (hash-by :partition/key))
+  (declare-depot setup *transcript-source-line-completions-depot :disallow)
   (let [s (stream-topology topologies "object-container-topology")]
     (declare-pstate s $$requests-by-audit-id {String ObjectContainerRequestRow}
                     {:key-partitioner partition-by-audit-id})
@@ -1189,6 +2917,8 @@
     (declare-pstate s $$decisions-by-idempotency
                     {String (map-schema String ObjectContainerDecisionRow {:subindex? true})})
     (declare-pstate s $$events-by-id {String ObjectContainerEventRow}
+                    {:key-partitioner partition-by-object-key})
+    (declare-pstate s $$import-completions-by-key {String ImportCompletionRow}
                     {:key-partitioner partition-by-object-key})
     (declare-pstate s $$source-artifacts-by-id {String SourceArtifactRow}
                     {:key-partitioner partition-by-object-key})
@@ -1199,6 +2929,8 @@
                     {String (map-schema String SourceIngestCompletionRow {:subindex? true})})
     (declare-pstate s $$containers-by-id {String ObjectContainerRow}
                     {:key-partitioner partition-by-object-key})
+    (declare-pstate s $$revisions-by-id {String RevisionRow}
+                    {:key-partitioner partition-by-object-key})
     (declare-pstate s $$revision-history-by-container
                     {String (map-schema String RevisionRow {:subindex? true})}
                     {:key-partitioner partition-by-object-key})
@@ -1206,23 +2938,62 @@
                     {:key-partitioner partition-by-object-key})
     (declare-pstate s $$unit-graduations-by-id {String UnitGraduationRow}
                     {:key-partitioner partition-by-object-key})
-    (declare-pstate s $$source-anchors-by-target {String SourceAnchorRow}
+    (declare-pstate s $$source-anchors-by-target
+                    {String (map-schema String SourceAnchorRow {:subindex? true})}
                     {:key-partitioner partition-by-object-key})
     (declare-pstate s $$composition-children-by-parent
                     {String (map-schema String CompositionEdgeRow {:subindex? true})}
                     {:key-partitioner partition-by-object-key})
-    (declare-pstate s $$composition-parent-by-child {String CompositionEdgeRow}
+    (declare-pstate s $$composition-parent-by-child
+                    {String (map-schema String CompositionEdgeRow {:subindex? true})}
+                    {:key-partitioner partition-by-object-key})
+    (declare-pstate s $$source-containers-by-source
+                    {String (map-schema String SourceMaterialRefRow {:subindex? true})}
+                    {:key-partitioner partition-by-object-key})
+    (declare-pstate s $$source-derived-units-by-source
+                    {String (map-schema String SourceMaterialRefRow {:subindex? true})}
+                    {:key-partitioner partition-by-object-key})
+    (declare-pstate s $$source-anchors-by-source
+                    {String (map-schema String SourceMaterialRefRow {:subindex? true})}
+                    {:key-partitioner partition-by-object-key})
+    (declare-pstate s $$source-edges-by-source
+                    {String (map-schema String SourceMaterialRefRow {:subindex? true})}
+                    {:key-partitioner partition-by-object-key})
+    (declare-pstate s $$native-identity-claims-by-container {String NativeIdentityClaimRow}
                     {:key-partitioner partition-by-object-key})
     (declare-pstate s $$outline-by-document
                     {String (map-schema String OutlineNodeRow {:subindex? true})}
                     {:key-partitioner partition-by-object-key})
+    (declare-pstate s $$transcript-conversation-projection
+                    {String (map-schema String TranscriptConversationProjectionRow
+                                        {:subindex? true})}
+                    {:key-partitioner partition-by-object-key})
+    (declare-pstate s $$transcript-tool-calls-by-name
+                    {String (map-schema String TranscriptToolCallIndexRow
+                                        {:subindex? true})})
+    (declare-pstate s $$transcript-audit-by-request
+                    {String (map-schema String TranscriptAuditEntryRow
+                                        {:subindex? true})})
+    (declare-pstate s $$transcript-last-message-by-conversation
+                    {String TranscriptLastMessageRow}
+                    {:key-partitioner partition-by-object-key})
+    (declare-pstate s $$transcript-source-lines-by-file
+                    {String (map-schema String TranscriptSourceLineStatusRow
+                                        {:subindex? true})})
     (declare-pstate s $$edit-order-by-target
                     {String (map-schema String EditOrderRow {:subindex? true})}
                     {:key-partitioner partition-by-object-key})
-
+    (<<sources s
+      (source> *transcript-source-line-completions-depot {:retry-mode :all-after}
+               :> *completed-source-line-status-row)
+      (row-file-key *completed-source-line-status-row :> *source-line-file-key)
+      (row-order-key *completed-source-line-status-row :> *source-line-order-key)
+      (local-transform> [(keypath *source-line-file-key *source-line-order-key)
+                          (termval *completed-source-line-status-row)]
+                        $$transcript-source-lines-by-file)
+      (ack-return> *completed-source-line-status-row))
     (<<sources s
       (source> *object-container-requests-depot {:retry-mode :all-after} :> *request)
-      (request-id *request :> *request-id)
       (request-type *request :> *request-type)
       (request-partition-key *request :> *partition-key)
       (request-idempotency-key *request :> *idempotency-key)
@@ -1240,133 +3011,483 @@
                        $$decisions-by-idempotency :> *prior-decision)
 
         (<<if (some? *prior-decision)
-          (replay-decision-row *request *prior-decision :> *replay-decision)
-          (decision-row-id *replay-decision :> *replay-decision-id)
-          (local-transform> [(keypath *replay-decision-id) (termval *replay-decision)]
-                            $$decisions-by-audit-id)
-          (ack-return> *replay-decision)
+          (material-fingerprint-conflict? *request *prior-decision :> *fingerprint-conflict?)
+          (<<if *fingerprint-conflict?
+            (material-fingerprint-conflict-error *request *prior-decision
+                                                 :> *fingerprint-conflict-error)
+            (conflict-decision-row *request
+                                   :idempotency/material-fingerprint-conflict
+                                   [*fingerprint-conflict-error]
+                                   *prior-decision
+                                   :> *conflict-decision)
+            (decision-row-id *conflict-decision :> *conflict-decision-id)
+            (local-transform> [(keypath *conflict-decision-id)
+                                (termval *conflict-decision)]
+                              $$decisions-by-audit-id)
+            (ack-return> *conflict-decision)
+            (else>)
+            (replay-decision-row *request *prior-decision :> *replay-decision)
+            (decision-row-id *replay-decision :> *replay-decision-id)
+            (local-transform> [(keypath *replay-decision-id) (termval *replay-decision)]
+                              $$decisions-by-audit-id)
+            (ack-return> *replay-decision))
           (else>)
           (<<cond
-            (case> (= :source/ingest *request-type))
-            (source-request-validation-errors *request :> *source-errors)
-            (<<if (source-request-valid? *source-errors)
-              (request-payload *request :> *source-payload)
-              (payload-source-hash *source-payload :> *source-hash)
-              (local-select> [(keypath *partition-key *source-hash)]
-                             $$source-ingest-completions-by-ref :> *completion)
-            (<<if (some? *completion)
-              (completed-source-decision-row *request *completion :> *completed-decision)
-              (decision-row-id *completed-decision :> *completed-decision-id)
-              (local-transform> [(keypath *completed-decision-id) (termval *completed-decision)]
-                                $$decisions-by-audit-id)
-              (local-transform> [(keypath *partition-key *idempotency-key)
-                                  (termval *completed-decision)]
-                                $$decisions-by-idempotency)
-              (ack-return> *completed-decision)
-              (else>)
-              (source-materialization *request :> *materialization)
-              (materialization-object-key *materialization :> *object-key)
-              (materialization-source-row *materialization :> *source-row)
-              (materialization-source-id *materialization :> *source-id)
-              (materialization-document-row *materialization :> *document-row)
-              (materialization-document-id *materialization :> *document-id)
-              (materialization-document-anchor-row *materialization :> *document-anchor-row)
-              (materialization-event *materialization :> *event-row)
-              (event-id-from-row *event-row :> *event-id)
-              (|hash *object-key)
-              (local-transform> [(keypath *source-id) (termval *source-row)]
-                                $$source-artifacts-by-id)
-              (local-transform> [(keypath *document-id) (termval *document-row)]
-                                $$containers-by-id)
-              (local-transform> [(keypath *document-id) (termval *document-anchor-row)]
-                                $$source-anchors-by-target)
-              (local-transform> [(keypath *event-id) (termval *event-row)]
-                                $$events-by-id)
-              (materialization-unit-rows *materialization :> *unit-rows)
-              (loop<- [*remaining-unit-rows *unit-rows :> *unit-write-done]
-                (<<if (empty? *remaining-unit-rows)
-                  (:> true)
-                  (else>)
-                  (first *remaining-unit-rows :> *unit-row)
-                  (row-unit-id *unit-row :> *unit-id)
-                  (local-transform> [(keypath *unit-id) (termval *unit-row)]
-                                    $$derived-units-by-id)
-                  (continue> (rest *remaining-unit-rows))))
-              (materialization-unit-anchor-rows *materialization :> *unit-anchor-rows)
-              (loop<- [*remaining-unit-anchor-rows *unit-anchor-rows :> *unit-anchor-write-done]
-                (<<if (empty? *remaining-unit-anchor-rows)
-                  (:> true)
-                  (else>)
-                  (first *remaining-unit-anchor-rows :> *unit-anchor-row)
-                  (row-target-id *unit-anchor-row :> *anchor-target-id)
-                  (local-transform> [(keypath *anchor-target-id) (termval *unit-anchor-row)]
-                                    $$source-anchors-by-target)
-                  (continue> (rest *remaining-unit-anchor-rows))))
-              (materialization-outline-rows *materialization :> *outline-rows)
-              (loop<- [*remaining-outline-rows *outline-rows :> *outline-write-done]
-                (<<if (empty? *remaining-outline-rows)
-                  (:> true)
-                  (else>)
-                  (first *remaining-outline-rows :> *outline-row)
-                  (row-block-path *outline-row :> *outline-key)
-                  (local-transform> [(keypath *document-id *outline-key)
-                                      (termval *outline-row)]
-                                    $$outline-by-document)
-                  (continue> (rest *remaining-outline-rows))))
-              (materialization-edge-rows *materialization :> *edge-rows)
-              (loop<- [*remaining-edge-rows *edge-rows :> *edge-write-done]
-                (<<if (empty? *remaining-edge-rows)
-                  (:> true)
-                  (else>)
-                  (first *remaining-edge-rows :> *edge-row)
-                  (row-edge-id *edge-row :> *edge-id)
-                  (edge-parent-slot-id *edge-row :> *edge-parent-slot-id)
-                  (edge-child-order-key *edge-row :> *edge-child-order-key)
-                  (row-child-slot-id *edge-row :> *edge-child-slot-id)
-                  (local-transform> [(keypath *edge-parent-slot-id *edge-child-order-key)
-                                      (termval *edge-row)]
-                                    $$composition-children-by-parent)
-                  (local-transform> [(keypath *edge-child-slot-id) (termval *edge-row)]
-                                    $$composition-parent-by-child)
-                  (continue> (rest *remaining-edge-rows))))
-              (materialization-version-row *materialization :> *version-row)
-              (materialization-completion-row *materialization :> *completion-row)
-              (materialization-source-ref-key *materialization :> *source-ref-key)
-              (materialization-source-hash *materialization :> *materialization-source-hash)
-              (accepted-decision-row *request *event-row :> *decision)
-              (decision-row-id *decision :> *decision-id)
-              (|hash *source-ref-key)
-              (local-transform> [(keypath *source-ref-key *materialization-source-hash)
-                                  (termval *version-row)]
-                                $$source-versions-by-ref)
-              (local-transform> [(keypath *source-ref-key) (termval *version-row)]
-                                $$source-latest-by-ref)
-              (local-transform> [(keypath *source-ref-key *materialization-source-hash)
-                                  (termval *completion-row)]
-                                $$source-ingest-completions-by-ref)
+	            (case> (= :object-container/import-material *request-type))
+	            (import-request-validation-errors *request :> *import-errors)
+	            (<<if (source-request-valid? *import-errors)
+	              (request-payload *request :> *import-payload)
+	              (payload-object-key *import-payload :> *object-key)
+	              (|hash *object-key)
+	              (request-import-key *request :> *import-key)
+	              (import-event-row *request :> *event-row)
+	              (event-id-from-row *event-row :> *event-id)
+	              (payload-object-containers *import-payload :> *import-container-rows)
+	              (local-select> [(keypath *import-key)]
+	                             $$import-completions-by-key :> *existing-import-completion)
+	              (<<if (some? *existing-import-completion)
+	                (request-material-fingerprint *request :> *import-request-fingerprint)
+	                (completion-material-fingerprint *existing-import-completion
+	                                                 :> *existing-import-fingerprint)
+	                (<<if (= *import-request-fingerprint *existing-import-fingerprint)
+	                  (completion-event-id *existing-import-completion
+	                                       :> *existing-import-event-id)
+	                  (local-select> [(keypath *existing-import-event-id)]
+	                                 $$events-by-id :> *existing-import-event)
+	                  (<<if (some? *existing-import-event)
+	                    (accepted-decision-row *request *existing-import-event
+	                                           :> *completed-import-decision)
+	                    (decision-row-id *completed-import-decision
+	                                     :> *completed-import-decision-id)
+		                    (local-transform> [(keypath *completed-import-decision-id)
+		                                        (termval *completed-import-decision)]
+		                                      $$decisions-by-audit-id)
+		                    (payload-source-line-statuses *import-payload
+		                                                  :> *existing-source-line-status-rows)
+		                    (loop<- [*remaining-existing-source-line-status-rows
+		                             *existing-source-line-status-rows
+		                             :> *existing-source-line-status-write-done]
+		                      (yield-if-overtime)
+		                      (<<if (empty? *remaining-existing-source-line-status-rows)
+		                        (:> true)
+		                        (else>)
+		                        (first *remaining-existing-source-line-status-rows
+		                               :> *existing-source-line-status-row)
+		                        (complete-transcript-source-line-status-row
+		                         *existing-source-line-status-row
+		                         *existing-import-completion
+		                         :> *completed-existing-source-line-status-row)
+		                        (row-file-key *completed-existing-source-line-status-row
+		                                      :> *existing-source-line-file-key)
+		                        (|hash *existing-source-line-file-key)
+		                        (depot-partition-append!
+		                         *transcript-source-line-completions-depot
+		                         *completed-existing-source-line-status-row
+		                         :append-ack)
+		                        (continue> (rest
+		                                    *remaining-existing-source-line-status-rows))))
+		                    (|hash *partition-key)
+		                    (local-transform> [(keypath *partition-key *idempotency-key)
+		                                        (termval *completed-import-decision)]
+		                                      $$decisions-by-idempotency)
+	                    (ack-return> *completed-import-decision)
+	                    (else>)
+	                    (rejected-decision-row *request
+	                                           :import/completion-event-missing
+	                                           [{:type :import/completion-event-missing
+	                                             :import-key *import-key
+	                                             :event-id *existing-import-event-id}]
+	                                           :> *missing-import-event-decision)
+	                    (decision-row-id *missing-import-event-decision
+	                                     :> *missing-import-event-decision-id)
+	                    (local-transform> [(keypath *missing-import-event-decision-id)
+	                                        (termval *missing-import-event-decision)]
+	                                      $$decisions-by-audit-id)
+	                    (local-transform> [(keypath *partition-key *idempotency-key)
+	                                        (termval *missing-import-event-decision)]
+	                                      $$decisions-by-idempotency)
+	                    (ack-return> *missing-import-event-decision))
+	                  (else>)
+	                  (import-material-fingerprint-conflict-error
+	                   *request *existing-import-completion :> *import-conflict-error)
+	                  (rejected-decision-row *request
+	                                         :import/material-fingerprint-conflict
+	                                         [*import-conflict-error]
+	                                         :> *import-conflict-decision)
+	                  (decision-row-id *import-conflict-decision
+	                                   :> *import-conflict-decision-id)
+	                  (local-transform> [(keypath *import-conflict-decision-id)
+	                                      (termval *import-conflict-decision)]
+	                                    $$decisions-by-audit-id)
+	                  (local-transform> [(keypath *partition-key *idempotency-key)
+	                                      (termval *import-conflict-decision)]
+	                                    $$decisions-by-idempotency)
+	                  (ack-return> *import-conflict-decision))
+	                (else>)
+	                (loop<- [*remaining-native-rows *import-container-rows
+	                         *native-errors [] :> *native-validation-errors]
+	                  (yield-if-overtime)
+	                  (<<if (empty? *remaining-native-rows)
+	                    (:> *native-errors)
+	                    (else>)
+	                    (first *remaining-native-rows :> *native-container-row)
+	                    (native-identity-claim-row *request *native-container-row
+	                                               :> *incoming-claim)
+	                    (row-container-id *native-container-row :> *native-container-id)
+	                    (local-select> [(keypath *native-container-id)]
+	                                   $$native-identity-claims-by-container
+	                                   :> *existing-claim)
+	                    (native-claim-conflict-error *incoming-claim *existing-claim
+	                                                 :> *claim-error)
+	                    (<<if (some? *claim-error)
+	                      (conj *native-errors *claim-error :> *next-native-errors)
+	                      (continue> (rest *remaining-native-rows) *next-native-errors)
+	                      (else>)
+	                      (continue> (rest *remaining-native-rows) *native-errors))))
+	                (<<if (empty? *native-validation-errors)
+	                  (payload-source-artifacts *import-payload :> *import-source-rows)
+	                  (loop<- [*remaining-import-source-rows *import-source-rows
+	                           :> *import-source-write-done]
+	                    (yield-if-overtime)
+	                    (<<if (empty? *remaining-import-source-rows)
+	                      (:> true)
+	                      (else>)
+	                      (first *remaining-import-source-rows :> *import-source-row)
+	                      (row-source-id *import-source-row :> *import-source-id)
+	                      (local-transform> [(keypath *import-source-id)
+	                                          (termval *import-source-row)]
+	                                        $$source-artifacts-by-id)
+	                      (continue> (rest *remaining-import-source-rows))))
+	                  (loop<- [*remaining-import-container-rows *import-container-rows
+	                           :> *import-container-write-done]
+	                    (yield-if-overtime)
+	                    (<<if (empty? *remaining-import-container-rows)
+	                      (:> true)
+	                      (else>)
+	                      (first *remaining-import-container-rows :> *import-container-row)
+	                      (row-container-id *import-container-row :> *import-container-id)
+	                      (row-source-id *import-container-row :> *import-container-source-id)
+	                      (row-container-kind *import-container-row :> *import-container-kind)
+	                      (local-transform> [(keypath *import-container-id)
+	                                          (termval *import-container-row)]
+	                                        $$containers-by-id)
+	                      (source-material-ref-row *import-container-source-id
+	                                               *object-key
+	                                               :object-container
+	                                               *import-container-id
+	                                               *import-container-kind
+	                                               *event-id
+	                                               :> *import-container-source-ref-row)
+	                      (source-material-ref-key *import-container-kind
+	                                               *import-container-id
+	                                               :> *import-container-source-ref-key)
+	                      (local-transform> [(keypath *import-container-source-id
+	                                                  *import-container-source-ref-key)
+	                                          (termval *import-container-source-ref-row)]
+	                                        $$source-containers-by-source)
+	                      (native-identity-claim-row *request *import-container-row
+	                                                 :> *native-claim-row)
+	                      (local-transform> [(keypath *import-container-id)
+	                                          (termval *native-claim-row)]
+	                                        $$native-identity-claims-by-container)
+	                      (continue> (rest *remaining-import-container-rows))))
+	                  (payload-revisions *import-payload :> *import-revision-rows)
+	                  (loop<- [*remaining-import-revision-rows *import-revision-rows
+	                           :> *import-revision-write-done]
+	                    (yield-if-overtime)
+	                    (<<if (empty? *remaining-import-revision-rows)
+	                      (:> true)
+	                      (else>)
+	                      (first *remaining-import-revision-rows :> *import-revision-row)
+	                      (row-revision-id *import-revision-row :> *import-revision-id)
+	                      (row-container-id *import-revision-row
+	                                        :> *import-revision-container-id)
+	                      (row-order-key *import-revision-row
+	                                     :> *import-revision-order-key)
+	                      (local-transform> [(keypath *import-revision-id)
+	                                          (termval *import-revision-row)]
+	                                        $$revisions-by-id)
+	                      (local-transform> [(keypath *import-revision-container-id
+	                                                  *import-revision-order-key)
+	                                          (termval *import-revision-row)]
+	                                        $$revision-history-by-container)
+	                      (continue> (rest *remaining-import-revision-rows))))
+	                  (payload-derived-units *import-payload :> *import-derived-unit-rows)
+	                  (loop<- [*remaining-import-derived-unit-rows *import-derived-unit-rows
+	                           :> *import-derived-unit-write-done]
+	                    (yield-if-overtime)
+	                    (<<if (empty? *remaining-import-derived-unit-rows)
+	                      (:> true)
+	                      (else>)
+	                      (first *remaining-import-derived-unit-rows
+	                             :> *import-derived-unit-row)
+	                      (row-unit-id *import-derived-unit-row
+	                                   :> *import-derived-unit-id)
+	                      (row-source-id *import-derived-unit-row
+	                                     :> *import-derived-unit-source-id)
+	                      (row-block-path *import-derived-unit-row
+	                                      :> *import-derived-unit-order-key)
+	                      (local-transform> [(keypath *import-derived-unit-id)
+	                                          (termval *import-derived-unit-row)]
+	                                        $$derived-units-by-id)
+	                      (source-material-ref-row *import-derived-unit-source-id
+	                                               *object-key
+	                                               :derived-unit
+	                                               *import-derived-unit-id
+	                                               *import-derived-unit-order-key
+	                                               *event-id
+	                                               :> *import-derived-unit-source-ref-row)
+	                      (source-material-ref-key *import-derived-unit-order-key
+	                                               *import-derived-unit-id
+	                                               :> *import-derived-unit-source-ref-key)
+	                      (local-transform> [(keypath *import-derived-unit-source-id
+	                                                  *import-derived-unit-source-ref-key)
+	                                          (termval *import-derived-unit-source-ref-row)]
+	                                        $$source-derived-units-by-source)
+	                      (continue> (rest *remaining-import-derived-unit-rows))))
+	                  (payload-source-anchors *import-payload :> *import-anchor-rows)
+	                  (loop<- [*remaining-import-anchor-rows *import-anchor-rows
+	                           :> *import-anchor-write-done]
+	                    (yield-if-overtime)
+	                    (<<if (empty? *remaining-import-anchor-rows)
+	                      (:> true)
+	                      (else>)
+	                      (first *remaining-import-anchor-rows :> *import-anchor-row)
+	                      (row-target-id *import-anchor-row :> *import-anchor-target-id)
+	                      (row-source-anchor-id *import-anchor-row
+	                                            :> *import-anchor-id)
+	                      (row-source-id *import-anchor-row :> *import-anchor-source-id)
+	                      (local-transform> [(keypath *import-anchor-target-id
+	                                                  *import-anchor-id)
+	                                          (termval *import-anchor-row)]
+	                                        $$source-anchors-by-target)
+	                      (source-material-ref-row *import-anchor-source-id
+	                                               *object-key
+	                                               :source-anchor
+	                                               *import-anchor-id
+	                                               *import-anchor-id
+	                                               *event-id
+	                                               :> *import-anchor-source-ref-row)
+	                      (local-transform> [(keypath *import-anchor-source-id
+	                                                  *import-anchor-id)
+	                                          (termval *import-anchor-source-ref-row)]
+	                                        $$source-anchors-by-source)
+	                      (continue> (rest *remaining-import-anchor-rows))))
+	                  (payload-composition-edges *import-payload :> *import-edge-rows)
+	                  (loop<- [*remaining-import-edge-rows *import-edge-rows
+	                           :> *import-edge-write-done]
+	                    (yield-if-overtime)
+	                    (<<if (empty? *remaining-import-edge-rows)
+	                      (:> true)
+	                      (else>)
+	                      (first *remaining-import-edge-rows :> *import-edge-row)
+	                      (row-edge-id *import-edge-row :> *import-edge-id)
+	                      (row-source-id *import-edge-row :> *import-edge-source-id)
+	                      (edge-parent-slot-id *import-edge-row
+	                                           :> *import-edge-parent-id)
+	                      (edge-child-order-key *import-edge-row
+	                                            :> *import-edge-order-key)
+	                      (row-child-slot-id *import-edge-row
+	                                         :> *import-edge-child-id)
+	                      (composition-parent-ref-key *import-edge-row
+	                                                  :> *import-edge-parent-ref-key)
+	                      (local-transform> [(keypath *import-edge-parent-id
+	                                                  *import-edge-order-key)
+	                                          (termval *import-edge-row)]
+	                                        $$composition-children-by-parent)
+	                      (local-transform> [(keypath *import-edge-child-id
+	                                                  *import-edge-parent-ref-key)
+	                                          (termval *import-edge-row)]
+	                                        $$composition-parent-by-child)
+	                      (source-material-ref-row *import-edge-source-id
+	                                               *object-key
+	                                               :composition-edge
+	                                               *import-edge-id
+	                                               *import-edge-order-key
+	                                               *event-id
+	                                               :> *import-edge-source-ref-row)
+	                      (source-material-ref-key *import-edge-order-key
+	                                               *import-edge-id
+	                                               :> *import-edge-source-ref-key)
+	                      (local-transform> [(keypath *import-edge-source-id
+	                                                  *import-edge-source-ref-key)
+	                                          (termval *import-edge-source-ref-row)]
+	                                        $$source-edges-by-source)
+	                      (continue> (rest *remaining-import-edge-rows))))
+	                  (payload-source-versions *import-payload
+	                                           :> *import-source-version-rows)
+	                  (loop<- [*remaining-import-source-version-rows *import-source-version-rows
+	                           :> *import-source-version-write-done]
+	                    (yield-if-overtime)
+	                    (<<if (empty? *remaining-import-source-version-rows)
+	                      (:> true)
+	                      (else>)
+	                      (first *remaining-import-source-version-rows
+	                             :> *import-source-version-row)
+	                      (row-source-ref-key *import-source-version-row
+	                                          :> *import-source-ref-key)
+	                      (row-source-hash *import-source-version-row
+	                                       :> *import-source-version-key)
+	                      (|hash *import-source-ref-key)
+	                      (local-transform> [(keypath *import-source-ref-key
+	                                                  *import-source-version-key)
+	                                          (termval *import-source-version-row)]
+	                                        $$source-versions-by-ref)
+		                      (local-transform> [(keypath *import-source-ref-key)
+			                                          (termval *import-source-version-row)]
+			                                        $$source-latest-by-ref)
+		                      (source-ingest-completion-row
+		                       *request
+		                       *import-source-version-row
+		                       *event-row
+		                       :> *source-ingest-completion-row)
+		                      (local-transform> [(keypath *import-source-ref-key
+		                                                  *import-source-version-key)
+		                                          (termval *source-ingest-completion-row)]
+		                                        $$source-ingest-completions-by-ref)
+			                      (continue> (rest *remaining-import-source-version-rows))))
+		                  (|hash *object-key)
+		                  (payload-projection-hints *import-payload
+		                                            :> *import-projection-hints)
+		                  (loop<- [*remaining-import-projection-hints *import-projection-hints
+		                           :> *import-projection-write-done]
+		                    (yield-if-overtime)
+		                    (<<if (empty? *remaining-import-projection-hints)
+		                      (:> true)
+		                      (else>)
+		                      (first *remaining-import-projection-hints
+		                             :> *import-projection-row)
+		                      (projection-kind *import-projection-row
+		                                       :> *import-projection-kind)
+		                      (<<cond
+		                        (case> (= :markdown-outline *import-projection-kind))
+		                        (row-document-container-id *import-projection-row
+		                                                 :> *import-outline-document-id)
+		                        (row-block-path *import-projection-row
+		                                      :> *import-outline-block-path)
+		                        (outline-projection-row *import-projection-row
+		                                                :> *import-outline-row)
+		                        (|hash *object-key)
+		                        (local-transform> [(keypath *import-outline-document-id
+		                                                    *import-outline-block-path)
+		                                            (termval *import-outline-row)]
+		                                          $$outline-by-document)
+		                        (continue> (rest *remaining-import-projection-hints))
+
+		                        (case> (= :transcript-conversation-projection
+		                                  *import-projection-kind))
+		                        (projection-conversation-container-id
+		                         *import-projection-row :> *conversation-container-id)
+		                        (row-order-key *import-projection-row
+		                                       :> *projection-order-key)
+		                        (|hash *object-key)
+		                        (local-transform> [(keypath *conversation-container-id
+		                                                    *projection-order-key)
+		                                            (termval *import-projection-row)]
+		                                          $$transcript-conversation-projection)
+		                        (continue> (rest *remaining-import-projection-hints))
+
+		                        (case> (= :transcript-tool-call-index
+		                                  *import-projection-kind))
+		                        (projection-tool-name *import-projection-row :> *tool-name)
+		                        (row-order-key *import-projection-row :> *tool-order-key)
+		                        (|hash *tool-name)
+		                        (local-transform> [(keypath *tool-name *tool-order-key)
+		                                            (termval *import-projection-row)]
+		                                          $$transcript-tool-calls-by-name)
+		                        (continue> (rest *remaining-import-projection-hints))
+
+		                        (case> (= :transcript-audit-entry *import-projection-kind))
+		                        (projection-request-id *import-projection-row
+		                                               :> *audit-request-id)
+		                        (row-order-key *import-projection-row :> *audit-order-key)
+		                        (|hash *audit-request-id)
+		                        (local-transform> [(keypath *audit-request-id *audit-order-key)
+		                                            (termval *import-projection-row)]
+		                                          $$transcript-audit-by-request)
+		                        (continue> (rest *remaining-import-projection-hints))
+
+		                        (case> (= :transcript-last-message *import-projection-kind))
+		                        (projection-conversation-container-id
+		                         *import-projection-row :> *last-message-conversation-id)
+		                        (|hash *object-key)
+		                        (local-transform> [(keypath *last-message-conversation-id)
+		                                            (termval *import-projection-row)]
+		                                          $$transcript-last-message-by-conversation)
+		                        (continue> (rest *remaining-import-projection-hints))
+
+		                        (default>)
+		                        (continue> (rest *remaining-import-projection-hints)))))
+		                  (|hash *object-key)
+		                  (local-transform> [(keypath *event-id) (termval *event-row)]
+		                                    $$events-by-id)
+		                  (accepted-decision-row *request *event-row :> *decision)
+		                  (decision-row-id *decision :> *decision-id)
+		                  (import-completion-row *request *event-row *decision
+		                                         :> *completion-row)
+		                  (local-transform> [(keypath *import-key)
+		                                      (termval *completion-row)]
+		                                    $$import-completions-by-key)
+		                  (payload-source-line-statuses *import-payload
+		                                                :> *source-line-status-rows)
+		                  (loop<- [*remaining-source-line-status-rows *source-line-status-rows
+		                           :> *source-line-status-write-done]
+		                    (yield-if-overtime)
+		                    (<<if (empty? *remaining-source-line-status-rows)
+		                      (:> true)
+		                      (else>)
+		                      (first *remaining-source-line-status-rows
+		                             :> *source-line-status-row)
+		                      (complete-transcript-source-line-status-row
+		                       *source-line-status-row
+		                       *completion-row
+		                       :> *completed-source-line-status-row)
+		                      (row-file-key *completed-source-line-status-row
+		                                    :> *source-line-file-key)
+			                      (|hash *source-line-file-key)
+			                      (depot-partition-append!
+			                       *transcript-source-line-completions-depot
+			                       *completed-source-line-status-row
+		                       :append-ack)
+		                      (continue> (rest *remaining-source-line-status-rows))))
+		                  (|hash *object-key)
+		                  (local-transform> [(keypath *decision-id) (termval *decision)]
+		                                    $$decisions-by-audit-id)
+		                  (local-transform> [(keypath *partition-key *idempotency-key)
+		                                      (termval *decision)]
+		                                    $$decisions-by-idempotency)
+	                  (ack-return> *decision)
+	                  (else>)
+	                  (rejected-decision-row *request
+	                                         :native-identity/conflict
+	                                         *native-validation-errors
+	                                         :> *native-conflict-decision)
+	                  (decision-row-id *native-conflict-decision
+	                                   :> *native-conflict-decision-id)
+	                  (local-transform> [(keypath *native-conflict-decision-id)
+	                                      (termval *native-conflict-decision)]
+	                                    $$decisions-by-audit-id)
+	                  (local-transform> [(keypath *partition-key *idempotency-key)
+	                                      (termval *native-conflict-decision)]
+	                                    $$decisions-by-idempotency)
+	                  (ack-return> *native-conflict-decision)))
+	              (else>)
+	              (rejected-decision-row *request :request-invalid *import-errors :> *decision)
+	              (decision-row-id *decision :> *decision-id)
               (local-transform> [(keypath *decision-id) (termval *decision)]
                                 $$decisions-by-audit-id)
-              (local-transform> [(keypath *source-ref-key *idempotency-key)
+              (local-transform> [(keypath *partition-key *idempotency-key)
                                   (termval *decision)]
                                 $$decisions-by-idempotency)
               (ack-return> *decision))
-            (else>)
-            (rejected-decision-row *request :request-invalid *source-errors :> *decision)
-            (decision-row-id *decision :> *decision-id)
-            (local-transform> [(keypath *decision-id) (termval *decision)]
-                              $$decisions-by-audit-id)
-            (local-transform> [(keypath *partition-key *idempotency-key)
-                                (termval *decision)]
-                              $$decisions-by-idempotency)
-            (ack-return> *decision))
 
-          (case> (= :object/edit *request-type))
-          (request-payload *request :> *edit-payload)
-          (payload-object-key *edit-payload :> *object-key)
-          (get-in *request [:target :target/kind] :> *target-kind)
-          (get-in *request [:target :target/id] :> *target-id)
-          (|hash *object-key)
-          (<<cond
+            (case> (= :object/edit *request-type))
+            (request-payload *request :> *edit-payload)
+            (payload-object-key *edit-payload :> *object-key)
+            (get-in *request [:target :target/kind] :> *target-kind)
+            (get-in *request [:target :target/id] :> *target-id)
+            (|hash *object-key)
+            (<<cond
             (case> (= :derived-unit *target-kind))
             (local-select> [(keypath *target-id)] $$derived-units-by-id :> *derived-unit)
             (local-select> [(keypath *target-id)] $$unit-graduations-by-id :> *graduation)
@@ -1375,30 +3496,38 @@
               (local-select> [(keypath *container-id)] $$containers-by-id :> *container)
               (else>)
               (identity nil :> *container))
-            (local-select> [(keypath *target-id)] $$source-anchors-by-target :> *source-anchor)
-            (row-block-path *derived-unit :> *block-path)
-            (payload-document-container-id *edit-payload :> *document-id)
-            (local-select> [(keypath *document-id *block-path)]
-                           $$outline-by-document :> *outline-node)
-            (local-select> [(keypath *target-id)] $$composition-parent-by-child :> *child-edge)
-            (edit-lineage-key *request *derived-unit *graduation *container :> *lineage-key)
+	            (local-select> [(keypath *target-id) (subselect MAP-VALS)]
+	                           $$source-anchors-by-target :> *source-anchors)
+	            (first *source-anchors :> *source-anchor)
+	            (row-block-path *derived-unit :> *block-path)
+	            (payload-document-container-id *edit-payload :> *document-id)
+	            (local-select> [(keypath *document-id *block-path)]
+	                           $$outline-by-document :> *outline-node)
+	            (local-select> [(keypath *target-id) (subselect MAP-VALS)]
+	                           $$composition-parent-by-child :> *child-edges)
+	            (first *child-edges :> *child-edge)
+	            (edit-lineage-key *request *derived-unit *graduation *container :> *lineage-key)
 
             (case> (= :object-container *target-kind))
             (identity nil :> *derived-unit)
             (identity nil :> *graduation)
             (local-select> [(keypath *target-id)] $$containers-by-id :> *container)
             (row-source-unit-id *container :> *source-unit-id)
-            (local-select> [(keypath *target-id)] $$source-anchors-by-target :> *source-anchor)
-            (payload-document-container-id *edit-payload :> *document-id)
-            (<<if (some? *source-unit-id)
-              (local-select> [(keypath *source-unit-id)] $$derived-units-by-id :> *source-unit)
-              (row-block-path *source-unit :> *block-path)
-              (local-select> [(keypath *document-id *block-path)]
-                             $$outline-by-document :> *outline-node)
-              (local-select> [(keypath *source-unit-id)] $$composition-parent-by-child :> *child-edge)
-              (else>)
-              (identity nil :> *outline-node)
-              (identity nil :> *child-edge))
+	            (local-select> [(keypath *target-id) (subselect MAP-VALS)]
+	                           $$source-anchors-by-target :> *source-anchors)
+	            (first *source-anchors :> *source-anchor)
+	            (payload-document-container-id *edit-payload :> *document-id)
+	            (<<if (some? *source-unit-id)
+	              (local-select> [(keypath *source-unit-id)] $$derived-units-by-id :> *source-unit)
+	              (row-block-path *source-unit :> *block-path)
+	              (local-select> [(keypath *document-id *block-path)]
+	                             $$outline-by-document :> *outline-node)
+	              (local-select> [(keypath *source-unit-id) (subselect MAP-VALS)]
+	                             $$composition-parent-by-child :> *child-edges)
+	              (first *child-edges :> *child-edge)
+	              (else>)
+	              (identity nil :> *outline-node)
+	              (identity nil :> *child-edge))
             (edit-lineage-key *request *derived-unit *graduation *container :> *lineage-key)
 
             (default>)
@@ -1418,19 +3547,13 @@
                         *source-anchor
                         *outline-node
                         *child-edge
-                        *last-edit-order
-                        :> *effects)
-          (effect-decision *effects :> *decision)
-          (decision-row-id *decision :> *decision-id)
-          (local-transform> [(keypath *decision-id) (termval *decision)]
-                            $$decisions-by-audit-id)
-          (local-transform> [(keypath *object-key *idempotency-key)
-                              (termval *decision)]
-                            $$decisions-by-idempotency)
-          (<<if (effect-has-event? *effects)
-            (effect-event *effects :> *event)
-            (event-id-from-row *event :> *event-id)
-            (effect-container-row *effects :> *container-row)
+	                        *last-edit-order
+	                        :> *effects)
+	          (effect-decision *effects :> *decision)
+	          (<<if (effect-has-event? *effects)
+	            (effect-event *effects :> *event)
+	            (event-id-from-row *event :> *event-id)
+	            (effect-container-row *effects :> *container-row)
             (row-container-id *container-row :> *container-row-id)
             (effect-revision-row *effects :> *revision-row)
             (row-order-key *revision-row :> *revision-order-key)
@@ -1441,6 +3564,8 @@
             (local-transform> [(keypath *event-id) (termval *event)] $$events-by-id)
             (local-transform> [(keypath *container-row-id) (termval *container-row)]
                               $$containers-by-id)
+            (local-transform> [(keypath *revision-id) (termval *revision-row)]
+                              $$revisions-by-id)
             (local-transform> [(keypath *container-row-id *revision-order-key)
                                 (termval *revision-row)]
                               $$revision-history-by-container)
@@ -1452,12 +3577,24 @@
               (row-unit-id *graduation-row :> *graduated-unit-id)
               (local-transform> [(keypath *graduated-unit-id) (termval *graduation-row)]
                                 $$unit-graduations-by-id))
-            (<<if (effect-has-anchor? *effects)
-              (effect-copied-anchor-row *effects :> *copied-anchor-row)
-              (row-target-id *copied-anchor-row :> *copied-anchor-target-id)
-              (local-transform> [(keypath *copied-anchor-target-id)
-                                  (termval *copied-anchor-row)]
-                                $$source-anchors-by-target))
+	            (<<if (effect-has-anchor? *effects)
+	              (effect-copied-anchor-row *effects :> *copied-anchor-row)
+	              (row-target-id *copied-anchor-row :> *copied-anchor-target-id)
+	              (row-source-anchor-id *copied-anchor-row :> *copied-anchor-id)
+	              (row-source-id *copied-anchor-row :> *copied-anchor-source-id)
+	              (local-transform> [(keypath *copied-anchor-target-id *copied-anchor-id)
+	                                  (termval *copied-anchor-row)]
+	                                $$source-anchors-by-target)
+	              (source-material-ref-row *copied-anchor-source-id
+	                                       *object-key
+	                                       :source-anchor
+	                                       *copied-anchor-id
+	                                       *copied-anchor-id
+	                                       *event-id
+	                                       :> *copied-anchor-source-ref-row)
+	              (local-transform> [(keypath *copied-anchor-source-id *copied-anchor-id)
+	                                  (termval *copied-anchor-source-ref-row)]
+	                                $$source-anchors-by-source))
             (<<if (effect-has-outline? *effects)
               (effect-outline-row *effects :> *outline-row)
               (row-document-container-id *outline-row :> *outline-document-id)
@@ -1466,18 +3603,49 @@
                                   (termval *outline-row)]
                                 $$outline-by-document))
             (<<if (effect-has-edge? *effects)
-              (effect-edge-row *effects :> *edge-row)
-              (edge-parent-slot-id *edge-row :> *edge-parent-slot-id)
-              (edge-child-order-key *edge-row :> *edge-child-order-key)
-              (row-child-slot-id *edge-row :> *edge-child-slot-id)
-              (local-transform> [(keypath *edge-parent-slot-id *edge-child-order-key)
-                                  (termval *edge-row)]
-                                $$composition-children-by-parent)
-              (local-transform> [(keypath *edge-child-slot-id) (termval *edge-row)]
-                                $$composition-parent-by-child)))
-          (ack-return> *decision)
+	              (effect-edge-row *effects :> *edge-row)
+	              (edge-parent-slot-id *edge-row :> *edge-parent-slot-id)
+	              (edge-child-order-key *edge-row :> *edge-child-order-key)
+	              (row-child-slot-id *edge-row :> *edge-child-slot-id)
+	              (row-edge-id *edge-row :> *edge-id)
+	              (row-source-id *edge-row :> *edge-source-id)
+	              (composition-parent-ref-key *edge-row :> *edge-parent-ref-key)
+	              (local-transform> [(keypath *edge-parent-slot-id *edge-child-order-key)
+	                                  (termval *edge-row)]
+	                                $$composition-children-by-parent)
+	              (local-transform> [(keypath *edge-child-slot-id *edge-parent-ref-key)
+	                                  (termval *edge-row)]
+	                                $$composition-parent-by-child)
+	              (source-material-ref-row *edge-source-id
+	                                       *object-key
+	                                       :composition-edge
+	                                       *edge-id
+	                                       *edge-child-order-key
+	                                       *event-id
+	                                       :> *edit-edge-source-ref-row)
+	              (source-material-ref-key *edge-child-order-key
+	                                       *edge-id
+	                                       :> *edit-edge-source-ref-key)
+		              (local-transform> [(keypath *edge-source-id *edit-edge-source-ref-key)
+		                                  (termval *edit-edge-source-ref-row)]
+		                                $$source-edges-by-source))
+	            (decision-row-id *decision :> *accepted-decision-id)
+	            (local-transform> [(keypath *accepted-decision-id) (termval *decision)]
+	                              $$decisions-by-audit-id)
+	            (local-transform> [(keypath *object-key *idempotency-key)
+	                                (termval *decision)]
+	                              $$decisions-by-idempotency)
+	            (ack-return> *decision)
+	            (else>)
+	            (decision-row-id *decision :> *decision-id)
+	            (local-transform> [(keypath *decision-id) (termval *decision)]
+	                              $$decisions-by-audit-id)
+	            (local-transform> [(keypath *object-key *idempotency-key)
+	                                (termval *decision)]
+	                              $$decisions-by-idempotency)
+	            (ack-return> *decision))
 
-          (default>)
+	          (default>)
           (rejected-decision-row *request :unknown-action-type
                                  [{:type :unknown-action-type :value *request-type}]
                                  :> *decision)
@@ -1487,154 +3655,218 @@
           (local-transform> [(keypath *partition-key *idempotency-key)
                               (termval *decision)]
                             $$decisions-by-idempotency)
-          (ack-return> *decision))))))
+	          (ack-return> *decision)))))
 
-  (<<query-topology topologies "read-latest-source-by-ref" [*source-ref :> *source-row]
-    (source-ref-key *source-ref :> *source-ref-key)
-    (|hash *source-ref-key)
-    (local-select> [(keypath *source-ref-key)] $$source-latest-by-ref :> *latest)
-    (<<if (latest-source-present? *latest)
-      (latest-source-id *latest :> *source-id)
-      (extract-object-key *source-id :> *object-key)
-      (|hash *object-key)
-      (local-select> [(keypath *source-id)] $$source-artifacts-by-id :> *source-row)
-      (|origin)
-      (else>)
-      (identity nil :> *source-row)
-      (|origin)))
+	  (<<query-topology topologies "read-latest-source-by-ref" [*source-ref :> *source-row]
+	    (source-ref-key *source-ref :> *source-ref-key)
+	    (|hash *source-ref-key)
+	    (local-select> [(keypath *source-ref-key)] $$source-latest-by-ref :> *latest)
+	    (<<if (latest-source-present? *latest)
+	      (latest-source-id *latest :> *source-id)
+	      (extract-object-key *source-id :> *object-key)
+	      (|hash *object-key)
+	      (local-select> [(keypath *source-id)] $$source-artifacts-by-id :> *source-row)
+	      (|origin)
+	      (else>)
+	      (identity nil :> *source-row)
+	      (|origin)))
 
-  (<<query-topology topologies "read-unit" [*unit-id :> *result]
-    (extract-object-key *unit-id :> *object-key)
-    (|hash *object-key)
-    (local-select> [(keypath *unit-id)] $$derived-units-by-id :> *unit)
-    (<<if (some? *unit)
-      (local-select> [(keypath *unit-id)] $$unit-graduations-by-id :> *graduation)
-      (unit-read-result *unit *graduation :> *result)
-      (|origin)
-      (else>)
-      (identity nil :> *result)
-      (|origin))))
+	  (<<query-topology topologies "read-source-by-ref-version" [*source-ref *source-version-key
+	                                                            :> *source-row]
+	    (source-ref-key *source-ref :> *source-ref-key)
+	    (|hash *source-ref-key)
+	    (local-select> [(keypath *source-ref-key *source-version-key)]
+	                   $$source-versions-by-ref :> *version)
+	    (<<if (some? *version)
+	      (latest-source-id *version :> *source-id)
+	      (extract-object-key *source-id :> *object-key)
+	      (|hash *object-key)
+	      (local-select> [(keypath *source-id)] $$source-artifacts-by-id :> *source-row)
+	      (|origin)
+	      (else>)
+	      (identity nil :> *source-row)
+	      (|origin)))
 
-(defn start-object-container-runtime!
-  []
-  (let [ipc (create-ipc)
-        module-name (get-module-name object-container-module)
-        launch-opts {:tasks 4 :threads 2}]
-    (launch-module! ipc object-container-module launch-opts)
-    {:ipc ipc
-     :module-name module-name
-     :object-container-requests-depot
-     (foreign-depot ipc module-name "*object-container-requests-depot")
-     :requests-by-audit-id (foreign-pstate ipc module-name "$$requests-by-audit-id")
-     :decisions-by-audit-id (foreign-pstate ipc module-name "$$decisions-by-audit-id")
-     :decisions-by-idempotency (foreign-pstate ipc module-name "$$decisions-by-idempotency")
-     :events-by-id (foreign-pstate ipc module-name "$$events-by-id")
-     :source-artifacts-by-id (foreign-pstate ipc module-name "$$source-artifacts-by-id")
-     :source-versions-by-ref (foreign-pstate ipc module-name "$$source-versions-by-ref")
-     :source-latest-by-ref (foreign-pstate ipc module-name "$$source-latest-by-ref")
-     :source-ingest-completions-by-ref
-     (foreign-pstate ipc module-name "$$source-ingest-completions-by-ref")
-     :containers-by-id (foreign-pstate ipc module-name "$$containers-by-id")
-     :revision-history-by-container
-     (foreign-pstate ipc module-name "$$revision-history-by-container")
-     :derived-units-by-id (foreign-pstate ipc module-name "$$derived-units-by-id")
-     :unit-graduations-by-id (foreign-pstate ipc module-name "$$unit-graduations-by-id")
-     :source-anchors-by-target (foreign-pstate ipc module-name "$$source-anchors-by-target")
-     :composition-children-by-parent
-     (foreign-pstate ipc module-name "$$composition-children-by-parent")
-     :composition-parent-by-child (foreign-pstate ipc module-name "$$composition-parent-by-child")
-     :outline-by-document (foreign-pstate ipc module-name "$$outline-by-document")
-     :edit-order-by-target (foreign-pstate ipc module-name "$$edit-order-by-target")
-     :read-latest-source-by-ref-query
-     (foreign-query ipc module-name "read-latest-source-by-ref")
-     :read-unit-query (foreign-query ipc module-name "read-unit")}))
+	  (<<query-topology topologies "read-unit" [*unit-id :> *result]
+	    (extract-object-key *unit-id :> *object-key)
+	    (|hash *object-key)
+	    (local-select> [(keypath *unit-id)] $$derived-units-by-id :> *unit)
+	    (<<if (some? *unit)
+	      (local-select> [(keypath *unit-id)] $$unit-graduations-by-id :> *graduation)
+	      (unit-read-result *unit *graduation :> *result)
+	      (|origin)
+	      (else>)
+	      (identity nil :> *result)
+	      (|origin)))
 
-(defn close-object-container-runtime!
-  [runtime]
-  (when-let [ipc (:ipc runtime)]
-    (try
-      (.close ipc)
-      (catch Exception _ nil))))
+	  (<<query-topology topologies "read-current-revision" [*container-id :> *revision]
+	    (extract-object-key *container-id :> *object-key)
+	    (|hash *object-key)
+	    (local-select> [(keypath *container-id)] $$containers-by-id :> *container)
+	    (<<if (some? *container)
+	      (row-current-revision-id *container :> *revision-id)
+	      (<<if (string-present? *revision-id)
+	        (local-select> [(keypath *revision-id)] $$revisions-by-id :> *revision)
+	        (|origin)
+	        (else>)
+	        (identity nil :> *revision)
+	        (|origin))
+	      (else>)
+	      (identity nil :> *revision)
+	      (|origin)))
 
-(defn append-object-container-request!
-  ([runtime request]
-   (append-object-container-request! runtime request :append-ack))
-  ([runtime request ack-level]
-   (foreign-append! (:object-container-requests-depot runtime) request ack-level)))
+	  (<<query-topology topologies "read-common-material-for-source"
+	    [*source-id *categories *cursor-map *limit :> *result]
+	    (extract-object-key *source-id :> *object-key)
+	    (|hash *object-key)
+	    (common-material-limit *limit :> *category-limit)
+	    (common-material-category-requested? *categories :containers :> *read-containers?)
+	    (common-material-category-requested? *categories :derived-units :> *read-derived-units?)
+	    (common-material-category-requested? *categories :anchors :> *read-anchors?)
+	    (common-material-category-requested? *categories :edges :> *read-edges?)
+	    (common-material-cursor *cursor-map :containers :> *containers-cursor)
+	    (common-material-cursor *cursor-map :derived-units :> *derived-units-cursor)
+	    (common-material-cursor *cursor-map :anchors :> *anchors-cursor)
+	    (common-material-cursor *cursor-map :edges :> *edges-cursor)
+	    (<<if *read-containers?
+	      (local-select> [(keypath *source-id)
+	                      (sorted-map-range-from *containers-cursor *category-limit)]
+	                     $$source-containers-by-source
+	                     {:allow-yield? true}
+	                     :> *container-page)
+	      (material-ref-page-values *container-page :> *containers)
+	      (else>)
+	      (identity [] :> *containers))
+	    (<<if *read-derived-units?
+	      (local-select> [(keypath *source-id)
+	                      (sorted-map-range-from *derived-units-cursor *category-limit)]
+	                     $$source-derived-units-by-source
+	                     {:allow-yield? true}
+	                     :> *derived-units-page)
+	      (material-ref-page-values *derived-units-page :> *derived-units)
+	      (else>)
+	      (identity [] :> *derived-units))
+	    (<<if *read-anchors?
+	      (local-select> [(keypath *source-id)
+	                      (sorted-map-range-from *anchors-cursor *category-limit)]
+	                     $$source-anchors-by-source
+	                     {:allow-yield? true}
+	                     :> *anchors-page)
+	      (material-ref-page-values *anchors-page :> *anchors)
+	      (else>)
+	      (identity [] :> *anchors))
+	    (<<if *read-edges?
+	      (local-select> [(keypath *source-id)
+	                      (sorted-map-range-from *edges-cursor *category-limit)]
+	                     $$source-edges-by-source
+	                     {:allow-yield? true}
+	                     :> *edges-page)
+	      (material-ref-page-values *edges-page :> *edges)
+	      (else>)
+	      (identity [] :> *edges))
+	    (common-material-bundle *containers *derived-units *anchors *edges :> *result)
+	    (|origin)))
+    )
 
-(defn foreign-one
-  [pstate path]
-  (foreign-select-one path pstate))
+(defmodule object-container-transcript-ops-module [setup topologies]
+  (declare-depot setup *transcript-control-depot (hash-by :transcript/request-id))
+  (declare-depot setup *transcript-file-state-depot (hash-by :source/file-key))
+  (mirror-pstate setup
+                 $$object-transcript-source-lines-by-file
+                 "app.server.rama.object-container/object-container-module"
+                 "$$transcript-source-lines-by-file")
+  (let [s (stream-topology topologies "transcript-operational-control-topology")]
+    (declare-pstate s $$transcript-runs {String TranscriptRunRow})
+    (declare-pstate s $$transcript-file-offsets {String TranscriptFileOffsetRow})
+    (declare-pstate s $$transcript-file-source-lines-by-file
+                    {String (map-schema String TranscriptSourceLineStatusRow
+                                        {:subindex? true})})
 
-(defn read-request
-  ([runtime request]
-   (read-request runtime (request-partition-key request) (request-id request)))
-  ([runtime partition-key request-id]
-   (foreign-one (:requests-by-audit-id runtime)
-                [(keypath (audit-id partition-key request-id))])))
+    (<<sources s
+      (source> *transcript-control-depot {:retry-mode :all-after} :> *control-request)
+      (transcript-control-request-id *control-request :> *control-request-id)
+      (transcript-control-request-type *control-request :> *control-request-type)
+      (transcript-control-validation-errors *control-request :> *control-errors)
+      (<<if (empty? *control-errors)
+        (<<cond
+          (case> (= :transcript/run-status *control-request-type))
+          (local-select> [(keypath *control-request-id)]
+                         $$transcript-runs :> *existing-run-row)
+          (transcript-run-status-row *existing-run-row *control-request :> *run-row)
+          (local-transform> [(keypath *control-request-id) (termval *run-row)]
+                            $$transcript-runs)
+          (ack-return> *run-row)
 
-(defn read-audit-request
-  ([runtime request]
-   (read-request runtime request))
-  ([runtime partition-key request-id]
-   (read-request runtime partition-key request-id)))
+          (default>)
+          (transcript-initial-run-row *control-request :> *run-row)
+          (local-transform> [(keypath *control-request-id) (termval *run-row)]
+                            $$transcript-runs)
+          (ack-return> *run-row))
+        (else>)
+        (transcript-rejected-run-row *control-request *control-errors :> *run-row)
+        (<<if (string-present? *control-request-id)
+          (local-transform> [(keypath *control-request-id) (termval *run-row)]
+                            $$transcript-runs))
+        (ack-return> *run-row))
 
-(defn read-decision
-  ([runtime request]
-   (read-decision runtime (request-partition-key request) (request-id request)))
-  ([runtime partition-key request-id]
-   (foreign-one (:decisions-by-audit-id runtime)
-                [(keypath (decision-id-for-audit-id (audit-id partition-key request-id)))])))
-
-(defn read-source
-  ([runtime source-id]
-   (foreign-one (:source-artifacts-by-id runtime) [(keypath source-id)]))
-  ([runtime source-ref source-hash]
-   (read-source runtime (source-id-for source-ref source-hash))))
-
-(defn read-latest-source-by-ref
-  [runtime source-ref]
-  (foreign-invoke-query (:read-latest-source-by-ref-query runtime) source-ref))
-
-(defn read-outline
-  ([runtime document-id]
-   (read-outline runtime document-id "" default-outline-page-size))
-  ([runtime document-id cursor limit]
-   (foreign-select [(keypath document-id)
-                    (sorted-map-range-from (or cursor "") (or limit default-outline-page-size))
-                    MAP-VALS]
-                   (:outline-by-document runtime))))
-
-(defn read-container
-  [runtime container-id]
-  (foreign-one (:containers-by-id runtime) [(keypath container-id)]))
-
-(defn read-revision-history
-  ([runtime container-id]
-   (read-revision-history runtime container-id "" default-outline-page-size))
-  ([runtime container-id cursor limit]
-   (foreign-select [(keypath container-id)
-                    (sorted-map-range-from (or cursor "") (or limit default-outline-page-size))
-                    MAP-VALS]
-                   (:revision-history-by-container runtime))))
-
-(defn read-unit
-  [runtime unit-id]
-  (foreign-invoke-query (:read-unit-query runtime) unit-id))
-
-(defn await-object-container-decision
-  ([runtime request]
-   (await-object-container-decision runtime request 2000))
-  ([runtime request timeout-ms]
-   (let [partition-key (request-partition-key request)
-         request-id (request-id request)]
-     (await-object-container-decision runtime partition-key request-id timeout-ms)))
-  ([runtime partition-key request-id timeout-ms]
-   (let [deadline (+ (System/currentTimeMillis) timeout-ms)]
-     (loop [decision (read-decision runtime partition-key request-id)]
-       (cond
-         (some? decision) decision
-         (>= (System/currentTimeMillis) deadline) decision
-         :else (do
-                 (Thread/sleep 25)
-                 (recur (read-decision runtime partition-key request-id))))))))
+      (source> *transcript-file-state-depot {:retry-mode :all-after} :> *file-state)
+      (transcript-file-state-file-key *file-state :> *file-key)
+      (transcript-file-state-validation-errors *file-state :> *file-state-errors)
+      (<<if (empty? *file-state-errors)
+        (local-select> [(keypath *file-key)] $$transcript-file-offsets
+                       :> *existing-file-offset-row)
+        (transcript-file-offset-row *file-state
+                                    *existing-file-offset-row
+                                    *file-state-errors
+                                    :> *file-offset-row)
+        (transcript-file-state-source-lines *file-state :> *file-source-lines)
+        (loop<- [*remaining-file-source-lines *file-source-lines
+                 :> *file-source-lines-write-done]
+          (yield-if-overtime)
+          (<<if (empty? *remaining-file-source-lines)
+            (:> true)
+            (else>)
+            (first *remaining-file-source-lines :> *file-source-line)
+            (transcript-observed-source-line-status-row
+             *file-state
+             *file-source-line
+             :> *observed-source-line-status-row)
+            (row-order-key *observed-source-line-status-row
+                           :> *observed-source-line-order-key)
+            (local-transform> [(keypath *file-key *observed-source-line-order-key)
+                                (termval *observed-source-line-status-row)]
+                              $$transcript-file-source-lines-by-file)
+            (continue> (rest *remaining-file-source-lines))))
+        (transcript-file-offset-last-byte-offset *file-offset-row
+                                                 :> *source-line-advance-offset)
+        (transcript-source-line-range-cursor *source-line-advance-offset
+                                             :> *source-line-advance-cursor)
+        (transcript-file-state-advance-limit *file-state :> *source-line-advance-limit)
+        (local-select> [(keypath *file-key)
+                        (subselect
+                         (sorted-map-range-from *source-line-advance-cursor
+                                                *source-line-advance-limit)
+                         MAP-VALS)]
+                       $$transcript-file-source-lines-by-file
+                       {:allow-yield? true}
+                       :> *observed-source-line-status-rows)
+	        (select> [(keypath *file-key)
+	                  (subselect
+	                   (sorted-map-range-from *source-line-advance-cursor
+	                                          *source-line-advance-limit)
+	                   MAP-VALS)]
+	                 $$object-transcript-source-lines-by-file
+	                 :> *completed-source-line-status-rows)
+        (|hash *file-key)
+        (transcript-advance-file-offset-row
+         *file-offset-row
+         *observed-source-line-status-rows
+         *completed-source-line-status-rows
+         :> *advanced-file-offset-row)
+        (local-transform> [(keypath *file-key) (termval *advanced-file-offset-row)]
+                          $$transcript-file-offsets)
+        (ack-return> *advanced-file-offset-row)
+        (else>)
+        (transcript-file-offset-row *file-state nil *file-state-errors
+                                    :> *file-offset-row)
+        (ack-return> *file-offset-row)))))
