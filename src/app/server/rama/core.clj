@@ -42,8 +42,8 @@
 (def target-kinds
   #{:artifact :revision :address :unit :branch :projection :policy :relation
     :space :turn :context-bundle :llm-turn-run :slice :overlay :derivative
-    :source-artifact :object-container :derived-unit :composition-edge
-    :source-anchor})
+    :source-artifact :object-container :object-container-import :derived-unit
+    :composition-edge :source-anchor})
 
 (def actor-types
   #{:human :agent :system :bot})

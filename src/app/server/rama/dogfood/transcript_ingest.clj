@@ -867,120 +867,153 @@
 (defn harvest-ingest!
   "Full harvest pipeline: request -> walk -> parse -> append observations."
   [runtime request]
-  (append-ingest-request! runtime request)
-  (append-ingest-claim!
-    runtime
-    (t/transcript-run-status-record (request-id-from request) :running))
-  (let [files (t/walk-jsonl-files (request-paths request))
-        request-id (request-id-from request)
-        source (request-source request)]
-    (doseq [^File file files]
-      (let [fid (t/file-id file)
-            observations (t/read-jsonl-observations request file 0)
-            sfk (t/source-file-key source fid)]
-        ;; Append per-line observations with conv-key and redacted previews
-        (doseq [obs observations]
-          (append-ingest-observation! runtime (prepare-observation obs source)))
-        ;; Append file-state observation
-        (let [last-obs (last observations)
-              conversation-id (if last-obs
-                                (obs-conversation-id last-obs)
-                                (.getPath file))
-              ck (conv-key source conversation-id)]
-          (append-file-state!
-            runtime
-            {:source/file-key sfk
-             :source/file-id fid
-             :source/file-path (.getPath file)
-             :transcript/source source
-             :transcript/conv-key ck
-             :transcript/conversation-id conversation-id
-             :transcript/ingest-request-id request-id
-             :source/last-byte-offset (if last-obs
-                                        (+ (long (obs-byte-offset last-obs))
-                                           (long (obs-byte-length last-obs)))
-                                        0)
-             :source/line-count (count observations)
-             :source/is-empty (empty? observations)
-             :time-ms (core/now-ms)}))))
-    (append-ingest-claim!
-      runtime
-      (t/transcript-run-status-record request-id :complete))
-    (t/await-materialized
-      #(read-ingest-run runtime request-id)
-      #(= :complete (:status %)))
-    {:transcript/request-id request-id
-     :files (count files)}))
+  (if (t/object-container-runtime? runtime)
+    (t/harvest-transcripts! runtime request)
+    (do
+      (append-ingest-request! runtime request)
+      (append-ingest-claim!
+       runtime
+       (t/transcript-run-status-record (request-id-from request) :running))
+      (let [files (t/walk-jsonl-files (request-paths request))
+            request-id (request-id-from request)
+            source (request-source request)
+            observation-count (atom 0)]
+        (doseq [^File file files]
+          (let [fid (t/file-id file)
+                observations (t/read-jsonl-observations request file 0)
+                sfk (t/source-file-key source fid)]
+            (swap! observation-count + (count observations))
+            ;; Append per-line observations with conv-key and redacted previews
+            (doseq [obs observations]
+              (append-ingest-observation! runtime (prepare-observation obs source)))
+            ;; Append file-state observation
+            (let [last-obs (last observations)
+                  conversation-id (if last-obs
+                                    (obs-conversation-id last-obs)
+                                    (.getPath file))
+                  ck (conv-key source conversation-id)]
+              (append-file-state!
+               runtime
+               {:source/file-key sfk
+                :source/file-id fid
+                :source/file-path (.getPath file)
+                :transcript/source source
+                :transcript/conv-key ck
+                :transcript/conversation-id conversation-id
+                :transcript/ingest-request-id request-id
+                :source/last-byte-offset (if last-obs
+                                           (+ (long (obs-byte-offset last-obs))
+                                              (long (obs-byte-length last-obs)))
+                                           0)
+                :source/line-count (count observations)
+                :source/is-empty (empty? observations)
+                :time-ms (core/now-ms)}))))
+        (t/await-materialized
+         #(read-ingest-run runtime request-id)
+         #(>= (long (or (:observed-line-count %) 0)) @observation-count))
+        (append-ingest-claim!
+         runtime
+         (t/transcript-run-status-record request-id :complete))
+        (t/await-materialized
+         #(read-ingest-run runtime request-id)
+         #(= :complete (:status %)))
+        {:transcript/request-id request-id
+         :files (count files)}))))
 
 (defn start-watch-ingest!
   "Watch pipeline: request -> poll/watch -> parse -> append. Returns stop handle."
   [runtime request & [opts]]
-  (append-ingest-request! runtime request)
-  (append-ingest-claim!
-    runtime
-    (t/transcript-run-status-record (request-id-from request) :running))
-  (let [stop? (atom false)
-        request-id (request-id-from request)
-        source (request-source request)
-        poll-ms (long (or (:poll-ms opts) 100))
-        offsets (atom {})
-        poll-once!
-        (fn []
-          (let [files (t/walk-jsonl-files (request-paths request))]
-            (doseq [^File file files]
-              (let [fid (t/file-id file)
-                    sfk (t/source-file-key source fid)
-                    start-offset (if (contains? @offsets sfk)
-                                   (get @offsets sfk)
-                                   (let [saved (read-file-offset runtime sfk)]
-                                     (if saved
-                                       (:last-byte-offset saved)
-                                       (.length ^File file))))
-                    {:keys [observations next-offset]}
-                    (t/read-complete-appended-lines request file start-offset)]
-                (swap! offsets assoc sfk next-offset)
-                (doseq [obs observations]
-                  (append-ingest-observation! runtime (prepare-observation obs source)))
-                (when (seq observations)
-                  (let [last-obs (last observations)
-                        conversation-id (obs-conversation-id last-obs)
-                        ck (conv-key source conversation-id)]
-                    (append-file-state!
-                      runtime
-                      {:source/file-key sfk
-                       :source/file-id fid
-                       :source/file-path (.getPath file)
-                       :transcript/source source
-                       :transcript/conv-key ck
-                       :transcript/conversation-id conversation-id
-                       :transcript/ingest-request-id request-id
-                       :source/last-byte-offset next-offset
-                       :source/line-count (count observations)
-                       :source/is-empty false
-                       :time-ms (core/now-ms)})))))))]
-    (let [thread (doto (Thread.
-                         ^Runnable
-                         (reify Runnable
-                           (run [_]
-                             (while (not @stop?)
-                               (try
-                                 (poll-once!)
-                                 (catch Throwable t
-                                   (append-ingest-claim!
-                                     runtime
-                                     (t/transcript-run-status-record
-                                       request-id :failed
-                                       {:error {:message (.getMessage t)}}))))
-                               (Thread/sleep poll-ms))))
-                         (str "transcript-watch-ingest-" request-id))
-                   (.setDaemon true)
-                   (.start))]
-      {:transcript/request-id request-id
-       :thread thread
-       :poll-once! poll-once!
-       :stop! (fn []
-                (reset! stop? true)
-                (.join thread 1000)
-                (append-ingest-claim!
-                  runtime
-                  (t/transcript-run-status-record request-id :cancelled)))})))
+  (if (t/object-container-runtime? runtime)
+    (t/start-transcript-watch! runtime request opts)
+    (do
+      (append-ingest-request! runtime request)
+      (append-ingest-claim!
+       runtime
+       (t/transcript-run-status-record (request-id-from request) :running))
+	      (let [stop? (atom false)
+	            request-id (request-id-from request)
+	            source (request-source request)
+	            poll-ms (long (or (:poll-ms opts) 100))
+	            known-at-start (set (t/walk-jsonl-files (request-paths request)))
+	            initial-offset
+	            (fn [^File file created-after-start?]
+	              (let [fid (t/file-id file)
+	                    sfk (t/source-file-key source fid)
+	                    saved (read-file-offset runtime sfk)]
+	                (cond
+	                  saved
+	                  (:last-byte-offset saved)
+
+	                  created-after-start?
+	                  0
+
+	                  (:backfill? opts)
+	                  0
+
+	                  :else
+	                  (.length ^File file))))
+	            offsets (atom (into {}
+	                                (map (fn [^File file]
+	                                       [(t/source-file-key source (t/file-id file))
+	                                        (initial-offset file false)]))
+	                                known-at-start))
+	            poll-once!
+	            (fn []
+	              (let [files (t/walk-jsonl-files (request-paths request))]
+	                (doseq [^File file files]
+	                  (let [fid (t/file-id file)
+	                        sfk (t/source-file-key source fid)
+	                        start-offset (if (contains? @offsets sfk)
+	                                       (get @offsets sfk)
+	                                       (initial-offset file
+	                                                       (not (contains?
+	                                                             known-at-start
+	                                                             file))))
+	                        {:keys [observations next-offset]}
+	                        (t/read-complete-appended-lines request file start-offset)]
+                    (swap! offsets assoc sfk next-offset)
+                    (doseq [obs observations]
+                      (append-ingest-observation! runtime (prepare-observation obs source)))
+                    (when (seq observations)
+                      (let [last-obs (last observations)
+                            conversation-id (obs-conversation-id last-obs)
+                            ck (conv-key source conversation-id)]
+                        (append-file-state!
+                         runtime
+                         {:source/file-key sfk
+                          :source/file-id fid
+                          :source/file-path (.getPath file)
+                          :transcript/source source
+                          :transcript/conv-key ck
+                          :transcript/conversation-id conversation-id
+                          :transcript/ingest-request-id request-id
+                          :source/last-byte-offset next-offset
+                          :source/line-count (count observations)
+                          :source/is-empty false
+                          :time-ms (core/now-ms)})))))))]
+        (let [thread (doto (Thread.
+                             ^Runnable
+                             (reify Runnable
+                               (run [_]
+                                 (while (not @stop?)
+                                   (try
+                                     (poll-once!)
+                                     (catch Throwable t
+                                       (append-ingest-claim!
+                                        runtime
+                                        (t/transcript-run-status-record
+                                         request-id :failed
+                                         {:error {:message (.getMessage t)}}))))
+                                   (Thread/sleep poll-ms))))
+                             (str "transcript-watch-ingest-" request-id))
+                       (.setDaemon true)
+                       (.start))]
+          {:transcript/request-id request-id
+           :thread thread
+           :poll-once! poll-once!
+           :stop! (fn []
+                    (reset! stop? true)
+                    (.join thread 1000)
+	                    (append-ingest-claim!
+	                     runtime
+	                     (t/transcript-run-status-record request-id :cancelled)))})))))

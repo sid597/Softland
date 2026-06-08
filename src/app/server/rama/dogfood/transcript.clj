@@ -3,6 +3,8 @@
         [com.rpl.rama.path]
         [com.rpl.rama.ops])
   (:require [app.server.rama.core :as core]
+            [app.server.rama.object-container :as oc]
+            [app.server.rama.object-container.runtime :as oc-runtime]
             [app.server.rama.dogfood.llm :as llm]
             [clojure.data.json :as json]
             [clojure.java.io :as io]
@@ -587,37 +589,349 @@
          (pred value) value
          (>= (System/currentTimeMillis) deadline) value
          :else (do
-                 (Thread/sleep 25)
-                 (recur (read-f))))))))
+	                 (Thread/sleep 25)
+	                 (recur (read-f))))))))
+
+(defn object-container-runtime?
+  [runtime]
+  (contains? runtime :object-container-requests-depot))
+
+(defn transcript-import-message-container-id
+  [request]
+  (some #(when (= :chat-message (:container-kind %)) (:container-id %))
+        (get-in request [:payload :object-containers])))
+
+(defn transcript-observation-file-key
+  [obs]
+  (source-file-key (:transcript/source obs) (:source/file-id obs)))
+
+(defn transcript-conversation-container-id
+  [obs]
+  (oc/chat-conversation-id
+   (oc/transcript-object-key (:transcript/source obs)
+                             (:transcript/conversation-id obs))))
+
+(defn previous-common-message-container-id
+  [runtime last-message-by-conversation obs]
+  (or (get last-message-by-conversation (:transcript/conversation-id obs))
+      (some->> (transcript-conversation-container-id obs)
+               (oc-runtime/read-transcript-last-message runtime)
+               :message-container-id)))
+
+(defn common-transcript-source-line-order-key
+  [obs]
+  (format "%020d:%s"
+          (long (or (:source/byte-offset obs) 0))
+          (core/sha-256 (oc/transcript-source-line-key obs))))
+
+(defn common-transcript-source-line
+  [obs import-request]
+  (assoc obs
+         :source/file-key (transcript-observation-file-key obs)
+         :source/line-key (oc/transcript-source-line-key obs)
+         :source-line/order-key (common-transcript-source-line-order-key obs)
+         :import/key (:import/key import-request)
+         :material/fingerprint (:material/fingerprint import-request)))
+
+(defn common-source-line-completion-matches?
+  [source-line completion-row]
+  (and (some? completion-row)
+       (contains? oc/transcript-source-line-complete-statuses (:status completion-row))
+       (= (:source/file-key source-line) (:file-key completion-row))
+       (= (:source-line/order-key source-line) (:order-key completion-row))
+       (= (:source/line-key source-line) (:source-line-key completion-row))
+       (= (:import/key source-line) (:import-key completion-row))
+       (= (:material/fingerprint source-line) (:material-fingerprint completion-row))
+       (= (long (or (:source/byte-offset source-line) 0))
+          (long (or (:byte-offset completion-row) 0)))
+       (= (long (or (:source/byte-length source-line) 0))
+          (long (or (:byte-length completion-row) 0)))
+       (= (:source/line-hash source-line) (:line-hash completion-row))))
+
+(defn await-common-source-line-completion
+  [runtime source-line timeout-ms]
+  (await-materialized
+   #(oc-runtime/read-transcript-source-line
+     runtime
+     (:source/file-key source-line)
+     (:source-line/order-key source-line))
+   #(common-source-line-completion-matches? source-line %)
+   timeout-ms))
+
+(defn transcript-import-error
+  [import-request decision]
+  {:type :object-container/import-failed
+   :import-request-id (:request/id import-request)
+   :import-key (:import/key import-request)
+   :status (:status decision)
+   :reason (:reason decision)
+   :errors (vec (:errors decision))})
+
+(defn transcript-source-line-completion-error
+  [source-line completion-row]
+  {:type :object-container/source-line-completion-missing
+   :file-key (:source/file-key source-line)
+   :order-key (:source-line/order-key source-line)
+   :source-line-key (:source/line-key source-line)
+   :import-key (:import/key source-line)
+   :material-fingerprint (:material/fingerprint source-line)
+   :observed-completion (select-keys completion-row
+                                     [:file-key
+                                      :order-key
+                                      :status
+                                      :import-key
+                                      :material-fingerprint
+                                      :source-line-key])})
+
+(defn transcript-counts
+  [observed-line-count parse-error-count containers-created-count]
+  {:observed-line-count observed-line-count
+   :parse-error-count parse-error-count
+   :containers-created-count containers-created-count})
+
+(defn append-object-container-file-state!
+  [runtime request file source-lines next-offset]
+  (when (seq source-lines)
+    (let [first-line (first source-lines)
+          last-line (last source-lines)
+          file-key (:source/file-key first-line)]
+      (oc-runtime/append-transcript-file-state!
+       runtime
+       {:request/type :transcript/file-state
+        :source/file-key file-key
+        :source/file-id (:source/file-id first-line)
+        :source/file-path (.getPath ^File file)
+        :source/current-byte-length (.length ^File file)
+        :source/last-byte-offset next-offset
+        :source/observed-byte-offset next-offset
+        :source/line-count (count source-lines)
+        :source/lines (vec source-lines)
+        :transcript/source (:transcript/source request)
+        :transcript/conversation-id (:transcript/conversation-id last-line)
+        :transcript/ingest-request-id (:transcript/request-id request)
+        :time-ms (now-ms)}))))
+
+(defn expected-common-file-offset?
+  [next-offset file-offset-row]
+  (and (some? file-offset-row)
+       (= (long next-offset) (long (or (:last-byte-offset file-offset-row) -1)))
+       (= :safe (:resume-status file-offset-row))
+       (false? (:repair-needed file-offset-row))))
+
+(defn transcript-file-offset-advance-error
+  [file-key next-offset file-offset-row]
+  {:type :object-container/file-offset-not-advanced
+   :file-key file-key
+   :expected-last-byte-offset next-offset
+   :observed-file-offset-row (select-keys file-offset-row
+                                          [:file-key
+                                           :last-byte-offset
+                                           :observed-byte-offset
+                                           :resume-status
+                                           :repair-needed
+                                           :error])})
+
+(defn append-and-await-object-container-file-state!
+  [runtime request file source-lines next-offset]
+  (if (empty? source-lines)
+    {:status :accepted}
+    (let [file-key (:source/file-key (first source-lines))]
+      (loop [attempt 1
+             last-file-offset-row nil]
+        (append-object-container-file-state! runtime request file source-lines next-offset)
+        (let [file-offset-row (await-materialized
+                               #(oc-runtime/read-transcript-file-offset runtime file-key)
+                               #(expected-common-file-offset? next-offset %)
+                               2000)]
+          (cond
+            (expected-common-file-offset? next-offset file-offset-row)
+            {:status :accepted
+             :file-offset-row file-offset-row}
+
+            (< attempt 3)
+            (do
+              (Thread/sleep 50)
+              (recur (inc attempt) (or file-offset-row last-file-offset-row)))
+
+            :else
+            (let [error (transcript-file-offset-advance-error
+                         file-key
+                         next-offset
+                         (or file-offset-row last-file-offset-row))]
+              (oc-runtime/append-transcript-control!
+               runtime
+               (transcript-run-status-record (:transcript/request-id request)
+                                             :failed
+                                             {:error error}))
+              {:status :failed
+               :error error
+               :file-offset-row (or file-offset-row last-file-offset-row)})))))))
+
+(defn import-observations-into-object-container!
+  [runtime request observations last-message-by-conversation]
+  (loop [remaining (vec observations)
+         last-message-by-conversation last-message-by-conversation
+	         observed-line-count 0
+	         parse-error-count 0
+	         containers-created-count 0
+	         source-lines []]
+    (if (empty? remaining)
+      {:status :accepted
+       :last-message-by-conversation last-message-by-conversation
+       :source-lines source-lines
+       :counts (transcript-counts observed-line-count
+                                  parse-error-count
+                                  containers-created-count)}
+      (let [obs (first remaining)
+            previous-message-id (previous-common-message-container-id
+                                 runtime
+                                 last-message-by-conversation
+                                 obs)
+            obs' (cond-> obs
+                   previous-message-id
+                   (assoc :transcript/previous-message-container-id previous-message-id))
+            import-request (oc/transcript-observation-import-request obs')
+            source-line (common-transcript-source-line obs' import-request)
+            container-count (count (get-in import-request [:payload :object-containers]))
+            message-container-id (transcript-import-message-container-id import-request)
+            observed-line-count' (inc observed-line-count)
+            parse-error-count' (cond-> parse-error-count
+                                 (:transcript/parse-error-kind obs) inc)
+            containers-created-count' (+ containers-created-count container-count)
+            _ (oc-runtime/append-object-container-request! runtime import-request)
+            decision (oc-runtime/await-object-container-decision runtime import-request 5000)]
+        (if (= :accepted (:status decision))
+          (let [completion-row (await-common-source-line-completion runtime source-line 5000)]
+            (if (common-source-line-completion-matches? source-line completion-row)
+              (recur (rest remaining)
+                     (cond-> last-message-by-conversation
+                       (and message-container-id
+                            (nil? (:transcript/parse-error-kind obs)))
+                       (assoc (:transcript/conversation-id obs) message-container-id))
+                     observed-line-count'
+                     parse-error-count'
+                     containers-created-count'
+                     (conj source-lines source-line))
+              (let [counts (transcript-counts observed-line-count'
+                                              parse-error-count'
+                                              containers-created-count')
+                    error (transcript-source-line-completion-error source-line completion-row)]
+                (oc-runtime/append-transcript-control!
+                 runtime
+                 (transcript-run-status-record (:transcript/request-id request)
+                                               :failed
+                                               {:counts counts
+                                                :error error}))
+                {:status :failed
+                 :last-message-by-conversation last-message-by-conversation
+                 :source-lines source-lines
+                 :counts counts
+                 :error error
+                 :decision decision})))
+          (let [counts (transcript-counts observed-line-count'
+                                          parse-error-count'
+                                          containers-created-count')
+                error (transcript-import-error import-request decision)]
+            (oc-runtime/append-transcript-control!
+             runtime
+             (transcript-run-status-record (:transcript/request-id request)
+                                           :failed
+                                           {:counts counts
+                                            :error error}))
+            {:status :failed
+             :last-message-by-conversation last-message-by-conversation
+             :source-lines source-lines
+             :counts counts
+             :error error
+             :decision decision}))))))
+
+(defn harvest-transcripts-into-object-container!
+  [runtime request]
+  (oc-runtime/append-transcript-control! runtime request)
+  (oc-runtime/append-transcript-control!
+   runtime
+   (transcript-run-status-record (:transcript/request-id request) :running))
+  (let [files (walk-jsonl-files (:transcript/paths request))]
+    (loop [remaining-files files
+           last-message-by-conversation {}
+           observed-line-count 0
+           parse-error-count 0
+           containers-created-count 0]
+      (if (empty? remaining-files)
+        (let [counts (transcript-counts observed-line-count
+                                        parse-error-count
+                                        containers-created-count)]
+          (oc-runtime/append-transcript-control!
+           runtime
+           (transcript-run-status-record (:transcript/request-id request)
+                                         :complete
+                                         {:counts counts}))
+          {:transcript/request-id (:transcript/request-id request)
+           :status :complete
+           :files (count files)
+           :observations-appended observed-line-count
+           :counts counts})
+        (let [file (first remaining-files)
+              observations (vec (read-jsonl-observations request file 0))
+              next-offset (.length ^File file)
+              import-result (import-observations-into-object-container!
+                             runtime
+                             request
+                             observations
+                             last-message-by-conversation)
+	      counts (:counts import-result)]
+	  (if (= :accepted (:status import-result))
+	    (let [file-state-result (append-and-await-object-container-file-state!
+	                             runtime
+	                             request
+	                             file
+	                             (:source-lines import-result)
+	                             next-offset)]
+	      (if (= :accepted (:status file-state-result))
+	        (recur (rest remaining-files)
+	               (:last-message-by-conversation import-result)
+	               (+ observed-line-count (:observed-line-count counts))
+	               (+ parse-error-count (:parse-error-count counts))
+	               (+ containers-created-count (:containers-created-count counts)))
+	        (assoc file-state-result
+	               :transcript/request-id (:transcript/request-id request)
+	               :files (count files)
+	               :counts counts)))
+	    (assoc import-result
+	           :transcript/request-id (:transcript/request-id request)
+	           :files (count files))))))))
 
 (defn harvest-transcripts!
   [runtime request]
-  (append-transcript-request! runtime request)
-  (await-materialized #(read-run runtime (:transcript/request-id request)) some?)
-  (append-transcript-status!
-    runtime
-    (transcript-run-status-record (:transcript/request-id request) :running))
-  (let [files (walk-jsonl-files (:transcript/paths request))
-        observations (mapcat #(read-jsonl-observations request % 0) files)
-        counts (reduce (fn [acc obs]
-                         (-> acc
-                             (update :observed-line-count (fnil inc 0))
-                             (cond-> (:transcript/parse-error-kind obs)
-                               (update :parse-error-count (fnil inc 0)))))
-                       {}
-                       observations)]
-    (doseq [obs observations]
-      (append-transcript-observation! runtime obs))
-    (append-transcript-status!
-      runtime
-      (transcript-run-status-record (:transcript/request-id request)
-                                    :complete))
-    (await-materialized #(read-run runtime (:transcript/request-id request))
-                        #(= :complete (:status %)))
-    {:transcript/request-id (:transcript/request-id request)
-     :files (count files)
-     :observations-appended (count observations)
-     :counts counts}))
+  (if (object-container-runtime? runtime)
+    (harvest-transcripts-into-object-container! runtime request)
+    (do
+      (append-transcript-request! runtime request)
+      (await-materialized #(read-run runtime (:transcript/request-id request)) some?)
+      (append-transcript-status!
+       runtime
+       (transcript-run-status-record (:transcript/request-id request) :running))
+      (let [files (walk-jsonl-files (:transcript/paths request))
+            observations (mapcat #(read-jsonl-observations request % 0) files)
+            counts (reduce (fn [acc obs]
+                             (-> acc
+                                 (update :observed-line-count (fnil inc 0))
+                                 (cond-> (:transcript/parse-error-kind obs)
+                                   (update :parse-error-count (fnil inc 0)))))
+                           {}
+                           observations)]
+        (doseq [obs observations]
+          (append-transcript-observation! runtime obs))
+        (append-transcript-status!
+         runtime
+         (transcript-run-status-record (:transcript/request-id request)
+                                       :complete))
+        (await-materialized #(read-run runtime (:transcript/request-id request))
+                            #(= :complete (:status %)))
+        {:transcript/request-id (:transcript/request-id request)
+         :files (count files)
+         :observations-appended (count observations)
+         :counts counts}))))
 
 (defn read-complete-appended-lines
   [request file start-offset]
@@ -639,49 +953,82 @@
                               (+ (long (:source/byte-offset (last complete)))
                                  (long (:source/byte-length (last complete))))
                               start-offset)]
-            {:observations complete
-             :next-offset last-offset}))))))
+	            {:observations complete
+	             :next-offset last-offset}))))))
 
-(defn start-transcript-watch!
+(defn start-transcript-watch-into-object-container!
   [runtime request & [opts]]
-  (append-transcript-request! runtime request)
-  (await-materialized #(read-run runtime (:transcript/request-id request)) some?)
-  (append-transcript-status!
-    runtime
-    (transcript-run-status-record (:transcript/request-id request) :running))
+  (oc-runtime/append-transcript-control! runtime request)
+  (oc-runtime/append-transcript-control!
+   runtime
+   (transcript-run-status-record (:transcript/request-id request) :running))
   (let [stop? (atom false)
         known-at-start (set (walk-jsonl-files (:transcript/paths request)))
-        offsets (atom {})
         poll-ms (long (or (:poll-ms opts) 100))
         initialize-offset
         (fn [file created-after-start?]
           (let [fid (file-id file)
-                state (read-source-file-state runtime (:transcript/source request) fid)]
+                file-key (source-file-key (:transcript/source request) fid)
+                state (oc-runtime/read-transcript-file-offset runtime file-key)]
             (cond
-              (:source/last-byte-offset state)
-              (:source/last-byte-offset state)
+              (:last-byte-offset state)
+              (:last-byte-offset state)
 
               created-after-start?
-              0
+	                  0
 
-              (:backfill? opts)
-              0
-
-              :else
-              (.length ^File file))))
+	                  (:backfill? opts)
+	                  0
+	                  :else
+	                  (.length ^File file))))
+        offsets (atom (into {}
+                            (map (fn [file]
+                                   [(source-file-key (:transcript/source request)
+                                                     (file-id file))
+                                    (initialize-offset file false)]))
+                            known-at-start))
+        last-message-by-conversation (atom {})
         poll-once!
         (fn []
           (let [files (set (walk-jsonl-files (:transcript/paths request)))]
             (doseq [file files]
-              (let [new-file? (not (contains? known-at-start file))
-                    start-offset (if (contains? @offsets file)
-                                   (get @offsets file)
+              (let [fid (file-id file)
+                    file-key (source-file-key (:transcript/source request) fid)
+                    new-file? (not (contains? known-at-start file))
+                    start-offset (if (contains? @offsets file-key)
+                                   (get @offsets file-key)
                                    (initialize-offset file new-file?))
                     {:keys [observations next-offset]}
-                    (read-complete-appended-lines request file start-offset)]
-                (swap! offsets assoc file next-offset)
-                (doseq [obs observations]
-                  (append-transcript-observation! runtime obs))))))]
+                    (read-complete-appended-lines request file start-offset)
+                    observations (vec observations)]
+                (when (seq observations)
+                  (let [import-result (import-observations-into-object-container!
+                                       runtime
+                                       request
+                                       observations
+                                       @last-message-by-conversation)]
+	                    (if (= :accepted (:status import-result))
+	                      (let [file-state-result
+	                            (append-and-await-object-container-file-state!
+	                             runtime
+	                             request
+	                             file
+	                             (:source-lines import-result)
+	                             next-offset)]
+	                        (if (= :accepted (:status file-state-result))
+	                          (do
+	                            (reset! last-message-by-conversation
+	                                    (:last-message-by-conversation import-result))
+	                            (swap! offsets assoc file-key next-offset))
+	                          (do
+	                            (reset! stop? true)
+	                            (throw (ex-info
+	                                    "Object-container transcript file offset failed"
+	                                    {:result file-state-result})))))
+	                      (do
+	                        (reset! stop? true)
+	                        (throw (ex-info "Object-container transcript import failed"
+                                        {:result import-result}))))))))))]
     (let [thread (doto (Thread.
                          ^Runnable
                          (reify Runnable
@@ -690,14 +1037,15 @@
                                (try
                                  (poll-once!)
                                  (catch Throwable t
-                                   (append-transcript-status!
-                                     runtime
-                                     (transcript-run-status-record
-                                       (:transcript/request-id request)
-                                       :failed
-                                       {:error {:message (.getMessage t)}}))))
+                                   (oc-runtime/append-transcript-control!
+                                    runtime
+                                    (transcript-run-status-record
+                                     (:transcript/request-id request)
+                                     :failed
+                                     {:error {:message (.getMessage t)
+                                               :data (ex-data t)}}))))
                                (Thread/sleep poll-ms))))
-                         (str "transcript-watch-" (:transcript/request-id request)))
+                         (str "transcript-watch-common-" (:transcript/request-id request)))
                    (.setDaemon true)
                    (.start))]
       {:transcript/request-id (:transcript/request-id request)
@@ -706,7 +1054,79 @@
        :stop! (fn []
                 (reset! stop? true)
                 (.join thread 1000)
-                (append-transcript-status!
-                  runtime
-                  (transcript-run-status-record (:transcript/request-id request)
-                                                :cancelled)))})))
+                (oc-runtime/append-transcript-control!
+                 runtime
+                 (transcript-run-status-record (:transcript/request-id request)
+                                               :cancelled)))})))
+
+(defn start-transcript-watch!
+  [runtime request & [opts]]
+  (if (object-container-runtime? runtime)
+    (start-transcript-watch-into-object-container! runtime request opts)
+    (do
+      (append-transcript-request! runtime request)
+      (await-materialized #(read-run runtime (:transcript/request-id request)) some?)
+      (append-transcript-status!
+       runtime
+       (transcript-run-status-record (:transcript/request-id request) :running))
+	      (let [stop? (atom false)
+	            known-at-start (set (walk-jsonl-files (:transcript/paths request)))
+	            poll-ms (long (or (:poll-ms opts) 100))
+	            initialize-offset
+	            (fn [file created-after-start?]
+	              (let [fid (file-id file)
+                    state (read-source-file-state runtime (:transcript/source request) fid)]
+                (cond
+	                  (:source/last-byte-offset state)
+	                  (:source/last-byte-offset state)
+	                  created-after-start?
+	                  0
+	                  (:backfill? opts)
+	                  0
+	                  :else
+	                  (.length ^File file))))
+	            offsets (atom (into {}
+	                                (map (fn [file]
+	                                       [file (initialize-offset file false)]))
+	                                known-at-start))
+	            poll-once!
+	            (fn []
+	              (let [files (set (walk-jsonl-files (:transcript/paths request)))]
+                (doseq [file files]
+                  (let [new-file? (not (contains? known-at-start file))
+                        start-offset (if (contains? @offsets file)
+                                       (get @offsets file)
+                                       (initialize-offset file new-file?))
+                        {:keys [observations next-offset]}
+                        (read-complete-appended-lines request file start-offset)]
+                    (swap! offsets assoc file next-offset)
+                    (doseq [obs observations]
+                      (append-transcript-observation! runtime obs))))))]
+        (let [thread (doto (Thread.
+                             ^Runnable
+                             (reify Runnable
+                               (run [_]
+                                 (while (not @stop?)
+                                   (try
+                                     (poll-once!)
+                                     (catch Throwable t
+                                       (append-transcript-status!
+                                        runtime
+                                        (transcript-run-status-record
+                                         (:transcript/request-id request)
+                                         :failed
+                                         {:error {:message (.getMessage t)}}))))
+                                   (Thread/sleep poll-ms))))
+                             (str "transcript-watch-" (:transcript/request-id request)))
+                       (.setDaemon true)
+                       (.start))]
+          {:transcript/request-id (:transcript/request-id request)
+           :thread thread
+           :poll-once! poll-once!
+           :stop! (fn []
+                    (reset! stop? true)
+                    (.join thread 1000)
+	                    (append-transcript-status!
+	                     runtime
+	                     (transcript-run-status-record (:transcript/request-id request)
+	                                                   :cancelled)))})))))
