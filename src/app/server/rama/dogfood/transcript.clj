@@ -4,6 +4,8 @@
         [com.rpl.rama.ops])
   (:require [app.server.rama.core :as core]
             [app.server.rama.object-container :as oc]
+            [app.server.rama.object-container.transcript-adapter :as transcript-adapter]
+            [app.server.rama.object-container.transcript-identity :as transcript-identity]
             [app.server.rama.object-container.runtime :as oc-runtime]
             [app.server.rama.dogfood.llm :as llm]
             [clojure.data.json :as json]
@@ -607,9 +609,9 @@
 
 (defn transcript-conversation-container-id
   [obs]
-  (oc/chat-conversation-id
-   (oc/transcript-object-key (:transcript/source obs)
-                             (:transcript/conversation-id obs))))
+  (transcript-identity/chat-conversation-id
+   (transcript-identity/transcript-object-key (:transcript/source obs)
+                                              (:transcript/conversation-id obs))))
 
 (defn previous-common-message-container-id
   [runtime last-message-by-conversation obs]
@@ -622,13 +624,13 @@
   [obs]
   (format "%020d:%s"
           (long (or (:source/byte-offset obs) 0))
-          (core/sha-256 (oc/transcript-source-line-key obs))))
+          (core/sha-256 (transcript-identity/transcript-source-line-key obs))))
 
 (defn common-transcript-source-line
   [obs import-request]
   (assoc obs
          :source/file-key (transcript-observation-file-key obs)
-         :source/line-key (oc/transcript-source-line-key obs)
+         :source/line-key (transcript-identity/transcript-source-line-key obs)
          :source-line/order-key (common-transcript-source-line-order-key obs)
          :import/key (:import/key import-request)
          :material/fingerprint (:material/fingerprint import-request)))
@@ -636,7 +638,8 @@
 (defn common-source-line-completion-matches?
   [source-line completion-row]
   (and (some? completion-row)
-       (contains? oc/transcript-source-line-complete-statuses (:status completion-row))
+       (contains? transcript-identity/transcript-source-line-complete-statuses
+                  (:status completion-row))
        (= (:source/file-key source-line) (:file-key completion-row))
        (= (:source-line/order-key source-line) (:order-key completion-row))
        (= (:source/line-key source-line) (:source-line-key completion-row))
@@ -790,7 +793,7 @@
             obs' (cond-> obs
                    previous-message-id
                    (assoc :transcript/previous-message-container-id previous-message-id))
-            import-request (oc/transcript-observation-import-request obs')
+            import-request (transcript-adapter/transcript-observation-import-request obs')
             source-line (common-transcript-source-line obs' import-request)
             container-count (count (get-in import-request [:payload :object-containers]))
             message-container-id (transcript-import-message-container-id import-request)
