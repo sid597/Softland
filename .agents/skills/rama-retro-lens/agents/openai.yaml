@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rama Retro Lens"
+  short_description: "Catch old Rama architecture failures"
+  default_prompt: "Use $rama-retro-lens to review this Rama implementation against the old retro-review failure patterns before accepting it."
