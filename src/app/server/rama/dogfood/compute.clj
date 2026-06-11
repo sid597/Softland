@@ -37,15 +37,23 @@
 (def default-command-timeout-ms 10000)
 (def default-executor-reconcile-delay-ms 50)
 (def default-executor-command-timeout-ms default-command-timeout-ms)
+(def obs-buffer-limit 1024)
+(def observation-append-retry-initial-ms 100)
+(def observation-append-retry-max-ms 1600)
+(def pump-thread-join-timeout-ms 2000)
 
 (def compute-target-kinds
   #{:workspace})
 
+;; Open keyword set — :cancelled reserved for A2; never switch on the full set.
 (def terminal-statuses
   #{:succeeded :failed})
 
+;; Known A.0 types, documentation only. The type set is OPEN: unknown types from
+;; an authorized writer fold to an observation error AT the apply step, after
+;; their sequence number is consumed, so they can never wedge the stream.
 (def observation-types
-  #{:started :stdout :stderr :exit})
+  #{:started :stdout :stderr :heartbeat :exit :failed})
 
 (defn now-ms [] (core/now-ms))
 (defn random-id [prefix] (core/random-id prefix))
@@ -284,6 +292,8 @@
      :started-at nil
      :finished-at nil
      :exit-code nil
+     :failure-reason nil
+     :last-heartbeat-ms nil
      :last-seq -1
      :obs-buffer {}
      :stdout-tail []
@@ -312,7 +322,7 @@
   [run-row]
   (select-keys run-row
                [:run/id :request/id :status :argv :cwd :pid :started-at
-                :finished-at :exit-code :created-at :updated-at
+                :finished-at :exit-code :failure-reason :created-at :updated-at
                 :executor/task-id :claimed-by
                 :stdout-tail :stderr-tail :observation-errors]))
 
@@ -371,34 +381,37 @@
       (subvec v (- c limit))
       v)))
 
+(def max-audit-field-chars 64)
+
+(defn bounded-audit-field
+  "Audit entries copy fields from UNAUTHORIZED (attacker-controlled) records;
+   keep only small scalars so a hostile payload can never ride an error entry
+   into the truth row and the view. Oversized or non-scalar values become nil
+   — the :reason carries the diagnostic weight."
+  [x]
+  (cond
+    (integer? x) x
+    (and (keyword? x) (< (count (str x)) max-audit-field-chars)) x
+    (and (string? x) (< (count x) max-audit-field-chars)) x
+    :else nil))
+
 (defn observation-error
   [reason run-row obs]
   {:reason reason
    :run/id (:run/id run-row)
-   :observation/type (:observation/type obs)
-   :sequence (:sequence obs)
-   :observed-at (or (:observed-at obs) (now-ms))})
+   :observation/type (bounded-audit-field (:observation/type obs))
+   :sequence (bounded-audit-field (:sequence obs))
+   :observed-at (if (number? (:observed-at obs)) (:observed-at obs) (now-ms))})
 
 (defn add-observation-error
   [run-row reason obs]
-  (let [t (or (:observed-at obs) (now-ms))]
+  (let [t (if (number? (:observed-at obs)) (:observed-at obs) (now-ms))]
     (-> run-row
         (update :observation-errors
                 append-bounded
                 (observation-error reason run-row obs)
                 default-error-limit)
         (assoc :updated-at t))))
-
-(defn authorized-observation?
-  [run-row obs]
-  (and (= (:run/id run-row) (:run/id obs))
-       (= (:claim-token run-row) (:claim-token obs))
-       (not (contains? terminal-statuses (:status run-row)))))
-
-(defn valid-observation-sequence?
-  [obs]
-  (let [seq-id (:sequence obs)]
-    (and (integer? seq-id) (not (neg? seq-id)))))
 
 (defn apply-observation-effect
   [run-row obs]
@@ -421,6 +434,11 @@
           (update :stderr-tail append-bounded (str (:line obs)) default-stderr-tail-limit)
           (assoc :updated-at t))
 
+      :heartbeat
+      (assoc run-row
+             :last-heartbeat-ms t
+             :updated-at t)
+
       :exit
       (assoc run-row
              :status (if (zero? (long (:exit-code obs))) :succeeded :failed)
@@ -428,6 +446,16 @@
              :finished-at t
              :updated-at t)
 
+      :failed
+      (assoc run-row
+             :status :failed
+             :failure-reason (:failure-reason obs)
+             :finished-at t
+             :updated-at t)
+
+      ;; Unknown type from an AUTHORIZED writer: auditable error. The caller
+      ;; (apply-observation-in-order) still advances :last-seq past this
+      ;; observation, so an unrecognized type can never wedge the stream.
       (add-observation-error run-row :observation/type-invalid obs))))
 
 (declare drain-observation-buffer)
@@ -439,38 +467,92 @@
       (assoc :last-seq (:sequence obs))))
 
 (defn drain-observation-buffer
+  "Apply buffered observations in sequence order while contiguous; stop at a
+   gap. Terminal fence: the moment the row is terminal (an :exit/:failed just
+   applied, directly or from the buffer), every remaining buffered entry is
+   DISCARDED unapplied — terminal truth is immutable even against later-seq
+   observations buffered before closure (a buffered :started after an :exit
+   must never reopen the run)."
   [run-row]
   (loop [row run-row]
-    (let [next-seq (inc (long (:last-seq row)))
-          obs (get-in row [:obs-buffer next-seq])]
-      (if obs
-        (recur (-> row
-                   (update :obs-buffer dissoc next-seq)
-                   (apply-observation-in-order obs)))
-        row))))
+    (if (contains? terminal-statuses (:status row))
+      (if (seq (:obs-buffer row))
+        (assoc row :obs-buffer {})
+        row)
+      (let [next-seq (inc (long (:last-seq row)))
+            obs (get-in row [:obs-buffer next-seq])]
+        (if obs
+          (recur (-> row
+                     (update :obs-buffer dissoc next-seq)
+                     (apply-observation-in-order obs)))
+          row)))))
 
 (defn fold-observation
+  "Fold one observation into a run row behind the guard chain (validated plan
+   order — authorization BEFORE the terminal check, so unauthorized writes stay
+   auditable post-terminal while authorized redeliveries are ignored silently):
+
+     1. absent row    → nil; the topology drops the record, no state is created
+                        for unknown run-ids (and no NPE poison record).
+     2. authorization → core/authorize-mutation: a claim must have been granted
+                        (row token non-nil) AND the observation's token must
+                        match AND the sequence must be a number. Failure folds
+                        a token-free :observation/not-authorized (or
+                        :observation/sequence-invalid) error; nothing else
+                        mutates. A :pending row rejects ANY token — including
+                        a missing one.
+     3. terminal      → authorized observations are ignored silently (replays
+                        of a completed run's suffix never mint audit errors).
+     4. sequence      → seq ≤ watermark replays are ignored (first payload
+                        wins); gaps buffer store-if-absent with a hard cap
+                        (overflow → auditable :observation/buffer-overflow);
+                        seq = expected applies and drains the buffer.
+
+   Every ignore path returns run-row IDENTICAL, so the topology skips the
+   PState write entirely for no-op folds."
   [run-row obs]
-  (let [seq-id (:sequence obs)
-        expected (inc (long (:last-seq run-row)))]
-    (cond
-      (not (authorized-observation? run-row obs))
-      (add-observation-error run-row :observation/not-authorized obs)
+  (if (nil? run-row)
+    nil
+    (let [auth (core/authorize-mutation run-row obs
+                                        {:claim-token-key :claim-token
+                                         :record-token-key :claim-token
+                                         :seq-key :sequence
+                                         :watermark (:last-seq run-row)
+                                         :context {:run/id (:run/id run-row)}})]
+      (case (:auth/status auth)
+        :replay
+        run-row
 
-      (not (contains? observation-types (:observation/type obs)))
-      (add-observation-error run-row :observation/type-invalid obs)
+        :rejected
+        (case (:auth/reason auth)
+          (:no-claim-granted :token-missing :token-mismatch)
+          (add-observation-error run-row :observation/not-authorized obs)
 
-      (not (valid-observation-sequence? obs))
-      (add-observation-error run-row :observation/sequence-invalid obs)
+          :sequence-invalid
+          (add-observation-error run-row :observation/sequence-invalid obs)
 
-      (< seq-id expected)
-      run-row
+          ;; record-not-map / authorization-error: nothing safe to record
+          run-row)
 
-      (= seq-id expected)
-      (drain-observation-buffer (apply-observation-in-order run-row obs))
+        :accepted
+        (if (contains? terminal-statuses (:status run-row))
+          run-row
+          (let [seq-id (long (:sequence obs))
+                expected (inc (long (:last-seq run-row)))]
+            (cond
+              (= seq-id expected)
+              (drain-observation-buffer (apply-observation-in-order run-row obs))
 
-      :else
-      (assoc-in run-row [:obs-buffer seq-id] obs))))
+              ;; gap: store-if-absent — a redelivered buffered sequence with a
+              ;; different payload can never overwrite the first
+              (contains? (:obs-buffer run-row) seq-id)
+              run-row
+
+              (>= (count (:obs-buffer run-row)) obs-buffer-limit)
+              (add-observation-error run-row :observation/buffer-overflow obs)
+
+              :else
+              (assoc-in run-row [:obs-buffer seq-id] obs))))))))
 
 (declare append-claim!
          read-pending
@@ -526,9 +608,18 @@
     (doseq [run-id (sort (keys pending))]
       (when-not (.containsKey registry run-id)
         (let [claim (claim-record run-id executor-id (assoc opts :executor-task-id executor-task-id))]
-          (append-claim! runtime claim)
+          ;; Register BEFORE appending: if the append lands but the executor
+          ;; dies before recording it, the token is lost and the run stalls
+          ;; :launching (safe but stuck). Registering first shrinks that
+          ;; window to the durable-append boundary; a definitively failed
+          ;; append releases the entry so the next tick retries cleanly.
           (.put registry run-id {:state :awaiting-grant
-                                 :claim claim}))))))
+                                 :claim claim})
+          (try
+            (append-claim! runtime claim)
+            (catch Throwable t
+              (.remove registry run-id)
+              (throw t))))))))
 
 (defn reconcile-executor-once!
   [runtime registry workers executor-id executor-task-id opts]
@@ -547,9 +638,25 @@
           (.setDaemon true))))))
 
 (defn close-executor-state!
-  [{:keys [scheduler workers]}]
+  "Close order matters: stop the scheduler (no new claims/spawns), kill every
+   live child process (a blocked .waitFor then returns and the run can close
+   truthfully — exit code of the kill — or be interrupted into the sanctioned
+   non-terminal stall), then interrupt the workers. Never leaves OS processes
+   running and never fabricates terminal truth."
+  [{:keys [scheduler workers ^ConcurrentHashMap processes]}]
   (when scheduler
     (.shutdownNow scheduler))
+  (when processes
+    (doseq [{:keys [^Process process pump-threads]} (vec (.values processes))]
+      (when (and process (.isAlive process))
+        (.destroyForcibly process))
+      ;; a pump thread stuck in the append-retry loop (IPC already gone) can
+      ;; only be released by interruption — destroying the process alone ends
+      ;; reads, not an in-flight retry sleep
+      (doseq [^Thread t pump-threads]
+        (when (and t (.isAlive t))
+          (.interrupt t))))
+    (.clear processes))
   (when workers
     (.shutdownNow workers)))
 
@@ -567,12 +674,14 @@
           task-id* (normalize-executor-task-id task-id)
           executor-id* (str "compute-executor-" task-id*)
           registry* (ConcurrentHashMap.)
+          processes* (ConcurrentHashMap.)
           scheduler* (Executors/newSingleThreadScheduledExecutor
                        (daemon-thread-factory (str "compute-executor-reconcile-" task-id*)))
           workers* (Executors/newCachedThreadPool
                      (daemon-thread-factory (str "compute-executor-worker-" task-id*)))
           opts (merge {:timeout-ms default-executor-command-timeout-ms}
-                      config)
+                      config
+                      {:process-registry processes*})
           delay-ms (long (or (:reconcile-delay-ms opts)
                              default-executor-reconcile-delay-ms))
           state-key (System/identityHashCode this)]
@@ -582,6 +691,7 @@
              {:task-id task-id*
               :executor-id executor-id*
               :registry registry*
+              :processes processes*
               :scheduler scheduler*
               :workers workers*})
       (.scheduleWithFixedDelay
@@ -613,17 +723,38 @@
                   (compute-executor-task-global
                     {:reconcile-delay-ms default-executor-reconcile-delay-ms
                      :timeout-ms default-executor-command-timeout-ms}))
-  (let [n (stream-topology topologies "compute-run-command-topology")]
-    (declare-pstate n $$compute-runs {String (map-schema Keyword Object)})
-    (declare-pstate n $$compute-decisions-by-run-id {String (map-schema Keyword Object)})
-    (declare-pstate n $$compute-pending-by-task {String {String (map-schema Keyword Object)}})
-    (declare-pstate n $$compute-views {String (map-schema Keyword Object)})
+  ;; Microbatch, not stream (PLAN.md §Topologies): the submit pair (decision +
+  ;; run row on hash(run-id); inbox entry on hash(executor-task-id)) and the
+  ;; grant pair (status CAS + inbox removal) each span a partitioner hop. A
+  ;; stream topology commits per hop, so a replay between hops partially
+  ;; applies the pair (permanent stale inbox → infinite claim loop). The whole
+  ;; microbatch attempt is one cross-partition transaction with exactly-once
+  ;; PState updates, which closes both hazards by construction.
+  (let [mb (microbatch-topology topologies "compute-run-command-topology")]
+    (declare-pstate mb $$compute-runs {String (map-schema Keyword Object)})
+    (declare-pstate mb $$compute-decisions-by-run-id {String (map-schema Keyword Object)})
+    (declare-pstate mb $$compute-pending-by-task {String {String (map-schema Keyword Object)}})
+    (declare-pstate mb $$compute-views {String (map-schema Keyword Object)})
 
-    (<<sources n
-      (source> *compute-depot :> *request)
-      (interpret-run-command-request *request :> *decision)
-      (decision-run-id *decision :> *run-id)
-      (|hash *run-id)
+    (<<sources mb
+      ;; ── submit ──
+      ;; Records arrive on hash(:run/id) — already the run's task, no |hash.
+      ;; Blank/nil run-ids cannot be keyed: dropped before any read or write
+      ;; (refused client-side by append-run-command! as well).
+      ;; The decision row is the durable dedup anchor: run-ids are single-use,
+      ;; first submit wins. A redelivered identical submit and a conflicting
+      ;; reuse are both total no-ops — no decision flip, no run-row touch (no
+      ;; :pending regression re-arming the spawn path), no inbox re-add.
+      (source> *compute-depot :> %requests)
+      (%requests :> *request)
+      (request-run-id *request :> *run-id)
+      (filter> (not (blank-string? *run-id)))
+      (local-select> [(keypath *run-id)] $$compute-decisions-by-run-id :> *stored-decision)
+      (core/decision-dedup-gate *stored-decision *request :> *gate)
+      (get *gate :gate/status :> *gate-status)
+      (filter> (= :proceed *gate-status))
+      (interpret-run-command-request *request :> *interpreted)
+      (core/with-request-fingerprint *interpreted *request :> *decision)
       (local-transform> [(keypath *run-id) (termval *decision)] $$compute-decisions-by-run-id)
       (<<if (decision-accepted? *decision)
         (initial-run-row *decision :> *run-row)
@@ -635,11 +766,13 @@
         (local-transform> [(keypath *run-id) (termval *assigned-run-row)] $$compute-runs)
         (local-transform> [(keypath *run-id) (termval *view)] $$compute-views)
         (|hash *executor-task-id)
-        (local-transform> [(keypath *executor-task-id) (keypath *run-id) (termval *pending-entry)] $$compute-pending-by-task))
+        (local-transform> [(keypath *executor-task-id *run-id) (termval *pending-entry)] $$compute-pending-by-task))
 
-      (source> *compute-claim-depot :> *claim)
+      ;; ── claim ──
+      (source> *compute-claim-depot :> %claims)
+      (%claims :> *claim)
       (claim-run-id *claim :> *run-id)
-      (|hash *run-id)
+      (filter> (not (blank-string? *run-id)))
       (local-select> [(keypath *run-id)] $$compute-runs :> *run-row)
       (<<if (grantable-claim? *run-row *claim)
         (grant-claim *run-row *claim :> *claimed-run-row)
@@ -648,13 +781,21 @@
         (local-transform> [(keypath *run-id) (termval *claimed-run-row)] $$compute-runs)
         (local-transform> [(keypath *run-id) (termval *view)] $$compute-views)
         (|hash *executor-task-id)
-        (local-transform> [(keypath *executor-task-id) (keypath *run-id) NONE>] $$compute-pending-by-task))
+        (local-transform> [(keypath *executor-task-id *run-id) NONE>] $$compute-pending-by-task))
 
-      (source> *compute-obs-depot {:retry-mode :all-after} :> *obs)
+      ;; ── observation ──
+      ;; Absent row → drop before the fold: observations must not create run
+      ;; state for unknown ids, and the fold must never see nil (the pre-fix
+      ;; NPE here was a poison record). No-op folds (replays, post-terminal
+      ;; ignores) return the identical row and skip the writes.
+      (source> *compute-obs-depot :> %observations)
+      (%observations :> *obs)
       (observation-run-id *obs :> *run-id)
-      (|hash *run-id)
+      (filter> (not (blank-string? *run-id)))
       (local-select> [(keypath *run-id)] $$compute-runs :> *run-row)
+      (filter> (some? *run-row))
       (fold-observation *run-row *obs :> *updated-run-row)
+      (filter> (not (identical? *updated-run-row *run-row)))
       (run-view *updated-run-row :> *view)
       (local-transform> [(keypath *run-id) (termval *updated-run-row)] $$compute-runs)
       (local-transform> [(keypath *run-id) (termval *view)] $$compute-views))))
@@ -687,6 +828,12 @@
   ([runtime request]
    (append-run-command! runtime request :append-ack))
   ([runtime request ack-level]
+   ;; A run without identity cannot be tracked: refuse client-side; the
+   ;; topology additionally drops blank/nil run-ids appended raw.
+   (when-not (map? request)
+     (throw (IllegalArgumentException. "run-command request must be a map")))
+   (when (blank-string? (request-run-id request))
+     (throw (IllegalArgumentException. "run-command request requires a non-blank :run/id")))
    (foreign-append! (:compute-depot runtime) request ack-level)
    request))
 
@@ -799,10 +946,20 @@
     (.pid process)
     (catch Throwable _ nil)))
 
-(defn stream-lines
-  [stream]
+(defn pump-stream-lines!
+  "Incrementally read lines from a process stream, invoking append-line! per
+   line as it arrives — output is observable while the process runs and
+   executor memory stays O(1) per stream (never buffer to EOF). Returns on
+   EOF; a closed/destroyed stream reads as EOF.
+   Batch-4 anchor: the 4 KiB per-line truncation cap lands in this loop."
+  [stream append-line!]
   (with-open [reader (BufferedReader. (InputStreamReader. stream))]
-    (doall (line-seq reader))))
+    (loop []
+      (when-let [line (try
+                        (.readLine reader)
+                        (catch java.io.IOException _ nil))]
+        (append-line! line)
+        (recur)))))
 
 (defn start-daemon-thread!
   [name f]
@@ -815,60 +972,113 @@
     (.start)))
 
 (defn append-process-observation!
+  "Acked-cursor send discipline: allocate the next sequence number and advance
+   the cursor ONLY once the append is durably acked. A failed append retries
+   the SAME sequence with bounded backoff — a sequence number is never
+   consumed by a failed append, so the executor can never leave a permanent
+   hole that would buffer every later observation forever. Sends for one run
+   serialize on seq* (cursor correctness). Interruption (runtime close)
+   propagates without consuming the sequence."
   [runtime run-id claim-token seq* observation-type payload]
-  (let [sequence (swap! seq* inc)
-        obs (observation run-id claim-token observation-type sequence payload)]
-    (append-observation! runtime obs)
-    obs))
+  (locking seq*
+    (let [sequence (inc (long @seq*))
+          obs (observation run-id claim-token observation-type sequence payload)]
+      (loop [backoff-ms observation-append-retry-initial-ms]
+        (let [ok? (try
+                    (append-observation! runtime obs)
+                    true
+                    (catch InterruptedException e
+                      (throw e))
+                    (catch Throwable _
+                      false))]
+          (if ok?
+            (reset! seq* sequence)
+            (do
+              (Thread/sleep (long backoff-ms))
+              (recur (min observation-append-retry-max-ms (* 2 backoff-ms)))))))
+      obs)))
 
 (defn run-granted-command!
+  "Spawn and observe one granted run. Truthfulness rules:
+   - timeout → kill the process, report :failed {:failure-reason :timeout}
+     (never a fabricated exit code for a process we killed);
+   - spawn failure → :failed {:failure-reason :spawn-failed};
+   - deliberate close (interrupt) → kill the process and report NOTHING —
+     the run stays non-terminal, the spec-sanctioned stalled-but-safe arm.
+   Pump-thread joins are bounded: a grandchild holding the pipe can delay log
+   tails but can never block the worker thread or the :exit observation."
   [runtime run-row claim & [opts]]
   (let [run-id (:run/id run-row)
         token (:claim-token claim)
         argv (:argv run-row)
         cwd (:cwd run-row)
         timeout-ms (or (:timeout-ms opts) default-command-timeout-ms)
+        ^ConcurrentHashMap process-registry (:process-registry opts)
         seq* (atom -1)
-        append! #(append-process-observation! runtime run-id token seq* %1 %2)]
+        append! #(append-process-observation! runtime run-id token seq* %1 %2)
+        base-result {:spawned-after-grant? (= :granted-to-us (claim-state run-row claim))
+                     :run/id run-id
+                     :claim claim}]
     (try
       (let [pb (ProcessBuilder. ^java.util.List argv)]
         (when-not (str/blank? cwd)
           (.directory pb (File. cwd)))
         (let [process (.start pb)
-              pid (process-pid process)
-              _ (append! :started {:pid pid})
-              stdout-t (start-daemon-thread!
-                         (str "compute-stdout-" run-id)
-                         #(doseq [line (stream-lines (.getInputStream process))]
-                            (append! :stdout {:line line})))
-              stderr-t (start-daemon-thread!
-                         (str "compute-stderr-" run-id)
-                         #(doseq [line (stream-lines (.getErrorStream process))]
-                            (append! :stderr {:line line})))
-              exited? (.waitFor process (long timeout-ms) TimeUnit/MILLISECONDS)
-              exit-code (if exited?
-                          (.exitValue process)
-                          (do
-                            (.destroyForcibly process)
-                            124))]
-          (.join stdout-t)
-          (.join stderr-t)
-          (append! :exit {:exit-code exit-code})
-          {:spawned? true
-           :spawned-after-grant? (= :granted-to-us (claim-state run-row claim))
-           :run/id run-id
-           :claim claim
-           :pid pid
-           :exit-code exit-code}))
+              pid (process-pid process)]
+          (when process-registry
+            (.put process-registry run-id {:process process}))
+          (try
+            (append! :started {:pid pid})
+            (let [stdout-t (start-daemon-thread!
+                             (str "compute-stdout-" run-id)
+                             #(pump-stream-lines!
+                                (.getInputStream process)
+                                (fn [line] (append! :stdout {:line line}))))
+                  stderr-t (start-daemon-thread!
+                             (str "compute-stderr-" run-id)
+                             #(pump-stream-lines!
+                                (.getErrorStream process)
+                                (fn [line] (append! :stderr {:line line}))))
+                  _ (when process-registry
+                      (.put process-registry run-id {:process process
+                                                     :pump-threads [stdout-t stderr-t]}))
+                  exited? (.waitFor process (long timeout-ms) TimeUnit/MILLISECONDS)]
+              (when-not exited?
+                (.destroyForcibly process)
+                (.waitFor process 5000 TimeUnit/MILLISECONDS))
+              (.join stdout-t pump-thread-join-timeout-ms)
+              (.join stderr-t pump-thread-join-timeout-ms)
+              (if exited?
+                (let [exit-code (.exitValue process)]
+                  (append! :exit {:exit-code exit-code})
+                  (merge base-result
+                         {:spawned? true
+                          :pid pid
+                          :exit-code exit-code}))
+                (do
+                  (append! :failed {:failure-reason :timeout})
+                  (merge base-result
+                         {:spawned? true
+                          :pid pid
+                          :timed-out? true}))))
+            (finally
+              (when process-registry
+                (.remove process-registry run-id))
+              ;; never exit this scope leaving a live child behind
+              (when (.isAlive process)
+                (.destroyForcibly process))))))
+      (catch InterruptedException _
+        ;; deliberate close: the finally above killed the child; do NOT append
+        ;; fabricated terminal truth for work that was interrupted.
+        (.interrupt (Thread/currentThread))
+        (merge base-result {:spawned? nil
+                            :interrupted? true}))
       (catch Throwable t
         (append! :stderr {:line (.getMessage t)})
-        (append! :exit {:exit-code 127})
-        {:spawned? false
-         :spawned-after-grant? (= :granted-to-us (claim-state run-row claim))
-         :run/id run-id
-         :claim claim
-         :exit-code 127
-         :error (.getMessage t)}))))
+        (append! :failed {:failure-reason :spawn-failed})
+        (merge base-result
+               {:spawned? false
+                :error (.getMessage t)})))))
 
 (defn run-one-pending-local!
   ([runtime]

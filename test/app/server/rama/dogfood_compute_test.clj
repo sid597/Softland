@@ -116,7 +116,8 @@
                          :claimed-at 11
                          :executor-task-id compute/pending-task-id})]
           (compute/append-claim! runtime claim-a :ack)
-          (let [row-a (compute/read-run runtime run-id)]
+          ;; microbatch: depot ack does not imply PState visibility — poll
+          (let [row-a (compute/await-run runtime run-id #(= :launching (:status %)))]
             (is (= :launching (:status row-a)))
             (is (= "executor-a" (:claimed-by row-a)))
             (is (= "token-a" (:claim-token row-a)))
@@ -124,7 +125,8 @@
             (is (= :granted-to-us (compute/claim-state row-a claim-a))))
 
           (compute/append-claim! runtime claim-b :ack)
-          (let [row-b (compute/read-run runtime run-id)]
+          (let [resolution (compute/await-claim-resolution runtime claim-b)
+                row-b (:run resolution)]
             (is (= "executor-a" (:claimed-by row-b)))
             (is (= "token-a" (:claim-token row-b)))
             (is (= :conflict-or-past (compute/claim-state row-b claim-b)))
@@ -137,7 +139,12 @@
             runtime
             (compute/observation run-id "token-b" :stdout 0 {:line "bad"})
             :ack)
-          (let [row-c (compute/read-run runtime run-id)
+          ;; microbatch: poll until the not-authorized error materializes
+          (let [row-c (compute/await-run
+                        runtime run-id
+                        (fn [row]
+                          (some #(= :observation/not-authorized (:reason %))
+                                (:observation-errors row))))
                 view-c (compute/read-view runtime run-id)]
             (is (= :launching (:status row-c)))
             (is (empty? (:stdout-tail row-c)))
