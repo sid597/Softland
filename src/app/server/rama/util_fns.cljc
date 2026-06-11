@@ -77,6 +77,46 @@
        (m/relieve {})))
 
 ;; ── Transitional local mirrors for routes not yet moved to kernel projections
+;;
+;; QUARANTINED OUT OF THE KERNEL CONTRACT (retro K-07 / prior 01-F2).
+;;
+;; These atoms are session-local UI mirrors, NOT kernel truth. The kernel
+;; contract's back-arrow rule (C12: Rama is truth, projections read PStates)
+;; does not apply to them because they are declared outside the contract:
+;;
+;;   - They reset to their literal initial values on every JVM restart; no
+;;     rebuild path from PStates exists or is promised.
+;;   - Their writes also append :compat/record requests, so a durable,
+;;     decided, auditable trail of every mutation lives in the kernel — but
+;;     nothing folds those events back into the atoms.
+;;   - The atom updates after each append are fire-and-forget: if the kernel
+;;     rejects the compat request (e.g. an event type that fell off the
+;;     allow-list in core/compat-allowed-event-types), the atom still updates.
+;;
+;; Why they survive this fix session instead of becoming PState reads: the
+;; Electric UI subscribes via (e/watch !atom), and per-key Rama subscription
+;; (foreign-proxy-async on global PStates) crashes Rama 1.6.0 (S40 quirk in
+;; memory/implementation-quirks.md). Replacing the atoms with foreign selects
+;; would silently break UI reactivity. When a subscription path exists, each
+;; mirror should become a kernel projection and leave this list.
+
+(def transitional-mirror-quarantine
+  "Machine-readable quarantine declaration. Tests assert this list covers
+   every mirror atom in this namespace, so adding a mirror without declaring
+   it (or declaring it kernel-backed without a rebuild path) fails loudly."
+  {:kernel-contract? false
+   :durable? false
+   :reset-on-restart? true
+   :rebuild-path :none
+   :durable-audit :compat-record-events
+   :mirrors '[!cli-sessions
+              !agent-runs
+              !sidebar-truth-atom
+              !settings-truth-atom
+              !agent-trail-atom
+              !workspace-truth-atom
+              !editor-doc-atom
+              !flow-session-atom]})
 
 (defonce !cli-sessions (atom {}))
 (defonce !agent-runs (atom {}))

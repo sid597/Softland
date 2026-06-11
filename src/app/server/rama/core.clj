@@ -104,12 +104,33 @@
                               capability (conj capability))
      :visibility :private}))
 
-(defn artifact-id-from-unit-id
+(defn unit-id-parts
+  "Parse a revision-scoped unit id `<artifact>/<revision>/line/<n>`. Returns
+   {:artifact/id .. :revision/id .. :line/number n} or nil when the id does
+   not match. Parses from the right so artifact ids may contain '/'; revision
+   ids must not (kernel-minted ids never do)."
   [unit-id]
   (let [s (str unit-id)]
-    (if-let [idx (str/index-of s "/line/")]
-      (subs s 0 idx)
-      s)))
+    (when-let [line-idx (str/last-index-of s "/line/")]
+      (let [prefix (subs s 0 line-idx)
+            n-str (subs s (+ line-idx 6))]
+        (when-let [rev-idx (str/last-index-of prefix "/")]
+          (let [artifact-id (subs prefix 0 rev-idx)
+                revision-id (subs prefix (inc rev-idx))]
+            (when (and (seq artifact-id) (seq revision-id)
+                       (re-matches #"\d+" n-str))
+              {:artifact/id artifact-id
+               :revision/id revision-id
+               :line/number (parse-long n-str)})))))))
+
+(defn artifact-id-from-unit-id
+  [unit-id]
+  (or (:artifact/id (unit-id-parts unit-id))
+      ;; legacy pre-revision-scoped shape <artifact>/line/<n>
+      (let [s (str unit-id)]
+        (if-let [idx (str/index-of s "/line/")]
+          (subs s 0 idx)
+          s))))
 
 (defn routing-key-for
   [{:keys [request-id target payload]}]
@@ -214,6 +235,20 @@
       (conj {:type :request/missing-envelope-key
              :missing (vec (remove #(contains? request %) required-request-keys))})
 
+      ;; Keys can be present with garbage values; the id keys PStates and the
+      ;; time stamps decisions/events, so both must be well-typed before any
+      ;; keyed write (a non-String id is a write-schema violation = poison
+      ;; record; a non-number time makes :decided-at non-deterministic).
+      (and (map? request)
+           (not (and (string? (:request/id request))
+                     (seq (:request/id request)))))
+      (conj {:type :request/id-invalid
+             :value (:request/id request)})
+
+      (and (map? request) (not (number? (:request/time-ms request))))
+      (conj {:type :request/time-ms-invalid
+             :value (:request/time-ms request)})
+
       (and (map? request) (contains? request :event/id))
       (conj {:type :request/top-level-event-id
              :value (:event/id request)})
@@ -229,6 +264,13 @@
       (and (map? request) (not (qualified-keyword? action-type)))
       (conj {:type :action/type-not-qualified-keyword
              :value action-type})
+
+      ;; Entity 6: the capability slot is mandatory NOW (even before policy
+      ;; tables enforce it) so enabling enforcement later changes no envelope.
+      (and (map? request)
+           (not (keyword? (get-in request [:action :action/capability]))))
+      (conj {:type :action/capability-missing
+             :value (get-in request [:action :action/capability])})
 
       (and (map? request) (not= request-type action-type))
       (conj {:type :request/action-type-drift
@@ -252,8 +294,13 @@
       (conj {:type :target/invalid-kind
              :value (get-in request [:target :target/kind])})
 
-      (and (map? request) (nil? (get-in request [:branch :branch/id])))
-      (conj {:type :branch/missing-id}))))
+      ;; The branch id keys String-schema PStates; a present-but-non-String
+      ;; value would poison the write, so require a real String here.
+      (and (map? request)
+           (not (and (string? (get-in request [:branch :branch/id]))
+                     (seq (get-in request [:branch :branch/id])))))
+      (conj {:type :branch/missing-id
+             :value (get-in request [:branch :branch/id])}))))
 
 (defn event-validation-errors
   [event]
@@ -306,6 +353,10 @@
   [request-id]
   (str request-id "/decision"))
 
+;; :decided-at is copied from the request's own clock, never the kernel's wall
+;; clock: interpretation must be a pure function of the request (+ durable
+;; state) so a replayed delivery re-derives a byte-identical decision instead
+;; of rewriting committed audit rows.
 (defn accepted-decision
   [request event]
   {:decision/id (decision-id-for-request-id (:request/id request))
@@ -315,7 +366,7 @@
    :routing/key (:routing/key request)
    :event/id (:event/id event)
    :event event
-   :decided-at (now-ms)})
+   :decided-at (:request/time-ms request)})
 
 (defn rejected-decision
   [request reason & [errors]]
@@ -327,7 +378,7 @@
    :event/id nil
    :decision/reason reason
    :errors (vec errors)
-   :decided-at (now-ms)})
+   :decided-at (:request/time-ms request)})
 
 (defn accepted-decision?
   [decision]
@@ -341,11 +392,59 @@
   [decision]
   (:event decision))
 
+;; ── :compat/record — a NARROW, transitional adapter, not a generic event mint.
+;;
+;; Every compatibility event type must be allow-listed here with a payload
+;; validator. Anything else rejects :compat-type-not-allowed — otherwise the
+;; legacy route quietly becomes the real public contract for arbitrary
+;; KernelEvents (retro finding 06/F3). The set below is exactly what the
+;; util-fns transitional helpers emit today; removing a helper should remove
+;; its entry.
+(def compat-allowed-event-types
+  #{:compat/event-id-tick
+    :identity/user-registered
+    :settings/user-setting-updated
+    :cli/session-updated
+    :agent/run-submitted
+    :sidebar/dir-toggle
+    :sidebar/file-select
+    :sidebar/project-select
+    :sidebar/project-back
+    :settings/update
+    :agent-trail/saved
+    :workspace/save-truth
+    :editor/save-doc
+    :flow/save-state})
+
+(def ^:private compat-payload-required-keys
+  {:cli/session-updated [:file-path :provider :session-id]
+   :agent/run-submitted [:run-id]
+   :agent-trail/saved [:run-id]
+   :identity/user-registered [:username]
+   :editor/save-doc [:file-path]})
+
+(defn compat-payload-validation-error
+  "nil when the payload is valid for this allow-listed compat event type,
+   otherwise a typed error map."
+  [event-type payload]
+  (cond
+    (not (map? payload))
+    {:type :compat/payload-not-map :value payload}
+
+    (not-every? #(some? (get payload %))
+                (get compat-payload-required-keys event-type []))
+    {:type :compat/payload-missing-key
+     :missing (vec (remove #(some? (get payload %))
+                           (get compat-payload-required-keys event-type [])))}))
+
 (defn compat-record-request
   [{:keys [event-type target-kind target-id action-type capability payload actor]}]
   (action-request
     {:request-type :compat/record
      :actor actor
+     ;; Event identity is proposed in the header, minted client-side before
+     ;; the append (C5/C7) — never invented inside interpretation.
+     :proposed-event-id (random-id "evt")
      :target {:target/kind target-kind
               :target/id target-id
               :target/address nil}
@@ -363,7 +462,8 @@
   (let [event-type (get-in request [:payload :compat/event-type])
         action-type (get-in request [:payload :compat/action-type])]
     (kernel-event
-      {:event-id (str (:request/id request) "/event")
+      {:event-id (or (:proposed/event-id request)
+                     (str (:request/id request) "/event"))
        :event-type event-type
        :time-ms (:request/time-ms request)
        :actor (:actor request)
@@ -392,10 +492,21 @@
 
 (defn interpret-compat-request
   [request]
-  (let [errors (request-validation-errors request)]
+  (let [errors (request-validation-errors request)
+        event-type (get-in request [:payload :compat/event-type])
+        payload (get-in request [:payload :compat/payload])]
     (cond
       (seq errors) (rejected-decision request :request-invalid errors)
       (not (authorized-request? request)) (rejected-decision request :actor-not-authorized)
+
+      (not (contains? compat-allowed-event-types event-type))
+      (rejected-decision request :compat-type-not-allowed
+                         [{:type :compat/event-type-not-allowed :value event-type}])
+
+      (compat-payload-validation-error event-type payload)
+      (rejected-decision request :compat-payload-invalid
+                         [(compat-payload-validation-error event-type payload)])
+
       :else (decide-event request (compat-request->event request)))))
 
 (defn unknown-action-decision
@@ -658,3 +769,43 @@
                            :authorization-error record
                            {:context (merge (when (map? context) context)
                                             {:error/class (.getName (class t))})})})))
+
+;; ────────────────────────────────────────────────────────────────────────────
+;; Ingress guards for raw depot records.
+;;
+;; A client-appendable depot will eventually carry garbage: non-maps, maps
+;; with non-keyword keys, missing/non-String request ids. None of that may
+;; reach a keyed PState write (a write-schema violation is a poison record
+;; that retries forever — and under microbatch it stalls the whole partition).
+;; Every appended record still gets exactly one durable decision (no silent
+;; drops), keyed by a deterministic surrogate when the record cannot provide
+;; its own identity.
+;; ────────────────────────────────────────────────────────────────────────────
+
+(defn audit-request-id
+  "The durable audit identity for a raw depot record: its :request/id when that
+   is a usable String key, otherwise a deterministic content-derived surrogate
+   (replay-stable, so a retried garbage record dedups against itself)."
+  [record]
+  (let [id (when (map? record) (:request/id record))]
+    (if (and (string? id) (seq id))
+      id
+      (str "invalid/" (sha-256 (canonical-str record))))))
+
+(defn storable-request
+  "The value safe to store in a {String (map-schema Keyword Object)} request
+   PState: the record itself when its shape fits, otherwise a bounded preview
+   wrapper (never the raw value — that is the write-schema poison)."
+  [record]
+  (if (and (map? record) (every? keyword? (keys record)))
+    record
+    (bounded-dead-letter :request-unstorable record)))
+
+(defn invalid-request-decision
+  "Rejected decision for a record that failed envelope validation, keyed by the
+   audit id (which may be a surrogate — (:request/id record) is unusable for
+   exactly the records this fn exists for)."
+  [audit-id record errors]
+  (-> (rejected-decision (if (map? record) record {}) :request-invalid errors)
+      (assoc :decision/id (decision-id-for-request-id audit-id)
+             :request/id audit-id)))

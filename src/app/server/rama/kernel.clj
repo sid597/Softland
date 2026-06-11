@@ -549,7 +549,17 @@
     "text-kernel and space-kernel currently partition by :routing/key (a transitional
      placeholder, semantically a 'semantic-vector'). The other 3 kernels partition by
      their domain-specific id directly. Open question for after PR 1: should text/space
-     migrate to domain-specific keys (e.g. :artifact/id, :space/id)?"}
+     migrate to domain-specific keys (e.g. :artifact/id, :space/id)?
+
+     text-kernel (post fix session 4) is a MICROBATCH topology with ZERO partitioner
+     hops: every PState write for a record happens on the ingress task, so a request's
+     full effect set commits atomically and same-key requests serialize in depot
+     order. Consequence: all text-kernel PStates are partitioned by the routing key
+     and foreign reads pass {:pkey routing-key}. Each record runs an ingress guard
+     chain first — core/audit-request-id (surrogate ids for garbage so nothing
+     poisons), core/decision-dedup-gate on the decision row (duplicate request-id
+     replay AND conflicting reuse are total no-ops), then an event-id collision guard
+     (:event-id-conflict) so committed KernelEvents are immutable."}
 
    ;; ────────────────────────────────────────────────────────────────────────────────
    ;; INTENT DEPOT  (always present — 5 of 5)
@@ -677,8 +687,13 @@
    {:required? true
     :signature '(fn [request existing-state] => decision-or-events)
     :examples
-    {:text-kernel       "interpret-* fns dispatched by case>: :artifact/ingest,
-                         :unit/status-set, :compat/record — see text_kernel.clj"
+    {:text-kernel       "interpret-* fns dispatched by case>: :artifact/ingest
+                         (rejects :revision-exists — revisions immutable),
+                         :unit/status-set (durable unit existence; unit ids are
+                         revision-scoped <artifact>/<revision>/line/<n>),
+                         :compat/record (core/interpret-compat-request, allow-listed
+                         event types only) — see text_kernel.clj. Decisions stamp
+                         :decided-at from :request/time-ms, never the wall clock."
      :space-kernel      "interpret-* fns dispatched by case>: :space/create,
                          :turn/compose-and-send, :space/fork-from-span,
                          control variants — see dogfood/space.clj"
@@ -737,6 +752,11 @@
    ;; ────────────────────────────────────────────────────────────────────────────────
    :pstate-spec
    {:required? true
+    ;; text-kernel statuses live in $$unit-statuses keyed artifact → branch →
+    ;; unit (artifact = routing key, so the write stays on the ingress task);
+    ;; the old branch-led $$unit-status-by-branch funneled every judgment onto
+    ;; one task. The util-fns mirror atoms are NOT kernel state — see
+    ;; util_fns/transitional-mirror-quarantine.
     :counts {:text-kernel       11   ; 9 actively written + 2 scaffold ($$policies, $$projection-cache)
              :space-kernel      24
              :compute-kernel    4
