@@ -633,7 +633,7 @@
    :task-global-executor
    {:required?    false
     :present-in   [:compute-kernel]
-    :rama-pattern '(declare-object setup *X-executor (X-executor-task-global {:opts...}))
+    :rama-pattern '(declare-object setup *X-executor (X-executor-task-global <executor-opts>))
     :examples
     {:compute-kernel '*compute-executor}}
 
