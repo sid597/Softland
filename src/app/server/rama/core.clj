@@ -401,3 +401,260 @@
 (defn unknown-action-decision
   [request]
   (rejected-decision request :unknown-action-type))
+
+;; ────────────────────────────────────────────────────────────────────────────
+;; Guarded-fold helpers.
+;;
+;; Pure fns for kernel topologies running under at-least-once delivery. A
+;; replayed or duplicated depot record must never reset committed truth, flip a
+;; committed decision, regress a terminal status, or rewind a watermark. These
+;; helpers make that a one-call guard instead of per-module hand-rolling.
+;; ────────────────────────────────────────────────────────────────────────────
+
+(defn canonical-str
+  "Deterministic string rendering of nested Clojure data: map entries sorted by
+   the canonical rendering of their key, set elements sorted by canonical
+   rendering, sequential order preserved. Equal values render identically
+   regardless of map/set construction order, so renderings are safe to hash."
+  [x]
+  (cond
+    (map? x)
+    (str "{"
+         (str/join " " (->> x
+                            (map (fn [[k v]] [(canonical-str k) (canonical-str v)]))
+                            (sort-by first)
+                            (map (fn [[k v]] (str k " " v)))))
+         "}")
+
+    (set? x)
+    (str "#{" (str/join " " (sort (map canonical-str x))) "}")
+
+    (sequential? x)
+    (str "[" (str/join " " (map canonical-str x)) "]")
+
+    :else (pr-str x)))
+
+(defn request-fingerprint
+  "Content fingerprint of a request, for duplicate-id detection. Two requests
+   with the same id and the same fingerprint are the same intent (safe to
+   replay); same id with a different fingerprint is a conflict. Callers whose
+   clients re-mint volatile fields (e.g. :request/time-ms) on retry should
+   dissoc those fields before fingerprinting."
+  [request]
+  (sha-256 (canonical-str request)))
+
+(defn with-request-fingerprint
+  "Stamp a decision with the fingerprint of the request it decided. Decisions
+   written with this stamp let decision-dedup-gate distinguish replay from
+   conflict on the next delivery of the same request id."
+  [decision request]
+  (assoc decision :request/fingerprint (request-fingerprint request)))
+
+(defn replay-decision
+  "Mark a stored decision as the response to a replayed delivery. The returned
+   value is for the caller/ack path only — the stored decision row and any
+   events derived from it must not be rewritten."
+  [decision]
+  (assoc decision :decision/replay? true))
+
+(defn conflict-rejected-decision
+  "Rejected decision for a request id that already has a committed decision but
+   arrived again with different content. Carries a distinct :decision/id so it
+   can never alias or overwrite the committed decision row."
+  [request existing-fingerprint incoming-fingerprint]
+  (-> (rejected-decision request :request-id-conflict
+                         [{:type :request/id-conflict
+                           :existing/fingerprint existing-fingerprint
+                           :incoming/fingerprint incoming-fingerprint}])
+      (assoc :decision/id (str (decision-id-for-request-id (:request/id request)) "/conflict")
+             :decision/conflict? true)))
+
+(defn decision-dedup-gate
+  "Classify an incoming request against the stored decision for its request id.
+   The topology reads the stored decision FIRST, calls this, and only
+   interprets + writes state when the gate says :proceed.
+
+   Returns one of:
+     {:gate/status :proceed}
+       no decision exists for this id — interpret and write normally.
+     {:gate/status :replay  :gate/decision <stored decision, replay-marked>}
+       same id + same fingerprint (or a legacy stored decision with no
+       fingerprint, where conflict cannot be proven) — return the committed
+       decision unchanged; NO state writes, no re-interpretation.
+     {:gate/status :conflict :gate/decision <conflict-rejected decision>}
+       same id + different fingerprint — reject the impostor; NO state writes.
+       The committed decision and its events stay exactly as committed."
+  [stored-decision incoming-request]
+  (if (nil? stored-decision)
+    {:gate/status :proceed}
+    (let [stored-fp (:request/fingerprint stored-decision)
+          incoming-fp (request-fingerprint incoming-request)]
+      (if (or (nil? stored-fp) (= stored-fp incoming-fp))
+        {:gate/status :replay
+         :gate/decision (replay-decision stored-decision)}
+        {:gate/status :conflict
+         :gate/decision (conflict-rejected-decision incoming-request stored-fp incoming-fp)}))))
+
+(defn write-if-absent
+  "Row guard for initial inserts under at-least-once delivery: keep the existing
+   row when one is present (a replay must not reset a row that has since
+   progressed), otherwise take the proposed row. Designed for use inside a
+   (term ...) navigation:
+     (local-transform> [(keypath *id) (term #(write-if-absent % *row))] $$rows)"
+  [existing-row proposed-row]
+  (if (some? existing-row) existing-row proposed-row))
+
+(defn sticky-status
+  "Status-level terminal fence: once a status is terminal it never regresses.
+   Returns the status that must be stored."
+  [terminal-statuses current-status proposed-status]
+  (if (contains? terminal-statuses current-status)
+    current-status
+    proposed-status))
+
+(defn sticky-terminal-fence
+  "Row-level terminal fence: if the current row's status (under status-key) is
+   terminal, keep the current row untouched; otherwise take the proposed row.
+   Designed for use inside a (term ...) navigation, like write-if-absent."
+  [terminal-statuses status-key current-row proposed-row]
+  (if (contains? terminal-statuses (get current-row status-key))
+    current-row
+    proposed-row))
+
+(defn monotonic-watermark
+  "Watermarks only advance. nil-safe on both sides: a nil proposal keeps the
+   current watermark; a nil current watermark takes the proposal; otherwise the
+   max of the two. A replayed record carrying an older watermark can never
+   rewind progress."
+  [current proposed]
+  (cond
+    (nil? proposed) current
+    (nil? current) proposed
+    :else (max current proposed)))
+
+;; ────────────────────────────────────────────────────────────────────────────
+;; Observation/control authorization.
+;;
+;; Observations and controls arrive from outside the topology's truth (workers,
+;; executors, users) and must prove their authority before they fold into a
+;; truth row. Invalid input of ANY shape produces a bounded dead-letter value —
+;; never a throw (a throw inside a topology is a poison record that retries
+;; forever) and never a silent truth mutation.
+;; ────────────────────────────────────────────────────────────────────────────
+
+(def default-dead-letter-preview-chars 512)
+
+(defn- safe-pr-str
+  [x]
+  (try
+    (pr-str x)
+    (catch Throwable _
+      (str "<unprintable " (or (some-> (class x) .getName) "nil") ">"))))
+
+(defn bounded-dead-letter
+  "Bounded error value describing a rejected observation/control record. Total:
+   never throws, regardless of record shape. The preview is capped so unbounded
+   payloads cannot be copied wholesale into a dead-letter PState. The optional
+   :context map is for small caller-supplied identifiers (run id, depot name) —
+   it is included as-is, so keep it small. Never put expected secrets (claim
+   tokens) in the context."
+  ([reason record] (bounded-dead-letter reason record {}))
+  ([reason record {:keys [max-preview-chars context]
+                   :or {max-preview-chars default-dead-letter-preview-chars}}]
+   (let [preview (safe-pr-str record)
+         truncated? (> (count preview) max-preview-chars)]
+     (cond-> {:dead-letter/reason reason
+              :dead-letter/record-preview (if truncated?
+                                            (subs preview 0 max-preview-chars)
+                                            preview)
+              :dead-letter/record-truncated? truncated?}
+       context (assoc :dead-letter/context context)))))
+
+(defn authorize-mutation
+  "Authorization gate for observation/control records before they fold into a
+   truth row. Total fn: never throws; garbage input of any shape returns a
+   :rejected outcome with a bounded dead-letter value.
+
+   target-row  the existing truth row the record claims to mutate (nil = absent)
+   record      the incoming observation/control record (any shape)
+   opts:
+     :status-key          key in target-row holding the lifecycle status
+     :accepting-statuses  set of statuses in which this mutation is allowed
+     :terminal-statuses   set of sticky terminal statuses; anything arriving
+                          while the row is terminal is rejected as late
+     :claim-token-key     key in target-row holding the granted claim token;
+                          when provided, the record must present the identical
+                          token under :record-token-key
+     :record-token-key    where the token lives on the record (default :claim/token)
+     :seq-key             key in record carrying its sequence number; when
+                          provided the record must carry a number, and a value
+                          at or below :watermark classifies as :replay
+     :watermark           current sequence watermark for the target row
+     :context             small identifier map merged into any dead-letter
+
+   Check order: record-shape → target-exists → terminal-rejects-late →
+   state-accepts → claim-token-proof → valid-sequence. Terminal is checked
+   before the accepting set so a late write gets the precise :target-terminal
+   reason instead of a generic state rejection.
+
+   Returns one of:
+     {:auth/status :accepted}
+     {:auth/status :replay  :auth/reason :sequence-replayed}   ; duplicate delivery — ignore, no dead-letter
+     {:auth/status :rejected :auth/reason <kw> :auth/dead-letter <bounded map>}
+
+   Dead-letters never contain the expected claim token, only the fact that the
+   offered token was missing or mismatched."
+  [target-row record {:keys [status-key accepting-statuses terminal-statuses
+                             claim-token-key record-token-key seq-key watermark
+                             context]
+                      :or {record-token-key :claim/token}}]
+  (try
+    (let [reject (fn [reason extra-context]
+                   {:auth/status :rejected
+                    :auth/reason reason
+                    :auth/dead-letter (bounded-dead-letter
+                                        reason record
+                                        {:context (merge context extra-context)})})
+          current-status (when (and status-key (map? target-row))
+                           (get target-row status-key))]
+      (cond
+        (not (map? record))
+        (reject :record-not-map nil)
+
+        (nil? target-row)
+        (reject :target-not-found nil)
+
+        (and terminal-statuses (contains? terminal-statuses current-status))
+        (reject :target-terminal {:target/status current-status})
+
+        (and accepting-statuses (not (contains? accepting-statuses current-status)))
+        (reject :state-rejects-mutation {:target/status current-status})
+
+        (and claim-token-key (nil? (get target-row claim-token-key)))
+        (reject :no-claim-granted nil)
+
+        (and claim-token-key (nil? (get record record-token-key)))
+        (reject :token-missing nil)
+
+        (and claim-token-key (not= (get target-row claim-token-key)
+                                   (get record record-token-key)))
+        (reject :token-mismatch nil)
+
+        (and seq-key (not (number? (get record seq-key))))
+        (reject :sequence-invalid {:sequence/value (get record seq-key)})
+
+        (and seq-key (number? watermark) (<= (get record seq-key) watermark))
+        {:auth/status :replay
+         :auth/reason :sequence-replayed}
+
+        :else
+        {:auth/status :accepted}))
+    (catch Throwable t
+      ;; The fallback fence must itself be throw-proof: context may be the
+      ;; very non-map that broke the main path, so sanitize before merging.
+      {:auth/status :rejected
+       :auth/reason :authorization-error
+       :auth/dead-letter (bounded-dead-letter
+                           :authorization-error record
+                           {:context (merge (when (map? context) context)
+                                            {:error/class (.getName (class t))})})})))
