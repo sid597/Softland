@@ -42,7 +42,11 @@
                      "--interactive"
                      "--port" "9001"]}
 
-            :test {:extra-paths ["test"]}
+            ; -Xss: Rama's module compilation analyzes topology graphs
+            ; recursively; loading the llm + space dogfood modules in one JVM
+            ; overflows the default thread stack during that analysis.
+            :test {:extra-paths ["test"]
+                   :jvm-opts ["-Xss16m"]}
 
             :prod {:extra-paths ["src-prod"]}
 
