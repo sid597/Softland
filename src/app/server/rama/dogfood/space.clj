@@ -570,10 +570,6 @@
                             :context-bundle bundle-event
                             :llm-turn-run llm-run-event}))))
 
-(defn keep-existing-slice-row
-  [existing slice]
-  (or existing slice))
-
 (defn dedupe-row
   [request decision bundle llm-request]
   {:idempotency/key (:idempotency/key request)
@@ -1164,21 +1160,322 @@
   [object-id incoming-edge]
   (add-projection-in-edge nil object-id incoming-edge))
 
+;; ────────────────────────────────────────────────────────────────────────────
+;; Journal-entry-first fold (fix session 3).
+;;
+;; Transaction scope in a stream topology is the code between two partitioners,
+;; so every dedup-relevant read and every non-idempotent write must happen in
+;; ONE segment on the space task, atomically with the request journal entry.
+;; Each request type computes a pure write PLAN:
+;;   {:decision         decision to write downstream (always present)
+;;    :journal-entry    journal row, nil = skip (replay/conflict)
+;;    :spaces-row       $$spaces write, nil = skip
+;;    :turn-order       $$turns-by-space write, nil = skip
+;;    :canvas           $$projection-chat-canvas write, nil = skip
+;;    :idem-key/:idem-row  $$send-by-idempotency write, nil = skip
+;;    :thread-row       input for downstream object rows (current row on replay)
+;;    :emit             :full | :decision-only
+;;    :record-request?  false only for impostor conflicts}
+;; A journal hit means EVERY Segment-1 write committed (same atomic group), so
+;; replay skips Segment 1 and re-emits the full downstream fan-out — required,
+;; because the first attempt may have died mid-tree. All downstream writes are
+;; idempotent termvals of replay-stable values or consumer-deduplicated
+;; appends (LLM intake gates run ids; fold-control dedups control ids).
+;; ────────────────────────────────────────────────────────────────────────────
+
+(defn journal-key
+  "Partition/journal key for a request. Requests with a blank space id cannot
+   touch real space state (validation rejects them) but still need a stable,
+   isolated journal slot so one-request-one-decision holds for junk input."
+  [thread-id request-id]
+  (if (blank-string? thread-id)
+    (str "invalid:" request-id)
+    thread-id))
+
+(defn idempotency-lookup-key
+  [request]
+  (let [k (request-idempotency-key request)]
+    (if (blank-string? k) "__no-key__" k)))
+
+(defn send-material-hash
+  "Hash of WHAT a send asks for — space, prompt, refs, bundle-owned execution
+   options — excluding request id, caller-supplied fresh entity ids, and time,
+   so a spec-sanctioned replay with fresh ids still matches while a different
+   payload reusing the key is a conflict."
+  [request]
+  (core/sha-256
+    (core/canonical-str
+      {:space/id (request-thread-id request)
+       :prompt/text (get-in request [:payload :prompt/text])
+       :refs (vec (or (get-in request [:payload :refs]) []))
+       :execution/options (bundle-execution-options request)})))
+
+(defn idempotency-conflict-decision
+  "Same idempotency key, different material: explicit conflict, never aliasing
+   the caller to the original send's facts (prior-retro F3)."
+  [request existing-row material-hash]
+  (assoc (rejected-decision request :idempotency/conflict
+                            [{:type :idempotency/conflict
+                              :idempotency/key (:idempotency/key request)
+                              :original/request-id (:request/id existing-row)
+                              :existing/material-hash (:material/hash existing-row)
+                              :incoming/material-hash material-hash}])
+         :idempotency/key (:idempotency/key request)))
+
+(defn fingerprinted
+  [decision request]
+  (core/with-request-fingerprint decision request))
+
+(def empty-plan
+  {:journal-entry nil :spaces-row nil :turn-order nil :canvas nil
+   :idem-key nil :idem-row nil :thread-row nil
+   :emit :decision-only :record-request? true})
+
+(defn plan-replay
+  "Same request id + same payload: Segment 1 already committed (it is atomic
+   with the journal entry), so write nothing here and re-emit downstream."
+  [journal-decision existing-thread]
+  (assoc empty-plan
+         :decision journal-decision
+         :thread-row existing-thread
+         :emit :full))
+
+(defn plan-conflict
+  "Same request id, different payload: the committed decision and facts stay
+   untouched; the impostor gets its own '/conflict' decision row and must not
+   overwrite the original request row."
+  [gate]
+  (assoc empty-plan
+         :decision (:gate/decision gate)
+         :record-request? false))
+
+(defn plan-decision-only
+  [decision]
+  (assoc empty-plan
+         :decision decision
+         :journal-entry decision))
+
+(defn plan-ordered-turn
+  "Segment-1 plan for an accepted turn that appends to the space's order:
+   order, count, and canvas are computed and written on the same task that
+   read them — the read→hop→write race (SP-04) is structurally impossible."
+  [decision request existing-thread existing-turn-order]
+  (let [turn-event (decision-turn-event decision)
+        turn-id (turn-id-from-event turn-event)
+        order (add-turn-id existing-turn-order turn-id)
+        thread-event (space-event request existing-thread)
+        row (bump-thread-turn-count (thread-row existing-thread thread-event) order)]
+    (assoc empty-plan
+           :decision decision
+           :journal-entry decision
+           :spaces-row row
+           :turn-order order
+           :canvas (chat-canvas-projection row order (turn-row turn-event nil))
+           :thread-row row
+           :emit :full)))
+
+(defn refreshed-create-canvas
+  "A (duplicate) create must refresh title/status, never wipe the turn order
+   or the latest turn the canvas already holds."
+  [thread-row existing-canvas]
+  (if existing-canvas
+    (assoc existing-canvas
+           :title (:title thread-row)
+           :status (:status thread-row)
+           :turn-count (:turn-count thread-row)
+           :updated-at-ms (:updated-at-ms thread-row))
+    (chat-canvas-projection thread-row nil nil)))
+
+(defn plan-thread-create
+  [gate journal-decision request existing-thread existing-turn-order existing-canvas]
+  (case (:gate/status gate)
+    :conflict (plan-conflict gate)
+    :replay (plan-replay journal-decision existing-thread)
+    (let [decision (fingerprinted (interpret-thread-create request existing-thread) request)]
+      (if (decision-accepted? decision)
+        (let [thread-event (decision-thread-event decision)
+              row (thread-row existing-thread thread-event)]
+          (assoc empty-plan
+                 :decision decision
+                 :journal-entry decision
+                 :spaces-row row
+                 :canvas (refreshed-create-canvas row existing-canvas)
+                 :thread-row row
+                 :emit :full))
+        (plan-decision-only decision)))
+    ))
+
+(defn plan-compose-fresh
+  [request existing-thread existing-turn-order material-hash]
+  (let [decision (fingerprinted (interpret-compose-and-send request existing-thread) request)]
+    (if (decision-accepted? decision)
+      (let [thread-event (decision-thread-event decision)
+            turn-event (decision-turn-event decision)
+            bundle (context-bundle-row request turn-event)
+            llm-request (space->llm-turn-run-request request turn-event bundle)
+            turn-id (turn-id-from-event turn-event)
+            order (add-turn-id existing-turn-order turn-id)
+            row (bump-thread-turn-count (thread-row existing-thread thread-event) order)]
+        (assoc empty-plan
+               :decision decision
+               :journal-entry decision
+               :spaces-row row
+               :turn-order order
+               :canvas (chat-canvas-projection row order (turn-row turn-event (:context-bundle/id bundle)))
+               :idem-key (idempotency-lookup-key request)
+               :idem-row (assoc (dedupe-row request decision bundle llm-request)
+                                :material/hash material-hash)
+               :thread-row row
+               :emit :full))
+      (plan-decision-only decision))))
+
+(defn plan-compose-and-send
+  [gate journal-decision request existing-thread existing-turn-order idem-row]
+  (case (:gate/status gate)
+    :conflict (plan-conflict gate)
+    :replay (plan-replay journal-decision existing-thread)
+    (let [material-hash (send-material-hash request)]
+      (cond
+        (and (idempotency-hit? idem-row)
+             (= material-hash (:material/hash idem-row)))
+        (plan-decision-only (fingerprinted (idempotent-decision request idem-row) request))
+
+        (idempotency-hit? idem-row)
+        (plan-decision-only
+          (fingerprinted (idempotency-conflict-decision request idem-row material-hash) request))
+
+        :else (plan-compose-fresh request existing-thread existing-turn-order material-hash)))))
+
+(defn plan-fork-from-span
+  [gate journal-decision request existing-thread existing-turn-order]
+  (case (:gate/status gate)
+    :conflict (plan-conflict gate)
+    :replay (plan-replay journal-decision existing-thread)
+    (let [decision (fingerprinted (interpret-fork-from-span request existing-thread) request)]
+      (if (decision-accepted? decision)
+        (let [thread-event (decision-thread-event decision)
+              turn-event (decision-turn-event decision)
+              turn-id (turn-id-from-event turn-event)
+              order (add-turn-id existing-turn-order turn-id)
+              row (bump-thread-turn-count (thread-row existing-thread thread-event) order)]
+          ;; as-built: fork materializes no chat canvas for the child (residue)
+          (assoc empty-plan
+                 :decision decision
+                 :journal-entry decision
+                 :spaces-row row
+                 :turn-order order
+                 :thread-row row
+                 :emit :full))
+        (plan-decision-only decision)))))
+
+(defn plan-control-turn
+  [gate journal-decision request existing-thread existing-turn-order]
+  (case (:gate/status gate)
+    :conflict (plan-conflict gate)
+    :replay (plan-replay journal-decision existing-thread)
+    (let [decision (fingerprinted (interpret-control-turn request existing-thread) request)]
+      (if (decision-accepted? decision)
+        (plan-ordered-turn decision request existing-thread existing-turn-order)
+        (plan-decision-only decision)))))
+
+(defn plan-space-turn
+  [gate journal-decision request existing-thread existing-turn-order]
+  (case (:gate/status gate)
+    :conflict (plan-conflict gate)
+    :replay (plan-replay journal-decision existing-thread)
+    (let [decision (fingerprinted (interpret-space-turn request existing-thread) request)]
+      (if (decision-accepted? decision)
+        (plan-ordered-turn decision request existing-thread existing-turn-order)
+        (plan-decision-only decision)))))
+
+(defn plan-invalid-type
+  [gate journal-decision request]
+  (case (:gate/status gate)
+    :conflict (plan-conflict gate)
+    :replay (plan-replay journal-decision nil)
+    (plan-decision-only
+      (fingerprinted (rejected-decision request :request/type-invalid) request))))
+
+(defn emit-fan-out?
+  "Full fact fan-out only for accepted decisions that minted facts: an
+   idempotency replay's decision points at the ORIGINAL send's facts and must
+   never (re-)emit writes for them under the replay request."
+  [plan]
+  (let [decision (:decision plan)]
+    (and (= :full (:emit plan))
+         (decision-accepted? decision)
+         (not (:idempotency/replayed? decision)))))
+
+(defn resolve-patch-proposal
+  "Resolution row to write, or nil when nothing may be mutated: resolutions
+   never invent proposals (no phantom rows under nil/unknown ids), the first
+   resolution wins, and a replayed resolution is a no-op."
+  [existing request turn-event]
+  (let [proposal-id (request-patch-proposal-id request)]
+    (cond
+      (blank-string? proposal-id) nil
+      (nil? existing) nil
+      (= (:resolution/request-id existing) (:request/id request)) nil
+      (not= :pending (:status existing)) nil
+      :else (apply-patch-decision existing request turn-event))))
+
+;; ── Typed server-side observation bridge (prior-retro F1, SP-05, SP-07) ──
+
+(defn observation-space-id
+  [obs]
+  (or (:space/id obs) (:llm-thread/id obs)))
+
+(defn bridgeable-patch-observation?
+  [obs]
+  (and (patch-proposal-observation? obs)
+       (not (blank-string? (observation-space-id obs)))
+       (not (blank-string? (patch-proposal-id-from-observation obs)))))
+
+(defn dropped-patch-observation?
+  "Patch-like but unroutable (no space, no proposal id): never-drop demands a
+   dead-letter instead of silence."
+  [obs]
+  (and (patch-proposal-observation? obs)
+       (not (bridgeable-patch-observation? obs))))
+
+(defn observation-dead-letter-key
+  [obs]
+  (let [run-id (:llm-turn-run/id obs)]
+    (if (blank-string? run-id) "unknown-run" run-id)))
+
+(def obs-dead-letter-limit 100)
+
+(defn append-obs-dead-letter
+  [existing obs]
+  (let [entry (core/bounded-dead-letter
+                :patch-proposal/unroutable obs
+                {:context {:observation/id (:observation/id obs)
+                           :llm-turn-run/id (:llm-turn-run/id obs)}})]
+    (vec (take-last obs-dead-letter-limit (conj (vec existing) entry)))))
+
 (defmodule space-kernel-module [setup topologies]
   (mirror-depot setup *llm-depot (get-module-name llm/llm-module) "*llm-depot")
   (mirror-depot setup *llm-control-depot (get-module-name llm/llm-module) "*llm-control-depot")
+  (mirror-depot setup *llm-obs-depot (get-module-name llm/llm-module) "*llm-obs-depot")
   (declare-depot setup *space-action-depot (hash-by :routing/key))
   (let [n (stream-topology topologies "space-topology")]
     (declare-pstate n $$space-requests-by-id {String Object})
     (declare-pstate n $$space-decisions-by-id {String Object})
     (declare-pstate n $$space-events-by-id {String Object})
+    ;; dedup spine: journal-key -> request-id -> fingerprinted decision,
+    ;; colocated with $$spaces so the gate is atomic with Segment-1 writes
+    (declare-pstate n $$space-request-journal
+                    {String (map-schema String Object {:subindex? true})})
     (declare-pstate n $$spaces {String Object})
     (declare-pstate n $$space-graph {String Object})
     (declare-pstate n $$turns {String Object})
     (declare-pstate n $$turns-by-space {String Object})
     (declare-pstate n $$context-bundles {String Object})
     (declare-pstate n $$context-bundles-by-turn {String String})
-    (declare-pstate n $$send-by-idempotency {String Object})
+    ;; space-scoped: space-id -> idempotency-key -> dedupe row (+ material
+    ;; hash); colocation with the deciding task makes check-and-claim atomic
+    (declare-pstate n $$send-by-idempotency
+                    {String (map-schema String Object {:subindex? true})})
     (declare-pstate n $$llm-run-requests {String Object})
     (declare-pstate n $$llm-run-by-turn {String String})
     (declare-pstate n $$llm-controls {String Object})
@@ -1190,6 +1487,8 @@
     (declare-pstate n $$overlays {String Object})
     (declare-pstate n $$derivatives {String Object})
     (declare-pstate n $$space-patch-proposals {String Object})
+    ;; never-drop: unroutable patch observations land here, bounded per run
+    (declare-pstate n $$space-obs-dead-letters {String Object})
     (declare-pstate n $$projection-chat-canvas {String Object})
     (declare-pstate n $$projection-object-detail {String Object})
     (declare-pstate n $$projection-object-relations {String Object})
@@ -1198,170 +1497,189 @@
       (source> *space-action-depot :> *request)
       (request-id *request :> *request-id)
       (request-type *request :> *request-type)
-      (request-thread-id *request :> *thread-id)
-      (|hash *request-id)
-      (local-transform> [(keypath *request-id) (termval *request)] $$space-requests-by-id)
+      (request-thread-id *request :> *raw-thread-id)
+      (journal-key *raw-thread-id *request-id :> *thread-id)
+      ;; ── Segment 1: one task, one transaction scope. The journal gate, the
+      ;; idempotency check-and-claim, and every non-idempotent write (space
+      ;; row, turn order, canvas) commit atomically at the next partitioner.
       (|hash *thread-id)
+      (local-select> [(keypath *thread-id *request-id)] $$space-request-journal :> *journal-decision)
+      (core/decision-dedup-gate *journal-decision *request :> *gate)
       (local-select> [(keypath *thread-id)] $$spaces :> *existing-thread)
-
+      (local-select> [(keypath *thread-id)] $$turns-by-space :> *existing-turn-order)
       (<<cond
         (case> (= :space/create *request-type))
-        (interpret-thread-create *request *existing-thread :> *decision)
-        (decision-id *decision :> *decision-id)
-        (|hash *decision-id)
-        (local-transform> [(keypath *decision-id) (termval *decision)] $$space-decisions-by-id)
-        (<<if (decision-accepted? *decision)
+        (local-select> [(keypath *thread-id)] $$projection-chat-canvas :> *existing-canvas)
+        (plan-thread-create *gate *journal-decision *request *existing-thread *existing-turn-order *existing-canvas :> *plan)
+
+        (case> (= :turn/compose-and-send *request-type))
+        (idempotency-lookup-key *request :> *idempotency-key)
+        (local-select> [(keypath *thread-id *idempotency-key)] $$send-by-idempotency :> *idem-row)
+        (plan-compose-and-send *gate *journal-decision *request *existing-thread *existing-turn-order *idem-row :> *plan)
+
+        (case> (= :space/fork-from-span *request-type))
+        (plan-fork-from-span *gate *journal-decision *request *existing-thread *existing-turn-order :> *plan)
+
+        (case> (space-control-request? *request-type))
+        (plan-control-turn *gate *journal-decision *request *existing-thread *existing-turn-order :> *plan)
+
+        (case> (space-turn-request? *request-type))
+        (plan-space-turn *gate *journal-decision *request *existing-thread *existing-turn-order :> *plan)
+
+        (default>)
+        (plan-invalid-type *gate *journal-decision *request :> *plan))
+
+      ;; Segment-1 writes — atomic with each other and with the journal entry
+      (get *plan :journal-entry :> *journal-entry)
+      (<<if (some? *journal-entry)
+        (local-transform> [(keypath *thread-id *request-id) (termval *journal-entry)] $$space-request-journal))
+      (get *plan :spaces-row :> *spaces-row)
+      (<<if (some? *spaces-row)
+        (local-transform> [(keypath *thread-id) (termval *spaces-row)] $$spaces))
+      (get *plan :turn-order :> *new-turn-order)
+      (<<if (some? *new-turn-order)
+        (local-transform> [(keypath *thread-id) (termval *new-turn-order)] $$turns-by-space))
+      (get *plan :canvas :> *canvas)
+      (<<if (some? *canvas)
+        (local-transform> [(keypath *thread-id) (termval *canvas)] $$projection-chat-canvas))
+      (get *plan :idem-row :> *plan-idem-row)
+      (<<if (some? *plan-idem-row)
+        (get *plan :idem-key :> *plan-idem-key)
+        (local-transform> [(keypath *thread-id *plan-idem-key) (termval *plan-idem-row)] $$send-by-idempotency))
+
+      ;; ── downstream: audit rows (idempotent termvals; impostor conflicts
+      ;; never overwrite the committed request row) ──
+      (get *plan :decision :> *decision)
+      (get *plan :record-request? :> *record-request?)
+      (<<if *record-request?
+        (|hash *request-id)
+        (local-transform> [(keypath *request-id) (termval *request)] $$space-requests-by-id))
+      (decision-id *decision :> *decision-id)
+      (|hash *decision-id)
+      (local-transform> [(keypath *decision-id) (termval *decision)] $$space-decisions-by-id)
+
+      ;; ── downstream: fact fan-out. A journal replay re-emits everything
+      ;; (the first attempt may have died mid-tree); every write below is an
+      ;; idempotent termval of replay-stable values or consumer-deduplicated
+      ;; (the LLM intake gates run ids; fold-control dedups control ids). ──
+      (emit-fan-out? *plan :> *fan-out?)
+      (<<if *fan-out?
+        (get *plan :thread-row :> *thread-row)
+        (<<cond
+          (case> (= :space/create *request-type))
           (decision-thread-event *decision :> *thread-event)
           (event-id *thread-event :> *event-id)
-          (thread-row *existing-thread *thread-event :> *thread-row)
-          (space-id-from-event *thread-event :> *event-thread-id)
           (space-object-row *thread-row :> *thread-object)
           (object-row-id *thread-object :> *thread-object-id)
-          (chat-canvas-projection *thread-row nil nil :> *chat-canvas)
           (object-detail-projection *thread-object :> *thread-object-detail)
           (|hash *event-id)
           (local-transform> [(keypath *event-id) (termval *thread-event)] $$space-events-by-id)
-          (|hash *event-thread-id)
-          (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$spaces)
-          (local-transform> [(keypath *event-thread-id) (termval *chat-canvas)] $$projection-chat-canvas)
           (|hash *thread-object-id)
           (local-transform> [(keypath *thread-object-id) (termval *thread-object)] $$objects)
-          (local-transform> [(keypath *thread-object-id) (termval *thread-object-detail)] $$projection-object-detail))
+          (local-transform> [(keypath *thread-object-id) (termval *thread-object-detail)] $$projection-object-detail)
 
-        (case> (= :turn/compose-and-send *request-type))
-        (request-idempotency-key *request :> *idempotency-key)
-        (|hash *idempotency-key)
-        (local-select> [(keypath *idempotency-key)] $$send-by-idempotency :> *idempotency-row)
-        (<<if (idempotency-hit? *idempotency-row)
-          (idempotent-decision *request *idempotency-row :> *decision)
-          (decision-id *decision :> *decision-id)
-          (|hash *decision-id)
-          (local-transform> [(keypath *decision-id) (termval *decision)] $$space-decisions-by-id))
-        (<<if (not (idempotency-hit? *idempotency-row))
-          (interpret-compose-and-send *request *existing-thread :> *decision)
-          (decision-id *decision :> *decision-id)
-          (|hash *decision-id)
-          (local-transform> [(keypath *decision-id) (termval *decision)] $$space-decisions-by-id)
-          (<<if (decision-accepted? *decision)
-            (decision-thread-event *decision :> *thread-event)
-            (decision-turn-event *decision :> *turn-event)
-            (decision-bundle-event *decision :> *bundle-event)
-            (decision-llm-run-event *decision :> *llm-run-event)
-            (event-id *thread-event :> *thread-event-id)
-            (event-id *turn-event :> *turn-event-id)
-            (event-id *bundle-event :> *bundle-event-id)
-            (event-id *llm-run-event :> *llm-run-event-id)
-            (space-id-from-event *thread-event :> *event-thread-id)
-            (turn-id-from-event *turn-event :> *turn-id)
-            (context-bundle-id-from-event *bundle-event :> *bundle-id)
-            (context-bundle-row *request *turn-event :> *bundle)
-            (space->llm-turn-run-request *request *turn-event *bundle :> *llm-request)
-            (llm-run-id-from-request *llm-request :> *llm-run-id)
-            (thread-row *existing-thread *thread-event :> *base-thread-row)
-            (turn-row *turn-event *bundle-id :> *turn-row)
-            (dedupe-row *request *decision *bundle *llm-request :> *dedupe-row)
-            (|hash *thread-event-id)
-            (local-transform> [(keypath *thread-event-id) (termval *thread-event)] $$space-events-by-id)
-            (|hash *turn-event-id)
-            (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$space-events-by-id)
-            (|hash *bundle-event-id)
-            (local-transform> [(keypath *bundle-event-id) (termval *bundle-event)] $$space-events-by-id)
-            (|hash *llm-run-event-id)
-            (local-transform> [(keypath *llm-run-event-id) (termval *llm-run-event)] $$space-events-by-id)
-            (|hash *event-thread-id)
-            (local-select> [(keypath *event-thread-id)] $$turns-by-space :> *existing-turn-order)
-            (add-turn-id *existing-turn-order *turn-id :> *turn-order)
-            (bump-thread-turn-count *base-thread-row *turn-order :> *thread-row)
-            (space-object-row *thread-row :> *thread-object)
-            (turn-object-row *turn-row :> *turn-object)
-            (context-bundle-object-row *bundle :> *bundle-object)
-            (llm-turn-run-object-row *llm-request :> *llm-run-object)
-            (thread-turn-edge *thread-row *turn-row :> *thread-turn-edge)
-            (turn-bundle-edge *turn-row *bundle :> *turn-bundle-edge)
-            (turn-llm-run-edge *turn-row *llm-request :> *turn-llm-run-edge)
-            (bundle-llm-run-edge *bundle *llm-request :> *bundle-llm-run-edge)
-            (object-row-id *thread-object :> *thread-object-id)
-            (object-row-id *turn-object :> *turn-object-id)
-            (object-row-id *bundle-object :> *bundle-object-id)
-            (object-row-id *llm-run-object :> *llm-run-object-id)
-            (artifact-edge-id *thread-turn-edge :> *thread-turn-edge-id)
-            (artifact-edge-id *turn-bundle-edge :> *turn-bundle-edge-id)
-            (artifact-edge-id *turn-llm-run-edge :> *turn-llm-run-edge-id)
-            (artifact-edge-id *bundle-llm-run-edge :> *bundle-llm-run-edge-id)
-            (artifact-edge-from *thread-turn-edge :> *thread-turn-from)
-            (artifact-edge-to *thread-turn-edge :> *thread-turn-to)
-            (artifact-edge-from *turn-bundle-edge :> *turn-bundle-from)
-            (artifact-edge-to *turn-bundle-edge :> *turn-bundle-to)
-            (artifact-edge-from *turn-llm-run-edge :> *turn-llm-run-from)
-            (artifact-edge-to *turn-llm-run-edge :> *turn-llm-run-to)
-            (artifact-edge-from *bundle-llm-run-edge :> *bundle-llm-run-from)
-            (artifact-edge-to *bundle-llm-run-edge :> *bundle-llm-run-to)
-            (chat-canvas-projection *thread-row *turn-order *turn-row :> *chat-canvas)
-            (object-detail-projection *thread-object :> *thread-object-detail)
-            (object-detail-projection *turn-object :> *turn-object-detail)
-            (object-detail-projection *bundle-object :> *bundle-object-detail)
-            (object-detail-projection *llm-run-object :> *llm-run-object-detail)
-            (turn-object-relations-projection
-              *turn-object-id *thread-turn-edge *turn-bundle-edge *turn-llm-run-edge
-              :> *turn-relations)
-            (bundle-object-relations-projection
-              *bundle-object-id *turn-bundle-edge *bundle-llm-run-edge
-              :> *bundle-relations)
-            (llm-run-object-relations-projection
-              *llm-run-object-id *turn-llm-run-edge *bundle-llm-run-edge
-              :> *llm-run-relations)
-            (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$spaces)
-            (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$turns-by-space)
-            (local-transform> [(keypath *event-thread-id) (termval *chat-canvas)] $$projection-chat-canvas)
-            (|hash *turn-id)
-            (local-transform> [(keypath *turn-id) (termval *turn-row)] $$turns)
-            (local-transform> [(keypath *turn-id) (termval *bundle-id)] $$context-bundles-by-turn)
-            (local-transform> [(keypath *turn-id) (termval *llm-run-id)] $$llm-run-by-turn)
-            (|hash *bundle-id)
-            (local-transform> [(keypath *bundle-id) (termval *bundle)] $$context-bundles)
-            (|hash *llm-run-id)
-            (local-transform> [(keypath *llm-run-id) (termval *llm-request)] $$llm-run-requests)
-            (|hash *idempotency-key)
-            (local-transform> [(keypath *idempotency-key) (termval *dedupe-row)] $$send-by-idempotency)
-            (|hash *thread-object-id)
-            (local-transform> [(keypath *thread-object-id) (termval *thread-object)] $$objects)
-            (local-transform> [(keypath *thread-object-id) (termval *thread-object-detail)] $$projection-object-detail)
-            (local-select> [(keypath *thread-object-id)] $$projection-object-relations :> *thread-relations-existing)
-            (add-projection-out-edge *thread-relations-existing *thread-object-id *thread-turn-edge :> *thread-relations)
-            (local-transform> [(keypath *thread-object-id) (termval *thread-relations)] $$projection-object-relations)
-            (local-transform> [(keypath *thread-turn-from) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph)
-            (|hash *thread-turn-to)
-            (local-transform> [(keypath *thread-turn-to) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph-in)
-            (|hash *turn-object-id)
-            (local-transform> [(keypath *turn-object-id) (termval *turn-object)] $$objects)
-            (local-transform> [(keypath *turn-object-id) (termval *turn-object-detail)] $$projection-object-detail)
-            (local-transform> [(keypath *turn-object-id) (termval *turn-relations)] $$projection-object-relations)
-            (local-transform> [(keypath *turn-bundle-from) (keypath *turn-bundle-edge-id) (termval *turn-bundle-edge)] $$artifact-graph)
-            (local-transform> [(keypath *turn-llm-run-from) (keypath *turn-llm-run-edge-id) (termval *turn-llm-run-edge)] $$artifact-graph)
-            (|hash *turn-bundle-to)
-            (local-transform> [(keypath *turn-bundle-to) (keypath *turn-bundle-edge-id) (termval *turn-bundle-edge)] $$artifact-graph-in)
-            (|hash *turn-llm-run-to)
-            (local-transform> [(keypath *turn-llm-run-to) (keypath *turn-llm-run-edge-id) (termval *turn-llm-run-edge)] $$artifact-graph-in)
-            (|hash *bundle-object-id)
-            (local-transform> [(keypath *bundle-object-id) (termval *bundle-object)] $$objects)
-            (local-transform> [(keypath *bundle-object-id) (termval *bundle-object-detail)] $$projection-object-detail)
-            (local-transform> [(keypath *bundle-object-id) (termval *bundle-relations)] $$projection-object-relations)
-            (local-transform> [(keypath *bundle-llm-run-from) (keypath *bundle-llm-run-edge-id) (termval *bundle-llm-run-edge)] $$artifact-graph)
-            (|hash *bundle-llm-run-to)
-            (local-transform> [(keypath *bundle-llm-run-to) (keypath *bundle-llm-run-edge-id) (termval *bundle-llm-run-edge)] $$artifact-graph-in)
-            (|hash *llm-run-object-id)
-            (local-transform> [(keypath *llm-run-object-id) (termval *llm-run-object)] $$objects)
-            (local-transform> [(keypath *llm-run-object-id) (termval *llm-run-object-detail)] $$projection-object-detail)
-            (local-transform> [(keypath *llm-run-object-id) (termval *llm-run-relations)] $$projection-object-relations)
-            (|hash$$ *llm-depot *llm-run-id)
-            (depot-partition-append! *llm-depot *llm-request :append-ack)))
+          (case> (= :turn/compose-and-send *request-type))
+          (decision-thread-event *decision :> *thread-event)
+          (decision-turn-event *decision :> *turn-event)
+          (decision-bundle-event *decision :> *bundle-event)
+          (decision-llm-run-event *decision :> *llm-run-event)
+          (event-id *thread-event :> *thread-event-id)
+          (event-id *turn-event :> *turn-event-id)
+          (event-id *bundle-event :> *bundle-event-id)
+          (event-id *llm-run-event :> *llm-run-event-id)
+          (turn-id-from-event *turn-event :> *turn-id)
+          (context-bundle-id-from-event *bundle-event :> *bundle-id)
+          (context-bundle-row *request *turn-event :> *bundle)
+          (space->llm-turn-run-request *request *turn-event *bundle :> *llm-request)
+          (llm-run-id-from-request *llm-request :> *llm-run-id)
+          (turn-row *turn-event *bundle-id :> *turn-row)
+          (space-object-row *thread-row :> *thread-object)
+          (turn-object-row *turn-row :> *turn-object)
+          (context-bundle-object-row *bundle :> *bundle-object)
+          (llm-turn-run-object-row *llm-request :> *llm-run-object)
+          (thread-turn-edge *thread-row *turn-row :> *thread-turn-edge)
+          (turn-bundle-edge *turn-row *bundle :> *turn-bundle-edge)
+          (turn-llm-run-edge *turn-row *llm-request :> *turn-llm-run-edge)
+          (bundle-llm-run-edge *bundle *llm-request :> *bundle-llm-run-edge)
+          (object-row-id *thread-object :> *thread-object-id)
+          (object-row-id *turn-object :> *turn-object-id)
+          (object-row-id *bundle-object :> *bundle-object-id)
+          (object-row-id *llm-run-object :> *llm-run-object-id)
+          (artifact-edge-id *thread-turn-edge :> *thread-turn-edge-id)
+          (artifact-edge-id *turn-bundle-edge :> *turn-bundle-edge-id)
+          (artifact-edge-id *turn-llm-run-edge :> *turn-llm-run-edge-id)
+          (artifact-edge-id *bundle-llm-run-edge :> *bundle-llm-run-edge-id)
+          (artifact-edge-from *thread-turn-edge :> *thread-turn-from)
+          (artifact-edge-to *thread-turn-edge :> *thread-turn-to)
+          (artifact-edge-from *turn-bundle-edge :> *turn-bundle-from)
+          (artifact-edge-to *turn-bundle-edge :> *turn-bundle-to)
+          (artifact-edge-from *turn-llm-run-edge :> *turn-llm-run-from)
+          (artifact-edge-to *turn-llm-run-edge :> *turn-llm-run-to)
+          (artifact-edge-from *bundle-llm-run-edge :> *bundle-llm-run-from)
+          (artifact-edge-to *bundle-llm-run-edge :> *bundle-llm-run-to)
+          (object-detail-projection *thread-object :> *thread-object-detail)
+          (object-detail-projection *turn-object :> *turn-object-detail)
+          (object-detail-projection *bundle-object :> *bundle-object-detail)
+          (object-detail-projection *llm-run-object :> *llm-run-object-detail)
+          (turn-object-relations-projection
+            *turn-object-id *thread-turn-edge *turn-bundle-edge *turn-llm-run-edge
+            :> *turn-relations)
+          (bundle-object-relations-projection
+            *bundle-object-id *turn-bundle-edge *bundle-llm-run-edge
+            :> *bundle-relations)
+          (llm-run-object-relations-projection
+            *llm-run-object-id *turn-llm-run-edge *bundle-llm-run-edge
+            :> *llm-run-relations)
+          (|hash *thread-event-id)
+          (local-transform> [(keypath *thread-event-id) (termval *thread-event)] $$space-events-by-id)
+          (|hash *turn-event-id)
+          (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$space-events-by-id)
+          (|hash *bundle-event-id)
+          (local-transform> [(keypath *bundle-event-id) (termval *bundle-event)] $$space-events-by-id)
+          (|hash *llm-run-event-id)
+          (local-transform> [(keypath *llm-run-event-id) (termval *llm-run-event)] $$space-events-by-id)
+          (|hash *turn-id)
+          (local-transform> [(keypath *turn-id) (termval *turn-row)] $$turns)
+          (local-transform> [(keypath *turn-id) (termval *bundle-id)] $$context-bundles-by-turn)
+          (local-transform> [(keypath *turn-id) (termval *llm-run-id)] $$llm-run-by-turn)
+          (|hash *bundle-id)
+          (local-transform> [(keypath *bundle-id) (termval *bundle)] $$context-bundles)
+          (|hash *llm-run-id)
+          (local-transform> [(keypath *llm-run-id) (termval *llm-request)] $$llm-run-requests)
+          (|hash *thread-object-id)
+          (local-transform> [(keypath *thread-object-id) (termval *thread-object)] $$objects)
+          (local-transform> [(keypath *thread-object-id) (termval *thread-object-detail)] $$projection-object-detail)
+          (local-select> [(keypath *thread-object-id)] $$projection-object-relations :> *thread-relations-existing)
+          (add-projection-out-edge *thread-relations-existing *thread-object-id *thread-turn-edge :> *thread-relations)
+          (local-transform> [(keypath *thread-object-id) (termval *thread-relations)] $$projection-object-relations)
+          (local-transform> [(keypath *thread-turn-from *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph)
+          (|hash *thread-turn-to)
+          (local-transform> [(keypath *thread-turn-to *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph-in)
+          (|hash *turn-object-id)
+          (local-transform> [(keypath *turn-object-id) (termval *turn-object)] $$objects)
+          (local-transform> [(keypath *turn-object-id) (termval *turn-object-detail)] $$projection-object-detail)
+          (local-transform> [(keypath *turn-object-id) (termval *turn-relations)] $$projection-object-relations)
+          (local-transform> [(keypath *turn-bundle-from *turn-bundle-edge-id) (termval *turn-bundle-edge)] $$artifact-graph)
+          (local-transform> [(keypath *turn-llm-run-from *turn-llm-run-edge-id) (termval *turn-llm-run-edge)] $$artifact-graph)
+          (|hash *turn-bundle-to)
+          (local-transform> [(keypath *turn-bundle-to *turn-bundle-edge-id) (termval *turn-bundle-edge)] $$artifact-graph-in)
+          (|hash *turn-llm-run-to)
+          (local-transform> [(keypath *turn-llm-run-to *turn-llm-run-edge-id) (termval *turn-llm-run-edge)] $$artifact-graph-in)
+          (|hash *bundle-object-id)
+          (local-transform> [(keypath *bundle-object-id) (termval *bundle-object)] $$objects)
+          (local-transform> [(keypath *bundle-object-id) (termval *bundle-object-detail)] $$projection-object-detail)
+          (local-transform> [(keypath *bundle-object-id) (termval *bundle-relations)] $$projection-object-relations)
+          (local-transform> [(keypath *bundle-llm-run-from *bundle-llm-run-edge-id) (termval *bundle-llm-run-edge)] $$artifact-graph)
+          (|hash *bundle-llm-run-to)
+          (local-transform> [(keypath *bundle-llm-run-to *bundle-llm-run-edge-id) (termval *bundle-llm-run-edge)] $$artifact-graph-in)
+          (|hash *llm-run-object-id)
+          (local-transform> [(keypath *llm-run-object-id) (termval *llm-run-object)] $$objects)
+          (local-transform> [(keypath *llm-run-object-id) (termval *llm-run-object-detail)] $$projection-object-detail)
+          (local-transform> [(keypath *llm-run-object-id) (termval *llm-run-relations)] $$projection-object-relations)
+          (|hash$$ *llm-depot *llm-run-id)
+          (depot-partition-append! *llm-depot *llm-request :append-ack)
 
-        (case> (= :space/fork-from-span *request-type))
-        (interpret-fork-from-span *request *existing-thread :> *decision)
-        (decision-id *decision :> *decision-id)
-        (|hash *decision-id)
-        (local-transform> [(keypath *decision-id) (termval *decision)] $$space-decisions-by-id)
-        (<<if (decision-accepted? *decision)
+          (case> (= :space/fork-from-span *request-type))
           (decision-thread-event *decision :> *thread-event)
           (decision-turn-event *decision :> *turn-event)
           (decision-bundle-event *decision :> *bundle-event)
@@ -1377,7 +1695,6 @@
           (context-bundle-row *request *turn-event :> *bundle)
           (space->llm-turn-run-request *request *turn-event *bundle :> *llm-request)
           (llm-run-id-from-request *llm-request :> *llm-run-id)
-          (thread-row *existing-thread *thread-event :> *base-thread-row)
           (turn-row *turn-event *bundle-id :> *turn-row)
           (slice-row *request *turn-event :> *slice-row)
           (slice-row-id *slice-row :> *slice-id)
@@ -1389,16 +1706,10 @@
           (local-transform> [(keypath *bundle-event-id) (termval *bundle-event)] $$space-events-by-id)
           (|hash *llm-run-event-id)
           (local-transform> [(keypath *llm-run-event-id) (termval *llm-run-event)] $$space-events-by-id)
-          (|hash *event-thread-id)
-          (local-select> [(keypath *event-thread-id)] $$turns-by-space :> *existing-turn-order)
-          (add-turn-id *existing-turn-order *turn-id :> *turn-order)
-          (bump-thread-turn-count *base-thread-row *turn-order :> *thread-row)
-          (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$spaces)
-          (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$turns-by-space)
           (<<if (has-parent-thread? *thread-event)
             (child-thread-edge *thread-event :> *child-edge)
             (|hash *parent-thread-id)
-            (local-transform> [(keypath *parent-thread-id) (keypath *event-thread-id) (termval *child-edge)] $$space-graph))
+            (local-transform> [(keypath *parent-thread-id *event-thread-id) (termval *child-edge)] $$space-graph))
           (|hash *turn-id)
           (local-transform> [(keypath *turn-id) (termval *turn-row)] $$turns)
           (local-transform> [(keypath *turn-id) (termval *bundle-id)] $$context-bundles-by-turn)
@@ -1407,35 +1718,23 @@
           (local-transform> [(keypath *bundle-id) (termval *bundle)] $$context-bundles)
           (|hash *slice-id)
           (local-select> [(keypath *slice-id)] $$slices :> *existing-slice-row)
-          (keep-existing-slice-row *existing-slice-row *slice-row :> *stored-slice-row)
+          (core/write-if-absent *existing-slice-row *slice-row :> *stored-slice-row)
           (local-transform> [(keypath *slice-id) (termval *stored-slice-row)] $$slices)
           (|hash *llm-run-id)
           (local-transform> [(keypath *llm-run-id) (termval *llm-request)] $$llm-run-requests)
           (|hash$$ *llm-depot *llm-run-id)
-          (depot-partition-append! *llm-depot *llm-request :append-ack))
+          (depot-partition-append! *llm-depot *llm-request :append-ack)
 
-        (case> (space-control-request? *request-type))
-        (interpret-control-turn *request *existing-thread :> *decision)
-        (decision-id *decision :> *decision-id)
-        (|hash *decision-id)
-        (local-transform> [(keypath *decision-id) (termval *decision)] $$space-decisions-by-id)
-        (<<if (decision-accepted? *decision)
+          (case> (space-control-request? *request-type))
           (decision-turn-event *decision :> *turn-event)
           (decision-llm-control-event *decision :> *control-event)
           (event-id *turn-event :> *turn-event-id)
           (event-id *control-event :> *control-event-id)
-          (space-id-from-event *turn-event :> *event-thread-id)
           (turn-id-from-event *turn-event :> *turn-id)
           (space->llm-control-record *request *turn-event :> *control)
           (llm-control-run-id *control :> *control-run-id)
           (llm-control-id *control :> *control-id)
           (turn-row *turn-event nil :> *turn-row)
-          (|hash *event-thread-id)
-          (local-select> [(keypath *event-thread-id)] $$turns-by-space :> *existing-turn-order)
-          (add-turn-id *existing-turn-order *turn-id :> *turn-order)
-          (space-event *request *existing-thread :> *thread-event)
-          (thread-row *existing-thread *thread-event :> *base-thread-row)
-          (bump-thread-turn-count *base-thread-row *turn-order :> *thread-row)
           (space-object-row *thread-row :> *thread-object)
           (turn-object-row *turn-row :> *turn-object)
           (thread-turn-edge *thread-row *turn-row :> *thread-turn-edge)
@@ -1444,13 +1743,9 @@
           (artifact-edge-id *thread-turn-edge :> *thread-turn-edge-id)
           (artifact-edge-from *thread-turn-edge :> *thread-turn-from)
           (artifact-edge-to *thread-turn-edge :> *thread-turn-to)
-          (chat-canvas-projection *thread-row *turn-order *turn-row :> *chat-canvas)
           (object-detail-projection *thread-object :> *thread-object-detail)
           (object-detail-projection *turn-object :> *turn-object-detail)
           (one-incoming-relation-projection *turn-object-id *thread-turn-edge :> *turn-relations)
-          (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$spaces)
-          (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$turns-by-space)
-          (local-transform> [(keypath *event-thread-id) (termval *chat-canvas)] $$projection-chat-canvas)
           (|hash *turn-event-id)
           (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$space-events-by-id)
           (|hash *control-event-id)
@@ -1466,33 +1761,21 @@
           (local-select> [(keypath *thread-object-id)] $$projection-object-relations :> *thread-relations-existing)
           (add-projection-out-edge *thread-relations-existing *thread-object-id *thread-turn-edge :> *thread-relations)
           (local-transform> [(keypath *thread-object-id) (termval *thread-relations)] $$projection-object-relations)
-          (local-transform> [(keypath *thread-turn-from) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph)
+          (local-transform> [(keypath *thread-turn-from *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph)
           (|hash *thread-turn-to)
-          (local-transform> [(keypath *thread-turn-to) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph-in)
+          (local-transform> [(keypath *thread-turn-to *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph-in)
           (|hash *turn-object-id)
           (local-transform> [(keypath *turn-object-id) (termval *turn-object)] $$objects)
           (local-transform> [(keypath *turn-object-id) (termval *turn-object-detail)] $$projection-object-detail)
           (local-transform> [(keypath *turn-object-id) (termval *turn-relations)] $$projection-object-relations)
           (|hash$$ *llm-control-depot *control-run-id)
-          (depot-partition-append! *llm-control-depot *control :append-ack))
+          (depot-partition-append! *llm-control-depot *control :append-ack)
 
-        (case> (space-turn-request? *request-type))
-        (interpret-space-turn *request *existing-thread :> *decision)
-        (decision-id *decision :> *decision-id)
-        (|hash *decision-id)
-        (local-transform> [(keypath *decision-id) (termval *decision)] $$space-decisions-by-id)
-        (<<if (decision-accepted? *decision)
+          (case> (space-turn-request? *request-type))
           (decision-turn-event *decision :> *turn-event)
           (event-id *turn-event :> *turn-event-id)
-          (space-id-from-event *turn-event :> *event-thread-id)
           (turn-id-from-event *turn-event :> *turn-id)
           (turn-row *turn-event nil :> *turn-row)
-          (|hash *event-thread-id)
-          (local-select> [(keypath *event-thread-id)] $$turns-by-space :> *existing-turn-order)
-          (add-turn-id *existing-turn-order *turn-id :> *turn-order)
-          (space-event *request *existing-thread :> *thread-event)
-          (thread-row *existing-thread *thread-event :> *base-thread-row)
-          (bump-thread-turn-count *base-thread-row *turn-order :> *thread-row)
           (space-object-row *thread-row :> *thread-object)
           (turn-object-row *turn-row :> *turn-object)
           (thread-turn-edge *thread-row *turn-row :> *thread-turn-edge)
@@ -1501,16 +1784,11 @@
           (artifact-edge-id *thread-turn-edge :> *thread-turn-edge-id)
           (artifact-edge-from *thread-turn-edge :> *thread-turn-from)
           (artifact-edge-to *thread-turn-edge :> *thread-turn-to)
-          (chat-canvas-projection *thread-row *turn-order *turn-row :> *chat-canvas)
           (object-detail-projection *thread-object :> *thread-object-detail)
           (object-detail-projection *turn-object :> *turn-object-detail)
           (one-incoming-relation-projection *turn-object-id *thread-turn-edge :> *turn-relations)
           (|hash *turn-event-id)
           (local-transform> [(keypath *turn-event-id) (termval *turn-event)] $$space-events-by-id)
-          (|hash *event-thread-id)
-          (local-transform> [(keypath *event-thread-id) (termval *thread-row)] $$spaces)
-          (local-transform> [(keypath *event-thread-id) (termval *turn-order)] $$turns-by-space)
-          (local-transform> [(keypath *event-thread-id) (termval *chat-canvas)] $$projection-chat-canvas)
           (|hash *turn-id)
           (local-transform> [(keypath *turn-id) (termval *turn-row)] $$turns)
           (|hash *thread-object-id)
@@ -1519,9 +1797,9 @@
           (local-select> [(keypath *thread-object-id)] $$projection-object-relations :> *thread-relations-existing)
           (add-projection-out-edge *thread-relations-existing *thread-object-id *thread-turn-edge :> *thread-relations)
           (local-transform> [(keypath *thread-object-id) (termval *thread-relations)] $$projection-object-relations)
-          (local-transform> [(keypath *thread-turn-from) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph)
+          (local-transform> [(keypath *thread-turn-from *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph)
           (|hash *thread-turn-to)
-          (local-transform> [(keypath *thread-turn-to) (keypath *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph-in)
+          (local-transform> [(keypath *thread-turn-to *thread-turn-edge-id) (termval *thread-turn-edge)] $$artifact-graph-in)
           (|hash *turn-object-id)
           (local-transform> [(keypath *turn-object-id) (termval *turn-object)] $$objects)
           (local-transform> [(keypath *turn-object-id) (termval *turn-object-detail)] $$projection-object-detail)
@@ -1533,7 +1811,9 @@
             (object-row-id *slice-object :> *slice-object-id)
             (object-detail-projection *slice-object :> *slice-object-detail)
             (|hash *slice-id)
-            (local-transform> [(keypath *slice-id) (termval *slice-row)] $$slices)
+            (local-select> [(keypath *slice-id)] $$slices :> *existing-slice-row)
+            (core/write-if-absent *existing-slice-row *slice-row :> *stored-slice-row)
+            (local-transform> [(keypath *slice-id) (termval *stored-slice-row)] $$slices)
             (|hash *slice-object-id)
             (local-transform> [(keypath *slice-object-id) (termval *slice-object)] $$objects)
             (local-transform> [(keypath *slice-object-id) (termval *slice-object-detail)] $$projection-object-detail)
@@ -1552,9 +1832,9 @@
               (local-select> [(keypath *raw-object-id)] $$projection-object-relations :> *raw-relations-existing)
               (add-projection-out-edge *raw-relations-existing *raw-object-id *source-edge :> *raw-relations)
               (local-transform> [(keypath *raw-object-id) (termval *raw-relations)] $$projection-object-relations)
-              (local-transform> [(keypath *source-edge-from) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph)
+              (local-transform> [(keypath *source-edge-from *source-edge-id) (termval *source-edge)] $$artifact-graph)
               (|hash *source-edge-to)
-              (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in)
+              (local-transform> [(keypath *source-edge-to *source-edge-id) (termval *source-edge)] $$artifact-graph-in)
               (local-transform> [(keypath *source-edge-to) (termval *source-target-relations)] $$projection-object-relations)))
           (<<if (= :turn/comment-create *request-type)
             (overlay-row *request *turn-event :> *overlay-row)
@@ -1563,7 +1843,9 @@
             (object-row-id *overlay-object :> *overlay-object-id)
             (object-detail-projection *overlay-object :> *overlay-object-detail)
             (|hash *overlay-id)
-            (local-transform> [(keypath *overlay-id) (termval *overlay-row)] $$overlays)
+            (local-select> [(keypath *overlay-id)] $$overlays :> *existing-overlay-row)
+            (core/write-if-absent *existing-overlay-row *overlay-row :> *stored-overlay-row)
+            (local-transform> [(keypath *overlay-id) (termval *stored-overlay-row)] $$overlays)
             (|hash *overlay-object-id)
             (local-transform> [(keypath *overlay-object-id) (termval *overlay-object)] $$objects)
             (local-transform> [(keypath *overlay-object-id) (termval *overlay-object-detail)] $$projection-object-detail)
@@ -1582,9 +1864,9 @@
               (local-select> [(keypath *raw-object-id)] $$projection-object-relations :> *raw-relations-existing)
               (add-projection-out-edge *raw-relations-existing *raw-object-id *source-edge :> *raw-relations)
               (local-transform> [(keypath *raw-object-id) (termval *raw-relations)] $$projection-object-relations)
-              (local-transform> [(keypath *source-edge-from) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph)
+              (local-transform> [(keypath *source-edge-from *source-edge-id) (termval *source-edge)] $$artifact-graph)
               (|hash *source-edge-to)
-              (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in)
+              (local-transform> [(keypath *source-edge-to *source-edge-id) (termval *source-edge)] $$artifact-graph-in)
               (local-transform> [(keypath *source-edge-to) (termval *source-target-relations)] $$projection-object-relations)))
           (<<if (= :turn/derivative-create *request-type)
             (derivative-row *request *turn-event :> *derivative-row)
@@ -1593,7 +1875,9 @@
             (object-row-id *derivative-object :> *derivative-object-id)
             (object-detail-projection *derivative-object :> *derivative-object-detail)
             (|hash *derivative-id)
-            (local-transform> [(keypath *derivative-id) (termval *derivative-row)] $$derivatives)
+            (local-select> [(keypath *derivative-id)] $$derivatives :> *existing-derivative-row)
+            (core/write-if-absent *existing-derivative-row *derivative-row :> *stored-derivative-row)
+            (local-transform> [(keypath *derivative-id) (termval *stored-derivative-row)] $$derivatives)
             (|hash *derivative-object-id)
             (local-transform> [(keypath *derivative-object-id) (termval *derivative-object)] $$objects)
             (local-transform> [(keypath *derivative-object-id) (termval *derivative-object-detail)] $$projection-object-detail)
@@ -1612,27 +1896,45 @@
               (local-select> [(keypath *raw-object-id)] $$projection-object-relations :> *raw-relations-existing)
               (add-projection-out-edge *raw-relations-existing *raw-object-id *source-edge :> *raw-relations)
               (local-transform> [(keypath *raw-object-id) (termval *raw-relations)] $$projection-object-relations)
-              (local-transform> [(keypath *source-edge-from) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph)
+              (local-transform> [(keypath *source-edge-from *source-edge-id) (termval *source-edge)] $$artifact-graph)
               (|hash *source-edge-to)
-              (local-transform> [(keypath *source-edge-to) (keypath *source-edge-id) (termval *source-edge)] $$artifact-graph-in)
+              (local-transform> [(keypath *source-edge-to *source-edge-id) (termval *source-edge)] $$artifact-graph-in)
               (local-transform> [(keypath *source-edge-to) (termval *source-target-relations)] $$projection-object-relations)))
           (<<if (= :turn/patch-proposal-create *request-type)
-            (patch-proposal-row-from-request *request :> *patch-proposal)
             (request-patch-proposal-id *request :> *patch-proposal-id)
-            (|hash *patch-proposal-id)
-            (local-transform> [(keypath *patch-proposal-id) (termval *patch-proposal)] $$space-patch-proposals))
+            (<<if (not (blank-string? *patch-proposal-id))
+              (patch-proposal-row-from-request *request :> *patch-proposal)
+              (|hash *patch-proposal-id)
+              (local-select> [(keypath *patch-proposal-id)] $$space-patch-proposals :> *existing-patch-proposal)
+              (core/write-if-absent *existing-patch-proposal *patch-proposal :> *stored-patch-proposal)
+              (local-transform> [(keypath *patch-proposal-id) (termval *stored-patch-proposal)] $$space-patch-proposals)))
           (<<if (patch-decision-request? *request-type)
-            (request-patch-proposal-id *request :> *patch-proposal-id)
-            (|hash *patch-proposal-id)
-            (local-select> [(keypath *patch-proposal-id)] $$space-patch-proposals :> *existing-patch-proposal)
-            (apply-patch-decision *existing-patch-proposal *request *turn-event :> *patch-proposal)
-            (local-transform> [(keypath *patch-proposal-id) (termval *patch-proposal)] $$space-patch-proposals)))
+            (request-patch-proposal-id *request :> *resolve-proposal-id)
+            (<<if (not (blank-string? *resolve-proposal-id))
+              (|hash *resolve-proposal-id)
+              (local-select> [(keypath *resolve-proposal-id)] $$space-patch-proposals :> *existing-resolution-target)
+              (resolve-patch-proposal *existing-resolution-target *request *turn-event :> *resolved-proposal)
+              (<<if (some? *resolved-proposal)
+                (local-transform> [(keypath *resolve-proposal-id) (termval *resolved-proposal)] $$space-patch-proposals))))))
 
-        (default>)
-        (rejected-decision *request :request/type-invalid :> *decision)
-        (decision-id *decision :> *decision-id)
-        (|hash *decision-id)
-        (local-transform> [(keypath *decision-id) (termval *decision)] $$space-decisions-by-id)))))
+      ;; ── typed server-side observation bridge: ONLY patch-like observations
+      ;; become pending proposals (no decision, no turn — spec op 4); a
+      ;; redelivered observation can never duplicate a proposal or reset a
+      ;; resolved one; unroutable patch observations dead-letter (never-drop).
+      (source> *llm-obs-depot :> *obs)
+      (<<if (dropped-patch-observation? *obs)
+        (observation-dead-letter-key *obs :> *dead-key)
+        (|hash *dead-key)
+        (local-select> [(keypath *dead-key)] $$space-obs-dead-letters :> *existing-dead-letters)
+        (append-obs-dead-letter *existing-dead-letters *obs :> *dead-letters)
+        (local-transform> [(keypath *dead-key) (termval *dead-letters)] $$space-obs-dead-letters))
+      (<<if (bridgeable-patch-observation? *obs)
+        (patch-proposal-id-from-observation *obs :> *obs-proposal-id)
+        (patch-proposal-row *obs :> *obs-proposal-row)
+        (|hash *obs-proposal-id)
+        (local-select> [(keypath *obs-proposal-id)] $$space-patch-proposals :> *existing-obs-proposal)
+        (core/write-if-absent *existing-obs-proposal *obs-proposal-row :> *stored-obs-proposal)
+        (local-transform> [(keypath *obs-proposal-id) (termval *stored-obs-proposal)] $$space-patch-proposals)))))
 
 (defn start-space-runtime!
   []
@@ -1649,6 +1951,8 @@
      :space-requests-by-id (foreign-pstate ipc module-name "$$space-requests-by-id")
      :space-decisions-by-id (foreign-pstate ipc module-name "$$space-decisions-by-id")
      :space-events-by-id (foreign-pstate ipc module-name "$$space-events-by-id")
+     :space-request-journal (foreign-pstate ipc module-name "$$space-request-journal")
+     :space-obs-dead-letters (foreign-pstate ipc module-name "$$space-obs-dead-letters")
      :spaces (foreign-pstate ipc module-name "$$spaces")
      :space-graph (foreign-pstate ipc module-name "$$space-graph")
      :turns (foreign-pstate ipc module-name "$$turns")
@@ -1710,30 +2014,15 @@
    request))
 
 (defn append-llm-observation!
+  "Single append per logical operation: the observation goes to the LLM
+   observation depot only. Patch-like observations become pending space patch
+   proposals SERVER-SIDE — the space topology sources the observation depot —
+   so a client crash between appends can no longer strand the proposal, and
+   non-patch observations can never mint space meaning (typed bridge)."
   ([runtime obs]
    (append-llm-observation! runtime obs :append-ack))
   ([runtime obs ack-level]
    (llm/append-observation! runtime obs ack-level)
-   (append-space-action!
-     runtime
-     (space-action-request
-       :turn/patch-proposal-create
-       (or (:space/id obs) (:llm-thread/id obs))
-        {:request-id (str (:observation/id obs) "/space-patch-proposal")
-        :time-ms (:received-at-ms obs)
-        :payload {:turn/id (str (:observation/id obs) "/space-patch-proposal-turn")
-                  :patch-proposal/id (patch-proposal-id-from-observation obs)
-                  :turn-diff/id (or (:turn-diff/id obs)
-                                    (patch-proposal-id-from-observation obs))
-                  :llm-turn-run/id (:llm-turn-run/id obs)
-                  :llm-thread/id (:llm-thread/id obs)
-                  :source-turn/id (:turn/id obs)
-                  :prompt/text (:summary/text obs)
-                  :summary/text (:summary/text obs)
-                  :patch/files (:patch/files obs)
-                  :observation/id (:observation/id obs)
-                  :raw/json (:raw/json obs)}})
-     ack-level)
    obs))
 
 (defn select-pstate-one
@@ -1780,8 +2069,28 @@
   (select-pstate-one (:context-bundles-by-turn runtime) [(keypath turn-id)]))
 
 (defn read-send-by-idempotency
-  [runtime idempotency-key]
-  (select-pstate-one (:send-by-idempotency runtime) [(keypath idempotency-key)]))
+  "Idempotency keys are space-scoped (atomic check-and-claim requires
+   colocation with the deciding task), so reads take the space id too."
+  [runtime space-id idempotency-key]
+  (select-pstate-one (:send-by-idempotency runtime)
+                     [(keypath space-id idempotency-key)]))
+
+(defn read-request-journal
+  [runtime space-id request-id]
+  (select-pstate-one (:space-request-journal runtime)
+                     [(keypath space-id request-id)]))
+
+(defn read-conflict-decision
+  "The conflict decision a request-id impostor receives; lives under its own
+   '/conflict' id so it can never alias the committed decision."
+  [runtime request-id]
+  (select-pstate-one (:space-decisions-by-id runtime)
+                     [(keypath (str (decision-id-for-request-id request-id) "/conflict"))]))
+
+(defn read-space-obs-dead-letters
+  [runtime dead-letter-key]
+  (or (select-pstate-one (:space-obs-dead-letters runtime) [(keypath dead-letter-key)])
+      []))
 
 (defn read-llm-run-request
   [runtime llm-turn-run-id]
