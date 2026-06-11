@@ -98,17 +98,15 @@ and a paste-ready handoff prompt. Method codified as the `rama-retro` skill
 detail: `README.md` (how this retro ran), per-track `0N-*/FINDINGS.md`,
 `COMPARISON-prior-retro.md` (what each method caught/missed).
 
-Next steps (in order of value):
-1. Fix sessions per track — resume the standard /rama skill process at
-   Phase 3 with the track folder as impl-root (spec + plan + findings in
-   place). Start with compute Batch 1 (microbatch conversion + submit dedup
-   guard) — it is the pattern-setter the other kernels copied.
-2. Every fix batch MUST add runtime probes (the prior retro's technique):
-   convert each HIGH finding into an adversarial IPC probe; `require` every
-   touched namespace as step zero. Re-run Phase 4 (+6) after changes.
-3. Cross-cutting fix worth doing once, everywhere: shared idempotent-fold
-   helpers (guarded writes, dedup anchors, sticky terminals) in core.clj so
-   all five kernels stop re-implementing the same broken pattern.
+Next steps — ready-to-run session packets exist:
+**`docs/retros/rama/fix-prompts/SESSION-0..5.md` — one file = one fix
+session.** Start a fresh session with: "Read
+docs/retros/rama/fix-prompts/SESSION-0-foundations.md and execute it: plan
+the work first, then do it." Order: 0 (foundations: kernel.clj load + shared
+guards + probe harness) → 1 (compute, the template) → 2 (llm) → 3 (space) →
+4 (kernel-contract) → 5 (transcript). Each packet embeds the
+probes-first protocol and its done criteria; `fix-prompts/README.md` has the
+dependency table.
 
 Cost note: tracks 2–4 plans are UNVALIDATED (R2/R3/R6/R7 skipped to save
 tokens after Track 1 calibrated the method). Memory:

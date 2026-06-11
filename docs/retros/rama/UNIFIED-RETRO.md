@@ -50,6 +50,10 @@ Real redaction before persistence (needs a small Phase-1 plan) [TR-03 ≡ A/F1 c
 4. Re-run Phase 4 (and Phase 6 if tests changed) on the result; record verdicts in the track folder.
 5. Tests assert semantic payloads, not row existence; one IPC launch per suite unless shared state demands more.
 
-## Handoff prompt for a fresh fix session
+## Handoff — how to actually run the fixes
 
-> Read `docs/retros/rama/UNIFIED-RETRO.md`, then `docs/retros/rama/README.md`, then the FINDINGS.md + FIX_PLAN.md of the batch you're assigned. Load the `/rama` skill (and `rama-retro` for probe discipline). Execute the batch per the fix-session protocol above. Do not read `codex_implementation/` or `.agents/`. Never read `src/app/server/env.clj`.
+**One file = one session**: `docs/retros/rama/fix-prompts/SESSION-0..5.md` are self-contained work packets (inputs, scope, failing-probes-first protocol, done criteria, status line). Start a fresh session and say:
+
+> Read docs/retros/rama/fix-prompts/SESSION-0-foundations.md and execute it: plan the work first, then do it.
+
+Run Session 0 first; then 1 (compute, the template); then 2–5 in any order (2 before 3 recommended). `fix-prompts/README.md` has the dependency table.
