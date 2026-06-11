@@ -90,12 +90,13 @@ code files.
 Status: ALL FIVE TRACKS COMPLETE, 2026-06-11. Every pre-skill module
 validated; every R4 verdict = major-fail. Cross-retro comparison done.
 
-Read `docs/retros/rama/README.md` first (method, status table, scope notes),
-then per track: `0N-*/FINDINGS.md`. Track 1 also has `FIX_PLAN.md` (6 ordered
-batches). `COMPARISON-prior-retro.md` compares against the earlier
-runtime-probed retro in `docs/current-mental-model/build/rama-retro-review/`
-— complementary results; their probes corrected our compute C-05 (unknown-run
-observation = fatal NPE poison record) and found `kernel.clj` does not load.
+**Read `docs/retros/rama/UNIFIED-RETRO.md` first** — both retros merged: one
+verdict, seven weakness groups, master fix queue (Batch 0 cross-cutting →
+compute → llm → space → kernel-contract → transcript), fix-session protocol,
+and a paste-ready handoff prompt. Method codified as the `rama-retro` skill
+(`.claude/skills/rama-retro/SKILL.md`) for all future retros. Supporting
+detail: `README.md` (how this retro ran), per-track `0N-*/FINDINGS.md`,
+`COMPARISON-prior-retro.md` (what each method caught/missed).
 
 Next steps (in order of value):
 1. Fix sessions per track — resume the standard /rama skill process at

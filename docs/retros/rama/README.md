@@ -1,5 +1,7 @@
 # Rama Retrospective — Skill-Driven Review of Pre-Skill Modules
 
+> **Start at `UNIFIED-RETRO.md`** — it merges this retro with the earlier runtime-probed retro (`docs/current-mental-model/build/rama-retro-review/`) into one verdict, one weakness taxonomy, and one master fix queue with a fix-session handoff prompt. The reusable method lives in the `rama-retro` skill (`.claude/skills/rama-retro/SKILL.md`). This README documents how THIS retro was run.
+
 **What this is.** Five Rama feature tracks were implemented (May 2026 and earlier) before the official `/rama` skill was available. This retro runs the skill's own phased process against the as-built code to find where things were done the wrong way. The June 2026 object-container / transcript-ingest work was built WITH the skill and is not a review target (it serves as read-only witness for the kernel-contract track).
 
 **Independence rule.** This retro is Claude's, formed without reading `codex_implementation/`, `.agents/`, or any Codex retro artifacts. All pipeline agents inherit that exclusion, plus the standing ban on `src/app/server/env.clj`.
