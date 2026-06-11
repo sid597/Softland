@@ -33,6 +33,27 @@
     (llm/await-run runtime run-id #(= :pending (:status %)))
     request))
 
+;; The LLM kernel only folds observations that carry the granted claim's
+;; proof (executor id + claim token). Tests that stream observations claim
+;; the run first with a per-run deterministic token (fixed claimed-at so the
+;; writer-asymmetry snapshots stay byte-identical across rebuilds).
+(def test-executor-id "space-test-executor")
+(defn test-claim-token [run-id] (str "test-claim-" run-id))
+
+(defn claim-test-run!
+  [runtime run-id thread-id]
+  (llm/append-claim!
+    runtime
+    (llm/claim-record run-id thread-id test-executor-id
+                      {:claim-token (test-claim-token run-id)
+                       :claimed-at-ms 150
+                       :executor-task-id llm/pending-task-id}))
+  (llm/await-run runtime run-id #(= :claimed (:status %))))
+
+(defn test-claim-proof [run-id]
+  {:executor/id test-executor-id
+   :claim/token (test-claim-token run-id)})
+
 (defn append-approval-observation!
   [runtime {:keys [run-id thread-id approval-id native-id]}]
   (llm/append-observation!
@@ -42,12 +63,13 @@
       thread-id
       :codex/approval-request
       0
-      {:observation-id (str approval-id "/obs")
-       :approval/id approval-id
-       :approval/type :exec
-       :native/json-rpc-request-id native-id
-       :codex/event-method "item/cmdExec/requestApproval"
-       :codex/event-params {:cmd "echo approval"}}))
+      (merge (test-claim-proof run-id)
+             {:observation-id (str approval-id "/obs")
+              :approval/id approval-id
+              :approval/type :exec
+              :native/json-rpc-request-id native-id
+              :codex/event-method "item/cmdExec/requestApproval"
+              :codex/event-params {:cmd "echo approval"}})))
   (llm/await-materialized
     #(llm/read-pending-approval runtime approval-id)
     some?))
@@ -61,9 +83,10 @@
       thread-id
       :codex/item-completed
       sequence
-      {:observation-id (str item-id "/obs/" sequence)
-       :llm-item/id item-id
-       :content/text text}))
+      (merge (test-claim-proof run-id)
+             {:observation-id (str item-id "/obs/" sequence)
+              :llm-item/id item-id
+              :content/text text})))
   (llm/await-run runtime run-id #(<= (long sequence) (long (:last-seq %))))
   (llm/await-materialized #(llm/read-item-by-id runtime item-id) some?))
 
@@ -177,22 +200,24 @@
                                thread-id
                                :codex/item-completed
                                0
-                               {:observation-id "obs-space-property-item"
-                                :received-at-ms 310
-                                :llm-item/id item-id
-                                :content/text "Space property item."
-                                :raw/json {:event "item/completed"}})
+                               (merge (test-claim-proof run-id)
+                                      {:observation-id "obs-space-property-item"
+                                       :received-at-ms 310
+                                       :llm-item/id item-id
+                                       :content/text "Space property item."
+                                       :raw/json {:event "item/completed"}}))
             usage-observation (llm/observation
                                 run-id
                                 thread-id
                                 :codex/token-usage
                                 1
-                                {:observation-id "obs-space-property-usage"
-                                 :received-at-ms 311
-                                 :tokens/input-total 21
-                                 :tokens/cached-input 8
-                                 :tokens/output 5
-                                 :tokens/reasoning-output 3})
+                                (merge (test-claim-proof run-id)
+                                       {:observation-id "obs-space-property-usage"
+                                        :received-at-ms 311
+                                        :tokens/input-total 21
+                                        :tokens/cached-input 8
+                                        :tokens/output 5
+                                        :tokens/reasoning-output 3}))
             compact-request (space/space-turn-request
                               :turn/compact-request
                               space-id
@@ -221,6 +246,7 @@
             slice-object-id (space/catalog-object-id :slice slice-id)]
         (append-and-await-decision! runtime send-request)
         (llm/await-run runtime run-id #(= :pending (:status %)))
+        (claim-test-run! runtime run-id thread-id)
         (llm/append-observation! runtime item-observation)
         (llm/await-materialized #(llm/read-item-by-id runtime item-id) some?)
         (llm/append-observation! runtime usage-observation)
@@ -229,8 +255,16 @@
           #(= 21 (get-in % [:tokens :tokens/input-total])))
         (append-and-await-decision! runtime compact-request)
         (llm/await-materialized #(llm/read-control runtime control-id) some?)
+        ;; microbatch: the control-by-id write and the run-row write land on
+        ;; different tasks with no cross-task visibility order — await the run
+        ;; row itself so both rebuilds snapshot the same folded state
+        (llm/await-run runtime run-id #(seq (:compactions %)))
         (append-and-await-decision! runtime slice-request)
         (space/await-materialized #(space/read-slice runtime slice-id) some?)
+        ;; the slice-create flow also promotes the source llm-item into the
+        ;; object catalog on its own partition — await it so both property
+        ;; rebuilds snapshot the same state
+        (space/await-materialized #(space/read-object runtime raw-object-id) some?)
         {:space {:thread (space/read-space runtime space-id)
                  :turn-order (space/read-turns-by-space runtime space-id)
                  :bundle (space/read-context-bundle runtime bundle-id)
@@ -523,6 +557,7 @@
               original-text "Original raw answer."
               mutated-text "Mutated duplicate answer."
               _ (append-send-and-await-run! runtime ids)
+              _ (claim-test-run! runtime (:run-id ids) (:thread-id ids))
               raw-item (append-raw-item-observation!
                          runtime
                          {:run-id (:run-id ids)
@@ -1137,6 +1172,7 @@
               approval-id "approval-space-first"
               native-id 44
               _ (append-send-and-await-run! runtime ids)
+              _ (claim-test-run! runtime (:run-id ids) (:thread-id ids))
               _ (append-approval-observation!
                   runtime
                   {:run-id (:run-id ids)
@@ -1184,6 +1220,7 @@
                    :request-id "req-approval-not-patch-send"}
               approval-id "approval-not-patch"
               _ (append-send-and-await-run! runtime ids)
+              _ (claim-test-run! runtime (:run-id ids) (:thread-id ids))
               _ (append-approval-observation!
                   runtime
                   {:run-id (:run-id ids)
@@ -1274,7 +1311,9 @@
               control (llm/await-materialized
                         #(llm/read-control runtime "req-compact/llm-control")
                         some?)
-              run (llm/read-run runtime (:run-id ids))]
+              ;; microbatch: control-by-id and the run row commit on different
+              ;; tasks; await the run row's own fold before asserting on it
+              run (llm/await-run runtime (:run-id ids) #(seq (:compactions %)))]
           (is (= :accepted (:decision/status decision)))
           (is (= :compact/request (:llm-control/type decision)))
           (is (= :compact/request (:control/type control)))
@@ -1300,6 +1339,7 @@
                    :request-id "req-timeout-send"}
               approval-id "approval-timeout"
               _ (append-send-and-await-run! runtime ids)
+              _ (claim-test-run! runtime (:run-id ids) (:thread-id ids))
               _ (append-approval-observation!
                   runtime
                   {:run-id (:run-id ids)

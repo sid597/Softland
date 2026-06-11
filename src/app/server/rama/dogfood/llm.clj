@@ -36,6 +36,8 @@
 (def pending-task-id "local")
 (def default-error-limit 50)
 (def default-claude-timeout-ms 120000)
+(def obs-buffer-limit 1024)
+(def dead-letter-limit 100)
 
 (def llm-backends
   #{:codex :claude})
@@ -488,10 +490,12 @@
                :space/id (:space/id run-row)
                :agent/kind (:agent/kind run-row)
                :llm/backend (:llm/backend run-row)
-               :native/codex-thread-id (or (:native/codex-thread-id run-row)
-                                           (:native/codex-thread-id base))
-               :native/claude-session-id (or (:native/claude-session-id run-row)
-                                             (:native/claude-session-id base)))
+               ;; first-write-wins: a conflicting native id from a later run's
+               ;; observation must not silently flip the thread binding
+               :native/codex-thread-id (or (:native/codex-thread-id base)
+                                           (:native/codex-thread-id run-row))
+               :native/claude-session-id (or (:native/claude-session-id base)
+                                             (:native/claude-session-id run-row)))
         (update :turn-run/ids conj-distinct (:llm-turn-run/id run-row)))))
 
 (defn bind-run-to-existing-thread
@@ -657,12 +661,17 @@
            :updated-at t)))
 
 (defn claim-state
+  "3-state claim resolution. Token equality (not status) decides ownership so
+   a restarted executor can re-verify its grant after the run has progressed
+   to :running / :blocked-awaiting-approval; terminal runs read
+   :conflict-or-past so recovery never respawns finished work."
   [run-row claim]
   (cond
     (nil? run-row) :not-yet-processed
-    (and (= :claimed (:status run-row))
+    (and (some? (:claim/token run-row))
          (= (:executor/id claim) (:claimed-by run-row))
-         (= (:claim/token claim) (:claim/token run-row))) :granted-to-us
+         (= (:claim/token claim) (:claim/token run-row))
+         (not (contains? terminal-statuses (:status run-row)))) :granted-to-us
     (= :pending (:status run-row)) :not-yet-processed
     :else :conflict-or-past))
 
@@ -674,17 +683,41 @@
       (subvec v (- c limit))
       v)))
 
+(def max-audit-field-chars 64)
+
+(defn bounded-audit-field
+  "Audit entries copy fields from UNAUTHORIZED (attacker-controlled) records;
+   keep only small scalars so a hostile payload can never ride an error entry
+   into the truth row and the view. Oversized or non-scalar values become nil
+   — the :reason carries the diagnostic weight."
+  [x]
+  (cond
+    (integer? x) x
+    (and (keyword? x) (< (count (str x)) max-audit-field-chars)) x
+    (and (string? x) (< (count x) max-audit-field-chars)) x
+    :else nil))
+
+(defn audit-time-ms
+  "Deterministic audit timestamp: the record's own time when it carries one
+   (observations: :received-at-ms, controls: :time-ms); wall clock only as the
+   last resort for garbage records."
+  [record]
+  (cond
+    (number? (:received-at-ms record)) (:received-at-ms record)
+    (number? (:time-ms record)) (:time-ms record)
+    :else (now-ms)))
+
 (defn observation-error
   [reason run-row obs]
   {:reason reason
    :llm-turn-run/id (:llm-turn-run/id run-row)
-   :observation/type (:observation/type obs)
-   :sequence (:sequence obs)
-   :received-at-ms (or (:received-at-ms obs) (now-ms))})
+   :observation/type (bounded-audit-field (:observation/type obs))
+   :sequence (bounded-audit-field (:sequence obs))
+   :received-at-ms (audit-time-ms obs)})
 
 (defn add-observation-error
   [run-row reason obs]
-  (let [t (or (:received-at-ms obs) (now-ms))]
+  (let [t (audit-time-ms obs)]
     (-> run-row
         (update :observation-errors
                 append-bounded
@@ -728,6 +761,7 @@
        :raw/json (or (:raw/json opts) (:raw-json opts) {})}
       (select-keys opts
                    [:space/id :turn/id
+                    :executor/id :claim/token
                     :llm-item/id :native/item-id :item/type :content/text
                     :content/hash :approval/id :approval/type
                     :native/json-rpc-request-id :tokens/input-total
@@ -912,6 +946,38 @@
            (or (:native/claude-session-id run-row)
                (observation-native-claude-session-id obs)))))
 
+(defn expire-pending-approvals
+  "Run close: any still-pending approval's native JSON-RPC request id is
+   unanswerable once the provider process ends — expire them durably on the
+   trail (never deleted) and clear the pending set. The topology's
+   pending-index diff turns the cleared set into $$llm-approvals-pending
+   removals."
+  [run-row t reason]
+  (let [pending (:approvals-pending run-row)]
+    (if (empty? pending)
+      run-row
+      (reduce-kv
+        (fn [row aid approval]
+          (assoc-in row [:approvals-by-id aid]
+                    (assoc approval
+                           :status :expired
+                           :decision :expired
+                           :reason reason
+                           :resolved-at-ms t)))
+        (assoc run-row :approvals-pending {})
+        pending))))
+
+(defn close-run-row
+  "Terminal close from a provider observation: set the terminal status and
+   expire any approvals the provider left unresolved."
+  [run-row status t error]
+  (-> run-row
+      (assoc :status status
+             :finished-at t
+             :updated-at t)
+      (cond-> error (assoc :error error))
+      (expire-pending-approvals t :run-closed)))
+
 (defn apply-observation-effect
   [run-row obs]
   (let [t (or (:received-at-ms obs) (now-ms))
@@ -950,17 +1016,10 @@
           (assoc :updated-at t))
 
       :codex/run-finished
-      (assoc run-row
-             :status :succeeded
-             :finished-at t
-             :updated-at t)
+      (close-run-row run-row :succeeded t nil)
 
       :codex/run-failed
-      (assoc run-row
-             :status :failed
-             :error (:error obs)
-             :finished-at t
-             :updated-at t)
+      (close-run-row run-row :failed t (:error obs))
 
       :claude/system-init
       (assoc run-row
@@ -1023,18 +1082,10 @@
       (assoc run-row :updated-at t)
 
       :claude/rate-limit
-      (assoc run-row
-             :status :failed
-             :error (or (:error obs) {:reason :claude/rate-limit})
-             :finished-at t
-             :updated-at t)
+      (close-run-row run-row :failed t (or (:error obs) {:reason :claude/rate-limit}))
 
       :claude/auth
-      (assoc run-row
-             :status :failed
-             :error (or (:error obs) {:reason :claude/auth})
-             :finished-at t
-             :updated-at t)
+      (close-run-row run-row :failed t (or (:error obs) {:reason :claude/auth}))
 
       :claude/api-retry
       (assoc run-row :updated-at t)
@@ -1054,20 +1105,15 @@
       (assoc run-row :updated-at t)
 
       :claude/result
-      (assoc run-row
-             :status (if (contains? #{:failed :error} (:result/status obs))
+      (close-run-row run-row
+                     (if (contains? #{:failed :error} (:result/status obs))
                        :failed
                        :succeeded)
-             :error (:error obs)
-             :finished-at t
-             :updated-at t)
+                     t
+                     (:error obs))
 
       :claude/run-failed
-      (assoc run-row
-             :status :failed
-             :error (:error obs)
-             :finished-at t
-             :updated-at t)
+      (close-run-row run-row :failed t (:error obs))
 
       (add-observation-error run-row :observation/type-invalid obs))))
 
@@ -1080,65 +1126,162 @@
       (assoc :last-seq (:sequence obs))))
 
 (defn drain-observation-buffer
+  "Apply buffered observations in sequence order while contiguous; stop at a
+   gap. Terminal fence (Session-1 compute shape): the moment the row is
+   terminal (a run-finished/result just applied, directly or from the buffer),
+   every remaining buffered entry is DISCARDED unapplied — terminal truth is
+   immutable even against later-seq observations buffered before closure."
   [run-row]
   (loop [row run-row]
-    (let [next-seq (inc (long (:last-seq row)))
-          obs (get-in row [:obs-buffer next-seq])]
-      (if obs
-        (recur (-> row
-                   (update :obs-buffer dissoc next-seq)
-                   (apply-observation-in-order obs)))
-        row))))
+    (if (contains? terminal-statuses (:status row))
+      (if (seq (:obs-buffer row))
+        (assoc row :obs-buffer {})
+        row)
+      (let [next-seq (inc (long (:last-seq row)))
+            obs (get-in row [:obs-buffer next-seq])]
+        (if obs
+          (recur (-> row
+                     (update :obs-buffer dissoc next-seq)
+                     (apply-observation-in-order obs)))
+          row)))))
 
 (defn fold-observation
+  "Fold one observation into a run row behind the guard chain (Session-1
+   compute shape; validated order — authorization BEFORE the terminal check,
+   so unauthorized writes stay auditable post-terminal while authorized
+   redeliveries of a closed run's suffix are ignored silently):
+
+     1. absent row    → nil; the topology dead-letters the record instead
+                        (never-drop), and no state is invented for unknown ids.
+     2. authorization → core/authorize-mutation: a claim must have been granted
+                        (row token non-nil) AND the observation's token must
+                        match AND the sequence must be a number. Failure folds
+                        a token-free :observation/not-authorized (or
+                        :observation/sequence-invalid) audit error; nothing
+                        else mutates. A :pending row rejects ANY token —
+                        including a missing one.
+     3. identity      → thread/routing mismatches from an authorized writer are
+                        audit errors that do NOT consume the sequence.
+     4. terminal      → authorized observations are ignored silently (replays
+                        of a completed run's suffix never mint audit errors).
+     5. sequence      → seq ≤ watermark replays are ignored (first payload
+                        wins); gaps buffer store-if-absent with a hard cap
+                        (overflow → auditable :observation/buffer-overflow);
+                        seq = expected applies and drains the buffer. Unknown
+                        observation TYPES apply as audit errors that DO consume
+                        their sequence (they can never wedge the stream).
+
+   Every ignore path returns run-row IDENTICAL, so the topology skips all
+   PState writes for no-op folds."
   [run-row obs]
-  (let [seq-id (:sequence obs)
-        expected (inc (long (:last-seq run-row)))]
-    (cond
-      (not= (:llm-turn-run/id run-row) (:llm-turn-run/id obs))
-      (add-observation-error run-row :observation/run-mismatch obs)
+  (if (nil? run-row)
+    nil
+    (let [auth (core/authorize-mutation run-row obs
+                                        {:claim-token-key :claim/token
+                                         :record-token-key :claim/token
+                                         :seq-key :sequence
+                                         :watermark (:last-seq run-row)
+                                         :context {:llm-turn-run/id (:llm-turn-run/id run-row)}})]
+      (case (:auth/status auth)
+        :replay
+        run-row
 
-      (not= (:llm-thread/id run-row) (:llm-thread/id obs))
-      (add-observation-error run-row :observation/thread-mismatch obs)
+        :rejected
+        (case (:auth/reason auth)
+          (:no-claim-granted :token-missing :token-mismatch)
+          (add-observation-error run-row :observation/not-authorized obs)
 
-      (not (valid-observation-routing? obs))
-      (add-observation-error run-row :observation/routing-key-invalid obs)
+          :sequence-invalid
+          (add-observation-error run-row :observation/sequence-invalid obs)
 
-      (not (contains? observation-types (:observation/type obs)))
-      (add-observation-error run-row :observation/type-invalid obs)
+          ;; record-not-map / authorization-error: nothing safe to record
+          run-row)
 
-      (not (valid-observation-sequence? obs))
-      (add-observation-error run-row :observation/sequence-invalid obs)
+        :accepted
+        (cond
+          (not= (:llm-turn-run/id run-row) (:llm-turn-run/id obs))
+          (add-observation-error run-row :observation/run-mismatch obs)
 
-      (< seq-id expected)
-      run-row
+          (not= (:llm-thread/id run-row) (:llm-thread/id obs))
+          (add-observation-error run-row :observation/thread-mismatch obs)
 
-      (= seq-id expected)
-      (drain-observation-buffer (apply-observation-in-order run-row obs))
+          (not (valid-observation-routing? obs))
+          (add-observation-error run-row :observation/routing-key-invalid obs)
 
-      :else
-      (assoc-in run-row [:obs-buffer seq-id] obs))))
+          (not (valid-observation-sequence? obs))
+          (add-observation-error run-row :observation/sequence-invalid obs)
 
-(defn observation-approval-materialized?
-  [run-row obs]
-  (and (contains? #{:codex/approval-request :claude/hook-event}
-                  (:observation/type obs))
-       (:approval/id obs)
-       (<= (long (:sequence obs)) (long (:last-seq run-row)))))
+          (contains? terminal-statuses (:status run-row))
+          run-row
 
-(defn indexable-item-observation?
-  [run-row obs]
-  (and (contains? #{:codex/item-completed
-                   :claude/stream-delta
-                   :claude/message
-                   :claude/user-message
-                   :claude/tool-result}
-                 (:observation/type obs))
-       (seq (:content/text obs))
-       (= (:llm-turn-run/id run-row) (:llm-turn-run/id obs))
-       (= (:llm-thread/id run-row) (:llm-thread/id obs))
-       (valid-observation-routing? obs)
-       (valid-observation-sequence? obs)))
+          :else
+          (let [seq-id (long (:sequence obs))
+                expected (inc (long (:last-seq run-row)))]
+            (cond
+              (= seq-id expected)
+              (drain-observation-buffer (apply-observation-in-order run-row obs))
+
+              ;; gap: store-if-absent — a redelivered buffered sequence with a
+              ;; different payload can never overwrite the first delivery
+              (contains? (:obs-buffer run-row) seq-id)
+              run-row
+
+              (>= (count (:obs-buffer run-row)) obs-buffer-limit)
+              (add-observation-error run-row :observation/buffer-overflow obs)
+
+              :else
+              (assoc-in run-row [:obs-buffer seq-id] obs))))))))
+
+;; ── fold-diff helpers ──
+;;
+;; Cross-key index maintenance ($$llm-item-by-id, $$llm-approvals-pending,
+;; $$llm-executor-active-runs) is derived by DIFFING the run row across a
+;; fold, never by inspecting the current record: observations that enter via
+;; the sequence buffer still index when the drain materializes them, and a
+;; redelivered record diffs to nothing, so it can never resurrect a resolved
+;; approval's pending row or double-index an item.
+
+(defn newly-materialized-items
+  [old-row new-row]
+  (vec (vals (apply dissoc (:items-by-id new-row) (keys (:items-by-id old-row))))))
+
+(defn pending-approval-additions
+  "Approval rows that newly became pending across a fold (buffer-drained ones
+   included) — the put half of the $$llm-approvals-pending index diff."
+  [old-row new-row]
+  (let [old-pending (or (:approvals-pending old-row) {})
+        new-pending (or (:approvals-pending new-row) {})]
+    (vec (vals (apply dissoc new-pending (keys old-pending))))))
+
+(defn pending-approval-removals
+  "Approval ids that left the pending set across a fold (resolve / expiry /
+   run close) — the removal half of the $$llm-approvals-pending index diff."
+  [old-row new-row]
+  (let [old-pending (or (:approvals-pending old-row) {})
+        new-pending (or (:approvals-pending new-row) {})]
+    (vec (remove #(contains? new-pending %) (keys old-pending)))))
+
+(defn approval-row-id [approval] (:approval/id approval))
+(defn non-empty-coll? [coll] (boolean (seq coll)))
+
+(defn newly-terminal?
+  [old-row new-row]
+  (and (contains? terminal-statuses (:status new-row))
+       (not (contains? terminal-statuses (:status old-row)))))
+
+(defn run-claimed-by [run-row] (:claimed-by run-row))
+(defn run-claimed-at [run-row] (:claimed-at run-row))
+(defn claim-executor-id [claim] (:executor/id claim))
+
+(defn observation-dead-letter
+  [run-id obs]
+  (core/bounded-dead-letter :observation/unknown-run obs
+                            {:context {:llm-turn-run/id run-id}}))
+
+(defn control-dead-letter
+  [run-id control]
+  (core/bounded-dead-letter :control/unknown-run control
+                            {:context {:llm-turn-run/id run-id}}))
 
 (defn item-row-id
   [item-row]
@@ -1181,52 +1324,75 @@
   (contains? terminal-approval-decisions decision))
 
 (defn resolve-approval
+  "Resolve an EXISTING pending approval — a control can never invent one
+   (unknown approval id → audit error, nothing else mutates) and never
+   re-resolves: the first resolution wins, later attempts (including
+   resurrection of an :expired approval) stay recorded in the controls trail
+   but are no-ops on approval and run truth. The native JSON-RPC request id is
+   taken from the STORED approval row — the provider mapping is kernel truth,
+   not caller payload."
   [run-row control]
   (let [approval-id (:approval/id control)
-        decision (or (:decision control) :approved)
-        status (approval-resolution-status decision)
-        t (:time-ms control)
-        existing (or (get-in run-row [:approvals-by-id approval-id])
-                     {:approval/id approval-id
-                      :llm-turn-run/id (:llm-turn-run/id control)
-                      :llm-thread/id (:llm-thread/id control)})
-        approval (assoc existing
-                        :status status
-                        :decision decision
-                        :resolved-at-ms t
-                        :resolved-by (:actor control)
-                        :control/id (:control/id control)
-                        :native/json-rpc-request-id
-                        (or (:native/json-rpc-request-id control)
-                            (:native/json-rpc-request-id existing)))
-        pending-after (dissoc (:approvals-pending run-row) approval-id)
-        failed? (approval-terminal-decision? decision)]
-    (cond-> (-> run-row
-                (assoc-in [:approvals-by-id approval-id] approval)
-                (assoc :approvals-pending pending-after
-                       :updated-at t))
-      (and (not failed?)
-           (= :blocked-awaiting-approval (:status run-row))
-           (empty? pending-after))
-      (assoc :status :running)
+        existing (get-in run-row [:approvals-by-id approval-id])]
+    (cond
+      (nil? existing)
+      (add-observation-error run-row :approval/unknown control)
 
-      failed?
-      (assoc :status :failed
-             :finished-at t
-             :error {:reason :approval/declined
-                     :decision decision
-                     :approval/id approval-id
-                     :control/id (:control/id control)}))))
+      (not= :pending (:status existing))
+      run-row
+
+      :else
+      (let [decision (or (:decision control) :approved)
+            status (approval-resolution-status decision)
+            t (:time-ms control)
+            approval (assoc existing
+                            :status status
+                            :decision decision
+                            :resolved-at-ms t
+                            :resolved-by (:actor control)
+                            :control/id (:control/id control)
+                            :native/json-rpc-request-id
+                            (or (:native/json-rpc-request-id existing)
+                                (:native/json-rpc-request-id control)))
+            pending-after (dissoc (:approvals-pending run-row) approval-id)
+            failed? (approval-terminal-decision? decision)
+            resolved-row (-> run-row
+                             (assoc-in [:approvals-by-id approval-id] approval)
+                             (assoc :approvals-pending pending-after
+                                    :updated-at t))]
+        (cond
+          (and failed? (not (terminal-run-row? run-row)))
+          (-> resolved-row
+              (assoc :status :failed
+                     :finished-at t
+                     :error {:reason :approval/declined
+                             :decision decision
+                             :approval/id approval-id
+                             :control/id (:control/id control)})
+              (expire-pending-approvals t :run-closed))
+
+          (and (not failed?)
+               (= :blocked-awaiting-approval (:status run-row))
+               (empty? pending-after))
+          (assoc resolved-row :status :running)
+
+          :else
+          resolved-row)))))
 
 (defn cancel-run
+  "Terminal statuses are sticky: a late cancel against a closed run stays in
+   the controls trail (record-control already ran) but never regresses truth."
   [run-row control]
-  (let [t (:time-ms control)]
-    (assoc run-row
-           :status :cancelled
-           :finished-at t
-           :updated-at t
-           :cancelled-by (:actor control)
-           :cancel/reason (:reason control))))
+  (if (terminal-run-row? run-row)
+    run-row
+    (let [t (:time-ms control)]
+      (-> run-row
+          (assoc :status :cancelled
+                 :finished-at t
+                 :updated-at t
+                 :cancelled-by (:actor control)
+                 :cancel/reason (:reason control))
+          (expire-pending-approvals t :run-closed)))))
 
 (defn add-compaction
   [run-row control]
@@ -1248,64 +1414,100 @@
 
 (defn fold-control
   [run-row control]
-  (let [run-row (record-control run-row control)]
-    ;; NOTE: :turn/cancel and :turn/steer can also appear as space request
-    ;; types. LLM control dispatch is authoritative on :control/type.
-    (cond
-      (not (valid-control? control))
-      (add-observation-error run-row :control/invalid control)
+  (if (get-in run-row [:controls-by-id (:control/id control)])
+    ;; duplicate delivery of an already-recorded control id: first delivery
+    ;; wins — without this, unkeyed trail vectors (:steers, :compactions)
+    ;; would gain duplicate entries on client re-appends
+    run-row
+    (let [run-row (record-control run-row control)]
+      ;; NOTE: :turn/cancel and :turn/steer can also appear as space request
+      ;; types. LLM control dispatch is authoritative on :control/type.
+      (cond
+        (not (valid-control? control))
+        (add-observation-error run-row :control/invalid control)
 
-      (not= (:llm-turn-run/id run-row) (:llm-turn-run/id control))
-      (add-observation-error run-row :control/run-mismatch control)
+        (not= (:llm-turn-run/id run-row) (:llm-turn-run/id control))
+        (add-observation-error run-row :control/run-mismatch control)
 
-      (= :approval/resolve (:control/type control))
-      (resolve-approval run-row control)
+        (= :approval/resolve (:control/type control))
+        (resolve-approval run-row control)
 
-      (= :turn/cancel (:control/type control))
-      (cancel-run run-row control)
+        (= :turn/cancel (:control/type control))
+        (cancel-run run-row control)
 
-      (= :compact/request (:control/type control))
-      (add-compaction run-row control)
+        (= :compact/request (:control/type control))
+        (add-compaction run-row control)
 
-      (= :turn/steer (:control/type control))
-      (add-steer run-row control)
+        (= :turn/steer (:control/type control))
+        (add-steer run-row control)
 
-      :else
-      (add-observation-error run-row :control/type-invalid control))))
+        :else
+        (add-observation-error run-row :control/type-invalid control)))))
 
 (defmodule llm-module [setup topologies]
   (declare-depot setup *llm-depot (hash-by :llm-turn-run/id))
   (declare-depot setup *llm-claim-depot (hash-by :llm-turn-run/id))
   (declare-depot setup *llm-obs-depot (hash-by :llm-turn-run/id))
   (declare-depot setup *llm-control-depot (hash-by :llm-turn-run/id))
-  (let [n (stream-topology topologies "llm-track-topology")]
-    (declare-pstate n $$llm-threads {String Object})
-    (declare-pstate n $$llm-thread-by-space {String String})
-    (declare-pstate n $$llm-thread-graph {String Object})
-    (declare-pstate n $$llm-turn-runs {String Object})
-    (declare-pstate n $$llm-turn-runs-by-thread {String Object})
-    (declare-pstate n $$llm-turn-run-by-turn {String String})
-    (declare-pstate n $$llm-decisions-by-run-id {String Object})
-    (declare-pstate n $$llm-pending-by-task {String Object})
-    (declare-pstate n $$llm-items-by-turn-run {String Object})
-    (declare-pstate n $$llm-items-by-thread {String Object})
-    (declare-pstate n $$llm-item-by-id {String Object})
-    (declare-pstate n $$llm-raw-response-items {String Object})
-    (declare-pstate n $$llm-tool-calls-by-run-id {String Object})
-    (declare-pstate n $$llm-approvals-pending {String Object})
-    (declare-pstate n $$llm-approvals-by-run-id {String Object})
-    (declare-pstate n $$llm-token-usage-by-run-id {String Object})
-    (declare-pstate n $$llm-cost-by-thread {String Object})
-    (declare-pstate n $$llm-controls-by-run-id {String Object})
-    (declare-pstate n $$llm-control-by-id {String Object})
-    (declare-pstate n $$llm-views {String Object})
-    (declare-pstate n $$projection-run-detail {String Object})
+  ;; Microbatch, not stream (Session-1 compute precedent): the request fan-out
+  ;; (run row, thread row, inbox, turn/space indexes) and the grant pair
+  ;; (status CAS + inbox removal) span partitioner hops. A stream topology
+  ;; commits per hop, so a retry between hops applies the pair partially —
+  ;; retro L-01 (request retry clobbering a live run) and L-02 (grant
+  ;; committed, inbox removal skipped forever → lane head-of-line livelock)
+  ;; are both that hazard. One microbatch attempt is a single cross-partition
+  ;; exactly-once transaction, closing both by construction. Cost: fold
+  ;; latency rises from per-record stream latency to microbatch cadence — a
+  ;; documented deviation from the spec's ~200 ms streaming feel, accepted the
+  ;; same way the compute kernel accepted it.
+  (let [mb (microbatch-topology topologies "llm-track-topology")]
+    (declare-pstate mb $$llm-threads {String Object})
+    (declare-pstate mb $$llm-thread-by-space {String String})
+    (declare-pstate mb $$llm-thread-graph {String Object})
+    (declare-pstate mb $$llm-turn-runs {String Object})
+    (declare-pstate mb $$llm-turn-runs-by-thread {String Object})
+    (declare-pstate mb $$llm-turn-run-by-turn {String String})
+    (declare-pstate mb $$llm-decisions-by-run-id {String Object})
+    (declare-pstate mb $$llm-pending-by-task {String Object})
+    (declare-pstate mb $$llm-items-by-turn-run {String Object})
+    (declare-pstate mb $$llm-items-by-thread {String Object})
+    (declare-pstate mb $$llm-item-by-id {String Object})
+    (declare-pstate mb $$llm-raw-response-items {String Object})
+    (declare-pstate mb $$llm-tool-calls-by-run-id {String Object})
+    (declare-pstate mb $$llm-approvals-pending {String Object})
+    (declare-pstate mb $$llm-approvals-by-run-id {String Object})
+    (declare-pstate mb $$llm-token-usage-by-run-id {String Object})
+    (declare-pstate mb $$llm-cost-by-thread {String Object})
+    (declare-pstate mb $$llm-controls-by-run-id {String Object})
+    (declare-pstate mb $$llm-control-by-id {String Object})
+    (declare-pstate mb $$llm-views {String Object})
+    (declare-pstate mb $$projection-run-detail {String Object})
+    ;; executor-restart recovery index: executor-id → {run-id claimed-at};
+    ;; added on grant, removed when the run reaches a terminal status
+    (declare-pstate mb $$llm-executor-active-runs {String Object})
+    ;; never-drop ledger: observations/controls for unknown run ids land here
+    ;; as bounded dead-letter values instead of being silently consumed
+    (declare-pstate mb $$llm-dead-letters {String Object})
 
-    (<<sources n
-      (source> *llm-depot :> *request)
-      (interpret-turn-run-request *request :> *decision)
-      (decision-run-id *decision :> *run-id)
-      (|hash *run-id)
+    (<<sources mb
+      ;; ── turn-run request ──
+      ;; Records arrive on hash(:llm-turn-run/id) — already the run's task.
+      ;; Blank/nil run ids cannot be keyed: dropped before any read or write
+      ;; (refused client-side by append-turn-run-request! as well).
+      ;; The decision row is the durable dedup anchor: run ids are single-use,
+      ;; first request wins. A redelivered identical request and a conflicting
+      ;; reuse are both total no-ops — no decision flip, no run-row clobber
+      ;; (no :pending regression re-arming the spawn path), no inbox re-add.
+      (source> *llm-depot :> %requests)
+      (%requests :> *request)
+      (request-run-id *request :> *run-id)
+      (filter> (not (blank-string? *run-id)))
+      (local-select> [(keypath *run-id)] $$llm-decisions-by-run-id :> *stored-decision)
+      (core/decision-dedup-gate *stored-decision *request :> *gate)
+      (get *gate :gate/status :> *gate-status)
+      (filter> (= :proceed *gate-status))
+      (interpret-turn-run-request *request :> *interpreted)
+      (core/with-request-fingerprint *interpreted *request :> *decision)
       (local-transform> [(keypath *run-id) (termval *decision)] $$llm-decisions-by-run-id)
       (<<if (decision-accepted? *decision)
         (initial-turn-run-row *decision :> *run-row)
@@ -1324,7 +1526,7 @@
         (run-turn-id *assigned-run-row :> *turn-id)
         (upsert-thread-row *existing-thread-row *bound-run-row :> *thread-row)
         (local-transform> [(keypath *thread-id) (termval *thread-row)] $$llm-threads)
-        (local-transform> [(keypath *thread-id) (keypath *run-id) (termval *run-summary)] $$llm-turn-runs-by-thread)
+        (local-transform> [(keypath *thread-id *run-id) (termval *run-summary)] $$llm-turn-runs-by-thread)
         (|hash *run-id)
         (local-transform> [(keypath *run-id) (termval *bound-run-row)] $$llm-turn-runs)
         (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
@@ -1332,96 +1534,182 @@
         (|hash *turn-id)
         (local-transform> [(keypath *turn-id) (termval *run-id)] $$llm-turn-run-by-turn)
         (|hash *executor-task-id)
-        (local-transform> [(keypath *executor-task-id) (keypath *run-id) (termval *pending-entry)] $$llm-pending-by-task)
+        (local-transform> [(keypath *executor-task-id *run-id) (termval *pending-entry)] $$llm-pending-by-task)
         (|hash *space-id)
         (local-transform> [(keypath *space-id) (termval *thread-id)] $$llm-thread-by-space))
 
-      (source> *llm-claim-depot :> *claim)
+      ;; ── claim ──
+      ;; The grant (status CAS on the run task), the inbox removal, and the
+      ;; recovery-index add commit atomically in one microbatch attempt.
+      (source> *llm-claim-depot :> %claims)
+      (%claims :> *claim)
       (claim-run-id *claim :> *run-id)
-      (|hash *run-id)
+      (filter> (not (blank-string? *run-id)))
       (local-select> [(keypath *run-id)] $$llm-turn-runs :> *run-row)
       (<<if (grantable-claim? *run-row *claim)
         (grant-claim *run-row *claim :> *claimed-run-row)
         (run-executor-task-id *claimed-run-row :> *executor-task-id)
+        (claim-executor-id *claim :> *executor-id)
+        (run-claimed-at *claimed-run-row :> *claimed-at)
         (run-view *claimed-run-row :> *view)
         (run-detail-projection *claimed-run-row :> *run-detail)
         (local-transform> [(keypath *run-id) (termval *claimed-run-row)] $$llm-turn-runs)
         (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
         (local-transform> [(keypath *run-id) (termval *run-detail)] $$projection-run-detail)
         (|hash *executor-task-id)
-        (local-transform> [(keypath *executor-task-id) (keypath *run-id) NONE>] $$llm-pending-by-task))
+        (local-transform> [(keypath *executor-task-id *run-id) NONE>] $$llm-pending-by-task)
+        ;; executor-restart recovery index (R22 in the reference plan): a
+        ;; crashed executor rediscovers its claimed runs from durable state
+        (|hash *executor-id)
+        (local-transform> [(keypath *executor-id *run-id) (termval *claimed-at)] $$llm-executor-active-runs))
 
-      (source> *llm-obs-depot {:retry-mode :all-after} :> *obs)
+      ;; ── observation: known-run fold ──
+      ;; Guarded fold; no-op folds (replays, post-terminal ignores) return the
+      ;; identical row and skip every write. The diff-driven index blocks below
+      ;; the thread hop are guarded <<ifs: an empty diff falls through, a
+      ;; non-empty one explodes — downstream blocks re-run once per exploded
+      ;; element, which is safe because every write below is an idempotent
+      ;; keyed termval / NONE>.
+      (source> *llm-obs-depot :> %observations)
+      (anchor> <obs-batch>)
+      (%observations :> *obs)
       (observation-run-id *obs :> *run-id)
-      (|hash *run-id)
+      (filter> (not (blank-string? *run-id)))
       (local-select> [(keypath *run-id)] $$llm-turn-runs :> *run-row)
-      (<<if (known-run-row? *run-row)
-        (fold-observation *run-row *obs :> *updated-run-row)
-        (run-view *updated-run-row :> *view)
-        (run-detail-projection *updated-run-row :> *run-detail)
-        (run-items-by-id *updated-run-row :> *items-by-id)
-        (run-raw-response-items *updated-run-row :> *raw-response-items)
-        (run-tool-calls-by-id *updated-run-row :> *tool-calls-by-id)
-        (run-approvals-by-id *updated-run-row :> *approvals-by-id)
-        (run-token-usage *updated-run-row :> *token-usage)
-        (run-thread-id *updated-run-row :> *thread-id)
-        (turn-run-summary *updated-run-row :> *run-summary)
-        (local-transform> [(keypath *run-id) (termval *updated-run-row)] $$llm-turn-runs)
-        (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
-        (local-transform> [(keypath *run-id) (termval *run-detail)] $$projection-run-detail)
-        (local-transform> [(keypath *run-id) (termval *items-by-id)] $$llm-items-by-turn-run)
-        (local-transform> [(keypath *run-id) (termval *raw-response-items)] $$llm-raw-response-items)
-        (local-transform> [(keypath *run-id) (termval *tool-calls-by-id)] $$llm-tool-calls-by-run-id)
-        (local-transform> [(keypath *run-id) (termval *approvals-by-id)] $$llm-approvals-by-run-id)
-        (local-transform> [(keypath *run-id) (termval *token-usage)] $$llm-token-usage-by-run-id)
-        (|hash *thread-id)
-        (local-select> [(keypath *thread-id)] $$llm-threads :> *existing-thread-row)
-        (local-select> [(keypath *thread-id)] $$llm-cost-by-thread :> *existing-cost-rollup)
-        (upsert-thread-row *existing-thread-row *updated-run-row :> *thread-row)
-        (cost-rollup-for-thread *existing-cost-rollup *updated-run-row :> *cost-rollup)
-        (local-transform> [(keypath *thread-id) (termval *thread-row)] $$llm-threads)
-        (local-transform> [(keypath *thread-id) (keypath *run-id) (termval *run-summary)] $$llm-turn-runs-by-thread)
-        (local-transform> [(keypath *thread-id) (keypath *run-id) (termval *items-by-id)] $$llm-items-by-thread)
-        (local-transform> [(keypath *thread-id) (termval *cost-rollup)] $$llm-cost-by-thread)
-        (<<if (observation-approval-materialized? *updated-run-row *obs)
-          (observation->approval-row *obs :> *approval)
-          (approval-id *approval :> *approval-id)
-          (|hash *approval-id)
-          (local-transform> [(keypath *approval-id) (termval *approval)] $$llm-approvals-pending))
-        (<<if (indexable-item-observation? *run-row *obs)
-          (observation->item-row *obs :> *item-row)
-          (item-row-id *item-row :> *item-id)
-          (|hash *item-id)
-          (local-select> [(keypath *item-id)] $$llm-item-by-id :> *existing-item-row)
-          (keep-existing-item-row *existing-item-row *item-row :> *indexed-item-row)
-          (local-transform> [(keypath *item-id) (termval *indexed-item-row)] $$llm-item-by-id)))
+      (filter> (known-run-row? *run-row))
+      (fold-observation *run-row *obs :> *updated-run-row)
+      (filter> (not (identical? *updated-run-row *run-row)))
+      (run-view *updated-run-row :> *view)
+      (run-detail-projection *updated-run-row :> *run-detail)
+      (run-items-by-id *updated-run-row :> *items-by-id)
+      (run-raw-response-items *updated-run-row :> *raw-response-items)
+      (run-tool-calls-by-id *updated-run-row :> *tool-calls-by-id)
+      (run-approvals-by-id *updated-run-row :> *approvals-by-id)
+      (run-token-usage *updated-run-row :> *token-usage)
+      (run-thread-id *updated-run-row :> *thread-id)
+      (turn-run-summary *updated-run-row :> *run-summary)
+      (local-transform> [(keypath *run-id) (termval *updated-run-row)] $$llm-turn-runs)
+      (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
+      (local-transform> [(keypath *run-id) (termval *run-detail)] $$projection-run-detail)
+      (local-transform> [(keypath *run-id) (termval *items-by-id)] $$llm-items-by-turn-run)
+      (local-transform> [(keypath *run-id) (termval *raw-response-items)] $$llm-raw-response-items)
+      (local-transform> [(keypath *run-id) (termval *tool-calls-by-id)] $$llm-tool-calls-by-run-id)
+      (local-transform> [(keypath *run-id) (termval *approvals-by-id)] $$llm-approvals-by-run-id)
+      (local-transform> [(keypath *run-id) (termval *token-usage)] $$llm-token-usage-by-run-id)
+      (|hash *thread-id)
+      (local-select> [(keypath *thread-id)] $$llm-threads :> *existing-thread-row)
+      (local-select> [(keypath *thread-id)] $$llm-cost-by-thread :> *existing-cost-rollup)
+      (upsert-thread-row *existing-thread-row *updated-run-row :> *thread-row)
+      (cost-rollup-for-thread *existing-cost-rollup *updated-run-row :> *cost-rollup)
+      (local-transform> [(keypath *thread-id) (termval *thread-row)] $$llm-threads)
+      (local-transform> [(keypath *thread-id *run-id) (termval *run-summary)] $$llm-turn-runs-by-thread)
+      (local-transform> [(keypath *thread-id *run-id) (termval *items-by-id)] $$llm-items-by-thread)
+      (local-transform> [(keypath *thread-id) (termval *cost-rollup)] $$llm-cost-by-thread)
+      ;; item-by-id index from the fold DIFF: items that entered via the
+      ;; sequence buffer index when the drain materializes them; replays
+      ;; diff to nothing
+      (newly-materialized-items *run-row *updated-run-row :> *new-items)
+      (<<if (non-empty-coll? *new-items)
+        (explode *new-items :> *item-row)
+        (item-row-id *item-row :> *item-id)
+        (|hash *item-id)
+        (local-select> [(keypath *item-id)] $$llm-item-by-id :> *existing-item-row)
+        (keep-existing-item-row *existing-item-row *item-row :> *indexed-item-row)
+        (local-transform> [(keypath *item-id) (termval *indexed-item-row)] $$llm-item-by-id))
+      ;; pending-approval index from the fold DIFF: newly-pending approvals
+      ;; (buffer-drained ones included) are put; approvals that left the
+      ;; pending set (resolve / expiry / run close) are removed — a
+      ;; redelivered approval observation can never resurrect a resolved row
+      (pending-approval-additions *run-row *updated-run-row :> *new-pending-approvals)
+      (<<if (non-empty-coll? *new-pending-approvals)
+        (explode *new-pending-approvals :> *pending-approval)
+        (approval-row-id *pending-approval :> *new-approval-id)
+        (|hash *new-approval-id)
+        (local-transform> [(keypath *new-approval-id) (termval *pending-approval)] $$llm-approvals-pending))
+      (pending-approval-removals *run-row *updated-run-row :> *removed-approval-ids)
+      (<<if (non-empty-coll? *removed-approval-ids)
+        (explode *removed-approval-ids :> *removed-approval-id)
+        (|hash *removed-approval-id)
+        (local-transform> [(keypath *removed-approval-id) NONE>] $$llm-approvals-pending))
+      ;; terminal transition releases the executor's recovery-index entry
+      (filter> (newly-terminal? *run-row *updated-run-row))
+      (run-claimed-by *updated-run-row :> *claimed-by)
+      (filter> (some? *claimed-by))
+      (|hash *claimed-by)
+      (local-transform> [(keypath *claimed-by *run-id) NONE>] $$llm-executor-active-runs)
 
-      (source> *llm-control-depot :> *control)
+      ;; ── observation: unknown-run dead-letter (never-drop) ──
+      ;; Independent branch over the same batch (hooked at the source anchor —
+      ;; a plain second (%observations ...) statement would CHAIN after the
+      ;; known-run branch's filters and never see the orphan records): records
+      ;; whose run id is unknown land in $$llm-dead-letters as bounded values
+      ;; and invent no run state.
+      (hook> <obs-batch>)
+      (%observations :> *orphan-obs)
+      (observation-run-id *orphan-obs :> *orphan-run-id)
+      (filter> (not (blank-string? *orphan-run-id)))
+      (local-select> [(keypath *orphan-run-id)] $$llm-turn-runs :> *orphan-run-row)
+      (filter> (nil? *orphan-run-row))
+      (observation-dead-letter *orphan-run-id *orphan-obs :> *obs-dead-letter)
+      (local-select> [(keypath *orphan-run-id)] $$llm-dead-letters :> *existing-obs-dead-letters)
+      (append-bounded *existing-obs-dead-letters *obs-dead-letter dead-letter-limit :> *obs-dead-letters)
+      (local-transform> [(keypath *orphan-run-id) (termval *obs-dead-letters)] $$llm-dead-letters)
+
+      ;; ── control: known-run fold ──
+      ;; Fold records the control in the trail and applies its guarded effect
+      ;; (sticky terminals, first-resolution-wins, no invention).
+      (source> *llm-control-depot :> %controls)
+      (anchor> <control-batch>)
+      (%controls :> *control)
       (control-run-id *control :> *run-id)
-      (|hash *run-id)
+      (filter> (not (blank-string? *run-id)))
       (local-select> [(keypath *run-id)] $$llm-turn-runs :> *run-row)
-      (<<if (known-run-row? *run-row)
-        (fold-control *run-row *control :> *updated-run-row)
-        (run-view *updated-run-row :> *view)
-        (run-detail-projection *updated-run-row :> *run-detail)
-        (run-approvals-by-id *updated-run-row :> *approvals-by-id)
-        (run-controls-by-id *updated-run-row :> *controls-by-id)
-        (run-executor-task-id *updated-run-row :> *executor-task-id)
-        (control-id *control :> *control-id)
-        (local-transform> [(keypath *run-id) (termval *updated-run-row)] $$llm-turn-runs)
-        (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
-        (local-transform> [(keypath *run-id) (termval *run-detail)] $$projection-run-detail)
-        (local-transform> [(keypath *run-id) (termval *approvals-by-id)] $$llm-approvals-by-run-id)
-        (local-transform> [(keypath *run-id) (termval *controls-by-id)] $$llm-controls-by-run-id)
-        (|hash *control-id)
-        (local-transform> [(keypath *control-id) (termval *control)] $$llm-control-by-id)
-        (<<if (control-has-approval? *control)
-          (control-approval-id *control :> *approval-id)
-          (|hash *approval-id)
-          (local-transform> [(keypath *approval-id) NONE>] $$llm-approvals-pending))
-        (<<if (terminal-run-row? *updated-run-row)
-          (|hash *executor-task-id)
-          (local-transform> [(keypath *executor-task-id) (keypath *run-id) NONE>] $$llm-pending-by-task))))))
+      (filter> (known-run-row? *run-row))
+      (fold-control *run-row *control :> *updated-run-row)
+      (run-view *updated-run-row :> *view)
+      (run-detail-projection *updated-run-row :> *run-detail)
+      (run-approvals-by-id *updated-run-row :> *approvals-by-id)
+      (run-controls-by-id *updated-run-row :> *controls-by-id)
+      (control-id *control :> *control-id)
+      (local-transform> [(keypath *run-id) (termval *updated-run-row)] $$llm-turn-runs)
+      (local-transform> [(keypath *run-id) (termval *view)] $$llm-views)
+      (local-transform> [(keypath *run-id) (termval *run-detail)] $$projection-run-detail)
+      (local-transform> [(keypath *run-id) (termval *approvals-by-id)] $$llm-approvals-by-run-id)
+      (local-transform> [(keypath *run-id) (termval *controls-by-id)] $$llm-controls-by-run-id)
+      (|hash *control-id)
+      (local-transform> [(keypath *control-id) (termval *control)] $$llm-control-by-id)
+      ;; pending-approval index from the fold DIFF — removal happens only when
+      ;; the fold actually cleared a pending row (resolve / expiry / cancel
+      ;; close); an invented or repeated approval id diffs to nothing
+      (pending-approval-removals *run-row *updated-run-row :> *removed-approval-ids)
+      (<<if (non-empty-coll? *removed-approval-ids)
+        (explode *removed-approval-ids :> *removed-approval-id)
+        (|hash *removed-approval-id)
+        (local-transform> [(keypath *removed-approval-id) NONE>] $$llm-approvals-pending))
+      ;; terminal transition: run leaves the lane inbox and releases the
+      ;; executor's recovery-index entry
+      (filter> (newly-terminal? *run-row *updated-run-row))
+      (run-executor-task-id *updated-run-row :> *executor-task-id)
+      (|hash *executor-task-id)
+      (local-transform> [(keypath *executor-task-id *run-id) NONE>] $$llm-pending-by-task)
+      (run-claimed-by *updated-run-row :> *claimed-by)
+      (filter> (some? *claimed-by))
+      (|hash *claimed-by)
+      (local-transform> [(keypath *claimed-by *run-id) NONE>] $$llm-executor-active-runs)
+
+      ;; ── control: unknown-run dead-letter (never-drop) ──
+      ;; Independent branch hooked at the source anchor (see the observation
+      ;; dead-letter branch for why a plain second tap would never run).
+      (hook> <control-batch>)
+      (%controls :> *orphan-control)
+      (control-run-id *orphan-control :> *orphan-run-id)
+      (filter> (not (blank-string? *orphan-run-id)))
+      (local-select> [(keypath *orphan-run-id)] $$llm-turn-runs :> *orphan-run-row)
+      (filter> (nil? *orphan-run-row))
+      (control-dead-letter *orphan-run-id *orphan-control :> *control-dead-letter)
+      (local-select> [(keypath *orphan-run-id)] $$llm-dead-letters :> *existing-control-dead-letters)
+      (append-bounded *existing-control-dead-letters *control-dead-letter dead-letter-limit :> *control-dead-letters)
+      (local-transform> [(keypath *orphan-run-id) (termval *control-dead-letters)] $$llm-dead-letters))))
 
 (defn start-llm-runtime!
   []
@@ -1454,7 +1742,9 @@
      :llm-controls-by-run-id (foreign-pstate ipc module-name "$$llm-controls-by-run-id")
      :llm-control-by-id (foreign-pstate ipc module-name "$$llm-control-by-id")
      :llm-views (foreign-pstate ipc module-name "$$llm-views")
-     :projection-run-detail (foreign-pstate ipc module-name "$$projection-run-detail")}))
+     :projection-run-detail (foreign-pstate ipc module-name "$$projection-run-detail")
+     :llm-executor-active-runs (foreign-pstate ipc module-name "$$llm-executor-active-runs")
+     :llm-dead-letters (foreign-pstate ipc module-name "$$llm-dead-letters")}))
 
 (defn close-llm-runtime!
   [runtime]
@@ -1467,6 +1757,13 @@
   ([runtime request]
    (append-turn-run-request! runtime request :append-ack))
   ([runtime request ack-level]
+   ;; A run without identity cannot be keyed or deduped: refuse client-side;
+   ;; the topology additionally drops blank/nil run ids appended raw.
+   (when-not (map? request)
+     (throw (IllegalArgumentException. "turn-run request must be a map")))
+   (when (blank-string? (request-run-id request))
+     (throw (IllegalArgumentException.
+              "turn-run request requires a non-blank :llm-turn-run/id")))
    (foreign-append! (:llm-depot runtime) request ack-level)
    request))
 
@@ -1898,11 +2195,15 @@
     :else (throw (ex-info "Invalid Codex adapter" {:adapter adapter}))))
 
 (defn adapter-event->observation
-  [run-row sequence event]
+  "Build the depot observation for one adapter event, stamped with the claim
+   proof (executor id + claim token) the topology requires before folding."
+  [run-row claim sequence event]
   (let [event (assoc event
                      :observation-id (or (:observation-id event)
                                          (:observation/id event)
-                                         (str (:llm-turn-run/id run-row) "/adapter-obs-" sequence)))]
+                                         (str (:llm-turn-run/id run-row) "/adapter-obs-" sequence))
+                     :executor/id (:executor/id claim)
+                     :claim/token (:claim/token claim))]
     (observation
       (:llm-turn-run/id run-row)
       (:llm-thread/id run-row)
@@ -1942,7 +2243,8 @@
                    :claim (:claim claim-result)
                    :context-bundle bundle}
               events (vec (run-adapter-turn adapter ctx))
-              observations (map-indexed #(adapter-event->observation run-row %1 %2)
+              observations (map-indexed #(adapter-event->observation
+                                           run-row (:claim claim-result) %1 %2)
                                         events)]
           (doseq [obs observations]
             (append-observation! runtime obs))
@@ -2002,7 +2304,7 @@
 
 (defn select-pstate-one
   [pstate path]
-  (first (foreign-select path pstate)))
+  (foreign-select-one path pstate))
 
 (defn read-thread
   [runtime thread-id]
@@ -2095,6 +2397,20 @@
 (defn read-pending-approval
   [runtime approval-id]
   (select-pstate-one (:llm-approvals-pending runtime) [(keypath approval-id)]))
+
+(defn read-executor-active-runs
+  "Restart-recovery surface: {run-id claimed-at} for every non-terminal run
+   this executor holds a granted claim on."
+  [runtime executor-id]
+  (or (select-pstate-one (:llm-executor-active-runs runtime) [(keypath executor-id)])
+      {}))
+
+(defn read-dead-letters
+  "Never-drop ledger: bounded dead-letter values for observations/controls
+   that arrived for an unknown run id."
+  [runtime run-id]
+  (or (select-pstate-one (:llm-dead-letters runtime) [(keypath run-id)])
+      []))
 
 (defn await-materialized
   ([read-f pred]

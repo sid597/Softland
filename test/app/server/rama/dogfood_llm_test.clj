@@ -87,6 +87,8 @@
                   :codex/item-completed
                   0
                   {:observation-id "obs-writer-asymmetry-item"
+                   :executor/id "executor-writer-asymmetry"
+                   :claim/token "claim-token-writer-asymmetry"
                    :received-at-ms 120
                    :llm-item/id "item-writer-asymmetry"
                    :item/type :assistant-message
@@ -99,6 +101,8 @@
                   :codex/token-usage
                   1
                   {:observation-id "obs-writer-asymmetry-usage"
+                   :executor/id "executor-writer-asymmetry"
+                   :claim/token "claim-token-writer-asymmetry"
                    :received-at-ms 130
                    :tokens/input-total 10
                    :tokens/cached-input 4
@@ -114,6 +118,8 @@
                   :codex/tool-call
                   2
                   {:observation-id "obs-writer-asymmetry-tool"
+                   :executor/id "executor-writer-asymmetry"
+                   :claim/token "claim-token-writer-asymmetry"
                    :received-at-ms 140
                    :tool-call/id "tool-writer-asymmetry"
                    :tool-call/type :exec
@@ -127,6 +133,8 @@
                   :codex/approval-request
                   3
                   {:observation-id "obs-writer-asymmetry-approval"
+                   :executor/id "executor-writer-asymmetry"
+                   :claim/token "claim-token-writer-asymmetry"
                    :received-at-ms 150
                    :approval/id approval-id
                    :approval/type :exec
@@ -396,6 +404,8 @@
               :codex/item-completed
               0
               {:observation-id "obs-item-0"
+               :executor/id "executor-a"
+               :claim/token "claim-token-a"
                :llm-item/id "item-0"
                :item/type :assistant-message
                :content/text "hello from codex"
@@ -408,6 +418,8 @@
               :codex/token-usage
               1
               {:observation-id "obs-usage-1"
+               :executor/id "executor-a"
+               :claim/token "claim-token-a"
                :tokens/input-total 50000
                :tokens/cached-input 45000
                :tokens/output 2000
@@ -422,7 +434,9 @@
               "llm-thread-A"
               :codex/run-finished
               2
-              {:observation-id "obs-finish-2"}))
+              {:observation-id "obs-finish-2"
+               :executor/id "executor-a"
+               :claim/token "claim-token-a"}))
 
           (let [view (llm/await-view runtime run-id #(= :succeeded (:status %)))
                 run-detail (llm/await-materialized
@@ -452,6 +466,12 @@
               second-run-id "run_cost_second"
               thread-id "llm-thread-A"]
           (append-run-and-await-pending! runtime first-run-id)
+          (llm/append-claim!
+            runtime
+            (llm/claim-record first-run-id thread-id "executor-cost"
+                              {:claim-token "claim-token-cost-first"
+                               :executor-task-id llm/pending-task-id}))
+          (llm/await-run runtime first-run-id #(= :claimed (:status %)))
           (llm/append-observation!
             runtime
             (llm/observation
@@ -460,6 +480,8 @@
               :codex/token-usage
               0
               {:observation-id "obs-cost-first"
+               :executor/id "executor-cost"
+               :claim/token "claim-token-cost-first"
                :tokens/input-total 10
                :tokens/cached-input 4
                :tokens/output 3
@@ -469,6 +491,12 @@
             #(= 1 (:run-count %)))
 
           (append-run-and-await-pending! runtime second-run-id)
+          (llm/append-claim!
+            runtime
+            (llm/claim-record second-run-id thread-id "executor-cost"
+                              {:claim-token "claim-token-cost-second"
+                               :executor-task-id llm/pending-task-id}))
+          (llm/await-run runtime second-run-id #(= :claimed (:status %)))
           (llm/append-observation!
             runtime
             (llm/observation
@@ -477,6 +505,8 @@
               :codex/token-usage
               0
               {:observation-id "obs-cost-second"
+               :executor/id "executor-cost"
+               :claim/token "claim-token-cost-second"
                :tokens/input-total 7
                :tokens/cached-input 1
                :tokens/output 5
@@ -518,6 +548,8 @@
               :codex/item-completed
               1
               {:observation-id "obs-item-1"
+               :executor/id "executor-buffer"
+               :claim/token "claim-token-buffer"
                :llm-item/id "item-1"
                :content/text "second"}))
           (let [buffered-row (llm/await-run runtime run-id #(contains? (:obs-buffer %) 1))]
@@ -532,6 +564,8 @@
               :codex/item-completed
               0
               {:observation-id "obs-item-0"
+               :executor/id "executor-buffer"
+               :claim/token "claim-token-buffer"
                :llm-item/id "item-0"
                :content/text "first"}))
 
@@ -561,6 +595,8 @@
               :codex/approval-request
               0
               {:observation-id "obs-approval-0"
+               :executor/id "executor-approval"
+               :claim/token "claim-token-approval"
                :approval/id "approval-7"
                :approval/type :exec
                :native/json-rpc-request-id 44
@@ -636,6 +672,8 @@
               :codex/approval-request
               0
               {:observation-id "obs-stale-approval"
+               :executor/id "executor-stale"
+               :claim/token "claim-token-stale"
                :approval/id approval-id
                :approval/type :exec
                :native/json-rpc-request-id 88
@@ -676,6 +714,12 @@
               approval-id "approval-policy"]
           (llm/append-turn-run-request! runtime request)
           (llm/await-run runtime run-id #(= :pending (:status %)))
+          (llm/append-claim!
+            runtime
+            (llm/claim-record run-id "llm-thread-policy" "executor-policy"
+                              {:claim-token "claim-token-policy"
+                               :executor-task-id llm/pending-task-id}))
+          (llm/await-run runtime run-id #(= :claimed (:status %)))
           (llm/append-observation!
             runtime
             (llm/observation
@@ -684,6 +728,8 @@
               :codex/approval-request
               0
               {:observation-id "obs-policy-approval"
+               :executor/id "executor-policy"
+               :claim/token "claim-token-policy"
                :approval/id approval-id
                :native/json-rpc-request-id 99}))
           (llm/await-materialized #(llm/read-pending-approval runtime approval-id) some?)
