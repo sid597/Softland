@@ -1126,9 +1126,12 @@
                                      :context-bundle/id "B-idem-A"
                                      :llm-turn-run/id "run-idem-A"
                                      :llm-thread/id "llm-thread-idem"}})
+              ;; same material (space + prompt + refs + options) under the same
+              ;; key = idempotent replay, even with fresh entity ids; different
+              ;; material would be an :idempotency/conflict rejection
               request-b (space/compose-and-send-request
                           "chat-idempotent"
-                          "Send once, replayed."
+                          "Send once."
                           {:request-id "req-idem-B"
                            :time-ms 81
                            :idempotency-key "idem-same-send"
@@ -1157,7 +1160,7 @@
           (is (nil? (llm/read-run runtime "run-idem-B")))
           (is (= "run-idem-A"
                  (:llm-turn-run/id
-                  (space/read-send-by-idempotency runtime "idem-same-send")))))))))
+                  (space/read-send-by-idempotency runtime "chat-idempotent" "idem-same-send")))))))))
 
 (deftest approval-space-first-test
   (with-space-runtime
