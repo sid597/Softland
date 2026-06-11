@@ -86,8 +86,9 @@
                                 :proposed-event-id "evt_loop_ingest"
                                 :time-ms 1})
               artifact-id (get-in artifact-event [:payload :artifact/id])
-              ingest-request (text-kernel/read-request runtime "req_loop_ingest")
-              ingest-decision (text-kernel/read-decision runtime "req_loop_ingest")
+              routing-key [:artifact artifact-id]
+              ingest-request (text-kernel/read-request runtime routing-key "req_loop_ingest")
+              ingest-decision (text-kernel/read-decision runtime routing-key "req_loop_ingest")
               units (text-kernel/unitize-lines! runtime artifact-event)
               rejected-unit-id (:unit/id (second units))
               status-event (text-kernel/set-unit-status!
@@ -99,15 +100,15 @@
                                :artifact-id artifact-id
                                :time-ms 2
                                :reason "not canonical"})
-              status-request (text-kernel/read-request runtime "req_loop_reject")
-              status-decision (text-kernel/read-decision runtime "req_loop_reject")
+              status-request (text-kernel/read-request runtime routing-key "req_loop_reject")
+              status-decision (text-kernel/read-decision runtime routing-key "req_loop_reject")
               _ (text-kernel/await-materialized #(text-kernel/read-units runtime artifact-id)
                                            #(= 3 (count %)))
-              _ (text-kernel/await-materialized #(text-kernel/read-unit-statuses runtime core/default-branch-id)
+              _ (text-kernel/await-materialized #(text-kernel/read-unit-statuses runtime artifact-id core/default-branch-id)
                                            #(contains? % rejected-unit-id))
               artifact (text-kernel/read-artifact runtime artifact-id)
               text-head (text-kernel/read-text-head runtime artifact-id)
-              stored-status (get (text-kernel/read-unit-statuses runtime core/default-branch-id)
+              stored-status (get (text-kernel/read-unit-statuses runtime artifact-id core/default-branch-id)
                                  rejected-unit-id)
               canonical (text-kernel/read-canonical-view runtime core/default-branch-id artifact-id)
               discarded (text-kernel/read-discarded-view runtime core/default-branch-id artifact-id)]
@@ -146,15 +147,15 @@
                              :revision-id "rev_hidden_event"})
                           (assoc-in [:payload :event/id] "evt_hidden"))
               _ (text-kernel/append-action-request! runtime request)
-              decision (text-kernel/await-decision runtime "req_hidden_event")
+              decision (text-kernel/await-decision runtime (:routing/key request) "req_hidden_event")
               error-types (set (map :type (:errors decision)))]
-          (is (= request (text-kernel/read-request runtime "req_hidden_event")))
+          (is (= request (text-kernel/read-request runtime (:routing/key request) "req_hidden_event")))
           (is (= :rejected (:decision/status decision)))
           (is (= (:routing/key request) (:routing/key decision)))
           (is (nil? (:event/id decision)))
           (is (= :request-invalid (:decision/reason decision)))
           (is (contains? error-types :request/payload-event-id))
-          (is (nil? (text-kernel/read-event runtime "evt_hidden"))))
+          (is (nil? (text-kernel/read-event runtime (:routing/key request) "evt_hidden"))))
         (finally
           (text-kernel/close-text-runtime! runtime))))))
 
@@ -174,16 +175,16 @@
                          :payload {:artifact/id "art_unknown"
                                    :event/id "evt_bad_unknown"}})
               _ (text-kernel/append-action-request! runtime request)
-              decision (text-kernel/await-decision runtime "req_bad_unknown")
+              decision (text-kernel/await-decision runtime (:routing/key request) "req_bad_unknown")
               error-types (set (map :type (:errors decision)))]
-          (is (= request (text-kernel/read-request runtime "req_bad_unknown")))
+          (is (= request (text-kernel/read-request runtime (:routing/key request) "req_bad_unknown")))
           (is (= :rejected (:decision/status decision)))
           (is (= (:routing/key request) (:routing/key decision)))
           (is (= :request-invalid (:decision/reason decision)))
           (is (not= :unknown-action-type (:decision/reason decision)))
           (is (contains? error-types :request/payload-event-id))
           (is (nil? (:event/id decision)))
-          (is (nil? (text-kernel/read-event runtime "evt_bad_unknown"))))
+          (is (nil? (text-kernel/read-event runtime (:routing/key request) "evt_bad_unknown"))))
         (finally
           (text-kernel/close-text-runtime! runtime))))))
 
@@ -198,12 +199,12 @@
                          :proposed-event-id "evt_should_not_exist"
                          :artifact-id "missing_art"})
               _ (text-kernel/append-action-request! runtime request)
-              decision (text-kernel/await-decision runtime "req_missing_unit")]
-          (is (= request (text-kernel/read-request runtime "req_missing_unit")))
+              decision (text-kernel/await-decision runtime (:routing/key request) "req_missing_unit")]
+          (is (= request (text-kernel/read-request runtime (:routing/key request) "req_missing_unit")))
           (is (= :rejected (:decision/status decision)))
           (is (= (:routing/key request) (:routing/key decision)))
           (is (nil? (:event/id decision)))
           (is (= :target-unit-not-found (:decision/reason decision)))
-          (is (nil? (text-kernel/read-event runtime "evt_should_not_exist"))))
+          (is (nil? (text-kernel/read-event runtime (:routing/key request) "evt_should_not_exist"))))
         (finally
           (text-kernel/close-text-runtime! runtime))))))
