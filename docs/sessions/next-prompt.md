@@ -81,15 +81,30 @@ This file has two sections with different rules:
      have N > M read cases under the Rama query-validation template; the plan
      must either avoid those reads or explicitly stop for contract/skill
      adjudication.
-- Next fresh session: run **Rama Phase 1: Plan Revision** only, using the
-  failed Phase 2 artifact as input. Say:
+- 2026-07-03, Codex: Rama Phase 1 plan revision completed after the failed
+  Phase 2 validation. Artifact revised:
+  `docs/current-mental-model/build/relation-kernel/PLAN.md`.
+  No implementation code or tests were written. The revised plan addresses the
+  three Phase 2 failures by:
+  1. Making duplicate idempotency keys replay the stored decision and stop,
+     without creating a separate rejected conflict decision.
+  2. Treating accepted reassertions/repeated valid retractions as accepted
+     status/history evidence, not decision-only no-ops, while preserving one
+     target-visible relation membership.
+  3. Adding a bounded `$$relation-target-descriptors` PState to descriptor-gate
+     `relations-for-targets` range reads, and making `relation-detail` skip the
+     status-history range read for missing relation ids.
+- Next fresh session: run **Rama Phase 2: Plan Validation** only, against the
+  revised `PLAN.md`. Say:
   "Read `docs/sessions/next-prompt.md` and execute the NOW baton. Use `/rama`
-  first. This is a rerun of Phase 1 planning for `relation-kernel-module`
-  because Phase 2 failed. Read CONTRACT.md, IMPLICIT_SPEC.md, PLAN.md, and
-  PLAN_VALIDATION.md. Revise
-  `docs/current-mental-model/build/relation-kernel/PLAN.md` to address the
-  Phase 2 failures without writing implementation code or tests. If the failures
-  reveal that CONTRACT.md cannot be built as specified or that the plan needs a
-  contract amendment, stop under the package stop clause and record the issue in
-  the Phase 1 artifact instead of improvising. Produce only the revised PLAN.md
-  artifact for this phase, then stop."
+  first. This is Rama Phase 2 plan validation for `relation-kernel-module` after
+  the Phase 1 plan revision. Read CONTRACT.md, IMPLICIT_SPEC.md, PLAN.md, and
+  PLAN_VALIDATION.md. Validate the revised
+  `docs/current-mental-model/build/relation-kernel/PLAN.md` adversarially
+  against the contract, implicit spec, failed validation findings, and Rama
+  references. Rewrite
+  `docs/current-mental-model/build/relation-kernel/PLAN_VALIDATION.md` with a
+  fresh PASS/FAIL verdict. If any check fails, emit `PHASE_VALIDATION:fail` and
+  stop; the next session will rerun Phase 1. If every check passes after
+  scenario tracing, emit `PHASE_VALIDATION:pass` and stop. Do not write
+  implementation code or tests in this phase."
