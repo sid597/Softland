@@ -94,17 +94,57 @@ This file has two sections with different rules:
   3. Adding a bounded `$$relation-target-descriptors` PState to descriptor-gate
      `relations-for-targets` range reads, and making `relation-detail` skip the
      status-history range read for missing relation ids.
-- Next fresh session: run **Rama Phase 2: Plan Validation** only, against the
-  revised `PLAN.md`. Say:
-  "Read `docs/sessions/next-prompt.md` and execute the NOW baton. Use `/rama`
-  first. This is Rama Phase 2 plan validation for `relation-kernel-module` after
-  the Phase 1 plan revision. Read CONTRACT.md, IMPLICIT_SPEC.md, PLAN.md, and
-  PLAN_VALIDATION.md. Validate the revised
-  `docs/current-mental-model/build/relation-kernel/PLAN.md` adversarially
-  against the contract, implicit spec, failed validation findings, and Rama
-  references. Rewrite
-  `docs/current-mental-model/build/relation-kernel/PLAN_VALIDATION.md` with a
-  fresh PASS/FAIL verdict. If any check fails, emit `PHASE_VALIDATION:fail` and
-  stop; the next session will rerun Phase 1. If every check passes after
-  scenario tracing, emit `PHASE_VALIDATION:pass` and stop. Do not write
-  implementation code or tests in this phase."
+- 2026-07-03, Codex: Rama Phase 2 plan validation completed against the revised
+  `PLAN.md`. Artifact rewritten:
+  `docs/current-mental-model/build/relation-kernel/PLAN_VALIDATION.md`.
+  Verdict: `PHASE_VALIDATION:fail`. No implementation code or tests were
+  written. The revised plan fixed the previous same-relation duplicate replay,
+  accepted-reassertion history, and empty-range query-read failures, but two
+  blockers remain:
+  1. The planned typed `RelationRequestRow` field is `relation-routing-key`,
+     while the depot is still `(hash-by :relation/routing-key)`. The plan does
+     not prove the physical record can route to hash(relation-id), so the
+     colocated journal/decision/row invariant is not safe.
+  2. The plan scopes idempotency as `(relation-id, idempotency-key)`, while
+     `IMPLICIT_SPEC.md` still says same idempotency key collapses to the first
+     decision without stating that relation-id scope. This needs either a
+     contract/implicit-spec amendment or a concrete global/caller-scoped
+     idempotency mechanism.
+- 2026-07-03, Claude (Opus 4.8): Rama Phase 1 plan revision after the 2nd
+  `PHASE_VALIDATION:fail`. Split the two blockers by disposition. **F1
+  (depot/request-row partition-key mismatch): FIXED in PLAN.md, no binding-doc
+  change** — reverted the depot event type from the invented `RelationRequestRow`
+  defrecord to CONTRACT §4's request map envelope (namespaced keys), which is the
+  verified codebase idiom (map on the wire, defrecord only in PStates:
+  `object_container.clj:1657-1686`, `:383`, `space.clj:171`). Dropped
+  `RelationRequestRow`; added the partition-provenance test to carry into Phase 5.
+  **F2 (idempotency scope): ESCALATED to Sid/Fable per the stop clause — NOT
+  decided.** The binding CONTRACT (colocated relation-id journal, "copied from
+  object-container's decisions-by-idempotency") and the binding IMPLICIT_SPEC
+  (global-sounding `IdempotencyKey` entity) conflict, and they cannot both hold
+  in Rama. Recorded with a high-confidence recommendation (relation-scoped) in
+  `PLAN.md` → "Idempotency scope (ESCALATED)" and in `decisions.md` Open
+  Questions (PROPOSED). No implementation code or tests written.
+  *(This session's next-step — referral to Sid/Fable — was resolved by the Fable
+  ruling immediately below; F2 is now CLOSED (A) relation-scoped. PLAN.md's
+  "Idempotency scope" section is now titled RESOLVED. See Fable entry for the
+  live next step.)*
+- 2026-07-03, Claude (Opus 4.8) follow-up: after the ruling landed, aligned
+  PLAN.md to it — F2 sections flipped ESCALATED→RESOLVED (no design change; the
+  nested relation-scoped journal was already the ruled shape), and the plan now
+  points at CONTRACT §11 gate 11 (cross-relation key reuse) for Phase 5.
+- 2026-07-03, Fable: **RULED (A) relation-scoped** on Sid's referral. Executed:
+  decisions.md Open Questions entry CLOSED with reasoning; CONTRACT §5 states
+  the scope explicitly; CONTRACT §11 gained gate 11 (cross-relation key reuse:
+  both relations succeed); IMPLICIT_SPEC has a binding amendment banner
+  (every "same idempotency key" = "same (relation-id, idempotency-key)").
+  No plan change required. D-006 evaluation notes updated with the honest
+  letter-vs-spirit scoring of the contract amendment.
+- Next fresh session: run **Rama Phase 2: Plan Validation** on the current
+  PLAN.md. Say: "Read `docs/sessions/next-prompt.md` and execute the NOW baton.
+  Use `/rama` first. Idempotency scope was RULED relation-scoped (see CONTRACT
+  §5 amendment + IMPLICIT_SPEC banner). Re-run Phase 2 plan validation on
+  PLAN.md; confirm both round-2 blockers (F1 routing, F2 scope) are resolved;
+  verify the plan covers acceptance gate 11; rewrite PLAN_VALIDATION.md; emit
+  `PHASE_VALIDATION:pass` or `PHASE_VALIDATION:fail` as the last non-empty
+  line, and stop. Do not write implementation code or tests."
