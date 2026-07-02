@@ -67,11 +67,29 @@ This file has two sections with different rules:
   idempotency journal nesting/conflict behavior, accepted no-op status events,
   unary `:none` target-index shape, filtered query prefix seeks, and payload
   record split.
-- Next fresh session: run **Rama Phase 2: Plan Validation** only. Say:
+- 2026-07-03, Codex: Rama Phase 2 plan validation completed. Artifact:
+  `docs/current-mental-model/build/relation-kernel/PLAN_VALIDATION.md`.
+  Verdict: `PHASE_VALIDATION:fail`. No implementation code or tests were
+  written. Blocking failures:
+  1. PLAN.md changes duplicate idempotency-key semantics into a new rejected
+     conflict decision, while CONTRACT.md and IMPLICIT_SPEC.md say duplicate
+     idempotency keys replay the first decision and stop.
+  2. PLAN.md treats accepted reassertions as decision-only no-ops, while the
+     contract/implicit matrix require status/history evidence for
+     reassertions.
+  3. Filtered `relations-for-targets` and missing-id `relation-detail` examples
+     have N > M read cases under the Rama query-validation template; the plan
+     must either avoid those reads or explicitly stop for contract/skill
+     adjudication.
+- Next fresh session: run **Rama Phase 1: Plan Revision** only, using the
+  failed Phase 2 artifact as input. Say:
   "Read `docs/sessions/next-prompt.md` and execute the NOW baton. Use `/rama`
-  first. This is Phase 2 plan validation for `relation-kernel-module`;
-  adversarially validate `docs/current-mental-model/build/relation-kernel/PLAN.md`
-  against CONTRACT.md and IMPLICIT_SPEC.md, produce
-  `docs/current-mental-model/build/relation-kernel/PLAN_VALIDATION.md`, emit
-  `PHASE_VALIDATION:pass` or `PHASE_VALIDATION:fail` as the last non-empty line,
-  and stop. Do not write implementation code or tests."
+  first. This is a rerun of Phase 1 planning for `relation-kernel-module`
+  because Phase 2 failed. Read CONTRACT.md, IMPLICIT_SPEC.md, PLAN.md, and
+  PLAN_VALIDATION.md. Revise
+  `docs/current-mental-model/build/relation-kernel/PLAN.md` to address the
+  Phase 2 failures without writing implementation code or tests. If the failures
+  reveal that CONTRACT.md cannot be built as specified or that the plan needs a
+  contract amendment, stop under the package stop clause and record the issue in
+  the Phase 1 artifact instead of improvising. Produce only the revised PLAN.md
+  artifact for this phase, then stop."
