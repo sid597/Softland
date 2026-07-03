@@ -211,10 +211,53 @@ NOT continuous orchestration, NOT implementation, NOT Regime-2 theory (gated by 
 
 ---
 
+## D-007 — The bet foundry: claims→bets intake + Fable questioning practice
+**STATUS: PROPOSED** (Fable, 2026-07-03, from Sid's in-session proposal; awaiting countersign)
+
+Sid's proposal (verbatim source: `vision/LOG.md` 2026-07-03 "the bet-foundry
+idea + the HCI thesis"): BETS.md is where all his claims/hypotheses/bets land;
+Fable's window includes making those bets real — sharpening, breaking down,
+actually working toward them; and Fable proactively asks Sid questions about
+the vision so bets are formed together, better informed.
+
+What this closes if countersigned:
+
+1. **Intake pipeline** (mostly already built at the 2026-07-03 sitting; this
+   ratifies it): raw claims land verbatim in `vision/LOG.md` first (existing
+   law); the BETS.md **Candidates** inbox holds only sharpened forms —
+   falsifiable statement + pre-registered kill/confirm evidence +
+   dependencies. Fable-grade sessions do the sharpening. Entry is cheap;
+   activation is rationed.
+2. **Fable-window allocation extension** (amends D-006's list): add
+   (e) **bet formation** — sharpening candidates, and decomposing promoted
+   bets into work-package-shaped probes, each probe then run per the
+   `/work-package` skill; and (f) the **questioning practice** — a
+   Fable-window session that touches vision/bets opens or closes with 1–3
+   questions from the frontier: where a bet lacks a falsifier, where North is
+   silent on something the ladder assumes, where two bets quietly conflict.
+   No quota — a question must name its frontier source or it isn't asked
+   (anti-ceremony guard). Sid's answers, his words → LOG; the sharpened
+   consequences → BETS.md.
+3. **Guardrails carried over unchanged**: one ACTIVE bet at a time; promotion
+   only at review sittings, by Sid; the ladder never grows by accumulation;
+   North stays Sid-authored; and all realization work remains evidence-paced —
+   a bet's work package must be the cheapest discriminating probe, and
+   form-break fixes outrank speculative probes (D-001 is not amended by this).
+
+Evidence this rests on: the relation-kernel cycle proved the decomposition
+machinery end to end (contract → phases → gate → retro → skill); the
+Candidates inbox exists and is empty — what was missing is exactly the intake
+motion and the questioning practice this entry names.
+
+---
+
 ## Open questions queued for ruling
 - Fable-window queue (per D-006): ~~gate review of relation-kernel
   implementation~~ (done 2026-07-03, PASS) → trail-view data contract →
-  hypothesis kill-conditions at first trail-view render → succession document.
+  hypothesis kill-conditions at first trail-view render → ~~succession
+  document~~ (done 2026-07-03, pulled ahead per Sid's next-prompt sequencing:
+  skill at `.claude/skills/work-package/SKILL.md`, written from RETRO.md after
+  its adversarial recheck).
   D-006 criterion 2 (counterfactual probe, input manifest CONTRACT §13) is
   still unrun and can slot anywhere — it needs an Opus session, not the
   Fable window.
@@ -231,7 +274,11 @@ NOT continuous orchestration, NOT implementation, NOT Regime-2 theory (gated by 
   (5) the retro procedure — package trail (NOW log + phase artifacts) →
   lessons routed to implementation-quirks / operating-model / D-006 notes —
   first exercised at relation-kernel close; that first retro is INPUT to
-  writing this skill.
+  writing this skill. **EXECUTED 2026-07-03 (Fable)**: the queued adversarial
+  recheck of RETRO.md ran first (addendum in RETRO.md — 4 corrections, 2 new
+  lessons, 1 residue addition; suite independently re-run green, 165
+  assertions), then the skill was written at
+  `.claude/skills/work-package/SKILL.md` covering all five spec items.
 - object-kernel-revision.md (Jun 26): now framed by D-003 as a **Regime 2**
   document. Rule on whether anything in it constrains the Regime-1 spine, or
   whether it is entirely gated behind the self-hosting test.

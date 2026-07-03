@@ -99,6 +99,23 @@ existing network — the community the data model descends from, mission-aligned
 tolerant of rough tools. Reality check: generalization arrives
 adapter-by-adapter (a VC's memos ≠ Sid's transcripts); the SourceArtifact
 adapter architecture is already the right shape for that rollout.
+**Re-sequenced 2026-07-04 (Sid, in-session; verbatim in `vision/LOG.md`
+2026-07-04 entry):** H3 activates only after Softland is used to make sense of
+Softland and to build Softland from Softland — the solo builder is the first
+visitor class, and working on-the-fly UIs are part of that gate; the
+metascience second mind comes after. (Rhyme worth noting: this gate is a weak
+form of the D-003 Regime-2 self-hosting test, arriving on the ladder from
+Sid's own sequencing rather than from the decision log.)
+**Sharpened 2026-07-04, later same day (Sid; verbatim in the second
+2026-07-04 LOG entry):** the second mind will NOT be a metascientist — "it
+will be agents and llms": a benchmark-style evaluation where a model, with
+Sid-granted read permissions, must use the system cold. Open design question,
+Sid's words: "what is the user research I can do for the models." The human
+half of H3 becomes: Sid builds the discourse-graph plugin on top of Softland
+and his current DG teammates try to use it. The metascientist recedes to a
+later rung. (Fable note, same session: fresh-context work sessions already
+emit this data — every trail misread by Codex/Opus is a transfer-cost datum;
+the benchmark formalizes what the QC machinery produces for free.)
 
 ### H4 — QUEUED (needs H2 + H3) · The native discourse-graph protocol
 *Serves North: "a map that doesn't lie," knowledge work beyond dev work.*
@@ -112,6 +129,33 @@ domains exist. Until then it lives in North, where it belongs.
 aging-science map — the terminal purpose's domain, overlapping the H3
 metascience beachhead (discourse-graph researchers exist inside that
 community).
+**Pre-registered kill-condition (2026-07-04; posed by Fable, accepted by Sid
+in-session — verbatim in LOG):** if inhabitants detectably optimize
+market-legibility of assertions over usefulness-for-understanding (assertion
+volume rising while walk-through / build-upon rates fall), the economy is
+damaging the instrument — redesign the traffic signal before growing it.
+Context: the seed corpus (existing papers, Sid's "jumpstart") imports the
+citation graph as prior traffic, so imported academic pathologies must decay
+by default rather than compound.
+
+## Candidates — the claims inbox (added 2026-07-03, Sid's intake idea)
+
+Any claim, hypothesis, or bet Sid holds can land here raw — from `vision/LOG.md`
+entries, wall panels, or a session spark. **Entry is cheap; activation is
+rationed.** On intake, a session (Fable-grade for the sharpening) converts each
+raw claim into: a falsifiable statement, pre-registered kill/confirm evidence,
+and its dependencies — then files it here. Rules:
+
+- Candidates NEVER enter the ladder by accumulation. The ladder keeps **one
+  ACTIVE bet**; promotion happens at a review sitting, by Sid's call, when a
+  slot opens.
+- A candidate may resolve WITHOUT ever activating (evidence arrives from
+  elsewhere) — record it in the verdict log and strike it.
+- The verbatim source stays in `vision/LOG.md`; only the sharpened form lives
+  here. If candidates pile up unsharpened or unreviewed, say so at the next
+  sitting — this section is an inbox, not a graveyard.
+
+*(empty — first intake sitting seeds from vision/LOG.md and the wall)*
 
 ## Verdict log (append-only)
 - *(empty — H1's clock starts when the trail view first renders)*
