@@ -358,16 +358,37 @@ This file has two sections with different rules:
   check); the exact rejection-reason keywords from `request-shape-errors`/`relation-outcome`;
   `oc/extract-object-key` + `oc/fixed-width-order-key` behavior on the edge inputs;
   sibling `object_container_test.clj` import namespaces for the Rama client fns.
-- Next fresh session: run **Rama Phase 7 (run tests to green)** — Phase 6 was a
-  minor-fail, so per `references/phases.md` Phase 6 is NOT re-run; go straight to
-  Phase 7. Say: "Read `docs/sessions/next-prompt.md` and execute the NOW baton. Use
-  `/rama` first, then read `references/phase-7-finish.md`. Run
-  `test/app/server/rama/relation_kernel_test.clj` in a loop until green (both deftests
-  = 2 IPC launches, ~30s+ each). Fix TEST failures in the test file only; if a failure
-  reveals a genuine MODULE defect, STOP per the STANDING stop-clause (record in
-  decisions.md Open Questions + the phase artifact — do not silently patch the module).
-  Watch items when triaging reds: (1) T3/e5/Gate-3 assume the impl records no-op status
-  events for reassert/retract-affirm — that is impl-as-built + IMPLICIT_SPEC-permitted,
-  NOT a redesign; (2) T9's `status-log-for` uses a direct `foreign-select` — if it
-  throws on an absent key rather than returning empty, adjust the reader shape, not the
-  module. After green: Fable gate review, then the D-003 Regime-1 spine per STANDING."
+- 2026-07-03, Claude (Opus 4.8): **Rama Phase 7: run-to-green completed.**
+  Verdict: `PHASE_VALIDATION:pass`. No module or test edits — the Phase-5 fix
+  round's 10 items were already applied, so the phase-7 pre-loop was a no-op and
+  the suite passed on the FIRST invocation. Driver: `clojure -M:test` running
+  `clojure.test/run-tests` on `app.server.rama.relation-kernel-test` (the `:test`
+  alias has no `-X` runner, so tests are driven explicitly via `-e`/a script
+  file). Result: **Ran 2 tests, 165 assertions, 0 failures, 0 errors.**
+  Then a robustness sweep forcing the launch task count to EACH of {2,4,8}
+  deterministically (redef of `rand-nth` scoped to the literal `[2 4 8]`
+  collection only; every other call delegates to the original, so Rama-internal
+  randomness is untouched, and the module is deterministic so this only pins the
+  partition count): all three configs green — 165 assertions each, aggregate
+  fail=0 error=0. This empirically discharges the partition-alignment / G2
+  provenance risk (`clojure hash ≡ rama hash-by mod N`) across every task count
+  the harness randomizes over — the empirical complement to Phase 4's static
+  alignment trace. Logs (uncommitted): scratchpad `phase7-run1.log`,
+  `phase7-sweep.log`. The two new code files
+  (`src/app/server/rama/relation_kernel.clj`,
+  `test/app/server/rama/relation_kernel_test.clj`) remain **UNCOMMITTED** — not
+  yet asked to commit.
+- **Definition-of-done status**: CONTRACT §11 gates (11 after the F2 ruling —
+  STANDING's "10" predates gate 11; CONTRACT wins by the precedence rule) all
+  green as IPC tests; style gates satisfied per Phase 4/6. The one remaining DoD
+  item is the **Fable gate review** (STANDING).
+- Next fresh session (**Fable**): run the **Fable gate review** of the
+  relation-kernel module — adjudicate the built module + green suite against
+  CONTRACT.md §11 (all 11 gates) + §9 refusals + the style gates, using
+  IMPLEMENTATION_VALIDATION.md / TEST_VALIDATION.md as the prior-pass record and
+  the now-green suite as evidence. This is also a **D-006 evaluation datapoint**
+  (implementation contact is the falsifier — record the honest result). If the
+  gate passes: decide with Sid whether to commit the two code files, then the
+  D-003 Regime-1 spine (transcript→commit/doc join extractor + git-commit-metadata
+  adapter feeding the 27-04 trail view) — **do NOT start the spine without Sid**
+  (STANDING).
