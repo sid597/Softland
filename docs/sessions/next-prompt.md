@@ -64,8 +64,10 @@ Added 2026-07-03 (bet-foundry session, same day):
    Sid's verbatim proposal + HCI thesis landed in `vision/LOG.md` (2026-07-03
    entry).
 5. **First BETS.md intake sitting** (Fable-grade, Sid live): seed the empty
-   Candidates inbox from `vision/LOG.md` — now holding the HCI thesis, the
-   economy vision, and the April–June versioning/atomic-unit research notes —
+   Candidates inbox. **PRE-READ: `docs/current-mental-model/intake/
+   2026-07-04-painting.md`** — the full typed decomposition of the 07-03/04
+   sessions (12 threads, parallelism map, carried questions). Sources:
+   `vision/LOG.md` (HCI thesis, economy vision, April–June research notes)
    plus the wall panels. Status of the three posed frontier questions:
    Q1 (beachhead) ANSWERED — H3 re-sequenced in BETS.md 2026-07-04; Q3 (unit
    that leaves the chatbox) ANSWERED — "everything, raw + native + view-forward"
