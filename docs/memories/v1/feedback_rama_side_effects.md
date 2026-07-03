@@ -1,0 +1,11 @@
+---
+name: Rama topology events do not roll back external side effects
+description: When designing Rama dataflow that touches the outside world (process spawn, HTTP call, file write, depot append to another module), separate transactional state from the side effect. completable-future>/each-async tie future delivery to event success but do NOT make the world transactional. Stream topologies have at-least-once retry — failed events redo PState writes, but the OS-level side effect already happened.
+type: feedback
+originSessionId: 8ed82617-aa8b-439b-9d51-8f6eadb398c6
+---
+When proposing Rama designs that mix topology events with external side effects, enumerate the retry consequences for each side effect separately from the PState writes. `completable-future>` and `each-async` tie future delivery to event success — they do not make the OS-level world transactional.
+
+**Why:** In the slice-A v2 review (compute-runtime dogfood design), I put `(completable-future> (.spawn-async *executor ...))` inside the request topology. The review caught that on event failure + retry, PState writes are discarded but the child process already forked. Result: duplicate child processes, observations referencing rows that don't yet exist, lost back-arrow architecture. Deterministic run-ids fix PState idempotence but not OS-level idempotence — different problem, different tool. The fix is the AOR shape: topology writes committed pending state, executor reactively consumes that state, side effects happen outside the topology event.
+
+**How to apply:** Before using any Rama op that wraps a side effect (`completable-future>`, `each-async`, depot-partition-append to another module, anything that touches the outside world), explicitly write the retry timeline. Ask: "if this event fails halfway, what cleanup runs for the side effect? does Rama undo my fork? my HTTP call? my file write?" If the side effect persists past a discarded-writes batch, the design is not ready. Right pattern: topology writes intent → external consumer reacts to committed intent → consumer's own work is the side effect, with its own idempotence story (spawn-if-absent registry, dedup by request-id, etc.). The dogfood-runtime back-arrow ("workers stream observations BACK to Rama") is this pattern's name. Citations: 11-stream-topologies.md L156, L170; 23-acid-semantics.md L41.

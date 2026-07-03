@@ -1,0 +1,398 @@
+SOFTLAND RAMA DEPOTS - CURRENT CODE INVENTORY - WIDE MAP
+Generated from current source on 2026-05-16.
+
+Scope:
+  - Active source modules under src/app/server/rama, excluding env.clj.
+  - Legacy/demo Rama modules under old-infra are included at the bottom, clearly marked.
+  - foreign-depot handles and mirror-depot handles are not counted as new physical depots. They are client/wiring handles to depots declared elsewhere.
+
+
+========================================================================================================================================================================
+ONE-SCREEN WIDE VIEW
+========================================================================================================================================================================
+
+ACTIVE PHYSICAL DEPOTS: 12 declared depots across 5 active Rama modules.
+
+                                                                                          +---------------------------------------------------------------+
+                                                                                          | app.server.rama.dogfood.llm / llm-module                    |
+                                                                                          |---------------------------------------------------------------|
+                                                                                 +------->| *llm-depot            hash-by :llm-turn-run/id  intent        |
+                                                                                 |        | *llm-claim-depot      hash-by :llm-turn-run/id  executor lock |
+                                                                                 |        | *llm-obs-depot        hash-by :llm-turn-run/id  back-arrow    |
+                                                                                 |        | *llm-control-depot    hash-by :llm-turn-run/id  control      |
+                                                                                 |        |---------------------------------------------------------------|
+                                                                                 |        | llm-track-topology materializes:                             |
+                                                                                 |        |   threads, runs, decisions, pending-by-task, items, tools,    |
+                                                                                 |        |   approvals, token usage, cost rollups, controls, projections |
+                                                                                 |        +-------------------------------+-------------------------------+
+                                                                                 |                                        ^
+                                                                                 |                                        |
+                                    mirror-depot + depot-partition-append!        |                                        |
+                                    on accepted compose/fork/control              |                                        |
+                                                                                 |                                        |
++---------------------------------------------------------------+                |                                        |
+| app.server.rama.dogfood.space / space-kernel-module           |                |                                        |
+|---------------------------------------------------------------|                |                                        |
+| *space-action-depot  hash-by :routing/key  world/space intent |----------------+                                        |
+|                                                               |                                                         |
+| source> *space-action-depot                                   |                                                         |
+|   :space/create                                               |                                                         |
+|   :turn/compose-and-send     --> local PStates + *llm-depot --+                                                         |
+|   :space/fork-from-span      --> local PStates + *llm-depot --+                                                         |
+|   control requests            --> local PStates + *llm-control-depot -----------------------------------------------+    |
+|   space-turn requests         --> local PStates only                                                              |    |
+|                                                               |                                                       |    |
+| materializes: requests, decisions, events, spaces, graph,     |                                                       |    |
+| turns, context bundles, idempotency, LLM request/control      |                                                       |    |
+| shadows, objects, artifact graph, slices, overlays,           |                                                       |    |
+| derivatives, patch proposals, chat canvas and object views    |                                                       |    |
++---------------------------------------------------------------+                                                       |    |
+                                                                                                                       |    |
+                                                                                                                       |    |
+                                                                                                                       |    |
++---------------------------------------------------------------+                                                       |    |
+| app.server.rama.text-kernel / text-kernel-module              |                                                       |    |
+|---------------------------------------------------------------|                                                       |    |
+| *text-requests-depot  hash-by :routing/key  text/artifact     |                                                       |    |
+|                                                               |                                                       |    |
+| source> *text-requests-depot                                  |                                                       |    |
+|   :artifact/ingest     --> artifacts, revisions, units        |                                                       |    |
+|   :unit/status-set     --> branch-specific unit status        |                                                       |    |
+|   :compat/record       --> compatibility event materialization|                                                       |    |
+|   default              --> rejected ActionDecision            |                                                       |    |
+|                                                               |                                                       |    |
+| materializes: requests, decisions, events, artifacts, heads,  |                                                       |    |
+| branches, policies, text revisions, units, unit statuses,     |                                                       |    |
+| projection cache                                             |                                                       |    |
++---------------------------------------------------------------+                                                       |    |
+                                                                                                                       |    |
+                                                                                                                       |    |
++---------------------------------------------------------------+                                                       |    |
+| app.server.rama.dogfood.compute / compute-module              |                                                       |    |
+|---------------------------------------------------------------|                                                       |    |
+| *compute-depot        hash-by :run/id  run-command intent     |                                                       |    |
+| *compute-claim-depot  hash-by :run/id  executor lock          |                                                       |    |
+| *compute-obs-depot    hash-by :run/id  process observations   |                                                       |    |
+|                                                               |                                                       |    |
+| source> *compute-depot       --> accept/reject run request,   |                                                       |    |
+|                                  create pending run           |                                                       |    |
+| source> *compute-claim-depot --> grant pending run to executor|                                                       |    |
+| source> *compute-obs-depot   --> fold stdout/stderr/exit      |                                                       |    |
+|                                  with retry-mode :all-after   |                                                       |    |
+|                                                               |                                                       |    |
+| materializes: compute runs, decisions, pending-by-task, views |                                                       |    |
++---------------------------------------------------------------+                                                       |    |
+                                                                                                                       |    |
+                                                                                                                       |    |
++---------------------------------------------------------------+                                                       |    |
+| app.server.rama.dogfood.transcript / transcript-module        |                                                       |    |
+|---------------------------------------------------------------|                                                       |    |
+| *transcript-depot        hash-by :transcript/request-id        |                                                       |    |
+| *transcript-claim-depot  hash-by :transcript/request-id        |                                                       |    |
+| *transcript-obs-depot    hash-by :transcript/ingest-request-id |                                                       |    |
+|                                                               |                                                       |    |
+| source> *transcript-depot       --> create pending harvest/watch run                                                    |
+| source> *transcript-claim-depot --> fold run status/progress                                                           |
+| source> *transcript-obs-depot   --> dedupe source line, update ledger, conversations, tool-call index                 |
+|                                     with retry-mode :all-after                                                         |
+|                                                               |                                                       |    |
+| materializes: transcript runs, source ledger, observed        |                                                       |    |
+| conversations, tool-call index                                |                                                       |    |
++---------------------------------------------------------------+                                                       |    |
+                                                                                                                       |    |
+                                                                                                                       +----+
+
+
+========================================================================================================================================================================
+DEPOT INVENTORY TABLE
+========================================================================================================================================================================
+
+FAMILY       MODULE                    PHYSICAL DEPOT              PARTITIONER                         KIND / ROLE                 PRIMARY INPUT RECORDS
+----------   -----------------------   -------------------------   ----------------------------------  ------------------------    -----------------------------------------------
+text         text-kernel-module         *text-requests-depot        (hash-by :routing/key)              intent                      ActionRequest for :artifact/ingest,
+                                                                                                                                   :unit/status-set, :compat/record
+
+space        space-kernel-module        *space-action-depot         (hash-by :routing/key)              world/space intent          ActionRequest for :space/create,
+                                                                                                                                   :turn/compose-and-send, :space/fork-from-span,
+                                                                                                                                   :turn/tool-approval-resolve, :turn/cancel,
+                                                                                                                                   :turn/compact-request, :turn/steer,
+                                                                                                                                   :turn/draft-save, :turn/comment-create,
+                                                                                                                                   :turn/slice-create, :turn/derivative-create,
+                                                                                                                                   :turn/patch-proposal-create, :turn/patch-accept,
+                                                                                                                                   :turn/patch-reject, :turn/abandon
+
+llm          llm-module                 *llm-depot                 (hash-by :llm-turn-run/id)          intent                      LLM turn-run request created directly or by Space
+llm          llm-module                 *llm-claim-depot           (hash-by :llm-turn-run/id)          executor lock               claim-record for pending run
+llm          llm-module                 *llm-obs-depot             (hash-by :llm-turn-run/id)          observation / back-arrow    adapter observations: item completed, approvals,
+                                                                                                                                   token usage, tool calls, patch proposals,
+                                                                                                                                   run finished/failed, Claude stream events, etc.
+llm          llm-module                 *llm-control-depot         (hash-by :llm-turn-run/id)          control                     approval resolve, cancel, compact request, steer
+
+compute      compute-module             *compute-depot             (hash-by :run/id)                   intent                      run-command ActionRequest
+compute      compute-module             *compute-claim-depot       (hash-by :run/id)                   executor lock               claim-record for pending process run
+compute      compute-module             *compute-obs-depot         (hash-by :run/id)                   observation / back-arrow    process observations: started, stdout, stderr, exit
+
+transcript   transcript-module          *transcript-depot          (hash-by :transcript/request-id)    intent                      harvest/watch transcript request
+transcript   transcript-module          *transcript-claim-depot    (hash-by :transcript/request-id)    run status / claim-ish      transcript run status/progress record
+transcript   transcript-module          *transcript-obs-depot      (hash-by :transcript/ingest-request-id)
+                                                                                                       observation / back-arrow    one parsed/redacted source line observation
+
+
+========================================================================================================================================================================
+DEPOT FAMILY GRAMMAR IN THIS CODEBASE
+========================================================================================================================================================================
+
+intent depot:
+  The durable "please do this" stream.
+  Present in all 5 active modules:
+    *text-requests-depot, *space-action-depot, *compute-depot, *transcript-depot, *llm-depot
+
+claim depot:
+  Executor lock / state transition stream: pending -> claimed/running/progress.
+  Present in 3 execution-like modules:
+    *compute-claim-depot, *transcript-claim-depot, *llm-claim-depot
+
+observation depot:
+  The back-arrow stream. External or task-global workers report what happened back into Rama.
+  Present in 3 execution-like modules:
+    *compute-obs-depot, *transcript-obs-depot, *llm-obs-depot
+  Source reads use retry-mode :all-after in all three active observation folds.
+
+control depot:
+  Out-of-band "change the run" stream. Separate from observation because it is user/system intent, not a report of what already happened.
+  Present only in:
+    *llm-control-depot
+
+cross-module wire:
+  Space declares mirror handles for LLM depots and writes to them inside the space topology:
+    mirror-depot setup *llm-depot         -> app.server.rama.dogfood.llm/llm-module "*llm-depot"
+    mirror-depot setup *llm-control-depot -> app.server.rama.dogfood.llm/llm-module "*llm-control-depot"
+  Then it writes with:
+    (|hash$$ *llm-depot *llm-run-id)                 (depot-partition-append! *llm-depot *llm-request :append-ack)
+    (|hash$$ *llm-control-depot *control-run-id)     (depot-partition-append! *llm-control-depot *control :append-ack)
+
+
+========================================================================================================================================================================
+PER-MODULE MATERIALIZATION MAP
+========================================================================================================================================================================
+
+TEXT KERNEL
+  depot:
+    *text-requests-depot
+  topology:
+    text-kernel-topology
+  source:
+    source> *text-requests-depot :> *request
+  branches:
+    :artifact/ingest      -> accept/reject -> KernelEvent -> artifacts, artifact heads, branches, text revisions, line units
+    :unit/status-set      -> read unit -> accept/reject -> KernelEvent -> unit-status-by-branch
+    :compat/record        -> accept/reject compatibility event
+    default               -> rejected decision
+  PStates:
+    $$requests-by-id
+    $$decisions-by-id
+    $$events-by-id
+    $$artifacts
+    $$artifact-heads
+    $$branches
+    $$policies
+    $$text-revisions
+    $$units-by-artifact
+    $$unit-status-by-branch
+    $$projection-cache
+
+SPACE KERNEL
+  depot:
+    *space-action-depot
+  mirrors:
+    *llm-depot
+    *llm-control-depot
+  topology:
+    space-topology
+  source:
+    source> *space-action-depot :> *request
+  branches:
+    :space/create              -> local world object + chat canvas projection
+    :turn/compose-and-send     -> local turn/context/object graph + LLM run request mirror append
+    :space/fork-from-span      -> local fork/slice graph + LLM run request mirror append
+    control request types      -> local control turn/object graph + LLM control mirror append
+    other space-turn requests  -> local turn/object graph, optional slice/comment/derivative/patch materialization
+    default                    -> rejected decision
+  PStates:
+    $$space-requests-by-id
+    $$space-decisions-by-id
+    $$space-events-by-id
+    $$spaces
+    $$space-graph
+    $$turns
+    $$turns-by-space
+    $$context-bundles
+    $$context-bundles-by-turn
+    $$send-by-idempotency
+    $$llm-run-requests
+    $$llm-run-by-turn
+    $$llm-controls
+    $$llm-control-by-turn
+    $$objects
+    $$artifact-graph
+    $$artifact-graph-in
+    $$slices
+    $$overlays
+    $$derivatives
+    $$space-patch-proposals
+    $$projection-chat-canvas
+    $$projection-object-detail
+    $$projection-object-relations
+
+LLM KERNEL
+  depots:
+    *llm-depot
+    *llm-claim-depot
+    *llm-obs-depot
+    *llm-control-depot
+  topology:
+    llm-track-topology
+  sources:
+    source> *llm-depot
+      -> accept/reject turn-run request
+      -> bind run to thread
+      -> pending-by-task
+      -> run view/detail projections
+    source> *llm-claim-depot
+      -> grant executor claim
+      -> remove from pending-by-task
+    source> *llm-obs-depot {:retry-mode :all-after}
+      -> fold ordered observations into run row
+      -> materialize items, tools, approvals, token usage, thread cost
+      -> index item rows by id
+    source> *llm-control-depot
+      -> fold approval/cancel/compact/steer controls
+      -> clear approvals and pending rows when terminal
+  PStates:
+    $$llm-threads
+    $$llm-thread-by-space
+    $$llm-thread-graph
+    $$llm-turn-runs
+    $$llm-turn-runs-by-thread
+    $$llm-turn-run-by-turn
+    $$llm-decisions-by-run-id
+    $$llm-pending-by-task
+    $$llm-items-by-turn-run
+    $$llm-items-by-thread
+    $$llm-item-by-id
+    $$llm-raw-response-items
+    $$llm-tool-calls-by-run-id
+    $$llm-approvals-pending
+    $$llm-approvals-by-run-id
+    $$llm-token-usage-by-run-id
+    $$llm-cost-by-thread
+    $$llm-controls-by-run-id
+    $$llm-control-by-id
+    $$llm-views
+    $$projection-run-detail
+
+COMPUTE KERNEL
+  depots:
+    *compute-depot
+    *compute-claim-depot
+    *compute-obs-depot
+  topology:
+    compute-run-command-topology
+  sources:
+    source> *compute-depot
+      -> accept/reject command request
+      -> create pending run
+      -> assign executor task
+    source> *compute-claim-depot
+      -> grant claim when run is pending and task matches
+      -> remove run from pending-by-task
+    source> *compute-obs-depot {:retry-mode :all-after}
+      -> fold process lifecycle: started, stdout, stderr, exit
+  PStates:
+    $$compute-runs
+    $$compute-decisions-by-run-id
+    $$compute-pending-by-task
+    $$compute-views
+  module object:
+    *compute-executor task-global polls pending rows, claims runs, spawns process, appends observations
+
+TRANSCRIPT KERNEL
+  depots:
+    *transcript-depot
+    *transcript-claim-depot
+    *transcript-obs-depot
+  topology:
+    transcript-capture-topology
+  sources:
+    source> *transcript-depot
+      -> validate harvest/watch request
+      -> create pending run or failed run row
+    source> *transcript-claim-depot
+      -> fold run status/progress/counts/errors
+    source> *transcript-obs-depot {:retry-mode :all-after}
+      -> dedupe by source-line-key
+      -> update source ledger and file cursor
+      -> update run counts
+      -> index observed conversation lines
+      -> index first tool call row when present
+  PStates:
+    $$transcript-runs
+    $$transcript-source-ledger
+    $$transcript-observed-conversations
+    $$transcript-tool-call-index
+
+
+========================================================================================================================================================================
+LEGACY / OLD-INFRA DEPOTS
+========================================================================================================================================================================
+
+These live under old-infra. They are useful for archaeology and early Rama experiments, but they are not part of the current active dogfood runtime.
+
+LEGACY MODULE          DEPOT                 PARTITIONER       STATUS                         MATERIALIZES
+-------------------    ------------------    --------------    -----------------------------  --------------------------------------------
+rfModule               *app-state-depot      :random           active old-infra defmodule      $$app-state-pstate
+node-events-module     *node-events-depot    :random           active old-infra defmodule      $$nodes-pstate
+events                 *events-depot         :random           reader-discarded with #_        $$nodes-pstate, $$edges-pstate
+
+
+========================================================================================================================================================================
+SOURCE ANCHORS
+========================================================================================================================================================================
+
+Active:
+  src/app/server/rama/text_kernel.clj
+    lines 383-399: text-kernel-module declares *text-requests-depot and source> reads it
+    lines 497-519: runtime foreign-depot handle and append helper
+
+  src/app/server/rama/dogfood/space.clj
+    lines 1138-1141: space-kernel-module declares LLM mirror depots and *space-action-depot
+    lines 1143-1169: Space PStates and source> *space-action-depot
+    lines 1328, 1386: accepted compose/fork writes into mirrored *llm-depot
+    line 1448: accepted control writes into mirrored *llm-control-depot
+    lines 1619-1680: runtime depot handles and append helper
+
+  src/app/server/rama/dogfood/llm.clj
+    lines 1254-1258: llm-module declares four physical LLM depots
+    lines 1283, 1317, 1332, 1377: topology sources for request, claim, observation, control depots
+    lines 1412-1469: runtime depot handles and append helpers
+
+  src/app/server/rama/dogfood/compute.clj
+    lines 591-594: compute-module declares three compute depots
+    lines 605-643: topology sources and PState materialization
+    lines 653-687: runtime depot handles and append helpers
+
+  src/app/server/rama/dogfood/transcript.clj
+    lines 396-399: transcript-module declares three transcript depots
+    lines 406-450: topology sources and PState materialization
+    lines 459-493: runtime depot handles and append helpers
+
+  src/app/server/rama/kernel.clj
+    lines 561-620: abstract depot family contract: intent, claim, observation, control
+    lines 642-662: cross-module mirror-depot contract
+
+Legacy:
+  old-infra/src/app/server/rama_module.clj
+    lines 65-124: rfModule, *app-state-depot
+    lines 274-301: reader-discarded events module, *events-depot
+    lines 312-326: node-events-module, *node-events-depot
+

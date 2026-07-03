@@ -129,6 +129,12 @@ architecture/object-container-reviewer-world-model.md
   -> Codex reviewer lens for future sessions: kernel fit, readiness, first
      slice gate, and red flags
 
+build/chat-ingester/PRODUCT.md
+  -> product contract for transcript ingest as an object-container interpreter:
+     one-time import/watch acquisition, source-specific parsing, native
+     conversation/message/tool containers, anchors, privacy, and why Space is
+     downstream
+
 build/object-container/IMPLICIT_SPEC.md
   -> first implementation slice contract for markdown import, outline, and
      graduate-on-edit; not global context unless implementing
@@ -186,6 +192,9 @@ architecture/dogfood-runtime/llm-track-claude-research.md
 architecture/dogfood-runtime/transcript-capture.md
   -> candidate passive-observation slice for harvesting/watching Claude
      transcripts; not implemented in the LLM MVP
+  -> read after build/chat-ingester/PRODUCT.md when designing current ingest,
+     because it preserves acquisition/parser/audit behavior but predates the
+     object-container correction
 ```
 
 ## What Counts As Global Context

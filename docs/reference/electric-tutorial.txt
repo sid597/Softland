@@ -1,0 +1,746 @@
+
+Two Clocks
+How it works
+Reactive Evaluation
+Electric-dom authoring syntax
+Electric-dom is effectful, there is no virtual DOM
+Mount-point
+Basic text input (as an expression!)
+Component local state
+Basic button (stateful counter)
+Recursive bindings, cycles, divergence
+BMI calculator
+Tables, reactive lists, and virtual scroll
+Window
+Repaint
+Tape
+Client/server transfer syntax
+Effects are sited, edges are not
+Auto-siting
+Dynamic siting
+Buttons (for remote transaction) and e/Token
+How can it ever be correct to ignore user input? (e/Token)
+Typeahead
+Database-backed table
+
+Two Clocks
+In the starter app, open src/electric_starter_app/quickstart.cljc:
+(ns electric-starter-app.quickstart
+  (:require [hyperfiddle.electric3 :as e]
+            [hyperfiddle.electric-dom3 :as dom]))
+
+(e/defn App []
+  (e/client
+    (let [s (e/server (e/System-time-ms))
+          c (e/client (e/System-time-ms))]
+      (dom/div (dom/text "server time: " s))
+      (dom/div (dom/text "client time: " c))
+      (dom/div (dom/text "skew result: " (- s c))))))
+http://electric.hyperfiddle.net/fiddle/electric-tutorial.two-clocks$TwoClocks
+
+What's happening
+Two clocks, one on the client, one on the server, we compute the skew.
+The whole file is a regular Clojure/Script namespace: this is a full stack app in 12 LOC, with both frontend and backend parts. Electric compiles the application into concurrent client and server processes that communicate by websocket.
+"Streaming lexical scope": the value of the clock s is streamed over websocket to the client and rendered into the DOM
+e/server blocks run on the backend, they are coded in Clojure (JVM)
+e/client blocks run on the frontend, they are coded in ClojureScript (browser).
+e/defn defines an Electric function. Electric functions are reactive at the granularity of individual expressions (as opposed to React, which is reactive at function granularity).
+Electric rules only apply inside Electric code regions such as e/defn.
+
+How it works
+e/defn is a macro containing a complete Clojure/Script code analyzer and compiler. It compiles Electric code down to Clojure (JVM) & ClojureScript (JS) target code, i.e., two runtime processes—a frontend and a backend—which communicate over a websocket.
+Electric function names Foo must always be capitalized: (e/defn Foo [a] ...). We use this to distinguish between an Electric call (Foo) and a Clojure call e.g. (f). This additionally makes Clojure idioms like (-> x (Foo y)) work on Electric functions too. The rule is that the Electric compiler will inspect the first letter only. Note that Reagent and React have a call convention too; Reagent uses [f] and React uses <F>.
+
+Electric is "99%" Clojure/Script compatible (i.e., to a reasonable extent)
+This includes syntax, defmacro, collections & datatypes, destructuring, host interop, most of clojure.core, etc.
+Electric's e/defn implements all ordinary Clojure special forms. That means, most any valid Clojure or ClojureScript expression, when pasted into an Electric body, will evaluate to the same result, and produce the same side effects, just not in the same statement order due to Electric's reactive evaluation model.
+Implication: many pre-existing Clojure/Script macros will work, to the extent that their macroexpansion is referentially transparent (i.e. does not rely on runtime mutation or host concurrency, thread stuff including future and push-thread-bindings, etc). So this includes most of clojure.core, when, ->>, even core.match. It's just Clojure!
+Only Electric definitions like e/defn need to be in a .cljc file; regular Clojure/Script functions follow the rules of Clojure and the Electric compiler will resolve them properly.
+
+Gotchas:
+e/defn must be used only in a .cljc file, because it can not only itself contain both e/client and e/server regions, it can also call other functions or macros which can contain both e/client and e/server regions. So both the client and server builds need to be able to see into all Electric function bodies, even those that seem to be limited to one or the other.
+Again, Electric function names Foo must always be capitalized, don't forget!
+
+FAQ: I don't want to capitalize my Electric functions, can you please change it? This is a common initial reaction, but we ask that you please trust us on this one. Your brain will absorb it in about 10 minutes.
+
+FAQ: Can Electric be used without a server? We won't stop you, but we can't recommend this. While this technically works, Electric is not designed for it, or optimized for it, so many of the tradeoffs Electric makes may not make sense for this use case. For example, if you look closely at the primitives/idioms Electric provides, such as for differential dataflow, virtual scroll, and transaction management (e/Token), they are all about distribution and latency management.
+Reactive Evaluation
+TODO
+Expressions are recomputed if and only if one or more of its arguments update.
+Electric-dom authoring syntax
+Type this in, reusing the quickstart namespace for convenience:
+(e/defn Foo [s]
+  (dom/props {:class "foo" :style {:border "1px solid grey"}})    ; props attached to el in scope
+  (dom/div (dom/text s)))
+
+(e/defn App []
+  (dom/div
+    (Foo "hello")))
+
+Some notes to help you get oriented:
+DOM rendering happens on the client, there is no server side rendering.
+DOM TextNodes are explicit. Why? See next section
+dom/props is contextual, it is inheriting the parent div through dynamic scope!
+BTW, the entrypoint starts on e/client, so we haven't bothered to explicitly client-site this.
+
+FAQ: What about hiccup DOM authoring syntax? It's a top request, see discussion at Hiccup support for electric-dom (github). Yes, explicit dom/text and dom/props nodes are annoying. And yet. The effectful DOM authoring syntax is more expressive with fewer edge cases and lower overhead. We have some ideas for a better syntax that doesn't have the constraints that hiccup has.
+
+Electric-dom is effectful, there is no virtual DOM
+Electric-dom operators such as dom/div and dom/text are syntax sugar over the underlying imperative DOM methods, such as .createElement, .appendChild and .createTextNode. Thanks to Electric's language-level fine-grained reactivity, electric-dom simply needs a bit of declarative syntax sugar to choreograph the native DOM apis and mutate the DOM in-place.
+
+Example: in (dom/div (dom/text s)), the dom/text is explicit because Electric is reflecting to you the actual native structure of the DOM and its operations, and to render text in the DOM, you need a TextNode. So dom/text will first call .createTextNode to allocate the TextNode, and then attach it to the parent container with .appendChild. When s changes, we mutate the node's .-textContent directly, without rebuilding the TextNode.
+
+Example: (dom/props {:class "foo" :style {:border "1px solid grey"}})
+dom/props sets or unsets properties on the element in scope using .setAttributeNS and.removeAttributeNS
+the element in scope is resolved through dynamic scope, which the dom/props macro will access via dom/node.
+
+FAQ: Explicit dom/text nodes are ugly boilerplate, React wouldn't make us write that, so why does Electric not abstract over this? Because, Electric is reflecting to you the actual native structure of the DOM and its operations. In other words, Electric makes no attempt to abstract over the DOM, rather it is a thin authoring notation with a direct, 1:1 translation to actual native DOM objects and methods. This means: fewer edge cases (React has many), with greater transparency, understanding and control over the native computation as seen by the platform, and less impedance when you are trying to express something intricate. This also enables us to create Electric bindings over other platforms, such as native GUI frameworks for desktop and mobile, 3D scene graphs, using Electric to choreograph AWS resources similar to what Terraform does, etc.
+
+FAQ: React ecosystem interop? Yes, Electric's e/client regions are just ClojureScript, you can bridge to React in a dozen lines of code. TODO link to an example.
+Mount-point
+TODO
+Basic text input (as an expression!)
+(e/defn Input [v]
+  (dom/input (dom/props {:value v})
+    (dom/On "input" #(-> % .-target .-value)
+      v)))
+
+(e/defn App []
+  (let [s (Input "hello")]
+    (dom/p (dom/text s))))
+http://electric.hyperfiddle.net/fiddle/electric-tutorial.basictext-input$BasicTextInput 
+
+The big idea is that Electric inputs are callback-free. Instead of using React-style on-change callbacks to save off the current input value into local state, Electric inputs are expressions and return their current state as a reactive value. Note: there is no atom in the above program!
+
+dom/On subscribes to events on the parent element, and derives a current value from the event stream
+dom/On is approximately a discrete reduction over the stream of events, it returns the current state.
+The function (fn) is an extractor function, it samples the current state off of the event the function is a value extractor
+v is the initial state of the expression before any events have occurred
+
+dom/input returns its final child, which is the reactive values coming out of dom/On. 
+This is in contrast to using React change callbacks to explicitly save and store the value somewhere else. 
+In Electric, the state of the input is implicit in the s which is transparently memoized
+The initial value of the dom/input is set by (dom/props {:value s}), subsequent values of the input come from dom/On
+There is some subtle behavior happening here, we will revisit input circuits later.
+
+"Input as an expression" is incredibly cool and powerful, but takes some getting used to. For example, digest this:
+(e/server (println (e/client (dom/input (dom/On "input" #(-> % .-target .-value) "")))
+If you are weirded out by seeing a dom/input directly composed with println, you're not alone! But, now is the time to start getting used to it. Modeling entire applications as expressions is what Electric is about.
+Component local state
+One might ask how to locate the dom/p above the dom/input? Like with Reagent, we'll need local state:
+(e/defn App []
+  (let [!s (atom "hello")
+        s (e/watch !s)]
+    (dom/p (dom/text s))
+    (reset! !s (Input s))))
+electric.hyperfiddle.net/fiddle/electric-tutorial.basic-state$BasicState 
+
+atom and e/watch
+in !s, the bang prefix is a convention that we use to mean "reference type". In Electric, references are not serializable so it's really important to keep track of the difference between a reference, and its current value.
+e/watch is how you subscribe to the current value from an atom, as it changes over time. It uses the clojure.core/add-watch and remove-watch APIs under the hood to return the current state of the reference being watched.
+
+(reset! !s (Input s))
+This is a cycle by side effect. Input is a reactive function that returns the current state of the input. The reset! side effect will run each time its parameter changes.
+reset! will trigger the e/watch, which will update s, which will update the dom/text.
+TODO: what will dom/On do with updates to v? Explain later
+
+Cycles in the DAG
+DAG = Directed Acyclic Graph
+We're conceptually using the atom to implement an out of band cycle
+Yes, the Electric DAG is acyclic: Electric does not reify this cycle, we are using side effects to loop an output reset! back into an input e/watch
+
+The use of an atom to cycle a reactive binding lexically up the program is common and idiomatic. In fact, cycling a value like this is so common that we'd like to add language-level support in Electric for what is called binding recursion or mutually recursive bindings in haskell to eliminate the atom entirely, making the expression ultimately referentially transparent. 
+Basic button (stateful counter)
+Here is a simple counter: when you click the button, it increments the count, which is stored in an atom.
+(e/defn App []
+  (e/client
+    (dom/button
+      (let [!n (atom 0)
+            f! (fn [e] (swap! !n inc))       ; feels like a callback, yuck
+            n (dom/On "click" f! 0)]
+        (dom/text n)))))
+electric.hyperfiddle.net/fiddle/electric-tutorial.button-counter$ButtonCounter
+
+Here's another way to write it that feels less like a callback, demonstrating how the button can be treated as an expression that evaluates to the count:
+(e/defn Clicker [n]
+  (dom/button (dom/text "click!")
+    (dom/On "click" (fn [e] (inc n)) n)))    ; no atom
+
+(e/defn App []
+  (e/client
+    (let [!n (atom 0), n (e/watch !n)]
+      (reset! !n (Clicker n))                ; not a callback
+      (dom/text n))))
+electric.hyperfiddle.net/fiddle/electric-tutorial.button-counter-callbackless$ButtonCounterCallbackless
+
+FAQ: That reset! really feels like a callback... It's not, it's a statement, like println. It runs when its argument changes, which we're using to implement a cycle by side effect, which while imperative in implementation, is conceptually pure, see above "cycles in the DAG". Please, use atoms freely when writing Electric.
+
+Here is yet another way, as a compact one-liner:
+(dom/button (dom/text (dom/On "click" (partial swap! (atom 0) inc) 0)))
+
+Recursive bindings, cycles, divergence
+The Temperature Converter app demonstrates two mutually dependent inputs, Celsius and Fahrenheit:
+(ns electric-tutorial.temperature-converter
+  (:require
+   [clojure.math :refer [round]]
+   [hyperfiddle.electric3 :as e]
+   [hyperfiddle.electric-forms5 :refer [Input]]
+   [hyperfiddle.electric-dom3 :as dom]))
+
+(defn c->f [c] (+ (* c (/ 9 5)) 32))
+(defn f->c [f] (* (- f 32) (/ 5 9)))
+
+(e/defn TemperatureConverter []
+  (let [!v (atom 0), v (e/watch !v)]
+    (dom/dl
+
+      (dom/dt (dom/text "Celsius"))
+      (dom/dd (some->> (Input v :type "number")
+                not-empty parse-long (reset! !v)))
+
+      (dom/dt (dom/text "Fahrenheit"))
+      (dom/dd (some->> (Input (round (c->f v)) :type "number")
+                not-empty parse-long f->c round (reset! !v))))))
+electric.hyperfiddle.net/fiddle/electric-tutorial.temperature-converter$TemperatureConverter 
+
+What's happening
+Two inputs - celsius and fahrenheit, as you type into one, the other updates
+Input is new, it is a signal-idiom input (as in the quickstart) which returns its current state as a reactive value
+Both inputs are bound to the same state. The same v is both read and written to by both inputs.
+
+How it works
+Input returns its current state. When not empty, we call (reset! !v .) to loop the state into the other input.
+Both inputs write to the same atom !v in Celsius units. The atom's watched value v then flows to both display paths, directly to Celsius, and through c->f to Fahrenheit.
+This creates a cycle where updating either input triggers the atom update, which automatically propagates to refresh both displayed values.
+Celsius Input: input event → parse-long → reset! → v changes → ...
+Fahrenheit Input: input event → parse-long → f->c → reset! → v changes → ...
+
+Gotcha: Note the parse-long, implying the Input returns a string, not a number, despite being numeric. Q: Why does an input of :type "number" return a string to be parsed? A: In the DOM, input events always deliver a string via event.target.value, even for <input type="number">. The browser does not coerce the value to a number automatically (source: MDN: HTMLInputElement: value property). And for good reason: if the field is empty, value is "", which is a valid state. If the user types 42.5, value is "42.5". If the user types 00000, value is "00000". Therefore, Electric inputs, like Electric-dom, give you the actual native DOM semantics, so here you need to parse.
+
+Divergence
+Why do we round the Fahrenheit value both on the way in and on the way out? (round (f->c (parse-long (Input (round (c->f v)))))
+The c->f conversion produces floats and therefore loses precision during conversion. Also, floating point equality is not well defined. Electric uses clojure.core/= to decide whether an expression needs to be recomputed. We round at the conversion points to give us a value with repeatable equality outcomes. If we did not do this, the reactive computation would not reach a fixed point and would continue propagating recursively, drifting a little bit with each conversion, saturating the CPU and never returning control to the browser.
+BMI calculator
+A BMI calculator in just 30 lines of code, nearly half the size of the equivalent Reagent implementation.
+(ns electric-starter-app.quickstart
+  (:require
+   [hyperfiddle.electric-dom3 :as dom]
+   [hyperfiddle.electric3 :as e]))
+
+(e/defn RangeInput [v min_ max_]
+  (dom/input (dom/props {:style {:width "100%"} :type "range" :value v :min min_ :max max_})
+    (dom/On "input" #(-> % .-target .-value) v)))
+
+(defn weight [h bmi] (* bmi (/ (* h h) 10000)))
+
+(defn bmi-category [bmi low norm]
+  (cond 
+    (< bmi low) ::underweight
+    (< bmi norm) ::normal
+    :else ::overweight))
+
+(declare css)
+(e/defn App []
+  (dom/style (dom/text css))
+  (let [!h (atom 170) h (e/watch !h)
+        !w (atom 70) w (e/watch !w)]
+    (dom/div (dom/text "Height: " h "cm"))
+    (some->> (RangeInput h 100 220) js/parseFloat (reset! !h))
+    (dom/div (dom/text "Weight: " (.toFixed w) "kg"))
+    (some->> (RangeInput w 30 150) js/parseFloat (reset! !w))
+    (let [bmi (* (/ w (* h h)) 10000)
+          category (bmi-category bmi 18.50 25.01)]
+      (dom/div (dom/text "BMI: " (.toFixed bmi 2) " ")
+        (dom/span (dom/props {:class (name category)}) (dom/text (name category))))
+      (some->> (RangeInput bmi 9 52) js/parseFloat (weight h) (reset! !w)))))
+
+(def css ".underweight { color: red; } .normal { color: green; } .overweight { color: orange; }")
+https://electric.hyperfiddle.net/fiddle/electric-tutorial.bmi-calc$BMICalculator/
+Tables, reactive lists, and virtual scroll
+In a client/server system, you can't load the full database result to the client. This is true for all client/server architectures, not just Electric, and not just user interfaces.
+
+Electric's architecture is designed to render extra large enterprise collections (say, up to 50k records with a scrollbar, at which point the scrollbar UX begins to break down and you need to switch to a search/filtering UX to scale into the millions of records). Virtual scroll is the only reasonable way to achieve a high fidelity UX for such large collections. 
+
+Virtual scroll is a technique for rendering client windows over remote collections of arbitrary size, so that the client only pays the cost of incrementally loading and rendering rows which are actually visible. The only other alternative is pagination controls, which present an unacceptably poor UX to be used in the category of rich web applications that Electric targets (e.g. dev tools, IDEs, PKM, Notion, spreadsheets). Smooth scrolling is simply mandatory in a modern app, no matter how large your collections are.
+
+Virtual scroll is shockingly easy to implement in Electric, weighing only 33 LOC (including 4 lines of CSS). So we want you to please embrace this and learn how to do it. For this reason we have removed the old tutorial that teaches e/diff-by at this point, and instead we will teach the higher level virtual scroll operators up front so that you can have fast and scalable apps out of the box without needing to understand how it works.
+
+Electric currently offers three virtual scroll strategies, each optimized for a different type of UX:
+Window: Simple/naive approach
+Raster: Optimized for smooth filtering, e.g. typeahead picklists with small viewport
+Tape: Optimized for smooth scrolling, e.g. datagrids with fullscreen viewport
+Window
+Simplest virtual scroll primitive supporting both incremental edge loads and incremental resolution changes via the step parameter. Performs grow/shrink at the edges.
+
+
+
+Pros
+simple, easy
+virtual scroll in 33 LOC!
+4 lines of CSS to implement the virtual scroll layout
+
+Cons
+too slow for a high performance datagrid use case (abrupt scrolling will blank the grid while rows load)
+This is due to an Electric issue (e/for grow/shrink operations are too costly), which we will fix but it isn't a high priority because the next two patterns are fast.
+
+(ns electric-tutorial.table-window
+  (:require
+   [contrib.data :refer [clamp-left]]
+   [dustingetz.str :refer [abc]]
+   [hyperfiddle.electric-dom3 :as dom]
+   [hyperfiddle.electric-scroll0 :refer [Scroll-window Window]]
+   [hyperfiddle.electric3 :as e]))
+
+(def row-height 24)
+
+(e/defn VirtualScroll [xs!]
+  (dom/div (dom/props {:class "Viewport"})
+    (let [row-count (e/server (count xs!))
+          [offset limit] (Scroll-window row-height row-count dom/node {:overquery-factor 1})
+          occluded-rows-height (clamp-left (* row-height (- row-count limit)) 0)]
+      (dom/props {:style {:--offset offset :--row-height (str row-height "px")}})
+      (dom/table
+        (e/for [i (Window offset limit)]
+          (let [x (e/server (nth xs! i nil))]
+            (dom/tr (dom/text x)))))
+      (dom/div (dom/props {:style {:height (str occluded-rows-height "px")}})))))
+
+(declare css)
+(e/defn App []
+  (dom/style (dom/text css))
+  (dom/div (dom/props {:class "App"})
+    (VirtualScroll (e/server (abc 500)))))
+
+(def css "
+.App { height: calc(24px * 20); border: 1px solid black; }
+.Viewport { height: 100%; overflow-x: hidden; overflow-y: auto; }
+.Viewport table tr { height: var(--row-height); }
+.Viewport table { position: relative; top: calc(var(--offset) * var(--row-height)); }")
+https://electric.hyperfiddle.net/fiddle/electric-tutorial.table-window$TableWindow 
+
+Scroll-window returns appropriate values for offset and limit based on how far we’ve scrolled through the collection
+offset is the current scroll position, i.e. the array offset of the top of the scroll viewport. 0 means we're at the very top. Comes from (.addEventListener dom/node "scroll")
+
+Window reads [offset limit] from browser scroll and resize events
+limit is how many items of the array are visible in the scroll viewport, we use a ResizeObserver to subscribe to changes in the viewport height (try resizing the window!)
+Window gives us incremental loading of rows when we scroll
+
+e/for 
+Loops over the visible rows, not the entire collection which is too large. There are only ever limit rows visible at a time.
+Taking care to server-site all usages of xs!, we use (e/server (nth xs! i nil)) to incrementally stream new rows to the client as offset changes and new records become visible and old ones become occluded.
+We manipulate the table's relative position by setting top so that as the user scrolls, the virtual table moves down correspondingly. Similarly, we add a padding div underneath the table with a fixed height, which controls the scrollbar's length.
+FAQ: Why the bang on xs!? Because it's a batch Clojure collection, potentially very large, requiring us to take care not to accidentally move it to the client.
+
+DOM structure:
+div.App 
+div.Viewport uses overflow-y: auto to allow vertical scrolling when its content exceeds its height
+table > div has a fixed height: this causes the scrollbar to size correctly - remember the scroll is virtual, so we have to manually pad the scroll area to the height as if all elements were present
+table has fixed :top that we maintain, this moves the table down to stay visible as we scroll down.
+Repaint
+Virtual scroll primitive optimized for small viewports, such as typeahead picklists. Recomputes all cells on change with no reuse of cell values across frame evolutions. Performs zero rotation/grow/shrink, i.e. recycling all DOM elements, this is the movie strategy.
+
+
+
+Pros
+simple and easy, 1 LOC changed compared to Window strategy
+optimal for filtering small lists (Typeahead) where the resultset changes abruptly as you filter with little reuse between successive collections for successive filter values (keystrokes)
+same 4 lines of CSS as the Window strategy
+
+Cons
+all items in the list are always refetched and always recomputed, i.e., you get a fresh collection on every scroll
+No edge loading or reuse of previous elements across scroll changes, even for incremental scrolling
+Performs poorly on large lists, because all elements are reloaded with each change, no records are retained between scroll changes
+Requires a decent internet connection, can perform poorly on mobile connections or in countries where mobile usage is pay-per-megabyte
+
+(ns electric-tutorial.table-raster
+  (:require
+    ...
+    [hyperfiddle.electric-scroll0 :refer [Repaint Scroll-window]]))
+
+; ...
+
+(e/defn VirtualScroll [xs!]
+  (dom/div (dom/props {:class "Viewport"})
+    (let [row-count (e/server (count xs!))
+          [offset limit] (Scroll-window row-height row-count dom/node {:overquery-factor 1})
+          occluded-rows-height (clamp-left (* row-height (- row-count limit)) 0)]
+      (dom/props {:style {:--offset offset :--row-height (str row-height "px")}})
+      (dom/table
+        (e/for [i (Repaint offset limit)]
+          (let [x (e/server (nth xs! i nil))]
+            (dom/tr (dom/text x)))))
+      (dom/div (dom/props {:style {:height (str occluded-rows-height "px")}})))))
+
+; identical css
+https://electric.hyperfiddle.net/fiddle/electric-tutorial.table-raster$TableRaster 
+Tape
+Optimized virtual scroll primitive for datagrids that need high performance incremental scrolling.
+
+The "Tape" strategy maintains a cursor into a ring buffer of list elements, and overwrites a single value at the cursor for a single incremental scroll change. Notably, the buffer does not rotate, (e.g. the DOM elements do not rotate, they remain fixed in starting order), which means the browser doesn't have to pay the cost of rotating or rebuilding DOM elements, resulting in the absolute minimum number of DOM effects per tick: O(1) writes per scroll change. As a consequence of the DOM elements being fixed, userland is responsible for reordering the rows with CSS, e.g. via grid-row: var(--order). (For box CSS layouts, this can yield subframe scroll latency because row ordering occurs in the GPU—no javascript required. It feels incredibly lightweight and fast.)
+
+The Tape strategy works around the e/for latency issue exhibited by the Window strategy, because it avoids reconstructing the DOM elements at the edges. Again, this probably shouldn't be necessary but we haven't fixed the underlying Electric issue yet.
+
+
+https://electric.hyperfiddle.net/fiddle/electric-tutorial.table-tape$TableTape
+
+Notes
+tr does not update
+td and its text node and --order update
+The grid takes care of the visible order, n,o,p in the middle of the table appear at the correct place in the browser view
+Pros
+fastest possible DOM update strategy with absolute minimum number of DOM writes
+Rendering can be GPU accelerated
+
+Cons
+3 additional lines of CSS to order the table rows from userland
+grid layout is the best way to do this (but you're gonna use a grid anyway)
+
+(ns electric-tutorial.table-tape
+  (:require
+    ...
+    [hyperfiddle.electric-scroll0 :refer [Scroll-window Tape]]))
+
+; ...
+
+(e/defn VirtualScroll [xs!]
+  (dom/div (dom/props {:class "Viewport"})
+    (let [row-count (e/server (count xs!))
+          [offset limit] (Scroll-window row-height row-count dom/node {:overquery-factor 1})
+          occluded-rows-height (clamp-left (* row-height (- row-count limit)) 0)]
+      (dom/props {:style {:--offset offset :--row-height (str row-height "px")}})
+      (dom/table
+        (e/for [i (Tape offset limit)]
+          (let [x (e/server (nth xs! i nil))]
+            (dom/tr (dom/props {:style {:--order (inc i)}})
+              (dom/td (dom/text x))))))
+      (dom/div (dom/props {:style {:height (str occluded-rows-height "px")}})))))
+
+(def css "
+.App { height: calc(24px * 20); border: 1px solid black; }
+.Viewport { height: 100%; overflow-x: hidden; overflow-y: auto; }
+.Viewport table { display: grid; position: relative; top: calc(var(--offset) * var(--row-height)); }
+.Viewport table tr { display: contents; }
+.Viewport table td { grid-row: var(--order); height: var(--row-height); }")
+
+How it works
+Tape recycles elements instead of mounting and unmounting new rows at the ends, i.e. it is a ring buffer
+--order: reorder the rows, this coordinates with Tape to present the rows in the desired order
+
+DOM structure:
+We use a grid layout where we utilize --order to order the rows in view.
+--order is set on the tr via dom/props.
+
+Homework: Now what if we have 1,000 items? 10,000? 50,000? Try it!
+
+How to replicate virtual scroll in your app
+Problem: the CSS is nontrivial, and a single mistake or misalignment between css and html can cause the computation to "explode", flicker, crash browser, etc. Please understand this is not Electric's fault, we can potentially add some guardrails but in general we expect you to be willing to craft excellent CSS.
+To succeed here, start by replicating perfectly the actual example, css and all, and then incrementally modify to your use case
+Client/server transfer syntax
+Electric today is configured to support exactly N=2 site runtimes:
+e/server: backend, JVM, Clojure
+e/client: frontend, browser, ClojureScript
+
+Today the site/runtime/platform are tightly coupled and we only support this exact configuration, i.e. we do NOT support cljs/node/backend, or a server<>server configuration, or 3+ sites with "IP routing" like the internet. In the long run we'd love to expand beyond client/server to an N-sites architecture we codename "Skynet" – in this view Electric is no longer about UI and instead takes the role of a protocol, think "composable http". Discussion of Skynet is out of scope for this document, ask us in 2 years.
+The site refers to the specific place where code executes (client or server), and implies an Electric runtime (client/cljs or server/clj) which are hosted on its respective host platform (JVM, browser).
+Network transfer is when Electric moves a value over the wire from one site to the other.
+The transfer syntax is how you denote which expressions run on which site (i.e. client vs server). In other words, Electric's transfer syntax is a notation for authoring choreographies. Electric's transfer semantics are designed to make it so you can reason with precision about exactly where/when a transfer happens.
+A choreography is a precise arrangement or "dance" of client and server effects, which is arranged in advance (i.e. the choreography is fixed at comptime, by your program's source code). This allows the client and server to coordinate and anticipate each other's needs with the absolute minimum coordination at runtime, like a sports team.
+
+
+Image: Choreography in American football
+
+
+Electric's dataflow semantics are designed to fulfill the denoted choreography efficiently, i.e. without request waterfalls*. We will talk later about how a denoted choreography maps onto Electric's semantics resulting in waterflow-free programs, for now we just want to understand the syntax. (*Electric v3 still has some waterfalls in practice, but that's on us, not the underlying model. Think of Electric as like the JVM: the early GC designs were a bit wonky, but they got better quickly.)
+
+Type this in. We will use the most explicit site syntax first for teaching:
+(ns dustingetz.talks.dir-tree
+  (:require #?(:clj clojure.java.io)
+            [dustingetz.str :refer [includes-str?]]
+            [hyperfiddle.electric3 :as e]
+            [hyperfiddle.electric-dom3 :as dom]))
+
+(e/defn DirTree [handle search]
+  (e/server
+    (cond
+      (.isDirectory handle)
+      (e/client
+        (dom/li (dom/text (e/server (.getName handle)))
+          (dom/ul
+            (e/server
+              (let [children (.listFiles handle)]
+                (e/for [handle (e/diff-by identity children)]
+                  (Dir-tree* handle search)))))))
+
+      (and (.isFile handle) (includes-str? (.getName handle) search))
+      (e/client
+        (dom/li (dom/text (e/server (.getName handle))))))))
+
+(e/defn App []
+  (e/client
+    (let [search (dom/input (dom/On "input" #(-> % .-target .-value) ""))
+          handle (e/server (clojure.java.io/file "./src"))]
+      (dom/ul
+        (DirTree handle search)))))
+http://electric.hyperfiddle.net/fiddle/electric-tutorial.dir-tree-explicit$DirTreeExplicit/ (TODO make them match, except tutorial directory must align to starter app)
+
+
+Site macros
+e/client and e/server are compile-time markers, valid in any Electric function body.
+
+This seems obvious at first glance, but as you type this in, you will have questions, such as:
+Does let cause a network transfer?
+Does passing a server-sited argument through an Electric fn call cause a network transfer?
+What does it mean to nest client and server scopes?
+How does recursion interact with network transfer?
+At what point exactly does a network transfer occur and why?
+Do I really need to write out all this client/server boilerplate?
+
+Sorting this out was the biggest part of the Electric v2 -> v3 design. Electric v3 has three "siting rules":
+Effects are sited, edges are not
+Auto-siting
+Dynamic siting
+Effects are sited, edges are not
+(.isDirectory handle) is an effect (i.e., an effect node in the DAG), and effects are sited
+handle is an edge (i.e., an edge in the DAG), and edges (defined by let) do NOT have sites
+cond, e/for and other control flow special forms are considered platform effects and are sited
+e/fn arguments, e.g. (Dir-tree handle search), pass through without changing site, same as let
+
+In particular, let does NOT touch the site: merely binding a name to an expression does not affect where it will evaluate and does not cause a network transfer. In DAG terms, let assigns names to edges in the DAG, and edges do not have sites! Only the actual resolution of a binding, as forced by a platform effect, such as (e/server (.isDirectory handle)), causes a network transfer. This is a concrete Java method that exists only on the server site, so to call it, all the method arguments (handle) must exist on the server and will be transferred if they are not already there. 
+
+The same goes for control flow. The cond in DirTree is server-sited, and therefore the outcome is under server authority. The client does not decide the outcome of the cond, the server does, this is important for security.
+Auto-siting
+Electric-dom operators, such as dom/li and dom/text, will automatically bundle the e/client around their internal DOM effect, in a way that leaves unchanged the site of their children. For example, (e/server (dom/li (dom/text (.getName handle)))) will run .getName on the server. This syntax sugar dramatically decreases the amount of boilerplate to manually switch back and forth.
+
+Here we've modified the above Dir-tree function to use a much more compact syntax, taking advantage of auto- and dynamic-siting. I've highlighted server-sited terms in red and client-sited in blue. The result is that we can write this program with a single e/server at the top and ZERO e/client definitions. All of the other explicit client/server markers in this function can be elided.
+
+(e/defn DirTree [handle search]
+  (e/server
+    (let [name_ (.getName handle)]
+      (cond
+        (.isDirectory handle)
+        (dom/li (dom/text name_)
+          (dom/ul
+            (let [children (.listFiles handle)]
+              (e/for [handle (e/diff-by identity children)]
+                (Dir-tree* handle search)))))
+
+        (and (.isFile handle) (includes-str? name_ search))
+        (dom/li (dom/text name_))))))
+http://electric.hyperfiddle.net/fiddle/electric-tutorial.dir-tree$DirTree
+
+Audit this line by line against the above example and get it working to convince yourself that it is true, and begin to build intuition about the site resolution rules. You need to become fluent in this.
+Dynamic siting
+An unsited expression is an expression which is not explicitly colored to client or server. Unsited expressions resolve their site at runtime by inheriting from the current evaluation context (i.e., the caller's site) through runtime dynamic scope. 
+
+Example: (e/defn F [x] (inc x)) is generic enough to be useful on both sides; it is clearly portable and valid.
+
+This is commonly relevant when using electric lambda, such as a Typeahead:
+(e/client
+  (dom/tr
+    (dom/td (dom/text id))
+    (dom/td (Typeahead (e/fn Options [search] 
+                         (e/Offload #(datomic.api/q ... search)))))))
+
+Q: What is the site of datomic.api/q? A: We don't know, Typeahead's body is what determines that. (In practice, you should explicitly site that platform effect by writing out the e/server here.)
+
+Q: Can we build a generic Typeahead control that doesn't care from which site the Options will come? A: Yes, dynamic siting makes that possible. 
+
+Dynamic siting is not syntax sugar, it is an important language semantic that permits writing site-neutral functions which will inherit the site of the caller. For example, here we use unsited Electric lambdas to implement a distributed cons cell:
+(e/defn Cons_ [a b] (e/fn [F] (F a b))) ; lambda calculus encoding of a tuple datatype
+(e/defn Car [C] (C (e/fn [a b] a)))
+(e/defn Cdr [C] (C (e/fn [a b] b)))
+
+(e/defn App []
+  (e/client
+   (let [a (e/server (e/Offload #(do (Thread/sleep 1000) 1))) ; pending
+         x (Cons_ a (e/client 2))] ; must not delay the 2 to wait for the 1
+     (println (Cdr x)) ; extract 2 without waiting on 1
+     (println (Car x)) ; only 1 is delayed
+     )))
+https://electric.hyperfiddle.net/fiddle/electric-tutorial.cons$ConsDemo
+
+Here, value x is a distributed tuple, half on the client and half on the server. "Schrodinger's data structure"
+(Perhaps try to understand this at the Clojure REPL first.)
+
+TODO: Schrodinger's database?
+Buttons (for remote transaction) and e/Token
+We often want to invoke actions on our servers. One way of doing this is by pressing a button to do something, our backend enters a state of busyness (where it processes the request) and it’ll either succeed or fail. Electric leverages a value based approach to represent these states rather than callbacks.
+
+In this demo, we’ll construct a button that is ready by default, goes into a busy state when clicked, and gives us feedback in case the transaction fails.
+(ns electric-starter-app.quickstart
+  (:require [hyperfiddle.electric3 :as e]
+            [hyperfiddle.electric-dom3 :as dom]))
+
+#?(:clj (defn transaction [] (Thread/sleep 800) (rand-nth [true false])))
+
+(e/defn TxButton [label]
+  (dom/button (dom/text label)
+    (let [e (dom/On "click" identity nil)
+          [?t ?err] (e/Token e)]
+      (when ?err (dom/text " " ?err))
+      (dom/props {:aria-busy (some? ?t)
+                  :disabled (some? ?t)
+                  :aria-invalid (some? ?err)})
+      ?t)))
+
+(declare css)
+(e/defn App []
+  (dom/style (dom/text css))
+  (when-some [t (TxButton "transact!")]
+    (let [succeeded? (e/server (e/Offload #(transaction)))]
+      (if succeeded?
+        (t) ; success
+        (t "rejected"))))) ; on failure, feed error back into originating control
+
+(def css "
+[aria-busy=true] {background-color: yellow;}
+[aria-invalid=true] {background-color: pink;}")
+https://electric.hyperfiddle.net/fiddle/electric-tutorial.button-token$ButtonToken 
+
+Big idea: e/Token turns callbacks into values
+Invoking TxButton creates a button in the DOM, we capture its value and use that to signal whether a server action succeeded or failed.
+(e/Token event) constructs a tuple [t err] for each successive transactional intent.
+t, the token, is an object that starts in "ready state" (nil), eventually in response to an event enters "busy state" (non-nil), at which point it can be "spent" exactly once to return back to "ready state" (nil), with an optional error value err to the side.
+While in a busy state, the token is retained until it is spent, ignoring and silently discarding all subsequent events (!). Here, we take care to disable the button in this state to prevent future events (i.e., "backpressure the user")
+Signal the outcome of the transaction by "spending" the token, invoking it as either (t) or (t err) to return to the ready state, optionally with a rejection reason which will be injected back into the originating control as err for presentation to the user.
+
+TODO: Discuss e/Offload
+
+Commentary on e/Token API:
+Many devs don't like this API when they initially see it, due to the exposed state machine, and want to cover it up with some syntax sugar.
+But what we realized as a team, is that every nontrivial UI use case actually is a state machine. 
+We believe this is in fact the right primitive, and our success building sophisticated transactional forms with it are evidence that this is true.
+We believe this unsugared e/Token primitive is quite good actually, and it will grow on you.
+How can it ever be correct to ignore user input? (e/Token)
+Because we are modeling a transaction in a busy state. If the user rage clicks the submit button while in busy state, first of all it is a view bug because the button should be disabled, and second, it is correct to ignore the rage clicks while in busy state! We call this "backpressuring the user," who is the source of submit events. Generally you do NOT want to backpressure the user—the system should always be responsive and never lose state no matter how fast the user submits events—except in cases like this, when the user submitted a discrete transaction such as "purchase" and is waiting for confirmation. The user does not wish to accidentally purchase twice!
+Typeahead
+This example brings together many of the above concepts to build a simple typeahead component in about 30 LOC, which is impressively tiny compared to other approaches.
+
+Here is the finished example that we will build up to: TypeaheadDemo. Go read it first and click around to get oriented:
+Focus the input to open the picklist
+Type into the input to filter the picklist, the options are "aaa" through "zzz" (17,576 options)
+Click an option to select it, and the picklist will close, returning the selection
+
+Now let's build it together!
+
+Start with an input:
+(dom/input (dom/props {:placeholder "Filter..."}))
+
+We want to open the picklist when we focus the input:
+(dom/input (dom/props {:placeholder "Filter..."})
+  (let [e (dom/On "focus" identity nil)
+        [?t _] (e/Token e)]
+    ?t))
+
+We're using e/Token to manage the picklist state. Why? Previously, we used e/Token to model a button that triggers a remote transaction, sets a busy state, waits for the transaction to complete exactly once, and then clears the busy state to become ready again. Here, we are doing something structurally similar: focusing the input triggers the picklist to open (busy state), and we wait for the user to select something exactly once, and then close the picklist to become ready again. So in a way, focusing an input to open a picklist is the same as clicking a button to perform a transaction. Both are discrete events that set a busy state that is eventually cleared.
+We're ignoring the token error because there is no error state here: this picklist cannot fail to close.
+
+Now we have a way of knowing when the user is focused on the input and wants to see a picklist:
+(let [?t (dom/input (dom/props {:placeholder "Filter..."})
+           (let [[?t _] (e/Token (dom/On "focus" identity nil))]
+             ?t))
+      is-open? (some? ?t)]
+  (dom/text (if is-open? "open" "closed")))
+
+Next we want to render the picklist when open:
+(let [?t (dom/input (dom/props {:placeholder "Filter..."})
+           (let [[?t _] (e/Token (dom/On "focus" identity nil))]
+             ?t))
+        is-open? (some? ?t)]
+  (when is-open?
+    (let [xs! (e/server (e/Offload #(abc-seq 3 (pow 26 3))))] ; dummy data
+      (dom/ul
+        (e/for [i (Raster 0 15)]
+          (when-some [x (e/server (nth xs! i nil))]
+            (dom/li (dom/text (e/server (str x)))))))))
+
+Why Raster strategy?
+this typeahead does not have a scrollbar, we just show the first 15 results for the filter you provide
+to find the target item, user will simply continue typing to narrow their filter query—there is no need to scroll
+as the query results narrow, the query result tends to change abruptly with little opportunity for reuse between successive results for successive filter values (keystrokes). That means in the amortized case we're going to be reloading most of the rows with each keystroke, as opposed to an incremental load where we gracefully stream in rows one at a time at the edge.
+The picklist viewport is small and capped at 15 items, so refreshing the whole resultset is not expensive.
+These requirements match the Raster strategy.
+
+Next we want to close the picklist when an option is clicked:
+(dom/li (dom/text (e/server (str x)))
+  (dom/On "click" (fn [e] (.stopPropagation e) (?t)) nil))
+
+(?t) will consume the token, turning it nil and causing is-open? to switch false, closing the picklist.
+(?t) returns nil (after reactive propagation), therefore the dom/On also returns nil always
+
+We also want to mark the option as selected when clicked:
+(let [!v-id (atom "") v-id (e/watch !v-id)
+      ?t (dom/input (dom/props {:placeholder "Filter..."})
+           (let [[?t _] (e/Token (dom/On "focus" identity nil))]
+             (if ?t nil (dom/props {:value (str v-id)}))
+             ?t))
+      is-open? (some? ?t)]
+(when is-open?
+  ...
+    (dom/li (dom/text (e/server (str x)))
+      (dom/On "click" (fn [e] (.stopPropagation e) (reset! !v-id x) (?t)) nil))) 
+  ...)
+
+(dom/p (dom/text "Selected: " v-id)))
+
+(fn [e] (.stopPropagation e) (reset! !v-id x) (?t)) will set the selection state and then close the picklist synchronously before the Clojure fn returns. 
+Advanced: That includes synchronously propagating the effect of changing the atom (including watch subscribers), as well as synchronously propagating the effect of (?t) and closing the popover, and all associated effects of the reactive propagation, all before the Clojure function returns out of the current stack frame. Which is to say: Electric rendering and propagation will occur in this Clojure stack frame!
+This semantic is called "synchronous dataflow", which we will cover later when we discuss Missionary semantics. It is very powerful and important. Todo: Why?
+Todo: is it necessary for the reset! and token consumption to be synchronous?
+v-id is named such because you want to store an entity identity here, not a record value. In many frontend frameworks, we care to conserve server requests and therefore want to pass in a record (inclusive of a pre-hydrated option-label key). That is an optimization and incidental complexity, with Electric we no longer care (Electric will choreograph the IO for us, no need to do it by hand) and therefore it is simpler to work directly with identities, decoupling the selection state from the view state.
+
+Let's clean up at this point and extract the reusable component from the entrypoint:
+(e/defn Typeahead [v-id options-fn-S Option-label]
+  (e/client ...))
+
+(e/defn TypeaheadDemo []
+  (let [xs! (e/server (abc-seq 3 (pow 26 3)))
+        x (Typeahead ""
+            (e/server (fn options [search] (filter #(includes-str? % search) xs!)))
+            (e/fn Option-label [x] (dom/text (e/server (str x)))))]
+    (dom/p (dom/text "Selected: " x))))
+
+Filter the picklist when we type:
+(let [!search (atom nil) search (e/watch !search)]
+  ...
+
+    (dom/input ...
+      (if ?t
+        (reset! !search (dom/On "input" #(-> % .-target .-value) "")) ; maintain filter state when picklist open
+        (dom/props {:value (str v-id)})) ; present selected value when picklist closed
+      ...)
+
+  ...
+  (when is-open
+    (let [xs! (e/server (e/Offload (partial options-fn-S search)))]
+      (dom/ul ...)))
+
+...)
+
+recall that e/Offload takes a Clojure thunk to run on a thread. We make the Clojure function type explicit to make it impossible for you to try to put Electric code here such as e/client inside a java thread, which would be incoherent.
+Notice how the search state originates from the client and flows seamlessly to the server
+Try it and see the picklist narrow responsively as you type!
+
+There are a couple loose ends to reach parity with the demo:
+Use CSS to style the list
+integrate the Option-label
+todo: dynamic siting is used in the Option-label function - who controls the site that Option-label is called?
+audit yours against the complete example here: https://electric.hyperfiddle.net/fiddle/electric-tutorial.typeahead$TypeaheadDemo
+
+In <30 LOC we were able to implement a basic Typeahead component, that's the expressiveness and power of Electric!
+Database-backed table
+Time to do the teeshirt-orders example from Dustin's talks!
+
+This example composes the Typeahead you built above, with a datagrid virtual scroll. There is no new knowledge here, the goal is simply to replicate the demo. Please type it in and get it working, etc.
+
+https://electric.hyperfiddle.net/fiddle/electric-tutorial.webview-virtualscroll$OrderForm
+
+What's happening:
+teeshirt-orders datagrid over 17k records, filtering happens on the server
+each row has two typeahead pickers in it (gender and shirtsize), they also filter on the server
+the shirt-size picker options depends on the gender of that record
+i.e., female gender sees woman's options only due to this sibling dependency
+Note: this example doesn't implement persistence of the form edits, so your edit state will not persist, which also means that changing the gender will not reflow the shirt-size options. We will get to that soon!
+
+Ok, next up is architecture! We didn't write that yet, stay tuned!
+

@@ -1,6 +1,6 @@
 # Fix Session 1 — Compute Kernel (the template fix)
 
-Status: NOT STARTED (requires Session 0 DONE)
+Status: DONE (2026-06-11) — batches 1–3 landed (commit `rama: compute kernel fix batches 1-3`); batches 4–6 (schemas/caps/views, hygiene, full test suite) deferred to a follow-up session, tracked as findings D1–D8 in `IMPLEMENTATION_VALIDATION-postfix.md`. Post-fix Phase 4 verdict: major-fail overall (deferred scope only), minor-fail in-scope → all 4 in-scope findings fixed + probe-pinned same session.
 
 Self-contained prompt. You are hardening `src/app/server/rama/dogfood/compute.clj` against the retro findings. This fix is the TEMPLATE the other kernels' sessions will copy — favor shapes that generalize.
 

@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giants — Explorable Research Map</title>
+<style>
+:root{
+  --bg:#0d0e12; --panel:#15171f; --panel2:#1b1e28; --line:#2a2e3a;
+  --ink:#dce0e8; --ink-dim:#9aa3b2; --ink-faint:#6b7385;
+  --accent:#7cc7ff; --accent2:#b79cff;
+  --steal:#5fd08a; --avoid:#ff7a85; --open:#ffce6a;
+  --fam-media:#7cc7ff; --fam-sense:#b79cff; --fam-space:#5fd0c0; --fam-rep:#ffb86b;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --serif:"Iowan Old Style","Palatino Linotype",Georgia,serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--serif);font-size:16px;line-height:1.6;
+  display:grid;grid-template-columns:280px 1fr;grid-template-rows:56px 1fr;
+  grid-template-areas:"head head" "side main";height:100vh;overflow:hidden}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:var(--mono);font-size:.86em;background:#0a0b0e;border:1px solid var(--line);border-radius:4px;padding:.05em .35em}
+h1,h2,h3,h4{font-family:var(--mono);font-weight:600;line-height:1.25}
+hr{border:0;border-top:1px solid var(--line);margin:1.4em 0}
+blockquote{border-left:3px solid var(--line);margin:1em 0;padding:.2em 1em;color:var(--ink-dim);background:var(--panel)}
+
+/* header */
+header{grid-area:head;display:flex;align-items:center;gap:16px;padding:0 18px;
+  background:var(--panel);border-bottom:1px solid var(--line);z-index:30}
+.brand{font-family:var(--mono);font-weight:700;letter-spacing:.5px;color:var(--ink)}
+.brand b{color:var(--accent)}
+.brand .sub{color:var(--ink-dim);font-weight:400}
+#menubtn{display:none;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:8px;font-size:18px;line-height:1;padding:6px 12px;cursor:pointer}
+#scrim{display:none}
+.searchwrap{margin-left:auto;position:relative;width:min(420px,46vw)}
+#search{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--ink);
+  border-radius:8px;padding:8px 12px;font-family:var(--mono);font-size:13px}
+#search:focus{outline:none;border-color:var(--accent)}
+#results{position:absolute;top:42px;right:0;left:0;background:var(--panel2);border:1px solid var(--line);
+  border-radius:8px;max-height:60vh;overflow:auto;display:none;z-index:40;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+#results.on{display:block}
+.res{padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}
+.res:hover{background:var(--panel)}
+.res .k{font-family:var(--mono);color:var(--ink-faint);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.res .t{color:var(--ink)}
+.res em{color:var(--accent);font-style:normal;background:rgba(124,199,255,.13)}
+
+/* sidebar */
+aside{grid-area:side;background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:14px 10px}
+.navsec{margin:6px 4px 16px}
+.navsec h4{margin:0 6px 7px;color:var(--ink-faint);font-size:11px;letter-spacing:1px;text-transform:uppercase}
+.navlink{display:flex;gap:8px;align-items:baseline;padding:6px 8px;border-radius:6px;cursor:pointer;color:var(--ink-dim);font-size:14px;font-family:var(--serif)}
+.navlink:hover{background:var(--panel2);color:var(--ink)}
+.navlink.active{background:var(--panel2);color:var(--ink);box-shadow:inset 2px 0 0 var(--accent)}
+.navlink .n{font-family:var(--mono);font-size:11px;color:var(--ink-faint);min-width:20px}
+.navlink.fam-media .n{color:var(--fam-media)} .navlink.fam-sense .n{color:var(--fam-sense)}
+.navlink.fam-space .n{color:var(--fam-space)} .navlink.fam-rep .n{color:var(--fam-rep)}
+
+/* main */
+main{grid-area:main;overflow:auto;scroll-behavior:smooth}
+.wrap{max-width:880px;margin:0 auto;padding:30px 40px 120px}
+.crumb{font-family:var(--mono);font-size:12px;color:var(--ink-faint);margin-bottom:14px}
+.crumb a{color:var(--ink-faint)}
+.title{font-size:30px;margin:.1em 0 .1em;color:var(--ink)}
+.scentline{font-size:18px;color:var(--ink-dim);font-style:italic;margin:.2em 0 1.2em;border-left:3px solid var(--line);padding-left:14px}
+.body p{margin:.85em 0}
+.body h3{font-size:18px;margin:1.5em 0 .4em;color:var(--accent2)}
+.body h4{font-size:15px;margin:1.2em 0 .3em;color:var(--ink)}
+.body ul,.body ol{padding-left:1.3em}
+.body li{margin:.35em 0}
+.tref{font-family:var(--mono);font-size:.85em;background:rgba(124,199,255,.12);border:1px solid rgba(124,199,255,.3);
+  border-radius:4px;padding:0 .35em;color:var(--accent)}
+.tags{display:inline-flex;gap:5px;flex-wrap:wrap;vertical-align:middle}
+.chip{font-family:var(--mono);font-size:11px;background:var(--panel2);border:1px solid var(--line);border-radius:20px;
+  padding:1px 8px;color:var(--ink-dim)}
+a.chip:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
+
+/* For-Softland cards */
+.cards{display:grid;gap:12px;margin:22px 0}
+.card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--panel)}
+.card .lab{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px}
+.card.steal{border-left:4px solid var(--steal)} .card.steal .lab{color:var(--steal)}
+.card.avoid{border-left:4px solid var(--avoid)} .card.avoid .lab{color:var(--avoid)}
+.card.open{border-left:4px solid var(--open)} .card.open .lab{color:var(--open)}
+
+.connlist{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.connlist a{font-family:var(--mono);font-size:12px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:6px;padding:5px 10px;color:var(--ink-dim)}
+.connlist a:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
+
+.pager{display:flex;justify-content:space-between;margin-top:36px;gap:12px}
+.pager a{flex:1;border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--panel);color:var(--ink-dim);font-size:13px}
+.pager a:hover{border-color:var(--accent);text-decoration:none}
+.pager .r{text-align:right}
+.pager .k{font-family:var(--mono);font-size:11px;color:var(--ink-faint);display:block}
+
+/* overview map */
+.ovhead{margin-bottom:6px}
+.ovsub{color:var(--ink-dim);font-style:italic;margin-bottom:24px}
+.map{position:relative}
+.map svg.edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.family{position:relative;z-index:1;margin:0 0 26px}
+.family .fl{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 10px;color:var(--ink-faint)}
+.famrow{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.node{border:1px solid var(--line);border-radius:10px;padding:13px 14px;background:var(--panel);cursor:pointer;position:relative}
+.node:hover{border-color:var(--accent);background:var(--panel2)}
+.node .nn{font-family:var(--mono);font-size:12px;color:var(--ink-faint)}
+.node .nt{font-weight:600;font-family:var(--mono);font-size:13.5px;margin:3px 0 6px;color:var(--ink)}
+.node .ns{font-size:13px;color:var(--ink-dim);line-height:1.45}
+.node.fam-media{box-shadow:inset 3px 0 0 var(--fam-media)} .node.fam-sense{box-shadow:inset 3px 0 0 var(--fam-sense)}
+.node.fam-space{box-shadow:inset 3px 0 0 var(--fam-space)} .node.fam-rep{box-shadow:inset 3px 0 0 var(--fam-rep)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:8px}
+.tile{border:1px dashed var(--line);border-radius:10px;padding:14px;cursor:pointer;background:var(--panel)}
+.tile:hover{border-color:var(--accent2);border-style:solid}
+.tile .tl{font-family:var(--mono);font-size:13px;color:var(--accent2);margin-bottom:4px}
+.tile .td{font-size:12.5px;color:var(--ink-dim)}
+
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin:8px 0 22px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+.listcards{display:grid;gap:14px}
+.lc{border:1px solid var(--line);border-radius:10px;padding:16px 18px;background:var(--panel)}
+.lc .lcn{font-family:var(--mono);color:var(--accent2);font-size:13px;margin-bottom:6px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;scroll-behavior:auto!important}}
+@media (max-width:820px){
+  body{grid-template-columns:1fr;grid-template-areas:"head" "main";font-size:15px}
+  header{gap:10px;padding:0 12px}
+  #menubtn{display:inline-block}
+  .brand .sub{display:none}
+  .searchwrap{width:auto;flex:1;min-width:0}
+  #search{font-size:16px}
+  aside{position:fixed;top:56px;bottom:0;left:0;width:84vw;max-width:330px;z-index:60;
+    transform:translateX(-102%);transition:transform .18s ease;box-shadow:8px 0 32px rgba(0,0,0,.65)}
+  aside.open{transform:translateX(0)}
+  #scrim.on{display:block;position:fixed;inset:56px 0 0 0;background:rgba(0,0,0,.55);z-index:55}
+  .wrap{padding:18px 16px 110px}
+  .title{font-size:23px}
+  .scentline{font-size:16px}
+  .famrow,.tiles{grid-template-columns:1fr}
+  .pager{flex-direction:column}
+  .body{font-size:16px}
+}
+</style>
+</head>
+<body>
+<header>
+  <button id="menubtn" aria-label="Open navigation">≡</button>
+  <div class="brand">GIANTS<b> ·</b> <span class="sub">explorable research map</span></div>
+  <div class="searchwrap">
+    <input id="search" placeholder="search the whole report…  (/ to focus)" autocomplete="off">
+    <div id="results"></div>
+  </div>
+</header>
+<aside id="sidebar"></aside>
+<div id="scrim"></div>
+<main id="main"><div class="wrap" id="view"></div></main>
+
+<script>window.DATA = /*__DATA__*/ {};</script>
+<script>
+(function(){
+'use strict';
+const D = window.DATA;
+const FAM = {media:'fam-media',sense:'fam-sense',space:'fam-space',rep:'fam-rep'};
+const view = document.getElementById('view');
+const main = document.getElementById('main');
+const menuBtn = document.getElementById('menubtn'), aside = document.getElementById('sidebar'), scrim = document.getElementById('scrim');
+function closeDrawer(){ if(aside) aside.classList.remove('open'); if(scrim) scrim.classList.remove('on'); }
+if(menuBtn) menuBtn.addEventListener('click',()=>{ aside.classList.toggle('open'); scrim.classList.toggle('on'); });
+if(scrim) scrim.addEventListener('click', closeDrawer);
+
+/* ---------- markdown ---------- */
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function inline(s){
+  s=s.replace(/`([^`]+)`/g,(m,c)=>'<code>'+c+'</code>');
+  s=s.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  s=s.replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<em>$2</em>');
+  s=s.replace(/(^|[\s(])_([^_\n]+)_(?=[\s.,;:)]|$)/g,'$1<em>$2</em>');
+  return s;
+}
+function refs(s){
+  s=s.replace(/\(threads?\s+([0-9][0-9,\sand]*?)\)/g,(m,nums)=>{
+    const ps=nums.split(/[,\s]+|and/).filter(x=>/^\d+$/.test(x));
+    if(!ps.length) return m;
+    const lead=m.indexOf('threads')>-1?'threads ':'thread ';
+    return '('+lead+ps.map(n=>'<a href="#/t/'+n+'" class="tref">'+n+'</a>').join(', ')+')';
+  });
+  s=s.replace(/\*\[([0-9][0-9,\s]*?)\]\*/g,(m,nums)=>{
+    const ps=nums.split(/[,\s]+/).filter(x=>/^\d+$/.test(x));
+    return '<span class="tags">'+ps.map(n=>'<a href="#/t/'+n+'" class="chip">T'+n+'</a>').join('')+'</span>';
+  });
+  return s;
+}
+function block(t){return refs(inline(esc(t)));}
+function md(src){
+  if(!src) return '';
+  const blocks=src.replace(/\r/g,'').split(/\n{2,}/);
+  let h='';
+  for(let raw of blocks){
+    const b=raw.replace(/\s+$/,'');
+    if(!b.trim()) continue;
+    if(/^#{2,6}\s/.test(b)){const m=b.match(/^(#{2,6})\s+([\s\S]*)$/);const lv=Math.min(m[1].length+1,6);h+='<h'+lv+'>'+block(m[2])+'</h'+lv+'>';continue;}
+    if(/^>\s?/.test(b)){h+='<blockquote>'+block(b.replace(/^>\s?/gm,''))+'</blockquote>';continue;}
+    if(/^---+\s*$/.test(b)){h+='<hr>';continue;}
+    if(/^\s*\d+\.\s/.test(b)){const it=b.split(/\n(?=\s*\d+\.\s)/);h+='<ol>'+it.map(i=>'<li>'+block(i.replace(/^\s*\d+\.\s/,''))+'</li>').join('')+'</ol>';continue;}
+    if(/^\s*[-*]\s/.test(b)){const it=b.split(/\n(?=\s*[-*]\s)/);h+='<ul>'+it.map(i=>'<li>'+block(i.replace(/^\s*[-*]\s/,''))+'</li>').join('')+'</ul>';continue;}
+    h+='<p>'+block(b)+'</p>';
+  }
+  return h;
+}
+
+/* ---------- sidebar ---------- */
+function buildSidebar(){
+  const famOf={};(D.threads||[]).forEach(t=>famOf[t.num]=t.family);
+  let h='';
+  h+='<div class="navsec"><div class="navlink" data-go="#/overview"><span class="n">◇</span>Overview map</div>'+
+     '<div class="navlink" data-go="#/about"><span class="n">i</span>About this report</div></div>';
+  h+='<div class="navsec"><h4>The Ten Threads</h4>';
+  (D.threads||[]).forEach(t=>{h+='<div class="navlink '+FAM[t.family]+'" data-go="#/t/'+t.num+'"><span class="n">'+t.num+'</span>'+esc(t.title.replace(/^\d+\.\s*/,''))+'</div>';});
+  h+='</div>';
+  h+='<div class="navsec"><h4>Supplementary</h4>';
+  (D.supplementary||[]).forEach(s=>{h+='<div class="navlink" data-go="#/s/'+s.id+'"><span class="n">+</span>'+esc(s.short)+'</div>';});
+  h+='</div>';
+  h+='<div class="navsec"><h4>Synthesis</h4>'+
+     '<div class="navlink" data-go="#/exec"><span class="n">§</span>Executive synthesis</div>'+
+     '<div class="navlink" data-go="#/connections"><span class="n">⇄</span>Cross-thread connections</div>'+
+     '<div class="navlink" data-go="#/tensions"><span class="n">⚡</span>Tensions inherited</div>'+
+     '<div class="navlink" data-go="#/directives"><span class="n">★</span>Directives ('+((D.synthesis&&D.synthesis.directives||[]).length)+')</div></div>';
+  document.getElementById('sidebar').innerHTML=h;
+}
+function setActive(hash){
+  document.querySelectorAll('.navlink').forEach(n=>n.classList.toggle('active',n.getAttribute('data-go')===hash));
+}
+
+/* ---------- views ---------- */
+function threadByNum(n){return (D.threads||[]).find(t=>String(t.num)===String(n));}
+function famLabel(f){return ({media:'Media for thought',sense:'Sensemaking & argument',space:'Space & navigation',rep:'Representation & rigor'})[f]||f;}
+
+function renderOverview(){
+  const fams=[['media','Media for thought'],['sense','Sensemaking & argument'],['space','Space & navigation'],['rep','Representation & rigor']];
+  let h='<div class="crumb">home</div><h1 class="title ovhead">The Ten Threads</h1>';
+  h+='<div class="ovsub">'+esc(D.meta&&D.meta.tagline||'Ten lineages of how people have tried to hold understanding. Click any node to enter it; lines are the cross-thread connections.')+'</div>';
+  h+='<div class="legend">';
+  fams.forEach(f=>{h+='<span><i class="dot" style="background:var(--'+({media:'fam-media',sense:'fam-sense',space:'fam-space',rep:'fam-rep'})[f[0]]+')"></i>'+f[1]+'</span>';});
+  h+='</div><div class="map" id="map"><svg class="edges" id="edges"></svg>';
+  fams.forEach(f=>{
+    const ts=(D.threads||[]).filter(t=>t.family===f[0]);
+    if(!ts.length) return;
+    h+='<div class="family"><div class="fl">'+f[1]+'</div><div class="famrow">';
+    ts.forEach(t=>{h+='<div class="node '+FAM[t.family]+'" id="node-'+t.num+'" data-go="#/t/'+t.num+'">'+
+      '<div class="nn">THREAD '+t.num+'</div><div class="nt">'+esc(t.title.replace(/^\d+\.\s*/,''))+'</div>'+
+      '<div class="ns">'+esc(t.scent||'')+'</div></div>';});
+    h+='</div></div>';
+  });
+  h+='</div>';
+  // entry tiles for Part II / III
+  h+='<h3 style="font-family:var(--mono);color:var(--ink-faint);font-size:12px;letter-spacing:1.5px;margin-top:10px">ALSO IN HERE</h3><div class="tiles">';
+  h+='<div class="tile" data-go="#/connections"><div class="tl">⇄ Cross-thread connections</div><div class="td">how the lineages wire together</div></div>';
+  h+='<div class="tile" data-go="#/tensions"><div class="tl">⚡ Tensions Softland inherits</div><div class="td">the unresolved conflicts</div></div>';
+  h+='<div class="tile" data-go="#/directives"><div class="tl">★ Consolidated directives</div><div class="td">what to actually do, tagged by thread</div></div>';
+  (D.supplementary||[]).forEach(s=>{h+='<div class="tile" data-go="#/s/'+s.id+'"><div class="tl">+ '+esc(s.short)+'</div><div class="td">supplementary node</div></div>';});
+  h+='</div>';
+  view.innerHTML=h;
+  requestAnimationFrame(drawEdges);
+}
+function drawEdges(){
+  const svg=document.getElementById('edges'),mapEl=document.getElementById('map');
+  if(!svg||!mapEl) return;
+  const mr=mapEl.getBoundingClientRect();
+  svg.setAttribute('viewBox','0 0 '+mr.width+' '+mr.height);
+  const ctr=n=>{const el=document.getElementById('node-'+n);if(!el)return null;const r=el.getBoundingClientRect();return{x:r.left-mr.left+r.width/2,y:r.top-mr.top+r.height/2};};
+  let s='';
+  (D.edges||[]).forEach(e=>{const a=ctr(e[0]),b=ctr(e[1]);if(!a||!b)return;
+    const mx=(a.x+b.x)/2,my=(a.y+b.y)/2-22;
+    s+='<path d="M'+a.x+' '+a.y+' Q'+mx+' '+my+' '+b.x+' '+b.y+'" fill="none" stroke="#3a4150" stroke-width="1" opacity="0.5"/>';});
+  svg.innerHTML=s;
+}
+window.addEventListener('resize',()=>{if(location.hash.replace('#','')===''||location.hash==='#/overview')drawEdges();});
+
+function renderThread(n){
+  const t=threadByNum(n); if(!t){renderOverview();return;}
+  const conns=(D.edges||[]).filter(e=>String(e[0])===String(n)||String(e[1])===String(n))
+     .map(e=>String(e[0])===String(n)?e[1]:e[0]);
+  const uniq=[...new Set(conns)].map(threadByNum).filter(Boolean);
+  let h='<div class="crumb"><a href="#/overview">overview</a> › '+famLabel(t.family)+'</div>';
+  h+='<h1 class="title">'+esc(t.title)+'</h1>';
+  if(t.scent)h+='<div class="scentline">'+esc(t.scent)+'</div>';
+  h+='<div class="body">'+md(t.body)+'</div>';
+  if(t.steal||t.avoid||t.open){
+    h+='<div class="cards">';
+    if(t.steal)h+='<div class="card steal"><div class="lab">steal</div>'+md(t.steal)+'</div>';
+    if(t.avoid)h+='<div class="card avoid"><div class="lab">avoid</div>'+md(t.avoid)+'</div>';
+    if(t.open)h+='<div class="card open"><div class="lab">open question</div>'+md(t.open)+'</div>';
+    h+='</div>';
+  }
+  if(uniq.length){h+='<div style="font-family:var(--mono);font-size:11px;letter-spacing:1.5px;color:var(--ink-faint);margin-top:24px">CONNECTS TO</div><div class="connlist">';
+    uniq.forEach(u=>{h+='<a href="#/t/'+u.num+'">'+u.num+'. '+esc(u.title.replace(/^\d+\.\s*/,''))+'</a>';});h+='</div>';}
+  const prev=threadByNum(+n-1),next=threadByNum(+n+1);
+  h+='<div class="pager">';
+  h+=prev?'<a href="#/t/'+prev.num+'"><span class="k">← thread '+prev.num+'</span>'+esc(prev.title.replace(/^\d+\.\s*/,''))+'</a>':'<a href="#/overview"><span class="k">←</span>overview</a>';
+  h+=next?'<a class="r" href="#/t/'+next.num+'"><span class="k">thread '+next.num+' →</span>'+esc(next.title.replace(/^\d+\.\s*/,''))+'</a>':'<a class="r" href="#/exec"><span class="k">synthesis →</span>executive synthesis</a>';
+  h+='</div>';
+  view.innerHTML=h; main.scrollTop=0;
+}
+function renderSupp(id){
+  const s=(D.supplementary||[]).find(x=>x.id===id); if(!s){renderOverview();return;}
+  let h='<div class="crumb"><a href="#/overview">overview</a> › supplementary</div><h1 class="title">'+esc(s.name)+'</h1>';
+  h+='<div class="body">'+md(s.body)+'</div>';
+  if(s.steal||s.avoid||s.open){h+='<div class="cards">';
+    if(s.steal)h+='<div class="card steal"><div class="lab">steal</div>'+md(s.steal)+'</div>';
+    if(s.avoid)h+='<div class="card avoid"><div class="lab">avoid</div>'+md(s.avoid)+'</div>';
+    if(s.open)h+='<div class="card open"><div class="lab">open question</div>'+md(s.open)+'</div>';h+='</div>';}
+  view.innerHTML=h; main.scrollTop=0;
+}
+function renderExec(){
+  let h='<div class="crumb"><a href="#/overview">overview</a> › synthesis</div><h1 class="title">Executive Synthesis</h1>';
+  h+='<div class="body">'+md(D.synthesis&&D.synthesis.exec||'')+'</div>';
+  h+='<div class="pager"><a href="#/overview"><span class="k">←</span>overview</a><a class="r" href="#/connections"><span class="k">next →</span>cross-thread connections</a></div>';
+  view.innerHTML=h; main.scrollTop=0;
+}
+function renderConnections(){
+  let h='<div class="crumb"><a href="#/overview">overview</a> › synthesis</div><h1 class="title">Cross-Thread Connections</h1>';
+  h+='<div class="ovsub">The real lineages and dependencies between threads.</div><div class="listcards">';
+  (D.synthesis&&D.synthesis.connections||[]).forEach((c,i)=>{h+='<div class="lc">'+md(c)+'</div>';});
+  h+='</div><div class="pager"><a href="#/exec"><span class="k">←</span>executive synthesis</a><a class="r" href="#/tensions"><span class="k">next →</span>tensions</a></div>';
+  view.innerHTML=h; main.scrollTop=0;
+}
+function renderTensions(){
+  let h='<div class="crumb"><a href="#/overview">overview</a> › synthesis</div><h1 class="title">Tensions Softland Inherits</h1><div class="listcards">';
+  (D.synthesis&&D.synthesis.tensions||[]).forEach((t,i)=>{h+='<div class="lc"><div class="lcn">tension '+(i+1)+'</div>'+md(t)+'</div>';});
+  h+='</div><div class="pager"><a href="#/connections"><span class="k">←</span>connections</a><a class="r" href="#/directives"><span class="k">next →</span>directives</a></div>';
+  view.innerHTML=h; main.scrollTop=0;
+}
+function renderDirectives(){
+  let h='<div class="crumb"><a href="#/overview">overview</a> › synthesis</div><h1 class="title">Consolidated Softland Directives</h1>';
+  h+='<div class="ovsub">What to actually do. Each tag links to the thread it comes from.</div><div class="listcards">';
+  (D.synthesis&&D.synthesis.directives||[]).forEach((t,i)=>{h+='<div class="lc"><div class="lcn">directive '+(i+1)+'</div>'+md(t)+'</div>';});
+  h+='</div><div class="pager"><a href="#/tensions"><span class="k">←</span>tensions</a><a class="r" href="#/overview"><span class="k">↑</span>back to map</a></div>';
+  view.innerHTML=h; main.scrollTop=0;
+}
+function renderAbout(){
+  const m=D.meta||{};
+  let h='<div class="crumb"><a href="#/overview">overview</a> › about</div><h1 class="title">About this report</h1>';
+  h+='<div class="body">'+md(m.status||'')+md(m.method||'')+md(m.provenance||'')+'</div>';
+  h+='<div class="pager"><a href="#/overview"><span class="k">←</span>overview</a><a class="r" href="#/t/1"><span class="k">start →</span>thread 1</a></div>';
+  view.innerHTML=h; main.scrollTop=0;
+}
+
+/* ---------- search ---------- */
+const idx=[];
+(D.threads||[]).forEach(t=>idx.push({k:'Thread '+t.num,t:t.title,go:'#/t/'+t.num,blob:(t.title+' '+t.scent+' '+t.body+' '+t.steal+' '+t.avoid+' '+t.open).toLowerCase()}));
+(D.supplementary||[]).forEach(s=>idx.push({k:'Supplementary',t:s.name,go:'#/s/'+s.id,blob:(s.name+' '+s.body+' '+s.steal+' '+s.avoid+' '+s.open).toLowerCase()}));
+(D.synthesis&&D.synthesis.directives||[]).forEach((t,i)=>idx.push({k:'Directive '+(i+1),t:t.replace(/\*|_|`/g,'').slice(0,90),go:'#/directives',blob:t.toLowerCase()}));
+(D.synthesis&&D.synthesis.tensions||[]).forEach((t,i)=>idx.push({k:'Tension '+(i+1),t:t.replace(/\*|_|`/g,'').slice(0,90),go:'#/tensions',blob:t.toLowerCase()}));
+(D.synthesis&&D.synthesis.connections||[]).forEach((t,i)=>idx.push({k:'Connection',t:t.replace(/\*|_|`/g,'').slice(0,90),go:'#/connections',blob:t.toLowerCase()}));
+const sIn=document.getElementById('search'),sRes=document.getElementById('results');
+function doSearch(){
+  const q=sIn.value.trim().toLowerCase();
+  if(q.length<2){sRes.classList.remove('on');sRes.innerHTML='';return;}
+  const hits=idx.filter(x=>x.blob.includes(q)).slice(0,40);
+  if(!hits.length){sRes.innerHTML='<div class="res"><span class="t">no matches</span></div>';sRes.classList.add('on');return;}
+  sRes.innerHTML=hits.map(x=>{
+    let snip='';const p=x.blob.indexOf(q);
+    if(p>-1){const a=Math.max(0,p-40);snip='…'+x.blob.slice(a,p)+'<em>'+x.blob.slice(p,p+q.length)+'</em>'+x.blob.slice(p+q.length,p+q.length+50)+'…';}
+    return '<div class="res" data-go="'+x.go+'"><div class="k">'+esc(x.k)+'</div><div class="t">'+esc(x.t)+'</div><div class="k" style="text-transform:none;color:var(--ink-faint)">'+snip+'</div></div>';
+  }).join('');
+  sRes.classList.add('on');
+}
+sIn.addEventListener('input',doSearch);
+document.addEventListener('click',e=>{if(!e.target.closest('.searchwrap'))sRes.classList.remove('on');});
+
+/* ---------- routing ---------- */
+function route(){
+  const hash=location.hash||'#/overview';
+  const m=hash.match(/^#\/(\w+)(?:\/(.+))?/);
+  const k=m?m[1]:'overview',arg=m?m[2]:null;
+  if(k==='t')renderThread(arg);
+  else if(k==='s')renderSupp(arg);
+  else if(k==='exec')renderExec();
+  else if(k==='connections')renderConnections();
+  else if(k==='tensions')renderTensions();
+  else if(k==='directives')renderDirectives();
+  else if(k==='about')renderAbout();
+  else renderOverview();
+  setActive(hash==='#/'?'#/overview':hash);
+}
+document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){e.preventDefault();sRes.classList.remove('on');sIn.value='';closeDrawer();location.hash=g.getAttribute('data-go');}});
+window.addEventListener('hashchange',route);
+document.addEventListener('keydown',e=>{
+  if(e.key==='/'&&document.activeElement!==sIn){e.preventDefault();sIn.focus();return;}
+  if(document.activeElement===sIn) {if(e.key==='Escape'){sIn.blur();sRes.classList.remove('on');} return;}
+  const m=(location.hash||'').match(/^#\/t\/(\d+)/);
+  if(m){const n=+m[1];if(e.key==='ArrowRight'&&threadByNum(n+1))location.hash='#/t/'+(n+1);
+    if(e.key==='ArrowLeft'&&threadByNum(n-1))location.hash='#/t/'+(n-1);}
+});
+
+buildSidebar();
+route();
+})();
+</script>
+</body>
+</html>

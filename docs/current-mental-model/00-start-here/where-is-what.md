@@ -32,6 +32,33 @@ build/object-container/
   Implementation-slice contracts for object-container work. Use only after the
   object-container direction has been chosen for implementation.
 
+build/object-container-common-infra/
+  Current common-infra track. Use this before resuming markdown or transcript
+  implementation, because the active product goal is shared object-container
+  import infrastructure rather than source-local stores.
+
+build/chat-ingester/
+  Transcript-specific product/proof artifacts. Use these as inputs to the
+  common-infra track, not as the active F5/F6 implementation queue unless the
+  user explicitly asks to harden the old prototype.
+
+build/code-ingestor/
+  Code ingestor product track. PRODUCT.md is the proposed (not ratified)
+  product contract for ingesting code as a third object-container source.
+  Use before any code-import implementation; gated on Sid ratification and a
+  Codex falsification pass.
+
+build/imported-topology-view/
+  Product/design research track for the first view over imported material. Use
+  this for Source-to-World / imported topology view thinking, designer
+  evaluation, and view briefs. It should not edit Rama common-infra code.
+
+build/knowledge-earth-zui/
+  Big-vision design research track for Knowledge Earth, semantic zoom, category
+  theory, model translation, paper-as-log, conflict, synthesis, and collective
+  intelligence. Use this when asking what Softland becomes after import/source
+  trust is no longer the foreground task.
+
 trails/
   Dated traces of important reasoning or implementation episodes until Rama
   stores trails natively.
@@ -78,9 +105,47 @@ architecture/object-container-spec.md
   Settled object substrate: source, container, revision, derived unit,
   composition, projection, situate, and graduation.
 
+architecture/object-container-ingester-contract.md
+  Corrective contract for source-specific ingesters. Use this before planning
+  transcript, Roam, code, canvas, or Linear import. It defines what must be
+  common base object-container truth versus source-specific projections/indexes.
+
+build/object-container-common-infra/PRODUCT.md
+  Active product seed for the common object-container import infrastructure
+  track. Start here when the next task is to make markdown and transcript both
+  feed the shared Object-Container Kernel.
+
+build/code-ingestor/PRODUCT.md
+  Proposed product contract for the code ingestor (fresh cut, autopilot,
+  2026-06-10): trail-to-code resolution as first consumer, stable file
+  identity across commits, git-stays-authority, commit-boundary ingest,
+  fail-closed scope policy. Awaiting Sid ratification + Codex falsification.
+
+build/imported-topology-view/PRINCIPAL_DESIGN_RESEARCH.md
+  Principal-design research synthesis for the first view over imported
+  material. It frames Softland's view problem as accountable transformation:
+  raw source becoming native world material without losing provenance, identity,
+  uncertainty, or local orientation.
+
+build/knowledge-earth-zui/CATEGORY_THEORY_DESIGN_RESEARCH.md
+  Big-vision research note connecting Softland to category theory, ologs,
+  Topos-style collective intelligence, semantic ZUI, learning arrows,
+  non-commuting disagreement, synthesis as gluing, and local worlds as
+  composable structures.
+
 architecture/object-container-reviewer-world-model.md
   Codex reviewer lens for future sessions: where the spec fits in the kernel,
   what is ready, and what first implementation must prove.
+
+build/chat-ingester/PRODUCT.md
+  Product contract for transcript ingest as an object-container interpreter:
+  import/watch acquisition, source-specific parsing, native containers, anchors,
+  privacy, and the distinction from Space.
+
+build/chat-ingester/COMMON_KERNEL_REPLAN.md
+  Corrective gate for transcript ingest. Use before any further F5/F6 work if
+  the goal is the shared object-container-kernel architecture rather than
+  hardening the transcript-local prototype.
 
 build/object-container/IMPLICIT_SPEC.md
   First implementation slice contract for markdown import, outline projection,

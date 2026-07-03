@@ -1,6 +1,6 @@
 # Fix Session 0 — Cross-Cutting Foundations
 
-Status: NOT STARTED
+Status: DONE (2026-06-11)
 
 Self-contained prompt. Do not load other global prompts. You are fixing the root causes shared by all five Rama kernels, identified by two independent retros. Do this session BEFORE any per-module fix session.
 

@@ -1,0 +1,2780 @@
+
+ ▐▛███▜▌   Claude Code v2.1.71
+▝▜█████▛▘  Opus 4.6 · Claude Max
+  ▘▘ ▝▝    /mnt/data/projects/Softland
+
+❯ read up on the memory, next_prompt                                            
+
+● Recalled 2 memories, searched memories, read 1 file (ctrl+o to expand)
+
+● Here's a summary of what I found across all three memory sources:
+
+  ---
+  Memory State
+
+  next-prompt.md — The Immediate Plan
+
+  Session 35 was a foundational ontology session — no code was written. Three AI
+   agents (Claude, Codex, user) synthesized Softland's discovered ontology. The
+  next task is executing the refactor of loop.cljs (7,283 lines):
+
+  - Phase 1: Move dead files to /old-infra (zero risk housekeeping)
+  - Phase 2: Split loop.cljs into ~12 leaf modules under workspace/ and
+  workflows/, plus a slimmed orchestrator — leaf-first extraction, verify the
+  app loads after each step
+  - Codex also produced implementation-level refactor notes in a parallel
+  session that I should ask you about
+
+  core-reframes.md — The Soul Document
+
+  The deepest conceptual document. Key ideas:
+  - Hidden center: "Softland is a world for holding understanding in public
+  form"
+  - Local world = the atomic unit (not screen, not component) — a bounded region
+   across 4 axes: space, time, modality, plurality
+  - Splits = preserved relational tension, not layout
+  - Workflows = traversals between local worlds (DG flow, JIT flow, knowledge
+  flow)
+  - Commands = larval workflows — verb first, place later
+  - Material → Process → Artifact triad explains the recurring 3-pane pattern
+  - The refactor IS self-modification — the filesystem at zoom 100 IS the
+  knowledge graph
+
+  implementation-quirks.md — Hard-Won Operational Wisdom
+
+  Gotchas to avoid:
+  - Edit tool fails on deeply-indented code in loop.cljs — use python3 fallback
+  - m/latest arg counts MUST match fn params (silent corruption otherwise)
+  - Font atlas only covers ASCII 32-126
+  - No GPU scissor rects — clipping is software-only
+  - try/catch not supported in Electric e/defn
+
+  ---
+  ★ Insight ─────────────────────────────────────
+  The project is at an interesting inflection point. Session 35 produced deep
+  ontological clarity but zero code changes. The filesystem currently doesn't
+  match the discovered ontology — everything lives in a 7k-line monolith
+  (loop.cljs) under webgpu/, when the true structure is substrate / workspace /
+  workflows. The refactor plan is methodical: extract leaf modules first (pure
+  computation with zero internal deps), verify after each, and leave the
+  orchestrator with only what genuinely belongs there (atoms, m/join, render
+  pulse).
+  ─────────────────────────────────────────────────
+
+  What would you like to do? Should we start executing the refactor, or did you
+  have something else in mind? Also — do you have those Codex
+  implementation-level refactor notes the next-prompt mentions?
+
+✻ Churned for 35s
+
+❯ what is the plan for refactoring the loop.cljs what will the file structure?  
+what is the total plan if we have to refactor .. base this on the memory and    
+the corresponding docs core-reframes.md and all                                 
+
+● Let me gather the full picture — the current state of loop.cljs and any
+  relevant architecture docs.
+
+● Searched for 2 patterns, read 3 files (ctrl+o to expand)
+
+● Now let me scan the high-level structure of loop.cljs to understand what
+  actually lives inside it — the major sections and functions.
+
+● Searched for 2 patterns, read 2 files (ctrl+o to expand)
+
+● Now I have the complete picture. Here's the full refactor plan:
+
+  ---
+  The Total Refactor Plan for loop.cljs
+
+  Why This Refactor Exists
+
+  ★ Insight ─────────────────────────────────────
+  The core-reframes document names the reason precisely: "the refactor is 
+  self-modification." At zoom 100, the filesystem IS the knowledge graph. Right
+  now, loop.cljs is 7,283 lines — a world runtime (workspace layout, sidebar,
+  trails, agent streaming, DG workflow) pretending to be a renderer living under
+   webgpu/. The ontology mismatch means everything accumulates in the wrong
+  place. Correcting the filesystem corrects the system's self-description, which
+   unblocks everything downstream.
+
+  The Missionary/Electric climate also explains why the monolith grew: m/join
+  orchestration gravitates toward a single file. The refactor isn't about making
+   loop.cljs small — it's about ensuring what remains is genuinely orchestration
+   (atoms, m/join, render pulse), not accidentally trapped computation.
+  ─────────────────────────────────────────────────
+
+  Current State: What's Inside loop.cljs (7,283 lines)
+
+  ┌──────────────────┬────────┬─────────────────────────────────────────────┐
+  │     Section      │ Lines  │                What It Does                 │
+  ├──────────────────┼────────┼─────────────────────────────────────────────┤
+  │ Layer 2: Event   │ ~190   │ >canvas-resize, >wheel, >mouse, >keyboard,  │
+  │ Flows            │        │ make-raf-flow, make-blink-timer             │
+  ├──────────────────┼────────┼─────────────────────────────────────────────┤
+  │ Layer 4: Event   │ ~50    │ <editor-keys, <cmd-panel-keys,              │
+  │ Routing          │        │ <chat-input-keys, <settings-panel-keys      │
+  ├──────────────────┼────────┼─────────────────────────────────────────────┤
+  │ Layer 5:         │        │ editor-apply-event, cmd-panel-apply-event,  │
+  │ Component        │ ~250   │ parse-agent-command                         │
+  │ Updates          │        │                                             │
+  ├──────────────────┼────────┼─────────────────────────────────────────────┤
+  │ Flow State       │ ~80    │ DG flow transitions                         │
+  │ Machine          │        │ (idle→bootstrapping→intake→...)             │
+  ├──────────────────┼────────┼─────────────────────────────────────────────┤
+  │                  │        │ rt-node, layout engine, resolve-layout,     │
+  │ Rect Tree Engine │ ~370   │ tree walkers (tree->rects, tree->shadows,   │
+  │                  │        │ tree->text-ops), hit-test, event dispatch   │
+  ├──────────────────┼────────┼─────────────────────────────────────────────┤
+  │ Screen 1         │        │ sidebar-w, list-row-h, flatten-file-tree,   │
+  │ Constants +      │ ~190   │ ticket-list-layout, drag state machine      │
+  │ Sidebar          │        │                                             │
+  ├──────────────────┼────────┼─────────────────────────────────────────────┤
+  │ Design Tokens +  │ ~215   │ dt, ui-card, ui-badge, ui-button,           │
+  │ UI Primitives    │        │ ui-divider, ui-scrollbar, ui-tabs           │
+  ├──────────────────┼────────┼─────────────────────────────────────────────┤
+  │ Composable Panel │ ~195   │ ui-panel, ui-panel-header, ui-panel-group,  │
+  │  Components      │        │ ui-list-item, ui-checkbox                   │
+  ├──────────────────┼────────┼─────────────────────────────────────────────┤
+  │ Sidebar Tree     │ ~210   │ build-sidebar-tree                          │
+  │ Builder          │        │                                             │
+  ├──────────────────┼────────┼─────────────────────────────────────────────┤
+  │ File 3-Pane      │ ~280   │ build-file-layout (editor + chat + preview  │
+  │ Layout           │        │ split)                                      │
+  ├──────────────────┼────────┼─────────────────────────────────────────────┤
+  │ Intake Tree      │ ~345   │ build-intake-tree, build-right-detail       │
+  │ Builder          │        │                                             │
+  ├──────────────────┼────────┼─────────────────────────────────────────────┤
+  │ Prompt Templates │ ~60    │ flow-prompt (DG workflow prompts)           │
+  ├──────────────────┼────────┼─────────────────────────────────────────────┤
+  │ Agent/Response   │ ~165   │ stream-agent-run!,                          │
+  │ Parser           │        │ parse-tickets-from-trail, normalize-ticket  │
+  ├──────────────────┼────────┼─────────────────────────────────────────────┤
+  │ Layer 6: GPU     │        │ <editor-rects, <cmd-panel-rects,            │
+  │ Derived Flows    │ ~2,150 │ <combined-text-ops, markdown rendering,     │
+  │                  │        │ trail→chat-nodes, settings panel            │
+  ├──────────────────┼────────┼─────────────────────────────────────────────┤
+  │ Layer 7: Render  │ ~2,470 │ start-loop! — atoms, m/join, GPU init, the  │
+  │ Consumer         │        │ entire orchestrator                         │
+  └──────────────────┴────────┴─────────────────────────────────────────────┘
+
+  Target File Structure
+
+  src/app/
+    electric_flow.cljc              ← UNTOUCHED (server/client bridge)
+
+    substrate/webgpu/               ← GPU primitives (UNTOUCHED)
+      editor.cljs                     shaders, buffers, draw-frame
+      text_input.cljs                 DOM text input handling
+      themes.cljc                     theme definitions
+
+    workspace/                      ← The world at zoom 100
+      events.cljs                     DOM→Missionary flows (~200 lines)
+      layout.cljs                     rect tree + layout engine (~500 lines)
+      ui.cljs                         UI primitives + design tokens (~400 lines)
+      shell.cljs                      split composition, build-file-layout (~300
+   lines)
+      sidebar.cljs                    file explorer tree (~200 lines)
+      trail.cljs                      markdown + trail rendering (~700 lines)
+      editor_state.cljs               editor state machine + rendering (~500
+  lines)
+      cmd_panel.cljs                  command panel + parser (~300 lines)
+      agent.cljs                      streaming client (~400 lines)
+      settings.cljs                   settings panel (~300 lines)
+
+    workflows/                      ← Structured traversals between local worlds
+      dg_flow.cljs                    discourse-graph state machine + screens
+  (~1200 lines)
+      jit.cljs                        hardcode, extract (~200 lines)
+
+    loop.cljs                       ← Orchestrator ONLY (~2000 lines)
+                                      atoms, m/join vector, render pulse
+
+  ★ Insight ─────────────────────────────────────
+  Notice how the folder structure mirrors the ontology from core-reframes.md:
+  - substrate/ = the rendering climate (WebGPU, the GPU primitives that don't
+  change)
+  - workspace/ = the grammar of local worlds (layout, UI vocabulary, splits,
+  trails — the tools for composing inhabitable understanding)
+  - workflows/ = structured traversals between local worlds (DG flow, JIT flow —
+   each a sequence of local worlds with transformations between them)
+  - loop.cljs = the orchestrator — Missionary's m/join is inherently
+  centralizing, so this file will always exist, but it should contain ONLY what
+  genuinely coordinates: atom creation, flow composition, render pulse
+
+  The three folders map directly to the three stable architectural distinctions:
+   substrate, workspace grammar, workflows.
+  ─────────────────────────────────────────────────
+
+  Phase 1: Move Dead Files to /old-infra (Zero Risk)
+
+  These files are dead — only referenced by other dead files:
+
+  Dead client files:
+  - app/client/: background, core, editor/*, electric_codemirror, flow_calc,
+  learn_missionary, mode, playground/*, quad_tree, shapes/*, style_components/*,
+   utils
+  - app/electric_flow_old.cljc
+
+  Dead WebGPU substrate files:
+  - webgpu/: core.cljs, bind.cljs, buffer.cljs, compute.cljs, data.cljs,
+  pipeline.cljs, shader.cljs
+
+  Move all to /old-infra, add to .gitignore. Zero code changes, zero risk.
+
+  Phase 2: Split loop.cljs (Leaf-First Extraction)
+
+  Core principle: extract pure computation, keep state ownership in the 
+  orchestrator.
+
+  Each step: extract → verify app loads → next step. The order is leaf-first
+  (modules with zero internal deps first):
+
+  Step 1: workspace/events.cljs (~200 lines)
+
+  What moves: >canvas-resize, >wheel, >mouse, parse-key-event, >keyboard,
+  make-raf-flow, make-blink-timer, snap-to-dpr, maybe-snap
+  Why first: Pure Missionary flows. Zero deps on anything else in loop.cljs.
+  Only depends on missionary.core.
+
+  Step 2: workspace/layout.cljs (~500 lines)
+
+  What moves: rt-node, normalize-padding, layout-children, resolve-text-layout,
+  resolve-layout, tree->rects, tree->text-ops, tree->shadows, hit-test,
+  dispatch-event
+  Why second: The rect tree engine is self-contained. Only depends on themes
+  (for default colors). Everything else in the file calls INTO this, but this
+  calls nothing else.
+
+  Step 3: workspace/ui.cljs (~400 lines)
+
+  What moves: dt (design tokens), typography hierarchy (typo-title, etc.), all
+  ui-* component functions: ui-card, ui-badge, ui-button, ui-divider,
+  ui-progress, ui-scrollbar, ui-tabs, ui-tooltip, build-empty-state, ui-panel,
+  ui-panel-header, ui-panel-content, ui-panel-footer, ui-panel-group,
+  ui-list-item, ui-checkbox, ui-priority-dot
+  Deps: Only layout.cljs (for rt-node) and themes.
+
+  Step 4: workspace/trail.cljs (~700 lines)
+
+  What moves: All markdown rendering: md-style-colors, parse-md-inline-spans,
+  wrap-md-spans, spans->text-ops, parse-md-blocks, trail-node-color,
+  tool-input-summary, file-op-tool?, group-trail-blocks,
+  group-consecutive-file-ops, trail->chat-nodes, trail->display-lines,
+  agent-wrapped-line-count, compute-agent-panel-h
+  Why here: This is the trail renderer — it transforms agent reasoning data into
+   renderable chat nodes. Pure computation, no atoms.
+
+  Step 5: workflows/dg_flow.cljs (~1200 lines)
+
+  What moves: Flow state machine (flow-transitions, valid-transition?,
+  initial-flow-state, transition-flow-state), prompt templates (flow-prompt),
+  intake tree builder (build-intake-tree, build-right-detail), ticket layout
+  helpers (ticket-list-layout, list-content-height, group/sort utils), all
+  Screen 1 constants, drag state machine
+  Why here: This is the DG workflow — the structured traversal from
+  idle→bootstrapping→intake→arrange→run→review. It's the first workflow, and
+  it's self-contained (uses ui.cljs components, layout.cljs tree, but nothing
+  else).
+
+  Step 6: workflows/jit.cljs (~200 lines)
+
+  What moves: hardcode-component! and extract-component! rt-node builders (when
+  they exist — currently minimal)
+  Smallest module. The JIT workflow is still at maturity stage 2.
+
+  Step 7: workspace/sidebar.cljs (~200 lines)
+
+  What moves: build-sidebar-tree, flatten-file-tree,
+  compute-sidebar-content-height, split-filename, all sidebar constants
+  Deps: ui.cljs, layout.cljs
+
+  Step 8: workspace/shell.cljs (~300 lines)
+
+  What moves: build-file-layout, offset-rects, offset-shadows, offset-text-ops —
+   the 3-pane split compositor
+  Why "shell": This is the split composition layer — it decides what co-exists
+  spatially (editor | chat | preview). This is the spatial grammar of the local
+  world.
+
+  Step 9: workspace/editor_state.cljs (~500 lines)
+
+  What moves: editor-apply-event, fold computation (compute-fold-state,
+  <fold-state), <bracket-match, compute-editor-rects, <editor-rects
+  Note: This is trickier — <editor-rects is a Missionary flow that reads atoms.
+  The pure computation moves; the flow wiring may stay as a thin call in
+  loop.cljs.
+
+  Step 10: workspace/cmd_panel.cljs (~300 lines)
+
+  What moves: cmd-panel-apply-event, cmd-prompt-text, cmd-text-start-x,
+  parse-agent-command, <cmd-panel-rects
+
+  Step 11: workspace/agent.cljs (~400 lines)
+
+  What moves: stream-agent-run!, parse-tickets-from-trail,
+  parse-tickets-from-output, normalize-ticket, ticket-json-schema,
+  parse-structured-result
+
+  Step 12: workspace/settings.cljs (~300 lines)
+
+  What moves: compute-settings-panel-rects, <settings-panel-rects,
+  compute-settings-panel-text, <settings-panel-text, slider-specs,
+  manifest-defaults->settings, font-defaults->settings
+
+  What Remains in loop.cljs (~2000 lines)
+
+  (ns app.client.webgpu.loop
+    (:require [workspace.events :as events]
+              [workspace.layout :as layout]
+              [workspace.ui :as ui]
+              [workspace.shell :as shell]
+              [workspace.sidebar :as sidebar]
+              [workspace.trail :as trail]
+              [workspace.editor-state :as editor-state]
+              [workspace.cmd-panel :as cmd-panel]
+              [workspace.agent :as agent]
+              [workspace.settings :as settings]
+              [workflows.dg-flow :as dg-flow]
+              ...))
+
+  ;; All atoms (the 6+ primary sources)
+  ;; Event routing (thin wiring: which flow goes where based on focus)
+  ;; <combined-text-ops (the massive m/latest that joins everything)
+  ;; <world-snapshot (final GPU state aggregation)
+  ;; start-loop! (m/join vector, GPU init, the orchestrator)
+
+  ★ Insight ─────────────────────────────────────
+  Why <combined-text-ops stays in loop.cljs: This function is the biggest single
+   m/latest in the codebase (~400 lines, 22+ args). It's the central join point
+  where ALL text from ALL panels gets composed into one GPU buffer. It's
+  inherently orchestration — it's WHERE the separate worlds (editor, chat,
+  sidebar, cmd panel, settings) meet. Extracting it would just move the
+  coupling, not eliminate it.
+
+  Why the order matters: Leaf-first extraction means each step can be verified
+  independently. events.cljs depends on nothing. layout.cljs depends on nothing
+  internal. ui.cljs depends on layout. Each subsequent module depends only on
+  already-extracted modules. If any step breaks, you know exactly what caused
+  it.
+
+  The Missionary climate effect: The m/join vector in start-loop! is where all
+  flows converge. This is an inherent property of Missionary's architecture —
+  reactive flow composition gravitates toward a single orchestration point. The
+  refactor doesn't fight this. It accepts that loop.cljs will always be the
+  conductor. But right now the conductor is also playing 12 instruments. After
+  the refactor, it just conducts.
+  ─────────────────────────────────────────────────
+
+  Verification Protocol
+
+  After each extraction step:
+  1. App loads in browser without errors
+  2. WebGPU console shows no validation errors
+  3. Editor typing + cursor still works
+  4. Sidebar clicks still work
+  5. Agent panel / trail rendering still works
+  6. Flow canvas (DG screens) still renders
+
+  Open Question
+
+  The next-prompt mentions that Codex also produced implementation-level 
+  refactor notes in a parallel session. Do you have those? They might contain
+  specific dependency analysis or cut-point details that would make the actual
+  extraction smoother.
+
+✻ Crunched for 2m 0s
+
+❯ nshow me what the final file folder structure be                              
+
+● Searched for 1 pattern (ctrl+o to expand)
+
+● Here's the before → after:
+
+  BEFORE (current)
+
+  src/
+    app/
+      electric_flow.cljc                    ← server/client bridge (KEEP)
+      electric_flow_old.cljc                ← DEAD
+      file_viewer.cljc
+      server_jetty.clj
+
+      server/                               ← backend (UNTOUCHED)
+        env.clj                               ⛔ never read
+        file.clj
+        llm.clj
+        review_pack.clj
+        rama/
+          core.clj, objects.cljc, ...
+
+      client/                               ← mostly DEAD
+        background.cljc                       DEAD
+        core.cljc                             DEAD
+        utils.cljc                            DEAD
+        electric_codemirror.cljc              DEAD
+        flow_calc.cljc                        DEAD
+        learn_missionary.cljc                 DEAD
+        mode.cljc                             DEAD
+        quad_tree.cljc                        DEAD
+        editor/                               DEAD (all 4 files)
+        playground/                           DEAD
+        shapes/                               DEAD (all 5 files)
+        style_components/                     DEAD (all 3 files)
+
+        webgpu/                             ← EVERYTHING lives here
+          loop.cljs          ★ 7,283 lines    THE MONOLITH
+          editor.cljs                         GPU shaders/buffers (KEEP)
+          text_input.cljs                     DOM text input (KEEP)
+          themes.cljc                         theme defs (KEEP)
+          core.cljs                           DEAD
+          bind.cljs                           DEAD
+          buffer.cljs                         DEAD
+          compute.cljs                        DEAD
+          data.cljs                           DEAD
+          pipeline.cljs                       DEAD
+          shader.cljs                         DEAD
+
+    components/                             ← JIT component compiler (KEEP)
+      design_tokens.cljc
+      compiler.cljc, adapter.cljc, ...
+
+    global_flow.cljs
+
+  AFTER (target)
+
+  src/
+    app/
+      electric_flow.cljc                    ← UNTOUCHED
+      file_viewer.cljc
+      server_jetty.clj
+
+      server/                               ← UNTOUCHED
+        file.clj, llm.clj, review_pack.clj
+        rama/  ...
+
+      client/
+        webgpu/                             ← SUBSTRATE ONLY (GPU primitives)
+          editor.cljs                         shaders, buffers, draw-frame
+          text_input.cljs                     DOM text input
+          themes.cljc                         theme definitions
+
+        workspace/                          ← THE WORLD AT ZOOM 100
+          events.cljs         ~200 lines      >canvas-resize, >wheel, >mouse,
+                                              >keyboard, make-raf-flow,
+  make-blink-timer
+
+          layout.cljs         ~500 lines      rt-node, normalize-padding,
+  layout-children,
+                                              resolve-layout, tree->rects,
+  tree->text-ops,
+                                              tree->shadows, hit-test,
+  dispatch-event
+
+          ui.cljs             ~400 lines      dt (design tokens), typo-*,
+  ui-card, ui-badge,
+                                              ui-button, ui-divider,
+  ui-scrollbar, ui-tabs,
+                                              ui-panel, ui-panel-header,
+  ui-panel-group,
+                                              ui-list-item, ui-checkbox,
+  ui-priority-dot
+
+          sidebar.cljs        ~200 lines      build-sidebar-tree,
+  flatten-file-tree,
+                                              sidebar constants
+
+          shell.cljs          ~300 lines      build-file-layout (3-pane split),
+                                              offset-rects, offset-shadows,
+  offset-text-ops
+
+          trail.cljs          ~700 lines      parse-md-blocks,
+  parse-md-inline-spans,
+                                              wrap-md-spans, trail->chat-nodes,
+                                              trail->display-lines,
+  agent-wrapped-line-count
+
+          editor_state.cljs   ~500 lines      editor-apply-event,
+  compute-fold-state,
+                                              <bracket-match,
+  compute-editor-rects,
+                                              <editor-rects
+
+          cmd_panel.cljs      ~300 lines      cmd-panel-apply-event,
+  parse-agent-command,
+                                              <cmd-panel-rects
+
+          agent.cljs          ~400 lines      stream-agent-run!,
+  parse-tickets-from-trail,
+                                              normalize-ticket,
+  ticket-json-schema
+
+          settings.cljs       ~300 lines      compute-settings-panel-rects,
+                                              <settings-panel-rects,
+  slider-specs
+
+        workflows/                          ← TRAVERSALS BETWEEN LOCAL WORLDS
+          dg_flow.cljs       ~1200 lines      flow-transitions,
+  transition-flow-state,
+                                              build-intake-tree,
+  build-right-detail,
+                                              flow-prompt, ticket-list-layout,
+                                              drag state machine, Screen 1
+  constants
+
+          jit.cljs            ~200 lines      hardcode/extract builders
+  (embryonic)
+
+        loop.cljs            ~2000 lines    ← ORCHESTRATOR ONLY
+                                              all atoms (!lines, !cursor,
+  !focus, ...)
+                                              <global-events, <editor-keys (thin
+   routing)
+                                              <combined-text-ops (the big
+  m/latest join)
+                                              <world-snapshot (GPU state
+  aggregation)
+                                              start-loop! (m/join, GPU init,
+  render pulse)
+
+    components/                             ← UNTOUCHED
+      design_tokens.cljc, compiler.cljc, ...
+
+    global_flow.cljs
+
+    old-infra/                              ← DEAD CODE (gitignored)
+      client/
+        background.cljc, core.cljc, utils.cljc,
+        electric_codemirror.cljc, flow_calc.cljc,
+        learn_missionary.cljc, mode.cljc, quad_tree.cljc,
+        editor/*, playground/*, shapes/*, style_components/*
+      electric_flow_old.cljc
+      webgpu/
+        core.cljs, bind.cljs, buffer.cljs,
+        compute.cljs, data.cljs, pipeline.cljs, shader.cljs
+
+  Dependency Graph (what requires what)
+
+                      themes.cljc
+                          │
+                 ┌────────┴────────┐
+                 ▼                 ▼
+            events.cljs       layout.cljs
+                 │                 │
+                 │            ┌────┴─────┐
+                 │            ▼          ▼
+                 │        ui.cljs    (tree walkers)
+                 │            │
+                 │     ┌──────┼──────────┬──────────┐
+                 │     ▼      ▼          ▼          ▼
+                 │  sidebar  shell    trail.cljs  dg_flow
+                 │   .cljs   .cljs       │        .cljs
+                 │     │      │          │          │
+                 │     │      │     ┌────┘          │
+                 │     ▼      ▼     ▼               ▼
+                 └──►  loop.cljs  ◄─────────────────┘
+                       (orchestrator)
+                            │
+                            ▼
+                      editor.cljs (GPU)
+
+  ★ Insight ─────────────────────────────────────
+  The folder structure encodes the three stable architectural distinctions from
+  core-reframes:
+
+  - webgpu/ = substrate — the 5 GPU primitives (rect, shadow, text, quad, path).
+   These don't know about workspaces, trails, or workflows. They just render
+  what they're given.
+  - workspace/ = the grammar of local worlds — how you compose inhabitable units
+   of understanding. Layout, UI vocabulary, splits, trails, the editor,
+  settings. These are the building blocks any workflow can use.
+  - workflows/ = traversals — DG flow is a structured path through local worlds
+  (intake → arrange → run → review). JIT is another. Future knowledge workflows
+  will be more.
+  - loop.cljs = the conductor — it doesn't play instruments, it coordinates when
+   they play. The m/join vector is the score.
+
+  The key insight from Session 35: the filesystem IS the ontology. After this
+  refactor, a new contributor can look at the folder names and understand what
+  the system IS, not just what libraries it uses.
+  ─────────────────────────────────────────────────
+
+✻ Cogitated for 51s
+
+❯ ok so from your side what is the final plan .. don't hold back like we will   
+do this yxz later no.. i want it all scoped out in this one plan .. i will also 
+ ask codex to do the planning as well and then we will be moving forward        
+
+● Let me get exact line ranges and dependency details for everything so this
+  plan has zero ambiguity.
+
+● Read 1 file (ctrl+o to expand)
+
+● Now I have a complete picture of every line. Let me write the definitive plan.
+
+● OK. I've now read every line of loop.cljs (7,283 lines). Here is the complete,
+   no-hand-waving plan.
+
+  ---
+  The Complete Refactor Plan
+
+  Phase 0: Preparation
+
+  0.1 — Verify the app builds and loads
+
+  Run the dev server, confirm the editor renders, sidebar works, agent streaming
+   works, flow canvas works. This is the baseline we test against after every
+  extraction step.
+
+  0.2 — Create the target directories
+
+  src/app/client/workspace/
+  src/app/client/workflows/
+
+  ---
+  Phase 1: Move Dead Files to old-infra/ (Zero Risk)
+
+  Create old-infra/ at project root. Move these files (they are never required
+  by any live code):
+
+  Dead client files (14 files):
+  app/client/background.cljc
+  app/client/core.cljc
+  app/client/utils.cljc
+  app/client/electric_codemirror.cljc
+  app/client/flow_calc.cljc
+  app/client/learn_missionary.cljc
+  app/client/mode.cljc
+  app/client/quad_tree.cljc
+  app/client/editor/core.cljc
+  app/client/editor/events/click.cljc
+  app/client/editor/events/keydown.cljc
+  app/client/editor/events/utils.cljc
+  app/client/editor/parser.cljc
+  app/client/playground/actions.cljc
+  app/client/shapes/circle.cljc
+  app/client/shapes/draw_rect.cljc
+  app/client/shapes/line.cljc
+  app/client/shapes/rect.cljc
+  app/client/shapes/util.cljc
+  app/client/style_components/bottom_bar.cljc
+  app/client/style_components/buttons.cljc
+  app/client/style_components/svg_icons.cljc
+
+  Dead WebGPU files (7 files):
+  app/client/webgpu/core.cljs
+  app/client/webgpu/bind.cljs
+  app/client/webgpu/buffer.cljs
+  app/client/webgpu/compute.cljs
+  app/client/webgpu/data.cljs
+  app/client/webgpu/pipeline.cljs
+  app/client/webgpu/shader.cljs
+
+  Dead root file:
+  app/electric_flow_old.cljc
+
+  Add old-infra/ to .gitignore. Verify app still loads.
+
+  ---
+  Phase 2: Extract Modules from loop.cljs (12 Steps)
+
+  Each step: create new file → update loop.cljs ns :require → delete moved code
+  from loop.cljs → verify app loads.
+
+  Naming convention
+
+  All new namespaces use the prefix app.client.workspace.* or
+  app.client.workflows.*, matching the folder structure
+  src/app/client/workspace/ and src/app/client/workflows/.
+
+  ---
+  Step 1: workspace/events.cljs (~190 lines)
+
+  What moves (lines 32–217):
+
+  ┌─────────────────────────────┬─────────┬──────────────────────────────────┐
+  │          Function           │  Lines  │               Deps               │
+  ├─────────────────────────────┼─────────┼──────────────────────────────────┤
+  │ >canvas-resize              │ 32–51   │ m/observe, m/relieve             │
+  ├─────────────────────────────┼─────────┼──────────────────────────────────┤
+  │ >wheel                      │ 53–66   │ m/observe, m/relieve             │
+  ├─────────────────────────────┼─────────┼──────────────────────────────────┤
+  │ >mouse                      │ 68–85   │ m/observe                        │
+  ├─────────────────────────────┼─────────┼──────────────────────────────────┤
+  │ snap-to-dpr                 │ 87–89   │ none                             │
+  ├─────────────────────────────┼─────────┼──────────────────────────────────┤
+  │ maybe-snap                  │ 91–92   │ snap-to-dpr                      │
+  ├─────────────────────────────┼─────────┼──────────────────────────────────┤
+  │ manifest-defaults->settings │ 94–103  │ none                             │
+  ├─────────────────────────────┼─────────┼──────────────────────────────────┤
+  │ compact-map                 │ 105–106 │ none                             │
+  ├─────────────────────────────┼─────────┼──────────────────────────────────┤
+  │ font-defaults->settings     │ 108–117 │ compact-map                      │
+  ├─────────────────────────────┼─────────┼──────────────────────────────────┤
+  │ slider-specs                │ 119–127 │ themes/theme-index,              │
+  │                             │         │ themes/theme-list                │
+  ├─────────────────────────────┼─────────┼──────────────────────────────────┤
+  │ parse-key-event             │ 128–178 │ none                             │
+  ├─────────────────────────────┼─────────┼──────────────────────────────────┤
+  │ >keyboard                   │ 180–190 │ m/observe, parse-key-event       │
+  ├─────────────────────────────┼─────────┼──────────────────────────────────┤
+  │ make-raf-flow               │ 192–204 │ m/observe, m/relieve             │
+  ├─────────────────────────────┼─────────┼──────────────────────────────────┤
+  │ make-blink-timer            │ 206–217 │ m/observe                        │
+  └─────────────────────────────┴─────────┴──────────────────────────────────┘
+
+  Namespace:
+  (ns app.client.workspace.events
+    (:require [missionary.core :as m]
+              [app.client.webgpu.themes :as themes]))
+
+  Internal deps: Zero. Only depends on missionary.core and themes.
+
+  What loop.cljs adds to its :require:
+  [app.client.workspace.events :as events]
+
+  Then replaces all bare calls like (>wheel node) → (events/>wheel node), etc.
+  throughout start-loop!.
+
+  ---
+  Step 2: workspace/layout.cljs (~370 lines)
+
+  What moves (lines 633–985):
+
+  ┌─────────────────────┬─────────┬─────────────────────────────────────────┐
+  │      Function       │  Lines  │                  Deps                   │
+  ├─────────────────────┼─────────┼─────────────────────────────────────────┤
+  │ flow-canvas-active? │ 613–617 │ none                                    │
+  ├─────────────────────┼─────────┼─────────────────────────────────────────┤
+  │ rt-node             │ 633–650 │ none                                    │
+  ├─────────────────────┼─────────┼─────────────────────────────────────────┤
+  │ normalize-padding   │ 655–667 │ none                                    │
+  ├─────────────────────┼─────────┼─────────────────────────────────────────┤
+  │ layout-children     │ 668–746 │ normalize-padding                       │
+  ├─────────────────────┼─────────┼─────────────────────────────────────────┤
+  │ resolve-text-layout │ 747–786 │ wrap-line (from flow module — see note) │
+  ├─────────────────────┼─────────┼─────────────────────────────────────────┤
+  │ resolve-layout      │ 787–797 │ layout-children, resolve-text-layout    │
+  ├─────────────────────┼─────────┼─────────────────────────────────────────┤
+  │ tree->rects         │ 800–843 │ none                                    │
+  ├─────────────────────┼─────────┼─────────────────────────────────────────┤
+  │ tree->text-ops      │ 846–910 │ none                                    │
+  ├─────────────────────┼─────────┼─────────────────────────────────────────┤
+  │ tree->shadows       │ 913–939 │ none                                    │
+  ├─────────────────────┼─────────┼─────────────────────────────────────────┤
+  │ hit-test            │ 942–964 │ none                                    │
+  ├─────────────────────┼─────────┼─────────────────────────────────────────┤
+  │ dispatch-event      │ 967–985 │ none                                    │
+  └─────────────────────┴─────────┴─────────────────────────────────────────┘
+
+  Also moves:
+  - wrap-line (lines 576–607) — pure string wrapping utility, no deps. Used by
+  resolve-text-layout and trail.cljs.
+
+  Namespace:
+  (ns app.client.workspace.layout)
+  ;; zero external requires — pure data functions
+
+  Note: flow-canvas-active? is a one-liner ((not= :idle (:node flow-state))).
+  It's used in 8+ places across loop.cljs. Moving it here (alongside the rect
+  tree) keeps it accessible to all modules. Alternative: inline it everywhere.
+  Decision: move it here — it's a semantic check, not a UI concern.
+
+  ---
+  Step 3: workspace/ui.cljs (~430 lines)
+
+  What moves (lines 1183–1590):
+
+  ┌───────────────────────────────────┬───────────┬──────────────────────────┐
+  │           Function/Def            │   Lines   │           Deps           │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ dt (design tokens)                │ 1183–1186 │ design-tokens/dt-dark-ui │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ typo-title, typo-subtitle,        │ 1190–1193 │ dt                       │
+  │ typo-body, typo-caption           │           │                          │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ ui-card                           │ 1199–1217 │ rt-node, dt              │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ ui-badge                          │ 1218–1232 │ rt-node, dt              │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ ui-button                         │ 1233–1258 │ rt-node, dt              │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ ui-divider                        │ 1259–1263 │ rt-node, dt              │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ ui-progress                       │ 1264–1275 │ rt-node, dt              │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ ui-scrollbar                      │ 1276–1289 │ rt-node, dt              │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ ui-tabs                           │ 1290–1328 │ rt-node, dt              │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ ui-tooltip                        │ 1329–1341 │ rt-node, dt              │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ build-empty-state                 │ 1342–1396 │ rt-node, dt              │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ ui-panel                          │ 1404–1418 │ rt-node, dt              │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ ui-panel-header                   │ 1419–1431 │ rt-node, dt              │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ ui-panel-content                  │ 1432–1441 │ rt-node, dt              │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ ui-panel-footer                   │ 1442–1452 │ rt-node, dt              │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ ui-panel-group                    │ 1453–1491 │ rt-node, dt              │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ ui-list-item                      │ 1492–1557 │ rt-node, dt              │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ ui-checkbox                       │ 1558–1575 │ rt-node, dt              │
+  ├───────────────────────────────────┼───────────┼──────────────────────────┤
+  │ ui-priority-dot                   │ 1576–1589 │ rt-node, dt              │
+  └───────────────────────────────────┴───────────┴──────────────────────────┘
+
+  Namespace:
+  (ns app.client.workspace.ui
+    (:require [app.client.workspace.layout :as layout :refer [rt-node]]
+              [components.design-tokens :as design-tokens]))
+
+  ---
+  Step 4: workspace/trail.cljs (~700 lines)
+
+  What moves (lines 2953–4055):
+
+  Function: md-style-colors
+  Lines: 2953–2960
+  Deps: none
+  ────────────────────────────────────────
+  Function: parse-md-inline-spans
+  Lines: 2961–3017
+  Deps: str/split, str/trim
+  ────────────────────────────────────────
+  Function: wrap-md-spans
+  Lines: 3018–3057
+  Deps: none
+  ────────────────────────────────────────
+  Function: spans->text-ops
+  Lines: 3058–3073
+  Deps: none
+  ────────────────────────────────────────
+  Function: decorative-line?
+  Lines: 3074–3081
+  Deps: none
+  ────────────────────────────────────────
+  Function: decorative-inner
+  Lines: 3082–3088
+  Deps: none
+  ────────────────────────────────────────
+  Function: parse-md-blocks
+  Lines: 3089–3216
+  Deps: decorative-line?, decorative-inner
+  ────────────────────────────────────────
+  Function: trail-node-color
+  Lines: 3217–3235
+  Deps: none
+  ────────────────────────────────────────
+  Function: tool-input-summary
+  Lines: 3236–3248
+  Deps: none
+  ────────────────────────────────────────
+  Function: file-op-tool?
+  Lines: 3249–3253
+  Deps: none
+  ────────────────────────────────────────
+  Function: group-trail-blocks
+  Lines: 3254–3325
+  Deps: file-op-tool?
+  ────────────────────────────────────────
+  Function: group-consecutive-file-ops
+  Lines: 3326–3347
+  Deps: file-op-tool?
+  ────────────────────────────────────────
+  Function: trail->chat-nodes
+  Lines: 3348–3952
+  Deps: rt-node, dt, ui-*, trail-node-color, tool-input-summary,
+    group-trail-blocks, group-consecutive-file-ops, parse-md-blocks,
+    parse-md-inline-spans, wrap-md-spans, spans->text-ops, wrap-line
+  ────────────────────────────────────────
+  Function: trail->display-lines
+  Lines: 3953–4011
+  Deps: wrap-line
+  ────────────────────────────────────────
+  Function: agent-wrapped-line-count
+  Lines: 4012–4039
+  Deps: trail->display-lines
+  ────────────────────────────────────────
+  Function: compute-agent-panel-h
+  Lines: 4040–4055
+  Deps: none
+
+  Namespace:
+  (ns app.client.workspace.trail
+    (:require [clojure.string :as str]
+              [app.client.workspace.layout :as layout :refer [rt-node
+  wrap-line]]
+              [app.client.workspace.ui :as ui :refer [dt]]))
+
+  Note: trail->chat-nodes is the largest single function (~600 lines). It builds
+   the entire chat pane UI from agent trail data. It calls rt-node, ui-panel,
+  ui-badge etc. heavily. All those are now in layout and ui, so the deps are
+  clean.
+
+  ---
+  Step 5: workspace/sidebar.cljs (~220 lines)
+
+  What moves (lines 1006–1016 constants + 1018–1067 helpers + 1594–1802 
+  builder):
+
+  Function/Def: sidebar-w
+  Lines: 1006
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: sidebar-tab-h
+  Lines: 1007
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: sidebar-row-h
+  Lines: 1008
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: sidebar-back-h
+  Lines: 1009
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: sidebar-breadcrumb-h
+  Lines: 1012
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: sidebar-indent-px
+  Lines: 1013
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: sidebar-padding-x
+  Lines: 1014
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: sidebar-item-inset
+  Lines: 1015
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: sidebar-font-size
+  Lines: 1016
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: split-filename
+  Lines: 1018–1029
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: flatten-file-tree
+  Lines: 1030–1054
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: compute-sidebar-content-height
+  Lines: 1055–1066
+  Deps: flatten-file-tree, sidebar constants
+  ────────────────────────────────────────
+  Function/Def: build-sidebar-tree
+  Lines: 1594–1802
+  Deps: rt-node, dt, ui-panel, ui-panel-header, ui-list-item, sidebar constants,
+
+    split-filename, flatten-file-tree
+
+  Namespace:
+  (ns app.client.workspace.sidebar
+    (:require [clojure.string :as str]
+              [app.client.workspace.layout :as layout :refer [rt-node]]
+              [app.client.workspace.ui :as ui :refer [dt ui-panel
+  ui-panel-header
+                                                        ui-panel-content
+  ui-list-item]]))
+
+  Impact on loop.cljs: sidebar-w, sidebar-tab-h, compute-sidebar-content-height,
+   build-sidebar-tree are referenced in the scroll consumer, mouse consumer, and
+   <combined-text-ops. All become sidebar/sidebar-w, etc.
+
+  ---
+  Step 6: workspace/shell.cljs (~310 lines)
+
+  What moves (lines 1810–2082 + 2385–2428):
+
+  ┌──────────────────────────────┬───────────┬───────────────────────────────┐
+  │           Function           │   Lines   │             Deps              │
+  ├──────────────────────────────┼───────────┼───────────────────────────────┤
+  │ build-file-layout            │ 1810–2082 │ rt-node, dt, ui-*,            │
+  │                              │           │ trail->chat-nodes, sidebar-w  │
+  ├──────────────────────────────┼───────────┼───────────────────────────────┤
+  │ offset-rects                 │ 2385–2391 │ none                          │
+  ├──────────────────────────────┼───────────┼───────────────────────────────┤
+  │ offset-shadows               │ 2392–2398 │ none                          │
+  ├──────────────────────────────┼───────────┼───────────────────────────────┤
+  │ offset-text-ops              │ 2399–2409 │ none                          │
+  ├──────────────────────────────┼───────────┼───────────────────────────────┤
+  │                              │           │ build-intake-tree,            │
+  │ compute-ticket-list-rects    │ 2410–2419 │ resolve-layout, tree->rects,  │
+  │                              │           │ tree->shadows, offset-rects,  │
+  │                              │           │ offset-shadows                │
+  ├──────────────────────────────┼───────────┼───────────────────────────────┤
+  │                              │           │ build-intake-tree,            │
+  │ compute-ticket-list-text-ops │ 2420–2428 │ resolve-layout,               │
+  │                              │           │ tree->text-ops,               │
+  │                              │           │ offset-text-ops               │
+  └──────────────────────────────┴───────────┴───────────────────────────────┘
+
+  Namespace:
+  (ns app.client.workspace.shell
+    (:require [clojure.string :as str]
+              [app.client.workspace.layout :as layout :refer [rt-node
+  resolve-layout
+                                                                tree->rects
+  tree->text-ops tree->shadows]]
+              [app.client.workspace.ui :as ui :refer [dt]]
+              [app.client.workspace.trail :as trail]
+              [app.client.workspace.sidebar :as sidebar]))
+
+  Circular dependency concern: compute-ticket-list-rects calls build-intake-tree
+   which is in workflows/dg_flow.cljs (Step 8). These two wrapper fns
+  (compute-ticket-list-rects, compute-ticket-list-text-ops) should stay in
+  loop.cljs OR move to dg_flow.cljs since they are thin wrappers specifically
+  for the DG flow canvas. Decision: move them to dg_flow.cljs, not shell.cljs.
+  Shell stays focused on the 3-pane file layout.
+
+  Revised shell.cljs — removes the ticket wrappers. ~270 lines.
+
+  ---
+  Step 7: workspace/editor_state.cljs (~530 lines)
+
+  What moves (lines 281–345 + 2660–2950):
+
+  ┌───────────────────────────┬───────────┬──────────────────────────────────┐
+  │         Function          │   Lines   │               Deps               │
+  ├───────────────────────────┼───────────┼──────────────────────────────────┤
+  │ editor-apply-event        │ 281–345   │ text-input/*                     │
+  ├───────────────────────────┼───────────┼──────────────────────────────────┤
+  │ calculate-logical->visual │ 2660–2667 │ none                             │
+  ├───────────────────────────┼───────────┼──────────────────────────────────┤
+  │ build-line-mapping        │ 2668–2683 │ calculate-logical->visual        │
+  ├───────────────────────────┼───────────┼──────────────────────────────────┤
+  │ compute-fold-state        │ 2684–2700 │ build-line-mapping               │
+  ├───────────────────────────┼───────────┼──────────────────────────────────┤
+  │ <fold-state               │ 2701–2709 │ m/latest, m/watch,               │
+  │                           │           │ compute-fold-state               │
+  ├───────────────────────────┼───────────┼──────────────────────────────────┤
+  │ <bracket-match            │ 2710–2723 │ m/latest, m/watch                │
+  ├───────────────────────────┼───────────┼──────────────────────────────────┤
+  │                           │           │ rt-node, dt, events/maybe-snap,  │
+  │ compute-editor-rects      │ 2724–2831 │ sidebar constants,               │
+  │                           │           │ flow-canvas-active?              │
+  ├───────────────────────────┼───────────┼──────────────────────────────────┤
+  │                           │           │ m/latest, m/watch,               │
+  │ <editor-rects             │ 2832–2950 │ compute-editor-rects,            │
+  │                           │           │ build-file-layout tree walkers,  │
+  │                           │           │ sidebar constants                │
+  └───────────────────────────┴───────────┴──────────────────────────────────┘
+
+  Namespace:
+  (ns app.client.workspace.editor-state
+    (:require [missionary.core :as m]
+              [app.client.webgpu.text-input :as text-input]
+              [app.client.workspace.events :as events :refer [maybe-snap]]
+              [app.client.workspace.layout :as layout :refer [rt-node
+  resolve-layout
+                                                                tree->rects
+  tree->shadows tree->text-ops
+
+  flow-canvas-active?]]
+              [app.client.workspace.ui :as ui :refer [dt]]
+              [app.client.workspace.sidebar :as sidebar]
+              [app.client.workspace.shell :as shell]
+              [app.client.workspace.trail :as trail]))
+
+  The hard part: <editor-rects (lines 2832–2950) is a Missionary m/latest flow
+  that watches ~24 atoms. It produces rect + shadow data for the entire editor
+  area, including the file layout tree, intake tree, and sidebar tree. This is
+  the single most coupled function.
+
+  Strategy: The function itself is pure computation wrapped in m/latest. It
+  receives atoms as arguments, watches them, and calls compute-editor-rects +
+  tree builders. It stays as-is, just moves to this file. The atom references
+  are passed in — the function doesn't own any atoms.
+
+  ---
+  Step 8: workflows/dg_flow.cljs (~820 lines)
+
+  What moves (lines 532–575 + 991–1000 + 1067–1178 + 2087–2428 + 2433–2490):
+
+  Function/Def: flow-transitions
+  Lines: 532–546
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: valid-transition?
+  Lines: 547–553
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: initial-flow-state
+  Lines: 554–564
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: transition-flow-state
+  Lines: 565–575
+  Deps: valid-transition?
+  ────────────────────────────────────────
+  Function/Def: Screen 1 constants (list-row-h, etc.)
+  Lines: 991–1000
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: priority-colors
+  Lines: 1067–1074
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: status-group-order
+  Lines: 1075–1077
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: status-icons
+  Lines: 1078–1086
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: status-icon-colors
+  Lines: 1087–1095
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: group-tickets-by-status
+  Lines: 1096–1117
+  Deps: status-group-order
+  ────────────────────────────────────────
+  Function/Def: ticket-list-layout
+  Lines: 1118–1146
+  Deps: list constants, group-tickets-by-status
+  ────────────────────────────────────────
+  Function/Def: list-content-height
+  Lines: 1147–1159
+  Deps: list constants
+  ────────────────────────────────────────
+  Function/Def: Drag state machine (drag-threshold-px, drag-pending?,
+    drag-active?, drag-distance)
+  Lines: 1160–1178
+  Deps: none
+  ────────────────────────────────────────
+  Function/Def: build-right-detail
+  Lines: 2087–2200
+  Deps: rt-node, dt, ui-*, list constants
+  ────────────────────────────────────────
+  Function/Def: build-intake-tree
+  Lines: 2201–2382
+  Deps: rt-node, dt, ui-*, list constants, group-tickets-by-status,
+    ticket-list-layout, build-right-detail
+  ────────────────────────────────────────
+  Function/Def: compute-ticket-list-rects
+  Lines: 2410–2419
+  Deps: build-intake-tree, tree walkers, offset-rects, offset-shadows
+  ────────────────────────────────────────
+  Function/Def: compute-ticket-list-text-ops
+  Lines: 2420–2428
+  Deps: build-intake-tree, tree walkers, offset-text-ops
+  ────────────────────────────────────────
+  Function/Def: flow-prompt
+  Lines: 2433–2490
+  Deps: none
+
+  Namespace:
+  (ns app.client.workflows.dg-flow
+    (:require [clojure.string :as str]
+              [app.client.workspace.layout :as layout :refer [rt-node
+  resolve-layout
+                                                                tree->rects
+  tree->text-ops tree->shadows]]
+              [app.client.workspace.ui :as ui :refer [dt ui-panel
+  ui-panel-header ui-panel-content
+                                                        ui-list-item ui-checkbox
+   ui-priority-dot
+                                                        ui-badge ui-divider
+  ui-scrollbar
+                                                        build-empty-state]]
+              [app.client.workspace.shell :as shell :refer [offset-rects
+  offset-shadows offset-text-ops]]))
+
+  Note: offset-rects/shadows/text-ops are used ONLY by the ticket list wrappers.
+   So they move here too (not shell). Shell is purely the 3-pane file layout.
+
+  ---
+  Step 9: workspace/cmd_panel.cljs (~340 lines)
+
+  What moves (lines 346–525 + 4057–4130):
+
+  ┌───────────────────────┬───────────┬──────────────────────────────────────┐
+  │       Function        │   Lines   │                 Deps                 │
+  ├───────────────────────┼───────────┼──────────────────────────────────────┤
+  │ cmd-panel-apply-event │ 346–399   │ text-input/*                         │
+  ├───────────────────────┼───────────┼──────────────────────────────────────┤
+  │ cmd-prompt-text       │ 400–404   │ none                                 │
+  ├───────────────────────┼───────────┼──────────────────────────────────────┤
+  │ cmd-text-start-x      │ 405–413   │ events/maybe-snap                    │
+  ├───────────────────────┼───────────┼──────────────────────────────────────┤
+  │ parse-agent-command   │ 414–525   │ str/split, str/trim                  │
+  ├───────────────────────┼───────────┼──────────────────────────────────────┤
+  │ <cmd-panel-rects      │ 4057–4130 │ m/latest, m/watch, rt-node, dt,      │
+  │                       │           │ events/maybe-snap, sidebar constants │
+  └───────────────────────┴───────────┴──────────────────────────────────────┘
+
+  Namespace:
+  (ns app.client.workspace.cmd-panel
+    (:require [clojure.string :as str]
+              [missionary.core :as m]
+              [app.client.webgpu.text-input :as text-input]
+              [app.client.webgpu.themes :as themes]
+              [app.client.workspace.events :as events :refer [maybe-snap]]
+              [app.client.workspace.layout :as layout :refer [rt-node]]
+              [app.client.workspace.ui :as ui :refer [dt]]
+              [app.client.workspace.sidebar :as sidebar]
+              [app.client.workspace.trail :as trail]))
+
+  ---
+  Step 10: workspace/agent.cljs (~200 lines)
+
+  What moves (lines 2495–2655):
+
+  ┌───────────────────────────┬───────────┬───────────────────────┐
+  │       Function/Def        │   Lines   │         Deps          │
+  ├───────────────────────────┼───────────┼───────────────────────┤
+  │ priority-label->num       │ 2495–2498 │ none                  │
+  ├───────────────────────────┼───────────┼───────────────────────┤
+  │ normalize-priority        │ 2499–2506 │ priority-label->num   │
+  ├───────────────────────────┼───────────┼───────────────────────┤
+  │ normalize-ticket          │ 2507–2517 │ normalize-priority    │
+  ├───────────────────────────┼───────────┼───────────────────────┤
+  │ parse-tickets-from-trail  │ 2518–2544 │ normalize-ticket      │
+  ├───────────────────────────┼───────────┼───────────────────────┤
+  │ parse-tickets-from-output │ 2545–2576 │ normalize-ticket      │
+  ├───────────────────────────┼───────────┼───────────────────────┤
+  │ ticket-json-schema        │ 2577–2591 │ none                  │
+  ├───────────────────────────┼───────────┼───────────────────────┤
+  │ parse-structured-result   │ 2592–2608 │ normalize-ticket      │
+  ├───────────────────────────┼───────────┼───────────────────────┤
+  │ stream-agent-run!         │ 2609–2655 │ JS fetch, cljs.reader │
+  └───────────────────────────┴───────────┴───────────────────────┘
+
+  Namespace:
+  (ns app.client.workspace.agent
+    (:require [clojure.string :as str]
+              [cljs.reader :as reader]))
+
+  Internal deps: Zero. These are pure HTTP/parsing functions.
+
+  ---
+  Step 11: workspace/settings.cljs (~340 lines)
+
+  What moves (lines 4131–4405):
+
+  ┌──────────────────────────────┬───────────┬───────────────────────────────┐
+  │           Function           │   Lines   │             Deps              │
+  ├──────────────────────────────┼───────────┼───────────────────────────────┤
+  │ compute-settings-panel-rects │ 4131–4262 │ rt-node, dt,                  │
+  │                              │           │ events/maybe-snap, themes/*   │
+  ├──────────────────────────────┼───────────┼───────────────────────────────┤
+  │ <settings-panel-rects        │ 4263–4276 │ m/latest, m/watch,            │
+  │                              │           │ compute-settings-panel-rects  │
+  ├──────────────────────────────┼───────────┼───────────────────────────────┤
+  │ compute-settings-panel-text  │ 4277–4392 │ events/maybe-snap,            │
+  │                              │           │ events/slider-specs, themes/* │
+  ├──────────────────────────────┼───────────┼───────────────────────────────┤
+  │ <settings-panel-text         │ 4393–4405 │ m/latest, m/watch,            │
+  │                              │           │ compute-settings-panel-text   │
+  └──────────────────────────────┴───────────┴───────────────────────────────┘
+
+  Namespace:
+  (ns app.client.workspace.settings
+    (:require [missionary.core :as m]
+              [app.client.webgpu.themes :as themes]
+              [app.client.workspace.events :as events :refer [maybe-snap
+  slider-specs]]
+              [app.client.workspace.layout :as layout :refer [rt-node]]
+              [app.client.workspace.ui :as ui :refer [dt]]))
+
+  ---
+  Step 12: workspace/combined_text.cljs (~410 lines)
+
+  What moves (lines 4406–4809):
+
+  ┌────────────────────┬───────────┬───────────────────────────────────────┐
+  │      Function      │   Lines   │                 Deps                  │
+  ├────────────────────┼───────────┼───────────────────────────────────────┤
+  │ <combined-text-ops │ 4406–4809 │ EVERYTHING — this is the central join │
+  └────────────────────┴───────────┴───────────────────────────────────────┘
+
+  This is the controversial one. <combined-text-ops is a single m/latest with 28
+   args that combines ALL text from ALL panels into one GPU buffer. It calls:
+  - resolve-layout, build-sidebar-tree, tree->text-ops (layout + sidebar)
+  - compute-ticket-list-text-ops (dg_flow)
+  - flow-canvas-active? (layout)
+  - maybe-snap (events)
+  - sidebar-w (sidebar)
+  - Pure computation on fold state, line mapping, tokenization
+
+  Decision: extract it. Even though it touches everything, its job is
+  well-defined — "produce the text ops vector." It receives all atoms as
+  arguments. Moving it out keeps loop.cljs focused on atom creation and m/join
+  wiring.
+
+  Namespace:
+  (ns app.client.workspace.combined-text
+    (:require [app.client.workspace.events :as events :refer [maybe-snap]]
+              [app.client.workspace.layout :as layout :refer [rt-node
+  resolve-layout
+                                                                tree->text-ops
+  flow-canvas-active?]]
+              [app.client.workspace.sidebar :as sidebar]
+              [app.client.workspace.shell :as shell]
+              [app.client.workspace.trail :as trail]
+              [app.client.workspace.ui :as ui]
+              [app.client.workflows.dg-flow :as dg-flow]
+              [missionary.core :as m]))
+
+  ---
+  What Remains in loop.cljs (~2,000 lines)
+
+  The :require block (~20 lines)
+
+  (ns app.client.webgpu.loop
+    (:require [clojure.string :as str]
+              [cljs.reader :as reader]
+              [missionary.core :as m]
+              [contrib.missionary-contrib :as mx]
+              [app.client.webgpu.editor :as editor]
+              [app.client.webgpu.text-input :as text-input]
+              [app.client.webgpu.themes :as themes]
+              [app.client.workspace.events :as events]
+              [app.client.workspace.layout :as layout]
+              [app.client.workspace.ui :as ui]
+              [app.client.workspace.sidebar :as sidebar]
+              [app.client.workspace.shell :as shell]
+              [app.client.workspace.trail :as trail]
+              [app.client.workspace.editor-state :as editor-state]
+              [app.client.workspace.cmd-panel :as cmd-panel]
+              [app.client.workspace.agent :as agent]
+              [app.client.workspace.settings :as settings]
+              [app.client.workspace.combined-text :as combined-text]
+              [app.client.workflows.dg-flow :as dg-flow]))
+
+  What stays in loop.cljs:
+
+  Section: Layer 4: Event routing
+  Lines: ~40
+  Why It Stays: <global-events, <editor-keys, <cmd-panel-keys, <chat-input-keys,
+
+    <settings-panel-keys — thin m/eduction filters. Could move, but they're
+    5-liners that use @!focus (deref pattern). Staying keeps the routing visible
+
+    at orchestration level.
+  ────────────────────────────────────────
+  Section: task-from-promise
+  Lines: 10
+  Why It Stays: Utility used only in start-loop!
+  ────────────────────────────────────────
+  Section: load-font-assets
+  Lines: 12
+  Why It Stays: Async font loading, used only in start-loop!
+  ────────────────────────────────────────
+  Section: start-loop!
+  Lines: ~1,900
+  Why It Stays: The orchestrator — see breakdown below
+
+  What's inside start-loop! after the refactor:
+
+  start-loop! (~1,900 lines)
+  ├── Layout constants (font-size, gutter-w, layout-x, layout-y)          ~10
+  ├── LAYER 1: All atoms (35+ atoms)                                      ~100
+  ├── Font configuration + font watcher                                    ~80
+  ├── Sidebar state + DOM watchers                                         ~50
+  ├── fetch-edn!, post-edn!, fetch-home-dirs!, fetch-dir!, fetch-file!    ~80
+  ├── trigger-dev-replay!                                                  ~90
+  ├── auto-scroll-agent!, make-event-handler                              ~100
+  ├── fire-flow-run!, show-flow-info!                                      ~50
+  ├── Window injection (__softland_inject_preview, __softland_inject_rt_node)
+  ~30
+  ├── submit-agent-run! (command dispatch — THE big case statement)       ~470
+  ├── Initial sidebar data fetch + seeding                                 ~40
+  ├── LAYER 2: Event flow instantiation                                    ~10
+  ├── LAYER 4: Focus routing instantiation                                 ~10
+  ├── Clipboard paste handler                                              ~30
+  ├── m/join vector:                                                      ~750
+  │   ├── Blink timer consumer                                              5
+  │   ├── Shimmer timer consumer                                            5
+  │   ├── Viewport resize consumer                                         10
+  │   ├── Scroll consumer                                                  90
+  │   ├── Mouse events consumer                                           370
+  │   ├── Global keyboard consumer                                         80
+  │   ├── File load consumer                                               40
+  │   ├── Editor keyboard consumer                                        100
+  │   ├── Command panel keyboard consumer                                   60
+  │   ├── Chat input keyboard consumer                                      30
+  │   ├── Settings keyboard consumer                                       100
+  │   └── Render loop (derived flows + m/sample + draw-frame!)            280
+
+  ---
+  The Hard Decisions (Scoped, Not Deferred)
+
+  H1: submit-agent-run! (~470 lines) — stays in loop.cljs
+
+  This is the giant case statement that handles ALL commands (:run,
+  :flow-bootstrap, :flow-mock-bootstrap, :extract-component, :hardcode,
+  :flow-select, :flow-arrange, :flow-run, :flow-review, :flow-rework,
+  :flow-finalize, :flow-status, :flow-reset).
+
+  Why it stays: It directly mutates 10+ atoms (!flow-state, !agent-output,
+  !scroll-y, !agent-scroll-y, !extract-preview, !ai-provider...). These atoms
+  are created in start-loop!. Extracting submit-agent-run! would require passing
+   all atoms as arguments — possible but the function signature becomes 15+
+  args.
+
+  Future refactor (not now): Split into submit-agent-command! (the :run case)
+  and submit-flow-command! (all :flow-* cases). The flow commands would move to
+  dg_flow.cljs as a closure that captures the atoms. But this is a second-pass
+  concern.
+
+  H2: Mouse consumer (~370 lines) — stays in loop.cljs
+
+  The mousedown handler dispatches to settings panel, sidebar tree, status bar,
+  command panel, flow canvas rect tree, file layout rect tree, and normal
+  editor. It's the central input router.
+
+  Why it stays: It reads !settings, !sidebar-state, !flow-state, !current-file,
+  !viewport, !scroll-y, !drag-state, !editor-doc, !cmd-panel, !focus,
+  !caret-visible, !trail-collapsed, !active-pane. That's 14 atoms via deref.
+  This IS orchestration — routing input to the right subsystem.
+
+  H3: Event routing fns (<editor-keys, etc.) — stays in loop.cljs
+
+  5 functions, each 5–8 lines. They're m/eduction filters using @!focus. They
+  could move to events.cljs but they conceptually belong at the orchestration
+  level (they decide WHERE events go based on global focus state).
+
+  H4: The :hardcode "button" case (~150 lines of inline rt-node) — stays for now
+
+  The case "button" branch inside submit-agent-run! has ~150 lines of inline
+  shadcn button demo nodes. This is JIT prototype code. It should eventually
+  move to workflows/jit.cljs. But since the JIT workflow is stage 2 (embryonic)
+  and this code is inside the command dispatch case, extracting it now would
+  mean threading atoms through jit.cljs for one function. Not worth it yet. When
+   JIT matures to stage 3, this naturally moves.
+
+  ---
+  Dependency Graph (Final)
+
+                          themes.cljc
+                              │
+                     ┌────────┴────────┐
+                     ▼                 ▼
+                events.cljs       layout.cljs
+                     │                 │
+                     │            ┌────┴──────┐
+                     │            ▼           │
+                     │        ui.cljs         │
+                     │            │           │
+                ┌────┤     ┌──────┼───────┐   │
+                │    │     ▼     ▼      ▼   │
+                │    │  sidebar  trail  shell │
+                │    │   .cljs   .cljs  .cljs │
+                │    │     │      │      │    │
+                │    │     │      │      │    │
+                │    │     ▼      ▼      ▼    │
+                │    │   editor_state.cljs     │
+                │    │          │              │
+                │    │     cmd_panel.cljs      │
+                │    │          │              │
+                │    │   ┌──────┘              │
+                │    │   ▼                     │
+                │    │ combined_text.cljs      │
+                │    │        │               │
+                │    │   ┌────┘               │
+                │    ▼   ▼                    ▼
+                │  settings.cljs         dg_flow.cljs
+                │         │                   │
+                │         │                   │
+                └────►  loop.cljs  ◄──────────┘
+                       (orchestrator)
+                            │
+                  agent.cljs (no deps on workspace)
+                            │
+                      editor.cljs (GPU substrate)
+
+  No circular dependencies. Every arrow points downward toward loop.cljs.
+  agent.cljs is a standalone island (pure HTTP/parsing).
+
+  ---
+  Verification Protocol (After Every Step)
+
+  1. shadow-cljs watch app compiles with zero errors
+  2. Browser loads — WebGPU canvas renders
+  3. Editor: type text, cursor moves, selection works
+  4. Sidebar: click files, expand dirs, navigate
+  5. Cmd panel: Ctrl+K opens, type command, submit
+  6. Agent panel: text streams, trail renders, click-to-navigate
+  7. Flow canvas: /mock → intake list renders, hover, click, drag
+  8. Settings: Ctrl+, opens, arrow keys navigate, fonts change
+
+  ---
+  Execution Timeline
+
+  ┌───────────────────┬────────┬──────────────────┬────────────────────────┐
+  │       Step        │  Risk  │   Lines Moved    │  Cumulative Removed    │
+  │                   │        │                  │     from loop.cljs     │
+  ├───────────────────┼────────┼──────────────────┼────────────────────────┤
+  │ Phase 1: Dead     │ Zero   │ 0 (moved to      │ 0                      │
+  │ files             │        │ old-infra)       │                        │
+  ├───────────────────┼────────┼──────────────────┼────────────────────────┤
+  │ Step 1: events    │ Low    │ ~190             │ ~190                   │
+  ├───────────────────┼────────┼──────────────────┼────────────────────────┤
+  │ Step 2: layout    │ Low    │ ~370             │ ~560                   │
+  ├───────────────────┼────────┼──────────────────┼────────────────────────┤
+  │ Step 3: ui        │ Low    │ ~430             │ ~990                   │
+  ├───────────────────┼────────┼──────────────────┼────────────────────────┤
+  │ Step 4: trail     │ Low    │ ~700             │ ~1,690                 │
+  ├───────────────────┼────────┼──────────────────┼────────────────────────┤
+  │ Step 5: sidebar   │ Low    │ ~220             │ ~1,910                 │
+  ├───────────────────┼────────┼──────────────────┼────────────────────────┤
+  │ Step 6: shell     │ Medium │ ~270             │ ~2,180                 │
+  ├───────────────────┼────────┼──────────────────┼────────────────────────┤
+  │ Step 7:           │ Medium │ ~530             │ ~2,710                 │
+  │ editor_state      │        │                  │                        │
+  ├───────────────────┼────────┼──────────────────┼────────────────────────┤
+  │ Step 8: dg_flow   │ Medium │ ~820             │ ~3,530                 │
+  ├───────────────────┼────────┼──────────────────┼────────────────────────┤
+  │ Step 9: cmd_panel │ Low    │ ~340             │ ~3,870                 │
+  ├───────────────────┼────────┼──────────────────┼────────────────────────┤
+  │ Step 10: agent    │ Zero   │ ~200             │ ~4,070                 │
+  ├───────────────────┼────────┼──────────────────┼────────────────────────┤
+  │ Step 11: settings │ Low    │ ~340             │ ~4,410                 │
+  ├───────────────────┼────────┼──────────────────┼────────────────────────┤
+  │ Step 12:          │ Medium │ ~410             │ ~4,820                 │
+  │ combined_text     │        │                  │                        │
+  └───────────────────┴────────┴──────────────────┴────────────────────────┘
+
+  Final loop.cljs: ~2,460 lines (orchestrator + atoms + m/join + event
+  consumers)
+
+  ---
+  ★ Insight ─────────────────────────────────────
+  Three key architectural observations from reading every line:
+
+  1. The atom threading pattern is what makes this possible. Every <flow
+  function takes atoms as arguments rather than closing over them. This means
+  extraction is mechanical — move the function, keep the signature, pass the
+  same atoms from start-loop!. No state ownership changes.
+  2. The real coupling is in the mouse consumer and submit-agent-run!. These are
+   the two functions that read 10+ atoms and dispatch to multiple subsystems.
+  They're genuinely orchestration — the conductor telling instruments when to
+  play. Trying to extract them would just move the coupling, not eliminate it.
+  3. <combined-text-ops is extractable because its coupling is explicit. All 28
+  arguments are in the function signature. There's no hidden state. Moving it to
+   its own file makes the join point visible ("this is where all text meets")
+  without changing any behavior.
+  ─────────────────────────────────────────────────
+
+  This is the complete plan. Every function, every line range, every dependency,
+   every namespace, every hard decision scoped. Ready for comparison with
+  Codex's plan.
+
+✻ Churned for 3m 23s
+
+❯   ## Title                                                                    
+                                                                                
+  Closure-Based Cleanup + Full Client Runtime Reframe                           
+                                                                                
+  ## Summary                                                                    
+                                                                                
+  Do this as one scoped initiative with two linked outcomes:                    
+                                                                                
+  - Clean the active base first by moving all source files outside the active   
+runtime/server closure into a tracked old-infra/ mirror.                        
+  - Then fully re-home the active client runtime out of webgpu/ into substrate  
++ workspace + workflows, with webgpu reserved for rendering only.               
+                                                                                
+  This plan is intentionally aggressive on structure:                           
+                                                                                
+  - move old/reference source first                                             
+  - rename the active client spine immediately                                  
+  - then split the renamed runtime into decision-complete modules in the final  
+target layout                                                                   
+                                                                                
+  ## Final Structure                                                            
+                                                                                
+  old-infra/                                                                    
+  └─ src/                                                                       
+     └─ ...all source files outside the active closure, preserving original     
+paths                                                                           
+                                                                                
+  src/                                                                          
+  └─ app/                                                                       
+     ├─ electric_flow.cljc                                                      
+     ├─ server_jetty.clj                                                        
+     ├─ server/                                                                 
+     │  └─ ...existing active server files preserved                            
+     └─ client/                                                                 
+        ├─ substrate/                                                           
+        │  └─ webgpu/                                                           
+        │     └─ renderer.cljs                                                  
+        ├─ workspace/                                                           
+        │  ├─ runtime.cljs                                                      
+        │  ├─ input.cljs                                                        
+        │  ├─ cmd_panel.cljs                                                    
+        │  ├─ rect_tree.cljs                                                    
+        │  ├─ ui_primitives.cljs                                                
+        │  ├─ shell.cljs                                                        
+        │  ├─ trails.cljs                                                       
+        │  ├─ settings_view.cljs                                                
+        │  ├─ editor_compute.cljs                                               
+        │  ├─ agent.cljs                                                        
+        │  ├─ text_input.cljs                                                   
+        │  └─ themes.cljs                                                       
+        └─ workflows/                                                           
+           ├─ dg_flow.cljs                                                      
+           └─ jit.cljs                                                          
+                                                                                
+  ## Implementation Changes                                                     
+                                                                                
+  ### Phase A — old-infra cleanup                                               
+                                                                                
+  Use file-rooted closure, not intuition.                                       
+                                                                                
+  Active roots:                                                                 
+                                                                                
+  - src/app/electric_flow.cljc                                                  
+  - src/app/server_jetty.clj                                                    
+                                                                                
+  Closure algorithm:                                                            
+                                                                                
+  - scan all source files under src/ with extensions .clj, .cljc, .cljs         
+  - read each ns form                                                           
+  - collect local :require edges for namespaces that resolve to files under     
+src/                                                                            
+  - include shared requires and :cljs reader-conditional requires in .cljc      
+  - recurse from the two roots until the active closure is complete             
+                                                                                
+  Move rule:                                                                    
+                                                                                
+  - every source file under src/ that is not in the closure moves to            
+old-infra/src/...                                                               
+  - preserve original relative paths under old-infra/src/                       
+  - keep old-infra/ tracked                                                     
+  - do not add old-infra/ to .gitignore                                         
+  - do not move docs, resources, or non-source files in this initiative         
+  - do not rewrite moved namespaces in this phase                               
+                                                                                
+  Expected result:                                                              
+                                                                                
+  - active source tree becomes only the runtime/server closure plus shared      
+reachable source                                                                
+  - all reference-only source stops polluting active review space               
+                                                                                
+  ### Phase B — immediate active-spine rename                                   
+                                                                                
+  Perform the active boundary correction before internal extraction.            
+                                                                                
+  Exact moves:                                                                  
+                                                                                
+  - src/app/client/webgpu/editor.cljs ->                                        
+src/app/client/substrate/webgpu/renderer.cljs                                   
+      - namespace becomes app.client.substrate.webgpu.renderer                  
+  - src/app/client/webgpu/loop.cljs -> src/app/client/workspace/runtime.cljs    
+      - namespace becomes app.client.workspace.runtime                          
+  - src/app/client/webgpu/text-input.cljs ->                                    
+src/app/client/workspace/text_input.cljs                                        
+      - namespace becomes app.client.workspace.text-input or                    
+app.client.workspace.text_input consistently with file naming convention chosen 
+ for the move; use one                                                          
+        convention everywhere and do not mix                                    
+  - src/app/client/webgpu/themes.cljs|cljc ->                                   
+src/app/client/workspace/themes.cljs|cljc                                       
+      - namespace becomes app.client.workspace.themes                           
+                                                                                
+  Require updates:                                                              
+                                                                                
+  - app.electric-flow now requires:                                             
+      - app.client.substrate.webgpu.renderer                                    
+      - app.client.workspace.runtime                                            
+      - app.client.workspace.themes                                             
+  - runtime.cljs now requires:                                                  
+      - app.client.substrate.webgpu.renderer                                    
+      - app.client.workspace.text_input                                         
+      - app.client.workspace.themes                                             
+      - extracted workspace/workflow modules below                              
+  - keep components.design-tokens where it is for this initiative               
+                                                                                
+  ### Phase C — split runtime.cljs into final modules                           
+                                                                                
+  runtime.cljs remains the orchestration site only:                             
+                                                                                
+  - atom creation                                                               
+  - state ownership                                                             
+  - m/watch / m/latest / m/sample                                               
+  - focus-routed event plumbing                                                 
+  - imperative handlers                                                         
+  - upload orchestration                                                        
+  - final draw consumer                                                         
+                                                                                
+  Everything else moves to exact homes:                                         
+                                                                                
+  #### workspace/input.cljs                                                     
+                                                                                
+  Move:                                                                         
+                                                                                
+  - >canvas-resize                                                              
+  - >wheel                                                                      
+  - >mouse                                                                      
+  - parse-key-event                                                             
+  - >keyboard                                                                   
+  - make-raf-flow                                                               
+  - make-blink-timer                                                            
+  - <global-events                                                              
+  - <editor-keys                                                                
+  - <cmd-panel-keys                                                             
+  - <chat-input-keys                                                            
+  - <settings-panel-keys                                                        
+                                                                                
+  #### workspace/cmd_panel.cljs                                                 
+                                                                                
+  Move:                                                                         
+                                                                                
+  - cmd-panel-apply-event                                                       
+  - cmd-prompt-text                                                             
+  - cmd-text-start-x                                                            
+  - top-level command parsing entrypoint                                        
+                                                                                
+  Command parsing split:                                                        
+                                                                                
+  - workspace parser owns generic commands:                                     
+      - /provider                                                               
+      - /run                                                                    
+      - /replay                                                                 
+      - plain prompt fallback                                                   
+  - it delegates workflow-specific commands to:                                 
+      - workflows/dg_flow.cljs                                                  
+      - workflows/jit.cljs                                                      
+                                                                                
+  #### workflows/dg_flow.cljs                                                   
+                                                                                
+  Move:                                                                         
+                                                                                
+  - DG flow state machine:                                                      
+      - flow-transitions                                                        
+      - valid-transition?                                                       
+      - initial-flow-state                                                      
+      - transition-flow-state                                                   
+      - flow-canvas-active?                                                     
+  - DG command parsing:                                                         
+      - /bootstrap                                                              
+      - /mock                                                                   
+      - /select                                                                 
+      - /arrange                                                                
+      - /run-flow                                                               
+      - /review                                                                 
+      - /rework                                                                 
+      - /finalize                                                               
+      - /status                                                                 
+      - /reset                                                                  
+  - DG-specific constants/helpers                                               
+  - DG-specific view builders:                                                  
+      - build-right-detail                                                      
+      - build-intake-tree                                                       
+  - mock-ticket bootstrap payloads and DG-only render helpers                   
+                                                                                
+  #### workflows/jit.cljs                                                       
+                                                                                
+  Move:                                                                         
+                                                                                
+  - JIT command parsing:                                                        
+      - /extract                                                                
+      - /hardcode                                                               
+  - extract-preview helpers                                                     
+  - hardcoded component/demo builders                                           
+  - JIT-specific render/view helpers                                            
+                                                                                
+  #### workspace/editor_compute.cljs                                            
+                                                                                
+  Move:                                                                         
+                                                                                
+  - editor-apply-event                                                          
+  - calculate-logical->visual                                                   
+  - build-line-mapping                                                          
+  - compute-fold-state                                                          
+  - compute-editor-rects                                                        
+                                                                                
+  Keep in runtime.cljs:                                                         
+                                                                                
+  - <fold-state                                                                 
+  - <bracket-match                                                              
+  - any other reactive wrappers over atoms/watches                              
+                                                                                
+  #### workspace/rect_tree.cljs                                                 
+                                                                                
+  Move:                                                                         
+                                                                                
+  - rt-node                                                                     
+  - layout engine                                                               
+  - text-layout helpers                                                         
+  - tree flatteners                                                             
+  - shadow flatteners                                                           
+  - hit testing                                                                 
+  - event dispatch                                                              
+                                                                                
+  #### workspace/ui_primitives.cljs                                             
+                                                                                
+  Move:                                                                         
+                                                                                
+  - shared UI constants                                                         
+  - generic cards/panels/list primitives                                        
+  - display-only widget builders that are not workflow-specific                 
+                                                                                
+  #### workspace/shell.cljs                                                     
+                                                                                
+  Move:                                                                         
+                                                                                
+  - shared shell composition for code/chat/preview workspace                    
+  - build-file-layout                                                           
+  - pane/shell offset helpers                                                   
+  - active-pane layout helpers                                                  
+  - shell-level composition that is not DG-only or JIT-only                     
+                                                                                
+  #### workspace/trails.cljs                                                    
+                                                                                
+  Move:                                                                         
+                                                                                
+  - markdown inline parsing                                                     
+  - wrapping helpers                                                            
+  - trail grouping helpers                                                      
+  - trail->display-lines                                                        
+  - trail render preparation used by chat/reasoning panes                       
+                                                                                
+  #### workspace/settings_view.cljs                                             
+                                                                                
+  Move:                                                                         
+                                                                                
+  - settings defaults helpers                                                   
+  - slider-specs                                                                
+  - settings display builders and pure settings layout helpers                  
+                                                                                
+  #### workspace/agent.cljs                                                     
+                                                                                
+  Move:                                                                         
+                                                                                
+  - streaming fetch helper                                                      
+  - ticket/result parsing helpers                                               
+  - agent-output parsing/normalization helpers                                  
+                                                                                
+  ### Phase D — final runtime shape                                             
+                                                                                
+  After extraction, runtime.cljs must contain only:                             
+                                                                                
+  - imports of the renamed modules above                                        
+  - atom initialization                                                         
+  - watch/flow composition                                                      
+  - command dispatch to workflow modules                                        
+  - imperative side-effect handlers                                             
+  - render world assembly                                                       
+  - upload + draw orchestration                                                 
+                                                                                
+  It must not contain:                                                          
+                                                                                
+  - markdown parsing                                                            
+  - rect-tree implementation                                                    
+  - DG flow machine definitions                                                 
+  - JIT demo builders                                                           
+  - generic text-input helpers                                                  
+  - theme definitions                                                           
+  - editor compute internals                                                    
+                                                                                
+  ## Test Plan                                                                  
+                                                                                
+  ### After Phase A (old-infra)                                                 
+                                                                                
+  - regenerate the closure report and confirm both roots still resolve all live 
+ dependencies                                                                   
+  - confirm no active source file imports anything under old-infra/             
+  - confirm client boot path from app.electric-flow still resolves              
+  - confirm server boot path from server_jetty.clj still resolves               
+                                                                                
+  ### After Phase B/C                                                           
+                                                                                
+  Run these smoke checks after each moved/extracted module:                     
+                                                                                
+  - editor typing works                                                         
+  - caret movement works                                                        
+  - editor horizontal/vertical scroll works                                     
+  - sidebar hover/click/file-open works                                         
+  - /mock -> /select -> /arrange works                                          
+  - /hardcode button works                                                      
+  - extract preview still enters/exits correctly                                
+  - settings open and font/theme changes work                                   
+  - trail rendering still appears in the chat pane                              
+  - draw loop still renders without breaking text/cursor alignment              
+                                                                                
+  Invariant to preserve:                                                        
+                                                                                
+  - the 0.56 char-width factor must remain aligned between runtime/editor       
+compute and renderer                                                            
+                                                                                
+  ## Assumptions and Defaults                                                   
+                                                                                
+  - “Active” means reachable from electric_flow.cljc or server_jetty.clj;       
+everything else is reference-only for this initiative.                          
+  - old-infra/ is quarantine, not trash and not ignored state.                  
+  - This initiative changes internal namespaces and file layout aggressively,   
+but it does not introduce new runtime abstractions like LocalWorld.             
+  - split remains the conceptual primitive, but this refactor does not create a 
+ dedicated split.cljs unless shared split-specific helpers actually emerge from 
+ shell.cljs;                                                                    
+    for this initiative, concrete shell composition lives in                    
+workspace/shell.cljs.                                                           
+  - Server files are preserved by closure; no independent server architecture   
+rewrite is part of this initiative.                                             
+                                                                                
+this is from codex                                                              
+
+● Good — now I can do a proper comparison. Let me lay out where we agree, where
+  we disagree, and where Codex's plan is better, where mine is better, and where
+   it's a genuine decision fork for you.
+
+  ---
+  Agreements (Both Plans)
+
+  These are converged — no debate needed:
+
+  ┌────────────────────────┬────────────────────────────────────────────────┐
+  │          Area          │                    Both Say                    │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ Dead file cleanup      │ Move unreachable source out before splitting   │
+  │ first                  │                                                │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ Target folder          │ substrate/ + workspace/ + workflows/           │
+  │ structure              │                                                │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ dg_flow.cljs in        │ DG state machine, prompt templates, intake     │
+  │ workflows/             │ tree builders                                  │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ jit.cljs in workflows/ │ Embryonic, but scoped                          │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ Trail rendering        │ Markdown parsing, chat node builders → own     │
+  │ extracts               │ file                                           │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ Agent streaming        │ stream-agent-run!, ticket parsing → own file   │
+  │ extracts               │                                                │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ Sidebar extracts       │ build-sidebar-tree, constants → own file       │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ Shell extracts         │ build-file-layout, offset helpers → own file   │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ Settings extracts      │ Panel rects/text, slider-specs → own file      │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ UI primitives extract  │ Design tokens, ui-card, ui-panel, etc. → own   │
+  │                        │ file                                           │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ Rect tree engine       │ rt-node, layout engine, tree walkers, hit-test │
+  │ extracts               │  → own file                                    │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ Editor pure compute    │ editor-apply-event, fold state, line mapping → │
+  │ extracts               │  own file                                      │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ Cmd panel extracts     │ cmd-panel-apply-event, cmd-text-start-x → own  │
+  │                        │ file                                           │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ Runtime/loop.cljs      │ Atoms, m/join, event consumers, draw loop      │
+  │ keeps                  │                                                │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ Test protocol          │ Verify editor, sidebar, scroll, /mock flow,    │
+  │                        │ trails, settings after each step               │
+  ├────────────────────────┼────────────────────────────────────────────────┤
+  │ 0.56 char-width        │ Must stay aligned between renderer and editor  │
+  │ invariant              │ compute                                        │
+  └────────────────────────┴────────────────────────────────────────────────┘
+
+  ---
+  Disagreements — Analysis
+
+  D1: Closure Algorithm vs Manual Dead-File List
+
+  ┌────────┬────────────────────────┬───────────────────────────────────────┐
+  │        │         Claude         │                 Codex                 │
+  ├────────┼────────────────────────┼───────────────────────────────────────┤
+  │        │ Manual list of 24 dead │ Programmatic closure walk from 2      │
+  │ Method │  files based on        │ roots (electric_flow.cljc,            │
+  │        │ reading code           │ server_jetty.clj)                     │
+  ├────────┼────────────────────────┼───────────────────────────────────────┤
+  │        │ Dead files move to     │ Everything outside closure moves to   │
+  │ Output │ old-infra/, add to     │ old-infra/, keep tracked in git       │
+  │        │ .gitignore             │                                       │
+  └────────┴────────────────────────┴───────────────────────────────────────┘
+
+  Codex is better here. A closure algorithm is rigorous — it catches files I
+  might have missed (e.g., components/*.cljc — are they actually in the active
+  closure? global_flow.cljs? file_viewer.cljc?). My manual list assumes I know
+  what's dead, but I haven't verified that components/design_tokens.cljc isn't
+  the only reachable file from that directory.
+
+  On git tracking: Codex says keep old-infra/ tracked. My MEMORY.md says "only
+  commit code files (.clj, .cljc, .cljs, .json)" — so tracking them is fine by
+  that rule. The .gitignore approach from my plan would mean they vanish from
+  review; Codex's "quarantine, not trash" framing is healthier for a project
+  that values provenance.
+
+  Recommendation: Use the closure algorithm. Keep tracked.
+
+  ---
+  D2: Rename Before Split (Phase B) — The Big Structural Divergence
+
+  ┌─────────────────┬─────────────────────┬─────────────────────────────────┐
+  │                 │       Claude        │              Codex              │
+  ├─────────────────┼─────────────────────┼─────────────────────────────────┤
+  │ editor.cljs     │ Stays as            │ Moves to                        │
+  │                 │ webgpu/editor.cljs  │ substrate/webgpu/renderer.cljs  │
+  ├─────────────────┼─────────────────────┼─────────────────────────────────┤
+  │                 │ Stays as            │                                 │
+  │ loop.cljs       │ webgpu/loop.cljs    │ Moves to workspace/runtime.cljs │
+  │                 │ (extract modules    │  FIRST, then split              │
+  │                 │ around it)          │                                 │
+  ├─────────────────┼─────────────────────┼─────────────────────────────────┤
+  │ text_input.cljs │ Stays in webgpu/    │ Moves to                        │
+  │                 │                     │ workspace/text_input.cljs       │
+  ├─────────────────┼─────────────────────┼─────────────────────────────────┤
+  │ themes.cljc     │ Stays in webgpu/    │ Moves to workspace/themes.cljc  │
+  └─────────────────┴─────────────────────┴─────────────────────────────────┘
+
+  This is the deepest difference. Codex says: correct the ontological boundary
+  FIRST (move the file out of webgpu/ before splitting it), then split. I say:
+  split first, leave the orchestrator where it is.
+
+  Codex's argument (implied): The filesystem IS the ontology. If loop.cljs stays
+   under webgpu/, the system still describes itself as "this is a WebGPU thing"
+  even after extraction. Moving it to workspace/runtime.cljs first makes the
+  ontology correction immediate and visible.
+
+  My concern with Codex's approach: Renaming before splitting means EVERY
+  require in the codebase that references app.client.webgpu.loop must change to
+  app.client.workspace.runtime in one step. Then ALL subsequent extraction steps
+   work against the renamed file. This is higher risk — if the rename breaks
+  something, you can't tell if it's the rename or the extraction.
+
+  Codex's concern with my approach: After the refactor, loop.cljs STILL lives at
+   webgpu/loop.cljs. The ontology correction is incomplete. You'd need a
+  follow-up rename.
+
+  Also: Moving themes.cljc and text_input.cljs to workspace/ — Codex argues
+  they're not substrate, they're workspace concerns (themes configure the
+  workspace, text_input handles workspace input). I had them as substrate
+  because editor.cljs (the GPU renderer) directly requires themes for color
+  lookups.
+
+  ★ Insight ─────────────────────────────────────
+  The core tension: Codex wants ontological completeness (rename everything to
+  its true home, then split). Claude wants operational safety (split
+  incrementally, rename later). Both are valid — it's a sequencing question, not
+   a correctness question. The destination is identical.
+
+  The compromise position would be: do the rename (Phase B) as step 1 of Phase
+  2, verify the app loads with just the renames and zero extractions, THEN
+  proceed with the 12-step extraction against the renamed files. This gives you
+  the ontological correction AND the safety of verifying each step.
+  ─────────────────────────────────────────────────
+
+  ---
+  D3: File Names
+
+  ┌─────────────────┬─────────────────────────┬─────────────────────┐
+  │     Concept     │         Claude          │        Codex        │
+  ├─────────────────┼─────────────────────────┼─────────────────────┤
+  │ Event flows     │ events.cljs             │ input.cljs          │
+  ├─────────────────┼─────────────────────────┼─────────────────────┤
+  │ Rect tree       │ layout.cljs             │ rect_tree.cljs      │
+  ├─────────────────┼─────────────────────────┼─────────────────────┤
+  │ UI components   │ ui.cljs                 │ ui_primitives.cljs  │
+  ├─────────────────┼─────────────────────────┼─────────────────────┤
+  │ Trail rendering │ trail.cljs              │ trails.cljs         │
+  ├─────────────────┼─────────────────────────┼─────────────────────┤
+  │ Editor compute  │ editor_state.cljs       │ editor_compute.cljs │
+  ├─────────────────┼─────────────────────────┼─────────────────────┤
+  │ Settings        │ settings.cljs           │ settings_view.cljs  │
+  ├─────────────────┼─────────────────────────┼─────────────────────┤
+  │ Orchestrator    │ loop.cljs (unchanged)   │ runtime.cljs        │
+  ├─────────────────┼─────────────────────────┼─────────────────────┤
+  │ GPU renderer    │ editor.cljs (unchanged) │ renderer.cljs       │
+  └─────────────────┴─────────────────────────┴─────────────────────┘
+
+  These are aesthetic, not structural. A few observations:
+
+  - input.cljs vs events.cljs: input.cljs is broader — it includes keyboard
+  parsing, mouse flow, resize flow. "Input" is what they are. "Events" is what
+  they produce. I slightly prefer events.cljs because these are Missionary flow
+  producers, not input handlers.
+  - rect_tree.cljs vs layout.cljs: rect_tree.cljs is more precise — the file IS
+  the rect tree implementation. layout.cljs is vaguer. Codex wins here.
+  - editor_compute.cljs vs editor_state.cljs: The file has both pure compute
+  (compute-editor-rects, fold state) and reactive flows (<fold-state,
+  <editor-rects). Codex keeps the reactive flows in runtime.cljs; I move them
+  together. If you follow Codex's split, editor_compute.cljs is more accurate.
+  If you follow mine, editor_state.cljs is better.
+  - runtime.cljs: Better than loop.cljs. It IS the runtime. "Loop" was a vestige
+   from when this was literally a render loop.
+  - renderer.cljs: Better than editor.cljs. The file IS the WebGPU renderer
+  (shaders, buffers, draw-frame). It's not an editor.
+
+  ---
+  D4: Event Routing Location
+
+  ┌─────────────────────────────────┬────────────────────┬──────────────────┐
+  │                                 │       Claude       │      Codex       │
+  ├─────────────────────────────────┼────────────────────┼──────────────────┤
+  │ <global-events, <editor-keys,   │ Stay in loop.cljs  │ Move to          │
+  │ <cmd-panel-keys,                │ — orchestration    │ input.cljs —     │
+  │ <chat-input-keys,               │ concern            │ they ARE input   │
+  │ <settings-panel-keys            │                    │ routing          │
+  └─────────────────────────────────┴────────────────────┴──────────────────┘
+
+  Codex is better here. These functions are m/eduction filters on the keyboard
+  flow. They belong with the keyboard flow. The focus deref (@!focus) doesn't
+  make them orchestration — it makes them filtered input streams. The
+  orchestrator should consume them, not define them.
+
+  ---
+  D5: flow-canvas-active? Location
+
+  ┌──────────┬─────────────────────────────┬────────────────────────────────┐
+  │          │           Claude            │             Codex              │
+  ├──────────┼─────────────────────────────┼────────────────────────────────┤
+  │ Location │ layout.cljs (used by many   │ dg_flow.cljs (it's a DG flow   │
+  │          │ modules)                    │ concept)                       │
+  └──────────┴─────────────────────────────┴────────────────────────────────┘
+
+  Codex is semantically correct. "Is the flow canvas active?" is a DG workflow
+  question. But it's used in <editor-rects, <combined-text-ops, scroll consumer,
+   mouse consumer — all of which need to import it. If it's in dg_flow.cljs,
+  then editor_state.cljs and combined_text.cljs need to require dg_flow, which
+  feels backwards.
+
+  My recommendation: Keep it as a one-liner in dg_flow.cljs and re-export or
+  inline it where needed. It's literally (not= :idle (:node flow-state)) — any
+  module can compute this without importing anything.
+
+  ---
+  D6: Command Parsing Split
+
+  ┌─────────────────────┬──────────────────┬────────────────────────────────┐
+  │                     │      Claude      │             Codex              │
+  ├─────────────────────┼──────────────────┼────────────────────────────────┤
+  │                     │                  │ Split: generic parsing in      │
+  │ parse-agent-command │ Stays whole in   │ cmd_panel.cljs, DG commands    │
+  │                     │ cmd_panel.cljs   │ delegate to dg_flow.cljs, JIT  │
+  │                     │                  │ commands delegate to jit.cljs  │
+  └─────────────────────┴──────────────────┴────────────────────────────────┘
+
+  Codex is architecturally cleaner. Right now parse-agent-command has a big cond
+   that knows about /bootstrap, /mock, /select, /arrange, /run-flow, /extract,
+  /hardcode. If you add a new workflow, you'd have to edit cmd_panel.cljs —
+  which shouldn't know about workflows.
+
+  Codex's approach: cmd_panel.cljs parses the generic structure (extract
+  /command args), then dispatches to the appropriate workflow module's parser.
+  DG flow owns its own command vocabulary. JIT owns its own.
+
+  Trade-off: More indirection, but proper separation of concerns. Worth it for a
+   project that intends to add more workflows (knowledge flows, etc.).
+
+  ---
+  D7: <combined-text-ops — Extract or Keep?
+
+  ┌────────────────────┬──────────────────────┬─────────────────────────────┐
+  │                    │        Claude        │            Codex            │
+  ├────────────────────┼──────────────────────┼─────────────────────────────┤
+  │                    │ Extract to           │ Stays in runtime.cljs       │
+  │ <combined-text-ops │ combined_text.cljs   │ (implied by "m/watch /      │
+  │                    │                      │ m/latest / m/sample stay")  │
+  └────────────────────┴──────────────────────┴─────────────────────────────┘
+
+  This is a genuine fork. Arguments for extraction (my position): it's 400 lines
+   of self-contained logic with an explicit 28-arg signature. Extracting it
+  makes the join point visible as a named module. Arguments for keeping (Codex's
+   position): it's reactive flow composition (m/latest), which is orchestration,
+   which belongs in the runtime.
+
+  My recommendation: Extract it. The function doesn't own state — it receives 28
+   atoms and produces a text-ops vector. It's a pure transformation wrapped in
+  m/latest. The orchestrator calls it; it doesn't need to contain it.
+
+  ---
+  D8: Reactive Wrappers (<fold-state, <bracket-match, <editor-rects)
+
+  ┌──────────┬──────────────────────────┬───────────────────────────────────┐
+  │          │          Claude          │               Codex               │
+  ├──────────┼──────────────────────────┼───────────────────────────────────┤
+  │          │ Move with their pure     │ Pure compute moves; reactive      │
+  │ Location │ compute to               │ wrappers (<fold-state,            │
+  │          │ editor_state.cljs        │ <bracket-match) stay in           │
+  │          │                          │ runtime.cljs                      │
+  └──────────┴──────────────────────────┴───────────────────────────────────┘
+
+  Codex's split is cleaner. The reactive wrappers are m/latest + m/watch — they
+  create Missionary flows from atoms. That's flow composition, which is
+  orchestration. The pure compute (compute-fold-state, compute-editor-rects) is
+  leaf computation that doesn't touch atoms.
+
+  But <editor-rects is special — it's 120 lines of m/latest with 24 args,
+  calling compute-editor-rects + build-file-layout + build-intake-tree + tree
+  walkers. It's more than a thin wrapper. If it stays in runtime, runtime stays
+  large.
+
+  Compromise: Move <fold-state and <bracket-match (thin wrappers, 10 lines each)
+   to runtime. Move <editor-rects (120 lines of real logic inside the m/latest)
+  to editor_compute. Document the pattern.
+
+  ---
+  D9: themes.cljc and text_input.cljs — Substrate or Workspace?
+
+  ┌───────────────┬───────────────────────────────┬────────────────────────┐
+  │               │            Claude             │         Codex          │
+  ├───────────────┼───────────────────────────────┼────────────────────────┤
+  │ themes.cljc   │ substrate/webgpu/themes.cljc  │ workspace/themes.cljs  │
+  ├───────────────┼───────────────────────────────┼────────────────────────┤
+  │ text_input.cl │ substrate/webgpu/text_input.c │ workspace/text_input.c │
+  │ js            │ ljs                           │ ljs                    │
+  └───────────────┴───────────────────────────────┴────────────────────────┘
+
+  This matters for the dependency graph. If renderer.cljs (GPU) requires
+  themes.cljc, and themes is in workspace/, then substrate depends on workspace
+  — which breaks the layering (substrate should be below workspace).
+
+  Let me check the actual dependency.
+
+● Read 1 file (ctrl+o to expand)
+
+● Good — editor.cljs has NO requires. It's a completely self-contained GPU
+  module (shaders as string constants, buffer management, draw calls). It
+  doesn't require themes at all.
+
+  themes.cljc is consumed by loop.cljs (workspace code), not by editor.cljs (GPU
+   substrate). So Codex is right — themes IS a workspace concern, not a
+  substrate concern. Same for text_input.cljs — it's DOM text input handling
+  used by the workspace, not by the GPU renderer.
+
+  Codex wins this one. themes.cljc and text_input.cljs move to workspace/.
+
+  ---
+  Synthesis — Merged Recommendation
+
+  Here's what I'd recommend as the final merged plan, taking the best from each:
+
+  Decision: Closure algorithm for dead files
+  Source: Codex
+  Why: Rigorous, catches everything
+  ────────────────────────────────────────
+  Decision: Keep old-infra/ tracked
+  Source: Codex
+  Why: Quarantine, not trash; provenance preserved
+  ────────────────────────────────────────
+  Decision: Rename spine before splitting (Phase B)
+  Source: Codex
+  Why: Ontological correction first; verify rename step in isolation
+  ────────────────────────────────────────
+  Decision: editor.cljs → renderer.cljs
+  Source: Codex
+  Why: It IS the renderer; "editor" is misleading
+  ────────────────────────────────────────
+  Decision: loop.cljs → runtime.cljs
+  Source: Codex
+  Why: It IS the runtime
+  ────────────────────────────────────────
+  Decision: themes.cljc, text_input.cljs → workspace/
+  Source: Codex
+  Why: They serve workspace, not substrate
+  ────────────────────────────────────────
+  Decision: Extract <combined-text-ops> to own file
+  Source: Claude
+  Why: 400 lines, explicit 28-arg signature, self-contained join point
+  ────────────────────────────────────────
+  Decision: Move <editor-rects with its compute
+  Source: Claude
+  Why: 120 lines of real logic, not a thin wrapper
+  ────────────────────────────────────────
+  Decision: Keep event routing (<editor-keys etc.) in...
+  Source: Codex
+  Why: input.cljs — they ARE input routing
+  ────────────────────────────────────────
+  Decision: Command parsing delegation to workflows
+  Source: Codex
+  Why: Proper separation; new workflows don't edit cmd_panel
+  ────────────────────────────────────────
+  Decision: flow-canvas-active? inline where needed
+  Source: Claude
+  Why: One-liner, avoid odd dep direction
+  ────────────────────────────────────────
+  Decision: File names
+  Source: Mix
+  Why: rect_tree.cljs (Codex), events.cljs (Claude), runtime.cljs (Codex),
+    renderer.cljs (Codex), trail.cljs (Claude — singular matches the pattern)
+  ────────────────────────────────────────
+  Decision: Leaf-first extraction order with verify-after-each
+  Source: Claude
+  Why: Operational safety
+
+  Final File Structure (Merged)
+
+  src/app/client/
+    substrate/webgpu/
+      renderer.cljs                    GPU shaders, buffers, draw-frame (was
+  editor.cljs)
+
+    workspace/
+      runtime.cljs         ~2200      Orchestrator: atoms, m/join, consumers
+  (was loop.cljs)
+      events.cljs           ~200      >canvas-resize, >wheel, >mouse, >keyboard,
+                                      make-raf-flow, <editor-keys,
+  <cmd-panel-keys...
+      text_input.cljs                 DOM text input handling (moved from
+  webgpu/)
+      themes.cljc                     Theme definitions (moved from webgpu/)
+      rect_tree.cljs        ~370      rt-node, layout engine, tree walkers,
+  hit-test
+      ui.cljs               ~430      dt, typography,
+  ui-card/badge/button/panel/list-item
+      sidebar.cljs          ~220      build-sidebar-tree, flatten-file-tree,
+  constants
+      shell.cljs            ~270      build-file-layout, pane offsets
+      trail.cljs            ~700      Markdown parsing, trail->chat-nodes, agent
+   panel height
+      editor_compute.cljs   ~530      editor-apply-event, fold/bracket,
+  <editor-rects
+      cmd_panel.cljs        ~250      cmd-panel-apply-event, generic command
+  parsing
+      agent.cljs            ~200      stream-agent-run!, ticket parsing
+      settings.cljs         ~340      Settings panel rects/text, slider-specs
+      combined_text.cljs    ~410      <combined-text-ops (the 28-arg join)
+
+    workflows/
+      dg_flow.cljs          ~900      Flow state machine, DG command parsing,
+                                      build-intake-tree, prompt templates
+      jit.cljs              ~200      /extract, /hardcode command parsing, demo
+  builders
+
+  ---
+  ★ Insight ─────────────────────────────────────
+  The most important lesson from comparing these two plans: Codex thinks 
+  ontology-first, Claude thinks safety-first. Codex wants the filesystem to be
+  correct before doing surgery ("rename the spine, then split"). Claude wants
+  minimal blast radius per step ("split leaf modules first, rename later").
+
+  The merged plan sequences it: rename first (Phase B), verify the rename in 
+  isolation, then extract leaf-first (Phase C). This gives you the ontological
+  correction Codex wants AND the incremental safety Claude wants. The rename is
+  one atomic step with one verification point. Then extraction proceeds exactly
+  as my 12-step plan, but against the correctly-named files.
+
+  The other key Codex contribution: command parsing delegation. Right now
+  parse-agent-command is a monolith that knows about every workflow. Codex's
+  proposal — generic parsing in cmd_panel, workflow-specific parsing delegated
+  to dg_flow/jit — follows the same principle as the whole refactor: the
+  workspace shouldn't know about specific workflows, only about the abstract
+  capability of dispatching commands.
+  ─────────────────────────────────────────────────
+
+  What's your call? Want me to finalize the merged plan, or do you want to make
+  any of these decision forks differently?
+
+✻ Cogitated for 2m 17s
+
+❯ what codex said about your plan                                               
+                                                                                
+ It’s the strongest execution plan so far, but I would not run it as-is.        
+                                                                                
+  What’s strong                                                                 
+                                                                                
+  - It is much better than the earlier vague architecture talk because it names 
+ real cuts from loop.cljs:1.                                                    
+  - The extraction map is grounded in actual seams like editor-apply-event:281, 
+ build-sidebar-tree:1594, build-file-layout:1810, stream-agent-run!:2609,       
+compute-editor-                                                                 
+    rects:2724, trail->display-lines:3953, and the orchestrator at              
+start-loop!:4837.                                                               
+  - Keeping the biggest mutation-heavy routing in the orchestrator is           
+directionally right.                                                            
+  - The smoke-test checklist is useful.                                         
+                                                                                
+  What I think is wrong                                                         
+                                                                                
+  - The old-infra phase is still based on a hand-written dead-file list. That   
+is the biggest flaw. You already gave the correct method: start at              
+electric_flow.cljc:1, recurse                                                   
+    imports, and use the reachable closure. Also include server_jetty.clj as a  
+second active root so server code is preserved by rule, not assumption.         
+  - Adding old-infra/ to .gitignore is still wrong for reference code.          
+  - It is not actually the “final” architecture you and I discussed earlier,    
+because it still leaves the active core under app.client.webgpu.loop and        
+    app.client.webgpu.editor. If this is the one full plan, it should end with  
+runtime out of webgpu and renderer-only code left under WebGPU.                 
+  - Some module boundaries are off:                                             
+      - slider-specs, font defaults, and settings-ish helpers do not belong in  
+workspace/events.cljs; slider-specs:119 is a settings concern.                  
+      - flow-canvas-active? does not belong in layout; it belongs with          
+flow/workflow state.                                                            
+      - parse-agent-command should not stay as one big mixed parser if you are  
+creating workflows/dg_flow.cljs and workflows/jit.cljs; the workflow commands   
+should be                                                                       
+        delegated there.                                                        
+  - The risk ratings are too optimistic. The truly dangerous cuts are not       
+events or agent, they are the large reactive joins:                             
+      - <editor-rects / compute-editor-rects area:2724                          
+      - <combined-text-ops area:4406                                            
+        Those are the real Missionary pressure zones.                           
+  - The plan says “complete,” but still defers key architectural truth. For     
+example, it keeps the giant inline JIT/demo and flow dispatch logic in          
+submit-agent-run! inside                                                        
+    runtime. That may be acceptable for a first shipping pass, but then it is   
+not the final shape.                                                            
+                                                                                
+  What I would keep from Claude                                                 
+                                                                                
+  - The stepwise extraction mindset.                                            
+  - The idea that the orchestrator remains visible and fairly large.            
+  - The decision to leave the mutation-heavy mouse routing and top-level        
+command handling near atom ownership initially.                                 
+  - The verification discipline after every move.                               
+                                                                                
+  What I would change before using it                                           
+                                                                                
+  - Replace the static dead-file list with a closure report from:               
+      - electric_flow.cljc:1                                                    
+      - server_jetty.clj                                                        
+  - Remove the .gitignore step entirely.                                        
+  - Make the plan end in the real target structure:                             
+      - app.client.substrate.webgpu.renderer                                    
+      - app.client.workspace.runtime                                            
+      - app.client.workspace.*                                                  
+      - app.client.workflows.*                                                  
+  - Move settings helpers into settings, not events.                            
+  - Move flow-canvas-active? into DG/flow-state, not layout.                    
+  - Treat combined_text and the big editor rect flow as the last, highest-risk  
+extractions, not mid-plan “medium risk.”                                        
+                                                                                
+  Bottom line                                                                   
+  Claude’s plan is the best operational draft so far, but it is still a hybrid  
+of:                                                                             
+                                                                                
+  - a good extraction worksheet                                                 
+  - a weak cleanup criterion                                                    
+  - and an incomplete final architecture                                        
+                                                                                
+  So my honest verdict is:                                                      
+                                                                                
+  - use Claude’s plan as the extraction backbone                                
+  - replace its cleanup phase with the closure-based rule you gave              
+  - remove .gitignore                                                           
+  - and make the final namespace/file layout actually land the architecture we  
+already agreed on                                                               
+                                                                                
+  If you want, I can now merge your closure rule, Claude’s extraction detail,   
+and our agreed final folder structure into one canonical refactor plan.         
+                                                                                
+
+● This is excellent feedback. Codex is right on every critique. Let me
+  acknowledge concretely:
+
+  Where Codex caught real flaws in my plan:
+
+  1. Hand-written dead-file list — The closure algorithm is objectively correct.
+   I was lazy here.
+  2. .gitignore for old-infra — Wrong. Quarantine, not disposal. Codex is right.
+  3. Leaving the spine under webgpu/ — I called it "the final plan" but left the
+   orchestrator at app.client.webgpu.loop. That's not the final architecture. If
+   the refactor IS self-modification (which I agree it is from core-reframes),
+  then the ontology correction must be complete.
+  4. slider-specs in events.cljs — Guilty. Settings helper in an events file.
+  Sloppy.
+  5. flow-canvas-active? in layout.cljs — I was optimizing for import
+  convenience over semantic correctness. Codex is right to call it.
+  6. parse-agent-command staying monolithic — I punted. Codex's delegation model
+   is the correct architecture for a system that will have more workflows.
+  7. Risk ratings — I rated <editor-rects and <combined-text-ops as "Medium".
+  They're the hardest extractions by far. The Missionary pressure zones. I
+  should have been honest about that.
+  8. "Complete" but deferring — The JIT demo builder (150 lines of inline
+  rt-node in submit-agent-run!) staying in runtime is a loose end I labeled
+  acceptable. Codex correctly says: then don't call it final.
+
+  Where Codex validated my approach:
+
+  - Stepwise extraction with verify-after-each
+  - Orchestrator stays visible and large-ish (Missionary climate)
+  - Mutation-heavy routing stays near atom ownership initially
+  - The actual cut points (function names + line numbers) are grounded
+
+  The one place I still push back (mildly):
+
+  Codex says <combined-text-ops should stay in runtime because it's reactive
+  flow composition. I still think extracting it is right — it's 400 lines with
+  an explicit 28-arg signature, zero hidden state, and a well-defined output
+  contract. But I agree it should be the last extraction (highest risk), not
+  step 12 of 12 treated as "medium."
+
+  ★ Insight ─────────────────────────────────────
+  This three-way process is exactly what the core-reframes document predicted:
+  "preserved disagreement plus collaborative synthesis produces understanding 
+  that no single perspective could reach alone." Codex caught structural flaws I
+   was blind to (ontology incompleteness, lazy cleanup criterion). I provided
+  operational grounding Codex's plan needed (exact line ranges, dependency
+  chains, verification protocol). The merged result is better than either alone.
+
+  The project's own thesis — that plurality preserved long enough produces
+  understanding — just validated itself on the project's own refactoring plan.
+  ─────────────────────────────────────────────────
+
+  So the path forward is clear: Codex merges both plans into one canonical 
+  document. Their closure rule + my extraction detail + the agreed final
+  architecture. Then we execute.
+
+  Want me to ask Codex to produce that merge, or do you want to handle the
+  handoff?
+
+❯ • I think Claude’s synthesis is very good, and it materially improved my      
+plan.                                                                           
+                                                                                
+  If I strip ego out of it, the honest answer is: his merged recommendation is  
+now very close to the plan I would actually want us to execute.                 
+                                                                                
+  Where I think he is right over my earlier version:                            
+                                                                                
+  - Closure algorithm beats the manual dead-file list.                          
+    This is the cleanest part of his critique. Your rule was correct from the   
+start:                                                                          
+      - start at electric_flow.cljc                                             
+      - recurse imports                                                         
+      - preserve the reachable closure                                          
+      - everything else is a move candidate                                     
+        I’d extend that to also include server_jetty.clj as a second root so we 
+ don’t accidentally quarantine active server code.                              
+  - Keep old-infra tracked.                                                     
+    He agreed with my push there, and I think that’s clearly right now.         
+old-infra is quarantine, not trash, and definitely not something to hide with   
+.gitignore.                                                                     
+  - Rename the spine before splitting.                                          
+    This is the biggest place where his synthesis changed my stance.            
+    I was earlier separating:                                                   
+      - safe extraction strategy                                                
+      - final ontology correction                                               
+        Claude’s compromise is better:                                          
+      - do the rename step first                                                
+      - verify the app still loads with only renames                            
+      - then split against the renamed files                                    
+        That gives us the ontological correction immediately without mixing it  
+invisibly into later steps.                                                     
+  - themes and text_input belong in workspace, not substrate.                   
+    He checked the real fact: editor.cljs:1 has no requires and is a pure       
+renderer module. So themes and text_input are not renderer substrate; they are  
+workspace concerns. I                                                           
+    agree.                                                                      
+  - Workflow command parsing should be delegated.                               
+    He’s right that keeping all workflow vocabulary inside one giant            
+parse-agent-command is architecturally wrong once we are explicitly creating    
+dg_flow.cljs and jit.cljs.                                                      
+  - combined_text and the fat editor-rects flow are worth extracting in the     
+aggressive plan.                                                                
+    This is the place where his aggressive execution bias is useful. In a       
+conservative plan I’d keep more of that in runtime. But since you explicitly    
+want the full                                                                   
+    structural move now, pulling those into named modules is reasonable.        
+                                                                                
+  Where I still want to tighten his merged version:                             
+                                                                                
+  1. The closure roots must be explicit and mechanical.                         
+     Not just “use a closure algorithm,” but:                                   
+      - root 1: electric_flow.cljc:1                                            
+      - root 2: server_jetty.clj                                                
+      - walk local namespaces under src/                                        
+      - move every unreachable source file to old-infra/src/...                 
+        That needs to be the law, not a recommendation.                         
+  2. No .gitignore for old-infra, full stop.                                    
+     That point should be fully dead now.                                       
+  3. flow-canvas-active? should not become a weird shared utility in the wrong  
+layer.                                                                          
+     Claude’s final take here is basically the right one:                       
+      - it is semantically a DG/workflow concept                                
+      - but since it is a one-liner, we should either inline it where needed or 
+ keep it with DG flow, not pretend it is layout infrastructure                  
+  4. File names should follow semantic precision, not just brevity.             
+     My final preference after his synthesis is:                                
+      - renderer.cljs                                                           
+      - runtime.cljs                                                            
+      - events.cljs                                                             
+      - rect_tree.cljs                                                          
+      - ui_primitives.cljs                                                      
+      - sidebar.cljs                                                            
+      - shell.cljs                                                              
+      - trail.cljs                                                              
+      - editor_compute.cljs                                                     
+      - cmd_panel.cljs                                                          
+      - agent.cljs                                                              
+      - settings_view.cljs                                                      
+      - combined_text.cljs                                                      
+      - workflows/dg_flow.cljs                                                  
+      - workflows/jit.cljs                                                      
+                                                                                
+  So my actual verdict is:                                                      
+                                                                                
+  Claude’s merged recommendation is basically the right execution plan, with    
+three locked corrections:                                                       
+                                                                                
+  - closure algorithm from electric_flow.cljc and server_jetty.clj              
+  - old-infra stays tracked, never ignored                                      
+  - rename the active spine first, verify, then extract                         
+                                                                                
+  If I put it bluntly, the plan I would now back is:                            
+                                                                                
+  1. Build active closure                                                       
+      - roots: electric_flow.cljc, server_jetty.clj                             
+  2. Move unreachable source to old-infra/src/...                               
+      - tracked                                                                 
+      - no .gitignore                                                           
+  3. Rename active client spine immediately                                     
+      - webgpu/editor.cljs -> client/substrate/webgpu/renderer.cljs             
+      - webgpu/loop.cljs -> client/workspace/runtime.cljs                       
+      - webgpu/text_input.cljs -> client/workspace/text_input.cljs              
+      - webgpu/themes.cljc -> client/workspace/themes.cljc                      
+  4. Verify rename-only checkpoint                                              
+      - app still boots                                                         
+      - editor renders                                                          
+      - sidebar works                                                           
+      - commands still execute                                                  
+  5. Extract around the renamed runtime in leaf-first order                     
+      - events                                                                  
+      - rect_tree                                                               
+      - ui_primitives                                                           
+      - trail                                                                   
+      - sidebar                                                                 
+      - shell                                                                   
+      - editor_compute                                                          
+      - dg_flow                                                                 
+      - cmd_panel                                                               
+      - agent                                                                   
+      - settings_view                                                           
+      - combined_text                                                           
+      - jit                                                                     
+  6. Keep runtime.cljs as the orchestrator                                      
+      - atoms                                                                   
+      - event consumers                                                         
+      - big mutation-heavy handlers                                             
+      - draw orchestration                                                      
+                                                                                
+  So yes: I think Claude’s synthesis mostly wins. Not because my earlier        
+instincts were wrong, but because he did the better job of merging:             
+                                                                                
+  - your closure rule                                                           
+  - my ontology/boundary corrections                                            
+  - and his step-by-step extraction detail                                      
+                                                                                
+  If you want, I can now turn this merged view into one final canonical plan in 
+ a single clean block, with no debate language left in it.                      
+
+● We've converged. Three minds, one plan.
+
+  Let me write the canonical document — no debate language, no "could/should",
+  just the plan. I have the exact line ranges and dependency chains, Codex
+  locked the structural decisions, you held the vision.
+
+● Write(docs/plans/refactor-canonical.md)
+  ⎿  Wrote 543 lines to docs/plans/refactor-canonical.md
+       1 # Canonical Refactor Plan: loop.cljs -> Workspace Runtime
+       2 
+       3 > Consensus: Claude + Codex + User, 2026-03-07
+       4 > Status: LOCKED — ready to execute
+       5 
+       6 ---
+       7 
+       8 ## Goal
+       9 
+      10 Correct the codebase ontology at zoom 100. Move the active clien
+         t runtime out of `webgpu/` into `substrate/` + `workspace/` + `w
+         orkflows/`. WebGPU reserved for rendering only. The filesystem b
+         ecomes the knowledge graph's self-description.
+     … +533 lines (ctrl+o to expand)
+
+● Done. Canonical plan written to docs/plans/refactor-canonical.md.
+
+  ★ Insight ─────────────────────────────────────
+  What just happened is exactly what the core-reframes document describes as the
+   maturity ladder for local worlds: this plan went from produced (my first
+  draft) → preserved (written down) → navigable (Codex could traverse and
+  critique it) → hand-offable (Codex could propose structural corrections
+  without rebuilding context) → synthesizable (three perspectives converged into
+   one canonical document).
+
+  The plan itself climbed from maturity stage 1 to stage 6 in one conversation.
+  That's the thesis working.
+
+  Three locked corrections from Codex are baked in:
+  1. Closure algorithm from two roots — not a hand-written list
+  2. old-infra/ tracked — quarantine, never .gitignored
+  3. Rename spine first — ontological correction before extraction
+
+  The highest-risk steps are explicitly last: editor_compute (Step 12) and
+  combined_text (Step 13). Both are Missionary pressure zones where arg counts
+  must exactly match m/latest fn params.
+  ─────────────────────────────────────────────────
+
+  Ready to execute whenever you are. Phase 1 (closure algorithm) is the natural
+  starting point.
+
+✻ Worked for 2m 24s
+
+❯ so codex changed it a bit see if this sits right with ou                      
+
+● I've read the diff. Codex tightened the document well. Every change is an
+  improvement. Let me call out what changed and whether it sits right:
+
+  Changes Codex made:
+
+  1. Removed my line-number references — The step descriptions now list function
+   names only, no (lines 32-51). This is correct. Line numbers are stale the
+  moment you edit the file. Function names are stable identifiers.
+  2. Reordered Steps 4 and 5 — Sidebar before trail (was trail before sidebar in
+   my version). This is better because trail.cljs depends on rect_tree and
+  ui_primitives, and sidebar is simpler with fewer deps. Lower risk first.
+  3. Moved settings_view to Step 7 (was Step 11 in mine) — Before cmd_panel and
+  dg_flow. This is correct — slider-specs and settings helpers have zero
+  downstream deps. Extracting them early is free risk reduction.
+  4. Kept <fold-state and <bracket-match in runtime.cljs — My version moved them
+   to editor_compute.cljs. Codex's version keeps the thin reactive wrappers in
+  runtime (9 and 14 lines), moves only the pure compute. This is the cleaner
+  split — reactive composition stays at orchestration level.
+  5. Removed the detailed "What stays in runtime" breakdown — Replaced with a
+  concise "owns / must not own" rule. Better — the detailed line-count breakdown
+   was speculative and would be wrong by step 3.
+  6. Added Phase 0 explicitly — Baseline verification + directory creation as a
+  formal gate. Good discipline.
+  7. Strengthened verification language — "If compile fails, stop immediately
+  and fix before continuing." Correct — no plowing ahead.
+  8. Removed the full dependency graph ASCII art — Replaced with dependency
+  rules as prose. Fine — the rules are clearer than the diagram for this
+  purpose.
+  9. Removed the "execution timeline" table with cumulative line counts — Those
+  numbers would be wrong after the first extraction anyway.
+  10. Cmd panel ownership rule made explicit — "cmd_panel.cljs parses generic
+  command structure only; workflow command vocabularies are delegated by runtime
+   to dg_flow and jit." Cleaner than my version which tried to have cmd_panel
+  import dg_flow and jit directly.
+
+  One thing I notice:
+
+  The cmd_panel ownership rule says "workflow command vocabularies are delegated
+   by runtime to dg_flow and jit." This means runtime.cljs is the dispatch site
+  — it receives the parsed command from cmd_panel, then calls into dg_flow or
+  jit. Cmd_panel doesn't know about workflows at all. That's actually cleaner
+  than both my and Codex's earlier proposals, which had cmd_panel delegating
+  directly.
+
+  Verdict: This version is tighter, more disciplined, and more correct than what
+   I wrote. I have zero objections. It sits right.
+
+  ★ Insight ─────────────────────────────────────
+  The most important editorial move Codex made: removing speculative details
+  (line counts, cumulative tables, detailed runtime breakdown) and replacing
+  them with rules and constraints. A plan that says "runtime must not own X" is
+  more durable than one that says "runtime will be ~2200 lines containing these
+  specific sections." The former survives contact with reality; the latter
+  doesn't survive past step 1.
+  ─────────────────────────────────────────────────
+
+  This is the plan. Ready to execute.
+
+❯ /plan                                                                         
+  ⎿  Enabled plan mode

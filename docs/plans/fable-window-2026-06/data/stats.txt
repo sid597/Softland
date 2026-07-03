@@ -1,0 +1,51 @@
+total: 2404  claude: 964  codex: 1440
+range: 2026-01-16T06:45:32.252Z -> 2026-06-11T11:33:39.210Z
+distinct sessions: claude 72, codex 88
+dedup drops: {'long-hash': 1468, 'short-key': 462, 'uuid': 127}
+claude skipped: {'cmd-stdout': 196, 'tool-result-only': 3555, 'empty': 25, 'interrupt-stub': 52}
+codex skipped: {'wrapper': 385, 'other-project-file': 137, 'empty': 17, 'softland-files': 99}
+len p50/p90/p99/max: 130/5447/27234/356331
+
+per-month per-source:
+  2026-01 codex: 28
+  2026-02 codex: 158
+  2026-03 claude: 229
+  2026-03 codex: 538
+  2026-04 claude: 294
+  2026-04 codex: 218
+  2026-05 claude: 222
+  2026-05 codex: 305
+  2026-06 claude: 219
+  2026-06 codex: 193
+
+messages per session (top 30):
+  codex cbc46939: 99
+  codex 23426ecd: 85
+  codex ab5d9d60: 85
+  codex 89c9c393: 83
+  claude 30fc9ae4: 83
+  codex 3259656a: 76
+  codex 776ff183: 72
+  claude ac7cc685: 67
+  claude 8bc0e62b: 64
+  codex ac655c0c: 63
+  codex 5d48898e: 60
+  codex 6a7b40fe: 53
+  codex 828f1e8c: 50
+  codex ae37e4f9: 48
+  claude c0982dee: 47
+  claude b462767a: 46
+  codex 17476301: 43
+  codex 67db381c: 40
+  codex 208a05db: 37
+  claude dac70ad4: 35
+  claude 0ba23e56: 34
+  claude 0cc5ee85: 32
+  codex fcecc681: 30
+  claude 7d70f97d: 30
+  codex 84ac3b59: 30
+  codex ca301472: 29
+  claude 1997f19a: 28
+  claude 199d88fd: 26
+  codex d2612aa7: 26
+  claude 05529d8f: 26

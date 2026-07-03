@@ -1,0 +1,218 @@
+
+================================================================================
+                         SOFTLAND UI CONCEPTS: REASONING TRAILS
+================================================================================
+
+CONCEPT 1: THE "METRO MAP" (Branching & Backtracking Focus)
+Rationale: Visualizes the non-linear nature of exploration. Dead ends are clearly visible.
+Key: ● Decision Point  ○ Action  × Dead End  ★ Success/Goal
+
+      [START] "Refactor Auth"
+         │
+         ●───○ Check Config ───○ Read DB Schema
+         │
+         ├───○ Attempt A: "JWT Lib" ───○ Install Lib ───× (Conflict)
+         │       (Too heavy)             │
+         │                               └───○ Rollback
+         │
+         └───● Strategy Shift
+             │
+             ├───○ Attempt B: "Custom Middleware"
+             │     │
+             │     ├───○ Create ns `auth.interceptor`
+             │     ├───○ Define rules
+             │     └───★ TEST PASS
+             │
+             └─── (Alternative C: Unexplored)
+
+    [ INSPECTOR PANEL ]
+    Node: Attempt A
+    Reasoning: "Tried clj-jwt but it conflicted with older ring version."
+    Time: 0.4s
+
+================================================================================
+
+CONCEPT 2: THE "TEMPORAL SCRUBBER" (Video Editor Style)
+Rationale: Treat the coding session as a movie. Scrub back to see the state of mind at T-10m.
+
+  [ CODE VIEW: src/app/server.clj @ T-12:30 ]            [ THOUGHT STREAM ]
+  ───────────────────────────────────────────            ──────────────────
+  (defn wrap-auth [handler]                              12:28 🧠 Parsing req headers...
+    (fn [req]                                            12:29 🔍 Search "bearer"
+      (let [token ...]                                   12:29 📖 Read spec
+      ;; CURSOR IS HERE                                  12:30 ✏️ Writing impl...
+      (if (valid? token) ...                             12:31 🧪 Running repl test
+
+  ────────────────────────────────────────────────────────────────────────────────
+  [|||||||||||||||||||||||||||||||||                    ]  PLAYING ▶
+  00:00        05:00        10:00        12:30        15:00
+  Start       Research      Design       Impl         Debug
+
+================================================================================
+
+CONCEPT 3: THE "INFINITE CANVAS" (Spatial/Whiteboard)
+Rationale: Thoughts aren't linear. Layout nodes spatially. Zoom out for context, in for code.
+
+           [ DOCS: API Spec ]
+           ┌────────────────┐
+           │ /login POST    │
+           │ Needs: email   │
+           └───────┬────────┘
+                   │ implies
+                   ▼
+  [ FILE: user.clj ]        [ AGENT NOTE ]           [ FILE: db.clj ]
+  ┌────────────────┐       ┌──────────────┐          ┌──────────────┐
+  │ (def user ...) │──────▶│ "Schema is   │─────────▶│ (schema ...) │
+  └────────────────┘       │  missing pw" │          └──────────────┘
+                           └──────┬───────┘
+                                  │ triggers
+                                  ▼
+                           [ ACTION: Migration ]
+                           ┌───────────────────┐
+                           │ ALTER TABLE ...   │
+                           └───────────────────┘
+
+================================================================================
+
+CONCEPT 4: THE "CODE LENS" (In-Context Overlay)
+Rationale: Don't leave the code. Inject reasoning directly into the file between lines.
+
+  10  (ns app.core)
+  11
+      ┌── 🧠 REASONING ───────────────────────────────────────────────┐
+      │ "I need to require the new auth namespace here to middleware." │
+      └───────────────────────────────────────────────────────────────┘
+  12  (:require [app.auth :as auth]   <-- RECENTLY ADDED
+  13            [ring.adapter.jetty :as jetty]))
+  14
+  15  (defn -main []
+      ┌── 🔍 SEARCH RESULT ───────────────────────────────────────────┐
+      │ Found 3 usages of `run-jetty` in project. Checking config...  │
+      └───────────────────────────────────────────────────────────────┘
+  16    (jetty/run-jetty app {:port 3000}))
+
+================================================================================
+
+CONCEPT 5: THE "NOTEBOOK" (Literate Programming Narrative)
+Rationale: A document that mixes prose (reasoning) and executable blocks (actions).
+
+  # Task: Fix Login Bug
+
+  ## 1. Investigation
+  I started by looking at the logs.
+  > `grep_search "Login failed"`
+  Found 1 error in `auth.clj` line 55.
+
+  ## 2. Hypothesis
+  The password hash isn't matching because of the salt encoding.
+  Let me check the `hashing` namespace.
+  > `read_file "src/util/hash.clj"`
+
+  ```clojure
+  (defn hash-pw [pw] ...)
+  ```
+
+  **Observation**: It uses SHA-1. We should upgrade this to BCrypt while we are here.
+  
+  ## 3. Implementation
+  > `edit "src/util/hash.clj"`
+  Replaced SHA-1 with BCrypt.
+
+================================================================================
+
+CONCEPT 6: THE "HUD" (Heads Up Display / Flight Sim)
+Rationale: For "Live" viewing. High density, real-time stats, looks cool.
+
+  ╔════ SCOPE ══════════════════════════╗  ╔══ CURRENT FOCUS ══════════════════╗
+  ║ FILES: 3  |  TOKENS: 4096 / 8192    ║  ║ WRITING: src/ui/button.cljs       ║
+  ║ DEPS:  ok |  COST:   $0.04          ║  ║ FUNC:    (defn primary-btn ...)   ║
+  ╚═════════════════════════════════════╝  ╚═══════════════════════════════════╝
+  
+  [ RECENT TRAIL ]
+  [14:02] 🔍 Search "color-scheme" ............ [Found]
+  [14:02] 🧠 "Theme is hardcoded." ............ [Ack]
+  [14:03] ✏️ Refactor `theme.cljs` ............. [Done]
+  [14:03] ⏳ Waiting for linter ............... [....]
+
+  [ LIVE PREVIEW ]
+  ┌──────────────────────┐
+  │  [ BUTTON ]          │
+  │  Color: #FF5500      │
+  └──────────────────────┘
+
+================================================================================
+
+CONCEPT 7: THE "DIFF EVOLUTION" (State Transition Focus)
+Rationale: Focus on *changes*. Reasoning is just the transition between states.
+
+  STATE 1 (Original)      >>>    REASONING BRIDGE    >>>      STATE 2 (Modified)
+  ──────────────────             ────────────────            ──────────────────
+  (defn calc [x]           │     "The algorithm      │       (defn calc [x]
+    (* x 2))               │      was too simple.    │         (-> x
+                           │      Reqs say square    │             (* 2)
+                           │      it."               │             (Math/pow 2)))
+                           │                         │
+                           └─────────────────────────┘
+
+  [ < PREV STATE ]                                           [ NEXT STATE > ]
+
+================================================================================
+
+CONCEPT 8: THE "PAIR PROGRAMMER" (Chat + Context Cards)
+Rationale: Familiar chat interface, but with rich, interactive cards for code.
+
+  🤖 AGENT: I've analyzed the request. We need to update the router.
+
+  [ CARD: Routing Plan ]
+  ┌──────────────────────────────────────────────┐
+  │ 1. Add /admin route                          │
+  │ 2. Protect with `admin-guard`                │
+  │ 3. Create AdminDashboard component           │
+  └──────────────────────────────────────────────┘
+
+  👤 USER: Go ahead, but make sure `admin-guard` checks the role "superuser".
+
+  🤖 AGENT: Understood. Checking `user-model` first.
+
+  [ ACTION: Read File ]
+  > Reading `src/models/user.clj`...
+
+================================================================================
+
+CONCEPT 9: THE "DEPENDENCY WEB" (Force-Directed Graph)
+Rationale: Visualize the impact of changes across the system.
+
+       (Auth Module) <────── [Agent Focus]
+            │
+            │ modifies
+            ▼
+       (User DB) ───────────▶ (Profile UI)
+            ▲                     │
+            │ reads               │ impacts
+            │                     ▼
+       (Session Store)       (Settings Page)
+
+   * Glowing nodes indicate current activity/reads.
+   * Red edges indicate potential breaking changes.
+
+================================================================================
+
+CONCEPT 10: THE "EXECUTIVE DASHBOARD" (High-Level/PM View)
+Rationale: Manage multiple agents and tasks at once.
+
+  AGENTS ONLINE: 3   |   QUEUE: 5   |   ERROR RATE: 2%
+
+  ACTIVE TRAILS:
+  ┌────────────────────────┬─────────────┬──────────────┬───────────────┐
+  │ TASK                   │ AGENT       │ STATUS       │ RISK          │
+  ├────────────────────────┼─────────────┼──────────────┼───────────────┤
+  │ Feat: Dark Mode        │ CSS-Bot     │ 🟢 Coding    │ Low           │
+  │ Fix: Race Condition    │ DeepThink   │ 🟡 Thinking  │ High (Core)   │
+  │ Refactor: API          │ Architect   │ 🔴 Stuck     │ Med           │
+  └────────────────────────┴─────────────┴──────────────┴───────────────┘
+
+  [ DRILL DOWN ]
+  > Selected: Fix Race Condition
+  > Last Thought: "The atom is being dereferenced before the swap completes..."
+
+================================================================================

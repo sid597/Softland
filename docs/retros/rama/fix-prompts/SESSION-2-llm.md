@@ -1,6 +1,6 @@
 # Fix Session 2 — LLM Kernel
 
-Status: NOT STARTED (requires Session 0 DONE; read Session 1's diff first if DONE — it is the pattern)
+Status: DONE (2026-06-11) — full correctness scope landed: (a) dedup gate + sticky terminals (L-01/L-03), (b) claim-proof on every observation + never-drop dead-letters (F1/L-04), (c) approval lifecycle minus the timeout scheduler (L-07/F3, S5 buffered-approval index), (d) microbatch conversion closes claim/inbox partial commit (L-02) + `$$llm-executor-active-runs` recovery index with token-based `claim-state` (L-05). Deferred (flagged): L-06 two-phase cancel, L-08/L-09 schemas+bounds, L-10 single-append stale-mark, L-11 live streaming + stderr redaction, L-12 fold wall-clock residue, approval-timeout scheduler, S1 single-records-depot total order. Post-fix Phase 4: `02-llm/IMPLEMENTATION_VALIDATION-postfix.md` — conditional-pass in-scope, major-fail outstanding (deferred scope only). Probes: `test/app/server/rama/dogfood_llm_probe_test.clj` (67 assertions). Contract change for Session 3: observations now REQUIRE `:executor/id` + `:claim/token` from the granted claim (space tests updated to claim before streaming); `deps.edn` `:test` alias now sets `-Xss16m` (Rama module-graph analysis depth).
 
 Self-contained prompt. Hardening `src/app/server/rama/dogfood/llm.clj` (2,126 lines; four depots incl. the control plane).
 

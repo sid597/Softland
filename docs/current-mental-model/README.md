@@ -33,23 +33,28 @@ how to think with us; a handoff tells it what to execute next. See
 7. `architecture/action-request-kernel-routing.md`
 8. `architecture/logical-lifecycle-and-derived-depots.md`
 9. `architecture/object-container-spec.md`
-10. `architecture/object-container-reviewer-world-model.md`
-11. `architecture/dogfood-runtime/README.md`
-12. `architecture/dogfood-runtime/compute-track.md`
-13. `architecture/dogfood-runtime/agent-track-aor.md`
-14. `architecture/dogfood-runtime/three-depot-current-system.md`
-15. `architecture/dogfood-runtime/slice-a-compute-run-command.md`
-16. `architecture/dogfood-runtime/llm-track-v2.md`
-17. `architecture/dogfood-runtime/llm-track-canonical.md`
-18. `architecture/dogfood-runtime/llm-track-derived-contract.md`
-19. `architecture/dogfood-runtime/llm-track-slice-roadmap.md`
-20. `architecture/dogfood-runtime/llm-track-claude-research.md`
-21. `architecture/dogfood-runtime/transcript-capture.md`
-22. `architecture/rama-world-kernel-v0-pr-trail.md`
-23. `architecture/rama-policy-throughput-post.md`
-24. `architecture/rama-blog-patterns.md`
-25. `architecture/prompt-to-implementation-lossiness.md`
-26. `architecture/cross-model-architecture-loop.md`
+10. `architecture/object-container-ingester-contract.md`
+11. `build/object-container-common-infra/PRODUCT.md`
+12. `build/imported-topology-view/PRINCIPAL_DESIGN_RESEARCH.md`
+13. `build/knowledge-earth-zui/CATEGORY_THEORY_DESIGN_RESEARCH.md`
+14. `architecture/object-container-reviewer-world-model.md`
+15. `build/chat-ingester/PRODUCT.md`
+16. `architecture/dogfood-runtime/README.md`
+17. `architecture/dogfood-runtime/compute-track.md`
+18. `architecture/dogfood-runtime/agent-track-aor.md`
+19. `architecture/dogfood-runtime/three-depot-current-system.md`
+20. `architecture/dogfood-runtime/slice-a-compute-run-command.md`
+21. `architecture/dogfood-runtime/llm-track-v2.md`
+22. `architecture/dogfood-runtime/llm-track-canonical.md`
+23. `architecture/dogfood-runtime/llm-track-derived-contract.md`
+24. `architecture/dogfood-runtime/llm-track-slice-roadmap.md`
+25. `architecture/dogfood-runtime/llm-track-claude-research.md`
+26. `architecture/dogfood-runtime/transcript-capture.md`
+27. `architecture/rama-world-kernel-v0-pr-trail.md`
+28. `architecture/rama-policy-throughput-post.md`
+29. `architecture/rama-blog-patterns.md`
+30. `architecture/prompt-to-implementation-lossiness.md`
+31. `architecture/cross-model-architecture-loop.md`
 
 Read `90-prompts/implementation-review-prompt.md` only when the user is ready to review or
 change code. Do not treat it as the default bootstrap for open-ended discussion.
@@ -62,9 +67,32 @@ implementation protocol.
 
 - `architecture/object-container-spec.md` — settled object substrate: source,
   container, revision, derived unit, composition, projection, and graduation.
+- `architecture/object-container-ingester-contract.md` — corrective contract
+  for source-specific ingesters: all ingesters may own acquisition and read
+  models, but common `SourceArtifact` / `ObjectContainer` / `Revision` /
+  `SourceAnchor` / `CompositionEdge` base truth must not become source-local
+  islands.
+- `build/object-container-common-infra/PRODUCT.md` - current active product
+  seed for the common infra track. This supersedes the old "continue transcript
+  F5/F6 next" handoff: markdown and transcript must both feed the shared
+  Object-Container Kernel.
+- `build/imported-topology-view/PRINCIPAL_DESIGN_RESEARCH.md` - founder-level
+  design research thesis for the first imported-material view: Source-to-World
+  as an accountable transformation surface, not a dashboard or graph spectacle.
+- `build/knowledge-earth-zui/CATEGORY_THEORY_DESIGN_RESEARCH.md` - big-vision
+  design research for Softland as a continuous semantic zoom world and
+  category-theoretic environment for composing local worlds, learning arrows,
+  conflict, synthesis, and collective intelligence.
 - `architecture/object-container-reviewer-world-model.md` — Codex reviewer lens:
   where the object-container spec fits in the current kernel, what is ready, and
   what the first implementation slice must prove.
+- `build/chat-ingester/PRODUCT.md` — product contract for
+  transcript ingest as a source-specific object-container interpreter; separates
+  import/watch, native containers, and downstream Space/LLM use.
+- `build/chat-ingester/COMMON_KERNEL_REPLAN.md` — corrective gate for
+  transcript ingest after the Phase 1 commonness failure: transcript acquisition
+  and projections are source-specific, but base `ObjectContainer` material must
+  feed the common object-container substrate.
 - `architecture/policy-granularity-mastodon-parallel.md` — open question on
   fine-grained policy behavior without per-unit permission materialization.
 - `architecture/cross-model-architecture-loop.md` — workflow note on using

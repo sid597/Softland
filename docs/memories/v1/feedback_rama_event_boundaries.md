@@ -1,0 +1,11 @@
+---
+name: Rama partitioner calls are event boundaries — atomicity is per-event, not per-topology
+description: In Rama stream topology dataflow, every (|hash ...) / (|all) / (|global) creates a new event. PState writes are atomically visible WITHIN an event, NOT across partitioners. Multi-key writes that span partitioners are NOT transactional with each other — readers can see one without the other. Always draw event boundaries before claiming any cross-PState atomicity.
+type: feedback
+originSessionId: 8ed82617-aa8b-439b-9d51-8f6eadb398c6
+---
+In Rama dataflow, partitioner calls are event boundaries. Atomicity only applies WITHIN an event. Multi-key writes that cross `|hash` calls are not transactional with each other — readers can see one PState without the other. Always draw the event boundaries before claiming cross-PState atomicity.
+
+**Why:** In the slice-A v2 review I claimed "request decision + run row appear together; no half-written state." The code wrote decision under request-id, then `(|hash *run-id)`, then wrote run row. That `|hash` is an event boundary. Decision and run row land in two different events on potentially different tasks. A foreign-select on `$$compute-decisions-by-id` could succeed while a foreign-proxy on `$$compute-runs-by-id[run-id]` returns nil. The "atomic in one event" claim was load-bearing for the rest of the design's correctness story and it was wrong. Fix: when multi-key atomicity matters, key by ONE value so all writes happen on the same task in the same event (e.g. `run-id == request-id`, or Electric mints `run-id` upfront and depot hashes by `:run/id`).
+
+**How to apply:** When writing dataflow with multiple `(|hash …)` calls, draw the event boundaries before claiming any cross-write property. Each `(|hash …)` / `(|all)` / `(|global)` is a hard line; PState writes on opposite sides are NOT visible together to readers. If atomic visibility is required across multiple PStates, design the partitioning so all writes share a partitioner — either same key value, or all writes batched on task 0 via `(|global)`. Citation: 23-acid-semantics.md L50-52: *"A stream topology event is all code between partitioner calls. There are two events in this code, the first updating $$counts and $$values and the second updating $$valueCounts."*

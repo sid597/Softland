@@ -1,0 +1,3521 @@
+
+           Claude Code v2.1.42
+ ▐▛███▜▌   Opus 4.6 · Claude Max
+▝▜█████▛▘  /mnt/data/projects/Softland
+  ▘▘ ▝▝    Opus 4.6 is here · $50 free extra usage · Try fast mode or use i…
+
+❯ read up on nxt_stp/threaded-engineering-work...md and imagine the wildest 
+   ui you can imagine for it and then try to draw as close of ascii of your 
+   vision as possible or if there is a better format to visualise use that  
+
+● Let me find and read that file.
+
+● Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● This is a phenomenal design brief. Let me absorb this fully and then go
+  absolutely wild with the vision.
+
+  ★ Insight ─────────────────────────────────────
+  This brief is essentially asking: what if code review wasn't reading a 
+  document, but navigating a knowledge graph? The key tension is between the
+  linearity of reading (how humans consume) and the graph structure of reasoning
+   (how decisions actually form). The wildest UI would make the graph feel
+  natural to traverse — like walking through a building, not parsing a tree.
+  ─────────────────────────────────────────────────
+
+  Here's my vision — a Reasoning Constellation on an infinite WebGPU canvas with
+   semantic zoom. I'll show it at three zoom levels, because progressive
+  disclosure IS the UI:
+
+  ---
+  ZOOM LEVEL 1: The Orbit View (30,000 feet)
+
+  You see the entire change as a constellation. Each dot is a claim. Brightness
+  = confidence. Lines = reasoning chains. You're orienting, not reading.
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  ────┐
+  │
+      │
+  │   ┌─ INTENT BEACON
+  ──────────────────────────────────────────────────────────┐  │
+  │   │  "Refactor auth middleware to support per-route token validation"
+   │  │
+  │   │   ▸ PR #847  ▸ branch: auth-per-route  ▸ @sid  ▸ 2h ago                │
+    │
+  │
+  └──────────────────────────────────────────────────────────────────────────┘
+  │
+  │
+      │
+  │                              ┌───┐
+      │
+  │                        ╭─────│ ? │─────╮         LEGEND
+      │
+  │                        │     └───┘     │         ━━━━━━
+      │
+  │                        │    WHY NOW    │         ● bright = strong evidence
+       │
+  │                        │               │         ◐ half   = partial evidence
+       │
+  │                 ┌──────▼──────┐  ┌─────▼──────┐  ○ dim    = unproven
+      │
+  │                 │             │  │            │  ⚠ = risk node
+       │
+  │                 ●  Claim 1   │  ●  Claim 2   │  ── = supports
+      │
+  │                 │  "single   │  │  "no perf  │  ╌╌ = rejected alternative
+       │
+  │                 │   source   │  │   regress- │  ┈┈ = weak/uncertain link
+       │
+  │                 │   of truth"│  │   ion"     │
+       │
+  │                 └──────┬─────┘  └─────┬──────┘
+      │
+  │                        │              │
+       │
+  │            ┌───────────┼──────┐       │
+       │
+  │            │           │      │       │
+       │
+  │     ┌──────▼───┐ ┌─────▼────┐ │ ┌─────▼──────┐
+      │
+  │     │          │ │          │ │ │            │
+       │
+  │     ◐ Claim 3 │ ● Claim 4  │ │ ◐ Claim 5   │
+     │
+  │     │ "back-  │ │ "tests   │ │ │ "session   │
+      │
+  │     │  compat"│ │  cover   │ │ │  migration │
+      │
+  │     │         │ │  edge    │ │ │  safe"     │
+      │
+  │     └────┬────┘ │  cases"  │ │ └─────┬──────┘
+      │
+  │          │      └──────────┘ │       ┈
+       │
+  │          │                   │       ┈
+       │
+  │     ╌╌╌╌╌▼╌╌╌╌╌╌╌           │  ┌────▼──────┐
+      │
+  │     ╎ REJECTED  ╎           │  │  ⚠ RISK   │
+      │
+  │     ╎ "wrap old ╎           │  │  "legacy   │
+       │
+  │     ╎  handler" ╎           │  │   tokens   │
+       │
+  │     ╌╌╌╌╌╌╌╌╌╌╌╌           │  │   in prod" │
+      │
+  │                              │  └────────────┘
+       │
+  │                         ┌────▼────┐
+       │
+  │                         │ DECISION│
+        │
+  │                         │ ✓ adopt │
+        │
+  │                         └─────────┘
+       │
+  │
+      │
+  │  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░   CONFIDENCE BAR  ████ 72%
+   │
+  │
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  │
+  │  ◀ TIMELINE ▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐ ▶   │
+  │              ↑start        ↑refactor begun    ↑tests pass   ↑now
+      │
+  └─────────────────────────────────────────────────────────────────────────────
+  ────┘
+
+  ---
+  ZOOM LEVEL 2: The Thread View (Street Level)
+
+  You've clicked on Claim 4. The canvas smoothly zooms. The claim expands into a
+   full reasoning card. Evidence anchors appear as portals into code. Adjacent
+  claims fade but remain visible as context.
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  ────┐
+  │ ◁ Orbit   ┊  Claim 4 of 5   ┊   ● Strong Evidence
+   │
+  │━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ━│
+  │
+      │
+  │  ╔══════════════════════════════════════════════════════════════════════╗
+       │
+  │  ║  CLAIM: "Tests cover all edge cases for per-route validation"      ║
+     │
+  │  ║                                                                    ║
+     │
+  │  ║  Author's narrative:                                               ║
+     │
+  │  ║  Routes with custom token requirements now validate against a      ║
+     │
+  │  ║  route-specific schema. Three edge cases identified: expired       ║
+     │
+  │  ║  tokens, scope mismatch, and malformed headers. All covered.       ║
+     │
+  │  ╚══════════════════════════════════════════════════════════════════════╝
+       │
+  │       │              │                │
+       │
+  │       │              │                │
+       │
+  │  ┌────▼────────┐ ┌───▼──────────┐ ┌──▼───────────────┐
+      │
+  │  │ EVIDENCE 1  │ │ EVIDENCE 2   │ │ EVIDENCE 3       │
+      │
+  │  │ ┄┄┄┄┄┄┄┄┄┄ │ │ ┄┄┄┄┄┄┄┄┄┄┄ │ │ ┄┄┄┄┄┄┄┄┄┄┄┄┄┄  │
+   │
+  │  │ 📄 Code    │ │ 🧪 Test     │ │ ▶ Command output │     ╭──────────────╮
+     │
+  │  │            │ │              │ │                  │     │ ◐ Claim 3   ╌╮
+     │
+  │  │ middleware │ │ auth_test.   │ │ $ curl -H ...    │     │   (faded)    ╎
+     │
+  │  │ .clj:47   │ │ clj:112      │ │ → 401 Forbidden  │     ╰──────────────╯
+    │
+  │  │            │ │              │ │                  │
+      │
+  │  │ [PORTAL]  │ │ [PORTAL]     │ │ [PORTAL]         │     ╭──────────────╮
+     │
+  │  └────────────┘ └──────────────┘ └──────────────────┘     │ ◐ Claim 5   ╌╮
+     │
+  │                                                           │   (faded)    ╎
+     │
+  │  ── REVIEWER FEEDBACK ──────────────────────────────      ╰──────────────╯
+     │
+  │  │                                                  │
+      │
+  │  │  💬 @alex  2m ago                                │
+      │
+  │  │  "What about refresh tokens with mixed scopes?   │
+      │
+  │  │   I don't see that case in Evidence 2."          │
+      │
+  │  │                                                  │
+      │
+  │  │  ┌─────────────────────────────────────────┐     │
+      │
+  │  │  │ ⚡ This weakens Claim 4                 │     │
+      │
+  │  │  │    Confidence: ● → ◐                    │     │
+      │
+  │  │  │    [Add Evidence]  [Mark Risk]  [Reply]  │     │
+       │
+  │  │  └─────────────────────────────────────────┘     │
+      │
+  │  └──────────────────────────────────────────────────┘
+      │
+  │
+      │
+  │  DECISION TRAIL ════════════════════════════════════
+       │
+  │  ┌─────────────────┐    ┌─────────────────┐    ┌──────────────────┐
+      │
+  │  │ ✗ REJECTED      │ ╌╌▶│ ✗ REJECTED      │ ╌╌▶│ ✓ CHOSEN        │
+     │
+  │  │ "Global token   │    │ "Middleware      │    │ "Per-route      │
+      │
+  │  │  whitelist"     │    │  chain per role" │    │  schema map"    │
+      │
+  │  │                 │    │                  │    │                 │
+      │
+  │  │ Why not: rigid, │    │ Why not: N+1     │    │ Why: composable │
+      │
+  │  │ doesn't scale   │    │ middleware calls  │    │ testable, fast  │
+       │
+  │  └─────────────────┘    └──────────────────┘    └──────────────────┘
+       │
+  │
+      │
+  │━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ━│
+  │  ◀ TIMELINE ▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌████▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐▌▐ ▶   │
+  └─────────────────────────────────────────────────────────────────────────────
+  ────┘
+
+  ---
+  ZOOM LEVEL 3: The Portal View (Inside the Code)
+
+  You've clicked [PORTAL] on Evidence 2. The evidence card opens like a portal
+  and you see the actual code, highlighted in context, with the claim's
+  assertion overlaid as an annotation layer.
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  ────┐
+  │ ◁ Claim 4  ┊  Evidence 2: auth_test.clj  ┊  🧪 Test
+    │
+  │━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ━│
+  │
+      │
+  │  ASSERTION OVERLAY ─────────────────────────────────────────────────────────
+      │
+  │  │ This test proves: "expired tokens return 401 with correct error body"   │
+      │
+  │  │ Strength: ● STRONG — direct assertion on status + body                  │
+      │
+  │  ──────────────────────────────────────────────────────────────────────────
+      │
+  │
+      │
+  │  ┌─ auth_test.clj
+  ──────────────────────────────────────────────────────────┐   │
+  │  │
+  │   │
+  │  │  108 │
+  │   │
+  │  │  109 │  (deftest expired-token-per-route-test
+  │   │
+  │  │  110 │    (let [token (make-token {:exp (- (now) 3600)
+  │   │
+  │  │  111 │ ┌─────────────────────────────────────────────────────────────┐
+  │   │
+  │  │  112 ││▎ (is (= 401                                                 │   │
+     │
+  │  │  113 ││▎     (:status (handler (req "/api/admin"                    │   │
+     │
+  │  │  114 ││▎                           {:authorization              │   │   │
+  │  │  115 ││▎                            (str "Bearer " token)})))) │   │   │
+  │  │  116 ││▎                                                            │   │
+     │
+  │  │  117 ││▎ (is (= {:error "token_expired"                             │   │
+     │
+  │  │  118 ││▎         :route "/api/admin"}                               │   │
+     │
+  │  │  119 ││▎        (:body (handler (req "/api/admin"                   │   │
+     │
+  │  │  120 ││▎                           {:authorization              │   │   │
+  │  │  121 ││▎                            (str "Bearer " token)}))))) │   │   │
+  │  │  122 │ └──────────────────── EVIDENCE ANCHOR ────────────────────────┘
+  │   │
+  │  │  123 │
+  │   │
+  │  │  124 │  ;; ⚠ @alex: missing refresh token + mixed scope case            │
+     │
+  │  │  125 │
+  │   │
+  │  │  126 │  (deftest scope-mismatch-test
+  │   │
+  │  │  127 │    (let [token (make-token {:scopes ["read"]
+  │   │
+  │  │
+  │   │
+  │
+  └──────────────────────────────────────────────────────────────────────────┘
+   │
+  │
+      │
+  │  ┌── LINKED DIFF ──────────────────────────────────────────────────────────┐
+      │
+  │  │  middleware.clj:47-63   +16  -3                                         │
+      │
+  │  │                                                                         │
+      │
+  │  │   47 │ (defn wrap-per-route-auth [handler route-schemas]                │
+      │
+  │  │   48 │+  (fn [request]                                                  │
+      │
+  │  │   49 │+    (let [route (:uri request)                                   │
+      │
+  │  │   50 │+          schema (get route-schemas route :default)              │
+      │
+  │  │   51 │+          token (extract-token request)]                         │
+      │
+  │  │   52 │+      (case (validate-token token schema)                        │
+      │
+  │  │   53 │+        :valid   (handler request)                               │
+      │
+  │  │   54 │+        :expired {:status 401 :body {:error "token_expired"      │
+      │
+  │  │   55 │+                                     :route route}}              │
+      │
+  │  │   56 │+        :scope   {:status 403 :body {:error "insufficient_scope" │
+      │
+  │  │   57 │+                                     :route route}}              │
+      │
+  │  │   58 │-  (fn [request]                                                  │
+      │
+  │  │   59 │-    (if (valid-token? (extract-token request))                   │
+      │
+  │  │   60 │-      (handler request)                                          │
+      │
+  │  │   61 │+        :invalid {:status 401 :body {:error "invalid_token"}}))) │
+      │
+  │  └─────────────────────────────────────────────────────────────────────────┘
+      │
+  │
+      │
+  │━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ━│
+  │ [◁ Back to Claim] [Next Evidence ▷] [Add Annotation]  [Flag Weakness]
+     │
+  └─────────────────────────────────────────────────────────────────────────────
+  ────┘
+
+  ---
+  THE WILDEST PART: The Temporal Dimension
+
+  The timeline bar at the bottom isn't decoration — it's a time-travel scrubber.
+   Drag it and the entire constellation animates: nodes appear as the author
+  created them, evidence links form, decisions crystallize. You literally watch
+  someone think.
+
+    THE REASONING GROWS OVER TIME
+    ══════════════════════════════
+
+    t=0min          t=15min              t=45min              t=90min (now)
+    ┄┄┄┄┄┄┄┄       ┄┄┄┄┄┄┄┄┄┄┄         ┄┄┄┄┄┄┄┄┄┄┄┄         ┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+
+      ┌─┐            ┌─┐                   ┌─┐                   ┌─┐
+      │?│            │?│                   │?│                   │?│
+      └─┘            └┬┘                   └┬┘                   └┬┘
+                      │                   ╭─┴──╮               ╭──┴──╮
+                     ┌▼┐                ┌─▼┐ ┌─▼┐           ┌──▼┐ ┌─▼──┐
+                     │●│                │● │ │● │           │ ● │ │ ●  │
+                     └─┘                └┬─┘ └┬─┘           └┬──┘ └┬───┘
+                                         │    │            ╭──┤     │
+                                        ┌▼┐  ┌▼┐        ┌─▼┐┌▼┐  ┌─▼┐
+                                        │◐│  │○│        │◐ ││●│  │◐ │
+                                        └─┘  └─┘        └──┘└┬┘  └┬─┘
+                                                              │  ┌─▼──┐
+                                                             ┌▼┐│ ⚠  │
+                                                             │✓│└────┘
+                                                             └─┘
+     "what if?"      first claim        structure forms       full constellation
+                     emerges             rejected paths        with risks
+  visible
+                                         appear as ghosts
+
+  ---
+  THE REVIEWER EXPERIENCE: Guided Traversal Mode
+
+  When a reviewer opens the workspace, they don't see the raw graph. They get a
+  guided path — the author's recommended traversal — with the freedom to
+  diverge.
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  ────┐
+  │
+      │
+  │  GUIDED REVIEW
+  ╭──────────╮ │
+  │  ═══════════════                                                  │ FREE
+   │ │
+  │                                                                   │ EXPLORE
+   │ │
+  │  ┌─ STEP 1 of 6 ─────────────────────────────────────────────┐    │ MODE ◉
+   │ │
+  │  │                                                            │
+  ╰──────────╯ │
+  │  │  "Why this change?"                                        │
+     │
+  │  │                                                            │
+     │
+  │  │  The existing auth middleware applies one global policy.    │
+      │
+  │  │  Three routes need distinct token validation rules.        │
+     │
+  │  │  This PR introduces per-route schemas.                     │
+     │
+  │  │                                                            │
+     │
+  │  │  ┌──────────────────────────────────────────────────┐      │
+     │
+  │  │  │  CONFIDENCE SNAPSHOT                              │      │
+      │
+  │  │  │                                                   │      │
+      │
+  │  │  │  Claims proved:    ███████████░░░  3/5  (60%)     │      │
+      │
+  │  │  │  Risks identified: ██░░░░░░░░░░░  1    (open)     │      │
+      │
+  │  │  │  Alternatives:     █████████████  2    (rejected)  │      │
+       │
+  │  │  │  Test coverage:    █████████████  ✓    (passing)   │      │
+       │
+  │  │  └──────────────────────────────────────────────────┘      │
+     │
+  │  │                                                            │
+     │
+  │  └────────────────────────────────────────────────────────────┘
+     │
+  │
+      │
+  │      ╔═══════════════════════════════════════════╗
+      │
+  │      ║                                           ║
+      │
+  │      ║   ① WHY    ② WHAT    ③ HOW    ④ PROOF     ║
+      │
+  │      ║   ━━━━━                                   ║
+      │
+  │      ║            ⑤ ALTERNATIVES   ⑥ RISKS       ║
+      │
+  │      ║                                           ║
+      │
+  │      ╚═══════════════════════════════════════════╝
+      │
+  │
+      │
+  │  ┌─ YOUR REVIEW STATE ────────────────────────────────────────────────────┐
+      │
+  │  │  ✓ Read    ◐ Partially examined    ○ Not yet seen    ⚡ Feedback given │
+      │
+  │  │                                                                        │
+      │
+  │  │  Claim 1 ✓   Claim 2 ◐   Claim 3 ○   Claim 4 ⚡   Claim 5 ○         │
+   │
+  │  └────────────────────────────────────────────────────────────────────────┘
+      │
+  │
+      │
+  │  [◁ Previous]                        [APPROVE ✓]  [REQUEST CHANGES ✗]  [▷
+  Next]│
+  └─────────────────────────────────────────────────────────────────────────────
+  ────┘
+
+  ---
+  THE INTERACTION VOCABULARY
+
+    GESTURES ON THE CANVAS
+    ═══════════════════════
+
+    SCROLL/PAN ─────── Navigate the constellation spatially
+    PINCH/ZOOM ─────── Semantic zoom (orbit ↔ thread ↔ portal)
+    CLICK NODE ─────── Expand claim, reveal evidence anchors
+    CLICK PORTAL ───── Dive into code context with assertion overlay
+    DRAG EDGE ─────── Connect feedback to specific reasoning link
+    SHIFT+CLICK ───── Compare two claims/evidence side-by-side
+    TIMELINE SCRUB ── Watch reasoning evolve over time
+    CMD+K ──────────── Fuzzy search across all claims/evidence/decisions
+    ESC ────────────── Zoom out one level (portal → thread → orbit)
+    TAB ────────────── Next step in guided traversal
+
+
+    NODE TYPES & VISUAL LANGUAGE
+    ════════════════════════════
+
+    ┌─────────┐
+    │ ?       │  INTENT — the driving question (always visible, top)
+    │ WHY?    │  Pulsing border, warm glow
+    └─────────┘
+
+    ┌─────────┐
+    │ ●       │  CLAIM (strong) — well-evidenced assertion
+    │ proved  │  Solid fill, bright, stable
+    └─────────┘
+
+    ┌─────────┐
+    │ ◐       │  CLAIM (partial) — some evidence, gaps remain
+    │ partial │  Half-fill, amber, slight pulse
+    └─────────┘
+
+    ┌─────────┐
+    │ ○       │  CLAIM (unproven) — stated but no evidence yet
+    │ bare    │  Outline only, dim, draws attention
+    └─────────┘
+
+    ┌╌╌╌╌╌╌╌╌╌┐
+    ╎ ✗        ╎  REJECTED — alternative that was considered & discarded
+    ╎ rejected ╎  Dashed border, ghostly/translucent
+    └╌╌╌╌╌╌╌╌╌┘
+
+    ╔═════════╗
+    ║ ✓       ║  DECISION — the chosen path forward
+    ║ chosen  ║  Double border, green accent, anchor point
+    ╚═════════╝
+
+    ┌─────────┐
+    │ ⚠       │  RISK — explicit unknown or danger zone
+    │ RISK    │  Red/orange border, particle effect (in WebGPU: actual
+    └─────────┘  floating particles around the node)
+
+    ┌─────────┐
+    │ 📄 🧪 ▶│  EVIDENCE PORTAL — code / test / command output
+    │ proof   │  Clicking "opens" it like a window into the file
+    └─────────┘
+
+  ---
+  THE WILDEST DETAIL: Confidence Propagation
+
+  When a reviewer flags a weakness in one piece of evidence, confidence doesn't
+  just drop on that claim — it propagates upstream. Like a crack in a
+  foundation, the whole structure above it dims:
+
+    BEFORE FEEDBACK                    AFTER "@alex flags missing test case"
+    ══════════════                     ═════════════════════════════════════
+
+         ┌─┐                                ┌─┐
+         │?│                                │?│
+         └┬┘                                └┬┘
+        ╭─┴──╮                            ╭──┴──╮
+     ┌──▼┐ ┌─▼──┐                     ┌───▼┐ ┌─▼──┐
+     │ ● │ │ ●  │                     │ ●  │ │ ◐  │ ← dimmed!
+     └┬──┘ └┬───┘                     └┬───┘ └┬───┘
+      │     │                          │      │
+     ┌▼┐  ┌▼──┐                      ┌▼┐  ┌──▼──┐
+     │●│  │ ● │ ← was strong         │●│  │ ◐ ⚡│ ← cracked!
+     └┬┘  └───┘                      └┬┘  └──┬──┘
+      │                                │      │
+     ┌▼┐                              ┌▼┐  ┌─▼──────────────────┐
+     │✓│                              │✓│  │ 💬 "missing case"  │
+     └─┘                              └─┘  └────────────────────┘
+
+     Confidence: 72%                   Confidence: 58%  ↓14%
+
+  ---
+  ★ Insight ─────────────────────────────────────
+  Why this UI is wild but buildable with your stack:
+  1. WebGPU canvas — you already have an infinite canvas with MSDF text
+  rendering, rect drawing, and scroll routing. The constellation is just nodes +
+   edges + semantic zoom levels, all renderable with your existing primitives.
+  2. Rama as the backbone — every claim, evidence link, decision, and feedback
+  comment is an event appended to a depot. PStates materialize the graph.
+  Confidence propagation is a topology computation. The temporal scrubber is
+  literally replaying the depot.
+  3. Missionary flows for reactivity — m/latest over the graph state drives
+  real-time confidence updates when a reviewer adds feedback. The whole
+  constellation re-renders reactively.
+
+  The key architectural insight: this isn't a new app — it's a new view mode on
+  top of the event-sourced AI interaction system you described in claude-3.md.
+  Every AI reasoning step, every decision, every evidence anchor is already an
+  event. This UI just makes that event stream navigable.
+  ─────────────────────────────────────────────────
+
+✻ Worked for 2m 53s
+
+❯ what is that it????? you don't to draw more??? you can actually draw 10   
+  different ones if you want                                                
+
+● You're right, let me go OFF. Here are 10 completely different UI visions —
+  different metaphors, different layouts, different interaction models. Each one
+   is a genuinely distinct way to experience the same design brief.
+
+  ---
+  VISION 1: THE CRIME BOARD
+
+  You walk into a detective's office. Red string everywhere. Photos pinned to 
+  cork. The change is the case. You're solving it.
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  ────────┐
+  │  ░░░░░░░░░░░░░░░░░░░░░░  CORK BOARD TEXTURE
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │
+  │
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+   │
+  │  ░░  📌─────────────────────────────────────────────────────────📌
+  ░░░░░░░░░░░░░░ │
+  │  ░░  │          ┌──────────────┐                                │
+  ░░░░░░░░░░░░░░ │
+  │  ░░  │          │ 📷 SUSPECT  │                                 │
+  ░░░░░░░░░░░░░░ │
+  │  ░░  │          │              │         THE CASE               │
+  ░░░░░░░░░░░░░░ │
+  │  ░░  │          │  PR #847     │    "Refactor auth middleware   │
+  ░░░░░░░░░░░░░░ │
+  │  ░░  │          │  @sid        │     to support per-route       │
+  ░░░░░░░░░░░░░░ │
+  │  ░░  │          │  2h ago      │     token validation"          │
+  ░░░░░░░░░░░░░░ │
+  │  ░░  │          └──────┬───────┘                                │
+  ░░░░░░░░░░░░░░ │
+  │  ░░  📌────────────────┼────────────────────────────────────────📌
+  ░░░░░░░░░░░░░░ │
+  │
+  ░░░░░░░░░░░░░░░░░░░░░│░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+   │
+  │
+  ░░░░░░░░░░░░░░░░░░░░░│░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+   │
+  │  ░░
+  ┌────────────┐░░░│░░░░┌────────────┐░░░░░░░░░░┌────────────┐░░░░░░░░░░░░░░░ │
+  │  ░░  │ 📋 LEAD 1  │░░░│░░░░│ 📋 LEAD 2  │░░░░░░░░░░│ 📋 LEAD 3
+  │░░░░░░░░░░░░░░░ │
+  │  ░░  │            │░░░│░░░░│            │░░░░░░░░░░│
+  │░░░░░░░░░░░░░░░ │
+  │  ░░  │ "single    │╌╌╌┤╌╌╌╌│ "no perf   │░░░░░░░░░░│ "backward
+  │░░░░░░░░░░░░░░░ │
+  │  ░░  │  source of │░░░│░░░░│  regression│░░░░░░░░░░│  compat
+  │░░░░░░░░░░░░░░░ │
+  │  ░░  │  truth"    │░░░│░░░░│  on hot     │░░░░░░░░░░│
+  maintained│░░░░░░░░░░░░░░░ │
+  │  ░░  │            │░░░│░░░░│  paths"     │░░░░░░░░░░│  for v2
+  │░░░░░░░░░░░░░░░ │
+  │  ░░  │ STATUS:    │░░░│░░░░│            │░░░░░░░░░░│  clients"
+  │░░░░░░░░░░░░░░░ │
+  │  ░░  │ ✓ PROVEN   │░░░│░░░░│ STATUS:    │░░░░░░░░░░│
+  │░░░░░░░░░░░░░░░ │
+  │  ░░  └─────┬──────┘░░░│░░░░│ ✓ PROVEN   │░░░░░░░░░░│ STATUS:
+  │░░░░░░░░░░░░░░░ │
+  │  ░░░░░░░░░░│░░░░░░░░░░│░░░░└─────┬──────┘░░░░░░░░░░│ ◐ PARTIAL
+  │░░░░░░░░░░░░░░░ │
+  │
+  ░░░░░░░░░╌│╌╌╌╌╌╌╌╌╌╌┘░░░░░░░░░│░░░░░░░░░░░░░░░░░└──────┬─────┘░░░░░░░░░░░░░░░
+   │
+  │
+  ░░░░░░░░░░│░░░░░░░░░░░░░░░░░░░░│░░░░░░░░░░░░░░░░░░░░░░░░│░░░░░░░░░░░░░░░░░░░░
+  │
+  │  ░░
+  ┌─────▼──────┐░░░░░░░┌─────▼──────┐░░░░░░░░░░░┌──────▼─────┐░░░░░░░░░░░░░░░ │
+  │  ░░  │ 🔍 EVIDENCE│░░░░░░░│ 🔍 EVIDENCE│░░░░░░░░░░░│ 🔍
+  EVIDENCE│░░░░░░░░░░░░░░░ │
+  │  ░░  │            │░░░░░░░│            │░░░░░░░░░░░│
+  │░░░░░░░░░░░░░░░ │
+  │  ░░  │ middleware │░░░░░░░│ $ ab -n    │░░░░░░░░░░░│ ??? NO
+  │░░░░░░░░░░░░░░░ │
+  │  ░░  │ .clj:47    │░░░░░░░│ 1000 ...   │░░░░░░░░░░░│ EVIDENCE
+  │░░░░░░░░░░░░░░░ │
+  │  ░░  │ [VIEW]     │░░░░░░░│ → p99 2ms  │░░░░░░░░░░░│ FOUND YET
+  │░░░░░░░░░░░░░░░ │
+  │  ░░  └────────────┘░░░░░░░│ [VIEW]     │░░░░░░░░░░░│
+  │░░░░░░░░░░░░░░░ │
+  │  ░░░░░░░░░░░░░░░░░░░░░░░░░└────────────┘░░░░░░░░░░░│ ⚠ COLD
+  │░░░░░░░░░░░░░░░ │
+  │  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│   CASE
+  │░░░░░░░░░░░░░░░ │
+  │  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░└────────────┘░░░░░░░░░░░
+  ░░░░ │
+  │
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+   │
+  │  ░░░░ ┌────────────────────────────────────────────────────────────┐
+  ░░░░░░░░░░░░░ │
+  │  ░░░░ │  ❌ DEAD ENDS (rejected alternatives)                     │
+  ░░░░░░░░░░░░░ │
+  │  ░░░░ │                                                            │
+  ░░░░░░░░░░░░░ │
+  │  ░░░░ │  ╳ "Global whitelist"     ╳ "Middleware chain per role"    │
+  ░░░░░░░░░░░░░ │
+  │  ░░░░ │    crossed out, pinned      crossed out, pinned            │
+  ░░░░░░░░░░░░░ │
+  │  ░░░░ │    sideways, coffee stain   with "TOO SLOW" scrawled      │
+  ░░░░░░░░░░░░░ │
+  │  ░░░░ └────────────────────────────────────────────────────────────┘
+  ░░░░░░░░░░░░░ │
+  │
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+   │
+  │  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ CASE #847
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │
+  └─────────────────────────────────────────────────────────────────────────────
+  ────────┘
+
+  Interaction: drag cards around. Draw string between them (creates reasoning 
+  links). Pin new evidence. Cross out dead ends with a satisfying scribble 
+  animation. The "cold case" evidence gap literally pulses red until someone 
+  fills it.
+
+  ---
+  VISION 2: THE METRO MAP
+
+  Every reasoning thread is a transit line. Stations are claims. Transfers are 
+  where threads intersect. You ride the line from intent to proof.
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  ────────┐
+  │
+          │
+  │  SOFTLAND REASONING TRANSIT AUTHORITY
+  ┌──────────────────────────────┐   │
+  │  ══════════════════════════════════               │  PR #847 — Auth Refactor
+       │   │
+  │                                                   │  3 lines · 8 stations
+       │   │
+  │                                                   │  Est. review: 12 min
+       │   │
+  │
+  └──────────────────────────────┘   │
+  │
+          │
+  │                           ┌──── ARCHITECTURE LINE (blue)
+  ────────────────────┐      │
+  │                           │
+   │      │
+  │                           │
+   │      │
+  │         ╔═══╗         ╔═══╗         ╔═══╗         ╔═══╗         ╔═══╗
+  │      │
+  │    ═════╣ ? ╠════╦════╣ A1╠═════════╣ A2╠═════════╣ A3╠═════════╣ A4╠═══
+  │      │
+  │         ╚═══╝    ║    ╚═══╝         ╚═══╝         ╚═╤═╝         ╚═══╝
+  │      │
+  │        INTENT    ║   Single         Per-route      │ Route       Decision:
+   │      │
+  │        "why?"    ║   source         schema       Transfer      Adopt ✓
+  │      │
+  │                  ║   of truth       map            │
+   │      │
+  │                  ║                                  │
+    │      │
+  │         ── TESTING LINE (green) ──────────────────│─────────────────────
+   │      │
+  │                  ║                                  │
+    │      │
+  │                  ║    ╔═══╗         ╔═══╗         ╔═╤═╗         ╔═══╗
+   │      │
+  │                  ╠════╣ T1╠═════════╣ T2╠═════════╣ T3╠═════════╣ T4╠═══
+  │      │
+  │                  ║    ╚═══╝         ╚═══╝         ╚═══╝         ╚═══╝
+  │      │
+  │                  ║   Expired        Scope          Edge          All pass
+   │      │
+  │                  ║   token test     mismatch       cases ◐      ✓
+  │      │
+  │                  ║                  test           GAP HERE
+    │      │
+  │                  ║                                  ▲
+    │      │
+  │         ── RISK LINE (red, dashed) ───────────────│─────────────────────
+   │      │
+  │                  ║                                  │
+    │      │
+  │                  ║    ╔═══╗                        ╔═╤═╗
+    │      │
+  │                  ╚════╣ R1╠════════════════════════╣ R2╠═══ → UNRESOLVED
+   │      │
+  │                       ╚═══╝                        ╚═══╝
+   │      │
+  │                      Legacy                       Refresh
+   │      │
+  │                      tokens                       token +
+   │      │
+  │                      in prod                      mixed scope
+   │      │
+  │
+   │      │
+  │
+   │      │
+  │  ┌── STATION DETAIL (click any station) ────────────────────────────────┐
+   │      │
+  │  │                                                                      │
+   │      │
+  │  │  STATION T3: Edge Cases                                              │
+   │      │
+  │  │  ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔                                             │    │
+        │
+  │  │  Status: ◐ PARTIAL — missing refresh token scenario                  │
+   │      │
+  │  │                                                                      │
+   │      │
+  │  │  Connections:                                                        │
+   │      │
+  │  │    → A3 (Architecture: Route schema)  [TRANSFER]                     │
+   │      │
+  │  │    → R2 (Risk: Mixed scope)           [TRANSFER]                     │
+   │      │
+  │  │                                                                      │
+   │      │
+  │  │  Evidence:  auth_test.clj:112  [OPEN IN CODE]                        │
+   │      │
+  │  │  Feedback:  1 comment from @alex                                     │
+   │      │
+  │  │                                                                      │
+   │      │
+  │  │  [◁ PREV STATION]  [NEXT STATION ▷]  [SWITCH LINE]  [ADD COMMENT]   │
+  │      │
+  │  └──────────────────────────────────────────────────────────────────────┘
+   │      │
+  │
+   │      │
+  │  ── SERVICE STATUS ──────────────────────────────────────────────────────
+   │      │
+  │  🔵 Architecture Line:  RUNNING — all stations clear
+   │      │
+  │  🟢 Testing Line:       DELAYED — gap at T3
+   │      │
+  │  🔴 Risk Line:          SUSPENDED — unresolved terminal
+   │      │
+  │
+   │      │
+  └─────────────────────────────────────────────────────────────────────────────
+  ────────┘
+
+  Interaction: Click stations to see detail. "Ride" a line (auto-advance through
+   stations with animation). Transfer between lines where threads intersect. The
+   "Service Status" at the bottom gives instant review health. Delayed/Suspended
+   lines demand attention.
+
+  ---
+  VISION 3: THE GEOLOGICAL CROSS-SECTION
+
+  The change is terrain. The surface is the summary. Dig down through layers to 
+  reach bedrock (code). Each layer adds depth and detail.
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  ────────┐
+  │
+          │
+  │   DEPTH GAUGE          SURFACE: "Refactor auth for per-route validation"
+          │
+  │   ┌───┐
+         │
+  │   │ ▲ │  ~~~~ SURFACE (Summary)
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   │
+  │   │ │ │
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   │
+  │   │ │ │  ░  Three routes need distinct token validation. Global policy
+  replaced  ░   │
+  │   │ │ │  ░  with per-route schema map. Tests cover core cases. One risk
+  open.    ░   │
+  │   │ │ │
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   │
+  │   │ │ │
+          │
+  │   │ │ │  ▓▓▓▓ LAYER 1: Claims
+  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓   │
+  │   │ │ │  ▓
+     ▓   │
+  │   │ │ │  ▓  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+  ┌────────┐▓   │
+  │   │ │ │  ▓  │● source  │  │● no perf │  │◐ back-   │  │● tests   │  │◐ migr-
+   │▓   │
+  │   │ │ │  ▓  │  of truth│  │  regress │  │  compat  │  │  cover   │  │  ation
+   │▓   │
+  │   │ │ │  ▓  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘
+  └───┬────┘▓   │
+  │   │ │ │  ▓▓▓▓▓▓▓▓│▓▓▓▓▓▓▓▓▓▓▓▓│▓▓▓▓▓▓▓▓▓▓▓▓▓│▓▓▓▓▓▓▓▓▓▓▓▓▓│▓▓▓▓▓▓▓▓▓▓▓│▓▓▓▓▓
+     │
+  │   │ │ │          │             │              │              │            │
+           │
+  │   │ │ │  ████ LAYER 2: Evidence
+  █████████████████████████████████████████████████   │
+  │   │ │ │  █       │             │              │              │            │
+       █   │
+  │   │ │ │  █  ┌────▼────┐  ┌────▼────┐    ┌────▼────┐   ┌────▼────┐
+  ┌───▼────┐ █   │
+  │   │ │ │  █  │📄 mw.clj│  │▶ bench- │    │   ???   │   │🧪 auth_ │  │  ???
+  │ █   │
+  │   │ │ │  █  │  :47    │  │  mark   │    │ HOLLOW  │   │  test   │  │HOLLOW │
+   █   │
+  │   │ │ │  █  │ [DRILL] │  │  output │    │ (no     │   │  :112   │  │(no    │
+   █   │
+  │   │ │ │  █  └─────────┘  │ [DRILL] │    │  rock   │   │ [DRILL] │  │ rock  │
+   █   │
+  │   │ │ │  █               └─────────┘    │  here)  │   └─────────┘  │ here) │
+   █   │
+  │   │ │ │  █                              └─────────┘                └───────┘
+   █   │
+  │   │ │ │
+  █████████████████████████████████████████████████████████████████████   │
+  │   │ │ │
+      │
+  │   │ │ │  ▒▒▒▒ LAYER 3: Decisions ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒
+   │
+  │   │ │ │  ▒
+   ▒  │
+  │   │ │ │  ▒   ╳ Global whitelist     ╳ Per-role chains    ✓ Per-route schema
+    ▒  │
+  │   │ │ │  ▒   (fossilized)           (fossilized)          (crystallized)
+    ▒  │
+  │   │ │ │  ▒
+   ▒  │
+  │   │ │ │  ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  │
+  │   │ │ │
+      │
+  │   │ │ │  ╬╬╬╬ LAYER 4: Risks (magma) ╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬
+   │
+  │   │ │ │  ╬
+   ╬  │
+  │   │ │ │  ╬   🔥 Legacy tokens in prod       🔥 Refresh + mixed scope
+  ╬  │
+  │   │ │ │  ╬      (active, bubbling)              (active, bubbling)
+   ╬  │
+  │   │ │ │  ╬
+   ╬  │
+  │   │ ▼ │  ╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬╬  │
+  │   │   │
+      │
+  │   │ ☠ │  ▄▄▄▄ BEDROCK: Raw Code ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+   │
+  │   │   │  ▄  (defn wrap-per-route-auth [handler route-schemas] ...)
+   ▄  │
+  │   └───┘  ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄  │
+  │
+          │
+  └─────────────────────────────────────────────────────────────────────────────
+  ────────┘
+
+  Interaction: Scroll down = dig deeper. "HOLLOW" spots are evidence gaps — you 
+  can literally see holes in the rock. Click [DRILL] to tunnel into code. The 
+  depth gauge on the left tracks where you are. Risks are magma at the bottom — 
+  they bubble and glow. Rejected decisions are fossils — visible but clearly 
+  dead.
+
+  ---
+  VISION 4: THE COURTROOM
+
+  The claim is on trial. The author is presenting the case. The reviewer is the 
+  judge. Evidence is exhibits. Objections are feedback.
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  ────────┐
+  │
+          │
+  │  ╔══════════════════════════════════════════════════════════════════════════
+  ═════╗   │
+  │  ║                    COURT OF CODE REVIEW — CASE #847
+     ║   │
+  │  ║                    The People v. auth-per-route
+     ║   │
+  │  ╚══════════════════════════════════════════════════════════════════════════
+  ═════╝   │
+  │
+          │
+  │  ┌── THE BENCH (Reviewer)
+  ──────────────────────────────────────────────────────┐   │
+  │  │
+      │   │
+  │  │   Judge @alex                              VERDICT STATUS
+      │   │
+  │  │   ┌───┐                                    ┌──────────────────────┐
+      │   │
+  │  │   │👤│                                    │ ○ NOT YET REACHED    │
+     │   │
+  │  │   └───┘                                    │                      │
+      │   │
+  │  │                                            │ Exhibits reviewed:   │
+      │   │
+  │  │   [SUSTAIN]  [OVERRULE]  [REQUEST MORE]    │ 3 of 5               │
+      │   │
+  │  │                                            │ Objections: 1        │
+      │   │
+  │  │                                            └──────────────────────┘
+      │   │
+  │  └──────────────────────────────────────────────────────────────────────────
+  ────┘   │
+  │
+          │
+  │  ┌── PROSECUTION (Author's Case) ──────────┐  ┌── EVIDENCE LOCKER
+  ─────────────┐   │
+  │  │                                          │  │
+      │   │
+  │  │  OPENING STATEMENT:                      │  │  Exhibit A:
+  middleware.clj:47  │   │
+  │  │  "The existing auth system applies a     │  │
+  ┌──────────────────────────┐  │   │
+  │  │   single global policy. This is unsafe   │  │  │ (defn wrap-per-route-
+   │  │   │
+  │  │   for routes with different security     │  │  │   auth [handler schemas]
+   │  │   │
+  │  │   requirements."                         │  │  │   (fn [request] ...))
+   │  │   │
+  │  │                                          │  │
+  └──────────────────────────┘  │   │
+  │  │  CHARGES (Claims):                       │  │  Status: ADMITTED ✓
+      │   │
+  │  │                                          │  │
+      │   │
+  │  │  COUNT 1: ● "Global policy is unsafe"    │  │  ─────────────────────────
+      │   │
+  │  │    Evidence: Exhibit A, Exhibit B        │  │
+      │   │
+  │  │    Status: PROVEN ✓                      │  │  Exhibit B:
+  auth_test.clj:112  │   │
+  │  │                                          │  │
+  ┌──────────────────────────┐  │   │
+  │  │  COUNT 2: ● "Per-route is fast enough"   │  │  │ (deftest expired-token-
+   │  │   │
+  │  │    Evidence: Exhibit C                   │  │  │   per-route-test ...
+   │  │   │
+  │  │    Status: PROVEN ✓                      │  │
+  └──────────────────────────┘  │   │
+  │  │                                          │  │  Status: ADMITTED ✓
+      │   │
+  │  │  COUNT 3: ◐ "All edge cases covered"     │  │
+      │   │
+  │  │    Evidence: Exhibit B (partial)         │  │  ─────────────────────────
+      │   │
+  │  │    Status: CHALLENGED ⚡                 │  │
+      │   │
+  │  │                                          │  │  Exhibit C: bench.txt
+      │   │
+  │  │  COUNT 4: ◐ "Migration is safe"          │  │
+  ┌──────────────────────────┐  │   │
+  │  │    Evidence: NONE PRESENTED              │  │  │ p99 latency: 2ms
+  │  │   │
+  │  │    Status: UNSUBSTANTIATED               │  │  │ throughput: 12k rps
+  │  │   │
+  │  │                                          │  │
+  └──────────────────────────┘  │   │
+  │  └──────────────────────────────────────────┘  │  Status: ADMITTED ✓
+      │   │
+  │                                                 │
+       │   │
+  │  ┌── OBJECTIONS (Feedback) ────────────────┐   │  ─────────────────────────
+      │   │
+  │  │                                          │   │
+       │   │
+  │  │  OBJECTION #1 — @alex, 2 min ago        │   │  Exhibit D: ???
+      │   │
+  │  │  ┌──────────────────────────────────┐   │   │
+  ┌──────────────────────────┐  │   │
+  │  │  │ "Objection! Count 3 claims all   │   │   │  │
+   │  │   │
+  │  │  │  edge cases are covered, but no  │   │   │  │  NOT YET SUBMITTED
+   │  │   │
+  │  │  │  exhibit shows refresh token +   │   │   │  │
+   │  │   │
+  │  │  │  mixed scope testing."           │   │   │  │  Required for Count 4
+   │  │   │
+  │  │  │                                  │   │   │  │
+   │  │   │
+  │  │  │  Affects: Count 3               │   │   │
+  └──────────────────────────┘  │   │
+  │  │  │  [SUSTAIN]  [OVERRULE]  [REPLY]  │   │   │
+      │   │
+  │  │  └──────────────────────────────────┘   │
+  └────────────────────────────────┘   │
+  │  │                                          │
+          │
+  │  └──────────────────────────────────────────┘
+          │
+  │
+          │
+  │  ┌── PRIOR ART (Rejected Alternatives)
+  ────────────────────────────────────────┐   │
+  │  │  Case 1: Global Whitelist — DISMISSED (rigid, doesn't scale)
+     │   │
+  │  │  Case 2: Per-Role Chains  — DISMISSED (N+1 middleware calls)
+     │   │
+  │  └──────────────────────────────────────────────────────────────────────────
+  ───┘   │
+  │
+          │
+  │  ═══════════════════════════════════════════════════════════════════════════
+  ═══════   │
+  │  [RENDER VERDICT]   APPROVE ✓ │ REQUEST CHANGES ✗ │ CONTINUE DELIBERATION ◐
+        │
+  │  ═══════════════════════════════════════════════════════════════════════════
+  ═══════   │
+  └─────────────────────────────────────────────────────────────────────────────
+  ────────┘
+
+  Interaction: Click "SUSTAIN" on an objection — the corresponding claim's 
+  status changes and the author is prompted to submit more evidence. "OVERRULE" 
+  dismisses the objection. The verdict button only activates when all counts are
+   either PROVEN or explicitly ACCEPTED WITH RISK.
+
+  ---
+  VISION 5: THE MUSIC SCORE
+
+  Time flows left-to-right. Different "instruments" play simultaneously: code 
+  changes, tests, decisions, risks. You read the score of the engineering 
+  session.
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  ────────┐
+  │  SCORE: "Auth Refactor in D Minor"                     ♩ = 1 commit   BPM:
+  12/hr  │
+  │  Composer: @sid    Opus: PR #847    Duration: 2 hours
+          │
+  │═════════════════════════════════════════════════════════════════════════════
+  ════════│
+  │
+          │
+  │  TIME ──▶   0:00    0:15     0:30     0:45     1:00     1:15     1:30
+  1:45  NOW  │
+  │
+  ─────────┬─────────┬────────┬────────┬────────┬────────┬────────┬───────┬─────
+       │
+  │           │         │        │        │        │        │        │       │
+           │
+  │  CODE  ♪  │    ♩    │   ♩♩   │  ♩♩♩   │        │   ♩    │        │       │
+           │
+  │  changes  │  start  │ schema │ route  │  rest  │ error  │        │       │
+           │
+  │           │  refact │  map   │ valid  │        │ bodies │        │       │
+           │
+  │
+  ─────────┼─────────┼────────┼────────┼────────┼────────┼────────┼───────┼─────
+       │
+  │           │         │        │        │        │        │        │       │
+           │
+  │  TESTS 🧪 │         │        │   ♩    │   ♩    │   ♩♩   │        │  ♩    │
+           │
+  │           │         │        │ expire │ scope  │ edge   │        │ final │
+           │
+  │           │         │        │  test  │  test  │ cases  │        │ pass! │
+           │
+  │
+  ─────────┼─────────┼────────┼────────┼────────┼────────┼────────┼───────┼─────
+       │
+  │           │         │        │        │        │        │        │       │
+           │
+  │  DECIDE   │         │   ╳    │        │   ╳    │        │   ✓    │       │
+           │
+  │  ✓/╳      │         │ reject │        │ reject │        │ adopt  │       │
+           │
+  │           │         │ global │        │ per-   │        │ per-   │       │
+           │
+  │           │         │ w.list │        │ role   │        │ route  │       │
+           │
+  │
+  ─────────┼─────────┼────────┼────────┼────────┼────────┼────────┼───────┼─────
+       │
+  │           │         │        │        │        │        │        │       │
+           │
+  │  RISK  ⚠  │         │        │        │  ~~~~~~~~~~~~~~~~~~~~~~~~
+  ▓▓▓▓▓▓│▓▓▓▓▓     │
+  │  (sustain)│         │        │        │  legacy tokens concern     OPEN
+  │still      │
+  │           │         │        │        │
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│░░░░░      │
+  │           │         │        │        │        │        │
+  ~~~~~~│~~~~~~~│~~~~~      │
+  │           │         │        │        │        │        │ refresh│mixed
+  │scope      │
+  │           │         │        │        │        │        │        │  OPEN │
+           │
+  │
+  ─────────┼─────────┼────────┼────────┼────────┼────────┼────────┼───────┼─────
+       │
+  │           │         │        │        │        │        │        │       │
+           │
+  │  CONFID-  │         │        │        │        │        │        │       │
+           │
+  │  ENCE     │▁        │▁▂      │▂▃      │▃▄      │▅▆      │▆▇      │▇▆     │▆▅
+          │
+  │  METER    │         │        │        │        │        │        │  ↓    │ ↓
+           │
+  │           │         │        │        │        │        │        │ @alex
+  │objection  │
+  │           │         │        │        │        │        │        │ joins
+  │filed      │
+  │
+  ─────────┴─────────┴────────┴────────┴────────┴────────┴────────┴───────┴─────
+       │
+  │
+          │
+  │  ▶ PLAY   ⏸ PAUSE   ◀◀ REWIND   ▶▶ FAST-FWD   🔍 ZOOM IN MEASURE   🔁 LOOP
+       │
+  │
+          │
+  │  NOW PLAYING: Measure 14 — "Edge case tests written, risk emerges"
+          │
+  │  Click any note ♩ to see the commit/evidence/decision at that moment
+          │
+  │
+          │
+  └─────────────────────────────────────────────────────────────────────────────
+  ────────┘
+
+  Interaction: Hit PLAY and the score plays forward — you watch the engineering 
+  session unfold in fast-forward. Each note is clickable, expanding to show the 
+  commit/test/decision. The CONFIDENCE METER at the bottom is a continuous 
+  waveform. You can literally hear the rhythm of work — clusters of notes = 
+  intense activity, gaps = thinking time.
+
+  ---
+  VISION 6: THE NEWSPAPER
+
+  "Extra! Extra! Read all about it!" The review is a newspaper. Headlines grab 
+  attention. You read deeper only if you care.
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  ────────┐
+  │ ╔═══════════════════════════════════════════════════════════════════════════
+  ════════╗│
+  │ ║
+  ┌───────────────────────────────────────────────────────────────────────────┐
+    ║│
+  │ ║ │                    THE DAILY DIFF
+   │   ║│
+  │ ║ │            "All the Code That's Fit to Ship"
+   │   ║│
+  │ ║ │
+   │   ║│
+  │ ║ │   Vol. CXLVII No. 847        Thursday, Feb 13, 2026         EDITION: PR
+   │   ║│
+  │ ║
+  └───────────────────────────────────────────────────────────────────────────┘
+    ║│
+  │ ║
+        ║│
+  │ ║ ┌── ABOVE THE FOLD
+  ──────────────────────────────────────────────────────────┐  ║│
+  │ ║ │
+     │  ║│
+  │ ║ │  AUTH MIDDLEWARE OVERHAULED:
+      │  ║│
+  │ ║ │  PER-ROUTE VALIDATION REPLACES
+     │  ║│
+  │ ║ │  GLOBAL POLICY
+     │  ║│
+  │ ║ │
+     │  ║│
+  │ ║ │  Three routes gain independent token    │ QUICK STATS
+     │  ║│
+  │ ║ │  validation, ending months of security  │ ─────────────
+     │  ║│
+  │ ║ │  workarounds. Author @sid delivers      │ Files changed: 3
+     │  ║│
+  │ ║ │  schema-based approach after evaluating │ Lines: +47 / -12
+     │  ║│
+  │ ║ │  two alternatives.                      │ Tests: 4 new
+     │  ║│
+  │ ║ │                                         │ Risk level: MEDIUM
+     │  ║│
+  │ ║ │  [CONTINUED ON PAGE 2...]               │ Confidence: 72%
+     │  ║│
+  │ ║ │                                         │ Review time est: ~12m
+     │  ║│
+  │ ║
+  └─────────────────────────────────────────┴──────────────────────────────────┘
+    ║│
+  │ ║
+        ║│
+  │ ║ ┌── SECTION A: WHAT CHANGED ─────────┐  ┌── SECTION B: WHY
+  ──────────────────┐ ║│
+  │ ║ │                                     │  │
+      │ ║│
+  │ ║ │  middleware.clj ── Major overhaul   │  │  REJECTED: "Global Whitelist"
+      │ ║│
+  │ ║ │  New: wrap-per-route-auth fn        │  │  Rigid. Doesn't scale beyond 5
+     │ ║│
+  │ ║ │  New: validate-token multi-method   │  │  routes without becoming a rats
+     │ ║│
+  │ ║ │  Removed: valid-token? predicate    │  │  nest of conditionals.
+     │ ║│
+  │ ║ │                                     │  │
+      │ ║│
+  │ ║ │  [VIEW FULL DIFF]                   │  │  REJECTED: "Per-Role Chains"
+     │ ║│
+  │ ║ │                                     │  │  N+1 middleware calls.
+  Benchmark   │ ║│
+  │ ║ │  ─────────────────────────────      │  │  showed 3x latency increase on
+     │ ║│
+  │ ║ │                                     │  │  hot paths.
+      │ ║│
+  │ ║ │  auth_test.clj ── 4 new tests      │  │
+     │ ║│
+  │ ║ │  Covers: expired, scope mismatch,   │  │  CHOSEN: "Per-Route Schema Map"
+     │ ║│
+  │ ║ │  malformed, valid token paths       │  │  Composable. Testable. O(1)
+     │ ║│
+  │ ║ │                                     │  │  lookup per request.
+     │ ║│
+  │ ║ │  [VIEW FULL DIFF]                   │  │
+      │ ║│
+  │ ║ └─────────────────────────────────────┘
+  └────────────────────────────────────┘ ║│
+  │ ║
+        ║│
+  │ ║ ┌── EDITORIAL: RISKS & UNKNOWNS
+  ────────────────────────────────────────────┐  ║│
+  │ ║ │
+     │  ║│
+  │ ║ │  ⚠ OPINION: TWO RISKS DEMAND ATTENTION BEFORE MERGE
+    │  ║│
+  │ ║ │
+     │  ║│
+  │ ║ │  1. Legacy tokens in production may not conform to new schema format.
+     │  ║│
+  │ ║ │     No migration plan presented. [SEE EVIDENCE GAP]
+     │  ║│
+  │ ║ │
+     │  ║│
+  │ ║ │  2. Refresh tokens with mixed scopes are untested. @alex has filed
+     │  ║│
+  │ ║ │     a formal objection. [READ OBJECTION]
+     │  ║│
+  │ ║ │
+     │  ║│
+  │ ║
+  └────────────────────────────────────────────────────────────────────────────┘
+    ║│
+  │ ║
+        ║│
+  │ ║ ┌── LETTERS TO THE EDITOR (Comments)
+  ───────────────────────────────────────┐  ║│
+  │ ║ │
+     │  ║│
+  │ ║ │  @alex writes: "What about refresh tokens with mixed scopes? I don't
+    │  ║│
+  │ ║ │  see that case in the test suite."
+     │  ║│
+  │ ║ │                                                             [REPLY]
+     │  ║│
+  │ ║
+  └────────────────────────────────────────────────────────────────────────────┘
+    ║│
+  │ ║
+        ║│
+  │ ║  [APPROVE: ✓ SHIP IT]    [CHANGES REQUESTED: ✗ HOLD THE PRESS]
+       ║│
+  │ ╚═══════════════════════════════════════════════════════════════════════════
+  ════════╝│
+  └─────────────────────────────────────────────────────────────────────────────
+  ────────┘
+
+  Interaction: It reads like a newspaper. Above the fold = instant summary. 
+  Sections unfold below. "CONTINUED ON PAGE 2" = progressive disclosure. 
+  "Letters to the Editor" = comments. The Editorial section is where risks get 
+  op-ed treatment — opinionated, attention-grabbing.
+
+  ---
+  VISION 7: THE SPACE STATION MISSION CONTROL
+
+  Every change is a mission. Claims are subsystems. Evidence is telemetry. Risks
+   are warnings. GO/NO-GO for launch.
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  ────────┐
+  │  ╔══════════════════════════════════════════════════════════════════════════
+  ═════╗   │
+  │  ║  MISSION CONTROL — OPERATION AUTH-REFACTOR          T-00:00:00 HOLD
+     ║   │
+  │  ╚══════════════════════════════════════════════════════════════════════════
+  ═════╝   │
+  │
+          │
+  │  ┌── MISSION BRIEF ──────────────────────────┐  ┌── SUBSYSTEM STATUS
+  ──────────┐   │
+  │  │  Mission: Per-route token validation      │  │
+     │   │
+  │  │  Commander: @sid                          │  │  SYS-01 SOURCE-OF-TRUTH
+     │   │
+  │  │  Flight Director: @alex                   │  │  ████████████████  GO ✓
+     │   │
+  │  │  Branch: auth-per-route                   │  │
+     │   │
+  │  │  Payload: +47 / -12 lines                 │  │  SYS-02 PERFORMANCE
+     │   │
+  │  └───────────────────────────────────────────┘  │  ████████████████  GO ✓
+     │   │
+  │                                                  │
+      │   │
+  │  ┌── TELEMETRY ──────────────────────────────┐  │  SYS-03 BACK-COMPAT
+     │   │
+  │  │                                            │  │  ████████░░░░░░░░
+  CAUTION ◐│   │
+  │  │  TEST COVERAGE      ▓▓▓▓▓▓▓▓▓▓▓▓░░  85%  │  │
+    │   │
+  │  │  CONFIDENCE INDEX   ▓▓▓▓▓▓▓▓▓░░░░░  72%  │  │  SYS-04 TEST-COVERAGE
+    │   │
+  │  │  RISK EXPOSURE      ▓▓▓▓░░░░░░░░░░  28%  │  │  ████████████░░░░  CAUTION
+  ◐│   │
+  │  │  DECISION CLARITY   ▓▓▓▓▓▓▓▓▓▓▓▓▓▓  98%  │  │
+    │   │
+  │  │  EVIDENCE DENSITY   ▓▓▓▓▓▓▓▓▓░░░░░  68%  │  │  SYS-05 MIGRATION
+    │   │
+  │  │                                            │  │  ████░░░░░░░░░░░░  NO-GO
+  ✗  │   │
+  │  └────────────────────────────────────────────┘  │
+      │   │
+  │
+  └──────────────────────────────┘   │
+  │  ┌── WARNING BOARD
+  ──────────────────────────────────────────────────────────┐      │
+  │  │
+    │      │
+  │  │  ⚠ WARN-01  T-12m  Legacy tokens in prod — no migration plan
+  │      │
+  │  │             ▸ Affects: SYS-03, SYS-05
+    │      │
+  │  │             ▸ Severity: MEDIUM    ▸ Status: OPEN
+    │      │
+  │  │             ▸ [ACKNOWLEDGE]  [CREATE ACTION ITEM]  [WAIVE]
+    │      │
+  │  │
+    │      │
+  │  │  ⚠ WARN-02  T-2m   Refresh + mixed scope untested — filed by @alex
+  │      │
+  │  │             ▸ Affects: SYS-04
+    │      │
+  │  │             ▸ Severity: HIGH      ▸ Status: OPEN
+    │      │
+  │  │             ▸ [ACKNOWLEDGE]  [CREATE ACTION ITEM]  [WAIVE]
+    │      │
+  │  │
+    │      │
+  │
+  └────────────────────────────────────────────────────────────────────────────┘
+        │
+  │
+          │
+  │  ┌── FLIGHT LOG (Decisions)
+  ────────────────────────────────────────────────┐       │
+  │  │  T-1:45  DECISION  Rejected global whitelist approach (rigid,
+  unscalable)│       │
+  │  │  T-0:45  DECISION  Rejected per-role chains (3x latency hit)            │
+         │
+  │  │  T-0:30  DECISION  Adopted per-route schema map (composable, O(1))      │
+         │
+  │  │  T-0:02  ANOMALY   @alex reports missing test case                      │
+         │
+  │  └─────────────────────────────────────────────────────────────────────────┘
+         │
+  │
+          │
+  │  ╔══════════════════════════════════════════════════════════════════════════
+  ═════╗   │
+  │  ║  LAUNCH AUTHORIZATION
+     ║   │
+  │  ║
+     ║   │
+  │  ║  GO:    SYS-01 ✓   SYS-02 ✓
+    ║   │
+  │  ║  HOLD:  SYS-03 ◐   SYS-04 ◐
+    ║   │
+  │  ║  NO-GO: SYS-05 ✗
+     ║   │
+  │  ║
+     ║   │
+  │  ║         ┌──────────────────┐  ┌───────────────────┐  ┌──────────────────┐
+     ║   │
+  │  ║         │  ✓ GO FOR LAUNCH │  │ ◐ HOLD FOR REVIEW │  │  ✗ SCRUB LAUNCH  │
+     ║   │
+  │  ║         └──────────────────┘  └───────────────────┘  └──────────────────┘
+     ║   │
+  │  ╚══════════════════════════════════════════════════════════════════════════
+  ═════╝   │
+  └─────────────────────────────────────────────────────────────────────────────
+  ────────┘
+
+  Interaction: Each subsystem is clickable — drills into its claims + evidence. 
+  The Warning Board has real-time alerts. GO/HOLD/NO-GO propagates from 
+  subsystem status — you can't launch with a NO-GO. The Flight Log is an 
+  immutable append-only timeline. WAIVE lets you accept a risk explicitly (with 
+  sign-off recorded).
+
+  ---
+  VISION 8: THE MIND MAP / NEURAL NETWORK
+
+  The reasoning is literally a brain. Neurons are claims. Synapses are evidence 
+  links. Firing neurons = strong evidence. Dark neurons = gaps.
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  ────────┐
+  │
+          │
+  │                         N E U R A L   R E V I E W
+          │
+  │
+          │
+  │                                 ╭─────╮
+          │
+  │                                 │  ?  │
+          │
+  │                           ╭─────│INTENT│─────╮
+          │
+  │                           │     │     │     │
+          │
+  │                           │     ╰──┬──╯     │
+          │
+  │                           │        │        │
+          │
+  │                     ══════╪════════╪════════╪══════
+           │
+  │                    ╱      │        │        │      ╲
+           │
+  │               ╭────╮  ╭───▼──╮  ╭──▼───╮  ╭▼─────╮  ╭────╮
+         │
+  │           ┌───┤ C1 ├──┤ C2   ├──┤ C3   ├──┤ C4   ├──┤ C5 │───┐
+         │
+  │           │   │    │  │      │  │      │  │      │  │    │   │
+         │
+  │           │   │ ██ │  │ ██   │  │ ▓▓   │  │ ██   │  │ ▓▓ │   │
+         │
+  │           │   │ ██ │  │ ██   │  │ ░░   │  │ ██   │  │ ░░ │   │
+         │
+  │           │   ╰─┬──╯  ╰──┬──╯  ╰──┬──╯  ╰──┬──╯  ╰──┬─╯   │
+      │
+  │           │     │  ╲      │  ╲     │        │╱       ╱│     │
+        │
+  │           │     │   ╲     │   ╲    │       ╱│      ╱  │     │
+        │
+  │           │     │    ╲    │    ╲   │     ╱  │    ╱    │     │
+        │
+  │           │  ╭──▼──╮ ╭▼───▼╮ ╭─▼──▼╮ ╭─▼──▼╮ ╭▼───╮     │
+    │
+  │           │  │ E1  │ │ E2  │ │ E3  │ │ E4  │ │ E5 │     │
+       │
+  │           │  │     │ │     │ │     │ │     │ │    │     │
+       │
+  │           │  │ ⚡⚡ │ │ ⚡⚡ │ │     │ │ ⚡⚡ │ │    │     │
+          │
+  │           │  │FIRE │ │FIRE │ │DARK │ │FIRE │ │DARK│     │
+       │
+  │           │  │     │ │     │ │     │ │     │ │    │     │
+       │
+  │           │  │code │ │bench│ │ --- │ │test │ │--- │     │
+       │
+  │           │  │ :47 │ │mark │ │     │ │:112 │ │    │     │
+       │
+  │           │  ╰─────╯ ╰─────╯ ╰─────╯ ╰─────╯ ╰────╯     │
+       │
+  │           │                                                │
+          │
+  │           │              SYNAPSE MAP                       │
+          │
+  │           │   ═══ strong (proven)                          │
+          │
+  │           │   ─── moderate (partial)                       │
+          │
+  │           │   ┄┄┄ weak (unproven)                          │
+          │
+  │           │   ⚡⚡ firing (evidence confirms)               │
+           │
+  │           │   DARK (no signal — evidence gap)              │
+          │
+  │           │                                                │
+          │
+  │           │     ╭──────╮          ╭──────╮                 │
+          │
+  │           └─────┤ D1 ✗ ├──────────┤ D2 ✗ ├─────────────────┘
+          │
+  │                 │reject│          │reject│        ╭──────╮
+           │
+  │                 │global│          │per-  │────────┤ D3 ✓ │
+           │
+  │                 │      │          │role  │        │adopt │
+           │
+  │                 ╰──────╯          ╰──────╯        │route │
+           │
+  │                  (dead)            (dead)          ╰──────╯
+            │
+  │                                                  (active!)
+           │
+  │
+          │
+  │         ╭───────────────────────────────────────────╮
+           │
+  │         │  NEURAL ACTIVITY: 68%                     │
+           │
+  │         │  ██████████████████████░░░░░░░░░░          │
+            │
+  │         │  2 dark neurons — review cannot complete   │
+            │
+  │         │  until they fire or are explicitly pruned  │
+            │
+  │         ╰───────────────────────────────────────────╯
+           │
+  │
+          │
+  │  [STIMULATE DARK NEURON]   [PRUNE]   [VIEW FULL NETWORK]   [RENDER VERDICT]
+          │
+  └─────────────────────────────────────────────────────────────────────────────
+  ────────┘
+
+  Interaction: Hover a neuron — all its synapses glow. Dark neurons pulse to 
+  draw attention. "Stimulate" = request evidence from the author. "Prune" = mark
+   as not needed. The neural activity percentage is your review confidence. In 
+  WebGPU this would be GORGEOUS — animated pulses traveling along synapse lines,
+   firing animations, particle effects on dark neurons.
+
+  ---
+  VISION 9: THE COMIC BOOK / STORYBOARD
+
+  The change is told as a story. Each panel is a step in the reasoning. The 
+  reviewer reads it like a comic.
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  ────────┐
+  │
+          │
+  │   ╔═════════════════════════════════════════════════════════════════════════
+  ═════╗   │
+  │   ║                    THE ADVENTURES OF PR #847
+     ║   │
+  │   ║              "THE AUTH REFACTOR SAGA"    by @sid
+      ║   │
+  │   ╚═════════════════════════════════════════════════════════════════════════
+  ═════╝   │
+  │
+          │
+  │   ┌─── PANEL 1 ────────────────┐  ┌─── PANEL 2
+  ────────────────────────────────┐   │
+  │   │                             │  │
+      │   │
+  │   │   THE PROBLEM               │  │   THE FIRST ATTEMPT
+      │   │
+  │   │   ═══════════               │  │   ═══════════════════
+      │   │
+  │   │                             │  │
+      │   │
+  │   │   ┌─────────────────┐       │  │    "What if we just   ┌──────────────┐
+      │   │
+  │   │   │  GLOBAL AUTH    │       │  │     whitelist every-   │ WHITELIST    │
+       │   │
+  │   │   │  ┌──┐┌──┐┌──┐  │       │  │     thing?"           │ /api/admin ✓ │
+     │   │
+  │   │   │  │✓ ││✓ ││✓ │  │       │  │                       │ /api/user  ✓ │
+     │   │
+  │   │   │  └──┘└──┘└──┘  │       │  │    ╭──────────╮       │ /api/pub   ✓ │
+     │   │
+  │   │   │  ALL SAME RULE  │       │  │    │  @sid    │       │ /api/...  ✓  │
+      │   │
+  │   │   └─────────────────┘       │  │    │  😰      │       │ (100 more)   │
+      │   │
+  │   │                             │  │    ╰──────────╯       └──────────────┘
+      │   │
+  │   │    "One policy to          │  │
+     │   │
+  │   │     rule them all...       │  │     ╳ REJECTED — doesn't scale!
+     │   │
+  │   │     what could go wrong?"  │  │
+     │   │
+  │   │                             │  │
+      │   │
+  │   └─────────────────────────────┘
+  └────────────────────────────────────────────┘   │
+  │
+          │
+  │   ┌─── PANEL 3 ────────────────┐  ┌─── PANEL 4
+  ────────────────────────────────┐   │
+  │   │                             │  │
+      │   │
+  │   │   THE SECOND ATTEMPT        │  │   THE SOLUTION
+      │   │
+  │   │   ══════════════════        │  │   ════════════
+       │   │
+  │   │                             │  │
+      │   │
+  │   │   "Chain middleware         │  │    ┌─────────────────────────────┐
+       │   │
+  │   │    per role!"               │  │    │  ROUTE SCHEMA MAP          │
+      │   │
+  │   │                             │  │    │                             │
+       │   │
+  │   │   req → [auth] → [role] →  │  │    │  /api/admin → {:scopes     │
+     │   │
+  │   │       → [scope] → [rate]   │  │    │                ["admin"]}   │
+      │   │
+  │   │       → [log] → handler    │  │    │  /api/user  → {:scopes     │
+     │   │
+  │   │                             │  │    │                ["read"]}   │
+      │   │
+  │   │    BENCHMARK:               │  │    │  /api/pub   → :public     │
+     │   │
+  │   │    p99: 6ms (was 2ms)      │  │    └─────────────────────────────┘
+      │   │
+  │   │                             │  │
+      │   │
+  │   │    ╭──────────╮             │  │    ╭──────────╮  "O(1) lookup.
+      │   │
+  │   │    │  @sid    │             │  │    │  @sid    │   Composable.
+      │   │
+  │   │    │  😱      │             │  │    │  😎      │   Testable."
+     │   │
+  │   │    ╰──────────╯             │  │    ╰──────────╯
+      │   │
+  │   │                             │  │
+      │   │
+  │   │    ╳ REJECTED — 3x slower! │  │    ✓ ADOPTED!
+     │   │
+  │   │                             │  │
+      │   │
+  │   └─────────────────────────────┘
+  └────────────────────────────────────────────┘   │
+  │
+          │
+  │   ┌─── PANEL 5 ────────────────┐  ┌─── PANEL 6
+  ────────────────────────────────┐   │
+  │   │                             │  │
+      │   │
+  │   │   THE EVIDENCE              │  │   THE CLIFFHANGER
+      │   │
+  │   │   ════════════              │  │   ═══════════════
+       │   │
+  │   │                             │  │
+      │   │
+  │   │   ✓ Expired token → 401   │  │    ╭──────────╮
+     │   │
+  │   │   ✓ Wrong scope → 403     │  │    │  @alex   │
+     │   │
+  │   │   ✓ Valid token → 200     │  │    │  🤔      │
+     │   │
+  │   │   ✓ Malformed → 401       │  │    ╰──────────╯
+     │   │
+  │   │                             │  │
+      │   │
+  │   │   ╭──────────╮              │  │    "But what about refresh tokens
+      │   │
+  │   │   │  @sid    │              │  │     with mixed scopes...?"
+      │   │
+  │   │   │  💪      │              │  │
+      │   │
+  │   │   ╰──────────╯              │  │    ⚠ LEGACY TOKENS IN PROD
+     │   │
+  │   │                             │  │    ⚠ MIXED SCOPE UNTESTED
+     │   │
+  │   │   "Ship it?"                │  │
+      │   │
+  │   │                             │  │    TO BE CONTINUED...
+      │   │
+  │   │   [VIEW TEST CODE]          │  │    [ADDRESS RISKS]  [APPROVE ANYWAY]
+      │   │
+  │   └─────────────────────────────┘
+  └────────────────────────────────────────────┘   │
+  │
+          │
+  │   ◀ PREV PAGE    PAGE 1 of 1    NEXT PAGE ▶    [FULL DIFF VIEW]    [VERDICT]
+         │
+  │
+          │
+  └─────────────────────────────────────────────────────────────────────────────
+  ────────┘
+
+  Interaction: Panels scroll horizontally like a comic reader. Each panel is a 
+  beat in the story. Click any panel to expand — code appears inline. The 
+  CLIFFHANGER panel is where risks live. "TO BE CONTINUED" literally blocks the 
+  merge until resolved. The emoji faces track the author's journey — making the 
+  human experience visible.
+
+  ---
+  VISION 10: THE LIVING TREE
+
+  The change grows like a tree. The trunk is intent. Branches are claims. Leaves
+   are evidence. Dead branches are rejected alternatives. Fruit = decisions. Rot
+   = risks.
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  ────────┐
+  │
+          │
+  │                            THE REASONING TREE
+          │
+  │                         PR #847 — Auth Refactor
+          │
+  │
+          │
+  │
+          │
+  │              🍎 Decision:                      🍎 Decision:
+          │
+  │              Adopt per-route                   All tests pass
+           │
+  │                  │                                 │
+           │
+  │              ┌───┴───┐                         ┌───┴───┐
+           │
+  │             ╱│ 🌿🌿🌿│╲                       ╱│ 🌿🌿  │╲
+           │
+  │            ╱ │evidence│ ╲                     ╱ │evidence│ ╲
+  ╭───────────╮    │
+  │           ╱  │ rich!  │  ╲                  ╱  │partial!│  ╲        │ 🍂
+  RISK   │    │
+  │          ╱   └───┬────┘   ╲               ╱   └───┬────┘   ╲       │ Legacy
+     │    │
+  │         ╱        │         ╲             ╱        │         ╲      │ tokens
+     │    │
+  │  ┌──────┴──┐ ┌───┴────┐ ┌──┴──────┐  ┌─┴──────┐ ┌┴───────┐ ╲     │ (rotting
+   │    │
+  │  │🌿 code  │ │🌿 bench│ │🌿 test  │  │🌿 test │ │ 🍂     │  ╲    │  branch)
+   │    │
+  │  │mw.clj:47│ │p99=2ms │ │expired  │  │scope   │ │ GAP!   │   ╲
+  ╰───────────╯    │
+  │  └────┬────┘ └────┬───┘ └────┬────┘  └───┬────┘ │refresh │    ╲       ╱
+         │
+  │       │           │          │            │      │token   │     ╲     ╱
+          │
+  │       │           │          │            │      │missing │      ╲   ╱
+          │
+  │       │           │          │            │      └────────┘       ╲ ╱
+          │
+  │       │           │          │            │          ▲             ╳
+           │
+  │       │           │          │            │          │           ╱   ╲
+           │
+  │       ╰───────────┴──────────┴────────────╯          │         ╱     ╲
+          │
+  │                       │                              │        ╱       ╲
+          │
+  │                       │                              │       ╱  ╭─────╮╲
+          │
+  │                  ┌────┴────────────────────────────────┴──────┤  │🍂RISK│ │
+            │
+  │                  │                                           │  │mixed │ │
+           │
+  │                  │            T  R  U  N  K                  │  │scope │ │
+           │
+  │                  │                                           │  ╰─────╯ │
+          │
+  │                  │    INTENT: "Per-route token validation"   │          │
+          │
+  │                  │                                           │          │
+          │
+  │                  └──────────────────────────┬─────────────────┘          │
+           │
+  │                                            │                            │
+          │
+  │                                            │                            │
+          │
+  │                   ╱╲                       │                            │
+          │
+  │             ┌────╱──╲────┐                 │                            │
+          │
+  │             │  ╱ 🪵  ╲   │                 │                            │
+          │
+  │             │ ╱DEAD    ╲ │ ┌───────────────┤                            │
+          │
+  │             │╱ BRANCH   ╲│ │  🪵 DEAD      │                            │
+          │
+  │             │  "global   │ │  BRANCH       │                            │
+          │
+  │             │  whitelist"│ │  "per-role     │                            │
+           │
+  │             │  (cut off, │ │   chains"     │                            │
+          │
+  │             │   stump    │ │  (cut off,    │                            │
+          │
+  │             │   visible) │ │   stump       │                            │
+          │
+  │             └────────────┘ │   visible)    │                            │
+          │
+  │                            └───────────────┘                            │
+          │
+  │                                                                         │
+          │
+  │  ════════════════════════════════════════════════════════════════════════│══
+  ═════    │
+  │                               R O O T S                                 │
+          │
+  │                                                                         │
+          │
+  │            ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
+          │
+  │            │ Issue #312   │  │ Security     │  │ @sid's       │         │
+          │
+  │            │ "route-level │  │ audit Q3     │  │ experience   │         │
+          │
+  │            │  auth needed"│  │ finding      │  │ with auth    │         │
+          │
+  │            └──────────────┘  └──────────────┘  └──────────────┘         │
+          │
+  │
+          │
+  │  TREE HEALTH: ██████████████░░░░░░ 72%    DEAD BRANCHES: 2    ROT: 2 spots
+         │
+  │
+          │
+  │  [WATER TREE (add evidence)]  [PRUNE (remove risk)]  [HARVEST (approve)]
+          │
+  └─────────────────────────────────────────────────────────────────────────────
+  ────────┘
+
+  Interaction: In WebGPU this would be an actual animated tree — it sways, 
+  leaves rustle, fruit glows. Dead branches are grey stumps. Rotting spots pulse
+   red. Click any branch to see its evidence. "Water" = request more evidence. 
+  "Prune" = close a risk. "Harvest" = approve. The ROOTS section shows the 
+  origin context — why does this tree exist? The tree literally GROWS as you 
+  watch the temporal playback.
+
+  ---
+  ★ Insight ─────────────────────────────────────
+  The common thread across all 10 visions:
+
+  1. Every design makes GAPS visible — whether it's hollow rock, dark neurons,
+  cold cases, dead branches, or NO-GO subsystems. The most powerful feature
+  isn't showing what's there — it's making what's MISSING impossible to ignore.
+  2. Every design has a "verdict gate" — you can't approve until conditions are
+  met. The Crime Board needs all leads resolved. The Metro needs all stations
+  clear. Mission Control needs all subsystems GO. This turns review from "read
+  and click approve" into "achieve confidence."
+  3. Metaphor choice changes behavior — the Newspaper encourages speed-reading.
+  The Courtroom encourages adversarial rigor. The Tree encourages nurturing. The
+   Metro encourages systematic traversal. The right metaphor for your team IS
+  the product decision.
+  4. All of these are buildable on your stack — WebGPU gives you the canvas.
+  Rama gives you the event log. Missionary gives you the reactivity. The only
+  question is: which metaphor best serves the cognitive flow of a developer
+  doing review?
+  ─────────────────────────────────────────────────
+
+● Read 1 file (ctrl+o to expand)
+
+● Write(nxt_stp/ui-visions/10-wild-ui-concepts.md)
+  ⎿  Wrote 803 lines to nxt_stp/ui-visions/10-wild-ui-concepts.md
+      1 # 10 Wild UI Visions for Threaded Engineering Workspace
+      2 ## Generated 2026-02-15 from design brief
+      3 
+      4 Each vision is a genuinely distinct metaphor and interaction mode
+        l for the same core problem:
+      5 **Navigate code changes as structured reasoning threads (intent -
+        > claims -> evidence -> decisions -> risks)**
+      6 
+      7 ---
+      8 
+      9 ## VISION 1: THE CRIME BOARD
+     … +793 lines (ctrl+o to expand)
+
+● Saved to nxt_stp/ui-visions/10-wild-ui-concepts.md — the full document with
+  all 10 visions, interaction models, strengths/weaknesses analysis, and the
+  cross-cutting comparison table at the bottom.
+
+  ★ Insight ─────────────────────────────────────
+  I also added a buildability section and a behavior comparison table at the end
+   — because the choice of metaphor isn't aesthetic, it's behavioral. The
+  Courtroom makes people rigorous but slow. The Newspaper makes people fast but
+  shallow. The right metaphor IS the product decision. The file is structured so
+   you can share individual visions or the whole set.
+  ─────────────────────────────────────────────────
+
+✻ Churned for 4m 59s
+
+❯ can we visualise 4 and 6 using discourse graphs nodes ? 
+
+● Great question — discourse graphs give us a formal vocabulary. Let me first
+  refresh on the primitives, then re-render both visions.
+
+  ★ Insight ─────────────────────────────────────
+  Discourse graphs (from Joekel, Chan, etc.) represent knowledge as typed nodes
+  + typed edges:
+  - Node types: Question, Claim, Evidence, Decision, Risk (and we'll add
+  Feedback)
+  - Edge types: supports, opposes, addresses, informs, supersedes, depends_on
+  - The power is that every relationship is explicit and typed — no ambiguity
+  about WHY two things are connected. This is what makes them computable
+  (confidence propagation, gap detection, staleness tracking).
+  ─────────────────────────────────────────────────
+
+  ---
+  VISION 4 — THE COURTROOM as Discourse Graph
+
+  In the courtroom, the Judge evaluates Claims against Evidence. Objections are
+  opposes edges. Exhibits are supports edges. The verdict is a Decision node
+  that depends_on all Claims.
+
+  DISCOURSE GRAPH: THE COURTROOM
+  ================================
+
+  NODE TYPES:
+    [Q]  = Question       (round)     — what the court must decide
+    [C]  = Claim          (square)    — a charge / assertion
+    [E]  = Evidence       (diamond)   — an exhibit
+    [D]  = Decision       (hexagon)   — verdict / ruling
+    [R]  = Risk           (triangle)  — open danger
+    [F]  = Feedback       (speech)    — objection / comment
+
+
+                                ┌─────────────────┐
+                                │  [Q] QUESTION    │
+                                │  "Should we      │
+                                │   adopt per-route│
+                                │   auth?"         │
+                                └────────┬─────────┘
+                                         │
+                                         │ addresses
+                                         │
+                ┌────────────────────────┬┴───────────────────────┐
+                │                        │                        │
+                ▼                        ▼                        ▼
+     ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+     │ [C] CLAIM 1      │  │ [C] CLAIM 2      │  │ [C] CLAIM 3      │
+     │ "Global policy   │  │ "No performance  │  │ "All edge cases  │
+     │  is unsafe for   │  │  regression on   │  │  are covered by  │
+     │  multi-tenant    │  │  hot paths"      │  │  tests"          │
+     │  routes"         │  │                  │  │                  │
+     │  STATUS: PROVEN  │  │  STATUS: PROVEN  │  │  STATUS:         │
+     └───┬──────┬───────┘  └───┬─────────────┘  │  CHALLENGED      │
+         │      │              │                 └──┬──────────┬────┘
+         │      │              │                    │          │
+         │supports          supports             supports   opposes
+         │      │              │                    │          │
+         │      │              │                    │          │
+     ┌───▼──┐ ┌─▼──────────┐ ┌▼────────────┐  ┌───▼──────┐ ┌─▼──────────────┐
+     │ [E]  │ │ [E]        │ │ [E]         │  │ [E]      │ │ [F] OBJECTION  │
+     │ Ex.A │ │ Ex.B       │ │ Ex.C        │  │ Ex.B     │ │ #1 — @alex     │
+     │      │ │            │ │             │  │ (partial)│ │                │
+     │ code:│ │ test:      │ │ bench:      │  │ test:    │ │ "No exhibit   │
+     │ mw.  │ │ auth_test  │ │ p99=2ms     │  │ expired  │ │  shows refresh│
+     │ clj  │ │ .clj:112   │ │ tput=12k    │  │ +scope   │ │  token+mixed  │
+     │ :47  │ │            │ │ rps         │  │ only     │ │  scope test"  │
+     └──────┘ └────────────┘ └─────────────┘  └──────────┘ └───────┬───────┘
+                                                                    │
+                                                                 informs
+                                                                    │
+                                                             ┌──────▼───────┐
+     ┌──────────────────┐   ┌──────────────────┐             │ [R] RISK 2   │
+     │ [C] CLAIM 4      │   │ [C] CLAIM 5      │             │ "Refresh +   │
+     │ "Tests cover     │   │ "Migration is    │             │  mixed scope │
+     │  core paths"     │   │  safe"           │             │  untested"   │
+     │                  │   │                  │             └──────────────┘
+     │  STATUS: PROVEN  │   │  STATUS:         │
+     └────┬─────────────┘   │  UNSUBSTANTIATED │
+          │                 └──────┬───────────┘
+       supports                    │
+          │                   no evidence!
+     ┌────▼────────┐          (HOLLOW)           ┌──────────────┐
+     │ [E] Ex.B+D  │                             │ [R] RISK 1   │
+     │ test suite  │       informs               │ "Legacy      │
+     │ 4 tests     │  ┌──────────────────┐       │  tokens in   │
+     │ all pass    │  │                  │       │  prod may    │
+     └─────────────┘  │                  │       │  not conform"│
+                      │                  │       └──────┬───────┘
+                      │                  │              │
+                      │                  │           informs
+                      │                  │              │
+                      ▼                  ▼              ▼
+    ┌────────────────────────────────────────────────────────────┐
+    │                                                            │
+    │  [D] VERDICT          depends_on: C1,C2,C3,C4,C5          │
+    │  STATUS: HOLD         blocked_by: R1,R2                    │
+    │                                                            │
+    │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌───────────┐  │
+    │  │ C1: GO   │  │ C2: GO   │  │ C3: HOLD │  │ C4: GO    │  │
+    │  └──────────┘  └──────────┘  └──────────┘  └───────────┘  │
+    │  ┌──────────┐  ┌──────────┐  ┌──────────┐                 │
+    │  │ C5:NO-GO │  │ R1: OPEN │  │ R2: OPEN │                 │
+    │  └──────────┘  └──────────┘  └──────────┘                 │
+    │                                                            │
+    └────────────────────────────────────────────────────────────┘
+
+
+    REJECTED ALTERNATIVES (superseded decisions):
+    ┌──────────────────────────────────────────────────────────────┐
+    │                                                              │
+    │  ┌───────────────┐  supersedes   ┌───────────────┐           │
+    │  │ [D] REJECTED  │─────────────▶│ [D] REJECTED  │           │
+    │  │ "Global       │              │ "Per-role     │           │
+    │  │  whitelist"   │              │  chains"      │           │
+    │  │               │              │               │           │
+    │  │  opposed_by:  │              │  opposed_by:  │           │
+    │  │  "rigid,      │              │  "N+1 calls,  │           │
+    │  │   unscalable" │              │   3x latency" │           │
+    │  └───────────────┘              └───────┬───────┘           │
+    │                                         │                    │
+    │                                    superseded_by             │
+    │                                         │                    │
+    │                                  ┌──────▼────────┐           │
+    │                                  │ [D] CHOSEN    │           │
+    │                                  │ "Per-route    │           │
+    │                                  │  schema map"  │           │
+    │                                  │               │           │
+    │                                  │  supported_by:│           │
+    │                                  │  E:A, E:C     │           │
+    │                                  └───────────────┘           │
+    └──────────────────────────────────────────────────────────────┘
+
+
+    EDGE TYPE LEGEND:
+    ─────────────────
+    ──supports──▶     Evidence strengthens a Claim
+    ──opposes───▶     Feedback/Evidence weakens a Claim
+    ──addresses──▶    Claim answers a Question
+    ──informs───▶     Node provides context to another
+    ──depends_on─▶    Decision requires Claim resolution
+    ──supersedes─▶    Decision replaces a prior Decision
+    ──blocked_by─▶    Node cannot resolve until blocker clears
+
+  ---
+  VISION 6 — THE NEWSPAPER as Discourse Graph
+
+  The newspaper is interesting because it's presentational — the discourse graph
+   is the same, but the layout maps nodes to newspaper sections. Headlines =
+  Questions. Articles = Claims. Sources = Evidence. Editorials = Risks. Letters
+  = Feedback.
+
+  DISCOURSE GRAPH: THE NEWSPAPER
+  ================================
+
+    The key insight: a newspaper is a PROJECTION of a discourse graph
+    onto a reading-optimized layout. Same nodes, different spatial arrangement.
+
+    GRAPH STRUCTURE:
+    ═════════════════
+
+
+                         ┌─────────────────────────┐
+                         │  [Q] HEADLINE QUESTION   │
+                         │  "Should auth middleware  │
+                         │   be overhauled for       │
+                         │   per-route validation?"  │
+                         └────────────┬──────────────┘
+                                      │
+                            addresses │
+                                      │
+           ┌──────────────────────────┼──────────────────────────┐
+           │                          │                          │
+           ▼                          ▼                          ▼
+    ┌──────────────┐      ┌──────────────────┐      ┌──────────────────┐
+    │[Q] SUB-Q 1   │      │[Q] SUB-Q 2       │      │[Q] SUB-Q 3       │
+    │"What changed?"│      │"Why this approach │      │"What risks        │
+    │              │      │ over others?"     │      │ remain?"          │
+    │ SECTION A    │      │ SECTION B         │      │ EDITORIAL         │
+    └──────┬───────┘      └──────┬────────────┘      └──────┬────────────┘
+           │                     │                          │
+      addresses             addresses                  addresses
+           │                     │                          │
+           ▼                     ▼                          ▼
+    ┌──────────────┐   ┌──────────────────┐     ┌───────────────────┐
+    │[C] "New       │   │[C] "Per-route is │     │[C] "Two risks     │
+    │ wrap-per-route│   │ superior to both │     │ demand attention  │
+    │ -auth fn      │   │ alternatives"    │     │ before merge"     │
+    │ replaces old  │   │                  │     │                   │
+    │ valid-token?" │   │                  │     │                   │
+    └──┬────────┬───┘   └──┬──────────┬───┘     └──┬────────────┬───┘
+       │        │          │          │             │            │
+    supports supports   supports   supports     informs      informs
+       │        │          │          │             │            │
+       ▼        ▼          ▼          ▼             ▼            ▼
+    ┌──────┐ ┌──────┐  ┌──────┐  ┌──────┐   ┌──────────┐ ┌──────────┐
+    │[E]   │ │[E]   │  │[E]   │  │[E]   │   │[R] RISK  │ │[R] RISK  │
+    │DIFF: │ │DIFF: │  │BENCH │  │BENCH │   │1         │ │2         │
+    │mw.clj│ │auth_ │  │"p99= │  │"3x   │   │"Legacy   │ │"Refresh+ │
+    │+47-12│ │test  │  │ 2ms" │  │ slow │   │ tokens   │ │ mixed    │
+    │      │ │.clj  │  │      │  │ for  │   │ in prod" │ │ scope    │
+    │      │ │4 new │  │      │  │ alt" │   │          │ │ untested"│
+    └──────┘ └──────┘  └──────┘  └──┬───┘   └─────┬────┘ └────┬─────┘
+                                     │             │           │
+                                  opposes       opposes     opposes
+                                     │             │           │
+                                     ▼             │           │
+                         ┌───────────────────┐     │           │
+                         │[D] REJECTED       │     │           │
+                         │"Per-role chains"  │     │           │
+                         │ reason: "3x       │     │           │
+                         │  latency hit"     │     │           │
+                         └───────────────────┘     │           │
+                                                   │           │
+                         ┌───────────────────┐     │           │
+                         │[D] REJECTED       │     │           │
+                         │"Global whitelist" │     │           │
+                         │ reason: "rigid,   │     │           │
+                         │  unscalable"      │     │           │
+                         └───────────────────┘     │           │
+                                                   │           │
+                     ┌─────────────────────────────┼───────────┘
+                     │                             │
+                     ▼                             ▼
+    ┌────────────────────────────────────────────────────────────┐
+    │ [D] VERDICT                                                │
+    │ STATUS: HOLD THE PRESS                                     │
+    │                                                            │
+    │ blocked_by: R1, R2                                         │
+    │                                                            │
+    │ ┌──────────────────┐                                       │
+    │ │ [F] LETTER TO    │                                       │
+    │ │  THE EDITOR      │────opposes────▶ C:"edge cases covered"│
+    │ │                  │                                       │
+    │ │ @alex: "What     │                                       │
+    │ │ about refresh    │────informs────▶ R2                    │
+    │ │ tokens w/ mixed  │                                       │
+    │ │ scopes?"         │                                       │
+    │ └──────────────────┘                                       │
+    └────────────────────────────────────────────────────────────┘
+
+
+    NOW: THE NEWSPAPER PROJECTION
+    ══════════════════════════════
+
+    The same graph above, but projected onto newspaper zones:
+
+    ┌─────────────────────────────────────────────────────────────┐
+    │                                                             │
+    │  ABOVE THE FOLD = [Q] root + [C] summary claims             │
+    │  ┌───────────────────────────────────────────────────────┐  │
+    │  │  Headline:  [Q] root question                         │  │
+    │  │  Lede:      [C] summary claims (1-2 sentences)        │  │
+    │  │  Stats:     metadata (files, lines, test count)       │  │
+    │  └───────────────────────────────────────────────────────┘  │
+    │                                                             │
+    │  SECTION A = [Q] sub-Q1 + [E] diff evidence                 │
+    │  ┌──────────────────────┐  SECTION B = [Q] sub-Q2 + [D]s    │
+    │  │                      │  ┌──────────────────────────────┐ │
+    │  │  [Q] "What changed?" │  │  [Q] "Why this approach?"    │ │
+    │  │                      │  │                              │ │
+    │  │  [E] mw.clj diff     │  │  [D] REJECTED: whitelist     │ │
+    │  │  [E] auth_test diff   │  │  [D] REJECTED: per-role      │ │
+    │  │                      │  │  [D] CHOSEN: schema map       │ │
+    │  └──────────────────────┘  │                              │ │
+    │                            │  [E] benchmark supports       │ │
+    │                            │  [E] latency opposes          │ │
+    │                            └──────────────────────────────┘ │
+    │                                                             │
+    │  EDITORIAL = [Q] sub-Q3 + [R] risk nodes                    │
+    │  ┌───────────────────────────────────────────────────────┐  │
+    │  │  [Q] "What risks remain?"                             │  │
+    │  │                                                       │  │
+    │  │  [R] Risk 1: legacy tokens ──opposes──▶ [D] verdict   │  │
+    │  │  [R] Risk 2: mixed scope   ──opposes──▶ [D] verdict   │  │
+    │  └───────────────────────────────────────────────────────┘  │
+    │                                                             │
+    │  LETTERS = [F] feedback nodes                                │
+    │  ┌───────────────────────────────────────────────────────┐  │
+    │  │  [F] @alex ──opposes──▶ [C] "edge cases covered"     │  │
+    │  │            ──informs──▶ [R] Risk 2                    │  │
+    │  └───────────────────────────────────────────────────────┘  │
+    │                                                             │
+    │  VERDICT BAR = [D] verdict node                              │
+    │  ┌───────────────────────────────────────────────────────┐  │
+    │  │  [D] blocked_by: [R1, R2]                             │  │
+    │  │  [SHIP IT]   [HOLD THE PRESS]                         │  │
+    │  └───────────────────────────────────────────────────────┘  │
+    │                                                             │
+    └─────────────────────────────────────────────────────────────┘
+
+  ---
+  THE KEY REVELATION: Same Graph, Different Skin
+
+  Here's the punchline — let me show them side by side as the same discourse 
+  graph with different visual mappings:
+
+    THE UNIVERSAL DISCOURSE GRAPH (shared by both visions)
+    ═══════════════════════════════════════════════════════
+
+    [Q] ──addresses──▶ [C] ──supports──▶ [E]
+                        │                  │
+                        │ opposes          │ opposes
+                        ▼                  ▼
+                       [F]                [R]
+                        │                  │
+                        │ informs          │ blocked_by
+                        ▼                  ▼
+                       [R]                [D]
+                                           │
+                                      supersedes
+                                           │
+                                     [D] REJECTED
+
+
+    SAME GRAPH → TWO SKINS:
+    ────────────────────────
+
+    COURTROOM MAPPING:                    NEWSPAPER MAPPING:
+    ══════════════════                    ══════════════════
+
+    [Q] = "The case"                     [Q] = "The headline"
+    [C] = "The charges (counts)"         [C] = "The article body"
+    [E] = "Exhibits A, B, C..."          [E] = "Sources / diffs"
+    [D] = "The verdict"                  [D] = "Ship It / Hold"
+    [R] = "Warnings to the court"        [R] = "Editorial opinion"
+    [F] = "Objections from the bench"    [F] = "Letters to the editor"
+
+    supports = "Exhibit admitted"         supports = "Source cited"
+    opposes  = "Objection! Sustained"     opposes  = "Editor's concern"
+    addresses = "This count answers"      addresses = "Article covers"
+    informs  = "Relevant to sentencing"   informs  = "Context for reader"
+    depends_on = "Verdict requires"       depends_on = "Can't ship until"
+    supersedes = "Prior case dismissed"   supersedes = "Old approach dead"
+
+
+    THE GRAPH IS THE DATA MODEL.
+    THE METAPHOR IS THE RENDERING LAYER.
+
+         ┌─────────────────────────────────────────┐
+         │                                         │
+         │     DISCOURSE GRAPH (Rama PStates)      │
+         │                                         │
+         │  Nodes: Q, C, E, D, R, F               │
+         │  Edges: supports, opposes, addresses,   │
+         │         informs, depends_on, supersedes  │
+         │                                         │
+         └──────────┬──────────────┬───────────────┘
+                    │              │
+              ┌─────▼─────┐ ┌─────▼──────┐
+              │ COURTROOM │ │ NEWSPAPER  │
+              │ RENDERER  │ │ RENDERER   │
+              │           │ │            │
+              │ WebGPU    │ │ WebGPU     │
+              │ skin #4   │ │ skin #6    │
+              └───────────┘ └────────────┘
+
+    ...and skins #1,2,3,5,7,8,9,10
+    are ALL just different renderers
+    over the SAME discourse graph.
+
+  ★ Insight ─────────────────────────────────────
+  This is the architectural breakthrough: all 10 visions from earlier are just
+  rendering skins over one universal discourse graph. The data model is:
+  1. Nodes with types (Q, C, E, D, R, F) stored as Rama PState entities
+  2. Edges with types (supports, opposes, addresses, informs, depends_on,
+  supersedes) stored as Rama PState relationships
+  3. Confidence propagation is a topology computation over this graph — when an
+  opposes edge is added, it propagates upstream through supports and addresses
+  edges
+
+  This means you build the discourse graph ONCE in Rama, and then the Courtroom,
+   Newspaper, Metro Map, Crime Board, Neural Network — they're all just
+  different render-discourse-graph functions in the WebGPU layer. The user could
+   even switch metaphors mid-review without losing any data. That's the real
+  power of formalizing with discourse graph nodes.
+  ─────────────────────────────────────────────────
+
+  Want me to save this to the ui-visions folder as well?
+
+✻ Baked for 1m 49s
+
+❯ this is quite good .. what i want is the same UI that we had in the       
+  original 4 and 6 like can we somewhow represent this in that form .. the  
+  one page or something about that captured me and i                        
+
+● I hear you — the formalized graph was analytical but you want the feel back.
+  Let me redraw both with the full immersive one-page layouts, but now every
+  element carries its discourse graph type as a subtle tag. The courtroom still
+  FEELS like a courtroom. The newspaper still READS like a newspaper. But the
+  graph structure is woven in.
+
+  ---
+  VISION 4: THE COURTROOM — Discourse Graph Edition
+
+  ┌═════════════════════════════════════════════════════════════════════════════
+  ═════════════┐
+  ║
+             ║
+  ║          C O U R T   O F   C O D E   R E V I E W  ──  C A S E   # 8 4 7
+           ║
+  ║          ─────────────────────────────────────────────────────────────────
+              ║
+  ║          The People v. auth-per-route
+             ║
+  ║
+             ║
+  ║  ┌── [Q] THE CASE BEFORE THE COURT
+  ───────────────────────────────────────────────┐    ║
+  ║  │
+        │    ║
+  ║  │   "Should Softland adopt per-route token validation to replace the global
+        │    ║
+  ║  │    auth policy?"
+        │    ║
+  ║  │
+        │    ║
+  ║  │   Filed: 2h ago    Branch: auth-per-route    Defendant: @sid
+        │    ║
+  ║  └──────────────────────────────────────────────────────────────────────────
+  ──────┘    ║
+  ║
+             ║
+  ║  ┌── THE BENCH
+  ───────────────────────────────────────────────────────────────────┐    ║
+  ║  │   Presiding: Judge @alex
+        │    ║
+  ║  │
+        │    ║
+  ║  │   Counts examined: 3/5     Exhibits reviewed: 4/5     Objections filed: 1
+        │    ║
+  ║  │
+        │    ║
+  ║  │
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │    ║
+  ║  │   │  CONFIDENCE OF THE COURT                                            │
+        │    ║
+  ║  │   │  ████████████████████████████████████░░░░░░░░░░░░░░░░░  72%         │
+        │    ║
+  ║  │   │  ▲ 3 counts proved    ▲ 1 challenged    ▲ 1 unsubstantiated        │
+       │    ║
+  ║  │
+  └──────────────────────────────────────────────────────────────────────┘
+  │    ║
+  ║  └──────────────────────────────────────────────────────────────────────────
+  ──────┘    ║
+  ║
+             ║
+  ║  ┌── PROSECUTION ─────────────────────────┐ ┌── EVIDENCE LOCKER
+  ──────────────────┐   ║
+  ║  │                                         │ │
+         │   ║
+  ║  │  OPENING STATEMENT:                     │ │  ◆ EXHIBIT A  [E:code]
+         │   ║
+  ║  │  "The existing auth system applies a    │ │
+  ┌─────────────────────────────┐    │   ║
+  ║  │   single global policy to all routes.   │ │  │  middleware.clj:47-63
+    │    │   ║
+  ║  │   This fails three security require-    │ │  │  (defn wrap-per-route-auth
+    │    │   ║
+  ║  │   ments. I present five counts."        │ │  │    [handler route-schemas]
+    │    │   ║
+  ║  │                                         │ │  │    (fn [request]
+    │    │   ║
+  ║  │                                         │ │  │      (let [route (:uri
+  req) │    │   ║
+  ║  │  ■ COUNT 1  [C]  ──────────────────     │ │  │            schema (get ...
+    │    │   ║
+  ║  │  "Global policy is unsafe"              │ │
+  └─────────────────────────────┘    │   ║
+  ║  │   ◆ supported_by: Ex.A, Ex.B           │ │  ── supports ──▶ Count 1,
+  Count 4   │   ║
+  ║  │   STATUS: █████ PROVEN                  │ │  Admitted: ✓
+         │   ║
+  ║  │                                         │ │
+         │   ║
+  ║  │  ■ COUNT 2  [C]  ──────────────────     │ │
+  ─────────────────────────────────  │   ║
+  ║  │  "No performance regression"            │ │
+         │   ║
+  ║  │   ◆ supported_by: Ex.C                 │ │  ◆ EXHIBIT B  [E:test]
+        │   ║
+  ║  │   STATUS: █████ PROVEN                  │ │
+  ┌─────────────────────────────┐    │   ║
+  ║  │                                         │ │  │  auth_test.clj:109-125
+    │    │   ║
+  ║  │  ■ COUNT 3  [C]  ──────────────────     │ │  │  (deftest expired-token-
+    │    │   ║
+  ║  │  "All edge cases covered"               │ │  │    per-route-test
+    │    │   ║
+  ║  │   ◆ supported_by: Ex.B (partial)       │ │  │    (is (= 401 (:status ...)
+   │    │   ║
+  ║  │   ◆ opposed_by: Objection #1           │ │  │  (deftest scope-mismatch-
+   │    │   ║
+  ║  │   STATUS: ███░░ CHALLENGED              │ │  │    test ...
+    │    │   ║
+  ║  │                                         │ │
+  └─────────────────────────────┘    │   ║
+  ║  │  ■ COUNT 4  [C]  ──────────────────     │ │  ── supports ──▶ Count 1,3,4
+        │   ║
+  ║  │  "Tests cover core paths"               │ │  Admitted: ✓
+         │   ║
+  ║  │   ◆ supported_by: Ex.B, Ex.D           │ │
+        │   ║
+  ║  │   STATUS: █████ PROVEN                  │ │
+  ─────────────────────────────────  │   ║
+  ║  │                                         │ │
+         │   ║
+  ║  │  ■ COUNT 5  [C]  ──────────────────     │ │  ◆ EXHIBIT C  [E:bench]
+         │   ║
+  ║  │  "Migration is safe"                    │ │
+  ┌─────────────────────────────┐    │   ║
+  ║  │   ◆ supported_by: (none)               │ │  │  $ ab -n 1000 -c 50 ...
+   │    │   ║
+  ║  │   STATUS: ░░░░░ UNSUBSTANTIATED        │ │  │  Requests/sec:  12,847
+   │    │   ║
+  ║  │                                         │ │  │  p99 latency:   2ms
+   │    │   ║
+  ║  │   ┌──────────────────────────────┐      │ │  │  p50 latency:   0.8ms
+   │    │   ║
+  ║  │   │ ⚠ THE COURT NOTES:          │      │ │
+  └─────────────────────────────┘    │   ║
+  ║  │   │ No exhibit has been entered  │      │ │  ── supports ──▶ Count 2
+         │   ║
+  ║  │   │ in support of Count 5.       │      │ │  Admitted: ✓
+         │   ║
+  ║  │   │ This count cannot be proved  │      │ │
+         │   ║
+  ║  │   │ without evidence.            │      │ │
+  ─────────────────────────────────  │   ║
+  ║  │   └──────────────────────────────┘      │ │
+         │   ║
+  ║  │                                         │ │  ◆ EXHIBIT D  [E:???]
+         │   ║
+  ║  └─────────────────────────────────────────┘ │
+  ┌─────────────────────────────┐    │   ║
+  ║                                               │  │
+     │    │   ║
+  ║  ┌── OBJECTIONS FILED ────────────────────┐  │  │    N O T   S U B M I T T E
+   D│    │   ║
+  ║  │                                         │  │  │
+     │    │   ║
+  ║  │  ⚡ OBJECTION #1  [F]                   │  │  │    Required to prove
+     │    │   ║
+  ║  │  Filed by: Judge @alex, 2 minutes ago   │  │  │    Count 5: "Migration
+     │    │   ║
+  ║  │                                         │  │  │    is safe"
+     │    │   ║
+  ║  │  ┌───────────────────────────────────┐  │  │  │
+     │    │   ║
+  ║  │  │ "Objection! The prosecution       │  │  │
+  └─────────────────────────────┘    │   ║
+  ║  │  │  claims all edge cases are        │  │  │  ── supports ──▶ (nothing
+  yet)     │   ║
+  ║  │  │  covered (Count 3), yet no        │  │  │  Admitted: PENDING
+         │   ║
+  ║  │  │  exhibit demonstrates refresh     │  │  │
+          │   ║
+  ║  │  │  token handling with mixed        │  │  ├── EXHIBIT CROSS-REFERENCE
+  ────────┤   ║
+  ║  │  │  OAuth scopes."                   │  │  │
+          │   ║
+  ║  │  │                                   │  │  │  Ex.A ──supports──▶ C1, C4
+         │   ║
+  ║  │  │  ── opposes ──▶ Count 3           │  │  │  Ex.B ──supports──▶ C1, C3,
+  C4     │   ║
+  ║  │  │  ── informs ──▶ Risk 2            │  │  │  Ex.C ──supports──▶ C2
+         │   ║
+  ║  │  │                                   │  │  │  Ex.D ──supports──▶
+  (pending)      │   ║
+  ║  │  │  [SUSTAIN]  [OVERRULE]  [REPLY]   │  │  │
+          │   ║
+  ║  │  └───────────────────────────────────┘  │  │  Obj.1 ──opposes──▶ C3
+         │   ║
+  ║  │                                         │  │        ──informs──▶ R2
+         │   ║
+  ║  └─────────────────────────────────────────┘
+  └─────────────────────────────────────┘   ║
+  ║
+             ║
+  ║  ┌── WARNINGS TO THE COURT  [R]
+  ──────────────────────────────────────────────────┐   ║
+  ║  │
+        │    ║
+  ║  │  ▲ RISK 1  [R]                              ▲ RISK 2  [R]
+       │    ║
+  ║  │  "Legacy tokens currently in production     "Refresh tokens with mixed
+  OAuth   │    ║
+  ║  │   may not conform to new per-route           scopes have not been tested.
+        │    ║
+  ║  │   schema format. No migration plan           Raised by Objection #1."
+        │    ║
+  ║  │   has been presented."
+        │    ║
+  ║  │                                              ── opposes ──▶ Count 3
+        │    ║
+  ║  │  ── opposes ──▶ Count 5                     ── blocks  ──▶ Verdict
+       │    ║
+  ║  │  ── blocks  ──▶ Verdict
+       │    ║
+  ║  │                                              Severity: HIGH
+        │    ║
+  ║  │  Severity: MEDIUM                           Filed by: Objection #1
+       │    ║
+  ║  │  Filed by: Court's own motion               [ACKNOWLEDGE] [ACTION]
+  [WAIVE]     │    ║
+  ║  │  [ACKNOWLEDGE]  [ACTION ITEM]  [WAIVE]
+        │    ║
+  ║  │
+        │    ║
+  ║  └──────────────────────────────────────────────────────────────────────────
+  ──────┘    ║
+  ║
+             ║
+  ║  ┌── PRIOR ART DISMISSED  [D:rejected]
+  ──────────────────────────────────────────┐    ║
+  ║  │
+        │    ║
+  ║  │  Case "Global Whitelist"              Case "Per-Role Middleware Chains"
+        │    ║
+  ║  │  ── opposed_by ──▶ "rigid,            ── opposed_by ──▶ "N+1 middleware
+        │    ║
+  ║  │     doesn't scale past 5 routes"         calls, 3x latency regression"
+       │    ║
+  ║  │  ── superseded_by ──▶ Chosen approach ── superseded_by ──▶ Chosen
+  approach    │    ║
+  ║  │  DISMISSED ✗                          DISMISSED ✗
+        │    ║
+  ║  │
+        │    ║
+  ║  │  Chosen Approach  [D:accepted]
+        │    ║
+  ║  │  "Per-route schema map" ── supported_by ──▶ Ex.A, Ex.C
+       │    ║
+  ║  │  ADOPTED ✓
+        │    ║
+  ║  └──────────────────────────────────────────────────────────────────────────
+  ──────┘    ║
+  ║
+             ║
+  ╠═════════════════════════════════════════════════════════════════════════════
+  ═══════════╣
+  ║
+             ║
+  ║  [D] V E R D I C T
+            ║
+  ║  ─────────────────
+             ║
+  ║  depends_on:  C1 ✓    C2 ✓    C3 ⚡    C4 ✓    C5 ✗
+           ║
+  ║  blocked_by:  R1 (open, medium)    R2 (open, high)
+            ║
+  ║
+             ║
+  ║  ┌───────────────────┐  ┌───────────────────────┐
+  ┌─────────────────────────────┐    ║
+  ║  │                   │  │                       │  │
+       │    ║
+  ║  │   ✓  ACQUIT       │  │   ◐  CONTINUE         │  │   ✗  CONVICT
+       │    ║
+  ║  │   (approve)       │  │   DELIBERATION        │  │   (request changes)
+       │    ║
+  ║  │                   │  │   (hold for evidence) │  │
+       │    ║
+  ║  │   LOCKED — 2      │  │                       │  │
+       │    ║
+  ║  │   open risks      │  │   ◀── RECOMMENDED     │  │
+       │    ║
+  ║  │                   │  │                       │  │
+       │    ║
+  ║  └───────────────────┘  └───────────────────────┘
+  └─────────────────────────────┘    ║
+  ║
+             ║
+  ╚═════════════════════════════════════════════════════════════════════════════
+  ═══════════╝
+
+  ---
+  VISION 6: THE NEWSPAPER — Discourse Graph Edition
+
+  ╔═════════════════════════════════════════════════════════════════════════════
+  ═══════════╗
+  ║
+           ║
+  ║  ┌──────────────────────────────────────────────────────────────────────────
+  ──────┐  ║
+  ║  │
+        │  ║
+  ║  │               T  H  E     D  A  I  L  Y     D  I  F  F
+       │  ║
+  ║  │
+        │  ║
+  ║  │            "All the Code That's Fit to Ship"
+        │  ║
+  ║  │
+        │  ║
+  ║  │   Vol. CXLVII  No. 847       Thursday, Feb 13, 2026        FINAL EDITION
+       │  ║
+  ║  │
+        │  ║
+  ║  └──────────────────────────────────────────────────────────────────────────
+  ──────┘  ║
+  ║
+           ║
+  ║ ════════════════════════════════════════════════════════════════════════════
+  ═══════   ║
+  ║  ABOVE THE FOLD                                                          [Q]
+   root   ║
+  ║ ════════════════════════════════════════════════════════════════════════════
+  ═══════   ║
+  ║
+           ║
+  ║   AUTH MIDDLEWARE OVERHAULED IN                  │
+            ║
+  ║   LANDMARK REFACTOR; PER-ROUTE                  │   QUICK STATS
+           ║
+  ║   VALIDATION REPLACES GLOBAL                    │   ──────────────
+           ║
+  ║   POLICY AFTER TWO FAILED ATTEMPTS              │   Files changed:  3
+           ║
+  ║                                                  │   Lines added:    +47
+            ║
+  ║   Three routes gain independent token            │   Lines removed:  -12
+            ║
+  ║   validation rules, ending months of             │   New tests:      4
+            ║
+  ║   security workarounds. Author @sid              │   Risk level:     MEDIUM
+            ║
+  ║   delivers composable schema-based               │   Confidence:     72%
+            ║
+  ║   approach after evaluating and rejecting        │   Est. review:    ~12 min
+            ║
+  ║   two alternatives on performance and            │
+            ║
+  ║   scalability grounds.                           │   DISCOURSE SUMMARY
+            ║
+  ║                                                  │   ──────────────────
+            ║
+  ║   Two risks remain open. The editorial           │   [Q] Questions:   1 (+3
+  sub)      ║
+  ║   board urges caution before merge.              │   [C] Claims:      5
+            ║
+  ║                                                  │       ● proved:    3
+            ║
+  ║   [CONTINUED BELOW...]                          │       ◐ partial:   1
+           ║
+  ║                                                  │       ○ bare:      1
+            ║
+  ║                                                  │   [E] Evidence:    4 (+1
+  missing)  ║
+  ║                                                  │   [D] Decisions:   3
+            ║
+  ║                                                  │       ✓ adopted:   1
+            ║
+  ║                                                  │       ✗ rejected:  2
+            ║
+  ║                                                  │   [R] Risks:       2
+  (both open)   ║
+  ║                                                  │   [F] Feedback:    1
+  objection     ║
+  ║                                                  │
+            ║
+  ║ ════════════════════════════════════════════════════════════════════════════
+  ═══════   ║
+  ║
+           ║
+  ║  SECTION A: WHAT CHANGED              ┃  SECTION B: WHY THIS WAY
+          ║
+  ║  [Q] "What changed in this PR?"       ┃  [Q] "Why this approach over
+  others?"       ║
+  ║  ─────────────────────────────────     ┃
+  ─────────────────────────────────────      ║
+  ║                                        ┃
+            ║
+  ║  [C] "New per-route auth function      ┃  [D:rejected] "GLOBAL WHITELIST"
+           ║
+  ║   replaces old single-policy handler"  ┃  DISMISSED — First approach tried
+           ║
+  ║                                        ┃
+            ║
+  ║   ◆ [E:code] middleware.clj            ┃  The prosecution initially
+  considered        ║
+  ║   ┌────────────────────────────────┐   ┃  a global whitelist mapping every
+  route      ║
+  ║   │  middleware.clj:47-63          │   ┃  to an allow/deny flag. Dismissed
+  as         ║
+  ║   │  +16 lines / -3 lines         │   ┃  rigid and unscalable beyond 5
+  routes.       ║
+  ║   │                                │   ┃
+            ║
+  ║   │  + (defn wrap-per-route-auth   │   ┃   ── opposed_by: "rigid, doesn't
+  scale"     ║
+  ║   │  +   [handler route-schemas]   │   ┃   ── superseded_by: per-route
+  schema        ║
+  ║   │  +   (fn [request]             │   ┃
+            ║
+  ║   │  +     (let [route (:uri ...)  │   ┃  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
+       ║
+  ║   │  +           schema (get ...)] │   ┃
+            ║
+  ║   │  +       (case (validate ...)  │   ┃  [D:rejected] "PER-ROLE CHAINS"
+           ║
+  ║   │  +         :valid (handler ..) │   ┃  DISMISSED — Second approach tried
+            ║
+  ║   │  +         :expired {:status   │   ┃
+            ║
+  ║   │  +           401 ...}          │   ┃  A chain of role-specific
+  middleware          ║
+  ║   │  - (fn [request]               │   ┃  layers was prototyped. Benchmark
+  showed     ║
+  ║   │  -   (if (valid-token? ...)    │   ┃  N+1 middleware invocations and a
+  3x         ║
+  ║   │  -     (handler request)       │   ┃  latency regression on hot paths.
+            ║
+  ║   │                                │   ┃
+            ║
+  ║   │  [VIEW FULL DIFF]              │   ┃   ◆ [E:bench] opposed_by:
+           ║
+  ║   └────────────────────────────────┘   ┃     p99: 6ms (was 2ms), 3x
+  regression       ║
+  ║   ── supports ──▶ C1,C4               ┃   ── superseded_by: per-route schema
+           ║
+  ║                                        ┃
+            ║
+  ║   ◆ [E:test] auth_test.clj            ┃  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
+      ║
+  ║   ┌────────────────────────────────┐   ┃
+            ║
+  ║   │  auth_test.clj:109-140        │   ┃  [D:accepted] "PER-ROUTE SCHEMA MAP"
+          ║
+  ║   │  4 new tests                   │   ┃  ADOPTED — Final approach ✓
+            ║
+  ║   │                                │   ┃
+            ║
+  ║   │  ✓ expired-token-per-route     │   ┃  Single O(1) hash-map lookup per
+  request.    ║
+  ║   │  ✓ scope-mismatch-test         │   ┃  Each route declares its own token
+  schema.   ║
+  ║   │  ✓ malformed-header-test       │   ┃  Composable, testable, no
+  performance hit.   ║
+  ║   │  ✓ valid-token-passthrough     │   ┃
+            ║
+  ║   │                                │   ┃   ◆ [E:code] supported_by: Ex.A
+           ║
+  ║   │  [VIEW FULL DIFF]              │   ┃   ◆ [E:bench] supported_by: Ex.C
+           ║
+  ║   └────────────────────────────────┘   ┃     p99: 2ms, throughput: 12k rps
+            ║
+  ║   ── supports ──▶ C1,C3,C4            ┃
+           ║
+  ║                                        ┃
+            ║
+  ║ ════════════════════════════════════════════════════════════════════════════
+  ═══════   ║
+  ║
+           ║
+  ║  E D I T O R I A L
+           ║
+  ║  [Q] "What risks remain before this ships?"
+           ║
+  ║  ───────────────────────────────────────────────────────────────────────────
+  ───────   ║
+  ║
+           ║
+  ║  OPINION: TWO RISKS DEMAND ATTENTION BEFORE MERGE
+           ║
+  ║
+           ║
+  ║  ┌── ▲ [R] RISK 1 ──────────────────────────┐ ┌── ▲ [R] RISK 2
+  ─────────────────┐  ║
+  ║  │                                            │ │
+         │  ║
+  ║  │  "Legacy tokens in production"             │ │  "Refresh tokens with
+  mixed      │  ║
+  ║  │                                            │ │   OAuth scopes"
+         │  ║
+  ║  │  Tokens currently in the wild may not      │ │
+         │  ║
+  ║  │  conform to the new per-route schema       │ │  No test covers the
+  scenario     │  ║
+  ║  │  format. No migration plan, rollback       │ │  where a refresh token
+  carries   │  ║
+  ║  │  strategy, or compatibility shim has       │ │  scopes from multiple
+  route      │  ║
+  ║  │  been presented to the court.              │ │  schemas simultaneously.
+         │  ║
+  ║  │                                            │ │
+         │  ║
+  ║  │  ── opposes  ──▶ C5 ("migration safe")    │ │  ── opposes  ──▶ C3 ("all
+  edge   │  ║
+  ║  │  ── blocks   ──▶ [D] Verdict              │ │     cases covered")
+        │  ║
+  ║  │                                            │ │  ── blocks   ──▶ [D]
+  Verdict     │  ║
+  ║  │  Severity: MEDIUM                          │ │
+         │  ║
+  ║  │  Source: Court's own motion                │ │  Severity: HIGH
+         │  ║
+  ║  │                                            │ │  Source: Objection #1
+         │  ║
+  ║  │  [SEE EVIDENCE GAP]  [WAIVE WITH REASON]   │ │
+         │  ║
+  ║  └────────────────────────────────────────────┘ │  [SEE OBJECTION]  [WAIVE]
+         │  ║
+  ║
+  └──────────────────────────────────┘  ║
+  ║
+           ║
+  ║ ════════════════════════════════════════════════════════════════════════════
+  ═══════   ║
+  ║
+           ║
+  ║  LETTERS TO THE EDITOR  [F]
+           ║
+  ║  ───────────────────────────────────────────────────────────────────────────
+  ───────   ║
+  ║
+           ║
+  ║  ┌── Letter from @alex
+  ──────────────────────────────────────────────────────────┐   ║
+  ║  │
+        │   ║
+  ║  │  "To the Editor — I have reviewed the prosecution's exhibits with care.
+       │   ║
+  ║  │   Count 3 claims complete edge-case coverage, yet Exhibit B demonstrates
+       │   ║
+  ║  │   only expired tokens and scope mismatch. What about refresh tokens
+       │   ║
+  ║  │   carrying mixed OAuth scopes? This gap undermines confidence."
+       │   ║
+  ║  │
+        │   ║
+  ║  │  ── opposes  ──▶ [C] Count 3 ("all edge cases covered")
+      │   ║
+  ║  │  ── informs  ──▶ [R] Risk 2 ("refresh + mixed scope")
+      │   ║
+  ║  │
+        │   ║
+  ║  │  Impact on confidence:  Count 3 downgraded ● ──▶ ◐
+       │   ║
+  ║  │  Impact on verdict:     +1 blocker (R2)
+       │   ║
+  ║  │
+        │   ║
+  ║  │  [REPLY]  [SUSTAIN OBJECTION]  [OVERRULE]
+       │   ║
+  ║  └──────────────────────────────────────────────────────────────────────────
+  ──────┘   ║
+  ║
+           ║
+  ║ ════════════════════════════════════════════════════════════════════════════
+  ═══════   ║
+  ║
+           ║
+  ║  [D] V E R D I C T                    ┃  GRAPH HEALTH
+           ║
+  ║  ─────────────────────────────────    ┃  ──────────────────────────
+            ║
+  ║                                        ┃
+            ║
+  ║  depends_on:                           ┃  Nodes:  Q:1  C:5  E:4  D:3  R:2
+  F:1      ║
+  ║   [C1] ✓ proved                        ┃  Edges:  supports:6  opposes:3
+           ║
+  ║   [C2] ✓ proved                        ┃          informs:1   blocks:2
+           ║
+  ║   [C3] ◐ challenged ←── Obj.#1        ┃          supersedes:2
+          ║
+  ║   [C4] ✓ proved                        ┃
+            ║
+  ║   [C5] ○ unsubstantiated              ┃  Unresolved:
+           ║
+  ║                                        ┃   2 [R] nodes blocking [D] verdict
+           ║
+  ║  blocked_by:                           ┃   1 [E] slot empty (Count 5)
+           ║
+  ║   [R1] ⚠ open (medium)                ┃   1 [C] downgraded by [F]
+          ║
+  ║   [R2] ⚠ open (high)                  ┃
+           ║
+  ║                                        ┃  Graph completeness: 72%
+            ║
+  ║  ┌──────────────────┐                  ┃
+            ║
+  ║  │                  │                  ┃
+            ║
+  ║  │   HOLD THE       │                  ┃
+            ║
+  ║  │   PRESS          │ ◀── RECOMMENDED  ┃
+            ║
+  ║  │                  │                  ┃
+            ║
+  ║  └──────────────────┘                  ┃
+            ║
+  ║                                        ┃
+            ║
+  ║  ┌──────────┐  ┌──────────────────┐    ┃
+            ║
+  ║  │ SHIP IT  │  │ REQUEST CHANGES  │    ┃
+            ║
+  ║  │ (locked) │  │                  │    ┃
+            ║
+  ║  └──────────┘  └──────────────────┘    ┃
+            ║
+  ║                                        ┃
+            ║
+  ╚═════════════════════════════════════════════════════════════════════════════
+  ═══════════╝
+
+  ---
+  Now let me save both.
+
+● Write(nxt_stp/ui-visions/courtroom-discourse-graph.md)
+  ⎿  Wrote 153 lines to nxt_stp/ui-visions/courtroom-discourse-graph.md
+       1 # Vision 4: The Courtroom — Discourse Graph Edition
+       2 ## Full immersive layout with typed nodes and edges
+       3 
+       4 ### Discourse Graph Node Types Used
+       5 - `[Q]` Question — "The case before the court"
+       6 - `[C]` Claim — "The charges / counts"
+       7 - `[E]` Evidence — "Exhibits A, B, C, D"
+       8 - `[D]` Decision — "The verdict" + rejected alternatives
+       9 - `[R]` Risk — "Warnings to the court"
+      10 - `[F]` Feedback — "Objections from the bench"
+     … +143 lines (ctrl+o to expand)
+
+● Write(nxt_stp/ui-visions/newspaper-discourse-graph.md)
+  ⎿  Wrote 188 lines to nxt_stp/ui-visions/newspaper-discourse-graph.md
+       1 # Vision 6: The Newspaper — Discourse Graph Edition
+       2 ## Full immersive layout with typed nodes and edges
+       3 
+       4 ### Discourse Graph Node Types Used
+       5 - `[Q]` Question — "The headline" + section sub-questions
+       6 - `[C]` Claim — "The article body / assertions"
+       7 - `[E]` Evidence — "Sources cited / diffs / benchmarks"
+       8 - `[D]` Decision — "Ship It / Hold" + rejected approaches
+       9 - `[R]` Risk — "Editorial opinions / concerns"
+      10 - `[F]` Feedback — "Letters to the editor"
+     … +178 lines (ctrl+o to expand)
+
+● Both saved:
+  - nxt_stp/ui-visions/courtroom-discourse-graph.md
+  - nxt_stp/ui-visions/newspaper-discourse-graph.md
+
+  ★ Insight ─────────────────────────────────────
+  Notice what the discourse graph tags actually DO to these layouts:
+
+  1. The [Q] tag at the top makes every section feel purposeful — "this section
+  exists to answer THIS question." The newspaper goes from "articles" to
+  "investigations with conclusions."
+  2. The ── supports/opposes ──▶ edge annotations turn passive reading into
+  active verification. When you see Ex.B ──supports──▶ C1, C3, C4, you instantly
+   know which claims fall apart if that evidence is wrong. In the Courtroom,
+  this is literally how a judge thinks: "if I throw out Exhibit B, which counts
+  collapse?"
+  3. The blocked_by edges on the Verdict are the killer feature. Both UIs now
+  have a hard gate — you can SEE exactly what prevents shipping. It's not "I
+  feel uneasy" — it's "R1 and R2 are opposes-edges on C3 and C5, and those
+  blocks propagate to the Verdict node." Computable, not vibes.
+
+  The metaphor is the skin. The discourse graph is the skeleton. You feel the
+  courtroom drama or newspaper urgency, but underneath, every element has a type
+   and every connection has a name.
+  ─────────────────────────────────────────────────
+
+✻ Baked for 4m 53s
+
+❯ can you make them shorter in length what i am looking for is something    
+  that comes in one window screenshot ??? also please fix the last line     
+  boundary ... too much info makes it more hard to grok vs one page view    
+  has less details but captures one .. i know you are smart and can find    
+  the right balance and when you do write it on top of the file like you    
+  just did instead of updating i want both kinda                            
+  ⎿  [Image #1]
+
+● You're right — the long versions look great in a file but terrible on screen.
+  Let me distill both to one window, ~50 lines, every element present but 
+  compressed. I'll write the compact versions on top and keep the detailed
+  versions below in each file.
+
+● Read 2 files (ctrl+o to expand)
+
+● Now let me read the full files so I can prepend the compact versions.
+
+● Read 2 files (ctrl+o to expand)
+
+● Now let me write the compact one-screen versions and prepend them.
+
+● Update(nxt_stp/ui-visions/courtroom-discourse-graph.md)
+  ⎿  (No changes)
+
+❯ no man too short this fills half the screen seems not pro and hobby like 
+
+● You're right — half screen looks cheap. I need to fill the viewport properly.
+  One full screen = ~52-55 lines with breathing room, code snippets, narrative
+  weight. Not crammed, not sparse. Professional.
+
+  Let me write them fresh and you can tell me if the size is right.
+
+● Update(nxt_stp/ui-visions/courtroom-discourse-graph.md)
+  ⎿  (No changes)
+
+❯ add 10 more lines and increase the width so that the proven challenged    
+  unsubstantiated have width and nicely aligned in one vertical line        
+  similarly the evidence locker                                             
+  ⎿  [Image #1]
+
+● Got it — wider, 10 more lines of breathing room, and statuses aligned in a
+  clean column. Let me nail the layout first, then write.
+
+● Update(nxt_stp/ui-visions/courtroom-discourse-graph.md)
+  ⎿  (No changes)
+
+❯ this is good write it please 
+
+● Update(nxt_stp/ui-visions/courtroom-discourse-graph.md)
+  ⎿  Added 77 lines
+       1  # Vision 4: The Courtroom — Discourse Graph Edition
+       2 +                                                               
+       3 +## ONE-SCREEN VERSION (the real UI)                            
+       4 +                                                               
+       5 +```                                                            
+       6 +╔══════════════════════════════════════════════════════════════
+         +════════════════════════════════════════════╗                  
+       7 +║                                                              
+         +                                          ║                    
+       8 +║        C O U R T   O F   C O D E   R E V I E W  ──  C A S E  
+         + # 8 4 7                                ║                      
+       9 +║        The People v. auth-per-route                          
+         +                                          ║                    
+      10 +║                                                              
+         +                                          ║                    
+      11 +║  ┌── [Q] THE CASE ───────────────────────────────────────────
+         +───────────────────────────────────┐      ║                    
+      12 +║  │  "Should Softland adopt per-route token validation to repl
+         +ace the global auth policy?"       │      ║                    
+      13 +║  │   Filed: 2h ago  ·  Branch: auth-per-route  ·  Defendant: 
+         +@sid                               │      ║                    
+      14 +║  └───────────────────────────────────────────────────────────
+         +───────────────────────────────────┘      ║                    
+      15 +║                                                              
+         +                                          ║                    
+      16 +║  Judge: @alex          Counts: 3/5 examined          Confiden
+         +ce: █████████████████░░░░░░░░ 72%        ║                     
+      17 +║                                                              
+         +                                          ║                    
+      18 +╠═══ PROSECUTION [C] ═══════════════════════════════╦═══ EVIDEN
+         +CE LOCKER [E] ════════════════════════════╣                    
+      19 +║                                                    ║         
+         +                                           ║                   
+      20 +║  "The existing auth applies a single global        ║  ◆ EXHIB
+         +IT A  [E:code]                            ║                    
+      21 +║   policy to all routes. This fails three           ║    middl
+         +eware.clj:47-63                            ║                   
+      22 +║   security requirements."                          ║    (defn
+         + wrap-per-route-auth                       ║                   
+      23 +║                                                    ║      [ha
+         +ndler route-schemas]                       ║                   
+      24 +║                                                    ║      (fn
+         + [req] (case (validate ...)                ║                   
+      25 +║  C1 ● "Global policy unsafe"                      ║        :v
+         +alid   (handler req)                      ║                    
+      26 +║       ◆ Ex.A, Ex.B              PROVEN             ║        :
+         +expired {:status 401 ...})))               ║                   
+      27 +║                                                    ║    ── su
+         +pports ──▶ C1, C4                          ║                   
+      28 +║  C2 ● "No perf regression"                        ║          
+         +                                          ║                    
+      29 +║       ◆ Ex.C                    PROVEN             ║  ◆ EXHIB
+         +IT B  [E:test]                             ║                   
+      30 +║                                                    ║    auth_
+         +test.clj:109-125                           ║                   
+      31 +║  C3 ◐ "All edge cases covered"                    ║    (defte
+         +st expired-token-per-route-test            ║                   
+      32 +║       ◆ Ex.B  ✗ Obj#1          CHALLENGED         ║      (is 
+         +(= 401 (:status (handler ...)))))         ║                    
+      33 +║                                                    ║    ── su
+         +pports ──▶ C1, C3, C4                      ║                   
+      34 +║  C4 ● "Tests cover core paths"                    ║          
+         +                                          ║                    
+      35 +║       ◆ Ex.B, Ex.D              PROVEN             ║  ◆ EXHIB
+         +IT C  [E:bench]                            ║                   
+      36 +║                                                    ║    $ ab 
+         +-n 1000 -c 50 /api/admin                   ║                   
+      37 +║  C5 ○ "Migration is safe"                         ║    p99 la
+         +tency: 2ms  ·  throughput: 12k rps        ║                    
+      38 +║       ◆ (none)                  UNSUBSTANTIATED    ║    ── su
+         +pports ──▶ C2                               ║                  
+      39 +║       ⚠ No exhibit entered                        ║          
+         +                                          ║                    
+      40 +║                                                    ║  ◆ EXHIB
+         +IT D  [E:???]                              ║                   
+      41 +║                                                    ║    N O T
+         +   S U B M I T T E D                       ║                   
+      42 +║                                                    ║    Requi
+         +red to prove C5: "Migration safe"           ║                  
+      43 +║                                                    ║         
+         +                                           ║                   
+      44 +╠════════════════════════════════════════════════════╬═════════
+         +═══════════════════════════════════════════╣                   
+      45 +║                                                    ║         
+         +                                           ║                   
+      46 +║  WARNINGS TO THE COURT [R]                         ║  ⚡ OBJE
+         +CTION #1  [F]  ── @alex, 2m ago            ║                   
+      47 +║                                                    ║         
+         +                                           ║                   
+      48 +║  ▲ R1  "Legacy tokens in prod — no migration"     ║  "Count 3
+         + claims all edge cases are covered,       ║                    
+      49 +║     opposes C5  ·  blocks Verdict                  ║   but no
+         + exhibit demonstrates refresh token        ║                   
+      50 +║     Severity: MEDIUM  ·  Court's own motion        ║   handli
+         +ng with mixed OAuth scopes."               ║                   
+      51 +║                                                    ║         
+         +                                           ║                   
+      52 +║  ▲ R2  "Refresh tokens + mixed scopes untested"   ║  ── oppos
+         +es ──▶ C3                                 ║                    
+      53 +║     opposes C3  ·  blocks Verdict                  ║  ── info
+         +rms ──▶ R2                                 ║                   
+      54 +║     Severity: HIGH  ·  From Objection #1           ║         
+         +                                           ║                   
+      55 +║                                                    ║  [SUSTAI
+         +N]    [OVERRULE]    [REPLY]                ║                   
+      56 +║                                                    ║         
+         +                                           ║                   
+      57 +╠════════════════════════════════════════════════════╩═════════
+         +═══════════════════════════════════════════╣                   
+      58 +║  PRIOR ART [D:rejected]                                      
+         +                                          ║                    
+      59 +║  ✗ "Global whitelist" — rigid, unscalable          ✗ "Per-rol
+         +e chains" — N+1 calls, 3x latency        ║                     
+      60 +║  ── both superseded_by ──▶  ✓ "Per-route schema map" — O(1) l
+         +ookup, composable, testable     ADOPTED  ║                     
+      61 +╠══════════════════════════════════════════════════════════════
+         +══════════════════════════════════════════════╣                
+      62 +║                                                              
+         +                                          ║                    
+      63 +║  [D] V E R D I C T                                           
+         +                                          ║                    
+      64 +║  depends_on:  C1 ✓    C2 ✓    C3 ⚡    C4 ✓    C5 ✗          
+         + blocked_by:  R1 ⚠    R2 ⚠             ║                       
+      65 +║                                                              
+         +                                          ║                    
+      66 +║  ┌─────────────────┐        ┌──────────────────────────────┐ 
+         +       ┌──────────────────────┐           ║                    
+      67 +║  │   ✓  ACQUIT     │        │   ◐  CONTINUE DELIBERATION   │ 
+         +       │   ✗  CONVICT         │           ║                    
+      68 +║  │   (approve)     │        │      ◀── RECOMMENDED          │
+         +        │   (request changes)  │           ║                   
+      69 +║  │   LOCKED — 2    │        │                               │
+         +        │                      │           ║                   
+      70 +║  │   open risks    │        │                               │
+         +        │                      │           ║                   
+      71 +║  └─────────────────┘        └──────────────────────────────┘ 
+         +       └──────────────────────┘           ║                    
+      72 +║                                                              
+         +                                          ║                    
+      73 +╚══════════════════════════════════════════════════════════════
+         +══════════════════════════════════════════════╝                
+      74 +```                                                            
+      75 +                                                               
+      76 +---                                                            
+      77 +                                                               
+      78 +## DETAILED VERSION (scroll, for deep reference)               
+      79  ## Full immersive layout with typed nodes and edges
+      80  
+      81  ### Discourse Graph Node Types Used
+
+● Now the newspaper — same treatment: wider, full screen, aligned columns.
+
+● Update(nxt_stp/ui-visions/newspaper-discourse-graph.md)
+  ⎿  (No changes)
+
+❯ format is good fix the layouting this is how it looks as of now  
+  ⎿  [Image #1]
+
+● Let me use Python to generate perfectly aligned lines — manual character
+  counting in ASCII art is what's causing the misalignment.
+
+● Bash(python3 << 'PYEOF'
+      W = 105  # total width per line…)
+  ⎿  All 70 lines verified at 105 chars wide.
+     ---
+     ╔═════════════════════════════════════════════════════════════════════
+     … +104 lines (ctrl+o to expand)
+
+● All 70 lines verified at exactly 105 chars. But I notice the editorial section
+   has a structural issue — after merging columns with ╩, the risk boxes still
+  use ║ as column dividers which won't connect to any border. Let me fix that
+  with proper ┌─┐ boxes instead, then write.
+
+● Bash(python3 << 'PYEOF'
+      W = 105…)
+  ⎿  Total: 68 lines, all 105 chars wide.
+
+     ╔═════════════════════════════════════════════════════════════════════
+     … +101 lines (ctrl+o to expand)
+
+● 68 lines, all verified at 105 chars. But the risk boxes have ragged │
+  alignment internally. Let me fix with fixed-width box helpers and write the
+  final version.
+
+● Bash(python3 << 'PYEOF'
+      W = 105…)
+  ⎿  Error: Exit code 1
+     Traceback (most recent call last):
+       File "<stdin>", line 106, in <module>
+       File "<stdin>", line 49, in dual_box
+     AssertionError: Left box expected 48, got 49: ┌─ ▲ [R] RISK 1 
+     ────────────────────────────────┐
+
+● Bash(python3 << 'PYEOF'
+      W = 105…)
+  ⎿  box_top len: 48 (want 48): ┌─ ▲ [R] RISK 1 ───────────────────────────
+     ────┐
+     box_line len: 48 (want 48): │ test content here
+     … +3 lines (ctrl+o to expand)
+
+● Bash(python3 << 'PYEOF'
+      W = 105…)
+  ⎿  All 68 lines verified at 105 chars wide.
+     Written to /tmp/newspaper_compact.txt
+
+● Now let me read the generated file and write it into the newspaper doc.
+
+● Read 1 file (ctrl+o to expand)
+
+● All 68 lines, 105 chars wide, every ║ aligned, risk boxes with fixed-width │
+  columns. Now writing to the file.
+
+● Update(nxt_stp/ui-visions/newspaper-discourse-graph.md)
+  ⎿  Added 77 lines
+       1  # Vision 6: The Newspaper — Discourse Graph Edition
+       2 +                                                               
+       3 +## ONE-SCREEN VERSION (the real UI)                            
+       4 +                                                               
+       5 +```                                                            
+       6 +╔══════════════════════════════════════════════════════════════
+         +═════════════════════════════════════════╗                     
+       7 +║  ┌───────────────────────────────────────────────────────────
+         +──────────────────────────────────────┐  ║                     
+       8 +║  │           T  H  E     D  A  I  L  Y     D  I  F  F        
+         +                                      │  ║                     
+       9 +║  │        "All the Code That's Fit to Ship"                  
+         +                                      │  ║                     
+      10 +║  │ Vol. CXLVII  ·  No. 847  ·  Thu Feb 13, 2026              
+         +                FINAL EDITION         │  ║                     
+      11 +║  └───────────────────────────────────────────────────────────
+         +──────────────────────────────────────┘  ║                     
+      12 +║                                                              
+         +                                         ║                     
+      13 +║  [Q] AUTH MIDDLEWARE OVERHAULED;                  ║  STATS   
+         +                                         ║                     
+      14 +║  PER-ROUTE VALIDATION REPLACES                    ║  Files: 3
+         +   Lines: +47/-12   Tests: 4             ║                     
+      15 +║  GLOBAL POLICY AFTER TWO                          ║          
+         +                                         ║                     
+      16 +║  FAILED ATTEMPTS                                  ║  DISCOURS
+         +E GRAPH                                  ║                     
+      17 +║                                                   ║  ────────
+         +──────────────────────────────           ║                     
+      18 +║  Three routes gain independent token              ║  [Q] Ques
+         +tions:  1 root (+3 sub)                  ║                     
+      19 +║  validation, ending months of security            ║  [C] Clai
+         +ms:     5  ( 3● · 1◐ · 1○ )              ║                     
+      20 +║  workarounds. Author @sid delivers a              ║  [E] Evid
+         +ence:   4  (+1 gap)                      ║                     
+      21 +║  composable schema-based approach after           ║  [D] Deci
+         +sions:  3  ( 1✓ · 2✗ )                   ║                     
+      22 +║  evaluating and rejecting two alternatives.       ║  [R] Risk
+         +s:      2  (both open)                   ║                     
+      23 +║  Two risks remain open.                           ║  [F] Feed
+         +back:   1  objection                     ║                     
+      24 +║                                                   ║          
+         +                                         ║                     
+      25 +║                                                   ║  Confiden
+         +ce: █████████████████░░░░░░░ 72%         ║                     
+      26 +║                                                   ║  Risk: ME
+         +DIUM    Est. review: ~12 min             ║                     
+      27 +╠═══════════════════════════════════════════════════╬══════════
+         +═════════════════════════════════════════╣                     
+      28 +║  SECTION A: WHAT CHANGED [Q]                      ║  SECTION 
+         +B: WHY THIS WAY [Q]                      ║                     
+      29 +║  ───────────────────────────────────────────      ║  ────────
+         +──────────────────────────────           ║                     
+      30 +║                                                   ║          
+         +                                         ║                     
+      31 +║  [C] "New wrap-per-route-auth fn replaces         ║  [D:rejec
+         +ted] "GLOBAL WHITELIST"                  ║                     
+      32 +║       old single-policy handler"                  ║  Rigid, d
+         +oesn't scale past 5 routes.              ║                     
+      33 +║                                                   ║  ── oppos
+         +ed_by: "unscalable"                      ║                     
+      34 +║  ◆ [E:code] middleware.clj:47-63                  ║  ── super
+         +seded_by: per-route schema               ║                     
+      35 +║  │  (defn wrap-per-route-auth                     ║          
+         +                                         ║                     
+      36 +║  │    [handler route-schemas]                     ║  [D:rejec
+         +ted] "PER-ROLE CHAINS"                   ║                     
+      37 +║  │    (fn [req] (case (validate ...)              ║  N+1 midd
+         +leware calls, 3x latency.                ║                     
+      38 +║  │      :valid   (handler req)                    ║  ── oppos
+         +ed_by: [E:bench] p99=6ms                 ║                     
+      39 +║  │      :expired {:status 401 ...})))             ║  ── super
+         +seded_by: per-route schema               ║                     
+      40 +║  ── supports ──▶ C1, C4                           ║          
+         +                                         ║                     
+      41 +║                                                   ║  [D:accep
+         +ted] "PER-ROUTE SCHEMA MAP"              ║                     
+      42 +║  ◆ [E:test] auth_test.clj:109-140                 ║  O(1) loo
+         +kup. Composable. Testable.               ║                     
+      43 +║  │  ✓ expired-token    ✓ scope-mismatch           ║  No perfo
+         +rmance regression.                       ║                     
+      44 +║  │  ✓ malformed        ✓ valid-passthrough        ║  ── suppo
+         +rted_by: Ex.A, Ex.C                      ║                     
+      45 +║  ── supports ──▶ C1, C3, C4                       ║  [E:bench
+         +] p99=2ms · throughput=12k rps           ║                     
+      46 +╠═══════════════════════════════════════════════════╩══════════
+         +═════════════════════════════════════════╣                     
+      47 +║                                                              
+         +                                         ║                     
+      48 +║  E D I T O R I A L    [Q] "What risks remain before this ship
+         +s?"                                      ║                     
+      49 +║                                                              
+         +                                         ║                     
+      50 +║  ┌─ ▲ [R] RISK 1 ───────────────────────────────┐   ┌─ ▲ [R] 
+         +RISK 2 ───────────────────────────────┐  ║                     
+      51 +║  │ "Legacy tokens in production may             │   │ "Refres
+         +h tokens with mixed OAuth             │  ║                     
+      52 +║  │  not conform to new per-route                │   │  scopes
+         + have not been tested.                │  ║                     
+      53 +║  │  schema. No migration plan or                │   │  Raised
+         + by @alex, Objection #1."             │  ║                     
+      54 +║  │  rollback strategy presented."               │   │        
+         +                                      │  ║                     
+      55 +║  │ ── opposes C5 · blocks Verdict               │   │ ── oppo
+         +ses C3 · blocks Verdict               │  ║                     
+      56 +║  │ Severity: MEDIUM       [WAIVE]               │   │ Severit
+         +y: HIGH         [WAIVE]               │  ║                     
+      57 +║  └──────────────────────────────────────────────┘   └────────
+         +──────────────────────────────────────┘  ║                     
+      58 +║                                                              
+         +                                         ║                     
+      59 +║  LETTERS TO THE EDITOR [F]                                   
+         +                                         ║                     
+      60 +║  @alex: "Count 3 claims complete edge-case coverage, yet no e
+         +xhibit shows refresh token + mixed       ║                     
+      61 +║   scope testing. This gap undermines confidence."    ── oppos
+         +es C3  ── informs R2     [REPLY]         ║                     
+      62 +║                                                              
+         +                                         ║                     
+      63 +╠══════════════════════════════════════════════════════════════
+         +═════════════════════════════════════════╣                     
+      64 +║                                                              
+         +                                         ║                     
+      65 +║  [D] V E R D I C T                                           
+         +                                         ║                     
+      66 +║  depends_on:  C1 ✓    C2 ✓    C3 ⚡    C4 ✓    C5 ✗          
+         +   blocked_by:  R1 ⚠    R2 ⚠              ║                    
+      67 +║                                                              
+         +                                         ║                     
+      68 +║  ┌─────────────────┐        ┌──────────────────────────────┐ 
+         +       ┌──────────────────────┐          ║                     
+      69 +║  │  ✓ SHIP IT      │        │  ◐ HOLD THE PRESS            │ 
+         +       │  ✗ KILL THE STORY    │          ║                     
+      70 +║  │  (locked)       │        │     ◀── RECOMMENDED          │ 
+         +       │  (request changes)   │          ║                     
+      71 +║  └─────────────────┘        └──────────────────────────────┘ 
+         +       └──────────────────────┘          ║                     
+      72 +║                                                              
+         +                                         ║                     
+      73 +╚══════════════════════════════════════════════════════════════
+         +═════════════════════════════════════════╝                     
+      74 +```                                                            
+      75 +                                                               
+      76 +---                                                            
+      77 +                                                               
+      78 +## DETAILED VERSION (scroll, for deep reference)               
+      79  ## Full immersive layout with typed nodes and edges
+      80  
+      81  ### Discourse Graph Node Types Used
+
+● Both files are written:
+
+  - Courtroom: nxt_stp/ui-visions/courtroom-discourse-graph.md — one-screen
+  compact on top, detailed scroll version below
+  - Newspaper: nxt_stp/ui-visions/newspaper-discourse-graph.md — one-screen
+  compact on top, detailed scroll version below
+
+  ★ Insight ─────────────────────────────────────
+  The Python-verified approach was key here. ASCII art alignment is deceptively
+  hard because:
+  1. Every line must be exactly the same byte-width for the right ║ border to
+  line up
+  2. Unicode box-drawing chars (║, ═, ┌, ─) are each 1 codepoint but some
+  terminals render them wider
+  3. The risk boxes needed fixed-width box_line() / box_top() helpers — each
+  producing exactly 48 chars — rather than freeform text with manually-counted
+  padding
+
+  The assert len(line) == W on every line is the difference between "looks right
+   in my editor" and "looks right everywhere."
+  ─────────────────────────────────────────────────
+
+✻ Cooked for 7m 37s
+
+❯ yes fix the formatting a bit the heading of the newspaper is misaligned   
+  very much wdyt?                                                           
+
+● You're right — the title text is left-aligned but should be centered in the
+  masthead box. "THE DAILY DIFF" is hugging the left wall. Let me fix with
+  proper centering.
+
+● Bash(python3 << 'PYEOF'
+      # Masthead: box is 99 chars wide (│ + 97 interior + │)…)
+  ⎿  Masthead lines (95-char interior, centered):
+     ║  │                             T  H  E     D  A  I  L  Y     D  I  F
+       F                            │  ║
+     … +8 lines (ctrl+o to expand)
+
+● That looks much better — title and subtitle centered, "FINAL EDITION"
+  right-aligned. Let me apply it.
+
+● Read 1 file (ctrl+o to expand)
+
+● Update(nxt_stp/ui-visions/newspaper-discourse-graph.md)
+  ⎿  Added 3 lines, removed 3 lines
+       5  ```
+       6  ╔══════════════════════════════════════════════════════════════
+          ═════════════════════════════════════════╗
+       7  ║  ┌───────────────────────────────────────────────────────────
+          ──────────────────────────────────────┐  ║
+       8 -║  │           T  H  E     D  A  I  L  Y     D  I  F  F        
+         -                                      │  ║                     
+       9 -║  │        "All the Code That's Fit to Ship"                  
+         -                                      │  ║                     
+      10 -║  │ Vol. CXLVII  ·  No. 847  ·  Thu Feb 13, 2026              
+         -                FINAL EDITION         │  ║                     
+       8 +║  │                             T  H  E     D  A  I  L  Y     
+         +D  I  F  F                            │  ║                     
+       9 +║  │                                "All the Code That's Fit to
+         + Ship"                                │  ║                     
+      10 +║  │ Vol. CXLVII  ·  No. 847  ·  Thu Feb 13, 2026              
+         +                        FINAL EDITION │  ║                     
+      11  ║  └───────────────────────────────────────────────────────────
+          ──────────────────────────────────────┘  ║
+      12  ║                                                              
+                                                   ║
+      13  ║  [Q] AUTH MIDDLEWARE OVERHAULED;                  ║  STATS   
+                                                   ║
+
+● Fixed. The masthead now has:
+  - Title centered in the box
+  - Subtitle centered in the box
+  - Vol/date left-aligned, FINAL EDITION right-aligned (flush with the │ border)
+
+  All three lines verified at exactly 105 chars by the Python helper, so
+  alignment holds.
