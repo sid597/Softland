@@ -40,12 +40,16 @@ runtime debugging.
    "idempotency key" without "(relation-scoped)" cost two validation rounds and
    a ruling. Any key, journal, or dedup mechanism in a partitioned store MUST
    name its partition scope in the contract sentence that introduces it.
+   *(Recheck: cost overcounted — one round + the ruling; see correction 2.)*
 2. **Style gates need boundaries**: "typed defrecords" over-applied to the wire
    produced the F1 plan bug. Write style gates as "records IN PStates, maps ON
    the wire" — name where the rule stops.
+   *(Recheck: slogan looser than the as-built code; precise form in correction 4.)*
 3. **Performance promises need a read-plan clause**: if the contract promises
    "1 seek", require the plan to enumerate the read plan per query shape, so
    the promise is checkable at Phase 2 instead of Phase 4.
+   *(Recheck: causal story corrected — keep the clause as contract hygiene, not
+   as a Phase-2 mover; see correction 3.)*
 4. **Derived-spec language rule**: the implicit spec must inherit the
    contract's partition/colocation context; entity descriptions in
    partition-free prose are how F2-class conflicts are born.
@@ -83,4 +87,87 @@ runtime debugging.
 - D-006 criterion 2 (counterfactual probe, CONTRACT §13 manifest) — unrun.
 - `:workers 2` smoke test — cross-worker record serialization unexercised.
 - Envelope/payload binding recheck — do before agent-authored writers (D-003).
-- `decisions.md` is not in git; commit decision is Sid's.
+- ~~`decisions.md` is not in git; commit decision is Sid's~~ — superseded the
+  same day it was written: `84b3d82` (17:26) tracked the full docs tree
+  including decisions.md. *(Recheck correction 1.)*
+- *(Recheck addition)* **Importer timestamp discipline**: status-history order
+  keys ride client-supplied `asserted-at-ms` (the price of deterministic
+  replay), so an importer submitting out-of-order timestamps gets claimed-time
+  order, not arrival order. Must be stated in the D-003 extractor / trail-view
+  contract — the next package's consumer-facing obligation (from the gate's
+  async-ordering note, which this residue list had dropped).
+
+## Adversarial recheck (2026-07-03, fresh Fable session)
+
+Pre-registered in the baton at package close: verify every claim above before
+this file feeds the work-package skill. Method: every scorecard/narrative
+claim traced to the seven phase artifacts, the baton trail in git (per-phase
+commits on `next-prompt.md`), `decisions.md`, the module + test source, and a
+fresh suite run THIS session on the committed code: `clojure -M:test` →
+**2 tests, 165 assertions, 0 failures** — matching Phase 7, the gate re-run,
+and the static count (151 `(is ...)` forms; T6's doseq×3 adds 14 at runtime).
+
+**Verified intact:** the phase/actor/verdict narrative (the baton NOW log
+corroborates every entry, including both FAIL rounds' findings near-verbatim);
+the 9-trap ledger and its trap-number citations in code comments; the F2 story
+end to end; the 14-seeks-vs-1 Phase-4 finding and its fix (the `[:all]`
+whole-map plan, `relation_kernel.clj:444,639`); Phase 6's ten findings, all
+present as applied testing blocks; the "10 vs 11 gates" absorption — baton
+STANDING froze "10" at package open, and BOTH the Phase-2 re-run and the
+Phase-7 DoD entries flagged and dismissed the drift inline citing the
+precedence rule; Phase 7 first-invocation green plus the deterministic {2,4,8}
+sweep; the NUL-as-string-escape re-spelling (`relation_kernel.clj:56,58`); the gate's
+four open doubts.
+
+**Corrections:**
+
+1. Residue "decisions.md is not in git" — stale seven minutes after writing;
+   struck above.
+2. Lesson 1 overattributes: round 1's three findings (duplicate-key conflict
+   decision, reassertion no-ops, N>M reads — baton verbatim) were unrelated to
+   idempotency scope. The implicit scope cost part of round 2 plus the
+   escalation and ruling — not two rounds.
+3. Lesson 3's causal story is wrong for this instance. The final PLAN did
+   enumerate read plans per query shape (the /rama Phase-2 template forces
+   this — its N>M rule is what produced the descriptor PState in round 1), and
+   Phase 2 validated them. The 14-vs-1 divergence was implementation-vs-plan,
+   born in Phase 3; no contract clause moves that catch to Phase 2 — Phase 4
+   is the layer that owns it, and it worked. Keep the read-plan clause as
+   contract hygiene. The real lesson: **promises in binding docs don't
+   self-enforce** — the implementer had both the "1 seek" promise and the
+   ":all one-read" instruction in front of them and still diverged;
+   fresh-context validation is the mechanism that catches it.
+4. Lesson 2's slogan ("records IN PStates, maps ON the wire") is looser than
+   the as-built code: the wire envelope carries a typed
+   `RelationMutationPayload` INSIDE the map (PLAN-blessed; the partitioner
+   never reads inside `:payload`). Precise rule for the skill: **the
+   partitioner-read key must be a top-level namespaced key on a plain map
+   envelope; typed records may ride inside fields the partitioner never
+   reads.**
+
+**Missing lessons (append to "what the next contract should do differently"):**
+
+8. **Never overwrite a FAIL validation artifact.** Both PLAN_VALIDATION FAIL
+   rounds were rewritten in place before docs were tracked; their full text is
+   unrecoverable. The findings survive only because the baton NOW entries
+   carried them near-verbatim — luck that must become a rule: per-round files
+   (`*_R1.md`, `*_R2.md`) or a commit before rewrite, and the NOW entry always
+   carries the finding list verbatim. The log is primary — applied to the
+   package's own trail.
+9. **A ruling amendment is a sweep, not a banner.** The F2 execution amended
+   CONTRACT §5, added gate 11, and bannered IMPLICIT_SPEC — but IMPLICIT_SPEC's
+   own gate enumeration still reads "all ten contract gates" (1–10, no gate
+   11). Absorbed by precedence + PLAN carrying gate 11, but "executed across
+   ALL binding artifacts in one pass" (above) is true only at banner level.
+   Rule: after a ruling, grep every derived enumeration/count/list across the
+   binding artifacts, not just the sentence that introduced the concept.
+
+**Minor notes (no body change):** the {2,4,8} sweep was a Phase-7 scoped
+`rand-nth` redef — not reproducible from the committed harness, which
+randomizes per launch; make task count injectable when the harness is next
+touched. PLAN's conditional `IRelationRequestPayload` was never defined (a
+single payload record made it moot) — harmless plan-to-code drift, noted so
+Phase 4's "no other divergence found" is exact. The module ships a polling
+`await-relation` helper while lesson 6 rejects polling — not a contradiction
+(the suite uses the deterministic barrier), but the skill should state: test
+barriers are the deterministic counter, never the poll.
