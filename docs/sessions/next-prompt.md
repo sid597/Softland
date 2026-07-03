@@ -24,9 +24,16 @@ TEST_VALIDATION → GATE_REVIEW → RETRO).
    relation kernel; envelope/payload-binding server-side recheck before any
    agent-authored writers.
 
-Open commit question for Sid: `docs/current-mental-model/decisions.md` is NOT
-in git (ignored, never force-added) yet is the binding log — decide whether it
-joins the docs branch.
+Docs tracking RESOLVED (Sid, 2026-07-03): the full docs tree is tracked on
+this branch (`84b3d82`), including `decisions.md`; `docs/` removed from
+.gitignore here (`9e2e3af`). Convention (also in memory Hard Rules): docs
+commits ONLY on this local branch, never pushed, never merged into main;
+code and docs always in separate commits.
+
+Also queued: adversarial recheck of `build/relation-kernel/RETRO.md` — run it
+as the FIRST phase of the succession-skill session at xhigh/max effort (verify
+every scorecard claim against the phase artifacts; hunt for missing lessons)
+before writing the skill from it.
 
 Session hygiene notes for whoever writes code next: see
 `memory/implementation-quirks.md` → "NUL bytes in source" (git-binary trap +
