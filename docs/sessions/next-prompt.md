@@ -248,12 +248,15 @@ This file has two sections with different rules:
   `Unresolved symbol: $$…` errors, all inside the two query topologies — the known
   Rama-macro-scoping false-positive class (count stayed 4: clj-kondo dedups the
   second `$$relations-by-target` ref I added). Rama compiler is authoritative.
-  **File-tooling note**: `relation_kernel.clj` holds two deliberate NUL bytes (`\x00`)
-  — `id-part-separator` (L58) and the `missing-idempotency-key` sentinel prefix
-  (L56), the collision-proof "byte that can't appear in user data" idiom. Effect:
-  `file(1)` reports "data" and plain `grep`/many editors treat it as binary — use
-  `grep -a`. NOT corruption; do not "fix" it (changing the separator rewrites every
-  relation-id = a write-path/identity change, out of scope).
+  **File-tooling note (superseded at commit time)**: `relation_kernel.clj`
+  originally held two deliberate raw NUL bytes — `id-part-separator` (L58) and
+  the `missing-idempotency-key` sentinel prefix (L56), the collision-proof
+  "byte that can't appear in user data" idiom. At commit (2026-07-03, Fable)
+  git classified the file as binary because of them, killing future diffs, so
+  the raw bytes were re-spelled as `"\u0000"` string escapes — the runtime
+  strings are PROVEN byte-identical (`(= sep (str (char 0)))` → true), so no
+  relation-id changes; only the source encoding did. The separator VALUE
+  remains NUL and must never change (that would rewrite every relation-id).
 - 2026-07-03, Claude (Opus 4.8): **Rama Phase 5: Tests completed.** Artifact:
   `test/app/server/rama/relation_kernel_test.clj` (new file only; no existing test
   or kernel edited). Compile-checked, NOT run (Phase 7 runs it):
@@ -382,13 +385,25 @@ This file has two sections with different rules:
   STANDING's "10" predates gate 11; CONTRACT wins by the precedence rule) all
   green as IPC tests; style gates satisfied per Phase 4/6. The one remaining DoD
   item is the **Fable gate review** (STANDING).
-- Next fresh session (**Fable**): run the **Fable gate review** of the
-  relation-kernel module — adjudicate the built module + green suite against
-  CONTRACT.md §11 (all 11 gates) + §9 refusals + the style gates, using
-  IMPLEMENTATION_VALIDATION.md / TEST_VALIDATION.md as the prior-pass record and
-  the now-green suite as evidence. This is also a **D-006 evaluation datapoint**
-  (implementation contact is the falsifier — record the honest result). If the
-  gate passes: decide with Sid whether to commit the two code files, then the
-  D-003 Regime-1 spine (transcript→commit/doc join extractor + git-commit-metadata
-  adapter feeding the 27-04 trail view) — **do NOT start the spine without Sid**
-  (STANDING).
+- 2026-07-03, Claude (Fable 5): **Fable gate review completed. Verdict: PASS.**
+  Artifact: `docs/current-mental-model/build/relation-kernel/GATE_REVIEW.md`.
+  Suite independently re-run this session: 2 tests, 165 assertions, 0 failures,
+  0 errors. Traps 1/2/7 spot-checked in the diff (NUL id-separator
+  byte-verified); CLAUDE.md falsification pass run — 9 failure modes attempted,
+  none landed; 4 non-blocking open doubts recorded in the artifact (topology
+  never rechecks routing-key==relation-id-for(payload) — client trust, cheap
+  hardening before agent writers; dead `replayed-from-decision-id` field;
+  O(n²) R1 post-agg dedup; single-worker tests). D-006 evaluation notes +
+  Fable-window queue updated in decisions.md. **All STANDING definition-of-done
+  items are now green.** Module + tests remain UNCOMMITTED.
+- Next (**Sid decides, in order**): (1) commit the two code files
+  (`src/app/server/rama/relation_kernel.clj`,
+  `test/app/server/rama/relation_kernel_test.clj`) — code only, never the .md
+  artifacts; (2) close the work package → run the package retro (NOW log +
+  phase artifacts → lessons to implementation-quirks / operating-model / D-006
+  notes; it is the INPUT to the succession-document skill per decisions.md);
+  (3) the D-003 Regime-1 spine (transcript→commit/doc join extractor +
+  git-commit-metadata adapter feeding the 27-04 trail view) — **do NOT start
+  without Sid** (STANDING). Optional slot-anywhere items: D-006 criterion-2
+  counterfactual probe (fresh Opus, CONTRACT §13 manifest); `:workers 2` smoke
+  test.
