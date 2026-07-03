@@ -103,6 +103,23 @@ build/object-container/*.md
   -> implementation-slice contracts for object-container work
   -> read only when the user has chosen to implement that slice
 
+build/relation-kernel/*.md
+  -> the CLOSED relation-kernel work-package trail (contract, phase
+     artifacts, gate review, retro + adversarial recheck)
+  -> the reference example of a full work-package cycle
+     (process skill: .claude/skills/work-package/SKILL.md)
+
+build/trail-view/INPUTS.md
+  -> pre-contract input manifest for the trail-view data contract
+  -> read FIRST when opening that contract in a fresh session
+
+intake/*.md
+  -> dated "painting" decompositions of rich sessions: every thread typed
+     (claim / hypothesis / question / work / decision) with parallelism
+     status and triggers
+  -> pre-reads for BETS.md Candidates intake sittings
+  -> first: intake/2026-07-04-painting.md
+
 Post `1ef1cbd`, active code uses space/turn vocabulary. Older docs that say
 world-thread/world-turn are historical unless explicitly marked current.
 

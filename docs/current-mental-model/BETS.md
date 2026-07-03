@@ -155,7 +155,9 @@ and its dependencies — then files it here. Rules:
   here. If candidates pile up unsharpened or unreviewed, say so at the next
   sitting — this section is an inbox, not a graveyard.
 
-*(empty — first intake sitting seeds from vision/LOG.md and the wall)*
+*(empty — first intake sitting seeds from vision/LOG.md, the wall, and the
+dated pre-reads in `docs/current-mental-model/intake/`; first pre-read:
+`intake/2026-07-04-painting.md`)*
 
 ## Verdict log (append-only)
 - *(empty — H1's clock starts when the trail view first renders)*
