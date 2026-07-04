@@ -31,6 +31,21 @@ in seconds.
   never chain visually. The deeper form question — what IS the right lane
   semantics for a corpus of unthreaded docs — is genuine D-001 material
   for the next slice, not something to invent now.
+- **F-L4 (bug, FIXED same session):** multi-line material previews
+  overprinted the staleness/address lines below them — the renderer breaks
+  embedded newlines AFTER the tree walk, so one multi-line op escaped both
+  the height math and the clip. Previews now emit one op per line (cap 6)
+  + a visible "… N more lines" notice.
+- **F-L5 (bug + form observation, hygiene FIXED same session; Sid's "wtf,
+  this looks garbage" — verbatim, the ledger keeps it):** card text bled
+  past card boxes (no self-clip — 120-char addresses ran across the
+  canvas), and the lane grid degenerated into diagonal confetti (every
+  unthreaded doc = its own lane). Hygiene applied: cards clip their own
+  text via a clipped child node; the feed collapsed to a full-width
+  single column with threads as a bounded 14px left indent. **The actual
+  card design language and the lane/DAG form for threaded material are
+  DESIGN-TRACK questions** — first light's job was to surface them, not
+  answer them.
 - **F-L3 (expectation, no action):** card titles are full content-hash ids
   (live entries carry no display-name — gate-16 finding). Readable names
   need a display-name projection upstream (WP1-side enrichment; goes to
