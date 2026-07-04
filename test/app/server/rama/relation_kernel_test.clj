@@ -505,6 +505,75 @@
               (is (= :rejected (:status decision)) "but the rejected decision IS durable")
               (is (= :relation/kind-unregistered (:reason decision))))))
 
+        (testing "WP1 gate 15 — registry: three stance kinds accepted; unregistered still rejected; descriptor bound ≤ 2×registry"
+          ;; A2 (trail-view §5.2, traps 1-2): verdict rows ARE relations. Adding
+          ;; :confirms/:refutes/:supersedes to the kind registry
+          ;; (relation_kernel.clj:52) is the ENTIRE change — `registered-kind?` (:226)
+          ;; is the single reader of the set (grep-verified across src/ + test/), and
+          ;; R1's kind filter is descriptor-driven (relation-read-ranges), so a
+          ;; registered kind is accepted the instant it is in the set. Stance SHAPE
+          ;; (binary, directed: from = judgment carrier, to = judged thing) is a
+          ;; writer/fold convention for Phase B — no kernel code branches on the kind.
+          (let [judged (tref :doc-file "oc:doc:g15-judged.md")   ; common judged "to" endpoint
+                jkey   (:target-key judged)
+                ;; three distinct carriers → three distinct relation-ids (identity
+                ;; embeds the kind AND the from endpoint), all judging the same target.
+                stances
+                (mapv (fn [k]
+                        (let [from (tref :doc-file (str "oc:doc:g15-" (name k) "-src.md"))
+                              request-id (str "g15-" (name k) "-req")]
+                          {:kind k
+                           :rel-id (rk/relation-id-for k from judged "sid")
+                           :request-id request-id
+                           :req (rk/assert-request
+                                  {:kind k :from from :to judged
+                                   :asserter-actor-id "sid" :asserter-type :human
+                                   :asserted-at-ms 1000
+                                   :request-id request-id
+                                   :idempotency-key (str "g15-" (name k) "-idem")})}))
+                      [:confirms :refutes :supersedes])]
+            (doseq [{:keys [req]} stances] (submit! req))
+            (drain!)
+            ;; (a) each new kind is ACCEPTED and materializes with its kind + :asserted.
+            (doseq [{:keys [kind rel-id request-id]} stances]
+              (let [row      (rk/read-relation-row runtime rel-id)
+                    decision (rk/read-decision-by-id runtime (rk/decision-id-for rel-id request-id))]
+                (is (= :accepted (:status decision)) (str (name kind) " decision accepted"))
+                (is (some? row) (str (name kind) " has an authoritative row"))
+                (is (= kind (:relation-kind row)) (str (name kind) " row carries its kind"))
+                (is (= :asserted (:relation-status row)))))
+            ;; (b) descriptor bound: the judged target carries exactly the three
+            ;; INCOMING stance descriptors, and any target's descriptor map stays
+            ;; bounded by 2 × the (now 10-kind) registry. The bound is read LIVE off
+            ;; `relation-kinds`, so it self-adjusts and keeps the non-subindexed
+            ;; $$relation-target-descriptors PState (relation_kernel.clj:570) safe.
+            (let [descriptors (rk/read-target-descriptors runtime jkey)]
+              (is (= 3 (count descriptors)) "exactly three incoming stance descriptors on the judged target")
+              (doseq [k [:confirms :refutes :supersedes]]
+                (is (contains? descriptors (rk/target-descriptor-key :incoming k))
+                    (str "i:" (name k) " descriptor present")))
+              (is (<= (count descriptors) (* 2 (count rk/relation-kinds)))
+                  "per-target descriptor count ≤ 2 × registry (bounded, non-subindexed)"))
+            ;; (c) the registry stays CLOSED: a kind still absent from the set is
+            ;; rejected — adding stance kinds did not weaken the guard against
+            ;; LLM-glue kind mush (registry comment, relation_kernel.clj:49-51).
+            (let [a      (tref :doc-file "oc:doc:g15-bogus-a.md")
+                  b      (tref :git-commit "g15-bogus-sha")
+                  a-key  (:target-key a)
+                  rel-id (rk/relation-id-for :relates-to a b "sid")
+                  req    (rk/assert-request
+                           {:kind :relates-to :from a :to b   ; NOT registered
+                            :asserter-actor-id "sid" :asserter-type :human
+                            :asserted-at-ms 1000 :request-id "g15-bogus-req" :idempotency-key "g15-bogus-idem"})]
+              (is (not (rk/registered-kind? :relates-to)) "guard still sees :relates-to as unregistered")
+              (submit! req) (drain!)
+              (is (nil? (rk/read-relation-row runtime rel-id)) "unregistered kind: no authoritative row")
+              (is (empty? (rk/read-target-index runtime a-key)) "no target copy")
+              (is (nil? (rk/read-target-descriptors runtime a-key)) "no descriptor")
+              (let [decision (rk/read-decision-by-id runtime (rk/decision-id-for rel-id "g15-bogus-req"))]
+                (is (= :rejected (:status decision)))
+                (is (= :relation/kind-unregistered (:reason decision)))))))
+
         (testing "Edge / T9 — missing idempotency key rejected under the sentinel journal; no status log"
           (let [a      (tref :doc-file "oc:doc:e1-a.md")
                 b      (tref :git-commit "e1-sha")
