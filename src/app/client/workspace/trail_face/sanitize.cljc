@@ -56,11 +56,18 @@
 (defn sanitize-text
   "Codepoint-wise: covered codepoints pass through verbatim; uncovered
    are substituted with fallback-cp. Codepoint COUNT and positions are
-   preserved — never dropped, never zero-width."
+   preserved — never dropped, never zero-width.
+   Control whitespace (< U+0020: \\n \\r \\t) passes through UNTOUCHED —
+   the renderer owns line breaks; tofu-ing a newline turns paragraph
+   breaks into fallback glyphs (first-light finding F-L1)."
   [coverage fallback-cp s]
   (let [fb (str (char fallback-cp))]
     (->> (codepoint-segments s)
-         (map (fn [{:keys [cp seg]}] (if (contains? coverage cp) seg fb)))
+         (map (fn [{:keys [cp seg]}]
+                (cond
+                  (< cp 0x20)             seg
+                  (contains? coverage cp) seg
+                  :else                   fb)))
          (str/join))))
 
 (defn sanitize-op
