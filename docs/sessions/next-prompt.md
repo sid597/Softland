@@ -49,9 +49,29 @@ NEXT: a FRESH session opens the trail-view data contract from
   designer lens at session start; artifacts go to the design track; output
   binds phase 1 ONLY as a do-not-preclude constraint list — never scope.
   Schedulable anytime; needs Sid live.
+- **Track D — the render layer's NORTH (added 2026-07-04, Sid's call —
+  "ideal framework" study):** what the ideal Softland UI framework is,
+  synthesized from (a) Sid's existing framework docs
+  (`docs/architecture/gpu-component-library.md`, `component-library-jit.md`,
+  + whatever Sid supplies from notes), (b) vision/LOG + BETS North (the
+  feature horizon: continuous zoom, one-land-at-every-zoom, canvas, 3D,
+  agent-manipulable view-specs-as-data, minimal-token legibility), (c) prior
+  art (deep-research collection pass, cheap lane — vello/xilem, Makepad,
+  Flutter layering, declarative models, ECS-UI; verify, don't trust
+  training), (d) the retro's primitive inventory. **Guardrails:**
+  non-binding on build, binding on direction — it supplies the DELTA
+  INSTRUMENT (standing checklist at each face gate: "toward or away from
+  North?") and tie-breaks equal-cost fixes; any fundamental-divergence
+  finding becomes a CANDIDATE BET in BETS.md (pre-registered evidence,
+  promoted at a sitting) — a rebuild happens only as a promoted bet, never
+  as a slide. **Anchoring order:** the Track-B retro runs BLIND to this doc
+  (fresh-cut rule); ideal × as-built × face-demands meet only at the delta
+  step.
 - Cheap lane throughout: WP1/WP2 impl phases, D-006 criterion-2 probe
-  (Opus), model-UXR benchmark draft, `:workers 2` smoke.
-- Suggested Fable session order: A(WP1 contract) → B1(retro) → A(WP2
+  (Opus), model-UXR benchmark draft, `:workers 2` smoke, Track-D prior-art
+  collection.
+- Suggested Fable session order: A(WP1 contract) → B1(retro, blind) →
+  D(ideal-framework synthesis) → D×B1(delta analysis, short) → A(WP2
   contract) → C(design sitting, anytime Sid wants) → B2(view-MVP contract)
   → gates as suites green.
 
