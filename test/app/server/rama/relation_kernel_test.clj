@@ -50,6 +50,7 @@
             [com.rpl.rama :refer [foreign-select]]
             [com.rpl.rama.path :refer [keypath ALL]]
             [com.rpl.rama.test :as rtest]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]))
 
 (def ^:private topo-name "relation-kernel-topology")
@@ -659,6 +660,88 @@
             (let [decision (rk/read-decision-by-id runtime (rk/decision-id-for rel-id request-id))]
               (is (= :rejected (:status decision)) label)
               (is (= reason (:reason decision)) label))))
+
+        (testing "WP1 gate 9 — activity exactness: one row per accepted transition; replay/reject add ZERO; no wall clock"
+          ;; A3 (trail-view §5.3): the accepted branch projects each transition into
+          ;; $$relation-activity-by-bucket, bucketed by ARRIVAL day (envelope
+          ;; :sent-at-ms), read via R3. Client stamps only — a replayed microbatch
+          ;; re-derives byte-identical rows (trap 4b). Disjoint a3act-* keys; sent-at
+          ;; values are FIXED (year-2001 range) and unrelated to the test wall clock,
+          ;; so a stray now-ms would land rows in a 2026 bucket and fail these checks.
+          (let [a        (tref :doc-file "oc:doc:a3act-a.md")
+                b        (tref :git-commit "a3act-sha-b")
+                rel-id   (rk/relation-id-for :based-on a b "sid")
+                claimed  900000000000                 ; payload semantic time (distinct clock)
+                sent-1   1000000000000                ; arrival → bucket "00011574"
+                sent-2   1000000005000                ; +5s, same day
+                sent-3   1000000010000                ; +10s, same day
+                b1       "00011574"
+                base     {:kind :based-on :from a :to b :asserter-actor-id "sid" :asserter-type :human
+                          :actor {:actor/id "sid" :actor/type :human}}
+                assert-1  (rk/assert-request  (merge base {:asserted-at-ms claimed :sent-at-ms sent-1
+                                                           :request-id "a3act-r1" :idempotency-key "a3act-k1"}))
+                reassert  (rk/assert-request  (merge base {:asserted-at-ms sent-2 :sent-at-ms sent-2
+                                                           :request-id "a3act-r2" :idempotency-key "a3act-k2"}))
+                retract   (rk/retract-request (merge base {:asserted-at-ms sent-3 :sent-at-ms sent-3
+                                                           :request-id "a3act-r3" :idempotency-key "a3act-k3"}))
+                ;; a rejected request whose arrival ALSO maps to b1 — must still add zero.
+                rej-a     (tref :doc-file "oc:doc:a3act-rej.md")
+                rej-b     (tref :git-commit "a3act-rej-sha")
+                reject    (rk/assert-request {:kind :bogus-kind :from rej-a :to rej-b
+                                              :asserter-actor-id "sid" :asserter-type :human
+                                              :asserted-at-ms sent-1 :sent-at-ms 1000000015000
+                                              :request-id "a3act-rej" :idempotency-key "a3act-rej-idem"})
+                ;; a second relation one day later → bucket "00011575" (multi-bucket R3).
+                c        (tref :doc-file "oc:doc:a3act-c.md")
+                d        (tref :git-commit "a3act-sha-d")
+                sent-b2  1000086400000               ; +1 day → bucket "00011575"
+                b2       "00011575"
+                assert-2  (rk/assert-request {:kind :based-on :from c :to d
+                                              :asserter-actor-id "sid" :asserter-type :human
+                                              :asserted-at-ms sent-b2 :sent-at-ms sent-b2
+                                              :request-id "a3act-r4" :idempotency-key "a3act-k4"})]
+            ;; ordering-sensitive transitions drained in sequence
+            (submit! assert-1) (drain!)
+            (submit! reassert) (drain!)
+            (submit! retract)  (drain!)
+            ;; replay the FIRST assert (same idem key) + the reject + the 2nd relation
+            (submit! assert-1) (submit! reject) (submit! assert-2) (drain!)
+
+            ;; (1) EXACTLY three rows in b1: assert + reassert + retract; replay 0, reject 0.
+            (is (= 3 (count (rk/read-activity-rows runtime b1)))
+                "3 accepted transitions → 3 rows; journal-replay + rejected add zero")
+            (is (= 1 (count (rk/read-activity-rows runtime b2)))
+                "the 2nd relation's assert → one row in b2")
+
+            ;; (2) the assert row (earliest arrival in b1): both clocks + bucket derive
+            ;;     from CLIENT stamps, proving no wall-clock read (replay-stable, gate 9).
+            (let [rows  (sort-by :order-key (rk/read-activity-rows runtime b1))
+                  a-row (first rows)]
+              (is (= sent-1  (:arrival-at-ms a-row)) "arrival == client :sent-at-ms (no now-ms)")
+              (is (= claimed (:claimed-at-ms a-row)) "claimed == payload :asserted-at-ms (two clocks)")
+              (is (= b1      (:bucket a-row))        "bucket derived from arrival, not the wall clock")
+              (is (= rel-id  (:relation-id a-row)))
+              (is (= :based-on (:relation-kind a-row)))
+              (is (= :asserted (:relation-status a-row)))
+              (is (nil? (:previous-status a-row)) "first transition has no previous status")
+              (is (= "sid" (:asserter-actor-id a-row)))
+              (is (= "sid" (:envelope-actor-id a-row)) "default writer == asserter")
+              (is (= "oc:doc:a3act-a.md" (:from-id a-row)))
+              (is (= "a3act-sha-b" (:to-id a-row)))
+              (is (str/starts-with? (:order-key a-row) (format "%020d:" sent-1))
+                  "order-key is arrival-prefixed (arrival ordering within the bucket)")
+              (is (= [:asserted :asserted :retracted] (mapv :relation-status rows))
+                  "the three transitions in arrival order: assert, reassert, retract"))
+
+            ;; (3) R3 query surface: single-bucket, multi-bucket, and empty range.
+            (let [r3-b1 (rk/read-relation-activity runtime b1 b1)]
+              (is (= 3 (count r3-b1)) "R3 over b1 returns its three rows")
+              (is (= [:asserted :asserted :retracted] (mapv :relation-status r3-b1))
+                  "R3 orders by order-key (arrival)"))
+            (is (= 4 (count (rk/read-relation-activity runtime b1 b2)))
+                "R3 over [b1 b2] enumerates + fans both days → 3 + 1 rows")
+            (is (= [] (rk/read-relation-activity runtime "00099999" "00099999"))
+                "R3 over an empty bucket range returns [] (terminal agg fires once), never nil")))
 
         (testing "Lifecycle — retracted -> reasserted returns to :asserted on one identity"
           (let [a      (tref :doc-file "oc:doc:e5-a.md")
