@@ -4,11 +4,17 @@
 ;; Adhere to all previously decided design decisions. If the plan needs to
 ;; change, FAIL the phase — do not silently redesign while implementing.
 ;;
-;; AMENDED under trail-view WP1 (build/trail-view/CONTRACT.md §5.1, PLAN.md §2):
-;; the decision/event/edge records carry envelope-actor custody fields, so an
-;; agent-authored write on Sid's instruction is distinguishable from Sid's own
-;; hand (trap 10). Identity stays asserter-scoped (trap 11). Authorized by that
-;; contract's §2 "Exception, ruled here".
+;; AMENDED under trail-view WP1 (build/trail-view/CONTRACT.md, PLAN.md; authorized
+;; by that contract's §2 "Exception, ruled here"):
+;;   A1 §5.1 — decision/event/edge rows carry envelope-actor custody, so an
+;;     agent-authored write on Sid's instruction is distinguishable from his own
+;;     hand (trap 10). Identity stays asserter-scoped (trap 11).
+;;   A2 §5.2 — the kind registry gains :confirms/:refutes/:supersedes (verdict
+;;     rows ARE relations; traps 1-2).
+;;   A3 §5.3 — the accepted branch projects each transition into
+;;     $$relation-activity-by-bucket (arrival-bucketed, client-stamped, NO wall
+;;     clock — trap 4b), read via the R3 relation-activity query; feeds the
+;;     recent-activity feed (§6).
 
 (ns app.server.rama.relation-kernel
   (:use [com.rpl.rama]
@@ -167,6 +173,43 @@
   [descriptor-key]
   [(str descriptor-key ":") (str descriptor-key ";")])
 
+;; ── Relation-activity bucketing (trail-view §5.3) ────────────────────────────
+;; Arrival-time UTC-day buckets for the recent-activity feed. The bucket width
+;; lives in ONE place so the write path, R3, and the trail-view feed wrapper can
+;; never drift (PLAN §4 note N6). The topology NEVER reads the wall clock —
+;; bucket + order-key are pure functions of client-supplied stamps, so a replayed
+;; microbatch re-derives byte-identical rows (trap 4b; contrast the wall-clock
+;; stamp at object_container.clj:428/448/467, which double-buckets under replay).
+(def ^:private ms-per-utc-day 86400000)
+(def ^:private activity-bucket-fmt "%08d")
+
+(defn arrival-day-index [arrival-at-ms] (quot (long (or arrival-at-ms 0)) ms-per-utc-day))
+(defn bucket-for-day    [day-index]     (format activity-bucket-fmt (long day-index)))
+(defn bucket-key        [arrival-at-ms] (bucket-for-day (arrival-day-index arrival-at-ms)))
+
+(defn activity-order-key
+  "Row accessor (keywords cannot sit in dataflow operation position)."
+  [activity-row]
+  (:order-key activity-row))
+
+(defn activity-bucket-range
+  "Inclusive fixed-width bucket strings for the day range [lo hi] (bucket strings
+   in, bucket strings out). Buckets live on distinct hash(bucket) tasks, so R3
+   ENUMERATES + fans the covered days — never a sorted-map-range across top-level
+   keys. lo>hi / nil bounds → [] (→ R3 returns [] via its terminal aggregation)."
+  [bucket-lo bucket-hi]
+  (let [lo (some-> bucket-lo str Long/parseLong)
+        hi (some-> bucket-hi str Long/parseLong)]
+    (if (and lo hi (<= lo hi))
+      (mapv bucket-for-day (range lo (inc hi)))
+      [])))
+
+(defn sort-activity-rows
+  "Deterministic ascending order by order-key (arrival-ms prefix + event-id). The
+   feed wrapper (Phase B) applies the final desc/clock ordering."
+  [rows]
+  (vec (sort-by :order-key (or rows []))))
+
 ;; ── Typed rows (PLAN PState Design). object-container style: typed defrecords in
 ;;    PStates; the depot event stays a plain map envelope (F1). ─────────────────
 (defrecord RelationTargetRef
@@ -219,6 +262,16 @@
   [descriptor-key target-key direction relation-kind asserted-count total-count
    updated-at-ms])
 
+;; Relation-activity projection row (trail-view §5.3): one per ACCEPTED transition,
+;; arrival-bucketed, feeding R3 + the recent-activity feed. Carries the writer id
+;; (envelope-actor-id) but NOT its type — the feed shows who wrote, not the actor
+;; kind. Two clocks: claimed-at-ms (payload semantic time) vs arrival-at-ms
+;; (envelope :request/sent-at-ms). Written ONLY in the accepted branch (gate 9).
+(defrecord RelationActivityRow
+  [order-key bucket relation-id relation-kind from-kind from-id to-kind to-id
+   asserter-actor-id asserter-type envelope-actor-id relation-status
+   previous-status event-id claimed-at-ms arrival-at-ms])
+
 ;; ── Envelope / payload accessors (namespaced keys read off the wire map) ─────
 (defn relreq-routing-key    [request] (:relation/routing-key request))
 (defn relreq-id             [request] (:request/id request))
@@ -226,6 +279,7 @@
 (defn relreq-idempotency-key [request] (:idempotency/key request))
 (defn relreq-actor          [request] (:actor request))
 (defn relreq-payload        [request] (:payload request))
+(defn relreq-sent-at-ms     [request] (:request/sent-at-ms request))  ; arrival clock (§5.3)
 
 ;; ── Validation (CONTRACT §5 step 3; IMPLICIT_SPEC edge cases). No target
 ;;    existence check — dangling targets are legal (CONTRACT §8, trap 3). ───────
@@ -414,7 +468,21 @@
                                                 request-id decision-id prev-status)
             deltas      (count-deltas current-row new-status)
             sort-o      (target-sort-key :outgoing kind first-ms relation-id)
-            sort-i      (target-sort-key :incoming kind first-ms relation-id)]
+            sort-i      (target-sort-key :incoming kind first-ms relation-id)
+            ;; ── activity projection (trail-view §5.3): TWO client clocks, never
+            ;;    the wall clock (trap 4b). claimed = payload semantic time;
+            ;;    arrival = envelope :request/sent-at-ms (fallback asserted-at-ms).
+            ;;    bucket + order-key are pure fns of client stamps → replay-stable.
+            claimed-at-ms ts
+            arrival-at-ms (long (or (relreq-sent-at-ms request) (:asserted-at-ms payload) 0))
+            bucket        (bucket-key arrival-at-ms)
+            activity-ok   (oc/fixed-width-order-key arrival-at-ms event-id)
+            activity-row  (->RelationActivityRow
+                            activity-ok bucket relation-id kind
+                            (:target-kind from) (:target-id from)
+                            (:target-kind to) (:target-id to)
+                            asserter-id asserter-typ actor-id new-status prev-status
+                            event-id claimed-at-ms arrival-at-ms)]
         {:accepted? true
          :decision (->RelationDecisionRow decision-id relation-id request-id request-type
                                           idem-key :accepted nil [] event-id ts nil material-hash
@@ -429,7 +497,10 @@
          ;; :none, to's target-key == from's, so both copies land on one task
          ;; under distinct "o:"/"i:" sort-keys; R1 dedups by relation-id.
          :from-copy (endpoint-copy :outgoing kind (:target-key from) sort-o ts)
-         :to-copy   (endpoint-copy :incoming kind (:target-key to)   sort-i ts)}))))
+         :to-copy   (endpoint-copy :incoming kind (:target-key to)   sort-i ts)
+         ;; activity row + its bucket — the 4th microbatch hop (accepted only).
+         :activity-row activity-row
+         :bucket bucket}))))
 
 ;; Small dataflow-position accessors for the outcome (keywords cannot sit in
 ;; operation position; these keep the topology body readable).
@@ -443,6 +514,8 @@
 (defn outcome-asserted-delta [o] (:asserted-delta o))
 (defn outcome-from-copy      [o] (:from-copy o))
 (defn outcome-to-copy        [o] (:to-copy o))
+(defn outcome-activity-row   [o] (:activity-row o))
+(defn outcome-bucket         [o] (:bucket o))
 (defn decision-row-id        [d] (:decision-id d))
 (defn event-row-id           [e] (:event-id e))
 (defn copy-target-key        [c] (:target-key c))
@@ -575,6 +648,12 @@
     ;; ≤ 2 × registry rows per target (14 with the starter registry).
     (declare-pstate mb $$relation-target-descriptors
                     {String (map-schema String RelationTargetDescriptorRow)})
+    ;; Relation-activity projection (trail-view §5.3): accepted transitions bucketed
+    ;; by arrival UTC-day. Outer key = fixed-width bucket on hash(bucket); inner
+    ;; subindexed map order-key → row on that bucket's task. Read via R3 (the ONLY
+    ;; public surface); one task hosts one day's writes (phase-1 volume tens/day).
+    (declare-pstate mb $$relation-activity-by-bucket
+                    {String (map-schema String RelationActivityRow {:subindex? true})})
 
     (<<sources mb
       (source> *relation-request-depot :> %requests)
@@ -639,6 +718,11 @@
         (copy-sort-key *to-copy :> *to-sk)
         (copy-descriptor-key *to-copy :> *to-dk)
         (copy-descriptor *to-copy :> *to-desc)
+        ;; Activity row extracted here (still on the relation-id task) so only the
+        ;; record + two scalars cross the partitioner hops — same idiom as above.
+        (outcome-activity-row *outcome :> *activity-row)
+        (outcome-bucket *outcome :> *bucket)
+        (activity-order-key *activity-row :> *activity-ok)
 
         ;; from-side copy: hop to hash(from-tk). termval = write-only (no read),
         ;; so the whole row is rewritten every time — copies can't disagree
@@ -655,7 +739,19 @@
         (local-transform> [(keypath *to-tk *to-sk) (termval *row)] $$relations-by-target)
         (local-transform> [(keypath *to-tk *to-dk)
                            (term (partial apply-descriptor-delta *to-desc *total-delta *asserted-delta))]
-                          $$relation-target-descriptors))))
+                          $$relation-target-descriptors)
+
+        ;; ── 4th hop: relation-activity projection (trail-view §5.3; feeds R3 + §6
+        ;;    recent-activity). Reached ONLY on the accepted branch, so rejected
+        ;;    decisions and journal-replayed duplicates (dropped at the
+        ;;    (nil? *prior-decision) gate) add ZERO activity rows (gate 9). Same
+        ;;    microbatch = cross-partition exactly-once per attempt (trap 1).
+        ;;    *bucket / *activity-ok / *activity-row derive from client stamps only
+        ;;    — NO wall clock (trap 4b) — so a replayed batch re-derives them byte-
+        ;;    identical and the write is idempotent.
+        (|hash *bucket)
+        (local-transform> [(keypath *bucket *activity-ok) (termval *activity-row)]
+                          $$relation-activity-by-bucket))))
 
   ;; ── Query topologies — the ONLY public read surface (CONTRACT §7) ───────────
 
@@ -710,7 +806,22 @@
         (|origin))
       (else>)
       (relation-detail-result nil [] :> *result)
-      (|origin))))
+      (|origin)))
+
+  ;; R3: relation-activity — accepted transitions across a UTC-day bucket range
+  ;; (CONTRACT §5.3). Buckets live on hash(bucket), so the day range is enumerated
+  ;; + fanned per bucket, each read subindexed + yield-safe, aggregated at |origin,
+  ;; sorted by order-key. Terminal aggregation emits exactly once (empty range →
+  ;; []). Feeds the §6 recent-activity feed via the trail-view module (mirror query).
+  (<<query-topology topologies "relation-activity" [*bucket-lo *bucket-hi :> *result]
+    (activity-bucket-range *bucket-lo *bucket-hi :> *buckets)
+    (ops/explode *buckets :> *bucket)
+    (|hash *bucket)
+    (local-select> [(keypath *bucket) MAP-VALS]
+                   $$relation-activity-by-bucket {:allow-yield? true} :> *row)
+    (|origin)
+    (aggs/+vec-agg *row :> *rows)
+    (sort-activity-rows *rows :> *result)))
 
 ;; ─────────────────────────────────────────────────────────────────────────────
 ;;   FOREIGN CLIENT  (request builders + the two read wrappers)
@@ -742,11 +853,15 @@
 (defn- envelope
   [request-type {:keys [kind from to asserter-actor-id asserter-type actor
                         evidence-source-id evidence-anchor-id note asserted-at-ms
-                        request-id idempotency-key]}]
+                        sent-at-ms request-id idempotency-key]}]
   (let [relation-id (relation-id-for kind from to asserter-actor-id)]
     {:relation/routing-key relation-id
      :request/id           request-id
      :request/type         request-type
+     ;; arrival clock (trail-view §5.3): when the CLIENT sent this request. The
+     ;; activity projection buckets on this, never the wall clock. Falls back to
+     ;; the semantic asserted-at-ms when the caller omits it.
+     :request/sent-at-ms   (or sent-at-ms asserted-at-ms)
      :idempotency/key      idempotency-key
      :actor                (or actor {:actor/id asserter-actor-id :actor/type asserter-type})
      :payload              (->RelationMutationPayload relation-id kind from to
@@ -757,8 +872,8 @@
 (defn assert-request
   "Build a :relation/assert envelope. Required opts: :kind :from :to
    :asserter-actor-id :asserter-type :asserted-at-ms :request-id :idempotency-key.
-   Optional: :actor (defaults to the asserter), :evidence-source-id,
-   :evidence-anchor-id, :note."
+   Optional: :actor (defaults to the asserter), :sent-at-ms (arrival clock, §5.3;
+   defaults to :asserted-at-ms), :evidence-source-id, :evidence-anchor-id, :note."
   [opts]
   (envelope :relation/assert opts))
 
@@ -790,7 +905,9 @@
       :relations-by-target (foreign-pstate ipc module-name "$$relations-by-target")
       :target-descriptors (foreign-pstate ipc module-name "$$relation-target-descriptors")
       :relations-for-targets-query (foreign-query ipc module-name "relations-for-targets")
-      :relation-detail-query (foreign-query ipc module-name "relation-detail")})))
+      :relation-detail-query (foreign-query ipc module-name "relation-detail")
+      :activity-by-bucket (foreign-pstate ipc module-name "$$relation-activity-by-bucket")
+      :relation-activity-query (foreign-query ipc module-name "relation-activity")})))
 
 (defn close-relation-runtime!
   [runtime]
@@ -825,6 +942,12 @@
   [runtime relation-id]
   (foreign-invoke-query (:relation-detail-query runtime) relation-id))
 
+(defn read-relation-activity
+  "R3 (public): accepted relation transitions across the inclusive fixed-width
+   day-bucket range [bucket-lo bucket-hi], ordered by order-key. Empty range → []."
+  [runtime bucket-lo bucket-hi]
+  (foreign-invoke-query (:relation-activity-query runtime) bucket-lo bucket-hi))
+
 ;; ── Validation-only PState reads (V1 — tests only, never product code) ───────
 (defn read-decision-by-idempotency
   [runtime relation-id idempotency-key]
@@ -851,6 +974,14 @@
 (defn read-target-descriptors
   [runtime target-key]
   (first (foreign-select [(keypath target-key)] (:target-descriptors runtime))))
+
+(defn read-activity-rows
+  "V1 (tests only): all RelationActivityRow values physically under a bucket. Gate
+   9 negatives (rejected + journal-replayed add ZERO) read the PState directly —
+   R3's sort/agg would MASK a leaked row. Same [(keypath k) ALL] idiom as
+   read-target-index on the identically-shaped $$relations-by-target."
+  [runtime bucket]
+  (mapv second (foreign-select [(keypath bucket) ALL] (:activity-by-bucket runtime))))
 
 ;; ── Read-after-write barrier for microbatch (poll, like the compute kernel) ──
 (defn await-relation
