@@ -3,6 +3,12 @@
 ;; check the NOW baton in docs/sessions/next-prompt.md.
 ;; Adhere to all previously decided design decisions. If the plan needs to
 ;; change, FAIL the phase — do not silently redesign while implementing.
+;;
+;; AMENDED under trail-view WP1 (build/trail-view/CONTRACT.md §5.1, PLAN.md §2):
+;; the decision/event/edge records carry envelope-actor custody fields, so an
+;; agent-authored write on Sid's instruction is distinguishable from Sid's own
+;; hand (trap 10). Identity stays asserter-scoped (trap 11). Authorized by that
+;; contract's §2 "Exception, ruled here".
 
 (ns app.server.rama.relation-kernel
   (:use [com.rpl.rama]
@@ -177,17 +183,27 @@
 
 (defrecord RelationDecisionRow
   [decision-id relation-id request-id request-type idempotency-key status reason
-   errors event-id decided-at-ms replayed-from-decision-id request-material-hash])
+   errors event-id decided-at-ms replayed-from-decision-id request-material-hash
+   ;; custody (trail-view §5.1, trap 10): the envelope actor that WROTE this
+   ;; decision — distinct from the payload asserter, so an agent appending on
+   ;; Sid's instruction is auditable. Identity stays asserter-scoped (trap 11).
+   envelope-actor-id envelope-actor-type])
 
 (defrecord RelationEventRow
   [event-id relation-id event-type relation-status relation-kind from to
    asserter-actor-id asserter-type evidence-source-id evidence-anchor-id note
-   event-time-ms request-id decision-id previous-status])
+   event-time-ms request-id decision-id previous-status
+   ;; custody (§5.1): the writer of THIS transition. Events + decisions hold the
+   ;; full per-transition custody trail.
+   envelope-actor-id envelope-actor-type])
 
 (defrecord RelationEdgeRow
   [relation-id relation-kind from to asserter-actor-id asserter-type
    relation-status evidence-source-id evidence-anchor-id note
-   first-asserted-at-ms status-changed-at-ms event-id request-id])
+   first-asserted-at-ms status-changed-at-ms event-id request-id
+   ;; custody (§5.1): the writer of the LATEST transition on this edge (re-assert
+   ;; / retract overwrite it). Full trail lives in events/decisions.
+   envelope-actor-id envelope-actor-type])
 
 (defrecord RelationStatusLogRow
   [order-key event-id relation-id relation-status changed-at-ms request-id
@@ -272,18 +288,24 @@
   "New id → full row (first-asserted = status-changed = ts). Existing id → keep
    identity + first-asserted-at-ms, flip status, bump status-changed-at-ms +
    event/request. Preserving first-asserted-at-ms keeps the target sort-key
-   stable across status changes, so copies overwrite in place (trap 7)."
+   stable across status changes, so copies overwrite in place (trap 7).
+   Custody (§5.1): the edge reflects the LATEST transition's writer, so the
+   existing-row branch overwrites envelope-actor-id/-type too."
   [current-row relation-id kind from to asserter-actor-id asserter-type
-   new-status ts event-id request-id evidence-source-id evidence-anchor-id note]
+   new-status ts event-id request-id evidence-source-id evidence-anchor-id note
+   envelope-actor-id envelope-actor-type]
   (if current-row
     (assoc current-row
            :relation-status new-status
            :status-changed-at-ms ts
            :event-id event-id
-           :request-id request-id)
+           :request-id request-id
+           :envelope-actor-id envelope-actor-id
+           :envelope-actor-type envelope-actor-type)
     (->RelationEdgeRow relation-id kind from to asserter-actor-id asserter-type
                        new-status evidence-source-id evidence-anchor-id note
-                       ts ts event-id request-id)))
+                       ts ts event-id request-id
+                       envelope-actor-id envelope-actor-type)))
 
 (defn endpoint-copy
   "The write spec for one endpoint's full-row copy + its bounded descriptor row.
@@ -307,9 +329,11 @@
            :updated-at-ms  (:updated-at-ms desc-base))))
 
 (defn rejected-decision-row
-  [decision-id relation-id request-id request-type idempotency-key reason errors ts material-hash]
+  [decision-id relation-id request-id request-type idempotency-key reason errors ts material-hash
+   envelope-actor-id envelope-actor-type]
   (->RelationDecisionRow decision-id relation-id request-id request-type idempotency-key
-                         :rejected reason (vec errors) nil ts nil material-hash))
+                         :rejected reason (vec errors) nil ts nil material-hash
+                         envelope-actor-id envelope-actor-type))
 
 (defn relation-outcome
   "Pure decision for one request against the current authoritative row.
@@ -324,6 +348,7 @@
         idem-key     (relreq-idempotency-key request)
         actor        (relreq-actor request)
         actor-id     (:actor/id actor)
+        actor-type   (:actor/type actor)   ; envelope custody (§5.1)
         payload      (relreq-payload request)
         kind         (:relation-kind payload)
         from         (:from payload)
@@ -343,13 +368,15 @@
       (seq errors)
       {:accepted? false
        :decision (rejected-decision-row decision-id relation-id request-id request-type
-                                        idem-key (:type (first errors)) errors ts material-hash)}
+                                        idem-key (:type (first errors)) errors ts material-hash
+                                        actor-id actor-type)}
 
       ;; retract of a relation that does not exist
       (and (= request-type :relation/retract) (nil? current-row))
       {:accepted? false
        :decision (rejected-decision-row decision-id relation-id request-id request-type idem-key
-                                        :relation/absent [{:type :relation/absent}] ts material-hash)}
+                                        :relation/absent [{:type :relation/absent}] ts material-hash
+                                        actor-id actor-type)}
 
       ;; retract by someone other than the original asserter
       (and (= request-type :relation/retract)
@@ -357,7 +384,8 @@
       {:accepted? false
        :decision (rejected-decision-row decision-id relation-id request-id request-type idem-key
                                         :relation/retraction-forbidden
-                                        [{:type :relation/retraction-forbidden}] ts material-hash)}
+                                        [{:type :relation/retraction-forbidden}] ts material-hash
+                                        actor-id actor-type)}
 
       ;; accepted transition (new assert, reassert, reassert-after-retract,
       ;; retract, or retract-affirm). All write event/row/log/copies; only the
@@ -369,11 +397,13 @@
             order-key   (oc/fixed-width-order-key ts request-id)
             event-id    (event-id-for relation-id order-key)
             row         (transition-row current-row relation-id kind from to asserter-id asserter-typ
-                                        new-status ts event-id request-id ev-src ev-anch note)
+                                        new-status ts event-id request-id ev-src ev-anch note
+                                        actor-id actor-type)
             event       (->RelationEventRow event-id relation-id
                                             (if (= new-status :retracted) :relation/retracted :relation/asserted)
                                             new-status kind from to asserter-id asserter-typ
-                                            ev-src ev-anch note ts request-id decision-id prev-status)
+                                            ev-src ev-anch note ts request-id decision-id prev-status
+                                            actor-id actor-type)
             log         (->RelationStatusLogRow order-key event-id relation-id new-status ts
                                                 request-id decision-id prev-status)
             deltas      (count-deltas current-row new-status)
@@ -381,7 +411,8 @@
             sort-i      (target-sort-key :incoming kind first-ms relation-id)]
         {:accepted? true
          :decision (->RelationDecisionRow decision-id relation-id request-id request-type
-                                          idem-key :accepted nil [] event-id ts nil material-hash)
+                                          idem-key :accepted nil [] event-id ts nil material-hash
+                                          actor-id actor-type)
          :event event
          :row row
          :log log
