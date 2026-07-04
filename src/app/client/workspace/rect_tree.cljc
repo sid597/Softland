@@ -227,9 +227,21 @@
                            (> (+ abs-y h) cy)))
                     true)]
      (when visible?
-       (let [;; Background rect from style — now includes SDF properties
+       (let [;; T-4 clamp: partially-visible bg rects are clamped to the
+             ;; axis-aligned intersection with clip bounds. visible? above
+             ;; guarantees the intersection is non-empty. Radii degrade at
+             ;; clamped corners (accepted, view-mvp contract §5.2).
+             bx (if clip-bounds (max abs-x (:x clip-bounds)) abs-x)
+             by (if clip-bounds (max abs-y (:y clip-bounds)) abs-y)
+             bw (if clip-bounds
+                  (- (min (+ abs-x w) (+ (:x clip-bounds) (:w clip-bounds))) bx)
+                  w)
+             bh (if clip-bounds
+                  (- (min (+ abs-y h) (+ (:y clip-bounds) (:h clip-bounds))) by)
+                  h)
+             ;; Background rect from style — now includes SDF properties
              bg  (when-let [c (:bg style)]
-                   (cond-> {:x abs-x :y abs-y :w w :h h
+                   (cond-> {:x bx :y by :w bw :h bh
                             :r (nth c 0) :g (nth c 1) :b (nth c 2) :a (nth c 3)}
                      ;; Carry node identity for keyed differential rendering (Phase 5)
                      (:id node)              (assoc :id (:id node))

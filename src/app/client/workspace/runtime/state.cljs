@@ -191,6 +191,21 @@
       ;; consumed by hit-testing. Single source, two consumers.
       :!sidebar-scene (atom nil)
 
+      ;; Trail face (view-mvp WP-B2): entry state set by /trail command
+      ;; ({:face :text|:timeline :address <edn> :order :arrival|:claimed})
+      ;; and the cached scene tree (built once per data/viewport change;
+      ;; render flattens + mouse hit-tests the SAME object - gate 13).
+      :!trail-face-state (atom nil)
+      :!trail-face-scene (atom nil)
+      ;; server truth pulls for the faces (set by Electric bridge)
+      :!trail-text   (atom nil)
+      :!trail-feed   (atom nil)
+      :!trail-bundles (atom {})
+      :!ingest-epoch (atom 0)
+      ;; atlas coverage set (loaded once by trail-face wiring from
+      ;; /font_atlas.json; passed as DATA into the pure sanitizer)
+      :!trail-coverage (atom nil)
+
       ;; Agent / AI
       :!ai-provider     (atom :claude)
       :!agent-output    (atom nil)

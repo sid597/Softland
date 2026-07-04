@@ -1,6 +1,22 @@
 {
   "fonts": [
     {
+      "name": "Ubuntu Sans Mono (merged, trail-view)",
+      "id": "ubuntu-dejavu-merged",
+      "atlas": "ubuntu_dejavu_merged_atlas.png",
+      "metrics": "ubuntu_dejavu_merged_atlas.json",
+      "charWidth": 0.56,
+      "default": true,
+      "defaults": {
+        "fontSize": 19,
+        "lineHeight": 1.2,
+        "pxRange": 8,
+        "sharpness": 0.0,
+        "snapToPixel": true,
+        "showDiagnostics": false
+      }
+    },
+    {
       "name": "Ubuntu Sans Mono",
       "id": "ubuntu-sans-mono",
       "available": false,
@@ -44,7 +60,6 @@
         "band": "dejavu_sans_mono_slug_band.bin"
       },
       "charWidth": 0.60,
-      "default": true,
       "defaults": {
         "fontSize": 19,
         "lineHeight": 1.2,

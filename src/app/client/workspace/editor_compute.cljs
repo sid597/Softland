@@ -9,6 +9,7 @@
             [app.client.workspace.text-input :as text-input]
             [app.client.workspace.ui-primitives :refer [dt]]
             [app.client.workspace.sidebar :as sidebar :refer [sidebar-w cmd-panel-h status-bar-h build-sidebar-tree derive-effective-sidebar]]
+            [app.client.workspace.trail-face.scene :as trail-scene]
             [app.client.workspace.shell :refer [build-file-layout]]))
 
 ;; ============================================================================
@@ -276,6 +277,7 @@
    !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
    !sidebar-truth !sidebar-overlay !sidebar-ui !sidebar-visible !current-file !effective-local-world !sidebar-scene !extract-preview !agent-output
    !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !run-scroll-y !detail-scroll-y
+   !trail-face-state !trail-face-scene !trail-text !trail-feed !trail-bundles !trail-coverage
    compute-ticket-list-rects* compute-run-rects* offset-rects* offset-shadows*
    layout-x layout-y gutter-w]
   (let [;; ── Shared layout context (changes on: resize, settings, font, sidebar toggle) ──
@@ -335,6 +337,57 @@
                     {:rects rects :shadows shadows})))))
           <layout (m/watch !sidebar-truth) (m/watch !sidebar-overlay) (m/watch !sidebar-ui) (m/watch !scroll-y))
         ;; 5 fn args, 5 flows
+
+        ;; ── Trail face scene (view-mvp WP-B2) ──
+        ;; Build ONCE per data/viewport change, cache in !trail-face-scene;
+        ;; combined_text flattens text ops from it and mouse hit-tests the
+        ;; SAME object (gate 13 / trap 1 - the sidebar pattern, NOT the
+        ;; chat/flow rebuild-at-click anti-pattern). Scroll rides the
+        ;; camera (pan-y = -scroll-y), so the scene is scroll-independent
+        ;; and this flow does NOT watch !scroll-y (advisory A4).
+        ;; falsification-pass fix: compare the actual input VALUE, not its
+        ;; hash — a hash collision would freeze a stale scene forever (the
+        ;; "state stuck masking future truth" lifecycle failure).
+        !last-trail-struct (atom ::none)
+        <trail-face
+        (m/latest
+          (fn [layout trail-state trail-text trail-feed trail-bundles coverage]
+            (if-not (:face trail-state)
+              (do (reset! !trail-face-scene nil) nil)
+              (let [{:keys [viewport font-size char-advance]} layout
+                    geom {:viewport-w (:width viewport)
+                          :viewport-h (:height viewport)
+                          :line-height (js/Math.round (* font-size 1.4))
+                          :font-size font-size
+                          :char-advance char-advance
+                          :card-w 320 :pad 12
+                          ;; honest server stamp for staleness, never the wall clock
+                          :now-ms (or (:feed/rendered-at-ms trail-feed) 0)}
+                    struct [layout trail-state trail-text trail-feed
+                            trail-bundles coverage]
+                    changed? (not= struct @!last-trail-struct)
+                    scene (if changed?
+                            (let [s (if (= :text (:face trail-state))
+                                      (trail-scene/build-text-face-scene
+                                        {:text (or trail-text "")
+                                         :address (:address trail-state)
+                                         :coverage coverage :geom geom})
+                                      (trail-scene/build-timeline-scene
+                                        {:feed trail-feed
+                                         :bundles trail-bundles
+                                         :view-state {:expanded (:expanded trail-state #{})
+                                                      :order (:order trail-state :arrival)}
+                                         :coverage coverage :geom geom}))]
+                              (reset! !last-trail-struct struct)
+                              (reset! !trail-face-scene s)
+                              s)
+                            @!trail-face-scene)]
+                (when scene
+                  {:rects (tree->rects scene)
+                   :shadows (tree->shadows scene)}))))
+          <layout (m/watch !trail-face-state) (m/watch !trail-text)
+          (m/watch !trail-feed) (m/watch !trail-bundles) (m/watch !trail-coverage))
+        ;; 6 fn args, 6 flows
 
         ;; ── Flow canvas rects (intake + run) ──
         ;; ── Intake rects (ticket list) ──
@@ -454,14 +507,16 @@
     ;; Sidebar rects go to the sidebar pool.
     {:<editor-rects
      (m/latest
-       (fn [mode intake run editor-content layout]
+       (fn [mode intake run editor-content trail layout]
          (let [content (case mode
                          :flow-intake intake
                          :flow-run run
+                         :trail-text trail
+                         :trail-timeline trail
                          editor-content)]
            {:rects (vec (offset-rects* (:rects content) (:sb-w layout)))
             :shadows (vec (offset-shadows* (:shadows content) (:sb-w layout)))}))
-       <mode <intake-content <run-content <editor-content <layout)
+       <mode <intake-content <run-content <editor-content <trail-face <layout)
      :<sidebar <sidebar}))
 
 ;; --- Markdown rendering helpers for chat pane trail --------------------------

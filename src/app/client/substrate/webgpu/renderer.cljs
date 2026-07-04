@@ -1167,21 +1167,27 @@
               (= ch \newline) (do (reset! !x start-x) (reset! !y (+ @!y (* fsize line-h))))
               (= ch \space) (swap! !x + advance)
               :else
-              (when-let [g (get glyphs code)]
-                (let [pb (:planeBounds g)
-                      ab (:atlasBounds g)
-                      sl (+ @!x (* fsize (or (:left pb) 0)))
-                      sr (+ @!x (* fsize (or (:right pb) 0)))
-                      st (- @!y (* fsize (or (:top pb) 0)))
-                      sb (- @!y (* fsize (or (:bottom pb) 0)))
-                      ul (/ (:left ab) atlas-w)
-                      ur (/ (:right ab) atlas-w)
-                      vt (- 1.0 (/ (:top ab) atlas-h))
-                      vb (- 1.0 (/ (:bottom ab) atlas-h))]
-                  (swap! !x + advance)
-                  (swap! res conj {:rect [sl st (- sr sl) (- sb st)]
-                                   :uv [ul vt ur vb]
-                                   :color [cr cg cb ca]}))))))))
+              ;; V3-5: a missing glyph must still ADVANCE (never the old
+              ;; zero-advance skip that desynced column math) and draws the
+              ;; atlas fallback U+FFFD when present. Defense-in-depth behind
+              ;; the cljc sanitizer, which substitutes upstream.
+              (let [g (or (get glyphs code) (get glyphs 0xFFFD))
+                    x0 @!x]
+                (swap! !x + advance)
+                (when g
+                  (let [pb (:planeBounds g)
+                        ab (:atlasBounds g)
+                        sl (+ x0 (* fsize (or (:left pb) 0)))
+                        sr (+ x0 (* fsize (or (:right pb) 0)))
+                        st (- @!y (* fsize (or (:top pb) 0)))
+                        sb (- @!y (* fsize (or (:bottom pb) 0)))
+                        ul (/ (:left ab) atlas-w)
+                        ur (/ (:right ab) atlas-w)
+                        vt (- 1.0 (/ (:top ab) atlas-h))
+                        vb (- 1.0 (/ (:bottom ab) atlas-h))]
+                    (swap! res conj {:rect [sl st (- sr sl) (- sb st)]
+                                     :uv [ul vt ur vb]
+                                     :color [cr cg cb ca]})))))))))
     @res))
 
 (defn- shape-slug-line
@@ -1206,18 +1212,22 @@
               (= ch \newline) (do (reset! !x start-x) (reset! !y (+ @!y (* fsize line-h))))
               (= ch \space) (swap! !x + advance)
               :else
-              (when-let [g (get glyphs code)]
-                (let [sample-bounds (or (:sampleBounds g) (:planeBounds g))
+              ;; V3-5: always advance; draw the fallback glyph when missing
+              ;; (slug meta today has no U+FFFD -> honest gap WITH advance).
+              (let [g (or (get glyphs code) (get glyphs 0xFFFD))
+                    x0 @!x
+                    _ (swap! !x + advance)]
+                (when g
+                  (let [sample-bounds (or (:sampleBounds g) (:planeBounds g))
                       slug (:slug g)
                       left (or (:left sample-bounds) 0.0)
                       right (or (:right sample-bounds) 0.0)
                       top (or (:top sample-bounds) 0.0)
                       bottom (or (:bottom sample-bounds) 0.0)
-                      world-left (+ @!x (* fsize left))
-                      world-right (+ @!x (* fsize right))
+                      world-left (+ x0 (* fsize left))
+                      world-right (+ x0 (* fsize right))
                       world-top (- @!y (* fsize top))
                       world-bottom (- @!y (* fsize bottom))]
-                  (swap! !x + advance)
                   (swap! res conj {:rect [world-left world-top (- world-right world-left) (- world-bottom world-top)]
                                    :sample-bounds [left top right bottom]
                                    :inv-jac [inv-size 0.0 0.0 (- inv-size)]
@@ -1229,7 +1239,7 @@
                                            (or (get-in slug [:glyphLoc :y]) 0)
                                            (or (get-in slug [:bandMax :x]) 0)
                                            (or (:packedBandMeta slug) 0)]
-                                   :color [cr cg cb ca]}))))))))
+                                   :color [cr cg cb ca]})))))))))
     @res))
 
 (defn shape-text [texts global-fsize font-assets & {:as opts}]

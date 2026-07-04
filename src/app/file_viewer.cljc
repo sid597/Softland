@@ -6,7 +6,9 @@
   (:require [hyperfiddle.electric3 :as e]
             #?(:clj [clojure.java.io :as io])
             #?(:clj [clojure.string :as str])
-            #?(:clj [app.server.rama.util-fns :as util-fns])))
+            #?(:clj [app.server.rama.util-fns :as util-fns])
+            #?(:clj [app.server.rama.trail-view :as trail-view])
+            #?(:clj [app.server.ingest-watchers :as ingest-watchers])))
 
 ;; ============================================================================
 ;; SERVER SIDE — File I/O (JVM only)
@@ -131,3 +133,58 @@
   "Reactive bridge: workspace truth (selected artifact, active pane, sidebar) → Electric client."
   []
   (e/server (e/watch util-fns/!workspace-truth-atom)))
+
+;; ============================================================================
+;; Trail face bridge (view-mvp WP-B2, CONTRACT §2.3)
+;; Trail* names are THIS package's e/defns; each calls ONLY the named WP1 §7
+;; wrapper inside e/server (S1). WatchIngestEpoch reads the ingest-epoch
+;; mirror atom — the single sanctioned out-of-§7 read (S1a: a counter, not
+;; truth).
+;; ============================================================================
+
+#?(:clj
+   (defonce trail-view-runtime
+     ;; OI-1: no production OC runtime exists yet. First light runs on the
+     ;; same in-process IPC boot the test suites use, lazily (the util-fns
+     ;; text-kernel delay precedent). The FIRST /trail pull pays the cluster
+     ;; boot (seconds); ingest then streams ASYNC — initial sweep of the
+     ;; md corpus + live watchers share this handle, and every accepted
+     ;; import bumps the epoch, so the face fills in near-live as material
+     ;; lands. First-light scope: docs/current-mental-model + vision only
+     ;; (the 1.2GB transcript dir waits for offset-incremental re-read —
+     ;; named follow-up in the watcher design notes).
+     (delay
+       (let [rt (trail-view/start-trail-view-runtime!)
+             dir (System/getProperty "user.dir")
+             roots (into []
+                         (filter #(.exists (io/file %)))
+                         [(str dir "/docs/current-mental-model")
+                          (str dir "/vision")])
+             cfg {:runtime rt :roots roots}]
+         (future
+           (try
+             (let [{:keys [imported attempted]} (ingest-watchers/initial-sweep! cfg)]
+               (println "[TRAIL] initial sweep done:" imported "of" attempted "imported"))
+             (ingest-watchers/start-ingest-watchers! cfg)
+             (println "[TRAIL] live watchers running on" (pr-str roots))
+             (catch Throwable t
+               (println "[TRAIL] ingest boot failed:" (.getMessage t)))))
+         rt))))
+
+#?(:clj (defn trail-rt [] @trail-view-runtime))
+
+(e/defn TrailBundle [targets opts]
+  (e/server (trail-view/read-context-bundle (trail-rt) targets opts)))
+
+(e/defn TrailFeed [window opts]
+  (e/server (trail-view/read-recent-activity (trail-rt) window opts)))
+
+(e/defn TrailConversation [conversation cursor limit]
+  (e/server (trail-view/read-conversation-trail (trail-rt) conversation cursor limit)))
+
+(e/defn TrailText [targets opts]
+  (e/server (trail-view/render-bundle-text
+             (trail-view/read-context-bundle (trail-rt) (or targets []) (or opts {})))))
+
+(e/defn WatchIngestEpoch []
+  (e/server (e/watch util-fns/!ingest-epoch-atom)))

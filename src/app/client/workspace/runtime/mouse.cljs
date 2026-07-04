@@ -390,6 +390,24 @@
 ;; Top-level case handlers
 ;; ═══════════════════════════════════════════════════════════════════════
 
+(defn- handle-trail-face-click!
+  "Trail face click (view-mvp WP-B2): hit-test the CACHED scene object -
+   never a rebuilt tree (gate 13 / trap 1; the sidebar precedent, not the
+   chat/flow rebuild-at-click anti-pattern). Dispatches the
+   :trail-face/* action found on the deepest hit node's :data."
+  [{:keys [!trail-face-scene !trail-face-state]} rel-x y scroll-y]
+  (when-let [scene @!trail-face-scene]
+    (when-let [path (hit-test scene rel-x (+ y scroll-y))]
+      (when-let [click (some #(get-in % [:data :trail-face/click]) (rseq path))]
+        (case (:action click)
+          :trail-face/toggle-expand
+          (swap! !trail-face-state update :expanded
+                 (fnil (fn [s] (if (contains? s (:id click))
+                                 (disj s (:id click))
+                                 (conj s (:id click))))
+                       #{}))
+          nil)))))
+
 (defn- handle-mousedown!
   "Route mousedown to the appropriate zone handler."
   [{:keys [!viewport !scroll-y !settings !sidebar-visible !current-file !effective-local-world !cmd-panel
@@ -442,6 +460,11 @@
                                            (- (:width viewport) sb-w)
                                            (:height viewport)
                                            scroll-y))
+
+              ;; Trail face (WP-B2): cached-scene hit-test, before :else
+              (ws/local-world-trail-face? local-world)
+              (let [sb-w (if sb-vis? sidebar-w 0)]
+                (handle-trail-face-click! atoms (- x sb-w) y scroll-y))
 
               (ws/local-world-file-workspace? local-world)
               (let [sb-w (if sb-vis? sidebar-w 0)

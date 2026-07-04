@@ -6,13 +6,15 @@
             [app.client.workspace.sidebar :refer [sidebar-w sidebar-tab-h cmd-panel-h status-bar-h compute-sidebar-content-height derive-effective-sidebar]]
             [app.client.workspace.trail :refer [compute-agent-panel-h agent-wrapped-line-count]]
             [app.client.workspace.ui-primitives :refer [list-left-pane-pct list-divider-w]]
+            [app.client.workspace.trail-face.scene :as trail-scene]
             [app.client.workflows.dg-flow :refer [group-tickets-by-status list-content-height]]))
 
 (defn scroll-consumer
   "Missionary consumer: route wheel events to the appropriate scroll target."
   [{:keys [!scroll-y !scroll-x !viewport !settings !active-font !sidebar-visible
            !mouse-x !mouse-y !sidebar-truth !sidebar-overlay !sidebar-ui !effective-local-world !agent-output
-           !agent-scroll-y !chat-scroll-y !detail-scroll-y !flow-state !collapsed-groups !editor-doc]}
+           !agent-scroll-y !chat-scroll-y !detail-scroll-y !flow-state !collapsed-groups !editor-doc
+           !trail-face-scene]}
    >wheel-events]
   (->> >wheel-events
        (m/reduce
@@ -32,6 +34,7 @@
                  local-world @!effective-local-world
                  file-workspace? (ws/local-world-file-workspace? local-world)
                  flow-active? (ws/local-world-flow? local-world)
+                 trail-face-active? (ws/local-world-trail-face? local-world)
                  agent-output @!agent-output
                  agent-h (if file-workspace?
                            0
@@ -83,6 +86,19 @@
                          visible-h (- (:height viewport) cmd-panel-h status-bar-h agent-h 12)
                          max-scroll (max 0 (- content-h visible-h))]
                      (swap! !scroll-y #(-> (+ % delta) (max 0) (min max-scroll))))))
+
+               ;; Trail face (view-mvp WP-B2) — full-screen mode; MUST sit
+               ;; before the chat/editor clauses: the editor :else fires on
+               ;; (not file-workspace?), which is true in a trail mode and
+               ;; would silently steal this wheel (trap 9). Reuses !scroll-y
+               ;; (camera pan-y = -scroll-y); clamp on THIS wheel event
+               ;; against the cached scene's content height (RETRO s3.8).
+               trail-face-active?
+               (let [scene @!trail-face-scene
+                     content-h (if scene (trail-scene/content-height scene) 0)
+                     visible-h (- (:height viewport) cmd-panel-h status-bar-h)]
+                 (swap! !scroll-y
+                        #(trail-scene/clamp-scroll (+ % delta) content-h visible-h)))
 
                ;; Chat pane (3-pane mode)
                (let [sb-off (if sb-vis? sidebar-w 0)

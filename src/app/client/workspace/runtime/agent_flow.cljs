@@ -1,8 +1,10 @@
 (ns app.client.workspace.runtime.agent-flow
   "Agent API: auto-scroll, event handler, prompt submission, flow runs, command dispatch."
   (:require [clojure.string :as str]
+            [cljs.reader :as reader]
             [app.client.workspace.agent :refer [stream-agent-run!]]
             [app.client.workspace.cmd-panel :refer [parse-agent-command]]
+            [app.client.workspace.trail-face.scene :as trail-scene]
             [app.client.workspace.trail :refer [compute-agent-panel-h agent-wrapped-line-count]]
             [app.client.workspace.runtime.sidebar-io :refer [save-agent-trail!]]
             [app.client.workspace.runtime.workspace-actions :as ws]
@@ -213,7 +215,10 @@
         (fn [cmd-text]
           (let [shell-parsed (parse-agent-command cmd-text @!ai-provider)
                 parsed (if (= :workflow-command (:kind shell-parsed))
-                         (or (dg/parse-dg-command (:command shell-parsed))
+                         (or (some-> (trail-scene/parse-trail-command
+                                       (:command shell-parsed) reader/read-string)
+                                     (assoc :kind :trail-face))
+                             (dg/parse-dg-command (:command shell-parsed))
                              (jit/parse-jit-command (:command shell-parsed))
                              {:kind :error
                               :message (str "Unknown command: " (:command shell-parsed))})
@@ -301,6 +306,16 @@
               (jit/handle-jit-command! parsed
                                        {:!extract-preview !extract-preview
                                         :show-flow-info! show-flow-info!})
+
+              ;; Trail face entry (view-mvp WP-B2): /trail text|timeline|order|off
+              :trail-face
+              (let [!tfs (:!trail-face-state atoms)]
+                (case (:op parsed)
+                  :off   (reset! !tfs nil)
+                  :order (swap! !tfs assoc :order (:order parsed))
+                  :set   (reset! !tfs (merge {:expanded #{}} (:state parsed)))
+                  nil)
+                nil)
 
               (:flow-bootstrap :flow-mock-bootstrap :flow-select :flow-arrange :flow-run
                :flow-review :flow-rework :flow-finalize :flow-status :flow-reset)

@@ -1,0 +1,155 @@
+;; Hand fixture shaped EXACTLY per WP1 CONTRACT s4 (context bundle).
+;; Salts (S4: escapes only, never raw glyphs):
+;;   class (i)  covered-after-regen: \u2500 box, \u2192 arrow, \u2014 em dash
+;;   class (ii) permanently-uncovered: \uD83D\uDD34 (U+1F534), \uD83D\uDFE2 (U+1F7E2)
+;; Fixed clock: :fixture/now-ms = 2026-06-23T00:00:00Z. No wall time anywhere.
+{:fixture/now-ms 1782172800000
+
+ :bundle/address (trail/context-bundle {:targets ["oc:doc:9fdoc" "oc:doc:stale-doc" "oc:doc:never-doc" "oc:doc:deadend-doc"] :layers :all :caps {}})
+ :bundle/rendered-at-ms 1782172800000
+ :bundle/omissions [{:id "oc:doc:unknown-1" :reason :target/unrecognized :dropped 1}]
+
+ :bundle/targets
+ {"oc:doc:9fdoc"
+  {:id "oc:doc:9fdoc" :kind :doc
+   :address (trail/context-bundle {:targets ["oc:doc:9fdoc"]})
+   :identity {:created-by "sid" :current-revision-id "rev-1" :content-hash "h1"
+              :container-kind "doc" :source-id "src-9f"}
+   :material {:content-text "Box \u2500\u2500 arrows \u2192 dashes \u2014 salted doc body \uD83D\uDD34 with astral salt and enough text to force the mechanical truncation notice in the expansion preview because this string is deliberately longer than the two-hundred-character preview cap used by the timeline expansion node in scene.cljc, padding padding padding."
+              :raw {:stored? true :source-ref "docs/example.md" :source-id "src-9f"
+                    :offset-unit :chars :byte-count 1234 :text nil
+                    :anchor {:file-path "docs/example.md" :start 0 :end 120}}
+              :anchors [{:anchor-id "sa:1" :start 0 :end 42 :block-path "0001"}]}
+   :structure {:parent nil
+               :children [{:id "du:9fdoc:000001" :order-key "000001" :kind "block" :preview "first \u2192 block"}
+                          {:id "du:9fdoc:000003" :order-key "000003" :kind "block" :preview "third block"}]
+               :order-semantics :block-path}
+   :relations {:this {:based-on [{:relation-id "rel:b1" :kind :based-on
+                                  :from {:kind :doc :id "oc:doc:9fdoc"}
+                                  :to {:kind :doc :id "oc:doc:earlier"}
+                                  :status :asserted :asserted-by "sid" :asserter-type :human
+                                  :written-by "agent:claude-code/session-x"
+                                  :evidence {:source-id "src-9f" :anchor-id "sa:1"}
+                                  :note nil
+                                  :first-asserted-at-ms 1782000000000
+                                  :last-changed-at-ms 1782000000000}]
+                      :references [{:relation-id "rel:hole1" :kind :references
+                                    :from {:kind :doc :id "oc:doc:9fdoc"}
+                                    :to {:kind :hole :id nil}
+                                    :status :asserted :asserted-by "sid" :asserter-type :human
+                                    :written-by nil
+                                    :evidence {:source-id nil :anchor-id nil}
+                                    :note "question-unit door"
+                                    :first-asserted-at-ms 1782000100000
+                                    :last-changed-at-ms 1782000100000}]
+                      :new-direction [{:relation-id "rel:r1" :kind :new-direction
+                                       :from {:kind :doc :id "oc:doc:9fdoc"}
+                                       :to {:kind :doc :id "oc:doc:abandoned"}
+                                       :status :retracted :asserted-by "sid" :asserter-type :human
+                                       :written-by nil
+                                       :evidence {:source-id nil :anchor-id nil}
+                                       :note "retracted \u2014 struck but visible"
+                                       :first-asserted-at-ms 1781900000000
+                                       :last-changed-at-ms 1782050000000}]}
+               :in-family {"du:9fdoc:000003"
+                           {:refutes [{:relation-id "rel:v1" :kind :refutes
+                                       :from {:kind :doc :id "oc:doc:evidence-1"}
+                                       :to {:kind :block :id "du:9fdoc:000003"}
+                                       :status :asserted :asserted-by "sid" :asserter-type :human
+                                       :written-by nil
+                                       :evidence {:source-id "src-9f" :anchor-id "sa:1"}
+                                       :note nil
+                                       :first-asserted-at-ms 1782080000000
+                                       :last-changed-at-ms 1782080000000}]
+                            :confirms [{:relation-id "rel:v2" :kind :confirms
+                                        :from {:kind :doc :id "oc:doc:evidence-1"}
+                                        :to {:kind :block :id "du:9fdoc:000003"}
+                                        :status :asserted :asserted-by "llm:opus-4-8/x" :asserter-type :llm
+                                        :written-by "agent:claude-code/session-y"
+                                        :evidence {:source-id nil :anchor-id nil}
+                                        :note nil
+                                        :first-asserted-at-ms 1782081000000
+                                        :last-changed-at-ms 1782081000000}]}}}
+   ;; verdict entries are FULL stance edge rows + :current true (live WP1
+   ;; shape, gate-16 verified): judged target = :to, via = :from
+   :verdicts {:current {"sid" [{:relation-id "rel:v1" :kind :refutes
+                                :status :asserted :current true
+                                :from {:kind :doc :id "oc:doc:evidence-1"}
+                                :to {:kind :block :id "du:9fdoc:000003"}
+                                :asserted-by "sid" :asserter-type :human
+                                :written-by nil
+                                :evidence {:source-id "src-9f" :anchor-id "sa:1"}
+                                :note nil
+                                :first-asserted-at-ms 1782080000000
+                                :last-changed-at-ms 1782080000000}]
+                        "llm:opus-4-8/x" [{:relation-id "rel:v2" :kind :confirms
+                                           :status :asserted :current true
+                                           :from {:kind :doc :id "oc:doc:evidence-1"}
+                                           :to {:kind :block :id "du:9fdoc:000003"}
+                                           :asserted-by "llm:opus-4-8/x" :asserter-type :llm
+                                           :written-by "agent:claude-code/session-y"
+                                           :evidence {:source-id nil :anchor-id nil}
+                                           :note nil
+                                           :first-asserted-at-ms 1782081000000
+                                           :last-changed-at-ms 1782081000000}]}
+              :derived-from :relations}
+   :times {:created {:claimed-ms 1776988800000 :arrival-ms 1782000000000}
+           :last-changed {:claimed-ms 1782080000000 :arrival-ms 1782081000000}
+           :last-attested-ms 1782086400000
+           :last-walked-ms nil}
+   :omissions [{:layer :relations :dropped 3 :cap 10 :cursor "c1"}
+               {:layer :children :dropped 7 :cap 2 :cursor nil}]}
+
+  "oc:doc:stale-doc"
+  {:id "oc:doc:stale-doc" :kind :doc
+   :address (trail/context-bundle {:targets ["oc:doc:stale-doc"]})
+   :identity {:created-by "sid" :current-revision-id "rev-2" :content-hash "h2"
+              :container-kind "doc" :source-id "src-st"}
+   :material {:content-text "stale doc body" :raw {:stored? true :source-ref "docs/stale.md" :source-id "src-st" :offset-unit :chars :byte-count 20 :text nil :anchor nil} :anchors []}
+   :structure {:parent nil :children [] :order-semantics :block-path}
+   :relations {:this {} :in-family {}}
+   :verdicts {:current {} :derived-from :relations}
+   :times {:created {:claimed-ms 1770000000000 :arrival-ms 1770000000000}
+           :last-changed {:claimed-ms 1779000000000 :arrival-ms 1779000000000}
+           :last-attested-ms 1779580800000
+           :last-walked-ms nil}
+   :omissions []}
+
+  "oc:doc:never-doc"
+  {:id "oc:doc:never-doc" :kind :doc
+   :address (trail/context-bundle {:targets ["oc:doc:never-doc"]})
+   :identity {:created-by "import:md" :current-revision-id "rev-3" :content-hash "h3"
+              :container-kind "doc" :source-id "src-nv"}
+   :material {:content-text "never-attested doc \uD83D\uDFE2" :raw {:stored? true :source-ref "docs/never.md" :source-id "src-nv" :offset-unit :chars :byte-count 20 :text nil :anchor nil} :anchors []}
+   :structure {:parent nil :children [] :order-semantics :block-path}
+   :relations {:this {} :in-family {}}
+   :verdicts {:current {} :derived-from :relations}
+   :times {:created {:claimed-ms nil :arrival-ms 1782100000000}
+           :last-changed {:claimed-ms nil :arrival-ms 1782100000000}
+           :last-attested-ms nil
+           :last-walked-ms nil}
+   :omissions []}
+
+  "oc:doc:deadend-doc"
+  {:id "oc:doc:deadend-doc" :kind :doc
+   :address (trail/context-bundle {:targets ["oc:doc:deadend-doc"]})
+   :identity {:created-by "sid" :current-revision-id "rev-4" :content-hash "h4"
+              :container-kind "doc" :source-id "src-de"}
+   :material {:content-text "an exploration that dead-ended" :raw {:stored? true :source-ref "docs/deadend.md" :source-id "src-de" :offset-unit :chars :byte-count 30 :text nil :anchor nil} :anchors []}
+   :structure {:parent nil :children [] :order-semantics :block-path}
+   :relations {:this {:dead-end [{:relation-id "rel:de1" :kind :dead-end
+                                  :from {:kind :doc :id "oc:doc:deadend-doc"}
+                                  :to {:kind :doc :id "oc:doc:9fdoc"}
+                                  :status :asserted :asserted-by "sid" :asserter-type :human
+                                  :written-by nil
+                                  :evidence {:source-id nil :anchor-id nil}
+                                  :note "abandoned line"
+                                  :first-asserted-at-ms 1782060000000
+                                  :last-changed-at-ms 1782060000000}]}
+               :in-family {}}
+   :verdicts {:current {} :derived-from :relations}
+   :times {:created {:claimed-ms 1781000000000 :arrival-ms 1781000000000}
+           :last-changed {:claimed-ms 1782060000000 :arrival-ms 1782060000000}
+           :last-attested-ms 1782060000000
+           :last-walked-ms nil}
+   :omissions []}}}

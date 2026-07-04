@@ -1,0 +1,70 @@
+;; Hand fixture shaped EXACTLY per WP1 CONTRACT s6 (recent-activity feed).
+;; Window selection is ARRIVAL-ONLY (WP1 s9.10); :order sorts WITHIN it.
+;; Contains: a back-dated entry (claimed 60d before now, arrived in-window),
+;; a nil-claimed transcript entry (honest), a dead-end-marked target, a
+;; written-by-differs actor, and the standing :feed/uncovered declarations.
+;; Salts as \uXXXX escapes only (S4).
+{:fixture/now-ms 1782172800000
+
+ :feed/address (trail/recent-activity {:window {:from-ms 1782086400000 :to-ms 1782172800000} :order :arrival})
+ :feed/rendered-at-ms 1782172800000
+
+ :feed/entries
+ [{:entry/kind :relation-transition
+   :entry/target {:id "oc:doc:9fdoc" :kind :doc}
+   :entry/address (trail/context-bundle {:targets ["oc:doc:9fdoc"]})
+   :time/claimed-ms 1782170000000
+   :time/arrival-ms 1782171000000
+   :entry/actor {:asserted-by "sid" :written-by "agent:claude-code/session-x"}
+   :entry/detail {:kind :based-on :status :asserted :relation-id "rel:b1"
+                  :from {:kind :doc :id "oc:doc:9fdoc"}
+                  :to {:kind :doc :id "oc:doc:earlier"}}}
+
+  ;; the back-dated entry: claimed 60 days before now, arrived in-window
+  {:entry/kind :source-ingested
+   :entry/target {:id "oc:doc:earlier" :kind :doc}
+   :entry/address (trail/context-bundle {:targets ["oc:doc:earlier"]})
+   :time/claimed-ms 1776988800000
+   :time/arrival-ms 1782172000000
+   :entry/actor {:asserted-by "import:md" :written-by nil}
+   :entry/detail {:source-ref "docs/april.md"}}
+
+  ;; nil claimed is honest (transcript file update)
+  {:entry/kind :transcript-file-updated
+   :entry/target {:id "oc:chat-conversation:chat:ab12" :kind :conversation}
+   :entry/address (trail/context-bundle {:targets ["oc:chat-conversation:chat:ab12"]})
+   :time/claimed-ms nil
+   :time/arrival-ms 1782169000000
+   :entry/actor {:asserted-by "import:transcript" :written-by nil}
+   :entry/detail {:file-path "transcripts/ab12.jsonl" :conversation "chat:ab12"}}
+
+  ;; dead-end-marked target
+  {:entry/kind :relation-transition
+   :entry/target {:id "oc:doc:deadend-doc" :kind :doc}
+   :entry/address (trail/context-bundle {:targets ["oc:doc:deadend-doc"]})
+   :time/claimed-ms 1782168000000
+   :time/arrival-ms 1782168500000
+   :entry/actor {:asserted-by "sid" :written-by nil}
+   :entry/detail {:kind :dead-end :status :asserted :relation-id "rel:de1" :dead-end? true
+                  :from {:kind :doc :id "oc:doc:deadend-doc"}
+                  :to {:kind :doc :id "oc:doc:9fdoc"}}}
+
+  ;; same family as 9fdoc (du:9fdoc:*) -> same lane; exercises the spine
+  {:entry/kind :relation-transition
+   :entry/target {:id "du:9fdoc:000003" :kind :block}
+   :entry/address (trail/context-bundle {:targets ["du:9fdoc:000003"]})
+   :time/claimed-ms 1782165000000
+   :time/arrival-ms 1782166000000
+   :entry/actor {:asserted-by "llm:opus-4-8/x" :written-by "agent:claude-code/session-y"}
+   :entry/detail {:kind :confirms :status :asserted :relation-id "rel:v2"
+                  :from {:kind :block :id "du:9fdoc:000003"}
+                  :to {:kind :doc :id "oc:doc:evidence-1"}}}]
+
+ ;; the STANDING declaration (WP1 s6 named gaps) - gate 11 checks presence.
+ ;; Shape matches the LIVE feed (gate-16 verified): :omission/kind +
+ ;; :feed/gap keywords, :reason is a string.
+ :feed/omissions
+ [{:omission/kind :feed/uncovered :feed/gap :editor-revisions
+   :reason "direct editor ObjectEditPayload revisions are not projected as feed activity (D-008: CLI is the write surface)"}
+  {:omission/kind :feed/uncovered :feed/gap :session-metadata
+   :reason "session model/session_id metadata is thin on the OC path; the feed renders what exists"}]}

@@ -21,7 +21,7 @@
    tokenize-fn layout-fn
    <fold-data
    !flow-state !collapsed-groups !hovered-row-idx !drag-state
-   !sidebar-visible !sidebar-scene !extract-preview
+   !sidebar-visible !sidebar-scene !trail-face-scene !extract-preview
    !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus !run-scroll-y !detail-scroll-y
    compute-ticket-list-text-ops* compute-run-text-ops* offset-text-ops*
    layout-x layout-y cmd-panel-h status-bar-h]
@@ -212,7 +212,7 @@
     (m/latest
       (fn [intake-text run-text layout
            lines fold-state scroll-y
-           current-file local-world sidebar-scene extract-preview agent-output
+           current-file local-world sidebar-scene trail-face-scene extract-preview agent-output
            shimmer-phase trail-collapsed active-pane scroll-x chat-scroll-y chat-input focus]
         (let [{:keys [viewport settings dpr snap? font-size char-width char-advance line-h
                        sb-vis? sb-w]} layout
@@ -224,6 +224,7 @@
               mode (ws/local-world-mode local-world)
               file-workspace? (ws/local-world-file-workspace? local-world)
               flow-mode? (ws/local-world-flow? local-world)
+              trail-mode? (ws/local-world-trail-face? local-world)
 
               ;; Sidebar text ops — reads from shared scene (cached by render flow)
               sidebar-text-ops
@@ -250,6 +251,14 @@
                   [(if preview-tree (tree->text-ops preview-tree) [])
                    (vec (range (count lines)))
                    []])
+                (if trail-mode?
+                  ;; Trail face (WP-B2): flatten from the CACHED scene,
+                  ;; threaded in as a flow like sidebar-scene - never a
+                  ;; non-reactive deref here (gate 13 / advisory A3)
+                  [(if trail-face-scene (tree->text-ops trail-face-scene) [])
+                   (vec (range (count lines)))
+                   []]
+
                 (if flow-mode?
                   ;; Flow canvas: use pre-computed ops from intake or run
                   [(if (ws/local-world-intake? local-world) intake-text run-text)
@@ -315,7 +324,7 @@
                                            :r 0.45
                                            :g 0.45 :b 0.45 :a 0.4}]))
                                      (range (count mapping)))]
-                      [(filterv seq (:render-ops result)) mapping nums]))))))
+                      [(filterv seq (:render-ops result)) mapping nums])))))))
 
               ;; When file is open, clip editor text to left 40% and add right-tree text ops
               [editor-ops final-line-mapping line-num-ops]
@@ -398,6 +407,7 @@
       <intake-text <run-text <layout
       (m/eduction (map :lines) (dedupe) (m/watch !editor-doc)) <fold-data (m/watch !scroll-y)
       (m/watch !current-file) (m/watch !effective-local-world) (m/watch !sidebar-scene)
+      (m/watch !trail-face-scene)
       (m/watch !extract-preview) (m/watch !agent-output)
       (m/watch !shimmer-phase) (m/watch !trail-collapsed) (m/watch !active-pane)
       (m/watch !scroll-x) (m/watch !chat-scroll-y) (m/watch !chat-input) (m/watch !focus))]
