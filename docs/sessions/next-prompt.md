@@ -333,6 +333,76 @@
   committed; code NOT committed (Sid's word). Roam track-A session-log block ready
   to post on Sid's word.
 
+- **2026-07-05, Opus 4.8 (effort max) — Track A: A3 ACTIVITY + R3 IMPLEMENTED;
+  gates 9 + 16 GREEN. PHASE A COMPLETE.** Self-routing check ran FIRST: next undone
+  phase = A3 → table = Opus 4.8/high; ran on Opus 4.8 at max (≥ high, Sid set it) —
+  no mis-route. Loaded `/rama` + `/work-package`; read CONTRACT v1.1 §5.3 + PLAN §4 +
+  PLAN_VALIDATION_R1 advisories (N1/N2/N6) + `relation_kernel.clj` IN FULL + the test
+  ns IN FULL + `13-query-topologies.md` + `object_container.clj` `fixed-width-order-key`
+  (= `"%020d:%s"`). Code = ground truth; line numbers had shifted twice — GREP'd, did
+  NOT trust PLAN absolute cites. **IMPLEMENTED (`relation_kernel.clj`, allowlist §5
+  only):** (a) `RelationActivityRow` (16 fields — carries `envelope-actor-id` but NOT
+  `-type`, §5.3 authoritative); (b) `$$relation-activity-by-bucket`
+  `{String (map-schema String RelationActivityRow {:subindex? true})}` on `hash(bucket)`;
+  (c) `:request/sent-at-ms` envelope key `(or sent-at-ms asserted-at-ms)` + accessor
+  `relreq-sent-at-ms` + assert/retract docstrings (builders already spread opts);
+  (d) two-clock derivation in `relation-outcome`'s accepted branch — `claimed = ts`,
+  `arrival = (or sent-at asserted-at 0)`, `bucket = (bucket-key arrival)`,
+  `activity-ok = (fixed-width-order-key arrival event-id)`; **bucket width centralized
+  in ONE `%08d` const** (advisory N6 by construction, not convention); (e) accessors
+  `outcome-activity-row`/`outcome-bucket` + `activity-order-key` row accessor (resolves
+  advisory N1); (f) extract-before-hops (advisory N2 idiom, `*outcome` never crosses a
+  hop) + the **4th `(|hash *bucket)` write** in the accepted branch after the to-side
+  copy; (g) **R3 `relation-activity`** query topology (enumerate+fan buckets →
+  subindexed `{:allow-yield? true}` read → `|origin` → `+vec-agg` → `sort-activity-rows`);
+  (h) runtime handles `:activity-by-bucket`/`:relation-activity-query` + `read-relation-activity`
+  (public R3) + `read-activity-rows` (V1, `[(keypath k) ALL]`→`mapv second`, the proven
+  `read-target-index` idiom). **THE OPEN TECHNICAL QUESTION SETTLED** (default-fail):
+  does the R3 terminal agg fire on an EMPTY bucket range? `13-query-topologies.md` —
+  query topologies are "implicitly batch blocks… emitted exactly one time"; a terminal
+  global aggregation fires exactly once regardless of input count. **Empirically
+  confirmed:** the green test asserts R3 over an empty range returns `[]` (not nil, not
+  error). No nil-seed needed — unlike R1, whose seed exists only for result-MAP
+  completeness, not agg-firing. **REPLAY DETERMINISM (gate 9 core): zero wall-clock
+  reads on the accepted path** — bucket/order-key/arrival/claimed all pure fns of client
+  stamps; trap 4b cited in a code comment. **TEST (additive, rode dt1 on disjoint
+  `a3act-*` keys, no 3rd IPC launch):** gate-9 block — 3 accepted transitions
+  (assert/reassert/retract) → EXACTLY 3 rows in bucket b1; journal-replay (same idem
+  key) + a rejected `:bogus-kind` whose arrival ALSO maps to b1 add ZERO (b1 stays 3);
+  the assert row's `arrival == client :sent-at-ms`, `claimed == :asserted-at-ms`,
+  `bucket` derived from arrival — asserted with **FIXED year-2001 sent-at values** so a
+  stray `now-ms` would land 2026 buckets and FAIL; order-key arrival-prefixed; R3
+  single-bucket (3), multi-bucket `[b1 b2]` (4), empty range (`[]`). Added
+  `clojure.string` require. **VERIFIED:** kernel macroexpands clean (topology graph
+  compiles — R3, 4th hop, record arities all parse); full suite = **2 tests / 222
+  assertions / 0 failures** (203 prior + 19 new gate-9 — the exact +19 proves every
+  gate-9 assertion executed, no vacuous block). **Gate 16 (203 prior) GREEN** — the
+  additive change (new PState, new hop, new envelope key, R3) regressed nothing (activity
+  adds no depot records, so the deterministic barrier count is unchanged; existing tests
+  don't read activity). file(1)=UTF-8 text on both files; 0 raw NUL (perl byte-count),
+  only the 2 intentional `\u0000` escapes (standing package gate). **Falsification
+  done-gate:** named "unary `:none` activity row (to-id nil) chokes construction/read" →
+  refuted by green Gate-8 (writes a nil-`to-id` activity row without error); named
+  "replay double-buckets" → refuted by no-now-ms + green `arrival == sent-at`. **NO
+  stop-clause, NO binding-doc conflict, NO Fable re-entry trigger.** **PHASE A (A1+A2+A3)
+  is COMPLETE — gates 9, 10-kernel-half, 15, 16 green.** Gate-10's TRAIL-VIEW half
+  (bundle `:written-by` projection) and gate-9's trail-view CONSUMPTION are Phase B,
+  correctly deferred. **A3's diff (impl + test) OWES the fresh-context
+  diff-falsification review** (routing table: Opus 4.8/xhigh, skill layer 4) — batched
+  with A1's + A2's after Phase B; author self-review ≠ a fresh layer, NOT run this
+  session. **⚠ LINE NUMBERS SHIFTED AGAIN (~+55 lines: helpers + record + R3); Phase B
+  must GREP, not trust PLAN cites. STABLE NAMES for Phase B:** R3 query = `"relation-activity"`
+  `[bucket-lo bucket-hi]` (fixed-width bucket strings); PState = `$$relation-activity-by-bucket`;
+  wrappers = `rk/read-relation-activity [rt lo hi]` (public) + `rk/read-activity-rows` (V1);
+  the trail-view module mirrors this R3 per PLAN §5.1 (mirror-query, `invoke-query`).
+  **NEXT: Phase B (trail-view module + wrappers + text projection + fixtures)** — fresh
+  session, Opus 4.8 / high, per CONTRACT §7/§8 + PLAN §5–§7; NEW files
+  `src/app/server/rama/trail_view.clj` + `test/.../trail_view_test.clj` (+ fixtures);
+  remaining gates 1–8, 11–14. Then run-to-green, then the BATCHED layer-4
+  diff-falsification (A1+A2+A3+B, Opus 4.8/xhigh), then the Fable gate review. Docs NOT
+  committed; code NOT committed (Sid's word). Roam track-A session-log block ready to
+  post on Sid's word.
+
 ---
 
 # Active work package: view-MVP WP-B2 (Track B) — the pixels
