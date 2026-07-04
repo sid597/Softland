@@ -15,7 +15,7 @@
    :address (trail/context-bundle {:targets ["oc:doc:9fdoc"]})
    :identity {:created-by "sid" :current-revision-id "rev-1" :content-hash "h1"
               :container-kind "doc" :source-id "src-9f"}
-   :material {:content-text "Box \u2500\u2500 arrows \u2192 dashes \u2014 salted doc body \uD83D\uDD34 with astral salt and enough text to force the mechanical truncation notice in the expansion preview because this string is deliberately longer than the two-hundred-character preview cap used by the timeline expansion node in scene.cljc, padding padding padding."
+   :material {:content-text "Box \u2500\u2500 arrows \u2192 dashes \u2014 salted doc body \uD83D\uDD34\nSecond line after a newline (F-L4: one op per line).\nThird line.\nFourth line.\nFifth line.\nSixth line.\nSeventh line - beyond the preview cap, and enough text to force the mechanical truncation notice in the expansion preview because this string is deliberately longer than the two-hundred-character preview cap used by the timeline expansion node in scene.cljc, padding."
               :raw {:stored? true :source-ref "docs/example.md" :source-id "src-9f"
                     :offset-unit :chars :byte-count 1234 :text nil
                     :anchor {:file-path "docs/example.md" :start 0 :end 120}}

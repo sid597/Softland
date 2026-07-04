@@ -172,11 +172,21 @@
                              :when (cards/hole-endpoint? (:to e))]
                          e))
         addr-op   (cards/expanded-address-op bundle)
+        ;; F-L4: ONE op per line, capped - the renderer breaks embedded
+        ;; newlines AFTER the tree walk, so multi-line ops escape both the
+        ;; height math and the clip and overprint the info block below.
+        preview-line-cap 6
+        raw-lines (string/split (:text preview) #"\n" -1)
+        shown     (vec (take preview-line-cap raw-lines))
+        hidden    (- (count raw-lines) (count shown))
+        notice    (when (or (:truncated? preview) (pos? hidden))
+                    (str "… "
+                         (when (pos? hidden) (str hidden " more lines "))
+                         (when (:truncated? preview) (:notice preview))))
         preview-lines (vec (map-indexed
                             (fn [i l] {:text l :x 4 :y (* i line-height) :size 12
                                        :style :material})
-                            (cond-> [(:text preview)]
-                              (:truncated? preview) (conj (:notice preview)))))
+                            (cond-> shown notice (conj notice))))
         info-ops  (vec (map-indexed
                         (fn [i {:keys [text style]}]
                           {:text text :x 4 :y (* i line-height) :size 12
