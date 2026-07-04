@@ -230,7 +230,7 @@
 ## STANDING (frozen at package open, 2026-07-04 — do not edit while active)
 
 - **Binding docs:** `docs/current-mental-model/build/view-mvp/CONTRACT.md`
-  (v1 **PROPOSED — awaiting Sid's countersign**; binding on countersign),
+  (v1 — **countersigned by Sid 2026-07-04 in-session**; BINDING),
   `build/trail-view/CONTRACT.md` (WP1, binding — its §7 wrappers are this
   package's ONLY data surface), and `decisions.md`. This file is a baton,
   not a source of truth; if it contradicts CONTRACT.md or decisions.md,
@@ -267,8 +267,9 @@
 - **Hard rules:** never read `src/app/server/env.clj`; code and docs in
   separate commits; commits only on Sid's word; docs only on this local
   branch, never pushed/merged.
-- **Does NOT start without Sid:** ANY phase (contract countersign first);
-  P5+ additionally waits on WP1 gates green; any commit.
+- **Does NOT start without Sid:** P5+ waits on WP1 gates green; any commit.
+  (The contract-countersign guard that stood here was satisfied 2026-07-04
+  in-session, before any phase ran — see NOW.)
 
 ## NOW (per-session log — append at session end)
 
@@ -299,6 +300,22 @@
   nothing without it). NEXT: on countersign → B2-P0 (fresh
   session/subagent, spec re-derivation); P3 may run parallel to WP1 impl;
   P5+ waits on WP1 green. On objection → amend contract first.
+
+- **2026-07-04, Fable — same session, later: COUNTERSIGNED, package LIVE.**
+  Sid countersigned in-session ("yes to all 3" — covering countersign,
+  docs-commit go, and Roam re-post; all 8 §14 judgment calls confirmed,
+  none amended). CONTRACT.md v1 header flipped to BINDING; STANDING's
+  countersign guard edited to reflect satisfaction — done as package-open
+  completion, before any phase ran. Roam note: the original countersign-ask
+  card + track-log block were lost in a Roam-bridge restart before
+  approval; a countersign-RECORD block + refreshed track-log block
+  re-proposed after the fact. Docs commits made on Sid's go (per-track,
+  docs-only, this branch — see git log). **NEXT: B2-P0 (spec
+  re-derivation) — fresh session, cheaper model per the D-006 role split;
+  self-check: if the phase table for this package is needed, Track A's
+  routing rule pattern applies (validation phases Opus/xhigh, impl
+  Opus/high, Fable only on fork/second-FAIL/gates-green).** P3 may run
+  parallel to WP1 impl; P5 waits on WP1 gates green.
 
 ---
 
