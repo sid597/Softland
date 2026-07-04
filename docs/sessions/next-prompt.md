@@ -21,6 +21,12 @@ and North vision sitting are Sid-paced.
 NEXT: a FRESH session opens the trail-view data contract from
 `build/trail-view/INPUTS.md` (14 items + the face-order ruling), per the
 /work-package skill. Sid engages via Roam cards only.
+LATE ADDITIONS (same session, after the entry above): the four-track window
+plan (A rama / B render substrate / C read-write exploration / D render
+north — section below) + the SESSION SCOPING LAW (one session = one track);
+four Roam track pages created in the `softland` graph, each with an
+append-only session log seeded 2026-07-04; the daily page carries the law
+and the track links. Session closed clean; Sid signed off.
 
 ## Four-track plan (Sid + Fable, 2026-07-04 late — for the 36h Fable window)
 
