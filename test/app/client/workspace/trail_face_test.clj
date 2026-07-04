@@ -425,7 +425,18 @@
     (testing "collapse/interactive ids are :trail-face/* namespaced (S5)"
       (doseq [n (all-nodes s)
               :when (get-in n [:data :trail-face/click])]
-        (is (= "trail-face" (namespace (get-in n [:data :trail-face/click :action]))))))))
+        (is (= "trail-face" (namespace (get-in n [:data :trail-face/click :action]))))))
+    (testing "F-L4 (first light): preview ops are one-per-line, capped, in-bounds"
+      (let [mat (find-node s #(= :material (:type %)))
+            ops (vec (:text mat))
+            h (get-in mat [:bounds :h])]
+        (is (seq ops))
+        (is (every? #(not (str/includes? (:text %) "\n")) ops)
+            "no embedded newlines - the renderer must never re-break preview ops")
+        (is (<= (count ops) 7) "line cap + one notice line")
+        (is (some #(str/includes? (:text %) "more lines") ops)
+            "hidden lines declare themselves (omissions law at the preview)")
+        (is (every? #(< (:y %) h) ops) "every op starts inside the preview box")))))
 
 ;; --- Gate 16: fixture fidelity (hand fixtures vs LIVE WP1 wrapper shapes) ----
 
