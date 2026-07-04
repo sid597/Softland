@@ -15,6 +15,7 @@
             [app.client.workspace.runtime.scroll :as scroll]
             [app.client.workspace.runtime.mouse :as mouse]
             [app.client.workspace.runtime.keyboard :as kbd]
+            [app.client.workspace.trail-face.wiring :as trail-wiring]
             [app.client.workspace.runtime.render :as render]))
 
 (defn start-loop!
@@ -23,7 +24,8 @@
    returns a Missionary task that runs the render loop."
   [node device ctx geometry initial-line-lengths initial-lines
    tokenize-fn layout-fn find-bracket-fn detect-folds-fn
-   find-form-fn eval-form-fn font-assets & {:keys [font-manifest gpu-budget !sidebar-visible !file-load-request !preview-el !remote-sidebar-truth !remote-settings-truth !remote-agent-trail !remote-flow-session !remote-workspace-truth initial-file]}]
+   find-form-fn eval-form-fn font-assets & {:keys [font-manifest gpu-budget !sidebar-visible !file-load-request !preview-el !remote-sidebar-truth !remote-settings-truth !remote-agent-trail !remote-flow-session !remote-workspace-truth initial-file
+                                                   !trail-request !trail-data !ingest-epoch-remote]}]
 
   (let [;; Phase 2: Build the rt context map
         rt (state/make-runtime-state
@@ -45,6 +47,13 @@
         ;; ── Install watches & side effects ──────────────────────────
         _ (fonts/install-font-watch! atoms)
         _ (interop/install-extract-preview-watch! atoms)
+
+        ;; ── Trail face (view-mvp WP-B2) ─────────────────────────────
+        _ (trail-wiring/load-coverage! (:!trail-coverage atoms))
+        _ (trail-wiring/install-trail-face-wiring!
+            atoms {:!trail-request !trail-request
+                   :!trail-data !trail-data
+                   :!ingest-epoch-remote !ingest-epoch-remote})
 
         ;; ── Sidebar I/O ─────────────────────────────────────────────
         io (sidebar-io/make-sidebar-io atoms)
@@ -310,11 +319,13 @@
                                                @(:!sidebar-visible atoms))
                        :flow-state        @(:!flow-state atoms)
                        :agent-output      @(:!agent-output atoms)
+                       :trail-face-state  @(:!trail-face-state atoms)
                        :project           (or (:pending-project sidebar-overlay)
                                               (:project sidebar-truth))}))))
 
         _ (recompute-local-world!)
-        _ (doseq [a [:!selected-artifact :!active-pane :!flow-state :!agent-output]]
+        _ (doseq [a [:!selected-artifact :!active-pane :!flow-state :!agent-output
+                     :!trail-face-state]]
             (add-watch (get atoms a) :local-world (fn [_ _ _ _] (recompute-local-world!))))
         _ (when (:!sidebar-visible atoms)
             (add-watch (:!sidebar-visible atoms) :local-world (fn [_ _ _ _] (recompute-local-world!))))

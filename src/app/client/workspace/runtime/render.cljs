@@ -28,7 +28,9 @@
            !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input
            !focus !run-scroll-y !detail-scroll-y !eval-result !caret-visible !folded-lines
            !font-manifest !font-assets !text-geo !gpu-budget !cmd-rect-sys !settings-rect-sys
-           !sidebar-pool !editor-pool !editor-shadow-pool !sidebar-shadow-pool]
+           !sidebar-pool !editor-pool !editor-shadow-pool !sidebar-shadow-pool
+           !trail-face-state !trail-face-scene !trail-text !trail-feed !trail-bundles
+           !trail-coverage]
     :as atoms}
    {:keys [layout-x layout-y gutter-w]}
    {:keys [device ctx geometry]}
@@ -44,7 +46,7 @@
                       tokenize-fn layout-fn
                       <fold-data
                       !flow-state !collapsed-groups !hovered-row-idx !drag-state
-                      !sidebar-visible !sidebar-scene !extract-preview
+                      !sidebar-visible !sidebar-scene !trail-face-scene !extract-preview
                       !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus !run-scroll-y !detail-scroll-y
                       dg/compute-ticket-list-text-ops dg/compute-run-text-ops dg/offset-text-ops
                       layout-x layout-y cmd-panel-h status-bar-h)
@@ -59,6 +61,7 @@
           !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
           !sidebar-truth !sidebar-overlay !sidebar-ui !sidebar-visible !current-file !effective-local-world !sidebar-scene !extract-preview !agent-output
           !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !run-scroll-y !detail-scroll-y
+          !trail-face-state !trail-face-scene !trail-text !trail-feed !trail-bundles !trail-coverage
           dg/compute-ticket-list-rects dg/compute-run-rects dg/offset-rects dg/offset-shadows
           layout-x layout-y gutter-w)
 

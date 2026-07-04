@@ -116,7 +116,8 @@
               !agent-trail-atom
               !workspace-truth-atom
               !editor-doc-atom
-              !flow-session-atom]})
+              !flow-session-atom
+              !ingest-epoch-atom]})
 
 (defonce !cli-sessions (atom {}))
 (defonce !agent-runs (atom {}))
@@ -126,6 +127,11 @@
 (defonce !workspace-truth-atom (atom {}))
 (defonce !editor-doc-atom (atom nil))
 (defonce !flow-session-atom (atom {}))
+;; view-mvp WP-B2 OP-35: monotonic ingest-epoch counter. A counter, not
+;; truth - carries no data, orders nothing semantically, resets on restart
+;; (INV-14); bumped by ingest-watchers on import completion, pushed to the
+;; client by WatchIngestEpoch (the S1a carve-out).
+(defonce !ingest-epoch-atom (atom 0))
 
 (defn- relation-id
   [& parts]

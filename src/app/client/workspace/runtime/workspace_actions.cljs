@@ -135,14 +135,19 @@
    All consumers that currently branch on (flow-canvas-active?) and
    (some? current-file) can instead read :mode from this object."
   [{:keys [selected-artifact active-pane sidebar-visible
-           flow-state agent-output project]}]
+           flow-state agent-output project trail-face-state]}]
   (let [file-open? (and (some? selected-artifact)
                         (= :file (:kind selected-artifact)))
         flow-active? (and (some? flow-state)
                           (contains? #{:bootstrapping :intake :select :arrange :run :review
                                        :rework :finalize}
                                      (:node flow-state)))
+        ;; trail face (view-mvp WP-B2): an explicit full-screen mode set by
+        ;; the /trail entry command; wins while set, cleared by /trail off.
+        trail-face (:face trail-face-state)
         mode (cond
+               (= :text trail-face)     :trail-text
+               (= :timeline trail-face) :trail-timeline
                (and flow-active? (contains? #{:bootstrapping :intake} (:node flow-state))) :flow-intake
                flow-active?       :flow-run
                file-open?         :file-workspace
@@ -203,6 +208,19 @@
        :editor
        [{:pane/id :main    :role :primary-artifact
          :artifact-ref nil
+         :width-pct 1.0}]
+
+       ;; trail faces: single full-width pane. The :panes case has NO
+       ;; default branch, so these entries are load-bearing (a new mode
+       ;; without them throws here).
+       :trail-text
+       [{:pane/id :main    :role :trail-face
+         :content :trail-text
+         :width-pct 1.0}]
+
+       :trail-timeline
+       [{:pane/id :main    :role :trail-face
+         :content :trail-timeline
          :width-pct 1.0}])}))
 
 (defn local-world-mode
@@ -225,6 +243,21 @@
   "True when the local world is showing a run/review workflow surface."
   [local-world]
   (= :flow-run (local-world-mode local-world)))
+
+(defn local-world-trail-text?
+  "True when the local world is showing the View-3 trail text face."
+  [local-world]
+  (= :trail-text (local-world-mode local-world)))
+
+(defn local-world-trail-timeline?
+  "True when the local world is showing the trail timeline face."
+  [local-world]
+  (= :trail-timeline (local-world-mode local-world)))
+
+(defn local-world-trail-face?
+  "True when the local world is showing either trail face."
+  [local-world]
+  (contains? #{:trail-text :trail-timeline} (local-world-mode local-world)))
 
 (defn local-world-file-workspace?
   "True when the local world is showing the file workspace split."

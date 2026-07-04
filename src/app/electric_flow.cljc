@@ -473,7 +473,12 @@
                 !settings-truth (atom nil)
                 !agent-trail-truth (atom nil)
                 !flow-session-truth (atom nil)
-                !workspace-truth (atom nil)]
+                !workspace-truth (atom nil)
+                ;; Trail face (view-mvp WP-B2): request set by the runtime
+                ;; wiring, pull result + epoch pushed back to it.
+                !trail-request (atom nil)
+                !trail-data (atom nil)
+                !ingest-epoch-remote (atom 0)]
             ;; Reactive sync: Rama PState → Electric → client atom.
             ;; Re-runs whenever the server-side PState changes.
             (reset! !sidebar-truth (fv/WatchSidebarTruth))
@@ -481,6 +486,26 @@
             (reset! !agent-trail-truth (fv/WatchAgentTrail))
             (reset! !flow-session-truth (fv/WatchFlowSession))
             (reset! !workspace-truth (fv/WatchWorkspaceTruth))
+            (reset! !ingest-epoch-remote (fv/WatchIngestEpoch))
+            ;; Trail face pull: re-runs when the request changes (face entry,
+            ;; expansion clicks, debounced epoch bumps re-stamp the request).
+            (let [treq (e/watch !trail-request)]
+              (when treq
+                (reset! !trail-data
+                        (case (:face treq)
+                          :text
+                          (let [params (second (:address treq))]
+                            {:text (fv/TrailText (vec (:targets params))
+                                                 (dissoc params :targets))})
+
+                          :timeline
+                          {:feed (fv/TrailFeed (:window treq)
+                                               {:order (:order treq)})
+                           :bundles (if (seq (:expanded treq))
+                                      (let [b (fv/TrailBundle (vec (:expanded treq)) {})]
+                                        (zipmap (:expanded treq) (repeat b)))
+                                      {})}
+                          nil))))
             ;; Sidebar visible: default true, but respect persisted workspace truth.
             ;; Must be initialized AFTER workspace truth loads so install-sidebar-watch!
             ;; sees the correct initial value and doesn't auto-show a hidden sidebar.
@@ -573,4 +598,7 @@
                                                     :!remote-agent-trail !agent-trail-truth
                                                     :!remote-flow-session !flow-session-truth
                                                     :!remote-workspace-truth !workspace-truth
+                                                    :!trail-request !trail-request
+                                                    :!trail-data !trail-data
+                                                    :!ingest-epoch-remote !ingest-epoch-remote
                                                     :initial-file file-info))))))))))))))))
