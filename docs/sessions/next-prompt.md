@@ -1,5 +1,27 @@
 # No active work package
 
+## Session-end entry — 2026-07-04, Fable (first firing of the adopted rule)
+
+DECIDED: D-007 CLOSED (Sid countersigned in-session). Read-only MVP ruling
+(Sid): first trail view is read-only; write surface = Claude CLI; watchers;
+screenshot loop; read→write is the named second milestone (INPUTS item 14;
+contract session proposes it as D-008 via Roam card). Face order RULED on
+Sid's explicit delegation: View 3 → threaded/DAG timeline → canvas
+(decisions.md). Solo-operator discipline rule ADOPTED (Sid, Roam card):
+every session ends with an assertion-grade baton entry — this entry is its
+first execution.
+VERIFIED: relation-kernel suite green on committed code, fresh run this
+session (2 tests, 165 assertions, 0 failures). All Roam batches approved
+(morning orientation, 3 identity cards, triage, evening update); 2 small
+Fable-confirmation blocks were pending Sid's approval at session end.
+DOUBTED / OPEN: D-006 criterion-2 probe still unrun (fresh Opus + CONTRACT
+§13 manifest — the one residue item needing a body); envelope/payload
+server-side recheck now hard-gated BEFORE phase-1 daily use; intake sitting
+and North vision sitting are Sid-paced.
+NEXT: a FRESH session opens the trail-view data contract from
+`build/trail-view/INPUTS.md` (14 items + the face-order ruling), per the
+/work-package skill. Sid engages via Roam cards only.
+
 Queue item 1 (work-package succession skill) DONE 2026-07-03, Fable session:
 
 1. **Adversarial recheck of `build/relation-kernel/RETRO.md` ran FIRST** (as
