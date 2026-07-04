@@ -210,6 +210,7 @@
         total-h   (+ preview-h info-h om-h holes-h addr-h 8)]
     (rt/rt-node [:trail-face/expansion target-id] :expansion
                 {:x 0 :y 0 :w card-w :h total-h}
+                :clip? true
                 :style {:bg [0.13 0.14 0.17 1.0]}
                 :data {:trail-face/expanded target-id
                        :trail-face/staleness (:state stale)}
@@ -242,8 +243,16 @@
    Cards thread into lanes; edges render as Manhattan thin rects;
    dead-ends terminate their lane; omissions render as pixels."
   [{:keys [feed bundles view-state coverage geom]}]
-  (let [{:keys [viewport-w line-height card-w pad now-ms]
-         :or   {viewport-w 800 line-height 18 card-w 300 pad 8}} geom
+  (let [{:keys [viewport-w line-height pad now-ms]
+         :or   {viewport-w 800 line-height 18 pad 8}} geom
+        ;; F-L5: single-column full-width feed. The lane grid degenerates
+        ;; on a corpus of single-entry threads (one lane per doc = the
+        ;; staircase); threads read as a small LEFT INDENT instead. The
+        ;; real lane/DAG form question is design-track material
+        ;; (FIRST_LIGHT ledger), not something to invent here.
+        indent-unit 14
+        indent-slots 8
+        card-w    (max 240 (- viewport-w (* 2 pad) (* indent-unit indent-slots)))
         geom      (assoc geom :card-w card-w :line-height line-height
                          :now-ms now-ms)
         entries   (vec (:feed/entries feed))
@@ -254,12 +263,10 @@
                                            (- (:time/arrival-ms e))])
                                   (fn [e] [(- (:time/arrival-ms e))]))
                                 entries))
-        ;; F-L2: wrap lanes at viewport capacity so a corpus of
-        ;; single-entry threads doesn't staircase off-screen; spines
-        ;; group by the UNWRAPPED thread assignment below.
-        max-lanes (max 1 (quot (- viewport-w pad) (+ card-w lane-gap)))
+        ;; F-L2: lanes wrap into the bounded indent slots; spines group
+        ;; by the UNWRAPPED thread assignment below.
         raw-lanes (lanes/assign-lanes sorted)
-        lanes-map (lanes/assign-lanes sorted max-lanes)
+        lanes-map (lanes/assign-lanes sorted indent-slots)
         expanded  (:expanded view-state #{})
         header-op (-> {:text (pr-str (address-with-order (:feed/address feed) order))
                        :style :address :trail-face/address? true}
@@ -273,7 +280,7 @@
                       (let [e     (first es)
                             ek    (cards/entry-key e)
                             lane  (get lanes-map ek 0)
-                            x     (+ pad (* lane (+ card-w lane-gap)))
+                            x     (+ pad (* lane indent-unit))
                             card  (cards/feed-entry-card e geom)
                             card  (assoc card :bounds
                                          (assoc (:bounds card) :x x :y y))

@@ -256,8 +256,14 @@
                   (seq badge-ln) (conj {:text badge-ln :style :badges})
                   true           (conj {:text addr-ln  :style :address}))
         h       (+ (* (count lines) lh) 8)]
+    ;; F-L5: the card CLIPS its own text (ops live in a child node - a
+    ;; node's :clip? applies to children). A 120-char address truncates
+    ;; VISUALLY at the card edge; the full text stays in the scene tree
+    ;; (hit-test/data intact) and the resolvable address is one click away
+    ;; on the expansion / in the face header.
     (rt/rt-node [:trail-face/card (entry-key entry)] :feed-card
                 {:x 0 :y 0 :w w :h h}
+                :clip? true
                 :style {:bg [0.16 0.17 0.20 1.0] :radius 4}
                 :data {:trail-face/entry-key (entry-key entry)
                        :trail-face/click {:action :trail-face/toggle-expand
@@ -266,9 +272,12 @@
                                               (or (:dead-end? (:entry/detail entry))
                                                   (= :dead-end
                                                      (:kind (:entry/detail entry)))))}
-                :text (vec (map-indexed
-                            (fn [i l] (assoc l :x 6 :y (+ 4 (* i lh)) :size 12))
-                            lines)))))
+                :children
+                [(rt/rt-node [:trail-face/card-text (entry-key entry)] :card-text
+                             {:x 0 :y 0 :w w :h h}
+                             :text (vec (map-indexed
+                                         (fn [i l] (assoc l :x 6 :y (+ 4 (* i lh)) :size 12))
+                                         lines)))])))
 
 (defn expanded-address-op
   "Card expansion renders the EXPANDED target's own address (gate 1)."
