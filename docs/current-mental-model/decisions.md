@@ -224,6 +224,33 @@ NOT continuous orchestration, NOT implementation, NOT Regime-2 theory (gated by 
   the NUL-escape tool-JSON trap fired a fourth time (in the contract
   itself), caught at Phase-0 close by file(1), repaired; file(1)-must-say-
   text is now a standing package gate.
+- 2026-07-05, **process form-break, ruled with Sid in-session — fresh
+  context ≠ fresh session.** Sid reported the same failure on BOTH live
+  tracks: the remaining WP1 work rendered as "~5 more sessions" and he was
+  disoriented by the package shell itself ("this track is feeling so big to
+  me with no clarity if this is actually useful"). Evidence gathered before
+  ruling: WP1 Phase A = 227 changed code lines vs ~300KB (~75k words) of
+  process docs across the two packages; the baton at 939 lines with 1–2k-word
+  NOW entries; cycle-2 marginal catch-rate falling (plan validation R1
+  PASS-with-advisories only, A1/A2/A3 all first-run green, zero stop-clauses)
+  while per-session orientation cost stayed constant. Root cause: the
+  2026-07-04 token-economics routing ("no more Fable-priced wake-ups for
+  mechanical phases") bound the fresh-CONTEXT QC requirement to fresh
+  SESSIONS — a ledger that counted model tokens and priced Sid's attention at
+  zero; and the scheduled Fable gate re-entry meant fragmentation no longer
+  even saved Fable tokens (the re-entry boot was coming anyway). **Ruling
+  (Sid's countersign = his in-session selection of the collapsed plan):** QC
+  layers keep their kill record and stay; session boundaries go. Default
+  shape: one orchestrating session (Fable when already booted) runs phases
+  with fresh-context Opus subagents as the validation/review layers; routing
+  tables are advisory on model/effort, never binding on session structure;
+  baton NOW entries capped ~15 lines. Skill amended same session
+  (work-package SKILL.md, four edits, provenance noted). D-006 itself is NOT
+  reopened — Fable-does-contracts/gates/adjudication held; what broke was
+  the second-order session cadence built around it. Scoring note for final
+  evaluation: this is the pre-registered implementation-contact criterion
+  doing its job at the PROCESS layer — the operator is also a user of the
+  form, and the form broke against him.
 
 ---
 

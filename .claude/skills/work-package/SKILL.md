@@ -20,6 +20,17 @@ is the corrected reading. Per D-006, the package pattern is: Fable does
 contracts, adjudication, and gates; cheaper models do phases; nothing else
 pulls Fable in mid-package. Amend this skill at each package close.
 
+**Amended 2026-07-05 mid-package on Sid's direction** (trail-view WP1 /
+view-MVP WP-B2 both live): the one-phase-per-fresh-SESSION cadence is
+replaced by one-phase-per-fresh-CONTEXT (see Running phases). Form-break
+evidence, recorded in D-006 evaluation notes: Phase A of WP1 = 227 changed
+code lines against ~300KB of process docs across the two packages; the
+operator reported disorientation on BOTH tracks; validation layers' marginal
+catch-rate fell across cycle 2 (plan validation R1 PASS-with-advisories,
+A1–A3 first-run green, zero stop-clauses) while the per-session orientation
+cost stayed constant. The old cadence's token ledger priced Sid's attention
+at zero. QC layers themselves are unchanged — they keep their kill record.
+
 ## What a work package is
 
 One bounded build (so far: a Rama kernel) run against a binding contract, by
@@ -115,18 +126,33 @@ Two rules that hold across all layers:
 - **NOW** — the per-session log, appended at each session end: date, model,
   phase, artifact path, verdict, **findings verbatim on any FAIL**, judgment
   calls flagged for the next reviewer, and the next step. One writer at a
-  time. The NOW entry is the trail of record between commits — write it as if
-  the phase artifact might be lost (in cycle 1 it once was; the baton saved
-  the findings).
+  time. **Budget: ~15 lines per entry** (amended 2026-07-05) — the entry is a
+  pointer to the phase artifact, not a copy of it. The old
+  write-as-if-the-artifact-might-be-lost rule came from a cycle-1 artifact
+  loss; the durable fix for that is committing the docs trail (now Sid's
+  standing practice), not duplicating every artifact into the baton — 2k-word
+  entries made the baton illegible to the person it serves. FAIL findings
+  verbatim remain the one sanctioned exception to the budget.
 
 **3. The package directory**: `docs/current-mental-model/build/<package>/`
 holding CONTRACT.md and every phase artifact.
 
 ## Running phases
 
-- One phase per FRESH session. Each phase produces its artifact in the package
-  directory. For Rama work the phase mechanics are the `/rama` skill's; this
-  shell does not restate them.
+- **One phase per fresh CONTEXT — not per fresh session** (amended
+  2026-07-05). What the QC model requires is that no validation/review layer
+  shares a context with the work it judges ("author self-review never
+  substitutes for a fresh-context layer"). A fresh-context SUBAGENT satisfies
+  this; a separate human-opened session is the fallback when a phase cannot
+  fit a subagent, not the default. The default shape is now: ONE orchestrating
+  session (Fable when it's already booted — its scheduled gate re-entry cost
+  then disappears) runs implementation and launches each validation/review
+  layer as a fresh subagent per Sid's standing subagent policy (Opus 4.8;
+  judgment stays in the orchestrating context). Model routing tables in a
+  baton are advisory on model/effort per phase, never binding on session
+  structure. Each phase still produces its artifact in the package directory.
+  For Rama work the phase mechanics are the `/rama` skill's; this shell does
+  not restate them.
 - Validation verdicts are **default-fail**; PASS only after explicit scenario
   tracing with citations. `minor-fail` → the authoring phase applies the
   enumerated fixes and the validation phase is NOT re-run. `fail` → the prior
@@ -136,8 +162,12 @@ holding CONTRACT.md and every phase artifact.
   the round before rewriting. Cycle 1 lost both FAIL rounds' full text; only
   the baton's verbatim findings survived. The log is primary — that applies to
   the package's own trail.
-- Tests phase writes + compile-checks only; run-to-green is its own phase. A
-  first-invocation green run is the upstream layers' receipt, not luck.
+- Implementation phases run their own gates to green in the same context
+  (amended 2026-07-05 — this is what WP1's A1/A2/A3 actually did, each
+  first-run green; the old write-only-then-run split cost a session boundary
+  and caught nothing). A first-invocation green run remains the upstream
+  layers' receipt, not luck — if a phase does NOT go green first run, that is
+  signal about the plan/validation layers and belongs in the NOW entry.
 - Test-harness invariants (reuse; gotchas detailed in
   `memory/implementation-quirks.md`):
   - **Deterministic barrier**, never polling: for microbatch,
@@ -181,8 +211,12 @@ holding CONTRACT.md and every phase artifact.
   Cycle 1's banner-only spec amendment left "all ten contract gates" standing
   after gate 11 existed; the precedence rule absorbed it, but absorption is
   the backstop, not the plan.
-- Re-entry triggers for Fable: **gates green** (→ gate review) or **stop
-  clause tripped** (→ ruling). Nothing else.
+- Re-entry triggers for Fable when Fable is OUT of the package: **gates
+  green** (→ gate review) or **stop clause tripped** (→ ruling). Nothing
+  else. When Fable is already the orchestrating session (the 2026-07-05
+  default), there is no re-entry — it receives subagent phases, adjudicates
+  inline, and gates at the end; the trigger list guards against opening a
+  NEW Fable session for anything less.
 
 ## Gate review
 
