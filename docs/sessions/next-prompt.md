@@ -22,6 +22,39 @@ NEXT: a FRESH session opens the trail-view data contract from
 `build/trail-view/INPUTS.md` (14 items + the face-order ruling), per the
 /work-package skill. Sid engages via Roam cards only.
 
+## Three-track plan (Sid + Fable, 2026-07-04 late — for the 36h Fable window)
+
+- **Track A — Rama (serial):** WP1 trail-view DATA-layer contract (Fable,
+  fresh session, from INPUTS.md; pure Rama — bundles, queries, verdict rows,
+  staleness, view addresses; also rules in-session: object-kernel-revision
+  vs Regime-1 spine, and proposes D-008 read-only ruling as a Roam card) →
+  WP1 impl (Codex/Opus) → WP2 spine contract (short; key adjudication:
+  durable asserted edge vs projection-time query for transcript↔commit
+  joins, + exactness-flag semantics) → WP2 impl. Needs Sid's go for WP2.
+- **Track B — render substrate (parallel, disjoint files):**
+  1. **Render-substrate retro** (Fable-xhigh, one session; Explore agents may
+     inventory, judgment stays Fable): as-built adversarial review of
+     `renderer.cljs` + `electric_flow.cljc` + workspace layer against ONE
+     question — can this render View-3 text + the threaded/DAG timeline, and
+     what is the minimal delta? Output: verdict + bounded trail-face-ordered
+     fix list + primitive inventory. **Guardrail: output is a fix list,
+     NEVER a framework design; a rebuild verdict must name the specific
+     trail-face requirement current code cannot meet.** The framework is
+     extracted AFTER a real face exists (D-001), not built ahead.
+  2. **View-MVP package** contract (Fable) consumes retro verdict + WP1
+     shapes; falsifiable UI acceptance gates are the hard part; then impl.
+- **Track C — read→write exploration (Sid + Fable, design-track):** what
+  writing looks/feels like in the land (select/type/sign made vivid;
+  selection on a DAG; where assertion lives). Sid explicitly invokes the
+  designer lens at session start; artifacts go to the design track; output
+  binds phase 1 ONLY as a do-not-preclude constraint list — never scope.
+  Schedulable anytime; needs Sid live.
+- Cheap lane throughout: WP1/WP2 impl phases, D-006 criterion-2 probe
+  (Opus), model-UXR benchmark draft, `:workers 2` smoke.
+- Suggested Fable session order: A(WP1 contract) → B1(retro) → A(WP2
+  contract) → C(design sitting, anytime Sid wants) → B2(view-MVP contract)
+  → gates as suites green.
+
 Queue item 1 (work-package succession skill) DONE 2026-07-03, Fable session:
 
 1. **Adversarial recheck of `build/relation-kernel/RETRO.md` ran FIRST** (as
