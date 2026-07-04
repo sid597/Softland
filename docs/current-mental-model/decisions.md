@@ -208,6 +208,22 @@ NOT continuous orchestration, NOT implementation, NOT Regime-2 theory (gated by 
   mechanisms to keep). The retro is the pre-registered input to the
   work-package succession skill (queued below); write that skill in a fresh
   session from RETRO.md.
+- 2026-07-04, trail-view WP1 Phase 0 (fresh-context re-derivation, Opus —
+  the succession skill's layer 1, first reuse after relation-kernel):
+  verified ALL contract code citations (0 failures), derived 20 ops / 23
+  invariants / 26 matrix rows / 16 edge cases, and caught **1 genuine
+  contract conflict** (F-1: claimed-window feed retrieval vs arrival-keyed
+  buckets vs O(window) promise — any two hold, never all three) plus 5
+  implementer-fixable ambiguities. Fable ruled F-1 same day as contract
+  author (arrival-only window selection; `:order` param; claimed-index as
+  pre-named promotion path — D-001 grounds) and swept all six fixes into
+  CONTRACT v1.1 before any plan/code tokens. Honest scoring in the
+  criterion-3 style: by the LETTER an amendment happened during the process
+  (ding); by SPIRIT the QC layer did exactly its job — conflict caught at
+  text-time, zero downstream cost, no schema/topology change. Also logged:
+  the NUL-escape tool-JSON trap fired a fourth time (in the contract
+  itself), caught at Phase-0 close by file(1), repaired; file(1)-must-say-
+  text is now a standing package gate.
 
 ---
 
@@ -253,6 +269,46 @@ motion and the questioning practice this entry names.
 
 ---
 
+## D-008 — Read-only MVP: the first trail view writes nothing
+**STATUS: CLOSED** (drafted by Fable 2026-07-04 in the track-A WP1 contract
+session, from Sid's own 2026-07-04 ruling — verbatim in `vision/LOG.md`
+"the read-only MVP ruling"; **countersigned by Sid 2026-07-04 in-session**,
+same day: "Countersigned as yes")
+
+What this closes:
+
+1. **The first trail view is READ-ONLY**: zero kernel writes from the view.
+   Local view-state (zoom, filter, selection) is allowed. Enforced
+   structurally in WP1: the trail-view module declares no depots and no ETL
+   topologies (contract gate 14) — it physically cannot write.
+2. **The write surface is the existing Claude CLI.** The LLM is phase-1's
+   writer: Sid instructs in CLI, the agent asserts (payload asserter = sid,
+   envelope actor = the agent). Consequence, hard-gated BEFORE phase-1 daily
+   use: the relation kernel must durably record BOTH actors (custody
+   amendment, trail-view CONTRACT §5.1) — verified 2026-07-04 that today it
+   persists only the payload asserter.
+3. **Watchers are triggers over existing ingestors** (transcripts, md,
+   commits once the spine lands) — never new ingestors; safe because the
+   kernels were built for convergent re-import (deterministic ids,
+   idempotency journals).
+4. **Sid's loop:** work in CLI → view updates near-live → screenshot back
+   into CLI when he wants action. Every face renders its own ADDRESS as text
+   (the query + params that produced it), so a screenshot is a resolvable
+   pointer (contract §3).
+5. **read→write is the NAMED second milestone**, entered when observed
+   read-only friction demands it — desire-paths sequencing (D-001) applied
+   to the write surface itself. Walk-capture (`last-walked`) explicitly
+   waits for that milestone; the field exists now, nullable, rendered as
+   unknown.
+
+Evidence this rests on: Sid's 2026-07-04 ruling (LOG verbatim: "for the very
+first MVP we don't need the write surface... we would not be rethinking and
+expanding scope... it will be testable by me"); the Fable falsification pass
+the same day found no scope hole (the one real gap it surfaced — custody
+recording — is item 2's hard gate).
+
+---
+
 ## Open questions queued for ruling
 - Fable-window queue (per D-006): ~~gate review of relation-kernel
   implementation~~ (done 2026-07-03, PASS) → trail-view data contract →
@@ -284,6 +340,31 @@ motion and the questioning practice this entry names.
 - object-kernel-revision.md (Jun 26): now framed by D-003 as a **Regime 2**
   document. Rule on whether anything in it constrains the Regime-1 spine, or
   whether it is entirely gated behind the self-hosting test.
+  **RULED 2026-07-04** (by Fable, in the track-A WP1 contract session, per the
+  session duty Sid delegated on the track page): **entirely gated as
+  authority.** None of its five encoding decisions (§6: merge operator,
+  claim/disagreement encoding, credential algebra, non-monotone fold
+  treatment, distortion-budget distribution) may be built ahead of the
+  self-hosting gate, and no Regime-1 artifact may cite the doc as a
+  requirement source. Nothing in it blocks the Regime-1 spine or the
+  trail-view data contract. Two zero-cost *naming/semantics disciplines* that
+  the doc's [HOLDS] items corroborate are adopted for new Regime-1 artifacts —
+  on independent Regime-1 grounds, so they stand even if the doc is later
+  revised: (1) **two-clock discipline** — every new row/feed that carries time
+  distinguishes claimed-time (client-supplied `asserted-at-ms`, orders
+  semantic history; the relation-kernel importer-timestamp residue) from
+  ingest/arrival-time (when the land learned it); grounds: a July re-import of
+  April notes must not render as "today" in the trail view. (2) **custody vs
+  assertion recording** — where envelope actor and payload asserter
+  legitimately differ (phase-1: agent writes on Sid's instruction), the write
+  path must durably record BOTH; grounds: gate-review open doubt #1, and
+  verified 2026-07-04 that the relation kernel currently persists only the
+  payload asserter (envelope `:actor` is checked for retraction rights and
+  dropped — `relation_kernel.clj` RelationDecisionRow/RelationEventRow carry
+  no envelope-actor field). Everything else in the doc that touches Regime-1
+  territory (omissions marking, disagreement-preserved-not-merged) is already
+  Regime-1 law via D-003 settled inputs and D-004 — the doc adds no new
+  obligations there.
 - Which face of the trail view renders first (View 3 agent-legibility is
   cheapest; View 1 outline; View 2 canvas replaces the wall but costs most).
   Decide after D-002/D-005 countersign.
