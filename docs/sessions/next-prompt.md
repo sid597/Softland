@@ -536,6 +536,69 @@
   source. Then B2-P3 (pure core + fixtures + gates 1-13; parallel-safe with WP1
   impl).**
 
+- **2026-07-04, Opus 4.8 (effort xhigh) — Track B: B2-P2 PLAN VALIDATION R1 =
+  PASS (with advisories A1-A8; open doubts D1-D2).** Self-routing check ran
+  FIRST: next undone phase = B2-P2 (plan validation) -> Track-B routing pattern
+  = Opus 4.8 / xhigh; ran on Opus 4.8 at xhigh (Sid set `/effort`) — no
+  mis-route. Artifact: **`build/view-mvp/PLAN_VALIDATION_R1.md`**
+  (file(1)=UTF-8 text, NUL=0; per-round file — never overwrite a FAIL). Method:
+  fresh-context, default-fail scenario-trace of PLAN.md vs CONTRACT v1.1 +
+  IMPLICIT_SPEC (§8) + WP1 CONTRACT §3/§4/§6/§7/§8 + cited source; **42 source
+  citations verified** (2 Opus verifier subagents over the server import-seam +
+  bridge/util/atlas breadth; ~10 direct client-wiring reads this session).
+  **VERIFIED affirmatively (default-fail earned):** cached-scene design is REAL
+  (`editor_compute.cljs:310-336` build-once -> `struct-hash`-gate cache ->
+  flatten+hit-test the SAME tree; chat/flow REBUILD at click `mouse.cljs:322-
+  330`/`:370-374` vs sidebar CACHED `:480` — the trail face follows the sidebar,
+  gate 13/trap 1); `<mode` is a GENERIC pass-through (`:300-303`) so the NEW
+  trail modes route with NO `<mode` edit (a non-obvious plan claim, confirmed);
+  scroll trap-9 CONFIRMED (editor `:else` `scroll.cljs:98-99` fires on `(not
+  file-workspace?)` -> would steal trail scroll; insert after `:85`); gate-17
+  byte-identical safety holds (trail branches nil-guarded); **OP-35 TWO-PART is
+  a REAL load-bearing catch** — the `text_kernel_probe_test.clj` gate-17 test
+  dynamically enumerates every public `!*` Atom in `util-fns` vs `:mirrors`, so
+  the epoch atom MUST be declared in `:mirrors` or gate 17 fails (CONTRACT +
+  IMPLICIT_SPEC both missed this); OP-27 shaper bug CONFIRMED (`(swap! !x +
+  advance)` inside `(when-let [g ...])` at `renderer.cljs:1181`/`:1220`) + the
+  advance-always+fallback fix is sound and bounded; OP-26 T-4 clamp insertable +
+  correct (`rect_tree.cljs:229-251`, `clip-bounds` in scope); camera pan-y =
+  `-scroll-y` (`render.cljs:446`); ALL 17 gates -> deftest/artifact + ops +
+  phase (no gate uncovered); fixtures match WP1 §4/§6/§8; seam holds (WP1 §7
+  wrappers + the S1a epoch carve-out only); read-only structural; NO contract
+  requirement dropped; OI-1/OI-2/OI-3 CONFIRMED in source. **ADVISORIES (fold
+  into the phase; NO plan re-run):** A1 gate-1 P3 round-trip must be PURE EDN
+  (`read-string` the rendered line vs the fixture's `:bundle/address`), NOT a
+  live `resolve-address` (a WP1 §7 wrapper absent until P5; S1 forbids
+  re-implementing it) — the single most worthwhile plan-note; A2 §6-step-1's
+  `(:face @trail-face-state)` has a stray `@` (the value is already deref'd in
+  `recompute-local-world!` `runtime.cljs:306-314`; inside the pure fn it is
+  `(:face trail-face-state)`); A3 do NOT deref `@!trail-face-scene` inside the
+  `combined_text` `m/latest` text branch (non-reactive snapshot; thread it like
+  `sidebar-scene` `:229-232` — the MOUSE hit-test deref IS correct, it is an
+  event handler matching `:480`); A4 reconcile §1c "own scroll atom" vs §5
+  "reuse `!scroll-y`" (§5 is right; the trail flow must DROP `scroll-y` from its
+  watch/hash or it rebuilds every scroll frame like the sidebar does); A5
+  `:panes` is a no-default `case` (`workspace_actions.cljs:180-206`) -> trail
+  cases are a HARD must (throws otherwise; plan flags it — cite in code); A6
+  path fixes (content correct): `electric_flow.cljc` at `src/app/`, `fonts.cljs`
+  at `client/workspace/runtime/`, transcript at `dogfood/transcript.clj`, `0.56`
+  at `rect_tree.cljs:283`; A7 name `parse-trail-command`'s cljc file + thread
+  `!trail-face-state` into `agent_flow.cljs` scope; A8 the md watcher's `slurp`
+  is a NEW reader (trap-2 preserved iff it reuses `markdown-source-import-
+  request` + `append-object-container-request!` verbatim). **OPEN DOUBTS
+  (falsifier named):** D1 the cljc-on-JVM spike is un-reverifiable here
+  (throwaway deleted) — rests on the plan attestation + independently-confirmed
+  `rect_tree` purity; falsifier = the P3 first compile-check; a failure there is
+  the §12 pre-flagged POLICY FORK (ruling 2.1 load-bearing) — escalate, do NOT
+  move logic to `.cljs`. D2 no clean B2 baseline suite run (working tree carries
+  Track-A WP1 WIP) — deferred to the gate-17 baseline at P4/P5. **NO stop-clause
+  escalation; NO binding-doc conflict; NO Fable re-entry trigger fired.**
+  **NEXT: B2-P3** — pure core + fixtures + gates 1-13 written & compile-checked,
+  parallel-safe with WP1 impl — fresh session, Opus 4.8 / high; fold A1 (gate-1
+  pure-EDN form) + A5 (panes cases) at write time, A6 paths throughout. Docs NOT
+  committed (Sid's word); no code written. Roam track-B session-log block ready
+  to post on Sid's word.
+
 ---
 
 # Cross-track baton (session-end entries + the window plan — verbatim)
