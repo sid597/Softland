@@ -102,6 +102,9 @@
 ;; ═════════════════════════════════════════════════════════════════════════════
 ;;  1) Write + read: asserts, retracts, rejections, and all query edges.
 ;;     Gates 1,4,5,6,7,8,9,10 / F1a / F1b + T2,T3,T4,T5,T6,T7,T8,T9,T10 + edges.
+;;     Plus trail-view WP1 gate 10 (custody: envelope-actor-id/-type on
+;;     decision/event/edge rows) — distinct from the relation-kernel Gate 10
+;;     above, which shares the number across a different contract.
 ;;     One launch; every block is self-contained on disjoint keys.
 ;; ═════════════════════════════════════════════════════════════════════════════
 (deftest relation-kernel-write-and-read-test
@@ -167,6 +170,62 @@
               ;; (status, asserter, evidence, note, timestamps, event id, request id).
               (is (= (first from-side) (first to-side) row)
                   "endpoints and by-id agree on the full row"))))
+
+        (testing "WP1 gate 10 — custody: envelope actor ≠ payload asserter recorded on decision/event/edge"
+          ;; Phase-1 write pattern (trail-view §5.1, trap 10): Sid instructs in the
+          ;; CLI, an agent appends. Payload asserter = "sid"; envelope :actor = the
+          ;; agent. Custody (envelope-actor-id/-type) must land on the decision,
+          ;; event, and authoritative edge rows so an agent-written assertion is
+          ;; distinguishable from Sid's own hand. Identity stays asserter-scoped
+          ;; (trap 11): rel-id = sha1(kind,from,to,asserter) — the agent never forks it.
+          (let [a       (tref :doc-file "oc:doc:cust-a.md")
+                b       (tref :git-commit "cust-sha-b")
+                writer  {:actor/id "agent:claude-code/session-x" :actor/type :llm}
+                rel-id  (rk/relation-id-for :based-on a b "sid")     ; asserter, NOT the agent
+                req     (rk/assert-request
+                          {:kind :based-on :from a :to b
+                           :asserter-actor-id "sid" :asserter-type :human
+                           :actor writer                             ; the WRITER ≠ the asserter
+                           :asserted-at-ms 1000
+                           :request-id "cust-req" :idempotency-key "cust-idem"})]
+            (is (= rel-id (rk/relation-id-for :based-on a b "sid"))
+                "agent-as-writer does not fork the relation identity (trap 11)")
+            (submit! req) (drain!)
+            ;; Authoritative edge row: asserter and writer both present, and divergent.
+            (let [row (rk/read-relation-row runtime rel-id)]
+              (is (= "sid" (:asserter-actor-id row)) "asserter is Sid")
+              (is (= :human (:asserter-type row)))
+              (is (= "agent:claude-code/session-x" (:envelope-actor-id row)) "writer is the agent")
+              (is (= :llm (:envelope-actor-type row)))
+              (is (not= (:asserter-actor-id row) (:envelope-actor-id row))
+                  "custody diverges from authorship on the edge row"))
+            ;; Decision + event rows carry the writer too (the full custody trail).
+            (let [decision (rk/read-decision-by-id runtime (rk/decision-id-for rel-id "cust-req"))
+                  event    (rk/read-event-by-id runtime (:event-id decision))]
+              (is (= :accepted (:status decision)))
+              (is (= "agent:claude-code/session-x" (:envelope-actor-id decision)) "decision carries the writer")
+              (is (= :llm (:envelope-actor-type decision)))
+              (is (= "sid" (:asserter-actor-id event)) "event keeps the asserter")
+              (is (= "agent:claude-code/session-x" (:envelope-actor-id event)) "event carries the writer")
+              (is (= :llm (:envelope-actor-type event))))))
+
+        (testing "WP1 gate 10 — custody: default envelope actor equals the asserter (no phantom divergence)"
+          ;; With no :actor, `envelope` defaults it to the asserter
+          ;; (relation_kernel.clj). Custody then MATCHES authorship, so the Phase-B
+          ;; :written-by projection omits it. Proven here at the row level.
+          (let [a      (tref :doc-file "oc:doc:cust2-a.md")
+                b      (tref :git-commit "cust2-sha-b")
+                rel-id (rk/relation-id-for :based-on a b "sid")
+                req    (rk/assert-request
+                         {:kind :based-on :from a :to b
+                          :asserter-actor-id "sid" :asserter-type :human
+                          :asserted-at-ms 1000
+                          :request-id "cust2-req" :idempotency-key "cust2-idem"})]
+            (submit! req) (drain!)
+            (let [row (rk/read-relation-row runtime rel-id)]
+              (is (= "sid" (:asserter-actor-id row)))
+              (is (= "sid" (:envelope-actor-id row)) "default writer == asserter")
+              (is (= :human (:envelope-actor-type row))))))
 
         (testing "Gate 8 — unary :dead-end inherits from-key; one target-key, readable from-side"
           (let [a      (tref :doc-file "oc:doc:g8-a.md")
