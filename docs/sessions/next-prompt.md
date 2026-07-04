@@ -100,6 +100,15 @@ Added 2026-07-04 (deep-thinking thread):
    degradation). Metrics: tokens-to-orientation, wrong-authority rate,
    re-derivation ratio, join-question success, invented-structure rate.
    Cheap-model buildable once the trail view's queries exist; reruns as CI.
+9. **Interim working protocol** (proposed by Fable 2026-07-04 after the
+   form-break thread; zero-build relief, effective unless Sid objects):
+   (a) thread-scoped sessions, not 400k monoliths — one painting-thread per
+   session, Fable carries orientation via this baton + the intake pre-reads;
+   (b) Sid engages decisions/questions ONLY via Roam cards — markdown stays
+   the machine-facing record, maintained by models; (c) every session ends
+   with an assertion-grade baton entry (the Q2 rule, adoption pending on
+   Sid's Roam card). Supersedes nothing; relieves daily pain until the view
+   renders.
 
 Docs tracking (Sid, 2026-07-03): full docs tree tracked on this branch
 (`84b3d82`), including `decisions.md`; docs commits ONLY on this local branch,

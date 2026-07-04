@@ -76,6 +76,16 @@ for every Sid-decided item below: `vision/LOG.md` 2026-07-04 entries.
     `references` edges that thicken only when anchored to evidence spans —
     imported pathologies decay by default.
 
+13. **Daily-relief requirements (Sid, 2026-07-04 form-break thread — verbatim
+    in LOG):** the view must render TODAY's material, not only the archive —
+    ingest cadence is per-session/daily, never batch archaeology; the
+    Sid-facing face after View 3 is the threaded/forked session DAG
+    (his own 27-04 panel IS a threading UI over his work); decisions,
+    questions, annotations, artifacts engage in ONE place — cards over the
+    same material, no medium hop. Fable note: his F4 claim (a structured
+    medium costs the machine fewer tokens than a 400k linear transcript) is
+    H2 restated as economics — the benchmark should measure exactly this.
+
 ## Consumers, in order
 
 1. Agents (View 3 / context bundles / the H3 benchmark) — the load-bearing
