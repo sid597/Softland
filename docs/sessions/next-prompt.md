@@ -271,6 +271,68 @@
   R3, gates 9/16), then B. Docs NOT committed (Sid's word); code NOT committed.
   Roam track-A session-log block ready to post on Sid's word.
 
+- **2026-07-04, Opus 4.8 (effort max) — Track A: A2 STANCE KINDS IMPLEMENTED;
+  gates 15 + 16 GREEN.** Self-routing check ran FIRST: next undone phase = A2
+  stance kinds → table = Opus 4.8/medium; ran on Opus 4.8 at max (≥ medium, Sid
+  set it explicitly) — no mis-route. Resolved the A2-vs-owed-A1-review ambiguity
+  from the work-package QC model: layer-4 diff-falsification is a BATCHED
+  fresh-context pass listed AFTER B in the routing table, so A1's owed review is a
+  standing debt subsumed there — and A2 (registry line) is ORTHOGONAL to A1
+  (custody fields), so proceeding builds nothing on unverified custody logic.
+  Loaded /rama + /work-package; read CONTRACT v1.1 §5.2 + gate 15 + PLAN §3/§7.3 +
+  the kernel registry/descriptor/reader regions + the test ns IN FULL.
+  **INDEPENDENTLY re-verified (grep, not trusting PLAN — promises don't
+  self-enforce):** `relation-kinds` is consumed by EXACTLY ONE fn,
+  `registered-kind?` (`contains? relation-kinds`); NO second enumeration / switch /
+  client allowlist anywhere in src/+test/; the kind keywords elsewhere are
+  PRODUCERS emitting one edge (`transcript_ingest.clj:408/411`,
+  `transcript_adapter.clj:319/354` hard-code `:produced`) or test data; the only
+  `case` near kinds is `direction-code` (switches on :outgoing/:incoming, NOT
+  kind); R1's kind filter is descriptor-driven (`relation-read-ranges`), not a
+  literal list → the one-line add is PROVABLY sufficient for acceptance.
+  **IMPLEMENTED (`relation_kernel.clj`, registry-only per allowlist):** appended
+  `:confirms :refutes :supersedes` to `relation-kinds` (7→10) with a 6-line
+  rationale comment (binary directed; :supersedes = belief displacement, distinct
+  from :built-over/:new-direction lineage). **TEST (`relation_kernel_test.clj`,
+  additive, rode dt1 on disjoint `g15-` keys — minimize-launches, no 3rd IPC):**
+  new "WP1 gate 15" block — (a) all three stance kinds ACCEPTED end-to-end
+  (`read-relation-row` carries the kind + `:asserted`; decision `:accepted`);
+  (b) the common judged `to` target carries EXACTLY the three incoming stance
+  descriptors (`i:confirms/i:refutes/i:supersedes`) and per-target descriptor count
+  `≤ (* 2 (count relation-kinds))` read LIVE off the registry (keeps the
+  NON-subindexed `$$relation-target-descriptors` PState safe); (c) an unregistered
+  `:relates-to` STILL rejected (`:relation/kind-unregistered`, no row / no target
+  copy / no descriptor). **VERIFIED:** full suite = **2 tests / 203 assertions / 0
+  failures** (180 prior + 23 new gate-15 — the exact +23 match proves every
+  gate-15 assertion executed, no vacuous/skipped block). Gate 16 (180 prior) GREEN
+  — the registry change regressed nothing (grep confirmed no test counts/enumerates
+  the kind set). file(1)=UTF-8 text on both files, zero raw NUL (standing package
+  gate). Falsification done-gate: named "new kind's descriptor written under a
+  colliding/mangled key" → refuted by the exact-3 + per-kind `contains?` assertions
+  (green) and the SHARED `target-descriptor-key` helper (write/read can't drift,
+  kernel :143-145). **NO stop-clause, NO binding-doc conflict, NO Fable re-entry
+  trigger.** **⚠ LINE NUMBERS SHIFTED AGAIN — my +6-line kernel comment moved
+  everything below :53 down by 6; A3/B MUST GREP, not trust PLAN §4 absolute
+  cites.** Post-edit kernel anchors A3 needs: `relation-kinds` = :52-59,
+  `registered-kind?` = :232, `relation-outcome` = :344, `outcome-accepted?` = :436,
+  `$$relation-target-descriptors` PState = :576, the accepted branch
+  `(<<if (outcome-accepted? *outcome)` = **:616** (A3 inserts the 4th-hop activity
+  write inside this branch, after the to-side copy hop). The test ns's lower half
+  shifted down ~69 lines. **A2's diff (impl + test) OWES the fresh-context
+  diff-falsification review** (routing table: Opus 4.8/xhigh, skill layer 4) —
+  batched with A1's after B; author self-review ≠ a fresh layer, NOT run this
+  session. **NEXT: A3 activity + R3** — fresh session, Opus 4.8 / high, per CONTRACT
+  §5.3 + PLAN §4: `RelationActivityRow` + `$$relation-activity-by-bucket` PState +
+  `:request/sent-at-ms` envelope key (+ `relreq-sent-at-ms` accessor,
+  `assert/retract-request` pass-through) + the 4th-hop `(|hash bucket)` write in the
+  accepted branch (:616) + R3 `relation-activity` query topology + a V1
+  `read-activity-rows` reader for gate-9 negatives; gates 9, 16. THE discipline:
+  NEVER read the wall clock on the accepted path — bucket/order-key/arrival derive
+  from client stamps so a replayed microbatch re-derives byte-identical rows
+  (contrast `object_container.clj:428/448/467`, trap 4b). Then B. Docs NOT
+  committed; code NOT committed (Sid's word). Roam track-A session-log block ready
+  to post on Sid's word.
+
 ---
 
 # Active work package: view-MVP WP-B2 (Track B) — the pixels
@@ -364,6 +426,115 @@
   routing rule pattern applies (validation phases Opus/xhigh, impl
   Opus/high, Fable only on fork/second-FAIL/gates-green).** P3 may run
   parallel to WP1 impl; P5 waits on WP1 gates green.
+
+- **2026-07-04, Fable (session "track-b-wp-b2") — B2-P0 COMPLETE, findings
+  swept, CONTRACT v1.1.** Routing: session opened on Fable for a cheap-model
+  phase; handled per the Track-A P0 precedent — Fable orchestrated, the
+  phase ran as ONE fresh-context Opus 4.8 subagent (~153k tokens) barred
+  from baton writes; Fable spent orientation + receipt + sweep only.
+  **Phase-0 receipt** (artifact `build/view-mvp/IMPLICIT_SPEC.md`,
+  file(1)=UTF-8 text): 46 operations (each placement-carrying) / 25
+  invariants (10 face laws + cross-cutting + S1..S5 + S1a) / 17 matrix rows
+  (gate × law × fixture × falsifier × phase) / 17 edge cases; 20 source-fact
+  citations checked → 19 MATCH, 1 MISMATCH; ALL WP1 §n cross-citations
+  MATCH; both load-bearing as-built bugs the contract fixes CONFIRMED in
+  source (zero-advance glyph skip inside the `when-let` in both shape fns;
+  `tree->rects` full-size bg rects at `:clip?` boundaries). **7 findings —
+  0 policy forks, all implementer-fixable contract-TEXT defects; Fable as
+  contract author executed the sweep same-session → CONTRACT v1.1** (no §14
+  judgment call touched): F-1 `util_fns.cljc` extension (verified on disk);
+  F-2 gate 14 moved P6-only (P5 = gates 16, 17); F-3 §2.3 rewritten —
+  `Trail*` e/defns are B2's names calling the named WP1 §7 `read-*`
+  wrappers, `WatchIngestEpoch` = epoch-atom read codified as **S1a
+  carve-out** in §10; F-4 two salt classes in §8 + gate 4 (top-missing
+  become covered post-regen → verbatim assertions; permanently-uncovered
+  emoji/astral + surrogates → fallback assertions); F-5 gate 8 + face law 4
+  + trap 8 reworded to WP1 §9.10 (window arrival-only, `:order` sorts
+  within — a naive read would have BUILT a claimed window and broken WP1);
+  F-6 §5.1 label; F-7 `src/app/file_viewer.cljc` path (§2.3/§12/§13).
+  Sweep grep-verified (no stale `util_fns.clj`/`gates 14`/`clock param`
+  mentions remain). Resolutions recorded in IMPLICIT_SPEC §8 addendum.
+  **NUL trap fired AGAIN (6th repo firing)** — raw NUL from the tool-JSON
+  escape decode in IMPLICIT_SPEC, caught by the standing file(1) gate,
+  perl re-spelled; both docs now file(1)-clean. **No stop-clause
+  escalation; no conflict between the two contracts or decisions.md** (P0
+  verdict: the seam holds; WP1 trail_view.clj not yet in src/ — expected,
+  parallel impl). Docs NOT committed (Sid's word). Roam track-B log block
+  not posted (post on Sid's word). **NEXT: B2-P1 (plan) — fresh session,
+  Opus 4.8 / high, one line: "view-MVP WP-B2 — run the next phase per the
+  baton"; inputs = CONTRACT v1.1 + IMPLICIT_SPEC (incl. §8 addendum) +
+  RETRO/PRIMITIVES + CHARSET_AUDIT; §12 P1 verification duties are BINDING
+  pre-code: (a) import entry points + observable completion from
+  runtime.clj/adapters, (b) spike ONE client-cljc require under
+  `clojure -M:test`, (c) wheel-cascade order in scroll.cljs, (d) shadow-cljs
+  resolves the rect_tree cljc rename. Then P2 plan validation
+  (Opus/xhigh, default-fail, per-round artifacts).**
+
+- **2026-07-04, Opus 4.8 (effort max) — Track B: B2-P1 PLAN COMPLETE.**
+  Self-routing check ran FIRST: next undone phase = B2-P1 (plan) -> Opus 4.8/
+  high; ran on Opus 4.8 at max (>= high, Sid set it) — no mis-route. Artifact:
+  **`build/view-mvp/PLAN.md`** (file(1)=UTF-8 text, byte-clean; no raw control
+  bytes; codepoints written U+XXXX). Loaded `/work-package`; read CONTRACT v1.1
+  + IMPLICIT_SPEC (§8) + RETRO/PRIMITIVES + CHARSET_AUDIT + WP1 CONTRACT (§n) +
+  direct source reads (cited inline in PLAN). **All four §12 verification duties
+  SETTLED WITH EVIDENCE:** (b) cljc-on-JVM spike **PASS** — a throwaway pure
+  client-dir `.cljc` required under `clojure -M:test` printed
+  `:SPIKE-OK {:utf16-len 4, :cp-count 3, :sanitized "a?b"}` (loads+runs on JVM;
+  reader conditionals -> :clj; surrogate-safe codepoint counting = E-1; sanitize
+  substitutes uncovered->fallback count-preserved). **Ruling 2.1 is buildable —
+  the §12 cljc-on-JVM policy fork does NOT fire;** `rect_tree.cljs:5` requires
+  only clojure.string -> clean `.cljc` promotion; probe deleted, tree clean.
+  (c) trap 9 **CONFIRMED**: the editor `:else` (scroll.cljs:99) fires on
+  `(not file-workspace?)`, TRUE in a trail-face mode -> would steal editor
+  scroll; insertion = new clause after scroll.cljs:85. (d) rename **transparent**
+  — 12 files ns-address `app.client.workspace.rect-tree` (unchanged by ext), no
+  `.edn`/build path ref, shadow resolves `.cljc`. (a) import entry points READ
+  (Explore agent over the 2,648-line OC module + adapters): append-request seam
+  — md builder `markdown_adapter.clj:462`, transcript builder
+  `transcript_adapter.clj:221`, append `runtime.clj:90` (`:append-ack`),
+  completion is **poll/latch not push** (deterministic `await-object-container-
+  decision` `runtime.clj:314`), idempotency journal -> byte-identical no-op
+  (proof `object_container_test.clj:201-248`). **FINDINGS FLAGGED FOR THE P2
+  REVIEWER (all in PLAN §15):** (1) **OP-35 is TWO-PART** — `util_fns/
+  !ingest-epoch-atom` must ALSO be appended to `transitional-mirror-quarantine
+  :mirrors` or `text_kernel_probe_test.clj:257-273` (gate 17) fails; named in
+  neither CONTRACT nor IMPLICIT_SPEC. (2) **OI-1: NO production OC runtime** —
+  `start-object-container-runtime!` builds a TEST cluster only; the watcher (P6)
+  and the Electric bridge (P5) both need a live handle; **SHARED WITH WP1's
+  integration** (recommend a `defonce` boot like `util_fns.cljc:12-17`).
+  Conditional escalation at P5 if unowned — cross-package, needs Sid/WP1
+  coordination; not a P1/P3 blocker (fixtures + test cluster suffice). (3)
+  **OI-2: the running app renders DejaVu/slug** (manifest `default:true`,
+  `fonts.cljs:101-104`), NOT the MSDF `font_atlas.json` the contract regenerates
+  — so §5.3 regen alone will NOT draw the widened box-drawing/arrow glyphs
+  in-app (they stay honest tofu-with-advance via OP-27; gate 4/5 stay self-
+  consistent on font_atlas.json). manifest.json is outside the allowlist ->
+  **Sid decision at P4** (recommend switching the default to the MSDF atlas,
+  zero toolchain cost; msdf-atlas-gen + Ubuntu varfont both present). (4) OI-3:
+  md object-key is content-hash-derived -> a changed `.md` mints a NEW object
+  (feed shows one per real edit); byte-identical still no-op (gate 14 holds).
+  **LOAD-BEARING DESIGN in PLAN:** the cached-scene law (gate 13/trap 1/T-6) =
+  the as-built **sidebar pattern** applied to a full-screen mode — build ONCE in
+  a `<trail-face-scene` m/latest mirroring `<sidebar` (`editor_compute.cljs:310-
+  337`), cache `!trail-face-scene`, text via `combined_text.cljs:229-232`-style
+  cached read, hit-test the cached atom (NOT the chat/flow rebuild anti-pattern
+  `mouse.cljs:322-330,370-374`). Watcher = event-driven `WatchService` (INV-19),
+  reusing the transcript import driver + a NEW md `slurp`->existing seam (trap 2
+  intact); epoch bumps on the deterministic decision latch, never an fs poll
+  (gate 14/trap 11). PLAN also carries: the full 7-step wiring with exact
+  insertion sites, rect_tree T-4 clamp (`tree->rects` bg only, keep 0.56 at
+  :284), the two renderer shape-fn edits (OP-27), the per-gate deftest map
+  (17 rows), fixtures (two salt classes), and the S1-S5 style-gate plan. **NO
+  stop-clause escalation; NO binding-doc conflict (seam holds — WP1 §7 wrappers
+  only + the S1a epoch carve-out); NO Fable re-entry trigger fired.** No baseline
+  suite run (working tree carries Track-A WP1 WIP -> would conflate; the cljc
+  spike is the new-gate baseline). Docs NOT committed (Sid's word); Roam track-B
+  log block ready to post on Sid's word. **NEXT: B2-P2 (plan validation) — fresh
+  session, Opus 4.8 / xhigh, default-fail, per-round artifact
+  `PLAN_VALIDATION_R1.md` (never overwrite a FAIL); scenario-trace PLAN.md vs
+  CONTRACT v1.1 + IMPLICIT_SPEC (§8) + WP1 CONTRACT §4/§6/§7/§8 + the cited
+  source. Then B2-P3 (pure core + fixtures + gates 1-13; parallel-safe with WP1
+  impl).**
 
 ---
 

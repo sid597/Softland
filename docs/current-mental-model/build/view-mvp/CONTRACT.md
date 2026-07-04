@@ -1,10 +1,14 @@
 # View-MVP Contract — WP-B2 (the pixels; read-only screenshot loop)
 
-Status: v1 **BINDING** (Fable, 2026-07-04, Track-B session; **countersigned
+Status: v1.1 **BINDING** (Fable, 2026-07-04, Track-B session; **countersigned
 by Sid 2026-07-04 in-session** — "yes to all 3", covering all 8 §14
 judgment calls. The countersigned v1 includes the same-day pre-countersign
 gate-5 amendment: U+FFFD fallback in the atlas must-have set, from the
-charset audit).
+charset audit. v1.1, same day, Fable as contract author: B2-P0 sweep of
+IMPLICIT_SPEC findings F-1..F-7 — ALL implementer-fixable contract-text
+defects (file extensions/paths, gate-14 phase, §2.3 wrapper naming + S1
+epoch carve-out, gate-4 salt split, gate-8 order-vs-window wording, §5.1
+label); no judgment call from §14 touched, no policy changed).
 
 Implements the pixel side of D-002 (first form = trail view) under D-008
 (read-only MVP, CLOSED) and the face-order ruling (View 3 → threaded/DAG
@@ -94,11 +98,16 @@ Track-D data (retro §5), not this package's problem to solve.
 
 ### 2.3 Electric bridge
 
-New e/defns in `file_viewer.cljc` (the ×5 precedent), calling **only WP1 §7
-wrappers** inside `e/server`: `TrailBundle`, `TrailFeed`,
-`TrailConversation`, `TrailText` (pull, address-shaped args) and
-`WatchIngestEpoch` (push; §6). Client side: results land in atoms threaded
-through `start-loop!` like the existing five.
+New e/defns in `src/app/file_viewer.cljc` (the ×5 precedent). The e/defn
+names are THIS package's: `TrailBundle`, `TrailFeed`, `TrailConversation`,
+`TrailText` (pull, address-shaped args) — each calls **only WP1 §7 client
+wrappers** (`read-context-bundle`, `read-recent-activity`,
+`read-conversation-trail`, `read-relation-detail`, `render-bundle-text`,
+`resolve-address`) inside `e/server`. `WatchIngestEpoch` (push; §6) is NOT
+a WP1 wrapper: it reads this package's ingest-epoch mirror atom (§2.4) —
+the single sanctioned out-of-§7 read, a counter, not truth (S1 carve-out).
+Client side: results land in atoms threaded through `start-loop!` like the
+existing five.
 
 ### 2.4 Watchers
 
@@ -131,9 +140,11 @@ from WP1's two clocks.
    `:normal`, never dropped. A version-header mismatch renders the whole
    projection plain + one visible notice line (honesty over prettiness;
    trap 12).
-4. **Two clocks at the pixel layer (WP1 §6, trap 4):** timeline default
-   clock `:arrival`; the active clock is part of the face's rendered
-   address params; entries render BOTH stamps when they diverge
+4. **Two clocks at the pixel layer (WP1 §6/§9.10, trap 4):** window
+   selection is ALWAYS arrival-side (WP1 §9.10 — no claimed-window
+   selection exists); the face's order param (`:order :arrival|:claimed`)
+   sorts WITHIN the window, defaults `:arrival`, and is part of the face's
+   rendered address params; entries render BOTH stamps when they diverge
    (`claimed Apr 28 · arrived today`).
 5. **Staleness renders differently (I-2):** three visually distinct
    states — attested-recent, attested-stale, and **never-attested/unknown**
@@ -154,7 +165,7 @@ from WP1's two clocks.
    never vanish. Advance counting is codepoint-correct (surrogate pairs =
    one advance).
 10. **Read-only (D-008.1):** zero kernel writes from any face code path.
-    Local view-state (scroll, clock param, collapse, selection) is atoms
+    Local view-state (scroll, order param, collapse, selection) is atoms
     only.
 
 ## 4. The timeline face, concretely (v0 composition)
@@ -181,7 +192,7 @@ from WP1's two clocks.
 
 ## 5. Substrate amendments (bounded, named)
 
-1. **`renderer.cljs` shape fns (V3-5 server... client half):** missing
+1. **`renderer.cljs` shape fns (V3-5 shaper half):** missing
    glyph → advance anyway + draw fallback glyph if the atlas has one; never
    zero-advance skip. Bounded to `shape-msdf-line`/`shape-slug-line`.
    (Defense-in-depth behind the cljc sanitizer; the sanitizer is the
@@ -225,7 +236,7 @@ order, camera/zoom, dirty-present flag, buffer pools, font backends.
 | 5 | Keep dropping uncovered glyphs (as-built behavior) | Rendered claims silently lose characters; column math desyncs; the map lies at the pixel level | §3.9 sanitizer + §5.1 shaper fix + §5.3 atlas regen (gates 4, 5) |
 | 6 | Build the diagonal/bezier edge pipeline now | GPU shader work for an unvalidated aesthetic; D-001 inverted | §4: Manhattan v0; curves are a Sid-gated follow-up (retro O-1) |
 | 7 | Build card windowing now | Complexity ahead of measured need; editor precedent shows the fix is retrofittable | §4: v0 builds all cards; gate 15 records the measurement that decides |
-| 8 | Timeline on one clock | A July re-import of April notes floods "today" or vanishes — WP1 trap 4 reproduced at the pixel layer | §3.4: clock in the address, both stamps rendered (gate 8) |
+| 8 | Timeline on one clock | A July re-import of April notes floods "today" or vanishes — WP1 trap 4 reproduced at the pixel layer | §3.4: order param in the address, both stamps rendered; window stays arrival-side (gate 8) |
 | 9 | Insert the new scroll zone anywhere in the wheel cond | The cascade is order-sensitive (flow checked before chat today); wrong order silently steals editor/chat scroll | §12 Phase C duty: zone placed + plan-validated against the existing cascade order; behavior spot-checked at first light |
 | 10 | Reuse trail.cljs agent-run card kinds for kernel material | `:reasoning`/`:tool-call` semantics collide with land kinds; collapse-id namespaces collide across panes | §2.1 `cards.cljc` is a separate builder set; collapse-ids namespaced `:trail-face/*` |
 | 11 | Poll-until-rendered in watcher/integration tests | Polling can't prove a no-op (quirks law); flaky suites | §6: tests latch on import-fn return / completion read, then assert epoch delta (gate 14) |
@@ -238,8 +249,11 @@ order, camera/zoom, dirty-present flag, buffer pools, font backends.
 (bundle with all six layers incl. `:in-family` verdicts + omissions; feed
 window with a back-dated entry, an uncovered-declaration, a dead-end, two
 disagreeing asserters, a `:written-by`-differs row; a §8 v0 text projection
-sample incl. `walked unknown`; a hole-endpoint row; strings salted with
-CHARSET_AUDIT's top-missing codepoints). Fixtures re-derive from WP1
+sample incl. `walked unknown`; a hole-endpoint row; strings salted TWO ways —
+with CHARSET_AUDIT's top-missing codepoints, which become COVERED after the
+§5.3 regen (verbatim/advance preservation), AND with permanently-uncovered
+codepoints — emoji/astral + surrogate pairs, never added to the atlas —
+which exercise the fallback path post-regen). Fixtures re-derive from WP1
 CONTRACT §4/§6/§8 shapes; **if WP1 impl contact amends those shapes, the
 fixtures re-derive in the same session that ingests the amendment** (named
 cheap re-derivation, not a risk absorbed silently). After WP1 gates green,
@@ -268,8 +282,10 @@ against the hand fixtures (gate 16).
 
 - **S1 Seam:** Electric bridge + faces call ONLY WP1 §7 wrappers — no
   `foreign-select`, no PState names, no kernel write fns anywhere under
-  `trail_face/` or the new e/defns. *Stops at source scan; runtime paths
-  are gate 14's integration test.*
+  `trail_face/` or the new e/defns. **Carve-out (S1a):** `WatchIngestEpoch`
+  reads the ingest-epoch mirror atom (§2.4/§6) — a counter, not truth; it
+  is the ONLY sanctioned out-of-§7 read. *Stops at source scan; runtime
+  paths are gate 14's integration test.*
 - **S2 Purity:** `trail_face/*.cljc` contains no atoms, no js interop, no
   reader conditionals except where a platform shim is unavoidable (then the
   shim is 1 fn, named). *Stops at the file boundary; wiring.cljs is exempt
@@ -299,10 +315,13 @@ over §8 fixtures unless marked otherwise. Every gate names its falsifier.
 3. **Marker totality:** every line of the fixture projection maps to a
    style; a mutated unknown-marker line maps to `:normal` (not dropped); a
    mutated version header yields plain + exactly one notice line.
-4. **Sanitize correctness (V3-5):** for fixture strings salted with the
-   audit's top-missing codepoints + surrogate pairs: op codepoint count is
-   preserved, uncovered codepoints map to the fallback, advance count ==
-   codepoint count. Coverage set loaded from the REAL
+4. **Sanitize correctness (V3-5):** two salt classes (§8). For the
+   audit's top-missing codepoints (covered after the §5.3 regen): passed
+   through verbatim, advance count == codepoint count. For the
+   permanently-uncovered salt (emoji/astral + surrogate pairs, never in
+   the atlas): op codepoint count preserved, uncovered codepoints map to
+   the fallback, advance count == codepoint count (surrogate pair = one).
+   Coverage set loaded from the REAL
    `resources/public/font_atlas.json`. *Stops at the cljc layer: does not
    execute the GPU shaper — the renderer.cljs fix (§5.1) is verified by
    diff review + first light.*
@@ -323,9 +342,13 @@ over §8 fixtures unless marked otherwise. Every gate names its falsifier.
    fixture → identical output twice); every connector endpoint touches its
    card's bounds; dead-end lanes emit no forward segment past the terminal
    card. *Falsifier: nondeterminism, floating connectors, ghost lanes.*
-8. **Two clocks:** the back-dated fixture entry appears under `:arrival`
-   today and not under `:claimed` today; its card renders both stamps;
-   switching the clock param changes the rendered address line.
+8. **Two clocks:** the back-dated fixture entry appears in today's
+   window (selection is arrival-only, WP1 §9.10 — a claimed-side window
+   does not exist and must not be built); under `:order :claimed` it
+   sorts to its claimed-stamp position, under `:order :arrival` to its
+   arrival position (ordering within the SAME window); its card renders
+   both stamps; switching the order param changes the rendered address
+   line.
 9. **Staleness triad:** attested-recent / attested-stale / never-attested
    fixtures produce three pairwise-distinct style outputs; nil ≠ fresh.
 10. **Badges:** `asserted-by` present on every relation/verdict card;
@@ -394,8 +417,8 @@ first application when it exists.
     here with their diff review notes.
   - **B2-P5** — integration: Electric bridge + 7-step wiring + cached
     scene + scroll/mouse zones + entry command; **starts only after WP1
-    gates green** (needs live wrappers); gates 14, 16, 17.
-  - **B2-P6** — watchers + epoch push (gate 14 full), then **first light**
+    gates green** (needs live wrappers); gates 16, 17.
+  - **B2-P6** — watchers + epoch push (gate 14), then **first light**
     with Sid (gate 15 evidence, FIRST_LIGHT.md, H1 clock starts).
   - **B2-P7/P8** — implementation validation + test validation (fresh,
     default-fail, line-cited), then Fable gate review.
@@ -410,9 +433,9 @@ first application when it exists.
   `combined_text.cljs`, `editor_compute.cljs`, `runtime/scroll.cljs`,
   `runtime/mouse.cljs`, `runtime/workspace_actions.cljs`,
   `runtime/render.cljs`, `runtime.cljs`, `runtime/state.cljs` (new atoms),
-  `runtime/agent_flow.cljs` (entry command), `file_viewer.cljc` (new
-  e/defns), `electric_flow.cljc` (thread new atoms),
-  `src/app/server/rama/util_fns.clj` (ingest-epoch mirror atom ONLY),
+  `runtime/agent_flow.cljs` (entry command), `src/app/file_viewer.cljc`
+  (new e/defns), `electric_flow.cljc` (thread new atoms),
+  `src/app/server/rama/util_fns.cljc` (ingest-epoch mirror atom ONLY),
   `renderer.cljs` (ONLY the two shape fns per §5.1). NOTHING else; trail.cljs,
   dg_flow.cljs, sidebar.cljs, settings, cmd_panel untouched.
 - **Verification duties before code (B2-P1):** (a) which import entry
@@ -445,7 +468,7 @@ CONTRACT.md` (entire); `build/trail-view/INPUTS.md` items 2, 3, 5, 13, 14;
 `build/view-mvp/CHARSET_AUDIT.md`; source: `rect_tree.cljs` (entire),
 `trail.cljs:1-150,370-520,1235-1337`, `shell.cljs` (entire),
 `combined_text.cljs` (entire), `runtime/render.cljs` (entire),
-`runtime/scroll.cljs`, `runtime/state.cljs`, `file_viewer.cljc`,
+`runtime/scroll.cljs`, `runtime/state.cljs`, `src/app/file_viewer.cljc`,
 `renderer.cljs:480-515,1127-1250,1338-1400`, `electric_flow.cljc:455-576`;
 CLAUDE.md (Missionary patterns + font recipe); `memory/
 implementation-quirks.md`; the `/work-package` skill. Probe question:
