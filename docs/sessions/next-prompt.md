@@ -223,6 +223,54 @@
   PLAN §11; phase order A1→A2→A3→B stands. Roam track-A session-log block ready
   to post on Sid's word.
 
+- **2026-07-04, Opus 4.8 (effort max) — Track A: A1 CUSTODY IMPLEMENTED; gates
+  10 (kernel half) + 16 GREEN.** Self-routing check ran FIRST: next undone phase
+  = A1 custody → table = Opus 4.8/high; ran on Opus 4.8 at max (≥ high, Sid set
+  it explicitly) — no mis-route. Loaded `/rama` + `/work-package`; read CONTRACT
+  v1.1 §5.1 + PLAN §2 + PLAN_VALIDATION_R1 + `relation_kernel.clj` IN FULL + the
+  test ns IN FULL (code = ground truth over the plan's absolute cites).
+  **IMPLEMENTED (`src/app/server/rama/relation_kernel.clj`; authorized by
+  CONTRACT §2 "Exception, ruled here" + baton allowlist):** appended
+  `envelope-actor-id` + `envelope-actor-type` to the END of `RelationDecisionRow`
+  (12→14 fields), `RelationEventRow` (16→18), `RelationEdgeRow` (14→16); bound
+  `actor-type (:actor/type actor)` beside the existing `actor-id` in
+  `relation-outcome`; threaded `actor-id actor-type` into ALL SIX row
+  constructors inside it — the 3 `rejected-decision-row` sites (helper arity
+  9→11), the accepted `->RelationDecisionRow`, the `->RelationEventRow`, and the
+  edge via `transition-row` (arity 14→16 — whose EXISTING-ROW `assoc` branch ALSO
+  overwrites `:envelope-actor-id/-type`, so the edge always reflects the LATEST
+  transition's writer). `endpoint-copy` + the copy hops UNCHANGED — the two
+  target copies inherit custody via the existing `(termval *row)` writes (the
+  pre-existing T10 full-row-equality assertion proves all three copies identical,
+  still green). `RelationStatusLogRow`/`…DescriptorRow` untouched (§2.1).
+  **TEST (`relation_kernel_test.clj`, additive, NO 3rd IPC launch — rode dt1 on
+  disjoint keys per the minimize-launches rule):** two `testing` blocks — (a)
+  divergent custody (payload asserter `sid`, envelope `:actor` =
+  `agent:claude-code/session-x`/`:llm`) asserting writer≠asserter on the edge row
+  AND the writer on decision + event rows AND identity NOT forked (trap 11); (b)
+  convergent (no `:actor` → default writer == asserter, so Phase-B `:written-by`
+  omits it). **VERIFIED:** ns macroexpands clean (`clojure -M:test` require);
+  gate 16 run BEFORE adding the test = 2 tests / 165 / 0 fail (no regression);
+  full suite after = **2 tests / 180 assertions / 0 failures** (165 + 15 new).
+  Every new-arity constructor is exercised by a green assertion (accept, all 3
+  reject reasons, both `transition-row` branches) → arities proven at RUNTIME,
+  not just compile. Falsification done-gate: named "target copies lack custody"
+  → refuted by the green T10 identity. **NO stop-clause, NO binding-doc conflict,
+  NO Fable re-entry trigger.** Gate-10's TRAIL-VIEW half (bundle `:written-by`
+  projection) is Phase B, correctly deferred. **⚠ LINE NUMBERS SHIFTED — A2/A3/B
+  must GREP, not trust PLAN absolute cites:** now `(def relation-kinds` = **:52**
+  (A2's one-line edit), `actor-type` binding = :351, to-side copy hop =
+  **:646-650** (A3 inserts the 4th-hop activity write AFTER :650, inside the
+  `<<if (outcome-accepted?` branch). **A1's diff STILL OWES the fresh-context
+  diff-falsification review** (routing table: Opus 4.8/xhigh, skill layer 4) —
+  not run this session (author self-review ≠ a fresh layer). **NEXT: A2 stance
+  kinds** — fresh session, Opus 4.8 / medium; add `:confirms :refutes
+  :supersedes` to `relation-kinds` (:52); gate 15 (unregistered still rejected,
+  3 new accepted, descriptor bound ≤ 2×10 = 20 rows); validation R1 §3.4 already
+  confirmed NO second kind enumeration exists in src/+test/. Then A3 (activity +
+  R3, gates 9/16), then B. Docs NOT committed (Sid's word); code NOT committed.
+  Roam track-A session-log block ready to post on Sid's word.
+
 ---
 
 # Active work package: view-MVP WP-B2 (Track B) — the pixels
