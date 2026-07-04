@@ -50,7 +50,13 @@
 ;; decision time. Adding a kind is a one-line reviewed code change. This is the
 ;; guard against LLM-glue kind mush (`:relates-to`, `:connected-with`, ...).
 (def relation-kinds
-  #{:based-on :produced :built-over :new-direction :dead-end :elaborates :references})
+  #{:based-on :produced :built-over :new-direction :dead-end :elaborates :references
+    ;; stance kinds (trail-view §5.2, traps 1-2): verdict rows ARE relations, so
+    ;; "confirms / refutes / supersedes" ride the registry and inherit identity,
+    ;; idempotency, retraction, history, and evidence anchoring for free. Binary
+    ;; directed (from = judgment carrier, to = judged thing); :supersedes is belief
+    ;; displacement, distinct from :built-over / :new-direction construction lineage.
+    :confirms :refutes :supersedes})
 
 (def request-types #{:relation/assert :relation/retract})
 
