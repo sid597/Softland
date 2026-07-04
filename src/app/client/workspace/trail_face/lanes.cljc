@@ -47,19 +47,27 @@
 (defn assign-lanes
   "Entries -> {entry-key lane-index}. Lane index = order of FIRST
    appearance of the thread key in the (already-ordered) entry seq -
-   deterministic, no hashing, no randomness (gate 7)."
-  [entries]
-  (let [entry-key (fn [e] [(get-in e [:entry/target :id]) (:time/arrival-ms e)])]
-    (loop [es entries, lane-of {}, next-lane 0, out {}]
-      (if (empty? es)
-        out
-        (let [e  (first es)
-              tk (entry-thread-key e)
-              [lane-of' next-lane'] (if (contains? lane-of tk)
-                                      [lane-of next-lane]
-                                      [(assoc lane-of tk next-lane) (inc next-lane)])]
-          (recur (rest es) lane-of' next-lane'
-                 (assoc out (entry-key e) (get lane-of' tk))))))))
+   deterministic, no hashing, no randomness (gate 7).
+   With max-lanes, lane indices WRAP (mod) so a corpus of single-entry
+   threads doesn't staircase off-screen (first-light finding F-L2) -
+   callers that group spines must group by the UNWRAPPED assignment
+   (1-arity) so unrelated threads sharing a wrapped column never chain."
+  ([entries]
+   (let [entry-key (fn [e] [(get-in e [:entry/target :id]) (:time/arrival-ms e)])]
+     (loop [es entries, lane-of {}, next-lane 0, out {}]
+       (if (empty? es)
+         out
+         (let [e  (first es)
+               tk (entry-thread-key e)
+               [lane-of' next-lane'] (if (contains? lane-of tk)
+                                       [lane-of next-lane]
+                                       [(assoc lane-of tk next-lane) (inc next-lane)])]
+           (recur (rest es) lane-of' next-lane'
+                  (assoc out (entry-key e) (get lane-of' tk))))))))
+  ([entries max-lanes]
+   (let [raw (assign-lanes entries)
+         m (max 1 (long max-lanes))]
+     (into {} (map (fn [[k lane]] [k (mod lane m)])) raw))))
 
 ;; --- Dead ends (face law 8, D-002) ---------------------------------------------
 

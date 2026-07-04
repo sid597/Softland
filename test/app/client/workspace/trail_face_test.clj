@@ -168,7 +168,10 @@
       (is (= 2 (:to out)) ":to tracks the shrunk UTF-16 length")))
   (testing "E-2: a literal U+FFFD in the source passes through as itself"
     (is (contains? coverage 0xFFFD) "fallback glyph itself is in the atlas")
-    (is (= "\uFFFD" (san/sanitize-text coverage san/fallback-cp "\uFFFD")))))
+    (is (= "\uFFFD" (san/sanitize-text coverage san/fallback-cp "\uFFFD"))))
+  (testing "F-L1 (first light): control whitespace passes through, never tofu"
+    (is (= "a\nb\tc\r" (san/sanitize-text coverage san/fallback-cp "a\nb\tc\r"))
+        "newlines/tabs are the renderer's, not the sanitizer's")))
 
 ;; --- Gate 5: atlas coverage regression (P4: runs against the REGENERATED atlas) -----
 
@@ -233,7 +236,12 @@
             doc-lane (get l ["oc:doc:9fdoc" 1782171000000])
             blk-lane (get l ["du:9fdoc:000003" 1782166000000])]
         (is (some? doc-lane))
-        (is (= doc-lane blk-lane)))))
+        (is (= doc-lane blk-lane))))
+    (testing "F-L2 (first light): lane wrap is deterministic and bounded"
+      (let [entries (:feed/entries feed)
+            w (lanes/assign-lanes entries 2)]
+        (is (= w (lanes/assign-lanes entries 2)))
+        (is (every? #(< % 2) (vals w)) "wrapped lanes stay under max-lanes"))))
   (testing "connector endpoints touch their cards' bounds"
     (let [from-b {:x 10 :y 10 :w 100 :h 40}
           to-b {:x 200 :y 100 :w 100 :h 40}

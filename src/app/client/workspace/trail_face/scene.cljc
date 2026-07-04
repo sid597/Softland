@@ -244,7 +244,12 @@
                                            (- (:time/arrival-ms e))])
                                   (fn [e] [(- (:time/arrival-ms e))]))
                                 entries))
-        lanes-map (lanes/assign-lanes sorted)
+        ;; F-L2: wrap lanes at viewport capacity so a corpus of
+        ;; single-entry threads doesn't staircase off-screen; spines
+        ;; group by the UNWRAPPED thread assignment below.
+        max-lanes (max 1 (quot (- viewport-w pad) (+ card-w lane-gap)))
+        raw-lanes (lanes/assign-lanes sorted)
+        lanes-map (lanes/assign-lanes sorted max-lanes)
         expanded  (:expanded view-state #{})
         header-op (-> {:text (pr-str (address-with-order (:feed/address feed) order))
                        :style :address :trail-face/address? true}
@@ -303,7 +308,7 @@
                             :dead-end? (or (get-in c [:data :trail-face/dead-end?])
                                            (contains? dead-ends
                                                       (first (get-in c [:data :trail-face/entry-key]))))}))
-        spine-rects (lanes/lane-spines spine-cards lanes-map)
+        spine-rects (lanes/lane-spines spine-cards raw-lanes)
         conn-nodes  (vec (map-indexed connector-node
                                       (into spine-rects conn-rects)))
         omissions   (cards/omissions-block (:feed/omissions feed)
