@@ -319,6 +319,12 @@ ok so on the decisions i countersign to d-007 and for open questions
 
 ---
 
+## 2026-07-04 — the read-only MVP ruling (write surface = claude cli; watchers; screenshot loop; read→write as the named next goal)
+
+I think you are missing one point ... so for the very first MVP we don't need the write surface .. the write surface can just be claude cli but the view is being built in softland .... like we can have watchers over different areas say md, code files, chat transcripts etc. etc. then i can have a live readable view in softland but its fine because even though I would not be able to directly manipulate the softland view since its read only as of now ... we can use claude cli directly any change will be directly visible and i can just take a screenshot of some view and ask claude about it ... so it will be manual but also we would not be rethinking and expanding scope .. and we will quickly then have a goal of how to get from read -> write and it will be testable by me so we would also not have the problem of how do we know we are making actual progress and not making imaginary stuff ... wdyt about this??
+
+---
+
 ## 2026-07-04 — the form-break generalized: disconnected tools, the 400k chat, threading/forking, and "do I let frustration drive?"
 
 I think what i said above also answers a bunch of questions and like the priority for the project for e.g you ask what view i need and the frustration i feel daily is that i have to continue building softland in these disconnected tools and just causes context switch and scares me .. for e.g this whole chat is now 400k token length and about various topics ideally i would have made it threaded or forked if i had softland as i want it to be ... all the back and forth .. new chat threads (note this can be canvas view as well we need to find the best kind of ui that works) annotations, artifacts, decisions, all in one place and it might consume less tokens and make more sense to you as well ...now i am feeling like i am dumping stuff on you showing my frustration and then we also have to build this whole project out so do i let my current frustration drive the decisions the way in which we will execute or what?.... btw i do need your help in orienting in all the 11 threads we noted down previously plus the current Decisions on what we are building and look through these last 2 frustration filled message lens by me

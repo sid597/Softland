@@ -86,6 +86,32 @@ for every Sid-decided item below: `vision/LOG.md` 2026-07-04 entries.
     medium costs the machine fewer tokens than a 400k linear transcript) is
     H2 restated as economics — the benchmark should measure exactly this.
 
+14. **Read-only MVP ruling (Sid, 2026-07-04 — "for the very first MVP we
+    don't need the write surface"; Fable concurs after a falsification
+    pass):** the first form is a READ-ONLY view; the write surface is the
+    existing Claude CLI; watchers feed near-live ingest; Sid's loop is
+    work-in-CLI → view updates → screenshot back into CLI when he wants
+    action. read→write is the NAMED second milestone, entered when observed
+    read-only friction demands it — desire-paths sequencing for the write
+    surface itself. Sharpenings:
+    - every view face renders its own ADDRESS as text (the query + params
+      that produced it) — a screenshot is then a resolvable pointer, not
+      just pixels;
+    - watchers are TRIGGERS over existing ingestors (transcripts, md,
+      commits once the spine lands) — never new ingestors; safe because the
+      kernels were built for convergent re-import (deterministic ids,
+      idempotency journals);
+    - read-only means zero kernel writes FROM THE VIEW; local view-state
+      (zoom, filter, selection) is allowed; the kernel keeps taking writes
+      from the CLI side throughout;
+    - the LLM is phase-1's write surface (Sid instructs in CLI, agent
+      asserts: payload asserter = sid, envelope actor = the agent) ⇒ the
+      envelope/payload server-side recheck (item 7) graduates from "before
+      D-003 agent writers" to "before phase-1 daily use";
+    - the contract session should propose this ruling as **D-008** and
+      deliver it to Sid as a Roam card for countersign (not a decisions.md
+      wall).
+
 ## Consumers, in order
 
 1. Agents (View 3 / context bundles / the H3 benchmark) — the load-bearing
