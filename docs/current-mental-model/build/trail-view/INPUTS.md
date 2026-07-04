@@ -26,6 +26,9 @@ for every Sid-decided item below: `vision/LOG.md` 2026-07-04 entries.
    goal:** understandable by agents in MINIMAL tokens. Second goal: agents CAN
    manipulate views — therefore view-specs must be data in the land
    (versioned, assertable), not code outside it.
+   **Face order RULED 2026-07-04** (Fable, on Sid's delegation; decisions.md
+   Open Questions): View 3 → threaded/DAG timeline (Sid's first pixel
+   surface) → canvas (parked).
 4. **Second-user evaluation is machine-first**: a benchmark where a model with
    Sid-granted read permissions uses the system cold (H3 machine half; see
    BETS.md H3 2026-07-04 sharpening). The contract's acceptance gates should

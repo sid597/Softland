@@ -287,6 +287,23 @@ motion and the questioning practice this entry names.
 - Which face of the trail view renders first (View 3 agent-legibility is
   cheapest; View 1 outline; View 2 canvas replaces the wall but costs most).
   Decide after D-002/D-005 countersign.
+  **RULED 2026-07-04** (by Fable, on Sid's explicit delegation via Roam card —
+  "I am not sure you decide"): **View 3 first** — it is nearly coextensive
+  with the data contract itself (context bundles + the two query topologies;
+  a minimal text projection, not a pixel investment); **the threaded/DAG
+  timeline face second** (the 27-04 outline form) as Sid's first pixel
+  surface for the read-only screenshot loop (INPUTS item 13/14); **canvas
+  last**, parked until the wall-replacement ambition earns activation.
+  Grounds: the first paying reader is the agent; the Sid-face rides the same
+  queries View 3 defines, so the ordering costs nothing extra.
+- **Solo-operator discipline rule — ADOPTED 2026-07-04** (Sid via Roam card:
+  "yes adopt this"; origin: Q2 from the 2026-07-04 sessions): every session —
+  build or thinking — ends with an assertion-grade baton entry in
+  `docs/sessions/next-prompt.md`: what was decided / verified / doubted,
+  findings verbatim on any FAIL, judgment calls flagged; everything else is
+  recoverable. Cycle-1 evidence: the baton's verbatim entries were the only
+  survivors of the overwritten PLAN_VALIDATION FAIL artifacts. Encoded in the
+  interim protocol (baton item 9) and Claude memory.
 - Regime 2 self-hosting test formulation (carried from Sid's consolidation).
 - Confidence/credential algebra for the trail→code join; rename/move continuity
   (parked in the code-ingestor contract).

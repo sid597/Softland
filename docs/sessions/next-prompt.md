@@ -106,9 +106,10 @@ Added 2026-07-04 (deep-thinking thread):
    session, Fable carries orientation via this baton + the intake pre-reads;
    (b) Sid engages decisions/questions ONLY via Roam cards — markdown stays
    the machine-facing record, maintained by models; (c) every session ends
-   with an assertion-grade baton entry (the Q2 rule, adoption pending on
-   Sid's Roam card). Supersedes nothing; relieves daily pain until the view
-   renders.
+   with an assertion-grade baton entry (the Q2 rule — **ADOPTED by Sid
+   2026-07-04** via Roam card "yes adopt this"; also in decisions.md and
+   Claude memory). Face order also RULED 2026-07-04 on Sid's delegation:
+   View 3 → threaded/DAG timeline → canvas (decisions.md Open Questions).
 
 Docs tracking (Sid, 2026-07-03): full docs tree tracked on this branch
 (`84b3d82`), including `decisions.md`; docs commits ONLY on this local branch,
