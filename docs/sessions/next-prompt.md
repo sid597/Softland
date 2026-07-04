@@ -22,7 +22,16 @@ NEXT: a FRESH session opens the trail-view data contract from
 `build/trail-view/INPUTS.md` (14 items + the face-order ruling), per the
 /work-package skill. Sid engages via Roam cards only.
 
-## Three-track plan (Sid + Fable, 2026-07-04 late — for the 36h Fable window)
+## Four-track plan (Sid + Fable, 2026-07-04 late — for the 36h Fable window)
+
+**SESSION SCOPING LAW (Sid, 2026-07-04): one session = ONE track. Never mix.**
+At session start: declare the track; read its Roam page (graph `softland`:
+"track A - rama data + spine" / "track B - render substrate" /
+"track C - read-write exploration" / "track D - render north") plus this
+baton. At session end, write BOTH records: the assertion-grade baton entry
+here (adopted rule) AND a dated block appended to the track's Roam session
+log. The Roam track pages are the per-track state; this baton stays the
+cross-track "now."
 
 - **Track A — Rama (serial):** WP1 trail-view DATA-layer contract (Fable,
   fresh session, from INPUTS.md; pure Rama — bundles, queries, verdict rows,
