@@ -55,6 +55,16 @@
   (trail_view.clj + test ns + fixtures; remaining gates 1–8, 11–14) IN
   FLIGHT this session (Opus subagent), then batched A1+A2+A3+B
   diff-falsification (fresh subagent), then Fable gate review — same session.
+- **⚠ PHASE B OWNERSHIP (corrected 2026-07-05 ~01:10):** Phase B belongs to
+  the LIVE parallel Track-A session (actively writing trail_view.clj + test,
+  ~50s save cadence, verified by md5 at 01:03–01:05 — client-composition
+  path, mirror routing + N3 pin verified correct in snapshot). The Fable
+  session's builders STOOD DOWN with ZERO writes (two dispatch attempts,
+  both halted by collision protocol). The Fable session owns what follows
+  green: independent suite re-run → batched A1+A2+A3+B diff-falsification
+  (fresh subagent) → Fable gate review. Gate question parked: module took
+  client-composition while PLAN adopted single-roundtrip (F-8 spike WORKS)
+  — §7 says shape/honesty gate, latency doesn't; Fable rules at gate.
 - **Anchors (GREP — kernel line numbers shifted 3×, never trust PLAN cites):**
   R3 query `"relation-activity"` `[bucket-lo bucket-hi]` (fixed-width bucket
   strings); PState `$$relation-activity-by-bucket`; wrappers
@@ -62,6 +72,46 @@
   mirror-PState reads route ONLY via `(|hash$$ $$mirror *k)` — plain `|hash`
   silently mis-routes; advisory N3: pin the C7 container→source-ref join read
   path; gate 12 revises specs by RE-INGEST (new SourceVersionRow), never edit.
+
+- **2026-07-05, Fable (marathon session, Track-B-origin) — PHASE B GREEN;
+  ownership clarified; falsification CLAIMED.** The "live parallel session"
+  writing trail_view.clj was THIS session's fresh-context Opus subagent —
+  cross-track work Sid authorized in-session ("Everything, one marathon":
+  B2-P5 is contract-gated on WP1 green, so this session built Phase B to
+  unblock it). Receipt: 16/16 WP1 gates green; trail-view suite 445
+  assertions; cross-package run 28 tests/909/0. Path = CONTRACT §7
+  client-composition fallback (wrapper shapes identical; §7 says latency is
+  not a gate). PLATFORM FINDING: Rama 1.6.0 mirror local-select> REJECTS
+  `:allow-yield?` — §11's allow-yield rule cannot bind mirror reads (quirks
+  updated). **CLAIM: the batched A1+A2+A3+B diff-falsification is RUNNING in
+  THIS session** (fresh Opus, launched ~01:20) — do not double-run.
+  PROPOSED SPLIT: the parallel Track-A Fable session takes the Track-A GATE
+  REVIEW (fresh eyes on a build this session orchestrated — strictly better
+  QC; its parked client-composition-vs-PLAN question rules there); this
+  session gates Track B. D-006 note ec69e74 is canonical — no second note.
+  Docs/code uncommitted (Sid's word).
+
+- **2026-07-05, marathon — FALSIFICATION R1 COMPLETE; A1+A2+A3 review debt
+  DISCHARGED (kernel verdict: SOUND); Phase B: NO blockers.** Artifact:
+  `build/trail-view/DIFF_FALSIFICATION_R1.md` (probes-held ledger + 7
+  first-light notes; the 1 should-fix was in a Track-B file, applied).
+  Track-A GATE REVIEW remains with the parallel Fable session per the
+  split above — its inputs are that artifact + the Phase-B receipt.
+
+- **2026-07-05, Fable (Track-A session) — WP1 GATE REVIEW: PASS. Package
+  gate-complete.** Artifact: `build/trail-view/GATE_REVIEW.md`. Code read in
+  full; suite independently re-run twice (final **3 tests / 302 assertions /
+  0 failures** = 222 A-phase + 74 Phase B + 6 reviewer-added). Gap found AT
+  gate: gate 10's trail-view half (custody projection) had no executed
+  assertion — closed by a reviewer-authored TEST-ONLY block (bundle
+  `:written-by` + "via" text badge + convergent absence), green first run.
+  Client-composition ruled CONTRACT-SANCTIONED (§7 fallback; letter-ding/
+  spirit-held in the artifact). Traps 3/4b/10/12 spot-checked, HELD. 8
+  non-blocking open doubts with falsifiers in the artifact (top: `:written-by`
+  present-with-nil vs "omitted"; text-projection arrow direction; feed
+  address round-trip untested). decisions.md D-006 note appended. **NEXT:
+  commit + package close on Sid's word (code and docs separate); light retro
+  can fold into close. WP-B2 P5+ is unblocked (WP1 gates green + gated).**
 
 ---
 
@@ -127,6 +177,35 @@
   runtime handle — shared with WP1, Sid/WP1 coordination at P5); OI-2
   (manifest default font vs regenerated MSDF atlas — Sid decision at P4).
 
+- **2026-07-05, Fable (marathon; Sid collapsed the shell in-session) —
+  P3+P4+P5+P6-server COMPLETE; gates 1–14+16 green, 17 mechanically green.**
+  Pure core (5 cljc + wiring.cljs) + ASCII fixtures (\uXXXX salts) +
+  rect_tree.cljc clamp; gates 1–13 as 13 deftests. Atlas = MERGED
+  Ubuntu+DejaVu MSDF (Ubuntu lacks ALL arrows/shapes/star/warn — 340 cps;
+  uniform 0.56 advance; flat schema preserved); OP-27 shaper fix landed;
+  manifest default → merged MSDF per **Sid's OI-2 ruling: MSDF is TEMPORARY
+  verification, SLUG stays the destination** (slug glyph-set expansion =
+  named follow-up). OP-35 two-part done; watchers + gate 14 via subagent
+  (decision-latch, no polling, loop survives poisoned file); 7-step wiring +
+  Electric bridge (Trail* e/defns; trail-rt = defonce-delay IPC boot — OI-1
+  first-light risk, named). Gate-16 fidelity test CAUGHT real drift
+  (verdicts = full edge rows; :omission/kind; no :display-name; anchors
+  +:block-path) → fixtures + cards re-derived same session. Suite 28/909/0;
+  shadow :dev compiles (prod build pre-broken: prod.cljc wants Electric v2).
+  REMAINING: falsification verdict → fixes → Track-B gate HERE; first light
+  with Sid (gate 15 artifact + H1 clock).
+
+- **2026-07-05, marathon — TRACK-B GATE REVIEW: PASS, conditional on first
+  light.** Artifact: `build/view-mvp/GATE_REVIEW_B2.md` (gate ledger, S1–S5,
+  first-light risk register — read it before driving). Falsification
+  should-fix applied (scene cache now value-equality, not hash) + shadow
+  recompiled green; falsification artifact at
+  `../trail-view/DIFF_FALSIFICATION_R1.md`. Gate 15 + visual halves DEFER to
+  first light. **NEXT: first light with Sid** — `/trail timeline` over real
+  material; expect a seconds-long stall on the FIRST pull (in-process IPC
+  boot — risk register item 1); record FIRST_LIGHT.md + MEASUREMENT_RAF.md;
+  H1 clock starts. Slug glyph-set expansion = named follow-up (OI-2).
+
 ---
 
 # Cross-track (compressed 2026-07-05 — verbatim history at `docs/sessions/session-log.md`)
@@ -148,10 +227,32 @@
   artifacts in `design/claude/`. Roam batch 3 pending re-proposal
   (`docs/sessions/roam-pending-2026-07-05-track-c.md`). Queue on its Roam
   page.
-- **Track D — render north:** unopened; inputs ready
-  (`design/claude/render-demands-2026-07-05.md` pre-read + PRIMITIVES.md);
-  prior-art pass = cheap Opus lane, launchable anytime. Non-binding on
-  build, binding on direction.
+- **Track D — render north: STUDY DONE 2026-07-05** (Fable + 9 Opus sweeps:
+  3 code/artifact readers, 6 web researchers, all primary-source-verified).
+  Deliverables: `build/render-north/INPUTS.md` (evidence manifest — never
+  re-gather) + `NORTH.md` (the framework north) + `MECHANICS.md` (Sid-
+  commissioned same session: the browser-services-rebuilt layer — hit-test/
+  stacking/scale/clip/text/gestures/animation/wire/degradation, each with
+  mechanism+today+north+traps; NEW wall-grade finding **N6: f32-absolute
+  coords jitter at land scale — scene store must hold f64, GPU gets
+  camera-relative f32**, verified as-built at renderer.cljs:7,41,1107). **DECIDED (direction-grade,
+  non-binding on build):** camera-over-addressed-world ACCEPTED w/ two
+  amendments (islands lay out in local 2D then project — never zoom-aware
+  flexbox; root noun = ADDRESS, not camera); **view-specs are ASSERTIONS in
+  the land** (Rerun-Blueprint-on-Rama) — versioning/collab/on-the-fly inherit
+  from the log; two code layers only (pipeline + render-type/action
+  registries, D-001-paced); actions become data (closes the rect-tree closure
+  hole); LWW for layout only, epistemic state accumulates (law N5).
+  **VERIFIED:** Electric 3 diff = incseq 6-op protocol, diffs-only on wire;
+  K1 proofs real (MapLibre expressions, rfw, deck.gl/json, Blueprint, MCP
+  Apps); NO rebuild-grade divergence — NORTH §8 embryo table (every north
+  noun has a living as-built seed, incl. dormant `gpu-mount` incseq bridge in
+  `buffer_pool.cljs`). **DOUBTED:** Electric at 10⁴ deltas (Gap 3) — now a
+  pre-registered evidence item (NORTH §9: synthetic 10⁴ incseq → scene store
+  → `[RAF]` instrument, at face-gate time); either outcome keeps the model.
+  Fork 2 left OPEN (founder's) with rec: one substrate, three projection
+  families over one address space. **NEXT:** Sid reads NORTH.md; Fork-2
+  sitting at his call; D×B1 delta instrument now has its Track-D input.
 - **Standing cross-track pointers (from Track C, phase-1-binding):**
   Track A ← ledger 13 (altitude text forms are data: title·2-liner·full per
   bundle), 16 (mark/question counts survive folds), 17 (walk/attestation

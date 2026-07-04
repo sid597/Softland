@@ -251,6 +251,21 @@ NOT continuous orchestration, NOT implementation, NOT Regime-2 theory (gated by 
   evaluation: this is the pre-registered implementation-contact criterion
   doing its job at the PROCESS layer — the operator is also a user of the
   form, and the form broke against him.
+- 2026-07-05, **WP1 gate review: PASS** — full record
+  `build/trail-view/GATE_REVIEW.md`. Suite independently re-run twice this
+  session (final: 3 tests / 302 assertions / 0 failures — 222 Phase A + 74
+  Phase B + 6 reviewer-added). One gate gap found AT gate: gate 10's
+  trail-view half (custody projection) had no executed assertion — closed by
+  a reviewer-authored test-only block, green first run. The client-composition
+  deviation from PLAN ruled contract-sanctioned (§7 pre-named fallback;
+  letter-ding/spirit-held recorded in the artifact). Criterion 3 for Phase B:
+  contract survived implementation with ZERO amendments. Process note:
+  implementation, falsification, and gate ran as three distinct contexts
+  across two Sid-authorized sessions after a double-dispatch collision (root
+  cause + fix in the process ruling above); the collapsed cadence delivered
+  contract→green→falsified→gated inside 24 hours. Eight non-blocking open
+  doubts with named falsifiers in the artifact. Commit and package close are
+  Sid's.
 
 ---
 
