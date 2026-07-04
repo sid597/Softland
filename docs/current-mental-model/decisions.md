@@ -212,7 +212,9 @@ NOT continuous orchestration, NOT implementation, NOT Regime-2 theory (gated by 
 ---
 
 ## D-007 — The bet foundry: claims→bets intake + Fable questioning practice
-**STATUS: PROPOSED** (Fable, 2026-07-03, from Sid's in-session proposal; awaiting countersign)
+**STATUS: CLOSED** (proposed by Fable 2026-07-03 from Sid's in-session idea;
+**countersigned by Sid 2026-07-04 in-session** — "on the decisions i
+countersign to d-007")
 
 Sid's proposal (verbatim source: `vision/LOG.md` 2026-07-03 "the bet-foundry
 idea + the HCI thesis"): BETS.md is where all his claims/hypotheses/bets land;

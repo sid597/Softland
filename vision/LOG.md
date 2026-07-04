@@ -307,3 +307,12 @@ so we should be doing smth about it
 > [on Rama as proprietary bedrock]
 
 yes but it is also self hostable right?? so is that not worth it?
+
+---
+
+## 2026-07-04 — the D-007 countersign + the first recorded form-break (markdown/filesystem as a medium broke against Sid in daily use)
+
+ok so on the decisions i countersign to d-007 and for open questions 
+
+
+..... boy I am hitting the problem like i don't like this md or for that matter using this local filesystem stuff ... when will i be able to do all this in softland this md is shit .. it just gives me fucking anxiety it is unreadable the open questinos section is just a fucking wall of text for me and i just want to say you decide . mean i hate this ... i think there is very much value in me going over the questions and engaging but this is just not the medium for me for this ...

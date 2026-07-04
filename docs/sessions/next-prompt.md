@@ -89,6 +89,10 @@ Added 2026-07-04 (deep-thinking thread):
    frontier = high-density holes. Sequencing: the trail-view contract only
    keeps the door open (INPUTS.md item 5); the dedicated design slot comes
    after/alongside that contract, build paced by D-005 (the view orders it).
+   **D-001 evidence acquired 2026-07-04**: the decisions.md open-questions
+   wall broke against Sid in daily use (verbatim in LOG; requirement recorded
+   in INPUTS.md item 5) — this item now has a real form-break behind it, not
+   an imagined demand. Interim: open questions go to Sid as Roam cards.
 8. **Model-UXR benchmark design** ("user research for models", H3 machine
    half — BETS.md H3 2026-07-04 sharpening): frozen land snapshot +
    orientation-question bank (gold answers derivable only from the trail) +

@@ -35,6 +35,14 @@ for every Sid-decided item below: `vision/LOG.md` 2026-07-04 entries.
    contract must NOT preclude hole-shaped rows (a relation pattern with an
    unfilled endpoint) — extension point at minimum; the dedicated design item
    is queued separately.
+   **Form-break evidence (2026-07-04, verbatim in LOG):** the decisions.md
+   open-questions section broke against Sid in daily use — "unreadable...
+   wall of text... gives me anxiety... I think there is very much value in me
+   going over the questions and engaging but this is just not the medium."
+   This is the view's user-story zero for questions: one question = one
+   card — the ask in one line, the recommendation in one line, answerable
+   in place. Interim medium until the view renders: his Roam graph
+   (proposal→approve flow, demonstrated 2026-07-04).
 
 ## Carried obligations (relation-kernel residue, recheck-amended)
 
