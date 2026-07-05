@@ -24,7 +24,8 @@
   (plain clojure.core + clojure.edn/string/java.io only — no added deps.)"
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [clojure.data.json :as json]))
 
 ;; ---------------------------------------------------------------------------
 ;; Defaults / paths
@@ -237,28 +238,53 @@
                       {:env key-env}))))
 
 (defn call-openai-compatible
-  "STUB (v0). Live shape: POST (str endpoint \"/chat/completions\")
-     headers {\"Authorization\" (str \"Bearer \" (api-key (:key-env subject)))}
-     body    {:model .. :messages [{:role \"system\" :content system-preamble}
-                                   {:role \"user\" :content prompt}]
-              :temperature (:temperature subject) :max_tokens (:max-tokens subject)}
-     -> choices[0].message.content
-  Verify the wire format against your server (llama.cpp / vLLM / TensorRT-LLM)
-  before enabling. Uses clj-http (already a repo dep) or bb's http-client."
-  [subject _prompt]
-  (throw (ex-info "live calls disabled in v0 (dry-run only)"
-                  {:subject (:id subject) :provider :openai-compatible})))
+  "LIVE (2026-07-06, freeze-gate session). POST {endpoint}/chat/completions
+  via JDK java.net.http — no added deps. The prompt already carries the
+  system preamble (assemble-prompt), so it goes as ONE user message; sending
+  the preamble again as a system message would double it.
+  Returns {:completion .. :reasoning .. :model .. :usage .. :timings ..}.
+  llama.cpp separates the reasoning channel as message.reasoning_content —
+  captured, but metrics run on :completion only (MANIFEST deviation D3)."
+  [subject prompt]
+  (let [body (json/write-str
+              {:model       (:model subject)
+               :messages    [{:role "user" :content prompt}]
+               :temperature (:temperature subject 0)
+               :max_tokens  (:max-tokens subject 4096)})
+        req  (-> (java.net.http.HttpRequest/newBuilder)
+                 (.uri (java.net.URI/create (str (:endpoint subject) "/chat/completions")))
+                 (.header "Content-Type" "application/json")
+                 (.header "Authorization" (str "Bearer " (api-key (:key-env subject))))
+                 (.timeout (java.time.Duration/ofSeconds 600))
+                 (.POST (java.net.http.HttpRequest$BodyPublishers/ofString body))
+                 (.build))
+        client (-> (java.net.http.HttpClient/newBuilder)
+                   (.connectTimeout (java.time.Duration/ofSeconds 10))
+                   (.build))
+        resp (.send client req (java.net.http.HttpResponse$BodyHandlers/ofString))
+        code (.statusCode resp)]
+    (when-not (= 200 code)
+      (throw (ex-info "subject call failed" {:status code :body (subs (.body resp) 0 (min 500 (count (.body resp))))})))
+    (let [parsed (json/read-str (.body resp) :key-fn keyword)
+          msg    (get-in parsed [:choices 0 :message])]
+      {:completion    (:content msg)
+       :reasoning     (:reasoning_content msg)
+       :finish-reason (get-in parsed [:choices 0 :finish_reason])
+       :model         (:model parsed)
+       :usage         (:usage parsed)
+       :timings       (:timings parsed)})))
 
 (defn call-anthropic
-  "STUB (v0). Live shape: POST (str endpoint \"/v1/messages\")
-     headers {\"x-api-key\" (api-key (:key-env subject))
-              \"anthropic-version\" \"<current-version>\"}
-     body    {:model .. :max_tokens .. :messages [{:role \"user\" :content prompt}]}
-     -> content[0].text
-  VERIFY the exact endpoint, headers, version, and response shape against current
-  Anthropic API docs before enabling — this comment is not authoritative."
+  "STUB — intentionally NOT wired this run (2026-07-06): no direct-API budget
+  (Sid's ruling). The frontier subject runs as fresh Claude Code subagents on
+  the subscription, orchestrated OUTSIDE this runner; its rows land in the
+  same runs/ format with subject id \"opus-4.8-cc-harness\" (MANIFEST
+  deviation D2). If a direct-API budget ever exists, implement per the
+  claude-api skill: POST {endpoint}/v1/messages, headers x-api-key +
+  anthropic-version, NO temperature (removed on Opus 4.8+), adaptive
+  thinking semantics per model."
   [subject _prompt]
-  (throw (ex-info "live calls disabled in v0 (dry-run only)"
+  (throw (ex-info "anthropic direct API disabled — no budget; frontier runs via CC-harness subagents"
                   {:subject (:id subject) :provider :anthropic})))
 
 (defn call-subject
@@ -323,21 +349,109 @@
     (println "OK: dry run complete. No network calls made. Live calls are stubbed;")
     (println "    keys come from environment variables only, never env.clj.")))
 
+;; ---------------------------------------------------------------------------
+;; Live run — one subject x ablation over the whole bank (crash-safe .ednl)
+;; ---------------------------------------------------------------------------
+
+(defn- find-subject
+  [cfg id]
+  (or (first (filter #(= id (:id %)) (:subjects cfg)))
+      (throw (ex-info "unknown subject id" {:id id :known (map :id (:subjects cfg))}))))
+
+(defn run-subject!
+  "Run every bank question against ONE subject at ONE ablation, appending one
+  EDN row per line to runs/<subject>-<ablation>.ednl (append = crash-safe;
+  already-answered qids are skipped on re-run, so the command is resumable)."
+  [{:keys [questions-path config-path snapshot-dir subject-id ablation out-dir]}]
+  (let [cfg    (load-config (or config-path default-config-path))
+        snap   (or snapshot-dir (:snapshot-dir cfg) default-snapshot-dir)
+        qs     (load-questions (or questions-path default-questions-path))
+        subj   (find-subject cfg subject-id)
+        abl    (keyword ablation)
+        ablsp  (or (get-in cfg [:ablations abl])
+                   (throw (ex-info "unknown ablation" {:ablation abl})))
+        outd   (io/file (or out-dir (get-in cfg [:run :output] "runs/")))
+        _      (.mkdirs outd)
+        outf   (io/file outd (str subject-id "-" (name abl) ".ednl"))
+        done   (if (.exists outf)
+                 (set (map :qid (map edn/read-string (line-seq (io/reader outf)))))
+                 #{})]
+    (println "== run-subject!" subject-id (name abl) "-> " (str outf))
+    (println "   bank:" (count qs) "questions;" (count done) "already done (resume)")
+    (doseq [q qs :when (not (done (:id q)))]
+      (let [prompt (assemble-prompt snap ablsp q)
+            t0     (System/currentTimeMillis)
+            result (try (call-subject subj prompt)
+                        (catch Exception e
+                          {:error (.getMessage e) :data (ex-data e)}))
+            row    (merge {:qid          (:id q)
+                           :category     (:category q)
+                           :spine-gated? (boolean (:spine-gated? q))
+                           :subject      subject-id
+                           :ablation     abl
+                           :prompt-chars (count prompt)
+                           :wall-ms      (- (System/currentTimeMillis) t0)
+                           :ts-ms        t0}
+                          result)]
+        (spit outf (str (pr-str row) "\n") :append true)
+        (println (format "   %-4s %s %dms %s" (:id q)
+                         (if (:error row) "ERROR" "ok")
+                         (:wall-ms row)
+                         (if (:error row) (:error row)
+                             (str (count (str (:completion row))) " chars"))))))
+    (println "== done:" (str outf))))
+
+(defn dump-prompts!
+  "Materialize every (ablation x question) prompt to a file — the input for
+  frontier-via-CC-harness subagents (each subagent Reads exactly ONE of these;
+  reading anything else voids the row — MANIFEST deviation D2 audit rule)."
+  [{:keys [questions-path config-path snapshot-dir ablation out-dir]}]
+  (let [cfg    (load-config (or config-path default-config-path))
+        snap   (or snapshot-dir (:snapshot-dir cfg) default-snapshot-dir)
+        qs     (load-questions (or questions-path default-questions-path))
+        abl    (keyword ablation)
+        ablsp  (get-in cfg [:ablations abl])
+        outd   (io/file (or out-dir "runs/prompts") (name abl))]
+    (.mkdirs outd)
+    (doseq [q qs]
+      (spit (io/file outd (str (:id q) ".txt")) (assemble-prompt snap ablsp q)))
+    (println "== dumped" (count qs) "prompts to" (str outd))))
+
 (defn -main
   [& args]
-  (if (some #{"--dry-run"} args)
+  (cond
+    (some #{"--dry-run"} args)
     (dry-run {:questions-path (arg-val args "--questions")
               :config-path    (arg-val args "--config")
               :snapshot-dir   (arg-val args "--snapshot")})
+
+    (some #{"--run"} args)
+    (run-subject! {:questions-path (arg-val args "--questions")
+                   :config-path    (arg-val args "--config")
+                   :snapshot-dir   (arg-val args "--snapshot")
+                   :subject-id     (or (arg-val args "--subject")
+                                       (throw (ex-info "--subject required" {})))
+                   :ablation       (or (arg-val args "--ablation") "A0")
+                   :out-dir        (arg-val args "--out")})
+
+    (some #{"--dump-prompts"} args)
+    (dump-prompts! {:questions-path (arg-val args "--questions")
+                    :config-path    (arg-val args "--config")
+                    :snapshot-dir   (arg-val args "--snapshot")
+                    :ablation       (or (arg-val args "--ablation") "A0")
+                    :out-dir        (arg-val args "--out")})
+
+    :else
     (do
-      (println "Model-UXR runner v0 — dry-run only (no live calls).")
+      (println "Model-UXR runner.")
       (println)
       (println "Usage:")
-      (println "  clojure -M tools/model-uxr/runner.clj --dry-run [--questions PATH] [--config PATH] [--snapshot DIR]")
-      (println "  bb      tools/model-uxr/runner.clj --dry-run")
+      (println "  clojure -M tools/model-uxr/runner.clj --dry-run       [--questions PATH] [--config PATH] [--snapshot DIR]")
+      (println "  clojure -M tools/model-uxr/runner.clj --run           --subject ID [--ablation A0] [--out DIR]")
+      (println "  clojure -M tools/model-uxr/runner.clj --dump-prompts  [--ablation A0] [--out DIR]")
       (println)
-      (println "Live subject/grader calls are STUBBED in v0. When enabled, API keys")
-      (println "are read from environment variables only — never from env.clj."))))
+      (println "Keys come from environment variables only — never env.clj.")
+      (println "anthropic provider is stubbed (no direct-API budget); frontier runs via CC-harness."))))
 
 ;; Script entry (no-op when this ns is required as a library with no CLI args).
 (when (seq *command-line-args*)
