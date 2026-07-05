@@ -274,6 +274,20 @@ NOT continuous orchestration, NOT implementation, NOT Regime-2 theory (gated by 
   live in GATE_REVIEW.md, display-name enrichment assigned to the WP2 window,
   the write-path pair (/assert affordance + OI-1 durability) scheduled same
   day. WP-B2 close waits only on gate-15 evidence (Sid, ~20 min).
+- 2026-07-05 (session close), **delivery-mode ruling (Sid, verbatim): "lets
+  do all the coding tasks first ... then a batch testing one ... we don't
+  need to do the falsification one sprinkled all over because we will do the
+  coding using fable now and its going to get it right the first time ...
+  our goal is delivery not slowing down due to process and management
+  things."** Effect on D-006 allocation: (e2) Fable MAY implement directly
+  when it is the fastest path (supersedes "NOT implementation" as a hard
+  bar); QC consolidates to ONE serial test batch + ONE batched
+  falsification/gate at the END of a coding wave — never sprinkled
+  per-phase. Honest ledger recorded for future evaluation, not argument:
+  today's per-artifact validation rounds caught two Fable-authored contract
+  errors (R1 invisible-edges, R2 impossible-reader) at text time; the
+  consolidated end-gate must be sized to catch that class. CLOSED by Sid's
+  words above; reversible on form-break like every process ruling.
 
 ---
 
@@ -438,6 +452,18 @@ recording — is item 2's hard gate).
 - Regime 2 self-hosting test formulation (carried from Sid's consolidation).
 - Confidence/credential algebra for the trail→code join; rename/move continuity
   (parked in the code-ingestor contract).
+- **Transcript↔commit join representation — RULED 2026-07-05** (Fable, under
+  Sid's in-session time-box blanket; reversible on his review): **durable
+  import-asserted RelationEdges** — asserter-type `:import`, version-free
+  actor-id `"import:git-spine"`, evidence refs to transcript session + entry,
+  shas verified against the repo before asserting, exactness via a documented
+  note-grammar v1 (promoted to a structured field only when a view demands
+  rendering it — D-001). Alternative recorded, not taken: projection-time
+  joins (no storage/staleness, but cannot carry asserted-by/exactness/
+  retraction and need new query topologies per join type). Full grounds and
+  traps: `build/git-spine/CONTRACT.md` §2. The exactness-flag semantics
+  question queued alongside it is answered by the same ruling (note-grammar
+  v1).
 - **Relation-kernel idempotency scope (BLOCKS the relation-kernel work package;
   D-006 evaluation signal).** Surfaced at implementation contact after two
   `PHASE_VALIDATION:fail` rounds (PLAN_VALIDATION F2). The binding CONTRACT

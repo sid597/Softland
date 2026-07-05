@@ -1,3 +1,104 @@
+# ⚡ SESSION-CLOSE BATON — 2026-07-05 HQ marathon (READ FIRST; supersedes stale statuses below)
+
+**CLOSED/BUILT TODAY:** WP1 **CLOSED** (light retro `build/trail-view/RETRO.md`).
+WP-B2 gate-PASSED — closes on gate-15 evidence (Sid's app boot). **H1 clock
+RULED: NOT started at first light; arming event = first render showing ≥1
+typed relation over real material** (BETS.md verdict log; reversible on Sid's
+review). Trail-room **R-1 BUILT** (rim v0 · addresses off cards · kraft marks;
+gates green ns-level, `build/trail-room/PHASE_R1.md`). **git-spine WP2 BUILT**:
+P1+P2 adapter/parents/extractor/replay (5t/113a green, `PHASE_P1P2.md`), PW
+/assert route (4t/30a green; POST `/api/relation/assert`), P3 display-names
+(G9 green; view-mvp fixture gate STRENGTHENED, `PHASE_P3.md`). **Electric
+skill REBUILT from verified evidence** (14 platform-real / 3 agent-error / 3
+unverified; 9-test regression ns `test/app/missionary_claims_test.clj`;
+skill signed by Fable; `build/electric-skill/{HACKS-LEDGER,VERDICTS,
+PROBE-EVIDENCE,AMENDMENTS}.md`). **Model-UXR benchmark v0 BUILT**
+(`build/model-uxr/` — 32 questions, ablations A0–A4, dry-run harness;
+6 join questions spine-gated). **CLAUDE.md A1–A3 APPLIED** under Sid's
+in-session blanket (m/ap ban re-scoped · atomic-settle fenced · RAF sunset;
+AMENDMENTS.md tier-1 note; revert-to-reverse). Sitting-3 queue captured
+(`design/claude/sitting-3-queue-2026-07-05.md`; Roam mirror pending —
+`docs/sessions/roam-pending-2026-07-05-sitting-3-queue.md`, bridge was down).
+
+**INTEGRATION STATE:** serial **G10 GREEN — 187 tests / 2168 assertions /
+0 fail / 0 err** (one JVM; both concurrent-run flakes proven contention
+artifacts, not isolation bugs). Reviewer gates AUTHORED per WP1-gate
+precedent: **G8 pair** (`test/app/server/rama/git_spine_gate_test.clj` —
+route-written log line replays into a FRESH cluster with identical
+relation-id) + **G11** (appended to `trail_view_test.clj` —
+commit+session in one View-3 context). **BOTH GREEN AT CLOSE: G8 pair
+PASSED (the §3.C serialization-drift risk is dead, empirically). G11 first
+ran RED — a REAL catch: View-3's `edge-line` dropped the FAR endpoint, so
+the projection silently lost WHO produced a target (map-must-not-lie
+violation). FIXED in `trail_view.clj` `edge-line` (full triple
+from → kind → to; this is one more uncommitted change in that file);
+trail-view namespace re-run 4 tests / 118 assertions / 0 failures
+including all pre-existing gates.**
+**FALSIFICATION:** a fresh-Opus batched-diff falsifier was RUNNING at close —
+artifact expected `build/git-spine/DIFF_FALSIFICATION_R1.md`. If ABSENT,
+re-dispatch: scope = whole uncommitted code diff vs the two CONTRACTs;
+seams = §3.C serialization drift route↔replay (G8 pair now tests it
+empirically) · boot ordering replay→sync→extract · idempotency split
+(spine stable keys vs route per-POST UUIDs; curl-retry duplicate events) ·
+cursor semantics · R-1 `:material-clip` at negative offsets · P3's
+strengthened fixture gate (vacuity check).
+
+**UNCOMMITTED CODE in the working tree** (commit ONLY after gate review;
+per-package, code-only commits, never mixed with .md):
+git_spine.clj + git_spine_test.clj (P1P2) · server_jetty.clj +
+relation_assert_route_test.clj (PW) · trail_view.clj + trail_view_test.clj
+(P3 + reviewer G11) · trail_face/{cards,scene}.cljc, workspace_actions.cljs,
+combined_text.cljs, trail_face_test.clj + feed.edn (R-1 + P3 fixture) ·
+missionary_claims_test.clj (verify) · git_spine_gate_test.clj (reviewer) ·
+ingest_watchers.clj + file_viewer.cljc cfg (P1; NOTE: file lives at
+`src/app/file_viewer.cljc`, not client/workspace/). bench/ + tools/model-uxr
+are new uncommitted dirs (code-tier).
+
+**NEXT SESSION, exact order:**
+0. **MODE (Sid's close-of-session ruling — decisions.md D-006 notes,
+   verbatim there): delivery-first. Fable codes directly; coding tasks
+   batch FIRST, then ONE serial test batch, then ONE batched
+   falsification+gate per wave — never sprinkled per-phase. CLAUDE.md
+   slimming to skill-pointers is drafted as AMENDMENTS A4 (apply after
+   Sid glances at wording).**
+1. Falsification artifact + gate-test result → **Fable GATE REVIEW**
+   (artifact `build/git-spine/GATE_REVIEW.md`; CLAUDE.md falsification
+   protocol) → apply should-fixes → per-package CODE commits (fold
+   AMENDMENTS H11/H12 code-docstring fixes into the matching commits) →
+   close WP2 + R-1 with light retros; D-006 notes entry.
+2. Apply AMENDMENTS.md Tier-2 H1–H10 + H13 (exact old→new pairs; re-grep
+   anchors — line numbers drift).
+3. **SID'S APP BOOT — the finish line:** `clj -A:dev -X dev/-main` →
+   `/trail timeline`. First boot runs replay→spine-sync→extract (ingests the
+   repo's commits + parent edges; expect a long first sweep — watch server
+   log). Collect gate-15: `[RAF]` lines + feel verdict + one
+   screenshot→re-resolve → write `MEASUREMENT_RAF.md` → **WP-B2 CLOSED**.
+   **Threads render → screenshot the first kraft connector = the H1 ARMING
+   RECORD** (BETS verdict-log arming event). Write path is live:
+   `POST /api/relation/assert`.
+4. Hygiene: baton queue item 1 below is STALE (that package closed 07-05);
+   `docs/_map.md` needs a STALE banner (model-uxr SPEC §7 finding); strays
+   triage (codex_implementation, scripts/, src-build/, manifest, atlas .bak,
+   bench/, tools/, data/ ignore-or-keep).
+5. Sid's pick thereafter: **R-2 contract** (binding probe obligations
+   pre-recorded: order-as-data + C2-shaped consumer — PROBE-10K:15,153-155)
+   · **intake sitting** (candidates: local-model sovereignty — see
+   `intake/2026-07-05-local-models.md` if Sid's window produced it;
+   behind-the-scenes distillation; MEMORY-off-land boundary — model-uxr
+   SPEC §7) · benchmark live runs (needs threads + load claude-api skill
+   before enabling stubs) · D-006 criterion-2 counterfactual probe.
+
+**SESSION LESSONS (quirks-grade):** zero-work agent glitch fired ×2 (fresh
+background agent returns boilerplate with 0 tool calls; fix = resume with an
+explicit first action). Electric SNAPSHOT resolved TWO different jars the
+same day (-44 render probe vs -45 claims tests — PROBE-10K:24; Missionary is
+transitive+unpinned). **Test policy RULED by Sid:** ns-level tests during
+phases; ONE serial full suite at integration (encode in future contracts).
+Sid's time-box blanket ("adopt recommended, note alternatives") was
+SESSION-SCOPED — it does NOT carry into the next session.
+
+---
+
 # Active work package: trail-view WP1 (Track A) — data layer
 
 ## STANDING (frozen at package open, 2026-07-04 — do not edit while active)
@@ -274,6 +375,36 @@
   Fork 2 left OPEN (founder's) with rec: one substrate, three projection
   families over one address space. **NEXT:** Sid reads NORTH.md; Fork-2
   sitting at his call; D×B1 delta instrument now has its Track-D input.
+- **Track D — PROBE-10K MEASURED 2026-07-05** (render-bench session; NORTH §9
+  pre-registered evidence item DISCHARGED). Artifact:
+  `build/render-north/PROBE-10K.md` (setup, tables, knee, threats). Headline:
+  the knee is diff SHAPE, not element count. Change/append/tail-shrink hold at
+  10⁴ end to end (server mint 2–5ms, apply ≤4.2ms p95, clean 60fps, idle O(1))
+  — Gap 3's conditional-RAF change signal is real on Electric's own protocol.
+  Reorder/front-drop/ID-churn diffs knee at 10³ (mint ~0.1s) and die at 10⁴
+  (12–74s) — inside `->seq-differ` (the e/diff-by path), upstream of wire AND
+  consumer (a 10⁴ permutation applies in 6.5ms via order-indirection).
+  Fallback (client re-diff) holds to 10³; flat 17–30ms/frame at 10⁴ (30fps).
+  Obligations recorded: order/window = data on rows, never incseq permutations;
+  store consumes the six ops directly — as-built gpu-mount bridge CORRUPTS
+  under :permutation (demo: 16,750 slots for 100 entities). Model kept; no
+  rebuild candidate. NEW `bench/src/render_probe/*` (4 files) uncommitted; no
+  product code touched. Feeds the D×B1 delta instrument + face-gate 15.
+- **Local-model sovereignty — intake + recon DONE 2026-07-05 (Fable; Sid
+  engaged same-day in-chat).** Deliverable:
+  `intake/2026-07-05-local-models.md` (Candidates-sitting pre-read;
+  BETS.md/decisions.md untouched). Three D-007 drafts: **LM-1**
+  structure-substitutes-for-scale (the H2 link — model-uxr's
+  pre-registered small×ablation headline; probe = fill the existing
+  `nemotron-local` subjects.edn slot); **LM-2** low-wrongness slots go
+  local (multi-arm blind A/B on band-2/display-name enrichment); **LM-3**
+  own-material QLoRA (gated: saturation probe-0 + `asserted-by=sid`
+  census). Sid same-day (verbatim in-file; LOG landing due at sitting):
+  the unit is a POOL routed model×slot (Gemma-class for low-reasoning
+  slots); NO closed-provider distillation ever — open-legal only (DeepSeek
+  MIT/Qwen3 Apache clean; Gemma ≤3 distills propagate its license; custody
+  D-008 §5.1 = the clean-corpus filter). Recon: Nemotron fits 48GB only
+  quantized; 16-bit LoRA 60GB → dense-32B tune path. 3 frontier Qs in-file.
 - **Standing cross-track pointers (from Track C, phase-1-binding):**
   Track A ← ledger 13 (altitude text forms are data: title·2-liner·full per
   bundle), 16 (mark/question counts survive folds), 17 (walk/attestation
