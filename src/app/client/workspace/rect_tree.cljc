@@ -204,6 +204,24 @@
 
 ;; --- Tree walk: rects -------------------------------------------------------
 
+(defn- intersect-clip
+  "Axis-aligned intersection of a :clip? node's own absolute bounds with the
+   clip already in force from its ancestors. A child may never paint outside
+   EITHER — replacing the ancestor clip (the pre-2026-07-05 behavior) let a
+   :clip? node's children escape the viewport clip, which forced trail-room R-1
+   to drop the expansion's clip? entirely (and with it card-width text
+   truncation). nil ancestor clip (every production walk today) → the node's
+   own bounds, byte-identical to the old behavior. Degenerate (empty)
+   intersections are fine: visible? checks downstream go false."
+  [abs-x abs-y w h clip-bounds]
+  (if-not clip-bounds
+    {:x abs-x :y abs-y :w w :h h}
+    (let [x1 (max abs-x (:x clip-bounds))
+          y1 (max abs-y (:y clip-bounds))
+          x2 (min (+ abs-x w) (+ (:x clip-bounds) (:w clip-bounds)))
+          y2 (min (+ abs-y h) (+ (:y clip-bounds) (:h clip-bounds)))]
+      {:x x1 :y y1 :w (- x2 x1) :h (- y2 y1)})))
+
 (defn tree->rects
   "Walk rect tree depth-first, emit flat vector of GPU rect maps.
    Parent-relative coords are converted to absolute via parent-x/parent-y.
@@ -252,9 +270,10 @@
                      (:border-color style)   (assoc :border-color (:border-color style))
                      (:gradient style)       (assoc :gradient (:gradient style))
                      (:gradient-color2 style)(assoc :gradient-color2 (:gradient-color2 style))))
-             ;; This node's clip bounds for children (if clip? is set)
+             ;; This node's clip bounds for children (if clip? is set):
+             ;; INTERSECTED with the ancestor clip, never replacing it
              child-clip (if clip?
-                          {:x abs-x :y abs-y :w w :h h}
+                          (intersect-clip abs-x abs-y w h clip-bounds)
                           clip-bounds)
              ;; Recurse children (depth-first, painter's order)
              child-rects (into [] (mapcat #(tree->rects % abs-x abs-y child-clip)) children)]
@@ -324,7 +343,7 @@
                                      [(truncate-op shifted)]))))
                              text))
              child-clip (if clip?
-                          {:x abs-x :y abs-y :w w :h h}
+                          (intersect-clip abs-x abs-y w h clip-bounds)
                           clip-bounds)
              child-ops (into [] (mapcat #(tree->text-ops % abs-x abs-y child-clip)) children)]
          (into (vec (filterv some? (or own-ops []))) child-ops))))))

@@ -4,6 +4,10 @@
 ;; a nil-claimed transcript entry (honest), a dead-end-marked target, a
 ;; written-by-differs actor, and the standing :feed/uncovered declarations.
 ;; Salts as \uXXXX escapes only (S4).
+;; 2026-07-05 re-derivation (git-spine WP2 P3, F-L3/G9): source-ingested and
+;; transcript-file-updated targets now carry :display-name (basename of the
+;; adjacent source-ref/file-path), exactly where the live feed constructors
+;; emit it. relation-transition targets carry NONE - live emits none there.
 {:fixture/now-ms 1782172800000
 
  :feed/address (trail/recent-activity {:window {:from-ms 1782086400000 :to-ms 1782172800000} :order :arrival})
@@ -22,7 +26,7 @@
 
   ;; the back-dated entry: claimed 60 days before now, arrived in-window
   {:entry/kind :source-ingested
-   :entry/target {:id "oc:doc:earlier" :kind :doc}
+   :entry/target {:id "oc:doc:earlier" :kind :doc :display-name "april.md"}
    :entry/address (trail/context-bundle {:targets ["oc:doc:earlier"]})
    :time/claimed-ms 1776988800000
    :time/arrival-ms 1782172000000
@@ -31,7 +35,8 @@
 
   ;; nil claimed is honest (transcript file update)
   {:entry/kind :transcript-file-updated
-   :entry/target {:id "oc:chat-conversation:chat:ab12" :kind :conversation}
+   :entry/target {:id "oc:chat-conversation:chat:ab12" :kind :conversation
+                  :display-name "ab12.jsonl"}
    :entry/address (trail/context-bundle {:targets ["oc:chat-conversation:chat:ab12"]})
    :time/claimed-ms nil
    :time/arrival-ms 1782169000000

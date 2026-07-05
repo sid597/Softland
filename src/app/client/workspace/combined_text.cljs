@@ -87,10 +87,17 @@
         <chrome-text
         (m/latest
           (fn [layout panel provider agent-output agent-scroll-y scroll-y
-               doc current-file local-world flow-state]
+               doc current-file local-world flow-state trail-face-scene]
             (let [{:keys [viewport dpr snap? font-size char-width char-advance sb-w]} layout
                   file-workspace? (ws/local-world-file-workspace? local-world)
                   flow-mode? (ws/local-world-flow? local-world)
+                  ;; trail-room item 3: in a trail face the status strip BECOMES
+                  ;; the rim (scope · delta · address · palette). The four slots
+                  ;; are pre-computed in the CACHED scene (scene/rim-slots, in
+                  ;; :data) so this glue only positions + colors them.
+                  trail-mode? (ws/local-world-trail-face? local-world)
+                  rim-slots (when trail-mode?
+                              (get-in trail-face-scene [:data :trail-face/rim-slots]))
                   panel-visible? (or (:visible panel) file-workspace? flow-mode?)
                   cmd-ops (when panel-visible?
                             (let [cmd-panel-y (maybe-snap (+ scroll-y (- (:height viewport) cmd-panel-h status-bar-h)) dpr snap?)
@@ -189,20 +196,39 @@
                   status-right-x (maybe-snap (- (:width viewport) status-right-w 16) dpr snap?)]
               (vec (concat cmd-lines
                            (when-not file-workspace? agent-lines)
-                           [{:text status-left-text :type :comment
-                             :from 0 :to (count status-left-text)
-                             :x (maybe-snap (+ 16 sb-w) dpr snap?) :y status-y :size font-size
-                             :r 0.65 :g 0.65 :b 0.65 :a 0.9}]
-                           [{:text status-right-text :type :comment
-                             :from 0 :to (count status-right-text)
-                             :x status-right-x :y status-y :size font-size
-                             :r 0.65 :g 0.65 :b 0.65 :a 0.9}]))))
+                           (if (and trail-mode? (seq rim-slots))
+                             ;; the RIM: four slots left-to-right in kraft-neutral
+                             ;; chrome ink (item 3 / G2). Editor mode never reaches
+                             ;; here (trail-mode? false -> the else branch below).
+                             (first
+                              (reduce
+                               (fn [[ops x] slot]
+                                 (let [t (:text slot)]
+                                   [(conj ops {:text t :type :comment
+                                               :from 0 :to (count t)
+                                               :x (maybe-snap x dpr snap?) :y status-y
+                                               :size font-size
+                                               :r 0.72 :g 0.66 :b 0.52 :a 0.95})
+                                    (+ x (* (count t) char-advance) (* 2 char-advance))]))
+                               [[] (+ 16 sb-w)]
+                               rim-slots))
+                             ;; editor / flow: the existing strip, UNCHANGED
+                             (concat
+                              [{:text status-left-text :type :comment
+                                :from 0 :to (count status-left-text)
+                                :x (maybe-snap (+ 16 sb-w) dpr snap?) :y status-y :size font-size
+                                :r 0.65 :g 0.65 :b 0.65 :a 0.9}]
+                              [{:text status-right-text :type :comment
+                                :from 0 :to (count status-right-text)
+                                :x status-right-x :y status-y :size font-size
+                                :r 0.65 :g 0.65 :b 0.65 :a 0.9}]))))))
           <layout
           (m/watch !cmd-panel) (m/watch !ai-provider)
           (m/watch !agent-output) (m/watch !agent-scroll-y) (m/watch !scroll-y)
           (m/watch !editor-doc) (m/watch !current-file)
-          (m/watch !effective-local-world) (m/watch !flow-state))
-        ;; 10 fn args, 10 flows
+          (m/watch !effective-local-world) (m/watch !flow-state)
+          (m/watch !trail-face-scene))
+        ;; 11 fn args, 11 flows
         ]
 
     ;; ── Content text (editor + sidebar — the bulk) ──

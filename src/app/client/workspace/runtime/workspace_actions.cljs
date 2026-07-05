@@ -151,14 +151,19 @@
                (and flow-active? (contains? #{:bootstrapping :intake} (:node flow-state))) :flow-intake
                flow-active?       :flow-run
                file-open?         :file-workspace
-               :else              :editor)]
+               :else              :editor)
+        ;; trail-room R1 guard: the trail faces are the ground + the rim -
+        ;; NOTHING else is ambient (no sidebar). The sidebar never auto-
+        ;; appears in a trail face; the effective world reports it hidden.
+        trail-face?      (contains? #{:trail-text :trail-timeline} mode)]
     {:mode             mode
      :selected-artifact selected-artifact
      :file-open?       file-open?
      :flow-active?     flow-active?
      :project          project
      :active-pane      (or active-pane :editor)
-     :sidebar-visible  (boolean sidebar-visible)
+     ;; R1 guard: never report the sidebar visible in a trail face
+     :sidebar-visible  (boolean (and sidebar-visible (not trail-face?)))
      :flow-node        (:node flow-state)
      :flow-session-id  (:session-id flow-state)
      :agent-status     (:status agent-output)

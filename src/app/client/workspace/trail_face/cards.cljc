@@ -46,6 +46,32 @@
 
 (def middot "·")
 
+;; --- Addressable strings (item 2 / R5) --------------------------------------
+
+(defn address->addressable-string
+  "An address EDN form -> a compact addressable STRING for chrome/expansion
+   display (item 2 / R5: the addressable string itself, NEVER a `pr-str` map
+   dump). Total over the WP1 address shapes (->address = `(trail/<verb>
+   <params>)`, trail_view.clj):
+     (trail/context-bundle {:targets [id ...]}) -> the primary element id
+     (trail/recent-activity {... :order o})     -> \"recent-activity · <order>\"
+     (trail/<verb> {...})                        -> \"<verb>\"
+     string / nil / other                        -> itself / \"—\" / (pr-str x)"
+  [address]
+  (cond
+    (and (seq? address) (seq address) (symbol? (first address)))
+    (let [verb   (name (first address))
+          params (when (map? (second address)) (second address))]
+      (cond
+        (and (= verb "context-bundle") (seq (:targets params)))
+        (str (first (:targets params)))
+        (and (= verb "recent-activity") (:order params))
+        (str verb " " middot " " (name (:order params)))
+        :else verb))
+    (string? address) address
+    (nil? address)    "—"
+    :else             (pr-str address)))
+
 ;; --- Two clocks (face law 4; WP1 s6) ----------------------------------------
 
 (defn two-clock-stamp
@@ -250,11 +276,14 @@
         stamp   (two-clock-stamp entry)
         badges  (provenance-badges (:entry/actor entry))
         badge-ln (str/join (str " " middot " ") (map :text badges))
-        addr-ln (pr-str (:entry/address entry))
+        ;; item 2: the raw EDN address line is GONE from the closed card
+        ;; face - it moves to the constant rim chrome (one place, every
+        ;; face; C2). The address stays attached as DATA on the node
+        ;; (ledger 1) so R-2 hover/copy and the rim both have it - only the
+        ;; PAINT moved, never the data.
         lines   (cond-> [{:text name-ln  :style :card-title}
                          {:text stamp    :style :stamps}]
-                  (seq badge-ln) (conj {:text badge-ln :style :badges})
-                  true           (conj {:text addr-ln  :style :address}))
+                  (seq badge-ln) (conj {:text badge-ln :style :badges}))
         h       (+ (* (count lines) lh) 8)]
     ;; F-L5: the card CLIPS its own text (ops live in a child node - a
     ;; node's :clip? applies to children). A 120-char address truncates
@@ -266,6 +295,8 @@
                 :clip? true
                 :style {:bg [0.16 0.17 0.20 1.0] :radius 4}
                 :data {:trail-face/entry-key (entry-key entry)
+                       ;; item 2 / ledger 1: address as DATA on every node
+                       :trail-face/address (:entry/address entry)
                        :trail-face/click {:action :trail-face/toggle-expand
                                           :id (entry-key entry)}
                        :trail-face/dead-end? (boolean
@@ -280,8 +311,11 @@
                                          lines)))])))
 
 (defn expanded-address-op
-  "Card expansion renders the EXPANDED target's own address (gate 1)."
-  [bundle]
-  {:text (pr-str (:bundle/address bundle))
+  "Card expansion (band 3) renders the EXPANDED element's OWN address as
+   the addressable STRING (item 2 / R5 / G1 - the element id itself, never
+   the noisy `pr-str` bundle-query map). Tagged :element-address? so it is
+   NOT counted as the FACE address (which lives once, in the rim)."
+  [element-address]
+  {:text (address->addressable-string element-address)
    :style :address
-   :trail-face/address? true})
+   :trail-face/element-address? true})

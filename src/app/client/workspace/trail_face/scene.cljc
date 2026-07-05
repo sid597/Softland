@@ -75,6 +75,43 @@
         (update :text (fn [ops] (sanitize-ops coverage (or ops []))))
         (update :children (fn [cs] (mapv #(sanitize-tree coverage %) cs))))))
 
+;; --- Rim v0 (item 3 / R1) -------------------------------------------------------
+
+(defn rim-slots
+  "Item 3 / R1 - rim v0: the four fixed chrome slots for a trail face
+   (PURE, gate-tested at op level; combined_text positions + colors them
+   inside the existing 24px status strip). EXACTLY four slots, in order:
+     :scope   land + how much is in view (source count)
+     :delta   new-since-last-pull, arrival-clock - labeled AS SUCH (the
+              honest interim; attestation delta is a later milestone -
+              designer falsification pass #5)
+     :address the LIVE face address as an addressable string (item 2 / C2:
+              the face address lives HERE, one place, off the card face)
+     :palette the palette-reachability hint (C1 - the cmd panel opens over
+              the face; ^K toggles it, events.cljs)
+   Total over BOTH faces (the timeline carries a feed; the text face does
+   not). Editor mode NEVER calls this (combined_text guards on trail-mode?)."
+  [{:keys [face feed address now-ms land palette-hint]}]
+  (let [land    (or land "softland")
+        n       (count (:feed/entries feed))
+        arrival (or (:feed/rendered-at-ms feed) now-ms)
+        addr    (cards/address->addressable-string
+                 (or address (:feed/address feed)))]
+    [{:slot :scope :trail-face/rim? true
+      :text (case face
+              :timeline (str land " " cards/middot " " n
+                             " source" (when (not= n 1) "s") " in view")
+              (str land " " cards/middot " text face"))}
+     {:slot :delta :trail-face/rim? true
+      :text (if arrival
+              (str "since last pull " cards/middot " arrived "
+                   (cards/ms->date-str arrival))
+              (str "since last pull " cards/middot " —"))}
+     {:slot :address :trail-face/rim? true :trail-face/address? true
+      :text addr}
+     {:slot :palette :trail-face/rim? true
+      :text (or palette-hint "^K palette")}]))
+
 ;; --- View-3 text face scene (OP-21, text half) ---------------------------------
 
 (defn build-text-face-scene
@@ -84,8 +121,9 @@
    exactly ONE marked header line (gate 1); the projection body renders
    VERBATIM, marker-colored, never re-wrapped (gate 2/3)."
   [{:keys [text address coverage geom]}]
-  (let [{:keys [viewport-w line-height font-size pad]
+  (let [{:keys [viewport-w line-height font-size pad now-ms]
          :or   {viewport-w 800 line-height 18 font-size 13 pad 8}} geom
+        rim (rim-slots {:face :text :address address :now-ms now-ms})
         {:keys [ops]} (tf/projection->line-ops text)
         header-op (-> (tf/address-header-op address)
                       (assoc :x pad :y 0 :size font-size
@@ -99,7 +137,8 @@
         header-h  (+ line-height 4)
         root (rt/rt-node :trail-face/text-root :trail-text
                          {:x 0 :y 0 :w viewport-w :h (+ header-h body-h)}
-                         :data {:trail-face/content-h (+ header-h body-h)}
+                         :data {:trail-face/content-h (+ header-h body-h)
+                                :trail-face/rim-slots rim}
                          :children
                          [(rt/rt-node :trail-face/address-header :header
                                       {:x 0 :y 0 :w viewport-w :h header-h}
@@ -151,6 +190,113 @@
                 :data {:trail-face/connector connector
                        :trail-face/struck? struck?})))
 
+;; --- Kraft marks (item 4 / R6) --------------------------------------------------
+
+(def kraft-tack
+  "U+251C BOX DRAWINGS LIGHT VERTICAL AND RIGHT (├) - the covered
+   substitute for U+22A2 RIGHT TACK (⊢), which is ABSENT from the merged
+   font_atlas.json (trap 5, verified 2026-07-05). ├ is in the design's own
+   blessed connector set (⊢ │ ├ └ •) and reads as a branch junction. OI-2
+   slug expansion is the real fix; the atlas is NOT regen'd in this package."
+  "├")
+
+(def kraft-rgba
+  "Kraft/amber - the assertion material tone (R6: mark rows are structurally
+   distinct from terrain ink at every band)."
+  [0.82 0.68 0.40 1.0])
+
+(defn kraft-label-text
+  "R6 band-2 mark label: '<tack> <kind> · <asserter>'. For an off-screen
+   line, names the FAR end so the edge never silently vanishes (trap 3)."
+  [edge actor far-id]
+  (str kraft-tack " " (name (:kind edge))
+       (when far-id (str " -> " far-id " (off screen)"))
+       (when-let [a (:asserted-by actor)] (str " " cards/middot " " a))))
+
+(defn kraft-mark-nodes
+  "Item 4 / R6 / G3: a CLOSED :relation-transition entry -> assertion
+   material, NEVER a box-card. Returns a FLAT vector of rt-nodes added
+   DIRECTLY to root's children (the connector-node pattern - absolute
+   coords, root at 0,0):
+     both endpoints in card-bounds -> the Manhattan connector rects (thin,
+       retro T-3) + a :kraft-connector label node
+       '<tack> <kind> · <asserter>' (band >=2, asserter badge - G3);
+     an endpoint absent -> a standalone :kraft-line: a horizontal kraft
+       rect at the entry's (x,y) time position + a label node naming the
+       FAR end (trap 3 - an edge may never silently vanish)."
+  [i entry card-bounds {:keys [x y card-w line-height]}]
+  (let [lh      (or line-height 18)
+        w       (or card-w 300)
+        edge    (:entry/detail entry)
+        actor   (:entry/actor entry)
+        from-id (get-in edge [:from :id])
+        to-id   (get-in edge [:to :id])
+        fb      (get card-bounds from-id)
+        tb      (get card-bounds to-id)]
+    (if (and fb tb)
+      ;; both endpoints on screen -> labeled connector (no card fill)
+      (let [rects (lanes/connector-rects edge fb tb)
+            conn  (vec (map-indexed (fn [j r] (connector-node [i j] r)) rects))
+            lx    (+ (min (:x fb) (:x tb)) 8)
+            ly    (max 0 (- (min (:y fb) (:y tb)) 2))]
+        (conj conn
+              ;; clip? + text-in-child (the cards.cljc idiom): a node's own
+              ;; text clips only to the INCOMING clip, so the label needs a
+              ;; clip? ancestor to truncate at card-w instead of bleeding
+              ;; across neighboring lanes (gate-review fix 2026-07-05).
+              (rt/rt-node [:trail-face/kraft-connector i] :kraft-connector
+                          {:x lx :y ly :w w :h lh}
+                          :clip? true
+                          :data {:trail-face/kraft? true :trail-face/edge edge}
+                          :children
+                          [(rt/rt-node [:trail-face/kraft-connector-label i] :kraft-label
+                                       {:x 0 :y 0 :w w :h lh}
+                                       :text [{:text (kraft-label-text edge actor nil)
+                                               :x 0 :y 0 :size 12 :style :kraft
+                                               :rgba kraft-rgba :trail-face/kraft-label? true}])])))
+      ;; one (or both) endpoints off screen -> standalone kraft LINE naming
+      ;; the far end (the edge may never vanish)
+      (let [far-id (cond fb to-id tb from-id :else to-id)
+            line   {:x x :y (+ y (quot lh 2))
+                    :w (min 48 (max 24 (quot w 4))) :h lanes/connector-thickness
+                    :connector {:kind (:kind edge) :status (:status edge)
+                                :segment :kraft-line}}]
+        [(connector-node [i :seg] line)
+         ;; clip? + text-in-child: truncate the far-end label at card-w
+         ;; (never bleed) while still NAMING the far end (R6).
+         (rt/rt-node [:trail-face/kraft-line i] :kraft-line
+                     {:x (+ x 56) :y y :w w :h lh}
+                     :clip? true
+                     :data {:trail-face/kraft? true :trail-face/edge edge
+                            :trail-face/off-screen far-id}
+                     :children
+                     [(rt/rt-node [:trail-face/kraft-line-label i] :kraft-label
+                                  {:x 0 :y 0 :w w :h lh}
+                                  :text [{:text (kraft-label-text edge actor far-id)
+                                          :x 0 :y 2 :size 12 :style :kraft
+                                          :rgba kraft-rgba :trail-face/kraft-label? true}])])]))))
+
+(defn kraft-handle-node
+  "Item 4: an OPEN :relation-transition renders a typographic HANDLE
+   (kraft-toned, NOT a box-card) carrying the toggle-expand click, above its
+   detail surface. Closing it returns the relation to a mark."
+  [entry {:keys [x y card-w line-height]}]
+  (let [ek    (cards/entry-key entry)
+        edge  (:entry/detail entry)
+        actor (:entry/actor entry)]
+    (rt/rt-node [:trail-face/kraft-handle ek] :kraft-handle
+                {:x x :y y :w (or card-w 300) :h (or line-height 18)}
+                :clip? true
+                :data {:trail-face/entry-key ek
+                       :trail-face/kraft? true
+                       :trail-face/click {:action :trail-face/toggle-expand :id ek}}
+                :children
+                [(rt/rt-node [:trail-face/kraft-handle-label ek] :kraft-label
+                             {:x 0 :y 0 :w (or card-w 300) :h (or line-height 18)}
+                             :text [{:text (str (kraft-label-text edge actor nil) "  (open)")
+                                     :x 6 :y 2 :size 12 :style :kraft :rgba kraft-rgba
+                                     :trail-face/kraft-label? true}])])))
+
 (defn- expansion-node
   "Expanded card content: material preview (CLIPPED - the gate-6
    straddle case), staleness, relations, verdict fold, omissions block,
@@ -171,7 +317,10 @@
         hole-rows (vec (for [[_ es] this-rels, e es
                              :when (cards/hole-endpoint? (:to e))]
                          e))
-        addr-op   (cards/expanded-address-op bundle)
+        ;; item 2 / G1: the OPEN card prints the EXPANDED element's OWN
+        ;; address (its id) as the addressable string, not the noisy
+        ;; multi-target bundle query.
+        addr-op   (cards/expanded-address-op (:address tb))
         ;; F-L4: ONE op per line, capped - the renderer breaks embedded
         ;; newlines AFTER the tree walk, so multi-line ops escape both the
         ;; height math and the clip and overprint the info block below.
@@ -208,6 +357,14 @@
         om-h      (if omissions (get-in omissions [:bounds :h]) 0)
         addr-h    line-height
         total-h   (+ preview-h info-h om-h holes-h addr-h 8)]
+    ;; NB: the expansion IS clip? — every section's text (material, info /
+    ;; relations, holes, omissions, address) truncates at card-w, and the
+    ;; fixed-height bg children (holes / omissions) clamp inside it. This is
+    ;; safe against the gate-6 straddle case (bg rects above the viewport
+    ;; when the expansion is partially scrolled off the top) because
+    ;; rect_tree's child-clip now INTERSECTS a clip? node's bounds with the
+    ;; ancestor clip instead of replacing it (gate-review fix 2026-07-05) —
+    ;; children can escape NEITHER the card width NOR the viewport.
     (rt/rt-node [:trail-face/expansion target-id] :expansion
                 {:x 0 :y 0 :w card-w :h total-h}
                 :clip? true
@@ -218,7 +375,6 @@
                 (into
                  [(rt/rt-node [:trail-face/material target-id] :material
                               {:x 0 :y 0 :w card-w :h preview-h}
-                              :clip? true
                               :text preview-lines)
                   (rt/rt-node [:trail-face/expansion-info target-id] :info
                               {:x 0 :y preview-h :w card-w :h info-h}
@@ -268,45 +424,78 @@
         raw-lanes (lanes/assign-lanes sorted)
         lanes-map (lanes/assign-lanes sorted indent-slots)
         expanded  (:expanded view-state #{})
-        header-op (-> {:text (pr-str (address-with-order (:feed/address feed) order))
-                       :style :address :trail-face/address? true}
-                      (assoc :x pad :y 0 :size 13
-                             :rgba (tf/style->rgba :address)))
-        header-h  (+ line-height 6)
-        ;; --- stack cards: y cursor per entry, x by lane ---
-        build     (loop [es sorted, y header-h, acc [] , bounds {}]
+        mark?     (fn [e] (= :relation-transition (:entry/kind e)))
+        ;; item 2 / C2: NO scene-header address op. The FACE address lives
+        ;; ONCE, in the constant rim chrome (rim-slots below, rendered by
+        ;; combined_text in the status strip) - it does not scroll away.
+        rim       (rim-slots {:face :timeline :feed feed :now-ms now-ms
+                              :address (address-with-order (:feed/address feed) order)})
+        top-pad   (+ pad 4)
+        ;; --- stack: y cursor per entry, x by lane ---
+        ;; item 4 / R6: :relation-transition entries are MARKS, never
+        ;; box-cards. Terrain (source/transcript) entries are cards. A
+        ;; CLOSED mark contributes assertion material (connector / kraft
+        ;; line); an OPEN mark shows a typographic handle + detail surface.
+        build     (loop [es sorted, y top-pad, acc [], bounds {}, marks []]
                     (if (empty? es)
-                      {:cards acc :bounds bounds :content-h y}
+                      {:nodes acc :bounds bounds :marks marks :content-h y}
                       (let [e     (first es)
                             ek    (cards/entry-key e)
                             lane  (get lanes-map ek 0)
                             x     (+ pad (* lane indent-unit))
-                            card  (cards/feed-entry-card e geom)
-                            card  (assoc card :bounds
-                                         (assoc (:bounds card) :x x :y y))
                             tid   (get-in e [:entry/target :id])
-                            exp?  (contains? expanded ek)
-                            bundle (when exp? (get bundles tid))
-                            expn  (when bundle
-                                    (-> (expansion-node tid bundle geom)
-                                        (update :bounds assoc
-                                                :x x :y (+ y (get-in card [:bounds :h])))))
-                            h     (+ (get-in card [:bounds :h])
-                                     (if expn (get-in expn [:bounds :h]) 0))
-                            abs-b {:x x :y y :w card-w
-                                   :h (get-in card [:bounds :h])}]
-                        (recur (rest es)
-                               (+ y h 10)
-                               (into acc (if expn [card expn] [card]))
-                               (update bounds tid #(or % abs-b))))))
-        {:keys [cards bounds content-h]} build
-        ;; --- edges: relation-transition details + expanded bundles' L3 :this ---
-        entry-edges  (into []
+                            exp?  (contains? expanded ek)]
+                        (cond
+                          ;; OPEN relation-transition: kraft handle + surface
+                          (and (mark? e) exp?)
+                          (let [bundle (get bundles tid)
+                                handle (kraft-handle-node
+                                        e {:x x :y y :card-w card-w
+                                           :line-height line-height})
+                                expn   (when bundle
+                                         (-> (expansion-node tid bundle geom)
+                                             (update :bounds assoc
+                                                     :x x :y (+ y line-height))))
+                                h      (+ line-height
+                                         (if expn (get-in expn [:bounds :h]) 0))
+                                hb     {:x x :y y :w card-w :h line-height}]
+                            (recur (rest es) (+ y h 10)
+                                   (into acc (if expn [handle expn] [handle]))
+                                   (update bounds tid #(or % hb))
+                                   marks))
+                          ;; CLOSED relation-transition: a MARK, no box-card
+                          (mark? e)
+                          (recur (rest es) (+ y line-height 6)
+                                 acc bounds
+                                 (conj marks {:entry e :x x :y y}))
+                          ;; terrain entry: a feed card (+ optional surface)
+                          :else
+                          (let [card  (-> (cards/feed-entry-card e geom)
+                                          (update :bounds assoc :x x :y y))
+                                bundle (when exp? (get bundles tid))
+                                expn  (when bundle
+                                        (-> (expansion-node tid bundle geom)
+                                            (update :bounds assoc
+                                                    :x x :y (+ y (get-in card [:bounds :h])))))
+                                h     (+ (get-in card [:bounds :h])
+                                         (if expn (get-in expn [:bounds :h]) 0))
+                                abs-b {:x x :y y :w card-w
+                                       :h (get-in card [:bounds :h])}]
+                            (recur (rest es) (+ y h 10)
+                                   (into acc (if expn [card expn] [card]))
+                                   (update bounds tid #(or % abs-b))
+                                   marks))))))
+        {:keys [nodes bounds marks content-h]} build
+        ;; --- edges ---
+        ;; rt-edges: relation-transition feed-entry edges -> kraft marks
+        ;; below (item 4). bundle-edges: expanded targets' L3 :this
+        ;; relations -> connectors (their off-screen ends are already
+        ;; preserved as rel-line text in the expansion, so a dropped
+        ;; connector never hides an edge here).
+        rt-edges     (into []
                            (keep (fn [e]
-                                   (when (and (= :relation-transition (:entry/kind e))
-                                              (get-in e [:entry/detail :from])
-                                              (get-in e [:entry/detail :to]))
-                                     (:entry/detail e))))
+                                   (let [d (:entry/detail e)]
+                                     (when (and (mark? e) (:from d) (:to d)) d))))
                            sorted)
         bundle-edges (into []
                            (comp (map (fn [tid] (get bundles tid)))
@@ -315,10 +504,21 @@
                                  (mapcat (fn [tb] (vals (get-in tb [:relations :this] {}))))
                                  cat)
                            (into #{} (map (fn [ek] (first ek))) expanded))
-        edges       (into entry-edges bundle-edges)
-        dead-ends   (lanes/dead-end-ids edges)
-        conn-rects  (lanes/connectors edges bounds)
-        spine-cards (vec (for [c cards
+        dead-ends   (lanes/dead-end-ids (into rt-edges bundle-edges))
+        conn-rects  (lanes/connectors bundle-edges bounds)
+        ;; item 4 / G3: CLOSED relation-transition entries -> kraft marks
+        ;; (labeled connector when both endpoints on screen; standalone
+        ;; kraft line naming the far end when one is off screen).
+        mark-nodes  (into []
+                          cat
+                          (map-indexed
+                           (fn [i m]
+                             (kraft-mark-nodes i (:entry m) bounds
+                                               {:x (:x m) :y (:y m)
+                                                :card-w card-w
+                                                :line-height line-height}))
+                           marks))
+        spine-cards (vec (for [c nodes
                                :when (= :feed-card (:type c))]
                            {:entry-key (get-in c [:data :trail-face/entry-key])
                             :bounds (:bounds c)
@@ -335,14 +535,12 @@
         root (rt/rt-node :trail-face/timeline-root :trail-timeline
                          {:x 0 :y 0 :w viewport-w :h total-h}
                          :data {:trail-face/content-h total-h
-                                :trail-face/order order}
+                                :trail-face/order order
+                                :trail-face/rim-slots rim}
                          :children
                          (into
-                          [(rt/rt-node :trail-face/address-header :header
-                                       {:x 0 :y 0 :w viewport-w :h header-h}
-                                       :text [header-op])]
-                          (concat conn-nodes
-                                  cards
+                          (into (vec conn-nodes) mark-nodes)
+                          (concat nodes
                                   (when omissions
                                     [(update omissions :bounds assoc
                                              :x pad :y content-h)]))))]
