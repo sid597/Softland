@@ -1,0 +1,1 @@
+{:qid "P2" :subject "opus-4.8-cc-harness" :verdict :correct :commitment-offset-words 0 :wrong-authority? false :invented [] :re-derivation-frac 0.1 :rationale "Correctly states Fable authored the RelationEdge contract (DRAFT v1, 2026-07-03) and D-004 is CLOSED (countersigned by Sid 2026-07-03), and cleanly distinguishes the contract from the decision."}

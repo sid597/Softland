@@ -1,0 +1,1 @@
+{:qid "O5" :subject "opus-4.8-cc-harness" :verdict :correct :commitment-offset-words 7 :wrong-authority? false :invented [] :re-derivation-frac 0.2 :rationale "States WP1 CLOSED (gate review PASS, closed 2026-07-05) with the exact four commits af0e0e2/fd59b78/63202b0/67f75eb and RETRO.md, grounding status in decisions.md D-006 as the canonical status surface."}

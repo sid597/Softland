@@ -1,0 +1,1 @@
+{:qid "N1" :subject "opus-4.8-cc-harness" :verdict :correct :commitment-offset-words 0 :wrong-authority? false :invented [] :re-derivation-frac 0.3 :rationale "Opens with the exact answer (docs/current-mental-model/decisions.md) and grounds it in the CLAUDE.md 'Decision Log — BINDING' pointer."}

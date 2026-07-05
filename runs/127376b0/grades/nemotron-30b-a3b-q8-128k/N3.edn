@@ -1,0 +1,1 @@
+{:qid "N3" :subject "nemotron-30b-a3b-q8-128k" :verdict :never-committed :commitment-offset-words nil :wrong-authority? false :invented [] :re-derivation-frac 0.0 :rationale "Empty completion — no commitment to git-spine/INPUTS.md or the re-grep-every-cite caution."}

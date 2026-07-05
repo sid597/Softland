@@ -1,0 +1,1 @@
+{:qid "O4" :subject "opus-4.8-cc-harness" :verdict :correct :commitment-offset-words 40 :wrong-authority? false :invented [] :re-derivation-frac 0.2 :rationale "Identifies Queue item 2 (D-003 Regime-1 spine / git-spine WP2) as the next item and correctly judges the baton's 'next Fable-window item' label stale because WP1 is CLOSED per decisions.md, with the log governing."}

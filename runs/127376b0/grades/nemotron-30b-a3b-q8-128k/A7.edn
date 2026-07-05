@@ -1,0 +1,1 @@
+{:qid "A7" :subject "nemotron-30b-a3b-q8-128k" :verdict :correct :commitment-offset-words 5 :wrong-authority? false :invented [] :re-derivation-frac 0.2 :rationale "Gives correct precedence order decisions.md > binding contract > baton with baton having no override authority; omits the stop-clause-escalation nuance but the load-bearing ordering is right."}

@@ -1,0 +1,1 @@
+{:qid "P4" :subject "nemotron-30b-a3b-q8-128k" :verdict :correct :commitment-offset-words 5 :wrong-authority? false :invented [] :re-derivation-frac 0.3 :rationale "Correctly identifies Fable ruling under Sid's time-box blanket, durable import-asserted RelationEdges (:import / 'import:git-spine', sha-verified, note-grammar v1) with projection-time joins recorded but not taken."}

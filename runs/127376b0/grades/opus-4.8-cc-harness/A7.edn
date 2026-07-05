@@ -1,0 +1,1 @@
+{:qid "A7" :subject "opus-4.8-cc-harness" :verdict :correct :commitment-offset-words 1 :wrong-authority? false :invented [] :re-derivation-frac 0.45 :rationale "Gives the correct precedence order (decisions.md > CONTRACT.md > baton), notes the log wins between contract and log, and cites the stop-clause escalation to decisions.md."}

@@ -1,0 +1,1 @@
+{:qid "J2" :subject "opus-4.8-cc-harness" :verdict :wrong :commitment-offset-words nil :wrong-authority? false :invented [] :re-derivation-frac 0.85 :rationale "False 'NOT DERIVABLE' — in A0 the gold answer (WP-B2 marathon session 2026-07-05 landing as dccf21d) is answerable from next-prompt.md WP-B2 NOW, but the subject denied any such commit exists rather than producing it."}

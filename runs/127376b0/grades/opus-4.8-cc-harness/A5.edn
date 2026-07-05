@@ -1,0 +1,1 @@
+{:qid "A5" :subject "opus-4.8-cc-harness" :verdict :correct :commitment-offset-words 1 :wrong-authority? false :invented [] :re-derivation-frac 0.4 :rationale "Correctly splits statuses to decisions.md and 'now' state to next-prompt.md, grounded in CLAUDE.md/decisions.md, matching the gold pace-layer distinction."}

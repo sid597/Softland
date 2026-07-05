@@ -1,0 +1,1 @@
+{:qid "J3" :subject "opus-4.8-cc-harness" :verdict :partial :commitment-offset-words nil :wrong-authority? false :invented [] :re-derivation-frac 0.8 :rationale "Surfaced the correct commit 67f75eb among the four WP1 SHAs and correctly attributed it to WP1 Phase B, but hedged to 'not derivable as a single commit' and never committed to 67f75eb as the load-bearing answer."}

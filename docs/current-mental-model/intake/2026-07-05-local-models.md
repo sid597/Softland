@@ -511,10 +511,54 @@ discourse-graph ≈ 340k / vision/LOG.md 10,004 w ≈ 13k / countersigns ≈ 0.1
 Caveat: heuristic filters, not the kernel's own asserter rows — when the
 kernel's `asserted-by = sid` query is wired, re-run there; expect same order.
 
-### 6.4 What the freeze gate still needs (unchanged, SPEC §1)
+### 6.4 Freeze gate + LM-1 subject phase — RUN (2026-07-06, same session cont.)
 
-(a) Sid declares QUESTIONS.md final as bank v1 · (b) sha pinned + bank hash
-in MANIFEST.edn before any subject call · (c) frontier-token budget
-confirmed. Then: live call fns in runner.clj (shapes at the stubs), snapshot
-materialized per §1 exclusions, A0+A3 for all local subjects vs frontier,
-§4 grading. Thresholds stay SITTING-SETS.
+Gate closed in-session: (a) bank v1 declared by Sid ("Lets go for 6");
+(b) sha `127376b0` pinned, bank-hash + CLAUDE.md content-hash in
+MANIFEST.edn; (c) budget ruled by Sid: **NO direct-API dollars — frontier
+runs on the Claude Code subscription** as fresh Opus subagents (subject id
+`opus-4.8-cc-harness`; deviations D1–D5 in MANIFEST.edn, incl. A3 deferred
+as byte-identical to A0, and qwen dropped: llama.cpp b8262 caps slot ctx at
+n_ctx_train 40960 < the 73,279-token bundle).
+
+**Subject phase COMPLETE, both arms 32/32, zero transport errors:**
+- `nemotron-30b-a3b-q8-128k` (llama-server, temp 0): rows in
+  `runs/127376b0/nemotron-…-A0.ednl`. **RAW FINDING: 8/32 rows have EMPTY
+  visible completions** — the reasoning channel consumed the full 4096-token
+  budget with no emitted answer (never-committed by construction). ~11–47s
+  per question.
+- `opus-4.8-cc-harness`: 32 answers at `runs/127376b0/cc-raw/<QID>.md`,
+  ~60–125s per question (~148k subagent tokens each, subscription quota).
+  Spot-reads of A1/A2/O3/P1 are precision hits (A2 caught the
+  superseded-but-physically-present STANDING line with the D-006 cite).
+
+**GRADED same session (64 rows, Opus graders, frozen rubric) — full table
+in `runs/127376b0/RESULTS.md`. Headline: nemotron 17/32 correct,
+9 never-committed (thinking ate the 4096-token budget), 3 rows with
+inventions, J-honesty 0/6 · opus-cc-harness 26/32 correct, 0 inventions,
+0 wrong-authority, J-honesty 1/6. Pre-registered KILL clause (a) formally
+met (3 vs 0 inventions); the interaction term (clause b) UNMEASURED — A3
+deferred until relations/ exists, so LM-1 cannot fully resolve this run.
+Notables: nemotron's dominant failure is never-committing, not lying
+(LM-1b's cheapest-fix territory); BOTH subjects flunked the honesty
+questions — even the frontier attempted joins instead of refusing (partly
+land ambiguity: docs mention commits). Human-audit queue: all 12 J rows +
+3 invented rows + 15% sample. Thresholds stay SITTING-SETS.** Also queued:
+the ccr symmetric-harness instrument (Sid floated 2026-07-06 —
+claude-code-router v1.0.73 installed, unconfigured; own pre-registration).
+
+**LM-1b — failure autopsy → cheapest-intervention ladder (Sid, 2026-07-06
+in-session, his framing: "go through nemotron logic and then gather what
+should be fixed in those via external skill or context or learnings etc
+maybe we can retrain it").** Proposed next step after grading: for every
+failed/never-committed nemotron row, read its captured `:reasoning` channel
+(all stored in the .ednl) and classify the failure — (a) never-committed:
+thinking ate the budget; (b) wrong-authority: didn't know the precedence
+rules; (c) invention; (d) navigation miss. Then rank fixes cheapest-first
+per class: serving/prompt fix (e.g. reasoning-budget cap, commit-first
+instruction) < injected context/skill (a "Softland orientation" preamble —
+the T0–T3 authority tiers cost ~200 tokens) < LoRA on own material (= the
+LM-3 lane, clean-corpus by construction). This is the routing-table
+feedback loop: the bank doesn't just rank models, it produces the
+per-failure-class repair menu. Runs as its own small probe; needs no new
+subject calls (the reasoning channels are already on disk).

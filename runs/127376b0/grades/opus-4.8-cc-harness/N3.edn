@@ -1,0 +1,1 @@
+{:qid "N3" :subject "opus-4.8-cc-harness" :verdict :correct :commitment-offset-words 11 :wrong-authority? false :invented [] :re-derivation-frac 0.4 :rationale "Correctly locates the fact base at build/git-spine/INPUTS.md and states the exact caution (re-grep every cite before relying on it, line numbers drift, the facts stand), cited to git-spine/CONTRACT.md."}

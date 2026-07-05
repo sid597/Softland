@@ -1,0 +1,1 @@
+{:qid "A2" :subject "opus-4.8-cc-harness" :verdict :correct :commitment-offset-words 0 :wrong-authority? false :invented [] :re-derivation-frac 0.35 :rationale "Opens with 'No — superseded on 2026-07-05', correctly attributes supersession to the decisions.md D-006 ruling over the frozen STANDING line, avoiding the wrong-authority trap."}

@@ -15,10 +15,11 @@
    rect_tree UNTOUCHED = stop-clause). Suite baseline at HEAD: 191 tests /
    2210 assertions (1 known contention flake, dogfood-space under live
    dev-server load — ns-standalone green 26/208/0).
-2. **Parallel (subagents, anytime): LM-1 grading** — 64 rows, fully
-   mechanical per `runs/127376b0/RUNBOOK.md` (frozen grader prompt; probe
-   session's item 5 below). Thresholds/interpretation = sitting with Sid
-   AFTER grading, never during.
+2. ~~Parallel: LM-1 grading~~ **DONE 2026-07-06 in the probe session —
+   64 rows graded + aggregated → `runs/127376b0/RESULTS.md`** (nemotron
+   17/32 vs opus-cc 26/32; details in the superseded baton's item 5 +
+   intake §6.4). Remaining on that track: Sid's human audit (12 J + 3
+   invented rows) · LM-1b failure autopsy · intake sitting reads/rules.
 3. **Sid's own list**: H1 arming entry in BETS (HIS hand; candidate
    `vision/images/2026-07-05-h1-arming-candidate.png`) · 5-min eyeball on
    the fixed render (kraft label legibility · dangling-edge count ·

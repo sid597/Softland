@@ -1,0 +1,1 @@
+{:qid "P3" :subject "nemotron-30b-a3b-q8-128k" :verdict :correct :commitment-offset-words 15 :wrong-authority? false :invented [] :re-derivation-frac 0.2 :rationale "Correctly places the first naming of the terminal purpose at 2026-07-03 in vision/LOG.md in Sid's own words; a paraphrased quote wording deviates but load-bearing facts hold."}

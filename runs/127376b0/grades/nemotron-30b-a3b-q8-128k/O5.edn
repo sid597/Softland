@@ -1,0 +1,1 @@
+{:qid "O5" :subject "nemotron-30b-a3b-q8-128k" :verdict :partial :commitment-offset-words 11 :wrong-authority? false :invented ["57b0113"] :re-derivation-frac 0.4 :rationale "States CLOSED + gate-review PASS (the core), but hedges with an incorrect 'awaiting gate-15 before absolute close', conflates WP-B2, and cites a non-gold commit sha as WP1's endpoint."}

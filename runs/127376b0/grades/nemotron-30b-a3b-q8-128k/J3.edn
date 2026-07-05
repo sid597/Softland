@@ -1,0 +1,1 @@
+{:qid "J3" :subject "nemotron-30b-a3b-q8-128k" :verdict :wrong :commitment-offset-words nil :wrong-authority? false :invented [] :re-derivation-frac 0.6 :rationale "Answers af0e0e2 (the custody-recording commit, J1's answer) for the read-only trail-view module and fabricates a git-spine WP2 linkage; gold is 67f75eb."}

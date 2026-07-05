@@ -1,0 +1,1 @@
+{:qid "P5" :subject "nemotron-30b-a3b-q8-128k" :verdict :wrong :commitment-offset-words nil :wrong-authority? false :invented [] :re-derivation-frac 0.4 :rationale "Attributes the relation-activity projection + R3 to Phase A of the relation-kernel WP and commit 2796044, but gold is Phase A3 of trail-view WP1 landing in commit 63202b0."}

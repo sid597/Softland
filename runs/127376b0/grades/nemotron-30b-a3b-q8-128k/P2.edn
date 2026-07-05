@@ -1,0 +1,1 @@
+{:qid "P2" :subject "nemotron-30b-a3b-q8-128k" :verdict :correct :commitment-offset-words 6 :wrong-authority? false :invented [] :re-derivation-frac 0.15 :rationale "Correctly names Fable as author and D-004 as CLOSED/countersigned by Sid 2026-07-03, citing the contract header and decisions.md."}

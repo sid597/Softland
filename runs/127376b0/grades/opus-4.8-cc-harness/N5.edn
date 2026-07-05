@@ -1,0 +1,1 @@
+{:qid "N5" :subject "opus-4.8-cc-harness" :verdict :correct :commitment-offset-words 3 :wrong-authority? false :invented [] :re-derivation-frac 0.1 :rationale "Names build/trail-view/CONTRACT.md §11 acceptance gates (16 IPC-test gates, gates green = done) as the location, matching gold's load-bearing claim."}

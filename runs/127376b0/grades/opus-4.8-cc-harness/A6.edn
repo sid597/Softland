@@ -1,0 +1,1 @@
+{:qid "A6" :subject "opus-4.8-cc-harness" :verdict :correct :commitment-offset-words 1 :wrong-authority? false :invented [] :re-derivation-frac 0.4 :rationale "Opens with 'No — _map.md is NOT reliable', flags its staleness, and names next-prompt.md + current-mental-model as the current orientation surface, matching gold."}

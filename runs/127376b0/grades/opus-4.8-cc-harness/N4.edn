@@ -1,0 +1,1 @@
+{:qid "N4" :subject "opus-4.8-cc-harness" :verdict :correct :commitment-offset-words 0 :wrong-authority? false :invented [] :re-derivation-frac 0.1 :rationale "Opens with vision/LOG.md as the verbatim, append-only, Sid's-words-only source and correctly names BETS.md North as the projection, matching gold exactly."}

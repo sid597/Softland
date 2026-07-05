@@ -1,0 +1,32 @@
+{:sha "127376b0fd76e1a112422ae5ac21a2f55725a018"
+ :frozen-at-ms 1783275499061
+ :bank-file "docs/current-mental-model/build/model-uxr/QUESTIONS.md"
+ :bank-hash "df5feb861074346fb72c96d6595dd941f45d016c4c7be9a0486441122a342da5"
+ :bank-version "v1"
+ :bank-v1-declared "Sid, in-session 2026-07-05 ('Lets go for 6' after the gate list was restated); budget confirm doubles as written countersign"
+ :tokenizer :ws-proxy
+ :excluded ["**/build/model-uxr/**"]
+ :out-of-tree {"CLAUDE.md" "0238c3c45f1deeb06c35e2c22c2d712f4f249bbfdb5f6fc080781b0e204f7025"}
+ :absent-derived ["relations/" "bundles/"]
+ :ablation-amendment
+ {:when "pre-first-subject-call, 2026-07-05"
+  :reason "SPEC/ABLATIONS A0 include docs/current-mental-model/** measured ~27MB at this sha (~1.4M+ text tokens + 20MB binary PDFs) — exceeds every subject context window; unrunnable as one prompt. Re-registered to the bank's gold-citation file union + orientation core (~39.4k words). Also fixes bank/ablation mismatch: docs/_map.md cited by bank question A6 but absent from original globs."
+  :operative "tools/model-uxr/subjects.edn :ablations at this working-tree state (A1/A2/A3 = same drop-transformations over the amended base)"}
+ :consequences ["A3 == A0 at this sha (relations/ absent): spine-gated questions honesty-score, pre-registered"
+                "A0 bundle measured 39438 words / 277143 chars (~51k ws-proxy tokens; ~70-75k model tokens)"]
+ :deviations
+ [{:id "D1" :what "A3 DEFERRED"
+   :why "relations/ absent at this sha -> A3 bundle is byte-identical to A0; running it would only replay A0 at temp 0. A3 runs when the relations export exists (new run, same bank)."
+   :when "pre-first-subject-call, 2026-07-06"}
+  {:id "D2" :what "frontier subject = opus-4.8-cc-harness (fresh Claude Code subagents on Sid's subscription), NOT direct API"
+   :why "no direct-API budget (Sid in-session 2026-07-06). Recorded consequences: (a) harness system prompt is added scaffolding -> tokens-to-orientation is harness-flavored; the subject id says so; (b) each subagent Reads exactly ONE dumped prompt file (runs/<sha8>/prompts/A0/<qid>.txt) — any OTHER tool use in its transcript voids the row (post-hoc audit); (c) no temperature control (sampling params removed on Opus 4.8-tier)."}
+  {:id "D3" :what "metrics run on VISIBLE completion text only"
+   :why "reasoning channels (llama.cpp message.reasoning_content, Claude thinking) are captured in rows but excluded from all five metrics — the channels are asymmetric across subjects."}
+  {:id "D4" :what "qwen3-32b-q8 DROPPED from this run"
+   :why "llama.cpp b8262 server caps slot context at n_ctx_train (40960) regardless of YaRN flags — cannot receive the 73,279-token A0 prompt. Routing-table finding, not a VRAM limit."}
+  {:id "D5" :what "SPEC grading-temperature-0 cannot bind on Anthropic-side calls"
+   :why "sampling params removed on Opus 4.8-tier models; grader determinism via frozen prompt only. Local subjects keep temperature 0."}]
+ :run {:ablations [:A0]
+       :subjects ["nemotron-30b-a3b-q8-128k" "opus-4.8-cc-harness"]
+       :grader "subscription CC subagents (Opus), frozen grader prompt; grader output never reaches subjects"
+       :human-audit-frac 0.15 :seed 0}}

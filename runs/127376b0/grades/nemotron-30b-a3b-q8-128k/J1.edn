@@ -1,0 +1,1 @@
+{:qid "J1" :subject "nemotron-30b-a3b-q8-128k" :verdict :never-committed :commitment-offset-words nil :wrong-authority? false :invented [] :re-derivation-frac 0.6 :rationale "Never names the commit af0e0e2; only gestures at relation-kernel CONTRACT/RETRO docs (and misattributes custody §5.1 to relation-kernel rather than trail-view), so no correct load-bearing commitment."}

@@ -1,0 +1,1 @@
+{:qid "A4" :subject "nemotron-30b-a3b-q8-128k" :verdict :correct :commitment-offset-words 1 :wrong-authority? false :invented [] :re-derivation-frac 0.15 :rationale "Only Sid rewrites North; not a hypothesis, no kill-conditions/evidence requirement — answers both sub-questions correctly."}

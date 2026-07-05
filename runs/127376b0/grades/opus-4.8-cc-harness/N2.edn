@@ -1,0 +1,1 @@
+{:qid "N2" :subject "opus-4.8-cc-harness" :verdict :correct :commitment-offset-words 4 :wrong-authority? false :invented [] :re-derivation-frac 0.5 :rationale "Correctly names docs/sessions/next-prompt.md as the 'now/current-work' baton and adds the right qualifier that the baton is not the source of truth for decisions/statuses."}

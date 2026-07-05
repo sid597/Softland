@@ -1,0 +1,1 @@
+{:qid "O4" :subject "nemotron-30b-a3b-q8-128k" :verdict :wrong :commitment-offset-words nil :wrong-authority? true :invented [] :re-derivation-frac 0.5 :rationale "Misidentifies the next item as a 'falsification + gate-review' step (not the D-003 Regime-1 git-spine spine) and affirms the baton's 'next' label as current instead of flagging it stale and deferring to the log."}

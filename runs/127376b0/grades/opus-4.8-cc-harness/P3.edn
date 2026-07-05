@@ -1,0 +1,1 @@
+{:qid "P3" :subject "opus-4.8-cc-harness" :verdict :correct :commitment-offset-words 0 :wrong-authority? false :invented [] :re-derivation-frac 0.05 :rationale "Correctly commits 2026-07-03 in the first Fable vision sitting, in Sid's verbatim words in vision/LOG.md, and correctly flags BETS.md North as the projection rather than the first naming."}
