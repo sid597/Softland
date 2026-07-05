@@ -73,3 +73,74 @@ artifacts (the braid first-slice) anchored the code-ingestor discussion and
 derailed it; in a 3-way comparison (Codex, Claude 4.8, Claude-with-canon) the
 canon-loaded answer ranked last for that ask | meta/process | LAW | ratified |
 chat (code-ingestor discussion, skill description edited same day)
+
+2026-07-04 | The founder's face test: trail always on screen; every node reads
+at title/decision/2-liner; any node opens in place while others hold — detail
+costs local space, never the shared axis; layout deterministic from the log,
+never force-directed | mid | LAW | ratified — Sid in-session, correcting the
+v2 sketch ("shit design imo… it should be atleast zui based"); verbatim in
+vision/LOG 2026-07-04 | track-C sitting 1 + write-gesture-sketch v3
+
+2026-07-04 | v2 vertical-log face — designer STANCE overridden by Sid on
+sight (outliner disease: expansion steals the shared axis). Override logged
+as data; face redrawn spatial (x=time, y=lane) | narrow | — | ratified
+override | track-C sitting 1
+
+2026-07-04 | The land's native write is the assertion (mint / relate /
+verdict, one event shape); ghost-preview-is-the-mark; sign is the one
+deliberate beat; consent boundary: ambient reading never writes, walk-mode
+steps attest visibly | mid | STANCE (strong) | proposed — Sid engaged
+throughout, no explicit countersign | write-gesture-sketch + sitting notes
+
+2026-07-04 | Broader frame: shell = ground · room · rim; the trail is the
+GROUND FLOOR (amends "no master view" to "no master view, one shared
+ground"); rim closed forever (scope · delta · address · palette); three zoom
+regimes (ground/room/ladder); cold-open = resume-in-place; one primary room +
+workbenches | broad | STANCE | proposed — Sid steered wider and engaged, not
+explicitly countersigned | track-C sitting 1 + giants digest integration
+
+2026-07-05 | The designer unbound: imagination is the designer's job; D-001
+governs build, never dreaming; horizon work explicitly commissioned; no
+biology examples (swap domains) | meta/process | constitutional | ratified —
+Sid verbatim ("you are my free from any worries designer… no bound on tokens
+no bound on scope"), vision/LOG 2026-07-05 | track-C sitting 1
+
+2026-07-05 | Versions: a version is a cut, never a container; version
+statements are the altitude text (the incentive for signing cuts is
+legibility-at-distance); date-born, name-graduating | mid | STANCE | proposed
+| render-demands ledger 22–24 + sitting notes
+
+2026-07-05 | Track-D handoff genre: demand catalog + load-bearing walls +
+gunpowder audit — never an end-to-end mockup as research input; the whole =
+five machines; five walls (addresses, event schemas, one semantic layer,
+camera model in first pixel face, view-params-as-data) | mid | STANCE |
+proposed — genre framed by Sid (emperor → engineering head), doc written |
+render-demands-2026-07-05.md Part II
+
+2026-07-05 | THE ROOM (sitting 2, R1–R3): in daily read use only the ground
+(trail face) and the rim (scope · delta · address · palette) earn pixels —
+sidebar/3-pane/editor chrome are ROOMS behind doors, never ambient; "trail
+mode" is a misnomer (the trail is the ground floor, not a mode); HQ's interim
+full-screen toggle CONFIRMED with constraints C1 palette-always-reachable,
+C2 face-address-in-rim, C3 boot-default-stays-flippable | mid | STANCE
+(strong; toggle-confirm DEFAULT) | proposed — awaiting Sid on sight |
+room-card-lane-2026-07-05.md §1 + trail-room sketch
+
+2026-07-05 | CARD LANGUAGE (sitting 2, R4–R6, answers F-L5): closed cards are
+typography, open cards are surfaces (the box IS the local space detail
+costs); four bands — mark / title / reading-line (when·who, contract data,
+never truncation) / open-in-place-with-address; element addresses printed at
+band 3 only (carried as data everywhere; face address lives in the rim once);
+two materials — terrain ink vs kraft marks: relations render as labeled
+connectors or standalone kraft lines (off-screen endpoint), NEVER box-cards |
+mid | STANCE (strong) | proposed — awaiting Sid on sight |
+room-card-lane-2026-07-05.md §2
+
+2026-07-05 | LANE SEMANTICS (sitting 2, R7, answers F-L2): a lane is an
+asserted thread — connected component over lineage kinds (based-on, produced,
+built-over, new-direction); references/elaborates cross-link, never merge;
+containment (family-key) demotes to fold rule; unthreaded material renders as
+THE BAND — one fog-tinged self-declaring y-region, x=time preserved, the
+frontier the /assert affordance works down; edge-arrival moves are sayable +
+chip-announced, never silent | mid | STANCE (strong; ordering/overflow
+DEFAULT) | proposed — awaiting Sid on sight | room-card-lane-2026-07-05.md §3

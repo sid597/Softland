@@ -227,6 +227,21 @@
   artifacts in `design/claude/`. Roam batch 3 pending re-proposal
   (`docs/sessions/roam-pending-2026-07-05-track-c.md`). Queue on its Roam
   page.
+- **Track C sitting 2 DONE 2026-07-05 (Fable, designer lens).** Rulings
+  R1–R7 in `design/claude/room-card-lane-2026-07-05.md` (all PROPOSED,
+  awaiting Sid on sight); drivable sketch `trail-room-sketch-2026-07-05.html`
+  (altitude toggle, open-in-place, kraft edges, the band — real repo
+  history); 3 decision-log entries appended. Gist: room = ground + rim only
+  (HQ's full-screen toggle CONFIRMED w/ constraints C1–C3); cards =
+  typography closed / surface open, 4 bands, address off the card face
+  (answers F-L5); lane = asserted thread over lineage kinds, unthreaded =
+  self-declaring BAND, family-key demotes to fold rule (answers F-L2).
+  **FOR HQ:** the handoff block "what the render contract must build next"
+  (7 falsifiable items, rulings doc end) — rec order: rim+address first
+  (kills worst F-L5 on sight), kraft marks before H1 arming screenshot,
+  lanes-from-edges after tonight's git-spine edges land. Docs uncommitted —
+  HQ coordinates commits. Roam: batch 3 landed+approved; HQ proposes the
+  sitting-2 session-log block separately — Track C stacked no Roam writes.
 - **Track D — render north: STUDY DONE 2026-07-05** (Fable + 9 Opus sweeps:
   3 code/artifact readers, 6 web researchers, all primary-source-verified).
   Deliverables: `build/render-north/INPUTS.md` (evidence manifest — never
@@ -235,7 +250,13 @@
   stacking/scale/clip/text/gestures/animation/wire/degradation, each with
   mechanism+today+north+traps; NEW wall-grade finding **N6: f32-absolute
   coords jitter at land scale — scene store must hold f64, GPU gets
-  camera-relative f32**, verified as-built at renderer.cljs:7,41,1107). **DECIDED (direction-grade,
+  camera-relative f32**, verified as-built at renderer.cljs:7,41,1107)
+  + `HARD-PROBLEMS.md` (after Sid's "Zed bled — is that it?" challenge: the
+  bottomless five — diff-transducing spec COMPILER not interpreter (H1/H2),
+  frame pacing + epoch rule, the text pit and where the mono moat ends,
+  optimistic write overlay, transclusion identity `(view,addr)→slot` — with
+  3 explicit corrections to NORTH/MECHANICS; birth-critical pair = store
+  keying (H6) + coordinate discipline (N6)). **DECIDED (direction-grade,
   non-binding on build):** camera-over-addressed-world ACCEPTED w/ two
   amendments (islands lay out in local 2D then project — never zoom-aware
   flexbox; root noun = ADDRESS, not camera); **view-specs are ASSERTIONS in

@@ -66,3 +66,13 @@ taste conflict, evidence wins — and the taste file gets edited, visibly.
     wrong, it's wrong — feelings are the founder's evaluation function and the
     product's actual success criterion. (Discipline: distinguish "feels wrong"
     from "feels new" — see #5.)
+
+15. **Detail costs local space, never the shared axis.** Opening anything may
+    never spend the dimension everyone else lives on — expansion-in-flow is
+    the outliner disease; three opens and the place is gone. (Formed
+    2026-07-04: Sid killed the v2 vertical-log face on sight.)
+
+16. **A dream must wear its label.** Unbounded imagination is the designer's
+    job; the honesty tax is one visible line — "this is a dream" — and once
+    paid, no bound applies. The map may render what doesn't exist only while
+    saying so. (Formed 2026-07-05, the horizon commission.)
