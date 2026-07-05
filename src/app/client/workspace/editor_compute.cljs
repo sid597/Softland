@@ -283,17 +283,24 @@
   (let [;; ── Shared layout context (changes on: resize, settings, font, sidebar toggle) ──
         <layout
         (m/latest
-          (fn [viewport settings active-font sidebar-visible?]
+          (fn [viewport settings active-font sidebar-visible? local-world]
             (let [dpr (:dpr viewport)
                   snap? (:snap-to-pixel? settings)
                   font-size (:font-size settings)
                   char-advance (maybe-snap (* font-size (:char-width active-font)) dpr snap?)
-                  sb-vis? (boolean sidebar-visible?)]
+                  ;; trail-room R-1 item 7 / W-1 (fixed 2026-07-05 at first
+                  ;; light): in a trail face NOTHING else is ambient — the
+                  ;; layout consumes the derived judgment, not the raw sidebar
+                  ;; atom (which stays untouched, so leaving the trail face
+                  ;; restores the sidebar exactly as it was).
+                  trail-face? (ws/local-world-trail-face? local-world)
+                  sb-vis? (boolean (and sidebar-visible? (not trail-face?)))]
               {:viewport viewport :settings settings :dpr dpr :snap? snap?
                :font-size font-size :char-advance char-advance
                :sb-vis? sb-vis? :sb-w (if sb-vis? sidebar-w 0)}))
-          (m/watch !viewport) (m/watch !settings) (m/watch !active-font) (m/watch !sidebar-visible))
-        ;; 4 fn args, 4 flows
+          (m/watch !viewport) (m/watch !settings) (m/watch !active-font) (m/watch !sidebar-visible)
+          (m/watch !effective-local-world))
+        ;; 5 fn args, 5 flows
 
         ;; ── Mode determination ──
         <mode

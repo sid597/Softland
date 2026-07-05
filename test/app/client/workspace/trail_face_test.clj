@@ -578,17 +578,30 @@
         full-line (str "-> based-on " long-id " by import:git-spine")
         char-w    (fn [op] (* (:size op) 0.56))
         right-of  (fn [op] (+ (:x op) (* (count (:text op)) (char-w op))))
-        bundle+   (assoc-in bundle
-                            [:bundle/targets "oc:doc:9fdoc" :relations :this :based-on]
-                            [{:relation-id "rel:long" :kind :based-on
-                              :from {:kind :doc :id "oc:doc:9fdoc"}
-                              :to {:kind :doc :id long-id}
-                              :status :asserted :asserted-by "import:git-spine"
-                              :asserter-type :import
-                              :evidence {:source-id "src-9f" :anchor-id "sa:9"}
-                              :note nil
-                              :first-asserted-at-ms 1782000000000
-                              :last-changed-at-ms 1782000000000}])
+        bundle+   (-> bundle
+                      (assoc-in [:bundle/targets "oc:doc:9fdoc" :relations :this :based-on]
+                                [{:relation-id "rel:long" :kind :based-on
+                                  :from {:kind :doc :id "oc:doc:9fdoc"}
+                                  :to {:kind :doc :id long-id}
+                                  :status :asserted :asserted-by "import:git-spine"
+                                  :asserter-type :import
+                                  :evidence {:source-id "src-9f" :anchor-id "sa:9"}
+                                  :note nil
+                                  :first-asserted-at-ms 1782000000000
+                                  :last-changed-at-ms 1782000000000}])
+                      ;; an INCOMING edge: conversation --produced--> THIS card
+                      ;; (far id kept SHORT so the whole line fits inside
+                      ;; card-w — this test asserts direction, not clipping)
+                      (assoc-in [:bundle/targets "oc:doc:9fdoc" :relations :this :produced]
+                                [{:relation-id "rel:in" :kind :produced
+                                  :from {:kind :conversation :id "oc:chat:in1"}
+                                  :to {:kind :doc :id "oc:doc:9fdoc"}
+                                  :status :asserted :asserted-by "import:git-spine"
+                                  :asserter-type :import
+                                  :evidence {:source-id "src-in" :anchor-id "sa:in"}
+                                  :note nil
+                                  :first-asserted-at-ms 1782000000000
+                                  :last-changed-at-ms 1782000000000}]))
         s         (scene/build-timeline-scene
                    {:feed feed :bundles {"oc:doc:9fdoc" bundle+}
                     :view-state {:expanded #{expanded-key} :order :arrival}
@@ -602,6 +615,16 @@
         (is (some? rel-op) "the relation line is present in the expansion ops")
         (is (< (count (:text rel-op)) (count full-line))
             "truncation actually bit (the raw line is wider than the card)")))
+    (testing "first-light fix 2026-07-05: an INCOMING edge prints <- with the
+              FAR end (the from side) — never the card's own id as its target
+              (the 'commit produced itself' lie)"
+      (let [in-op (first (filter #(str/starts-with? (str (:text %)) "<- produced")
+                                 ops))]
+        (is (some? in-op) "incoming edge renders with the <- direction")
+        (is (str/includes? (:text in-op) "oc:chat:in1")
+            "names the FAR (from) end")
+        (is (not (str/includes? (:text in-op) "oc:doc:9fdoc"))
+            "never prints the card's own id as the endpoint")))
     (testing "NO expansion text op extends past the card's right edge
               (info / relations / holes / omissions / address — all sections)"
       (is (seq ops))
