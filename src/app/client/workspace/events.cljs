@@ -144,7 +144,9 @@
 
 (defn make-raf-flow
   "Creates a fresh RAF flow - emits timestamps on each animation frame.
-   IMPORTANT: Must be called fresh for each subscription, not shared!"
+   Factory isolates per-subscription mutable state; NOTE m/observe/m/ap
+   flows ARE re-subscribable (VERDICTS.md Claim 10) — this is state
+   hygiene, not a subscription limit."
   []
   (m/observe
     (fn [!]
@@ -158,7 +160,9 @@
 
 (defn make-blink-timer
   "Creates a fresh blink timer flow - emits true/false every 530ms.
-   IMPORTANT: Must be called fresh for each subscription, not shared!"
+   Factory isolates per-subscription mutable state; NOTE m/observe/m/ap
+   flows ARE re-subscribable (VERDICTS.md Claim 10) — this is state
+   hygiene, not a subscription limit."
   []
   (m/ap
     (loop []

@@ -417,17 +417,25 @@
   (first (keep-indexed (fn [i h] (when (identical? h x) i)) v)))
 
 (defn gpu-mount
-  "Create Electric-compatible mount callbacks for a buffer pool.
-   Returns 5 callbacks matching Electric's incseq/mount contract.
+  "Create mount callbacks shaped for hyperfiddle.incseq.mount-impl/mount
+   (a POSITIONAL 5-arg fn; there is NO public incseq/mount var).
    Maintains internal ordering state for position-based child lookup.
    Callbacks handle allocation/deallocation — callers pass item data in,
    get handles out. nth-child returns the handle at position i.
 
-   Usage with Electric:
+   ⚠️ DO NOT WIRE AS-IS (2026-07-05, VERDICTS.md Claim 15 / PROBE-10K §4):
+   the mount contract passes existing CHILD HANDLES back through
+   insert-before during :permutation rotations (DOM insertBefore = MOVE);
+   this implementation allocates a fresh slot on every insert, so any
+   :permutation corrupts the pool (measured: 16,750 active slots for 100
+   entities after 91 rotate frames). The scene store must consume the six
+   diff ops directly (C2 shape) instead of this DOM-shaped bridge.
+
+   Contract shape, for reference only:
      (let [{:keys [append-child replace-child insert-before
                    remove-child nth-child]} (gpu-mount pool)]
-       (incseq/mount append-child replace-child insert-before
-                     remove-child nth-child))"
+       (hyperfiddle.incseq.mount-impl/mount
+        append-child replace-child insert-before remove-child nth-child))"
   [pool]
   (let [!children (atom [])]
     {:append-child
