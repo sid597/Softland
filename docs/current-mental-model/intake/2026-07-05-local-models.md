@@ -40,7 +40,8 @@ below: it is the licensing filter for claim 3 (§2.6) and the provenance
 guard for every slot in §3.
 
 **Same-day refinement (Sid, HQ chat follow-up to this file's first draft —
-his words quoted below; LOG landing due at the sitting):**
+his words quoted below; landed verbatim in `vision/LOG.md` same-day entry,
+probe-standup session):**
 
 1. **Distillation stance (assertion-grade):** "Yess I will not do any type
    of distillation on this .. only for open legal models ifff they have
@@ -386,8 +387,16 @@ observation only: the ingest slot for it does not exist, and D-001 holds.
    verdict can bind?
 
 **Factual, cheap to close:**
-4. Which 48GB box exactly (single A6000-class vs 2×24GB; FP8-capable?) —
-   changes serving-stack choice, changes nothing about the candidates.
+4. ~~Which 48GB box exactly (single A6000-class vs 2×24GB; FP8-capable?)~~
+   **CLOSED (census, probe-standup session same day): 2× AMD Radeon RX 7900
+   XTX, 24GB each (Navi 31 / gfx1100), ROCm 6.3.2 — NOT NVIDIA.** No FP8
+   (RDNA3 has no FP8 datapath); TensorRT-LLM is off the table (NVIDIA-only);
+   vLLM-on-RDNA3 is community-grade. Practical stacks on this box: ollama
+   (ROCm, installed) and llama.cpp `llama-server` (built locally, on PATH).
+   Consequence details in §6 addendum — headline: 48GB is TWO 24GB pools;
+   >20GB-weight models split across cards (fine for serving, slower than one
+   big card); §2.4's single-device QLoRA math needs re-verification for
+   2×24GB ROCm before LM-3's tuning path counts as workable.
 5. Corpus census for LM-3 gate 2: count `asserted-by = sid` tokens via the
    transcript kernel. A query, not a project.
 6. Nemotron 3 Nano QLoRA-at-48GB: undocumented. One bounded attempt decides

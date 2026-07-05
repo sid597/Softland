@@ -26,8 +26,15 @@ has been applied by the Stage-3 session except the two skill files it owns
 > **APPLIED 2026-07-05** by Fable under Sid's in-session extension of the
 > time-box blanket ("make the call just note it down somewhere" — chat,
 > verbatim). Reversible by reverting the docs commit; Sid may reverse on
-> review. Tier 2 (H1–H13) remains PENDING: doc/memory items apply next
-> session; H11/H12 are code files and ride code commits.
+> review.
+>
+> **Tier 2 APPLIED 2026-07-05 (delivery session)**: H1–H10 + H13 applied
+> exactly as written below (anchors re-grepped; H13's corrected paths
+> verified to exist). H11/H12 rode the code commit `7827f6f` alongside the
+> regression ns. `reactive_master.md` is untracked, so H13 is disk-only.
+> Memory-file items (H8–H10) live outside the repo — no commit. Remaining
+> UNAPPLIED: **A4 only** (CLAUDE.md slimming — waits for Sid's glance at the
+> wording, below).
 
 ### A1 — Re-scope the m/ap ban (VERDICTS Claim 1; test `claim-01-nested-ap-forks-crash-watch-cancelled`)
 

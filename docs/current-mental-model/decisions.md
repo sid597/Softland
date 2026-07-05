@@ -288,6 +288,23 @@ NOT continuous orchestration, NOT implementation, NOT Regime-2 theory (gated by 
   errors (R1 invisible-edges, R2 impossible-reader) at text time; the
   consolidated end-gate must be sized to catch that class. CLOSED by Sid's
   words above; reversible on form-break like every process ruling.
+- 2026-07-05 (delivery session), **first full delivery-mode wave CLOSED:
+  git-spine WP2 + trail-room R-1 gate-passed and committed.** The (e2) shape
+  ran end-to-end: one batched falsification (6 should-fixes, 0 blockers) →
+  one Fable gate review (`build/git-spine/GATE_REVIEW.md`) with all fixes
+  applied DIRECTLY at gate by Fable (route custody validation, deterministic
+  idempotency, allowlist non-join drop, replay/extract per-item isolation,
+  UTF-8 pins, reader field-preservation) → one serial suite (**191 tests /
+  2202 assertions / 0 failures**) → per-package code commits
+  (eac6dd5/ed2db8a/a1fda21/dc743d6/7827f6f/57b0113). Evaluation evidence for
+  the honest ledger: the batched end-gate caught ONE new defect the
+  falsification missed (kraft-label overflow — same class as a found one,
+  instance-vs-class hunting) and ONE root cause beneath a found defect
+  (rect_tree clip? replaced the ancestor clip instead of intersecting —
+  the layer-below rule). Both fixed in-wave. Fable also self-caught one bug
+  in its own fix before commit (truthy blank-string override). Delivery-mode
+  cadence HELD for a 4-package wave; retros at `build/git-spine/RETRO.md` +
+  `build/trail-room/RETRO.md`. Packages CLOSED.
 
 ---
 

@@ -9,14 +9,14 @@ A collection of hard-won insights from building a reactive WebGPU editor.
 ### Fresh Flows vs Shared Flows
 
 ```clojure
-;; BAD: Top-level def = shared, single-use
+;; Works (re-subscribable), but shares nothing useful; factory preferred
 (def >raf (m/observe ...))
 
 ;; GOOD: Factory function = fresh instance per subscription
 (defn make-raf-flow [] (m/observe ...))
 ```
 
-**Rule:** `m/observe` and `m/ap` create flows that can only be subscribed to **once**. Each subscription needs its own fresh flow instance. Use factory functions for flows you'll subscribe to multiple times.
+**Rule (corrected 2026-07-05, VERDICTS.md Claim 10):** `m/observe` and `m/ap` flows ARE re-subscribable — each subscription independently re-runs the observe setup fn, and all subscribers receive values. The genuine single-subscription/shared-process property belongs to `m/signal` / `m/stream` (memoized, multicast). Factory functions remain good practice, but their value is isolating per-subscription mutable state, not avoiding a subscription failure.
 
 **Exception:** `m/watch` on atoms is fine as `def` because atoms persist independently.
 
@@ -131,7 +131,7 @@ From Missionary docs:
    - Events flow through once, not stored in atoms
 
 2. **Derived values are flows, not atoms**
-   - `m/ap` + `m/?<` declares dependencies
+   - `m/latest` over `m/watch` declares dependencies (never multiple `m/?<` nested in one `m/ap` — that crashes "Watch cancelled"; see CLAUDE.md ban)
    - Runtime handles propagation automatically
 
 3. **Focus routing at flow level**
@@ -225,7 +225,7 @@ From Session 8, different AI agents contributed different strengths:
 
 **The Problem:**
 
-The error `Reactor failure: missionary.Cancelled {message: 'Watch cancelled.'}` happens when using `m/ap` with multiple `m/?<` forks inside flows that feed into `m/latest`.
+The error `Reactor failure: missionary.Cancelled {message: 'Watch cancelled.'}` happens when multiple `m/?<` forks over `m/watch` are nested inside ONE `m/ap`. It crashes even when that flow is consumed directly — feeding it to `m/latest` is NOT required (verified 2026-07-05, VERDICTS.md Claim 1 shape A).
 
 **Root Cause - m/ap Fork Cancellation:**
 
@@ -243,9 +243,9 @@ The error `Reactor failure: missionary.Cancelled {message: 'Watch cancelled.'}` 
 1. `m/ap` with `m/?<` creates an "ambiguous process"
 2. When ANY input changes, the old computation branch is **CANCELLED**
 3. A new branch starts with the updated value
-4. This is fine for standalone flows...
+4. The outer fork's restart cancels the still-live NESTED `(m/watch ...)` fork — cancelling a live `m/watch` throws "Watch cancelled". This crashes even standalone (consumed directly, no `m/latest` — verified on build -45).
 
-**BUT when combined with m/latest:**
+**m/latest is NOT the trigger (corrected 2026-07-05) — it only spreads the failure:**
 
 ```clojure
 ;; m/latest propagates cancellation from ANY input flow
@@ -258,7 +258,7 @@ The error `Reactor failure: missionary.Cancelled {message: 'Watch cancelled.'}` 
 
 From Missionary docs: *"If any flow fails or is cancelled, the resulting flow fails or is cancelled as well."*
 
-So when `<derived-flow-using-m/ap` cancels during a fork, `m/latest` sees the cancellation and propagates it, killing the entire flow graph!
+Propagation through `m/latest` spreads the failure wider, but it is not the cause: the same `m/ap` crashes consumed directly, and two SEPARATE single-`m/?<` `m/ap`s fed to `m/latest` do NOT crash (VERDICTS.md Claim 1, shapes A and B2).
 
 **THE FIX - Use m/latest instead of m/ap:**
 
@@ -343,7 +343,7 @@ Result: Render loop now runs stably at 60fps indefinitely.
 Error handling in Electric must be done outside the reactive context.
 
 ### Text appears then disappears
-- Shared flow got cancelled (use factory functions)
+- A consumer's flow got cancelled upstream (check `m/join` siblings — one dying branch cancels all). NOT an `m/observe` re-subscription limit: m/observe/m/ap are re-subscribable (VERDICTS.md Claim 10)
 - RAF loop stopped (cleanup function ran)
 - Check `m/observe` cleanup is not running prematurely
 
@@ -439,7 +439,7 @@ Text must be clipped at the **gutter edge** (not x=0), because the gutter is a f
 The architecture evolution is significant:
 1. **From 13 atoms → 6 primary sources** - Derived values are now flows, not stored atoms
 2. **From single 600+ line reducer → Focus-based routing** - Events split BEFORE reaching components
-3. **Critical Missionary lesson**: `m/ap` + `m/?<` forks cancel old branches, which kills `m/latest` consumers. Use `m/latest` for combining continuous values, `m/eduction` + `deref` for filtering discrete events.
+3. **Critical Missionary lesson**: multiple `m/?<` forks nested in one `m/ap` over watches crash ("Watch cancelled") on input change — even consumed directly; `m/latest` is not the trigger. Use `m/latest` for combining continuous values, `m/eduction` + `deref` for filtering discrete events.
 
 ---
 

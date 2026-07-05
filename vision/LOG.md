@@ -414,3 +414,19 @@ is there some kind of benchmark that we can make for like for LLM agents that ca
 [the local-model hypothesis:]
 
 I have 48gb vram and i have always thought of running small and fast model like nemotron 3 nano just because it is smart for its size but also its super fast ... so how and where should i leverage this model what else do i need it to train for to be able to help me in softland (not building it but when its all setup and on the user or softland side) like my hypothesis is that for many many tasks and as softland starts to show off its real power users will want to have access to their own data ... a local model(s) and then access to open and closed models depending on different tasks ... like currently eveything about softland is getting to claude but i would not want that in future since this will be my business and personal knowledge and even if i have to train "my personal" model on my data stored in rama i would want to do it on open source ones ... so yeah
+
+[same-day HQ follow-up — the distillation stance:]
+
+Yess I will not do any type of distillation on this .. only for open legal models ifff they have some
+
+[same-day HQ follow-up — the pool, not the model:]
+
+this is not only about nemotron we can have other models as well whatever can run on my gpus but also performant on some dimension i care about in softland ... i do think gemma type models can also be used for lower reasoning tasks but that are very useful in softland
+
+---
+
+## 2026-07-05 — flag adjudication: Fable now, local models later (Track-D guided read, verbatim)
+
+[delegating flag-level decisions in the render-north read; on who does this job in the future:]
+
+for the flag you decide currently in future this is something that can be done with local llm kinda thingy ... future....

@@ -1,5 +1,14 @@
 # Softland Documentation Map
 
+> ⚠️ **STALE (banner added 2026-07-05, model-uxr SPEC §7 finding).** This map
+> predates the 2026-05→07 chapters: dogfood-runtime, the decision log
+> (`docs/current-mental-model/decisions.md` — BINDING), the relation kernel,
+> trail-view/view-mvp, git-spine, and the current-mental-model folder. For
+> "where are we": `docs/current-mental-model/context-map.md` and
+> `docs/sessions/next-prompt.md`. This file remains useful ONLY as an index of
+> the pre-May-2026 archive below; several "living documents" listed here are
+> no longer living.
+
 > Last updated: 2026-03-08
 > Read this first. It tells you where everything is and how it got there.
 

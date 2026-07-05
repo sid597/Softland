@@ -40,7 +40,7 @@
 - **Phase 6C: Per-source shadow pools.**
   Shadows moved from full-upload `update-shadows` to `batch-update-pool!`. Two separate pools (`!editor-shadow-pool`, `!sidebar-shadow-pool`) prevent cross-source position shifts. Buffer pool generalized with configurable `:floats-per-item` and `:pack-fn` (rects=28 floats, shadows=20 floats). Legacy `update-shadows` init call cleaned up.
 - **Phase 6D: Handle-checked API + GPU mount.**
-  Generation counters on pool slots (incremented on free). Public handle API (`allocate-handle!`, `update-handle!`, `free-handle!`) with `validate-handle` that degrades to warning, never throws. `gpu-mount` returns 5 callbacks matching Electric's `incseq/mount` contract (`append-child`, `replace-child`, `insert-before`, `remove-child`, `nth-child`) with internal `!children` ordering vector. Slot-map experiment from dynamic-sdf-engine resource review completed.
+  Generation counters on pool slots (incremented on free). Public handle API (`allocate-handle!`, `update-handle!`, `free-handle!`) with `validate-handle` that degrades to warning, never throws. `gpu-mount` returns 5 callbacks for Electric's `hyperfiddle.incseq.mount-impl/mount` contract (positional 5-arg; there is no public `incseq/mount` var) with internal `!children` ordering vector — but note (2026-07-05, VERDICTS.md Claim 15): the contract's `insert-before` means MOVE an existing child, so gpu-mount's allocate-on-insert corrupts the pool on any `:permutation` (PROBE-10K §4: 16,750 slots for 100 entities). Never wired; do not wire as-is. Slot-map experiment from dynamic-sdf-engine resource review completed.
 - **Phase 6E: Dirty-present strategy.**
   One-shot RAF (`>dirty-raf`) replaces continuous `make-raf-flow` — zero callbacks when idle except 530ms blink. Persistent render target at physical pixel resolution survives swap chain double-buffering. Clear-quad shader for partial region clearing. Per-subsystem dirty flags mapped to screen regions (sidebar strip, editor area, chrome strip), unioned into scissor rect. `loadOp: "load"` + scissor + clear-quad for partial redraw; full clear fallback for first frame, resize, text/font changes.
 - **Phase 6 "done" criteria met:** rect writes O(changed), text writes O(visible changed lines), idle = zero RAF except blink.
@@ -364,7 +364,7 @@ layout-tokens (per-token theme color)
 ## Lessons Learned (Bug Patterns)
 
 ### 1. Missionary `m/ap` Cancellation (Session 10)
-**Pattern:** `m/ap` + multiple `m/?<` inside flows fed to `m/latest`
+**Pattern:** multiple `m/?<` over `m/watch` nested inside a single `m/ap` (crashes even consumed directly; `m/latest` is not the trigger — VERDICTS.md Claim 1)
 **Symptom:** "Watch cancelled" crash
 **Fix:** Use `m/latest` for combining, `m/eduction` + `@deref` for filtering
 **Now in CLAUDE.md** as a hard rule.

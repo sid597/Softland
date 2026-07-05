@@ -1,4 +1,57 @@
-# ⚡ SESSION-CLOSE BATON — 2026-07-05 HQ marathon (READ FIRST; supersedes stale statuses below)
+# ⚡ BATON — 2026-07-05 delivery session (READ FIRST; supersedes everything below)
+
+**DONE THIS SESSION (delivery mode, Fable coded directly):**
+**git-spine WP2 + trail-room R-1 GATE-PASSED, FIXED, COMMITTED, CLOSED.**
+- Batched gate review `build/git-spine/GATE_REVIEW.md`: all 6 falsification
+  should-fixes CONFIRMED + FIXED at gate (route custody validation ·
+  deterministic `assert:<relation-id>` idempotency with optional override ·
+  `:git-commit` dropped from route allowlist (B1 non-join) · per-line replay
+  + per-file extractor isolation · UTF-8 pins · reader rebuilds from ALL
+  stored keys). PLUS one gate-found defect (kraft-label overflow, fixed) and
+  one root cause (rect_tree `clip?` REPLACED the ancestor clip → now
+  INTERSECTS; expansion is clip? again; behavior-identical at every nil-clip
+  production call site).
+- Suite: **191 tests / 2202 assertions / 0 fail / 0 err** (one JVM, serial).
+- CODE COMMITS (this branch; cherry-pick to main later): eac6dd5 spine P1P2 ·
+  ed2db8a route PW · a1fda21 names P3+G11 · dc743d6 render R-1+clip fix ·
+  7827f6f missionary regression ns + H11/H12 docstrings · 57b0113 chore
+  strays (+/data/ gitignored).
+- Light retros: `build/git-spine/RETRO.md`, `build/trail-room/RETRO.md`;
+  D-006 wave-close note appended to decisions.md.
+- AMENDMENTS Tier-2 H1–H10+H13 APPLIED (insights.md ×8, progressive-summary
+  ×2, quirks ×2 + core-reframes (memory), reactive_master paths). **A4
+  (CLAUDE.md slimming to skill-pointers) still waits on Sid's glance.**
+- Hygiene: `_map.md` STALE banner; codex_implementation →
+  `docs/history/codex-implementation-session7-audit.md`; strays committed.
+
+**NEXT (in order):**
+1. **SID'S APP BOOT — the finish line** (baton step 3 verbatim below in the
+   old section): `clj -A:dev -X dev/-main` → `/trail timeline`. First boot
+   runs replay→spine-sync→extract (long first sweep — watch `[TRAIL]` +
+   `[GIT-SPINE]` server log lines). Collect gate-15 (`[RAF]` lines + feel
+   verdict + one screenshot→re-resolve) → `MEASUREMENT_RAF.md` → **WP-B2
+   CLOSED**. Threads render → screenshot the first kraft connector = the
+   **H1 ARMING RECORD** (BETS verdict-log arming event). Write path live:
+   `POST /api/relation/assert` (curl EDN body; asserter-id + keyword
+   asserter-type now REQUIRED; `:git-commit` targets rejected).
+   Open doubt to eyeball at boot: count DANGLING doc edges from the dual
+   working-dir path mismatch (GATE_REVIEW open doubt 1) — they render
+   honestly as kraft lines naming the far end.
+2. Sid glances at AMENDMENTS **A4** wording → apply to CLAUDE.md if approved.
+3. Sid's pick (old baton item 5): **R-2 contract** (pre-recorded probe
+   obligations: order-as-data + C2-shaped consumer — PROBE-10K:15,153-155;
+   plus: state the kraft-label truncation-vs-naming rule; move the sidebar
+   read out of `<layout>` — recorded debts in trail-room RETRO) · **intake
+   sitting** (`intake/2026-07-05-local-models.md` EXISTS + Sid touched
+   `vision/LOG.md` this session — both uncommitted, ride the next docs
+   commit) · benchmark live runs · D-006 criterion-2 counterfactual probe.
+
+**Old baton (2026-07-05 HQ marathon) kept below for step-3 detail; its
+statuses are superseded by the above.**
+
+---
+
+# (superseded) SESSION-CLOSE BATON — 2026-07-05 HQ marathon
 
 **CLOSED/BUILT TODAY:** WP1 **CLOSED** (light retro `build/trail-view/RETRO.md`).
 WP-B2 gate-PASSED — closes on gate-15 evidence (Sid's app boot). **H1 clock
