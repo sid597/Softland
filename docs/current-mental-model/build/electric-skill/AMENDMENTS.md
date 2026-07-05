@@ -129,6 +129,14 @@ Non-negotiables, one line each:
 Apply AFTER Sid glances at the final wording (it deletes binding text he may
 want to keep verbatim).
 
+> **APPLIED 2026-07-05** on Sid's word ("Apply a4" — chat, verbatim, after
+> the wording was shown in full). The replacement also absorbed the adjacent
+> `### Electric 3 Limitations` block (its whole content is the L13 line —
+> keeping it would duplicate). The `## Electric's Programming Paradigm`
+> section (A2-amended) was NOT touched. CLAUDE.md is untracked (gitignored),
+> so this is a disk-only edit like A1–A3; reversal = re-expanding from the
+> OLD blocks preserved in this file + A1–A3 above.
+
 ---
 
 ## Tier 2 — HQ-APPLY (13 amendments)

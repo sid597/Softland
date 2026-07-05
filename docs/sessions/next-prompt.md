@@ -20,7 +20,9 @@
   D-006 wave-close note appended to decisions.md.
 - AMENDMENTS Tier-2 H1–H10+H13 APPLIED (insights.md ×8, progressive-summary
   ×2, quirks ×2 + core-reframes (memory), reactive_master paths). **A4
-  (CLAUDE.md slimming to skill-pointers) still waits on Sid's glance.**
+  APPLIED on Sid's word (same session)** — CLAUDE.md slimmed to
+  skill-pointers; Electric-3-Limitations absorbed (L13); disk-only edit,
+  reversal path in AMENDMENTS.md.
 - Hygiene: `_map.md` STALE banner; codex_implementation →
   `docs/history/codex-implementation-session7-audit.md`; strays committed.
 
@@ -37,8 +39,7 @@
    Open doubt to eyeball at boot: count DANGLING doc edges from the dual
    working-dir path mismatch (GATE_REVIEW open doubt 1) — they render
    honestly as kraft lines naming the far end.
-2. Sid glances at AMENDMENTS **A4** wording → apply to CLAUDE.md if approved.
-3. Sid's pick (old baton item 5): **R-2 contract** (pre-recorded probe
+2. Sid's pick (old baton item 5): **R-2 contract** (pre-recorded probe
    obligations: order-as-data + C2-shaped consumer — PROBE-10K:15,153-155;
    plus: state the kraft-label truncation-vs-naming rule; move the sidebar
    read out of `<layout>` — recorded debts in trail-room RETRO) · **intake
