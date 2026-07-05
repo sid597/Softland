@@ -39,13 +39,17 @@
    Open doubt to eyeball at boot: count DANGLING doc edges from the dual
    working-dir path mismatch (GATE_REVIEW open doubt 1) — they render
    honestly as kraft lines naming the far end.
-2. Sid's pick (old baton item 5): **R-2 contract** (pre-recorded probe
-   obligations: order-as-data + C2-shaped consumer — PROBE-10K:15,153-155;
-   plus: state the kraft-label truncation-vs-naming rule; move the sidebar
-   read out of `<layout>` — recorded debts in trail-room RETRO) · **intake
-   sitting** (`intake/2026-07-05-local-models.md` EXISTS + Sid touched
-   `vision/LOG.md` this session — both uncommitted, ride the next docs
-   commit) · benchmark live runs · D-006 criterion-2 counterfactual probe.
+2. **R-2 contract AUTHORED (Sid-AFK window): `build/trail-room/
+   CONTRACT_R2.md` — PROPOSED, awaiting Sid's countersign.** Items 1/5/6
+   (bands · lanes-from-edges · move chips) + both R-1 debts; probe
+   obligations §2.5/trap 11 (order-as-data, no incremental bridges); 12-trap
+   ledger; gates G1–G11 + W-1; process = delivery-mode wave + ONE contract
+   validation round (Sid may waive). Build does NOT start without countersign.
+3. Sid's remaining picks: **intake sitting** (`intake/2026-07-05-local-
+   models.md` exists; Sid touched `vision/LOG.md` — committed e534f36) ·
+   benchmark live runs (blocked on boot) · D-006 criterion-2 counterfactual
+   probe (in flight this session if the window allows — see decisions.md
+   evaluation notes).
 
 **Old baton (2026-07-05 HQ marathon) kept below for step-3 detail; its
 statuses are superseded by the above.**
