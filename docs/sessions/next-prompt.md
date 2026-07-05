@@ -34,14 +34,20 @@ violation). FIXED in `trail_view.clj` `edge-line` (full triple
 from → kind → to; this is one more uncommitted change in that file);
 trail-view namespace re-run 4 tests / 118 assertions / 0 failures
 including all pre-existing gates.**
-**FALSIFICATION:** a fresh-Opus batched-diff falsifier was RUNNING at close —
-artifact expected `build/git-spine/DIFF_FALSIFICATION_R1.md`. If ABSENT,
-re-dispatch: scope = whole uncommitted code diff vs the two CONTRACTs;
-seams = §3.C serialization drift route↔replay (G8 pair now tests it
-empirically) · boot ordering replay→sync→extract · idempotency split
-(spine stable keys vs route per-POST UUIDs; curl-retry duplicate events) ·
-cursor semantics · R-1 `:material-clip` at negative offsets · P3's
-strengthened fixture gate (vacuity check).
+**FALSIFICATION: LANDED + COMMITTED** (`build/git-spine/
+DIFF_FALSIFICATION_R1.md`, 17:59). **Verdict: NO BLOCKING findings — all
+gated happy paths real and tested.** SHOULD-FIXES = next session's first
+coding batch (delivery mode, Fable codes directly): (1) route: asserter-id
+UNVALIDATED → garbage gets a lying 200 AND poisons the assert-log; (2)
+route: curl RETRY after timeout mints fresh ids → duplicate event rows;
+(3) route allowlist accepts `:git-commit` targets that don't join (dangling
+by design now — either drop from allowlist or document); (4) spine: replay
+per-line and extractor per-file lack try/catch — one bad line/file kills
+the whole pass; (5) render: removing the outer expansion `clip?` stripped
+card-width text clipping from info/relations/holes/omissions sections
+(only material got the `:material-clip` replacement) — uncaught by tests;
+(6) reader field-pinning + charset DOUBTs (see artifact). Fix all six →
+re-run the touched namespaces → ONE serial suite → gate artifact → commits.
 
 **UNCOMMITTED CODE in the working tree** (commit ONLY after gate review;
 per-package, code-only commits, never mixed with .md):
