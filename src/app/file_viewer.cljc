@@ -170,6 +170,13 @@
                                           (filter #(.exists (io/file %)))
                                           [(str (System/getProperty "user.home") "/.claude/projects")])
                   :spine-cursor-path (str dir "/data/git-spine-cursor.edn")
+                  ;; minted HERE, in the same delay body that creates the
+                  ;; cluster, so cursor validity is bound to THIS cluster
+                  ;; instance's lifetime: a fresh JVM = fresh empty cluster =
+                  ;; fresh run-id, and the durable cursor from the previous
+                  ;; boot is ignored (full reprocess — the edges must be
+                  ;; re-asserted into the empty cluster, never skipped)
+                  :spine-run-id (str (java.util.UUID/randomUUID))
                   :assert-log-path (str dir "/data/relation-assert-log.ednl")}]
          (future
            (try
