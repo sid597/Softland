@@ -70,3 +70,14 @@ compare).
 3. Production OC runtime ownership (OI-1): the in-process defonce-delay
    cluster is non-durable — every server restart re-boots + re-sweeps.
 4. Display-name enrichment for md objects (F-L3).
+
+## Addendum 2026-07-05 — clock ruling
+
+Line 3 of this file called it "the H1 clock-start record". Ruled the same day
+(BETS.md verdict log, under Sid's time-box blanket, reversible on his review):
+the clock did NOT start at first light — zero typed relations rendered over
+real material (F-L2), and the pre-registered KILL text conditions the window
+on "relations + timeline working". Arming event, pre-registered: **the first
+render showing ≥1 typed relation over real material** (import-derived or
+sid-via-agent both count). This file remains the first-light record; the
+arming-event entry in BETS.md will be the clock-start record.

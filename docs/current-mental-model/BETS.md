@@ -160,4 +160,24 @@ dated pre-reads in `docs/current-mental-model/intake/`; first pre-read:
 `intake/2026-07-04-painting.md`)*
 
 ## Verdict log (append-only)
-- *(empty — H1's clock starts when the trail view first renders)*
+- **2026-07-05 — H1 clock: NOT started at first light; arming event pre-registered.**
+  Ruled by Fable under Sid's same-day time-box authority ("use the recommended
+  option but also note down others so I can review") — this entry is that
+  record; Sid may reverse on review. Conflict surfaced by the third-projection
+  orientation pass: the KILL text above conditions the window on "(relations +
+  timeline working)", while this log's old placeholder read "starts when the
+  trail view first renders" and FIRST_LIGHT.md:3 called itself "the H1
+  clock-start record". At first light (2026-07-05) the timeline rendered 167
+  docs with ZERO typed relations over real material (F-L2 confetti) — and H1's
+  claim names transcripts, docs, commits, typed relations. Starting the clock
+  there invites an AMBIGUOUS kill (form failed? or nouns missing?), which
+  spends the window without buying evidence.
+  **ARMING EVENT (an event, not a date): the clock arms at the first render
+  showing ≥1 typed relation over real material — import-derived or
+  sid-via-agent (D-008) both count.**
+  Alternative NOT taken (recorded for review): clock started 2026-07-05 at
+  first render, grace clause absorbing the relations gap — a defensible
+  reading of the placeholder + FIRST_LIGHT.md:3. Rejected for the ambiguity
+  above. If Sid rules the ritual-measurement ("where does new thinking
+  start") should already be observing, reinstate 2026-07-05 as t0 and strike
+  the arming event.

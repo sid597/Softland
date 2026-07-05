@@ -266,6 +266,14 @@ NOT continuous orchestration, NOT implementation, NOT Regime-2 theory (gated by 
   contract→green→falsified→gated inside 24 hours. Eight non-blocking open
   doubts with named falsifiers in the artifact. Commit and package close are
   Sid's.
+- 2026-07-05, WP1 package **CLOSED** (executed by Fable under Sid's in-session
+  time-box blanket — "use the recommended option, note the others"; the
+  alternative, holding for a full retro session, is noted in RETRO.md). Code
+  was already committed (`af0e0e2`/`fd59b78`/`63202b0`/`67f75eb`); light retro
+  at `build/trail-view/RETRO.md`; carried items routed — 8 open doubts stay
+  live in GATE_REVIEW.md, display-name enrichment assigned to the WP2 window,
+  the write-path pair (/assert affordance + OI-1 durability) scheduled same
+  day. WP-B2 close waits only on gate-15 evidence (Sid, ~20 min).
 
 ---
 
