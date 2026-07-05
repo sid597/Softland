@@ -149,6 +149,11 @@ wrong-authority rate, with invented-structure flat or falling.
    (SITTING-SETS; ~1M-token order per common LoRA practice — *inference,
    not verified this session*). Countable today: the transcript kernel
    stores roles, so `asserted-by = sid` extraction is a query, not a project.
+   **CENSUS RUN (probe-standup session, same day — method + breakdown §6.3):
+   ~783k tokens Sid-typed across all transcript roots (602,602 words, 4,488
+   user turns), ~419k Softland-only, +13k vision/LOG.md, countersigns ~0.1k.
+   Total ≈ 0.8M — same order as the ~1M floor; gate 2 does NOT kill on its
+   own. Softland-only alone (~0.4M) is thin. Threshold stays SITTING-SETS.**
 3. **Post-training:** invented-structure rate rises — tuning taught voice,
    not land-truth.
 
@@ -437,3 +442,79 @@ sovereignty track). Sources: web recon this date (URLs inline);
 `build/model-uxr/SPEC.md`; BETS.md H2/H3 + Candidates rules; D-006/D-007/
 D-008; R5/R7 in `design/claude/room-card-lane-2026-07-05.md`. No code
 touched; no BETS.md/decisions.md edits; candidates await the sitting.*
+
+---
+
+## 6. Probe-standup addendum (2026-07-05, same day — measured on the box)
+
+Delivery session (Fable direct). Jobs run: LOG landing (§0 refinements now
+verbatim in `vision/LOG.md`) · hardware census (§4 Q4 closed) · endpoint
+standup + neutral smokes · `tools/model-uxr/subjects.edn` written + dry-run
+green · LM-3 gate-2 census (§1 LM-3). **LM-1 probe NOT run: the SPEC §1
+freeze gate did not hold** (no bank-v1 declaration, no sha pin, no
+frontier-budget confirm). Everything below is measured, not recon.
+
+### 6.1 Hardware corrections to §2 (the box is AMD, not NVIDIA)
+
+- **2× Radeon RX 7900 XTX, 24GB each (Navi 31/gfx1100), ROCm 6.3.2, Ryzen 9
+  9900X.** All §2.1 NVIDIA framings (A6000-class, FP8, TensorRT-LLM) are
+  moot: RDNA3 has no FP8 datapath; TensorRT-LLM is NVIDIA-only; vLLM-on-
+  RDNA3 is community-grade. Working stack: **llama.cpp `llama-server`, local
+  ROCm build 8262 (2026-03-09), sees both cards.** ollama is installed but
+  v0.11.0 (2025-07) — predates Nemotron 3; its model store sits on the
+  93%-full root disk with two stale 16-month models (qwq:32b-fp16 65GB +
+  R1 34GB — reclaim candidates, Sid's call).
+- **"48GB" is two 24GB pools, not one card.** Serving splits >20GB models
+  across cards cleanly (measured below). **Tuning is where it bites:** §2.4's
+  "32B QLoRA ≈ 26GB comfortable at 48GB" assumed ONE CUDA device; Unsloth is
+  CUDA-only, and 26GB > 24GB single-card. LM-3's tuning path on this box
+  (multi-GPU QLoRA under ROCm, or a ≤20B base on one card) is **UNVERIFIED —
+  new open item for the sitting**, upgrading §4 Q6's urgency.
+
+### 6.2 Endpoint + pool state (stood up and smoked, SPEC §6-clean)
+
+- **The models were already on the box**: `~/projects/models/` (221GB GGUF
+  library) holds `nvidia_Nemotron-3-Nano-30B-A3B-Q8_0` (32GB) and
+  `Qwen3-32B-Q8_0` (33GB) — LM-1's "the probe is a config edit" claim got
+  *stronger*: no download was needed (a redundant pull was started and
+  cancelled; ~3.7GB of partials at `/mnt/data/models/gguf` to reclaim).
+  Also on disk, pool candidates when wanted: Devstral-Small-2-24B Q8,
+  Olmo-3.1-32B-Think Q8, GLM-4.5-Air-REAP-82B Q4, gpt-oss-120b, Qwen3-Next-
+  80B, Qwen3-Coder-Next. **Gap: no gemma3-27b-class arm on disk** — the
+  pool's low-reasoning tier (§0 refinement 2) needs a ~17GB pull, Sid's word.
+- **Neutral smokes via `/v1/chat/completions`** (prompt "reply ok" + one
+  synthetic 5k-token filler; NO land material — SPEC §6 holds pre-freeze):
+  - `Nemotron-3-Nano-30B-A3B-Q8_0` @32k ctx: **100 tok/s generation,
+    4,553 tok/s prefill**, ~36GB split ~18/18 across cards, reasoning
+    channel separated by the chat template. A 100k-token A0 bundle prefills
+    in ~22s — bank runs are minutes, not hours.
+  - `Qwen3-32B-Q8_0` @16k ctx: **21 tok/s generation** (~41GB split). The
+    5× speed gap vs the MoE hybrid is the "small-fast" thesis, measured.
+- **`subjects.edn` written** (tools/model-uxr/): ids encode quant+context
+  (`nemotron-30b-a3b-q8-32k`, `qwen3-32b-q8-16k` — quant IS subject
+  identity), one port per subject so a wrong-model call fails loudly,
+  frontier/grader ids left `<set-me-at-freeze-gate>`, keys env-only.
+  Runner dry-run green against it: 32-question bank parses (6 spine-gated),
+  contamination guard passes, bank-hash `df5feb86…` printable for the
+  MANIFEST. Note: `bb` is not on the box — use `clojure -M` (runner
+  docstring lists both).
+
+### 6.3 LM-3 gate-2 census method (number in §1 LM-3)
+
+Counted over the configured transcript root (`~/.claude/projects`, 376
+jsonl files — the same corpus `file_viewer.cljc` wires into the spine),
+user-role **typed text only**: tool_results, command wrappers,
+system-reminders, and meta lines excluded; tokens = words × 1.3 (the
+SPEC §2 `:ws-proxy`, so the census and the bank share a ruler). Breakdown:
+all-projects 602,602 w ≈ **783k tok** / Softland 322,366 w ≈ **419k** /
+discourse-graph ≈ 340k / vision/LOG.md 10,004 w ≈ 13k / countersigns ≈ 0.1k.
+Caveat: heuristic filters, not the kernel's own asserter rows — when the
+kernel's `asserted-by = sid` query is wired, re-run there; expect same order.
+
+### 6.4 What the freeze gate still needs (unchanged, SPEC §1)
+
+(a) Sid declares QUESTIONS.md final as bank v1 · (b) sha pinned + bank hash
+in MANIFEST.edn before any subject call · (c) frontier-token budget
+confirmed. Then: live call fns in runner.clj (shapes at the stubs), snapshot
+materialized per §1 exclusions, A0+A3 for all local subjects vs frontier,
+§4 grading. Thresholds stay SITTING-SETS.

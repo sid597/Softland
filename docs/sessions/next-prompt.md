@@ -27,18 +27,24 @@
   `docs/history/codex-implementation-session7-audit.md`; strays committed.
 
 **NEXT (in order):**
-1. **SID'S APP BOOT — the finish line** (baton step 3 verbatim below in the
-   old section): `clj -A:dev -X dev/-main` → `/trail timeline`. First boot
-   runs replay→spine-sync→extract (long first sweep — watch `[TRAIL]` +
-   `[GIT-SPINE]` server log lines). Collect gate-15 (`[RAF]` lines + feel
-   verdict + one screenshot→re-resolve) → `MEASUREMENT_RAF.md` → **WP-B2
-   CLOSED**. Threads render → screenshot the first kraft connector = the
-   **H1 ARMING RECORD** (BETS verdict-log arming event). Write path live:
-   `POST /api/relation/assert` (curl EDN body; asserter-id + keyword
-   asserter-type now REQUIRED; `:git-commit` targets rejected).
-   Open doubt to eyeball at boot: count DANGLING doc edges from the dual
-   working-dir path mismatch (GATE_REVIEW open doubt 1) — they render
-   honestly as kraft lines naming the far end.
+1. **BOOT HAPPENED (2026-07-05 late).** Gate-15 evidence COLLECTED →
+   `build/view-mvp/MEASUREMENT_RAF.md` ([RAF] 7–12ms at ~1.1k instances on
+   near-4K = PASS; feel verdict recorded verbatim — the staircase
+   illegibility indicts the family-key lane interim, i.e. R-2's cure, not
+   the render machinery). **WP-B2 CLOSE proposed on that artifact — Sid
+   ratifies.** **H1 ARMING CANDIDATE preserved:**
+   `vision/images/2026-07-05-h1-arming-candidate.png` (expanded commit
+   2232fbb showing `-> based-on … by import:git-spine` over the real repo —
+   qualifies under the H1 ruling's "fact of a typed relation rendering";
+   Sid ratifies in the BETS verdict log). TWO first-light defects FIXED at
+   the sitting (637d293): sidebar-ambient-in-trail-face (W-1 closed early) +
+   incoming-edges-printed-as-outgoing ("commit produced itself"). Write path
+   live: `POST /api/relation/assert` (curl EDN body; asserter-id + keyword
+   asserter-type REQUIRED; `:git-commit` targets rejected).
+   STILL TO EYEBALL on the fixed render: dangling doc edges (dual
+   working-dir, GATE_REVIEW doubt 1) · kraft label legibility · the
+   `[GIT-SPINE]` server stat lines (replay/sync/extract counts) · idle
+   `content-same?` skip ratio (MEASUREMENT_RAF open item).
 2. **R-2 contract at v1.1 — PROPOSED, awaiting Sid's countersign**
    (`build/trail-room/CONTRACT_R2.md`). v1 was VALIDATED same session:
    fresh-context round returned **FAIL (2 blockers B1/B2 — real Fable text
@@ -480,6 +486,21 @@ SESSION-SCOPED — it does NOT carry into the next session.
   MIT/Qwen3 Apache clean; Gemma ≤3 distills propagate its license; custody
   D-008 §5.1 = the clean-corpus filter). Recon: Nemotron fits 48GB only
   quantized; 16-bit LoRA 60GB → dense-32B tune path. 3 frontier Qs in-file.
+- **Local-model PROBE STANDUP DONE 2026-07-05 (Fable delivery session;
+  detail = intake §6 addendum).** Sid's two HQ follow-ups landed verbatim in
+  vision/LOG.md. **Box census corrects the recon: 2× AMD RX 7900 XTX 24GB
+  (gfx1100, ROCm 6.3.2) — NOT NVIDIA; no FP8; intake §4 Q4 CLOSED.** Endpoint
+  = llama.cpp llama-server (ROCm b8262); models were ALREADY at
+  ~/projects/models (221GB): Nemotron-3-Nano Q8 smoked **100 tok/s gen /
+  4553 tok/s prefill**, Qwen3-32B Q8 smoked 21 tok/s — neutral prompts only,
+  SPEC §6 held. subjects.edn WRITTEN (quant+context in ids; per-subject
+  ports; runner dry-run green, bank-hash printable). **LM-3 gate-2 census:
+  ~783k Sid-typed tokens all-projects / ~419k Softland-only (+13k LOG) —
+  same order as the ~1M floor, gate does not kill; number in intake §1.**
+  **LM-1 probe NOT run — freeze gate unmet (no bank-v1 declaration, no sha
+  pin, no budget confirm).** Open: gemma3-27b pull (~17GB, Sid's word);
+  QLoRA-on-2×24GB-ROCm feasibility UNVERIFIED (LM-3 path); reclaim: stale
+  ollama store (99GB, root disk) + /mnt/data/models/gguf partials (3.7GB).
 - **Standing cross-track pointers (from Track C, phase-1-binding):**
   Track A ← ledger 13 (altitude text forms are data: title·2-liner·full per
   bundle), 16 (mark/question counts survive folds), 17 (walk/attestation
