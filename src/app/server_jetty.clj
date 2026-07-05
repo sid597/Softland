@@ -14,6 +14,7 @@
     [components.design-tokens :as design-tokens]
     [app.server.rama.util-fns :as util-fns]
     [app.server.rama.objects :as rama-objects]
+    [app.server.rama.relation-kernel :as rk]
     [app.server.env :as env]
     [clj-http.client :as http]
     [cheshire.core :as json]
@@ -767,12 +768,234 @@ information."
                (try (.flush writer) (catch Exception _ nil))
                (try (.close writer) (catch Exception _ nil)))))))}))
 
+;; =====================================================================
+;; Relation /assert write shim — git-spine WP2 component W (CONTRACT §3.E).
+;;
+;; POST /api/relation/assert is the land's first write affordance (D-008): a CLI
+;; agent asserts a RelationEdge via `curl`. The route validates route-side, does
+;; WRITE-AHEAD durability (one plain-map line, flushed) BEFORE appending the
+;; envelope to the running trail runtime's relation depot, and returns
+;; {relation-id request-id}. Boot replay of that log is P1's job (git_spine.clj);
+;; the two components meet ONLY at the file format + path, so this file NEVER
+;; requires git_spine (SF-R2.1) — it derives the shared path from a local
+;; constant, identically to P1.
+;; =====================================================================
+
+(defn edn-response
+  "EDN response map with an explicit HTTP status (mirrors json-response's
+   application/edn content-type). Real 4xx/5xx status codes, unlike the legacy
+   always-200 json-response helper."
+  ([data] (edn-response 200 data))
+  ([status data]
+   {:status  status
+    :headers {"Content-Type" "application/edn"}
+    :body    (pr-str data)}))
+
+(def assert-log-relative-path
+  "Repo-root-relative path of the shared relation-assert write-ahead log
+   (CONTRACT §3.C/§3.E, pinned by SF-R2.1). This route (PW) and the boot
+   replayer (P1) each derive the identical absolute path from this constant with
+   ZERO shared code and no dependency on the git_spine namespace."
+  "data/relation-assert-log.ednl")
+
+(defn default-assert-log-path
+  "Absolute assert-log path anchored at the repo root (user.dir), matching
+   file_viewer's boot-cfg root idiom. Computed at request time only; the parent
+   dir is created at runtime by the writer, never pre-created in the tree."
+  []
+  (str (System/getProperty "user.dir") "/" assert-log-relative-path))
+
+(def relation-target-kind-allowlist
+  "Route-side target-kind allowlist (CONTRACT §3.E / validator A4): the kernel
+   exports no target-kind validator and ->target-ref never throws, so the route
+   guards the joinable kinds explicitly. :git-commit is deliberately ABSENT
+   (gate review 2026-07-05): its target-key derives as the BARE sha
+   (relation_kernel ->target-ref), which can never join the RENDERED commit
+   object (keyed on its oc:doc container id) — the exact non-join CONTRACT
+   v1.1 removed from the import path (§2.3). Assert about a commit as
+   :container + the commit's oc:doc:<key> id, which View-3 prints."
+  #{:container :source :doc-file :conversation})
+
+(defn validate-assert-params
+  "nil when `params` is a valid assert; else {:reason <string>} naming the first
+   failure. Guards (CONTRACT §3.E): kind ∈ rk/relation-kinds; from/to kinds ∈ the
+   route-side target allowlist; from/to ids are non-blank strings; asserter-id a
+   non-blank string and asserter-type a keyword (gate review 2026-07-05: the
+   depot rejects a nil :actor/id AFTER the route would have 200'd — the route
+   must never 200 a request it can know the depot will reject, nor write-ahead
+   a poison line that re-fails on every boot replay)."
+  [{:keys [kind from-kind from-id to-kind to-id asserter-id asserter-type]}]
+  (cond
+    (not (contains? rk/relation-kinds kind))
+    {:reason (str "unknown relation kind " (pr-str kind)
+                  "; expected one of " (pr-str (vec (sort rk/relation-kinds))))}
+
+    (not (contains? relation-target-kind-allowlist from-kind))
+    {:reason (str "from-kind " (pr-str from-kind) " not in allowlist "
+                  (pr-str (vec (sort relation-target-kind-allowlist))))}
+
+    (not (contains? relation-target-kind-allowlist to-kind))
+    {:reason (str "to-kind " (pr-str to-kind) " not in allowlist "
+                  (pr-str (vec (sort relation-target-kind-allowlist))))}
+
+    (not (rk/present-string? from-id))
+    {:reason "from-id must be a non-blank string"}
+
+    (not (rk/present-string? to-id))
+    {:reason "to-id must be a non-blank string"}
+
+    (not (rk/present-string? asserter-id))
+    {:reason "asserter-id must be a non-blank string (custody: who asserts this?)"}
+
+    (not (keyword? asserter-type))
+    {:reason "asserter-type must be a keyword, e.g. :human :agent :import"}
+
+    :else nil))
+
+(defn envelope->plain-map
+  "Convert an assert envelope to a pure-EDN plain map for the write-ahead log
+   (CONTRACT §3.C): the :payload record and its nested :from/:to target-ref
+   records become plain maps (`into {}`, recursive). Every other envelope value is
+   already EDN, so the line pr-str's tag-free and round-trips through
+   clojure.edn/read-string."
+  [envelope]
+  (let [ref->map (fn [ref] (when ref (into {} ref)))]
+    (update envelope :payload
+            (fn [payload]
+              (-> (into {} payload)
+                  (update :from ref->map)
+                  (update :to ref->map))))))
+
+(def ^:private assert-log-lock
+  "Serializes assert-log appends so concurrent /assert POSTs (multiple curl
+   agents, D-008) cannot interleave bytes and corrupt a line — every line must
+   round-trip through clojure.edn/read-string on replay. In-process monitor; the
+   endpoint is low-frequency so contention is negligible."
+  (Object.))
+
+(defn append-assert-log-line!
+  "Write-ahead durability (CONTRACT §3.E): append ONE pr-str'd plain-map line to
+   the assert-log, creating the parent dir at runtime (never pre-created in the
+   tree) and flushing per append. `request` is a relation envelope.
+
+   *print-namespace-maps* is bound false so the :actor submap prints as explicit
+   {:actor/id .. :actor/type ..} rather than the #:actor{..} namespace-map
+   shorthand — the line then contains NO '#' at all (no ambiguity vs reader
+   tags), and clojure.edn/read-string reads both forms identically, so P1's
+   replayer is unaffected."
+  [log-path request]
+  (let [f    (io/file log-path)
+        ;; pure work off the lock: build the whole line first
+        line (binding [*print-namespace-maps* false]
+               (pr-str (envelope->plain-map request)))]
+    (io/make-parents f)
+    (locking assert-log-lock
+      ;; UTF-8 pinned on BOTH sides of the seam (replay reader pins it too):
+      ;; the JVM default charset flipped at Java 18 (JEP 400), and a non-ASCII
+      ;; :note must replay identically on a host with a different file.encoding.
+      (with-open [w (io/writer f :append true :encoding "UTF-8")]
+        (.write w line)
+        (.write w "\n")
+        (.flush w)))))
+
+(defn assert-relation-handler
+  "git-spine WP2 component W core. Validates route-side, then on success does
+   WRITE-AHEAD (one durable plain-map line) BEFORE appending the envelope to the
+   trail runtime's relation depot; returns a ring response. Decoupled from HTTP
+   routing + runtime resolution so tests (and the final-phase G8 pair test) drive
+   it directly with a test runtime + tmp log path.
+
+   opts   {:runtime <relation runtime handle> :log-path <assert-log path string>}
+   params {:kind :from-kind :from-id :to-kind :to-id :note :asserter-id
+           :asserter-type + optional :idempotency-key}
+
+   Idempotency (gate review 2026-07-05, trap-4 parity with the import path):
+   the default request-id/idempotency-key is the DETERMINISTIC
+   \"assert:<relation-id>\" — a curl retry after a timeout re-sends the same
+   key, the journal drops the replay, and NO duplicate decision/event/activity
+   rows accrue. An optional :idempotency-key param overrides it for the
+   deliberate re-assert case (e.g. after a retract, or to update :note), where
+   the journal must NOT drop the request.
+
+   Valid   → write log line, append to depot, 200 {:ok true :relation-id :request-id}.
+   Invalid → 400 {:ok false :reason ...}; NO file write, NO depot append."
+  [{:keys [runtime log-path]} params]
+  (if-let [{:keys [reason]} (validate-assert-params params)]
+    (edn-response 400 {:ok false :error :invalid-request :reason reason})
+    (let [{:keys [kind from-kind from-id to-kind to-id note asserter-id asserter-type]} params
+          from-ref    (rk/->target-ref from-kind from-id)
+          to-ref      (rk/->target-ref to-kind to-id)
+          relation-id (rk/relation-id-for kind from-ref to-ref asserter-id)
+          ;; blank/non-string overrides fall through to the default — a blank
+          ;; key would be depot-rejected AFTER the 200 (the poison-line class)
+          request-id  (if (rk/present-string? (:idempotency-key params))
+                        (:idempotency-key params)
+                        (str "assert:" relation-id))
+          request     (rk/assert-request
+                       {:kind kind :from from-ref :to to-ref
+                        :asserter-actor-id asserter-id
+                        :asserter-type asserter-type
+                        :asserted-at-ms (System/currentTimeMillis)
+                        :request-id request-id
+                        :idempotency-key request-id
+                        :note note})]
+      ;; write-ahead FIRST: if the log write throws, the depot is never touched.
+      (append-assert-log-line! log-path request)
+      (rk/append-relation-request! runtime request)
+      (edn-response 200 {:ok true
+                         :relation-id (rk/relreq-routing-key request)
+                         :request-id request-id}))))
+
+(defn resolve-trail-runtime-or-503
+  "Obtain the trail runtime from its defonce delay WITHOUT ever triggering cluster
+   boot from a probe (CONTRACT §3.E / validator A3). Returns [:ok runtime] or
+   [:unavailable reason]. An unrealized delay is reported unavailable and is NEVER
+   forced; a realized deref is wrapped in a ~2s-timeout future so a pathological
+   deref returns unavailable instead of hanging."
+  [rt-delay]
+  (if-not (realized? rt-delay)
+    [:unavailable "trail runtime not booted"]
+    (let [fut (future @rt-delay)]
+      (try
+        (let [rt (deref fut 2000 ::timeout)]
+          (if (= rt ::timeout)
+            (do (future-cancel fut) [:unavailable "trail runtime not booted"])
+            [:ok rt]))
+        (catch Exception _
+          (future-cancel fut)
+          [:unavailable "trail runtime not booted"])))))
+
+(defn handle-assert-route
+  "Route composition for POST /api/relation/assert: resolve the runtime from
+   `rt-delay` (503 if not booted, never booting it), parse the EDN body, and
+   delegate to assert-relation-handler with the shared log path. Takes rt-delay +
+   log-path as args so the 503 branch is testable without the real defonce."
+  [ring-req rt-delay log-path]
+  (let [[status runtime] (resolve-trail-runtime-or-503 rt-delay)]
+    (if (= status :ok)
+      (assert-relation-handler {:runtime runtime :log-path log-path}
+                               (parse-edn-body ring-req))
+      (edn-response 503 {:ok false :error :runtime-unavailable
+                         :message "trail runtime not booted"}))))
+
 (defn wrap-file-api
   "Handle /api/* routes for file explorer sidebar.
    Returns EDN responses consumable by ClojureScript client."
   [next-handler]
   (fn [{:keys [uri query-params request-method] :as ring-req}]
     (cond
+      ;; ===== Relation assert (/assert write shim — git-spine WP2 component W) =====
+      (= uri "/api/relation/assert")
+      (if (= request-method :post)
+        (try
+          (handle-assert-route ring-req fv/trail-view-runtime (default-assert-log-path))
+          (catch Exception e
+            (log/error e "[RELATION][ASSERT][ERROR]" {:uri uri})
+            (edn-response 500 {:ok false :error :server-error
+                               :message (str "assert failed: " (.getMessage e))})))
+        (edn-response 405 {:ok false :error :method-not-allowed
+                           :message "Method not allowed. Use POST."}))
+
       ;; ===== Review Pack API =====
       (= uri "/api/review-pack/create")
       (if (= request-method :post)
