@@ -441,3 +441,161 @@
                   "no via-badge anywhere in a fully convergent bundle's text")))))
       (finally
         (tv/close-trail-view-runtime! rt)))))
+
+;; ── G9 (git-spine WP2 Phase P3, display names / F-L3) ────────────────────────
+;; ADDITIVE to the gate-passed trail-view suite. CONTRACT §3.D + gate G9:
+;; md/doc/file feed entries carry a basename display-name; commit FEED entries
+;; carry <sha7> derived from the "git-commit:<sha>" source-ref; the View-3 BUNDLE
+;; rendering (which reads content) shows "<sha7> · <subject>" by parsing the §3.A
+;; subject: line; the raw tid/hash stays the honest fallback where a name is absent.
+;; The commit fixture is a SYNTHETIC source-ref flowing the EXISTING md-adapter
+;; path (contract-validated R1/R2) — it does NOT require git_spine.
+
+(def ^:private p3-sha "3f9a1c2b4d5e6f708192a3b4c5d6e7f809a1b2c3")   ; 40-hex
+(def ^:private p3-sha7 "3f9a1c2")
+(def ^:private p3-subject "Add the relation kernel")
+
+(defn ^:private p3-commit-body
+  "A §3.A labeled canonical-commit text (CONTRACT §3.A cross-builder interface):
+   labeled header lines in fixed order, blank, body, blank, files:."
+  [sha subject]
+  (str "sha: " sha "\n"
+       "parents: 0000000000000000000000000000000000000000\n"
+       "author: Sid <sid@example.com>\n"
+       "authored-at: 2026-07-05T10:00:00Z\n"
+       "committed-at: 2026-07-05T10:00:00Z\n"
+       "subject: " subject "\n"
+       "\n"
+       "Body line one.\nBody line two.\n"
+       "\n"
+       "files:\n"
+       "src/app/server/rama/relation_kernel.clj"))
+
+(deftest g9-display-name-helpers-test
+  (testing "G9 — basename (md/doc/file entries)"
+    (is (= "doc1.md" (tv/basename "trail/doc1.md")))
+    (is (= "conv.jsonl" (tv/basename "/tmp/sessions/conv.jsonl")))
+    (is (= "bare.md" (tv/basename "bare.md")))
+    (is (nil? (tv/basename nil)))
+    (is (nil? (tv/basename "")) "blank -> nil, so the id stays the fallback (never a \"\" title)"))
+  (testing "G9 — commit source-ref classification + sha7"
+    (let [ref (str "git-commit:" p3-sha)]
+      (is (tv/commit-source-ref? ref))
+      (is (not (tv/commit-source-ref? "trail/doc1.md")))
+      (is (not (tv/commit-source-ref? nil)))
+      (is (= p3-sha (tv/source-ref->sha ref)))
+      (is (nil? (tv/source-ref->sha "trail/doc1.md")))
+      (is (= p3-sha7 (tv/sha7 p3-sha)))
+      (is (= "abc" (tv/sha7 "abc")) "sha7 tolerates a short sha")
+      (is (nil? (tv/sha7 "")) "blank sha -> nil (a degenerate \"git-commit:\" ref cannot blank a title)")
+      (is (nil? (tv/sha7 nil)))))
+  (testing "G9 — feed display-name: md → basename, commit → sha7"
+    (is (= "readme.md" (tv/source-ref->display-name "spine/readme.md")))
+    (is (= p3-sha7 (tv/source-ref->display-name (str "git-commit:" p3-sha))))
+    (is (nil? (tv/source-ref->display-name nil))))
+  (testing "G9 — §3.A subject: line parse"
+    (is (= p3-subject (tv/subject-line (p3-commit-body p3-sha p3-subject))))
+    (is (nil? (tv/subject-line "no header here\njust some body text"))))
+  (testing "G9 — bundle display-name: commit → sha7 · subject; md → basename"
+    (let [commit-tb {:material {:raw {:source-ref (str "git-commit:" p3-sha)}
+                                :content-text (p3-commit-body p3-sha p3-subject)}}
+          md-tb     {:material {:raw {:source-ref "spine/readme.md"}
+                                :content-text "# Readme\nbody"}}
+          bare-tb   {:material {:raw {:source-ref nil}}}]
+      (is (= (str p3-sha7 " · " p3-subject) (tv/bundle-display-name commit-tb))
+          "commit bundle name is <sha7> · <subject>")
+      (is (str/includes? (tv/bundle-display-name commit-tb) p3-sha7))
+      (is (str/includes? (tv/bundle-display-name commit-tb) p3-subject))
+      (is (= "readme.md" (tv/bundle-display-name md-tb)))
+      (is (nil? (tv/bundle-display-name bare-tb)) "no source-ref → nil (tid is the fallback)"))))
+
+(deftest g9-feed-and-view3-names-test
+  (let [rt (tv/start-trail-view-runtime! {:tasks (rand-nth [2 4]) :threads 2})]
+    (try
+      (let [commit-ref (str "git-commit:" p3-sha)
+            commit-body (p3-commit-body p3-sha p3-subject)
+            c  (oc-ingest! rt (md/source-ingest-request commit-body commit-ref
+                                                        {:request/id "p3-commit" :time-ms 1000}))
+            m  (oc-ingest! rt (md/source-ingest-request "# Readme\nsome supporting text"
+                                                        "spine/readme.md"
+                                                        {:request/id "p3-md" :time-ms 1000}))
+            commit-doc-id (oc/document-id-for-object-key (:object/key c))
+            md-doc-id     (oc/document-id-for-object-key (:object/key m))]
+
+        (testing "G9 — feed: md entry carries basename; commit entry carries sha7"
+          ;; source-ingested arrival = wall clock (core/now-ms) → window covers now.
+          (let [now  (System/currentTimeMillis)
+                win  {:from-ms (- now (* 7 86400000)) :to-ms (+ now 3600000)}
+                feed (tv/read-recent-activity rt win {})
+                src  (filter #(= :source-ingested (:entry/kind %)) (:feed/entries feed))
+                by-id (into {} (map (juxt #(get-in % [:entry/target :id]) identity)) src)
+                commit-entry (get by-id commit-doc-id)
+                md-entry     (get by-id md-doc-id)]
+            (is (some? commit-entry) "commit source-ingested entry present in the feed")
+            (is (some? md-entry) "md source-ingested entry present in the feed")
+            (is (= p3-sha7 (get-in commit-entry [:entry/target :display-name]))
+                "commit FEED entry carries <sha7> derived from source-ref (G9)")
+            (is (= "readme.md" (get-in md-entry [:entry/target :display-name]))
+                "md FEED entry carries basename display-name (G9)")))
+
+        (testing "G9 — View-3 bundle rendering shows <sha7> · <subject> for commit material"
+          (let [bundle (tv/read-context-bundle rt [commit-doc-id] {})
+                tb   (get-in bundle [:bundle/targets commit-doc-id])
+                text (tv/render-bundle-text bundle)]
+            (is (= (str p3-sha7 " · " p3-subject) (tv/bundle-display-name tb))
+                "bundle display-name reads the §3.A subject: line of the content-text")
+            (is (str/includes? text (str p3-sha7 " · " p3-subject))
+                "View-3 text shows <sha7> · <subject> (G9)")
+            ;; hash stays the honest fallback: the raw tid heading is still present.
+            (is (str/includes? text (str "== " commit-doc-id))
+                "raw tid remains as the honest hash fallback in the heading")))
+
+        (testing "G9 — View-3 shows names not hashes when display-names exist"
+          (let [bundle (tv/read-context-bundle rt [md-doc-id] {})
+                tb   (get-in bundle [:bundle/targets md-doc-id])
+                text (tv/render-bundle-text bundle)]
+            (is (= "readme.md" (tv/bundle-display-name tb)) "md bundle display-name = basename")
+            ;; the §8 display-name slot now shows the NAME, not the container-kind.
+            (is (str/includes? text "\"readme.md\"")
+                "View-3 display-name slot shows the basename (name)")
+            (is (not (str/includes? text "\"document\""))
+                "the container-kind no longer occupies the display-name slot when a name exists")
+            ;; and the honest hash fallback (raw tid) is still present in the heading.
+            (is (str/includes? text (str "== " md-doc-id))))))
+      (finally
+        (tv/close-trail-view-runtime! rt)))))
+
+;; ── REVIEWER-AUTHORED final-phase gate (HQ/Fable, 2026-07-05) ─────────────
+;; G11 (git-spine CONTRACT v1.2): with one conversation→commit :produced join
+;; asserted, the View-3 text projection shows the commit and the producing
+;; session in ONE rendered context — text-level, pixels not required.
+;; WP1-gate precedent for test-only blocks at gate.
+(deftest g11-first-thread-commit-and-session-in-one-context
+  (let [rt (tv/start-trail-view-runtime! {:tasks 2 :threads 2})]
+    (try
+      (let [{:keys [submit! drain!]} (rel-harness rt)
+            commit-ref-str (str "git-commit:" p3-sha)
+            c (oc-ingest! rt (md/source-ingest-request
+                              (p3-commit-body p3-sha p3-subject)
+                              commit-ref-str
+                              {:request/id "g11-commit" :time-ms 1000}))
+            commit-doc-id (oc/document-id-for-object-key (:object/key c))
+            from-ref (rk/->target-ref :conversation
+                                      "oc:chat-conversation:chat:g11-session")
+            to-ref   (rk/->target-ref :container commit-doc-id)]
+        (submit! (assert-req :produced from-ref to-ref "import:git-spine" :import 2000
+                             {:request-id "g11-req" :idempotency-key "g11-idem"
+                              :note "spine-v1|sha-verified"
+                              :evidence-source-id "transcript:g11-session"
+                              :evidence-anchor-id "g11-uuid"}))
+        (drain!)
+        (let [bundle (tv/read-context-bundle rt [commit-doc-id] {})
+              text   (tv/render-bundle-text bundle)]
+          (is (str/includes? text p3-sha7)
+              "the commit (sha7 display-name) renders in the context")
+          (is (str/includes? text "g11-session")
+              "the producing session appears in the SAME rendered context")
+          (is (str/includes? text "produced")
+              "joined via :produced — one thread, text-level (G11)")))
+      (finally
+        (tv/close-trail-view-runtime! rt)))))
