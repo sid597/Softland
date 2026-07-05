@@ -160,13 +160,26 @@
                          (filter #(.exists (io/file %)))
                          [(str dir "/docs/current-mental-model")
                           (str dir "/vision")])
-             cfg {:runtime rt :roots roots}]
+             cfg {:runtime rt :roots roots
+                  ;; git-spine WP2 cfg (CONTRACT §3.C plumbing): repo-root drives
+                  ;; the commit reader + the repo-root-relative durable paths; the
+                  ;; transcript corpus is read raw (never OC-swept) for the join
+                  ;; pass; the cursor + assert-log live under untracked data/.
+                  :repo-root dir
+                  :transcript-roots (into []
+                                          (filter #(.exists (io/file %)))
+                                          [(str (System/getProperty "user.home") "/.claude/projects")])
+                  :spine-cursor-path (str dir "/data/git-spine-cursor.edn")
+                  :assert-log-path (str dir "/data/relation-assert-log.ednl")}]
          (future
            (try
              (let [{:keys [imported attempted]} (ingest-watchers/initial-sweep! cfg)]
                (println "[TRAIL] initial sweep done:" imported "of" attempted "imported"))
              (ingest-watchers/start-ingest-watchers! cfg)
              (println "[TRAIL] live watchers running on" (pr-str roots))
+             ;; git-spine WP2 boot hook (CONTRACT §3.C): replay -> spine-sync -> extract
+             (ingest-watchers/run-git-spine-boot! cfg)
+             (println "[TRAIL] git-spine boot done")
              (catch Throwable t
                (println "[TRAIL] ingest boot failed:" (.getMessage t)))))
          rt))))
