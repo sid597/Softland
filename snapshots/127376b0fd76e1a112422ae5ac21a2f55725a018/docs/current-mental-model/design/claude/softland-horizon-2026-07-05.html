@@ -1,0 +1,504 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Softland — The Horizon</title>
+<style>
+  /* ── faces ──────────────────────────────────────────────── */
+  @font-face {
+    font-family: "Land Mono"; font-weight: 400; font-style: normal;
+    src: url(data:font/woff;base64,d09GRgABAAAAACU0ABAAAAAANtAAAQGJAAAAAAAAAAAAAAAAAAAAAAAAAABHREVGAAAiTAAAACIAAAAiAPgA7UdQT1MAACJwAAAAIAAAACBEdkx1R1NVQgAAIpAAAAJgAAAF9qFDmoRPUy8yAAAgWAAAAFQAAABgZML7y1NUQVQAACTwAAAAQgAAAEjnb8weY21hcAAAIKwAAABoAAAAlI50rypnYXNwAAAiRAAAAAgAAAAIAAAAEGdseWYAAAFsAAAcXQAAKBbLo2CfaGVhZAAAHwgAAAA2AAAANidOCPVoaGVhAAAgOAAAACAAAAAkBLb/5GhtdHgAAB9AAAAA+AAAAjAwEDKUbG9jYQAAHewAAAEaAAABGgGX99htYXhwAAAdzAAAAB0AAAAgAN4BoW5hbWUAACEcAAABDQAAAjw1R1R1cG9zdAAAIiwAAAAWAAAAIP95AFBwcmVwAAAhFAAAAAcAAAAHaAaMhXicjXoJnBzVeWe96ulr+qw+qu+zurv6vs/pmb6vuXpujeYSGoEuhBASFlpxCMkCZAgxISy/2GE5IjvG2ByOgwJCXIHIzq53Y8dee702zoZNsv4RjB0MAgxMz36vukcaiXh/O1JVdX/13vvu7/3fe02QxA/W30NL5BlCRhgI4kiYl0oltBo5KRQ6PalkOhGntRrBGk/A502TfAHPYPb5zBaf75eOYqnpf+klf7NUdLzvtdlZ1m7zEgRJPILeQfeTHxESQkcQM2GSG08gECYufXyaL+yr84SCu/GzT8hH7zja47ZozDbWdlz6BGM5YEAFyGYibARxY4ZJJbgrIeQuLcNdTIYRZuBF0zUy5775C8yo8y7nqHN4lr0FPjN3uSKn3HeeK75WOAd/hdeKcP/4NQIR1fUH0K95IiJOEPMpj4fN0HQink6nkmGSBVGT6QxIS9M6ocfDOAVaDXy0kpz42g/ri1q1ZbKULxktsbyNHY0uTtT9o7RSW80WWq6iN741650Y2H8cGSV1hcHgN1mCdkO/gi0lRrb0H74RKUVVkSoasfstCnWolQ82AsI7CIJP6NbfJQ3k3xA8QgE6s0QCtEYJxN/kCjYOIvYk4v0eugs9MtzZjtLZUimLL4vVajFbrRdypVKO+w5/ZrudPLM2qliYm1vAV3wkHh8ejsdHUH0zaQRfII9n/UPwxHkiQGSJJljM6cGs05nuA0SgOdNYSR0QdfAJzMWAVQVYMGjFysF2tLoAhr1oz/+RmgwaEl6rKzIaYOt+azHmDltlEnlfRaynDFF6a79exix5rVWTZ9alsyqKLm9Yo2M01qzIII5ORJiRpt03GciNumxDYSf+knRStnZIVNnpdY4HtT5V1Ffz+lLLATqV1meG0LIhlaAtHnUsqvOGCIiBX6OfohIXq5sjtQNhOY3D8qfOpUWbP2BbWHLi1netN9DjPDlBEUSdixDQlFOL1qGjk/vT6esmA7WVSGDb6Avlh59ZXHjqPxUL2TsenJz84l1N3P8L0P+Jbv95tmsJNtONqTOhxrZYYGUsNHVdOrP/hcLAnQ9OTN17V6NQevipxYVnHsbxiuzoV5ALGZCVzRTIDMQpm4GY1F2SHKgZnVDOw37QCSGMwezCV+o6hd1J6UIh2mf00T6fhi8WbBGI+XQwSFtMNpXL5VKp3U451VLJdBqJhNYpkT1hUTsdyj6BWCCdUorUaokpmTKpNaZk0iTVakSSKVGfSMjnUQyjNcRNWn9ASwcDWpAzTcTRGmnCNj2SgmwF0SBLtR+8+mrt9dfjP6z/EP5jazyzvgPdQzywYY1uJHVjWfCywhRj+xlz3Oxlw4uP1ARym4UXVgdDeda7VMO9v0Z8iO5BJYhM4JLQfu2fPxwexvTvQTXbRTyIudc3ZQcyuH0+t8vnkyUstkTCZklA29n1JnqDp8BjzEOWzaLcROc/n+X97adZAmjZ9XfRRxDxEqg9gctHY+PYe2GScWL3W8nMZk76vUduunbf4cP7fGmbTGZL+3rPgNntNlsYRvHyk0++jK9mdHpvNrdnOhqd3pPL7p2OvhUwm4NBszkAsq2AMv8M3lZABUglKPAttlGCSmiP/Qm9FNGzjYote6JK9tFxKqtgU661L1ax/nW4/Qqk9kC/ZDdFuUiDlOOGuJipcp7WoZ1GySmfM+8eSQZLbgErjE0kxpd9kVGfKuI3ozqfLyjs2upzluvectZq68uKWXtobiiyuMWviqeiFMexBXbCHKPdqnCpjkKeg/s3PjqB/cVCIexG/W+YZlKsoMZyxXEmtxhXmZjhmCvviBd1Vu1KrrXgHwq7imzqgEJO9TWEJmfBnymZippU3B/TmuVDFBOeTAy0NeLIaCq/LQ3zBfiJFILV5ISWIFZTjlSBx9mM0boTlJyH9nZeU1Vmt8cmZmc75991VovZM8ngTcdvjnbK5TMfoJ3Ouau2Y53mQKd3YBzXlTqBz2FIh9YBOdY15O+c9US/QjGWHRq2m8sHZ4UiPo9Erc466uvjkw+diu8D6fkNodk16PIV/XR8tj0ZqsozxaySf3T3IIgNcheA3wXyLMyY3o1I42qLcMNicpLtGhLbUaDBNQc5D9647emjotljkypzy9deZvXJiWw0a6jW2BKDDEXFo3eeOruDrKHI7q1S9dBqxt2u+irxlmN4TCGX6CWFvQWs6xjc1nuRVujLOFIOLSj3V3x7bLBs73wF/SUzOZIUVu677/PXMo26984nXtwG2TEEEv8WvO4gYkQJy9wriDiLcZT1psrNskM1EnB1X30xJLivSF/fElY5kuZYzJYeDeTbEY01pM/lzNmpVLxgNkbKbCytG5oK5nSZaDSjs1UUroGK1VdLUca5AbYWt7iyBaOvElMatpbCw3FjxZW1MEmPQWgYH9BmfaiprxdUSa8npbMVomDt/HoHZP8bgoYZFmoPnc4IBIxzQ3LOq2qYtNLJTVJu533hERqbecmrj09mD904/22/t+wk9cV8JGeokhW0/y4ZNbgdjFzxPvSFe17YhrbI5VK1pLynEG/ah0fX17u1iRQIPNjWhBDf0UGg3weV8FpS0OchZP8I8dulg2dyUPPX0QVCQBA73Sm3js9Hb3Um0bfozv3oQPX5yvOlL/0pjp408adoDX0bvCKEuQH8x4crjb7byaHvoutrtf9er8NoA0SVRN3RjrBud4avnaTRgc79NPqLaumhLxWfq+KxDoCMr4NfuZp3JI1twuuFHZe+2K/yPu1mcPhjRNojUXsuay9ZaPtEJN30KQ2eIGswbmBFgVTgySdiaWcwr6AKSo01mjM5UuFgNOu6BB1JIrW+l5QC7zhR4SKK13MIraU2HMTlgy6F3dItvZCWGG5gf1EbzrKSaE91Vyuk9TavylS3xZxVS3wmml7OihRCXqHgrUQM5tx8XuK3iUwZZb9BJlH3O2Jmgdb3J6mtBz6XOvS1fcnSwZHOcXl/eHWstRwikWhk2jt350r95L6iQFwXipCQ14ccPB5TjtCpmA1brh9uHi6P9DiToPBYeTqGdQA25ebhflU4W3LtYQqZsGom2PlFoPSxJhigqECo/PVzL87NvfjC1yvnzq21/vCoP3jzH+AZaHD9E/Qe+SLgcg9GglwlojYlV/fBXiy2lJPmba63v9AMDmrpoUFtcL7ht0QtUEvTR3cktmaSM5FrUCw6wU6kwsMBe0TMBzBOPiYU8hSeZs5eCIvFgVqstBIr64cyiayu80EfmtAkIoGUgSRxzcgDTiXAU1auWl2EgD2szGV1zzFoZvz2sfHjo9rUoEMfqJory5Hc9pypFdD65xRjjx078mfTQo2molOP3zFzzfGCQlfRq7E1se7roLucsHCas9QllMlu0pGi6e84Goyj4lj8o7npL07Xd2aye0aUVinF8MUi8lGRuP7QieMP1Wup267dc1sWkWt/Byog4gAw4YG3ACfcSEE9x//geQDd2vkREnU+QnXyTPX/VDsfc3MctEa/gdbiza0PoOOd7yNZ5z1o+ctq5/muXdCnYBf7/9suFJ7Q0cT0rY3R28fjVa/IbKqzmeV0ZLnKssK2ZkWx5fShG0/PqWhhVWNs3bE4c+e4lI/Enb8WGoALrFhQZ0P2BOWAi4F7vI2i7XbnB+SZzk+Qf20UJiEs0w3Q+tVea0ASDNQGBqbEG06cQJMnAEFEqtW1v+e0LIH00JtQXzbrpXAXCsz+b8FmTGpXD8fGh3+N8u5VhdrQX1a4Zrahe6sdtryviMeYALuyMIaxKxtOAwxHIRPCPJaaaLNjjbJlyVauD7OumZlh44K9NTYdAJHPs1OTbXdgZmLCa5m46rqB7DVzDWPnGTzm/p6v+D19tfvbqAWLly7igRpOiuGtbSPrSB1GSvBgIO94DA+mUZbXL6Mk4xq3W6Vi3Jq2UiURtHl8AX/vyPVIJCS3fOtbT02XDx8azB+6qbznzV8fa3/3J9d0XkLVq3/yt23gUe75X8VJYO3TYZNjhcoLvnw0GLECVmmVhqzkmdGDV111wyiZWhvd85VTRwbXzuFVLGQLBVGhwDJujosrgrk3G7YOlIoHhls3lEsHR9PjPt94Ojns8QzjbDn22Fj3XqucXN1xslz+/NWrJys4XxZAwo+4fOEsfxHoQVWgEpegw4KpVNRP7U3cctvCdL7tGRt35OTkNyHxs1fld/+HzgU0Zq+l6+OIJDi5hzm5ddjGsOJhP7vY+4z0b6R3j8q2Xt9VILVtqC/e9v9skxbP9btqA9TTj3c1OfSlmX5HQM//RvnkDqwOdwfORS7Cu5VvQ5subOScKtisFqdXkR4Y0t9260iWzuUNc3pY7gnt/NlaZjYaavnsmX5Ox+uvLa+andv3Z7LXLZgQ6vwrmtcWC4NDNCK5/QCM+c4T4a6PNuNYFk9F3MyzKZF1Vh6G+8LoRFZmUC8UIzVPdNTnHAobD1yTXdUa6amoI+9xlX2hRtRwVEHpRGWJQx9no3mvUs4E856FawxUTWbWRxh/0qVWeyLl8NZVHNGxHiITYt27+fruq+jvXiUPQap+EbfIgawfQgttL54gHDU9cfFHKC6GiavDbXfFHyi726FVxdDBMfRfOuWRWcY5O4Je7aTHDg7BOIA0SAbG0QGncB+LZ6xexv5vaybmM4vmlOFETKNOpELyGZF3oMFu+eYjd+9zjj315JdzuYeeenLE/cev/njvpixk8Egky2UhjARmwskIKchwewDCRZlaJmj3CQQ8mcFgUozYk0YefGnzKY1szJw1q9wu9cKbn96+47Xzu3zj7enQ4sNju86/tuP4J28uLD+9OHjTYSz3xr5Qb6blJdTqBK8XHMDEoQlGk+YzW//oywvnmGrJupVKDDrMmZQ+tLKyHEBN8DzdeSl75Fjdf+DGkHfPocwmW6ix1UFYTnYeJzv128Zh76JjKWmNB9yqrebmdBihG3563epTO9Ir8/OR5h/eP95ZgzEKPc/hMVIbYLpP6NAWbK3Rkbql8yz6mqE+0W6a0K504cRtn9vJVovOXTefuDXJ1bJvwIr0CViRgufn8bIFrm+sP/ssrEkLn54pdlcmTfSz7pq1DmtWdE/nexMo3V20IuIUvL2r15+r9Qnq1LPPrp8t8kYLeFWLiBSqod+BhAK8i6BOqIW8G/IvN1/JP45qNjTdedqG3NBKvN4k2fV7uJUxqCAmrWerVaCfIxvoGp4Y08tsRofSt2QPko0Hw1+BnG2sv4/eJFVQ40KX1gMcWrti+Ud194RSF1MJebwTZW9lV9qSMaoz6fgwJaa2JMa2epy7cp48pcrYmFpwWCpzlRP5hk0oMDsKXoWwKpLH53Od5wXymqDvqwKx0uvK+EGOmfX3SYInIqiNastSmcvBwybsgMT+eko1Ia8EGrsyxQPzM9ut1bSzqtSFpGIZn3xb3nlLrK/fPDl7tNLYvZpdSluUnW8Ihd0cfB+9z+nbq+lclfoMBJKTaHzsttHI1M4UMxpQ+Urm+MpgdlvOXfZLTOmsdODIysiekrVfVlcIPPNjzXmvUFHpl/FBkxhw+F+bNdmwKCjELaouQV4a+Vo3lLK76qGyoq1K1kLeTL+y4kpXbVdJKzfPThxt0BIklq8J+TLxsLAPbVFa0kvZ1WuASxS4fAJ6GHHubtIErKXROi4COZ6jV+ZRdulw1t/cEqpuT3ZOiq5eStQUEunCbxDLDLKhul86fOtIfVfVkTu80KcULiwphRWxBpVjNXeI2wWbhDwzgFaGbnVLbCi1YTi8W0Sd27cvs5jwTjAK/Qhrzzh+8AP0ejU5seBRSRpyyjCYSlY7Q3iOiqzX0C9AegsR7OLEjbKdunzJAEWRd5nB6HdiUyaZZdSfaTqlzcjArkJ672hrh/HonKehkWUisYbLX35R0d+Qyi3lFCXUpw5ubR1pakSdwE27kZpWoCJfHN2SLU26sFYzcHsTtNJirS7GG+CyjVibaRsHLJOL7rYhn7QVZOTH8s6F/v78vmbnDaRoTLnk/M4wrAUr4I3fku/BGhEwJ2TpH/yQAOrW9Qp6gqPe0KWWezxJDfDUd3n2Cm0Pa2ln2uHlLa4lx/y2iLU93dBepatNjFkxX4enMexlAYtpKxNTLvdwNaP6GI/H8ebxcPXqziq4fmyC8scqDdOX/0Xtsdoyaom8Jo0sN9DHtbXz2SGdvL8m0hBdbEoKSDXhxjJ1Tf8ZW8AXLdMDJFTcmjMzg1pj0mgZCoxRNo3cJu/jjZlYiUmJfieTaaCxvRTt3IZO6lwaiuqnJS+9wIQE/E7uot1Jqlu1/x2rp3a4y9sSbdeQx5A1oo/kksDqdOe/IabV1MMQZS7LLkDNVv1/ojO6snswv6dS2zs4uLcaqnk89VCw6vbUJNWj09NHazV8r7YiC4XCYjS6WCgsRAiuJjVhvUR1M3n+EjrDIcpqM5fwGZSkGXWy7h8+UMzsaoTLspsghbc1Q1EpVT1LPgPZW755tn1zg5Z+/4PUYmZ1l4jfeVJpJrg8bkIm9HjULw9/iP9L5YLT4z5FKdDYnS0eHPZVk5rXXRWlLBJoXWWvnv1+v75xy/jc0TIUobXpD8xKNMsX7VrNLKawvY9x+5IqvGu7YW+dEO+EguzHcjemjV6vUW5wMzr3sAv9SqUhBfyqUID6JR28B9GGCPsn6B25DGNdgljdQsANdwliCRDPPjRgpdj5eKXiK7tthbg1tNzwLdrk0tiAuVR1Zh3O+gATu1oqUMhG1DTjNrnNUomJiTt9JbdUNCySCJ1erU0nlVk8KVe0bOfqEMjyLvkErkOc17m96gy3V70p5g9PTRqvvbb9xht0IuCNqKSikjS1vfRx9UH5V6qfZIb0ClGlD6/JJiCKfkEKLuXOxczpLvbMo4vetnkwypSEbfOqZHBfHbk779ZmXCIeeqUjEqouYigBobkcQwEa+zfnSNU4r4nnTJqA36OYUcczWWPziee3VR/+47R3z42HEo1777w5BWNALSD1MIZvY4wuosOPHg6D2gAjXqd16IQTPLGU6lcbtRpZXqZRGyg5reQPCwwO7aDKqDdSSqPBrLrm3J9XAlOLB0ZC1YGi31/MVYLzdx0eKD/10pK3XGhFIq1imQXOMHuQcuCMsSTwYhO6TEJ4CZMxxkrL+eLyA6fmn3LWysYlWXzQYilnFeFtS4H3z517J7i8PWYenwF82jbBaKH1GmSMgMuXi1U9s2GVripy8rAyJlQI3Yp82RKcqui2KsJDjNnrpqfpbMFuKEy9KOkr9okigzPPPjc/+ODDrdFT981tf/HpscExF97/hzD4OfBQbUZrPEBrs6p0qZynYTl0kG7OTtmQN+Pasrhl2FAd0s/v/1yaw2orkG8/B6zl34ifTRveXChDJEEYb+zUQFABBd1dH7epXUa/z+hW28br0yuxoMYik5s1wcTSWe9Y+gVtyFawhbVn02PeQjD31XiJEYnZQuT0QJDDfxeA62DvzAIi60Kzd17RRYY/gjc+DvvFu0JkuoJxcuGyi2OSk6srGDO3Eg9oLVKNPxhfnqm37RRj9HuNLpW9XT9bDA6cThQZkXy48dVcsICF04RBuJD2BRAOOIaJn6F1dAj7aCf4yLNxyMDDWdydhgH/8NBt1hhtTtp1Znlfqo+yRJzWOG1JWfQmOS/FU9giP9PJKafFLZVRQZ9JJ1c6rW6pAn8GLV3r75ESYid3msxwsXBx3zHxez6vGOx2g9FuP22w2QxGq/Wx3lPm0OmdTr3OceUTW+8J9Et0B0+P69rMpv13rkp/hA+hqkpTzCNhzAn0yzzrW6yJanyFzcILaYLcSeLX0T+gk2B93P/K06zncdd+pzlhwgOhf+COs/pCF4+zYA5CF9DHgKtVeN7k+MMQF/knriTcbolRvlZWpg86+20228+tccrbyii7X+3ogi9pH4gzogJfZjT2+Y2GyGcIwDOJ3kKfkp0uz/LlMstJ/pUEVIfxGbHNbvdaYkpfs/MduT7g7Lfa7R5g72uht4oCqcnICxj0UV/Cno+7RFcSsJ2OE6+jb5H4fBvHzGVzLdJH6i5XPRKpud2114PDgUArFGoFAsNB6DeNZGDhORz3eId7Gt2LZK0WHpFAMjLafTMFb+AzfkFCfX8AKvJ5Ik2MbK4hkA3sprOKK1b1uk3nFgJeb/XPHWNz8xFNr5Um9WpjI1coDNQik1F7QGW0rcyk5mglXU/ro/ZMPjQVt/hVFnav2s5Gmi6BVADPUT9PuF8jKUpULq8vQCvZctozwIo0SVd1QiOoirQKu9Hj0yrc5Zxz0C9WD7iGx5BPnXR6AmYZ2cdTp5zukEWOSIwGv0f8CO1ChwXcSQHxj78XNfb2zYAa4s4b9hO3dF7ptibneDygj/fonc6LYMn/Sa6iefKf8E5h+bITTaPbbYSLXHVZLC58Ybtj0KGGlSSv+xsFM/p2vTOOf1KwgSS7M9lnkSTE0rFS0/zlf9H6zK6MREI6EtLwUgMR1c5ruSFaJaiRcinm0EW9QlyfN/lvYzvyQ3aO0Rmr1ljx75E9MfWyUlWRUdE6+k5t7QOYV0HPU+u/Q0+gU2CnWwii8xpQ7iUQegzdDpRbe5T7gHKaa3Nbj3I/9HqMoxzrUW6BNs9wvW7vUR6ANqc5yvEe5UGgnEEngHKiR3kUej3Htfl8j3I3tHmcG/nkRi9Q8wxHuQNTwJanUAZ0xqfO+Pcfl/nhSix6+alztd2uwlWzu+Ryl93qUihcNo1Op9EaDCize/v23fjKeMust+yF/2zZu8dIUUZ8YVvfi4roMfIlHFEzgIM2nTc/cD1doJSGWIhy70bF7AWFri8k1FlVnRfwjsN90O90d8d7xnP5YXN6o/7BRA2w6hG+Na7Xu7Vuh441CWzyarBSYQYYiU7xOir6C1Gt1s1QVoNS3eelnOmUOZO1ibVqETe33Q9WeYz79Qmujptg46UT5isOmLn7p9ZBSqaKG/IBV9Yq1WhCNp/dHKK08oo9kjNZLa7QOMrIRQmhlLEYbPJYv0FnptWiaD9tDNsMPoU44Y7VMLa+BbR8BqwjxxFdBqSIMRUHFdlECuK5dF4azA5ZYc5/5SQdDaLidlZbalX0/5rc/h8fpdOcDg+ADqdhDNtndMCG1jIbJ8rrtoJCKk9b8gHrxAgf1uo/fBiRiEeuLExhYZMCuUevc+schYIzI9HStFRQHkhye8APAocz5CuwBmU2IueyQ+SLyxnuEBkWAcHRsXsOCwJTObHOo0gOmS2DcbND7vHRfhopfCgzP3b953hJpA87JX1Mzm7KexMGl5xxCYWeQe4XMY+CXZ7j7ELMgEmYLoD6Kc/ij+n/K9Jrk3GGh4q+paVxYzasaS3viuNzrbtBzsfBm3h3N85Jyom6UY57/tNt/KapV30z6Us/cEK6VMHk1tHmkYFQ3mLVuQy8sVrQY066aYO7oTHZfV57BGWYhM6YUCijhlDREdWZg5Qy5IgVUnYaIK9Y6dIpPd+kHDq5w6HU+jj7FcB+58F+zt4sftkiqpuCmfRGAn6TjM4MiHWsIlEwWwqRkbF7+TofTXpTJofchwoJUhdx9guYnM084Jsbv+Hw63xRbtTIKJwMN2vVYaZ6ZNOsVV9YAPrbmM47jc86Ziicfm8vYtLK2qfcW6iIdXjbQ39vL77ct/2Tx4juG65fd+eQ2zuEnm/De+i5hvcmf0zuRMvke5+p7gaz12u2eDzkTtbu8Hgcdpb4v9I1D6YAAAB4nGNgZGBg6GG0YvBkSGVgZQDxEICZgREAJBkBgQAAAAAAAAAAAAAoAE4AfADGARMBfgGVAbUB1AIoAjwCWwJnAn0CjALLAucDIANmA4oDwgQABBsEeQS1BMEEzQThBPQFBwVFBaQFzQYaBksGewaSBqYG2QbwBwUHJwdRB2AHkgexB+MIDQhKCIQIyQjaCP4JIwlaCYQJpgnGCdcJ5gn3CgoKFgokCmgKnArNCwALOAtfC6MLxwvSC90MBQwnDF8MgAyyDOQNFw02DXwNow3FDecOJA5LDn0OnA7XDuQPHQ9PD4MPow/CD/wQNxBTEGAQbBDZEOIQ7RD5EQURHBEqEU0RbRF2EX8RiBGREZoRoxGsEbURvhHHEgMSHxJSEpIStBLlEx4TOROFE7sTuxO7E8cT1hPjE/QUCwAAAAEAAAABAYmT4RPjXw889QADA+gAAAAA4L/ASQAAAADmbwNp/q3/MwJbA6QAAAAGAAIAAAAAAAB4nI3RP0tCURjH8cPddGm0weWS5CDpvaJR/slSFAdRMYMaeglhuxBO/oEgQlprk2zpBfQSWloceg2Cm7vfgz/hjg4fznMPz3nOc57reObM8YzBH97hooIIjrHCEGPtn+IbM/yi62xr3KOKOhK4wQUaKCKv/Becq04OPWQRRkF5Be339J3GIy7RwgPiuFK/d1pL6tHXHQfKcxXbfr7U20j3hvCDGq51zp730EZK+2XcBuK0Yl+rzX9CU+dauvsQRzjRrOyc1uohiRjm+FStDAbo6L+0Nbey3m3Xf0QDPdm3PGu2r+hjijd8YKJ43zwTsNwxxiw2JsxNu3icY2BkYGBe8+8PAwOTwb+1/7SZohmAIiigBwCc6wabeJxjYGEyYJzAwMrAwNTFFMHAwOANoRnjGPwZfgFFuZk5mdmYmJlYGhgYmBmQgIujryPDAQYFVRnmNf/+ACX/MNwHCjOC5JjYmLYCKQUGHgBDegzjeJxjYGBgYmBgYAZiESDJCKZZGBqAtAyDAFCEh6GOYQHDcobtCiIKkgqyCkoKaqoMqkyqIqoy//8DVSlAZYUVJBRkUGX/P/z/9P/B/5seBD/wfOD+wPmB1e12ICy5nQe2BycAAMX8H8a4Af+FsASNAHiclZFNTsMwEIW/oS1SC+IAXeUABaVF6oZVW4QEgk0RsIamKkj9UxIWXIEVB+AAiKNwAo7Ds+OoJRuELDufZ94bT2xgj1dqWL0JfGoWbETaFbzDAV+Bawz5DlwntnbgBm27CLxLx5KCzdi3t8CNTR1rKv4euEXLPhixYs0LKU/MeCRXBz1iuhqdwD2NDR+LRtyzlHMp10Q8V+xS3oQjkWMXnyqfaU0UeRYn4lSc65ypvjc8+HiuNeLM18t/uSde11XVuKK+9h1koivvWzGWdqbcXJk0eGL6nHDKQKqBaLtGWaH0H1Yq/HVeVNHf+r/L1LvLR1sd/OfUO+3KlzjXdHfrbmMs7cJ5fwAq5FPzAAAAeJxjYGYAg/9lDP5AipEBDQAAKYsByQAAAAEAAf//AA8AAQAAAAwAAAAAAAAAAgADACIAOwABAEIAWwABAGoAbAABAAAAAQAAAAoAHAAeAAFERkxUAAgABAAAAAD//wAAAAAAAHicfVRNaBNBFP7e7mwSW1u3Mdr6F9cikoMRCdKTl9JaJLZBQughlGKNiNbtFkMV1B5EFIr0IB48efDQc0/FUynFk2fx4EF68NRj8eStvn27SXYnm/LxJjPv+97Mm7dvAgLQhzc4gDk5NV1DrvGi6SLnLqx4GIHD7Hmo8fotB4WJ8ZqDsYkqj5O16h0HVeDwECZrCCmZK5kbsZUZW6nYyuJV+oG3vISrD5sLDZTc5YaLuzLOyjgn433v2VITjyQmzeMAMpz1cQzCRhY5nOZcz3KmecnYv1Nwsj9SmFOQ5SimBHV8xrZaVVv4bSpzRK2aJbYKm8u2zrbJ9oPtH6sctjLbe7Wlvqm/4Z4Z2dGRM8r+vUJfH5+WxRU5tYgZuTV4/phnRYm1Yr4Z8amwJv4O2fBXwQ01viqJf9Lmi+0MDOMa18Nm829dYJ8tCoNhMwwMcbUIw7iOCp+whg3s4BcOKEN5ukG3aY48ek0f6Att0jZ9p5+0R/vol110GGG9/bN7KfweOzoymQeOHRmVxEIq0yuimwN3VC+1zoBrnKxMaTorUWXFNCpBoSK82cWabc7QGAOtHo96W74Ogop2undevHa7d+TN0A7brOj6NWYDBvfETeEGNG4NJn1kOMKe0NhFKFoRBBkOaXwZFtUC4I8oTmqKAlJUagG7ojmlaRTSNNgBv3JfNRxXYY9n+zE8F90ZTfeVq7WroSLKc5pynTv4Uxcui/aC1NiL1L2OxUh88J6nw3+ui/JOPQbwFC9BkbhR3IvF5djG2PKiuSTf3n/bQX+8wttwz9bXfhd0wX+Kd3OZeJxjYGRgZOBgYGJgYBABkyoMTOXpGSWMjAwMmSWJOYycQHkWoBwzUI6JkZVxApDaA2QzA8WZGLkYQACoFgDQ8QU+AAA=) format("woff");
+  }
+  @font-face {
+    font-family: "Land Mono"; font-weight: 600; font-style: normal;
+    src: url(data:font/woff;base64,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) format("woff");
+  }
+  @font-face {
+    font-family: "Land Sym"; font-weight: 400; font-style: normal;
+    src: url(data:font/woff;base64,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) format("woff");
+  }
+
+  /* ── tokens ─────────────────────────────────────────────── */
+  :root {
+    --paper: #f1efe9; --card: #faf9f5; --ink: #23211c; --ink-soft: #6b675d;
+    --line: #d9d5ca; --thread: #55708c; --wire: #55708c66;
+    --kraft: #a06b2e; --kraft-bg: #a06b2e14; --kraft-edge: #a06b2e59;
+    --dead: #9a4f44; --fresh: #4f7355; --sel: #55708c22;
+    --mono: "Land Mono", "Land Sym", ui-monospace, Menlo, Consolas, monospace;
+    --serif: Charter, Georgia, "Times New Roman", serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#171511; --card:#201e19; --ink:#e6e1d5; --ink-soft:#97917f;
+      --line:#38352c; --thread:#7d99b5; --wire:#7d99b566; --kraft:#c99a58;
+      --kraft-bg:#c99a5816; --kraft-edge:#c99a5866; --dead:#c07a6e;
+      --fresh:#7ba184; --sel:#7d99b522; }
+  }
+  :root[data-theme="light"] {
+    --paper:#f1efe9; --card:#faf9f5; --ink:#23211c; --ink-soft:#6b675d;
+    --line:#d9d5ca; --thread:#55708c; --wire:#55708c66; --kraft:#a06b2e;
+    --kraft-bg:#a06b2e14; --kraft-edge:#a06b2e59; --dead:#9a4f44;
+    --fresh:#4f7355; --sel:#55708c22; }
+  :root[data-theme="dark"] {
+    --paper:#171511; --card:#201e19; --ink:#e6e1d5; --ink-soft:#97917f;
+    --line:#38352c; --thread:#7d99b5; --wire:#7d99b566; --kraft:#c99a58;
+    --kraft-bg:#c99a5816; --kraft-edge:#c99a5866; --dead:#c07a6e;
+    --fresh:#7ba184; --sel:#7d99b522; }
+
+  html { background: var(--paper); }
+  body { margin: 0; color: var(--ink); background: var(--paper);
+         font-family: var(--serif); font-size: 17px; line-height: 1.62; }
+  main { max-width: 960px; margin: 0 auto; padding: 0 20px 110px; }
+
+  /* ── hero ───────────────────────────────────────────────── */
+  .hero { padding-top: 46px; }
+  .inscription {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-soft); margin-bottom: 20px;
+  }
+  h1 { font-size: clamp(34px, 6vw, 54px); line-height: 1.05; margin: 0 0 10px;
+       letter-spacing: -.015em; text-wrap: balance; }
+  .standfirst { font-size: 19px; color: var(--ink-soft); max-width: 60ch;
+                margin: 0 0 8px; }
+  .standfirst em { color: var(--ink); }
+  .soul { font-family: var(--mono); font-size: 12px; color: var(--kraft);
+          margin: 14px 0 26px; }
+  .earthbox { border: 1px solid var(--line); background: var(--card);
+              margin: 0 0 10px; }
+  #earth { display: block; width: 100%; height: 380px; }
+  .earthcap { font-family: var(--mono); font-size: 10.5px; color: var(--ink-soft);
+              padding: 8px 12px; border-top: 1px solid var(--line);
+              display: flex; justify-content: space-between; gap: 14px;
+              flex-wrap: wrap; }
+  .dreammark {
+    display: inline-block; font-family: var(--mono); font-size: 11.5px;
+    border: 1px dashed var(--kraft-edge); background: var(--kraft-bg);
+    color: var(--ink); padding: 6px 12px; margin-top: 16px; line-height: 1.6;
+  }
+  .dreammark b { color: var(--kraft); }
+
+  /* ── scenes ─────────────────────────────────────────────── */
+  .scene { margin-top: 76px; }
+  .when { font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
+          text-transform: uppercase; color: var(--kraft); margin-bottom: 8px; }
+  .scene h2 { font-size: 27px; line-height: 1.2; margin: 0 0 14px;
+              text-wrap: balance; }
+  .scene .prose { max-width: 66ch; }
+  .scene .prose p { margin: 0 0 14px; }
+  .scene .prose strong { font-weight: 600; }
+
+  .frame { background: var(--card); border: 1px solid var(--line);
+           box-shadow: 0 1px 0 var(--line); margin: 20px 0 10px;
+           overflow-x: auto; }
+  .rim { display: flex; gap: 18px; flex-wrap: wrap; font-family: var(--mono);
+         font-size: 10.5px; color: var(--ink-soft); padding: 7px 12px;
+         border-bottom: 1px solid var(--line); }
+  .rim .addr { color: var(--thread); margin-left: auto; }
+  .fbody { padding: 12px 14px 14px; font-family: var(--mono); font-size: 12px;
+           line-height: 1.7; min-width: 560px; }
+  .row { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap;
+         padding: 5px 6px; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: none; }
+  .row .d { color: var(--ink-soft); font-size: 10px; }
+  .row .t { font-weight: 600; }
+  .row .s { color: var(--ink-soft); font-size: 11px; }
+  .mk { font-size: 10.5px; color: var(--kraft); border: 1px solid var(--kraft-edge);
+        background: var(--kraft-bg); padding: 1px 7px; white-space: nowrap; }
+  .mk.ghosted { border-style: dashed; opacity: .7; }
+  .mk.freshm { color: var(--fresh); border-color: var(--fresh); background: none; }
+  .who { font-weight: 600; }
+  .dim { color: var(--ink-soft); }
+  .deadt { text-decoration: line-through; text-decoration-color: var(--dead); }
+  .qrow { color: var(--kraft); }
+  .lawline { font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+             text-transform: uppercase; color: var(--ink-soft); margin-top: 8px; }
+  .lawline::before { content: "⊢ "; color: var(--kraft); }
+
+  .cols { display: flex; gap: 12px; flex-wrap: wrap; }
+  .col { flex: 1 1 240px; border: 1px solid var(--line); background: var(--paper);
+         padding: 8px 10px; font-family: var(--mono); font-size: 11px;
+         line-height: 1.6; }
+  .col .ct { font-weight: 600; font-size: 11.5px; margin-bottom: 4px; }
+  .wireframe { font-family: var(--mono); font-size: 12px; line-height: 1.5;
+               color: var(--thread); white-space: pre; padding: 4px 8px; }
+  .readout { display: flex; gap: 16px; flex-wrap: wrap; font-family: var(--mono);
+             font-size: 10.5px; color: var(--ink-soft); padding: 6px 8px; }
+  .readout b { color: var(--ink); font-weight: 600; }
+  .warm { background: linear-gradient(90deg, var(--kraft-bg), transparent);
+          border-left: 3px solid var(--kraft-edge); }
+
+  /* coda */
+  .coda { margin-top: 90px; border-top: 2px solid var(--ink); padding-top: 26px; }
+  .coda p { max-width: 62ch; font-size: 18px; }
+  .coda .q { font-style: italic; }
+  footer { margin-top: 44px; font-family: var(--mono); font-size: 11.5px;
+           color: var(--ink-soft); line-height: 1.8; max-width: 80ch; }
+</style>
+
+<main>
+<header class="hero">
+  <div class="inscription">softland · design track C · the horizon commission · dreamed 05-07-2026</div>
+  <h1>The Horizon</h1>
+  <p class="standfirst">One day in the land, at full scale — every layer of the vision
+  inhabited: the knowledge earth, many minds, working rooms, an economy that pays for
+  repair. <em>Dreamed with the laws on.</em></p>
+  <div class="soul">"a land made of software — a place you inhabit, not a tool you use"</div>
+
+  <div class="earthbox">
+    <canvas id="earth" aria-label="the knowledge earth: nations of domains, worn roads, fog coast"></canvas>
+    <div class="earthcap">
+      <span>the knowledge earth · dawn · population 214,318 minds (61% human)</span>
+      <span>relief = question density · warmth = read-wear · coast = fog</span>
+    </div>
+  </div>
+
+  <div class="dreammark"><b>This page is a dream, and says so.</b> The one place the map
+  is allowed to render what does not exist yet — wearing its label. Every scene obeys the
+  laws (they are quoted under each frame). Nothing here is scope; it is the shoreline the
+  building sails toward.</div>
+</header>
+
+<!-- ── scene 1 ──────────────────────────────────────────── -->
+<section class="scene">
+  <div class="when">06:52 · waking</div>
+  <h2>The refutation traveled while you slept.</h2>
+  <div class="prose">
+    <p>You do not open an app; you stand where you stood. The rim says what the night did:
+    four minds touched your frontier, your agent walked ahead and left seven proposals where
+    they belong — and a claim you stand on was <strong>refuted three lands away</strong>. It
+    did not arrive as a notification. It arrived as terrain: the mark crossed the provenance
+    edges from her bench to your ground overnight, and everything you built over that claim
+    now renders with the tremor visible.</p>
+    <p>You walk there first — not because a queue demands it, but because your own
+    dependencies are lit. Her evidence is one gesture from her raw run. You read at your
+    altitude, sign <em>superseded-by — gratefully</em>, and your three downstream threads
+    re-hang themselves under a question that did not exist yesterday.</p>
+  </div>
+  <div class="frame">
+    <div class="rim"><span>scope: grounded</span><span>overnight: 4 minds · 7 proposals · 1 tremor</span>
+      <span class="addr">view://walk?since=your-sign-yesterday</span></div>
+    <div class="fbody">
+      <div class="row"><span class="d">stop 1/9</span><span class="t deadt">c:tape-Jc77 — critical current holds at 20 T</span>
+        <span class="mk">⊢ refuted-by · <span class="who">mei · lab-osaka</span> · run e:9f2c (raw, 1 gesture)</span></div>
+      <div class="row"><span class="d">shaken</span><span class="s">3 downstream threads re-hung: coil-margin, budget-2, the note you sent kestrel</span></div>
+      <div class="row"><span class="d">you</span><span class="mk">⊢ superseded-by · <span class="who">sid</span> · "gratefully — see stop 9"</span>
+        <span class="mk ghosted">? what does the margin rest on now — minted at the collision</span></div>
+    </div>
+  </div>
+  <div class="lawline">walking writes · the trail is the inbox that isn't</div>
+</section>
+
+<!-- ── scene 2 ──────────────────────────────────────────── -->
+<section class="scene">
+  <div class="when">07:30 · the earth</div>
+  <h2>Zoom all the way out. It is still true.</h2>
+  <div class="prose">
+    <p>Nations are domains; their borders are watersheds of method, not bureaucracy. The
+    roads between them were <strong>worn, never planned</strong> — the materials–fusion road
+    is a decade of feet. Population renders as warmth on the paths, not avatars: you can see
+    where humanity is dense this morning, and where no one has walked in years, and both are
+    rendered honestly.</p>
+    <p>The relief is question density — the peaks are where unknowns cluster, and the coast
+    is fog: <em>the map renders the shoreline of ignorance, not the contents of the dark.</em>
+    On the materials coast a new question lit up overnight with eleven backers. You can see
+    it from orbit, because no altitude is allowed to compress the question marks away.</p>
+  </div>
+  <div class="frame">
+    <div class="rim"><span>scope: earth · aggregate (badged)</span>
+      <span class="addr">view://earth?relief=questions&amp;warmth=walks</span></div>
+    <div class="fbody">
+      <div class="row"><span class="t">fusion energy</span><span class="s">4,211 minds walking · 312 open questions · 2 disputes at the ridge</span></div>
+      <div class="row"><span class="t">materials</span><span class="s">2,738 minds · coast event: <span class="qrow">? q:tape-margin — 11 backers since 03:00</span></span></div>
+      <div class="row"><span class="t">softland-itself</span><span class="s">the bright small district — the land, held in the land</span></div>
+      <div class="row"><span class="d">fog</span><span class="s">right coast: unwalked · rendered as terrain, never as blank</span></div>
+    </div>
+  </div>
+  <div class="lawline">law 8 · no projection may compress away the question marks</div>
+</section>
+
+<!-- ── scene 3 ──────────────────────────────────────────── -->
+<section class="scene">
+  <div class="when">09:04 · descent</div>
+  <h2>Disagreement is a place you can stand.</h2>
+  <div class="prose">
+    <p>Down into fusion — district, topic, local world, each step labeled, the rim never
+    changing. At full zoom the ground is made of questions, claims, evidence, sources. Two
+    labs disagree about the tape result; <strong>both evidence rows stand</strong>, badged,
+    unmerged. Where they collide, the land minted a question — and the question carries a
+    bounty: not money first, but standing offers of instrument time and a graduate year.</p>
+    <p>A dispute here is not a comment war. It is a crossroad with terrain: the shortest path
+    to <em>what experiment would settle this</em> renders as the thinnest fog between the two
+    claims — and everyone standing here can see it.</p>
+  </div>
+  <div class="frame">
+    <div class="rim"><span>scope: ground · Q→C→E→D→R→F</span>
+      <span class="addr">view://fusion/tape-margin?alt=ground</span></div>
+    <div class="fbody">
+      <div class="row"><span class="d">C</span><span class="t">critical current holds at 20 T</span>
+        <span class="mk">⊢ supported · <span class="who">lab-boulder</span> · e:run-441</span></div>
+      <div class="row"><span class="d">C</span><span class="t">degrades 9% per thermal cycle</span>
+        <span class="mk">⊢ supported · <span class="who">lab-osaka</span> · e:9f2c</span></div>
+      <div class="row"><span class="d">D</span><span class="s">the collision, preserved — nobody averaged it</span>
+        <span class="mk ghosted">thinnest fog: a cycled-field joint run — no one has walked it</span></div>
+      <div class="row"><span class="d">Q</span><span class="qrow">? q:tape-margin — 11 backers · bounty: 2 instrument-weeks, 1 grad-year</span></div>
+    </div>
+  </div>
+  <div class="lawline">late-bound consensus · disagreement is the frontier, kept</div>
+</section>
+
+<!-- ── scene 4 ──────────────────────────────────────────── -->
+<section class="scene">
+  <div class="when">11:40 · the workshop</div>
+  <h2>Science and engineering are one land, one floor apart.</h2>
+  <div class="prose">
+    <p>An engineer two nations over picked up the Boulder claim yesterday. Her room is 3D:
+    the coil winding, simulated live. The room itself is a <strong>view-spec with a
+    lineage</strong> — she forked the sim view someone built for stellarator geometry a year
+    ago, and its ancestry reads like a claim's. Her overnight run attached itself back to the
+    original claim <em>as evidence</em>: engineering flowing into science as edges, not as
+    citations trapped in a PDF.</p>
+    <p>You enter read-only, at your zoom — your assistant carries your level, so her numbers
+    arrive in the form you think in. You leave one mark on the way out: her run now shores up
+    the thread you rebuilt at dawn.</p>
+  </div>
+  <div class="frame">
+    <div class="rim"><span>scope: room · 3D · read-only visit</span>
+      <span class="addr">room://ana/coil-b2 · forked-from view:stellarator-sim/v9</span></div>
+    <div class="fbody">
+      <div class="cols">
+        <div class="col"><div class="ct">winding sim · live</div>
+<div class="wireframe">   ╭──────╮
+ ╭─┤ ◠◠◠◠ ├─╮
+ │ ╰──────╯ │
+ ╰── coil b2 ──╯</div>
+          <div class="readout"><span>margin <b>1.31</b></span><span>cycles <b>10⁴</b></span><span>ΔT <b>stable</b></span></div></div>
+        <div class="col"><div class="ct">provenance, flowing back</div>
+          run r:118 → <span class="mk">⊢ evidence-for · c:tape-Jc77</span><br>
+          lineage: stellarator-sim/v9 → coil-a/v3 → <b>this room</b><br>
+          <span class="mk freshm">⊢ references · sid · "shores up coil-margin"</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="lawline">one address space · the workshop writes evidence, not reports</div>
+</section>
+
+<!-- ── scene 5 ──────────────────────────────────────────── -->
+<section class="scene">
+  <div class="when">14:15 · many minds</div>
+  <h2>A visitor is walking your land right now.</h2>
+  <div class="prose">
+    <p>kestrel — an agent from the Osaka lab, read-scoped by you last month — is walking your
+    rebuilt threads to see how you absorbed the refutation. It orients in minutes, not
+    because it is brilliant, but because the land is <strong>legible in minimal tokens</strong>:
+    View 3 is a citizenship right here, not an export format.</p>
+    <p>It leaves exactly one proposal, at exactly the right place, ranked and capped and
+    badged as machine. Presence is not cursors: it is warmth on the paths. You glance at your
+    own lanes and see which trails are being walked this hour, and by what kind of mind —
+    and none of them can pretend to be anything they are not.</p>
+  </div>
+  <div class="frame">
+    <div class="rim"><span>scope: your land · visitors 3</span>
+      <span class="addr">view://trail?lane=coil-margin&amp;warmth=on</span></div>
+    <div class="fbody">
+      <div class="row warm"><span class="d">now</span><span class="t">coil-margin thread</span>
+        <span class="s">being walked · <span class="who">kestrel</span> (agent · lab-osaka · read: granted)</span></div>
+      <div class="row"><span class="d">14:12</span><span class="mk ghosted">proposal · ranked 1/3 · "your margin note predates run r:118 — re-derive?"</span>
+        <span class="s">waits at its place · never returns unchanged if refused</span></div>
+      <div class="row"><span class="d">today</span><span class="s">warmth: mei walked stop-9 · a student walked your dead-ends and left thanks</span></div>
+    </div>
+  </div>
+  <div class="lawline">asymmetric admission · watching is cheaper than contributing</div>
+</section>
+
+<!-- ── scene 6 ──────────────────────────────────────────── -->
+<section class="scene">
+  <div class="when">16:00 · the view forge</div>
+  <h2>You ask for a view that does not exist. It exists before you finish asking.</h2>
+  <div class="prose">
+    <p>Mid-thought: <em>"show me this dispute as pressure over time."</em> The view
+    assembles while the sentence lands — dashed borders, a candidate, because
+    <strong>a new view is never an app</strong>. You drag one axis; it learns. You sign it;
+    it is yours, addressed, versioned.</p>
+    <p>By next month, four hundred minds use a descendant of it. The view has a genealogy
+    page like any claim — forked-from, improved-by, dead-ends included. Nobody designed this
+    land's best views. They were <strong>walked into existence</strong>, the way desire paths
+    always were.</p>
+  </div>
+  <div class="frame">
+    <div class="rim"><span>scope: view forge · candidate</span>
+      <span class="addr">view://q:tape-margin?as=pressure-over-time · unsigned</span></div>
+    <div class="fbody">
+      <div class="row"><span class="d">you</span><span class="s">"show me this dispute as pressure over time"</span></div>
+      <div class="row"><span class="mk ghosted">view assembling — dashed until signed · Esc evaporates it</span></div>
+      <div class="row"><span class="d">sign</span><span class="mk">⊢ view:pressure-map/v1 · <span class="who">sid</span> · 16:03</span></div>
+      <div class="row"><span class="d">+30d</span><span class="s">lineage: pressure-map/v1 → /v4 (mei) → 412 minds · 2 dead branches, kept</span></div>
+    </div>
+  </div>
+  <div class="lawline">structure suggested, never demanded — views included</div>
+</section>
+
+<!-- ── scene 7 ──────────────────────────────────────────── -->
+<section class="scene">
+  <div class="when">19:00 · opening land</div>
+  <h2>Publishing is opening a region of your land.</h2>
+  <div class="prose">
+    <p>You "publish" the margin work — which means you <strong>open the region</strong>: raw
+    and native and view-forward together, the bundle that is everything, layered. Three
+    readers arrive in the same minute. A student gets the story altitude. A peer drops
+    straight to the evidence graph. An agent reads the whole region in nine hundred tokens.
+    Same addresses; three projections; nobody got a flattened copy.</p>
+    <p>Your disagreement with Osaka is <em>in</em> the published form — a reader can stand at
+    the exact crossroad and walk both paths, including your dead-ends, which teach more than
+    your successes. Citations here are edges that thicken only when someone walks the
+    evidence. Imported prestige decays. The paper is a place.</p>
+  </div>
+  <div class="frame">
+    <div class="rim"><span>scope: opened region · 3 readers now</span>
+      <span class="addr">land://sid/coil-margin?open=raw+native+viewforward</span></div>
+    <div class="fbody">
+      <div class="cols">
+        <div class="col"><div class="ct">student · story altitude</div>
+          "the margin survived a refutation — here is the crossroad where it nearly didn't…"</div>
+        <div class="col"><div class="ct">peer · evidence graph</div>
+          c:tape-Jc77 ⇠ e:run-441 · e:9f2c<br>⊢ superseded-by · sid<br>⊢ evidence-for · r:118</div>
+        <div class="col"><div class="ct">agent · view 3 · 912 tokens</div>
+          n c:tape-Jc77 …<br><span style="color:var(--kraft)">⊢ rel rows · addressed · minimal</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="lawline">publication never gated · judgment changes calibration, not visibility</div>
+</section>
+
+<!-- ── scene 8 ──────────────────────────────────────────── -->
+<section class="scene">
+  <div class="when">21:31 · evening</div>
+  <h2>The land pays for repair, and grows where feet fell.</h2>
+  <div class="prose">
+    <p>You sign the day. The pennant joins your spine; the statement drafts itself from the
+    day's marks and you change two words. Then the day settles: attribution flows along the
+    provenance edges, and <strong>mei earns more from her refutation than her original claim
+    ever earned</strong> — because this land's economy rewards repair, not just novelty. Her
+    correction rebuilt your morning; the ledger knows.</p>
+    <p>And the ground itself grew. The shortcut you and the engineer wore between materials
+    and control theory carried enough feet this month — today it was paved into a road.
+    Geography, grown. <em>Trails that don't fade.</em></p>
+  </div>
+  <div class="frame">
+    <div class="rim"><span>scope: day-sign</span>
+      <span class="addr">version://sid/2026-07-05 · cut across 4 threads</span></div>
+    <div class="fbody">
+      <div class="row"><span class="mk">⊢ version · <span class="who">sid</span> · "DECIDED margin rests on r:118 · VERIFIED cycled-field gap named · DOUBTED budget-2"</span></div>
+      <div class="row"><span class="d">settles</span><span class="s">attribution → mei (repair-weighted) · ana (evidence) · stellarator-sim/v9 author (lineage)</span></div>
+      <div class="row"><span class="d">ground</span><span class="mk freshm">road paved today: materials ↔ control theory · from 4,102 walks</span></div>
+    </div>
+  </div>
+  <div class="lawline">geography is grown · fold, never sever</div>
+</section>
+
+<!-- ── coda ─────────────────────────────────────────────── -->
+<section class="coda">
+  <p class="q">What are the known knowns, the known unknowns — and where do the unknown
+  unknowns announce themselves?</p>
+  <p>By nightfall the land has answered the way it always answers: claims with their
+  evidence walked, questions with their backers standing, and the coast of fog moved —
+  slightly, honestly, in full view of everyone who lives here. The coast never stops
+  moving. That is the point of the land.</p>
+  <footer>
+    a dream, signed · fable, for sid · 05-07-2026 · every scene runs on ratified law
+    (quoted beneath each frame) — the dream is unbounded, the physics is not ·
+    domains shown: fusion, materials, control theory, astronomy, mathematics — stand-ins,
+    swappable · nearest built ancestor of every mechanism here:
+    write-gesture-sketch-2026-07-04 (stages 1–4) · set in Ubuntu Sans Mono, the land's own
+    face · this page is the horizon, not the scope — the building still grows only where
+    used forms break (that law survives even dreams)
+  </footer>
+</section>
+</main>
+
+<script>
+(function () {
+  var cv = document.getElementById('earth');
+  function lcg(seed) { return function () {
+    seed = (seed * 48271) % 2147483647; return seed / 2147483647; }; }
+  function gauss(r) { return (r() + r() + r()) / 1.5 - 1; }
+  var NATIONS = [
+    { x:.14, y:.40, n:340, s:.075, label:'mathematics' },
+    { x:.33, y:.28, n:460, s:.085, label:'materials' },
+    { x:.46, y:.55, n:560, s:.095, label:'fusion energy' },
+    { x:.27, y:.66, n:250, s:.060, label:'control theory' },
+    { x:.60, y:.24, n:300, s:.070, label:'astronomy' },
+    { x:.67, y:.52, n:330, s:.070, label:'distributed systems' },
+    { x:.52, y:.78, n:210, s:.050, label:'metascience commons' },
+    { x:.78, y:.72, n:80,  s:.028, label:'softland-itself' }
+  ];
+  var ROADS = [
+    [1,2,3],[2,3,2],[0,1,1],[0,4,1],[2,5,1],[6,2,1],[7,5,1],[7,6,1]
+  ];
+  function draw() {
+    var css = getComputedStyle(document.documentElement);
+    var C = function (v) { return css.getPropertyValue(v).trim(); };
+    var dpr = window.devicePixelRatio || 1;
+    var w = cv.clientWidth, h = cv.clientHeight;
+    cv.width = w * dpr; cv.height = h * dpr;
+    var ctx = cv.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+    var r = lcg(20260705);
+    // fog coast (right edge) — hatched, honest
+    ctx.strokeStyle = C('--wire'); ctx.lineWidth = .5;
+    for (var fx = w * .86; fx < w + h; fx += 9) {
+      ctx.beginPath(); ctx.moveTo(fx, 0); ctx.lineTo(fx - h * .35, h); ctx.stroke();
+    }
+    ctx.font = '11px "Land Mono", monospace';
+    ctx.fillStyle = C('--ink-soft');
+    for (var q = 0; q < 12; q++) {
+      ctx.fillText('?', w * .87 + r() * w * .11, 14 + r() * (h - 24));
+    }
+    // roads — worn, never planned
+    ROADS.forEach(function (rd) {
+      var a = NATIONS[rd[0]], b = NATIONS[rd[1]];
+      ctx.strokeStyle = C('--wire'); ctx.lineWidth = rd[2];
+      ctx.beginPath(); ctx.moveTo(a.x * w, a.y * h);
+      var mx = (a.x + b.x) / 2 * w + (r() - .5) * 30;
+      var my = (a.y + b.y) / 2 * h + (r() - .5) * 30;
+      ctx.quadraticCurveTo(mx, my, b.x * w, b.y * h); ctx.stroke();
+    });
+    // the road paved today
+    ctx.strokeStyle = C('--fresh'); ctx.lineWidth = 1.6;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(NATIONS[1].x * w, NATIONS[1].y * h);
+    ctx.quadraticCurveTo(w * .27, h * .48, NATIONS[3].x * w, NATIONS[3].y * h);
+    ctx.stroke(); ctx.setLineDash([]);
+    // nations — dots, warmth, marks
+    NATIONS.forEach(function (nz, ni) {
+      var rr = lcg(1000 + ni * 977);
+      for (var i = 0; i < nz.n; i++) {
+        var dx = nz.x * w + gauss(rr) * nz.s * w;
+        var dy = nz.y * h + gauss(rr) * nz.s * h * 1.15;
+        if (dx < 4 || dx > w - 4 || dy < 4 || dy > h - 4) continue;
+        var isMark = rr() < .018, isFresh = rr() < .006;
+        ctx.fillStyle = isMark ? C('--kraft') : (isFresh ? C('--fresh') : C('--wire'));
+        ctx.beginPath();
+        ctx.arc(dx, dy, isMark ? 1.9 : 1.3, 0, 6.2832);
+        ctx.fill();
+      }
+      ctx.fillStyle = C('--ink-soft');
+      ctx.font = '10.5px "Land Mono", monospace';
+      ctx.fillText(nz.label, nz.x * w - nz.label.length * 3.1,
+                   nz.y * h + nz.s * h * 1.9 + 12);
+    });
+    // question peak on the materials coast
+    ctx.fillStyle = C('--kraft');
+    ctx.font = '12px "Land Mono", monospace';
+    ctx.fillText('? +11', NATIONS[1].x * w + NATIONS[1].s * w * 1.4,
+                 NATIONS[1].y * h - NATIONS[1].s * h);
+  }
+  draw();
+  var rto;
+  window.addEventListener('resize', function () {
+    clearTimeout(rto); rto = setTimeout(draw, 150);
+  });
+  var mq = window.matchMedia('(prefers-color-scheme: dark)');
+  if (mq.addEventListener) mq.addEventListener('change', draw);
+  new MutationObserver(draw).observe(document.documentElement,
+    { attributes: true, attributeFilter: ['data-theme'] });
+})();
+</script>

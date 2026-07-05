@@ -1,0 +1,673 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>Versioning Paradigms — Multi-Level Identity & Versioning Beyond Git</title>
+<style>
+@page { size: A4; margin: 18mm 16mm; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 10.5pt; line-height: 1.5; color: #1a1a1a; max-width: 820px; margin: 0 auto; }
+h1 { font-size: 19pt; line-height: 1.2; margin: 0 0 4pt; color: #111; letter-spacing: -.01em; }
+h2 { font-size: 14pt; margin: 22pt 0 7pt; padding-bottom: 4pt; border-bottom: 2px solid #d8d8d8;
+  color: #0b3d5c; page-break-after: avoid; letter-spacing: -.01em; }
+h2:first-of-type { margin-top: 10pt; }
+h3 { font-size: 11.5pt; margin: 15pt 0 4pt; color: #1d5e3a; page-break-after: avoid; }
+p { margin: 6pt 0; }
+em { color: #444; }
+strong { color: #000; }
+code { font-family: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace; font-size: 9pt;
+  background: #f0f2f4; padding: 1px 4px; border-radius: 3px; color: #b03a2e; }
+hr { border: none; border-top: 1px solid #e2e2e2; margin: 18pt 0; }
+ul, ol { margin: 6pt 0; padding-left: 20pt; }
+li { margin: 3pt 0; }
+li::marker { color: #888; }
+table { border-collapse: collapse; margin: 8pt 0; font-size: 9pt; width: 100%; }
+th, td { border: 1px solid #ccc; padding: 4px 7px; text-align: left; vertical-align: top; }
+th { background: #eef1f3; }
+h3 + p em:first-child { display:block; }
+/* the citation line directly under each h3 */
+h3 + p { color:#666; font-size:9pt; margin-top:0; }
+blockquote { margin: 6pt 0; padding-left: 12pt; border-left: 3px solid #cbd5dc; color: #555; }
+strong:only-child { }
+</style></head><body>
+<h1 id="versioning-paradigms-multi-level-identity-versioning-beyond-git">Versioning Paradigms — Multi-Level Identity &amp; Versioning Beyond Git</h1>
+<p><strong>Research synthesis, 2026-06-11.</strong> Question we are answering: what is the actual
+identity of code (and of any structured material) once you stop treating a file as
+the atom — and how do you version it at multiple granularities <em>at once</em> (a function,
+a grouping of functions, a graph at graph / node / relation-type / node-data level),
+where groupings are themselves versioned objects with histories partly independent of
+their members?</p>
+<p><strong>How to read this doc.</strong> Each source gets three movements:
+<strong>① What the paper actually worked through</strong> (the substance — mechanisms, findings,
+the argument, with the authors' own words) · <strong>② How it maps to our question</strong> ·
+<strong>③ What it means for the Softland kernel.</strong> The cross-cutting synthesis is at the
+end — <em>earned</em> by the per-source detail, not asserted ahead of it.</p>
+<p><strong>Calibration.</strong> 25 sources fetched, 119 claims extracted by background agents; the
+adversarial verify pass was cut for token budget, so these are <em>extracted, not
+independently verified</em> claims — weigh by source quality (most are primary
+papers/docs), and treat single-source claims with care. Raw material:
+<code>~/.claude/.../workflows/scripts/research-salvage.json</code>. Named-but-not-fetched (a
+second pass would add them): Stellation, ENVY/Epicea, Software Heritage SWHIDs,
+GumTree/AST-diff, RefactoringMiner, Automerge/Yjs history models, Okasaki, Xanadu
+primary sources, codeq itself (known from its seed blog post).</p>
+<hr />
+<h1 id="angle-1-program-unit-identity-what-is-a-function-across-time">Angle 1 — Program-unit identity: what <em>is</em> a function, across time?</h1>
+<h2 id="unison-identity-is-the-content-names-are-metadata">Unison — identity is the content, names are metadata</h2>
+<p><em>unison-lang.org/docs/the-big-idea — primary, design stable since ~2019</em></p>
+<p><strong>① What it worked through.</strong> Unison takes the most extreme position available: a
+definition has no name-identity and no location-identity at all. "Each Unison
+definition is identified by a hash of its syntax tree" — a 512-bit SHA3 computed
+<em>after</em> normalizing away the incidental: "all named arguments are replaced by
+positionally-numbered variable references, and all dependencies … are replaced by
+their hashes." So two functions that differ only in variable names or formatting
+hash to the same address; the hash captures <em>meaning</em>, not text. Names then live in a
+completely separate layer: "names are just separately stored metadata that don't
+affect the function's hash … we can change what address a name points to, but the
+contents of each address are forever unchanging." The whole codebase becomes "a
+proper database of code" — hash-indexed, immutable, so a parse/typecheck cache "is
+never invalidated." And versioning composes by transitive pinning: "the hash of
+<code>increment</code> uniquely identifies its exact implementation and pins down all its
+dependencies," which is why "dependency conflicts and the diamond dependency problem
+are just not a thing" — every version of every function coexists under a distinct
+hash.</p>
+<p><strong>② How it maps.</strong> This is the purest answer to your opening question ("what is the
+identity of a code file") — and it says: <em>not the file, not the path, not the name —
+the normalized AST.</em> Rename becomes a <strong>declared metadata edit</strong> by construction
+(you rebind a name→hash pointer), never an inference. It is the markdown ingestor's
+content-addressed identity, but lifted from raw bytes to <em>semantic</em> form, so trivial
+edits don't churn identity.</p>
+<p><strong>③ What it means.</strong> Unison is the destination pole of the two worlds we named — "the
+world IS the codebase." It proves the function-grain identity you sketched is real
+and buildable. But it also shows the cost of going all the way: you must abandon files
+as truth, abandon the existing toolchain, and mint a whole new naming layer — which is
+exactly the bridge the kernel should keep <em>possible</em> but not <em>cross</em> in slice 1. The
+transferable idea now: <strong>identity should be content-derived at the semantic unit, with
+a thin mutable name layer on top</strong> — and Softland's revisions already are the value
+layer, its containers already the name layer.</p>
+<h2 id="molhado-minted-node-identity-versioning-opt-in-per-attribute">Molhado — minted node identity, versioning opt-in per attribute</h2>
+<p><em>Nguyen, SCM-12 ch.9 (2005) — primary; the single closest system to the kernel</em></p>
+<p><strong>① What it worked through.</strong> Molhado (Tien N. Nguyen) is built on a data model called
+Fluid IR that separates the Hickey triple <em>mechanically</em>: "a node is the basic unit of
+identity … a slot is a location that can store a value … attributes map nodes to
+slots." Identity (node), value (slot contents), place (which attribute table). The
+move that matters: <strong>versioning is opt-in per attribute</strong> — "slots in an attribute
+table can belong to three types: constant, simple, or versioned" — so <em>which aspects of
+a thing have history</em> is a modeling decision, and turning on versioning just adds a
+third dimension (the version axis) to the node×attribute table. On top of this, Molhado
+uses a <strong>product-versioning</strong> model: "instead of focusing on individual components,
+Molhado versions a software project as a whole … all system objects … are versioned in
+a uniform, global version space," where a version is "a point in tree-structured
+discrete time for the whole project." And one mechanism covers every granularity at
+once: "Molhado can track changes … not only of a hypertext network but also of a single
+node or link" — because <em>links are themselves first-class nodes</em>, so relation history
+"falls out for free."</p>
+<p>The chapter also names the field's taxonomy and its hazard: three paradigms —
+<strong>composition</strong> (version atoms, assemble by rule), <strong>total versioning</strong> (everything
+including composites has its own version space), <strong>product versioning</strong> (one global
+space) — and flags that total versioning "suffers from the version proliferation
+problem": one leaf change forces a new version of every ancestor composite. And it flags
+<em>its own</em> unsolved problem: because everything lives in one global version, "there is no
+way to say 'make a link to document D at version vk'" — <strong>cross-version references are
+inexpressible.</strong></p>
+<p><strong>② How it maps.</strong> This is your function-as-atom sketch, already built and measured.
+"Group a whole project, version a single node or a single link, with one mechanism" is
+precisely the multi-level versioning you reached for. Per-attribute opt-in is the answer
+to "what aspects of a thing get history" — edit history, semantic history, relational
+history can each be a versioned slot or not.</p>
+<p><strong>③ What it means.</strong> Two gifts and one loud warning. Gift one: <strong>node-identity that is
+not the name</strong> — the thing the kernel calls a container, with the name demoted to a
+versioned attribute. Gift two: <strong>per-attribute versioning</strong> maps cleanly onto Rama
+PStates — you choose which projections carry history. The warning is load-bearing for
+Softland specifically: a <em>single global version space breaks anchors and trails</em>,
+because they fundamentally need "link to D at version vk." So adopt Molhado's identity
+model, but <strong>not</strong> its product-versioning — the kernel needs per-thing version threads
+<em>and</em> cross-version reference, which points at the composition model (see Katz/ORION).</p>
+<h2 id="molhadoref-declared-refactorings-beat-inferred-diffs">MolhadoRef — declared refactorings beat inferred diffs</h2>
+<p><em>Nguyen et al., ASE (2006) — primary; the precedent for our "no inferred truth" rule</em></p>
+<p><strong>① What it worked through.</strong> MolhadoRef puts the Molhado identity model to work against
+the rename problem and reaches a sharp result: "Molhado … creates unique, persistent IDs
+for each entity, and treats the name as an attribute that can change. Thus it can track
+the history of an entity in spite of it being refactored." The architecture is a
+<strong>hybrid change representation</strong>: ordinary edits are captured as state deltas (via the
+Eclipse compare engine), but <em>refactorings are recorded as first-class operations</em> —
+"it uses the operation-based SCM approach to represent and record refactoring operations
+as first-class entities in the repository," <strong>declared by the refactoring engine, not
+inferred by diffing</strong>, and replayed on update/merge. The payoff is concrete: on three
+2006 revisions of an Eclipse component, "MolhadoRef correctly retrieves the history of
+classes and methods renamed or moved … while CVS loses their history," at a storage cost
+of "2.21, 2.69, and 2.80 times … the initial source." It also draws a deliberate
+granularity floor — "for efficiency reasons we stop at the method and field declaration
+level" — and names semantic merge (merging refactoring ops with ordinary edits) as
+unsolved future work.</p>
+<p><strong>② How it maps.</strong> This is the empirical proof of the kernel's own deepest rule:
+<em>inferred structure must not be accepted as truth at ingest.</em> Git's rename detection is
+the inference path (a similarity heuristic); MolhadoRef is the declaration path (the tool
+that did the rename records it). Same problem, opposite epistemics — and the declaration
+path keeps history the inference path loses.</p>
+<p><strong>③ What it means.</strong> This reframes the trail-to-code join from "resolve dead path
+strings" into something much larger, and it's the most important single connection in
+this whole research. <strong>Softland already has the declared-operation channel that
+MolhadoRef had to own an IDE to get.</strong> Agent trails record each Edit/Write as a
+structured act <em>with the intent narrated in language</em>. So the kernel's parked "rename
+continuity = explicit relation/claim policy later" has a natural producer: the agent that
+renamed <em>declared it</em>, recoverable from the trail as a candidate claim. We get
+MolhadoRef's advantage without owning everyone's editor — because the agents are already
+inside the world.</p>
+<h2 id="monticello-sub-file-versioning-that-stayed-snapshot-based">Monticello — sub-file versioning that stayed snapshot-based</h2>
+<p><em>Nierstrasz et al. (2013) — primary; the Smalltalk lineage, pragmatic end</em></p>
+<p><strong>① What it worked through.</strong> Monticello (Pharo/Squeak) rejects line-grain outright:
+"classes and methods, rather than lines of text, are the units of change." A package is
+an <em>intensional</em> container — "a package is an object — an instance of PackageInfo — that
+knows how to identify the classes and methods that belong to it" — and identity is
+separated from value: a version is "an immutable snapshot," version numbers are
+repo-local, and global identity rides on "a UUID and explicit named ancestors" (merges
+list multiple ancestors). Notably it is <strong>state-based at sub-file grain</strong>: "a version
+contains the complete set of class and method definitions," and patches are <em>derived</em>
+between snapshots, not stored as primary. Merge is fine-grained anyway — conflicts are
+resolved per method/class definition — and it does versioned-grouping-of-members: a
+package version "declares required package versions," new versions auto-rebind, and an
+empty "umbrella" package acts as "a pure versioned configuration whose own history is
+partly independent of its members." Its flagged limit: dependencies can't cross repos.</p>
+<p><strong>② How it maps.</strong> Direct precedent for "the function/method is the unit, the file is
+not." And it answers a question your sketch raised — <em>must sub-file versioning be
+delta-based?</em> No: Monticello stores snapshots at method grain and derives diffs. The
+umbrella package is exactly your "grouping of functions, versioned, with its own
+history."</p>
+<p><strong>③ What it means.</strong> Two calibrations. First, it de-risks the slice-1 choice: storing
+whole-unit snapshots and deriving diffs is a <em>proven</em> sub-file strategy, not a
+compromise — so the kernel's whole-file-artifact-now, forms-later plan is sound.
+Second, the umbrella package is the small, concrete shape of a Softland "configuration"
+(a versioned grouping) — and its cross-repo limitation is a feature to <em>beat</em>, since
+Softland's containers are global, not repo-scoped.</p>
+<hr />
+<h1 id="angle-2-version-control-theory-what-is-versioning-formally">Angle 2 — Version-control theory: what is versioning, formally?</h1>
+<h2 id="driscoll-sarnak-sleator-tarjan-the-formal-taxonomy-of-versioned">Driscoll, Sarnak, Sleator &amp; Tarjan — the formal taxonomy of "versioned"</h2>
+<p><em>"Making Data Structures Persistent," JCSS (1989) — primary; the bedrock</em></p>
+<p><strong>① What it worked through.</strong> This is the paper that defines the words. "A structure is
+<em>persistent</em> if it supports access to multiple versions. It is <em>partially persistent</em> if
+all versions can be accessed but only the newest version can be modified, and <em>fully
+persistent</em> if every version can be both accessed and modified." Partial persistence =
+a linear log (read history, extend the tip). Full persistence = a branching tree of
+immutable versions: "the result of the update is an entirely new version, distinct from
+all others … versions form a tree." And the engineering miracle: this is nearly free.
+"If an ephemeral structure has nodes of constant bounded in-degree, then the structure
+can be made partially persistent at an amortized space cost of O(1) per update step and
+a constant factor in … time" — fully persistent with more work. The whole field traces
+to "the second author's Ph.D. thesis" (Neil Sarnak) and one prior Overmars paper.</p>
+<p><strong>② How it maps.</strong> This is the precise vocabulary for your "versioning is its own
+layer" intuition. Rama's arrival-time history is <strong>partial persistence</strong> — a log, read
+any past state, only the tip advances. The explicit git-style committed versioning you
+want is <strong>full persistence</strong> — branchable, every version a first-class point you can
+fork from. They are different formal objects, and you were right to feel the seam.</p>
+<p><strong>③ What it means.</strong> Names the two-layer model exactly: the depot (partial persistence,
+transaction time, append-only substrate) <em>underneath</em> a minted, branchable version
+graph (full persistence, semantic time). "Infinite Softlands in Rama" is, literally,
+<em>full persistence</em> — and DSST proves it costs O(1) amortized space via structural
+sharing, which is also why every survivor in Angle 3 can afford to keep all of history.</p>
+<h2 id="conradi-westfechtel-the-survey-that-already-answered-the-whole-question">Conradi &amp; Westfechtel — the survey that already answered the whole question</h2>
+<p><em>ACM Computing Surveys (1998) — primary; the spine of the field</em></p>
+<p><strong>① What it worked through.</strong> This survey unifies thirty years of SCM and is startlingly
+on-point. Identity through time is defined as a <strong>sameness criterion</strong>: "there must be
+some way to decide whether two versions belong to the same item … with the help of a
+unique identifier, for example an OID," while each version carries its own VID — and a
+version is formally "a pair (ps, vs)" of a product-space state and a version-space point
+(value and place, split). Crucially, the <strong>item</strong> — the thing versioned — is <em>anything</em>:
+"files and directories … objects … entities, relationships, and attributes in EER
+databases." So your four-level graph case is <em>inside</em> the definition. It names
+<strong>multilevel / recursive versioning</strong> ("a version may have versions themselves") as the
+solution to versioned-groups-of-versioned-members, citing the seminal systems —
+<strong>Adele</strong> (Estublier 1985: interface versions each realized by a set of body versions)
+and <strong>DAMOKLES</strong> (Dittrich et al. 1986: fully recursive). It formalizes group↔member
+binding via <strong>AND/OR graphs</strong> — a reference is <strong>bound</strong> (pinned) or <strong>generic</strong>
+(floating); a configuration is bound iff all edges are. It classifies models by selection
+order — <em>product-first</em> (SCCS/RCS: structure fixed, can't version structure),
+<em>version-first</em> (PCTE: group version pins members and can change structure), <em>intertwined</em>.
+And it nails change representation: "a <em>directed delta</em>, also called a change, is a
+sequence of (elementary) change operations … (note the correspondence to transaction logs
+in databases)" — versus symmetric (state) deltas — and declares state-based vs
+change-based "orthogonal to extensional versus intensional."</p>
+<p><strong>② How it maps.</strong> Almost every noun in our chat is here under an older name:
+container = item/OID, revision = VID, "versioning is its own layer" = the version space
+as a distinct formal space, "grouping of functions versioned" = multilevel versioning,
+"pinned vs floating members" = bound vs generic. The event-log-as-primary intuition is
+their <em>directed delta = transaction log</em> equation.</p>
+<p><strong>③ What it means.</strong> We are not pioneering; we are re-deriving a known framework with
+better tools. The cheapest highest-value move available is to <strong>adopt this vocabulary
+wholesale</strong> in the kernel docs — it will make every future ingestor contract and every
+Codex gate dramatically cheaper to argue, because the terms are precise and the failure
+modes are already named.</p>
+<h2 id="darcs-patch-theory-change-as-the-primary-object">Darcs patch theory — change as the primary object</h2>
+<p><em>Understanding Darcs/Patch Theory (Wikibooks) — secondary</em></p>
+<p><strong>① What it worked through.</strong> Darcs inverts git: the patch, not the snapshot, is
+primary. A patch is context-dependent — it "tells us not only what contents Arjan added
+('beer') but where … namely to line 3" — so a patch only means anything relative to the
+state it transforms. The algebra has two axioms: <strong>invertibility</strong> ("every patch must
+have an inverse" with PP⁻¹ a no-op) and <strong>commutation</strong> — merge is defined by reordering
+patches while rewriting their context: "what used to be line 3 now becomes line 4." The
+formal merge law is <code>BA₁ ↔ AB₁ iff B₁A₁⁻¹ ↔ A⁻¹B</code>. The treatment honestly covers only
+non-conflicting merges and admits non-commutable pairs ("you can't commute the addition
+of a file with adding contents to it") — conflict semantics deferred.</p>
+<p><strong>② How it maps.</strong> This is the operation-log view of versioning at the formal level —
+the same shape as MolhadoRef's declared operations and as event sourcing. Identity here
+lives in <em>the sequence of changes</em>, not in any snapshot.</p>
+<p><strong>③ What it means.</strong> Useful as a lens, not a build: it tells us the op-log (agent trails)
+is a legitimate <em>primary</em> representation of change, with snapshots derivable — but its
+own unfinished conflict story warns that operation-based merge is hard. Keep snapshots as
+truth; treat the op-log as the explanatory/semantic layer over them.</p>
+<h2 id="pijul-categorical-merge-and-sub-file-graph-identity">Pijul — categorical merge and sub-file graph identity</h2>
+<p><em>pijul.org/model — primary</em></p>
+<p><strong>① What it worked through.</strong> Pijul gives patch theory a cleaner foundation. Merge is a
+<strong>pushout</strong> — "a canonical common successor state from which anything derivable from
+either branch can also be derived" — making merge a characterized operation, not a
+heuristic. Below the file, "a file is represented as a directed graph of byte chunks"
+where chunks are the versioned units and "the graph edges [are] the order in which they
+appear in the files" — sub-file identity with structure as explicit relations. The deep
+move: <strong>conflicts are represented as values</strong>, by enlarging the state space — "artificially
+add all pushouts of all possible patches" — so a conflicted state is a storable,
+first-class thing, not an error. A version is "an unordered set of patches," which avoids
+git's artificial cherry-pick conflicts, and caching applied-patch state in the chunk graph
+gives O(log h) application (vs Darcs checking each patch against all prior).</p>
+<p><strong>② How it maps.</strong> Two things. The byte-chunk-graph is the same instinct as treating
+forms as nodes in a relation graph. And "conflict as a first-class value" is the formal
+twin of Softland's <strong>preserved disagreement until synthesis</strong> — late-bound consensus is,
+mathematically, refusing to collapse a pushout that doesn't exist yet.</p>
+<p><strong>③ What it means.</strong> The most directly <em>philosophical</em> payoff in the haul: your "preserved
+tension / plurality as a fourth axis" is not just a design value — Pijul shows it can be a
+<strong>data structure</strong>. A conflict (a disagreement between sources, a merge not yet
+resolvable) should be a representable state in the kernel, not an error or a silent
+overwrite. That's a real design principle for the synthesis-of-plurality artifact type.</p>
+<h2 id="homotopy-patch-theory-identity-history-modulo-commutation">Homotopy patch theory — identity = history modulo commutation</h2>
+<p><em>Angiuli, Morehouse, Licata, Harper (2014) — primary</em></p>
+<p><strong>① What it worked through.</strong> This encodes Darcs-style patch theory in homotopy type
+theory: "patch contexts are represented as points … patches are represented as paths
+between … contexts," and patch laws (commuting independent edits) are "2-dimensional
+paths between paths." Because in HoTT "functions are functors that necessarily preserve
+the path structure," any interpretation of a patch theory is <em>forced</em> to validate its
+laws — "one patch theory can have many models maintaining different metadata." Their most
+expressive language makes repository identity <strong>event-sourced</strong>: "complete histories …
+uniquely identify files because the history can be replayed from the start," with
+histories "quotiented so that sequences of patches with the same effect … are equal." And
+they are candid about limits: the merge construction "is incomplete," the required
+invertibility of all patches is "conceptually questionable and practically problematic,"
+and they could not formalize Darcs' pseudocommutation — pointing to directed type theory
+as future work.</p>
+<p><strong>② How it maps.</strong> This is the formal statement of "the event log is primary, rendered
+state is a projection" — <em>one theory (the log + its laws), many models (materialized
+views)</em>. And "identity = complete history quotiented by commutation of independent
+events" is exactly the right formal picture for <strong>semantic time as a DAG, not a line</strong>:
+two independent edits commute, so they're unordered; dependent ones don't.</p>
+<p><strong>③ What it means.</strong> It dignifies the kernel's core architecture as a theorem rather than
+a preference: log-primary + derived projections is the <em>natural</em> model, and parallel
+independent events being order-free is <em>why</em> semantic time is a DAG. It also flags the
+real frontier (merge laws, non-invertible changes) so we don't promise automatic semantic
+merge we can't deliver.</p>
+<hr />
+<h1 id="angle-3-versioned-databases-the-two-layer-pattern-in-production">Angle 3 — Versioned databases: the two-layer pattern, in production</h1>
+<h2 id="irmin-content-addressed-values-a-mutable-name-layer-as-a-library">Irmin — content-addressed values + a mutable name layer, as a library</h2>
+<p><em>The Morning Paper on Farinier et al. (2015) — secondary</em></p>
+<p><strong>① What it worked through.</strong> Irmin is git's architecture extracted as an OCaml library
+over arbitrary data structures. The identity/value split is explicit at the storage
+layer: "the key returned from a store operation is simply a hash of the stored value"
+(immutable content-addressed block store), while "[the tag store] keys are names created
+by users and values are keys from the block store … named pointers." It enumerates
+exactly three ways to merge diverged structured data: "(1) using CRDTs (conflict-free)
+(2) a data-structure-specific merge operation (3) pushing the problem onto the developer."
+And merge <strong>composes recursively across levels</strong>: a 3-way merge "descends to the smallest
+subtree where divergence occurred," auto-resolves one-sided changes at the container
+level, and only "flattens the sub-trees into a user-provided container with a data-type-
+specific merge" when both sides changed. It maintains a bidirectional mapping to git's
+on-disk format and runs as the file system of MirageOS, at "about a factor of 5" overhead.</p>
+<p><strong>② How it maps.</strong> This is the kernel's container/revision split, validated as a shippable
+storage pattern — and the recursive merge is the answer to "how does group-version relate
+to member-version on merge": <em>the group merge delegates to member merge only where members
+actually diverged.</em></p>
+<p><strong>③ What it means.</strong> Strong reassurance that the two-layer model isn't a Softland
+invention to be doubted — it's the convergent answer (git, Irmin, Unison, Dolt all reach
+it). And the three-way merge taxonomy (CRDT / typed-merge / defer-to-human) is a ready
+menu for when the kernel eventually merges divergent local worlds.</p>
+<h2 id="dolt-prolly-trees-content-defined-structure-diff-change">Dolt + Prolly trees — content-defined structure, diff ∝ change</h2>
+<p><em>DoltHub docs + blogs (2020, 2021) — primary docs / blog</em></p>
+<p><strong>① What it worked through.</strong> Dolt versions a SQL database at <strong>cell granularity</strong> —
+"cell-wise diffs and merges" — using a <strong>Prolly tree</strong> (probabilistic B-tree, from Noms):
+chunk boundaries are computed <em>from the content</em> — "use a seed, the size of the current
+chunk, the key value and a strong hash to calculate whether this … represents a new chunk
+boundary" — so "identical data always produces identical … structure," chunks are stored
+once by hash ("any blocks that share the same content address are only stored once"), and
+diff "scales with the size of the differences, not the size of the tree." It transplants
+git's commit/branch/merge model below the file ("the Git command line … on table rows
+instead of files"). The blogs define the category — "a version-controlled database … stores
+a full history of its own state, both data and schema" — credit Merkle trees as the
+enabling structure, and note schema-vs-data are handled by <em>disjoint</em> tooling (migrations
+for schema, Dolt for data).</p>
+<p><strong>② How it maps.</strong> Prolly trees are the data-structure answer to "content-derived
+identity that also diffs cheaply" — the same sha-dedup as codeq's forms, but with
+efficient structural diff for free. And cell-granularity proves fine-grained versioning is
+practical at production scale.</p>
+<p><strong>③ What it means.</strong> The concrete recommendation that came out of this for slice 1:
+<strong>dedup artifacts by content, not per (path, version)</strong> — store one value per distinct
+bytes, link occurrences. Same bytes at a new path = same value, new place, which hands us
+<em>half of rename continuity as fact</em> (not inference) for free. Prolly/Merkle structural
+sharing is how you afford to keep everything.</p>
+<h2 id="xtdb-bitemporality-when-it-was-true-vs-when-we-learned-it">XTDB — bitemporality: "when it was true" vs "when we learned it"</h2>
+<p><em>v1-docs.xtdb.com/concepts/bitemporality — primary docs</em></p>
+<p><strong>① What it worked through.</strong> XTDB versions along two independent axes: <strong>valid-time</strong>
+("an arbitrary time that can originate from an upstream system, or by default is set to
+transaction-time") and <strong>transaction-time</strong> (system ingestion). Transaction-time is
+strictly append-only — "you cannot write a new transaction with a transaction-time in the
+past" — an immutable audit trail. Valid-time is <em>correctable</em>: "writes can be made in the
+past of valid-time as retroactive operations … or the future as proactive operations,"
+without destroying the audit record. The docs explicitly ground this in DSST: "XTDB's
+bitemporal indexes are partially persistent due to the immutability of transaction time."
+Granularity is whole-document with a stable <code>xt/id</code> and full-snapshot replacement.</p>
+<p><strong>② How it maps.</strong> This is the exact formal home of the code-ingestor's <strong>exactness
+problem</strong>. "When the agent saw the bytes" is valid-time; "when Softland ingested the
+commit" is transaction-time. The contract's exactness flag is a one-bit projection of a
+two-axis bitemporal model.</p>
+<p><strong>③ What it means.</strong> Adopt the two times explicitly in the kernel: commit author-time
+(valid) and ingest-time (transaction) as separate fields. The exactness flag then becomes
+a <em>consequence</em> of the model rather than a special case, and "corrected truth layered over
+an immutable log" (retroactive valid-time) is precisely how a trail's later, more-accurate
+content should reconcile against an earlier approximate resolution. The map stays honest by
+construction.</p>
+<h2 id="terminusdb-git-for-graphs-with-append-only-delta-layers">TerminusDB — git-for-graphs with append-only delta layers</h2>
+<p><em>terminusdb.org/docs — primary docs</em></p>
+<p><strong>① What it worked through.</strong> TerminusDB is a graph database with git semantics: "every
+commit appends a new delta layer — an immutable record of what was added and what was
+removed … TerminusDB never mutates existing data," each layer "content-addressed and
+immutable" (enabling lock-free reads). Diff/patch operate at <strong>two composable
+granularities</strong> — "at the document or triple level" — and it offers "branch, diff, merge,
+clone, and time-travel … like Git, but for structured data," decomposing JSON documents
+into RDF triples at ~13 bytes/triple with periodic rollups.</p>
+<p><strong>② How it maps.</strong> A production existence-proof that git's <em>model</em> (not its file
+assumption) lifts onto graphs, with diff at two levels at once — the multi-granularity
+your graph question wants. Append-only immutable delta layers = event sourcing for graphs.</p>
+<p><strong>③ What it means.</strong> When the Roam/graph ingestor arrives, "git-for-graphs" is a built
+reference point: immutable content-addressed layers + document-and-triple-level diff is a
+viable shape on top of an event-sourced substrate — and it's close to what Rama gives
+natively.</p>
+<hr />
+<h1 id="angle-4-graph-rdf-versioning-the-multi-level-case-stress-tested">Angle 4 — Graph &amp; RDF versioning: the multi-level case, stress-tested</h1>
+<h2 id="rdf-archiving-surveys-snapshot-vs-delta-vs-annotation-and-where-they-break">RDF archiving surveys — snapshot vs delta vs annotation, and where they break</h2>
+<p><em>SW journal SW-180309 (2019) + swj2538 (2021) — primary</em></p>
+<p><strong>① What they worked through.</strong> The field reduces to three storage paradigms:
+<strong>independent copies</strong> (IC, full snapshots), <strong>change-based</strong> (CB, stored triple deltas),
+<strong>timestamp-based</strong> (TB, each triple annotated with version validity) — plus Quit Store's
+<strong>fragment-based</strong> and hybrids. The foundational model versions at <em>exactly one</em>
+granularity: "a version-annotated triple (s,p,o):[i] … an RDF archive graph A is a set of
+version-annotated triples" — no separate identity thread for nodes or subgraphs.
+Empirically, <strong>no paradigm dominates</strong>: CB/TB beat snapshots on storage for low-change
+data but are "penalized in highly dynamic datasets," and CB query time degrades as delta
+chains lengthen. And fine granularity <em>breaks the systems outright</em>: versioning DBpedia at
+instant grain (21,046 versions) made TB implementations "fail to load," and an R43ples
+query "had to be stopped after a 6-hour timeout" at 1,299 versions. The 2021 survey adds
+the multi-level result: a triple occurrence needs a 5-tuple ⟨s,p,o,ρ,ζ⟩ — ρ a <em>local</em>
+revision of the named graph, ζ a <em>global</em> dataset revision — and proves systems with only
+graph-local revisions "cannot track addition/deletion of named graphs," i.e. <strong>member-level
+versioning alone cannot reconstruct group-level history</strong>. It also argues change semantics
+must lift from triples to entities ("high-level changes"). The literature flatly states
+the area is immature: "there is neither a standard language to query RDF archives, nor an
+agreed way for … querying temporal graphs."</p>
+<p><strong>② How it maps.</strong> This is your four-level graph question, attempted by a whole research
+community — and the honest report is: the naive single-grain model (version the triple,
+done) is <em>insufficient</em>, and you provably need at least two linked tracks (member + group)
+to answer group-level history.</p>
+<p><strong>③ What it means.</strong> Two hard constraints land on the kernel. First, <strong>don't version at
+event/save grain</strong> — the version-count wall (systems dying at 21k versions, 6-hour
+timeouts) is a real engineering ceiling, which independently vindicates commit-grain over
+save-grain. Second, <strong>you must carry both a local and a global revision track from the
+start</strong> — retrofitting the group-level track later is provably lossy. That's a direct
+argument for getting the configuration/group-version noun into the kernel before the graph
+ingestor, not after.</p>
+<h2 id="wikidata-history-braided-per-entity-and-global-chains-in-production">Wikidata history — braided per-entity and global chains, in production</h2>
+<p><em>Pellissier-Tanon &amp; Suchanek, ESWC (2019) — primary</em></p>
+<p><strong>① What it worked through.</strong> This system stores Wikidata's full history queryable with
+plain SPARQL, holding <strong>both</strong> representations over one substrate: "we index not just the
+diffs … but also the global state … one named graph per revision." Identity threads at
+<strong>two composable levels</strong>: each revision's metadata records "the previous revision of the
+same entity [and] the previous revision in Wikidata" — per-entity chains <em>braided inside</em>
+the dataset-level chain. A fact's temporal extent is stored as <strong>validity ranges</strong> rather
+than copies: each triple lives in three permuted indexes "as value a set of revision
+ranges … [start, end[" — avoiding the per-version blowup. This is efficient because
+history is nearly monotone: "out of 4931M triples that have existed … only 475M have been
+removed … the largest revision contains 90% of all triples that ever existed." Edits are
+fine-grained by nature — "each edit affects a single entity and usually a single
+statement."</p>
+<p><strong>② How it maps.</strong> The production answer to the 2021 survey's theorem: it actually
+<em>implements</em> the two linked tracks (entity-level + global-level), and it shows snapshot and
+delta are <strong>both</strong> derivable from one substrate — "snapshot vs delta" is an index decision,
+not an ontology decision.</p>
+<p><strong>③ What it means.</strong> A concrete, working template for Softland's eventual graph/Roam
+ingestor: per-node version threads braided inside a global version thread, with fact
+lifetimes as intervals over an append-only log. And the monotonicity datum is encouraging —
+knowledge that mostly accretes (which trails and discourse graphs do) is exactly the regime
+where interval-annotated event logs stay cheap.</p>
+<h2 id="ostrich-one-concrete-hybrid-and-its-honest-scaling-wall">OSTRICH — one concrete hybrid, and its honest scaling wall</h2>
+<p><em>Journal of Web Semantics (2018) — primary</em></p>
+<p><strong>① What it worked through.</strong> OSTRICH is a single-history hybrid of IC+CB+TB:
+"intermittent fully materialized snapshots are followed by delta chains … six tree-based,
+dictionary-encoded, timestamped indexes," with each delta aggregated against the nearest
+snapshot (not chained to the prior delta) to buy constant-time random version access. It
+defines three reusable query atoms: <strong>version materialization</strong> VM (query one version),
+<strong>delta materialization</strong> DM (changeset between two versions), <strong>version query</strong> VQ
+(annotate results with the versions they hold in). It is single-linear-history only (no
+branch/merge), and flags its own scaling failure: aggregated changesets "can only grow in
+size," so ingesting a <em>later, smaller</em> revision took longer than an earlier larger one
+(rev 9 ~22h vs rev 5 ~14h) — "OSTRICH should not be used when the number of versions is
+very large."</p>
+<p><strong>② How it maps.</strong> Less about identity, more about the <strong>query model</strong> any versioned store
+needs. VM/DM/VQ is precisely the kernel's "code-at-time" (VM), "what changed between these
+commits" (DM), and "in which revisions did this hold" (VQ).</p>
+<p><strong>③ What it means.</strong> Steal the query vocabulary — VM/DM/VQ is a clean, source-agnostic API
+for the kernel's read models, and trail-to-code resolution is a VM with an exactness flag.
+And the scaling caveat reinforces, a third time, that aggregated-delta-against-snapshot has
+a real cost curve — design the read models so snapshots can be re-materialized, don't let
+delta chains grow unbounded.</p>
+<hr />
+<h1 id="angle-5-compositeassembly-versioning-the-mature-boring-solved-part">Angle 5 — Composite/assembly versioning: the mature, boring, solved part</h1>
+<h2 id="katz-configurations-as-first-class-versioned-objects">Katz — configurations as first-class versioned objects</h2>
+<p><em>ACM Computing Surveys (1990), via the 1988 Berkeley TR — primary; highest-yield for groupings</em></p>
+<p><strong>① What it worked through.</strong> Katz's framework separates identity/value/grouping cleanly:
+a <strong>design object</strong> is "a generic structural object with no file of its own" (the identity
+thread), a <strong>version</strong> is "a semantically meaningful snapshot … a descendent of some
+existing versions," and a <strong>configuration</strong> is a <em>first-class binding</em> between a composite
+version and specific component versions. It makes pinned-vs-floating a deliberate axis:
+<strong>static</strong> configurations pin ("a composite object version carries with it the version
+numbers of its components") while <strong>dynamic</strong> ones defer binding to traversal-time, via
+"layers and contexts" borrowed from Goldstein &amp; Bobrow's PIE system at Xerox PARC (1981) —
+and Katz flags the weakness that dynamic contexts can compose incompatible component
+versions. He identifies the cross-level hazard precisely: "even though A's contents have
+not changed, it now points to a new component, and is thus a new version" — <strong>change
+propagation</strong> ripples upward, is path-ambiguous through DAGs, and his fix is <em>operational</em>:
+"group check-in" mints one unambiguous configuration where individual check-ins would each
+spawn one. The model rests on three relationship types — component hierarchies (is-part-of),
+version histories (is-derived-from, distinguishing <em>alternatives</em>/parallel branches from
+<em>derivatives</em>/same line), and <strong>equivalences</strong> (cross-representation identity between
+heterogeneous facets of the same real thing) — with structure kept separate from
+tool-owned content. And: versions are minted "at significant, semantically meaningful"
+points, "not every update."</p>
+<p><strong>② How it maps.</strong> This is the richest answer to "a grouping of functions, versioned, with
+its own history." A configuration is <em>the noun</em> — your code ingestor's version-manifest, a
+git commit, a curated grouping, and a synthesized local world are all the same kind of
+object: a first-class, identity-bearing binding of a group-version to member-versions.
+"Equivalences" is the kernel's cross-source correspondence (the same understanding as code,
+as trail, as discourse node). And "mint at meaningful points, not every update" is the
+commit-vs-save decision, stated in 1990.</p>
+<p><strong>③ What it means.</strong> Promote the version-manifest from bookkeeping to a <strong>first-class
+configuration object</strong> — because it is simultaneously the group-version thread <em>and</em> the
+exact noun the future Softland-native "commit" needs. Adopt static-vs-dynamic (pinned vs
+floating) as a deliberate per-binding choice, and adopt <strong>group check-in</strong> (one deliberate
+act mints one group version) as the antidote to propagation ambiguity — which in Rama also
+sidesteps the cross-partition atomicity problem, because the configuration is a <em>claim about
+a cut</em> (data), not a transactional freeze.</p>
+<h2 id="orion-versioning-a-grouping-of-types-and-the-cascade-it-forces">ORION — versioning a grouping-of-types, and the cascade it forces</h2>
+<p><em>Kim &amp; Chou, VLDB (1988) — primary</em></p>
+<p><strong>① What it worked through.</strong> ORION versions schema and shows what happens when you version
+an interconnected group at member grain. It splits identity from value via a <strong>generic
+instance</strong> (shared OID) and <strong>version instances</strong>, with pinned-vs-floating explicit: "if the
+reference is to a version instance … statically bound … to a generic instance … dynamically
+bound to a default." Facing "version the schema," they weighed three grains — whole lattice,
+per-class, dynamic views — and chose to version <em>the whole lattice as one object</em>, because
+per-class versioning <strong>cascades</strong>: "since each class object has SuperClasses and SubClasses
+attributes … a new version must be created for each of the subclasses of C … and the entire
+lattice." Group↔member is <strong>effectivity-scoped via access scope</strong>: "the access scope of a
+schema version SV is the set of objects created under SV and those … inherited from ancestor
+schema versions" — membership is scope inheritance, not enumerated pins. Identity survives
+copy-on-write via a shared OID across an "anchor instance" and its copies.</p>
+<p><strong>② How it maps.</strong> The empirical proof of Molhado's "version proliferation" warning: naive
+member-grain versioning of a <em>connected</em> group degenerates into whole-group versioning,
+because the connections themselves are data that must change. This is the central risk in
+your "regroup functions freely, version the groupings" vision.</p>
+<p><strong>③ What it means.</strong> Don't version every grouping eagerly (total versioning) — it cascades.
+Use the <strong>composition model</strong> (selections over member versions) with explicit pinned/
+floating/effectivity-scoped bindings, and let group versions be minted deliberately. ORION's
+<em>access scope</em> is also a third composition style worth remembering — membership by
+inherited scope, not by enumerated member pins — which may fit "a local world inherits most
+of its parent and overrides a few things" better than pinning.</p>
+<h2 id="sciore-the-unification-stated-as-a-claim-in-1994">Sciore — the unification, stated as a claim in 1994</h2>
+<p><em>VLDB Journal (1994) — primary</em></p>
+<p><strong>① What it worked through.</strong> Sciore argues versioning belongs <em>in the data model</em>, not in
+per-application code: "current database systems support versioning at a very low level … this
+article demonstrates that application-independent versioning" can be a high-level data-model
+feature. The mechanism extends an OO data model so that "configurations can be specified
+conceptually and non-procedurally" — declarative configuration selection rather than pinned
+enumeration — by treating "version sets … multidimensionally," so a group-version resolves
+from coordinates over member version-sets. And the framing claim: it "integrates and
+generalizes ideas in CAD systems, CASE systems, and temporal databases."</p>
+<p><strong>② How it maps.</strong> This is the explicit statement that CAD assemblies, software
+configurations, and temporal databases are <em>one</em> theory — the general theory you asked
+whether existed. And "declarative, multidimensional configuration selection" is a more
+powerful version of your "situate and regroup functions in different ways": a grouping
+defined by <em>coordinates/queries</em> over member versions, not a hand-pinned list.</p>
+<p><strong>③ What it means.</strong> Validates that "versioning is its own layer" is a <em>data-model-level</em>
+claim, not an ingestor detail — which is exactly your current mental model. And declarative/
+multidimensional configuration is the sophisticated end-state for Softland's regrouping
+vision: groupings as <em>queries over versioned members</em>, computed, not enumerated — which sits
+naturally on Rama PStates.</p>
+<h2 id="plm-effectivity-industrys-forty-year-answer-to-versioned-assemblies">PLM effectivity — industry's forty-year answer to versioned assemblies</h2>
+<p><em>orey.github.io/papers/conf-mgt (2021) — blog</em></p>
+<p><strong>① What it worked through.</strong> Product Lifecycle Management has shipped "versioned grouping of
+versioned members" for decades. Membership is <strong>serial-number-effectivity-scoped</strong>: "brakes
+V1 are applicable to … S/N in the range [1, N], brakes V2 … [N+1, ∞)." An applicability link
+is <em>both</em> retrospective fact and prospective rule — "indicate that a specific product S/N is
+using a specific component [and] that, for future S/N … the component to be used should be a
+certain version." It contrasts static "wired" assemblies ("when a version is wired with links,
+it will never change") against dynamic query-time filtering, and insists configuration be
+"managed at different levels … variants and options at the component level … applicability at
+the product level." Change is snapshot/copy-based with changes reified as links between
+versions.</p>
+<p><strong>② How it maps.</strong> A whole mature industry on exactly your problem, with a composition
+primitive the software literature underweights: <strong>effectivity</strong> — membership scoped by a range
+or condition, simultaneously a historical record and a forward rule.</p>
+<p><strong>③ What it means.</strong> Effectivity is a third binding mode beyond pinned/floating, and it's the
+right one for some Softland cases: "this grouping uses member-version V2 <em>from this point
+forward</em>" is a forward rule + an audit fact in one object. Worth carrying in the vocabulary
+alongside bound/generic.</p>
+<hr />
+<h1 id="cross-cutting-synthesis-what-all-of-this-means-together">Cross-cutting synthesis — what all of this means together</h1>
+<p><strong>1. The two-layer model is the convergent answer, independently, everywhere.</strong>
+Immutable content-addressed <em>values</em> + a thin mutable <em>naming</em> layer on top: git refs,
+Irmin tags, Unison names, Dolt branches, Molhado nodes, Conradi-Westfechtel OID/VID. The
+kernel's container (name) / revision (value) split is not a bet — it's where everyone lands.
+What the kernel adds that most predecessors lacked: the value layer is <em>natively event-
+sourced</em> (Rama), so you keep history by default instead of bolting it on.</p>
+<p><strong>2. Versioning is two layers, not one — and you already half-have it.</strong>
+DSST's partial vs full persistence is the formal seam you felt. <strong>Partial persistence</strong> =
+Rama's arrival-time depot (a log; read any past, extend the tip) = <em>transaction time</em>.
+<strong>Full persistence</strong> = the minted, branchable, git-style version graph you want to add =
+<em>semantic time</em>, and = "infinite Softlands." The mint is an <em>act</em>; a <strong>configuration</strong> (Katz)
+is the object it produces. So the layer to design is: deliberate mints producing first-class
+configuration objects, sitting above the always-on depot.</p>
+<p><strong>3. The composition question has three known answers and one named trap.</strong>
+For "versioned grouping of versioned members," choose the <strong>composition model</strong> (version
+members; a group is a selection over member versions) with per-binding mode —
+<strong>pinned</strong> (Katz static / ORION static / C&amp;W bound), <strong>floating</strong> (dynamic / generic), or
+<strong>effectivity-scoped</strong> (PLM ranges, ORION access scope). <em>Avoid</em> <strong>total versioning</strong>
+(version every group eagerly): ORION and Molhado both document its failure mode —
+<strong>version proliferation / cascade</strong>, where one leaf change ripples new versions up the whole
+structure. And <em>avoid</em> a <strong>single global version space</strong> (Molhado product versioning): it
+makes "link to D at version vk" inexpressible, which would kill anchors and trails.</p>
+<p><strong>4. Four-level graph versioning provably needs ≥2 linked tracks.</strong>
+You cannot reconstruct group-level history from member-level history alone (Pelgrin's
+theorem; Wikidata's working braid of entity-chain-inside-global-chain). So the local-revision
+and global-revision tracks must both exist <em>from the start</em> — which argues for putting the
+configuration/group-version noun into the kernel <strong>before</strong> the graph ingestor forces it.
+Per-attribute opt-in versioning (Molhado) decides <em>which</em> tracks a thing carries.</p>
+<p><strong>5. Change representation is a projection, not an ontology.</strong>
+Snapshot (IC), delta (CB), and annotation (TB) are all derivable from one event-sourced
+substrate — Wikidata serves both diffs and full states over one store; HoTT patch theory
+makes "one theory, many models" a theorem. The kernel's "log is primary, projections are
+derived" is the mainstream-correct architecture. Two warnings ride along: <strong>version-count is
+a real wall</strong> (RDF systems die at 21k versions, time out at 1.3k) — vindicating commit-grain
+over save-grain — and <strong>aggregated delta chains grow unbounded</strong> unless you periodically
+re-materialize snapshots.</p>
+<p><strong>6. Declared beats inferred — and this is Softland's structural advantage.</strong>
+Every system divides on whether change <em>meaning</em> is declared (MolhadoRef's recorded
+refactorings, Unison's metadata rename) or inferred (git's similarity heuristic). The kernel
+already rules: inference is never accepted as truth at ingest. The asymmetry no prior system
+had: <strong>the agent trails are a declared-operation log</strong> — edits <em>with narrated intent</em> — so
+rename/refactor continuity, the literature's hardest open problem, has a producer Softland
+uniquely owns. MolhadoRef needed to own an IDE; Softland owns the agents.</p>
+<p><strong>7. Preserved disagreement can be a data structure.</strong>
+Pijul represents conflicts as first-class values (the unconstructed pushout). That is the
+formal backing for Softland's late-bound consensus / plurality-as-fourth-axis: a disagreement
+is a representable kernel state, not an error to resolve away or silently overwrite.</p>
+<hr />
+<h1 id="what-this-changes-for-the-code-ingestor-concrete-against-the-slice-1-contract">What this changes for the code ingestor (concrete, against the slice-1 contract)</h1>
+<p>The research <strong>validates more than it overturns.</strong> Stable container + revisions = OID/VID
+verbatim. Commit-grain minting = Katz's "meaningful points, not every update," and the
+version-count wall actively vindicates it. Refusing git rename detection is right <em>because</em>
+the correct answer is declaration, not better inference. Whole-file artifacts now, forms
+later = MolhadoRef's own granularity-floor retreat. The earned amendments:</p>
+<ol>
+<li><strong>Dedup artifacts by content, link occurrences</strong> (Irmin/Prolly/Unison) — one value per
+   distinct bytes; same bytes at a new path = same value, new place ⇒ half of rename
+   continuity as <em>fact</em>, not inference.</li>
+<li><strong>Promote the version-manifest to a first-class configuration object</strong> (Katz) — it is the
+   group-version thread <em>and</em> the noun the future Softland-native commit needs; unify them now,
+   at zero cost.</li>
+<li><strong>Make the two times explicit</strong> (XTDB) — commit author-time (valid) vs ingest-time
+   (transaction); the exactness flag becomes a projection of this, not a special case.</li>
+<li><strong>Name-threads (codeq def-names) as slice-2 claims</strong>, with trail-extracted continuity
+   declarations (MolhadoRef-style) as their upgrade path.</li>
+<li><strong>For the regrouping vision: composition model only</strong> (pinned / floating / effectivity-
+   scoped selections), never total versioning, never one global space.</li>
+</ol>
+<p>And the one reordering this whole chat earned: the versioning <strong>vocabulary</strong> — item/OID/VID,
+configuration, mint, the two times, bound/generic/effectivity, partial vs full persistence —
+belongs in a kernel-physics doc <strong>above</strong> the ingestor contracts, because the code ingestor
+is merely the first place the question got loud; Roam, groupings, and graphs all route through
+the same nouns, and Pelgrin proves the group-track can't be safely retrofitted.</p>
+<hr />
+<h1 id="open-problems-the-literature-itself-flags-as-unsolved">Open problems the literature itself flags as unsolved</h1>
+<ul>
+<li><strong>Semantic merge</strong> — merging declared refactorings with ordinary edits (MolhadoRef 2006
+  future work; HoTT merge laws unproven; Darcs conflict story deferred). Don't promise it.</li>
+<li><strong>History-length-independent performance</strong> — delta chains and aggregated changesets degrade;
+  version-count walls are real (21k versions = failure).</li>
+<li><strong>Cross-version references inside a global version space</strong> (Molhado) — directly threatens
+  anchors/trails; solved here by <em>refusing</em> the global space.</li>
+<li><strong>Change propagation scope &amp; DAG ambiguity</strong> for composites (Katz) — resolved only
+  operationally (group check-in), never automatically.</li>
+<li><strong>No standard query model for temporal graphs</strong> (RDF surveys) — OSTRICH's VM/DM/VQ is the
+  best candidate vocabulary; adopt it.</li>
+</ul>
+<h1 id="people-index-the-non-famous-seminal-ones">People index (the non-famous seminal ones)</h1>
+<p>Jacky Estublier (Adele, 1985) · Klaus Dittrich et al. (DAMOKLES, 1986) · Randy Katz (the 1990
+configuration survey) · Won Kim &amp; Hong-Tai Chou (ORION, 1988) · Edward Sciore (the 1994
+unification) · Tien N. Nguyen (Molhado, MolhadoRef) · Neil Sarnak (PhD thesis behind DSST
+persistence) · Ira Goldstein &amp; Daniel Bobrow (PIE, Xerox PARC 1981 — layers/contexts, the
+Kay-lineage ancestor of dynamic configurations) · Samuel Mimram &amp; Cinzia Di Giusto
+(categorical patch theory) · Carlo Angiuli, Ed Morehouse, Dan Licata, Robert Harper (HoTT
+patch theory) · Pierre-Étienne Meunier &amp; Florent Becker (Pijul) · Thomas Pellissier-Tanon &amp;
+Fabian Suchanek (Wikidata history) · Olivier Pelgrin, Luis Galárraga, Katja Hose (RDF
+archiving) · Reidar Conradi &amp; Bernhard Westfechtel (the survey spine).</p>
+<h1 id="sources-by-quality">Sources by quality</h1>
+<p><strong>Primary:</strong> DSST persistence (JCSS 1989) · Conradi &amp; Westfechtel (CSUR 1998) · Katz (CSUR
+1990) · ORION (VLDB 1988) · Sciore (VLDBJ 1994) · Molhado (SCM-12 2005) · MolhadoRef (ASE
+2006) · Monticello (2013) · Unison docs · Pijul docs · Mimram &amp; Di Giusto (arXiv 1311.3903) ·
+Angiuli et al. HoTT patch theory · Dolt Prolly docs · TerminusDB docs · XTDB bitemporality
+docs · OSTRICH (JWS 2018) · RDF archiving (SWJ 2019) · Pelgrin et al. (SWJ 2021) · Wikidata
+history (ESWC 2019).
+<strong>Secondary / blog:</strong> Irmin via The Morning Paper · Darcs patch theory (Wikibooks) · DoltHub
+blogs (2020, 2021) · PLM effectivity (orey.github.io 2021).
+<strong>Fetched but empty:</strong> ResearchGate "fine-grained flexible version control" (2008) — no
+extractable content.</p>
+</body></html>

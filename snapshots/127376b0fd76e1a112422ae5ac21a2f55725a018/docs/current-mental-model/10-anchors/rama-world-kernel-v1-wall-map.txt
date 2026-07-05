@@ -1,0 +1,1474 @@
+SOFTLAND RAMA WORLD KERNEL - V1 WALL MAP
+Requests ask. Decisions answer. Events only happen if accepted.
+
+Print target: A4 landscape | monospace 8pt | narrow margins | fit to page width
+
+
+                         CALLER / TEST / EDGE CODE
+                                   |
+                                   v
+       +----------------------------------------------------------------+
+       | ActionRequest                                                   |
+       |----------------------------------------------------------------|
+       | :request/id                                                     |
+       | :request/type                  == :action/:action/type          |
+       | :routing/key                   [:artifact "art_1"]              |
+       | :actor  :branch  :context  :target                              |
+       | :action {:action/type ... :action/capability ...}               |
+       | :payload                                                        |
+       | :causal  :provenance                                            |
+       |                                                                |
+       | optional:  :proposed/event-id                                   |
+       | forbidden: :event/id                                            |
+       | forbidden: [:payload :event/id]                                 |
+       +----------------------------------------------------------------+
+                                   |
+                                   v
+       +----------------------------------------------------------------+
+       | *world-requests-depot                                           |
+       |----------------------------------------------------------------|
+       | declared with: (hash-by :routing/key)                           |
+       | key shape:     [:artifact artifact-id]                          |
+       |                                                                |
+       | HONEST V1 LOCALITY NOTE                                         |
+       | Request routing is semantic-vector routing. Current PStates are |
+       | still keyed by plain artifact-id, so topology re-hashes before  |
+       | the local PState reads/writes.                                  |
+       +----------------------------------------------------------------+
+                                   |
+                                   v
+                       world-kernel-topology
+                                   |
+                                   v
+                       source> *world-requests-depot
+                                   |
+                                   v
+                       request-validation-errors
+                                   |
+                 +-----------------+-----------------+
+                 |                                   |
+                 v                                   v
+          request invalid                       request valid
+                 |                                   |
+                 v                                   v
+       +--------------------------+        dispatch by :action/type
+       | rejected ActionDecision  |                   |
+       |--------------------------|                   |
+       | :reason :request-invalid |                   |
+       | :routing/key same as req |                   |
+       | :event/id nil            |                   |
+       +--------------------------+                   |
+                 |                                   |
+                 v                                   v
+        $$requests-by-id              +---------------+---------------+
+        $$decisions-by-id             |               |               |
+                                      v               v               v
+                              :artifact/ingest  :unit/status-set  :compat/record
+                                      |               |               |
+                                      |               |               |
+                                      |       hash artifact-id        |
+                                      |       read $$units-by-artifact|
+                                      |               |               |
+                                      +-------+-------+---------------+
+                                              |
+                                              v
+                                      authorize / derive
+                                      validate KernelEvent
+                                              |
+                         +--------------------+--------------------+
+                         |                                         |
+                         v                                         v
+       +-----------------------------------+       +----------------------------+
+       | accepted ActionDecision           |       | rejected ActionDecision     |
+       |-----------------------------------|       |----------------------------|
+       | :decision/status :accepted        |       | :decision/status :rejected |
+       | :request/id                       |       | :request/id                |
+       | :routing/key same as request      |       | :routing/key same as req   |
+       | :event/id "evt_1"                 |       | :decision/reason ...       |
+       | :event {...KernelEvent...}        |       | :event/id nil              |
+       +-----------------------------------+       +----------------------------+
+                         |                                         |
+                         v                                         v
+       +-----------------------------------+               no KernelEvent
+       | KernelEvent                       |
+       |-----------------------------------|
+       | :event/id                         |
+       | :event/type                       |
+       | :actor  :branch  :context         |
+       | :target  :action  :payload        |
+       | :causal {:correlation/id req-id}  |
+       | :ordering {:key ...}              |
+       | :policy                           |
+       | :provenance                       |
+       |   {:source/type :action-request   |
+       |    :source/ref request-id}        |
+       +-----------------------------------+
+                         |
+                         v
+                  materialize PStates
+                         |
+       +-----------------+-----------------+-----------------+
+       |                 |                 |                 |
+       v                 v                 v                 v
+ $$events-by-id    $$branches       $$artifacts       $$artifact-heads
+ $$text-revisions  $$units-by-artifact
+ $$unit-status-by-branch
+
+
+Declared but quiet shelves in V1:
+  $$policies
+  $$projection-cache
+
+Wall checksum:
+  1. Does it enter as ActionRequest?
+  2. Does Rama validate the request before dispatch?
+  3. Does Rama decide from owned state?
+  4. Does rejection avoid KernelEvent?
+  5. Does acceptance derive KernelEvent after decision?
+  6. Does materialized state come from KernelEvent?
+  7. Is routing honest about locality?
+
+
+========================================================================
+FULL WALL-SPREAD ATLAS
+========================================================================
+
+This is the long version for stitching across pages.
+
+The compact truth:
+
+  Projection/state makes a target visible
+        |
+        v
+  user/agent acts on that target
+        |
+        v
+  ActionRequest enters Rama
+        |
+        v
+  Rama validates, interprets, authorizes, decides
+        |
+        +--> rejected ActionDecision
+        |
+        v
+  accepted ActionDecision
+        |
+        v
+  KernelEvent is derived
+        |
+        v
+  PStates materialize reader-friendly views
+        |
+        v
+  projections change
+
+
+========================================================================
+0. CURRENT CENTER OF GRAVITY
+========================================================================
+
+  Namespace:
+
+    app.server.rama.core
+
+  Rama module:
+
+    world-kernel-module
+
+  Stream topology:
+
+    "world-kernel-topology"
+
+  Only depot:
+
+    *world-requests-depot
+
+  Core loop:
+
+    ActionRequest -> ActionDecision -> KernelEvent only if accepted
+
+  Text is the first carrier.
+  Text is not the ontology.
+
+
+========================================================================
+1. CONSTANTS AND LOCAL VOCABULARY
+========================================================================
+
+  schema-version:
+
+    1
+
+  default branch:
+
+    "main"
+
+  first distiller:
+
+    "text-line-v0"
+
+  actor types:
+
+    :human
+    :agent
+    :system
+    :bot
+
+  target kinds:
+
+    :artifact
+    :revision
+    :address
+    :unit
+    :branch
+    :projection
+    :policy
+    :relation
+
+  unit statuses:
+
+    :accepted
+    :rejected
+    :hidden
+    :promoted
+    :superseded
+
+  discarded statuses:
+
+    :rejected
+    :hidden
+
+
+========================================================================
+2. CONTRACT TABLE
+========================================================================
+
+  +-------------------+-----------------------------------------------+
+  | contract          | responsibility                                |
+  +-------------------+-----------------------------------------------+
+  | action-request    | Durable request for the world to interpret.   |
+  | event             | Durable accepted fact from an ActionRequest.  |
+  | target            | Stable reference to what the action is about. |
+  | action            | Interpreted operation over a target.         |
+  | materialization   | Reader-friendly PStates derived from truth.  |
+  | projection        | View over materialized state.                |
+  | policy            | Gate observations and actions.               |
+  | distillation      | Versioned derivation of units/relations/etc. |
+  +-------------------+-----------------------------------------------+
+
+  Materialization is not source truth.
+  Projection is not source truth.
+  KernelEvent is source truth only after acceptance.
+  ActionRequest is source truth that someone asked.
+  ActionDecision is source truth that Rama answered.
+
+
+========================================================================
+3. ACTIONREQUEST ENVELOPE
+========================================================================
+
+  +------------------------------------------------------------------+
+  | ActionRequest                                                     |
+  +------------------------------------------------------------------+
+  | :request/id                                                       |
+  | :request/type                                                     |
+  | :request/time-ms                                                  |
+  | :request/schema-version                                           |
+  | :routing/key                                                      |
+  | :actor                                                            |
+  | :branch                                                           |
+  | :context                                                          |
+  | :target                                                           |
+  | :action                                                           |
+  | :payload                                                          |
+  | :causal                                                           |
+  | :provenance                                                       |
+  | optional: :proposed/event-id                                      |
+  +------------------------------------------------------------------+
+
+  ActionRequest is intentionally not an accepted world fact.
+  It is an ask, not a happened event.
+
+  Important invariants:
+
+    :request/type must equal [:action :action/type]
+
+    :routing/key must exist and be a non-empty vector with no nil parts
+
+    :event/id must not appear at the top level
+
+    [:payload :event/id] must not appear
+
+  Proposed event id:
+
+    :proposed/event-id may exist for deterministic tests.
+    It is not a KernelEvent.
+    It becomes a real :event/id only if the request is accepted.
+
+
+========================================================================
+4. ROUTING KEY CONTRACT
+========================================================================
+
+  routing-key-contract:
+
+    {:kind :semantic-vector
+     :transitional? true}
+
+  Current key shape:
+
+    [:artifact artifact-id]
+
+  routing-key-for chooses, in order:
+
+    1. [:artifact (:artifact/id payload)]
+    2. [:artifact (artifact-id-from-unit-id (:unit/id payload))]
+    3. [:artifact (get-in target [:target/address :artifact/id])]
+    4. [:artifact (:target/id target)] when target kind is :artifact
+    5. [(target-kind or :target) target-id]
+    6. [:request request-id]
+    7. [:request "unkeyed"]
+
+  Honest locality map:
+
+    ActionRequest
+        |
+        | depot partitioned by semantic vector
+        v
+    *world-requests-depot  (hash-by :routing/key)
+        |
+        | topology often re-hashes to physical PState keys:
+        |
+        +--> |hash request-id    for $$requests-by-id
+        +--> |hash decision-id   for $$decisions-by-id
+        +--> |hash event-id      for $$events-by-id
+        +--> |hash branch-id     for $$branches
+        +--> |hash artifact-id   for artifact/text/unit PStates
+
+  This is better than random depot routing.
+  It is not yet perfect physical Rama locality.
+
+
+========================================================================
+5. DEFAULT ENVELOPES
+========================================================================
+
+  default actor:
+
+    {:actor/id "system"
+     :actor/type :system
+     :actor/capabilities #{:world/append
+                           :artifact/create
+                           :unit/create
+                           :unit/judge}}
+
+  default context:
+
+    {:context/id nil
+     :projection/id nil
+     :selection/id nil
+     :question/id nil}
+
+  default causal:
+
+    {:parents []
+     :correlation/id nil
+     :intent/id nil}
+
+  default policy on a KernelEvent:
+
+    {:required-capabilities #{:world/append action-capability-if-present}
+     :visibility :private}
+
+
+========================================================================
+6. KERNELEVENT ENVELOPE
+========================================================================
+
+  +------------------------------------------------------------------+
+  | KernelEvent                                                       |
+  +------------------------------------------------------------------+
+  | :event/id                                                         |
+  | :event/type                                                       |
+  | :event/time-ms                                                    |
+  | :event/schema-version                                             |
+  | :actor                                                            |
+  | :branch                                                           |
+  | :context                                                          |
+  | :target                                                           |
+  | :action                                                           |
+  | :payload                                                          |
+  | :causal                                                           |
+  | :ordering                                                         |
+  | :policy                                                           |
+  | :provenance                                                       |
+  +------------------------------------------------------------------+
+
+  Carrier-specific facts live in:
+
+    :payload
+    :target
+    :target/:target/address
+
+  They do not mutate the event envelope itself.
+
+  ordering-key-for:
+
+    target id exists     -> [(target kind or :event) target-id]
+    event type exists    -> [:event/type event-type]
+    otherwise            -> [:world "unkeyed"]
+
+
+========================================================================
+7. VALIDATION GATES
+========================================================================
+
+  Request validation errors:
+
+    :request/not-map
+    :request/missing-envelope-key
+    :request/top-level-event-id
+    :request/payload-event-id
+    :request/type-not-qualified-keyword
+    :action/type-not-qualified-keyword
+    :request/action-type-drift
+    :routing/key-invalid
+    :actor/invalid-type
+    :target/invalid-kind
+    :branch/missing-id
+
+  Event validation errors:
+
+    :event/not-map
+    :event/missing-envelope-key
+    :event/type-not-qualified-keyword
+    :actor/invalid-type
+    :target/invalid-kind
+    :branch/missing-id
+    :ordering/missing-key
+
+  The topology runs request-validation-errors before action dispatch.
+
+    malformed unknown action
+          |
+          v
+    :request-invalid
+
+  not:
+
+    :unknown-action-type
+
+
+========================================================================
+8. AUTHORIZATION REALITY
+========================================================================
+
+  authorized-request? currently does this:
+
+    system actor:
+
+      allowed
+
+    non-system actor:
+
+      required capability = [:action :action/capability]
+      actor capabilities  = [:actor :actor/capabilities]
+      allowed if actor capabilities contain the required capability
+
+  Current policy caveat:
+
+    $$policies exists.
+    default-policy exists on KernelEvent.
+    But the live authorization check currently reads the request actor
+    capabilities, not a full Rama-owned policy PState.
+
+  So V1 is honest about the request/decision/event contract.
+  Policy is still a quiet shelf, not the center of this pass.
+
+
+========================================================================
+9. ACTIONDECISION SHAPES
+========================================================================
+
+  Accepted:
+
+    +--------------------------------------------------------------+
+    | ActionDecision                                               |
+    +--------------------------------------------------------------+
+    | :decision/id        request-id + "/decision"                 |
+    | :decision/status    :accepted                                |
+    | :request/id                                                  |
+    | :request/type                                                |
+    | :routing/key        same as request                          |
+    | :event/id           real accepted event id                   |
+    | :event              full KernelEvent                         |
+    | :decided-at                                                  |
+    +--------------------------------------------------------------+
+
+  Rejected:
+
+    +--------------------------------------------------------------+
+    | ActionDecision                                               |
+    +--------------------------------------------------------------+
+    | :decision/id        request-id + "/decision"                 |
+    | :decision/status    :rejected                                |
+    | :request/id                                                  |
+    | :request/type                                                |
+    | :routing/key        same as request                          |
+    | :event/id           nil                                      |
+    | :decision/reason                                             |
+    | :errors             vector                                   |
+    | :decided-at                                                  |
+    +--------------------------------------------------------------+
+
+  Rejection never creates a KernelEvent.
+
+
+========================================================================
+10. REQUEST HELPERS
+========================================================================
+
+  Generic:
+
+    action-request
+
+  Text ingest:
+
+    ingest-text-request
+
+      :request/type       :artifact/ingest
+      :action/type        :artifact/ingest
+      :action/capability  :artifact/create
+      :action/params      {:artifact/type :text}
+      :target/kind        :artifact
+      :routing/key        [:artifact artifact-id]
+      :payload            artifact id, type, source type,
+                          text content, revision id
+
+  Unit status:
+
+    unit-status-request
+
+      :request/type       :unit/status-set
+      :action/type        :unit/status-set
+      :action/capability  :unit/judge
+      :action/params      {:status status}
+      :target/kind        :unit
+      :routing/key        [:artifact artifact-id]
+      :payload            artifact id, unit id, status, optional reason
+
+  Compatibility bridge:
+
+    compat-record-request
+
+      :request/type       :compat/record
+      :action/type        :compat/record
+      :action/capability  capability or :world/append
+      :payload            compat event type, compat action type,
+                          compat payload
+      :provenance         {:source/type :legacy-route}
+
+
+========================================================================
+11. EVENT BUILDERS
+========================================================================
+
+  Text artifact event:
+
+    text-artifact-event
+
+      :event/type         :artifact/ingested
+      :target/kind        :artifact
+      :action/type        :artifact/ingest
+      :action/capability  :artifact/create
+      :action/params      {:artifact/type :text}
+      :payload            artifact id, artifact type, source type,
+                          text content, content hash, revision id
+      :ordering/key       [:artifact artifact-id]
+
+  Unit status event:
+
+    unit-status-event
+
+      :event/type         :unit/status-set
+      :target/kind        :unit
+      :action/type        :unit/status-set
+      :action/capability  :unit/judge
+      :action/params      {:status status}
+      :payload            artifact id, unit id, status, optional reason
+      :ordering/key       [:unit unit-id]
+
+  Compatibility event:
+
+    compat-request->event
+
+      :event/type         from [:payload :compat/event-type]
+      :action/type        compat action type or event type
+      :payload            [:payload :compat/payload]
+      :ordering/key       [target-kind target-id]
+
+
+========================================================================
+12. REQUEST -> EVENT DERIVATION
+========================================================================
+
+  ingest-request->event:
+
+    event id:
+
+      (:proposed/event-id request)
+      or
+      request-id + "/event"
+
+    causal:
+
+      {:parents []
+       :correlation/id request-id
+       :intent/id request causal intent id}
+
+      merged with request :causal
+
+    provenance:
+
+      {:source/type :action-request
+       :source/ref request-id}
+
+  status-request->event:
+
+    same event id rule:
+
+      proposed id or request-id + "/event"
+
+    same causal/provenance rule:
+
+      correlation id points back to request
+
+  compat-request->event:
+
+    event id:
+
+      request-id + "/event"
+
+
+========================================================================
+13. INTERPRETERS AND REJECTION REASONS
+========================================================================
+
+  decide-event:
+
+    event-validation-errors
+          |
+          +--> errors present:
+          |       rejected-decision :derived-event-invalid
+          |
+          +--> no errors:
+                  accepted-decision
+
+  interpret-ingest-request:
+
+    request invalid      -> :request-invalid
+    unauthorized actor   -> :actor-not-authorized
+    otherwise            -> derive ingest KernelEvent, decide-event
+
+  interpret-status-request:
+
+    request invalid      -> :request-invalid
+    unauthorized actor   -> :actor-not-authorized
+    unit missing         -> :target-unit-not-found
+    invalid status       -> :unit-status-invalid
+    otherwise            -> derive status KernelEvent, decide-event
+
+  interpret-compat-request:
+
+    request invalid      -> :request-invalid
+    unauthorized actor   -> :actor-not-authorized
+    otherwise            -> derive compat KernelEvent, decide-event
+
+  unknown-action-decision:
+
+    valid request but unknown action type -> :unknown-action-type
+
+
+========================================================================
+14. TEXT DISTILLATION
+========================================================================
+
+  line-ranges:
+
+    input text
+        |
+        v
+    split by newline
+        |
+        v
+    [{:line-index n
+      :start char-offset
+      :end char-offset
+      :text line-text}]
+
+  line-units:
+
+    artifact KernelEvent
+        |
+        v
+    one unit per line
+
+  Unit shape:
+
+    {:unit/id        artifact-id + "/line/" + line-number
+     :unit/type      :text/line
+     :artifact/id
+     :revision/id
+     :anchor         {:anchor/id
+                      :anchor/type :text/range
+                      :revision/id
+                      :range {:start :end :line-index}}
+     :unit/preview
+     :unit/order
+     :derived-by     {:distiller/id "text-line-v0"
+                      :distiller/version 1}
+     :provenance     {:root-event-id
+                      :artifact/id
+                      :revision/id}}
+
+  units-by-id-materialization:
+
+    [unit-id -> unit]
+
+    plus:
+
+      :created-by-event/id
+      :root-event-id
+
+
+========================================================================
+15. MATERIALIZATION FUNCTIONS
+========================================================================
+
+  branch-materialization:
+
+    {:branch/id
+     :seen-at
+     :last-event/id}
+
+  artifact-materialization:
+
+    {:artifact/id
+     :artifact/type
+     :source/type
+     :content/hash
+     :created-by
+     :created-at
+     :root-event-id}
+
+  revision-materialization:
+
+    {:revision/id
+     :artifact/id
+     :text/content
+     :content/hash
+     :parent-revision/id nil
+     :root-event-id}
+
+  status-materialization:
+
+    {:unit/id
+     :branch/id
+     :status
+     :reason
+     :set-by
+     :set-at
+     :event/id}
+
+
+========================================================================
+16. DEPOT AND PSTATES
+========================================================================
+
+  declare-depot:
+
+    *world-requests-depot
+      partition: (hash-by :routing/key)
+
+  declared PStates:
+
+    $$requests-by-id
+      String -> map
+      durable record of asks
+
+    $$decisions-by-id
+      String -> map
+      durable record of Rama answers
+
+    $$events-by-id
+      String -> map
+      accepted KernelEvents only
+
+    $$artifacts
+      String -> map
+      artifact materialization
+
+    $$artifact-heads
+      String -> String
+      artifact id -> current revision id
+
+    $$branches
+      String -> map
+      branch id -> last seen event info
+
+    $$policies
+      String -> map
+      declared, currently quiet
+
+    $$text-revisions
+      String -> {String -> map}
+      artifact id -> revision id -> revision
+
+    $$units-by-artifact
+      String -> {String -> map}
+      artifact id -> unit id -> text unit
+
+    $$unit-status-by-branch
+      String -> {String -> map}
+      branch id -> unit id -> status entry
+
+    $$projection-cache
+      String -> map
+      declared, currently quiet
+
+
+========================================================================
+17. TOPOLOGY: FULL CONTROL FLOW
+========================================================================
+
+  source:
+
+    source> *world-requests-depot :> *request
+
+  extract:
+
+    request-id          -> *request-id
+    request-action-type -> *action-type
+    request-validation  -> *request-errors
+
+  first gate:
+
+    request-errors?
+        |
+        +--> true:
+        |     rejected-decision :request-invalid
+        |     store request
+        |     store decision
+        |     STOP
+        |
+        +--> false:
+              dispatch by *action-type
+
+
+  ----------------------------------------------------------------------
+  Branch A: :artifact/ingest
+  ----------------------------------------------------------------------
+
+    interpret-ingest-request
+        |
+        v
+    ActionDecision
+        |
+        +--> always store request in $$requests-by-id
+        |
+        +--> always store decision in $$decisions-by-id
+        |
+        +--> if rejected:
+        |       no KernelEvent
+        |       no artifact materialization
+        |       no text revision
+        |       no units
+        |
+        +--> if accepted:
+                decision-event -> *event
+
+                event-id        -> *event-id
+                branch-id       -> *branch-id
+                artifact-id     -> *artifact-id
+                revision-id     -> *revision-id
+
+                branch-materialization   -> *branch
+                artifact-materialization -> *artifact
+                revision-materialization -> *revision
+                units-by-id-materialization -> *units
+
+                |hash event-id
+                  $$events-by-id[event-id] = event
+
+                |hash branch-id
+                  $$branches[branch-id] = branch
+
+                |hash artifact-id
+                  $$artifacts[artifact-id] = artifact
+                  $$artifact-heads[artifact-id] = revision-id
+                  $$text-revisions[artifact-id][revision-id] = revision
+                  $$units-by-artifact[artifact-id] = units
+
+
+  ----------------------------------------------------------------------
+  Branch B: :unit/status-set
+  ----------------------------------------------------------------------
+
+    request-artifact-id -> *artifact-id
+    request-unit-id     -> *unit-id
+
+    |hash artifact-id
+      local-select $$units-by-artifact[artifact-id][unit-id] -> *unit
+
+    interpret-status-request with request + unit
+        |
+        v
+    ActionDecision
+        |
+        +--> always store request in $$requests-by-id
+        |
+        +--> always store decision in $$decisions-by-id
+        |
+        +--> if rejected:
+        |       no KernelEvent
+        |       no status materialization
+        |
+        +--> if accepted:
+                decision-event -> *event
+
+                event-id   -> *event-id
+                branch-id  -> *branch-id
+                unit-id    -> *unit-id
+
+                branch-materialization -> *branch
+                status-materialization -> *status
+
+                |hash event-id
+                  $$events-by-id[event-id] = event
+
+                |hash branch-id
+                  $$branches[branch-id] = branch
+                  $$unit-status-by-branch[branch-id][unit-id] = status
+
+
+  ----------------------------------------------------------------------
+  Branch C: :compat/record
+  ----------------------------------------------------------------------
+
+    interpret-compat-request
+        |
+        v
+    ActionDecision
+        |
+        +--> always store request in $$requests-by-id
+        |
+        +--> always store decision in $$decisions-by-id
+        |
+        +--> if rejected:
+        |       no KernelEvent
+        |
+        +--> if accepted:
+                decision-event -> *event
+
+                event-id  -> *event-id
+                branch-id -> *branch-id
+
+                branch-materialization -> *branch
+
+                |hash event-id
+                  $$events-by-id[event-id] = event
+
+                |hash branch-id
+                  $$branches[branch-id] = branch
+
+
+  ----------------------------------------------------------------------
+  Branch D: default unknown action
+  ----------------------------------------------------------------------
+
+    only reached after common request validation passes
+
+    unknown-action-decision
+        |
+        v
+    rejected ActionDecision
+
+    store request in $$requests-by-id
+    store decision in $$decisions-by-id
+    no KernelEvent
+
+
+========================================================================
+18. THE THREE CURRENT ACCEPTED ACTIONS
+========================================================================
+
+  1. Ingest text artifact
+
+       ActionRequest :artifact/ingest
+             |
+             v
+       KernelEvent :artifact/ingested
+             |
+             v
+       artifact + revision + text line units
+
+  2. Set unit status
+
+       ActionRequest :unit/status-set
+             |
+             v
+       local read of existing unit
+             |
+             v
+       KernelEvent :unit/status-set
+             |
+             v
+       branch-specific unit status
+
+  3. Compat record
+
+       ActionRequest :compat/record
+             |
+             v
+       KernelEvent from legacy payload
+             |
+             v
+       event + branch only
+
+
+========================================================================
+19. RUNTIME SURFACE
+========================================================================
+
+  start-kernel-runtime!
+
+    creates IPC
+    launches world-kernel-module
+    task count:   4
+    thread count: 2
+
+    returns foreign handles:
+
+      :world-requests-depot
+      :requests-by-id
+      :decisions-by-id
+      :events-by-id
+      :artifacts
+      :artifact-heads
+      :branches
+      :policies
+      :text-revisions
+      :units-by-artifact
+      :unit-status-by-branch
+      :projection-cache
+
+  close-kernel-runtime!
+
+    closes IPC
+
+  append-action-request!
+
+    foreign-append! request into *world-requests-depot
+    append ack
+    returns request
+
+
+========================================================================
+20. READER SURFACE
+========================================================================
+
+  read-request:
+
+    $$requests-by-id[request-id]
+
+  read-decision:
+
+    $$decisions-by-id[request-id + "/decision"]
+
+  read-event:
+
+    $$events-by-id[event-id]
+
+  read-branch:
+
+    $$branches[branch-id]
+
+  read-artifact:
+
+    $$artifacts[artifact-id]
+
+  read-text-head:
+
+    revision-id = $$artifact-heads[artifact-id]
+    $$text-revisions[artifact-id][revision-id]
+
+  read-units:
+
+    $$units-by-artifact[artifact-id] or {}
+
+  read-unit-statuses:
+
+    $$unit-status-by-branch[branch-id] or {}
+
+  await-materialized:
+
+    poll read-f until pred passes or timeout
+    default timeout: 2000 ms
+    sleep interval: 25 ms
+
+  await-decision:
+
+    await read-decision
+
+
+========================================================================
+21. HIGH-LEVEL RUNTIME HELPERS
+========================================================================
+
+  ingest-text!
+
+    build ingest-text-request
+    append ActionRequest
+    await ActionDecision
+    return accepted event or throw
+
+  unitize-lines!
+
+    wait until units exist for artifact
+    return units sorted by :unit/order
+
+  set-unit-status!
+
+    build unit-status-request
+    append ActionRequest
+    await ActionDecision
+    return accepted event or throw
+
+  accepted-event-or-throw:
+
+    accepted decision -> return :event
+    rejected decision -> throw "Action request rejected" with decision data
+
+  run-v0-text-proof!
+
+    ingest text with deterministic ids
+    unitize lines
+    reject second line
+    await status materialization
+    return artifact event, unit count, status event,
+    artifact, text head, canonical view, discarded view
+
+
+========================================================================
+22. PROJECTION READS
+========================================================================
+
+  projection-item:
+
+    {:projection/id
+     :branch/id
+     :target {:target/kind :unit
+              :target/id unit-id
+              :target/address anchor}
+     :unit/id
+     :unit/type
+     :status
+     :preview
+     :order
+     :provenance {:artifact/id
+                  :revision/id
+                  :root-event-id
+                  :created-by-event/id}}
+
+  read-unit-projection:
+
+    projection id:
+
+      "text/" + view name
+
+    inputs:
+
+      branch-id
+      artifact-id
+      view
+
+    loads:
+
+      units    from $$units-by-artifact[artifact-id]
+      statuses from $$unit-status-by-branch[branch-id]
+
+    view filters:
+
+      :canonical
+        keep units whose status is not :rejected or :hidden
+
+      :discarded
+        keep units whose status is :rejected or :hidden
+
+    default status:
+
+      :unjudged
+
+  read-canonical-view:
+
+    read-unit-projection :canonical
+
+  read-discarded-view:
+
+    read-unit-projection :discarded
+
+
+========================================================================
+23. REQUEST / DECISION / EVENT LIFE OF ONE TEXT INGEST
+========================================================================
+
+  ingest-text-request
+        |
+        v
+  {:request/id "req_1"
+   :request/type :artifact/ingest
+   :routing/key [:artifact "art_1"]
+   :action {:action/type :artifact/ingest
+            :action/capability :artifact/create}
+   :payload {:artifact/id "art_1"
+             :artifact/type :text
+             :text/content "..."}}
+        |
+        v
+  *world-requests-depot
+        |
+        v
+  common validation
+        |
+        v
+  interpret-ingest-request
+        |
+        v
+  accepted-decision
+        |
+        v
+  {:decision/status :accepted
+   :request/id "req_1"
+   :routing/key [:artifact "art_1"]
+   :event/id "evt_1"
+   :event {...}}
+        |
+        v
+  KernelEvent
+        |
+        v
+  {:event/id "evt_1"
+   :event/type :artifact/ingested
+   :target {:target/kind :artifact
+            :target/id "art_1"}
+   :causal {:correlation/id "req_1"}
+   :ordering {:key [:artifact "art_1"]}
+   :provenance {:source/type :action-request
+                :source/ref "req_1"}}
+        |
+        v
+  $$events-by-id
+  $$branches
+  $$artifacts
+  $$artifact-heads
+  $$text-revisions
+  $$units-by-artifact
+
+
+========================================================================
+24. REQUEST / DECISION LIFE OF ONE REJECTION
+========================================================================
+
+  unit-status-request for missing unit
+        |
+        v
+  {:request/id "req_2"
+   :request/type :unit/status-set
+   :routing/key [:artifact "art_1"]
+   :proposed/event-id "evt_should_not_exist"}
+        |
+        v
+  *world-requests-depot
+        |
+        v
+  common validation passes
+        |
+        v
+  status branch hashes artifact-id
+        |
+        v
+  local-select unit -> nil
+        |
+        v
+  rejected-decision
+        |
+        v
+  {:decision/status :rejected
+   :request/id "req_2"
+   :routing/key [:artifact "art_1"]
+   :decision/reason :target-unit-not-found
+   :event/id nil}
+        |
+        v
+  $$requests-by-id
+  $$decisions-by-id
+
+  No KernelEvent.
+  No $$events-by-id entry for the proposed id.
+
+
+========================================================================
+25. CURRENT TEST GUARDRAILS
+========================================================================
+
+  kernel-event-envelope-test:
+
+    ActionRequest is valid as request, not valid as event.
+    ActionRequest has :proposed/event-id, not :event/id.
+    KernelEvent envelope is carrier-independent.
+
+  action-request-contract-validation-test:
+
+    routing-key-contract is transitional.
+    request/action type drift is rejected.
+    payload event id smuggling is rejected.
+    invalid routing key is rejected.
+
+  line-unitization-preserves-provenance-test:
+
+    text lines become units.
+    units preserve root-event provenance.
+    anchors are text ranges.
+
+  rama-v0-text-loop-test:
+
+    ingest request accepted.
+    status request accepted.
+    decisions carry routing key.
+    no request payload event id.
+    artifact, text head, status, canonical view,
+    discarded view all materialize.
+
+  hidden-event-id-request-is-rejected-test:
+
+    payload :event/id causes :request-invalid.
+    decision has :event/id nil.
+    no KernelEvent appears.
+
+  malformed-unknown-action-is-validated-before-dispatch-test:
+
+    malformed unknown action is :request-invalid.
+    it does not reach :unknown-action-type first.
+
+  rejected-action-request-is-durable-test:
+
+    rejected request is stored.
+    rejected decision is stored.
+    routing key is preserved.
+    proposed event id never becomes an event.
+
+
+========================================================================
+26. WHAT IS FULLY V1 NOW
+========================================================================
+
+  ActionRequest has a real contract.
+
+  :routing/key is required.
+
+  Request depot uses :routing/key.
+
+  :request/type and :action/type cannot drift.
+
+  :event/id cannot be smuggled onto ActionRequest.
+
+  Common request validation happens before action dispatch.
+
+  Unknown action does not bypass common validation.
+
+  ActionDecision carries :routing/key.
+
+  Rejected ActionDecision has :event/id nil.
+
+  Accepted ActionDecision has the accepted event id.
+
+  KernelEvent provenance points back to ActionRequest.
+
+  KernelEvent causal correlation points back to ActionRequest.
+
+  PStates materialize only from accepted KernelEvents.
+
+  Rejected requests remain durable as requests and decisions.
+
+  Routing locality is documented as transitional, not oversold.
+
+
+========================================================================
+27. WHAT IS DECLARED BUT NOT YET THE CENTER
+========================================================================
+
+  $$policies:
+
+    declared PState, not yet the live policy source of truth.
+
+  $$projection-cache:
+
+    declared PState, not yet used by projection reads.
+
+  policy contract:
+
+    present in kernel-contract-table.
+    default-policy present on KernelEvent.
+    full policy-PState enforcement is future work.
+
+  projection contract:
+
+    present in kernel-contract-table.
+    current projection reads are direct PState readers.
+    projection-cache is future work.
+
+
+========================================================================
+28. THE WALL CHECKSUM, LONG FORM
+========================================================================
+
+  Before changing Rama, ask:
+
+    1. Is this an ActionRequest, or am I trying to sneak in an event?
+
+    2. Does the request have a real :routing/key?
+
+    3. Does :request/type match [:action :action/type]?
+
+    4. Does validation happen before dispatch?
+
+    5. If malformed, does it become :request-invalid?
+
+    6. If unknown but well-formed, does it become :unknown-action-type?
+
+    7. Does the decision preserve :routing/key?
+
+    8. If rejected, is :event/id nil?
+
+    9. If rejected, is there no KernelEvent?
+
+   10. If accepted, is the event id born at the decision boundary?
+
+   11. Does KernelEvent causal/provenance point back to the request?
+
+   12. Does all reader state come from accepted KernelEvents?
+
+   13. Is the locality story true, not aspirational?
+
+   14. Did I use $$policies or $$projection-cache only if I really wired them?
+
+
+========================================================================
+29. ONE-LINE FORMULA
+========================================================================
+
+  ActionRequest asks.
+  ActionDecision records Rama's answer.
+  KernelEvent happened only if Rama accepted.
+  PStates are projections of happened facts.
+  Rejections are durable history, not hidden failure.

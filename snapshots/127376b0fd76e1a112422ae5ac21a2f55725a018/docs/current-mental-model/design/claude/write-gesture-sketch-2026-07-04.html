@@ -1,0 +1,1174 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Writing in the Land — the mark gesture, drawn</title>
+<style>
+  /* ── faces: the land's own type ─────────────────────────── */
+  /* Land Mono = Ubuntu Sans Mono (the face Softland's editor renders), instanced
+     at 400/600 and subset to this page's glyphs. Land Sym = the symbols Ubuntu
+     lacks (⊢ → ↵ ┄ ✓ ✗), subset from DejaVu Sans Mono; per-glyph fallback only. */
+  @font-face {
+    font-family: "Land Mono"; font-weight: 400; font-style: normal;
+    src: url(data:font/woff;base64,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) format("woff");
+  }
+  @font-face {
+    font-family: "Land Mono"; font-weight: 600; font-style: normal;
+    src: url(data:font/woff;base64,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) format("woff");
+  }
+  @font-face {
+    font-family: "Land Sym"; font-weight: 400; font-style: normal;
+    src: url(data:font/woff;base64,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) format("woff");
+  }
+
+  /* ── tokens ─────────────────────────────────────────────── */
+  :root {
+    --paper:      #f1efe9;
+    --card:       #faf9f5;
+    --ink:        #23211c;
+    --ink-soft:   #6b675d;
+    --line:       #d9d5ca;
+    --thread:     #55708c;   /* DAG structure — cool, recedes */
+    --wire:       #55708c66;
+    --kraft:      #a06b2e;   /* the assertion material — marks ONLY */
+    --kraft-bg:   #a06b2e14;
+    --kraft-edge: #a06b2e59;
+    --dead:       #9a4f44;
+    --fresh:      #4f7355;
+    --sel:        #55708c22;
+    --mono: "Land Mono", "Land Sym", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+    --serif: Charter, Georgia, "Times New Roman", serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #171511; --card: #201e19; --ink: #e6e1d5; --ink-soft: #97917f;
+      --line: #38352c; --thread: #7d99b5; --wire: #7d99b566;
+      --kraft: #c99a58; --kraft-bg: #c99a5816; --kraft-edge: #c99a5866;
+      --dead: #c07a6e; --fresh: #7ba184; --sel: #7d99b522;
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #f1efe9; --card: #faf9f5; --ink: #23211c; --ink-soft: #6b675d;
+    --line: #d9d5ca; --thread: #55708c; --wire: #55708c66;
+    --kraft: #a06b2e; --kraft-bg: #a06b2e14; --kraft-edge: #a06b2e59;
+    --dead: #9a4f44; --fresh: #4f7355; --sel: #55708c22;
+  }
+  :root[data-theme="dark"] {
+    --paper: #171511; --card: #201e19; --ink: #e6e1d5; --ink-soft: #97917f;
+    --line: #38352c; --thread: #7d99b5; --wire: #7d99b566;
+    --kraft: #c99a58; --kraft-bg: #c99a5816; --kraft-edge: #c99a5866;
+    --dead: #c07a6e; --fresh: #7ba184; --sel: #7d99b522;
+  }
+
+  html { background: var(--paper); }
+  body { margin: 0; color: var(--ink); background: var(--paper);
+         font-family: var(--serif); font-size: 16px; line-height: 1.55; }
+  main { max-width: 1100px; margin: 0 auto; padding: 44px 20px 96px; }
+  .copy { max-width: 860px; }
+
+  /* ── header ─────────────────────────────────────────────── */
+  header { margin-bottom: 40px; }
+  .epigraph {
+    font-family: var(--mono); font-size: 13px; line-height: 1.6;
+    border: 1px solid var(--kraft-edge); background: var(--kraft-bg);
+    padding: 8px 14px; margin: 0 0 32px; display: inline-block; max-width: 100%;
+    overflow-x: auto; white-space: nowrap;
+  }
+  .epigraph .mark { color: var(--kraft); }
+  .epigraph .who { font-weight: 600; }
+  .epigraph .dim { color: var(--ink-soft); }
+  .prov {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ink-soft); margin-bottom: 16px;
+  }
+  h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.1; margin: 0 0 14px;
+       font-weight: 700; text-wrap: balance; letter-spacing: -.01em; }
+  .standfirst { font-size: 18px; color: var(--ink-soft); max-width: 62ch; margin: 0; }
+  .standfirst em { color: var(--ink); }
+  .binding {
+    margin-top: 20px; padding: 10px 14px; border: 1px solid var(--kraft-edge);
+    background: var(--kraft-bg); font-family: var(--mono); font-size: 12px;
+    color: var(--ink); max-width: 72ch; line-height: 1.6;
+  }
+  .binding b { color: var(--kraft); }
+
+  /* ── founder's test ─────────────────────────────────────── */
+  .law {
+    border-left: 3px solid var(--thread); padding: 4px 0 4px 16px; margin: 36px 0;
+  }
+  .law .eyebrow { margin-bottom: 8px; }
+  .law ul { margin: 8px 0 10px; padding-left: 20px; }
+  .law li { margin-bottom: 6px; max-width: 70ch; }
+  .law .sent { font-style: italic; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--kraft); margin-bottom: 6px;
+  }
+  h2 { font-size: 22px; margin: 0 0 10px; font-weight: 700; line-height: 1.25;
+       text-wrap: balance; }
+  .lede { max-width: 68ch; color: var(--ink-soft); margin: 0 0 16px; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  /* ── the stage ──────────────────────────────────────────── */
+  .stagebox {
+    background: var(--card); border: 1px solid var(--line);
+    box-shadow: 0 1px 0 var(--line); margin: 14px 0 8px;
+  }
+  .facebar {
+    display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 10.5px; color: var(--ink-soft);
+    border-bottom: 1px solid var(--line); padding: 9px 14px; white-space: nowrap;
+    overflow-x: auto;
+  }
+  .facebar .addr { color: var(--thread); }
+  .facebar .selinfo { color: var(--kraft); }
+  .selinfo span { display: none; }
+  .viewport { overflow-x: auto; }
+  #stage { position: relative; width: 1080px; height: 500px;
+           font-family: var(--mono); flex: none; }
+  .wires { position: absolute; inset: 0; }
+  .wires path { fill: none; stroke: var(--wire); stroke-width: 1.4; }
+  .wires path.w-break { stroke-dasharray: 3 5; }
+  .wires path.w-dead-wire { }
+  .wires path.w-fresh { stroke: var(--fresh); display: none; }
+  .tbreak { position: absolute; left: 138px; top: 210px; width: 76px;
+            text-align: center; font-size: 10px; color: var(--ink-soft); }
+
+  /* nodes */
+  .node { position: absolute; transform: translate(-50%, -50%); cursor: pointer; }
+  .node:focus-visible { outline: 2px solid var(--thread); outline-offset: 4px; }
+  .node .pt { width: 9px; height: 9px; border-radius: 50%;
+              background: var(--thread); margin: 0 auto; }
+  .node .card {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    background: var(--card); border: 1px solid var(--line); padding: 6px 9px;
+    width: 150px; line-height: 1.45; z-index: 5;
+  }
+  .node.up   .card { bottom: 12px; }
+  .node.down .card { top: 12px; }
+  .c-date  { font-size: 9.5px; color: var(--ink-soft); letter-spacing: .06em; }
+  .c-title { font-size: 12px; font-weight: 600; }
+  .c-two   { font-size: 10.5px; color: var(--ink-soft); margin-top: 2px; }
+  .c-full  { display: none; font-size: 10.5px; margin-top: 6px;
+             border-top: 1px solid var(--line); padding-top: 6px; }
+  .c-full .fa { color: var(--thread); font-size: 9.5px; display: block; margin-top: 5px; }
+  .c-full .mk { color: var(--kraft); display: block; margin-top: 4px; }
+
+  /* altitude system: what the stage class shows */
+  .alt0 .node .card { display: none; }
+  .alt1 .node .c-two { display: none; }
+  /* open beats every altitude, locally only */
+  .node.open .card { display: block; width: 230px; z-index: 30;
+                     border-color: var(--thread); }
+  .node.open .c-two, .node.open .c-full { display: block; }
+  .node.open .pt { outline: 2px solid var(--thread); outline-offset: 2px; }
+
+  /* status paint */
+  .node.dead-t .c-title { text-decoration: line-through;
+                          text-decoration-color: var(--dead); }
+  .node.here .pt { box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--kraft); }
+  .herelbl { position: absolute; left: 952px; top: 286px;
+             font-size: 9.5px; color: var(--kraft); }
+  .node.freshn .pt { background: var(--fresh); }
+  .node.freshn .c-title { color: var(--fresh); }
+  .node.b6only { display: none; }
+
+  /* selection (beats 1–3) */
+  .selglow { position: absolute; border: 1px solid var(--thread);
+             background: var(--sel); display: none; }
+  #selA { left: 290px; top: 36px; width: 186px; height: 100px; }
+
+  /* palette (beat 2) */
+  .palette { position: absolute; left: 470px; top: 96px; display: none;
+             gap: 6px; }
+  .chip { padding: 2px 8px; border: 1px solid var(--kraft-edge); color: var(--kraft);
+          background: var(--card); font-size: 11px; white-space: nowrap; }
+  .chip .k { opacity: .6; }
+  .chip.dm { border-color: var(--line); color: var(--ink-soft); }
+
+  /* the dead-end mark: strike + badge */
+  .strike { position: absolute; left: 300px; top: 118px; width: 160px;
+            border-top: 2px solid var(--kraft); display: none; }
+  .xmark  { position: absolute; left: 466px; top: 108px; color: var(--kraft);
+            font-size: 14px; display: none; }
+  .badge {
+    position: absolute; font-size: 10.5px; padding: 4px 9px; line-height: 1.5;
+    border: 1px solid var(--kraft-edge); background: var(--kraft-bg);
+    color: var(--ink); display: none; z-index: 20; white-space: nowrap;
+  }
+  .badge .mark { color: var(--kraft); }
+  .badge .who { font-weight: 600; }
+  .badge .dim { color: var(--ink-soft); }
+  #b-dead { left: 300px; top: 40px; }
+  #b-dead .scar { display: none; }
+  #b-fork { left: 850px; top: 452px; }
+  .ghosted { opacity: .6; }
+  .ghosted { border-style: dashed; }
+
+  /* stance chips (beat 5) */
+  .stances { position: absolute; left: 590px; top: 288px; display: none; z-index: 6; }
+  .stance { font-size: 10.5px; padding: 2px 8px; margin-top: 4px; width: max-content;
+            border: 1px solid var(--kraft-edge); background: var(--kraft-bg); }
+  .stance .mark { color: var(--kraft); } .stance .who { font-weight: 600; }
+
+  /* beat visibility wiring (cumulative has-bN classes on #stagewrap) */
+  .has-b1:not(.has-b4) #selA { display: block; }
+  .has-b1:not(.has-b4) .selinfo .s-on { display: inline; }
+  .stagewrap:not(.has-b1) .selinfo .s-off { display: inline; }
+  .has-b4 .selinfo .s-off { display: inline; }
+  .has-b2:not(.has-b3) .palette { display: flex; }
+  .has-b3:not(.has-b4) .strike { display: block; border-top-style: dashed; }
+  .has-b3:not(.has-b4) #b-dead { display: block; opacity: .65; border-style: dashed; }
+  .has-b3:not(.has-b4) #b-dead .signed { display: none; }
+  .has-b4 .strike { display: block; }
+  .has-b4 .xmark { display: block; }
+  .has-b4 #b-dead { display: block; }
+  .has-b4 #b-dead .unsigned { display: none; }
+  .has-b4 .node.hl-t .c-title { text-decoration: line-through;
+                                text-decoration-color: var(--kraft); }
+  .has-b4 .wires path.w-dead-wire { opacity: .45; }
+  .has-b5 .stances { display: block; }
+  .has-b6 .node.b6only { display: block; }
+  .has-b6 .wires path.w-fresh { display: initial; }
+  .has-b6 #b-fork { display: block; }
+  .has-b7:not(.has-b8) #b-dead .live { display: none; }
+  .has-b7:not(.has-b8) #b-dead .scar { display: inline; }
+  .has-b8 .v3panel { display: block; }
+
+  /* controls */
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center;
+    font-family: var(--mono); font-size: 12px; margin: 10px 0 4px;
+  }
+  .controls .grp { display: flex; gap: 6px; align-items: center; }
+  .controls .lbl { color: var(--ink-soft); font-size: 10.5px;
+                   letter-spacing: .08em; text-transform: uppercase; }
+  button {
+    font-family: var(--mono); font-size: 12px; color: var(--ink);
+    background: var(--card); border: 1px solid var(--line); padding: 4px 10px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--thread); }
+  button:focus-visible { outline: 2px solid var(--thread); outline-offset: 2px; }
+  button.on { border-color: var(--kraft); color: var(--kraft);
+              background: var(--kraft-bg); }
+  .caption { font-family: var(--mono); font-size: 12.5px; color: var(--ink);
+             margin: 8px 0 0; min-height: 3em; max-width: 84ch; line-height: 1.6; }
+  .caption b { color: var(--kraft); font-weight: 600; }
+
+  /* view-3 panel (beat 8) */
+  .v3panel { display: none; background: var(--card); border: 1px solid var(--line);
+             margin-top: 12px; padding: 12px 16px; overflow-x: auto; }
+  .v3panel .t { font-family: var(--mono); font-size: 10.5px; color: var(--ink-soft);
+                margin-bottom: 8px; }
+  .v3panel pre { margin: 0; font-family: var(--mono); font-size: 12.5px;
+                 line-height: 1.7; }
+  .v3panel .m { color: var(--kraft); }
+  .v3panel .d { color: var(--ink-soft); }
+
+
+  /* ── scale stage (v4) ─────────────────────────── */
+  .delta {
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 11px; color: var(--ink);
+    background: var(--kraft-bg); border-bottom: 1px solid var(--kraft-edge);
+    padding: 7px 14px;
+  }
+  .delta b { color: var(--kraft); font-weight: 600; }
+  .bands { padding: 10px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .band { border: 1px solid var(--line); background: var(--card); cursor: pointer; }
+  .band:focus-visible { outline: 2px solid var(--thread); outline-offset: 2px; }
+  .bandhead {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+    font-family: var(--mono); font-size: 11.5px; padding: 6px 10px; flex-wrap: wrap;
+  }
+  .bandhead .bn { font-weight: 600; }
+  .fchip { color: var(--ink-soft); }
+  .fchip .m { color: var(--kraft); }
+  .fchip .nw { color: var(--kraft); font-weight: 600; }
+  .band .dotfield { display: block; padding: 0 10px 8px; width: calc(100% - 20px); height: 24px; }
+  .band .unfolded { display: none; font-family: var(--mono); font-size: 11px;
+                    color: var(--ink-soft); }
+  .band.open { cursor: default; border-color: var(--thread); }
+  .band.open .dotfield { display: none; }
+  .band.open .unfolded { display: block; padding: 4px 10px 12px; }
+  .band.prop { border-style: dashed; }
+  .trackrow { display: flex; gap: 10px; flex-wrap: wrap; }
+  .mini {
+    border: 1px solid var(--line); padding: 5px 8px; width: 200px;
+    font-family: var(--mono); line-height: 1.45; background: var(--paper);
+  }
+  .mini .c-date { font-size: 9.5px; color: var(--ink-soft); }
+  .mini .c-title { font-size: 12px; font-weight: 600; }
+  .mini .c-two { font-size: 10.5px; color: var(--ink-soft); }
+  .mini .mkc { font-size: 10px; color: var(--kraft); margin-top: 3px; display: block; }
+  .mini.herem { border-color: var(--kraft); }
+  .legend { font-family: var(--mono); font-size: 10.5px; color: var(--ink-soft);
+            margin-top: 8px; max-width: 84ch; line-height: 1.6; }
+
+
+  /* ── walk stage (v5) ──────────────────────────── */
+  .route { display: flex; align-items: center; gap: 14px; font-family: var(--mono);
+           font-size: 11px; color: var(--ink-soft); padding: 9px 14px;
+           border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .rdots { display: flex; gap: 10px; align-items: center; }
+  .rdot { width: 9px; height: 9px; border-radius: 50%; background: var(--wire);
+          border: 1px solid var(--thread); box-sizing: border-box; }
+  .rdot.done { background: var(--kraft); border-color: var(--kraft); }
+  .rdot.cur { box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--kraft); }
+  .stopwrap { padding: 14px; }
+  .stopcard { border: 1px solid var(--thread); background: var(--paper);
+              padding: 10px 14px; font-family: var(--mono); max-width: 660px; }
+  .stopcard .why { color: var(--kraft); font-size: 11px; margin-bottom: 6px; }
+  .stopcard .bt { font-size: 13px; font-weight: 600; }
+  .stopcard .bl { font-size: 11.5px; color: var(--ink-soft); line-height: 1.65;
+                  margin-top: 6px; white-space: pre-wrap; }
+  .moves { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+           font-family: var(--mono); }
+  .moves .dyn { display: none; }
+  .moves .dyn.showp { display: inline-block; }
+  #wnote { font-family: var(--mono); font-size: 10.5px; color: var(--ink-soft);
+           margin-top: 8px; min-height: 1.5em; }
+  .movenote { font-family: var(--mono); font-size: 10.5px; color: var(--ink-soft);
+              margin-top: 10px; max-width: 76ch; line-height: 1.65; }
+
+
+  /* ── terrain stage (v6) ───────────────────────── */
+  .rimbar {
+    display: flex; gap: 18px; flex-wrap: wrap; font-family: var(--mono);
+    font-size: 10.5px; color: var(--ink-soft); padding: 7px 12px;
+    border: 1px solid var(--line); border-bottom-style: dashed; background: var(--card);
+  }
+  .rimbar .addr { color: var(--thread); margin-left: auto; }
+  .gutter { font-family: var(--mono); font-size: 12px; color: var(--kraft);
+            padding: 10px 2px 8px; max-width: 84ch; line-height: 1.6; min-height: 3.2em; }
+  .terr .frame { display: none; padding: 12px 14px 16px; background: var(--card);
+                 border: 1px solid var(--line); border-top: none; }
+  .terr .frame.cur { display: block; }
+  .lyn { font-family: var(--mono); font-size: 8.5px; letter-spacing: .1em;
+         text-transform: uppercase; padding: 1px 5px; margin-left: 8px;
+         border: 1px solid var(--thread); color: var(--thread); white-space: nowrap; }
+  .lyn.lk { border-color: var(--kraft); color: var(--kraft); }
+  .tband { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+           font-family: var(--mono); font-size: 12px; padding: 8px 10px;
+           border: 1px solid var(--line); margin-bottom: 6px; background: var(--paper); }
+  .tband .tbn { font-weight: 600; }
+  .tband.dim { opacity: .55; }
+  .pen { border-left: 3px solid var(--kraft); background: var(--kraft-bg);
+         padding: 1px 7px; font-size: 10.5px; }
+  .fogpatch { border: 1px dashed var(--thread); color: var(--ink-soft);
+              font-family: var(--mono); font-size: 11px; padding: 8px 10px;
+              background: repeating-linear-gradient(45deg, transparent,
+                transparent 6px, var(--sel) 6px, var(--sel) 7px); }
+  .trow { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap;
+          font-family: var(--mono); font-size: 12px; padding: 6px 8px;
+          border-bottom: 1px solid var(--line); }
+  .trow .td { color: var(--ink-soft); font-size: 10px; }
+  .trow .tt { font-weight: 600; }
+  .trow .t2 { color: var(--ink-soft); font-size: 11px; }
+  .trow.deadrow .tt { text-decoration: line-through; text-decoration-color: var(--kraft); }
+  .mkchip { font-family: var(--mono); font-size: 10px; color: var(--kraft);
+            border: 1px solid var(--kraft-edge); background: var(--kraft-bg);
+            padding: 1px 6px; }
+  .roomarr { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start;
+             padding: 8px 0; }
+  .robj { border: 1px solid var(--line); background: var(--paper); padding: 8px 10px;
+          font-family: var(--mono); font-size: 11px; max-width: 240px; line-height: 1.5; }
+  .robj .rt { font-weight: 600; font-size: 12px; }
+  .robj.pinobj { border-color: var(--kraft); }
+  .roommem { font-family: var(--mono); font-size: 10.5px; color: var(--ink-soft);
+             border-top: 1px solid var(--line); padding-top: 8px; }
+  .ladder { display: flex; gap: 10px; font-family: var(--mono); font-size: 11px;
+            padding: 10px 0; flex-wrap: wrap; }
+  .rung { border: 1px solid var(--line); padding: 5px 10px; color: var(--ink-soft); }
+  .rung.curr { border-color: var(--thread); color: var(--ink); font-weight: 600; }
+  .codebl { font-family: var(--mono); font-size: 12px; line-height: 1.7;
+            background: var(--paper); border: 1px solid var(--line); padding: 10px 12px;
+            overflow-x: auto; margin: 8px 0; }
+  .codebl .cm { color: var(--ink-soft); }
+  .terrctl { display: flex; gap: 10px; align-items: center; font-family: var(--mono);
+             font-size: 12px; margin-top: 10px; flex-wrap: wrap; }
+  .terrctl .lbl { color: var(--ink-soft); font-size: 10.5px;
+                  letter-spacing: .08em; text-transform: uppercase; }
+
+  /* ── ledger ─────────────────────────────────────────────── */
+  .ledger { margin-top: 72px; border-top: 2px solid var(--ink); padding-top: 20px; }
+  .ledger > p { color: var(--ink-soft); max-width: 66ch; margin: 0 0 18px; }
+  .ledger ol { margin: 0; padding-left: 26px; font-size: 15px; }
+  .ledger li { margin-bottom: 11px; max-width: 72ch; }
+  .ledger li b { font-weight: 600; }
+  .ledger li .new {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+    color: var(--kraft); text-transform: uppercase; margin-left: 6px;
+    border: 1px solid var(--kraft-edge); padding: 1px 5px;
+  }
+  footer { margin-top: 52px; font-family: var(--mono); font-size: 11.5px;
+           color: var(--ink-soft); line-height: 1.7; max-width: 80ch; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .node .card, button, .badge { transition: opacity .15s, border-color .15s; }
+  }
+</style>
+
+<main>
+<header class="copy">
+  <div class="epigraph"><span class="mark">⊢ dead-end</span> · <span class="who">sid</span> · 04-07 · <span class="dim">on: v2's vertical-log face — "expansion steals the shared axis"</span></div>
+  <div class="prov">Track C · design sitting · 2026-07-04 · v3-spatial — surface corrected per Sid's review · fable, designer lens</div>
+  <h1>Writing in the Land</h1>
+  <p class="standfirst">The land's native write is the <em>assertion</em> — a staked reading of
+  history, never an edit of it. Below: the trail-room face your panel drew — <em>x is time
+  (given), y is lane (deterministic)</em> — with the <em>select · type · sign</em> gesture
+  replayed on it in nine beats, over this repo's true history. Zoom the altitude. Open any
+  node. The trail never leaves the screen.</p>
+  <div class="binding"><b>Standing:</b> a sketch, non-binding; the <b>do-not-preclude ledger</b>
+  at bottom is the only output that binds phase&nbsp;1. v2's vertical-log surface was killed by
+  Sid on sight — mark above; beats and ledger survived the surface swap, three constraints were
+  added (13–15). The sitting working as designed: feeling → constraint.</div>
+</header>
+
+<section class="law copy">
+  <div class="eyebrow">The founder's test — face requirements (Sid, this sitting, LAW-grade)</div>
+  <ul>
+    <li><b>The trail</b> — always on screen; it is the sense of where you are.</li>
+    <li><b>Zoomed out, every node still reads</b> — title / decision / 2-liner.</li>
+    <li><b>Any node opens in place while the others stay closed</b> — granular zoom in and out
+        without losing the space or the trail.</li>
+  </ul>
+  <p class="sent">Derived law: opening detail costs <b>local</b> space, never the shared axis.
+  Geometry: x&nbsp;=&nbsp;time (given), y&nbsp;=&nbsp;lane (deterministic from the log) — a graph
+  whose ground cannot reshuffle under your feet. Never force-directed.</p>
+</section>
+
+<!-- ══ THE STAGE ══════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">The trail room · gesture walkthrough</div>
+  <h2>Same land at every altitude; the gesture happens on it, in place.</h2>
+  <p class="lede">Step the <strong>beats</strong> (← →) to watch one write happen — the real
+  dead-end of the headless-import plan, the real split reading on the kernel gate, the real
+  late fork of track D. Switch <strong>altitude</strong> and click nodes at any time; the beats
+  and your zoom are independent, which is the point.</p>
+
+  <div id="stagewrap" class="stagewrap alt2">
+  <div class="stagebox">
+    <div class="facebar">
+      <span>face: trail-room · x=time · y=lane</span>
+      <span class="selinfo"><span class="s-off">sel: —</span><span class="s-on">sel: thread:hl-e91 #suffix(2) · shape=suffix</span></span>
+      <span class="addr">view://trail?root=softland&amp;from=2026-04-27</span>
+    </div>
+    <div class="viewport">
+    <div id="stage">
+      <svg class="wires" width="1080" height="500" aria-hidden="true">
+        <path class="w-break" d="M 78 235 C 110 235 118 235 142 235" />
+        <path class="w-break" d="M 214 235 C 228 235 236 235 246 235" />
+        <path class="w-dead-wire" d="M 258 231 C 285 195 300 150 326 126" />
+        <path class="w-dead-wire" d="M 336 120 L 424 120" />
+        <path d="M 258 235 C 300 235 380 235 424 235" />
+        <path d="M 436 235 C 480 235 512 235 554 235" />
+        <path d="M 566 231 C 600 210 680 218 754 231" />
+        <path d="M 566 239 C 590 270 620 330 554 346" />
+        <path d="M 566 350 L 668 350" />
+        <path d="M 680 346 C 715 320 735 270 754 241" />
+        <path d="M 766 231 C 810 205 850 150 894 126" />
+        <path d="M 766 233 C 810 222 850 208 894 204" />
+        <path d="M 766 237 C 810 255 850 280 894 288" />
+        <path class="w-fresh" d="M 766 241 C 810 290 870 370 934 396" />
+      </svg>
+      <div class="tbreak">may–jun<br>… compressed …</div>
+
+      <div class="selglow" id="selA"></div>
+
+      <div class="node up" style="left:70px; top:235px" tabindex="0">
+        <div class="card"><div class="c-date">27-04</div>
+          <div class="c-title">The panel</div>
+          <div class="c-two">timeline · what-changed · product-DAG — the first form (→ D-002)</div>
+          <div class="c-full">Wall panel, photographed. "Where are we · how did we get here ·
+            what crossroads did we take." Margin: one view at one zoom level — time is the
+            dimension.<span class="fa">d:panel-2704</span></div></div>
+        <div class="pt"></div>
+      </div>
+
+      <div class="node down" style="left:252px; top:235px" tabindex="0">
+        <div class="card"><div class="c-date">07/08-06</div>
+          <div class="c-title">Ingest kernels land</div>
+          <div class="c-two">markdown + transcript ingest into the object kernel</div>
+          <div class="c-full">Convergent re-import; deterministic ids; idempotency journals —
+            the material this very face renders.<span class="fa">s:ingest-jun07</span></div></div>
+        <div class="pt"></div>
+      </div>
+
+      <div class="node up hl-t" style="left:330px; top:120px" tabindex="0">
+        <div class="card"><div class="c-date">28-06</div>
+          <div class="c-title">Headless import round</div>
+          <div class="c-two">plan: finish every importer, then build the UI</div>
+          <div class="c-full">Completeness-gated: no external signal for "done enough."
+            <span class="fa">s:hl-e91#0</span></div></div>
+        <div class="pt"></div>
+      </div>
+
+      <div class="node up hl-t" style="left:430px; top:120px" tabindex="0">
+        <div class="card"><div class="c-date">29-06</div>
+          <div class="c-title">Import scope grows</div>
+          <div class="c-two">more ingestors queued; still no view demanding them</div>
+          <div class="c-full">The suffix the dead-end mark lands on — beats 1→4.
+            <span class="fa">s:hl-e91#4</span></div></div>
+        <div class="pt"></div>
+      </div>
+
+      <div class="node down" style="left:430px; top:235px" tabindex="0">
+        <div class="card"><div class="c-date">30-06</div>
+          <div class="c-title">Two-regime consolidation</div>
+          <div class="c-two">code-as-view (R1) split from recursive Softland (R2) → D-003</div>
+          <div class="c-full">Sid's own consolidation; adopted verbatim as the ruling.
+            <span class="fa">s:cons-b02</span></div></div>
+        <div class="pt"></div>
+      </div>
+
+      <div class="node up" style="left:560px; top:235px" tabindex="0">
+        <div class="card"><div class="c-date">03-07</div>
+          <div class="c-title">Decisions countersigned</div>
+          <div class="c-two">D-001…D-005 CLOSED; view-first beats import-first (D-005)</div>
+          <div class="c-full">The pivot that kills the upper fork: the view orders the
+            import work, not the reverse.<span class="fa">d:log@84b3d82</span></div></div>
+        <div class="pt"></div>
+      </div>
+
+      <div class="node down" style="left:560px; top:350px" tabindex="0">
+        <div class="card"><div class="c-date">03-07</div>
+          <div class="c-title">Relation-kernel: contract</div>
+          <div class="c-two">typed RelationEdge; traps ledger; acceptance gates (D-004)</div>
+          <div class="c-full">First D-006 package: Fable contract → Codex/Opus phases.
+            <span class="fa">wp:rk/CONTRACT</span></div></div>
+        <div class="pt"></div>
+      </div>
+
+      <div class="node down" style="left:674px; top:350px" tabindex="0">
+        <div class="card"><div class="c-date">03-07</div>
+          <div class="c-title">Gate PASS · closed</div>
+          <div class="c-two">165 assertions green; retro + succession skill written</div>
+          <div class="c-full">Criterion-3 carries two readings — beat 5 renders both.
+            <span class="mk">⊢ letter-ding · sid</span><span class="mk">⊢ spirit-held · fable</span>
+            <span class="fa">wp:rk/GATE_REVIEW</span></div></div>
+        <div class="pt"></div>
+      </div>
+
+      <div class="node up" style="left:760px; top:235px" tabindex="0">
+        <div class="card"><div class="c-date">04-07</div>
+          <div class="c-title">Four-track window</div>
+          <div class="c-two">one session = one track; A rama · B render · C write · D north</div>
+          <div class="c-full">The scoping law. Fork fan to the right is today.
+            <span class="fa">s:plan-4t1</span></div></div>
+        <div class="pt"></div>
+      </div>
+
+      <div class="node up" style="left:900px; top:120px" tabindex="0">
+        <div class="card"><div class="c-date">04-07</div>
+          <div class="c-title">A · WP1 contract</div>
+          <div class="c-two">trail-view data contract (other session)</div>
+          <div class="c-full"><span class="fa">t:trackA</span></div></div>
+        <div class="pt"></div>
+      </div>
+
+      <div class="node up" style="left:900px; top:198px" tabindex="0">
+        <div class="card"><div class="c-date">04-07</div>
+          <div class="c-title">B · substrate retro</div>
+          <div class="c-two">can the renderer carry View 3 + this face? (other session)</div>
+          <div class="c-full"><span class="fa">t:trackB</span></div></div>
+        <div class="pt"></div>
+      </div>
+
+      <div class="node down here" style="left:900px; top:292px" tabindex="0">
+        <div class="card"><div class="c-date">04-07</div>
+          <div class="c-title">C · this sitting</div>
+          <div class="c-two">the write gesture — the beats you are stepping</div>
+          <div class="c-full">Reflexive node: this artifact is material for the next
+            ingest.<span class="fa">t:trackC · s:tC-01</span></div></div>
+        <div class="pt"></div>
+      </div>
+      <div class="herelbl">you are here</div>
+
+      <div class="node up freshn b6only" style="left:940px; top:400px" tabindex="0">
+        <div class="card"><div class="c-date">04-07 · late</div>
+          <div class="c-title">D · render north</div>
+          <div class="c-two">ideal-framework study — forked late today</div>
+          <div class="c-full">Sid's call, added after the plan stood — a true late fork.
+            <span class="fa">t:trackD#head</span></div></div>
+        <div class="pt"></div>
+      </div>
+
+      <div class="palette">
+        <span class="chip"><span class="k">d</span> dead-end</span>
+        <span class="chip"><span class="k">v</span> version</span>
+        <span class="chip"><span class="k">q</span> question</span>
+        <span class="chip dm"><span class="k">b</span> based-on ·pair</span>
+        <span class="chip dm"><span class="k">e</span> elaborates ·pair</span>
+      </div>
+
+      <div class="strike"></div>
+      <div class="xmark">✗</div>
+
+      <div class="badge" id="b-dead">
+        <span class="live"><span class="mark">⊢ dead-end</span>
+          <span class="unsigned"> · unsigned — ↵ to sign as </span>
+          <span class="signed"> · </span>
+          <span class="who">sid, by fable's hand</span>
+          <span class="signed"> · 04-07 · <span class="dim">"superseded by view-first (D-005)"</span></span></span>
+        <span class="scar"><span class="mark" style="text-decoration:line-through">⊢ dead-end · sid · 04-07</span>
+          <span class="dim"> → retracted · sid · 12-07 · "slice revived for md-watchers"</span></span>
+      </div>
+
+      <div class="stances">
+        <div class="stance"><span class="mark">⊢ letter-ding</span> · <span class="who">sid</span></div>
+        <div class="stance"><span class="mark">⊢ spirit-held</span> · <span class="who">fable</span></div>
+      </div>
+
+      <div class="badge" id="b-fork"><span class="mark">⊢ new-direction</span> ·
+        <span class="who">sid</span> · 04-07</div>
+    </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="grp"><span class="lbl">beats</span>
+      <button id="prev" aria-label="previous beat">←</button>
+      <button id="next" aria-label="next beat">→</button>
+      <span id="beatno" style="min-width:3ch; text-align:center">0</span>
+    </div>
+    <div class="grp"><span class="lbl">altitude</span>
+      <button class="altb" data-alt="alt0">· dots</button>
+      <button class="altb" data-alt="alt1">titles</button>
+      <button class="altb on" data-alt="alt2">2-liners</button>
+    </div>
+    <div class="grp"><span class="lbl">nodes</span><span style="color:var(--ink-soft)">click any node to open it in place — others hold</span></div>
+  </div>
+  <p class="caption" id="caption"></p>
+
+  <div class="v3panel">
+    <div class="t">the OTHER face — View 3, agent text projection · ships first · same land, minimal tokens</div>
+    <pre><span class="d">n</span> s:hl-e91#0    28-06  headless-import round planned
+<span class="d">n</span> s:hl-e91#4    29-06  import scope grows
+<span class="m">⊢ rel:dd-01     dead-end  on=thread:hl-e91#suffix(2)  by=sid  via=fable  at=04-07</span>
+<span class="m">⊢ rel:rd-02     reading:letter-ding   on=wp:rk/gate#c3  by=sid</span>
+<span class="m">⊢ rel:rd-03     reading:spirit-held   on=wp:rk/gate#c3  by=fable</span>
+<span class="d">n</span> s:plan-4t1    04-07  four-track window plan
+<span class="m">⊢ rel:nd-04     new-direction  s:plan-4t1 → t:trackD  by=sid</span></pre>
+  </div>
+  </div>
+</section>
+
+<!-- ══ SCALE ════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">The maximalist test · added at Sid's prompt, same sitting</div>
+  <h2>Same land, one thousand threads.</h2>
+  <p class="lede">Every affordance is a loan — comments demand “where are the comments?”,
+  which demands an inbox, which demands triage, which rebuilds email. The audit of every chain
+  this face mints is in the sitting notes; this stage shows the answers holding at scale.
+  <strong>Nothing here is a queue:</strong> marks aggregate into fold-chips that survive every
+  altitude; “what's new” is a <strong>walk</strong> — place-ordered, from your last baton —
+  never an arrival-ordered list. One band is raised to reading altitude; the rest hold as
+  shape. That is mixed altitude: the brush, not the global.</p>
+  <div class="stagebox">
+    <div class="facebar">
+      <span>face: trail-room · alt=mixed · fold=track</span>
+      <span class="addr">view://trail?fold=track&amp;alt=mixed&amp;since=03-07T18:42</span>
+    </div>
+    <div class="delta"><span><b>since last walk</b> (cursor = your 03-07 baton entry):
+      7 marks · 3 questions · 1 disagreement · 2 threads grew</span>
+      <span>first stop → tracks</span></div>
+    <div class="bands">
+
+      <div class="band open">
+        <div class="bandhead"><span class="bn">softland · tracks · today</span>
+          <span class="fchip">[ 4 threads · <span class="m">⊢ 2</span> · <span class="nw">2 new</span> ]</span></div>
+        <div class="unfolded"><div class="trackrow">
+          <div class="mini"><span class="c-date">04-07</span>
+            <div class="c-title">A · WP1 contract</div>
+            <div class="c-two">trail-view data contract</div></div>
+          <div class="mini"><span class="c-date">04-07</span>
+            <div class="c-title">B · substrate retro</div>
+            <div class="c-two">renderer vs View-3 demand</div></div>
+          <div class="mini herem"><span class="c-date">04-07</span>
+            <div class="c-title">C · this sitting</div>
+            <div class="c-two">write gesture · you are here</div></div>
+          <div class="mini"><span class="c-date">04-07 · late</span>
+            <div class="c-title">D · render north</div>
+            <div class="c-two">ideal-framework study</div>
+            <span class="mkc">⊢ new-direction · sid</span></div>
+        </div></div>
+      </div>
+
+      <div class="band" data-toggle tabindex="0">
+        <div class="bandhead"><span class="bn">softland · relation-kernel · may–jul</span>
+          <span class="fchip">[ 31 threads · <span class="m">⊢ 6</span> · ✓ gate · 2 stances · <span class="nw">1 new</span> ]</span></div>
+        <svg class="dotfield" viewBox="0 0 1000 24" preserveAspectRatio="xMinYMid meet" data-n="62" data-marks="6" data-new="1" aria-hidden="true"></svg>
+        <div class="unfolded">unfolds to lanes at this grain — not mocked; the law is that opening costs local space only</div>
+      </div>
+
+      <div class="band" data-toggle tabindex="0">
+        <div class="bandhead"><span class="bn">softland · render substrate</span>
+          <span class="fchip">[ 58 threads · <span class="m">⊢ 3</span> · ? 4 ]</span></div>
+        <svg class="dotfield" viewBox="0 0 1000 24" preserveAspectRatio="xMinYMid meet" data-n="58" data-marks="3" data-new="0" aria-hidden="true"></svg>
+        <div class="unfolded">unfolds to lanes at this grain — not mocked</div>
+      </div>
+
+      <div class="band" data-toggle tabindex="0">
+        <div class="bandhead"><span class="bn">dg-plugin · day job</span>
+          <span class="fchip">[ 240 threads · <span class="m">⊢ 12</span> · ? 9 · <span class="nw">2 new</span> ]</span></div>
+        <svg class="dotfield" viewBox="0 0 1000 24" preserveAspectRatio="xMinYMid meet" data-n="240" data-marks="12" data-new="2" aria-hidden="true"></svg>
+        <div class="unfolded">unfolds to lanes at this grain — not mocked</div>
+      </div>
+
+      <div class="band" data-toggle tabindex="0">
+        <div class="bandhead"><span class="bn">wall · panels &amp; notes</span>
+          <span class="fchip">[ 87 panels · <span class="m">⊢ 21</span> · ? 14 ]</span></div>
+        <svg class="dotfield" viewBox="0 0 1000 24" preserveAspectRatio="xMinYMid meet" data-n="87" data-marks="21" data-new="0" aria-hidden="true"></svg>
+        <div class="unfolded">unfolds to lanes at this grain — not mocked</div>
+      </div>
+
+      <div class="band prop" data-toggle tabindex="0">
+        <div class="bandhead"><span class="bn">agents · proposals</span>
+          <span class="fchip">[ 512 runs · <span class="m">12 proposals · ranked · capped</span> · judged in place, in walk order ]</span></div>
+        <svg class="dotfield" viewBox="0 0 1000 24" preserveAspectRatio="xMinYMid meet" data-n="160" data-marks="12" data-new="4" aria-hidden="true"></svg>
+        <div class="unfolded">machine proposals never get a surface of their own — they wait, ranked and capped, at the places they are about (Law 4); a rejected one never returns unchanged</div>
+      </div>
+
+      <div class="band" data-toggle tabindex="0">
+        <div class="bandhead"><span class="bn">archive · pre-may</span>
+          <span class="fchip">[ 4 months · folded — fold, never sever ]</span></div>
+        <svg class="dotfield" viewBox="0 0 1000 24" preserveAspectRatio="xMinYMid meet" data-n="330" data-marks="9" data-new="0" aria-hidden="true"></svg>
+        <div class="unfolded">time-folded, fully recoverable — every dot still resolves to its address</div>
+      </div>
+
+    </div>
+  </div>
+  <p class="legend">fold-chip grammar: [ threads · ⊢ marks · ✗ dead · ? open questions ·
+  new-since-your-walk ]. Law 8: no fold may drop the ? count. Ledger 16: no altitude may hide
+  that marks exist below it. The walk cursor is your last baton entry — the daily baton IS the
+  day's version-sign, and signing it resets the cursor. Click a folded band to raise it in
+  place; the others hold.</p>
+</section>
+
+<!-- ══ WALK ═════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">The walk · the morning gesture — reading and writing fused</div>
+  <h2>Not an inbox with scenery: place-ordered, abandonable, and it writes.</h2>
+  <p class="lede">The delta-strip's answer to “what's new?” is a <strong>route over the land</strong>,
+  not a list: stops come in trail order, each stop is the changed thing raised in its own
+  neighborhood, and one keystroke steps on. Stepping <strong>attests, visibly</strong> — walk-mode
+  is the consent boundary (ambient reading never writes; entering the walk is the consent).
+  Skipping is legitimate walking; abandoning costs nothing — unwalked chips simply remain, and
+  nothing nags. The walk ends where your day already ends: the baton, signed — the day's
+  version-mark, which resets the cursor. Below: this morning's actual seven-delta walk, steppable.</p>
+  <div class="stagebox">
+    <div class="facebar">
+      <span>face: walk · route=since(03-07 baton) · order=trail</span>
+      <span class="addr">view://walk?since=03-07T18:42&amp;order=trail</span>
+    </div>
+    <div class="route">
+      <span>route</span>
+      <div class="rdots" id="rdots"></div>
+      <span id="stoplabel">stop 1/6 · place-ordered · abandonable</span>
+    </div>
+    <div class="stopwrap">
+      <div class="stopcard" id="stopcard">
+        <div class="why" id="s-why"></div>
+        <div class="bt" id="s-bt"></div>
+        <div class="bl" id="s-bl"></div>
+      </div>
+      <div class="moves">
+        <button id="mstep">→ step · attest</button>
+        <button id="mopen">↵ open</button>
+        <button id="mmark">m mark</button>
+        <button id="mskip">s skip thread</button>
+        <button id="maccept" class="dyn">✓ accept = sign</button>
+        <button id="mreject" class="dyn">✗ reject</button>
+      </div>
+      <div id="wnote"></div>
+      <p class="movenote">step attests last-walked, visibly — the stop's chip dims as you pass;
+      that attestation is the staleness data (INPUTS 2) being farmed by ordinary reading.
+      open descends toward source (one gesture, always). m raises the same palette as anywhere —
+      at a stop, the selection is pre-made: the changed span itself. Verdicts have no dedicated
+      keys; the palette is the only vocabulary (guides, never gates).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══ TERRAIN ══════════════════════════════════ -->
+<section class="terr">
+  <div class="eyebrow">The terrain sketch · landmarks at every altitude — testing ground = trail</div>
+  <h2>One descent: the whole land to bedrock in six labeled steps.</h2>
+  <p class="lede">The giants obligation, paid: Lynch elements named at each altitude, no altitude
+  without a landmark, emptiness rendered as fog. Watch two things stay constant the whole way
+  down: <strong>the rim</strong> (scope · new · address · palette — identical shape, address
+  always telling you where you are) and <strong>the ground</strong> (every CUT steps off it;
+  ascending always finds it again). The gutter sentence above each frame is the transition —
+  content, not chrome.</p>
+
+  <div class="gutter" id="tgut"></div>
+  <div class="stagebox" style="border-top:none">
+
+    <div class="frame cur">
+      <div class="rimbar"><span>scope: grounded</span><span>new: 7</span><span>palette</span>
+        <span class="addr">view://land?alt=wide</span></div>
+      <div style="height:10px"></div>
+      <div class="tband"><span class="tbn">softland</span>
+        <span class="pen">D-001…5 countersigned</span>
+        <span class="pen">relation-kernel closed ✓</span>
+        <span class="lyn lk">landmark · pennant</span>
+        <span class="lyn">district · band</span></div>
+      <div class="tband"><span class="tbn">dg-plugin · day job</span>
+        <span class="t2" style="font-size:10.5px;color:var(--ink-soft)">240 threads · ? 9</span>
+        <span class="lyn">edge · regime boundary above</span></div>
+      <div class="tband"><span class="tbn">wall · panels</span>
+        <span class="pen">27-04: the panel</span>
+        <span class="lyn">path · walk routes cross here</span></div>
+      <div class="tband dim"><span class="tbn">archive · pre-may</span>
+        <span style="font-size:10.5px">folded — fold, never sever</span></div>
+      <div class="fogpatch">? ? ?&nbsp;&nbsp;unwalked frontier — question density, no trails yet
+        <span class="lyn">fog · the unknown as terrain, never blank</span></div>
+    </div>
+
+    <div class="frame">
+      <div class="rimbar"><span>scope: grounded</span><span>new: 7</span><span>palette</span>
+        <span class="addr">view://land?district=softland</span></div>
+      <div style="height:10px"></div>
+      <div class="tband"><span class="tbn">spine</span>
+        <span class="pen">view-first beats import-first (D-005)</span>
+        <span class="lyn lk">landmark · version statement as fold text</span></div>
+      <div class="tband"><span class="tbn">relation-kernel lane</span>
+        <span class="pen">gate PASS · closed 03-07</span></div>
+      <div class="tband"><span class="tbn">render lane</span>
+        <span style="font-size:10.5px;color:var(--ink-soft)">retro running (track B)</span></div>
+      <div class="tband"><span class="tbn">tracks fan · today</span>
+        <span style="font-size:10.5px;color:var(--ink-soft)">A · B · C (here) · D (young)</span>
+        <span class="lyn">node · the plan fork, a crossroads</span></div>
+    </div>
+
+    <div class="frame">
+      <div class="rimbar"><span>scope: grounded</span><span>new: 2</span><span>palette</span>
+        <span class="addr">view://trail?lane=trackC&amp;alt=2</span></div>
+      <div style="height:10px"></div>
+      <div class="trow"><span class="td">04-07</span><span class="tt">designer lens on</span>
+        <span class="t2">fresh cut; canon later, on Sid's word</span></div>
+      <div class="trow deadrow"><span class="td">04-07</span><span class="tt">v2 vertical-log face</span>
+        <span class="t2">expansion steals the shared axis</span>
+        <span class="mkchip">⊢ dead-end · sid</span></div>
+      <div class="trow"><span class="td">04-07</span><span class="tt">v3 spatial · v4 scale · v5 walk</span>
+        <span class="t2">x=time, y=lane; fold-chips; the walk</span></div>
+      <div class="trow"><span class="td">04-07</span><span class="tt">broader frame: ground · room · rim</span>
+        <span class="t2">three zoom regimes; view-as-candidate</span>
+        <span class="mkchip">you are here</span></div>
+    </div>
+
+    <div class="frame">
+      <div class="rimbar"><span>scope: grounded</span><span>new: 0</span><span>palette</span>
+        <span class="addr">room://trackC-workbench</span></div>
+      <div class="roomarr">
+        <div class="robj pinobj"><div class="rt">27-04 panel</div>photo, pinned — the demand
+          this whole track serves<div class="lyn lk" style="margin:6px 0 0">landmark · pinned</div></div>
+        <div class="robj"><div class="rt">write-gesture sketch</div>v6 · the artifact under
+          your hands right now</div>
+        <div class="robj"><div class="rt">constraint ledger</div>27 do-not-preclude items ·
+          the binding residue</div>
+      </div>
+      <div class="roommem">room memory: v2 killed here · 3 stances ratified · arrangement is
+        data (an event, not decoration)</div>
+    </div>
+
+    <div class="frame">
+      <div class="rimbar"><span>scope: sketch · non-binding</span><span>new: 0</span><span>palette</span>
+        <span class="addr">art:write-gesture-sketch-2026-07-04</span></div>
+      <div class="ladder">
+        <span class="rung">stratum: fold text · machine summary (badged)</span>
+        <span class="rung curr">artifact: this sketch · asserted material</span>
+        <span class="rung">source: transcript span s:tC-01 §… · bedrock bytes</span>
+      </div>
+      <p style="font-family:var(--mono); font-size:11px; color:var(--ink-soft); margin:6px 0 0">
+        the ladder is the third zoom regime: same focus, coarser or finer stratum —
+        every projected sentence is a doorway downward (one gesture to source, always)</p>
+    </div>
+
+    <div class="frame">
+      <div class="rimbar"><span>scope: git truth · exact</span><span>new: 0</span><span>palette</span>
+        <span class="addr">git:2796044 · src/app/server/rama/relation_kernel.clj</span></div>
+      <div class="codebl"><span class="cm">;; abridged — bedrock, addressed not copied (D-003)</span>
+(defrecord RelationEventRow
+  [relation-id kind from-id to-id
+   asserter-actor-id asserted-at-ms
+   evidence-source-id evidence-anchor-id …])</div>
+      <span class="mkchip">⊢ elaborates · sid · "idempotency journal is relation-scoped (ruling, 03-07)"</span>
+      <p style="font-family:var(--mono); font-size:11px; color:var(--ink-soft); margin:8px 0 0">
+        marks land on code threads like anywhere else; work here emits trail — the ground
+        accretes beneath you while you type
+        <span class="lyn">edge · external code, git authority</span></p>
+    </div>
+
+  </div>
+  <div class="terrctl">
+    <span class="lbl">descent</span>
+    <button id="tup">ascend</button>
+    <button id="tdn">descend</button>
+    <span id="tstep">1/6 · the land, wide</span>
+  </div>
+</section>
+
+<!-- ══ LEDGER ══════════════════════════════════════════════ -->
+<section class="ledger copy">
+  <div class="eyebrow">Binding output</div>
+  <h2>The do-not-preclude ledger</h2>
+  <p>Constraints on phase&nbsp;1 so the read-only MVP cannot corner the write surface — or the
+  face. Nothing here asks anything to be built. Items 13–15 were minted by Sid's review of v2.</p>
+  <ol>
+    <li><b>Element-grain addresses.</b> Every rendered element carries a stable address a human
+      can say in CLI speech and an agent can resolve — at the grain of the gesture's selection
+      shapes.</li>
+    <li><b>The face states its own address</b> (query + params) — a screenshot is a resolvable
+      pointer, not just pixels.</li>
+    <li><b>Anchor shapes stay open:</b> point · interval · prefix · suffix · cut · pair · set —
+      nothing new may hardwire anchor = byte-range-in-one-source.</li>
+    <li><b>Kind signatures guide, never gate;</b> the untyped flag (select + sign, type deferred)
+      stays legal.</li>
+    <li><b>Dual identity durable and renderable</b> — payload asserter + envelope actor both
+      persist ("sid, by fable's hand").</li>
+    <li><b>Two clocks on every mark:</b> marks render claimed-time; a re-imported old mark never
+      looks fresh.</li>
+    <li><b>No single-verdict-per-span rule anywhere;</b> contradicting marks co-render, badged,
+      unmerged.</li>
+    <li><b>Thread-heads mintable by one assertion,</b> including retroactively — a fork is one
+      event, never an ingest ceremony.</li>
+    <li><b>Retraction scars, never erases</b> — both dates readable, in place.</li>
+    <li><b>Mark-rows structurally distinct from terrain-rows</b> in View 3's format — assertions
+      unconfusable with material at the token level.</li>
+    <li><b>Proposed ≠ signed reserved in the render grammar</b> from the first face.</li>
+    <li><b>No shadow log:</b> previews are ephemeral view-state; a draft that must survive a
+      session enters the kernel as a proposal row.</li>
+    <li><b>Altitude text forms are data.</b><span class="new">new · Sid</span> Every node/bundle
+      carries title · decision/2-liner · full body, so semantic zoom reads from the contract —
+      never from truncating whatever text happens to exist.</li>
+    <li><b>No face may assume expansion-in-flow.</b><span class="new">new · Sid</span> Opening
+      detail must be able to cost local space only, with the trail persistent on screen — the
+      data contract must not bake in outliner-reflow assumptions (e.g. detail only as nested
+      children).</li>
+    <li><b>Layout deterministic from the log.</b><span class="new">new · Sid</span> x = time
+      (given), y = lane (stable, derived); never force-directed, never reshuffling — spatial
+      memory only binds to ground that holds still.</li>
+    <li><b>Marks aggregate at every altitude.</b><span class="new">new · scale test</span>
+      The zoom functor carries mark / dead / question / new-since counts into every fold-chip;
+      no altitude may hide that marks exist below it — and no fold may drop the ? count.</li>
+    <li><b>The walk replaces the inbox.</b><span class="new">new · scale test</span>
+      “What's new” is a place-ordered diff from a walk-cursor, judged in place while walking —
+      the contract must keep walk/attestation rows assertable (CLI/agent in phase 1) and must
+      never require an arrival-ordered queue surface.</li>
+    <li><b>Thread grouping is asserted structure.</b><span class="new">new · scale test</span>
+      Lanes fold on part-of–style edges so folding is lawful projection; ungrouped threads
+      render as a visible band — never auto-filed, never hidden.</li>
+    <li><b>Proposal caps are per-place, per-altitude.</b><span class="new">new · scale test</span>
+      Machine proposals render ranked and capped at the places they are about; no global
+      proposal queue may ever be the answer to “where are they?”.</li>
+    <li><b>Unwalked newness never escalates.</b><span class="new">new · walk</span>
+      “New since your walk” renders as in-place chips at every altitude, forever; no surface may
+      nag, pulse, or re-order the land by unreadness. Suppression, not decay; abandoning a walk
+      is a legal state.</li>
+    <li><b>Walks are material.</b><span class="new">new · walk</span> A walk is an addressable
+      trail (its steps, its signs); step-attestations are assertable rows — but rendering must
+      never REQUIRE walk data to exist (walkless readers still get an honest land), and ambient
+      reading outside walk-mode must never write.</li>
+    <li><b>A version is a cut, never a container.</b><span class="new">new · version</span>
+      Version rows carry target cut (point or point-set), statement, optional name, asserter,
+      claimed-time — no locks, no copies; bedrock by address. Nothing may model versions as
+      boxes that "hold" content.</li>
+    <li><b>Version statements are altitude text.</b><span class="new">new · version</span>
+      Fold-level rendering prefers the latest human version statement; machine strata fill gaps
+      wearing their badge, calibration bounded by sources. Signing cuts is what makes your own
+      land legible from far away — the incentive is the altitude itself.</li>
+    <li><b>Names graduate.</b><span class="new">new · version</span> Versions are date-born;
+      names optional at mint and conferrable later by use (speech-observed proposals, ranked,
+      capped, one-gesture ratify) — the contract keeps the name field open, never required.</li>
+    <li><b>No altitude without a landmark; emptiness is fog.</b><span class="new">new · terrain</span>
+      Every rendered region exposes at least one landmark (pennant, statement, pinned object) or
+      renders as fog-of-war — a first-class state, never blank space. Data contract must supply
+      per-region aggregates rich enough to honor this.</li>
+    <li><b>The rim is closed and constant.</b><span class="new">new · terrain</span>
+      Scope · delta · address · palette — identical shape on every face, the address always
+      stating where you are. Nothing else may ever join the rim.</li>
+    <li><b>Animate within a geometry; cut between regimes; label every cut.</b><span class="new">new · terrain</span>
+      Face contracts declare which zoom regime (ground / room / ladder) a transition stays in or
+      crosses, so the renderer can honor this — the gutter sentence is content, not chrome.</li>
+  </ol>
+</section>
+
+<footer class="copy">
+  v3-spatial → v4-scale → v5-walk → v6-terrain (the descent; ledger at 27) · sources: decisions.md (binding) · trail-view INPUTS.md · vision/LOG.md · BETS.md
+  North · relation-kernel CONTRACT · design decision-log + taste.md · interface-derivation +
+  at-scale synthesis (read on Sid's instruction after the fresh cut) · the 27-04 wall panel ·
+  scenes use true repo history; beat 7 is illustrative; stage geometry hand-laid for the sketch —
+  the real face computes lanes deterministically from the log · land set in Ubuntu Sans Mono
+  (the editor's own face), symbols ⊢ → ↵ ┄ ✓ ✗ from DejaVu Sans Mono · commentary in
+  Charter/Georgia
+</footer>
+</main>
+
+<script>
+(function () {
+  var wrap = document.getElementById('stagewrap');
+  var caption = document.getElementById('caption');
+  var beatno = document.getElementById('beatno');
+  var MAX = 8, beat = 0;
+  var caps = [
+    "Beat 0 — the terrain: x is time (given), y is lane (deterministic). Every element wears its address; the whole trail stays on screen.",
+    "Beat 1 — SELECT: grabs addresses, not pixels — the headless-import suffix, held as a shape (thread + 2 nodes). Nothing hull-completed silently.",
+    "Beat 2 — TYPE: the selection's shape lights the kinds that fit (a suffix is a direction of work) — guides, never gates. Esc would leave an untyped flag.",
+    "Beat 3 — GHOST: the preview is the mark itself, dashed kraft at its future home. No dialog between you and the land.",
+    "Beat 4 — SIGN: one deliberate press; the land takes it visibly. The badge carries both names: payload asserter sid, envelope actor fable.",
+    "Beat 5 — TWO HANDS: the gate's criterion-3 wears both readings, badged; the land never merges. Disagreement rendering side-by-side IS the frontier.",
+    "Beat 6 — FORK: point, one word, sign — track D sprouts, young and green; the old thread is not torn. A fork is one event.",
+    "Beat 7 (illustrative) — RETRACTION scars: struck, both dates readable. History is material; erasure is the one write the land refuses.",
+    "Beat 8 — the AGENT'S face: View 3 renders the same marks as ⊢-rows, structurally distinct from terrain, minimal tokens. Two faces, one land."
+  ];
+  function render() {
+    for (var i = 1; i <= MAX; i++) wrap.classList.toggle('has-b' + i, i <= beat);
+    caption.textContent = caps[beat];
+    beatno.textContent = String(beat);
+  }
+  document.getElementById('next').addEventListener('click', function () {
+    if (beat < MAX) { beat++; render(); }
+  });
+  document.getElementById('prev').addEventListener('click', function () {
+    if (beat > 0) { beat--; render(); }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' && beat < MAX) { beat++; render(); }
+    if (e.key === 'ArrowLeft' && beat > 0) { beat--; render(); }
+  });
+  var altbs = document.querySelectorAll('.altb');
+  altbs.forEach(function (b) {
+    b.addEventListener('click', function () {
+      wrap.classList.remove('alt0', 'alt1', 'alt2');
+      wrap.classList.add(b.dataset.alt);
+      altbs.forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+    });
+  });
+  document.querySelectorAll('.node').forEach(function (n) {
+    n.addEventListener('click', function () { n.classList.toggle('open'); });
+    n.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); n.classList.toggle('open'); }
+    });
+  });
+  function lcg(seed) { return function () {
+    seed = (seed * 48271) % 2147483647; return seed / 2147483647; }; }
+  document.querySelectorAll('.dotfield').forEach(function (svg, bi) {
+    var n = parseInt(svg.dataset.n || '80', 10);
+    var marks = parseInt(svg.dataset.marks || '0', 10);
+    var news = parseInt(svg.dataset.new || '0', 10);
+    var r = lcg(97 + bi * 131), NS = 'http://www.w3.org/2000/svg', i, c, fill;
+    for (i = 0; i < n; i++) {
+      c = document.createElementNS(NS, 'circle');
+      c.setAttribute('cx', (8 + r() * 984).toFixed(1));
+      c.setAttribute('cy', (5 + r() * 14).toFixed(1));
+      c.setAttribute('r', '1.7');
+      fill = i < marks ? 'var(--kraft)' : (i < marks + news ? 'var(--fresh)' : 'var(--wire)');
+      c.setAttribute('fill', fill);
+      svg.appendChild(c);
+    }
+  });
+  document.querySelectorAll('.band[data-toggle]').forEach(function (b) {
+    function t() { b.classList.toggle('open'); }
+    b.addEventListener('click', t);
+    b.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t(); }
+    });
+  });
+  var STOPS = [
+    { why: "stop 1 · relation-kernel · new mark since your baton",
+      bt: "⊢ dead-end on thread:hl-e91 #suffix(2)",
+      bl: "by sid, via fable's hand · evidence: s:cons-b02 §L40-88\nthe import fork now renders struck at every altitude" },
+    { why: "stop 2 · rk gate · disagreement standing",
+      bt: "wp:rk gate · criterion-3 wears two readings",
+      bl: "⊢ letter-ding · sid\n⊢ spirit-held · fable\nboth stand, badged; adding yours is one m away — the land never merges" },
+    { why: "stop 3 · question · still open, still visible",
+      bt: "? what mints a semantic version of an exploration?",
+      bl: "hole-shaped row · posed 04-07\nanswer-in-place arrives with the write surface (phase 2); today it routes to a Roam card — same card, interim medium" },
+    { why: "stop 4 · tracks · a thread grew",
+      bt: "t:trackD — new-direction from s:plan-4t1",
+      bl: "⊢ new-direction · sid · late 04-07\nyoung head, no material yet — freshness renders; nothing demands" },
+    { why: "stop 5 · proposal · ranked 1 of 12 · capped · at its place",
+      bt: "references: s:tC-01 → d:panel-2704",
+      bl: "asserted-by: agent (proposal) · evidence: this sitting's own transcript span\naccept signs it into the land; reject retires it — it never returns unchanged", prop: true },
+    { why: "stop 6 · end of walk",
+      bt: "sign the day — the baton entry is the day's version-mark",
+      bl: "what was decided · verified · doubted — one entry, assertion-grade\nsigning resets the walk cursor; unwalked chips simply remain", last: true },
+    { why: "walk signed · cursor → 04-07",
+      bt: "attested 5 · signed 1 baton · skipped 0",
+      bl: "the walk itself is now an addressable trail: w:2026-07-04-am\ntomorrow's delta-strip measures from here", done: true }
+  ];
+  var widx = 0;
+  var rdots = document.getElementById('rdots');
+  STOPS.slice(0, 6).forEach(function () {
+    var d = document.createElement('div'); d.className = 'rdot'; rdots.appendChild(d);
+  });
+  var wnote = document.getElementById('wnote');
+  function renderWalk() {
+    var s = STOPS[widx];
+    document.getElementById('s-why').textContent = s.why;
+    document.getElementById('s-bt').textContent = s.bt;
+    document.getElementById('s-bl').textContent = s.bl;
+    var dots = rdots.children, i;
+    for (i = 0; i < dots.length; i++) {
+      dots[i].className = 'rdot' + (i < widx ? ' done' : '') +
+                          (i === widx && !s.done ? ' cur' : (s.done ? ' done' : ''));
+    }
+    document.getElementById('stoplabel').textContent =
+      s.done ? 'route walked · abandonable at any point, remember' :
+      'stop ' + (widx + 1) + '/6 · place-ordered · abandonable';
+    document.getElementById('maccept').classList.toggle('showp', !!s.prop);
+    document.getElementById('mreject').classList.toggle('showp', !!s.prop);
+    document.getElementById('mstep').textContent =
+      s.last ? '⊢ sign → baton' : (s.done ? 'walk again' : '→ step · attest');
+    wnote.textContent = '';
+  }
+  document.getElementById('mstep').addEventListener('click', function () {
+    widx = STOPS[widx].done ? 0 : widx + 1; renderWalk();
+  });
+  document.getElementById('mopen').addEventListener('click', function () {
+    wnote.textContent = 'open: descend toward source — anchor → raw span (taste #4); not mocked here.';
+  });
+  document.getElementById('mmark').addEventListener('click', function () {
+    wnote.textContent = 'mark: the palette rises with the stop as pre-made selection — same gesture as stage 1, beat 2.';
+  });
+  document.getElementById('mskip').addEventListener('click', function () {
+    wnote.textContent = 'skip thread: leap to the next thread\'s first stop; the skipped chips stay, in place, un-nagging.';
+  });
+  document.getElementById('maccept').addEventListener('click', function () {
+    wnote.textContent = 'accept = sign: proposal becomes an edge, badged with both names (proposer agent · signer sid).';
+  });
+  document.getElementById('mreject').addEventListener('click', function () {
+    wnote.textContent = 'reject: retired; it never returns unchanged (Law 4) — new evidence earns a visibly-renewed re-proposal.';
+  });
+  var GUTS = [
+    "1/6 — the whole land: establishing shot (first visits; inhabitants resume in place). Everything on screen is a landmark, district, path, edge, or node — or it is fog, honestly.",
+    "2/6 — same ground, closer: districts open into lanes. Animated, no cut — one geometry.",
+    "3/6 — closer still: the lane at reading altitude. Still no cut; the ground is continuous.",
+    "4/6 — CUT — off the ground, into a room. Geometry is now authored, yours — zoom here is unrestricted, lawfully. The rim did not change.",
+    "5/6 — the ladder: same focus, finer stratum. The artifact itself; its source one rung below, one gesture away.",
+    "6/6 — CUT — bedrock. Code as view, git authority. Work here emits trail; ascending always finds the ground again."
+  ];
+  var TSTEPS = ["1/6 · the land, wide", "2/6 · district: softland",
+    "3/6 · lane: track C", "4/6 · room: workbench",
+    "5/6 · artifact · ladder", "6/6 · editor @ zoom 100"];
+  var tframes = document.querySelectorAll('.terr .frame');
+  var tidx = 0;
+  function renderTerr() {
+    tframes.forEach(function (f, i) { f.classList.toggle('cur', i === tidx); });
+    document.getElementById('tgut').textContent = GUTS[tidx];
+    document.getElementById('tstep').textContent = TSTEPS[tidx];
+  }
+  document.getElementById('tdn').addEventListener('click', function () {
+    if (tidx < tframes.length - 1) { tidx++; renderTerr(); }
+  });
+  document.getElementById('tup').addEventListener('click', function () {
+    if (tidx > 0) { tidx--; renderTerr(); }
+  });
+  renderTerr();
+  renderWalk();
+  render();
+})();
+</script>

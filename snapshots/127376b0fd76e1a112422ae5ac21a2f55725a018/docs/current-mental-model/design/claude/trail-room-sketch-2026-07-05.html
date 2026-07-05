@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Softland — the trail room, sitting 2</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#101216; --ground:#14171c; --ink:#d8d6d2; --ink-soft:#8f9097;
+    --fog:#5d616c; --kraft:#c9a35f; --kraft-dim:#8a7347;
+    --fresh:#8cd9a4; --stale:#d9c274; --never:#9a9ab4;
+    --dead:#c96f6f; --accent:#7fb4d9; --band-bg:#171a20;
+    --card-bg:#1b1f26; --border:#2a2e36;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--ink);
+    font:14px/1.45 "Ubuntu Sans Mono","DejaVu Sans Mono",ui-monospace,monospace;}
+  .copy{font-family:Charter,Georgia,serif; font-size:15.5px; color:var(--ink-soft);
+    max-width:70ch;}
+  main{max-width:1060px; margin:0 auto; padding:28px 22px 80px;}
+  .prov{font-size:11.5px; color:var(--fog); letter-spacing:.04em; margin-bottom:14px;}
+  h1{font-family:Charter,Georgia,serif; font-size:30px; color:var(--ink); margin-bottom:10px;}
+  h2{font-family:Charter,Georgia,serif; font-size:19px; color:var(--ink); margin:34px 0 8px;}
+  .standfirst{margin-bottom:8px;}
+  .binding{border-left:3px solid var(--kraft); padding:8px 12px; margin:14px 0 6px;
+    font-size:13px; color:var(--ink-soft); background:#15161a;}
+  .lawcap{font-size:12px; color:var(--fog); margin:8px 2px 0; font-style:italic;
+    font-family:Charter,Georgia,serif;}
+
+  /* ── altitude controls ── */
+  .alt-bar{display:flex; gap:8px; margin:18px 0 10px; align-items:center;}
+  .alt-bar span{font-size:12px; color:var(--fog); margin-right:4px;}
+  .alt-bar button{background:#1a1d23; color:var(--ink-soft); border:1px solid var(--border);
+    padding:5px 12px; font:12.5px inherit; cursor:pointer; border-radius:3px;}
+  .alt-bar button.on{color:var(--ink); border-color:var(--kraft); background:#20232a;}
+
+  /* ── the room: ground + rim, nothing else ── */
+  .room{border:1px solid var(--border); background:var(--ground); position:relative;
+    height:560px; overflow:hidden;}
+  .ground{position:absolute; inset:0 0 26px 0; overflow:hidden;}
+
+  /* time axis */
+  .tick{position:absolute; top:0; bottom:0; border-left:1px dashed #23262d;}
+  .tick label{position:absolute; top:4px; left:6px; font-size:10.5px; color:var(--fog);}
+
+  /* lane furniture */
+  .lane-tag{position:absolute; left:8px; font-size:10.5px; color:var(--fog);
+    letter-spacing:.05em;}
+  .spine{position:absolute; background:#3a3e48; width:2px;}
+  .spine.h{height:2px; width:auto;}
+
+  /* terrain: closed cards are TYPOGRAPHY (R4) */
+  .t{position:absolute; white-space:nowrap; cursor:pointer;}
+  .t .g{color:var(--ink-soft); margin-right:6px;}
+  .t .dot{font-size:11px; margin-right:5px;}
+  .t .dot.fresh{color:var(--fresh);} .t .dot.stale{color:var(--stale);}
+  .t .dot.never{color:var(--never);}
+  .t .name{color:var(--ink);}
+  .t .dead{color:var(--dead); margin-left:6px;}
+  .t .sub{display:block; font-size:11.5px; color:var(--ink-soft); margin-left:22px;}
+  .t .chip{display:inline-block; font-size:10.5px; color:var(--fresh);
+    border:1px solid #2c4636; border-radius:3px; padding:0 5px; margin-left:8px;
+    vertical-align:1px;}
+
+  /* kraft: marks are a different MATERIAL (R6) */
+  .k{position:absolute; background:var(--kraft-dim);}
+  .k.h{height:2px;} .k.v{width:2px;}
+  .k-j{position:absolute; width:6px; height:6px; background:var(--kraft);
+    border-radius:1px;}
+  .k-label{position:absolute; font-size:11px; color:var(--kraft); white-space:nowrap;}
+  .k-label .who{color:var(--kraft-dim);}
+
+  /* the band (R7) */
+  .band{position:absolute; left:0; right:0; bottom:26px; height:112px;
+    background:var(--band-bg); border-top:1px dashed #2e323b;}
+  .band .band-tag{position:absolute; top:5px; left:8px; font-size:11px; color:var(--fog);}
+  .band .t .name{color:#a9a8ad;}
+  .band::after{content:""; position:absolute; inset:0;
+    background:linear-gradient(90deg, transparent 62%, rgba(93,97,108,.18));
+    pointer-events:none;}
+  .fold-chip{position:absolute; font-size:11px; color:var(--ink-soft);
+    border:1px solid var(--border); border-radius:3px; padding:2px 8px;
+    background:#1a1d23;}
+  .fold-chip b{color:var(--kraft); font-weight:600;}
+
+  /* the open card: a SURFACE, in place, others hold (R4/R5 band 3) */
+  .open-card{position:absolute; width:400px; background:var(--card-bg);
+    border:1px solid #343945; border-radius:4px; padding:9px 11px; z-index:5;
+    font-size:12px; display:none; box-shadow:0 6px 24px rgba(0,0,0,.45);}
+  .open-card .ttl{color:var(--ink); font-size:13px; margin-bottom:5px;}
+  .open-card .row{color:var(--ink-soft); margin-top:2px;}
+  .open-card .row b{color:var(--ink); font-weight:600;}
+  .open-card .verd{color:var(--kraft); margin-top:5px;}
+  .open-card .omit{color:#b08b8b; margin-top:5px;}
+  .open-card .mat{color:#9aa39a; border-left:2px solid #2c3129; padding-left:8px;
+    margin-top:6px; white-space:pre-wrap;}
+  .open-card .addr{margin-top:8px; padding-top:6px; border-top:1px solid var(--border);
+    color:var(--accent); font-size:11.5px; word-break:break-all; white-space:normal;}
+  .open-card .close-x{float:right; color:var(--fog); cursor:pointer;}
+
+  /* the rim: four closed slots (ledger 26) */
+  .rim{position:absolute; left:0; right:0; bottom:0; height:26px;
+    background:#0d0f12; border-top:1px solid var(--border);
+    display:flex; align-items:center; font-size:11.5px; color:var(--ink-soft);}
+  .rim .slot{padding:0 12px; border-right:1px solid #1e2128; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis;}
+  .rim .slot.addr{flex:1; color:var(--accent);}
+  .rim .slot .lbl{color:var(--fog); margin-right:6px; font-size:10px;
+    letter-spacing:.06em;}
+
+  /* altitude behavior */
+  .alt0 .t .name, .alt0 .t .sub, .alt0 .t .dead, .alt0 .t .chip{display:none;}
+  .alt0 .k-label{display:none;}
+  .alt0 .band .t{display:none;}
+  .alt0 .fold-chip{display:block;}
+  .fold-chip{display:none;}
+  .alt1 .t .sub{display:none;}
+  .alt1 .k-label .verb, .alt1 .k-label .who{display:none;}
+  .alt2 .t .sub{display:block;}
+
+  /* the contrast inset */
+  .contrast{display:flex; gap:20px; margin-top:14px; flex-wrap:wrap;}
+  .contrast .half{flex:1; min-width:320px; border:1px solid var(--border);
+    padding:12px; background:var(--ground);}
+  .contrast h3{font-family:Charter,Georgia,serif; font-size:14px; color:var(--ink-soft);
+    margin-bottom:10px;}
+  .old-card{background:#282c33; border-radius:4px; padding:7px 9px; font-size:12px;
+    max-width:430px; overflow:hidden;}
+  .old-card div{white-space:nowrap;}
+  .old-card .a{color:#7f96ad;}
+  footer{margin-top:40px; font-size:11.5px; color:var(--fog);
+    font-family:Charter,Georgia,serif;}
+</style>
+</head>
+<body>
+<main>
+  <div class="prov">softland · track C · sitting 2 · 2026-07-05 · fable, designer lens ·
+    drivable companion to room-card-lane-2026-07-05.md</div>
+  <h1>The trail room</h1>
+  <p class="copy standfirst">Daily read-only use: <b>the ground and the rim, nothing
+  else</b>. Closed cards are typography; the box appears only when you open one, in
+  place, while the others hold. Relations are kraft — a different material, never more
+  cards. Unthreaded material is the band, declaring itself. Material below is this
+  repo's real history; the thread is the one tonight's git-spine makes real.</p>
+  <div class="binding"><b>Standing:</b> a sketch, non-binding; the rulings it drives are
+  in <b>room-card-lane-2026-07-05.md</b> (R1–R7) and bind only via the handoff demands.
+  Geometry hand-laid; the real face computes lanes deterministically from the log.</div>
+
+  <div class="alt-bar">
+    <span>altitude</span>
+    <button data-alt="alt0">0 · marks</button>
+    <button data-alt="alt1">1 · titles</button>
+    <button data-alt="alt2" class="on">2 · reading lines</button>
+    <span style="margin-left:10px">— click <b style="color:var(--ink)">01e3af9</b> to open in place (band 3)</span>
+  </div>
+
+  <div class="room alt2" id="room">
+    <div class="ground">
+      <!-- time axis: x = time, given -->
+      <div class="tick" style="left:120px"><label>07-03</label></div>
+      <div class="tick" style="left:390px"><label>07-04</label></div>
+      <div class="tick" style="left:660px"><label>07-05</label></div>
+
+      <!-- ── LANE 1: the commit thread (arrives tonight) ── -->
+      <div class="lane-tag" style="top:52px">thread · relation-kernel → trail-view</div>
+      <div class="t" style="left:395px; top:66px">
+        <span class="dot fresh">●</span><span class="g">✎</span>
+        <span class="name">session 07-04 “WP1 contract” (transcript)</span>
+        <span class="sub">claimed 07-04 · arrived 07-05 · sid, by fable’s hand</span>
+      </div>
+      <div class="t" style="left:668px; top:120px">
+        <span class="dot fresh">●</span><span class="g">↓</span>
+        <span class="name">63202b0 · feat(relation-kernel): activity + R3 query</span>
+        <span class="sub">claimed 07-05 · import:git-spine</span>
+      </div>
+      <div class="t" style="left:748px; top:170px" id="card-target">
+        <span class="dot fresh">●</span><span class="g">↓</span>
+        <span class="name">67f75eb · feat(trail-view): WP1 Phase B module</span>
+        <span class="sub">claimed 07-05 · import:git-spine</span>
+      </div>
+      <div class="t" style="left:828px; top:220px">
+        <span class="dot fresh">●</span><span class="g">↓</span>
+        <span class="name" id="open-trigger" style="text-decoration:underline dotted #4a4e58">01e3af9 · docs: H1 clock ruled + WP1 closed</span>
+        <span class="sub">claimed 07-05 · import:git-spine</span>
+      </div>
+      <!-- kraft: based-on chain + produced joins -->
+      <div class="k v" style="left:700px; top:136px; height:32px"></div>
+      <div class="k h" style="left:700px; top:168px; width:46px"></div>
+      <div class="k-j" style="left:697px; top:165px"></div>
+      <div class="k-label" style="left:712px; top:150px">⊢ <span class="verb">based-on</span> <span class="who">· import:git-spine</span></div>
+      <div class="k v" style="left:780px; top:186px; height:32px"></div>
+      <div class="k h" style="left:780px; top:218px; width:46px"></div>
+      <div class="k-j" style="left:777px; top:215px"></div>
+      <div class="k-label" style="left:792px; top:200px">⊢ <span class="verb">based-on</span> <span class="who">· import:git-spine</span></div>
+      <div class="k v" style="left:560px; top:82px; height:52px"></div>
+      <div class="k h" style="left:560px; top:134px; width:106px"></div>
+      <div class="k-j" style="left:557px; top:131px"></div>
+      <div class="k-label" style="left:575px; top:112px">⊢ <span class="verb">produced</span> <span class="who">· import:git-spine</span></div>
+
+      <!-- ── LANE 2: doc thread ── -->
+      <div class="lane-tag" style="top:268px">thread · first light</div>
+      <div class="t" style="left:672px; top:284px">
+        <span class="dot fresh">●</span><span class="g">✎</span>
+        <span class="name">FIRST_LIGHT.md</span>
+        <span class="chip">new · joined thread — produced by session 07-05</span>
+        <span class="sub">claimed 07-05 · arrived 07-05 · sid, by fable’s hand</span>
+      </div>
+      <div class="t" style="left:672px; top:334px">
+        <span class="dot stale">◐</span><span class="g">↓</span>
+        <span class="name">f62a0b1 · docs(view-mvp): first render over real material</span>
+        <span class="dead">✗ dead-end? no — alive</span>
+        <span class="sub">claimed 07-05 · import:git-spine</span>
+      </div>
+      <div class="k v" style="left:700px; top:300px; height:30px"></div>
+      <div class="k-j" style="left:697px; top:327px"></div>
+      <div class="k-label" style="left:712px; top:308px">⊢ <span class="verb">produced</span> <span class="who">· import:git-spine</span></div>
+
+      <!-- edge with off-screen endpoint: standalone kraft line, never vanishes -->
+      <div class="k-label" style="left:120px; top:196px">⊢ <span class="verb">based-on</span> → 2796044 · relation-kernel <span class="who">(off-window · 07-03)</span></div>
+      <div class="k h" style="left:120px; top:212px; width:150px"></div>
+
+      <!-- ── THE BAND: unthreaded, honest ── -->
+      <div class="band">
+        <div class="band-tag">the band · 161 unthreaded · no asserted relations yet — /assert works this down</div>
+        <div class="fold-chip" style="left:8px; top:44px">161 unthreaded · <b>0⊢</b> · 3✗ · 12 new</div>
+        <div class="t" style="left:150px; top:30px">
+          <span class="dot never">○</span><span class="g">↓</span>
+          <span class="name">decisions.md</span>
+          <span class="sub">arrived 07-04 · claimed unknown</span>
+        </div>
+        <div class="t" style="left:420px; top:30px">
+          <span class="dot never">○</span><span class="g">↓</span>
+          <span class="name">taste.md</span>
+          <span class="sub">arrived 07-05 · claimed unknown</span>
+        </div>
+        <div class="t" style="left:640px; top:30px">
+          <span class="dot never">○</span><span class="g">↓</span>
+          <span class="name">NORTH.md</span>
+          <span class="sub">arrived 07-05 · claimed unknown</span>
+        </div>
+        <div class="t" style="left:150px; top:72px">
+          <span class="dot never">○</span><span class="g">↓</span>
+          <span class="name">BETS.md</span>
+          <span class="sub">arrived 07-04 · claimed unknown</span>
+        </div>
+        <div class="t" style="left:420px; top:72px">
+          <span class="dot never">○</span><span class="g">↓</span>
+          <span class="name">render-demands-2026-07-05.md</span>
+          <span class="sub">arrived 07-05 · claimed unknown</span>
+        </div>
+      </div>
+
+      <!-- band 3: the open card, IN PLACE -->
+      <div class="open-card" id="open-card" style="left:600px; top:238px">
+        <span class="close-x" id="close-card">✗</span>
+        <div class="ttl">↓ 01e3af9 · docs: H1 clock ruled (arming event) + WP1 closed</div>
+        <div class="row"><b>claimed</b> 2026-07-05 14:02 · <b>arrived</b> 2026-07-05 14:07</div>
+        <div class="row"><b>asserted-by</b> import:git-spine · basis sha-verified</div>
+        <div class="row">attested never · walked unknown <span style="color:var(--never)">○</span></div>
+        <div class="verd">⊢ produced · session 07-05 “time-box blanket” (current)</div>
+        <div class="omit">omitted 2 of files-touched (cap 8) … more</div>
+        <div class="mat">docs: H1 clock ruled (arming event, review pending)
++ WP1 closed with light retro + FIRST_LIGHT addendum
+… 4 lines truncated</div>
+        <div class="addr">oc:git-commit:01e3af9…  · copy ⧉</div>
+      </div>
+    </div>
+
+    <!-- the rim: scope · delta · address · palette. closed forever. -->
+    <div class="rim">
+      <div class="slot"><span class="lbl">SCOPE</span>softland · docs+vision+git · 167+12</div>
+      <div class="slot"><span class="lbl">Δ</span>12 new since last pull</div>
+      <div class="slot addr"><span class="lbl">ADDR</span>view://trail/timeline?window=07-03..07-05&order=arrival</div>
+      <div class="slot"><span class="lbl">⌘K</span>palette</div>
+    </div>
+  </div>
+  <p class="lawcap">x = time, y = lane, deterministic from the log (LAW) · detail costs
+  local space, never the shared axis (LAW) · no altitude hides that marks exist below
+  (ledger 16) · the rim is closed and constant (ledger 26) · unthreaded renders as a
+  visible band, never auto-filed (ledger 18)</p>
+
+  <h2>What changed since first light — the same entry, both languages</h2>
+  <div class="contrast">
+    <div class="half">
+      <h3>First light (as built): the passport worn at every altitude, ×167</h3>
+      <div class="old-card">
+        <div>↓ oc:doc-file:6f2a91c04be7d2a8f31c…</div>
+        <div>arrived 2026-07-04 · claimed unknown</div>
+        <div>import:md-watcher</div>
+        <div class="a">{:face :timeline, :address [:feed {:window {:from-ms 1751…</div>
+      </div>
+      <p class="lawcap">honesty implemented as verbosity — every fact worn, nothing
+      legible</p>
+    </div>
+    <div class="half">
+      <h3>Ruled: typography until opened; provenance worn by altitude</h3>
+      <div style="font-size:12.5px; margin-top:6px">
+        <span class="dot fresh" style="color:var(--fresh)">●</span>
+        <span style="color:var(--ink-soft)">↓</span>
+        <span> FIRST_LIGHT.md</span>
+      </div>
+      <div style="font-size:11.5px; color:var(--ink-soft); margin:2px 0 0 22px">
+        claimed 07-05 · sid, by fable’s hand</div>
+      <p class="lawcap">band 1 = line 1 only · band 2 adds when·who · band 3 opens the
+      surface with the address · the face address lives in the rim, once</p>
+    </div>
+  </div>
+
+  <footer>sitting 2 · sources: FIRST_LIGHT.md F-L2/3/5 · cards.cljc / lanes.cljc /
+  workspace_actions.cljs (as-built) · git-spine CONTRACT (threads + names tonight) ·
+  do-not-preclude ledger 1–27 · commits shown are this repo’s real history; the
+  session→commit joins shown are exactly what git-spine asserts tonight · rulings and
+  falsification in room-card-lane-2026-07-05.md</footer>
+</main>
+<script>
+  var room = document.getElementById('room');
+  var btns = document.querySelectorAll('.alt-bar button');
+  btns.forEach(function(b){
+    b.onclick = function(){
+      room.className = 'room ' + b.dataset.alt;
+      btns.forEach(function(x){ x.classList.toggle('on', x === b); });
+    };
+  });
+  var card = document.getElementById('open-card');
+  document.getElementById('open-trigger').onclick = function(e){
+    e.stopPropagation(); card.style.display = 'block';
+  };
+  document.getElementById('close-card').onclick = function(e){
+    e.stopPropagation(); card.style.display = 'none';
+  };
+</script>
+</body>
+</html>
