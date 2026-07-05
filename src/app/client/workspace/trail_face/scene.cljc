@@ -309,11 +309,19 @@
         preview   (cards/material-preview (:material tb) 200)
         vlines    (cards/verdict-lines (get-in tb [:verdicts :current]))
         this-rels (get-in tb [:relations :this])
+        ;; direction is RELATIVE to the expanded card (first-light fix
+        ;; 2026-07-05, G11's sibling at the card level): an INCOMING edge
+        ;; printed "-> kind <to>" showed the card's own id as its target —
+        ;; a commit that "produced itself". Outgoing (:from = me) -> the far
+        ;; end is :to; incoming (:to = me) -> "<-" and the far end is :from.
+        ;; The map must not lie about who did what to whom.
         rel-lines (vec (for [[kind es] (sort-by key this-rels), e es]
-                         {:text (str "-> " (name kind) " " (get-in e [:to :id])
-                                     " by " (:asserted-by e))
-                          :style (if (= :retracted (:status e)) :retracted :relation-out)
-                          :badges (cards/provenance-badges e)}))
+                         (let [out? (= target-id (get-in e [:from :id]))
+                               far  (if out? (get-in e [:to :id]) (get-in e [:from :id]))]
+                           {:text (str (if out? "-> " "<- ") (name kind) " " far
+                                       " by " (:asserted-by e))
+                            :style (if (= :retracted (:status e)) :retracted :relation-out)
+                            :badges (cards/provenance-badges e)})))
         hole-rows (vec (for [[_ es] this-rels, e es
                              :when (cards/hole-endpoint? (:to e))]
                          e))
