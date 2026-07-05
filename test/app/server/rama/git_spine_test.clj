@@ -255,7 +255,10 @@
             _ (write-fixture-jsonl! (io/file jsonl-dir (str session-id ".jsonl"))
                                     session-id real-sha note-path outside-path)
             cfg {:runtime rt :repo-root (str dir)
-                 :transcript-roots [(str jsonl-dir)] :spine-cursor-path cursor-path}
+                 :transcript-roots [(str jsonl-dir)] :spine-cursor-path cursor-path
+                 ;; stable per cluster instance (file_viewer mints one per
+                 ;; runtime delay body); the cursor is only honored under it
+                 :spine-run-id "instance-A"}
             ;; ingest commits (so the conversation->commit edge joins) + note.md (doc join)
             spine (gs/spine-sync! cfg)
             _ (let [note-req (md/markdown-source-import-request (slurp note-path) note-path)]
@@ -331,7 +334,24 @@
               (is (pos? (:files ex2)) "cursor deleted -> file REPROCESSED (more work done)")
               (is (= 0 (:skipped ex2)) "nothing skipped after cursor delete")
               (is (= 0 (+ (:sha-edges ex2) (:doc-edges ex2))) "no new edges appended (journal + pre-check)")
-              (is (= before (land-of)) "land state (edge set) is identical")))))
+              (is (= before (land-of)) "land state (edge set) is identical"))))
+
+        (testing "gate-review addendum 2026-07-05 — cursor is cluster-INSTANCE-scoped:
+                  the land's cluster is ephemeral per JVM, so a fresh instance
+                  honoring the previous boot's durable cursor would skip every
+                  unchanged transcript and silently LOSE its conversation edges"
+          ;; instance-A's cursor exists (written above). A different instance
+          ;; must IGNORE it and reprocess in full...
+          (let [ex-b (gs/extract-session-joins! (assoc cfg :spine-run-id "instance-B"))]
+            (is (= 0 (:skipped ex-b)) "foreign cursor ignored — nothing skipped")
+            (is (pos? (:files ex-b)) "full reprocess under the new instance"))
+          ;; ...and then OWN the cursor: a same-instance re-run skips again.
+          (let [ex-b2 (gs/extract-session-joins! (assoc cfg :spine-run-id "instance-B"))]
+            (is (pos? (:skipped ex-b2)) "same-instance re-run skips via its own cursor"))
+          ;; no stable run-id supplied -> per-call ids -> cursor never honored
+          ;; (always correct, only costly)
+          (let [ex-anon (gs/extract-session-joins! (dissoc cfg :spine-run-id))]
+            (is (= 0 (:skipped ex-anon)) "anonymous runs never trust a cursor"))))
       (finally (rm-rf dir) (rm-rf jsonl-dir) (tv/close-trail-view-runtime! rt)))))
 
 ;; =============================================================================

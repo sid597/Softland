@@ -428,16 +428,29 @@
                       (when appended? (vswap! counts update :doc-edges inc)))))))))))
     @counts))
 
-;; Cursor: session-file -> {:mtime :size}. COST optimization ONLY — correctness is
-;; the idempotency journal; deleting the cursor must never change land state (G7).
-(defn- read-cursor [path]
-  (try (when (and path (.exists (io/file path))) (edn/read-string (slurp path)))
+;; Cursor: {:run-id <cluster-instance id> :files {path {:mtime :size}}}. COST
+;; optimization ONLY — correctness is the idempotency journal; deleting the
+;; cursor must never change land state (G7).
+;;
+;; INSTANCE-SCOPED (gate-review addendum 2026-07-05): the land's cluster is an
+;; in-process IPC — EPHEMERAL per JVM; all edge state rebuilds from re-ingest
+;; at boot. A durable cursor honored by a FRESH cluster would skip every
+;; unchanged transcript and silently lose the conversation edges on every
+;; boot after the first. So the cursor is only valid for the cluster instance
+;; (:spine-run-id, minted alongside the runtime) that wrote it; a foreign or
+;; legacy cursor reads as absent → full reprocess, which G7 already declares
+;; correct.
+(defn- read-cursor [path run-id]
+  (try (when (and path (.exists (io/file path)))
+         (let [c (edn/read-string (slurp path))]
+           (when (and (map? c) (= run-id (:run-id c)))
+             (:files c))))
        (catch Exception _ nil)))
 
-(defn- write-cursor! [path cursor]
+(defn- write-cursor! [path run-id files]
   (when path
     (io/make-parents (io/file path))
-    (spit path (pr-str cursor))))
+    (spit path (pr-str {:run-id run-id :files files}))))
 
 (defn- file-sig [^File f] {:mtime (.lastModified f) :size (.length f)})
 
@@ -457,17 +470,20 @@
   "Stream every jsonl under cfg :transcript-roots, asserting transcript->commit
    and transcript->doc `:produced` edges. Repo-verified shas only. The cursor
    skips unchanged files (cost only)."
-  [{:keys [runtime repo-root transcript-roots spine-cursor-path]}]
+  [{:keys [runtime repo-root transcript-roots spine-cursor-path spine-run-id]}]
   (let [commits (read-commits repo-root)
         sha->doc (into {} (map (fn [c] [(:sha c) (commit->document-id c)])) commits)
         index-shas (set (keys sha->doc))
         land-roots (land-doc-roots repo-root)
-        cursor0 (or (read-cursor spine-cursor-path) {})]
+        ;; no stable instance id supplied -> a per-call id: the cursor never
+        ;; matches, every file reprocesses — always correct, only costly
+        run-id (or spine-run-id (str (java.util.UUID/randomUUID)))
+        cursor0 (or (read-cursor spine-cursor-path run-id) {})]
     (loop [fs (seq (jsonl-files transcript-roots))
            cursor cursor0
            stats {:files 0 :skipped 0 :failed 0 :sha-edges 0 :doc-edges 0}]
       (if (empty? fs)
-        (do (write-cursor! spine-cursor-path cursor) stats)
+        (do (write-cursor! spine-cursor-path run-id cursor) stats)
         (let [^File f (first fs)
               path (.getPath f)
               sig (file-sig f)]
