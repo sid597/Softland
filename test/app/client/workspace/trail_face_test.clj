@@ -63,6 +63,12 @@
 (defn address-ops [tree]
   (filter :trail-face/address? (all-text-ops tree)))
 
+(defn element-address-ops
+  "Open-card element-address ops (item 2: distinct tag from the FACE
+   address, which lives in the rim)."
+  [tree]
+  (filter :trail-face/element-address? (all-text-ops tree)))
+
 (defn node-by-id [tree id]
   (find-node tree #(= id (:id %))))
 
@@ -77,19 +83,30 @@
       (is (= 1 (count ops)) "exactly one marked address op in the text face")
       (is (= (:bundle/address bundle) (edn/read-string (:text (first ops))))
           "rendered address round-trips shape-equal (A1: pure EDN)")))
-  (testing "timeline scene: one header address + one per expanded card"
+  (testing "timeline scene (item 2 / G1): the FACE address leaves the
+            scrolling scene for the rim; the OPEN card prints its element
+            addressable string, never the bundle map dump"
     (let [s (timeline-scene)
-          header (node-by-id s :trail-face/address-header)
-          header-ops (address-ops header)
+          scene-face-ops (address-ops s)
+          rim (get-in s [:data :trail-face/rim-slots])
+          rim-addr (filter :trail-face/address? rim)
           exp (find-node s #(= :expansion (:type %)))
-          exp-ops (address-ops exp)]
-      (is (some? header))
-      (is (= 1 (count header-ops)))
-      (is (= (:feed/address feed) (edn/read-string (:text (first header-ops))))
-          "feed address round-trips (order param matches fixture's :arrival)")
+          elem-ops (element-address-ops exp)]
+      ;; the scrolling scene tree carries ZERO face-address ops - the face
+      ;; address moved to the constant rim chrome (C2), one place, no scroll
+      (is (empty? scene-face-ops)
+          "no face-address text op inside the scene (moved to the rim)")
+      (is (nil? (node-by-id s :trail-face/address-header))
+          "the timeline scene header node is gone (address is rim chrome)")
+      ;; the rim carries EXACTLY ONE face address, as an addressable string
+      (is (= 1 (count rim-addr)) "exactly one rim face-address slot")
+      (is (= "recent-activity · arrival" (:text (first rim-addr)))
+          "rim face address is the addressable string, order-carrying")
+      ;; the OPEN card prints its element's OWN addressable string
       (is (some? exp) "expanded card present")
-      (is (= 1 (count exp-ops)) "expansion renders the expanded target's address")
-      (is (= (:bundle/address bundle) (edn/read-string (:text (first exp-ops))))))))
+      (is (= 1 (count elem-ops)) "expansion renders the element's own address")
+      (is (= "oc:doc:9fdoc" (:text (first elem-ops)))
+          "element address is the addressable string, not a pr-str map dump"))))
 
 ;; --- Gate 2: View-3 verbatim ------------------------------------------------------
 
@@ -287,27 +304,32 @@
     (testing "nil claimed is honest"
       (let [stamp (cards/two-clock-stamp (nth (:feed/entries feed) 2))]
         (is (str/includes? stamp "claimed unknown"))))
-    (testing ":order re-sorts WITHIN the window (never re-selects a claimed window)"
+    (testing ":order re-sorts WITHIN the window (never re-selects a claimed
+              window). Compared over two TERRAIN entries - item 4 renders the
+              :relation-transition entries as marks, not positioned cards."
       (let [pos (fn [s k] (get-in (find-node s #(= k (get-in % [:data :trail-face/entry-key])))
                                   [:bounds :y]))
             sa (timeline-scene {:expanded #{} :order :arrival})
             sc (timeline-scene {:expanded #{} :order :claimed})
-            bk ["oc:doc:earlier" 1782172000000]
+            back-dated ["oc:doc:earlier" 1782172000000]              ; claimed April, arrived in-window (terrain)
+            chat       ["oc:chat-conversation:chat:ab12" 1782169000000] ; claimed nil, older arrival (terrain)
             keys-of (fn [s] (into #{} (keep #(get-in % [:data :trail-face/entry-key]))
                                   (all-nodes s)))]
-        (is (< (pos sa bk) (pos sa ["oc:doc:9fdoc" 1782171000000]))
-            "arrival order: newest arrival first")
-        (is (> (pos sc bk) (pos sc ["oc:doc:9fdoc" 1782171000000]))
-            "claimed order: April claim sorts away from the top")
+        (is (< (pos sa back-dated) (pos sa chat))
+            "arrival order: newest arrival (April doc, arrived latest) first")
+        (is (> (pos sc back-dated) (pos sc chat))
+            "claimed order: the April claim sorts BELOW the nil-claimed row")
         (is (= (keys-of sa) (keys-of sc))
-            "SAME entry set under both orders - ordering only, no claimed window")))
-    (testing "the order param changes the rendered address line"
-      (let [addr (fn [s] (edn/read-string (:text (first (address-ops (node-by-id s :trail-face/address-header))))))
+            "SAME terrain-card set under both orders - ordering only, no claimed window")))
+    (testing "the order param changes the rim face address (item 2/3: the
+              order is part of the face address, now carried in the rim)"
+      (let [rim-addr (fn [s] (:text (first (filter :trail-face/address?
+                                                   (get-in s [:data :trail-face/rim-slots])))))
             sa (timeline-scene {:expanded #{} :order :arrival})
             sc (timeline-scene {:expanded #{} :order :claimed})]
-        (is (= :arrival (:order (second (addr sa)))))
-        (is (= :claimed (:order (second (addr sc)))))
-        (is (not= (addr sa) (addr sc)))))))
+        (is (= "recent-activity · arrival" (rim-addr sa)))
+        (is (= "recent-activity · claimed" (rim-addr sc)))
+        (is (not= (rim-addr sa) (rim-addr sc)))))))
 
 ;; --- Gate 9: staleness triad -----------------------------------------------------------------
 
@@ -438,6 +460,195 @@
             "hidden lines declare themselves (omissions law at the preview)")
         (is (every? #(< (:y %) h) ops) "every op starts inside the preview box")))))
 
+;; ═══════════════════════════════════════════════════════════════════════════
+;; trail-room R-1 gates (G1-G4) - op-level assertions in the existing idiom
+;; ═══════════════════════════════════════════════════════════════════════════
+
+;; --- G1: address off the card face (item 2) ---------------------------------
+
+(deftest g1-address-off-card-face-test
+  (testing "G1: closed feed cards print NO raw EDN address on their face"
+    (let [terrain (nth (:feed/entries feed) 1)          ; source-ingested (terrain)
+          card    (cards/feed-entry-card terrain geom)
+          texts   (map :text (mapcat :text (all-nodes card)))]
+      (is (not-any? #(str/includes? (str %) "trail/context-bundle") texts)
+          "no (trail/context-bundle ...) pr-str dump on the card face")
+      (is (not-any? #(str/includes? (str %) "{:targets") texts)
+          "no EDN map dump on the card face")
+      (is (= (:entry/address terrain) (get-in card [:data :trail-face/address]))
+          "the address stays attached as DATA on the node (ledger 1)")))
+  (testing "G1: EXACTLY ONE face-address op, attributed to the rim, at any
+            scroll offset (the rim is fixed chrome, outside the scene tree)"
+    (let [s (timeline-scene)
+          rim (get-in s [:data :trail-face/rim-slots])
+          all-face (concat (address-ops s) (filter :trail-face/address? rim))]
+      (is (= 1 (count all-face)) "exactly one face-address op across scene+rim")
+      (is (:trail-face/rim? (first all-face)) "and it is the rim's")
+      (is (empty? (address-ops s)) "none inside the scrolling scene, any offset")))
+  (testing "G1: address->addressable-string is total, never a map dump"
+    (is (= "oc:doc:9fdoc" (cards/address->addressable-string
+                           '(trail/context-bundle {:targets ["oc:doc:9fdoc"]}))))
+    (is (= "recent-activity · arrival" (cards/address->addressable-string
+                                        '(trail/recent-activity {:order :arrival}))))
+    (is (= "—" (cards/address->addressable-string nil)))))
+
+;; --- G2: rim v0 in the status strip (item 3) --------------------------------
+
+(deftest g2-rim-v0-test
+  (testing "G2: EXACTLY four rim slots on the timeline face, in order"
+    (let [rim (get-in (timeline-scene) [:data :trail-face/rim-slots])]
+      (is (= 4 (count rim)) "exactly four slots - nothing else joins the strip")
+      (is (= [:scope :delta :address :palette] (mapv :slot rim)) "in order")
+      (is (every? :trail-face/rim? rim))
+      (is (str/includes? (:text (nth rim 0)) "softland") "scope: the land")
+      (is (str/includes? (:text (nth rim 0)) "in view") "scope: source count")
+      (is (str/includes? (:text (nth rim 1)) "since last pull") "delta: labeled AS SUCH")
+      (is (str/includes? (:text (nth rim 1)) "arrived") "delta: the arrival clock")
+      (is (str/includes? (:text (nth rim 3)) "palette") "palette hint")))
+  (testing "G2: EXACTLY four rim slots on the text face too"
+    (let [rim (get-in (text-scene) [:data :trail-face/rim-slots])]
+      (is (= 4 (count rim)))
+      (is (= [:scope :delta :address :palette] (mapv :slot rim)))
+      (is (str/includes? (:text (nth rim 0)) "text face"))))
+  (testing "G2: the rim is produced ONLY by the trail build fns - a non-trail
+            scene carries no rim slots (editor strip unchanged; combined_text
+            renders the rim only under trail-mode?, else status-left/right)"
+    (is (nil? (get-in {} [:data :trail-face/rim-slots])))
+    (is (= 4 (count (scene/rim-slots {:face :timeline :feed feed})))
+        "rim-slots is deterministic and total")))
+
+;; --- G3: kraft mark rendering (item 4) --------------------------------------
+
+(deftest g3-kraft-marks-test
+  (let [based-on {:kind :based-on :status :asserted
+                  :from {:kind :doc :id "oc:doc:A"} :to {:kind :doc :id "oc:doc:B"}}
+        entry    {:entry/kind :relation-transition :entry/detail based-on
+                  :entry/actor {:asserted-by "sid" :written-by nil}}
+        gm       {:x 20 :y 100 :card-w 300 :line-height 18}]
+    (testing "G3: both endpoints on screen -> labeled connector, NO card fill"
+      (let [nodes (scene/kraft-mark-nodes
+                   0 entry {"oc:doc:A" {:x 0 :y 0 :w 100 :h 40}
+                            "oc:doc:B" {:x 0 :y 200 :w 100 :h 40}} gm)
+            types (set (map :type nodes))
+            ;; the label op lives in a child of the clip? connector node
+            ;; (gate-review fix: labels truncate at card-w, never bleed)
+            label (:text (first (all-text-ops
+                                 (first (filter #(= :kraft-connector (:type %)) nodes)))))]
+        (is (contains? types :connector) "connector rects (thin assertion material)")
+        (is (contains? types :kraft-connector) "a labeled connector node")
+        (is (not-any? #(= :feed-card (:type %)) nodes) "NO rect-fill card op (G3)")
+        (is (str/includes? label "based-on") "kind named")
+        (is (str/includes? label "sid") "asserter badge present (band >=2)")
+        (is (str/includes? label scene/kraft-tack) "kraft tack glyph")))
+    (testing "G3: one endpoint off screen -> standalone kraft LINE naming far end"
+      (let [nodes (scene/kraft-mark-nodes
+                   0 entry {"oc:doc:A" {:x 0 :y 0 :w 100 :h 40}} gm)  ; only A on screen
+            line  (first (filter #(= :kraft-line (:type %)) nodes))
+            ltext (:text (first (all-text-ops line)))]
+        (is (some? line) "a standalone kraft line emitted")
+        (is (not-any? #(= :feed-card (:type %)) nodes) "still no box-card")
+        (is (str/includes? ltext "oc:doc:B") "names the far (off-screen) end")
+        (is (str/includes? ltext "off screen") "declares it off screen (edge never vanishes)")
+        (is (str/includes? ltext "sid") "asserter still present")))
+    (testing "G3: scene-level - CLOSED :relation-transition entries yield NO
+              feed-cards, but DO yield kraft marks (asserter present)"
+      (let [s (timeline-scene {:expanded #{} :order :arrival})
+            rt-keys #{["oc:doc:9fdoc" 1782171000000]
+                      ["oc:doc:deadend-doc" 1782168500000]
+                      ["du:9fdoc:000003" 1782166000000]}
+            card-keys (into #{} (keep #(when (= :feed-card (:type %))
+                                         (get-in % [:data :trail-face/entry-key])))
+                            (all-nodes s))
+            kraft-labels (filter :trail-face/kraft-label? (all-text-ops s))]
+        (is (not (some card-keys rt-keys))
+            "no :relation-transition entry rendered as a box-card")
+        (is (seq kraft-labels) "kraft mark labels present in the scene")
+        (is (some #(str/includes? (:text %) "based-on") kraft-labels)
+            "the based-on assertion renders as a kraft mark, never vanishing")))))
+
+;; --- Gate-review fix 5 (2026-07-05): expansion + kraft text clips to card-w --
+;; DIFF_FALSIFICATION_R1 doubt 5's falsifier, made executable: a relation line
+;; carrying a full oc:doc:<long-hash> target must TRUNCATE at the card's right
+;; edge in the production walk (nil viewport clip), not bleed across lanes.
+;; Root cause fixed in rect_tree (child-clip INTERSECTS the ancestor clip) +
+;; scene (expansion is clip? again; kraft labels live under clip? nodes).
+
+(deftest expansion-and-kraft-text-clip-test
+  (let [long-id   (str "oc:doc:" (apply str (repeat 64 "f")))
+        full-line (str "-> based-on " long-id " by import:git-spine")
+        char-w    (fn [op] (* (:size op) 0.56))
+        right-of  (fn [op] (+ (:x op) (* (count (:text op)) (char-w op))))
+        bundle+   (assoc-in bundle
+                            [:bundle/targets "oc:doc:9fdoc" :relations :this :based-on]
+                            [{:relation-id "rel:long" :kind :based-on
+                              :from {:kind :doc :id "oc:doc:9fdoc"}
+                              :to {:kind :doc :id long-id}
+                              :status :asserted :asserted-by "import:git-spine"
+                              :asserter-type :import
+                              :evidence {:source-id "src-9f" :anchor-id "sa:9"}
+                              :note nil
+                              :first-asserted-at-ms 1782000000000
+                              :last-changed-at-ms 1782000000000}])
+        s         (scene/build-timeline-scene
+                   {:feed feed :bundles {"oc:doc:9fdoc" bundle+}
+                    :view-state {:expanded #{expanded-key} :order :arrival}
+                    :coverage coverage :geom geom})
+        exp       (find-node s #(= :expansion (:type %)))
+        exp-right (+ (get-in exp [:bounds :x]) (get-in exp [:bounds :w]))
+        ops       (into [] (mapcat identity) (rt/tree->text-ops exp))]
+    (testing "the long relation line renders AND truncates at card width"
+      (let [rel-op (first (filter #(str/starts-with? (str (:text %)) "-> based-on")
+                                  ops))]
+        (is (some? rel-op) "the relation line is present in the expansion ops")
+        (is (< (count (:text rel-op)) (count full-line))
+            "truncation actually bit (the raw line is wider than the card)")))
+    (testing "NO expansion text op extends past the card's right edge
+              (info / relations / holes / omissions / address — all sections)"
+      (is (seq ops))
+      (doseq [op ops]
+        (is (<= (right-of op) (+ exp-right 0.5))
+            (str "op bleeds past card right: " (pr-str (:text op))))))
+    (testing "a kraft LINE label with a long far-end id truncates at card-w
+              while the node DATA keeps the full id (R6 at paint + data)"
+      (let [entry {:entry/kind :relation-transition
+                   :entry/detail {:kind :produced :status :asserted
+                                  :from {:kind :doc :id "oc:doc:A"}
+                                  :to {:kind :doc :id long-id}}
+                   :entry/actor {:asserted-by "import:git-spine" :written-by nil}}
+            nodes (scene/kraft-mark-nodes
+                   0 entry {"oc:doc:A" {:x 0 :y 0 :w 100 :h 40}}
+                   {:x 20 :y 100 :card-w 300 :line-height 18})
+            line  (first (filter #(= :kraft-line (:type %)) nodes))
+            line-right (+ (get-in line [:bounds :x]) (get-in line [:bounds :w]))
+            lops  (into [] (mapcat identity) (rt/tree->text-ops line))]
+        (is (= long-id (get-in line [:data :trail-face/off-screen]))
+            "full far-end id preserved as node data")
+        (is (seq lops))
+        (doseq [op lops]
+          (is (<= (right-of op) (+ line-right 0.5))
+              (str "kraft label bleeds: " (pr-str (:text op)))))))))
+
+;; --- G4: constraints C1-C3 hold (item 7) ------------------------------------
+
+(deftest g4-constraints-test
+  (testing "G4 / C1: the palette entry command still parses over the face
+            (the cmd panel IS the palette; /trail is typed there; untouched)"
+    (is (= {:op :set :state {:face :timeline :order :arrival :address nil}}
+           (scene/parse-trail-command "/trail timeline" edn/read-string)))
+    (is (= {:op :off} (scene/parse-trail-command "/trail off" edn/read-string)))
+    (is (= {:op :order :order :claimed}
+           (scene/parse-trail-command "/trail order claimed" edn/read-string))))
+  (testing "G4 / C3: the boot-default mode flip stays a SINGLE line (assert
+            the exact form still exists - workspace_actions.cljs)"
+    (let [src (slurp "src/app/client/workspace/runtime/workspace_actions.cljs")]
+      (is (str/includes? src "(or (:mode local-world) :editor)")
+          "local-world-mode remains the one-line flip: (or (:mode local-world) :editor)")
+      (is (str/includes? src "not trail-face")
+          "the sidebar guard is present (no sidebar auto-appears in trail faces)")))
+  (testing "G4 / C2: the face address lives in the rim, not floating card text"
+    (let [rim (get-in (timeline-scene) [:data :trail-face/rim-slots])]
+      (is (= 1 (count (filter :trail-face/address? rim))) "one rim address, always"))))
+
 ;; --- Gate 16: fixture fidelity (hand fixtures vs LIVE WP1 wrapper shapes) ----
 
 (defn- shape-keys= [hand live label]
@@ -462,11 +673,16 @@
             live-verdict (first (first (vals (get-in live-tb [:verdicts :current]))))
             live-feed (tv-mod/read-recent-activity
                        rt-live {:from-ms 0 :to-ms 2000000000000} {})
-            live-entry (first (:feed/entries live-feed))
+            ;; :display-name made :entry/target shape KIND-dependent (git-spine
+            ;; WP2 P3 / G9: source+file targets carry it, relation-transition
+            ;; targets do not) - so parity pairs entries of the SAME kind, one
+            ;; exact key-set check per kind, never first-vs-first across kinds.
+            first-of-kind (fn [feed-map kind]
+                            (first (filter #(= kind (:entry/kind %))
+                                           (:feed/entries feed-map))))
             hand-tb (get-in bundle [:bundle/targets "oc:doc:9fdoc"])
             hand-edge (first (get-in hand-tb [:relations :this :based-on]))
-            hand-verdict (first (get-in hand-tb [:verdicts :current "sid"]))
-            hand-entry (first (:feed/entries feed))]
+            hand-verdict (first (get-in hand-tb [:verdicts :current "sid"]))]
         (shape-keys= (dissoc bundle :fixture/now-ms) live-bundle "bundle top-level")
         (shape-keys= hand-tb live-tb "target-bundle (six layers)")
         (shape-keys= (:identity hand-tb) (:identity live-tb) "L0 identity")
@@ -484,10 +700,23 @@
         (is (some? live-verdict) "live fixture produced a current verdict")
         (shape-keys= hand-verdict live-verdict "verdict entry (stance edge + :current)")
         (shape-keys= (dissoc feed :fixture/now-ms) live-feed "feed top-level")
-        (is (some? live-entry) "live feed non-empty")
-        (shape-keys= hand-entry live-entry "feed entry")
-        (shape-keys= (:entry/target hand-entry) (:entry/target live-entry) "entry target")
-        (shape-keys= (:entry/actor hand-entry) (:entry/actor live-entry) "entry actor")
+        ;; non-vacuousness guard: the live fixture provably produces these two
+        ;; kinds (relations + md ingests). :transcript-file-updated has no live
+        ;; counterpart here ($$transcript-file-offsets is fed only by the
+        ;; transcript-file-state depot, which build-fixture! never drives) -
+        ;; its hand entry is compared only if a live one ever appears.
+        (is (every? #(some? (first-of-kind live-feed %))
+                    [:relation-transition :source-ingested])
+            "live feed non-vacuous: relation-transition + source-ingested present")
+        (doseq [kind [:relation-transition :source-ingested :transcript-file-updated]
+                :let [hand-entry (first-of-kind feed kind)
+                      live-entry (first-of-kind live-feed kind)]
+                :when live-entry]
+          (shape-keys= hand-entry live-entry (str "feed entry (" (name kind) ")"))
+          (shape-keys= (:entry/target hand-entry) (:entry/target live-entry)
+                       (str "entry target (" (name kind) ")"))
+          (shape-keys= (:entry/actor hand-entry) (:entry/actor live-entry)
+                       (str "entry actor (" (name kind) ")")))
         (testing "unknown target -> :bundle/omissions entry, never silently dropped"
           (is (some #(= :target/unrecognized (:reason %))
                     (:bundle/omissions live-bundle)))
