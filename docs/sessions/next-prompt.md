@@ -39,17 +39,28 @@
    Open doubt to eyeball at boot: count DANGLING doc edges from the dual
    working-dir path mismatch (GATE_REVIEW open doubt 1) — they render
    honestly as kraft lines naming the far end.
-2. **R-2 contract AUTHORED (Sid-AFK window): `build/trail-room/
-   CONTRACT_R2.md` — PROPOSED, awaiting Sid's countersign.** Items 1/5/6
-   (bands · lanes-from-edges · move chips) + both R-1 debts; probe
-   obligations §2.5/trap 11 (order-as-data, no incremental bridges); 12-trap
-   ledger; gates G1–G11 + W-1; process = delivery-mode wave + ONE contract
-   validation round (Sid may waive). Build does NOT start without countersign.
-3. Sid's remaining picks: **intake sitting** (`intake/2026-07-05-local-
-   models.md` exists; Sid touched `vision/LOG.md` — committed e534f36) ·
-   benchmark live runs (blocked on boot) · D-006 criterion-2 counterfactual
-   probe (in flight this session if the window allows — see decisions.md
-   evaluation notes).
+2. **R-2 contract at v1.1 — PROPOSED, awaiting Sid's countersign**
+   (`build/trail-room/CONTRACT_R2.md`). v1 was VALIDATED same session:
+   fresh-context round returned **FAIL (2 blockers B1/B2 — real Fable text
+   errors: impossible cross-band bounds gate; incoherent order-as-data
+   gate — + S1–S7 + A1–A4)**, all folded into v1.1
+   (`CONTRACT_R2_VALIDATION_R1.md` kept verbatim). Second validation round =
+   Sid's call at countersign. Build does NOT start without countersign.
+3. **Sid-AFK window also delivered:**
+   - **Cross-boot cursor bug FOUND + FIXED** (would have hit Sid's SECOND
+     boot: ephemeral IPC × durable cursor → transcript edges silently lost;
+     cursor now cluster-instance-scoped via `:spine-run-id`; GATE_REVIEW.md
+     ADDENDUM + quirks entry; new test block in g5-g6-g7).
+   - **D-006 criterion-2 counterfactual probe RUN** (open since 07-03):
+     blind Opus over the §13 manifest → PROPOSED scoring leans BET HOLDS
+     with one honest ding (placement matched; probe reproduced the F1
+     envelope trap uncorrected). `build/relation-kernel/
+     COUNTERFACTUAL_PROBE.md` + rival contract verbatim; decisions.md D-006
+     note appended. Sid weighs.
+4. Sid's remaining picks: **countersign R-2 (± order validation R2)** ·
+   **intake sitting** (`intake/2026-07-05-local-models.md` exists; Sid
+   touched `vision/LOG.md` — committed e534f36) · benchmark live runs
+   (blocked on boot).
 
 **Old baton (2026-07-05 HQ marathon) kept below for step-3 detail; its
 statuses are superseded by the above.**

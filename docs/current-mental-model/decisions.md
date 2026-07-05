@@ -305,6 +305,29 @@ NOT continuous orchestration, NOT implementation, NOT Regime-2 theory (gated by 
   in its own fix before commit (truthy blank-string override). Delivery-mode
   cadence HELD for a 4-package wave; retros at `build/git-spine/RETRO.md` +
   `build/trail-room/RETRO.md`. Packages CLOSED.
+- 2026-07-05 (delivery session, Sid-AFK window), **criterion 2 RUN** — the
+  counterfactual probe, open since 2026-07-03, executed as pre-registered
+  (blind Opus 4.8 over the CONTRACT §13 manifest, inputs reconstructed at
+  pre-contract git states, two post-contract leaks stripped). **PROPOSED
+  scoring: leans BET HOLDS with one honest ding** — the headline placement
+  call (new module over D-004's literal "space kernel", same role-vs-file
+  reasoning, same flag-for-Sid instinct) MATCHED; but the probe's envelope
+  reproduced, uncorrected, the exact F1 defect class the real cycle's
+  validation caught pre-code (defrecord + namespaced hash-by → one-task
+  funnel), its re-assert-as-dedup suppresses the transition events the
+  revisable-judgment substrate exists for, and its id-embeds-object-key
+  scheme costs a substrate touch. Full diff + caveats (post-implementation
+  timing, scaffolded axes, n=1):
+  `build/relation-kernel/COUNTERFACTUAL_PROBE.md`; rival contract verbatim
+  alongside it. Sid weighs at final evaluation. **Same-day counter-evidence
+  for the honest ledger:** the R-2 contract validation round returned FAIL
+  with two REAL blockers against a Fable-authored contract
+  (`build/trail-room/CONTRACT_R2_VALIDATION_R1.md` — impossible cross-band
+  bounds gate; incoherent order-as-data gate; both fixed in v1.1). Running
+  tally: fresh-context validation layers have now caught contract-text
+  errors in THREE Fable contracts (relation-kernel F2-adjacent scope, git-
+  spine R1/R2, trail-room R2 B1/B2) — the value concentrates in the layers
+  around the author, Fable included; weigh D-006 accordingly.
 
 ---
 

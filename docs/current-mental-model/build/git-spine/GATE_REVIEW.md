@@ -157,6 +157,35 @@ remaining open doubt 3.
   above); the full-name-at-paint reading of R6 would reintroduce the bleed.
   Flagged for the R-2 contract to make explicit.
 
+## ADDENDUM (2026-07-05, post-gate, same session) — cross-boot cursor bug found and fixed
+
+Found while preparing Sid's boot, AFTER this review passed: the land's
+cluster is an in-process IPC (`com.rpl.rama.test/create-ipc`) — EPHEMERAL
+per JVM; all edge state rebuilds from re-ingest at boot — but the spine
+cursor (`data/git-spine-cursor.edn`) is a DURABLE file. Boot 1 works and
+writes the cursor; boot 2 gets a fresh EMPTY cluster whose extractor then
+skips every unchanged transcript → conversation→commit/doc edges silently
+missing. G7 and the falsification both tested the cursor inside ONE cluster
+(deletion, corruption, truncation) — never stale-cursor × fresh-cluster.
+As designed, the cursor's ONLY effect was the cross-boot case (extract runs
+once per boot), i.e. it was purely harmful.
+
+**Fix (same day, delivery mode):** the cursor is CLUSTER-INSTANCE-scoped —
+`{:run-id <spine-run-id> :files {...}}`; a `:spine-run-id` is minted in the
+same `file_viewer` delay body that creates the cluster (lifetimes bound by
+construction); a foreign/legacy/absent-id cursor reads as absent → full
+reprocess, which the contract already declares correct ("deleting the cursor
+must never change land state"). New test block in `g5-g6-g7-extractor-gates`
+(foreign cursor ignored / same-instance skip / anonymous runs never trust a
+cursor). Contract-compatible (strictly stronger than §3.B's cost-only rule).
+
+**Lesson (quirks-grade, recorded):** any DURABLE side-state (cursor, cache,
+watermark) keyed to state that lives in an EPHEMERAL store must carry the
+store instance's identity. Falsify by class: "stale durable X × fresh
+ephemeral Y" for every X the boot writes. The assert-log SURVIVES this class
+by design (replay re-appends into the fresh cluster — that is its whole
+job); the cursor did not.
+
 ## Per-package verdicts
 
 - **spine (P1/P2)** — PASS (fixes 4, 6 applied; resilience + preservation

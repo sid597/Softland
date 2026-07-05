@@ -1,7 +1,16 @@
-# CONTRACT — trail-room R-2 (bands · lanes-from-edges · move chips) · v1 — PROPOSED
+# CONTRACT — trail-room R-2 (bands · lanes-from-edges · move chips) · v1.1 — PROPOSED
 
 **Status: PROPOSED (Fable-authored 2026-07-05, delivery session, Sid AFK).
 Binding only after Sid's countersign. The build does NOT start without it.**
+
+**v1.1 amends v1 after `CONTRACT_R2_VALIDATION_R1.md` returned FAIL** (B1:
+cross-band bounds identity was geometrically impossible and contradicted
+R-1's shipped bounds-track-paint ruling; B2: the order-as-data gate was
+incoherent against the arrival-sorting builder). Both blockers' smallest
+fixes adopted verbatim; S1–S7 should-fixes and A1–A4 advisories folded. The
+FAIL artifact is kept verbatim per process. A second validation round is
+Sid's call at countersign (no time-box blanket stands today; every finding
+was addressed mechanically per the validator's own fix text).
 
 Authority chain: `design/claude/room-card-lane-2026-07-05.md` (sitting-2
 rulings R4–R7 + handoff items 1, 5, 6 — the demands and CHECKS are binding
@@ -16,22 +25,43 @@ ONLY data surface.
 
 - **Item 1 — band-aware card builders (R4/R5).** `cards.cljc` gains a band
   parameter. Bands 0–2 emit LINE ops (typography — no box node, no fill):
-  band 0 = glyph + staleness dot (folds render as chips with counts); band 1
-  = ONE line `glyph name`; band 2 = title + ONE second line (compressed
-  two-clock stamp + asserter; written-by only when it differs). Band 3 = the
-  surface (the current open card/expansion, plus printed element address —
-  already R-1). Hit target stays the full line region: **rt-tree node bounds
-  unchanged, paint only** (R4).
+  band 0 = glyph + fold-count chip ONLY (v1.1/S5: the staleness dot needs
+  `:last-attested-ms`, which lives on the per-target bundle, not the feed —
+  it arrives with the D-008 §5 attestation walk, deferred); band 1 = ONE
+  line `glyph name`; band 2 = title + ONE second line (compressed two-clock
+  stamp + asserter; written-by only when it differs). Band 3 = the surface
+  (the current open card/expansion, plus printed element address — already
+  R-1), a SEPARATE sibling node; the title/handle node stays the closed-card
+  click target. **Bounds rule (v1.1, B1 — per-band, never cross-band): at
+  each band the hit-region node bounds equal that band's painted line
+  region, so the click target matches the paint (R-1 trap 6 "bounds shrink
+  WITH the paint"); bounds MAY differ across bands — band 0 is the densest,
+  that compression is the point.**
 - **Item 5 — lanes from edges, band for the rest (R7).** Thread assignment
   consumes lineage-kind edges (`based-on produced built-over new-direction`)
   as connected components over the feed's `:relation-transition` details.
   Cross-link kinds (`references elaborates`) NEVER merge lanes — they render
   as kraft connectors BETWEEN lanes. `family-key` demotes from lane-maker to
-  FOLD rule (doc + its `du:` blocks fold vertically into one card). Entries
-  with no lineage edge go to **the band**: one designated region at the
-  bottom, self-declaring (`N unthreaded · no asserted relations yet`),
-  wrap-packing INSIDE the band only, reading order = time order. Never
-  auto-filed into fake lanes, never hidden.
+  FOLD rule (doc + its `du:` blocks fold vertically into one card).
+  **Fold-vs-component precedence (v1.1, S3): fold FIRST, then the folded
+  unit is assigned by the DOC's (fold head's) edges; a folded member's own
+  lineage edge counts as the head's for component purposes.** Entries with
+  no lineage edge go to **the band**: one designated region at the bottom,
+  self-declaring (`N unthreaded · no asserted relations yet`), wrap-packing
+  INSIDE the band only, reading order = time order. Never auto-filed into
+  fake lanes, never hidden. **Thread overflow (v1.1, S4 — design R7's own
+  DEFAULT): more threads than viewport lanes → the overflow threads render
+  as fold-chips with counts; mod-wrap NEVER applies across threaded lanes**
+  (band-internal only — the F-L2 staircase must not return by the other
+  door).
+  **Geometry note (v1.1, S7 — honest scoping):** R-2 builds on the as-built
+  F-L5 vertical stack (y = time, x = lane indent). The design's "x = time
+  everywhere" LAW and the ledger's "x = time (given), y = lane" are NOT
+  satisfied by this geometry — R-2 does not change that; it substitutes
+  "reading order = time order" as the interim honest reading and records the
+  axis question as a deferred do-not-preclude item for the design track.
+  Nothing R-2 builds may make the axis swap harder (positions stay derived,
+  never hand-placed).
 - **Item 6 — move announcement (R7 arrival choreography).** A card whose
   thread assignment changed since the last pull carries a new-since chip with
   the sayable reason (`joined thread · <kind> <far-end display-name>`), never
@@ -73,32 +103,48 @@ fuel) and precludes nothing — the zoom mapping later replaces the command's
 source, not the builders' parameter. Alternative NOT taken: fixed band-2
 only — cheaper, but then R5's grammar ships untestable in use.
 
-**2.3 Thread identity is the lexicographically-smallest member target-id
-(thread-scoped, deterministic, stable under growth).** When two components
-MERGE via a new edge, the union keeps the smaller id — one side's entries
-"moved" (true: they joined a thread) and fire chips; the other side's do not.
-Grounds: ids derived from member SETS change on every growth → chips fire
-for everything (trap 8). Alternative NOT taken: earliest-member-by-time id —
-also stable, but time ties on same-ms imports make it nondeterministic
-without a tiebreak that ends up being… the lexicographic id.
+**2.3 Thread identity is the lexicographically-smallest MEMBER target-id
+(thread-scoped, deterministic, stable under growth), where "member" is
+defined (v1.1, S3) as the set of VISIBLE-card / edge-endpoint target-ids —
+folded members (`du:` blocks and other fold children) are EXCLUDED from the
+identity min** (they'd win the sort — `d` < `o` — and pin a thread's
+identity to an invisible row). When two components MERGE via a new edge, the
+union keeps the smaller id — one side's entries "moved" (true: they joined a
+thread) and fire chips; the other side's do not (validator trace B confirms:
+chips fire only for the changed side, including when the surviving id comes
+from the OTHER component). Grounds: ids derived from member SETS change on
+every growth → chips fire for everything (trap 8). Alternative NOT taken:
+earliest-member-by-time id — also stable, but time ties on same-ms imports
+make it nondeterministic without a tiebreak that ends up being… the
+lexicographic id.
 
-**2.4 Move detection state lives client-side, keyed by target-id, carried in
-the trail view-state (previous pull's `{target-id → thread-id-or-band}`
-map).** Computed pure (`moves prev-assign new-assign → {target-id reason}`),
-stamped at scene build. Grounds: "since last pull" is a CLIENT notion (the
-rim's delta slot already reads the arrival clock); no server state exists for
-it and none is warranted pre-attestation-walk. Alternative NOT taken:
+**2.4 Move detection state lives client-side, keyed by target-id, in a
+SEPARATE post-build cache atom (the `!last-trail-struct` pattern,
+editor_compute.cljs) — NEVER inside `!trail-face-state` (v1.1, S2).**
+Grounds for the never: `!trail-face-state` is a WATCHED INPUT — wiring's
+`add-watch` re-pulls and editor_compute's `m/watch` rebuilds on every write,
+so storing per-build output there is a rebuild/re-pull feedback loop, and
+the write would sit inside `m/latest` (the CLAUDE.md side-effect ban). The
+prev-assignment `{target-id → thread-id-or-band}` map is written AFTER scene
+build as a cache, read at the next build; `moves prev-assign new-assign →
+{target-id reason}` stays pure. "Since last pull" is a CLIENT notion (the
+rim's delta slot already reads the arrival clock); no server state exists
+for it and none is warranted pre-attestation-walk. Alternative NOT taken:
 persisting move history — that is walk/attestation territory (D-008 §5).
 
-**2.5 Ordering is DATA, never sequence order (probe obligation,
-PROBE-10K:9-15).** Thread index, band membership, and in-thread position are
-computed as per-entry ATTRIBUTES over the feed in its ARRIVAL order; no API
-in this package may return a re-sorted entry sequence as its contract
-surface (maps keyed by entry-key/target-id only). Grounds: order riding the
-incseq is the measured 10³ knee (`:permutation` diffs); when the differential
-feed arrives, thread moves must be change-shaped (attribute updates), which
-this shape gives for free. This is the pre-recorded obligation from the
-baton, now binding.
+**2.5 Ordering is DATA, never sequence position (probe obligation,
+PROBE-10K:9-15; reworded v1.1 per B2 — the validator's fix adopted
+verbatim).** The builder derives every position from the ARRIVAL-MS
+ATTRIBUTE (canonicalizing by sort on that field); raw `:feed/entries`
+sequence position is never load-bearing. Thread index, band membership, and
+in-thread position are per-entry attributes; assignment/move APIs return
+entry-key/target-id-keyed MAPS, never a re-sorted entry sequence as a
+contract surface. Grounds: order riding the incseq is the measured 10³ knee
+(`:permutation` diffs); when the differential feed arrives, thread moves
+must be change-shaped (attribute updates), which attribute-derived
+positioning gives for free — a permuted input stream canonicalizes to the
+IDENTICAL scene instead of demanding a reorder diff. This is the
+pre-recorded obligation from the baton, now binding.
 
 ## §3 Traps ledger (naive → concrete failure → ruling)
 
@@ -110,9 +156,11 @@ baton, now binding.
    components over `#{:based-on :produced :built-over :new-direction}` ONLY
    (pin the set as a named def; cite this trap at its def site).
 3. **Order rides the sequence** → a future differential feed ships
-   `:permutation` diffs on every thread move → producer knees at 10³
-   (PROBE-10K §3). → §2.5; assignment APIs return keyed maps; the feed seq is
-   never re-sorted as an API surface.
+   `:permutation` diffs on every thread move → the PRODUCER knees at 10³
+   (PROBE-10K §2 + §6; §3 shows the consumer side is fine — citation fixed
+   v1.1/A1). → §2.5; positions derive from the arrival-ms attribute;
+   assignment APIs return keyed maps; the feed seq is never re-sorted as an
+   API surface.
 4. **Band wrap leaks into threaded lanes** → mod-wrap across threads chains
    unrelated spines (the F-L2 staircase fix's own footgun, already fenced in
    `lanes.cljc` 1-arity/2-arity split) → wrap-packing INSIDE the band region
@@ -124,9 +172,11 @@ baton, now binding.
 6. **Box-cards at bands 0–2** → R4 regression; 167 filled boxes again
    (F-L5). → bands 0–2 emit zero rect-fill ops for closed cards; G1 asserts
    it op-level.
-7. **Changing hit bounds while changing paint** → clicks break at band
-   boundaries (R-1 trap 6, still live). → rt-node bounds unchanged at every
-   band; only ops differ.
+7. **Hit bounds diverging from paint at a band** → clicks land on empty
+   space or miss painted lines (R-1 trap 6, still live). → PER-BAND
+   consistency (v1.1, B1): at each band the node bounds equal that band's
+   painted line region; bounds legitimately DIFFER across bands (band 0 is
+   densest); the open surface is a separate sibling node.
 8. **Thread-id from member sets** → id changes on every growth → chips fire
    for the whole thread every pull. → §2.3 stable id.
 9. **New text ops without a clip? ancestor** → the R-1 overflow class
@@ -145,13 +195,24 @@ baton, now binding.
     render-north decision, not a trail-room one.
 12. **NUL bytes in fixtures/docs** (fired 4× historically) → `file(1)` must
     say text for every touched file; gate G10.
+13. **Per-build output written into a WATCHED input** (v1.1, S2) →
+    prev-assignment stored in `!trail-face-state` re-fires wiring's
+    `add-watch` (re-pull) and editor_compute's `m/watch` (rebuild) — a
+    feedback loop, with the write sitting inside `m/latest` (the CLAUDE.md
+    side-effect ban). → §2.4: a separate post-build cache atom, never the
+    view-state atom.
 
 ## §4 Gates (executable; additions to `trail_face_test.clj` + fixtures)
 
-- **G1** (item 1 check, R4): at band 1 a feed entry renders EXACTLY one text
-  op and ZERO rect-fill ops; band 0 → glyph(+dot) only, no name text; band 2
-  → exactly two line ops; band 3 (open) → the surface node with bg. The
-  node's bounds are IDENTICAL across bands 0–3 (trap 7).
+- **G1** (item 1 check, R4; re-scoped v1.1 per B1): at band 1 a feed entry
+  renders EXACTLY one text op and ZERO rect-fill ops; band 0 →
+  glyph(+fold-count) only, no name text, no staleness dot (S5 — deferred
+  with the attestation walk); band 2 → exactly two line ops; band 3 (open) →
+  the surface node with bg as a SEPARATE sibling. WITHIN each band, the
+  hit-node bounds equal that band's painted line region (paint/hit
+  consistency — the click still lands); bounds MAY differ across bands, and
+  the gate asserts band-0 height < band-2 height (the compression is the
+  point). Never asserts cross-band identity.
 - **G2** (R5 data rule): the band-2 second line is built from entry DATA
   (two-clock stamp + asserter; written-by only on divergence) — assert it
   never contains material/body text (tripwire 4: not a truncation of
@@ -160,7 +221,12 @@ baton, now binding.
   unedged docs → the chain occupies ONE lane; both unedged docs sit in the
   band region (below all threaded content) with the self-declaring count
   line; NO unthreaded doc occupies its own lane; band reading order = arrival
-  order.
+  order. Overflow half (v1.1, S4): with max-lanes 1 and two distinct
+  threads, the overflow thread renders as a fold-chip with a count — never a
+  mod-wrapped lane. Fixture note (v1.1, validator trace A): the current
+  feed.edn carries only `based-on/dead-end/confirms` marks and no terrain
+  chain — G3/G4/G5/G6 REQUIRE fixture extension per duty §7.4 (extend, never
+  invent shapes; mirror the live constructors).
 - **G4** (cross-links): a `:references` edge between members of two threads
   does NOT merge them (assignments unchanged); it renders as a kraft
   connector between the lanes (R6 material, existing kraft constructors).
@@ -168,21 +234,27 @@ baton, now binding.
   0–2 (family fold); at band 0 the fold renders as a chip with a count.
 - **G6** (item 6 check, pure): `moves(prev, new)` over a fixture where one
   doc gains a `:produced` edge → exactly ONE move record, reason names the
-  kind + far-end display-name; the moved card's ops carry the new-since chip;
-  every other card carries none. Determinism: same inputs → identical output.
-- **G7** (§2.5 probe obligation): assignment/move APIs return maps keyed by
-  entry-key/target-id; the scene builder consumes `:feed/entries` in the
-  order given (assert the builder output for a permuted-input copy of the
-  fixture differs ONLY in y-stacking derived from the order — i.e. no API
-  re-sorts as a side effect); thread/band membership arrives as node DATA
-  (`:trail-face/thread`, `:trail-face/band?`) on every entry node.
+  kind + the far end's display-name WHEN PRESENT, else its raw id (v1.1, S6
+  — matching duty §7.6's honest fallback); the moved card's ops carry the
+  new-since chip; every other card carries none. Determinism: same inputs →
+  identical output.
+- **G7** (§2.5 probe obligation; reworded v1.1 per B2 — the validator's fix
+  verbatim): (a) a permuted-input copy of the fixture yields a
+  BYTE-IDENTICAL scene (positions derive from the arrival-ms attribute, so
+  raw sequence position is provably not load-bearing); (b) thread/band
+  membership + in-thread index arrive as node DATA (`:trail-face/thread`,
+  `:trail-face/band?`) on every entry node — INCLUDING kraft mark nodes
+  (v1.1, A3: an edge belongs to the thread its endpoints define); (c)
+  assignment/move APIs return entry-key/target-id-keyed maps, never a
+  re-sorted entry seq.
 - **G8** (determinism, standing): same fixture → identical scene twice.
 - **G9** (constraints re-run): R-1's G4 constraint gates still green (palette
   parse, boot-flip one-liner, single rim address).
 - **G10** `file(1)` text for every touched file.
-- **G11** cross-package suite green in ONE serial run (191/2202/0 baseline +
-  new), per the test-policy ruling (ns-level during phases, one suite at
-  integration).
+- **G11** cross-package suite green in ONE serial run at the then-current
+  HEAD baseline + the new gates (v1.1, A2: never a hardcoded count — the
+  baseline moves with every landed wave), per the test-policy ruling
+  (ns-level during phases, one suite at integration).
 - **W-1** (wiring check, NOT a JVM gate — named honestly): in trail faces the
   layout consumes the derived world's sidebar flag (R-1 debt 1); evidence =
   code cite + `/trail timeline` screenshot with the sidebar atom forced true
@@ -191,13 +263,18 @@ baton, now binding.
 ## §5 File allowlist
 
 AMEND only: `src/app/client/workspace/trail_face/{cards,scene,lanes}.cljc`
-(+ optionally ONE new pure cljc under `trail_face/` for components/moves —
-builder names it in the phase artifact); the trail view-state owner for
-`:band` + prev-assignment (builder locates — expected
-`workspace_actions.cljs` / `editor_compute.cljs` wiring lines ONLY); the
-layout consumer for W-1 (`combined_text.cljs` / `editor_compute.cljs` —
-mode-branch lines only). Tests + fixtures in the existing
-`trail_face_test.clj` + `test/resources/trail_face/`.
+(+ ONE new pure cljc under `trail_face/` for components/moves AND the band
+packer — v1.1/A4: rect_tree's layout engine has no wrap-flow and stays
+untouched, so band packing is new pure code here); the ACTUAL view-state
+owners, corrected v1.1 per S1 (the validator located them): `state.cljs`
+(`!trail-face-state` + the NEW prev-assignment cache atom),
+`agent_flow.cljs` (`/trail` command case block — gains the `band` op),
+`wiring.cljs` / `mouse.cljs` / `editor_compute.cljs` (watch/read wiring
+lines only); the layout consumer for W-1 (`combined_text.cljs` /
+`editor_compute.cljs` — mode-branch lines only). Tests + fixtures in the
+existing `trail_face_test.clj` + `test/resources/trail_face/` (extended per
+G3's fixture note). `workspace_actions.cljs` is NOT a view-state owner (it
+only reads `:face`) — off the allowlist.
 UNTOUCHED: `rect_tree.cljc` (the intersection fix is platform now — any need
 to touch it again is a stop-clause), `trail_view.clj`, all server files,
 kernel files, `renderer.cljs`, rim code paths. One builder per file
@@ -208,13 +285,13 @@ kernel files, `renderer.cljs`, rim code paths. One builder per file
 Coding batched FIRST (Fable may implement directly — fastest-path rule; or
 fresh-context Opus subagents inside the orchestrating session), then ONE
 serial test batch, then ONE batched falsification + Fable gate at the end of
-the wave — never sprinkled per-phase. ONE fresh-context contract-validation
-round (default-fail, artifact `CONTRACT_R2_VALIDATION_R1.md`) runs BEFORE
-build unless Sid waives it — grounds: contract validation caught two
-Fable-authored errors at text time in the git-spine cycle (R1/R2); the
-delivery ruling consolidated per-phase falsification, not text-time
-validation, and no time-box blanket carries into this session. Never
-overwrite a FAIL artifact; per-round files.
+the wave — never sprinkled per-phase. The contract-validation round RAN
+2026-07-05 (fresh-context Opus, default-fail): **FAIL — 2 blockers, 7
+should-fixes, 4 advisories, all folded into this v1.1**
+(`CONTRACT_R2_VALIDATION_R1.md`, kept verbatim; the round's kill record —
+B1/B2 were real Fable-authored text errors — goes to the D-006 honest
+ledger). A SECOND round is Sid's call at countersign. Never overwrite a FAIL
+artifact; per-round files.
 
 Falsification note for the end gate (instance-vs-class lesson, wave 1): hunt
 by CLASS — "unclipped text ops" and "phantom moves" are classes, not
@@ -233,8 +310,12 @@ one-liners.
 4. Confirm the feed fixture's `:relation-transition` detail shape carries
    `:from`/`:to`/`:kind` for lineage kinds (it does today — G3's fixture
    must extend it, not invent shapes).
-5. Confirm where trail view-state lives and how `/trail` commands mutate it
-   (R-1's G4 cites the exact forms); name the file before editing (§5).
+5. View-state locations are KNOWN (v1.1, S1 — validator-located, re-grep to
+   confirm drift): `!trail-face-state` in `state.cljs:~198`; `/trail`
+   command mutation in `agent_flow.cljs:~311-318`; expansion toggle in
+   `mouse.cljs:~404`; pull loop `wiring.cljs:~39-60`; scene watch
+   `editor_compute.cljs:~388`. The prev-assignment cache atom is NEW in
+   `state.cljs`, written post-build (trap 13).
 6. Check `:display-name` availability on feed entries for G6's sayable
    reason (git-spine P3 landed it); fall back to the raw id honestly when
    absent.
