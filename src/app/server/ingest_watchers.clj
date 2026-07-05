@@ -19,6 +19,7 @@
   (:require [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.object-container.markdown-adapter :as markdown-adapter]
             [app.server.rama.dogfood.transcript :as transcript]
+            [app.server.rama.git-spine :as git-spine]
             [app.server.rama.util-fns :as util-fns])
   (:import [java.io File]
            [java.nio.file FileSystems Files LinkOption Path Paths
@@ -185,6 +186,26 @@
         results (mapv #(run-import! runtime % on-import) files)]
     {:attempted (count results)
      :imported (count (filter #(= :accepted (:status %)) results))}))
+
+(defn run-git-spine-boot!
+  "git-spine WP2 boot hook (CONTRACT §3.C, P1-owned). After the initial sweep, on
+   the SAME trail-view runtime, run the git-spine sequence IN ORDER:
+   replay-assert-log! (re-append the durable /assert write-ahead log) ->
+   spine-sync! (git commit metadata + parent :based-on edges) ->
+   extract-session-joins! (transcript -> commit/doc :produced edges). Each stage
+   is bounded so a failure NEVER crashes boot; each is idempotent (deterministic
+   ids + idempotency journals), so a re-run converges. `cfg` carries :runtime
+   :repo-root :transcript-roots :spine-cursor-path :assert-log-path. Runs
+   fire-and-forget wrt the relation microbatch (edges materialize async)."
+  [cfg]
+  (doseq [[label f] [[:replay git-spine/replay-assert-log!]
+                     [:spine-sync git-spine/spine-sync!]
+                     [:extract git-spine/extract-session-joins!]]]
+    (try
+      (log :info (str "git-spine " (name label)) (f cfg))
+      (catch Throwable t
+        (log :error (str "git-spine " (name label) " threw; boot survives")
+             {:ex (.getName (class t)) :error (.getMessage t)})))))
 
 (defn start-ingest-watchers!
   "Start event-driven ingest watchers.
