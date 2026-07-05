@@ -430,3 +430,13 @@ this is not only about nemotron we can have other models as well whatever can ru
 [delegating flag-level decisions in the render-north read; on who does this job in the future:]
 
 for the flag you decide currently in future this is something that can be done with local llm kinda thingy ... future....
+
+---
+
+## 2026-07-06 — Fork 2 ruled: one substrate (verbatim, the ruling moment; Track-D sitting continued past midnight)
+
+[ruling Fork 2 — one substrate with three projection families over one address space, versus three substrates at the seams:]
+
+ONE SUBSTRATE TO RULE THEM ALL
+
+fuck me what a fantastic slogan write it down somewhere

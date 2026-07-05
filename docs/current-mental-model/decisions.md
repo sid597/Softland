@@ -423,6 +423,38 @@ recording — is item 2's hard gate).
 
 ---
 
+## D-009 — Fork 2: ONE SUBSTRATE (three projection families over one address space)
+**STATUS: CLOSED** (ruled by Sid in-session 2026-07-06 at the Track-D
+sitting; countersign verbatim in `vision/LOG.md` 2026-07-06 — **"ONE
+SUBSTRATE TO RULE THEM ALL"**; full record `build/render-north/FORK-2.md`,
+which supersedes NORTH §10's OPEN marker. Entry recorded 2026-07-06 by the
+Trunk-1 checkup session from those sources — recorded, not re-derived.)
+
+One scene store (keyed `(view-instance, address)`, birth-law H6), one diff
+pipeline, one camera loop, one spec grammar; the world, the islands, and the
+token face are PROJECTIONS over the single substrate — seams are where
+projections change, never where architectures change. Grounds (FORK-2 §3,
+ruled on foreclosure asymmetry, not cost): three-substrate foreclosures are
+vision-shaped and permanent — "one land at every zoom" dies at the island
+border; cross-seam transclusion becomes a sync protocol that eventually
+lies; the move-then-speak agent flow stitches three dialects (H2/H3
+worsen); specs-as-assertions gets readmitted-around via a DOM-shaped island
+engine; self-hosting loses a third of its object. One-substrate
+foreclosures are cost-shaped and dated — no off-the-shelf UI maturity (the
+text pit is ours alone); foreign live surfaces stay second-class behind a
+controlled compositing seam (wish recorded).
+
+Binding on DIRECTION; build stays D-001-paced. `build/render-north/
+DELTA-B1.md` is the ordered instrument: birth-laws Δ1 (H6 keying) + Δ2
+(f64 store / camera-relative f32) bind at scene-store birth; the Δ3 store
+promotion fires at the FACE-2 contract, not before; Δ7 slug-glyph expansion
+gates face 2 shipping the design language. Modular-code note (Sid's
+standing requirement, named at the sitting): one substrate ≠ one program —
+the two thin registries are the modularity story, and registry entries are
+the first candidate for code-as-addressed-material.
+
+---
+
 ## Open questions queued for ruling
 - Fable-window queue (per D-006): ~~gate review of relation-kernel
   implementation~~ (done 2026-07-03, PASS) → trail-view data contract →

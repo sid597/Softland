@@ -1,3 +1,67 @@
+# 🌲 TRUNK-4 OPENING (authored 2026-07-06 by the Trunk-1 checkup; supersedes nothing below — it CONSOLIDATES the block beneath it)
+
+**Naming convention, adopted:** the orchestrating lineage = TRUNK sessions
+(one live trunk at a time; the trunk owns the baton, gates, and commits);
+tracks/windows = BRANCHES (disjoint file fences, decisions-as-text back to
+the trunk). Trunk-1 = 07-05 marathon (spine · room · write path · Electric
+skill · benchmark, across 4 branches). Trunk-2 = 07-05/06 delivery (gate +
+6+1 fixes + code commits + Sid's first boot + R-2 countersign). Trunk-3 =
+probe (LM-1 live run, nemotron vs opus). **You are Trunk-4.** Stamp it in
+your baton entries.
+
+**LAND STATE (verified against disk + history at c12b63c + checkup
+commits):** five packages CLOSED (relation-kernel · trail-view WP1 ·
+view-mvp WP-B2, ratified on MEASUREMENT_RAF [RAF] 7–12ms PASS · git-spine
+WP2 · trail-room R-1). Suite baseline 191/2210 (dogfood-space contention
+flake known; standalone green). App boots; real commit threads render with
+kraft edges; write path live (`POST /api/relation/assert`; asserter-id +
+keyword type required; `:git-commit` targets rejected). **D-009 RECORDED:
+Fork 2 = one substrate** (Sid's verbatim in LOG; FORK-2.md full record).
+DELTA-B1.md = the render sequencing spine (Δ1/Δ2 birth-laws at store
+birth; Δ3 promotion at the FACE-2 contract; Δ7 slug before face 2 ships
+design language). LM-1 ran: nemotron 17/32 vs opus-cc 26/32; dominant
+local failure = never-committing (4096-token thinking budget,
+config-repairable); KILL clause (a) formally met; interaction term
+unmeasured until relations/ ablation differs from A0. H1 arming CANDIDATE
+preserved (`vision/images/2026-07-05-h1-arming-candidate.png`) — **awaits
+SID'S HAND in the BETS verdict log**; surface once, don't push.
+
+**DO, IN ORDER:**
+1. **THE R-2 BUILD WAVE** — this session's job.
+   `build/trail-room/CONTRACT_R2.md` v1.1 COUNTERSIGNED-BINDING (round-2
+   waived — "implementation forward"). Delivery mode (D-006 e2): Fable
+   codes directly. Batch ALL coding (bands · lanes-from-edges + the
+   unthreaded BAND · move chips · fixture extensions per G3's note) → ONE
+   serial test batch → ONE batched falsification (hunt by CLASS) + Fable
+   gate (`GATE_REVIEW_R2.md`) → per-package code commits → light retro +
+   D-006 note. Allowlist §5 validator-corrected; rect_tree UNTOUCHED =
+   stop-clause. The three unvalidated v1.1 additions (fold-precedence ·
+   thread-identity-member · geometry text) validate by implementation
+   contact — wrong at build = STOP-CLAUSE → amend + honest-ledger note.
+   Probe obligations bind: order rides ROWS AS DATA, never incseq
+   permutations; C2-shaped scene-store consumer (PROBE-10K).
+   **Do-not-preclude:** implement lane assignment as a PURE, address-keyed
+   transform with rank fields as data — Δ9 moves layout projection into
+   Rama (named, plural lenses) at face-2; keep that migration a lift, not
+   a rewrite.
+2. **R-2 first light with Sid**, folding his open eyeball list: kraft
+   label legibility · dangling doc edges (dual working-dir doubt) ·
+   `[GIT-SPINE]` server stats · idle `content-same?` skip ratio.
+3. **Sid's parked items — surface, don't push:** H1 arming entry (his
+   hand) · counterfactual-probe weighing (final D-006 eval) · intake
+   sitting (local-models note + LM-1 observations + MEMORY-off-land
+   boundary) · work-package skill amendment AFTER its adversarial
+   retro-recheck.
+
+**RULES:** never read `src/app/server/env.clj` · code and docs in SEPARATE
+commits · docs only on this local branch, never pushed/merged · ns-level
+tests while coding, ONE serial suite per wave · one builder per file if
+subagents are dispatched · CLAUDE.md is slimmed by design (verified
+Electric laws live in the electric-docs skill, guarded by
+`test/app/missionary_claims_test.clj`).
+
+---
+
 # ⚡ BATON — closed 2026-07-06 (~500k session). NEXT SESSION = THE R-2 BUILD WAVE, CODE FIRST.
 
 **START HERE, exact order (delivery mode, D-006 e2 — Fable codes directly):**
