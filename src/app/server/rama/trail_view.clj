@@ -195,6 +195,84 @@
   [groups]
   (vec (apply concat (or groups []))))
 
+;; ── Display names (F-L3 / git-spine CONTRACT §3.D; INPUTS §5.7b) ─────────────
+;;   A feed/bundle target's human name lives ADJACENT in the payload (the
+;;   source-ref / file-path), never as persisted OC truth (the display-name
+;;   TRUTH seam §5.7c is deferred). These PURE fns project it: md/doc/file →
+;;   basename; commit artifacts (source-ref "git-commit:<sha>") → <sha7>. The
+;;   View-3 bundle rendering additionally reads the §3.A `subject:` line to show
+;;   "<sha7> · <subject>". The raw id/hash stays the honest fallback wherever a
+;;   name is absent (card falls back to :id, cards.cljc:275; text keeps the
+;;   `== <tid>` heading).
+(def ^:private commit-source-ref-prefix
+  "§3.A: a commit artifact rides the md path with this source-ref prefix."
+  "git-commit:")
+
+(defn commit-source-ref?
+  "True when a source-ref names a git-commit artifact (§3.A / §3.D)."
+  [source-ref]
+  (and (string? source-ref) (str/starts-with? source-ref commit-source-ref-prefix)))
+
+(defn source-ref->sha
+  "The sha carried verbatim after the `git-commit:` prefix (§3.A), else nil."
+  [source-ref]
+  (when (commit-source-ref? source-ref)
+    (subs source-ref (count commit-source-ref-prefix))))
+
+(defn sha7
+  "Git short-sha: the first 7 chars of a sha, tolerant of shorter input.
+   nil on nil/blank so a degenerate ref never yields a blank display-name
+   (the raw id must stay the honest fallback)."
+  [sha]
+  (let [s (str sha)]
+    (when-not (str/blank? s)
+      (subs s 0 (min 7 (count s))))))
+
+(defn basename
+  "Last '/'-separated segment of a path-like ref (pure). nil on nil/blank input
+   so downstream `(or display-name id)` falls back to the id, never to \"\"."
+  [path]
+  (let [s (str path)]
+    (when-not (str/blank? s)
+      (peek (str/split s #"/")))))
+
+(defn source-ref->display-name
+  "F-L3 FEED display-name from a source-ref (CONTRACT §3.D / G9): commit
+   artifacts → <sha7>; md/doc → basename. nil when there is no ref, so the id
+   stays the honest fallback (cards.cljc:275). The feed row carries NO subject
+   (validator S2); the subject rides the bundle rendering below."
+  [source-ref]
+  (when source-ref
+    (if (commit-source-ref? source-ref)
+      (sha7 (source-ref->sha source-ref))
+      (basename source-ref))))
+
+(defn subject-line
+  "Parse the `subject:` header line out of a §3.A labeled canonical commit text
+   (the cross-builder interface, CONTRACT §3.A). The header `subject:` precedes
+   any body, so the first match is the commit subject. Returns it trimmed, else nil."
+  [content-text]
+  (when content-text
+    (some (fn [line]
+            (when (str/starts-with? line "subject:")
+              (str/trim (subs line (count "subject:")))))
+          (str/split-lines content-text))))
+
+(defn bundle-display-name
+  "F-L3 View-3 display-name for a MATERIAL bundle target (CONTRACT §3.D / G9).
+   Commit material → \"<sha7> · <subject>\" (subject read from the §3.A
+   content-text); md/doc material → basename of the source-ref; nil when neither
+   applies (the raw tid then stays the honest fallback in the text heading)."
+  [tb]
+  (let [source-ref (get-in tb [:material :raw :source-ref])]
+    (cond
+      (commit-source-ref? source-ref)
+      (let [s7      (sha7 (source-ref->sha source-ref))
+            subject (subject-line (get-in tb [:material :content-text]))]
+        (if (str/blank? subject) s7 (str s7 " · " subject)))
+      source-ref (basename source-ref)
+      :else nil)))
+
 ;; ─────────────────────────────────────────────────────────────────────────────
 ;;   MODULE  (read-only by construction: no depots, no ETL, no own PStates)
 ;; ─────────────────────────────────────────────────────────────────────────────
@@ -493,7 +571,8 @@
 (defn- file-activity-entry
   [row]
   {:entry/kind :transcript-file-updated
-   :entry/target {:id (:file-key row) :kind :transcript-file}
+   :entry/target {:id (:file-key row) :kind :transcript-file
+                  :display-name (basename (:file-path row))}
    :entry/address (->address :context-bundle {:targets [(:file-key row)]})
    :time/claimed-ms nil
    :time/arrival-ms (file-offset-updated-ms row)
@@ -503,7 +582,8 @@
 (defn- source-activity-entry
   [row]
   {:entry/kind :source-ingested
-   :entry/target {:id (:document-container-id row) :kind :doc}
+   :entry/target {:id (:document-container-id row) :kind :doc
+                  :display-name (source-ref->display-name (:source-ref row))}
    :entry/address (->address :context-bundle {:targets [(:document-container-id row)]})
    :time/claimed-ms nil
    :time/arrival-ms (source-completion-ms row)
@@ -618,8 +698,13 @@
     (str asserted-by)))
 
 (defn- edge-line [prefix edge]
+  ;; G11 fix (2026-07-05): print BOTH endpoints — dropping the far end made
+  ;; View-3 silently lose WHO produced a target (the map must not lie; the
+  ;; design's R6 rule: an edge always names its far end). Full triple:
+  ;; from -> kind -> to.
   (let [ev (get-in edge [:evidence :anchor-id])]
-    (str "   " prefix " " (name (:kind edge)) " " (get-in edge [:to :id])
+    (str "   " (get-in edge [:from :id]) " " prefix " " (name (:kind edge))
+         " " (get-in edge [:to :id])
          " by " (fmt-actor (:asserted-by edge) (:written-by edge))
          " @" (:last-changed-at-ms edge)
          (when ev (str " [ev " ev "]")))))
@@ -642,7 +727,8 @@
                   this-rels (apply concat (vals (get-in tb [:relations :this])))]
               (concat
                [(str "== " tid " (" (name (or (:kind tb) :unresolved)) " \""
-                     (or (get-in tb [:identity :container-kind]) "") "\")")
+                     (or (bundle-display-name tb)
+                         (get-in tb [:identity :container-kind]) "") "\")")
                 (str "   created " (or (:arrival-ms created) (:claimed-ms created))
                      " by " (or (get-in tb [:identity :created-by]) "unknown")
                      " | last-changed " (or (get-in tb [:times :last-changed :arrival-ms]) "unknown")
