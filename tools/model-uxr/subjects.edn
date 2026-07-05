@@ -6,34 +6,44 @@
 ;; served at a different context window is a DIFFERENT subject. Never reuse
 ;; an id across serving configs — score rows key on it.
 ;;
+;; RUN PIN (2026-07-05, freeze-gate session): snapshot sha 127376b0…
+;; materialized at :snapshot-dir; MANIFEST.edn inside it records bank-hash,
+;; the CLAUDE.md out-of-tree content-hash, and the ablation amendment below.
+;;
+;; ABLATION AMENDMENT (pre-first-subject-call, recorded in MANIFEST.edn):
+;; SPEC §1/ABLATIONS.md's A0 include of docs/current-mental-model/** measured
+;; ~27MB at the pinned sha (~1.4M+ text tokens + 20MB PDFs) — exceeds every
+;; subject's context; physically unrunnable as one prompt. A0 re-registered
+;; BEFORE any subject call as: the bank's gold-citation file union +
+;; orientation core (measured ~39.4k words / ~70-75k model tokens). Also
+;; fixes a bank/ablation mismatch: docs/_map.md is cited by the bank (A6)
+;; but was absent from the original globs. A1/A2/A3 stay the SAME
+;; transformations (drop decisions / drop baton / drop relations) over the
+;; amended base. relations/** remains included-but-absent at this sha
+;; (honest absence, SPEC §1): A3 ≡ A0 this run; spine-gated questions
+;; honesty-score — pre-registered.
+;;
 ;; LOCAL SERVING (llama.cpp llama-server, ROCm build 8262, 2×RX 7900 XTX):
-;; one model per process, one PORT per subject — distinct ports make a
-;; wrong-model call fail loudly (connection refused) instead of silently
-;; querying whatever is on a shared port. Start the subject's server before
-;; running it; the runner is sequential, so one server at a time is fine.
+;; one model per process, one PORT per subject — a wrong-model call fails
+;; loudly (connection refused) instead of silently hitting a shared port.
 ;;
-;;   nemotron-30b-a3b-q8-32k  (smoked 2026-07-05: gen 100 tok/s, prefill
-;;                             4553 tok/s @5k neutral prompt, ~36GB split):
+;;   nemotron-30b-a3b-q8-128k (Q8_0 GGUF; hybrid Mamba2+MoE, cheap KV):
 ;;     llama-server -m /home/sid/projects/models/nvidia_Nemotron-3-Nano-30B-A3B-Q8_0.gguf \
-;;                  --port 8091 -ngl 99 -c 32768 --host 127.0.0.1
-;;   qwen3-32b-q8-16k         (smoked 2026-07-05: gen 21 tok/s, ~41GB split):
+;;                  --port 8091 -ngl 99 -c 131072 --host 127.0.0.1
+;;   qwen3-32b-q8-80k-yarn (Q8_0; needs YaRN past 40960 native + KV-q8 to fit
+;;                          2x24GB — FIT UNVERIFIED until smoke passes):
 ;;     llama-server -m /home/sid/projects/models/Qwen3-32B-Q8_0.gguf \
-;;                  --port 8092 -ngl 99 -c 16384 --host 127.0.0.1
+;;                  --port 8092 -ngl 99 -c 81920 --host 127.0.0.1 \
+;;                  --rope-scaling yarn --rope-scale 2.5 --yarn-orig-ctx 32768 \
+;;                  -fa -ctk q8_0 -ctv q8_0
 ;;
-;; Keys come from ENV VARS ONLY (SPEC §5 hard rule; never env.clj). Local
-;; llama-server ignores auth unless started with --api-key, so
-;; LOCAL_LLM_API_KEY=dummy satisfies the runner's env check.
+;; Keys come from ENV VARS ONLY (SPEC §5 hard rule; never env.clj).
+;; LOCAL_LLM_API_KEY=dummy satisfies the runner's env check for local servers.
 ;;
-;; POOL CANDIDATES ON DISK, NOT YET SUBJECTS (add only after a smoke pass,
-;; with their own quant+context ids):
-;;   /home/sid/projects/models/mistralai_Devstral-Small-2-24B-Instruct-2512-Q8_0.gguf
-;;   /home/sid/projects/models/allenai_Olmo-3.1-32B-Think-Q8_0.gguf
-;;   gemma3-27b arm: NOT on disk (2026-07-05) — pull needs Sid's word (~17GB Q4_K_M).
-;;
-;; Frontier + grader model ids are OPERATOR-SET at the freeze gate (gate (c)
-;; is the frontier-token budget confirmation — model choice rides with it).
+;; Frontier + grader model ids: set at the freeze gate with the budget
+;; confirmation (gate (c)).
 
-{:snapshot-dir "snapshots/current"
+{:snapshot-dir "snapshots/127376b0fd76e1a112422ae5ac21a2f55725a018"
  :questions    "docs/current-mental-model/build/model-uxr/QUESTIONS.md"
  :tokenizer    :ws-proxy               ; frozen with the bank (SPEC §2)
 
@@ -42,8 +52,8 @@
           :key-env  "ANTHROPIC_API_KEY"}
 
  :subjects
- [;; --- local pool (validated by neutral smoke, 2026-07-05) ---------------
-  {:id        "nemotron-30b-a3b-q8-32k"
+ [;; --- local pool -------------------------------------------------------
+  {:id        "nemotron-30b-a3b-q8-128k"
    :provider  :openai-compatible
    :endpoint  "http://127.0.0.1:8091/v1"
    :model     "nvidia_Nemotron-3-Nano-30B-A3B-Q8_0.gguf"
@@ -51,7 +61,7 @@
    :max-tokens 4096
    :temperature 0}
 
-  {:id        "qwen3-32b-q8-16k"
+  {:id        "qwen3-32b-q8-80k-yarn"
    :provider  :openai-compatible
    :endpoint  "http://127.0.0.1:8092/v1"
    :model     "Qwen3-32B-Q8_0.gguf"
@@ -59,7 +69,7 @@
    :max-tokens 4096
    :temperature 0}
 
-  ;; --- frontier (SPEC §5; id gets the concrete model at the freeze gate) --
+  ;; --- frontier (SPEC §5) ------------------------------------------------
   {:id        "frontier-anthropic"
    :provider  :anthropic
    :endpoint  "https://api.anthropic.com"
@@ -68,20 +78,58 @@
    :max-tokens 4096
    :temperature 0}]
 
- ;; Ablations copied from runner default-ablations (this file REPLACES the
- ;; embedded config; ABLATIONS.md is the registered source).
+ ;; Operative ablations (amended base — see header + MANIFEST.edn).
+ ;; A1 = drop decisions.md · A2 = drop baton · A3 = drop relations · A4 =
+ ;; bundles only (absent at this sha -> skips).
  :ablations
- {:A0 {:include ["CLAUDE.md" "docs/current-mental-model/**"
-                 "docs/sessions/next-prompt.md" "vision/LOG.md" "relations/**"]
+ {:A0 {:include ["CLAUDE.md" "docs/_map.md" "docs/sessions/next-prompt.md"
+                 "vision/LOG.md"
+                 "docs/current-mental-model/decisions.md"
+                 "docs/current-mental-model/BETS.md"
+                 "docs/current-mental-model/build/relation-kernel/CONTRACT.md"
+                 "docs/current-mental-model/build/relation-kernel/RETRO.md"
+                 "docs/current-mental-model/build/trail-view/CONTRACT.md"
+                 "docs/current-mental-model/build/trail-view/RETRO.md"
+                 "docs/current-mental-model/build/git-spine/CONTRACT.md"
+                 "docs/current-mental-model/build/git-spine/INPUTS.md"
+                 "docs/current-mental-model/build/view-mvp/FIRST_LIGHT.md"
+                 "relations/**"]
        :exclude ["bundles/**"]}
-  :A1 {:include ["CLAUDE.md" "docs/current-mental-model/**"
-                 "docs/sessions/next-prompt.md" "vision/LOG.md" "relations/**"]
+  :A1 {:include ["CLAUDE.md" "docs/_map.md" "docs/sessions/next-prompt.md"
+                 "vision/LOG.md"
+                 "docs/current-mental-model/BETS.md"
+                 "docs/current-mental-model/build/relation-kernel/CONTRACT.md"
+                 "docs/current-mental-model/build/relation-kernel/RETRO.md"
+                 "docs/current-mental-model/build/trail-view/CONTRACT.md"
+                 "docs/current-mental-model/build/trail-view/RETRO.md"
+                 "docs/current-mental-model/build/git-spine/CONTRACT.md"
+                 "docs/current-mental-model/build/git-spine/INPUTS.md"
+                 "docs/current-mental-model/build/view-mvp/FIRST_LIGHT.md"
+                 "relations/**"]
        :exclude ["bundles/**" "docs/current-mental-model/decisions.md"]}
-  :A2 {:include ["CLAUDE.md" "docs/current-mental-model/**"
-                 "vision/LOG.md" "relations/**"]
+  :A2 {:include ["CLAUDE.md" "docs/_map.md" "vision/LOG.md"
+                 "docs/current-mental-model/decisions.md"
+                 "docs/current-mental-model/BETS.md"
+                 "docs/current-mental-model/build/relation-kernel/CONTRACT.md"
+                 "docs/current-mental-model/build/relation-kernel/RETRO.md"
+                 "docs/current-mental-model/build/trail-view/CONTRACT.md"
+                 "docs/current-mental-model/build/trail-view/RETRO.md"
+                 "docs/current-mental-model/build/git-spine/CONTRACT.md"
+                 "docs/current-mental-model/build/git-spine/INPUTS.md"
+                 "docs/current-mental-model/build/view-mvp/FIRST_LIGHT.md"
+                 "relations/**"]
        :exclude ["bundles/**" "docs/sessions/next-prompt.md"]}
-  :A3 {:include ["CLAUDE.md" "docs/current-mental-model/**"
-                 "docs/sessions/next-prompt.md" "vision/LOG.md"]
+  :A3 {:include ["CLAUDE.md" "docs/_map.md" "docs/sessions/next-prompt.md"
+                 "vision/LOG.md"
+                 "docs/current-mental-model/decisions.md"
+                 "docs/current-mental-model/BETS.md"
+                 "docs/current-mental-model/build/relation-kernel/CONTRACT.md"
+                 "docs/current-mental-model/build/relation-kernel/RETRO.md"
+                 "docs/current-mental-model/build/trail-view/CONTRACT.md"
+                 "docs/current-mental-model/build/trail-view/RETRO.md"
+                 "docs/current-mental-model/build/git-spine/CONTRACT.md"
+                 "docs/current-mental-model/build/git-spine/INPUTS.md"
+                 "docs/current-mental-model/build/view-mvp/FIRST_LIGHT.md"]
        :exclude ["bundles/**" "relations/**"]}
   :A4 {:include ["bundles/**"]
        :exclude []}}
