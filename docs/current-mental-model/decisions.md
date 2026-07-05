@@ -328,6 +328,16 @@ NOT continuous orchestration, NOT implementation, NOT Regime-2 theory (gated by 
   errors in THREE Fable contracts (relation-kernel F2-adjacent scope, git-
   spine R1/R2, trail-room R2 B1/B2) — the value concentrates in the layers
   around the author, Fable included; weigh D-006 accordingly.
+- 2026-07-06 (session close), **Sid's countersigns**: trail-room R-2 v1.1
+  CONTRACT COUNTERSIGNED (binding; build authorized; round-2 validation
+  WAIVED ENTIRELY — Sid: "implementation forward"; Fable's narrow-diff
+  alternative recorded in the contract header; residual risk assigned to
+  implementation contact + the wave's end-gate); **view-mvp WP-B2 CLOSED** on the
+  gate-15 evidence (`build/view-mvp/MEASUREMENT_RAF.md` — RAF PASS at
+  corpus scale on Sid's first boot; feel verdict indicts the lane interim,
+  which R-2 cures). H1 arming candidate preserved
+  (`vision/images/2026-07-05-h1-arming-candidate.png`); the BETS
+  verdict-log arming entry stays Sid's own hand, pending.
 
 ---
 

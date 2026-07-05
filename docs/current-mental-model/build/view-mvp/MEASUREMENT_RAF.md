@@ -88,4 +88,6 @@ pixel for the record shot once R-2 lands.
 
 Gate-15 evidence collected: [RAF] lines PASS + feel verdict recorded + the
 H1-candidate screenshot preserved (re-resolve deferred, named above).
-**WP-B2 CLOSE proposed on this artifact; Sid's ratification closes it.**
+**WP-B2 CLOSED — ratified by Sid 2026-07-06 in-session ("ok i will say
+yes"). Open items above carry to the R-2 window; the H1/BETS verdict-log
+entry remains Sid's own authorship, pending.**

@@ -1,4 +1,47 @@
-# ⚡ BATON — 2026-07-05 delivery session (READ FIRST; supersedes everything below)
+# ⚡ BATON — closed 2026-07-06 (~500k session). NEXT SESSION = THE R-2 BUILD WAVE, CODE FIRST.
+
+**START HERE, exact order (delivery mode, D-006 e2 — Fable codes directly):**
+1. **R-2 BUILD WAVE, straight to code** per
+   `build/trail-room/CONTRACT_R2.md` v1.1 (**COUNTERSIGNED 2026-07-06,
+   binding; round-2 validation WAIVED by Sid — "implementation forward";
+   the three unvalidated v1.1 additions are validated by implementation
+   contact, so if fold-precedence / thread-identity-member / geometry text
+   proves wrong at build, STOP-CLAUSE → amend, honest-ledger note**).
+   Wave shape: coding batched (bands · lanes-from-edges + band · move
+   chips · fixture extensions per G3's note) → ONE serial test batch → ONE
+   batched falsification (hunt by CLASS) + Fable gate (`GATE_REVIEW_R2.md`)
+   → per-package code commits → light retro + D-006 note. Allowlist §5 is
+   validator-corrected (state.cljs/agent_flow.cljs own view-state;
+   rect_tree UNTOUCHED = stop-clause). Suite baseline at HEAD: 191 tests /
+   2210 assertions (1 known contention flake, dogfood-space under live
+   dev-server load — ns-standalone green 26/208/0).
+2. **Parallel (subagents, anytime): LM-1 grading** — 64 rows, fully
+   mechanical per `runs/127376b0/RUNBOOK.md` (frozen grader prompt; probe
+   session's item 5 below). Thresholds/interpretation = sitting with Sid
+   AFTER grading, never during.
+3. **Sid's own list**: H1 arming entry in BETS (HIS hand; candidate
+   `vision/images/2026-07-05-h1-arming-candidate.png`) · 5-min eyeball on
+   the fixed render (kraft label legibility · dangling-edge count ·
+   `[GIT-SPINE]` server stats · idle `content-same?` skip ratio —
+   MEASUREMENT_RAF open items, feed R-2 first light) · counterfactual-probe
+   weighing (final D-006 eval) · intake sitting (local-models note).
+   Queued process item: work-package skill amendment from wave-1 lessons,
+   AFTER an adversarial retro-recheck (the skill's own rule).
+
+**STATE AT CLOSE (2026-07-06):** git-spine WP2 + trail-room R-1 + view-mvp
+WP-B2 all CLOSED (WP-B2 ratified on `build/view-mvp/MEASUREMENT_RAF.md`).
+R-2 v1.1 countersigned-binding, round-2 waived. Cross-boot cursor bug fixed
+(cfdb3d8); first-light defects fixed (637d293: sidebar-in-trail-face +
+edge-direction "commit produced itself"). Criterion-2 probe RUN (leans
+bet-holds, one ding — Sid weighs; artifacts in build/relation-kernel/).
+All this session's work committed; the probe session's LM-1 material
+(runner.clj / subjects.edn modified + runs/ + snapshots/ untracked) is
+THAT session's to commit, on Sid's word. Hard rules stand: env.clj never
+read; code/docs separate commits; docs branch never pushed.
+
+---
+
+# (superseded) BATON — 2026-07-05 delivery session
 
 **DONE THIS SESSION (delivery mode, Fable coded directly):**
 **git-spine WP2 + trail-room R-1 GATE-PASSED, FIXED, COMMITTED, CLOSED.**
@@ -65,8 +108,26 @@
      note appended. Sid weighs.
 4. Sid's remaining picks: **countersign R-2 (± order validation R2)** ·
    **intake sitting** (`intake/2026-07-05-local-models.md` exists; Sid
-   touched `vision/LOG.md` — committed e534f36) · benchmark live runs
-   (blocked on boot).
+   touched `vision/LOG.md` — committed e534f36) · ~~benchmark live runs
+   (blocked on boot)~~ **RAN — see 5.**
+5. **LM-1 SUBJECT PHASE RAN 2026-07-06 (probe-standup session; freeze gate
+   closed in-session: bank v1 + sha 127376b0 pinned + Sid's budget ruling =
+   NO API dollars, frontier on subscription).** Both arms 32/32, 0 errors:
+   nemotron-q8-128k local (RAW: **8/32 empty visible completions** — thinking
+   ate the 4096-token budget) vs `opus-4.8-cc-harness` subagents
+   (`runs/127376b0/cc-raw/`). Deviations D1–D5 in the snapshot MANIFEST
+   (A3 deferred ≡A0; qwen dropped — b8262 caps slot ctx at n_ctx_train).
+   **GRADED + AGGREGATED same session → `runs/127376b0/RESULTS.md`:
+   nemotron 17/32 vs opus-cc 26/32 correct; nemotron 9 never-committed +
+   3 inventions vs 0/0; J-honesty 0/6 vs 1/6 (both flunked — audit queue).
+   KILL clause (a) formally met; interaction term unmeasured (A3 deferred).
+   NEXT: human audit (12 J + 3 invented + 15% sample) · LM-1b failure
+   autopsy (intake §6.4; reasoning channels on disk) · sitting reads.**
+   Queued behind it: ccr
+   symmetric-harness instrument (installed, unconfigured; Sid floated it —
+   needs own pre-registration). Endpoint census + LM-3 corpus census + all
+   measurements: intake §6. runner.clj/subjects.edn modified (tracked,
+   uncommitted); runs/ + snapshots/ untracked. Commits on Sid's word.
 
 **Old baton (2026-07-05 HQ marathon) kept below for step-3 detail; its
 statuses are superseded by the above.**

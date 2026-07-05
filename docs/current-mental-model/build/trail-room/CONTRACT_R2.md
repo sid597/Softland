@@ -1,7 +1,16 @@
-# CONTRACT — trail-room R-2 (bands · lanes-from-edges · move chips) · v1.1 — PROPOSED
+# CONTRACT — trail-room R-2 (bands · lanes-from-edges · move chips) · v1.1 — COUNTERSIGNED, BINDING
 
-**Status: PROPOSED (Fable-authored 2026-07-05, delivery session, Sid AFK).
-Binding only after Sid's countersign. The build does NOT start without it.**
+**Status: COUNTERSIGNED by Sid 2026-07-06 in-session ("ok i will say yes" —
+after the boot's staircase render supplied the form-break evidence this
+contract cures). BINDING. Build authorized. Round-2 validation WAIVED by
+Sid ("no lets skip i want to be very implementation forward") — Fable's
+narrow-diff-round recommendation recorded as the alternative not taken.
+Residual risk assignment: the three Fable-authored v1.1 additions
+(fold-vs-component precedence, thread-identity member definition, geometry
+deferral) are validated by IMPLEMENTATION CONTACT — G3/G5/G6/G7 exercise
+them within the first build hour, and the wave's batched end-gate hunts
+their class; any text-error found at build lands as a contract amendment
+per the honest ledger (criterion-3 style).**
 
 **v1.1 amends v1 after `CONTRACT_R2_VALIDATION_R1.md` returned FAIL** (B1:
 cross-band bounds identity was geometrically impossible and contradicted
