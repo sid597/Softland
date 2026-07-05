@@ -20,3 +20,11 @@ GEMINI.md
 .agents/
 .gemini/
 .claude/
+external-resources/
+# runtime land state (git-spine cursor + /assert write-ahead log — durable but
+# untracked by contract; replay reconstructs, never git)
+/data/
+# generated at build (Electric user-version manifest)
+resources/electric-manifest.edn
+# throwaway backups
+*.bak
