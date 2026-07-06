@@ -338,6 +338,35 @@ NOT continuous orchestration, NOT implementation, NOT Regime-2 theory (gated by 
   which R-2 cures). H1 arming candidate preserved
   (`vision/images/2026-07-05-h1-arming-candidate.png`); the BETS
   verdict-log arming entry stays Sid's own hand, pending.
+- 2026-07-06 (Trunk-5), **wave boundary of the Trunk-4 all-fronts marathon
+  CLOSED: three gates PASS (R2 / SEAMS / D7), five fixes applied at gate.**
+  Delivery mode HELD for a 4-branch parallel wave (disjoint fences, one
+  shared tree; t4-room on Fable, spine/substrate/bench on Opus; bench
+  PAUSED on Sid's word). One serial suite (204/2500/0, up from baseline
+  191/2210 with the wave's own gates), ONE batched falsification by CLASS
+  (3 fresh Opus subagents, ~460k tokens), three Fable gates with code read
+  in full. Honest-ledger evidence, both directions: (a) **the
+  falsification-by-class layer caught the wave-1 kill class AGAIN** —
+  fixture-vs-live drift (endpoint gap live-probed: zero threads over the
+  real corpus while fixture gates ran green) plus two sibling drifts
+  (fixture-invented asserters; transcript entry mis-mirrored) AND two
+  latent logic breaks with concrete failing inputs (phantom move chips on
+  thread-merge re-rooting; same-ms transition order-dependence) — all in
+  code Fable wrote directly, none caught by the 28/680 in-batch gates;
+  (b) the Fable gate pass independently corrected one branch-report claim
+  (the SEAMS "same healing shape" line) and the falsifiers' one blocker
+  was already trunk-ordered before they ran. Class-hunting keeps beating
+  instance-hunting. STANDING PROPOSAL from this wave (for the face-2
+  contract): a MECHANICAL fixture-fidelity gate that diffs fixture keys
+  against live-builder output keys — the drift class has now fired in two
+  consecutive waves and hand-mirroring discipline demonstrably does not
+  hold. Face-2 validation R1 kill record rides the wave too (4th
+  consecutive Fable contract with real text errors: B1 fence-collision,
+  B2 imagined-demand + allowlist-unreachable, S1 false GPU citation).
+  Gates: `build/trail-room/GATE_REVIEW_R2.md` ·
+  `build/git-spine/GATE_REVIEW_SEAMS.md` ·
+  `build/render-north/GATE_REVIEW_D7.md`; falsification artifacts
+  alongside. Commits await Sid's word.
 
 ---
 

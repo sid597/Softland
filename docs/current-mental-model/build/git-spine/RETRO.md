@@ -64,3 +64,32 @@ in-review (`GATE_REVIEW.md`). Closed under the delivery-mode ruling
 Doc-edge path-string join across the dual working dirs (count danglers after
 first boot); unbounded assert-log growth; optimistic-200 residual;
 `:transcript-file-updated` fixture parity never live-exercised.
+
+---
+
+# RETRO addendum — t4-spine seams (Trunk-4 branch → Trunk-5 gate, 2026-07-06)
+
+## What held
+All four seams sound at gate; the carve-out discipline (additive trailing
+record field, both constructor sites, rama-pitfalls run pre-edit) survived
+a dedicated custody hunt. The claimed-ms three-key design
+(`:claimed/at-ms` → `:claimed-at-ms` → `:time/claimed-ms`) verified correct
+at every hop by an independent reviewer — deliberate key renaming per layer
+did NOT produce a mapping bug this time, but it is a standing trap shape.
+
+## What the branch got wrong (honest ledger)
+- The first stats split (`:replayed-from`-only) was falsified by its own
+  first empirical run IN-BRANCH — good catch, right method (run it, don't
+  argue it).
+- The report claimed run-level dedup kept "the same healing shape" as
+  per-file dedup on mid-append failure — INACCURATE (per-file healed
+  same-boot, run-level only next-boot). Corrected at gate with the
+  mark-after-append fix (F1). Lesson: healing claims need the same
+  execute-don't-assert discipline as stats claims.
+- Live-corpus facts drove both real fixes (298-file shared-session ids;
+  the /home symlink alias): measuring the corpus beat reasoning about it.
+
+## Refusals that held
+Incremental-jsonl NOT built (instance-scoped cursor makes cross-boot skip
+impossible; the honest routes are policy-grade — now a sitting fork, also
+carrying the record-serialization-at-durability doubt D1).

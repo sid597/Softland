@@ -1,3 +1,62 @@
+# 🌲 TRUNK-5 CHECKPOINT — wave boundary EXECUTED 2026-07-06 (assertion-grade; stamped Trunk-5)
+
+**The Trunk-4 wave boundary is DONE through step 5 of the boot order.**
+Remaining: step 4's WORD (commits prepared, not made) + step 6 (Sid's
+sitting) + step 7 (face-2 wave on countersign).
+
+- **Suite (step 1): GREEN pre-fix** — 204 tests / 2500 assertions / 0 fail /
+  0 err (all 26 nss, one JVM; baseline moved from 191/2210 with the wave's
+  own gates). **Post-fix full receipt: 204 / 2505 / 1 flake** —
+  `llm-adversary-probe-matrix-test` (dogfood-llm-probe, untouched by the
+  wave, passed run-1, failed once in-suite WITH a Rama
+  LeaderNotFoundException + once standalone, then GREEN standalone 67/67:
+  a probe-await timing race, NEW instance of the documented contention
+  family — known-flake registry now reads dogfood-space AND
+  dogfood-llm-probe). All gate-touched nss green (39/973/0 standalone +
+  in-suite).
+- **Falsification (step 2): 3 fresh Opus subagents, by CLASS** (~460k
+  tokens total). Artifacts: `build/trail-room/DIFF_FALSIFICATION_R2.md` ·
+  `build/git-spine/DIFF_FALSIFICATION_SEAMS.md` ·
+  `build/git-spine/DIFF_FALSIFICATION_CROSS.md`. Net: 1 BLOCKER
+  (endpoint gap — live-probed threadless face; the trunk-ordered fix), 2
+  latent logic breaks in R-2 pure code (phantom merge moves; same-ms tie
+  order-dependence), 1 spine should-fix (mark-before-append), 2 honesty
+  drifts (invented fixture asserters; transcript entry mis-mirror), all
+  doubts carried with falsifiers.
+- **Gates (step 3): ALL THREE PASS, fixes applied AT gate** —
+  `build/trail-room/GATE_REVIEW_R2.md` (S1 incident-gated moves + carry
+  `:edges` + merge regression test; S2 total tiebreak; fixture asserters
+  nil'd + G2 live-true) · `build/git-spine/GATE_REVIEW_SEAMS.md` (endpoint
+  projection in `relation-activity-entry` with dead-end nil-honest test;
+  F1 mark-after-append; one branch-report healing claim corrected) ·
+  `build/render-north/GATE_REVIEW_D7.md` (all claims script-verified;
+  .bak gitignored; switch-on NOT taken). First-light expectation flipped:
+  REAL threads over the live corpus now.
+- **Retros + D-006 note (step 5): DONE** — addenda in
+  `build/trail-room/RETRO.md` + `build/git-spine/RETRO.md`; wave note in
+  decisions.md D-006 notes (incl. the STANDING PROPOSAL: mechanical
+  fixture-key-diff gate for the face-2 contract — the drift class fired
+  two waves running).
+- **COMMITS PREPARED, AWAITING SID'S WORD (hard rule):** (1) room —
+  threads.cljc(NEW) + cards/scene/editor_compute/combined_text/agent_flow/
+  mouse + trail_face_test + feed.edn; (2) spine — git_spine + trail_view +
+  ingest_watchers + object_container + markdown_adapter + both test nss;
+  (3) substrate — 5 font assets + src-build/fonts/(NEW); (4) docs commit
+  separate (gates, falsifications, retros, D-006 note, this baton).
+- **SITTING AGENDA (step 6):** R-2 first light (threads expected now) +
+  eyeball list (2 pre-answered: symlink dangler root-caused+self-heals;
+  stats split+dedup) · H1 arming (HIS hand) · face-2 COUNTERSIGN (flag Δ9
+  deviation + the §2.4 move-rule conjunct added at gate + band-line
+  wording) · POLICY FORK incremental-jsonl (now also carrying the
+  record-serialization durability doubt) · importer provenance on source
+  rows (nil-honest today; fixture invention killed at gate) · bench
+  rankings INCOMPLETE (sweep paused, batch 7+; fresh grading session to
+  resume).
+- Bench branch stays PAUSED per Sid's stop; Trunk-4's agent handles are
+  dead.
+
+---
+
 # 🌲 TRUNK-4 MARATHON — all-fronts wave (updated 2026-07-06 mid-session by Trunk-4; supersedes the DO-list in the opening block below — its LAND STATE section remains the verified baseline)
 
 **Authorization (Sid, in-session, Trunk-4 chat):** maximalist blanket — "i want

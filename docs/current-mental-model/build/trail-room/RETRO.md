@@ -59,3 +59,44 @@ Band-aware card builders (item 1); lanes-from-edges + move chips (items 5–6,
 now unblocked — the git-spine edges they consume exist); binding probe
 obligations pre-recorded for R-2: order-as-data + C2-shaped consumer
 (PROBE-10K:15,153-155).
+
+---
+
+# RETRO addendum — R-2 wave (Trunk-4 branch t4-room → Trunk-5 gate, 2026-07-06)
+
+## What the cadence did
+Fable-direct build, gates written in the same batch as code (transcription,
+not afterthought): the gates caught 3 real bugs IN-BATCH (union-find
+root-identity banding; `comp` shadowed by a let binding turning a sort fn
+into a map lookup; raw-feed carry breaking permutation identity). The three
+unvalidated v1.1 contract additions (fold-precedence,
+thread-identity-member, geometry text) all HELD at implementation contact —
+first evidence that countersign-waived additions can survive, sized n=3.
+
+## What the end-gate caught that in-batch gates could not
+- The pre-recorded doubt 1 (live feed carries no lineage endpoints) was
+  CONFIRMED by the cross falsifier as the wave's one blocker and fixed at
+  gate server-side — R-2's headline feature was dark on the real corpus
+  while 28/680 assertions ran green on the fixture. Lesson (2nd wave in a
+  row): fixture-green ≠ live-true; the mechanical fixture-key-diff gate is
+  proposed in the D-006 wave note.
+- Two latent logic breaks in Fable-written pure code, each with a concrete
+  probe input: phantom move chips on thread-merge re-rooting (the moves
+  rule implemented the contract's LETTER and violated its stated intent);
+  same-ms lineage-transition ties resolving by input order (canonicalization
+  guarantee falsified). Both fixed + regression-pinned at gate. Class:
+  "correct on the gated cases, wrong on the adjacent case the gate never
+  constructed" — exactly what falsification-by-class exists for.
+- Fixture honesty: 8 invented asserters nil'd (the fixture violated its own
+  mirror-never-invent law); the importer-provenance question goes to Sid,
+  not improvised.
+
+## Debts carried forward (named owners)
+- Transcript-file fixture entry mis-mirrors live in 4 keys incl. the
+  fold-key input (R-3 / fixture hygiene follow-up).
+- Move-chip visibility past a long title (clipped invisible; data + rim
+  delta survive) — R-3 chip-placement design question.
+- Fold "+N" counts marks (double-representation question) + band count
+  line wording ("no asserted lineage yet" candidate) — countersign flags.
+- The widened `<layout>`/`<chrome-text>` diamond — Gap-3 single-latest
+  sweep, together with the three unwatched cache atoms in editor_compute.
