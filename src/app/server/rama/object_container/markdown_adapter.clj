@@ -233,7 +233,10 @@
                                                        (count blocks)
                                                        created-at
                                                        (oc/request-id request)
-                                                       event-id)
+                                                       event-id
+                                                       ;; material-claimed clock, nil-honest
+                                                       ;; (see the record docstring in oc)
+                                                       (:claimed/at-ms request))
         document-anchor-id (oc/source-anchor-id document-id)
         document-revision-id (oc/import-revision-id object-key
                                                     document-id

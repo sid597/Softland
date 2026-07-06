@@ -88,8 +88,13 @@
    order-key created-at-ms event-id])
 
 (defrecord SourceIngestCompletionRow
+  ;; claimed-at-ms (t4-spine seam 1, ADDITIVE 2026-07-06): the request's
+  ;; :claimed/at-ms — a clock the MATERIAL claims (git-spine: the committer
+  ;; clock), nil when the request declares none (watcher md ingests). NEVER
+  ;; read :request/time-ms for this: it wall-clock-defaults, which would stamp
+  ;; arrival as a claim. completed-at-ms stays the arrival clock.
   [source-id source-ref-key source-ref source-hash document-container-id derived-unit-count
-   composition-edge-count completed-at-ms completed-by-request-id event-id])
+   composition-edge-count completed-at-ms completed-by-request-id event-id claimed-at-ms])
 
 (defrecord ImportCompletionRow
   [import-key object-key source-id material-fingerprint event-id decision-id containers-count
@@ -605,7 +610,9 @@
                                 (count (payload-composition-edges payload))
                                 (core/now-ms)
                                 (request-id request)
-                                (:event-id event))))
+                                (:event-id event)
+                                ;; material-claimed clock, nil-honest (see record)
+                                (:claimed/at-ms request))))
 
 (defn payload-source-artifacts [payload] (vec (:source-artifacts payload)))
 (defn payload-object-containers [payload] (vec (:object-containers payload)))
