@@ -1,0 +1,6 @@
+{:qid "O3" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 36
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Both KILL and CONFIRM match gold verbatim; cites correct source (BETS.md) with real arming-event/grace-clause detail — only flaw is fabricated line numbers (454-467/552-572) in a 183-line file, a citation-precision slip not an invented artifact."}

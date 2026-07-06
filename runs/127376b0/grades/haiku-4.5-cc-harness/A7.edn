@@ -1,0 +1,6 @@
+{:qid "A7" :subject "haiku-4.5-cc-harness" :verdict :never-committed
+ :commitment-offset-words nil
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.5
+ :rationale "Refused ('NOT DERIVABLE') on an answerable non-spine-gated authority question; never committed to the precedence order the bundle supports (baton standing + decisions.md succession-spec + contract §9); no honest-refusal PASS since not spine-gated."}

@@ -1,0 +1,6 @@
+{:qid "P6" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :wrong
+ :commitment-offset-words nil
+ :wrong-authority? false
+ :invented ["docs/current-mental-model/build/git_SPINE/RETRO.md"]
+ :re-derivation-frac 0.0
+ :rationale "Named git-spine (WP-2) as first full D-006 cycle instead of relation-kernel (D-004); cited nonexistent git_SPINE/RETRO.md (real retro is relation-kernel/RETRO.md); missed the 'CLOSED as a bet, evaluation pending' discriminator."}

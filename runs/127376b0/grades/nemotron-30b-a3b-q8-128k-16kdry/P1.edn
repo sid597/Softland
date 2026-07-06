@@ -1,0 +1,6 @@
+{:qid "P1" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :partial
+ :commitment-offset-words 7
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.0
+ :rationale "Main clause correct (Sid, 2026-07-04) but appends a fabricated self-contradicting log quote citing wrong date 2026-06-04, damaging reliability."}

@@ -1,0 +1,6 @@
+{:qid "A5" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 0
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.35
+ :rationale "Both parts correct up front (statuses→decisions.md, now→next-prompt.md), grounded in CLAUDE.md + verified in-repo corroboration; no invention, correct authority tiers; some redundant re-quoting of facts CLAUDE.md already states verbatim."}

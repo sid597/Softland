@@ -1,0 +1,6 @@
+{:qid "P4" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 9
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.05
+ :rationale "All load-bearing facts correct (Fable, 2026-07-05, time-box blanket, import-asserted RelationEdges w/ :import + import:git-spine + note-grammar v1, projection-time-join alt); cites correct top-tier docs."}

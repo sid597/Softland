@@ -1,0 +1,6 @@
+{:qid "N4" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :correct
+ :commitment-offset-words 10
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.0
+ :rationale "Names vision/LOG.md with accurate description (dated, unfiltered wording); illustrative quote is hedged and immaterial."}

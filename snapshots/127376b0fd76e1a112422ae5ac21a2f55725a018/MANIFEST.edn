@@ -25,8 +25,21 @@
   {:id "D4" :what "qwen3-32b-q8 DROPPED from this run"
    :why "llama.cpp b8262 server caps slot context at n_ctx_train (40960) regardless of YaRN flags — cannot receive the 73,279-token A0 prompt. Routing-table finding, not a VRAM limit."}
   {:id "D5" :what "SPEC grading-temperature-0 cannot bind on Anthropic-side calls"
-   :why "sampling params removed on Opus 4.8-tier models; grader determinism via frozen prompt only. Local subjects keep temperature 0."}]
+   :why "sampling params removed on Opus 4.8-tier models; grader determinism via frozen prompt only. Local subjects keep temperature 0."}
+  {:id "D6" :what "LM-1b rerun arm nemotron-30b-a3b-q8-128k-16kdry: max_tokens 4096->16384 + DRY sampler (dry_multiplier 0.8), temp stays 0, prompts byte-identical"
+   :why "autopsy of the 9 never-committed rows (reasoning channels on disk): 5 temp-0 repetition loops (A6 J2 N2 N3 P7 — n-gram repeats 79-196x, budget-independent) + 3 genuine truncations (O7 P6 J4) + 1 refusal-protocol miss (J1). New subject id per identity rule (sampling config IS identity). Predictions pre-registered in RUNBOOK. Fallback if build rejects DRY: repeat_penalty 1.15, recorded."
+   :when "pre-rerun, t4-bench 2026-07-06"}
+  {:id "D7" :what "new cc-harness arms sonnet-5-cc-harness + haiku-4.5-cc-harness run under D2 rules; model ids are harness ALIASES (sonnet/haiku)"
+   :why "subscription-only budget; exact model ids not independently verifiable from inside the run — recorded as alias + branch-prompt presumption (sonnet-5 / haiku-4.5)."
+   :when "pre-run, t4-bench 2026-07-06"}
+  {:id "D8" :what "codex-5.5-xhigh-fast arm runs via codex CLI exec (ChatGPT-subscription OAuth), NOT via ccr as ordered"
+   :why "exact ccr blocker: ccr 1.0.73 providers take api_base_url + api_key only — no ChatGPT-subscription/OAuth provider type; routing gpt-5.5-codex through ccr requires an OpenAI API key = API dollars, forbidden. codex CLI 0.142.5 already OAuth-authed on the box; ~/.codex/config.toml = gpt-5.5 / xhigh / service_tier fast (the exact named arm). Different agentic harness scaffolding than cc-harness — cross-harness caveat recorded. Contamination: isolated per-QID scratch dir with ONLY the prompt copy; post-hoc session-log audit voids rows that read anything else."
+   :when "pre-run, t4-bench 2026-07-06"}
+  {:id "D9" :what "runner.clj extended with :extra-params passthrough on openai-compatible calls (working tree, uncommitted)"
+   :why "needed to send dry_multiplier / larger max_tokens for D6; no change to prompt assembly, guards, or any frozen surface."
+   :when "pre-rerun, t4-bench 2026-07-06"}]
  :run {:ablations [:A0]
        :subjects ["nemotron-30b-a3b-q8-128k" "opus-4.8-cc-harness"]
+       :subjects-t4-bench-sweep ["nemotron-30b-a3b-q8-128k-16kdry" "sonnet-5-cc-harness" "haiku-4.5-cc-harness" "codex-5.5-xhigh-fast-codex-cli"]
        :grader "subscription CC subagents (Opus), frozen grader prompt; grader output never reaches subjects"
        :human-audit-frac 0.15 :seed 0}}

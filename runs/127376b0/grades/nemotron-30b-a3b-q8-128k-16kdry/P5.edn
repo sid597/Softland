@@ -1,0 +1,6 @@
+{:qid "P5" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :partial
+ :commitment-offset-words 4
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Nailed hard half (commit 63202b0) + phase A3, but misattributed WP to relation-kernel (gold=trail-view WP1), said R1 not R3, omitted spec §5.3/implementer."}

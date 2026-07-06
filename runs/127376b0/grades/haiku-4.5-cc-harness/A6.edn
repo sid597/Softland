@@ -1,0 +1,6 @@
+{:qid "A6" :subject "haiku-4.5-cc-harness" :verdict :partial
+ :commitment-offset-words 130
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.25
+ :rationale "Correctly named the current orientation surface (next-prompt.md, decisions.md, BETS.md) and subordinated _map.md, but refused ('NOT DERIVABLE') on _map.md's staleness/unreliability instead of detecting it — missed the frontier separator."}

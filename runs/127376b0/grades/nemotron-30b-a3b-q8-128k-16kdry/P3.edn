@@ -1,0 +1,6 @@
+{:qid "P3" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :never-committed
+ :commitment-offset-words nil
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.0
+ :rationale "Answer file is empty (0 bytes); subject emitted no visible answer."}

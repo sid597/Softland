@@ -1,0 +1,6 @@
+{:qid "O2" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 11
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.3
+ :rationale "Correct: clock not started, arms at first render with >=1 typed relation over real material (D-008 both count), event-not-date; cites BETS.md verdict log (higher tier), avoids FIRST_LIGHT.md authority trap."}

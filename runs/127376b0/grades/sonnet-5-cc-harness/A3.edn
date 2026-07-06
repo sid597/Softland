@@ -1,0 +1,6 @@
+{:qid "A3" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 0
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.05
+ :rationale "Opens with 'No', gives correct form-break reason, cites decisions.md (top tier) corroborated by CLAUDE.md; matches gold exactly."}

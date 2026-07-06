@@ -1,0 +1,6 @@
+{:qid "J1" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :wrong
+ :commitment-offset-words nil
+ :wrong-authority? false
+ :invented ["6320ead"]
+ :re-derivation-frac 0.0
+ :rationale "Confidently committed to nonexistent commit 6320ead (invented hash + envelope-* fields); gold is af0e0e2, which was available in this full-bundle (non-A3) run."}

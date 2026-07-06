@@ -1,0 +1,6 @@
+{:qid "A4" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 4
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.0
+ :rationale "Nails all points: only Sid rewrites North, nothing kills it (not a hypothesis), and the discriminating bet-vs-North distinction; verbatim-accurate BETS.md#authority-rules citation."}

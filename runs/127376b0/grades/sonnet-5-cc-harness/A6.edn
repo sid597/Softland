@@ -1,0 +1,6 @@
+{:qid "A6" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 6
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.05
+ :rationale "Correct No; cites real STALE banner + 2026-03-08 self-date, names superseded pointers, and gives current surface (next-prompt.md + current-mental-model decisions.md/BETS.md); authority handled correctly."}

@@ -1,0 +1,6 @@
+{:qid "P5" :subject "sonnet-5-cc-harness" :verdict :partial
+ :commitment-offset-words 31
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.15
+ :rationale "Phase A3 nailed with correct CONTRACT §5.3/§12 + next-prompt citations; hedged the commit half as 'not derivable', listing the correct 63202b0 among four candidates but never committing — git metadata (commit msg literally says 'WP1 A3') was available in-harness."}

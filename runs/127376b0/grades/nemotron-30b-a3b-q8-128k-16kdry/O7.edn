@@ -1,0 +1,6 @@
+{:qid "O7" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :partial
+ :commitment-offset-words 11
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.25
+ :rationale "Correct face (View 3) and full ordering (View3→timeline→canvas), high-tier cites accurate; but 'why' leans on a wrong read-only-constraint rationale and never cleanly states gold's agent-is-first-reader ground."}

@@ -1,0 +1,6 @@
+{:qid "P2" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 3
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Nails all gold points (Fable authored DRAFT-v1 contract, D-004 CLOSED, contract implements D-004), cites correct tiers, and adds an accurate contract-DRAFT vs decision-CLOSED nuance; all files/commits verified real."}

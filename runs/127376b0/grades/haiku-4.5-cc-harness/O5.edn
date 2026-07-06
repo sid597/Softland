@@ -1,0 +1,6 @@
+{:qid "O5" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 10
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.15
+ :rationale "Matches gold exactly: CLOSED, gate PASS, all four commits, RETRO.md; extra gate/routing detail all corroborated by decisions.md D-006; T0 source cited alongside a baton-header framing."}

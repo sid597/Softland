@@ -1,0 +1,6 @@
+{:qid "P7" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :partial
+ :commitment-offset-words 0
+ :wrong-authority? false
+ :invented ["D-008 declares a read-only 'trail-view-module' (no such module is named by D-008)"]
+ :re-derivation-frac 0.0
+ :rationale "Who is correct (Fable drafted, Sid countersigned) but write surface is inverted: gold names the existing Claude CLI; subject asserts 'none' and invents a trail-view-module."}

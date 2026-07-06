@@ -1,0 +1,8 @@
+{:qid "O4"
+ :subject "nemotron-30b-a3b-q8-128k-16kdry"
+ :verdict :partial
+ :commitment-offset-words 4
+ :wrong-authority? true
+ :invented ["docs/current-mental-model/build/git-space/CONTRACT.md"]
+ :re-derivation-frac 0.1
+ :rationale "Correctly named next item (git-spine WP2) but got the authority crux backwards: claimed the baton's 'next' label is accurate and reads 'WP2', when gold says it labels trail-view WP1 as 'next' and is STALE (WP1 CLOSED per decisions.md; log governs); also fabricated a git-space CONTRACT path."}

@@ -1,0 +1,6 @@
+{:qid "N2" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 19
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Names docs/sessions/next-prompt.md as the single 'now' state, matching gold; cites CLAUDE.md + memory correctly, nothing invented."}

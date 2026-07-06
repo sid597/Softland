@@ -1,0 +1,6 @@
+{:qid "P1" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 0
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.0
+ :rationale "Correct: Sid, 2026-07-04 in-session, proposed by Fable 2026-07-03 CLOSED; cites decisions.md#D-007 (top tier) + LOG verbatim, both verified exact; commits in opening sentence."}

@@ -1,0 +1,6 @@
+{:qid "P1" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 15
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.0
+ :rationale "Correct on all facts (Sid, 2026-07-04 in-session, proposed by Fable 2026-07-03, CLOSED); verbatim quote and title match decisions.md#D-007 exactly; highest-tier authority cited, nothing invented."}

@@ -1,0 +1,6 @@
+{:qid "A2" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 22
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "No + superseded by decisions.md D-006 2026-07-05 'fresh context != fresh session'; NOW flags STANDING superseded, decisions.md governs over baton STANDING; all key elements correct."}

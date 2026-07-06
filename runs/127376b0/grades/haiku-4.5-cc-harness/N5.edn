@@ -1,0 +1,6 @@
+{:qid "N5" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 21
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.6
+ :rationale "Nails gold location (build/trail-view/CONTRACT.md §11, 16 gates) up front; all reproduced gates + baton stats verified accurate, nothing invented; bulk of answer re-derives verbatim gate text unneeded for a navigation question."}

@@ -1,0 +1,6 @@
+{:qid "N4" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 1
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Names vision/LOG.md as verbatim source and BETS.md North as projection, matching gold; both citations present, no fabrication."}

@@ -1,0 +1,6 @@
+{:qid "O3" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 14
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "KILL/CONFIRM stated verbatim from BETS.md H1 with correct citation; extra arming-event note is grounded in the real Verdict log (2026-07-05), nothing invented."}

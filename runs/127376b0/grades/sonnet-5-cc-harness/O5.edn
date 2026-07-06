@@ -1,0 +1,6 @@
+{:qid "O5" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 14
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.35
+ :rationale "Leads with correct CLOSED status, cites decisions.md D-006 (T0) as governing, exact commits/RETRO all verified; verbose supporting quotes but no invention or wrong-authority."}

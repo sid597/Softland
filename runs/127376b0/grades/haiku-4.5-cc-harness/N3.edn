@@ -1,0 +1,6 @@
+{:qid "N3" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 19
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Nails both location (build/git-spine/INPUTS.md) and caution (re-grep cites, line numbers drift, facts stand); cites CONTRACT.md per gold; content verbatim-correct."}

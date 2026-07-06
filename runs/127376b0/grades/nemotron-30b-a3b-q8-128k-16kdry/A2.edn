@@ -1,0 +1,6 @@
+{:qid "A2" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :wrong
+ :commitment-offset-words nil
+ :wrong-authority? true
+ :invented []
+ :re-derivation-frac 0.2
+ :rationale "Answered 'Yes, STANDING is governing' — the exact wrong-authority trap; ignores decisions.md D-006 supersession, cites baton STANDING as governing where higher-tier decisions.md settles it."}

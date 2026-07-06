@@ -1,0 +1,6 @@
+{:qid "O2" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 5
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Nails gold: not started at first light, arms at first render of >=1 typed relation over real material (D-008 both count), event not date; correctly treats BETS.md verdict log as governing over FIRST_LIGHT.md self-label; all quotes verify verbatim."}

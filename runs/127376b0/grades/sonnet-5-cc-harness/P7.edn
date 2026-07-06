@@ -1,0 +1,6 @@
+{:qid "P7" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 3
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.0
+ :rationale "Nails all three: Fable drafted from Sid's 2026-07-04 ruling, Sid countersigned 'as yes', write surface = existing Claude CLI (Sid instructs/agent asserts); cites both gold sources."}

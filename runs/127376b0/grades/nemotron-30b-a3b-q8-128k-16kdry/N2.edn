@@ -1,0 +1,6 @@
+{:qid "N2" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :correct
+ :commitment-offset-words 12
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.0
+ :rationale "Names docs/sessions/next-prompt as the active-work 'now' file (missing .md extension, minor); matches gold, commits immediately."}

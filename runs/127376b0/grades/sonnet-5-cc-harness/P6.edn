@@ -1,0 +1,6 @@
+{:qid "P6" :subject "sonnet-5-cc-harness" :verdict :partial
+ :commitment-offset-words 8
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Nails cycle identity (relation-kernel/D-004), retro path (build/relation-kernel/RETRO.md), and both commits (2796044/736708f, verified real); cites decisions.md correctly, no inventions — but omits the flagged discriminator: D-006 is CLOSED-as-a-bet with evaluation pending (criterion 2 counterfactual probe unrun)."}

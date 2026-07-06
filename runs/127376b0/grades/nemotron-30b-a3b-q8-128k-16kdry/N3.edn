@@ -1,0 +1,8 @@
+{:qid "N3" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :wrong
+ :commitment-offset-words nil
+ :wrong-authority? false
+ :invented ["Input manifest (for the D-006 counter-factual probe) section in git-spine CONTRACT.md (no such section/verbatim list exists)"
+            "docs/current-mental-model/build/git_space/CONTRACT.md (nonexistent mangled path)"
+            "object_container.clj line-ranges 38-171/262-350/1685-1770/2436-2648 asserted as verbatim contract manifest contents"]
+ :re-derivation-frac 0.15
+ :rationale "Inverts the fact base (calls CONTRACT.md the source, buries INPUTS.md in a fabricated manifest) and entirely misses the line-drift/re-grep caution, substituting invented governance rules."}

@@ -1,0 +1,6 @@
+{:qid "P4" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 6
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.05
+ :rationale "Full match to gold: Fable/2026-07-05/time-box blanket/reversible, durable import-asserted RelationEdges (:import, import:git-spine, evidence refs, sha-verified, note-grammar v1) vs projection-time joins; note-grammar verbatim from CONTRACT §2.2; cites decisions.md + git-spine CONTRACT (highest tier)."}

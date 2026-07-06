@@ -1,0 +1,6 @@
+{:qid "O7" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 12
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.3
+ :rationale "Correct: View 3 first → threaded/DAG timeline → canvas, with correct grounds (agent is first paying reader, Sid-face rides same queries); quote attributes ruling to decisions.md Open Questions; but fabricates vision/LOG.md line refs (3429-3435, 3754-3756) — file is only 454 lines."}

@@ -1,0 +1,6 @@
+{:qid "N3" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 9
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.0
+ :rationale "Names INPUTS.md as fact base + full re-grep/line-drift/facts-stand caution; all cites (CONTRACT#intro gold, INPUTS header, §8) verified exact, nothing invented."}

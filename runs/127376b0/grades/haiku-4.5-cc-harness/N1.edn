@@ -1,0 +1,6 @@
+{:qid "N1" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 16
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.0
+ :rationale "Exact gold path with correct CLAUDE.md citation; no invention, no re-derivation."}

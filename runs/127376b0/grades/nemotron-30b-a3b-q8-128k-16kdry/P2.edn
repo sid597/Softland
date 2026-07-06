@@ -1,0 +1,6 @@
+{:qid "P2" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :partial
+ :commitment-offset-words 11
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.0
+ :rationale "Authorship correct (Fable); but gave contract status (DRAFT v1 BINDING) instead of D-004's actual status CLOSED, and mislabeled contract as D-001/D-004."}

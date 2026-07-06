@@ -1,0 +1,6 @@
+{:qid "A3" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 18
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Correct 'No' committed immediately; verbatim-quotes CLAUDE.md decision-log-binding (a gold citation) with the used-form-breaking condition; no inventions."}

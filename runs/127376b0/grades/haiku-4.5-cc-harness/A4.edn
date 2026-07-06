@@ -1,0 +1,6 @@
+{:qid "A4" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 12
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Correct on all points; cites BETS.md#authority-rules verbatim (accurate quote), nails the discriminator: bets killable by pre-registered evidence, North not (no kill-conditions), only Sid rewrites North."}

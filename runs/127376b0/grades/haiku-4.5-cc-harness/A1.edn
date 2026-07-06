@@ -1,0 +1,6 @@
+{:qid "A1" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 3
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Commits 'decisions.md governs' immediately, correctly cites the baton STANDING rule that CONTRACT.md/decisions.md win; quote is genuine but cited line nums 3061-3065 are fabricated (file is 816 lines)."}

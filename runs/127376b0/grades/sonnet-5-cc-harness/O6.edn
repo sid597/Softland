@@ -1,0 +1,6 @@
+{:qid "O6" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 6
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.05
+ :rationale "Immediate correct 'No' + both gold elements: North's content (land/inhabit, humans-living-healthy-forever, map=instrument, longevity=first territory) and not-a-hypothesis (no kill-conditions, only Sid rewrites); cites BETS.md #north + #authority-rules verbatim, matching gold."}

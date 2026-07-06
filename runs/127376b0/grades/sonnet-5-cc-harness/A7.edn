@@ -1,0 +1,6 @@
+{:qid "A7" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 13
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.05
+ :rationale "Nails all three gold claims (baton lowest, both binding, conflicts escalate to decisions.md PROPOSED/never improvise); hits all three gold citations; every quote verified verbatim, nothing invented; strict log>contract rank is defensible over-formalization consistent with terminal-arbiter intent."}

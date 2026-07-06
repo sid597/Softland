@@ -1,0 +1,6 @@
+{:qid "O5" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :partial
+ :commitment-offset-words 15
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Leads correctly with CLOSED + gate PASS + retro (302 assertions real, GATE_REVIEW/RETRO exist), but self-contradicts by claiming a pending gate-15 first-light measurement before 'official close', omits the close date and all four commit hashes, and garbles paths; core right, materially muddled."}

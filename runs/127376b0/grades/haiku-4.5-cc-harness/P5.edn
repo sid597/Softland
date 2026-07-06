@@ -1,0 +1,6 @@
+{:qid "P5" :subject "haiku-4.5-cc-harness" :verdict :partial
+ :commitment-offset-words 7
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.15
+ :rationale "Phase/spec half correct (trail-view WP1 Phase A3, §5.3) but asserted code UNCOMMITTED with no sha; it actually landed in 63202b0 ~20h before the snapshot — trusted a stale baton line over available git."}

@@ -1,0 +1,6 @@
+{:qid "N1" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 1
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.15
+ :rationale "Leads with exact gold path decisions.md, cites correct CLAUDE.md pointer; all corroborating files/decisions exist; minor extra corroboration but no re-derivation of verbatim facts."}

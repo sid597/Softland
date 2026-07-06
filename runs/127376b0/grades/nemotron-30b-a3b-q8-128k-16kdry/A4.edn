@@ -1,0 +1,6 @@
+{:qid "A4" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :partial
+ :commitment-offset-words 4
+ :wrong-authority? false
+ :invented ["fabricated BETS.md blockquote: 'A bet is killed only by pre-registered evidence of a used form breaking against it — never by a new argument, new research, or a model opinion' (conflates the D-001 reopening rule with the bet-kill rule; not in BETS.md)"]
+ :re-derivation-frac 0.1
+ :rationale "Gets 'only Sid rewrites North' + bets killed by pre-registered evidence, but fails the discriminator: frames evidence as forcing a North rewrite (opposite of 'nothing kills North; not a hypothesis') and manufactures a misattributed bet-kill quote."}

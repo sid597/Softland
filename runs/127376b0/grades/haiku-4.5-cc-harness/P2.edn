@@ -1,0 +1,6 @@
+{:qid "P2" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 18
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.15
+ :rationale "Both load-bearing facts correct (Fable authored contract; D-004 CLOSED countersigned 2026-07-03); verbatim-accurate quotes from correct authority tiers, nothing invented."}

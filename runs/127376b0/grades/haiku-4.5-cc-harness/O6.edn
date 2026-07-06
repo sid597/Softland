@@ -1,0 +1,6 @@
+{:qid "O6" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 24
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.0
+ :rationale "All three gold components covered with verbatim-accurate BETS.md quotes (land-not-tool, longevity terminal purpose, NOT-a-hypothesis/only-Sid-rewrites); only flaw is a fabricated line ref (393-397 in a 183-line file), text itself verbatim, not an invented source."}

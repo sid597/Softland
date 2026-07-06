@@ -1,0 +1,6 @@
+{:qid "N1" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :correct
+ :commitment-offset-words 7
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.0
+ :rationale "Names docs/current-mental-model/decisions.md as BINDING, matching gold exactly and concisely."}

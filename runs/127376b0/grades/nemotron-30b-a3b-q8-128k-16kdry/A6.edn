@@ -1,0 +1,6 @@
+{:qid "A6" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :correct
+ :commitment-offset-words 2
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Correctly rules _map.md stale (quotes real STALE banner verbatim, nothing invented), detects the March-staleness separator, and names next-prompt.md + context-map.md as the current surface; misses explicit decisions.md/BETS.md naming but core commitment and authority handling are right."}

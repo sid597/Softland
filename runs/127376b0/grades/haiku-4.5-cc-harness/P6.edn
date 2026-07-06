@@ -1,0 +1,6 @@
+{:qid "P6" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 14
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Both parts nailed: relation-kernel package as first full D-006 cycle + correct RETRO.md path, plus correct commits 2796044/736708f and 2026-07-03 close; led with baton citation over decisions.md but also cited decisions.md and no facts conflict; missed the 'CLOSED as a bet, evaluation pending' discriminator nuance but did not overclaim D-006 as proven."}

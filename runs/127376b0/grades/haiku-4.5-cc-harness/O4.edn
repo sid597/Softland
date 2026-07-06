@@ -1,0 +1,8 @@
+{:qid "O4"
+ :subject "haiku-4.5-cc-harness"
+ :verdict :wrong
+ :commitment-offset-words nil
+ :wrong-authority? true
+ :invented []
+ :re-derivation-frac 0.55
+ :rationale "Presented CLOSED WP1's internal Phase A/B as the 'next' work (missed decisions.md WP1-CLOSED 2026-07-05), buried git-spine WP2/D-003 Regime-1 spine as far-future, and refused the baton-staleness half that gold says was inferable; well-grounded in real docs (nothing invented) but wrong package and wrong authority (anchored on trail-view CONTRACT over decisions.md)."}

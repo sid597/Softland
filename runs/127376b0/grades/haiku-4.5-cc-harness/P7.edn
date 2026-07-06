@@ -1,0 +1,6 @@
+{:qid "P7" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 24
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.0
+ :rationale "Fully correct: Fable-drafted, Sid-countersigned 2026-07-04 in-session, write surface = existing Claude CLI; cites decisions.md#D-008 + vision/LOG verbatim."}

@@ -1,0 +1,6 @@
+{:qid "A5" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 21
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.2
+ :rationale "Correctly locates statuses in decisions.md and 'now' in next-prompt.md, grounded in CLAUDE.md; all cited decisions (D-007/8) and next-prompt quotes verified real."}

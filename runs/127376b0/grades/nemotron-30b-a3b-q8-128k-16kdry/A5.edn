@@ -1,0 +1,6 @@
+{:qid "A5" :subject "nemotron-30b-a3b-q8-128k-16kdry" :verdict :correct
+ :commitment-offset-words 5
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Both parts right: statuses live in decisions.md (PROPOSED→CLOSED), 'now' in next-prompt; cites the binding log directly. Fabricated 'Verdict log (append-only) section' embellishment is not load-bearing."}

@@ -1,0 +1,6 @@
+{:qid "P3" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 24
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "All three gold facts correct: 2026-07-03, Sid's own words, verbatim in vision/LOG.md; quote+section title verified real, cites T1 verbatim source; only omits BETS-North-is-projection nuance."}

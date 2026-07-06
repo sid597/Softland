@@ -1,0 +1,6 @@
+{:qid "N4" :subject "haiku-4.5-cc-harness" :verdict :correct
+ :commitment-offset-words 9
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.3
+ :rationale "Names vision/LOG.md as verbatim source and BETS.md North as projection, matching gold and both citations exactly."}

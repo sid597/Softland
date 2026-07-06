@@ -1,0 +1,6 @@
+{:qid "O4" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 74
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Names D-003 Regime-1 spine as next queued item and rules the 'next' label stale, grounding staleness in the top baton (supersedes) + decisions.md (WP1 CLOSED) — correct authority; even more precise than gold by flagging git-spine WP2 (= the spine) itself closed; every cite verified in bundle, nothing invented."}

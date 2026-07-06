@@ -1,0 +1,6 @@
+{:qid "N2" :subject "sonnet-5-cc-harness" :verdict :correct
+ :commitment-offset-words 1
+ :wrong-authority? false
+ :invented []
+ :re-derivation-frac 0.1
+ :rationale "Names docs/sessions/next-prompt.md in the first line with correct CLAUDE.md citation and rightly distinguishes it from decisions.md; matches gold exactly."}
