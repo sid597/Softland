@@ -28,19 +28,27 @@
   (let [;; ── Shared layout context ──
         <layout
         (m/latest
-          (fn [viewport settings active-font sidebar-visible?]
+          (fn [viewport settings active-font sidebar-visible? local-world]
             (let [dpr (:dpr viewport)
                   snap? (:snap-to-pixel? settings)
                   font-size (:font-size settings)
                   char-width (:char-width active-font)
                   char-advance (maybe-snap (* font-size char-width) dpr snap?)
-                  sb-vis? (boolean sidebar-visible?)]
+                  ;; trail-room R-2 / W-1 (R-1 debt 1): the LAYOUT consumes
+                  ;; the derived world's sidebar judgment, never the raw
+                  ;; atom - in a trail face NOTHING else is ambient, so
+                  ;; sb-w is 0 there (matches editor_compute's <layout>;
+                  ;; the raw atom stays untouched, so leaving the face
+                  ;; restores the sidebar exactly as it was).
+                  trail-face? (ws/local-world-trail-face? local-world)
+                  sb-vis? (boolean (and sidebar-visible? (not trail-face?)))]
               {:viewport viewport :settings settings :dpr dpr :snap? snap?
                :font-size font-size :char-width char-width :char-advance char-advance
                :line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
                :sb-vis? sb-vis? :sb-w (if sb-vis? sidebar-w 0)}))
-          (m/watch !viewport) (m/watch !settings) (m/watch !active-font) (m/watch !sidebar-visible))
-        ;; 4 fn args, 4 flows
+          (m/watch !viewport) (m/watch !settings) (m/watch !active-font) (m/watch !sidebar-visible)
+          (m/watch !effective-local-world))
+        ;; 5 fn args, 5 flows
 
         ;; ── Flow canvas text ops (intake + run) ──
         ;; ── Intake text ops (ticket list) ──

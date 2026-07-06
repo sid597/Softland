@@ -308,11 +308,15 @@
                                         :show-flow-info! show-flow-info!})
 
               ;; Trail face entry (view-mvp WP-B2): /trail text|timeline|order|off
+              ;; + /trail band 0|1|2 (trail-room R-2 s2.2: band is a view-state
+              ;; value driven by the palette until zoom exists; the zoom mapping
+              ;; later replaces this SOURCE, not the builders' parameter)
               :trail-face
               (let [!tfs (:!trail-face-state atoms)]
                 (case (:op parsed)
                   :off   (reset! !tfs nil)
                   :order (swap! !tfs assoc :order (:order parsed))
+                  :band  (swap! !tfs assoc :band (:band parsed))
                   :set   (reset! !tfs (merge {:expanded #{}} (:state parsed)))
                   nil)
                 nil)

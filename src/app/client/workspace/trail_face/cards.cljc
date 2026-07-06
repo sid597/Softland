@@ -86,6 +86,35 @@
       (= cd ad)      ad
       :else          (str "claimed " cd " " middot " arrived " ad))))
 
+(defn- ms->compact-date-str
+  "MM-DD when the stamp shares `ref-ms`'s UTC year, else the full date -
+   compression never hides a cross-year divergence (the map must not lie)."
+  [ms ref-ms]
+  (let [[y m d] (ms->utc-ymd ms)
+        [ry _ _] (ms->utc-ymd ref-ms)]
+    (if (= y ry)
+      (str (pad2 m) "-" (pad2 d))
+      (str y "-" (pad2 m) "-" (pad2 d)))))
+
+(defn compressed-two-clock-stamp
+  "R-2 band-2 reading line stamp (CONTRACT_R2 s1 item 1 / design R5:
+   'claimed 07-04 · arrived 07-05'). Same honesty rules as two-clock-stamp -
+   nil claimed renders `claimed unknown` (the t4-spine claimed-ms field is
+   consumed AS DATA; honest nil until it lands), equal UTC dates compress
+   to one stamp, years print only on cross-year divergence."
+  [{claimed :time/claimed-ms arrival :time/arrival-ms}]
+  (cond
+    (nil? claimed)
+    (str "arrived " (ms->compact-date-str arrival arrival)
+         " " middot " claimed unknown")
+
+    (= (ms->date-str claimed) (ms->date-str arrival))
+    (ms->compact-date-str arrival arrival)
+
+    :else
+    (str "claimed " (ms->compact-date-str claimed arrival)
+         " " middot " arrived " (ms->compact-date-str arrival arrival))))
+
 ;; --- Staleness triad (face law 5; WP1 L5) -----------------------------------
 
 (def stale-after-ms
@@ -263,52 +292,117 @@
   [entry]
   [(get-in entry [:entry/target :id]) (:time/arrival-ms entry)])
 
-(defn feed-entry-card
-  "WP1 s6 <entry> -> rt-node card: kind glyph + display name + two-clock
-   stamp + actor badges + address line. Interactive id is
-   :trail-face/*-namespaced (S5)."
-  [entry {:keys [card-w line-height now-ms] :as _geom}]
+(def move-chip-glyph
+  "U+2605 BLACK STAR - atlas-verified 2026-07-06 (trap 10). The new-since
+   chip marker (item 6: every assignment change announces itself)."
+  "★")
+
+(def fold-chip-glyph
+  "ASCII '+' - zero glyph risk. Band-0 fold chip prefix (G5: at band 0 the
+   fold renders as a chip with a count). U+2295 (circled plus) is ABSENT
+   from the merged atlas (verified 2026-07-06), so plain + carries it."
+  "+")
+
+(defn- band-line-ops
+  "Entry + band -> the LINE ops (typography - CONTRACT_R2 s1 item 1 / R4:
+   bands 0-2 emit line ops, no box, no fill):
+     band 0: glyph (+ fold-count chip) ONLY - no name text, no staleness
+             dot (v1.1/S5: staleness needs :last-attested-ms, which arrives
+             with the D-008 s5 attestation walk - deferred)
+     band 1: ONE line `glyph name`
+     band 2: title + ONE reading line (compressed two-clock stamp +
+             asserter; written-by only when it differs - G2: built from
+             entry DATA, never a truncation of body text)
+   A move record appends the new-since chip op inline (item 6); a fold
+   count appends the fold chip (band 0). Ops are local (x 6 inset,
+   line-height rows); the caller derives bounds FROM these ops so the
+   hit region equals the painted line region (v1.1 B1, per-band)."
+  [entry band {:keys [line-height char-advance fold-count move]}]
   (let [lh      (or line-height 18)
-        w       (or card-w 300)
+        ca      (or char-advance 8)
         glyph   (get kind-glyph (:entry/kind entry) "•")
         target  (:entry/target entry)
-        name-ln (str glyph " " (or (:display-name target) (:id target)))
-        stamp   (two-clock-stamp entry)
-        badges  (provenance-badges (:entry/actor entry))
-        badge-ln (str/join (str " " middot " ") (map :text badges))
-        ;; item 2: the raw EDN address line is GONE from the closed card
-        ;; face - it moves to the constant rim chrome (one place, every
-        ;; face; C2). The address stays attached as DATA on the node
-        ;; (ledger 1) so R-2 hover/copy and the rim both have it - only the
-        ;; PAINT moved, never the data.
-        lines   (cond-> [{:text name-ln  :style :card-title}
-                         {:text stamp    :style :stamps}]
-                  (seq badge-ln) (conj {:text badge-ln :style :badges}))
-        h       (+ (* (count lines) lh) 8)]
-    ;; F-L5: the card CLIPS its own text (ops live in a child node - a
-    ;; node's :clip? applies to children). A 120-char address truncates
-    ;; VISUALLY at the card edge; the full text stays in the scene tree
-    ;; (hit-test/data intact) and the resolvable address is one click away
-    ;; on the expansion / in the face header.
+        title   (str glyph " " (or (:display-name target) (:id target)))
+        stamp   (compressed-two-clock-stamp entry)
+        {:keys [asserted-by written-by]} (:entry/actor entry)
+        reading (cond-> stamp
+                  asserted-by (str " " middot " " asserted-by)
+                  (and written-by (not= written-by asserted-by))
+                  (str " " middot " written-by " written-by))
+        base    (case (long band)
+                  0 [{:text glyph :style :card-title}]
+                  1 [{:text title :style :card-title}]
+                  [{:text title :style :card-title}
+                   {:text reading :style :stamps}])
+        placed  (vec (map-indexed
+                      (fn [i l] (assoc l :x 6 :y (+ 2 (* i lh)) :size 12))
+                      base))
+        ;; chips ride the FIRST line, after the widest existing op on that
+        ;; row (the clip? ancestor truncates at card-w - trap 9; the full
+        ;; reason stays in node DATA, the R-1 truncation-vs-naming ruling).
+        first-row-end (fn [ops]
+                        (reduce max 0
+                                (map (fn [o] (if (= (:y o) 2)
+                                               (+ (:x o) (* (count (:text o)) ca))
+                                               0))
+                                     ops)))]
+    (as-> placed ops
+      (if (and (= 0 (long band)) fold-count (pos? fold-count))
+        (conj ops {:text (str fold-chip-glyph fold-count)
+                   :x (+ 6 (first-row-end ops)) :y 2 :size 12
+                   :style :stamps :trail-face/fold-chip? true
+                   :rgba [0.60 0.60 0.70 1.0]})
+        ops)
+      (if move
+        (conj ops {:text (str move-chip-glyph " " (:reason move))
+                   :x (+ 10 (first-row-end ops)) :y 2 :size 12
+                   :style :stamps :trail-face/new-since-chip? true
+                   :rgba [0.95 0.83 0.45 1.0]})
+        ops))))
+
+(defn feed-entry-card
+  "WP1 s6 <entry> -> rt-node card, BAND-AWARE (CONTRACT_R2 item 1 / R4/R5):
+   closed cards are TYPOGRAPHY - line ops in a clip? node, ZERO rect-fill
+   ops at every band (G1; the box appears only on the OPEN surface, a
+   separate sibling built by the scene). geom carries :band (0|1|2,
+   default 2 - an open card is band 3 via the scene, this builder never
+   sees it), optional :fold-count (G5) and :move (item 6 chip).
+   Bounds rule (v1.1 B1, PER-BAND): the node bounds equal this band's
+   painted line region - width = the widest painted line (clamped to
+   card-w, where the clip? child truncates paint too), height = the line
+   rows. Bounds legitimately DIFFER across bands; band 0 is the densest.
+   Interactive id stays :trail-face/*-namespaced (S5); the address stays
+   attached as DATA (item 2 / ledger 1)."
+  [entry {:keys [card-w line-height char-advance band] :as geom}]
+  (let [lh    (or line-height 18)
+        cw    (or card-w 300)
+        ca    (or char-advance 8)
+        band  (or band 2)
+        ops   (band-line-ops entry band geom)
+        n-rows (inc (reduce max 0 (map (fn [o] (quot (- (:y o) 2) lh)) ops)))
+        text-w (reduce max 0 (map (fn [o] (+ (:x o) (* (count (:text o)) ca))) ops))
+        w     (min cw (max (* 2 ca) text-w))
+        h     (+ 4 (* n-rows lh))]
     (rt/rt-node [:trail-face/card (entry-key entry)] :feed-card
                 {:x 0 :y 0 :w w :h h}
                 :clip? true
-                :style {:bg [0.16 0.17 0.20 1.0] :radius 4}
-                :data {:trail-face/entry-key (entry-key entry)
-                       ;; item 2 / ledger 1: address as DATA on every node
-                       :trail-face/address (:entry/address entry)
-                       :trail-face/click {:action :trail-face/toggle-expand
-                                          :id (entry-key entry)}
-                       :trail-face/dead-end? (boolean
-                                              (or (:dead-end? (:entry/detail entry))
-                                                  (= :dead-end
-                                                     (:kind (:entry/detail entry)))))}
+                :data (cond-> {:trail-face/entry-key (entry-key entry)
+                               :trail-face/band band
+                               ;; item 2 / ledger 1: address as DATA on every node
+                               :trail-face/address (:entry/address entry)
+                               :trail-face/click {:action :trail-face/toggle-expand
+                                                  :id (entry-key entry)}
+                               :trail-face/dead-end? (boolean
+                                                      (or (:dead-end? (:entry/detail entry))
+                                                          (= :dead-end
+                                                             (:kind (:entry/detail entry)))))}
+                        (:fold-count geom) (assoc :trail-face/fold-count (:fold-count geom))
+                        (:folded geom)     (assoc :trail-face/folded (:folded geom))
+                        (:move geom)       (assoc :trail-face/move (:move geom)))
                 :children
                 [(rt/rt-node [:trail-face/card-text (entry-key entry)] :card-text
                              {:x 0 :y 0 :w w :h h}
-                             :text (vec (map-indexed
-                                         (fn [i l] (assoc l :x 6 :y (+ 4 (* i lh)) :size 12))
-                                         lines)))])))
+                             :text ops)])))
 
 (defn expanded-address-op
   "Card expansion (band 3) renders the EXPANDED element's OWN address as

@@ -12,7 +12,8 @@
             [app.client.workspace.trail-face.sanitize :as san]
             [app.client.workspace.trail-face.text-face :as tf]
             [app.client.workspace.trail-face.cards :as cards]
-            [app.client.workspace.trail-face.lanes :as lanes]))
+            [app.client.workspace.trail-face.lanes :as lanes]
+            [app.client.workspace.trail-face.threads :as threads]))
 
 ;; --- Entry command (OP-44) ------------------------------------------------
 
@@ -23,6 +24,9 @@
      /trail text <address-edn>      -> {:op :set :state {:face :text ...}}
      /trail timeline [<address>]    -> {:op :set :state {:face :timeline ...}}
      /trail order claimed|arrival   -> {:op :order :order <kw>}
+     /trail band 0|1|2              -> {:op :band :band <n>}  (R-2 s2.2:
+       band is a view-state value with a palette command; the zoom mapping
+       later replaces the command's SOURCE, not the builders' parameter)
      /trail off                     -> {:op :off}"
   [s read-edn]
   (let [s (string/trim (or s ""))
@@ -38,6 +42,10 @@
 
           (= word "order")
           {:op :order :order (keyword (if (seq tail) tail "arrival"))}
+
+          (= word "band")
+          (when-let [b (case tail "0" 0 "1" 1 "2" 2 nil)]
+            {:op :band :band b})
 
           (= word "text")
           {:op :set :state {:face :text :order :arrival
@@ -400,106 +408,308 @@
                                :text [(assoc addr-op :x 4 :y 0 :size 12
                                              :rgba (tf/style->rgba :address))])])))))
 
+(defn- canonical-sort-key
+  "TOTAL sort key over entries (s2.5 / G7a): every position derives from
+   the ARRIVAL-MS ATTRIBUTE (claimed falls back to arrival under :claimed
+   order), with a target-id tiebreak so the sort is total - a permuted
+   input stream canonicalizes to the IDENTICAL scene instead of demanding
+   a reorder diff (PROBE-10K obligation; trap 3)."
+  [order]
+  (if (= order :claimed)
+    (fn [e] [(- (or (:time/claimed-ms e) (:time/arrival-ms e)))
+             (- (:time/arrival-ms e))
+             (str (get-in e [:entry/target :id]))])
+    (fn [e] [(- (:time/arrival-ms e))
+             (str (get-in e [:entry/target :id]))])))
+
+(defn- band-note-node
+  "The band's self-declaring count line (item 5): `N unthreaded · no
+   asserted relations yet` - the frontier rendered honestly, never hidden.
+   clip? + text-in-child (trap 9)."
+  [n {:keys [y w pad line-height]}]
+  (rt/rt-node :trail-face/band-note :band-note
+              {:x pad :y y :w w :h line-height}
+              :clip? true
+              :data {:trail-face/band-note? true :trail-face/band-count n}
+              :children
+              [(rt/rt-node :trail-face/band-note-text :band-note-text
+                           {:x 0 :y 0 :w w :h line-height}
+                           :text [{:text (str n " unthreaded " cards/middot
+                                             " no asserted relations yet")
+                                   :x 0 :y 0 :size 12 :style :stamps
+                                   :rgba [0.55 0.55 0.62 1.0]
+                                   :trail-face/band-note? true}])]))
+
+(defn- thread-overflow-node
+  "S4 (design R7's own DEFAULT): more threads than viewport lanes -> the
+   overflow thread renders as ONE fold-chip with a count; mod-wrap NEVER
+   applies across threaded lanes (trap 4 - the F-L2 staircase must not
+   return by the other door). clip? + text-in-child (trap 9)."
+  [thread-id n rank {:keys [x y card-w line-height]}]
+  (rt/rt-node [:trail-face/thread-overflow thread-id] :thread-overflow
+              {:x x :y y :w card-w :h line-height}
+              :clip? true
+              :data {:trail-face/thread thread-id :trail-face/band? false
+                     :trail-face/thread-rank rank
+                     :trail-face/overflow? true :trail-face/fold-count n}
+              :children
+              [(rt/rt-node [:trail-face/thread-overflow-label thread-id]
+                           :overflow-label
+                           {:x 0 :y 0 :w card-w :h line-height}
+                           :text [{:text (str "▸ thread " thread-id " "
+                                             cards/middot " " n " entries")
+                                   :x 0 :y 2 :size 12 :style :stamps
+                                   :rgba [0.60 0.60 0.70 1.0]
+                                   :trail-face/overflow-chip? true}])]))
+
 (defn build-timeline-scene
-  "WP1 feed (+ pulled bundles for expanded cards) -> scene tree.
-   view-state: {:expanded #{entry-key} :order :arrival|:claimed}
-   geom: {:viewport-w :line-height :card-w :char-advance :pad :now-ms}.
-   Cards thread into lanes; edges render as Manhattan thin rects;
-   dead-ends terminate their lane; omissions render as pixels."
-  [{:keys [feed bundles view-state coverage geom]}]
+  "WP1 feed (+ pulled bundles for expanded cards) -> scene tree (R-2).
+   view-state: {:expanded #{entry-key} :order :arrival|:claimed :band 0|1|2}
+   geom: {:viewport-w :line-height :card-w :char-advance :pad :now-ms
+          :max-lanes} - band default 2 (s2.2), max-lanes default 8.
+   prev: the caller-held carry {:assignment .. :moves .. :feed ..} (s2.4 -
+   a separate post-build cache, NEVER the watched view-state atom); the
+   built scene returns the new carry in root :data :trail-face/carry.
+   Item 5 (R7): lanes come ONLY from lineage-kind edges as connected
+   components (fold FIRST - family-key is the fold rule now, not a
+   lane-maker); everything unthreaded goes to THE BAND at the bottom,
+   self-declaring, wrap-packed inside the band only. Item 6: assignment
+   changes since the last pull carry new-since chips with sayable reasons.
+   Geometry note (v1.1 S7): this builds on the as-built F-L5 vertical
+   stack (y = time, x = lane indent); 'reading order = time order' is the
+   interim honest reading; positions stay DERIVED so the axis swap later
+   is a lift, not a rewrite."
+  [{:keys [feed bundles view-state coverage geom prev]}]
   (let [{:keys [viewport-w line-height pad now-ms]
          :or   {viewport-w 800 line-height 18 pad 8}} geom
-        ;; F-L5: single-column full-width feed. The lane grid degenerates
-        ;; on a corpus of single-entry threads (one lane per doc = the
-        ;; staircase); threads read as a small LEFT INDENT instead. The
-        ;; real lane/DAG form question is design-track material
-        ;; (FIRST_LIGHT ledger), not something to invent here.
         indent-unit 14
-        indent-slots 8
-        card-w    (max 240 (- viewport-w (* 2 pad) (* indent-unit indent-slots)))
+        max-lanes (get geom :max-lanes 8)
+        card-w    (max 240 (- viewport-w (* 2 pad) (* indent-unit (min max-lanes 8))))
+        band      (get view-state :band 2)
         geom      (assoc geom :card-w card-w :line-height line-height
                          :now-ms now-ms)
         entries   (vec (:feed/entries feed))
         order     (:order view-state :arrival)
-        sorted    (vec (sort-by (if (= order :claimed)
-                                  (fn [e] [(- (or (:time/claimed-ms e)
-                                                  (:time/arrival-ms e)))
-                                           (- (:time/arrival-ms e))])
-                                  (fn [e] [(- (:time/arrival-ms e))]))
-                                entries))
-        ;; F-L2: lanes wrap into the bounded indent slots; spines group
-        ;; by the UNWRAPPED thread assignment below.
-        raw-lanes (lanes/assign-lanes sorted)
-        lanes-map (lanes/assign-lanes sorted indent-slots)
+        sorted    (vec (sort-by (canonical-sort-key order) entries))
         expanded  (:expanded view-state #{})
         mark?     (fn [e] (= :relation-transition (:entry/kind e)))
-        ;; item 2 / C2: NO scene-header address op. The FACE address lives
-        ;; ONCE, in the constant rim chrome (rim-slots below, rendered by
-        ;; combined_text in the status strip) - it does not scroll away.
+        ;; item 5: fold FIRST, then components over the fold head's edges.
+        ;; assign is attribute-derived and order-independent (s2.5); it
+        ;; returns KEYED MAPS, never a re-sorted entry seq.
+        {:keys [assignment thread-rank thread-index fold edges]} (threads/assign entries)
+        ;; item 6 / s2.4: moves against the caller-held prev carry. A
+        ;; rebuild with an UNCHANGED feed keeps the last moves - chips
+        ;; hold until the next pull, not until the next unrelated click.
+        ;; The carry's feed is CANONICALIZED (entries sorted on the
+        ;; arrival-ms attribute) so a permuted pull of the same data is
+        ;; the same carry - raw sequence position is never load-bearing,
+        ;; in the cache either (s2.5 / G7a).
+        carry-feed (update feed :feed/entries
+                           (fn [es] (vec (sort-by (canonical-sort-key :arrival) es))))
+        moves     (if (= (:feed prev) carry-feed)
+                    (or (:moves prev) {})
+                    ;; gate fix (falsification S1): moves need the PREV edge
+                    ;; set too - a chip fires only for assignment changes
+                    ;; incident to a CHANGED edge, never for merge
+                    ;; re-rooted bystanders
+                    (threads/moves (:assignment prev) (:edges prev)
+                                   assignment edges entries))
+        thread-of (fn [tid] (get assignment tid :band))
+        ;; a mark belongs to the thread its endpoints define (v1.1 A3):
+        ;; the from side wins, else to, else the band.
+        entry-thread (fn [e]
+                       (if (mark? e)
+                         (let [d (:entry/detail e)
+                               ft (thread-of (get-in d [:from :id]))
+                               tt (thread-of (get-in d [:to :id]))]
+                           (cond (not= :band ft) ft
+                                 (not= :band tt) tt
+                                 :else (thread-of (get-in e [:entry/target :id]))))
+                         (thread-of (get-in e [:entry/target :id]))))
+        carrier-of (:carrier fold)
+        carrier?   (fn [e] (= (cards/entry-key e)
+                              (get carrier-of (lanes/entry-thread-key e))))
+        overflow?  (fn [th] (and (not= :band th)
+                                 (>= (get thread-rank th 0) max-lanes)))
+        overflow-counts (reduce (fn [m e]
+                                  (let [th (entry-thread e)]
+                                    (if (overflow? th)
+                                      (update m th (fn [c] (inc (or c 0))))
+                                      m)))
+                                {} entries)
+        ;; item 2 / C2: NO scene-header address op - the FACE address lives
+        ;; ONCE in the rim chrome.
         rim       (rim-slots {:face :timeline :feed feed :now-ms now-ms
                               :address (address-with-order (:feed/address feed) order)})
         top-pad   (+ pad 4)
-        ;; --- stack: y cursor per entry, x by lane ---
-        ;; item 4 / R6: :relation-transition entries are MARKS, never
-        ;; box-cards. Terrain (source/transcript) entries are cards. A
-        ;; CLOSED mark contributes assertion material (connector / kraft
-        ;; line); an OPEN mark shows a typographic handle + detail surface.
-        build     (loop [es sorted, y top-pad, acc [], bounds {}, marks []]
-                    (if (empty? es)
-                      {:nodes acc :bounds bounds :marks marks :content-h y}
-                      (let [e     (first es)
-                            ek    (cards/entry-key e)
-                            lane  (get lanes-map ek 0)
-                            x     (+ pad (* lane indent-unit))
-                            tid   (get-in e [:entry/target :id])
-                            exp?  (contains? expanded ek)]
-                        (cond
-                          ;; OPEN relation-transition: kraft handle + surface
-                          (and (mark? e) exp?)
-                          (let [bundle (get bundles tid)
-                                handle (kraft-handle-node
-                                        e {:x x :y y :card-w card-w
-                                           :line-height line-height})
-                                expn   (when bundle
-                                         (-> (expansion-node tid bundle geom)
-                                             (update :bounds assoc
-                                                     :x x :y (+ y line-height))))
-                                h      (+ line-height
-                                         (if expn (get-in expn [:bounds :h]) 0))
-                                hb     {:x x :y y :w card-w :h line-height}]
-                            (recur (rest es) (+ y h 10)
-                                   (into acc (if expn [handle expn] [handle]))
-                                   (update bounds tid #(or % hb))
-                                   marks))
-                          ;; CLOSED relation-transition: a MARK, no box-card
-                          (mark? e)
-                          (recur (rest es) (+ y line-height 6)
-                                 acc bounds
-                                 (conj marks {:entry e :x x :y y}))
-                          ;; terrain entry: a feed card (+ optional surface)
-                          :else
-                          (let [card  (-> (cards/feed-entry-card e geom)
-                                          (update :bounds assoc :x x :y y))
-                                bundle (when exp? (get bundles tid))
-                                expn  (when bundle
-                                        (-> (expansion-node tid bundle geom)
-                                            (update :bounds assoc
-                                                    :x x :y (+ y (get-in card [:bounds :h])))))
-                                h     (+ (get-in card [:bounds :h])
-                                         (if expn (get-in expn [:bounds :h]) 0))
-                                abs-b {:x x :y y :w card-w
-                                       :h (get-in card [:bounds :h])}]
-                            (recur (rest es) (+ y h 10)
-                                   (into acc (if expn [card expn] [card]))
-                                   (update bounds tid #(or % abs-b))
-                                   marks))))))
-        {:keys [nodes bounds marks content-h]} build
-        ;; --- edges ---
-        ;; rt-edges: relation-transition feed-entry edges -> kraft marks
-        ;; below (item 4). bundle-edges: expanded targets' L3 :this
-        ;; relations -> connectors (their off-screen ends are already
-        ;; preserved as rel-line text in the expansion, so a dropped
-        ;; connector never hides an edge here).
+        thread-data (fn [e th]
+                      (let [banded? (= :band th)]
+                        (cond-> {:trail-face/thread (when-not banded? th)
+                                 :trail-face/band? banded?}
+                          (not banded?)
+                          (assoc :trail-face/thread-rank (get thread-rank th)
+                                 :trail-face/thread-index
+                                 (get thread-index (cards/entry-key e))))))
+        build-card (fn [e th]
+                     (let [tid (get-in e [:entry/target :id])
+                           fk  (lanes/entry-thread-key e)
+                           fc  (get-in fold [:count fk] 0)]
+                       (-> (cards/feed-entry-card
+                            e (cond-> (assoc geom :band band)
+                                (pos? fc) (assoc :fold-count fc
+                                                 :folded (get-in fold [:members fk]))
+                                (get moves tid) (assoc :move (get moves tid))))
+                           (update :data merge (thread-data e th)))))
+        ;; --- flow: y cursor per entry (y = time), x by thread rank ---
+        ;; item 4 / R6 unchanged: :relation-transition entries are MARKS,
+        ;; never box-cards; CLOSED marks -> assertion material, OPEN marks
+        ;; -> typographic handle + surface.
+        build
+        (loop [es sorted, y top-pad, acc [], bounds {}, marks [],
+               band-cells [], seen-overflow #{}]
+          (if (empty? es)
+            {:nodes acc :bounds bounds :marks marks :content-h y
+             :band-cells band-cells}
+            (let [e     (first es)
+                  ek    (cards/entry-key e)
+                  tid   (get-in e [:entry/target :id])
+                  th    (entry-thread e)
+                  banded? (= :band th)
+                  rank  (when-not banded? (get thread-rank th 0))
+                  x     (+ pad (* (if (and rank (< rank max-lanes)) rank 0)
+                                  indent-unit))
+                  exp?  (contains? expanded ek)]
+              (cond
+                ;; S4: a fully-overflowed thread folds to ONE chip
+                (overflow? th)
+                (if (contains? seen-overflow th)
+                  (recur (rest es) y acc bounds marks band-cells seen-overflow)
+                  (recur (rest es) (+ y line-height 6)
+                         (conj acc (thread-overflow-node
+                                    th (get overflow-counts th 0) rank
+                                    {:x pad :y y :card-w card-w
+                                     :line-height line-height}))
+                         bounds marks band-cells (conj seen-overflow th)))
+
+                ;; OPEN relation-transition: kraft handle + surface
+                (and (mark? e) exp?)
+                (let [bundle (get bundles tid)
+                      handle (-> (kraft-handle-node
+                                  e {:x x :y y :card-w card-w
+                                     :line-height line-height})
+                                 (update :data merge (thread-data e th)))
+                      expn   (when bundle
+                               (-> (expansion-node tid bundle geom)
+                                   (update :bounds assoc
+                                           :x x :y (+ y line-height))))
+                      h      (+ line-height
+                               (if expn (get-in expn [:bounds :h]) 0))
+                      hb     {:x x :y y :w card-w :h line-height}]
+                  (recur (rest es) (+ y h 10)
+                         (into acc (if expn [handle expn] [handle]))
+                         (update bounds tid #(or % hb))
+                         marks band-cells seen-overflow))
+
+                ;; CLOSED relation-transition: a MARK, no box-card
+                (mark? e)
+                (recur (rest es) (+ y line-height 6)
+                       acc bounds
+                       (conj marks {:entry e :x x :y y :thread th
+                                    :banded? banded?
+                                    :index (get thread-index ek)})
+                       band-cells seen-overflow)
+
+                ;; terrain folded away (G5): the family's ONE card is its
+                ;; carrier; other terrain entries are absorbed into it
+                (not (carrier? e))
+                (recur (rest es) y acc bounds marks band-cells seen-overflow)
+
+                ;; terrain carrier, unthreaded -> THE BAND (deferred; the
+                ;; band is one designated region at the bottom, item 5)
+                banded?
+                (let [card   (build-card e th)
+                      bundle (when exp? (get bundles tid))
+                      expn   (when bundle (expansion-node tid bundle geom))
+                      ch     (get-in card [:bounds :h])
+                      cell   {:key ek :tid tid :card card :expn expn
+                              :w (max (get-in card [:bounds :w])
+                                      (if expn card-w 0))
+                              :h (+ ch (if expn (get-in expn [:bounds :h]) 0))}]
+                  (recur (rest es) y acc bounds marks
+                         (conj band-cells cell) seen-overflow))
+
+                ;; terrain carrier, threaded: flow position
+                :else
+                (let [card  (-> (build-card e th)
+                                (update :bounds assoc :x x :y y))
+                      bundle (when exp? (get bundles tid))
+                      expn  (when bundle
+                              (-> (expansion-node tid bundle geom)
+                                  (update :bounds assoc
+                                          :x x :y (+ y (get-in card [:bounds :h])))))
+                      h     (+ (get-in card [:bounds :h])
+                               (if expn (get-in expn [:bounds :h]) 0))
+                      abs-b {:x x :y y :w (get-in card [:bounds :w])
+                             :h (get-in card [:bounds :h])}]
+                  (recur (rest es) (+ y h 10)
+                         (into acc (if expn [card expn] [card]))
+                         (update bounds tid #(or % abs-b))
+                         marks band-cells seen-overflow))))))
+        {:keys [nodes bounds marks content-h band-cells]} build
+        ;; --- the band region (item 5): bottom, self-declaring, packed ---
+        band-w     (- viewport-w (* 2 pad))
+        band-note  (when (seq band-cells)
+                     (band-note-node (count band-cells)
+                                     {:y content-h :w band-w :pad pad
+                                      :line-height line-height}))
+        band-y0    (+ content-h line-height 8)
+        packed     (threads/pack-band
+                    (mapv (fn [c] {:key (:key c) :w (:w c) :h (:h c)})
+                          band-cells)
+                    band-w 10)
+        band-nodes (into []
+                         (mapcat
+                          (fn [c]
+                            (let [{:keys [x y]} (get packed (:key c))
+                                  bx (+ pad x) by (+ band-y0 y)
+                                  ch (get-in c [:card :bounds :h])
+                                  card (update (:card c) :bounds assoc :x bx :y by)
+                                  expn (when (:expn c)
+                                         (update (:expn c) :bounds assoc
+                                                 :x bx :y (+ by ch)))]
+                              (if expn [card expn] [card]))))
+                         band-cells)
+        band-bottom (if (seq band-cells)
+                      (+ band-y0
+                         (reduce max 0
+                                 (map (fn [c]
+                                        (let [{:keys [y]} (get packed (:key c))]
+                                          (+ y (:h c))))
+                                      band-cells))
+                         10)
+                      content-h)
+        ;; band cards join the bounds map (connectors may land on them);
+        ;; folded members LIFT to their carrier's bounds so a mark on a
+        ;; du: block attaches to the folded card (item 5 / S3).
+        bounds     (reduce (fn [b c]
+                             (let [{:keys [x y]} (get packed (:key c))]
+                               (update b (:tid c)
+                                       #(or % {:x (+ pad x) :y (+ band-y0 y)
+                                               :w (get-in c [:card :bounds :w])
+                                               :h (get-in c [:card :bounds :h])}))))
+                           bounds band-cells)
+        bounds     (reduce (fn [b e]
+                             (let [tid (get-in e [:entry/target :id])]
+                               (if (contains? b tid)
+                                 b
+                                 (if-let [cek (get carrier-of
+                                                   (lanes/entry-thread-key e))]
+                                   (if-let [cb (get b (first cek))]
+                                     (assoc b tid cb)
+                                     b)
+                                   b))))
+                           bounds entries)
+        ;; --- edges (unchanged from R-1 except bounds are fold-lifted) ---
         rt-edges     (into []
                            (keep (fn [e]
                                    (let [d (:entry/detail e)]
@@ -514,18 +724,30 @@
                            (into #{} (map (fn [ek] (first ek))) expanded))
         dead-ends   (lanes/dead-end-ids (into rt-edges bundle-edges))
         conn-rects  (lanes/connectors bundle-edges bounds)
-        ;; item 4 / G3: CLOSED relation-transition entries -> kraft marks
-        ;; (labeled connector when both endpoints on screen; standalone
-        ;; kraft line naming the far end when one is off screen).
+        ;; item 4 / G3: CLOSED marks -> kraft marks; every mark node ALSO
+        ;; carries its thread/band membership as DATA (G7b: an edge
+        ;; belongs to the thread its endpoints define).
         mark-nodes  (into []
                           cat
                           (map-indexed
                            (fn [i m]
-                             (kraft-mark-nodes i (:entry m) bounds
-                                               {:x (:x m) :y (:y m)
-                                                :card-w card-w
-                                                :line-height line-height}))
+                             (mapv (fn [n]
+                                     (update n :data merge
+                                             (cond-> {:trail-face/thread
+                                                      (when-not (:banded? m) (:thread m))
+                                                      :trail-face/band?
+                                                      (boolean (:banded? m))}
+                                               (:index m)
+                                               (assoc :trail-face/thread-index
+                                                      (:index m)))))
+                                   (kraft-mark-nodes i (:entry m) bounds
+                                                     {:x (:x m) :y (:y m)
+                                                      :card-w card-w
+                                                      :line-height line-height})))
                            marks))
+        ;; lane spines group by THREAD (edges), never by family or wrapped
+        ;; column (item 5: family-key is the fold rule now). Band cards are
+        ;; not in `nodes`, so no spine ever chains the band (trap 4).
         spine-cards (vec (for [c nodes
                                :when (= :feed-card (:type c))]
                            {:entry-key (get-in c [:data :trail-face/entry-key])
@@ -533,25 +755,42 @@
                             :dead-end? (or (get-in c [:data :trail-face/dead-end?])
                                            (contains? dead-ends
                                                       (first (get-in c [:data :trail-face/entry-key]))))}))
-        spine-rects (lanes/lane-spines spine-cards raw-lanes)
+        spine-groups (into {}
+                           (map (fn [c]
+                                  [(get-in c [:data :trail-face/entry-key])
+                                   (get-in c [:data :trail-face/thread])]))
+                           (filter #(= :feed-card (:type %)) nodes))
+        spine-rects (lanes/lane-spines spine-cards spine-groups)
         conn-nodes  (vec (map-indexed connector-node
                                       (into spine-rects conn-rects)))
         omissions   (cards/omissions-block (:feed/omissions feed)
                                            (assoc geom :card-w (- viewport-w (* 2 pad))))
         om-h        (if omissions (get-in omissions [:bounds :h]) 0)
-        total-h     (+ content-h om-h 10)
+        total-h     (+ band-bottom om-h 10)
         root (rt/rt-node :trail-face/timeline-root :trail-timeline
                          {:x 0 :y 0 :w viewport-w :h total-h}
                          :data {:trail-face/content-h total-h
                                 :trail-face/order order
-                                :trail-face/rim-slots rim}
+                                :trail-face/band band
+                                :trail-face/band-count (count band-cells)
+                                :trail-face/rim-slots rim
+                                ;; s2.4: the caller caches this AFTER the
+                                ;; build (a separate unwatched cache atom,
+                                ;; never !trail-face-state - trap 13)
+                                :trail-face/carry {:assignment assignment
+                                                   :edges edges
+                                                   :moves moves
+                                                   :feed carry-feed}}
                          :children
-                         (into
-                          (into (vec conn-nodes) mark-nodes)
-                          (concat nodes
-                                  (when omissions
-                                    [(update omissions :bounds assoc
-                                             :x pad :y content-h)]))))]
+                         (-> (vec conn-nodes)
+                             (into mark-nodes)
+                             (into nodes)
+                             (into (if band-note [band-note] []))
+                             (into band-nodes)
+                             (into (if omissions
+                                     [(update omissions :bounds assoc
+                                              :x pad :y band-bottom)]
+                                     []))))]
     (sanitize-tree coverage root)))
 
 (defn content-height

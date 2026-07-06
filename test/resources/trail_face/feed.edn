@@ -30,7 +30,7 @@
    :entry/address (trail/context-bundle {:targets ["oc:doc:earlier"]})
    :time/claimed-ms 1776988800000
    :time/arrival-ms 1782172000000
-   :entry/actor {:asserted-by "import:md" :written-by nil}
+   :entry/actor {:asserted-by nil :written-by nil}
    :entry/detail {:source-ref "docs/april.md"}}
 
   ;; nil claimed is honest (transcript file update)
@@ -40,7 +40,7 @@
    :entry/address (trail/context-bundle {:targets ["oc:chat-conversation:chat:ab12"]})
    :time/claimed-ms nil
    :time/arrival-ms 1782169000000
-   :entry/actor {:asserted-by "import:transcript" :written-by nil}
+   :entry/actor {:asserted-by nil :written-by nil}
    :entry/detail {:file-path "transcripts/ab12.jsonl" :conversation "chat:ab12"}}
 
   ;; dead-end-marked target
@@ -63,7 +63,119 @@
    :entry/actor {:asserted-by "llm:opus-4-8/x" :written-by "agent:claude-code/session-y"}
    :entry/detail {:kind :confirms :status :asserted :relation-id "rel:v2"
                   :from {:kind :block :id "du:9fdoc:000003"}
-                  :to {:kind :doc :id "oc:doc:evidence-1"}}}]
+                  :to {:kind :doc :id "oc:doc:evidence-1"}}}
+
+  ;; ── R-2 extension (CONTRACT_R2 G3 fixture note: extend, never invent
+  ;;    shapes; every entry below mirrors the live constructors in
+  ;;    trail_view.clj - source-activity-entry for commit artifacts
+  ;;    (source-ref "git-commit:<sha>", display-name = sha7),
+  ;;    relation-activity-entry for the marks) ─────────────────────────────
+
+  ;; the 3-commit :based-on chain (git-spine §3.A commit artifacts).
+  ;; cmt-a3 is claimed EARLIEST but arrived LAST (a back-dated commit) so
+  ;; :order claimed vs :order arrival flip within the thread (gate 8).
+  {:entry/kind :source-ingested
+   :entry/target {:id "oc:doc:cmt-a1" :kind :doc :display-name "aaa1111"}
+   :entry/address (trail/context-bundle {:targets ["oc:doc:cmt-a1"]})
+   :time/claimed-ms 1782000000000
+   :time/arrival-ms 1782167000000
+   :entry/actor {:asserted-by nil :written-by nil}
+   :entry/detail {:source-ref "git-commit:aaa1111b2c3d4e5f60718293a4b5c6d7e8f9012" :derived-unit-count 1}}
+
+  {:entry/kind :source-ingested
+   :entry/target {:id "oc:doc:cmt-a2" :kind :doc :display-name "aaa2222"}
+   :entry/address (trail/context-bundle {:targets ["oc:doc:cmt-a2"]})
+   :time/claimed-ms 1782010000000
+   :time/arrival-ms 1782167100000
+   :entry/actor {:asserted-by nil :written-by nil}
+   :entry/detail {:source-ref "git-commit:aaa2222b2c3d4e5f60718293a4b5c6d7e8f9012" :derived-unit-count 1}}
+
+  {:entry/kind :source-ingested
+   :entry/target {:id "oc:doc:cmt-a3" :kind :doc :display-name "aaa3333"}
+   :entry/address (trail/context-bundle {:targets ["oc:doc:cmt-a3"]})
+   :time/claimed-ms 1781990000000
+   :time/arrival-ms 1782167200000
+   :entry/actor {:asserted-by nil :written-by nil}
+   :entry/detail {:source-ref "git-commit:aaa3333b2c3d4e5f60718293a4b5c6d7e8f9012" :derived-unit-count 1}}
+
+  ;; the chain's lineage marks (relation-activity shape, entry 0 precedent)
+  {:entry/kind :relation-transition
+   :entry/target {:id "oc:doc:cmt-a2" :kind :doc}
+   :entry/address (trail/context-bundle {:targets ["oc:doc:cmt-a2"]})
+   :time/claimed-ms 1782167150000
+   :time/arrival-ms 1782167150000
+   :entry/actor {:asserted-by "import:git-spine" :written-by nil}
+   :entry/detail {:kind :based-on :status :asserted :relation-id "rel:a21"
+                  :from {:kind :doc :id "oc:doc:cmt-a2"}
+                  :to {:kind :doc :id "oc:doc:cmt-a1"}}}
+
+  {:entry/kind :relation-transition
+   :entry/target {:id "oc:doc:cmt-a3" :kind :doc}
+   :entry/address (trail/context-bundle {:targets ["oc:doc:cmt-a3"]})
+   :time/claimed-ms 1782167250000
+   :time/arrival-ms 1782167250000
+   :entry/actor {:asserted-by "import:git-spine" :written-by nil}
+   :entry/detail {:kind :based-on :status :asserted :relation-id "rel:a32"
+                  :from {:kind :doc :id "oc:doc:cmt-a3"}
+                  :to {:kind :doc :id "oc:doc:cmt-a2"}}}
+
+  ;; a CROSS-LINK between the two threads (G4: :references NEVER merges
+  ;; lanes - it renders as a kraft connector BETWEEN them)
+  {:entry/kind :relation-transition
+   :entry/target {:id "oc:doc:cmt-a1" :kind :doc}
+   :entry/address (trail/context-bundle {:targets ["oc:doc:cmt-a1"]})
+   :time/claimed-ms 1782167300000
+   :time/arrival-ms 1782167300000
+   :entry/actor {:asserted-by "sid" :written-by nil}
+   :entry/detail {:kind :references :status :asserted :relation-id "rel:xr1"
+                  :from {:kind :doc :id "oc:doc:cmt-a1"}
+                  :to {:kind :doc :id "oc:doc:earlier"}}}
+
+  ;; the fold family (G5): a doc + marks on its du: blocks - one card
+  {:entry/kind :source-ingested
+   :entry/target {:id "oc:doc:folddoc" :kind :doc :display-name "notes.md"}
+   :entry/address (trail/context-bundle {:targets ["oc:doc:folddoc"]})
+   :time/claimed-ms 1782100000000
+   :time/arrival-ms 1782168800000
+   :entry/actor {:asserted-by nil :written-by nil}
+   :entry/detail {:source-ref "docs/notes.md" :derived-unit-count 2}}
+
+  {:entry/kind :relation-transition
+   :entry/target {:id "du:folddoc:000001" :kind :block}
+   :entry/address (trail/context-bundle {:targets ["du:folddoc:000001"]})
+   :time/claimed-ms 1782168900000
+   :time/arrival-ms 1782168950000
+   :entry/actor {:asserted-by "llm:opus-4-8/x" :written-by "agent:claude-code/session-y"}
+   :entry/detail {:kind :confirms :status :asserted :relation-id "rel:fd1"
+                  :from {:kind :block :id "du:folddoc:000001"}
+                  :to {:kind :doc :id "oc:doc:evidence-2"}}}
+
+  {:entry/kind :relation-transition
+   :entry/target {:id "du:folddoc:000002" :kind :block}
+   :entry/address (trail/context-bundle {:targets ["du:folddoc:000002"]})
+   :time/claimed-ms 1782168960000
+   :time/arrival-ms 1782168970000
+   :entry/actor {:asserted-by "llm:opus-4-8/x" :written-by "agent:claude-code/session-y"}
+   :entry/detail {:kind :confirms :status :asserted :relation-id "rel:fd2"
+                  :from {:kind :block :id "du:folddoc:000002"}
+                  :to {:kind :doc :id "oc:doc:evidence-3"}}}
+
+  ;; two unedged docs (G3): band material - no lineage edges, never a lane
+  {:entry/kind :source-ingested
+   :entry/target {:id "oc:doc:loose-1" :kind :doc :display-name "loose-1.md"}
+   :entry/address (trail/context-bundle {:targets ["oc:doc:loose-1"]})
+   :time/claimed-ms 1782110000000
+   :time/arrival-ms 1782168600000
+   :entry/actor {:asserted-by nil :written-by nil}
+   :entry/detail {:source-ref "docs/loose-1.md" :derived-unit-count 1}}
+
+  {:entry/kind :source-ingested
+   :entry/target {:id "oc:doc:loose-2" :kind :doc :display-name "loose-2.md"}
+   :entry/address (trail/context-bundle {:targets ["oc:doc:loose-2"]})
+   :time/claimed-ms 1782120000000
+   :time/arrival-ms 1782168400000
+   :entry/actor {:asserted-by nil :written-by nil}
+   :entry/detail {:source-ref "docs/loose-2.md" :derived-unit-count 1}}]
 
  ;; the STANDING declaration (WP1 s6 named gaps) - gate 11 checks presence.
  ;; Shape matches the LIVE feed (gate-16 verified): :omission/kind +
