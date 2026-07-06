@@ -247,10 +247,15 @@
   captured, but metrics run on :completion only (MANIFEST deviation D3)."
   [subject prompt]
   (let [body (json/write-str
-              {:model       (:model subject)
-               :messages    [{:role "user" :content prompt}]
-               :temperature (:temperature subject 0)
-               :max_tokens  (:max-tokens subject 4096)})
+              (merge
+               {:model       (:model subject)
+                :messages    [{:role "user" :content prompt}]
+                :temperature (:temperature subject 0)
+                :max_tokens  (:max-tokens subject 4096)}
+               ;; D9 (t4-bench 2026-07-06): extra sampling params passthrough
+               ;; (e.g. llama.cpp dry_multiplier for the LM-1b rerun arm).
+               ;; Never touches prompt assembly or guards.
+               (:extra-params subject)))
         req  (-> (java.net.http.HttpRequest/newBuilder)
                  (.uri (java.net.URI/create (str (:endpoint subject) "/chat/completions")))
                  (.header "Content-Type" "application/json")

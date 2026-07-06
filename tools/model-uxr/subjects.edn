@@ -61,6 +61,17 @@
    :max-tokens 4096
    :temperature 0}
 
+  ;; LM-1b rerun arm (t4-bench 2026-07-06, MANIFEST D6): same GGUF/port,
+  ;; max_tokens 16384 + DRY sampler; temp stays 0. New id per identity rule.
+  {:id        "nemotron-30b-a3b-q8-128k-16kdry"
+   :provider  :openai-compatible
+   :endpoint  "http://127.0.0.1:8091/v1"
+   :model     "nvidia_Nemotron-3-Nano-30B-A3B-Q8_0.gguf"
+   :key-env   "LOCAL_LLM_API_KEY"
+   :max-tokens 16384
+   :temperature 0
+   :extra-params {:dry_multiplier 0.8}}
+
   {:id        "qwen3-32b-q8-80k-yarn"
    :provider  :openai-compatible
    :endpoint  "http://127.0.0.1:8092/v1"
