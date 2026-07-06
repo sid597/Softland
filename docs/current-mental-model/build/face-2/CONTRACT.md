@@ -1,4 +1,13 @@
-# CONTRACT — face-2: the camera ground (scene-store birth · world camera · spec-shaped face) · v1.1 — PROPOSED
+# CONTRACT — face-2: the camera ground (scene-store birth · world camera · spec-shaped face) · v1.1 — COUNTERSIGNED
+
+**COUNTERSIGNED 2026-07-06 (Sid, in-session to Trunk-5, verbatim: "from my
+side everything is approved just fucking get to it" — delivered WITH the
+R-2 first-light screenshot, i.e. the sitting evidence this countersign was
+gated on: threads render over the real corpus, two-clock stamps live,
+kraft edges on the expanded card). Effects: v1.1 BINDING as written —
+the Δ9 client-side deviation STANDS (Sid did not override); round-2
+validation WAIVED by the same blanket; the build wave OPENS (all t4
+branch fences closed at Trunk-5's commits 4d543a2/f6257a9/8549a69).**
 
 **Status: PROPOSED (Fable, Trunk-4, 2026-07-06, authored at 719a9d9 while the
 t4 branches build — text only, no code). v1.1 amends v1 after

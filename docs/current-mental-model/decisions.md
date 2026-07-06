@@ -366,7 +366,22 @@ NOT continuous orchestration, NOT implementation, NOT Regime-2 theory (gated by 
   Gates: `build/trail-room/GATE_REVIEW_R2.md` ·
   `build/git-spine/GATE_REVIEW_SEAMS.md` ·
   `build/render-north/GATE_REVIEW_D7.md`; falsification artifacts
-  alongside. Commits await Sid's word.
+  alongside. Commits landed on Sid's word same session
+  (4d543a2 room · f6257a9 spine · 8549a69 fonts · 39b93ec docs).
+- 2026-07-06 (Trunk-5, same session), **Sid's blanket countersign +
+  R-2 FIRST LIGHT.** Sid booted the app, pasted the first-light
+  screenshot (threads over the real corpus, move chips firing, two-clock
+  stamps live, kraft `based-on`/`produced by import:git-spine` edges on
+  the expanded 2232fbb card — preserved at
+  `vision/images/2026-07-06-r2-first-light.png`), and countersigned
+  verbatim: **"from my side everything is approved just fucking get to
+  it."** Effects: **face-2 CONTRACT v1.1 COUNTERSIGNED-BINDING** (Δ9
+  client-side deviation stands; round-2 validation waived; wave OPEN);
+  the gate-raised defaults stand approved without build (importer
+  provenance stays nil-honest; incremental-jsonl stays unbuilt pending
+  form-break — the fork remains open in Open Questions for a route
+  ruling only if the cost bites); bench grading resume authorized.
+  H1 arming entry remains Sid's own hand in BETS (not delegable).
 
 ---
 

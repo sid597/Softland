@@ -1,8 +1,22 @@
-# 🌲 TRUNK-5 CHECKPOINT — wave boundary EXECUTED 2026-07-06 (assertion-grade; stamped Trunk-5)
+# 🌲 TRUNK-5 CHECKPOINT — wave boundary EXECUTED + CLOSED 2026-07-06 (assertion-grade; stamped Trunk-5)
 
-**The Trunk-4 wave boundary is DONE through step 5 of the boot order.**
-Remaining: step 4's WORD (commits prepared, not made) + step 6 (Sid's
-sitting) + step 7 (face-2 wave on countersign).
+**FINAL STATE (updated at session close): the wave boundary ran END TO
+END.** Commits LANDED on Sid's word (4d543a2 room · f6257a9 spine ·
+8549a69 fonts · 39b93ec docs · countersign/first-light docs commit after
+this edit). **R-2 FIRST LIGHT HAPPENED** — Sid booted, threads render
+over the real corpus, evidence at
+`vision/images/2026-07-06-r2-first-light.png` +
+`build/trail-room/FIRST_LIGHT_R2.md` (2 design observations: chip noise;
+raw conversation ids in reasons). **face-2 CONTRACT v1.1 COUNTERSIGNED**
+(Sid's blanket, verbatim in decisions.md; Δ9 client-side stands; round-2
+waived). **The face-2 BUILD WAVE is NOT STARTED** — Trunk-5 ran the §8
+wave-global duties (results verified, see below) and drafted 3 builder-
+lane prompts, but Sid HALTED dispatch: the wave belongs to a
+product-side session. Drafts + verified duty results preserved at
+`build/face-2/LANE_PROMPTS_DRAFT.md` (input, not binding). Bench resume
+authorized but NOT started. Boot prompt for the next session:
+`docs/sessions/where-we-at-2026-07-06.md` (orientation session's,
+committed as found).
 
 - **Suite (step 1): GREEN pre-fix** — 204 tests / 2500 assertions / 0 fail /
   0 err (all 26 nss, one JVM; baseline moved from 191/2210 with the wave's
