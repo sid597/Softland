@@ -261,6 +261,22 @@
             (is (some? bd) "back-dated relation appears in today's arrival window")
             (is (= (- T sixty-days) (:time/claimed-ms bd)) "claimed-ms is 60 days old")
             (is (= T (:time/arrival-ms bd)) "arrival-ms is today")
+            ;; Trunk-5 gate fix (DIFF_FALSIFICATION_CROSS B1): rt entries MUST
+            ;; project both lineage endpoints from the activity row — the
+            ;; client threads exclusively off detail :from/:to; without them
+            ;; the live face is threadless while fixtures stay green.
+            (is (every? (fn [e]
+                          (and (some? (get-in e [:entry/detail :from :id]))
+                               (some? (get-in e [:entry/detail :from :kind]))
+                               (contains? (:entry/detail e) :to)
+                               (some? (get-in e [:entry/detail :to :kind]))
+                               ;; a :dead-end has NO target — its row honestly
+                               ;; carries {:id nil :kind :none}; every other
+                               ;; kind must carry a real to-id
+                               (or (= :dead-end (get-in e [:entry/detail :kind]))
+                                   (some? (get-in e [:entry/detail :to :id])))))
+                        rel-entries)
+                "every relation entry projects BOTH endpoints verbatim ({:id :kind}; dead-end to-id honestly nil)")
             (is (every? #(and (contains? % :time/claimed-ms) (contains? % :time/arrival-ms)) entries)
                 "both stamps present on every entry")
             ;; :order :claimed orders by claimed desc → the 60-day-old entry sits after today-claimed
@@ -514,8 +530,14 @@
     (try
       (let [commit-ref (str "git-commit:" p3-sha)
             commit-body (p3-commit-body p3-sha p3-subject)
-            c  (oc-ingest! rt (md/source-ingest-request commit-body commit-ref
-                                                        {:request/id "p3-commit" :time-ms 1000}))
+            ;; :claimed/at-ms mirrors git_spine's commit->import-request
+            ;; (t4-spine seam 1): a request that genuinely carries a
+            ;; material-claimed clock declares it EXPLICITLY; the md request
+            ;; below declares none, so its feed row must stay claimed-nil.
+            p3-claimed 1751702400000
+            c  (oc-ingest! rt (assoc (md/source-ingest-request commit-body commit-ref
+                                                               {:request/id "p3-commit" :time-ms 1000})
+                                     :claimed/at-ms p3-claimed))
             m  (oc-ingest! rt (md/source-ingest-request "# Readme\nsome supporting text"
                                                         "spine/readme.md"
                                                         {:request/id "p3-md" :time-ms 1000}))
@@ -536,7 +558,13 @@
             (is (= p3-sha7 (get-in commit-entry [:entry/target :display-name]))
                 "commit FEED entry carries <sha7> derived from source-ref (G9)")
             (is (= "readme.md" (get-in md-entry [:entry/target :display-name]))
-                "md FEED entry carries basename display-name (G9)")))
+                "md FEED entry carries basename display-name (G9)")
+            ;; t4-spine seam 1 — the two-clock stamp at the feed seam:
+            (is (= p3-claimed (:time/claimed-ms commit-entry))
+                "commit entry claimed-ms = the request's declared :claimed/at-ms")
+            (is (nil? (:time/claimed-ms md-entry))
+                "md entry stays claimed-nil (its :request/time-ms is never a claim)")
+            (is (some? (:time/arrival-ms commit-entry)) "arrival clock untouched")))
 
         (testing "G9 — View-3 bundle rendering shows <sha7> · <subject> for commit material"
           (let [bundle (tv/read-context-bundle rt [commit-doc-id] {})

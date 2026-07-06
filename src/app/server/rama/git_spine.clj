@@ -180,15 +180,25 @@
   "Wrap the canonical text via the EXISTING md request builder with
    source-ref = \"git-commit:<sha>\" (§3.A). A deterministic :time-ms (the
    committer clock, not the wall clock) keeps the request byte-identical across
-   runs (G1) while the idempotency key stays content-derived."
+   runs (G1) while the idempotency key stays content-derived.
+
+   `:claimed/at-ms` (t4-spine seam 1, ADDITIVE): the committer clock declared
+   EXPLICITLY as a claimed clock. `:request/time-ms` cannot serve — the md
+   builder defaults it to the wall clock when absent, so reading it as claimed
+   would stamp every watcher md ingest's ARRIVAL as a claimed time (the map
+   would lie; md ingest has no claimed clock and must stay nil-honest). Only a
+   request that genuinely carries material-claimed time sets this key; the
+   kernel copies it onto the source-ingest completion row, and the feed's
+   two-clock stamp reads it from there."
   [commit]
-  (md/markdown-source-import-request
-   (commit->canonical-text commit)
-   (commit-source-ref (:sha commit))
-   {:time-ms (:committed-at-ms commit)
-    ;; deterministic request-id (the sha) -> byte-identical request across runs
-    ;; (G1) and a stable audit-id, not a random `req_<uuid>`.
-    :request/id (str "git-spine:" (:sha commit))}))
+  (assoc (md/markdown-source-import-request
+          (commit->canonical-text commit)
+          (commit-source-ref (:sha commit))
+          {:time-ms (:committed-at-ms commit)
+           ;; deterministic request-id (the sha) -> byte-identical request across runs
+           ;; (G1) and a stable audit-id, not a random `req_<uuid>`.
+           :request/id (str "git-spine:" (:sha commit))})
+         :claimed/at-ms (:committed-at-ms commit)))
 
 ;; ============================================================================
 ;; B — sync driver + edges
@@ -239,7 +249,8 @@
    one per parent so a merge commit yields one edge per parent (G4), each with a
    pre-check + stable key so a second sync run appends nothing new."
   [{:keys [runtime repo-root]}]
-  (let [commits (read-commits repo-root)
+  (let [pass-started-ms (System/currentTimeMillis)
+        commits (read-commits repo-root)
         reqs (mapv commit->import-request commits)
         _ (doseq [req reqs] (ocr/append-object-container-request! runtime req))
         decisions (mapv (fn [req] (ocr/await-object-container-decision runtime req 20000)) reqs)
@@ -256,10 +267,31 @@
                                       :basis "parent"
                                       :claimed-ms (:committed-at-ms c)}))
         edge-results (vec edge-results)]
-    {:commits (count commits)
-     :ingested (count (filter #(= :accepted (:status %)) decisions))
-     :edges-appended (count (filter second edge-results))
-     :edge-relation-ids (mapv first edge-results)}))
+    ;; Count truthfulness (t4-spine seam 3): :ingested keeps its gate-tested
+    ;; meaning — decisions ACCEPTED, INCLUDING convergent re-accepts (G2's
+    ;; convergence proof reads it: a non-deterministic re-run would conflict ->
+    ;; :rejected -> the count would drop). The additive keys split the truth so
+    ;; the boot log can't read a converged re-run as fresh material. A re-run
+    ;; converges by TWO kernel mechanisms (verified in the topology source):
+    ;; identical request-id -> the prior AUDIT decision row is ack-returned
+    ;; untouched (spine-sync's G1-deterministic requests always take this
+    ;; branch — its decided-at-ms predates this pass); fresh request-id + same
+    ;; idempotency key -> replay-decision-row stamps :replayed-from-decision-id.
+    ;; :converged counts both; :fresh = accepted AND decided during THIS pass.
+    ;; :unresolved = no decision within the await window (appended, outcome
+    ;; unknown here — NOT a failure claim).
+    (let [accepted (filter #(= :accepted (:status %)) decisions)
+          converged? (fn [d] (or (some? (:replayed-from-decision-id d))
+                                 (< (long (or (:decided-at-ms d) Long/MAX_VALUE))
+                                    pass-started-ms)))]
+      {:commits (count commits)
+       :ingested (count accepted)
+       :fresh (count (remove converged? accepted))
+       :converged (count (filter converged? accepted))
+       :rejected (count (filter #(= :rejected (:status %)) decisions))
+       :unresolved (count (remove some? decisions))
+       :edges-appended (count (filter second edge-results))
+       :edge-relation-ids (mapv first edge-results)})))
 
 ;; ============================================================================
 ;; B — transcript extractor
@@ -349,19 +381,37 @@
   (oc/document-id-for file-path (oc/source-hash (slurp (io/file file-path)))))
 
 (defn- canonical-under-roots
-  "The file-path IF it exists on disk and canonicalizes under a land root; else
-   nil (G6: files outside the land roots -> no edge)."
+  "Rebase file-path into the WATCHER's textual form (t4-spine seam 2, closes
+   gate-review doubt 1): the file must exist and CANONICALIZE under a land root
+   (G6: outside the roots -> nil -> no edge); the returned path is the matching
+   cfg root's TEXTUAL prefix + the canonical remainder — the exact source-ref
+   string the md watcher ingests under (`.getPath` beneath that same cfg root).
+
+   Grounds: the project root is reachable under two textual aliases
+   (/mnt/data/projects/Softland is canonical; /home/sid/projects/Softland is a
+   symlink to it), and transcripts record whichever alias the session used
+   while the watcher's source-refs ride the boot cwd. Keying the doc id on the
+   RAW transcript string (the old behavior) minted an id no ingested doc ever
+   matches — a dangling edge whose target IS present, i.e. a DISHONEST
+   dangler. Rebasing joins both directions: alias-recorded transcript paths
+   join a canonical-cwd boot, and canonical-recorded paths join an
+   alias-cwd boot. (Verified live 2026-07-06: 1089 /mnt-rooted + 1
+   /home-rooted doc-land file_paths in the corpus.) Residual: a symlinked
+   SUBDIRECTORY inside a land root would still split textual forms — none
+   exist today (checked), recorded, not defended."
   [file-path land-roots]
   (try
     (let [f (io/file file-path)]
       (when (.exists f)
         (let [canon (.getCanonicalPath f)]
-          (when (some (fn [root]
-                        (let [rc (.getCanonicalPath (io/file root))]
-                          (or (= canon rc)
-                              (str/starts-with? canon (str rc File/separator)))))
-                      land-roots)
-            file-path))))
+          (some (fn [root]
+                  (let [rc (.getCanonicalPath (io/file root))]
+                    (cond
+                      (= canon rc) (str root)
+                      (str/starts-with? canon (str rc File/separator))
+                      (str root (subs canon (count rc)))
+                      :else nil)))
+                land-roots))))
     (catch Exception _ nil)))
 
 (defn- session-id-of
@@ -383,15 +433,22 @@
 
 (defn- process-jsonl-file!
   "Stream ONE jsonl file line-by-line (never slurp — the corpus is ~1.2 GB).
-   Emits conversation->commit `:produced` (repo-verified shas, deduped per
-   session) and conversation->doc `:produced` (Edit/Write file_paths under the
-   land roots, ONE per (session, file))."
-  [runtime sha->doc index-shas land-roots ^File file]
+   Emits conversation->commit `:produced` (repo-verified shas) and
+   conversation->doc `:produced` (Edit/Write file_paths under the land roots,
+   rebased to the watcher's textual form; ONE per (session, file)).
+
+   `seen-sha`/`seen-doc` are RUN-level volatiles keyed [session-id x]
+   (t4-spine seam 3): live corpus fact (2026-07-06) — up to 298 jsonl files
+   share ONE sessionId (agent/sidechain files carry the parent session's id),
+   and the relation-id is conversation-scoped, so per-FILE dedup re-appended
+   the SAME edge once per sibling file: the journal drops the duplicates
+   (land state was never wrong) but the run's :sha-edges/:doc-edges counts
+   over-reported by up to ~300x per popular edge, and every duplicate paid a
+   pre-check query + a depot append. Dedup now mirrors edge identity."
+  [runtime sha->doc index-shas land-roots seen-sha seen-doc ^File file]
   (let [session-id (session-id-of file)
         conv-ref (rk/->target-ref :conversation (session->conversation-container-id session-id))
         evidence-source-id (str "transcript:" session-id)
-        seen-sha (volatile! #{})
-        seen-doc (volatile! #{})
         counts (volatile! {:sha-edges 0 :doc-edges 0})]
     (with-open [rdr (io/reader file :encoding "UTF-8")]
       (doseq [[line-idx line] (map-indexed vector (line-seq rdr))]
@@ -405,26 +462,33 @@
                             (keep #(resolve-sha index-shas %))
                             distinct)]
               (doseq [sha shas]
-                (when-not (contains? @seen-sha sha)
-                  (vswap! seen-sha conj sha)
+                (when-not (contains? @seen-sha [session-id sha])
+                  ;; mark-seen AFTER the append returns (gate fix, SEAMS F1):
+                  ;; a transient assert throw must leave the key unmarked so a
+                  ;; same-session sibling file retries THIS boot — marking
+                  ;; first would skip the edge for the whole run. assert-edge!
+                  ;; RETURNS (never throws) on the already-asserted pre-check,
+                  ;; so same-run re-marks stay impossible.
                   (let [[_ appended?] (assert-edge! runtime
                                                     {:kind :produced :from conv-ref
                                                      :to (rk/->target-ref :container (sha->doc sha))
                                                      :basis "sha-verified" :claimed-ms claimed
                                                      :evidence-source-id evidence-source-id
                                                      :evidence-anchor-id anchor})]
+                    (vswap! seen-sha conj [session-id sha])
                     (when appended? (vswap! counts update :sha-edges inc)))))
               ;; conversation -> doc (capped one per (session, file))
               (doseq [fp (edit-file-paths entry)]
-                (when-let [canon (canonical-under-roots fp land-roots)]
-                  (when-not (contains? @seen-doc canon)
-                    (vswap! seen-doc conj canon)
+                (when-let [watch-path (canonical-under-roots fp land-roots)]
+                  (when-not (contains? @seen-doc [session-id watch-path])
+                    ;; mark AFTER append returns — same F1 rationale as above
                     (let [[_ appended?] (assert-edge! runtime
                                                       {:kind :produced :from conv-ref
-                                                       :to (rk/->target-ref :container (doc-document-id canon))
+                                                       :to (rk/->target-ref :container (doc-document-id watch-path))
                                                        :basis "file-write" :claimed-ms claimed
                                                        :evidence-source-id evidence-source-id
                                                        :evidence-anchor-id anchor})]
+                      (vswap! seen-doc conj [session-id watch-path])
                       (when appended? (vswap! counts update :doc-edges inc)))))))))))
     @counts))
 
@@ -478,7 +542,11 @@
         ;; no stable instance id supplied -> a per-call id: the cursor never
         ;; matches, every file reprocesses — always correct, only costly
         run-id (or spine-run-id (str (java.util.UUID/randomUUID)))
-        cursor0 (or (read-cursor spine-cursor-path run-id) {})]
+        cursor0 (or (read-cursor spine-cursor-path run-id) {})
+        ;; RUN-level dedup, keyed [session-id x] — mirrors the edge identity
+        ;; (relation-ids are conversation-scoped); see process-jsonl-file!.
+        seen-sha (volatile! #{})
+        seen-doc (volatile! #{})]
     (loop [fs (seq (jsonl-files transcript-roots))
            cursor cursor0
            stats {:files 0 :skipped 0 :failed 0 :sha-edges 0 :doc-edges 0}]
@@ -495,7 +563,8 @@
             ;; edges this run, and leave the cursor unwritten. The failed
             ;; file's cursor entry is NOT advanced, so it retries next boot.
             (let [result (try
-                           (process-jsonl-file! runtime sha->doc index-shas land-roots f)
+                           (process-jsonl-file! runtime sha->doc index-shas land-roots
+                                                seen-sha seen-doc f)
                            (catch Exception e
                              (println "[GIT-SPINE] extract:" path "failed, skipping:"
                                       (.getMessage e))

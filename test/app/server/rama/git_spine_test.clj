@@ -192,6 +192,31 @@
           (is (= (count commits) (:commits r1)))
           (is (= (count commits) (:ingested r1)) "all commit decisions accepted"))
 
+        (testing "t4-spine seam 3 — first-pass stats split truthfully: all FRESH, none converged"
+          (is (= (count commits) (:fresh r1)) "first pass: every accept is fresh")
+          (is (= 0 (:converged r1)))
+          (is (= 0 (:rejected r1)))
+          (is (= 0 (:unresolved r1))))
+
+        (testing "t4-spine seam 1 — committed-at rides to the feed as the CLAIMED clock"
+          (doseq [c commits]
+            (is (= (:committed-at-ms c) (:claimed/at-ms (gs/commit->import-request c)))
+                "the import request declares the committer clock as :claimed/at-ms"))
+          (let [now (System/currentTimeMillis)
+                feed (tv/read-recent-activity rt {:from-ms 0 :to-ms (+ now 3600000)} {})
+                by-id (into {}
+                            (comp (filter #(= :source-ingested (:entry/kind %)))
+                                  (map (juxt #(get-in % [:entry/target :id]) identity)))
+                            (:feed/entries feed))]
+            (doseq [c commits
+                    :let [entry (get by-id (sha->doc (:sha c)))]]
+              (is (some? entry) (str "feed entry present for " (subs (:sha c) 0 7)))
+              (is (= (:committed-at-ms c) (:time/claimed-ms entry))
+                  "claimed-ms = the committer clock (two-clock stamp, band 2)")
+              (is (some? (:time/arrival-ms entry)) "arrival clock still present")
+              (is (not= (:time/claimed-ms entry) (:time/arrival-ms entry))
+                  "claimed (2026-01-01 fixture clock) is NOT the arrival wall clock"))))
+
         (testing "G4 — every non-root commit has :based-on edge(s); merge -> one per parent"
           (doseq [c commits
                   :let [child-doc (sha->doc (:sha c))]]
@@ -224,6 +249,12 @@
           (let [r2 (gs/spine-sync! cfg)]
             (is (= (:ingested r1) (:ingested r2)) "same accepted count on the 2nd pass")
             (is (= (count commits) (:ingested r2)) "all commits re-accepted (converged, not conflicted)")
+            ;; seam 3: the 2nd pass's accepts are prior decisions ack-returned
+            ;; (identical request-id -> audit branch), and the stats say so —
+            ;; the boot log can no longer read a converged re-run as fresh
+            ;; material.
+            (is (= (count commits) (:converged r2)) "2nd pass: every accept converged")
+            (is (= 0 (:fresh r2)) "2nd pass: nothing fresh")
             (is (= 0 (:edges-appended r2)) "pre-check skips all edges -> zero new edge appends")
             (doseq [c commits]
               (let [req (gs/commit->import-request c)
@@ -313,6 +344,18 @@
                 rows (get (rk/read-relations-for-targets rt [okey] nil false) okey)]
             (is (some #(= note-rid (:relation-id %)) rows) "doc edge surfaces under the doc's object-key")))
 
+        (testing "t4-spine seam 1 — md ingest stays claimed-NIL-honest in the feed
+                  (its :request/time-ms is a wall-clock default, never a claim)"
+          (let [now (System/currentTimeMillis)
+                feed (tv/read-recent-activity rt {:from-ms 0 :to-ms (+ now 3600000)} {})
+                md-entry (->> (:feed/entries feed)
+                              (filter #(and (= :source-ingested (:entry/kind %))
+                                            (= note-doc-id (get-in % [:entry/target :id]))))
+                              first)]
+            (is (some? md-entry) "note.md source-ingested entry present")
+            (is (nil? (:time/claimed-ms md-entry)) "md claimed stays nil (nil-honest)")
+            (is (some? (:time/arrival-ms md-entry)) "arrival clock present")))
+
         (testing "G7 — cursor is cost-only: delete cursor, re-run -> identical land state, only more work"
           (let [okeys [(oc/extract-object-key (gs/session->conversation-container-id session-id))
                        (oc/extract-object-key real-doc-id)
@@ -353,6 +396,95 @@
           (let [ex-anon (gs/extract-session-joins! (dissoc cfg :spine-run-id))]
             (is (= 0 (:skipped ex-anon)) "anonymous runs never trust a cursor"))))
       (finally (rm-rf dir) (rm-rf jsonl-dir) (tv/close-trail-view-runtime! rt)))))
+
+;; =============================================================================
+;; t4-spine seams 2+3 (2026-07-06) — dual-working-dir doc edges + run-level dedup
+;;
+;; Seam 2 (gate-review doubt 1, verified live): the project root is reachable
+;; under a symlink alias; a transcript recording the ALIAS path minted a doc id
+;; no ingested doc ever matches — a dangling edge whose target IS present
+;; (dishonest). Fix: rebase into the watcher's textual form before minting.
+;;
+;; Seam 3 (verified live): up to 298 jsonl files share ONE sessionId
+;; (agent/sidechain files), so per-FILE dedup re-appended the same
+;; conversation-scoped edge once per sibling file — counts over-reported
+;; (journal kept the land honest). Dedup is now RUN-level on [session-id x].
+;; =============================================================================
+(deftest alias-rebase-and-run-level-dedup
+  (let [dir (tmp-dir "gs-alias-repo-")
+        jsonl-dir (tmp-dir "gs-alias-jsonl-")
+        alias-parent (tmp-dir "gs-alias-link-")
+        alias-root (io/file alias-parent "root")
+        _ (Files/createSymbolicLink (.toPath alias-root) (.toPath dir)
+                                    (make-array FileAttribute 0))
+        rt (tv/start-trail-view-runtime! {:tasks (rand-nth [2 4]) :threads 2})]
+    (try
+      (build-fixture-repo! dir)
+      (let [commits (gs/read-commits (str dir))
+            root-commit (some #(when (empty? (:parents %)) %) commits)
+            real-sha (:sha root-commit)
+            real-doc-id (gs/commit->document-id root-commit)
+            note-path (str (io/file dir "docs/current-mental-model/note.md"))
+            alias-note-path (str (io/file alias-root "docs/current-mental-model/note.md"))
+            session-id "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+            entry (fn [uuid content]
+                    {:type "assistant" :sessionId session-id :uuid uuid
+                     :timestamp "2026-01-02T00:00:00.000Z"
+                     :message {:role "assistant" :content content}})
+            write-jsonl! (fn [^File file entries]
+                           (with-open [w (io/writer file)]
+                             (doseq [e entries]
+                               (.write w ^String (json/write-str e)) (.write w "\n"))))
+            ;; file A (an agent/sidechain sibling): the ALIAS doc path + the sha
+            _ (write-jsonl! (io/file jsonl-dir "file-a.jsonl")
+                            [(entry "a1" [{:type "tool_use" :id "t1" :name "Edit"
+                                           :input {:file_path alias-note-path}}])
+                             (entry "a2" [{:type "tool_use" :id "t2" :name "Bash"
+                                           :input {:command (str "git show " real-sha)}}])])
+            ;; file B (same sessionId): the REAL doc path + the SAME sha
+            _ (write-jsonl! (io/file jsonl-dir "file-b.jsonl")
+                            [(entry "b1" [{:type "tool_use" :id "t3" :name "Edit"
+                                           :input {:file_path note-path}}])
+                             (entry "b2" [{:type "tool_use" :id "t4" :name "Bash"
+                                           :input {:command (str "git show " real-sha)}}])])
+            cfg {:runtime rt :repo-root (str dir) :transcript-roots [(str jsonl-dir)]}
+            conv-ref (rk/->target-ref :conversation (gs/session->conversation-container-id session-id))
+            note-doc-id (oc/document-id-for note-path (oc/source-hash (slurp note-path)))
+            note-rid (rk/relation-id-for :produced conv-ref
+                                         (rk/->target-ref :container note-doc-id)
+                                         gs/import-asserter-actor-id)
+            ;; the id the OLD code minted from the raw alias string — must NOT exist
+            alias-doc-id (oc/document-id-for alias-note-path
+                                             (oc/source-hash (slurp alias-note-path)))
+            alias-rid (rk/relation-id-for :produced conv-ref
+                                          (rk/->target-ref :container alias-doc-id)
+                                          gs/import-asserter-actor-id)
+            sha-rid (rk/relation-id-for :produced conv-ref
+                                        (rk/->target-ref :container real-doc-id)
+                                        gs/import-asserter-actor-id)
+            ex (gs/extract-session-joins! cfg)]
+        (rel-drain! rt (+ (:sha-edges ex) (:doc-edges ex)))
+
+        (testing "seam 3 — run-level dedup: same session split across files -> ONE append each"
+          (is (= 2 (:files ex)))
+          (is (= 1 (:sha-edges ex)) "same (session, sha) in two files counts ONCE")
+          (is (= 1 (:doc-edges ex)) "alias + real path of one doc count ONCE"))
+
+        (testing "seam 2 — the alias path REBASES to the watcher's textual form and joins"
+          (let [row (edge-row rt note-rid)]
+            (is (some? row) "doc edge targets the id the md watcher would ingest under")
+            (is (= "spine-v1|file-write" (:note row))))
+          (is (nil? (edge-row rt alias-rid))
+              "NO edge keyed on the raw alias string (the dishonest dangler is gone)"))
+
+        (testing "sha edge sanity — one verified-sha edge, exactly one event"
+          (let [{:keys [row history]} (rk/read-relation-detail rt sha-rid)]
+            (is (some? row))
+            (is (= 1 (count history)) "one append -> one event (no duplicate rows)"))))
+      (finally
+        (Files/deleteIfExists (.toPath alias-root))
+        (rm-rf dir) (rm-rf jsonl-dir) (rm-rf alias-parent)
+        (tv/close-trail-view-runtime! rt)))))
 
 ;; =============================================================================
 ;; replay-assert-log! — durability + duty §8.7 empirical probe (relation runtime)

@@ -565,8 +565,15 @@
    :entry/actor {:asserted-by (:asserter-actor-id row)
                  :written-by (when (not= (:envelope-actor-id row) (:asserter-actor-id row))
                                (:envelope-actor-id row))}
+   ;; Lineage endpoints (Trunk-5 gate fix, 2026-07-06): the activity row has
+   ;; carried from/to since R3 landed; the entry MUST project them or the
+   ;; client's lanes-from-edges pass sees zero lineage over the live corpus
+   ;; (fixture-vs-live drift class — DIFF_FALSIFICATION_CROSS B1). Projected
+   ;; verbatim from the row, never fabricated.
    :entry/detail {:kind (:relation-kind row) :status (:relation-status row)
-                  :relation-id (:relation-id row)}})
+                  :relation-id (:relation-id row)
+                  :from {:id (:from-id row) :kind (:from-kind row)}
+                  :to   {:id (:to-id row) :kind (:to-kind row)}}})
 
 (defn- file-activity-entry
   [row]
@@ -585,7 +592,13 @@
    :entry/target {:id (:document-container-id row) :kind :doc
                   :display-name (source-ref->display-name (:source-ref row))}
    :entry/address (->address :context-bundle {:targets [(:document-container-id row)]})
-   :time/claimed-ms nil
+   ;; Two clocks (t4-spine seam 1, band-2 stamp): claimed rides the completion
+   ;; row's ADDITIVE :claimed-at-ms, populated ONLY when the import request
+   ;; declared a material-claimed clock (`:claimed/at-ms` — git-spine commits:
+   ;; the committer clock). Watcher md ingests declare none, so md rows stay
+   ;; claimed-nil HONESTLY (their :request/time-ms is a wall-clock default,
+   ;; never a claim). Rows written before the field existed read nil too.
+   :time/claimed-ms (:claimed-at-ms row)
    :time/arrival-ms (source-completion-ms row)
    :entry/actor {:asserted-by nil :written-by nil}
    :entry/detail {:source-ref (:source-ref row)

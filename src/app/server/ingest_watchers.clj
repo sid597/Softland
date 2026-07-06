@@ -202,7 +202,12 @@
                      [:spine-sync git-spine/spine-sync!]
                      [:extract git-spine/extract-session-joins!]]]
     (try
-      (log :info (str "git-spine " (name label)) (f cfg))
+      ;; Stats line stays counts-only (t4-spine seam 3): :edge-relation-ids is
+      ;; a per-edge id VECTOR (one entry per parent edge — hundreds over the
+      ;; real repo) returned for tests/queries; printing it buried the counts.
+      ;; The counts themselves are printed verbatim from the stage's return.
+      (log :info (str "git-spine " (name label))
+           (dissoc (f cfg) :edge-relation-ids))
       (catch Throwable t
         (log :error (str "git-spine " (name label) " threw; boot survives")
              {:ex (.getName (class t)) :error (.getMessage t)})))))
