@@ -356,11 +356,24 @@
         ;; hash — a hash collision would freeze a stale scene forever (the
         ;; "state stuck masking future truth" lifecycle failure).
         !last-trail-struct (atom ::none)
+        ;; trail-room R-2 s2.4: the prev-assignment carry lives in a
+        ;; SEPARATE post-build cache atom (the !last-trail-struct pattern
+        ;; this line sits next to) - NEVER inside !trail-face-state, which
+        ;; is a WATCHED input (trap 13: writing per-build output into a
+        ;; watched input is a rebuild/re-pull feedback loop). Contract s5
+        ;; placed this atom in state.cljs; it lives HERE because threading
+        ;; a state.cljs atom to this flow would touch render.cljs (off the
+        ;; allowlist) - deviation recorded in BRANCH_REPORT_R2.
+        !trail-prev-carry (atom nil)
         <trail-face
         (m/latest
           (fn [layout trail-state trail-text trail-feed trail-bundles coverage]
             (if-not (:face trail-state)
-              (do (reset! !trail-face-scene nil) nil)
+              (do (reset! !trail-face-scene nil)
+                  ;; lifecycle clear: leaving the face drops the carry so a
+                  ;; later re-entry starts with arrivals, not phantom moves
+                  (reset! !trail-prev-carry nil)
+                  nil)
               (let [{:keys [viewport font-size char-advance]} layout
                     geom {:viewport-w (:width viewport)
                           :viewport-h (:height viewport)
@@ -383,10 +396,18 @@
                                         {:feed trail-feed
                                          :bundles trail-bundles
                                          :view-state {:expanded (:expanded trail-state #{})
-                                                      :order (:order trail-state :arrival)}
+                                                      :order (:order trail-state :arrival)
+                                                      ;; R-2 s2.2: band rides view-state
+                                                      :band (:band trail-state 2)}
+                                         ;; R-2 s2.4: read the carry at build
+                                         :prev @!trail-prev-carry
                                          :coverage coverage :geom geom}))]
                               (reset! !last-trail-struct struct)
                               (reset! !trail-face-scene s)
+                              ;; R-2 s2.4: write the carry AFTER the build -
+                              ;; this atom is watched by NOTHING (trap 13)
+                              (when-let [carry (get-in s [:data :trail-face/carry])]
+                                (reset! !trail-prev-carry carry))
                               s)
                             @!trail-face-scene)]
                 (when scene

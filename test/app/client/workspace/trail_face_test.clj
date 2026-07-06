@@ -14,6 +14,7 @@
             [app.client.workspace.trail-face.text-face :as tf]
             [app.client.workspace.trail-face.cards :as cards]
             [app.client.workspace.trail-face.lanes :as lanes]
+            [app.client.workspace.trail-face.threads :as threads]
             [app.client.workspace.trail-face.scene :as scene]))
 
 ;; --- Fixture + atlas loading -------------------------------------------------
@@ -305,20 +306,27 @@
       (let [stamp (cards/two-clock-stamp (nth (:feed/entries feed) 2))]
         (is (str/includes? stamp "claimed unknown"))))
     (testing ":order re-sorts WITHIN the window (never re-selects a claimed
-              window). Compared over two TERRAIN entries - item 4 renders the
-              :relation-transition entries as marks, not positioned cards."
+              window). R-2 update: compared over two THREADED commit cards
+              of the SAME thread - the R-2 band region always renders below
+              threaded content, so the old cross-region pair (April doc vs
+              band-dwelling chat row) can no longer flip by :order; the
+              chain's back-dated commit exercises the same law in-thread."
       (let [pos (fn [s k] (get-in (find-node s #(= k (get-in % [:data :trail-face/entry-key])))
                                   [:bounds :y]))
             sa (timeline-scene {:expanded #{} :order :arrival})
             sc (timeline-scene {:expanded #{} :order :claimed})
             back-dated ["oc:doc:earlier" 1782172000000]              ; claimed April, arrived in-window (terrain)
-            chat       ["oc:chat-conversation:chat:ab12" 1782169000000] ; claimed nil, older arrival (terrain)
+            chat       ["oc:chat-conversation:chat:ab12" 1782169000000] ; claimed nil, band material
+            c2 ["oc:doc:cmt-a2" 1782167100000]  ; claimed 06-20, arrived 3rd-last
+            c3 ["oc:doc:cmt-a3" 1782167200000]  ; claimed EARLIEST (back-dated), arrived last
             keys-of (fn [s] (into #{} (keep #(get-in % [:data :trail-face/entry-key]))
                                   (all-nodes s)))]
         (is (< (pos sa back-dated) (pos sa chat))
-            "arrival order: newest arrival (April doc, arrived latest) first")
-        (is (> (pos sc back-dated) (pos sc chat))
-            "claimed order: the April claim sorts BELOW the nil-claimed row")
+            "arrival order: threaded April doc renders above the band-dwelling chat row")
+        (is (< (pos sa c3) (pos sa c2))
+            "arrival order: the last-arrived commit renders first")
+        (is (> (pos sc c3) (pos sc c2))
+            "claimed order: the back-dated commit sorts BELOW its later-claimed sibling")
         (is (= (keys-of sa) (keys-of sc))
             "SAME terrain-card set under both orders - ordering only, no claimed window")))
     (testing "the order param changes the rim face address (item 2/3: the
@@ -671,6 +679,403 @@
   (testing "G4 / C2: the face address lives in the rim, not floating card text"
     (let [rim (get-in (timeline-scene) [:data :trail-face/rim-slots])]
       (is (= 1 (count (filter :trail-face/address? rim))) "one rim address, always"))))
+
+;; ═══════════════════════════════════════════════════════════════════════════
+;; trail-room R-2 gates (CONTRACT_R2 §4, G1-G8) - bands · lanes-from-edges ·
+;; move chips. Gates are TRANSCRIPTION of the contract, written in the same
+;; batch as the code (delivery-mode ruling, D-006 notes 2026-07-05).
+;; ═══════════════════════════════════════════════════════════════════════════
+
+(def r2-entries (:feed/entries feed))
+
+(defn r2-scene
+  ([view-state] (r2-scene view-state feed nil))
+  ([view-state feed*] (r2-scene view-state feed* nil))
+  ([view-state feed* prev]
+   (scene/build-timeline-scene {:feed feed*
+                                :bundles {"oc:doc:9fdoc" bundle
+                                          "oc:doc:earlier" bundle}
+                                :view-state view-state
+                                :prev prev
+                                :coverage coverage
+                                :geom geom})))
+
+(defn- card-nodes [s] (filter #(= :feed-card (:type %)) (all-nodes s)))
+
+(defn- card-by-key [s k]
+  (find-node s #(and (= :feed-card (:type %))
+                     (= k (get-in % [:data :trail-face/entry-key])))))
+
+(def r2-april (nth r2-entries 1))  ; source-ingested terrain, no fold, no move
+
+;; --- R2-G1: band-aware card builders (item 1, R4/R5; bounds rule v1.1 B1) ---
+
+(deftest r2-g1-band-card-builders-test
+  (let [ca   (:char-advance geom)
+        cw   (:card-w geom)
+        band-card (fn [b] (cards/feed-entry-card r2-april (assoc geom :band b)))
+        ops-of (fn [card] (vec (mapcat :text (all-nodes card))))
+        ;; the painted line region the bounds must equal (per-band): widest
+        ;; painted line clamped to card-w, with the builder's declared
+        ;; 2-advance floor so a one-glyph band-0 line stays clickable
+        ;; ("the click still lands" - the gate's own parenthetical)
+        painted-w (fn [card]
+                    (min cw (max (* 2 ca)
+                                 (reduce max 0
+                                         (map #(+ (:x %) (* (count (:text %)) ca))
+                                              (ops-of card))))))]
+    (testing "R2-G1: band 1 = EXACTLY one text op, ZERO rect-fill ops"
+      (let [c (band-card 1)]
+        (is (= 1 (count (ops-of c))) "one line op")
+        (is (str/includes? (:text (first (ops-of c))) "april.md") "glyph + name")
+        (is (empty? (rt/tree->rects c)) "zero rect-fill ops (typography, no box)")))
+    (testing "R2-G1: band 0 = glyph only - no name text, no staleness dot (S5 deferred)"
+      (let [c (band-card 0)
+            ops (ops-of c)]
+        (is (= 1 (count ops)) "glyph op only (no fold on this entry)")
+        (is (= "↓" (:text (first ops))) "the kind glyph, nothing else")
+        (is (not-any? #(str/includes? (:text %) "april") ops) "no name text")
+        (is (not-any? #(re-find #"[●◐○]" (:text %)) ops)
+            "no staleness dot - needs :last-attested-ms (attestation walk, deferred)")
+        (is (empty? (rt/tree->rects c)))))
+    (testing "R2-G1: band 2 = exactly two line ops (title + reading line)"
+      (let [c (band-card 2)
+            ops (ops-of c)]
+        (is (= 2 (count ops)))
+        (is (empty? (rt/tree->rects c)))))
+    (testing "R2-G1: per-band bounds = that band's painted line region; bounds
+              MAY differ across bands - band 0 is the densest (the compression
+              is the point); never cross-band identity"
+      (let [c0 (band-card 0) c1 (band-card 1) c2 (band-card 2)]
+        (doseq [c [c0 c1 c2]]
+          (is (== (painted-w c) (get-in c [:bounds :w]))
+              "hit width == painted line region width (clamped to card-w)"))
+        (is (== (+ 4 (* 1 (:line-height geom))) (get-in c0 [:bounds :h])))
+        (is (== (+ 4 (* 2 (:line-height geom))) (get-in c2 [:bounds :h])))
+        (is (< (get-in c0 [:bounds :h]) (get-in c2 [:bounds :h]))
+            "band-0 height < band-2 height")
+        (is (< (get-in c0 [:bounds :w]) (get-in c1 [:bounds :w]))
+            "band-0 paint (glyph) narrower than band-1 (glyph+name)")))
+    (testing "R2-G1: band 3 (open) - the surface node with bg is a SEPARATE
+              sibling; the title node stays the closed-card click target"
+      (let [ek ["oc:doc:earlier" 1782172000000]
+            s (r2-scene {:expanded #{ek} :order :arrival :band 2})
+            card (card-by-key s ek)
+            exp (find-node s #(and (= :expansion (:type %))
+                                   (= "oc:doc:earlier"
+                                      (get-in % [:data :trail-face/expanded]))))]
+        (is (some? card)) (is (some? exp))
+        (is (some? (get-in exp [:style :bg])) "the open surface carries the bg")
+        (is (empty? (rt/tree->rects card)) "the title/handle node stays typography")
+        (is (nil? (find-node card #(= :expansion (:type %))))
+            "the surface is NOT nested in the card - a separate sibling")
+        (is (= {:action :trail-face/toggle-expand :id ek}
+               (get-in card [:data :trail-face/click]))
+            "the title node keeps the closed-card click target")))))
+
+;; --- R2-G2: the band-2 reading line is entry DATA, never body text ----------
+
+(deftest r2-g2-reading-line-test
+  (let [second-line (fn [entry]
+                      (let [c (cards/feed-entry-card entry (assoc geom :band 2))]
+                        (:text (second (mapcat :text (all-nodes c))))))]
+    (testing "R2-G2: reading line == compressed two-clock stamp + asserter,
+              composed from entry DATA (tripwire 4: never a truncation of
+              material/body text)"
+      ;; Trunk-5 gate fix (DIFF_FALSIFICATION_CROSS S1): live source rows
+      ;; carry NO asserter (trail_view hard-codes nil; the fixture's
+      ;; "import:md" was an invention). Reading line = the stamp alone;
+      ;; asserter presence stays covered by the constructed entries below
+      ;; and the rt entries (whose asserters ARE live-real).
+      (is (= (cards/compressed-two-clock-stamp r2-april)
+             (second-line r2-april)))
+      (is (str/includes? (second-line r2-april) "claimed 04-24")
+          "compressed date form (design R5 exemplar)"))
+    (testing "R2-G2: nil claimed renders honestly (t4-spine claimed-ms is
+              consumed AS DATA - honest nil until the field lands)"
+      (let [chat (nth r2-entries 2)]
+        (is (str/includes? (second-line chat) "claimed unknown"))))
+    (testing "R2-G2: written-by rides the line ONLY when it differs"
+      (let [base {:entry/kind :source-ingested
+                  :entry/target {:id "oc:doc:x" :kind :doc :display-name "x.md"}
+                  :time/claimed-ms 1782000000000 :time/arrival-ms 1782100000000
+                  :entry/detail {:source-ref "docs/x.md" :derived-unit-count 1}}
+            differs (assoc base :entry/actor {:asserted-by "sid" :written-by "agent:x"})
+            same    (assoc base :entry/actor {:asserted-by "sid" :written-by "sid"})]
+        (is (str/includes? (second-line differs) "written-by agent:x"))
+        (is (not (str/includes? (second-line same) "written-by")))))
+    (testing "R2-G2: the reading line never contains material body text"
+      (let [material (get-in bundle [:bundle/targets "oc:doc:9fdoc"
+                                     :material :raw :content-text])]
+        (when (seq material)
+          (let [snippet (subs material 0 (min 12 (count material)))]
+            (doseq [e (remove #(= :relation-transition (:entry/kind %)) r2-entries)]
+              (is (not (str/includes? (or (second-line e) "") snippet))))))))))
+
+;; --- R2-G3: lanes from edges, band for the rest (item 5, R7) -----------------
+
+(deftest r2-g3-lanes-from-edges-test
+  (let [s (r2-scene {:expanded #{} :order :arrival :band 2})
+        cards* (card-nodes s)
+        by-tid (fn [tid] (first (filter #(= tid (first (get-in % [:data :trail-face/entry-key])))
+                                        cards*)))
+        chain (mapv by-tid ["oc:doc:cmt-a1" "oc:doc:cmt-a2" "oc:doc:cmt-a3"])]
+    (testing "R2-G3: the 3-commit :based-on chain occupies ONE lane"
+      (is (every? some? chain) "all three commit cards render")
+      (is (= 1 (count (distinct (map #(get-in % [:bounds :x]) chain))))
+          "one x indent = one lane")
+      (is (= #{"oc:doc:cmt-a1"} (into #{} (map #(get-in % [:data :trail-face/thread])) chain))
+          "thread identity = the lexicographically-smallest member id (§2.3)"))
+    (testing "R2-G3: unedged docs sit in the band region, below ALL threaded content"
+      (let [threaded (filter #(get-in % [:data :trail-face/thread]) cards*)
+            banded   (filter #(get-in % [:data :trail-face/band?]) cards*)
+            max-threaded-y (reduce max 0 (map #(+ (get-in % [:bounds :y])
+                                                  (get-in % [:bounds :h])) threaded))
+            band-tids (into #{} (map #(first (get-in % [:data :trail-face/entry-key]))) banded)]
+        (is (contains? band-tids "oc:doc:loose-1"))
+        (is (contains? band-tids "oc:doc:loose-2"))
+        (is (every? #(> (get-in % [:bounds :y]) max-threaded-y) banded)
+            "every band card renders below all threaded cards")
+        (is (not-any? #(get-in % [:data :trail-face/thread]) banded)
+            "NO unthreaded doc occupies its own lane")))
+    (testing "R2-G3: the band self-declares with its count"
+      (let [note (find-node s #(= :band-note (:type %)))
+            note-text (:text (first (all-text-ops note)))]
+        (is (some? note))
+        (is (= 4 (get-in note [:data :trail-face/band-count]))
+            "chat + folddoc + loose-1 + loose-2 = 4 unthreaded fold-units")
+        (is (str/includes? note-text "4 unthreaded"))
+        (is (str/includes? note-text "no asserted relations yet"))))
+    (testing "R2-G3: band reading order = time order (wrap-packing INSIDE only)"
+      (let [banded (filter #(get-in % [:data :trail-face/band?]) cards*)
+            visual (map #(first (get-in % [:data :trail-face/entry-key]))
+                        (sort-by (fn [c] [(get-in c [:bounds :y]) (get-in c [:bounds :x])])
+                                 banded))]
+        (is (= ["oc:chat-conversation:chat:ab12" "oc:doc:folddoc"
+                "oc:doc:loose-1" "oc:doc:loose-2"]
+               (vec visual))
+            "band cells read in arrival order, newest first")))
+    (testing "R2-G3 overflow (S4): max-lanes 1 + two threads -> the overflow
+              thread renders as a fold-chip with a count, never a mod-wrapped
+              lane. Rank rides the arrival attribute (design R7 ordering):
+              thread B's earliest entry (the du:9fdoc confirms mark,
+              1782166000000) predates thread A's first commit, so B holds
+              lane 0 and the COMMIT CHAIN overflows."
+      (let [s1 (scene/build-timeline-scene {:feed feed :bundles {}
+                                            :view-state {:expanded #{} :order :arrival}
+                                            :coverage coverage
+                                            :geom (assoc geom :max-lanes 1)})
+            chips (filter #(= :thread-overflow (:type %)) (all-nodes s1))
+            a-cards (filter #(= "oc:doc:cmt-a1" (get-in % [:data :trail-face/thread]))
+                            (filter #(= :feed-card (:type %)) (all-nodes s1)))]
+        (is (= 1 (count chips)) "exactly one overflow chip (thread A folds)")
+        (is (= "oc:doc:cmt-a1" (get-in (first chips) [:data :trail-face/thread]))
+            "thread identity = the smallest member id")
+        (is (= 6 (get-in (first chips) [:data :trail-face/fold-count]))
+            "the chip counts the whole thread (3 commits + 3 marks)")
+        (is (str/includes? (:text (first (all-text-ops (first chips)))) "6"))
+        (is (empty? a-cards) "no thread-A card mod-wraps into the visible lane")))))
+
+;; --- R2-G4: cross-links never merge lanes ------------------------------------
+
+(deftest r2-g4-cross-links-test
+  (testing "R2-G4: a :references edge between two threads does NOT merge them"
+    (let [{:keys [assignment]} (threads/assign r2-entries)]
+      (is (= "oc:doc:cmt-a1" (get assignment "oc:doc:cmt-a1")))
+      (is (= "oc:doc:9fdoc" (get assignment "oc:doc:earlier"))
+          "thread B identity = its smallest member id")
+      (is (not= (get assignment "oc:doc:cmt-a1") (get assignment "oc:doc:earlier"))
+          "assignments unchanged - two threads stay two threads")))
+  (testing "R2-G4: the cross-link renders as a kraft connector BETWEEN the lanes"
+    (let [s (r2-scene {:expanded #{} :order :arrival})
+          refs (filter #(and (= :kraft-connector (:type %))
+                             (= :references (get-in % [:data :trail-face/edge :kind])))
+                       (all-nodes s))]
+      (is (= 1 (count refs)) "the :references mark is a labeled kraft connector
+                              (both endpoint cards on screen)")
+      (is (str/includes? (:text (first (all-text-ops (first refs)))) "references")))))
+
+;; --- R2-G5: the fold rule (family folds INTO one card) ------------------------
+
+(deftest r2-g5-fold-test
+  (let [fold-ek ["oc:doc:folddoc" 1782168800000]]
+    (testing "R2-G5: a doc + its du: blocks render as ONE card at bands 0-2"
+      (doseq [b [0 1 2]]
+        (let [s (r2-scene {:expanded #{} :order :arrival :band b})
+              family-cards (filter #(let [tid (first (get-in % [:data :trail-face/entry-key]))]
+                                      (or (= "oc:doc:folddoc" tid)
+                                          (str/starts-with? (str tid) "du:folddoc")))
+                                   (card-nodes s))]
+          (is (= 1 (count family-cards)) (str "one card for the family at band " b))
+          (is (= fold-ek (get-in (first family-cards) [:data :trail-face/entry-key]))
+              "the carrier is the doc's terrain entry")
+          (is (= 2 (get-in (first family-cards) [:data :trail-face/fold-count]))
+              "two du: block entries folded in"))))
+    (testing "R2-G5: at band 0 the fold renders as a chip with the count"
+      (let [s (r2-scene {:expanded #{} :order :arrival :band 0})
+            card (card-by-key s fold-ek)
+            chip (first (filter :trail-face/fold-chip? (all-text-ops card)))]
+        (is (some? chip) "fold chip op present at band 0")
+        (is (str/includes? (:text chip) "2") "the chip carries the count")))))
+
+;; --- R2-G6: move announcement (item 6) - pure + ops ----------------------------
+
+(def r2-produced-entry
+  ;; the arriving edge: cmt-a1 --produced--> loose-1 (relation-activity
+  ;; shape, entry-0 precedent; target = the from side, as live emits)
+  {:entry/kind :relation-transition
+   :entry/target {:id "oc:doc:cmt-a1" :kind :doc}
+   :entry/address '(trail/context-bundle {:targets ["oc:doc:cmt-a1"]})
+   :time/claimed-ms 1782169500000
+   :time/arrival-ms 1782169500000
+   :entry/actor {:asserted-by "sid" :written-by nil}
+   :entry/detail {:kind :produced :status :asserted :relation-id "rel:mv1"
+                  :from {:kind :doc :id "oc:doc:cmt-a1"}
+                  :to {:kind :doc :id "oc:doc:loose-1"}}})
+
+(deftest r2-g6-move-chips-test
+  (let [feed2 (update feed :feed/entries conj r2-produced-entry)
+        s1 (r2-scene {:expanded #{} :order :arrival})
+        carry1 (get-in s1 [:data :trail-face/carry])
+        s2 (r2-scene {:expanded #{} :order :arrival} feed2 carry1)
+        moves (get-in s2 [:data :trail-face/carry :moves])]
+    (testing "R2-G6: one doc gains a :produced edge -> exactly ONE move record"
+      (is (map? moves) "moves API returns a target-id-keyed MAP (§2.5)")
+      (is (= ["oc:doc:loose-1"] (vec (keys moves)))
+          "loose-1 moved; the surviving thread id came from the OTHER side, so
+           nothing else fires (§2.3, validator trace B)")
+      (is (= :band (get-in moves ["oc:doc:loose-1" :from])))
+      (is (= "oc:doc:cmt-a1" (get-in moves ["oc:doc:loose-1" :to]))))
+    (testing "R2-G6: the reason is sayable - kind + far end's display-name"
+      (is (= "joined thread · produced aaa1111"
+             (get-in moves ["oc:doc:loose-1" :reason]))))
+    (testing "R2-G6: the moved card's ops carry the new-since chip; every
+              other card carries none"
+      (let [mover (card-by-key s2 ["oc:doc:loose-1" 1782168600000])
+            chip (first (filter :trail-face/new-since-chip? (all-text-ops mover)))]
+        (is (some? chip))
+        (is (str/includes? (:text chip) "joined thread · produced aaa1111"))
+        (doseq [c (card-nodes s2)
+                :when (not= "oc:doc:loose-1"
+                            (first (get-in c [:data :trail-face/entry-key])))]
+          (is (empty? (filter :trail-face/new-since-chip? (all-text-ops c)))
+              "non-movers carry no chip"))))
+    (testing "R2-G6: honest fallback - far end without a display-name names
+              its raw id (v1.1 S6)"
+      (let [e2 (conj (:feed/entries feed)
+                     (assoc-in r2-produced-entry
+                               [:entry/detail :from :id] "oc:doc:9fdoc"))
+            prev-a (threads/assign (:feed/entries feed))
+            new-a (threads/assign e2)
+            mv (threads/moves (:assignment prev-a) (:edges prev-a)
+                              (:assignment new-a) (:edges new-a) e2)]
+        (is (= "joined thread · produced oc:doc:9fdoc"
+               (get-in mv ["oc:doc:loose-1" :reason])))))
+    (testing "R2-G6: determinism - same inputs, identical output"
+      (is (= s2 (r2-scene {:expanded #{} :order :arrival} feed2 carry1)))
+      (is (= moves (get-in (r2-scene {:expanded #{} :order :arrival} feed2 carry1)
+                           [:data :trail-face/carry :moves]))))
+    (testing "R2-G6: a rebuild with an UNCHANGED feed keeps the chips (moves
+              persist until the next pull, not the next unrelated click)"
+      (let [carry2 (get-in s2 [:data :trail-face/carry])
+            s3 (r2-scene {:expanded #{} :order :arrival} feed2 carry2)]
+        (is (= moves (get-in s3 [:data :trail-face/carry :moves])))))
+    (testing "R2-G6 (gate fix, falsification S1): a thread MERGE that re-roots
+              the absorbed side fires a chip ONLY on the merging edge's changed
+              endpoint - never on re-rooted bystanders"
+      (letfn [(doc [id ms] {:entry/kind :source-ingested
+                            :entry/target {:id id :kind :doc :display-name id}
+                            :time/claimed-ms nil :time/arrival-ms ms
+                            :entry/actor {:asserted-by nil :written-by nil}
+                            :entry/detail {:source-ref id :derived-unit-count 1}})
+              (rel [rid from to ms]
+                {:entry/kind :relation-transition
+                 :entry/target {:id from :kind :doc}
+                 :time/claimed-ms ms :time/arrival-ms ms
+                 :entry/actor {:asserted-by "sid" :written-by nil}
+                 :entry/detail {:kind :based-on :status :asserted
+                                :relation-id rid
+                                :from {:id from :kind :doc}
+                                :to {:id to :kind :doc}}})]
+        (let [base [(doc "oc:doc:m1" 1000) (doc "oc:doc:m2" 2000)
+                    (doc "oc:doc:z8" 3000) (doc "oc:doc:z9" 4000)
+                    (rel "rel:m" "oc:doc:m2" "oc:doc:m1" 5000)
+                    (rel "rel:z" "oc:doc:z9" "oc:doc:z8" 6000)]
+              merged (conj base (rel "rel:x" "oc:doc:z8" "oc:doc:m2" 7000))
+              prev-a (threads/assign base)
+              new-a  (threads/assign merged)
+              mv (threads/moves (:assignment prev-a) (:edges prev-a)
+                                (:assignment new-a) (:edges new-a) merged)]
+          ;; sanity: the merge really re-roots the z side (z8+z9 change value)
+          (is (= "oc:doc:z8" (get-in prev-a [:assignment "oc:doc:z9"])))
+          (is (= "oc:doc:m1" (get-in new-a [:assignment "oc:doc:z9"])))
+          ;; the chip fires ONLY on z8 (endpoint of the NEW edge whose
+          ;; assignment changed); z9 is a re-rooted bystander - NO chip
+          (is (= ["oc:doc:z8"] (vec (keys mv)))
+              "merge fires exactly one chip: the changed incident endpoint")
+          (is (= "joined thread · based-on oc:doc:m2"
+                 (get-in mv ["oc:doc:z8" :reason]))
+              "reason cites the ADDED edge, not a pre-existing intra-thread one"))))))
+
+;; --- R2-G7: order is DATA, never sequence position (§2.5, PROBE-10K) -----------
+
+(deftest r2-g7-order-as-data-test
+  (testing "R2-G7a: a permuted-input copy yields a BYTE-IDENTICAL scene"
+    (let [perm1 (update feed :feed/entries (comp vec reverse))
+          perm2 (update feed :feed/entries
+                        (fn [es] (vec (concat (drop 7 es) (take 7 es)))))
+          base (r2-scene {:expanded #{expanded-key} :order :arrival})]
+      (doseq [p [perm1 perm2]]
+        (let [sp (r2-scene {:expanded #{expanded-key} :order :arrival} p)]
+          (is (= base sp) "value-identical")
+          (is (= (pr-str base) (pr-str sp)) "byte-identical (pr-str)")))))
+  (testing "R2-G7b: thread/band membership rides EVERY entry node as DATA -
+            including kraft mark nodes (an edge belongs to the thread its
+            endpoints define, v1.1 A3)"
+    (let [s (r2-scene {:expanded #{} :order :arrival})]
+      (doseq [n (all-nodes s)
+              :when (or (get-in n [:data :trail-face/entry-key])
+                        (get-in n [:data :trail-face/kraft?]))]
+        (is (contains? (:data n) :trail-face/thread)
+            (str "node missing :trail-face/thread: " (:id n)))
+        (is (contains? (:data n) :trail-face/band?)
+            (str "node missing :trail-face/band?: " (:id n))))
+      (let [threaded-card (card-by-key s ["oc:doc:cmt-a1" 1782167000000])]
+        (is (number? (get-in threaded-card [:data :trail-face/thread-rank]))
+            "rank rides as data (Δ9: the later Rama move is a lift)")
+        (is (number? (get-in threaded-card [:data :trail-face/thread-index]))
+            "in-thread index rides as data"))))
+  (testing "R2-G7c: assignment/move APIs return KEYED MAPS, never a re-sorted
+            entry seq"
+    (let [{:keys [assignment thread-rank thread-index]} (threads/assign r2-entries)]
+      (is (map? assignment))
+      (is (every? string? (keys assignment)) "keyed by target-id")
+      (is (map? thread-rank))
+      (is (map? thread-index))
+      (is (every? vector? (keys thread-index)) "keyed by entry-key")
+      (is (map? (threads/moves {} nil assignment nil r2-entries))))))
+
+;; --- R2-G8 (determinism) + R2-G9 (constraints re-run additions) ----------------
+
+(deftest r2-g8-determinism-test
+  (doseq [b [0 1 2]]
+    (is (= (r2-scene {:expanded #{} :order :arrival :band b})
+           (r2-scene {:expanded #{} :order :arrival :band b}))
+        (str "same fixture -> identical scene at band " b))))
+
+(deftest r2-g9-band-command-test
+  (testing "R2 §2.2: /trail band drives the view-state band (allowlist §5 form)"
+    (is (= {:op :band :band 0} (scene/parse-trail-command "/trail band 0" edn/read-string)))
+    (is (= {:op :band :band 1} (scene/parse-trail-command "/trail band 1" edn/read-string)))
+    (is (= {:op :band :band 2} (scene/parse-trail-command "/trail band 2" edn/read-string)))
+    (is (nil? (scene/parse-trail-command "/trail band 9" edn/read-string))
+        "out-of-range band parses to nothing - never a silent clamp"))
+  (testing "R2-G9: the R-1 palette forms still parse (constraints re-run)"
+    (is (= {:op :set :state {:face :timeline :order :arrival :address nil}}
+           (scene/parse-trail-command "/trail timeline" edn/read-string)))
+    (is (= {:op :off} (scene/parse-trail-command "/trail off" edn/read-string)))
+    (is (= {:op :order :order :claimed}
+           (scene/parse-trail-command "/trail order claimed" edn/read-string)))))
 
 ;; --- Gate 16: fixture fidelity (hand fixtures vs LIVE WP1 wrapper shapes) ----
 

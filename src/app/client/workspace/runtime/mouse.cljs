@@ -417,8 +417,13 @@
   (let [viewport @!viewport
         scroll-y @!scroll-y
         settings @!settings
-        sb-vis? (and !sidebar-visible @!sidebar-visible)
         local-world @!effective-local-world
+        ;; trail-room R-2 / W-1 (R-1 debt 1): click space must match render
+        ;; space - the layout force-hides the sidebar in trail faces (the
+        ;; derived world's judgment), so hit-testing must too, never the
+        ;; raw atom alone.
+        sb-vis? (and !sidebar-visible @!sidebar-visible
+                     (not (ws/local-world-trail-face? local-world)))
         ;; Settings overlay
         panel-w 600  panel-h 480
         panel-x (/ (- (:width viewport) panel-w) 2)
