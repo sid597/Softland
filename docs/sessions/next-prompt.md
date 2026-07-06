@@ -1,3 +1,218 @@
+# 🌲 TRUNK-4 MARATHON — all-fronts wave (updated 2026-07-06 mid-session by Trunk-4; supersedes the DO-list in the opening block below — its LAND STATE section remains the verified baseline)
+
+**Authorization (Sid, in-session, Trunk-4 chat):** maximalist blanket — "i want
+you to be unrealistic and we need to get done soooo much every fucking thing we
+can think of"; all 4 fronts start now; **Codex 5.5 xhigh fast admitted to the
+builder pool**; all-models bench sweep ordered ("run all the models ... that way
+you will have a much better understanding of what to use underneath" — verbatim
+in `vision/LOG.md` 2026-07-06). Strategy ruled with Sid: offense batched,
+defense at TWO boundaries only — (a) wave-end falsification-by-CLASS + Fable
+gate, (b) next-wave contract validation PIPELINED during the current wave's
+code (text artifacts, zero collision). Gate tests are OFFENSE: builders write
+each contract gate as a deftest in the same batch as its code.
+
+**Structure:** ONE trunk (this lineage) owns baton · gates · the ONE serial
+suite · falsification dispatch · commits · and authors the **FACE-2 contract**
+(text, in-trunk, parallel to branches; countersign at Sid's sitting AFTER R-2
+first light — the sitting evidence rides in). Branches = disjoint file fences,
+ns-level tests only, NO commits, NO baton writes; each closes with an
+assertion-grade report at its named path. Paste-ready prompts (TRUNK prompt
+first, then the four branches): `docs/sessions/t4-branch-prompts.md`. Naming:
+branches stamp `Trunk-4 / t4-<fence>`; sessions renamed to their role.
+**Trunk handover:** Trunk-4 EXECUTION runs in a fresh session booted from the
+trunk-4 prompt in that file; the orientation session (where-we-at-softland)
+authored this block and stands down as trunk at that boot — one live trunk at
+a time.
+
+| Branch | Fence | Job | Report |
+|---|---|---|---|
+| **t4-room** | trail_face/* + CONTRACT_R2 allowlist §5 (rect_tree UNTOUCHED = stop-clause) | THE R-2 WAVE per CONTRACT_R2.md v1.1 (countersigned) | `build/trail-room/BRANCH_REPORT_R2.md` |
+| **t4-spine** | server only: git_spine.clj · trail_view.clj feed assembly · ingest_watchers.clj + tests | claimed-ms (ADDITIVE) · dangling-doc-edge diagnosis · [GIT-SPINE] stats verify · incremental-jsonl stretch · :workers-2 smoke | `build/git-spine/BRANCH_REPORT_SEAMS.md` |
+| **t4-substrate** | font/atlas/slug pipeline + renderer glyph tables ONLY | Δ7 slug glyph expansion (DELTA-B1; feasibility-with-exact-blocker is a valid deliverable) | `build/render-north/BRANCH_REPORT_D7.md` |
+| **t4-bench** | runs/ · snapshots/ · tools/model-uxr · ccr config; NO product src | LM-1b autopsy + nemotron rerun · new arms at PINNED 127376b0 (sonnet-5 · haiku-4.5 · codex-5.5-xhigh-fast via ccr) — pre-register arms first; budget ruling stands: NO API dollars | `runs/<run>/BRANCH_REPORT_SWEEP.md` |
+
+**Coordination flags:** claimed-ms is additive — t4-room renders the band-2
+two-clock stamp with honest nil until t4-spine lands it; any file collision =
+STOP + report (marathon collision protocol); zero-work-agent glitch fix =
+resume with an explicit first action.
+
+**Wave boundary (trunk only):** branch reports in → ONE serial suite (baseline
+191/2210, 1 known dogfood-space contention flake) → ONE batched falsification
+by CLASS → Fable gate → per-package CODE commits (docs separate) → light retro
++ D-006 note.
+
+**Sid's sitting bundle (one sitting, mid-marathon):** R-2 first light + his
+eyeball list (kraft labels · dangling edges · [GIT-SPINE] stats · idle
+content-same? ratio) · H1 arming signature (HIS hand; candidate preserved) ·
+face-2 contract countersign · intake rules (LM thresholds + pool routing, with
+bench rankings in hand). Then: the face-2 wave — Δ1/Δ2 birth laws, Δ3 store,
+camera; camera going live lawfully fires Δ13/Δ14; Δ3+RAF evidence fires Δ15.
+
+**TRUNK-4 CHECKPOINT (2026-07-06 — SESSION CLOSED at ~350k, stood down on
+Sid's call; the TRUNK-5 BOOT block below this checkpoint is the live
+order. This checkpoint is Trunk-4's assertion-grade record. Stamped
+Trunk-4):**
+- **FACE-2 CONTRACT v1 AUTHORED** → `build/face-2/CONTRACT.md` @ 719a9d9
+  (PROPOSED; birth laws B1–B5 head it; Δ1–Δ4/Δ6/Δ9–Δ11 in scope, Δ5/Δ8
+  subsumed/fired; Δ12/Δ15/Δ16 pre-staged cascade §10; 20-trap ledger; gates
+  G1–G19 + G-FL + G-Δ; countersign = Sid's sitting AFTER R-2 first light).
+  file(1) text-verified. Authoring catch: PRIMITIVES' `!zoom-factor` cite
+  (`global_flow.cljs:59` ⓘ) is STALE — no such atom at 719a9d9 (trap 19).
+- **Branch-dispatch correction:** the four branches were never separate
+  sessions — dispatched 2026-07-06 from THIS trunk as background subagents
+  (verbatim prompts, /rename stripped; t4-room on Fable, rest Opus; ids held
+  in-trunk). Zero-work glitch fired on spine/substrate/bench at launch;
+  all three resumed with explicit first actions (the documented fix). t4-room
+  never glitched.
+- **CONTRACT validation R1 RAN: FAIL (2B/2S/3A) → ALL FOLDED into v1.1**
+  (artifact kept verbatim). B1: Δ13's text-clip retirement lives in
+  `rect_tree/tree->text-ops` → ONE lawful named rect_tree edit added to §6.
+  B2: Δ9's server-side move killed on D-001 + R-2 §2.1 (binding form-break
+  condition) + allowlist unreachability (trail-view mirrors OC only;
+  relations client-composed) → Δ9 = client-side named projection registry
+  this wave; Rama placement pre-staged §10. **Honest-ledger: this deviates
+  from the standing order's "Δ9 in Rama" — Sid may override at
+  countersign.** S1: chrome camera "separate buffer" was FALSE
+  (clone-text-system shares buffer+bind-group; dead guard) → new buffer +
+  bind-group + G8b + trap 21. Face-2 now touches ZERO server files.
+  Round-2 = Sid's call at countersign. 4th consecutive Fable contract with
+  real text errors killed by fresh-context validation (D-006 tally).
+- **BRANCH REPORT IN — t4-substrate Δ7: BUILT, falsifier PASS**
+  (`build/render-north/BRANCH_REPORT_D7.md`; fence verified clean). Slug
+  95→591 glyphs via the in-repo generator (`src-build/build/slug_font.clj`
+  — the GATE_REVIEW_B2 "missing toolchain" existed all along); zero
+  renderer changes; switch-on = one manifest flip, Sid's call. ⚠ slug
+  advance = 0.602051 (DejaVu) vs the ~30 hardcoded 0.56 (Ubuntu) sites —
+  the flip must ride with an advance sweep (logged for G17/sitting). ⟳
+  U+27F3 is a real DejaVu gap; ↻ covered.
+- **BRANCH REPORT IN — t4-spine: ALL FOUR SEAMS CLOSED**
+  (`build/git-spine/BRANCH_REPORT_SEAMS.md`; ns suites 7/167 + 13/295 +
+  7/44 all green; no commits). Seam 1: claimed-ms via NEW explicit request
+  key `:claimed/at-ms` + additive `claimed-at-ms` on
+  SourceIngestCompletionRow (declared fence carve-out — kernel row
+  additive-field; gate scrutinizes) — commits two-clock, md nil-honest.
+  Seam 2: dangling doubt was REAL — `/home/sid/projects/Softland` is a
+  SYMLINK to `/mnt/data/...`; 1 dishonest dangler live (1,089 exposure on
+  symlink-cwd boot); `canonical-under-roots` rebase fix; live dangler
+  self-heals next boot. Seam 3: TWO stats drifts fixed (converged re-runs
+  printed as fresh → fresh/converged/rejected/unresolved split; per-file
+  session dedup over-counted edges ~300× → run-level dedup). Seam 4:
+  `:workers 2` smoke PASS (queue item closed); incremental-jsonl
+  deliberately NOT built — instance-scoped cursor makes cross-boot skip
+  impossible; honest routes (durable cluster OR durable spine-edge replay
+  log) = POLICY-GRADE DECISION FOR THE SITTING. 6 doubts w/ falsifiers in
+  the report. object_container.clj + markdown_adapter.clj touches =
+  declared carve-outs, falsification hunts them.
+- **t4-bench STOPPED on Sid's word (2026-07-06, mid-grading).** Preserved
+  on disk, uncommitted: pre-registration (RUNBOOK/MANIFEST), raw
+  completions for ALL four new arms (sonnet-5 · haiku-4.5 · codex-via-ccr
+  · nemotron-16kdry rerun), partial grades for three arms. NO
+  BRANCH_REPORT_SWEEP.md — the sweep is PAUSED, not closed; resumable
+  (trunk holds the agent handle) or a fresh session can grade from the
+  raw dirs. Intake-sitting rankings are incomplete until resumed.
+  FULL STOP executed on Sid's word — in three moves, one lesson: (1)
+  t4-bench agent killed; (2) Nemotron llama-server (8091) killed,
+  GPU/RAM freed; (3) LESSON: killing a parent agent does NOT cascade to
+  its child graders — a haiku grader survived and ran batches until Sid
+  stopped it from the panel (~14:08 last grade write). Verified quiet:
+  no fresh grade files, no benchmark OS processes. Restart cost when
+  resumed: reload the gguf into llama-server (~a minute), then grade
+  from the raw dirs (grades through ~batch-6/P7 already on disk).
+- **BRANCH REPORT IN — t4-room: R-2 BUILT END TO END, no stop-clauses**
+  (`build/trail-room/BRANCH_REPORT_R2.md`; 9 files in-fence; NEW
+  `threads.cljc`; G1–G10 PASS as deftests; ns 28/680/0 incl. R-1 +
+  view-mvp gates + live fixture-fidelity AFTER spine's changes; shadow
+  :dev 0 warnings; gates caught 3 real bugs in-batch). The three
+  unvalidated v1.1 additions HELD at implementation contact. 6 doubts
+  in the report.
+- **Trunk-4 STOOD DOWN at ~350k (Sid's call, 2026-07-06) — the wave
+  boundary is TRUNK-5's. All four fences are CLOSED; the tree is the
+  wave's uncommitted output.**
+
+---
+
+# 🌲 TRUNK-5 BOOT — run the wave boundary (authored by Trunk-4 at stand-down)
+
+**You are Trunk-5.** One live trunk; you own the suite, falsification
+dispatch, gates, commits (Sid's word), and the sitting. Branch reports on
+disk: `build/trail-room/BRANCH_REPORT_R2.md` ·
+`build/git-spine/BRANCH_REPORT_SEAMS.md` ·
+`build/render-north/BRANCH_REPORT_D7.md` (bench = PAUSED, see above).
+Standing: bypassPermissions is ON (project settings.local.json; deny
+backstops on `git push` + `env.clj` read — never lift them). Docs only on
+this branch, never pushed; code/docs separate commits.
+
+**VERIFIED FACTS (Trunk-4 verified on disk — do not re-derive):**
+- **Endpoint gap is REAL:** `trail_view.clj` `relation-activity-entry`
+  emits `:entry/detail {:kind :status :relation-id}` — NO `:from`/`:to`
+  (fixtures carry them; live doesn't). R-2 §7.4's "(it does today)" was a
+  CONTRACT-TEXT ERROR → honest-ledger note (criterion-3 style) + additive
+  gate-fix: detail gains from/to {:id :kind} from the activity row —
+  FIRST verify the R3 activity row carries to-id/to-kind (grep
+  relation_kernel.clj); then t4-room's lanes see real edges over the live
+  corpus; re-run trail-face + trail-view nss. Without this fix R-2 first
+  light is an honest all-band face (t4-room's top doubt).
+- Suite invocation: `clojure -M:test -e "(require '[clojure.test :as t]
+  '<ns…>) (t/run-tests '<ns…>)"` — ONE JVM, all test nss serial.
+  Baseline at wave open 191/2210; it MOVES with the wave's new gates
+  (never hardcode — R-2 G11). Known flake: dogfood-space contention
+  under live dev-server load (standalone green).
+- Slug advance: new slug set is uniform 0.602051 (DejaVu) vs ~30
+  hardcoded 0.56 (Ubuntu) sites — switch-on flip must ride an advance
+  sweep (face-2 wave, Sid's call; G17).
+
+**DO, IN ORDER (wave boundary, delivery mode):**
+1. **ONE serial suite** (command above; expect green given branch ns
+   receipts; failures → diagnose before falsification).
+2. **ONE batched falsification by CLASS** — 3 fresh Opus subagents
+   (state count + token shape first): (a) t4-room diff — classes:
+   unclipped text ops, phantom moves, per-band bounds-vs-paint,
+   watched-input feedback (trap 13), order-as-data (G7), fold
+   precedence edges, + the report's 6 doubts; (b) t4-spine diff —
+   classes: fence carve-out custody (`object_container.clj` additive
+   row field, `markdown_adapter.clj` canonicalization), claimed-at-ms
+   replay determinism (no wall-clock in topology), fresh/converged
+   split truth, run-level dedup (did it swing to UNDER-count?),
+   `canonical-under-roots` edge cases (out-of-root, nested symlinks),
+   + 6 doubts; (c) cross-package — the fixture-vs-live drift CLASS
+   (endpoint gap = instance 1; hunt siblings), claimed-ms end-to-end
+   (commit two-clock vs md nil-honest), band-2 stamp rendering.
+3. **Fable gates, per package, code read IN FULL:**
+   `GATE_REVIEW_R2.md` (trail-room) · `GATE_REVIEW_SEAMS.md`
+   (git-spine) · `GATE_REVIEW_D7.md` (render-north, light — asset
+   regen; check `.pre-d7.bak` hygiene + the 95-glyph byte-identity
+   claim). Apply fixes AT gate (wave-1 precedent), incl. the endpoint
+   additive fix; re-run touched nss; CLAUDE.md falsification protocol
+   sections in each artifact.
+4. **Per-package CODE commits on Sid's word** (room · spine · substrate
+   assets; docs separate, this branch only).
+5. **Light retros + ONE D-006 wave note**: face-2 validation R1 kill
+   record (4th consecutive Fable contract with real text errors caught
+   — B1 fence-collision, B2 imagined-demand+unreachable, S1 false GPU
+   citation); delivery mode held for a 4-branch parallel wave; process
+   lessons → quirks (already written: zero-work glitch ×3, grader
+   no-cascade).
+6. **SID'S SITTING**: R-2 first light over the real corpus (post
+   endpoint-fix) + eyeball list — 2 items PRE-ANSWERED, verify live
+   (dangling doc edge root-caused: /home symlink → canonical rebase,
+   self-heals on boot; [GIT-SPINE] stats: fresh/converged split +
+   run-level dedup) · kraft legibility + idle content-same? ratio
+   (still open) · H1 arming signature (HIS hand;
+   vision/images/2026-07-05-h1-arming-candidate.png) · **face-2
+   COUNTERSIGN** (`build/face-2/CONTRACT.md` v1.1 — flag the Δ9
+   deviation: client-side registry this wave, NOT "in Rama" as the
+   standing order said, killed by validation on D-001 + R-2 §2.1 +
+   allowlist unreachability; Sid may override; round-2 validation =
+   his call) · POLICY FORK (from t4-spine): incremental-jsonl needs
+   durable cluster OR durable spine-edge replay log — Sid rules ·
+   intake rules: bench rankings INCOMPLETE (sweep paused; resume =
+   llama-server reload + grade from raw dirs, batch 7+ outstanding;
+   Trunk-4's agent handles are dead — fresh grading session if
+   resumed).
+7. Then: **the face-2 wave** per CONTRACT v1.1, on countersign.
+
+---
+
 # 🌲 TRUNK-4 OPENING (authored 2026-07-06 by the Trunk-1 checkup; supersedes nothing below — it CONSOLIDATES the block beneath it)
 
 **Naming convention, adopted:** the orchestrating lineage = TRUNK sessions
@@ -26,7 +241,8 @@ unmeasured until relations/ ablation differs from A0. H1 arming CANDIDATE
 preserved (`vision/images/2026-07-05-h1-arming-candidate.png`) — **awaits
 SID'S HAND in the BETS verdict log**; surface once, don't push.
 
-**DO, IN ORDER:**
+**DO, IN ORDER (SUPERSEDED 2026-07-06 by the MARATHON block above — R-2 is now
+branch t4-room's job under trunk gate; items 2–3 fold into the sitting bundle):**
 1. **THE R-2 BUILD WAVE** — this session's job.
    `build/trail-room/CONTRACT_R2.md` v1.1 COUNTERSIGNED-BINDING (round-2
    waived — "implementation forward"). Delivery mode (D-006 e2): Fable

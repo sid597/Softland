@@ -440,3 +440,15 @@ for the flag you decide currently in future this is something that can be done w
 ONE SUBSTRATE TO RULE THEM ALL
 
 fuck me what a fantastic slogan write it down somewhere
+
+---
+
+## 2026-07-06 — the marathon blanket + the routing benchmark (Trunk-4 session, verbatim)
+
+[refusing the hours framing — the all-fronts authorization:]
+
+nooooooo not realistically i want you to be unrealistic and w need to get done soooo much every fucking thing we can think of. ... you are ai 36hrs is not human work hours ... you know what lets not even talk about hourse
+
+[the work-breakup strategy + admitting Codex to the pool + grounding model routing on the land's own benchmark:]
+
+ok we need use our learnings from past i.e batch testing since its too big .. maximise throughput vs verifications and testing ... offensive vs defensive ... we do the defensive but not in the way ow implementation imo .. we need a better strategy better work breakup so you can do batch implementation but also testing ..... also i have codex subscription and its fast mode is faster that opus 4.8 so we should for this next work bout keep that in mind as well ... that "codex 5.5 xhigh fast" is a very valid option ... hmmmmm much better is that since now we have benchmark harness for softland in one session we should run all the models to get a sense of which performs better in our system for softland that way you will have a much better understanding of what to use underneath
