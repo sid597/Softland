@@ -50,6 +50,15 @@ Sid's 2026-07-03 message confirms this is the goal ("make the 27-04-2026 view co
 true in softland itself"). The earlier framing of this decision as "overruling the
 headless plan" was wrong — the real dispute was sequencing, now split out as D-005.
 
+**AMENDED IN PLACE 2026-07-08 (A1; countersigned — Sid's blanket, session
+`18d63935`): the UNIT is rescoped.** The first form's unit moves from containers
+(sessions/files/commits as peers) to sense-line units (episodes and their marks),
+per the 2026-07-07 form-break (`design/claude/atomic-unit-2026-07-07.md` §1 —
+container granularity cannot meet this decision's stated goal at any rendering).
+The goal and View-3 agent-legibility are unchanged; the container trail demotes
+to one evidence-lens. Model: `sense-line-model.md`; working map:
+`build/sense-line-mvp/DIRECTION.md`.
+
 ---
 
 ## D-003 — Code enters Softland per the two-regime split (Regime-1 spine first)
@@ -465,6 +474,16 @@ expanding scope... it will be testable by me"); the Fable falsification pass
 the same day found no scope hole (the one real gap it surfaced — custody
 recording — is item 2's hard gate).
 
+**AMENDED IN PLACE 2026-07-08 (A2; countersigned — Sid's blanket, session
+`18d63935`): the WRITE boundary is rescoped.** The machine marker writes marks
+as provenance-first observations via the lawful worker→Rama path (back-arrow
+compliant; the view still never mutates truth; silver/gold provenance tiers
+visible per map-must-not-lie). Human write-gestures through the UI remain gated
+until spec'd — item 1's view-write prohibition stands for the VIEW; item 5's
+read→write milestone now governs UI gestures only. Sid 2026-07-08: "should we
+work read-only? my answer is no — we already have some code written out … start
+from where we are."
+
 ---
 
 ## D-009 — Fork 2: ONE SUBSTRATE (three projection families over one address space)
@@ -538,6 +557,19 @@ What this closes:
 Evidence this rests on: the Trunk-5 wave receipts (five defects caught by the
 QC layers with zero Sid attention in the loop) and the observed bottleneck at
 wave close — every lane was queued on approvals whose cost was revert-cheap.
+
+**REACH CLARIFIED 2026-07-08 (Sid verbatim, session `18d63935`):** "all
+approved by default and i would even go far to say just make the amendment in
+place all theses decisions seems to be at the operational level … they are
+cockblocking types no one fucking reads this to even countersign … remove that
+can't commit shit as well .. we can commit." Applied: (a) operational
+amendments to CLOSED decisions are edited IN PLACE with dated, attributed
+notes — no PROPOSED queue; (b) sessions COMMIT their own work without
+word-gating (stale baton language "commits on Sid's word (hard rule)" is
+SUPERSEDED); (c) the §2 operating test governs Fable's own behavior, not just
+work products — revert-cheap ⇒ do it and record. Standing stops remain only at
+irreversible boundaries: pushing/merging the docs branch (never), env.clj,
+spend, future-binding architecture/nouns, North authorship.
 
 ---
 
@@ -664,30 +696,15 @@ wave close — every lane was queued on approvals whose cost was revert-cheap.
 
 ---
 
-## Amendments PROPOSED 2026-07-08 — sense-line MVP direction (A1 · A2)
+## Amendments A1 · A2 — COUNTERSIGNED 2026-07-08, applied IN PLACE
 
-Source: session `18d63935` (Fable-max direction session). Full context:
-`docs/current-mental-model/build/sense-line-mvp/DIRECTION.md` §5; model doc:
-`docs/current-mental-model/sense-line-model.md`. Both amendments arise from
-the 2026-07-07 form-break (`design/claude/atomic-unit-2026-07-07.md` §1 —
-container granularity broke against real evaluation) plus Sid's 2026-07-08
-raw-note rulings in-session. PROPOSED — Sid's countersign flips each.
-
-**A1 — amend D-002 (first form = the trail view): rescope the UNIT.**
-The first form's unit moves from containers (sessions/files/commits as
-peers) to sense-line units (episodes and their marks). Grounds: container
-granularity cannot meet D-002's stated goal ("seeing it makes sense of like
-a decision tree and build artifacts") at any rendering — form-break
-evidence, not a new argument. D-002's goal and View-3 agent-legibility
-survive unchanged; the container trail demotes to one evidence-lens.
-STATUS: PROPOSED.
-
-**A2 — amend D-008 (read-only MVP): rescope the WRITE boundary.**
-The machine marker writes marks as provenance-first observations via the
-lawful worker→Rama path (back-arrow compliant; the view still never mutates
-truth; silver/gold provenance tiers visible per the map-must-not-lie law).
-Human write-gestures through the UI remain gated as before until spec'd.
-Grounds: Sid 2026-07-08 ("should we work read-only? my answer is no — we
-already have some code written out … start from where we are"); D-008's
-original rationale (view-mutation danger) is untouched by machine
-observations. STATUS: PROPOSED.
+Ruled by Sid same day, verbatim: "all approved by default and i would even go
+far to say just make the amendment in place all theses decisions seems to be
+at the operational level." Applied as dated amendment notes inside D-002 (A1:
+unit rescoped to sense-line units) and D-008 (A2: write boundary rescoped for
+the machine marker) — the in-place form the D-010 reach clarification above
+mandates; this entry is lineage only. Source session `18d63935`; context:
+`build/sense-line-mvp/DIRECTION.md` §5 + `sense-line-model.md`; grounds: the
+2026-07-07 form-break (`design/claude/atomic-unit-2026-07-07.md` §1) + Sid's
+2026-07-08 raw-note rulings. The PROPOSED-queue form this section briefly wore
+(same day) was itself an instance of the ceremony D-010 abolished — retired.

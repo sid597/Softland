@@ -1,6 +1,6 @@
 # The Sense-Line Model — what Softland is building toward now
 
-2026-07-08 · born of session `18d63935` (Fable-max fresh cut, "mint-failure-analysis") braided with session `7c80ce2a` (the design sitting) · **status: LIVING.** Sid countersigned the *direction* in conversation; the *words* here are Fable's and await his redline. All vocabulary is working scaffolding — names finalize by recurrence, and the naming is Sid's.
+2026-07-08 · born of session `18d63935` (Fable-max fresh cut, "mint-failure-analysis") braided with session `7c80ce2a` (the design sitting) · **status: LIVING** — approved by default (D-010), Sid redlines anytime. All vocabulary is working scaffolding — names finalize by recurrence, and the naming is Sid's.
 
 ## What this document is
 

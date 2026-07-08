@@ -1,8 +1,8 @@
 # Sense-Line MVP — Direction & Working Map
 
-2026-07-08 · status: PROPOSED working map, Sid redlines · **boots from `docs/current-mental-model/sense-line-model.md` — read that first; this doc is deliberately mid-altitude.** Written by Fable in session `18d63935` on Sid's word ("Let's get started on the docs").
+2026-07-08 · status: LIVE working map (approve-by-default per D-010; Sid redlines anytime) · **boots from `docs/current-mental-model/sense-line-model.md` — read that first; this doc is deliberately mid-altitude.** Written by Fable in session `18d63935` on Sid's word ("Let's get started on the docs").
 
-Two of Sid's raw-note rulings are recorded here at raw-note grade (his words, not yet formal decisions): **no full-past-data run** and **not read-only**. Formalization = the two proposed amendments in §5, entering `decisions.md` as PROPOSED on his word.
+Sid's two rulings — **no full-past-data run** and **not read-only** — are formalized: A1/A2 countersigned 2026-07-08 (Sid's blanket) and applied IN PLACE at D-002/D-008 in `decisions.md`.
 
 ---
 
@@ -84,7 +84,7 @@ Carries: face-2 scope recheck under sense-line-first (likely survives — it is 
 
 **4.3 Benchmark apparatus:** exists and warm from LM-1 — runner, pre-registration discipline, grading pipeline, local serving. The paused model sweep does not block marker benchmarks. New question bank needed once spec v0 fixes kinds.
 
-## 5 · Proposed decision amendments (full text; enter decisions.md as PROPOSED on Sid's word; ruled by Sid only)
+## 5 · Decision amendments A1 · A2 — COUNTERSIGNED 2026-07-08 (Sid's blanket), applied IN PLACE at D-002/D-008; text below is the record
 
 **A1 — amend D-002 (first form = the trail view): rescope the UNIT.** The first form's unit moves from containers (sessions/files/commits as peers) to sense-line units (episodes and their marks), per the 2026-07-07 form-break (`atomic-unit-2026-07-07.md` §1: container granularity cannot meet D-002's stated goal "seeing it makes sense of like a decision tree"). The container trail demotes to one evidence-lens. D-002's goal and View-3 agent-legibility survive unchanged; what changes is the unit the view renders.
 
@@ -92,8 +92,8 @@ Carries: face-2 scope recheck under sense-line-first (likely survives — it is 
 
 ## 6 · Sequencing & delegation
 
-Order: this session's docs+workflow batch (done) → SPEC ROOM (gates three rooms) → design fixtures / rama mapping / benchmarks as the tree unlocks them. Nothing runs the whole past. Delegation split (Sid's): rooms produce check-this/do-this work and analysis for Fable and cheaper models; every RULING — amendments, names, grain verdicts, design picks — routes to Sid, Fable arguing but never deciding.
+Order: this session's docs+workflow batch (done) → SPEC ROOM (gates three rooms) → design fixtures / rama mapping / benchmarks as the tree unlocks them. Nothing runs the whole past. Delegation split (Sid's): rooms produce check-this/do-this work and analysis for Fable and cheaper models; rulings route to Sid where cost is future-binding (D-010 test: revert or rewrite?); operational calls proceed by default with recorded reversal paths; names, grain verdicts, and design picks stay Sid's — they are taste, not ceremony.
 
-## 7 · Deliberately not done here
+## 7 · Boundaries
 
-No commits (Sid's word required; docs stay on the local docs branch, docs-only commits, never pushed). No decisions.md append yet (§5 awaits his word). No spec content pre-empted (that's the SPEC ROOM's, with him). Pending small honesty item, separate approval: CLAUDE.md Terminology still carries the dead `Q→C→E→D→R→F` string (superseded by the verified Q/C/E/Source base) — one-line fix awaiting Sid's explicit OK.
+Committed as we go — D-010 approve-by-default, its reach clarified 2026-07-08: no word-gating on commits or operational amendments (stale baton language superseded). Absolute stops unchanged: the docs branch is never pushed or merged; env.clj never read; spend, future-binding architecture/nouns, and North authorship are Sid's. A1/A2: countersigned, applied in place. No spec content is pre-empted here — that is the SPEC ROOM's, with Sid. CLAUDE.md Terminology corrected 2026-07-08 to the verified Q/C/E/Source base (the dead `Q→C→E→D→R→F` string retired).
