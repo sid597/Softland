@@ -39,3 +39,12 @@ do-not-preclude ledger.
 2 and 4 are the load-bearing pair (they define what leaving the ground
 means); 3 rides the commit-gesture question wherever that lands; 1 can wait
 for Sid's whim indefinitely.
+
+**2026-07-07 addendum (sitting 3):** item 3 ACTIVATED and promoted — Sid
+independently re-derived the commit-gesture-for-thought from the felt
+failure of the whole-land mockup ("the granularity is just too big … this
+whole tripple gives me nothing"). It is no longer a render question riding a
+gesture question: it is the trail's data atom. See
+`atomic-unit-2026-07-07.md` + `vision/LOG.md` 2026-07-07 (verbatim + both
+notebook pages). Sequencing instinct updated: 3 now leads the queue; 2 and 4
+render against units, not containers.

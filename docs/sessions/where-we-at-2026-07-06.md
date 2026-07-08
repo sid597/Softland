@@ -4,6 +4,35 @@ Paste-ready prompt for a fresh orientation session. Written at the Trunk-4
 orientation session's close; anywhere this recap and the repo disagree, the
 repo wins.
 
+**ADDENDUM (same day, after Trunk-5 CLOSED — these supersede the prompt body's
+open questions):**
+- **Commit word GIVEN; commits landed:** `4d543a2` trail-room R-2 (bands ·
+  lanes-from-edges · threads.cljc · move chips · G1–G10 deftests) · `f6257a9`
+  git-spine seams (two-clock · alias rebase · truthful stats · run-level
+  dedup; rt entries carry lineage endpoints) · `8549a69` slug glyphs 95→591
+  (switch-on NOT taken — needs the 0.56→0.602051 advance sweep, face-2 G17) ·
+  `39b93ec`+`fb1b30c` docs. Suite baseline now **204/2505, 1 proven flake**
+  (dogfood-llm-probe, standalone green, in the known-flake registry).
+- **R-2 CLOSED on first-light evidence** — threads real over the real corpus;
+  screenshot `vision/images/2026-07-06-r2-first-light.png`; observations
+  (chip noise, raw conversation ids) in `build/trail-room/FIRST_LIGHT_R2.md`.
+- **face-2 COUNTERSIGNED (v1.1, binding; Δ9 client-side deviation stands;
+  round-2 waived), wave NOT started** — dispatch halted on Sid's order. The
+  next trunk boots the wave from `build/face-2/LANE_PROMPTS_DRAFT.md` (3
+  builder lanes + verified duty results: camera-1.0 sites, clone-text trap
+  21, stride sites, G2 far-origin constants; landed-shape facts newer than
+  the contract text are listed there).
+- **Five gate fixes committed** — headline: the endpoint gap (wave-1 kill
+  class recurred, caught by live-probe; dead-ends honestly carry
+  `:to {:id nil :kind :none}`).
+- **Still open at Trunk-5 close:** H1 arming signature (Sid's hand, BETS) ·
+  bench resume (authorized, not started — grade batch 7+ from
+  `runs/127376b0/`) · durability fork (durable cluster vs spine-edge replay
+  log) · importer provenance ruling · R-3 debt shelf (chip noise ·
+  conversation display-names · fold "+N" counts · transcript fixture
+  mis-mirror) · Gap-3 single-latest sweep · slug switch-on · ⟳ vocabulary ·
+  the intake sitting · the write-side design (LOG 2026-07-06).
+
 ---
 
 hey where we at? what is the current state of softland from a product

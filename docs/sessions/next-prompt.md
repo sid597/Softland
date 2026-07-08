@@ -1,3 +1,46 @@
+# ⚡ POST-TRUNK-5 RULINGS — D-010 + three frontiers (2026-07-06, Sid; recorded by the orientation session. READ FIRST)
+
+**D-010 CLOSED (Sid verbatim in LOG):** approve-by-default — only
+future-binding-cost decisions stop for Sid (operating test: "revert or
+rewrite?"); everything pending at 2026-07-06 is countersigned. **BENCHMARK
+PUSHED BACK** (paused; artifacts stay committed; resume = Sid's word only).
+**THREE FRONTIERS ONLY: rama · ui · framework.** Sid's plain map (canonical —
+prefer his words in product-facing docs): rama = internal data mapping · ui =
+his sense-making surface over the raw data · framework = the glue both ways
+(data→ui render; ui-interaction→data fetch).
+
+**Applied under the blanket:** H1 **ARMED**, t0 = 2026-07-05 (BETS verdict
+log; reversible on Sid's review; **KILL evaluation ~2026-07-19**).
+Importer-provenance fork = builder rules with recorded alternative.
+Durability fork (durable cluster vs spine-edge replay log) REMAINS SID'S —
+future-binding, surface once.
+
+**NEXT TRUNK (trunk-6): the framework wave** — dispatch from
+`build/face-2/LANE_PROMPTS_DRAFT.md` (contract countersigned; 3 lanes,
+duty results verified). Fold the UI legibility debt EARLY (chip noise ·
+conversation display-names · fold "+N" counts · label clamping — evidence:
+`build/trail-room/FIRST_LIGHT_R2.md` + Sid's screenshot); it is the ui
+frontier's fastest win and the H1 window is NOW RUNNING. Slug switch-on
+rides the advance sweep. Bench: do NOT resume without Sid's word.
+
+**UI-FRONTIER SPLIT (2026-07-06, Sid in the product-side session):** the
+ui frontier is TWO tracks, and "UI work" in Sid's mouth means the second.
+(a) legibility REPAIR (names/folds/clamping, above) — still rides the
+framework wave. (b) the TOP-DOWN DESIGN PASS — node/relation form ·
+horizontal-vs-vertical orientation · open-state grammar (all-closed /
+few-open / all-open) · container language (corners, color, type scale).
+Honest audit on record: the current look is engineering defaults out of
+R-1/R-2, never designed; the missing middle layer between canon laws and
+pixels is the deliverable. Runs as its OWN session in the
+principal-designer chair, zero src/ collision with the framework wave;
+opening prompt: `docs/sessions/ui-design-pass-opening-prompt-2026-07-06.md`.
+Feasibility envelope pre-verified (renderer has per-corner radii, borders,
+gradients, shadows, per-instance color = tier-1 free; layout/open-states =
+face-2 spec data = tier-2; beyond = tier-3 dream, D-001 governs build).
+Framework-wave dispatch still awaits Sid's word.
+
+---
+
 # 🌲 TRUNK-5 CHECKPOINT — wave boundary EXECUTED + CLOSED 2026-07-06 (assertion-grade; stamped Trunk-5)
 
 **FINAL STATE (updated at session close): the wave boundary ran END TO

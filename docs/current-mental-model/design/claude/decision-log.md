@@ -144,3 +144,45 @@ THE BAND — one fog-tinged self-declaring y-region, x=time preserved, the
 frontier the /assert affordance works down; edge-arrival moves are sayable +
 chip-announced, never silent | mid | STANCE (strong; ordering/overflow
 DEFAULT) | proposed — awaiting Sid on sight | room-card-lane-2026-07-05.md §3
+
+2026-07-06 | Wall-as-aesthetic-target KILLED by Sid on sight ("the goal of
+code is not to make a reality emulator … why are you so hung up on my wall"):
+the 27-04 wall panel is provenance of the QUESTIONS the trail view answers
+(where are we / how did we get here / which crossroads), never a material or
+mood target; design briefs for executing sessions must LEAD with the current
+trail-view problem (history fully captured, completely illegible — uniform
+weight, interleaved efforts, dead ends indistinct, unthreaded material
+undifferentiated), each visual system argued as a bet against that problem.
+Fork-5 "wall material" branch dead; System 1 renamed THE WALL → THE
+CROSSROADS (shape-first bet, materials serve legibility) | mid | — |
+ratified override — logged as data | ui-design-pass sitting 3, briefs v3
+
+2026-07-07 | THE ATOM IS WRONG (sitting 3, past midnight): the trail's
+primary row is the SEMANTIC UNIT — statement · kind-lite · delta · warrant ·
+lineage (five fields, nothing more; boundary = artifact-delta, never
+message-turn) — containers (sessions/docs/commits) demote to evidence roles
+beneath units; lineage lives at unit level (the notebook page-2 law: the
+work→work′ arrow only exists between units, file-level edges are hairball at
+any granularity); container joins feed harvesting + one-gesture descent,
+never the face; commits thread today only because git FORCES the
+unit-gesture at write time — the commit-gesture for thought generalizes it.
+One noun doing five jobs (band-2 line, write gesture, agent context key,
+distillation output type, discourse graph made native) — the
+overdetermination is why it resisted writing. Cheapest test before any
+build: ~40 hand-minted real units from the week, rendered by the design
+harness, judged by feel | broad (data-contract + face) | STANCE (strong;
+molecule fields DEFAULT) | proposed — founder-derived from felt failure of
+the whole-land mockup; verbatim + notebook pages in vision/LOG 2026-07-07 |
+atomic-unit-2026-07-07.md
+
+2026-07-07 | Five-field composite unit REJECTED by Sid same night ("i don't
+believe … there is no proof"), and verified right against primary DG sources
+(discoursegraphs.com, arXiv:2407.20666): the discourse graph DECOMPOSES —
+Question/Claim/Evidence/Source nodes, epistemic edges informs/supports/
+opposes, evidence≠claim — where the molecule bundled; `Q→C→E→D→R→F` retracted
+as not-the-canonical-grammar (memory corrected; CLAUDE.md terminology flagged
+for Sid-approved fix). Survives: the granularity break (= the DG field's own
+founding argument, papers→files), git-forces-the-gesture, container joins
+demoted to harvesting+descent. Clarified: TWO edge families — process/lineage
+(D-004 kinds) vs epistemic (DG) — never to be mushed again | broad | — |
+ratified override — logged as data | atomic-unit addendum + sitting reply

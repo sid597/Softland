@@ -76,3 +76,11 @@ taste conflict, evidence wins — and the taste file gets edited, visibly.
     job; the honesty tax is one visible line — "this is a dream" — and once
     paid, no bound applies. The map may render what doesn't exist only while
     saying so. (Formed 2026-07-05, the horizon commission.)
+
+17. **Never emulate the artifact you're replacing.** The wall, the notebook,
+    the terminal are evidence of the questions their keeper asks —
+    provenance, not costume. Code is not a reality emulator; reproducing the
+    old medium's materials designs a memorial. Take the questions, leave the
+    kraft paper. And a brief that doesn't state the problem isn't a brief —
+    it's a mood board. (Formed 2026-07-06: Sid killed the wall-emulation
+    brief on sight.)

@@ -181,3 +181,20 @@ dated pre-reads in `docs/current-mental-model/intake/`; first pre-read:
   above. If Sid rules the ritual-measurement ("where does new thinking
   start") should already be observing, reinstate 2026-07-05 as t0 and strike
   the arming event.
+- **2026-07-06 — H1 ARMED. t0 = 2026-07-05.** The pre-registered arming event
+  fired: the first render showing ≥1 typed relation over real material —
+  expanded commit 2232fbb with `based-on`/`produced` edges by
+  `import:git-spine` (`vision/images/2026-07-05-h1-arming-candidate.png`),
+  corroborated next day by threads over the full corpus
+  (`vision/images/2026-07-06-r2-first-light.png`). Entered by Fable under
+  Sid's same-day blanket countersign (D-010: "countersign everything all
+  approved") — **reversible on Sid's review**, per the arming ruling's own
+  terms. Reading adopted: the KILL text's grace clause covers form-break fix
+  cycles inside the window (the staircase→lanes cure was exactly one), so t0
+  anchors at the first qualifying render, not at polish. Alternative NOT
+  taken (recorded): t0 = 2026-07-06 first light, reading "(relations +
+  timeline working)" strictly — rejected because "working" is the softer
+  word that re-admits drift; if Sid prefers it on review, restamp t0
+  2026-07-06 here. **KILL evaluation accordingly: ~2026-07-19** — do new
+  thinking panels still start on paper AND do wall photos still get pasted
+  into LLM chats?

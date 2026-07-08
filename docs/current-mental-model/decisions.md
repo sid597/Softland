@@ -499,6 +499,48 @@ the first candidate for code-as-addressed-material.
 
 ---
 
+## D-010 — Countersign threshold: approve-by-default; only future-binding cost reaches Sid
+**STATUS: CLOSED** (ruled by Sid in-session 2026-07-06 at the Trunk-4
+orientation session's close; verbatim in `vision/LOG.md` 2026-07-06 —
+"everything is countersigned .. modify that option .. until its is something
+that has the cost of this will effect future thing .. countersign everything
+all approved .. push the benchmark back .. i want the work to happen on 3
+frontiers only rama, ui and framework". His words are the countersign.)
+
+What this closes:
+
+1. **Blanket:** everything pending approval at 2026-07-06 is COUNTERSIGNED.
+   Most prominent application, executed same-session: the **H1 arming entry**
+   written into the BETS verdict log per the recorded recommendation
+   (t0 = 2026-07-05; reversible on Sid's review — see BETS).
+2. **The protocol amendment — the default flips.** Work products (contracts,
+   phase closes, retros, batch scopes, wave dispatches) are APPROVED BY
+   DEFAULT: the builder/trunk adopts the recommended option and records
+   alternatives. ONLY decisions whose cost binds the future — irreversible
+   architecture, vision/bets authorship, anything foreclosing a named door —
+   still stop for Sid's hand. Operating test: **"if this is wrong, is undoing
+   it a revert or a rewrite?"** Revert-cheap ⇒ proceed and record.
+   Rewrite-costly ⇒ Sid.
+3. **Three frontiers only: rama · ui · framework.** Sid's own map (canonical
+   plain language): rama = the internal data mapping · ui = his surface for
+   making sense of the raw underneath data · framework = the glue both ways
+   (data mapping → ui render; ui interaction → data fetch). **The benchmark
+   front is PUSHED BACK** — paused, artifacts stay committed, resume is
+   Sid's call at a future sitting; its rankings feed intake whenever resumed.
+4. **The two open forks routed under the new rule:** importer provenance on
+   source rows = revert-cheap ⇒ builder rules it with recorded alternative.
+   The durability fork (durable cluster vs durable spine-edge replay log) =
+   future-binding write-side architecture ⇒ remains Sid's, surfaced once.
+5. **Unchanged:** North stays Sid-authored; CLOSED decisions still reopen
+   only on form-break evidence; hard rules (env.clj, docs branch never
+   pushed, code/docs separate commits) unaffected.
+
+Evidence this rests on: the Trunk-5 wave receipts (five defects caught by the
+QC layers with zero Sid attention in the loop) and the observed bottleneck at
+wave close — every lane was queued on approvals whose cost was revert-cheap.
+
+---
+
 ## Open questions queued for ruling
 - Fable-window queue (per D-006): ~~gate review of relation-kernel
   implementation~~ (done 2026-07-03, PASS) → trail-view data contract →
