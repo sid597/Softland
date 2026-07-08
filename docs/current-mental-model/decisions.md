@@ -661,3 +661,33 @@ wave close — every lane was queued on approvals whose cost was revert-cheap.
   is partition-scoped. Executed: CONTRACT §5 amended (explicit scope), §11
   gained gate 11 (cross-relation key reuse), IMPLICIT_SPEC amendment banner
   added. CLOSED.
+
+---
+
+## Amendments PROPOSED 2026-07-08 — sense-line MVP direction (A1 · A2)
+
+Source: session `18d63935` (Fable-max direction session). Full context:
+`docs/current-mental-model/build/sense-line-mvp/DIRECTION.md` §5; model doc:
+`docs/current-mental-model/sense-line-model.md`. Both amendments arise from
+the 2026-07-07 form-break (`design/claude/atomic-unit-2026-07-07.md` §1 —
+container granularity broke against real evaluation) plus Sid's 2026-07-08
+raw-note rulings in-session. PROPOSED — Sid's countersign flips each.
+
+**A1 — amend D-002 (first form = the trail view): rescope the UNIT.**
+The first form's unit moves from containers (sessions/files/commits as
+peers) to sense-line units (episodes and their marks). Grounds: container
+granularity cannot meet D-002's stated goal ("seeing it makes sense of like
+a decision tree and build artifacts") at any rendering — form-break
+evidence, not a new argument. D-002's goal and View-3 agent-legibility
+survive unchanged; the container trail demotes to one evidence-lens.
+STATUS: PROPOSED.
+
+**A2 — amend D-008 (read-only MVP): rescope the WRITE boundary.**
+The machine marker writes marks as provenance-first observations via the
+lawful worker→Rama path (back-arrow compliant; the view still never mutates
+truth; silver/gold provenance tiers visible per the map-must-not-lie law).
+Human write-gestures through the UI remain gated as before until spec'd.
+Grounds: Sid 2026-07-08 ("should we work read-only? my answer is no — we
+already have some code written out … start from where we are"); D-008's
+original rationale (view-mutation danger) is untouched by machine
+observations. STATUS: PROPOSED.
