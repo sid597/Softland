@@ -85,6 +85,15 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   boot from this STANDING, load /rama + /work-package, run Phase 0 with
   P0-verify (a)–(d), then plan → validation → implement with gates-to-green.
   Nothing is built yet; the tree is clean of block-kernel code.
+- **2026-07-09 (later), Fable — ⚠ PACKAGE ON HOLD at Sid's challenge. DO NOT
+  BOOT the implementation session.** Sid: "block IS the atomic container of
+  text" — upheld against source: object-container already runs the pattern
+  (foreign-side distillers, span anchors, markdown-block-v0, unit-kinds,
+  containment edges, query API). CONTRACT §2 was under-informed (anchored on
+  the relation-kernel contract's characterization; OC unread — process miss,
+  owned). Fork A/B/C in the CONTRACT.md banner; A recommended (block
+  distiller adapter + driver over EXISTING OC + relation-kernel, git-spine
+  shape). Sid rules → §2/R4/§4/§5 amended → package re-opens.
 
 ---
 

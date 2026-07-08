@@ -1,5 +1,12 @@
 # Block Kernel — architecture orientation (NON-BINDING; CONTRACT.md governs)
 
+> **⚠ SUPERSEDED IN PART (2026-07-09, same day):** §1's placement of
+> block-kernel as a NEW sibling module is ON HOLD — Sid's "block = atomic
+> container" challenge was upheld against `object_container.clj` (it already
+> has distillers/anchors/units/edges/query-API; see CONTRACT.md banner).
+> §§2–4's flow logic (foreign-side cut, deterministic ids, retry axes, read
+> discipline) survives in adapter form. Redraw follows Sid's ruling.
+
 2026-07-09 · Fable, spec room · drawn for the implementing session and for
 Sid's architecture read. Every claim here is a projection of CONTRACT.md +
 SPEC.md; on any drift, those win.

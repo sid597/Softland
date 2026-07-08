@@ -7,6 +7,32 @@ in Rama → dual benchmark. rama-pitfalls falsification applied in-session
 (verdict in §7). Package OPEN — baton STANDING/NOW in
 `docs/sessions/next-prompt.md`.
 
+> **⚠ ON HOLD — PLACEMENT FORK (2026-07-09, later same day; raised by Sid).**
+> Post-countersign, Sid challenged §2's placement — *"the block IS the atomic
+> container of text"* — and the challenge SURVIVED contact with the source:
+> `object_container.clj` already implements foreign-side distillation (the
+> ingest payload CARRIES derived units/anchors/edges — `payload-derived-units`
+> :620), span anchors (`SourceAnchorRow` start/end-offset :122), versioned
+> distillers (`markdown-block-v0`, markdown_adapter.clj:6), unit-kinds,
+> containment edges (`CompositionEdgeRow` :126), raw source storage
+> (`SourceArtifactRow.source-raw-text` :83), redaction policies (:32), a
+> transcript adapter at message/tool grain, and a public query API
+> (`read-unit` :2473, `read-common-material-for-source` :2501). §2's "why not
+> object-container" borrowed the relation-kernel contract's rationale without
+> reading the module — the adapter seam voids the blast-radius argument, and
+> conversation-scoped colocation argues FOR, not against.
+> **Phase 0 MUST NOT start.** Options: **(A — RECOMMENDED)** the block layer =
+> a NEW foreign-side block-distiller adapter + driver over the EXISTING
+> object-container + relation-kernel APIs (the git-spine WP2 shape, one grain
+> finer); no new module/depot/PStates; river-page = additive OC query topology
+> or `CommonMaterialBundle` composition; any OC touches precisely fenced and
+> additive. **(B)** separate module addressing INTO OC sources via mirrors —
+> keeps worker isolation, splits the ontology in two. **(C)** as-signed —
+> DISCREDITED: builds a parallel derived-unit system 2,600 lines from an
+> existing one. SPEC v0 is untouched by this fork (system-agnostic; its laws
+> are independently CONFIRMED by OC's own design). Sid rules; §2 / §3-R4 /
+> §4 / §5 rewrite per the ruling.
+
 Binding order: `decisions.md` › `SPEC.md` › this contract › derived artifacts.
 Where this contract pins something SPEC left OPEN, the pin is recorded back
 into SPEC's OPEN list.
