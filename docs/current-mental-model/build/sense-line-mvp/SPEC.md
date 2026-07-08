@@ -1,6 +1,6 @@
 # SPEC — Sense-Line Block Grammar · v0
 
-2026-07-09 · spec room (Sid + Fable) · **status: v0 DRAFT for Sid's redline** — normative for the **block layer**; marks/edges specified as interfaces; episode sketched only. Warrant: `GROUNDS.md` (same folder — read it for the *why* of every law here). All names are working scaffolding (ledger: GROUNDS §8.5); renaming is Sid's and never breaks the grammar.
+2026-07-09 · spec room (Sid + Fable) · **status: v0 — COUNTERSIGNED by Sid 2026-07-09 ("all agree on the specs"); BINDING** — normative for the **block layer**; marks/edges specified as interfaces; episode sketched only. OPEN items 2–3 stand at their defaults; their feel-check stays live at first render. Warrant: `GROUNDS.md` (same folder — read it for the *why* of every law here). All names are working scaffolding (ledger: GROUNDS §8.5); renaming is Sid's and never breaks the grammar.
 
 **SPEC ≠ BENCHMARK** (standing correction, DIRECTION §0): this document defines the grammar. Whether an implementation *breaks well* is judged later by the dual-benchmark (Sid ∥ Fable, independent then merged). Conformance (§16) tests machinery, never break quality.
 

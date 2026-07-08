@@ -1,10 +1,11 @@
 # Block Kernel Contract — block-kernel-module
 
-Status: DRAFT v1 (Fable, 2026-07-09, spec-room session). Realizes `../SPEC.md`
-(block layer, v0) in Rama. Serves the agreed path (`../GROUNDS.md` §11):
-implement → run ONE example chat → chunks readable in Rama → dual benchmark.
-Pending: rama-pitfalls falsification (this session), Sid's redline, then
-handoff as a work package per the work-package skill.
+Status: **v1 — COUNTERSIGNED by Sid 2026-07-09 ("all agree on the specs");
+BINDING.** Realizes `../SPEC.md` (block layer, v0) in Rama. Serves the agreed
+path (`../GROUNDS.md` §11): implement → run ONE example chat → chunks readable
+in Rama → dual benchmark. rama-pitfalls falsification applied in-session
+(verdict in §7). Package OPEN — baton STANDING/NOW in
+`docs/sessions/next-prompt.md`.
 
 Binding order: `decisions.md` › `SPEC.md` › this contract › derived artifacts.
 Where this contract pins something SPEC left OPEN, the pin is recorded back

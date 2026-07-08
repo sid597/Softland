@@ -20,16 +20,71 @@ this branch (`90ed435` → `e0ad1cc`):
    cross-module appends w/ deterministic idempotency keys; :append-ack +
    barrier; pointer-PState skew tolerance).
 
-**NEXT (agreed path, GROUNDS §11):** (a) Sid redlines SPEC OPEN items 2–3 +
-contract; (b) on his word, OPEN the block-kernel work package — worker models
-(Opus-class) under /rama phases + /work-package shell, ONE orchestrating
-session, fable-high guidance; P0-verify items in CONTRACT §12; (c) run the
-example chat through → chunks in Rama; (d) dual benchmark (Sid ∥ Fable,
-independent, then merge/reconcile — the spec's falsifier); (e) dogfood
-reconciliation UI; (f) then the marks/kinds side. Does NOT start without Sid:
-mark-kind schemas, any UI, a second chat file. Kinds-round evidence pile so
-far: "sidetrackkkk" branch receipt; serves/invokes family question;
-cross-scheme bridges (panproto lenses). SPEC ≠ BENCHMARK stands.
+**COUNTERSIGNED 2026-07-09 — Sid: "all agree on the specs."** SPEC v0 and
+CONTRACT v1 are BINDING; the block-kernel work package is OPEN (STANDING/NOW
+below). Agreed path after gates green: run the example chat through → chunks
+in Rama → dual benchmark (Sid ∥ Fable, independent, then merge/reconcile —
+the spec's falsifier) → dogfood reconciliation UI → then the marks/kinds
+side. Kinds-round evidence pile so far: "sidetrackkkk" branch receipt;
+serves/invokes family question; cross-scheme bridges (panproto lenses).
+SPEC ≠ BENCHMARK stands. Non-binding architecture orientation for the
+implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
+
+---
+
+# Active work package: block-kernel — sense-line block grammar in Rama
+
+## STANDING (frozen at package open 2026-07-09 — do not edit while active)
+
+- **Binding docs:** `docs/current-mental-model/build/sense-line-mvp/
+  block-kernel/CONTRACT.md` (v1, countersigned 2026-07-09) +
+  `docs/current-mental-model/build/sense-line-mvp/SPEC.md` (v0, countersigned)
+  + `docs/current-mental-model/decisions.md`. This file is a baton, not a
+  source of truth; if it contradicts CONTRACT.md or decisions.md, those win —
+  flag the discrepancy in NOW.
+- **Process:** /work-package shell + /rama phase mechanics (load BOTH skills
+  before anything; /rama-pitfalls before any topology-shape change). ONE
+  orchestrating session; validation/review layers as fresh Opus subagents;
+  default-fail verdicts; never overwrite a FAIL artifact (per-round files);
+  NOW entries ≤15 lines. Phase artifacts live in
+  `build/sense-line-mvp/block-kernel/`.
+- **First actions:** Phase 0 requirements re-derivation (INHERITS CONTRACT §5
+  partition/colocation context verbatim) INCLUDING P0-verify items (a)–(d)
+  of CONTRACT §12: relation-kind openness · redaction determinism+versioning ·
+  jsonl event-shape inventory vs SPEC §3 · relation idempotency-key scope.
+- **File allowlist (NEW files only):** `src/app/server/rama/block_kernel.clj`
+  · `test/app/server/rama/block_kernel_test.clj` · test fixture resources
+  under `test/resources/block-kernel/` · package docs. NOTHING existing is
+  amended — relation_kernel.clj, transcript.clj, object_container.clj
+  untouched; `app.server.rama.dogfood.transcript` fns are imported as a
+  LIBRARY. Any needed change to an existing file = STOP-CLAUSE, never a
+  silent edit.
+- **Verification duties (before code):** check memory-derived Rama claims
+  against `docs/reference/rama/`; test harness uses the deterministic
+  microbatch-processed-count barrier (submit!==+1, routing key always
+  present) + physical PState readers for negative invariants
+  (`memory/implementation-quirks.md`).
+- **Definition of done:** CONTRACT §8 gates G1–G11 green as IPC tests in one
+  suite (G12/G13 at review) + the documented REPL/CLI invocation running the
+  REAL example chat (`7c80ce2a`) end-to-end and pretty-printing the first
+  river page.
+- **Stop clauses:** CONTRACT §9. Classify implementer-fixable vs policy fork;
+  escalate forks to decisions.md Open Questions as PROPOSED with verbatim
+  citations. Never improvise policy.
+- **Hard rules:** never read `src/app/server/env.clj`; code and docs in
+  SEPARATE commits; CODE commits only on Sid's word; docs commits automatic
+  on this local branch only, never pushed/merged.
+- **Does NOT start without Sid:** mark-kind schemas · any UI · a second chat
+  file · any relation-kernel amendment. Budget: local + subscription, no API
+  dollars.
+
+## NOW (append ≤15 lines at session end)
+
+- **2026-07-09, Fable (spec room) — PACKAGE OPENED at countersign.** SPEC v0
+  + CONTRACT v1 binding; pitfalls verdict applied (T11–T13). Next session:
+  boot from this STANDING, load /rama + /work-package, run Phase 0 with
+  P0-verify (a)–(d), then plan → validation → implement with gates-to-green.
+  Nothing is built yet; the tree is clean of block-kernel code.
 
 ---
 

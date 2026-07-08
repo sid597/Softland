@@ -89,6 +89,7 @@ Stand-asides (recorded, not argued — per Sid: harvest, don't correct): tool_re
 - **Plural breakings, gated by each declaring its spec** — his formulation; converged independently with the Boundary law.
 - Register instruction (meta, now in memory): surface the full thinking; don't compress the reasoning out of replies.
 - **Occurrence-vs-type mark split** (2026-07-09): stance-marks → occurrence, content-marks → type — "Agree with your stance."
+- **SPEC v0 + block-kernel CONTRACT countersigned** — "all agree on the specs" (Sid, 2026-07-09). OPEN feel-items (human-side silver subs ON; header-own-block) ride at defaults to first render.
 - **Sequencing ruling** (2026-07-09, Sid): SPEC.md + the Rama implementation CONTRACT are authored in THIS Fable-max session (context loaded, thoroughness where it pays); implementation, example-chat run, and benchmark run in fresh sessions by worker models guided by fable-high. Dual-benchmark design is Sid's: he and Fable mark the implementation's output INDEPENDENTLY, then merge and reconcile; then a dogfood UI renders that reconciliation in Softland; then the marks side of the grammar opens.
 
 ## 10 · Breadth — what SPEC.md must answer (checklist, grows)
