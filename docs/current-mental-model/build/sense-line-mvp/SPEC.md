@@ -31,11 +31,11 @@
 
 ## 2 · Material model
 
-2.1 **Surfaces are immutable.** The stored text of a surface is byte-identical to what the producer emitted. No normalization, ever, after mint (MUST). Each surface stores a content-hash for drift detection.
+2.1 **Surfaces are immutable.** The stored text of a surface is the **canonical text**: the producer's exact output after ONE declared, versioned redaction pass at ingest (secrets never enter storage — hard rule; redactions are recorded with rule-id@version and MUST render as visible redaction marks, never silent gaps — the map must not lie). After mint, the canonical text never changes (MUST). Each surface stores a content-hash for drift detection. *(AMENDED 2026-07-09 at contract contact — was "byte-identical to producer"; the ingest layer's redaction is non-negotiable and predates this spec. Contract ruling R1.)*
 
-2.2 **A block is an address.** `(surface-id, span)`, span in offsets over the surface's exact stored text. Offset unit: Unicode codepoints (lean; the contract MUST pin this against the storage layer's string representation — UTF-16 vs codepoints is exactly the kind of bug that corrupts every address silently). OPEN until pinned.
+2.2 **A block is an address.** `(surface-id, span)`, span in offsets over the surface's canonical text. Offset unit: **RULED (contract R2, 2026-07-09): UTF-16 code units** — native to both JVM and JS string indexing; MUST never split a surrogate pair; codepoint conversion stays derivable.
 
-2.3 **Reconstruction guarantee (immersion law).** Rendering a surface's text from storage MUST reproduce it exactly; blocks are an overlay. The wall is never shredded — immersive reading and block operations are two projections of one untouched material.
+2.3 **Reconstruction guarantee (immersion law).** Rendering a surface's text from storage MUST reproduce the canonical text exactly; blocks are an overlay. The wall is never shredded — immersive reading and block operations are two projections of one untouched material.
 
 2.4 **Parsed blocks are immutable forever.** Born-native blocks (a human composing in blocks, later) version by `supersedes` — a new block, never an edit.
 
@@ -160,7 +160,7 @@ An implementation conforms when it demonstrates, on a real session file:
 1. **Classification + actor resolution** — every event classed; no tool_result or meta event attributed to the human (§3.4).
 2. **Free cut** — blocks with forms + declared segmentation provenance; fences/tables atomic; human messages whole + silver subs (§4).
 3. **Idempotence** — re-running the same cut yields the same ids; a second segmentation adds a stratum, disturbing nothing (§6.1, §14).
-4. **Reconstruction** — every surface re-renders byte-identically from storage (§2.3).
+4. **Reconstruction** — every surface re-renders its canonical text exactly from storage, and no planted secret survives anywhere in the store (§2.1, §2.3).
 5. **Refinement** — a finer block mints on demand with engagement provenance; the coarse block and its marks persist (§5).
 6. **Mechanical edge floor** — produced/grounds/assembled-from/refines emitted wherever detectable (§11.3).
 7. **Holes** — an edge with an absent endpoint persists and is queryable (§9).
@@ -170,7 +170,7 @@ Break *quality* — do the seams land where stances flip? — is the dual-benchm
 
 ## OPEN — Sid's rulings pending
 
-1. Offset unit pinned against storage (codepoints lean; §2.2) — rules at contract time.
+1. ~~Offset unit~~ — RULED at contract (R2, 2026-07-09): UTF-16 code units, no surrogate splits (§2.2). Redaction-canonical amendment also landed (R1, §2.1).
 2. Human-side silver sub-chunking default ON (§4.4) — feel-check at first render.
 3. Header as own block (§4.2).
 4. All names (surface · form · free cut · river/debris · occurrence · hole · …) — scaffolding until recurrence + Sid's naming.
