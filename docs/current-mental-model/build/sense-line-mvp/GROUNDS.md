@@ -80,7 +80,7 @@ Stand-asides (recorded, not argued — per Sid: harvest, don't correct): tool_re
 2. **Derived-status principle:** sediment/frontier (and kin: settled/live/dead) are PROJECTIONS computed from engagement topology — never stored fields. Status-rot prevention; the pace-layer law at block grain. Candidate spec principle.
 3. **Cross-scheme consumption** (the named "something we haven't thought through" behind scaffold-plurality): plural kind-vocabularies coexist as strata *until* edges/episodes/views must READ marks — then bridges (lenses/functors) stop being optional. → kinds round; panproto/ologs as lenses there.
 4. tool_result refinement grain (lazy-chunk protocol details).
-5. All names are scaffolding pending recurrence + Sid's naming. **Names-pending ledger:** block · stance-flip seam · river/debris · context-parents · sediment/frontier · spiral · hole.
+5. All names are scaffolding pending recurrence + Sid's naming. **Names-pending ledger:** block · surface · form · free cut · stance-flip seam · river/debris · context-parents · occurrence · sediment/frontier · spiral · hole.
 
 ## 9 · Ratified in-flow this session (Sid's gestures; informal gold record)
 
@@ -88,11 +88,22 @@ Stand-asides (recorded, not argued — per Sid: harvest, don't correct): tool_re
 - **The four laws + their Part-2 readings** — "YEEESSSS I AGREE … each and every chunk."
 - **Plural breakings, gated by each declaring its spec** — his formulation; converged independently with the Boundary law.
 - Register instruction (meta, now in memory): surface the full thinking; don't compress the reasoning out of replies.
+- **Occurrence-vs-type mark split** (2026-07-09): stance-marks → occurrence, content-marks → type — "Agree with your stance."
+- **Sequencing ruling** (2026-07-09, Sid): SPEC.md + the Rama implementation CONTRACT are authored in THIS Fable-max session (context loaded, thoroughness where it pays); implementation, example-chat run, and benchmark run in fresh sessions by worker models guided by fable-high. Dual-benchmark design is Sid's: he and Fable mark the implementation's output INDEPENDENTLY, then merge and reconcile; then a dogfood UI renders that reconciliation in Softland; then the marks side of the grammar opens.
 
 ## 10 · Breadth — what SPEC.md must answer (checklist, grows)
 
 Classification (river/debris) · the free cut per source-type · refinement protocol (who may mint finer grain; refinement provenance) · identity + resolution rule · overlap/nesting semantics · context-parents on every production event · assembly/transclusion rule + new-words⇒new-block · **what can be pointed at** (blocks, spans, marks, episodes, world-artifacts, HOLES) · occurrence-vs-type mark targets · tool-call typing across both edge families · the two reading modes (immersive/operational) · derived-status projections · the human-side law (never forced to pre-chunk) · [kinds & relations — next rounds].
 
-## 11 · Next iteration
+## 11 · The agreed path (Sid's sequence, 2026-07-09 — supersedes the earlier manual-pass-first ordering)
 
-Manual pass over a ~30-message stretch of `7c80ce2a` (default example; Sid may redirect): apply the free cut + stance-flip seams by hand; show marked output. Checks: (a) blocks reactable against Sid's ACTUAL recorded reactions in the stretch; (b) where refinement would have been demanded; (c) river/debris classification cleanliness; (d) context-parents — real or degenerate; (e) boundaries on Sid's messages, not just agent walls.
+1. **SPEC.md** — written this session (v0 draft, awaiting Sid's redline; carries a real fixture from the `7c80ce2a` head so no clause is vapor).
+2. **Rama implementation CONTRACT** — this session (Fable, rama + work-package skills loaded, pitfalls falsification applied). The contract-writing is deliberately a forcing-function on the spec's thoroughness.
+3. **Implement** — worker models, fresh session(s), guided by fable-high.
+4. **Run one example chat through it** — chunks land in Rama, readable back out.
+5. **Dual benchmark** — Sid and Fable mark the output INDEPENDENTLY; merge; reconcile. (This is the spec's falsifier — v0 stays LIVING until it survives this step.)
+6. **Dogfood UI** — render the independent-marking + reconciliation in Softland itself.
+7. **If it works** — open the other side of the grammar (the marks/kinds side) and the other side of the chat.
+8. Decide more after.
+
+The hand-application discipline didn't vanish — it moved into the spec (the §15 fixture) and into step 5, where it becomes two-headed and adversarial.
