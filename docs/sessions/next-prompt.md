@@ -1,3 +1,38 @@
+# ⚡⚡⚡ SPEC ROOM RAN 2026-07-08/09 — SPEC v0 EXISTS (read FIRST; supersedes the "next room: SPEC ROOM" pointer below)
+
+The spec room (Sid + Fable-max, close iteration) produced, all committed on
+this branch (`90ed435` → `e0ad1cc`):
+
+1. **`build/sense-line-mvp/GROUNDS.md`** — the warrant: four block laws
+   (Material/Boundary/Identity/Composition), break criteria (stance-flip seam
+   + reaction test), parallel-reply harvest ledger, prior-art lens inventory
+   (standoff/LAF-GrAF · PROV · panproto), open forks, Sid's in-flow
+   ratifications, the agreed path (§11).
+2. **`build/sense-line-mvp/SPEC.md`** — v0 DRAFT awaiting Sid's redline.
+   Block layer NORMATIVE (surfaces/blocks/spans/forms, river-vs-debris,
+   role≠actor law, free cut, demand refinement, identity-by-construction,
+   context-parents, assembly/transclusion, holes first-class); marks/edges as
+   interfaces; episode sketch. Real fixture from `7c80ce2a` head. AMENDED at
+   contract contact: canonical-text-after-redaction (R1); UTF-16 offsets (R2).
+3. **`build/sense-line-mvp/block-kernel/CONTRACT.md`** — implementation
+   contract v1: new `block-kernel-module`; R1–R4 rulings; traps T1–T13;
+   gates G1–G13; rama-pitfalls verdict RUN and fixes applied (driver-side
+   cross-module appends w/ deterministic idempotency keys; :append-ack +
+   barrier; pointer-PState skew tolerance).
+
+**NEXT (agreed path, GROUNDS §11):** (a) Sid redlines SPEC OPEN items 2–3 +
+contract; (b) on his word, OPEN the block-kernel work package — worker models
+(Opus-class) under /rama phases + /work-package shell, ONE orchestrating
+session, fable-high guidance; P0-verify items in CONTRACT §12; (c) run the
+example chat through → chunks in Rama; (d) dual benchmark (Sid ∥ Fable,
+independent, then merge/reconcile — the spec's falsifier); (e) dogfood
+reconciliation UI; (f) then the marks/kinds side. Does NOT start without Sid:
+mark-kind schemas, any UI, a second chat file. Kinds-round evidence pile so
+far: "sidetrackkkk" branch receipt; serves/invokes family question;
+cross-scheme bridges (panproto lenses). SPEC ≠ BENCHMARK stands.
+
+---
+
 # ⚡⚡ DIRECTION SHIFT 2026-07-08 — SENSE-LINE MVP (read BEFORE everything below)
 
 The container-trail direction BROKE 2026-07-07 (Sid's granularity verdict) and
