@@ -16,7 +16,7 @@ Encoded consequence: the SPEC ROOM's example-chat pass exists to **develop and t
 
 | Sid's area (his words) | where it lives | state 2026-07-08 |
 |---|---|---|
-| "Spec of … the various nodes we are going to tag different parts of replies as" + relations | **SPEC ROOM** (§3.1) | open — first room to run; Sid works closely |
+| "Spec of … the various nodes we are going to tag different parts of replies as" + relations | **SPEC ROOM** (§3.1) | Part 1 (block grammar) drafted → `block-grammar.md`; mark grammar next |
 | "What is the architecture of this system?" | two homes: system-level frame = `sense-line-model.md` §architecture-bet (settled at altitude); Rama-level mapping = **RAMA ROOM** (§3.3) | frame settled; mapping open |
 | "Are we going to run the whole past data? My answer is no." | ruled by Sid (raw-note grade) — recorded here | forward-capture first; ONE example chat for spec-dev; past re-reads stay optional forever (the log appreciates) |
 | "Should we work from the read-only pov? My answer is no." | ruled by Sid (raw-note grade); formal rescope = amendment A2 (§5) | start from existing editor/code; marker writes ride the lawful worker→Rama path |
@@ -63,6 +63,8 @@ Rendered version: `deps.md` (same DAG as a diagram). Plain-English dependencies:
 
 ### 3.1 SPEC ROOM — the spec itself (Sid + Fable, closely; branch of this chat)
 Definition of done (Sid's words): the artifact stating **what the spec is — what kinds of nodes, what relations between them**, plus the block grammar (what a good chunk break looks like). Method: reason-based discussion + applying candidates to ONE example chat via Fable's manual pass, iterated until it fits. Layering discipline (from the schema deaths of 2026-07-07): combine by LAYERS, never by merging — block (material unit, stored as **address+offsets into raw text, never copies**) → mark kinds (folksonomy; scaffold start: tension/claim/question/verdict; grown by use) → two edge families kept separate (epistemic: supports/opposes/informs · process: based-on/supersedes/produced) → episode (slow-pass grouping + yield). DG vocabulary = the epistemic family; episode = the process grammar; ologs = notation for writing the schema down, not a rival ontology. Chunking and labeling stay separable stages (a re-run of either must not break the other).
+
+**Part 1 drafted 2026-07-08 → `block-grammar.md` (LIVING v0).** Block layer closed to v0: chunking is *plural* — an open, emergent family of carving-specs, gated like kinds (recurrence + read-side) — seeded **S0** (structural floor: provider blocks / markdown / human compose-units, free + always-on) **+ S2** (epistemic-kind) **+ S3** (purpose/serves); blocks first-class + flat, provenance by edges not nesting, transclude-by-default. The separability line above is sharpened there (B-4): marks/specs address raw spans, *never* block-IDs — which is what makes label-driven chunking legal and lets new specs re-run without breaking history. Mark grammar (kinds + edge families) = **Part 2, next**.
 
 ### 3.2 DESIGN ROOM — the UI (Sid's full attention; fresh session(s); designer-first)
 Sid's learning from the trail view: designers first, then implementation. Boots from this doc + the design canon; the existing ui-design-pass opening prompt (2026-07-06) is pre-break and needs a v2 reflecting sense-line-first. Grain and kinds are only judgeable when SEEN — the SPEC ROOM's hand-marked example becomes fixture material here; expect spec↔design iteration, not a one-way handoff.
