@@ -1,3 +1,28 @@
+# ⚡⚡ DIRECTION SHIFT 2026-07-08 — SENSE-LINE MVP (read BEFORE everything below)
+
+The container-trail direction BROKE 2026-07-07 (Sid's granularity verdict) and
+was rescoped IN PLACE the next day: **D-002 unit → sense-line units** (episodes
++ marks; container trail demotes to one evidence-lens) · **D-008 write boundary
+→ machine marker writes lawfully** (worker→Rama observations). Both amendments
+countersigned (Sid's blanket) — see decisions.md D-002/D-008 amendment notes +
+the D-010 "REACH CLARIFIED" note (in-place operational amendments; NO
+word-gating on commits; docs commits are AUTOMATIC per session — CLAUDE.md
+§Docs Commits).
+
+**New direction docs (boot order):** `docs/current-mental-model/
+sense-line-model.md` (top-stratum model — ALSO the boot doc for direction
+sessions, see CLAUDE.md §Session Registers) → `docs/current-mental-model/
+build/sense-line-mvp/DIRECTION.md` (working map: rooms, dependency tree,
+apparatus stance). **Next room: SPEC ROOM** (Sid+Fable close iteration, branch
+of session `18d63935`) — the spec (block grammar · node kinds · relations;
+SPEC ≠ BENCHMARK) gates the rama, benchmark, and design-fixture rooms.
+
+The trunk-6 framework wave below is UNCHANGED as substrate work, but check
+DIRECTION.md §1 (face-2 row) before dispatch. Everything through commit
+`3eb76e8` is committed.
+
+---
+
 # ⚡ POST-TRUNK-5 RULINGS — D-010 + three frontiers (2026-07-06, Sid; recorded by the orientation session. READ FIRST)
 
 **D-010 CLOSED (Sid verbatim in LOG):** approve-by-default — only
