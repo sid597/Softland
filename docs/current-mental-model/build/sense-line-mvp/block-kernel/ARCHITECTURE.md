@@ -1,142 +1,86 @@
-# Block Kernel — architecture orientation (NON-BINDING; CONTRACT.md governs)
+# Block layer — architecture orientation (NON-BINDING; CONTRACT.md governs)
 
-> **⚠ SUPERSEDED IN PART (2026-07-09, same day):** §1's placement of
-> block-kernel as a NEW sibling module is ON HOLD — Sid's "block = atomic
-> container" challenge was upheld against `object_container.clj` (it already
-> has distillers/anchors/units/edges/query-API; see CONTRACT.md banner).
-> §§2–4's flow logic (foreign-side cut, deterministic ids, retry axes, read
-> discipline) survives in adapter form. Redraw follows Sid's ruling.
+2026-07-09 · Fable, spec room · reflects Sid's placement ruling (Option A,
+adapter shape). Deeper codebase context: `docs/architecture/MAP.md`.
 
-2026-07-09 · Fable, spec room · drawn for the implementing session and for
-Sid's architecture read. Every claim here is a projection of CONTRACT.md +
-SPEC.md; on any drift, those win.
+## 1 · The shape: a distiller, not a module
 
-## 1 · Where block-kernel sits among the modules
+The land has ONE material kernel — `object-container-module` — and blocks
+are its atomic text containers. The block layer is a **new distiller adapter
++ driver** over the two existing kernels (the git-spine package shape, one
+grain finer). This package adds NO module, NO depot, NO PStates.
 
 ```
-                            ══ WORLD-LINE (what exists) ══
-      ┌────────────────────────┐        ┌──────────────────────────────┐
-      │ git-spine              │        │ object-container-module      │
-      │ commits · parents ·    │        │ docs + transcripts at        │
-      │ world artifacts        │        │ CONTAINER grain (convs,      │
-      └───────────▲────────────┘        │ messages, tool-calls, docs)  │
-                  │                     └──────────────▲───────────────┘
-                  │ edge TARGETS                       │ same raw material,
-                  │ (:git-commit, :doc-file)           │ DIFFERENT grain —
-                  │                                    │ parallel lens, NOT a
-                  │                                    │ dependency (R4)
-      ══ SENSE-LINE substrate (what is said/meant) ════╪══════════════════
-                  │                                    │
-   ┌──────────────┴─────────────┐   driver appends  ┌──┴───────────────────┐
-   │ relation-kernel (D-004)    │◀──(mechanical     │ block-kernel (NEW)   │
-   │ the EDGE layer:            │   edges, idem-    │ the ADDRESS layer:   │
-   │ typed, provenance-carrying │   potency keys)   │ surfaces · blocks ·  │
-   │ assertions; OPEN target-   │                   │ forms · prod-events  │
-   │ kinds — now incl. :block   │                   │ "what can be pointed │
-   └──────────────▲─────────────┘                   │  at, at thought grain│
-                  │                                 └──────────▲───────────┘
-                  │ marks-as-edges (kinds round, LATER)        │ query topologies ONLY (G13)
-                  │                                            │
-        ┌─────────┴────────────┬───────────────────┬───────────┴────────┐
-        │ marker (kinds round) │ dual benchmark    │ reconciliation UI  │
-        │ LATER                │ (Sid ∥ Fable) NEXT│ (dogfood, step 5)  │
-        └──────────────────────┴───────────────────┴────────────────────┘
-        further out: consolidator (episodes) · return-path/briefing assembly
+              ══ the material kernel: object-container-module ══
+   ┌─────────────────────────────────────────────────────────────────────┐
+   │ SourceArtifactRow    raw text, immutable, hashed         (:83)      │
+   │ SourceAnchorRow      start/end-offset + block-path       (:122) SPAN│
+   │ DerivedUnitRow       unit-kind + distiller-id@version    (:113) BLOCK│
+   │ CompositionEdgeRow   parent/child slots + order          (:126) TREE│
+   │ RevisionRow          parent-revision chains              (:109) SUPERSEDES│
+   │ transcript projections: per-message containers, tool-call index …  │
+   └──────────▲──────────────────────────────────▲────────────────────────┘
+              │ ingest requests (payload CARRIES │ query API: read-unit ·
+              │ units+anchors+edges — distilling │ read-common-material-for-
+              │ is FOREIGN-SIDE, by design :620) │ source (:2443-2501)
+   ┌──────────┴─────────────────────┐  ┌─────────┴──────────────────────┐
+   │ distiller adapters:            │  │ readers: benchmark CLI ·       │
+   │  markdown-block-v0  (existing) │  │ reconciliation UI · later the  │
+   │  transcript adapter (existing, │  │ marker — query topologies ONLY │
+   │   message/tool grain)          │  └────────────────────────────────┘
+   │  sense-block-v0     (THIS      │
+   │   package: paragraph grain,    │──── mechanical edges, driver-side,
+   │   thinking, river/debris,      │     idempotency keys ──▶ relation-kernel
+   │   role≠actor, prod-events)     │     (targets = unit ids, :block kind)
+   └────────────────────────────────┘
 ```
 
-The pair to hold: **relation-kernel = how things relate; block-kernel = what
-can be related, at thought grain.** Marks (kinds round) will be assertions
-over both. Containers stay a parallel evidence lens (A1); blocks do not
-replace them.
+One ontology at every grain: markdown blocks, transcript messages, and
+sense-blocks are all derived units with anchors into immutable sources —
+"one land at every zoom" in the schema.
 
-## 2 · The ingest flow (foreign side vs Rama side, with event boundaries)
-
-```
-FOREIGN SIDE — the driver (plain Clojure, one-shot, re-runnable)   │  RAMA SIDE — block-kernel-module
-═══════════════════════════════════════════════════════════════   │  ═══════════════════════════════
-                                                                   │
- ~/.claude/projects/…/7c80ce2a….jsonl                              │
-      │  walk/parse (transcript.clj fns — LIBRARY reuse)           │
-      ▼                                                            │
- event map ──▶ REDACT (versioned pass; canonical text minted       │
-      │        here, exactly once — R1)                            │
-      ▼                                                            │
- CLASSIFY river/debris  +  RESOLVE actor (role ≠ actor — T1)       │
-      ▼                                                            │
- FREE CUT (pure fns): provider parts → markdown units              │
-      │                → spans + forms (unit-testable, no IPC)     │
-      ▼                                                            │
- MINT deterministic ids (R3):                                      │
-   surf: sha256(session ∥ event-uuid ∥ part-path)                  │
-   blk:  sha256(surface-id ∥ start ∥ end)                          │
-      │                                                            │
-      ├── foreign-append! :append-ack ──────────────▶  depot *block-events
-      │                                                (hash-by :block/session-id)
-      │                                                            │  ONE microbatch topology
-      │                                                            ▼
-      │                                       ┌─ EVENT 1 · session task ──────────┐
-      │                                       │ $$session->surfaces   (subindexed)│
-      │                                       │ $$session->blocks     (subindexed)│
-      │                                       │ $$session->events-ledger          │
-      │                                       │ $$session->prod-events            │
-      │                                       └────────────────┬──────────────────┘
-      │                                              (|hash *surface-id)  ← boundary!
-      │                                       ┌─ EVENT 2 · id task ───────────────┐
-      │                                       │ $$surfaces-by-id (pointer row)    │
-      │                                       │ $$blocks-by-id   (pointer row)    │
-      │                                       │  NOT atomic with event 1 — T13:   │
-      │                                       │  readers nil-tolerate skew        │
-      │                                       └───────────────────────────────────┘
-      │
-      └── mechanical edges: foreign-append! :append-ack ──▶ relation-kernel depot
-          produced · grounds · assembled-from · refines        │ (its own topology,
-          idempotency key = sha256(blk ∥ kind ∥ target) — T11  │  its own PStates —
-          so re-runs DEDUPE inside relation-kernel             │  module untouched)
-```
-
-## 3 · The read path (the only lawful door)
+## 2 · The flow
 
 ```
- consumer (benchmark CLI · UI · later the marker)
-      │ foreign-invoke-query
+ sources already in the kernel (transcript ingest landed Jun 7-8)
+      │  read via query API
       ▼
- QUERY TOPOLOGIES — read-only, G13: no consumer touches PState paths
- ┌──────────────────────────────────────────────────────────────────────┐
- │ river-page(session, from, n)  2 seeks + iterate → ordered surfaces   │
- │                               ⋈ their blocks; text sliced ON READ    │
- │                               from the ONE stored copy (T6)          │
- │ block-text(block-id)          ptr → surface → slice                  │
- │ block-resolve(surface, span)  1 seek → id | nil (ids computable      │
- │                               client-side too — R3 determinism)      │
- └──────────────────────────────────────────────────────────────────────┘
+ DRIVER + sense-block distiller (plain Clojure, foreign side)
+   classify river/debris → resolve actor (role ≠ actor)
+   → FREE CUT (pure fns, markdown_adapter conventions)
+   → mint deterministic ids (du:… convention; span identity at anchors)
+      │
+      ├── derived-unit import requests ──▶ container kernel depot
+      │    :append-ack; deterministic     → its topology materializes
+      │    ids ⇒ re-runs converge           units/anchors/edges
+      │
+      └── mechanical edges ──▶ relation-kernel depot
+           produced · grounds · assembled-from
+           idempotency key = sha256(unit ∥ kind ∥ target)
 ```
 
-## 4 · Why the shape survives retries (the three axes)
+Retry axes: driver re-run → deterministic ids converge (G4) · kernel
+topologies → their own exactly-once/idempotency machinery, untouched ·
+edge re-appends → relation-kernel idempotency PState dedupes.
 
-```
- driver re-run      → same deterministic ids → PStates converge (G4: zero drift)
- topology retry     → microbatch exactly-once; ZERO world effects inside topology (T3/T11)
- edge re-append     → relation-kernel idempotency PState dedupes (T11 keys)
-```
+## 3 · Reuse decisions
 
-## 5 · Reuse decisions (what existing code is used, and why / why not)
+| existing thing | role in this package |
+|---|---|
+| `object-container-module` | THE home: stores sources, units, anchors, edges; its import path and query API are the only doors |
+| `object_container/markdown_adapter.clj` | the pattern to follow (emit-block, offsets, `du:` ids, distiller versioning) |
+| `object_container/transcript_adapter.clj` | already minted the message/tool-grain containers these blocks nest under |
+| `dogfood/transcript.clj` | jsonl parse/redaction library if raw re-reads are needed |
+| `relation-kernel-module` | as-is via its depot; open target-kinds take `:block` |
+| `git_spine.clj` | the package-shape precedent (adapters + driver, no module) |
+| `kernel.clj` | the kernel-shape spec both kernels follow |
 
-| existing thing | used? | how / why not |
-|---|---|---|
-| `dogfood/transcript.clj` reader+redaction fns | **YES — as a library** | plain defns (jsonl walk, parse, redact, line-hash); code reuse without module coupling |
-| `relation-kernel-module` | **YES — as-is via its depot** | open `target-kind` accepts `:block` with zero changes; its idempotency PState is the dedupe; the marks layer lands on the same substrate later |
-| `object-container-module` | **NO (parallel, not dependency)** | container grain ≠ block grain; different identity law + pace layer; 2.6k-line hardened import path = blast radius; R4 keeps an adapter as a later extension point |
-| `git-spine` | not now | its commits become `produced` edge targets (`:git-commit` kind already exists) |
-| `space / compute / llm` kernels | no | workspace-runtime domain; no overlap with addressing |
-| `core.clj` conventions | yes | V0/V1 schema + envelope conventions followed |
+## 4 · Is the block layer common underlying functionality?
 
-## 6 · Is block-kernel common underlying functionality?
-
-By design, yes — it is the sense-line's **address substrate**: the noun store
-everything else points into (rough analogy: what the object store is to git).
-Planned consumers, in arrival order: dual benchmark → reconciliation UI →
-marker/kinds (marks target block-ids/occurrences) → consolidator (episodes
-group blocks) → return-path/briefing (assembles blocks; buildup re-enters as
-new surfaces). BUT per D-001 honesty: v0's job is ONE chat and the benchmark;
-it EARNS common status when consumers actually arrive and it survives the
-dual-benchmark falsifier. Nothing else builds against it before that.
+The common layer is the **container kernel** — it already is the land's
+material substrate. This package adds the missing GRAIN (engagement-grade
+blocks) and the missing PROVENANCE (production events, delegation chain,
+context-parents), after which: marks target unit ids, episodes group them,
+briefings assemble them (assemblies re-enter as new sources), the benchmark
+reads them. It earns that role when it survives the dual benchmark; nothing
+else builds against it before then (D-001).

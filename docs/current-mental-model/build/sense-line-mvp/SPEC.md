@@ -31,9 +31,9 @@
 
 ## 2 · Material model
 
-2.1 **Surfaces are immutable.** The stored text of a surface is the **canonical text**: the producer's exact output after ONE declared, versioned redaction pass at ingest (secrets never enter storage — hard rule; redactions are recorded with rule-id@version and MUST render as visible redaction marks, never silent gaps — the map must not lie). After mint, the canonical text never changes (MUST). Each surface stores a content-hash for drift detection. *(AMENDED 2026-07-09 at contract contact — was "byte-identical to producer"; the ingest layer's redaction is non-negotiable and predates this spec. Contract ruling R1.)*
+2.1 **Surfaces are immutable.** The stored text of a surface is the **canonical text**: the producer's exact output after ONE declared, versioned redaction pass at ingest (secrets never enter storage — hard rule; redactions are recorded with rule-id@version and MUST render as visible redaction marks, never silent gaps — the map must not lie). After mint, the canonical text never changes (MUST). Each surface stores a content-hash for drift detection. (Contract ruling R1.)
 
-2.2 **A block is an address.** `(surface-id, span)`, span in offsets over the surface's canonical text. Offset unit: **RULED (contract R2, 2026-07-09): UTF-16 code units** — native to both JVM and JS string indexing; MUST never split a surrogate pair; codepoint conversion stays derivable.
+2.2 **A block is an address.** `(surface-id, span)`, span in offsets over the surface's canonical text. Offset unit: **UTF-16 code units** — native to both JVM and JS string indexing; MUST never split a surrogate pair; codepoint conversion stays derivable. (Contract ruling R2.)
 
 2.3 **Reconstruction guarantee (immersion law).** Rendering a surface's text from storage MUST reproduce the canonical text exactly; blocks are an overlay. The wall is never shredded — immersive reading and block operations are two projections of one untouched material.
 
@@ -170,7 +170,6 @@ Break *quality* — do the seams land where stances flip? — is the dual-benchm
 
 ## OPEN — Sid's rulings pending
 
-1. ~~Offset unit~~ — RULED at contract (R2, 2026-07-09): UTF-16 code units, no surrogate splits (§2.2). Redaction-canonical amendment also landed (R1, §2.1).
-2. Human-side silver sub-chunking default ON (§4.4) — feel-check at first render.
-3. Header as own block (§4.2).
-4. All names (surface · form · free cut · river/debris · occurrence · hole · …) — scaffolding until recurrence + Sid's naming.
+1. Human-side silver sub-chunking default ON (§4.4) — feel-check at first render.
+2. Header as own block (§4.2) — feel-check at first render.
+3. All names (surface · form · free cut · river/debris · occurrence · hole · …) — scaffolding until recurrence + Sid's naming.

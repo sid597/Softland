@@ -15,10 +15,13 @@ this branch (`90ed435` → `e0ad1cc`):
    interfaces; episode sketch. Real fixture from `7c80ce2a` head. AMENDED at
    contract contact: canonical-text-after-redaction (R1); UTF-16 offsets (R2).
 3. **`build/sense-line-mvp/block-kernel/CONTRACT.md`** — implementation
-   contract v1: new `block-kernel-module`; R1–R4 rulings; traps T1–T13;
-   gates G1–G13; rama-pitfalls verdict RUN and fixes applied (driver-side
-   cross-module appends w/ deterministic idempotency keys; :append-ack +
-   barrier; pointer-PState skew tolerance).
+   contract **v2** (placement re-ruled by Sid 2026-07-09, Option A): the
+   block layer = `sense-block-v0` distiller adapter + driver over the
+   EXISTING object-container + relation kernels (git-spine package shape;
+   NO new module/depot/PStates). R1–R5 rulings; traps T1–T14; gates G1–G13;
+   P0-verify (a)–(h). Codebase map (read-grounded, living):
+   `docs/architecture/MAP.md`. QUEUED (Sid): code-size/verbosity audit of
+   src/ (post-package).
 
 **COUNTERSIGNED 2026-07-09 — Sid: "all agree on the specs."** SPEC v0 and
 CONTRACT v1 are BINDING; the block-kernel work package is OPEN (STANDING/NOW
@@ -37,28 +40,30 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
 ## STANDING (frozen at package open 2026-07-09 — do not edit while active)
 
 - **Binding docs:** `docs/current-mental-model/build/sense-line-mvp/
-  block-kernel/CONTRACT.md` (v1, countersigned 2026-07-09) +
-  `docs/current-mental-model/build/sense-line-mvp/SPEC.md` (v0, countersigned)
-  + `docs/current-mental-model/decisions.md`. This file is a baton, not a
-  source of truth; if it contradicts CONTRACT.md or decisions.md, those win —
-  flag the discrepancy in NOW.
+  block-kernel/CONTRACT.md` (**v2**, adapter shape — Sid's Option-A ruling
+  2026-07-09) + `docs/current-mental-model/build/sense-line-mvp/SPEC.md`
+  (v0, countersigned) + `docs/current-mental-model/decisions.md`. This file
+  is a baton, not a source of truth; if it contradicts CONTRACT.md or
+  decisions.md, those win — flag the discrepancy in NOW.
 - **Process:** /work-package shell + /rama phase mechanics (load BOTH skills
   before anything; /rama-pitfalls before any topology-shape change). ONE
   orchestrating session; validation/review layers as fresh Opus subagents;
   default-fail verdicts; never overwrite a FAIL artifact (per-round files);
   NOW entries ≤15 lines. Phase artifacts live in
   `build/sense-line-mvp/block-kernel/`.
-- **First actions:** Phase 0 requirements re-derivation (INHERITS CONTRACT §5
-  partition/colocation context verbatim) INCLUDING P0-verify items (a)–(d)
-  of CONTRACT §12: relation-kind openness · redaction determinism+versioning ·
-  jsonl event-shape inventory vs SPEC §3 · relation idempotency-key scope.
-- **File allowlist (NEW files only):** `src/app/server/rama/block_kernel.clj`
-  · `test/app/server/rama/block_kernel_test.clj` · test fixture resources
-  under `test/resources/block-kernel/` · package docs. NOTHING existing is
-  amended — relation_kernel.clj, transcript.clj, object_container.clj
-  untouched; `app.server.rama.dogfood.transcript` fns are imported as a
-  LIBRARY. Any needed change to an existing file = STOP-CLAUSE, never a
-  silent edit.
+- **First actions:** Phase 0 requirements re-derivation (INHERITS CONTRACT §4
+  mapping + §5 flow verbatim) INCLUDING ALL P0-verify items (a)–(h) of
+  CONTRACT §12 — notably (e) second-distillation-over-existing-source import
+  semantics (the R4 gate), (f) anchor granularity + determinism, (g)
+  river-page realization, (h) delegation-chain capture point.
+- **File allowlist:** NEW `src/app/server/rama/object_container/
+  block_distiller.clj` (adapter + driver + pure cut fns; working name, Sid
+  renames) · NEW `test/app/server/rama/object_container/
+  block_distiller_test.clj` · test fixtures under `test/resources/
+  block-distiller/` · package docs. `object_container.clj` touches ONLY as
+  P0-ruled, ADDITIVE, citing the additive-field precedent (CONTRACT T13);
+  relation_kernel.clj and everything else UNTOUCHED. Any other existing-file
+  change = STOP-CLAUSE, never a silent edit.
 - **Verification duties (before code):** check memory-derived Rama claims
   against `docs/reference/rama/`; test harness uses the deterministic
   microbatch-processed-count barrier (submit!==+1, routing key always
@@ -94,6 +99,13 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   owned). Fork A/B/C in the CONTRACT.md banner; A recommended (block
   distiller adapter + driver over EXISTING OC + relation-kernel, git-spine
   shape). Sid rules → §2/R4/§4/§5 amended → package re-opens.
+- **2026-07-09 (later still), Sid RULED: Option A ("this is what it was
+  designed for"). PACKAGE RE-OPENED — BOOTABLE.** CONTRACT rewritten in
+  place to v2 (sense-block-v0 distiller + driver; P0 grew to (a)–(h));
+  STANDING refreshed to match (pre-phase-0, sanctioned by the ruling). Also
+  ruled: no superseded-banners — working docs get direct replacement, git
+  is the history (memory'd); code-size/verbosity audit QUEUED post-package;
+  read-grounded codebase map started at `docs/architecture/MAP.md`.
 
 ---
 
