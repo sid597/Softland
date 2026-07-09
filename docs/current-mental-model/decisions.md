@@ -810,6 +810,33 @@ spend, future-binding architecture/nouns, North authorship.
   `docs/sessions/code-atom-close-opening-prompt-2026-07-09.md` (fix window →
   re-green + receipt → commits → close + retro + adversarial retro-recheck).
 
+- **code-atom package CLOSED — RETRO + adversarial recheck done (2026-07-09, Opus
+  close session; D-006 evaluation note).** Fix window (G-F2 `imp:clj:` branch +
+  N3/N4/N6) applied with biting regressions; 4 code commits — `1d823bc` adapter ·
+  `9a2445b` driver · `6fbfd75` registry/deps/kernel (T11 hunk split, only `:requires
+  :calls` staged) · `381c445` analyzer-gates pin fix (recheck-found). Suites green at
+  HEAD: adapter 10t/91a · driver 9t/187a · rk 2t/222a; §12 receipt re-run end-to-end
+  exact (895/895, `:blobs-unparseable 5`, whole-tree 458/5073/279/50). Artifact:
+  `code-atom/RETRO.md`. **D-006 evidence (pre-registered):** the five-layer QC model
+  earned its keep IN ORDER — gates proved happy-path math, the fresh-context adversarial
+  diff killed 8 seam bugs, and the §12 dogfood receipt (the ONLY layer that touches the
+  full real corpus) found G-F1 — a break FIVE cheaper layers structurally could not see
+  (each used pinned-specimen commits / HEAD files / parseable synthetics). The retro's
+  adversarial recheck (fresh subagent) then caught a green-pre-commit / red-post-commit
+  staleness the close session had missed (fixed `381c445`) — that layer earned its keep
+  too. **PROPOSED skill amendments (Fable signs canon — NOT self-signed by this Opus
+  session):** (1) /work-package — a whole-corpus/whole-history processor gates a
+  full-real-corpus RECEIPT at the first phase that touches the full corpus, not only at
+  review; (2) /work-package — a coverage claim ("N/N") names its VERB
+  (enumerate|parse|ingest|analyze), and the close protocol re-runs every HEAD-reading
+  suite AFTER the code commits; (3) /atomize + /work-package — a new object-container
+  import-key PREFIX registers its `extract-object-key` routing (or rides a handled prefix)
+  with a routing gate (the G-F2 class bit BOTH code-atom and block-kernel). Consumer
+  disciplines + open doubts carried in RETRO §5. **T11 resolved:** block-kernel landed its
+  `:grounds :assembled-from :refines` on top of `6fbfd75` (`a146dc8`), both packages'
+  kinds coexist, both suites green. Durability fork (in-memory vs durable
+  `:analyzer-basis`) remains Sid's — deferred, revert-cheap.
+
 ## Amendments A1 · A2 — COUNTERSIGNED 2026-07-08, applied IN PLACE
 
 Ruled by Sid same day, verbatim: "all approved by default and i would even go

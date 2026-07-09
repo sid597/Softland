@@ -202,6 +202,19 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   `docs/sessions/code-atom-close-opening-prompt-2026-07-09.md`** — G-F1
   fresh-context look → fix window → re-green + receipt → code commits (T11
   hunk split) → close + RETRO + adversarial retro-recheck + route lessons.
+- **2026-07-09 (CLOSE) Opus 4.8 — PACKAGE CLOSED.** G-F1 fresh-context review PASS.
+  Fix window (biting regressions): G-F2 `imp:clj:` branch · N3 basis-missing
+  nil?-not-empty? · N4 temp-dir minted before try/finally · N6 docstring. 4 code
+  commits: `1d823bc` adapter · `9a2445b` driver · `6fbfd75` registry/deps/kernel (T11
+  split, only `:requires :calls`) · `381c445` analyzer-gates pin fix. Suites green at
+  HEAD (10t/91a · 9t/187a · 2t/222a); §12 receipt exact (895/895, unparseable 5,
+  458/5073/279/50). RETRO + adversarial recheck done (`code-atom/RETRO.md`) — recheck
+  CAUGHT a green-pre-commit/red-post-commit `analyzer-gates` staleness (HEAD-dynamic
+  ingest vs fixed specimen) the close missed, fixed 381c445. Lessons →
+  implementation-quirks + decisions.md D-006 (PROPOSED /work-package + /atomize
+  amendments, Fable signs). **T11 RESOLVED:** block-kernel landed its 3 kinds on top of
+  `6fbfd75` (`a146dc8`), both suites green. Durability fork still Sid's. **DONE — no
+  next code-atom session.**
 
 ---
 
