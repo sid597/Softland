@@ -459,6 +459,18 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   implementation-grade — its fresh-context falsification rides the package gate review (per
   the P4 entry above), NOT yet run. **NEXT: P5** (river-page + real-file e2e + G12/G13 =
   package DoD) → `block-p5-opening-prompt` → package gate (batched falsification incl. P4) + RETRO.
+- **2026-07-10 — block-kernel PACKAGE CLOSED (P5 + gate wave; code COMMITTED, Sid's word).**
+  P5 river-page + real 7c80ce2a receipt done. Round-1 gate FAILed (F1–F4): F1 ruled A (G12
+  amended → composition-first v0); F2/F4 fixed; F3 ruled A (additive OC validator relaxation
+  = the authorized 2nd kernel edit). Fresh-context Round-2 gate **PASS** + Finding-1 closed
+  (surfaceless-river got no durable class row → class-based hint emission; every event → 1
+  durable class row). Suites **28t/1250a/0f**; receipt **247 river / 399 debris / 44 edges /
+  0 rejections**. Code: `f4eccec` (object_container.clj) + `bfbc7ff` (block_distiller + test),
+  code-only local branch, cherry-pickable to main; docs `dc11f9a`/`0f4101e`. T11 already
+  resolved (`a146dc8`). RETRO + `GATE_ROUND_2.md` committed. Deferred (LOW): §10
+  cursor/denormalized query; multi-stratum under-fill (unreachable v0). **NEXT (agreed path):
+  the dual benchmark** — example chat chunks → Sid ∥ Fable independent reads → merge/reconcile
+  → dogfood reconciliation UI → then marks/kinds. (Post-commit re-green: task bz8kybt9z.)
 
 ---
 
