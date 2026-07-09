@@ -731,7 +731,7 @@ spend, future-binding architecture/nouns, North authorship.
   lacking a prior basis, so the map declares the boundary. Sid may redline to the
   durable snapshot instead — revert-cheap either way.
 
-- **block-kernel P1/P2 falsification — 2 items for ruling (PROPOSED, 2026-07-09).**
+- **block-kernel P1/P2 falsification — 2 items RULED (Sid took the recommended fixes, 2026-07-09).**
   A fresh-context adversarial review of P1/P2 (artifact
   `build/sense-line-mvp/block-kernel/P1P2_FALSIFICATION.md`) found the code
   functionally correct (all gates green) but surfaced two questions touching binding
@@ -750,7 +750,15 @@ spend, future-binding architecture/nouns, North authorship.
   right, still a distinct full key so R4 holds); alt = a kernel `extract-object-key` branch
   (T13). Sid confirms the fix vs R4's "distinct prefix" wording. F3 (a G4 test-power gap) +
   N5 (docstring) are implementer-fixable, queued for a coordinated pass (P3 is live-editing
-  the same files).
+  the same files). **RULED (Sid, 2026-07-09): take the recommended step on both** — F1 =
+  drop a sub-block whose span == the whole-message span (realizes §6.1 without disturbing
+  §4.4 silver subs; add a single-paragraph human case to the fixture + regen golden to
+  exercise it); F2 = the in-allowlist import-key restructure `imp:tr:<object-key>:sb:<hash>`
+  (routes via `extract-object-key`, still a distinct key so R4 holds). **Where:** a POST-P3
+  coordinated FIX-PASS session (fixes layer on P3's settled tree, not the P1/P2 snapshot;
+  applies F1+F2+F3+N5, full P1–P3 re-green, one code commit on Sid's word). Prompt:
+  `docs/sessions/block-fixpass-opening-prompt-2026-07-09.md`. This countersign flips the
+  entry from PROPOSED to resolved; the fix-pass is execution, not a re-ruling.
 
 ## Amendments A1 · A2 — COUNTERSIGNED 2026-07-08, applied IN PLACE
 
