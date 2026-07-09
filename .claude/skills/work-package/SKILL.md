@@ -31,6 +31,10 @@ A1–A3 first-run green, zero stop-clauses) while the per-session orientation
 cost stayed constant. The old cadence's token ledger priced Sid's attention
 at zero. QC layers themselves are unchanged — they keep their kill record.
 
+**Amended 2026-07-10 at the code-atom + block-kernel closes** (both retros +
+their adversarial rechecks are the sources; every added rule cites its
+concrete failure inline — no speculative hardening).
+
 ## What a work package is
 
 One bounded build (so far: a Rama kernel) run against a binding contract, by
@@ -99,7 +103,11 @@ Two rules that hold across all layers:
   came from "typed defrecords" without a boundary; the precise form: *the
   partitioner-read key must be a top-level namespaced key on a plain map
   envelope; typed records may ride inside fields the partitioner never reads;
-  records in PStates.*
+  records in PStates.* A gate's ONE-LINE text carries every scope carve-out
+  its authorizing sections carry — the fresh gate enforces the short form
+  literally (block-kernel G12: the §8 one-liner lost the v0 carve-out that
+  CONTRACT §12/g, PHASE_0 §2/g, and the P5 prompt all carried; Round-1
+  strictly-failed it as a stop clause).
 - **Scope on every uniqueness/identity claim**: any key, journal, or dedup
   mechanism in a partitioned store names its partition scope in the sentence
   that introduces it ("idempotency key" without "(relation-scoped)" cost a
@@ -108,6 +116,33 @@ Two rules that hold across all layers:
   the read plan per query shape. This is contract hygiene — it makes the
   promise checkable at plan level; it will NOT stop an implementation
   divergence (Phase 4 owns that).
+- **Coverage claims name their VERB**: any "N/N" (blobs, files, events)
+  states enumerate | parse | ingest | analyze in the sentence that makes the
+  claim, and the definition of done gates EACH verb the processor performs
+  over the full corpus it claims. (Code-atom: "895/895" was enumeration read
+  as parse — parse-fidelity was only ever checked on HEAD's 96 files; that
+  unnamed verb seeded G-F1.)
+- **Full-real-corpus receipt as a phase gate** (whole-corpus/whole-history
+  processors): when the deliverable claims coverage of a real corpus, the
+  definition of done gates a receipt over the FULL real corpus at the FIRST
+  phase that touches it — not only at review — and the receipt ASSERTS the
+  processor's completeness invariant against durable state (every history
+  blob parses-or-is-counted; every ingested event has exactly one durable
+  class row), never merely runs-and-prints. Grounds, two packages: code-atom
+  G-F1 — 5/895 committed-broken historical blobs aborted the unguarded sync;
+  FIVE cheaper layers were structurally blind (pinned specimens, HEAD files,
+  parseable synthetics); the gate's receipt found it in its first minute.
+  Block-kernel Round-2 Finding-1 — a surfaceless-river class invisible to
+  the fixture; the receipt RAN clean and printed plausible-but-wrong counts
+  (244/402 for a true 247/399). Run-and-print catches aborts; only assertion
+  catches silent class gaps.
+- **A new object-container import-key prefix is a named deliverable**: a
+  package minting `imp:<family>:` names the `extract-object-key` routing
+  branch (or the handled prefix it rides) as an explicit deliverable WITH a
+  foreign-read routing gate. The bug is latent by nature — nothing fails
+  until a foreign consumer calls `read-import-completion` on a multi-task
+  cluster. (Identical class, two packages: code-atom G-F2 `imp:clj:` →
+  `:else`; block-kernel F2 `imp:sense-block:` → `:else`.)
 - **Input manifest**: the exact files/lines any model would need to reproduce
   the contract (feeds the D-006 counterfactual probe).
 - Handoff section: implementer, reviewer gate definition, what comes after
@@ -188,6 +223,13 @@ holding CONTRACT.md and every phase artifact.
     string escape from day one (git classifies raw-NUL files as binary; the
     tool-JSON layer also decodes `\u0000` in edit payloads into raw bytes —
     both traps have fired here).
+  - **A suite that reads git HEAD dynamically pins its ground truth to an
+    explicitly analyzed specimen** (`:head-override` — analyze the blob, not
+    the checkout) **or is re-run after every commit that moves HEAD.**
+    Code-atom's `analyzer-gates` was green pre-commit and 7f/3e at committed
+    HEAD — the package's OWN closing commit moved the blobs off the pinned
+    specimen; only the retro's adversarial recheck caught it (fixed by
+    pinning, `381c445`).
 
 ## Stop clause and escalation
 
@@ -235,6 +277,14 @@ holding CONTRACT.md and every phase artifact.
 - Open doubts are recorded non-blocking **with their cheap falsifier named**
   (e.g. "envelope/payload binding is client trust → one-line server-side
   recheck before agent-authored writers appear").
+- **A strict-fail on a gate's one-line text is classified before it is
+  enforced**: when the contract's authorizing sections (and phase prompts)
+  pre-bless what the one-liner forbids, the gap is literal-vs-intent — a
+  stop-clause escalation resolved by reconciling the short form to the
+  authoring intent (option A), never by re-deriving a stricter bar no used
+  form needs (D-001; the stricter path is deferred to a form-break, not
+  rejected). The fresh-context gate is exactly where this gap surfaces.
+  (Block-kernel F1/G12 — Sid ruled A, 2026-07-10.)
 - **Without Fable**: same protocol, strongest available model, fresh session;
   verdict recorded in `decisions.md`; anything the reviewer cannot
   independently verify is an open doubt, never a pass.
@@ -243,7 +293,12 @@ holding CONTRACT.md and every phase artifact.
 
 1. Commit decision is Sid's. Code and docs ALWAYS in separate commits; docs
    only on the local docs branch (never pushed, never merged to main).
-2. **Retro**, from the full trail (NOW log + phase artifacts + source + gate):
+2. **After the code commits land, re-run every suite that reads git HEAD
+   dynamically** (and the receipt, if it reads HEAD). Green pre-commit is
+   not green at committed HEAD when the package's own commits move HEAD —
+   the code-atom close shipped a red driver suite that only the retro's
+   adversarial recheck caught.
+3. **Retro**, from the full trail (NOW log + phase artifacts + source + gate):
    - QC-layer scorecard: what each layer caught, what it missed and the cost.
    - "What the next contract should do differently" — rules, each traceable to
      a concrete failure in THIS package (no speculative hardening dressed as a
@@ -253,12 +308,12 @@ holding CONTRACT.md and every phase artifact.
      disciplines that must carry into the NEXT package's contract** (cycle 1
      initially dropped the importer-timestamp discipline; the recheck restored
      it).
-3. **Adversarial recheck of the retro** before it feeds any skill or binding
+4. **Adversarial recheck of the retro** before it feeds any skill or binding
    artifact: fresh session, verify every scorecard claim against the
    artifacts, the baton trail in git, and a fresh suite run. Cycle 1's recheck
    caught a residue line stale within minutes, an overcounted cost, and a
    wrong causal story — retros are written by the same process they judge.
-4. Route the lessons: coding gotchas → `memory/implementation-quirks.md`;
+5. Route the lessons: coding gotchas → `memory/implementation-quirks.md`;
    process rules → THIS skill (amend it); evaluation notes → `decisions.md`
    D-006; then write a fresh baton for the queue.
 

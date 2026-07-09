@@ -14,7 +14,10 @@ the code round** (session `code-atom-spec-round`; artifacts:
 hand-pass → Sid rulings → SPEC → CONTRACT. Claims are marked **[R]** (receipt —
 survived a round; R2 = confirmed again in the code round) or **[C]**
 (conjecture). **AMEND THIS SKILL after every family round**, the way the
-work-package skill amends per package. Status: v1, N=2.
+work-package skill amends per package. **Amended 2026-07-10 by Fable from both
+families' BUILD packages** (code-atom close + block-kernel gate rounds, each
+retro adversarially rechecked) — implementation receipts flow back into the
+lens. Status: v1.1, N=2 (both families built and gated).
 
 ## The invariant laws [R — countersigned in SPEC v0; written family-generic]
 
@@ -37,6 +40,19 @@ work-package skill amends per package. Status: v1, N=2.
 Plus the cross-cutting law: **form (material fact, producer-given) vs kind
 (interpretation, proposed mark) — never merged.** [R — the five-field
 molecule died of merging these, 2026-07-07.]
+
+And its build-round companion: **classification is total and keyed on the
+THING, not the code path.** When a family's spec classifies inputs (forms,
+lanes, river/debris), the durable class record is a function of *what the
+thing is* (`classify-event`), never of *which processing branch it took*
+("did it produce a surface?"). Every ingested input gets exactly ONE durable
+class row even when it yields no material, and the family's real-corpus
+receipt asserts that completeness invariant against the DURABLE rows — never
+in-process counters, which are exactly what lied. "The map must not lie,"
+applied to class provenance. [R — block-kernel F3 + Round-2 Finding-1: two
+instances of this one failure, once per code path — debris first inferred by
+subtraction, then surfaceless-river events falling to a count-only branch
+(printed 244/402 for a true 247/399).]
 
 ## The five-slot template — fill per family [R — held at the code round; the novum landed in slot 4 exactly as predicted]
 
@@ -99,7 +115,12 @@ Code-round additions to the laws [R]:
   ADAPTER over `object-container-module` (precedents: `markdown-block-v0`,
   the sense-block distiller) + mechanical edges into `relation-kernel`
   driver-side with deterministic idempotency keys. New modules require
-  form-break evidence, not instinct.
+  form-break evidence, not instinct. A family minting a NEW `imp:<family>:`
+  import-key prefix registers its `extract-object-key` routing (or rides a
+  handled prefix) and ships a foreign-read routing gate — the mis-route is
+  latent until a foreign consumer calls `read-import-completion` on a
+  multi-task cluster. [R2 — the identical bug bit BOTH families: `imp:clj:`
+  (code-atom G-F2) and `imp:sense-block:` (block-kernel F2).]
 - **Raw-form plurality resolves at the Material law.** [R2 — confirmed at
   the code round] When a family has rival representations (code: text vs
   AST vs runtime reflection), the authoritative immutable raw is ONE thing

@@ -880,6 +880,43 @@ spend, future-binding architecture/nouns, North authorship.
   isolate) + `block_distiller.clj` + test; docs auto-committed on this branch.
   RETRO §6 honest gap: Finding-1's fix is self-verified, not fresh-context re-gated.
 
+- **Both packages' process lessons SIGNED into skills; consolidated D-006 data point
+  (2026-07-10, Fable authority pass).** Fact-checked the closes' PROPOSED amendments
+  against both RETROs + adversarial rechecks at source; all five verified real; one
+  grounds reclassification while signing: block-kernel Round-1 F1–F4 evidences the
+  fresh-context GATE layer (cold read), not the receipt rule — moved to the tally
+  below. **Signed into `/work-package`:** (1) whole-corpus/whole-history processors
+  gate a full-real-corpus receipt at the FIRST phase that touches the full corpus,
+  and the receipt ASSERTS the completeness invariant against durable state —
+  run-and-print catches aborts (G-F1's sync abort) but not silent class gaps
+  (Finding-1 printed 244/402 for a true 247/399); (2) coverage claims name their
+  VERB ("895/895" was enumeration read as parse), and the close protocol re-runs
+  every HEAD-reading suite AFTER the code commits (analyzer-gates 7f/3e at committed
+  HEAD, fixed `381c445`), with pin-to-specimen (`:head-override`) as the test-side
+  discipline; (3) a new `imp:<family>:` prefix is a named deliverable —
+  `extract-object-key` routing (or a handled prefix) + a foreign-read routing gate
+  (identical class twice: G-F2 `imp:clj:`, block-kernel F2 `imp:sense-block:`);
+  (4) a gate's one-line text carries its authorizing carve-outs at authoring, and a
+  gate-time strict-fail is classified literal-vs-intent → stop clause → reconcile to
+  intent (A), never a stricter bar no used form needs (D-001) — the F1/G12 ruling as
+  protocol. **Signed into `/atomize`:** the prefix-routing law [R2], and A5 RULED a
+  design law placed there (not memory, not work-package — its process shadow IS the
+  receipt-assertion rule): classification is total and keyed on the THING
+  (`classify-event`), never the code path; every ingested input gets exactly one
+  durable class row even with no material (F3 + Finding-1 = two instances of the one
+  failure; "the map must not lie" applied to class provenance). **Consolidated D-006
+  evaluation point (two independent packages):** the fresh-context + real-corpus +
+  default-fail layer is the load-bearing QC layer — it caught code-atom G-F1 (FIVE
+  cheaper layers structurally blind: pinned specimens / HEAD files / parseable
+  synthetics), block-kernel F1–F4 (cold read), and Finding-1 (fixture-blind; only
+  the real 402-debris chat exposed it). The synthetic/fixture layers could not have
+  caught any of these classes — that is structure, not chance, corroborated across
+  two packages. Allocation nuance for the final evaluation: the receipt MECHANISM
+  was invented at the Fable gate session (code-atom §12) and is now a signed
+  protocol rule — a Fable-grade catch converted into machinery any fresh gate can
+  run; that is the confirm-side shape of the bet (Fable builds the net; cheaper
+  models run it).
+
 ## Amendments A1 · A2 — COUNTERSIGNED 2026-07-08, applied IN PLACE
 
 Ruled by Sid same day, verbatim: "all approved by default and i would even go

@@ -471,6 +471,18 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   cursor/denormalized query; multi-stratum under-fill (unreachable v0). **NEXT (agreed path):
   the dual benchmark** — example chat chunks → Sid ∥ Fable independent reads → merge/reconcile
   → dogfood reconciliation UI → then marks/kinds. (Post-commit re-green: task bz8kybt9z.)
+- **2026-07-10 — Fable authority pass: both closes' PROPOSED lessons fact-checked + SIGNED
+  into skills; consolidated D-006 note recorded (decisions.md tail).** Verified A1–A5
+  against both RETROs + rechecks at source; all real; one grounds reclassification
+  (Round-1 F1–F4 → gate-layer evidence, not the receipt rule). Signed → `/work-package`:
+  receipt-as-phase-gate ASSERTING the completeness invariant (G-F1 + Finding-1); coverage
+  claims name their VERB; HEAD-reading suites pin-to-specimen or re-run post-commit (new
+  close step 2); `imp:` prefix = named routing deliverable + foreign-read gate (G-F2 + F2);
+  gate one-liners carry carve-outs + strict-fails classified literal-vs-intent (F1/G12,
+  D-001). Signed → `/atomize`: prefix-routing law [R2]; NEW law "classification is total
+  and keyed on the THING, not the code path" (A5 ruled design-law → atomize; F3 +
+  Finding-1). Quirks already routed (verified present, nothing added). NEXT unchanged:
+  the dual benchmark (entry above).
 
 ---
 
