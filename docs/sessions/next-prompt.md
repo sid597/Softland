@@ -21,7 +21,11 @@ this branch (`90ed435` → `e0ad1cc`):
    NO new module/depot/PStates). R1–R5 rulings; traps T1–T14; gates G1–G13;
    P0-verify (a)–(h). Codebase map (read-grounded, living):
    `docs/architecture/MAP.md`. QUEUED (Sid): code-size/verbosity audit of
-   src/ (post-package).
+   src/ (post-package). **CODE-ATOM SPEC ROUND opened as a room** (Sid,
+   2026-07-09): fresh session boots from
+   `docs/sessions/code-atom-opening-prompt-2026-07-09.md` + the new
+   `/atomize` skill (the block round's lens, generalized; amend-per-round).
+   Step-3 UI fork (task UI vs baseline cards-wall) noted, Sid rules later.
 
 **COUNTERSIGNED 2026-07-09 — Sid: "all agree on the specs."** SPEC v0 and
 CONTRACT v1 are BINDING; the block-kernel work package is OPEN (STANDING/NOW
