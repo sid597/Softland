@@ -25,7 +25,8 @@ architecture map "for me and you … and future readers." Rules of this doc:
 | `kernel.clj` (826 ln) | PARTIAL | 1–8 (header) | 2026-07-09 |
 | `text_kernel.clj` (733 ln) | PARTIAL | ns form only | 2026-07-09 |
 | `dogfood/transcript.clj` (1,522 ln) | DECLS | fn inventory + observation field accessors (206–219) | 2026-07-09 |
-| `dogfood/{space,compute,llm}.clj` | UNREAD | ns forms only | 2026-07-09 |
+| `dogfood/space.clj` | PARTIAL | 1640–1685 (event-materialization region: objects/turns/bundles/llm-runs + `$$artifact-graph` writes) | 2026-07-09 |
+| `dogfood/{compute,llm}.clj` | UNREAD | ns forms only | 2026-07-09 |
 | `dogfood/transcript_ingest.clj` | DECLS | id-helper fn list (27–70) | 2026-07-09 |
 | `roam_ns.clj`, `objects.cljc`, `core.clj`, `util_fns.cljc` | UNREAD | (roam_ns: attribute list glanced) | |
 | client layer (`electric_flow.cljc`, `client/substrate/webgpu/renderer.cljs`, `client/workspace/*`, `client/workflows/*`) | UNREAD | — | |
@@ -126,12 +127,17 @@ edges-by-target / target descriptors / activity buckets (:616-656).
 `:block`) need no schema change. Placement rationale and envelope style-gate
 precedent live in `build/relation-kernel/CONTRACT.md`.
 
-### git_spine.clj [self-describing docstring]
+### git_spine.clj [PARTIAL: docstring + :24-61]
 
 *"NOT a Rama module — no depots, topologies, or PStates. Pure adapter fns +
 a sync driver + a transcript extractor + a replay fn, all over the EXISTING
 object-container and relation-kernel public APIs."* The package-shape
-precedent the block layer now follows.
+precedent the block layer now follows. Verified 2026-07-09: requires
+`relation-kernel :as rk` (:31); deterministic spine idempotency
+`"spine:"+relation-id+":"+basis` (:24); relation-id includes the asserter
+(:43); durable `data/relation-assert-log.ednl` replay log (:51). Content it
+adds: commits as canonical-text material (→ OC) + parent lineage and
+session↔commit joins as typed edges (→ RK).
 
 ### kernel.clj [header only]
 
@@ -159,11 +165,30 @@ event-type / redacted-payload / byte-offset fields (:206-219). Reads
 `:parentUuid` (:336); sidechain/promptId not captured (grep-verified
 absence, 2026-07-09).
 
-### dogfood/{space,compute,llm}.clj [UNREAD]
+### dogfood/space.clj [PARTIAL: 1640-1685] + compute/llm [UNREAD]
 
-Memory-grade only: the 2026-05 dogfood-runtime chapter (World/Compute/LLM
-depot families; module-owned executor; back-arrow rule). Do not trust detail
-until read.
+The workspace RUNTIME family (2026-05 dogfood chapter): turns, context
+bundles, llm runs, executors. Verified 2026-07-09: `$$artifact-graph` /
+`$$artifact-graph-in` hold system-written WIRING between runtime objects
+(thread→turn→bundle→llm-run edges, written inline as the topology
+materializes space events, :1655-1674) — plumbing truth: no kinds beyond
+from/to, no asserter, no lifecycle. This is why relations got their own
+kernel (its CONTRACT §2 examined exactly this store); the plumbing graph is
+projectable into relation-kernel later as `asserted-by :system` if a
+one-graph view is ever wanted. compute/llm: memory-grade only until read.
+
+## The truth-kind test (the goose-chase vaccine, 2026-07-09)
+
+Every store holds a KIND of truth: **material** (what exists/was said — the
+container kernel) · **asserted** (what someone claims — the relation kernel)
+· **derived** (recomputable projections — trail_view, outline) · **plumbing**
+(system wiring — space's artifact-graph). Redundancy = two stores holding
+the SAME kind. Before any new package: name the truth-kind it adds, then ask
+"does a store for that kind already exist?" — block-kernel v1 failed this
+question (material store already existed); every other package in the record
+passes it. Kernel packages add a missing truth-kind; content packages
+(git-spine, the block layer) add material/assertions THROUGH existing
+kernels via stateless adapters.
 
 ## Client layer [UNREAD — stubs from CLAUDE.md structure]
 
