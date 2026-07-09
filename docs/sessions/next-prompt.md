@@ -149,6 +149,20 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   placement; test affordances) — gate review weighs them. CODE UNCOMMITTED.
   NEXT: adversarial falsification subagent (by class) → Fable gate review
   (full code read) → close + retro; commits on Sid's word.
+- **2026-07-09 (falsification + SESSION CLOSE at Sid's budget call).**
+  DIFF_FALSIFICATION.md committed (50bfb75): **6 CONFIRMED (none
+  blocking) + 2 PLAUSIBLE; the dangerous classes DEFENDED** (human-edge
+  custody via asserter-scoped ids + explicit filter; concurrency; clocks;
+  deny-before-catfile; kernel-validation fit). All pinned gate numbers
+  reproduced exact by the falsifier. Session cost check by Sid ($88;
+  Fable week at 91%) → ruled: finish in a CHEAPER fresh session. **NEXT
+  SESSION boots from `docs/sessions/
+  code-atom-fixwave-opening-prompt-2026-07-09.md`** — line-cited fix list
+  (F1 stale-edge-on-deletion reconcile basis · F2 `#N`→`~N` dedup · F3
+  transition-unique reassert keys · F4-F6 stats/exit/deny honesty · P1/P2)
+  → re-green all suites → gate Route A (fresh Fable, preferred
+  post-reset) or Route B (without-Fable clause, doubts recorded). CODE
+  still uncommitted (Sid's word); docs all committed through 50bfb75.
 
 ---
 
