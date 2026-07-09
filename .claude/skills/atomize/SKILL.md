@@ -8,11 +8,13 @@ description: The atomization lens — derive the atomic unit, block grammar, and
 Provenance: written 2026-07-09 by Fable from the FIRST full application — the
 prose/transcript block round (spec room `spec-sense-line-fable-max`; artifacts:
 `docs/current-mental-model/build/sense-line-mvp/{GROUNDS,SPEC}.md`,
-`block-kernel/CONTRACT.md`). Claims are marked **[R]** (receipt — survived the
-block round) or **[C]** (conjecture — awaiting the code round, this skill's
-scheduled first test). **AMEND THIS SKILL after every family round**, the way
-the work-package skill amends per package. Status: v0, N=1 — hold confidence
-accordingly.
+`block-kernel/CONTRACT.md`). **Amended same day after the SECOND application —
+the code round** (session `code-atom-spec-round`; artifacts:
+`build/sense-line-mvp/code-atom/{GROUNDS,SPEC,CONTRACT}.md`): one session ran
+hand-pass → Sid rulings → SPEC → CONTRACT. Claims are marked **[R]** (receipt —
+survived a round; R2 = confirmed again in the code round) or **[C]**
+(conjecture). **AMEND THIS SKILL after every family round**, the way the
+work-package skill amends per package. Status: v1, N=2.
 
 ## The invariant laws [R — countersigned in SPEC v0; written family-generic]
 
@@ -36,18 +38,39 @@ Plus the cross-cutting law: **form (material fact, producer-given) vs kind
 (interpretation, proposed mark) — never merged.** [R — the five-field
 molecule died of merging these, 2026-07-07.]
 
-## The five-slot template — fill per family [C — minted in the code-braid discussion; untested]
+## The five-slot template — fill per family [R — held at the code round; the novum landed in slot 4 exactly as predicted]
 
-| slot | question | prose/transcript answer [R] |
-|---|---|---|
-| 1 · source identity | what is THE authoritative immutable raw + its version axis? | session jsonl events (immutable, no version axis) |
-| 2 · free cut | what producer grammar hands units over for free? | API typed parts + markdown structure |
-| 3 · form vocabulary | the closed starting list of material types | thinking · prose-para · list-item · tool-use · … (SPEC §4.6) |
-| 4 · continuity rule | what persists across versions; how is lineage minted? | trivial (events immutable); born-native blocks supersede |
-| 5 · mechanical edge floor | which edges derive with near-certainty, zero interpretation? | write-tools → `produced` · read-tools → `grounds` |
+| slot | question | prose/transcript answer [R] | clojure-code answer [R] |
+|---|---|---|---|
+| 1 · source identity | what is THE authoritative immutable raw + its version axis? | session jsonl events (immutable, no version axis) | git blob (text@commit, D-003); store raw + atoms (transcript pattern, Sid-ruled) |
+| 2 · free cut | what producer grammar hands units over for free? | API typed parts + markdown structure | top-level forms, TWO LANES (code now · commentary deferred) |
+| 3 · form vocabulary | the closed starting list of material types | thinking · prose-para · list-item · tool-use · … (SPEC §4.6) | head-symbol table `:clj/*` + project rows (defmodule, e/defn) |
+| 4 · continuity rule | what persists across versions; how is lineage minted? | trivial (events immutable); born-native blocks supersede | var continuant + FORM-TEXT HASH (re-addressed vs superseded); renames silver |
+| 5 · mechanical edge floor | which edges derive with near-certainty, zero interpretation? | write-tools → `produced` · read-tools → `grounds` | `:supersedes` (lineage) · `:requires`/`:calls` (analyzer, HEAD-scope, version-free asserters) |
 
 The family's hard axis usually hides in slots 1 and 4 (code: the version
 axis; the var as continuant). Expect one novum per family; find it early.
+
+Code-round additions to the laws [R]:
+
+- **Two-lane braid.** A family's container can braid world material with
+  fossilized SENSE material (code files: comments — "the only place to put
+  the why next to the code" before Softland). The free cut classes lanes
+  mechanically; the sense lane defers at zero cost (strata are additive).
+- **Content-hash at unit grain.** When the surface is coarser than the unit
+  (file vs form), store a per-unit text hash — it splits *re-addressed*
+  (surface changed elsewhere) from *superseded* (the unit changed). Without
+  it lineage over-mints catastrophically (specimen: ~100 fake vs 6–8 real
+  supersessions per commit).
+- **Check asserter-versioning against retraction rights BEFORE contracting
+  an edge deriver.** Version-in-asserter forks every edge id AND loses the
+  right to retract stale edges (relation-kernel law: retract requires
+  actor == stored asserter). Version-free actor, version rides `note`
+  (git_spine precedent). The GROUNDS lean had this wrong; reading the
+  driver precedent at source caught it.
+- **Derived edges land at CONTINUANT grain with current-status semantics**;
+  per-version detail rides evidence anchors. Instance-grain edge sets
+  explode as pairs × versions.
 
 ## The method [R unless marked]
 
@@ -77,16 +100,20 @@ axis; the var as continuant). Expect one novum per family; find it early.
   the sense-block distiller) + mechanical edges into `relation-kernel`
   driver-side with deterministic idempotency keys. New modules require
   form-break evidence, not instinct.
-- **Raw-form plurality resolves at the Material law.** [C] When a family has
-  rival representations (code: text vs AST vs runtime reflection), the
-  authoritative immutable raw is ONE thing (for code: text@commit, git
-  authority per D-003); the rivals are coexisting SEGMENTATION STRATA over
-  it, each assigned to the consumers it serves, all sharing the anchor space.
-- **Edge derivation is itself a distiller family.** [C — Sid's pipeline
-  framing, 2026-07-09] Mechanical edges are versioned, declared, re-runnable
-  passes over atoms — re-run a better deriver over the whole past and the
-  log appreciates for edges too. Asserted edges (human tape) are the OTHER
-  lane: never gated on atomization, any grain, any time.
+- **Raw-form plurality resolves at the Material law.** [R2 — confirmed at
+  the code round] When a family has rival representations (code: text vs
+  AST vs runtime reflection), the authoritative immutable raw is ONE thing
+  (for code: text@commit, git authority per D-003); the rivals are
+  coexisting SEGMENTATION STRATA over it. Sharpened by Sid's AST question:
+  within-unit containment is COMPUTED from spans (stored nowhere); only
+  cross-references need storage; the AST itself is a transient parse.
+- **Edge derivation is itself a distiller family.** [R — confirmed, with
+  one correction (see the retraction-rights law above)] Mechanical edges
+  are declared, re-runnable passes over atoms; re-runs CONVERGE on the
+  same edge ids (version-free asserter) and retract what disappeared —
+  strata live in notes + status history, not forked ids. Asserted edges
+  (human tape) are the OTHER lane: never gated on atomization, any grain,
+  any time.
 
 ## Family boundary notes
 

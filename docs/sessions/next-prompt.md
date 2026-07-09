@@ -21,11 +21,12 @@ this branch (`90ed435` → `e0ad1cc`):
    NO new module/depot/PStates). R1–R5 rulings; traps T1–T14; gates G1–G13;
    P0-verify (a)–(h). Codebase map (read-grounded, living):
    `docs/architecture/MAP.md`. QUEUED (Sid): code-size/verbosity audit of
-   src/ (post-package). **CODE-ATOM SPEC ROUND opened as a room** (Sid,
-   2026-07-09): fresh session boots from
-   `docs/sessions/code-atom-opening-prompt-2026-07-09.md` + the new
-   `/atomize` skill (the block round's lens, generalized; amend-per-round).
-   Step-3 UI fork (task UI vs baseline cards-wall) noted, Sid rules later.
+   src/ (post-package). **CODE-ATOM ROUND RAN + CLOSED 2026-07-09**
+   (session `code-atom-spec-round`): `code-atom/{GROUNDS,SPEC,CONTRACT}.md`
+   authored + Sid-ruled in one sitting; /atomize amended to v1 (N=2);
+   **work package #2 (code-atom) is OPEN — its STANDING/NOW block is
+   below.** Step-3 UI fork (task UI vs baseline cards-wall) noted, Sid
+   rules later.
 
 **COUNTERSIGNED 2026-07-09 — Sid: "all agree on the specs."** SPEC v0 and
 CONTRACT v1 are BINDING; the block-kernel work package is OPEN (STANDING/NOW
@@ -36,6 +37,62 @@ side. Kinds-round evidence pile so far: "sidetrackkkk" branch receipt;
 serves/invokes family question; cross-scheme bridges (panproto lenses).
 SPEC ≠ BENCHMARK stands. Non-binding architecture orientation for the
 implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
+
+---
+
+# Active work package #2: code-atom — clojure form atoms over the container kernel
+
+## STANDING (frozen at package open 2026-07-09 — do not edit while active)
+
+- **Binding docs:** `build/sense-line-mvp/code-atom/CONTRACT.md` (v1) +
+  `code-atom/SPEC.md` (v0) + `build/sense-line-mvp/SPEC.md` (parent block
+  laws) + `decisions.md`. This file is a baton, not a source of truth; if
+  it contradicts CONTRACT.md or decisions.md, those win — flag the
+  discrepancy in NOW.
+- **Process:** /work-package shell + /rama phase mechanics (+ /rama-pitfalls
+  before any topology-adjacent choice). ONE orchestrating session;
+  validation/review layers as fresh Opus subagents; default-fail; never
+  overwrite a FAIL artifact; NOW entries ≤15 lines. Artifacts in
+  `build/sense-line-mvp/code-atom/`.
+- **First action:** P0 parse+analysis spike per CONTRACT §12 (fresh
+  subagent; artifact `P0_PARSE_SPIKE.md`; default-fail adjudication).
+- **File allowlist:** NEW `src/app/server/rama/object_container/
+  clojure_adapter.clj` · NEW `src/app/server/rama/code_atoms.clj` · NEW
+  their two test nss · `deps.edn` ADDITIVE (P0-ruled deps) ·
+  `relation_kernel.clj` `relation-kinds` ONE LINE (+`:requires :calls`,
+  authorized CONTRACT §2) · package docs. Anything else = stop-clause.
+  ⚠ COORDINATION: the block-kernel package holds the same registry
+  authorization for 3 other kinds on the same set literal — land
+  separately, rebase trivially, re-run both packages' gates after either.
+- **Verification duties:** memory-derived Rama claims checked against
+  `docs/reference/rama/`; deterministic microbatch barrier + physical
+  PState readers for negatives (`memory/implementation-quirks.md`).
+- **Definition of done:** CONTRACT §8 G1–G10 green as IPC tests in one
+  suite + the documented REPL dogfood receipt (sync THIS repo; print the
+  specimen census, `oc/fixed-width-order-key` callers, `relation-outcome`
+  supersedes chain). G11 at gate review.
+- **Stop clauses:** CONTRACT §9. **Hard rules:** env.clj never read (and
+  deny-listed); code/docs separate commits; CODE commits on Sid's word;
+  docs commits automatic, local branch only. Budget: local + subscription.
+- Sid greenlit implementation at round close ("lets drive this home … so
+  we can start the implementation") — phases proceed without further asks;
+  code COMMITS still gate on his word.
+
+## NOW (append ≤15 lines at session end)
+
+- **2026-07-09, Fable (code-atom spec round) — ROUND CLOSED → PACKAGE
+  OPENED.** Specimen hand-pass on `relation_kernel.clj` (READ full; census
+  + F1–F5 in GROUNDS). Sid ruled in-flow: specimen · Fork 1 = store
+  raw+atoms (transcript pattern) · comments = sense line at the code lens
+  (two lanes; commentary deferred) · Fork 2 = relation kernel with NEW
+  kinds `:requires`/`:calls` · "drive this home" (SPEC → CONTRACT →
+  implementation). SPEC v0 + CONTRACT v1 authored same session;
+  load-bearing shapes verified at source (md adapter + git_spine + rk FULL
+  reads; MAP.md upgraded). Asserter correction caught at source:
+  version-FREE deriver actors (git_spine:41-44; rk:441-448). T8 fired
+  live: raw NULs decoded into CONTRACT.md from the Write payload; fixed to
+  U+0000 prose, `file` verified text. NEXT: P0 spike (fresh Opus subagent)
+  → adjudicate → P1.
 
 ---
 

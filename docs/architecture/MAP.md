@@ -16,11 +16,11 @@ architecture map "for me and you … and future readers." Rules of this doc:
 | file | depth | lines read | date |
 |---|---|---|---|
 | `src/app/server/rama/object_container.clj` (2,655 ln) | PARTIAL | 1–180 (docstring + all 30 row records); DECLS 1692–1760 (module, depots, PStates); DECLS 2443–2501 (query topologies) | 2026-07-09 |
-| `object_container/markdown_adapter.clj` | PARTIAL | 1–40 (distiller id/version, patterns, offset walker) + emit-block sites | 2026-07-09 |
+| `object_container/markdown_adapter.clj` (523 ln) | READ | 1–523 full | 2026-07-09 |
 | `object_container/transcript_adapter.clj` | DECLS | public fn inventory only | 2026-07-09 |
 | `object_container/{runtime,transcript_identity}.clj` | UNREAD | — | |
-| `relation_kernel.clj` | DECLS | 616–656 (module/depot/PStates) + its CONTRACT.md §1–3 (READ) | 2026-07-09 |
-| `git_spine.clj` | PARTIAL | 1–8 (ns docstring — self-describing) | 2026-07-09 |
+| `relation_kernel.clj` (997 ln) | READ | 1–997 full (code-atom specimen hand-pass) | 2026-07-09 |
+| `git_spine.clj` (659 ln) | READ | 1–659 full | 2026-07-09 |
 | `trail_view.clj` | PARTIAL | 1–8 (header) | 2026-07-09 |
 | `kernel.clj` (826 ln) | PARTIAL | 1–8 (header) | 2026-07-09 |
 | `text_kernel.clj` (733 ln) | PARTIAL | ns form only | 2026-07-09 |
@@ -101,14 +101,21 @@ What the rows say (all read, :38-176):
   `build/object-container-common-infra/PLAN.md` before modifying. [Those
   PLANs: UNREAD — next reads for this map.]
 
-### object_container/markdown_adapter.clj — the distiller pattern [PARTIAL]
+### object_container/markdown_adapter.clj — the distiller pattern [READ full, 2026-07-09]
 
-`markdown-distiller-id "markdown-block-v0"`, version 1 (:6-7). Pure fns:
-line walker with running offsets (:24-40), heading/list grammars (:9-11),
-`emit-block [state unit-kind …]` (:82), deterministic unit ids
+`markdown-distiller-id "markdown-block-v0"`, version 1 (:6-7). The full
+three-stage shape every new distiller mirrors: pure CUT
+(`markdown-block-v0` :78-170 — blocks with block-path/unit-kind/text/
+offsets; offsets are JVM char counts = UTF-16), MATERIALIZATION
+(`source-materialization` :177-364 — one fn assembling ALL typed rows:
+source/version/completion/document/revision/anchors/units/outline/
+composition-edges), REQUEST BUILDER (`markdown-source-import-request`
+:465-517 — the full import envelope with :partition/key, :idempotency/key
+`imp:md:…`, :import/key, :material/fingerprint). Deterministic unit ids
 `du:<object-key>:<distiller>:<block-path>` (:13-15). **This is the proof
 that block-grain distillation is what the kernel was designed for** — the
-sense-block distiller (CONTRACT v2) follows this file's shape.
+sense-block distiller (block-kernel CONTRACT v2) and the clojure adapter
+(code-atom CONTRACT) both follow this file's shape.
 
 ### object_container/transcript_adapter.clj [DECLS only]
 
@@ -118,26 +125,39 @@ composition-edge row builders, previous-message chaining, observation→import
 request assembly. Grain today: message/tool-call containers. [Bodies unread
 — P0 of the block package verifies source/anchor granularity here.]
 
-### relation-kernel-module [DECLS + its contract §1-3]
+### relation-kernel-module [READ full, 2026-07-09]
 
 D-004's edge kernel: one request depot (hash-by routing key), microbatch
 topology, PStates for decisions-by-idempotency / edges-by-id /
 edges-by-target / target descriptors / activity buckets (:616-656).
 `RelationTargetRef.target-kind` is an OPEN keyword — new target kinds (e.g.
-`:block`) need no schema change. Placement rationale and envelope style-gate
-precedent live in `build/relation-kernel/CONTRACT.md`.
+`:block`, `:var`, `:ns`) need no schema change. Full-read adds: identity
+INCLUDES the asserter (:104-111); **retraction is rejected unless the
+envelope actor == the stored asserter** (:441-448) — the fact that forces
+version-FREE deriver actors; edges carry `evidence-source-id` +
+`evidence-anchor-id` (:249-255) — call-site anchoring rides existing
+fields; registry is a closed set, one-line additive changes (:58-65).
+Placement rationale and envelope style-gate precedent live in
+`build/relation-kernel/CONTRACT.md`.
 
-### git_spine.clj [PARTIAL: docstring + :24-61]
+### git_spine.clj [READ full, 2026-07-09]
 
 *"NOT a Rama module — no depots, topologies, or PStates. Pure adapter fns +
 a sync driver + a transcript extractor + a replay fn, all over the EXISTING
 object-container and relation-kernel public APIs."* The package-shape
-precedent the block layer now follows. Verified 2026-07-09: requires
-`relation-kernel :as rk` (:31); deterministic spine idempotency
-`"spine:"+relation-id+":"+basis` (:24); relation-id includes the asserter
-(:43); durable `data/relation-assert-log.ednl` replay log (:51). Content it
-adds: commits as canonical-text material (→ OC) + parent lineage and
-session↔commit joins as typed edges (→ RK).
+precedent the block layer AND the code-atom driver follow. Full-read
+facts: asserter `import:git-spine` is deliberately VERSION-FREE — version
+rides `note` ("the relation-id includes the asserter, so versioning it
+would fork every edge", :41-44); stable idempotency
+`"spine:"+relation-id+":"+basis` (:58-62); batch-ingest-then-batch-await,
+never serial awaits (trap 7, :244-256); commits ingested as
+canonical-TEXT docs via the md request builder (:151-201);
+**source FILE text is ABSENT today** — the spine stores commit metadata
+text only; `land-doc-roots` = docs/current-mental-model + vision (:527-531)
+— code files are not watched; `extract-session-joins!` verifies shas
+against the repo index and rebases paths across the /home symlink alias
+(:387-415); durable `data/relation-assert-log.ednl` replay with per-line
+isolation (:629-658).
 
 ### kernel.clj [header only]
 
