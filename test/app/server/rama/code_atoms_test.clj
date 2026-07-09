@@ -394,7 +394,15 @@
   (let [rt (tv/start-trail-view-runtime! {:tasks (rand-nth [2 4]) :threads 2})
         cumulative (atom 0)
         drain! (fn [] (rtest/wait-for-microbatch-processed-count (:ipc rt) (:module-name rt) rel-topo @cumulative 60000))
-        head (ca/resolve-head-sha repo-root)
+        ;; PIN the analyzer head to the specimen commit (like G5/G6 pin fixed commits;
+        ;; T3 "analyze the blob, not the checkout"). All ground truth below — call rows
+        ;; 167/457/843, kondo stats, census — was derived from rk@a002c89, i.e.
+        ;; relation_kernel.clj@c-63202b0. A dynamic resolve-head-sha silently went stale
+        ;; when this package's OWN registry/kernel commit re-touched relation_kernel.clj +
+        ;; object_container.clj, moving HEAD's blobs off the ingested/pinned specimen (a
+        ;; green-pre-commit / red-post-commit trap caught by the close-session recheck,
+        ;; 2026-07-09). :head-override on the G7 sync below makes this stable forever.
+        head c-63202b0
         rk-head-sha (ca/head-blob-sha repo-root head rk-path)
         rk-text (ca/blob-text repo-root rk-head-sha)
         line-starts (ca/line-start-offsets rk-text)]
@@ -416,7 +424,7 @@
       ;; ═══════════════════════════════════════════════════════════════════
       ;; G7 — analyzer floor: REAL clj-kondo at HEAD, scoped to the specimen.
       ;; ═══════════════════════════════════════════════════════════════════
-      (let [as (ca/analyzer-sync! {:runtime rt :repo-root repo-root
+      (let [as (ca/analyzer-sync! {:runtime rt :repo-root repo-root :head-override head
                                    :path-filter #(= % rk-path)})]
         (swap! cumulative + (:requires-asserted as) (:calls-asserted as) (:retracted as))
         (drain!)
