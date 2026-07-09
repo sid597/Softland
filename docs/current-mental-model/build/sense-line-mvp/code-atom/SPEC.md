@@ -235,7 +235,9 @@ An implementation conforms when it demonstrates, on THIS repo:
    re-addressed (hash-equal) name matches.
 6. **Move case** — syncing across `119f3f8` (the adapter split) yields
    SILVER proposals (never mechanical edges) for moved vars.
-7. **Analyzer floor** — `:requires` edges for the specimen's 6 requires;
+7. **Analyzer floor** — `:requires` edges for the specimen's 7 ns
+   dependencies (P0-measured; `:use` and `:require` both count — kondo
+   represents them identically);
    `:calls` var→var matching the specimen's pinned ground truth
    (`oc/fixed-width-order-key` ← 3 call sites; `oc/extract-object-key` ←
    1), each with a resolving evidence anchor.

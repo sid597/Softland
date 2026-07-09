@@ -161,7 +161,7 @@ honesty · G4 deny-list (env.clj absent everywhere, denial counted) · G5
 lineage counts on the specimen's real 4 commits (expected sets pinned at
 phase time from `git show`, derivation commented in the fixture) · G6
 silver-only move proposals across `119f3f8` · G7 analyzer floor
-(specimen's 6 requires; `oc/fixed-width-order-key` ← 3 call sites,
+(specimen's 7 ns dependencies per P0 B.1; `oc/fixed-width-order-key` ← 3 call sites,
 `oc/extract-object-key` ← 1, anchors resolving) · G8 registry additive
 (existing rk suite still green; unregistered-kind rejection untouched) ·
 G9 no-wall-clock byte-identical re-run · G10 retract-on-disappear (R5,
