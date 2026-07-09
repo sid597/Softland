@@ -135,6 +135,20 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   authoring error). CODE UNCOMMITTED. NEXT: P3 (analyzer lane + the ONE
   authorized registry edit) dispatched, fresh Opus subagent; then Fable
   gate review (full-code read + falsification) closes the package.
+- **2026-07-09 (P3) Opus subagent → Fable verification: GREEN, accepted at
+  implementation grade.** Artifact `code-atom/PHASE_P3.md` (committed
+  d30dff1). Analyzer lane ADDITIVE in code_atoms.clj (P2 fns untouched,
+  verified); registry edit minimal-diff `:requires :calls` + contract-cite
+  comment (T11-clean, eyeballed by orchestrator); deps + clj-kondo
+  2025.06.05. Suites independently re-run: 5t/164a/0f · 7t/78a/0f · rk
+  2t/222a/0f. G7: 7 requires + 115 calls on specimen, evidence anchors
+  resolve, continuant collapse (2 sites → 1 edge), T5 physical negative.
+  G8 additive-proof. G10 retract-on-disappear deterministic via
+  desired-override. Whole-tree desired set at HEAD: 458 requires + 5073
+  calls, 3.8s, 279 skipped+counted. Deviations recorded in artifact (deps
+  placement; test affordances) — gate review weighs them. CODE UNCOMMITTED.
+  NEXT: adversarial falsification subagent (by class) → Fable gate review
+  (full code read) → close + retro; commits on Sid's word.
 
 ---
 
