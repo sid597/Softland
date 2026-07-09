@@ -789,6 +789,15 @@ spend, future-binding architecture/nouns, North authorship.
   for the same window: N3 basis-missing conflates nil-basis with empty-desired-set
   (one line); N4 materialize-throw temp-dir corner (one line); N6 basis↔scope
   docstring. CODE STILL UNCOMMITTED — commits on Sid's word; then close + retro.
+  **COUNTERSIGNED (Sid, 2026-07-09: "I agree to anything that is pending on me but
+  has a recommended answer — I defer to recommended"):** G-F2 = option (b), the one
+  additive `imp:clj:` branch in `extract-object-key` is AUTHORIZED (this package's
+  second and last kernel-file edit); N3/N4/N6 recommended fixes taken; **commit
+  word GIVEN** with the recommended three-way split (adapter+tests+fixtures ·
+  driver+tests · registry/deps/kernel-branch — registry hunk manually split so
+  ONLY `:requires :calls` lands, T11). Execution routed to a fresh close session:
+  `docs/sessions/code-atom-close-opening-prompt-2026-07-09.md` (fix window →
+  re-green + receipt → commits → close + retro + adversarial retro-recheck).
 
 ## Amendments A1 · A2 — COUNTERSIGNED 2026-07-08, applied IN PLACE
 

@@ -311,6 +311,86 @@ machinery — G11 holds.
 5. **Two IPC launches in code-atoms-test** (inherited, sequential,
    try/finally-closed, empirically green).
 
+## Appendix — the receipt script (CONTRACT §12 "documented REPL invocation")
+
+Run with `clojure -M:test <file>` from the repo root. This exact script produced
+§8's numbers (2026-07-09, gate session). Reproduce it verbatim; only the pinned
+whole-tree numbers drift as HEAD moves.
+
+```clojure
+(require '[app.server.rama.trail-view :as tv]
+         '[app.server.rama.code-atoms :as ca]
+         '[app.server.rama.object-container :as oc]
+         '[app.server.rama.object-container.clojure-adapter :as adapter]
+         '[app.server.rama.object-container.runtime :as ocr]
+         '[app.server.rama.relation-kernel :as rk])
+
+(def repo (System/getProperty "user.dir"))
+(def rt (tv/start-trail-view-runtime! {:tasks 4 :threads 2}))
+
+(try
+  ;; full sync: every commit, every code blob, both lanes
+  (prn :code-sync (ca/code-sync! {:runtime rt :repo-root repo}))
+  (let [basis (atom nil)]   ; cluster-scoped, minted with the runtime (F1)
+    (prn :analyzer-sync (ca/analyzer-sync! {:runtime rt :repo-root repo
+                                            :analyzer-basis basis})))
+
+  (def head (ca/resolve-head-sha repo))
+  (def rk-path "src/app/server/rama/relation_kernel.clj")
+  (def rk-sha (ca/head-blob-sha repo head rk-path))
+  (def rk-text (ca/blob-text repo rk-sha))
+
+  ;; (1) specimen census + stored-surface join
+  (let [{:keys [units comment-spans]} (adapter/clojure-form-v0 rk-text)
+        okey (oc/object-key-for (str "git-blob:" rk-sha) (oc/source-hash rk-text))]
+    (prn :census {:total (count units)
+                  :kinds (frequencies (map :unit-kind units))
+                  :comment-runs (count comment-spans)})
+    (prn :source-present? (some? (ocr/read-source rt (oc/source-id-for-object-key okey)))))
+
+  ;; (2) fixed-width-order-key callers — ONE relation read
+  (let [fwok "app.server.rama.object-container/fixed-width-order-key"
+        _ (rk/await-relation
+           #(get (rk/read-relations-for-targets rt [fwok] [:calls] false) fwok)
+           seq 30000)
+        rows (get (rk/read-relations-for-targets rt [fwok] [:calls] false) fwok)]
+    (prn :fwok-callers (->> rows (filter #(= fwok (:target-id (:to %))))
+                            (map #(:target-id (:from %))) sort vec)))
+
+  ;; (3) relation-outcome's supersedes chain across its blob versions
+  (let [shas (->> (ca/read-code-log repo) (mapcat :changes)
+                  (filter #(= rk-path (:path %))) (map :new-sha)
+                  (remove #(= % "0000000000000000000000000000000000000000")) distinct)
+        uids (into {} (keep (fn [sha]
+                              (when-let [u (ca/code-unit-id repo sha "relation-outcome")]
+                                [u (subs sha 0 7)]))) shas)
+        edges (->> (rk/read-relations-for-targets rt (vec (keys uids)) [:supersedes] false)
+                   vals (apply concat)
+                   (map (juxt :relation-id identity)) (into {}) vals)]
+    (doseq [e (sort-by :first-asserted-at-ms edges)]
+      (println (uids (:target-id (:from e))) "supersedes" (uids (:target-id (:to e)))
+               "|" (:note e) "|" (:relation-status e))))
+
+  ;; (4) G11 — the MAP.md tuple (object_container.clj · PARTIAL · 1–180) as marks
+  (let [oc-path "src/app/server/rama/object_container.clj"
+        oc-sha (ca/head-blob-sha repo head oc-path)
+        oc-text (ca/blob-text repo oc-sha)
+        okey (oc/object-key-for (str "git-blob:" oc-sha) (oc/source-hash oc-text))
+        end-off (nth (ca/line-start-offsets oc-text) 180 (count oc-text))
+        units (:units (adapter/clojure-form-v0 oc-text))
+        covered (filter #(< (long (:start-offset %)) (long end-off)) units)]
+    (prn :g11-covered (count covered) :of (count units))
+    (prn :g11-mark {:kind :grounds
+                    :from {:target-kind :actor :target-id "fable:map-session-2026-07-09"}
+                    :to {:target-kind :code-form
+                         :target-id (adapter/derived-unit-id okey (:block-path (first covered)))}
+                    :note "map-coverage|depth=PARTIAL|lines=1-180"}))
+
+  (finally (tv/close-trail-view-runtime! rt)))
+(println "RECEIPT-DONE")
+(System/exit 0)
+```
+
 ## 11 · D-006 evaluation notes (this package's implementation-contact evidence)
 
 - The five-layer QC model earned its keep in the exact order designed: gates

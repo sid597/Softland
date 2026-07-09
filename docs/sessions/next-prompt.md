@@ -194,9 +194,14 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   PROPOSED for Sid** (`imp:clj:` unrouted in `extract-object-key`, latent —
   same class as block-kernel F2; rec: one additive kernel branch) + N3/N4/N6
   minor, queued for a coordinated fix window; the gate-authored G-F1 fix gets
-  its fresh-context look there too. CODE UNCOMMITTED (Sid's word; ⚠ the rk
-  registry hunk now holds BOTH packages' kinds — manual split at commit).
-  NEXT: Sid rules G-F2 + gives commit word → close + retro + retro-recheck.
+  its fresh-context look there too. CODE UNCOMMITTED (⚠ the rk registry hunk
+  holds BOTH packages' kinds — manual split at commit).
+  **Sid COUNTERSIGNED same day ("defer to recommended"): G-F2 option (b)
+  authorized, N3/N4/N6 taken, COMMIT WORD GIVEN (three-way split). NEXT
+  SESSION (fresh, Opus-grade) boots from
+  `docs/sessions/code-atom-close-opening-prompt-2026-07-09.md`** — G-F1
+  fresh-context look → fix window → re-green + receipt → code commits (T11
+  hunk split) → close + RETRO + adversarial retro-recheck + route lessons.
 
 ---
 
