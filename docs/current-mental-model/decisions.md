@@ -860,6 +860,26 @@ spend, future-binding architecture/nouns, North authorship.
   Fix wave in progress; a NEW fresh-context gate round is required before RETRO/close
   (the Round-1 FAIL artifact is NOT overwritten).
 
+- **block-kernel PACKAGE GATE Round 2 — PASS; package IMPLEMENTATION-COMPLETE
+  (2026-07-10).** F3 ruled A by Sid: an additive `object_container.clj` validator
+  relaxation (the authorized 2nd kernel edit) accepts projection-hint-only imports
+  → durable versioned `entry-kind :debris` class rows. Fresh-context Round-2 gate
+  reproduced all F1–F4 fixes, independently re-ran the suites (**28t/1250a, 0
+  fail**) + the real receipt (**247 river / 399 debris / 44 edges / 0 rejections**);
+  verdict **PASS** with 3 non-blocking findings. **Finding 1 [MEDIUM] closed
+  in-window:** surfaceless river events (empty `tool_result` → 0 blocks) got no
+  durable class row + wrong counts → generalized to class-based hint emission
+  (`class-hint-import-request`: every event → exactly ONE durable class row, counted
+  by actual class); pure test added; re-verified (244/402 → 247/399). Findings 2/3
+  [LOW] deferred (cursor/§10; multi-stratum, unreachable in v0). Artifacts:
+  `build/sense-line-mvp/block-kernel/GATE_ROUND_2.md` + `RETRO.md`. **D-006 evidence:**
+  the fresh-context gate earned its keep twice — Round-1 surfaced F1–F4 by reading
+  cold; Round-2's Finding-1 (surfaceless-river) is invisible to the fixture and only
+  the real 402-debris chat exposed it (same class as code-atom G-F1). **Package
+  closes on Sid's code-commit word** — 3 files: `object_container.clj` (kernel edit,
+  isolate) + `block_distiller.clj` + test; docs auto-committed on this branch.
+  RETRO §6 honest gap: Finding-1's fix is self-verified, not fresh-context re-gated.
+
 ## Amendments A1 · A2 — COUNTERSIGNED 2026-07-08, applied IN PLACE
 
 Ruled by Sid same day, verbatim: "all approved by default and i would even go
