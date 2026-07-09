@@ -120,6 +120,21 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   (each with falsifier) — revisit at gate review. CODE UNCOMMITTED (gates
   on Sid). NEXT: P2 (driver + lineage lane) dispatched, fresh Opus
   subagent; :supersedes already registered — NO registry edit until P3.
+- **2026-07-09 (P2) Opus subagent → Fable verification: GREEN, accepted.**
+  Artifact `code-atom/PHASE_P2.md` (committed 278ff1b). Built
+  `code_atoms.clj` (byte-safe git reader; B-full enum == ls-tree oracle
+  895/895; deny-before-cat-file; batch ingest T9; pure `commit-lineage`;
+  `code-sync!` stats-honest) + test ns. Suites 3t/78a/0f + P1 regression
+  7t/78a/0f — **both re-run independently by orchestrator, identical**.
+  G5: af0e0e2 = exactly 6 rk mech supersedes (pinned list), 284
+  re-addressed minted ZERO (T2 held on real history). G6: the 119f3f8
+  split yielded 45 hash-exact SILVER moves (34 md/5 transcript/6 identity)
+  — richer than anticipated, zero false mech; within-file mech still fires.
+  G9 byte-identical re-run. Hygiene grep clean (one stats-only wall clock,
+  spine idiom). SPEC/CONTRACT G7 corrected 6→7 ns deps (P0-measured; my
+  authoring error). CODE UNCOMMITTED. NEXT: P3 (analyzer lane + the ONE
+  authorized registry edit) dispatched, fresh Opus subagent; then Fable
+  gate review (full-code read + falsification) closes the package.
 
 ---
 
