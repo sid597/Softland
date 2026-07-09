@@ -418,6 +418,23 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   block-kernel commit MUST include the `relation_kernel.clj` P3a diff** (`:grounds
   :assembled-from :refines`) — code-atom commit 6fbfd75 took only `:requires :calls`, leaving
   the 3 block kinds uncommitted (` M`, T11). **NEXT: P4** (refine!/assemble!) rebases on P3+fixpass.
+- **2026-07-09 (P4) Fable (max) — P4 GREEN: refine! (G7) + assemble! (G10); package
+  implementation COMPLETE.** §K refine! (SPEC §5 demand-mint: finer block on the SAME surface
+  at an absolute sub-span; identity by (surface,span) §6.1; engagement rides the :refines
+  edge's :note — no new row) + §L assemble! (SPEC §8: NEW `assembled` surface+block + one
+  :assembled-from edge per source block, position in :note = the occurrence record §8.3 — a
+  first-class occurrence ROW deferred, T14/marks-layer, so NO Sid escalation). ADDITIVE
+  (block_distiller.clj §K/§L only; the 3 kinds were already registered — no registry/OC edit).
+  G7/G10 carry re-run IDEMPOTENCE proofs. Suites independently re-run: block_distiller
+  **17t/828a** · relation_kernel **2t/222a** (T11: both packages' kinds coexist) ·
+  object_container **6t/149a**, 0f (1-error kernel FLAKE first pass — watchable_promise async,
+  documented contention family; did NOT reproduce, not a P4 regression). Confirmed the F1/F2
+  fixpass IS in the tree (stale baton). Artifact `block-kernel/PHASE_P4.md` (falsification
+  self-review inside). CODE UNCOMMITTED (Sid's word); ⚠ the block-kernel commit MUST still
+  carry the uncommitted relation_kernel.clj P3a diff (3 kinds). **NEXT: P5** (river-page +
+  real-file e2e + review-time G12/G13 = the package DoD) →
+  `docs/sessions/block-p5-opening-prompt-2026-07-09.md` → package gate review (batched
+  fresh-context falsification, P4's look rides here) + RETRO close.
 
 ---
 
