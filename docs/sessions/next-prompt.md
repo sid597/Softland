@@ -131,6 +131,17 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   "relation_kernel.clj UNTOUCHED" is superseded by CONTRACT §12 for exactly those 3
   kinds. NEXT: Plan phase — fresh Opus subagent authoring PLAN.md; Fable adjudicates
   + default-fail-validates on return.
+- **2026-07-09 (Plan adjudicated) Fable — PLAN.md GATE-PASSED; implementation-ready.**
+  Committed `dfaccbc` (subagent, docs-only). Load-bearing shapes verified at source (OC
+  import validation :705-795; RK `->target-ref`/`envelope` :835-878 — N7 `:target-key`
+  confirmed, routing-key auto-set). Adjudication in PLAN.md §8. **F2** (delegation home)
+  resolved as Phase-1 spike + escalation trigger (spike-red → Sid authorizes an additive
+  OC field + `transcript_adapter.clj` carve-out). **N3** (tool_result `:block` endpoint)
+  → Phase-3b Sid-confirm; default whole-span-on-demand. 7-phase build wave in PLAN §5
+  (P0 pure fns+fixture → P1 surfaces+import → P2 classify/actor → P3a kinds → P3b edges
+  → P4 refine/assemble → P5 river-page+e2e). AWAITING Sid greenlight for the code wave
+  (code commits gate on his word). ⓘ Sid committed a vision drawing mid-session (`08fc241`
+  two-arm block/code braid) — parallel, noted, not yet engaged.
 
 ---
 
