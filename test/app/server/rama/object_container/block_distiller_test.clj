@@ -9,6 +9,7 @@
             [clojure.string :as str]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.pprint :as pprint]
             [app.server.rama.core :as core]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.runtime :as ocr]
@@ -116,6 +117,24 @@
     (testing "the debris/river ratio is real — most of the stream is not river"
       (is (= 6 (count (filter #(= :debris (get-in % [:class :class])) ds))))
       (is (= 5 (count (filter #(= :river (get-in % [:class :class])) ds)))))))
+
+(deftest f3b-surfaceless-river-counts-as-river
+  ;; Gate Round-2 Finding 1: a river-class event whose only part is EMPTY (an empty
+  ;; tool_result) produces no surface import, but SPEC §3.1 still demands a durable
+  ;; versioned class row — and it must count as RIVER, not debris.
+  (let [object-key (tid/transcript-object-key "src" "conv-empty")
+        parsed {:type "user" :uuid "u-empty-tr"
+                :message {:role "user"
+                          :content [{:type "tool_result" :tool_use_id "t1" :content ""}]}}
+        distilled (bd/distill-event parsed 0)]
+    (is (= :river (get-in distilled [:class :class])) "empty tool_result is river-class (material)")
+    (is (empty? (:blocks distilled)) "an empty part yields no blocks")
+    (is (nil? (bd/event-import-request object-key parsed 0)) "surfaceless river event has NO surface import")
+    (let [{:keys [request class]} (bd/class-hint-import-request object-key parsed 0)]
+      (is (= :river class) "counted as RIVER, not debris (Finding 1)")
+      (is (some? request) "a durable class-hint import IS produced (SPEC §3.1)")
+      (is (= [:river] (mapv :entry-kind (:projection-hints (:payload request))))
+          "the durable class row carries entry-kind :river"))))
 
 (deftest g1-actor-resolution-law
   (testing "role ≠ actor (SPEC §3.4 / §16.1): no tool_result or meta is ever the human"
@@ -554,6 +573,29 @@
             (is (= 6 (- (count message-rows) (count sb-river)))
                 "6 retained-but-unmarked events = debris (counts match golden 5 river / 6 debris)")))
 
+        (testing "F3 — every debris event has a DURABLE versioned class row (SPEC §3.1)"
+          (let [conv-id (tid/chat-conversation-id object-key)
+                proj (ocr/read-transcript-conversation-projection oc-rt conv-id "" 100000)
+                sb-debris (filter #(and (str/starts-with? (str (:order-key %)) "sb:")
+                                        (= :debris (:entry-kind %)))
+                                  proj)
+                sb-river (filter #(and (str/starts-with? (str (:order-key %)) "sb:")
+                                       (= :river (:entry-kind %)))
+                                 proj)]
+            (is (= 6 (count sb-debris))
+                "all 6 debris events durably classified (entry-kind :debris) — materialized, NOT inferred")
+            (is (every? #(= :transcript-conversation-projection (:projection-kind %)) sb-debris))
+            (is (every? #(str/starts-with? (str (:content-preview %))
+                                           (str bd/river-debris-classifier-id "/"))
+                        sb-debris)
+                "each debris row carries the classifier VERSION + reason (distinguishable from never-classified)")
+            (is (= 11 (+ (count sb-river) (count sb-debris)))
+                "all 11 events durably classified (5 river + 6 debris) — no event left unclassified")
+            (is (= 6 (:debris summary)) "driver debris count agrees with the durable ledger")
+            (is (every? #(= :accepted (:status %)) (:class-hint-decisions summary))
+                (str "every hint-only class import ACCEPTED (F3 OC relaxation): "
+                     (pr-str (remove #(= :accepted (:status %)) (:class-hint-decisions summary)))))))
+
         (testing "G1 — actor law (physical): created-by == resolve-actor; NO tool_result/meta is human"
           (doseq [[parsed d] (map vector (redacted-events) (distilled))
                   :when (= :river (get-in d [:class :class]))
@@ -881,9 +923,67 @@
             (rtest/wait-for-microbatch-processed-count
              (:ipc rk-rt) (:module-name rk-rt) rk-topo 3 30000)
             (is (= finer-id (:finer-unit-id result2)) "re-refine resolves to the SAME finer unit-id (§6.1 identity)")
-            (is (= finer-before (read-unit-physical oc-rt finer-id)) "finer unit byte-identical after re-refine (OC dedup)")
+            (is (= finer-before (read-unit-physical oc-rt finer-id)) "finer unit byte-identical after re-refine (§6.1 resolve-reuse — no re-mint)")
             (is (= edge-before (rk/read-relation-row rk-rt (:relation-id result)))
                 "the :refines edge is byte-identical after re-refine (RK journal replay, 0 writes)"))))
+      (finally (bd/close-distiller-runtime! rt)))))
+
+(deftest f4-refine-resolves-existing-identity
+  ;; F4 / SPEC §6.1: refining the WHOLE-message block down to a span already
+  ;; occupied by a structural sub-block must RESOLVE to that sub-block's unit —
+  ;; never mint a second (surface, span) identity via the refine: path. Fixture
+  ;; u-human (order 6): whole-message [0 101] + human-sub [0 34] on one surface.
+  (let [rt (bd/start-distiller-runtime! {:relations? true})
+        {:keys [oc-rt rk-rt]} rt]
+    (try
+      (ingest-fixture! oc-rt)
+      (let [summary (bd/distill-conversation! {:oc-rt oc-rt :source fixture-source
+                                               :conversation-id fixture-conversation-id})
+            object-key (:object-key summary)
+            uid    #(bd/derived-unit-id object-key (:block-path %))
+            whole  (block-by-path "000006:00:000000")   ; :human-message [0 101]
+            sub    (block-by-path "000006:00:000001")   ; :human-sub     [0 34], same surface
+            whole-id (uid whole)
+            sub-id   (uid sub)
+            sub-before (read-unit-physical oc-rt sub-id)
+            surface-id (:source-id sub-before)
+            units-before (count (:derived-units
+                                 (ocr/read-common-material-for-source
+                                  oc-rt surface-id [:derived-units] {} 100000)))
+            ;; the id refine! WOULD mint if it ignored the incumbent (the F4 bug)
+            would-be-refine-id (bd/derived-unit-id
+                                object-key (bd/refine-block-path surface-id 0 34))
+            result (bd/refine! {:oc-rt oc-rt :rk-rt rk-rt
+                                :coarse-unit-id whole-id :sub-span [0 34]
+                                :engagement "engage the first structural sub"
+                                :asserted-at-ms 6000})]
+        ;; reuse still asserts ONE :refines edge → cumulative processed count 1.
+        (rtest/wait-for-microbatch-processed-count
+         (:ipc rk-rt) (:module-name rk-rt) rk-topo 1 30000)
+
+        (testing "F4 — the coincident span RESOLVES to the existing sub-block; no duplicate minted"
+          (is (true? (:resolved? result)) "refine! reported a resolve, not a mint")
+          (is (= sub-id (:finer-unit-id result))
+              "finer id = the incumbent free-cut sub-block, NOT a refine: id")
+          (is (not= would-be-refine-id sub-id) "sanity: the refine: path id differs from the free-cut id")
+          (is (nil? (:decision result)) "no OC import ran on reuse (nothing to mint)")
+          (is (nil? (read-unit-physical oc-rt would-be-refine-id))
+              "the duplicate refine: unit was NOT minted (SPEC §6.1: one identity per (surface,span))")
+          (is (= sub-before (read-unit-physical oc-rt sub-id)) "the incumbent sub-block is byte-identical")
+          (is (= units-before
+                 (count (:derived-units
+                         (ocr/read-common-material-for-source
+                          oc-rt surface-id [:derived-units] {} 100000))))
+              "no new (surface,span) unit row was added to the surface"))
+
+        (testing "F4 — the :refines edge points from the RESOLVED unit to the coarse block"
+          (let [row (rk/read-relation-row rk-rt (:relation-id result))]
+            (is (some? row) "refines edge present")
+            (is (= :refines (:relation-kind row)))
+            (is (= sub-id (:target-id (:from row))) "from = the resolved incumbent, not a phantom id")
+            (is (= whole-id (:target-id (:to row))) "to = the coarse whole-message block")
+            (is (= "engage the first structural sub" (:note row))
+                "the engagement rides :note (§5.1), even on a resolve"))))
       (finally (bd/close-distiller-runtime! rt)))))
 
 ;; ===========================================================================
@@ -967,6 +1067,142 @@
                                            [(:relation-id e) (rk/read-relation-row rk-rt (:relation-id e))])))
                 "every :assembled-from edge byte-identical after re-assemble (RK journal replay, 0 writes)"))))
       (finally (bd/close-distiller-runtime! rt)))))
+
+;; ===========================================================================
+;; P5 — river-page (G12/G13) + the guarded REAL 7c80ce2a receipt.
+;; ===========================================================================
+
+(defn- expected-river-page
+  []
+  (vec
+   (for [d (distilled)
+         :when (= :river (get-in d [:class :class]))
+         b (:blocks d)]
+     {:event-uuid (:event-key d)
+      :actor (:actor b)
+      :form (:unit-kind b)
+      :text (:text b)
+      :part-path (:part-path b)
+      :block-path (:block-path b)})))
+
+(deftest river-page-gates
+  (let [rt (bd/start-distiller-runtime!)
+        oc-rt (:oc-rt rt)]
+    (try
+      (ingest-fixture! oc-rt)
+      (let [summary (bd/distill-conversation! {:oc-rt oc-rt
+                                               :source fixture-source
+                                               :conversation-id fixture-conversation-id})
+            page (bd/river-page {:oc-rt oc-rt :object-key (:object-key summary)}
+                                bd/max-river-page-size)
+            expected (expected-river-page)
+            plan (:river-page/read-plan (meta page))]
+        (testing "river blocks render in conversation/part/span order with exact stored material"
+          (is (= expected
+                 (mapv #(select-keys % [:event-uuid :actor :form :text
+                                        :part-path :block-path])
+                       page)))
+          (is (= (mapv :order page) (vec (sort (map :order page))))
+              "the persisted order keys are monotonically ordered")
+          (is (every? (comp string? :text) page))
+          (is (every? (comp keyword? :form) page)))
+
+        (testing "limit caps the returned blocks without changing their order"
+          (let [small (bd/river-page {:oc-rt oc-rt :object-key (:object-key summary)} 3)
+                small-plan (:river-page/read-plan (meta small))]
+            (is (= (vec (take 3 expected))
+                   (mapv #(select-keys % [:event-uuid :actor :form :text
+                                          :part-path :block-path])
+                         small)))
+            (is (<= (:events-read small-plan) 3))
+            (is (<= (:surfaces-read small-plan) 3))
+            (is (<= (:unit-reads small-plan) 3))
+            ;; F2 — a capped page is FLAGGED, never silently short.
+            (is (= 5 (:river-events-total small-plan))
+                "the plan reports the TRUE river total (5), not the page size")
+            (is (<= (:river-events-rendered small-plan) 3))
+            (is (= (count small) (:blocks-returned small-plan)))
+            (is (true? (:truncated? small-plan))
+                "a capped page is truncated — the consumer must re-page (F2)")
+            (is (false? (:page-complete? small-plan)))))
+
+        (testing "G12 — measured composition plan stays inside the hard page seek bound"
+          (is (= 1 (:projection-range-seeks plan)))
+          (is (= (+ 1
+                    (:input-source-point-seeks plan)
+                    (:common-material-range-seeks plan)
+                    (:unit-point-seeks plan))
+                 (:seek-count plan)))
+          (is (<= (:events-read plan) bd/max-river-page-size))
+          (is (<= (:surfaces-read plan) bd/max-river-page-size))
+          (is (<= (:unit-reads plan) bd/max-river-page-size))
+          (is (<= (:seek-count plan) (:seek-bound plan)))
+          ;; F2 — the seek plan is HONEST: on a single-distiller page every read
+          ;; ref renders a block (foreign strata are filtered BEFORE read-unit),
+          ;; so unit-reads never exceeds the blocks actually returned.
+          (is (= (:unit-reads plan) (:blocks-returned plan))
+              "no wasted/foreign point-reads inflate the plan")
+          ;; F2 — the full page consumes all 5 river events → complete, not truncated.
+          (is (= 5 (:river-events-total plan)))
+          (is (= 5 (:river-events-rendered plan)))
+          (is (false? (:truncated? plan)) "the full page is complete (no ceiling hit)")
+          (is (true? (:page-complete? plan))))
+
+        (testing "G13 — rendered ids/forms/text are the persisted query results"
+          (is (every? #(str/starts-with? (:unit-id %) "du:") page))
+          (is (every? #(str/starts-with? (:source-id %) "src:tr:") page))
+          (is (= (mapv :text expected) (mapv :text page)))))
+      (finally (bd/close-distiller-runtime! rt)))))
+
+(defn real-example-river-page-receipt!
+  "P5 definition-of-done receipt. Ingest the REAL 7c80ce2a file through the
+   transcript→Object Container product path, then start RK and distill through
+   both runtimes. The stagger keeps transcript operational mirrors on the OC IPC.
+   Pretty-prints page 1 plus the measured G12 read plan; returns :absent off-box."
+  []
+  (if-let [file (find-real-transcript)]
+    (let [runtime (atom (bd/start-distiller-runtime!))]
+      (try
+        (let [oc-rt (:oc-rt @runtime)
+              request (tr/transcript-request
+                       :transcript/harvest
+                       {:transcript/request-id "block-distiller-p5-real-7c80ce2a"
+                        :transcript/source :claude-code
+                        :transcript/paths [(.getPath ^java.io.File file)]
+                        :time-ms 0})
+              observations (vec (tr/read-jsonl-observations request file 0))
+              conversation-ids (vec (distinct (map :transcript/conversation-id observations)))
+              conversation-id (some #(when (str/starts-with? (str %) "7c80ce2a") %)
+                                    conversation-ids)
+              _ (when-not conversation-id
+                  (throw (ex-info "real receipt did not find the 7c80ce2a conversation"
+                                  {:file (.getPath ^java.io.File file)
+                                   :conversation-ids conversation-ids})))
+              harvest (tr/harvest-transcripts-into-object-container! oc-rt request)
+              _ (when-not (= :complete (:status harvest))
+                  (throw (ex-info "real receipt transcript ingest failed" {:harvest harvest})))
+              rk-rt (rk/start-relation-runtime!)
+              _ (swap! runtime assoc :rk-rt rk-rt)
+              summary (bd/distill-conversation! {:oc-rt oc-rt
+                                                 :rk-rt rk-rt
+                                                 :source :claude-code
+                                                 :conversation-id conversation-id})
+              page (bd/river-page {:oc-rt oc-rt :object-key (:object-key summary)} 32)]
+          (pprint/pprint {:file (.getPath ^java.io.File file)
+                          :conversation-id conversation-id
+                          :harvest harvest
+                          :distillation (select-keys summary [:object-key :river :debris
+                                                              :edge-count])
+                          :read-plan (:river-page/read-plan (meta page))})
+          (pprint/pprint page)
+          {:harvest harvest :distillation summary :page page})
+        (finally (bd/close-distiller-runtime! @runtime))))
+    :absent))
+
+(comment
+  ;; P5 real-chat receipt (guarded by find-real-transcript; :absent off-box):
+  (real-example-river-page-receipt!))
+
 
 (comment
   ;; Regenerate the golden from THIS namespace's own projection (single source
