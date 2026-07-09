@@ -146,6 +146,21 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   → P4 refine/assemble → P5 river-page+e2e). AWAITING Sid greenlight for the code wave
   (code commits gate on his word). ⓘ Sid committed a vision drawing mid-session (`08fc241`
   two-arm block/code braid) — parallel, noted, not yet engaged.
+- **2026-07-09 (Phase 0 impl) Opus 4.8 — PHASE 0 GREEN (pure layer).**
+  Built `block_distiller.clj` (§A ids · §B classify · §C actor · §D
+  production-event · §E parts · §F free-cut with fence/quote/table atomicity ·
+  §H edge specs · `distill-event`) + `block_distiller_test.clj` (10 tests /
+  401 assertions / 0 fail) + `fixture.jsonl` + `golden.edn`. Fence stays atomic
+  (the pre-called most-likely-red); astral U+1F600 UTF-16-honest; planted
+  secret redacted at ingest → absent from every block (G6 core). **F1
+  FALSIFIED by the spike:** 0/40 file-history-snapshot + 0/321 real river
+  events throw on read-string — leading-slash path keys round-trip (ns→""),
+  plan F1's mechanism was wrong; classify-first+try/catch kept as
+  defense-in-depth (real guarded shape = whitespace keys, none in 7c80ce2a).
+  Micro-deviation: image parts → surface-only (empty span would fail G11), not
+  the plan's `material-part` form — SPEC §4.3-consistent. CODE UNCOMMITTED
+  (gates on Sid). NEXT: Phase 1 — per-part surfaces + OC import; F2
+  delegation-home spike (→ possible stop-clause); N4 two-modules-one-IPC.
 
 ---
 
