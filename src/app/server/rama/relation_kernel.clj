@@ -62,7 +62,10 @@
     ;; idempotency, retraction, history, and evidence anchoring for free. Binary
     ;; directed (from = judgment carrier, to = judged thing); :supersedes is belief
     ;; displacement, distinct from :built-over / :new-direction construction lineage.
-    :confirms :refutes :supersedes})
+    :confirms :refutes :supersedes
+    ;; code-atom mechanical dependency edges (code-atom CONTRACT §2, SPEC §5.1):
+    ;; :requires (ns→ns, from the ns form) + :calls (var→var continuant, clj-kondo).
+    :requires :calls})
 
 (def request-types #{:relation/assert :relation/retract})
 
