@@ -77,7 +77,9 @@ git_spine proved.
   and is counted in run stats. The driver MUST apply the deny-list BEFORE
   any text leaves git.
 - **R7 — naming block-paths**: binding name as block-path (SPEC §3.5),
-  positional for unnamed, `#n` dedup, `defmethod` + dispatch value.
+  positional for unnamed, `~n` dedup (the separator MUST be symbol-illegal —
+  `~`, not `#`: `foo#2` is a legal symbol so a `#`-suffix collides with a
+  literal `foo#2` var, DIFF_FALSIFICATION F2), `defmethod` + dispatch value.
   (Scope note: block-path uniqueness is PER BLOB — object-key already
   includes the source hash, so ids never collide across versions.)
 

@@ -104,9 +104,14 @@ form/kind law).
 
 3.5 **Block-path = the binding name** (the form's second symbol) for
 def-family heads; positional `%06d` for unnamed forms (`:clj/ns` uses
-`"ns"`); duplicate names deterministically suffixed `#2`, `#3` … in file
+`"ns"`); duplicate names deterministically suffixed `~2`, `~3` … in file
 order (MUST — makes unit ids name-carrying and re-cut-stable per blob).
-`defmethod` appends its dispatch value to the name.
+The dedup separator MUST be a character that cannot occur inside a Clojure
+symbol token — `~` (the reader's unquote char). A `#` separator collides:
+`foo#2` is a legal symbol (`#'user/foo#2` compiles), so a `#`-suffixed
+duplicate `foo` and a literal `(def foo#2 …)` would share one block-path →
+one unit-id → a lost DerivedUnitRow (DIFF_FALSIFICATION F2). `defmethod`
+appends its dispatch value to the name.
 
 3.6 Err-coarse + demand refinement inherited (parent §5): sub-form blocks
 (a branch inside `relation-outcome`, one PState decl inside `defmodule`)

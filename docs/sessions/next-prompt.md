@@ -163,6 +163,19 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   → re-green all suites → gate Route A (fresh Fable, preferred
   post-reset) or Route B (without-Fable clause, doubts recorded). CODE
   still uncommitted (Sid's word); docs all committed through 50bfb75.
+- **2026-07-09 (FIX WAVE DONE) Opus 4.8.** All 8 findings applied with biting
+  regressions; suites GREEN, independently re-run: adapter 8t/82a · driver+analyzer
+  8t/179a · rk 2t/222a (untouched). F2 `#`→`~` (verified symbol-illegal); F4/F5/F6
+  honesty (`:blobs-unresolved`/`:git-failures`/`:lineage-over-unresolved`, loud git
+  exit, per-path deny); P1 temp-dir finally; P2 pure skip-count pin. **F1+F3 share a
+  cluster-scoped in-memory `:analyzer-basis` atom (NOT a durable file — quirks
+  footgun): F1 retracts vanished-endpoint edges via the basis-diff, F3 keys
+  transition-unique via `read-relation-detail` count.** G10 rewritten (D4 F1 / D5 F3,
+  both bite). Record `code-atom/FIXWAVE.md`; decisions.md D-006 note (F1 durable-vs-
+  in-memory judgment + cross-boot deferral to Sid's durability fork — revert-cheap
+  redline). Docs `#n`→`~n` in SPEC §3.5 + CONTRACT R7. CODE UNCOMMITTED (Sid's word).
+  **NEXT: gate** (Route A fresh Fable post-reset, or Route B this-class model) → then
+  the REPL dogfood receipt (CONTRACT §12) → close + retro; CODE commits on Sid's word.
 
 ---
 

@@ -711,6 +711,26 @@ spend, future-binding architecture/nouns, North authorship.
   CONTRACT edits (R4 · §4 · §9 · §12); artifact
   `build/sense-line-mvp/block-kernel/PHASE_0.md`. NEXT: Plan phase.
 
+- **code-atom FIX WAVE — 8 falsification findings applied (2026-07-09, Opus fix
+  session; D-006 implementation-contact note).** All 6 CONFIRMED + 2 PLAUSIBLE
+  from `code-atom/DIFF_FALSIFICATION.md` fixed with biting regressions; suites
+  green (adapter 8t/82a · driver+analyzer 8t/179a · rk 2t/222a untouched). Record
+  at `code-atom/FIXWAVE.md`. **One judgment flagged for redline (revert-cheap):**
+  F1 (stale-edge leak when both an edge's endpoints leave HEAD) was realized as an
+  **in-memory, cluster-scoped `:analyzer-basis` atom, NOT the sketched durable edn
+  file.** Grounds: the relation kernel is target-partitioned (no read-by-asserter
+  query — closing F1 by reading Rama alone would need a new kernel index = outside
+  the §2 allowlist), and a durable snapshot is precisely the "durable side-state ×
+  ephemeral create-ipc cluster poisons the next boot" footgun (implementation-quirks).
+  The atom lives+dies with the cluster — the correct retraction scope for an
+  ephemeral cluster (a fresh boot re-asserts only HEAD's edges; no cross-boot leak).
+  **Deferred, not decided:** cross-BOOT retraction of a both-endpoints-gone edge in
+  a hypothetical durable-cluster world rides **Sid's durability fork** (durable
+  cluster vs spine-edge replay log — future-binding, his); a durable basis would
+  slot behind the same seam. `:reconcile-basis-missing` counts every reconcile
+  lacking a prior basis, so the map declares the boundary. Sid may redline to the
+  durable snapshot instead — revert-cheap either way.
+
 ## Amendments A1 · A2 — COUNTERSIGNED 2026-07-08, applied IN PLACE
 
 Ruled by Sid same day, verbatim: "all approved by default and i would even go
