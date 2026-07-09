@@ -720,6 +720,7 @@
         revision-rows (payload-revisions payload)
         derived-unit-rows (payload-derived-units payload)
         anchor-rows (payload-source-anchors payload)
+        projection-hint-rows (payload-projection-hints payload)
         source-ids (set (map :source-id source-rows))
         container-ids (set (map :container-id container-rows))
         derived-unit-ids (set (map :unit-id derived-unit-rows))
@@ -772,7 +773,10 @@
       (not (core/authorized-request? request))
       (conj {:type :actor-not-authorized})
 
-	      (empty? source-rows)
+	      ;; F3 (Sid ruled A, 2026-07-10): accept a projection-hint-ONLY import
+	      ;; (durable debris class row, no surface) — reject only a truly empty
+	      ;; payload. Purely additive: any import WITH sources is unaffected.
+	      (and (empty? source-rows) (empty? projection-hint-rows))
 	      (conj {:type :source-artifacts/missing})
 
 	      source-hash-mismatches
