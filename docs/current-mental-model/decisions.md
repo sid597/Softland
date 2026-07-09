@@ -731,6 +731,27 @@ spend, future-binding architecture/nouns, North authorship.
   lacking a prior basis, so the map declares the boundary. Sid may redline to the
   durable snapshot instead — revert-cheap either way.
 
+- **block-kernel P1/P2 falsification — 2 items for ruling (PROPOSED, 2026-07-09).**
+  A fresh-context adversarial review of P1/P2 (artifact
+  `build/sense-line-mvp/block-kernel/P1P2_FALSIFICATION.md`) found the code
+  functionally correct (all gates green) but surfaced two questions touching binding
+  docs. Both are LATENT (no gate fails). (1) **F1 · SPEC §6.1 identity:** a
+  single-paragraph human turn mints a whole-block AND a coincident `:human-sub` at the
+  same `(surface, span)` with two distinct unit-ids — SPEC §6.1 (MUST) says same
+  `(surface,span)` ⇒ same identity; CONTRACT R3's "identity maps to anchor rows" is
+  unrealized (anchor-id = `sa:unit-id`, not `(surface,span)`-keyed). Inherited from P0's
+  `free-cut-part`; not fixture-exercised. Recommended: drop a sub-block whose span == the
+  whole-message span (subs only where real structure exists, SPEC §4.4). Sid rules —
+  §6.1 is countersigned and this is form-break evidence. (2) **F2 · T4 routing:** the
+  `imp:sense-block:` import-key falls through `extract-object-key` (:284-339) to `:else`,
+  so a FOREIGN `read-import-completion` mis-routes to nil (in-topology dedup unaffected; no
+  package consumer calls it → latent). Recommended in-allowlist fix: restructure the key
+  so the object-key follows a handled prefix (`imp:tr:<object-key>:sb:<hash>` — routes
+  right, still a distinct full key so R4 holds); alt = a kernel `extract-object-key` branch
+  (T13). Sid confirms the fix vs R4's "distinct prefix" wording. F3 (a G4 test-power gap) +
+  N5 (docstring) are implementer-fixable, queued for a coordinated pass (P3 is live-editing
+  the same files).
+
 ## Amendments A1 · A2 — COUNTERSIGNED 2026-07-08, applied IN PLACE
 
 Ruled by Sid same day, verbatim: "all approved by default and i would even go
