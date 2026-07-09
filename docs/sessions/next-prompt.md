@@ -106,6 +106,20 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   load-bearing); same pass feeds R3 lineage. Fable spot-checks all exact
   (kondo exports in jar; reassembly 51,848/32,009; 893/895 replicated).
   No stop-clauses. NEXT: P1 (adapter) dispatched, fresh Opus subagent.
+- **2026-07-09 (P1) Opus subagent → Fable verification: GREEN, accepted.**
+  Artifact `code-atom/PHASE_P1.md` (committed 8f32281). Built
+  `clojure_adapter.clj` (cut + materialization + request builder +
+  deny-list, traps cited) + test ns + pinned fixtures + deps.edn one line
+  (rewrite-clj 1.1.47). Suite 7t/78a/0f — **re-run independently by the
+  orchestrator, identical**; existing OC suite still green (149a). Census:
+  specimen = 103 units {ns 1, def 9, fn 84, record 8, module 1}; byte-exact
+  reassembly 51,848/32,009; U+0000 survives; G1–G4 all pass incl. physical
+  no-dup PState scan. Hygiene grep clean (no wall clock; env.clj only as
+  deny strings). One P0 prose typo corrected by measurement (electric_flow
+  has 10 top-level reader-conds, not 3). Open doubts in artifact §Open
+  (each with falsifier) — revisit at gate review. CODE UNCOMMITTED (gates
+  on Sid). NEXT: P2 (driver + lineage lane) dispatched, fresh Opus
+  subagent; :supersedes already registered — NO registry edit until P3.
 
 ---
 
