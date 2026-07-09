@@ -435,6 +435,17 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   real-file e2e + review-time G12/G13 = the package DoD) →
   `docs/sessions/block-p5-opening-prompt-2026-07-09.md` → package gate review (batched
   fresh-context falsification, P4's look rides here) + RETRO close.
+- **2026-07-09 (CODE COMMITTED) fix-pass session — block-distiller package P0–P4 + P1/P2
+  fix-pass committed `a146dc8` on Sid's word** (code-only, local branch; joins the code-atom
+  code commits, cherry-pickable to main). Contents: `block_distiller.clj` (P0–P4) +
+  `block_distiller_test.clj` + fixtures + the `relation_kernel.clj` P3a 3-kind diff — the T11
+  item code-atom's `6fbfd75` left behind, now landed. Combined suite green one JVM:
+  **25t/1199a/0f** (block_distiller 17t/828a incl. G7/G10; object_container 6t/149a;
+  relation_kernel 2t/222a). Fix-pass docs at `7c2e040`; this docs commit also lands
+  PHASE_P4.md + block-p5 prompt (the P4 session left them uncommitted). P4 is
+  implementation-grade — its fresh-context falsification rides the package gate review (per
+  the P4 entry above), NOT yet run. **NEXT: P5** (river-page + real-file e2e + G12/G13 =
+  package DoD) → `block-p5-opening-prompt` → package gate (batched falsification incl. P4) + RETRO.
 
 ---
 
