@@ -10,8 +10,11 @@ document holds the clojure-code instance and its warrant.
 ## 0 · Artifact map
 
 - This file — warrant + evidence (the why, the specimen record, the forks).
-- `../SPEC.md` — will gain the clojure-code section AFTER the hand-pass
-  survives Sid (SPEC-section and CONTRACT come later; opening prompt).
+- `SPEC.md` (this folder) — the normative clojure-code family spec,
+  extending `../SPEC.md` v0 by reference (authored at round close, Sid's
+  "drive this home").
+- `CONTRACT.md` (this folder) — the implementation work package derived
+  from the SPEC (distiller adapter + driver; work-package shell).
 - Specimen: `src/app/server/rama/relation_kernel.clj` @ HEAD (997 ln,
   4 commits) — **Sid's ruling, this session** (over markdown_adapter /
   object_container defaults).
@@ -119,7 +122,7 @@ reader grammar:
 | 2 · free cut | **Concrete-syntax top-level units, classed into two lanes: code lane (forms) · commentary lane (standalone comments)** (F1, Sid's reframe). Mechanical, no model calls. Code lane now; commentary lane later as its own stratum, zero cost (SPEC §14). Un-minted spans stay unblocked surface (reconstruction lives on the surface, SPEC §2.3). Section-outline (F2) and analyzer cut are separate declared strata. |
 | 3 · form vocabulary | Normalized head symbol, closed table + retained raw head: `clj-ns · clj-def · clj-fn (defn, defn-) · clj-record · clj-protocol · clj-macro · clj-multi (defmulti/defmethod) · clj-comment (;;) · clj-rich-comment ((comment …)) · clj-other`. Project extensions ride the table's version (registry pattern, one-line reviewed change): `defmodule`, Electric `e/defn`, … Form is fact; "this fn is a validation helper" is a mark. |
 | 4 · continuity | **Three ingredients.** (i) **The var as continuant** — ns-qualified name, the durable natural key Clojure gives free; the ns itself is the file-grain continuant. (ii) **Form-text content hash** — same name + same text in a NEW blob (someone edited elsewhere in the file) = the SAME instance **re-addressed**, no event minted; only name-match + text change mints `supersedes` (F4 case 1). Without this, one commit touching line 900 fakes ~100 supersessions — af0e0e2 really changed 6–8 vars of ~100. Prior art: codeq keyed code segments by content so identical forms share identity across blobs; Unison content-addresses at definition grain with names as metadata — we import that insight at form grain while git keeps authority (both prior-art claims from general knowledge — verify before they become load-bearing). Whitespace/alpha-normalized hashing = recorded candidate only. (iii) **Rename/move = silver** similarity proposal, gold-ratifiable (F4 case 2). Standalone comments: span identity only; continuity silver via adjacency. |
-| 5 · mechanical edge floor | `requires` — from the ns form, per-namespace (mechanical, certain). `supersedes` — name-match across blob succession (mechanical). def-site — var-continuant → form-instance (mechanical). `calls`/`references` — analyzer cut (clj-kondo grade), **versioned fallible-mechanical**: still form-not-kind, but deriver@version rides every edge and re-runs are strata (SPEC §14). Rama/Electric macros are the known analyzer hazard — P0-verify at contracting. Plus the family join: SPEC §11.3's tool-call edges resolve `path@commit` → blob surface → refine on demand — the sense-line touches code exactly there, and git_spine already stores the session↔commit joins. |
+| 5 · mechanical edge floor | `requires` — from the ns form, per-namespace (mechanical, certain). `supersedes` — name-match across blob succession (mechanical). def-site — var-continuant → form-instance (mechanical). `calls`/`references` — analyzer cut (clj-kondo grade), **versioned fallible-mechanical**: still form-not-kind; the deriver VERSION rides `note` while the asserter-id stays version-free (corrected at source — Fork 2 below). Rama/Electric macros are the known analyzer hazard — P0-verify at contracting. Plus the family join: SPEC §11.3's tool-call edges resolve `path@commit` → blob surface → refine on demand — the sense-line touches code exactly there, and git_spine already stores the session↔commit joins. |
 
 The family's novum, confirmed: **slot 4 — the version axis and the var as
 continuant.** Prose surfaces are immutable events; code surfaces succeed
@@ -197,13 +200,20 @@ truth-kind test.
     the output to relation form" — the final view is built from blocks
     + computed containment + those relations. The AST itself is never
     stored; it is a transient parse the deriver walks.
-  Lean unchanged (relation kernel): typed non-compositional edges are
-  D-004's noun; asserter-scoped identity gives re-run idempotency and
-  deriver-version strata free; git_spine is the precedent. Volume +
-  the Rama/Electric-macro analyzer hazard ride to contracting.
-  - Sub-fork still teed (small; may ride to contracting): register
-    `:requires` + `:calls` as kinds (lean — the registry's kind-mush
-    guard argues FOR precise kinds) vs overloading `:references`.
+  **RULED at round close (Sid: "new kinds and now lets drive this
+  home"):** relation kernel, with `:requires` + `:calls` REGISTERED as
+  kinds — never overloading `:references`.
+  **Asserter correction (caught at source while contracting):** this
+  file's earlier lean said asserter = deriver@version. WRONG — git_spine's
+  asserter is deliberately version-FREE ("the relation-id includes the
+  asserter, so versioning it would fork every edge", git_spine.clj:41-44),
+  and retraction requires actor == stored asserter
+  (relation_kernel.clj:441-448), so a versioned asserter could never
+  retract its predecessor's stale edges. Carried into SPEC/CONTRACT:
+  version-free deriver actors; version rides `note`; re-runs CONVERGE on
+  the same relation-ids and retract edges that disappeared. Strata live
+  in notes + status history, not in forked ids. Volume + the
+  Rama/Electric-macro analyzer hazard live in the CONTRACT traps.
 - **Naming (all scaffolding):** blob-surface · form-instance · var
   continuant · code lane / commentary lane · re-addressed vs superseded ·
   reader cut / analyzer cut / lineage cut · name-card. Sid names by
@@ -220,6 +230,10 @@ truth-kind test.
   "comment are there to make sense of code and in softland we are
   building the sense trail" → two mechanical lanes in the free cut;
   the commentary lane may land later.
+- **Fork 2 RULED: new kinds** — `:requires` + `:calls` enter the
+  relation-kinds registry; edges at continuant grain in the relation
+  kernel (Sid at round close, with the drive-this-home instruction:
+  SPEC → CONTRACT → implementation; reopen-on-need later).
 - Recorded input (design altitude, not this round's build) — Sid: "the
   ui component will have versioning built into it and changing the
   version can change the other context in which it was built in iff the
