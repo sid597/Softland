@@ -228,7 +228,18 @@ pair + one NUL in a tool_result + one planted fake secret.
 - **G11 span discipline.** Property test: in-bounds, non-empty, no surrogate
   splits, child spans within parents.
 - **G12 (review-time).** River-page read plan audited: bounded seeks +
-  sequential iteration; no N-point-read fan-out per page.
+  sequential iteration + a hard page-size cap. Forbidden: *conversation-
+  scaled* fan-out — per-page cost MUST be a function of the requested page
+  size, never of conversation length. A bounded per-block `read-unit`
+  point-read UNDER the page cap is within v0 G12, provided the measured seek
+  plan is recorded AND is itself bounded by page size (filtered-out strata
+  may not inflate it) AND a capped/short page is signalled (no silent
+  truncation). The denormalized `read-conversation-sources` / renderable-per-
+  source-unit query is the §10 scale extension, built only when a used form
+  breaks against the per-block reads (D-001) — not before.
+  *(Amended 2026-07-10, Sid ruled F1→A; ratifies §12/g + PHASE_0 §2/g + the
+  P5 opening prompt. The Round-1 gate read the prior one-liner literally →
+  FAIL; this codifies the v0 intent those three docs already carried.)*
 - **G13 (review-time).** Consumers compile against query topologies only;
   test validation readers exempt.
 

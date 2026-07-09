@@ -837,6 +837,29 @@ spend, future-binding architecture/nouns, North authorship.
   kinds coexist, both suites green. Durability fork (in-memory vs durable
   `:analyzer-basis`) remains Sid's — deferred, revert-cheap.
 
+- **block-kernel PACKAGE GATE Round 1 — FAIL (4 P1 blockers); F1 RULED → Option A
+  (Sid, 2026-07-10).** Fresh-context whole-package (P0–P5) falsification: suites green
+  (26t/1216a) + the real `7c80ce2a` receipt ran, but FOUR contract-level blockers.
+  **F1 (STOP CLAUSE) — G12 read literally.** `river-page` does 2 point-reads per block
+  via `read-unit` (bounded by a 64-cap, but a per-block point-read fan-out). Verified vs
+  the code AND the authorizing docs: PHASE_0 §2/g + CONTRACT §12/g/§10 + the P5 opening
+  prompt all pre-blessed composition-first-with-bounded-point-reads for v0; only the §8
+  one-liner reads strictly-fail. **Ruling A: clarify G12 to forbid CONVERSATION-scaled
+  fan-out while accepting a hard page cap + a page-size-bounded, truncation-signalled
+  measured seek plan; the denormalized `read-conversation-sources` query is the §10 scale
+  extension, built only on a used-form break (D-001).** G12 amended IN PLACE in
+  `build/sense-line-mvp/block-kernel/CONTRACT.md` §8. Option B (strict zero per-block
+  fan-out via an additive OC physical shape) deferred to that form-break. **F2 + F4 fixed
+  in-package** (F2: distiller pre-filter → honest `1+4·limit` bound + `:truncated?`
+  page-completeness signal; F4: `refine!` resolves `(surface,span)` to the incumbent unit
+  — no duplicate id, SPEC §6.1), each with a biting IPC test. **F3 (durable debris class,
+  SPEC §3.1) hit a NEW stop-clause** — `import-request-validation-errors`
+  (`object_container.clj:775`) rejects hint-only (empty-source) imports, so a durable
+  debris row needs either (A) a 1-line additive OC validation relaxation [code-atom G-F2
+  class] or (B) a ruling that debris class is DERIVED, not materialized. **PENDING Sid.**
+  Fix wave in progress; a NEW fresh-context gate round is required before RETRO/close
+  (the Round-1 FAIL artifact is NOT overwritten).
+
 ## Amendments A1 · A2 — COUNTERSIGNED 2026-07-08, applied IN PLACE
 
 Ruled by Sid same day, verbatim: "all approved by default and i would even go
