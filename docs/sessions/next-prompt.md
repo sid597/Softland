@@ -404,6 +404,20 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   UNCOMMITTED. **NEXT: P4** (refine! G7 + assemble! G10) → `docs/sessions/block-p4-
   opening-prompt-2026-07-09.md`; P5 closes the package. ⚠ T11: re-run BOTH packages'
   gates at commit.
+- **2026-07-09 (P1/P2 FIX-PASS F1+F2+F3+N5) Opus 4.8 — DONE, suite GREEN.** Applied on the
+  settled post-falsification P3 tree. **F1** (§6.1): `free-cut-part` :human-message drops any
+  silver sub coincident with the whole `[0,len)`; +`u-solo` single-para fixture case; golden
+  regen DIFF-PROVEN (only u-solo added — one :human-message block; u-human's 5 proper subs
+  byte-unchanged). **F2** (T4): `import-key` → `imp:tr:<ok>:sb:<hash>` (routes via
+  extract-object-key → chat:<hex>; distinct from transcript's `imp:tr:<ok>:<hash>`, R4 holds)
+  + folded routing gate (5 river import-completions foreign-readable — the FIRST completion
+  reader; nil before). **F3**: G4 asserts re-run `:accepted` + same river count (+N1 guard).
+  **N5**: docstring 12→10. SPEC §4.4 clarified in place (silver subs = PROPER sub-spans only).
+  Suite one JVM: block_distiller **15t/770a** · object_container 6t/149a · relation_kernel
+  2t/222a, 0f (standalone bd re-run identical). CODE UNCOMMITTED (Sid's word). ⚠ **the
+  block-kernel commit MUST include the `relation_kernel.clj` P3a diff** (`:grounds
+  :assembled-from :refines`) — code-atom commit 6fbfd75 took only `:requires :calls`, leaving
+  the 3 block kinds uncommitted (` M`, T11). **NEXT: P4** (refine!/assemble!) rebases on P3+fixpass.
 
 ---
 

@@ -57,7 +57,7 @@
 
 4.3 **tool_use** → one block, form `tool-use` (name + args are its content). **tool_result** → a surface only, NO pre-chunking: 2,000-line dumps are never eagerly blocked; spans mint lazily on engagement (§5). The `(tool_use, tool_result)` pair is bound by a `produced`/`grounds` edge per §11.3, not by containment.
 
-4.4 **Human messages** → one whole-message block always (form `human-message`) — *humans are never forced to pre-chunk* (law). Where the message carries markdown structure, the free cut SHOULD additionally mint silver structural sub-blocks (default ON; OPEN — Sid may turn this off). Both coexist under the overlap rule (§6.2).
+4.4 **Human messages** → one whole-message block always (form `human-message`) — *humans are never forced to pre-chunk* (law). Where the message carries markdown structure that carves it into MULTIPLE pieces, the free cut SHOULD additionally mint silver structural sub-blocks — each a PROPER sub-span (default ON; OPEN — Sid may turn this off). A single-paragraph turn mints ONLY the whole-message block: a would-be sub coincident with the whole-message span `[0,len)` resolves to it per §6.1, never a second id (F1, 2026-07-09). Both coexist under the overlap rule (§6.2).
 
 4.5 **Every segmentation declares itself:** `(segmentation-id, rule-id@version, producer, run provenance)` (MUST). An undeclared chunk is torn paper — not a block.
 

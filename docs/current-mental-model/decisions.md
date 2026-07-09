@@ -759,6 +759,17 @@ spend, future-binding architecture/nouns, North authorship.
   applies F1+F2+F3+N5, full P1–P3 re-green, one code commit on Sid's word). Prompt:
   `docs/sessions/block-fixpass-opening-prompt-2026-07-09.md`. This countersign flips the
   entry from PROPOSED to resolved; the fix-pass is execution, not a re-ruling.
+  · **EXECUTED 2026-07-09 (fix-pass session, post-P3-falsification).** F1+F2+F3+N5 applied
+  on the settled P3 tree; suite GREEN one JVM (block_distiller **15t/770a** · object_container
+  6t/149a · relation_kernel 2t/222a, 0f). F1 golden regen diff-proven (only the single-para
+  `u-solo` case added; `u-human`'s 5 proper subs byte-unchanged); F2 `import-key` →
+  `imp:tr:<ok>:sb:<hash>` (routes via extract-object-key; distinct from the transcript
+  adapter's `imp:tr:<ok>:<hash>` so R4 holds) + a folded routing gate (5 river
+  import-completions now foreign-readable — nil before). SPEC §4.4 clarified in place (silver
+  subs = PROPER sub-spans only; single-para resolves to the whole block per §6.1). CODE
+  uncommitted (Sid's word). ⚠ The block-kernel code commit MUST carry the `relation_kernel.clj`
+  P3a 3-kind diff (`:grounds :assembled-from :refines`) — the code-atom commit `6fbfd75`
+  committed only `:requires :calls`, leaving the 3 block kinds uncommitted in the tree (T11).
 
 - **code-atom GATE REVIEW — PASS with one gate-session fix; F1 in-memory basis
   ACCEPTED at gate; one item PROPOSED (2026-07-09, Fable gate session; D-006 note).**
