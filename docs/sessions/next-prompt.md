@@ -174,8 +174,12 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   both bite). Record `code-atom/FIXWAVE.md`; decisions.md D-006 note (F1 durable-vs-
   in-memory judgment + cross-boot deferral to Sid's durability fork — revert-cheap
   redline). Docs `#n`→`~n` in SPEC §3.5 + CONTRACT R7. CODE UNCOMMITTED (Sid's word).
-  **NEXT: gate** (Route A fresh Fable post-reset, or Route B this-class model) → then
-  the REPL dogfood receipt (CONTRACT §12) → close + retro; CODE commits on Sid's word.
+  **NEXT: gate — Sid routes to FABLE (Route A); boot fresh from `docs/sessions/
+  code-atom-gate-opening-prompt-2026-07-09.md`** (re-run 3 suites + full-code
+  falsification + G11 + adjudicate the F1 in-memory-basis judgment) → REPL dogfood
+  receipt (CONTRACT §12) → code commits on Sid's word → close + retro + adversarial
+  retro-recheck + route lessons (/atomize + work-package skill). ⚠ T11: re-run BOTH
+  packages' gates after either's registry/code lands.
 
 ---
 
