@@ -221,6 +221,25 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   surfaces + OC import); load /rama-pitfalls first; F2 delegation spike →
   possible stop-clause to Sid. P0 code should be committed for a clean
   baseline (awaiting Sid's word).
+- **2026-07-09 (P1) Opus 4.8 — P1 GREEN: per-part surfaces + OC import + gates.**
+  Extended `block_distiller.clj` with §G row builders + §I driver (foreign client:
+  read stored sources → distill river events → OC import; no new module/PState).
+  **F2 SPIKE GREEN → option A RULED IN (no stop-clause):** an extra `:production-event`
+  key on a per-part `SourceArtifactRow` SURVIVES the `$$source-artifacts-by-id`
+  round-trip ⇒ delegation rides the surface, ZERO existing-file edit (no
+  `transcript_adapter.clj` carve-out). Gates green as IPC deftests: routing smoke
+  (N1) · G3(phys) unit-kinds+spans+text==golden · G6 anchor honesty (subs==text
+  ==derived-content-text, hash-eq, planted secret absent from every row) · G11(phys)
+  surrogate-safe · G4 idempotence (re-run zero new units) · G5 strata (2nd
+  distiller-id disjoint, v0 byte-unchanged). Suite: block_distiller_test **12/606**;
+  +object_container_test **18/755**, 0 fail. Fixes at contact: import actor `:system`
+  (core actor-types `#{:human :agent :system :bot}`; `:machine` is RK-only) · OC
+  decision accessor `:status`/`:reason` (not `:decision/*`). Routing understood: OC
+  PStates declare `{:key-partitioner partition-by-object-key}` so read+write both
+  route via `extract-object-key` — id *shape* is the whole game (N1). CODE
+  UNCOMMITTED (Sid's word). **NEXT: P2** — class→projection entry-kind + G1/G2
+  physical gates (actor/created-by + delegation already STORED by P1's surfaces);
+  prompt `docs/sessions/block-p2-opening-prompt-2026-07-09.md`.
 
 ---
 
