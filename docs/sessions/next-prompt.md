@@ -382,6 +382,23 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   session; prompt above) → fix any CONFIRMED (default-fail) → then **P4** (refine! G7 +
   assemble! G10, ride P3a's kinds) → `docs/sessions/block-p4-opening-prompt-2026-07-09.md`;
   then P5 (river-page + e2e + G12/G13) closes the package.
+- **2026-07-09 (P3 FRESH-CONTEXT FALSIFICATION = QC layer 4) Opus 4.8 — PASS, no
+  blockers.** Independent adversarial pass (did NOT write P3) over the uncommitted
+  P3a+P3b diff → `block-kernel/P3_DIFF_FALSIFICATION.md`. All 10 hunt classes REFUTED
+  (defended); suites re-run INDEPENDENTLY, exact: block_distiller **15t/740a** ·
+  relation_kernel **2t/222a** · object_container **6t/149a**, 0f. Went deeper than the
+  author self-review on the 2 risk classes: (C2) hole id `du:…:pending-result:<tuid>`
+  ROUTES to the same `chat:<hex>` task via extract-object-key→leading-object-key ⇒ G9
+  nil is a TRUE absence, not a mis-route; (C1) import-material-fingerprint hashes
+  content-only select-keys ⇒ coarse-block dedup is replay-stable. Findings: 1 PLAUSIBLE
+  non-blocking (coarse-import `:status` awaited-but-unchecked → a rejected mint could
+  silently degrade a paired edge to dangling; NOT deterministically reachable; G8
+  landed-assert is the falsifier) + 3 NOTEs (event-ctx byte-identity reasoned-not-
+  diffed since P0–P2 uncommitted; pr-str map-order in tool-use-text pre-P3/untriggered;
+  start-runtime leak-on-throw cosmetic). **P4 is NOT gated** (no CONFIRMED). CODE
+  UNCOMMITTED. **NEXT: P4** (refine! G7 + assemble! G10) → `docs/sessions/block-p4-
+  opening-prompt-2026-07-09.md`; P5 closes the package. ⚠ T11: re-run BOTH packages'
+  gates at commit.
 
 ---
 
