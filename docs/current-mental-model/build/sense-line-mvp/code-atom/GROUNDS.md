@@ -67,12 +67,21 @@ reader grammar:
 
 **Findings the census forces:**
 
-- **F1 — comments are material, and a reader-based cut drops them.**
-  `clojure.tools.reader` sees no comments; rewrite-clj-grade concrete
-  syntax does. This file's comments are load-bearing at three grains
-  (governance header, section banners, design notes). The free cut must
-  be concrete-syntax-grade: top-level forms + standalone comment blocks.
-  (P0-verify at contracting: rewrite-clj positional behavior.)
+- **F1 — comments are material, but they are the OTHER line.** A plain
+  reader-based cut (`clojure.tools.reader`) discards comments, and this
+  file's comments are load-bearing at three grains (governance header,
+  section banners, design notes — incl. the note anchored to an absence).
+  Sid's reframe (this session, ratified): comments are not code-material —
+  they are **sense-trail material fossilized inside the code file**,
+  because before Softland a comment was the only place to put the why
+  next to the code. So the free cut classes top-level units into two
+  LANES, mechanically: **code lane** (forms) and **commentary lane**
+  (standalone `;;` blocks). Code lane cuts now; the commentary lane may
+  land LATER as its own stratum at zero cost — strata are additive
+  (SPEC §14); until then comment spans sit as unblocked surface.
+  Docstrings stay in the code lane: inside the form's span, surfaced via
+  the name-card projection (F5). (P0-verify at contracting: exact-span
+  fidelity of the parse — rewrite-clj vs indexing tools.reader.)
 - **F2 — the section outline is real and mechanical but project-local.**
   The `;; ── X ──` banners give this file the same outline structure
   markdown headers give prose. Mint as a SEPARATE declared segmentation
@@ -106,10 +115,10 @@ reader grammar:
 
 | slot | answer (lean where a fork is open) |
 |---|---|
-| 1 · source identity | **text@commit, git authority (D-003).** Concretely: surface = **git blob** (content-addressed, sha-keyed); `(path, commit)` resolves to a blob. Version axis = the commit DAG; a file's own axis = its blob succession (this specimen: 4 blobs over its whole life). Blob identity makes every span stable across all commits that don't touch the file — for free. Redaction (SPEC §2.1) for code = declared **deny-list of whole files** (env.clj never enters — D-003 fail-closed); allowed blobs store verbatim. |
-| 2 · free cut | **Concrete-syntax top-level units: forms + standalone comment blocks** (F1). Mechanical, no model calls. Inter-form whitespace stays unblocked surface (reconstruction lives on the surface, SPEC §2.3). Section-outline (F2) and analyzer cut are separate declared strata. |
+| 1 · source identity | **text@commit, git authority (D-003).** Concretely: surface = **git blob** (content-addressed, sha-keyed); `(path, commit)` resolves to a blob. Version axis = the commit DAG; a file's own axis = its blob succession (this specimen: 4 blobs over its whole life). Blob identity makes every span stable across all commits that don't touch the file — for free. **RULED (Sid, this session): store the raw text AND the atomic breakdown — the transcript pattern** (raw source + derived units + anchors in the container kernel); storing ≠ owning — git remains authority. Redaction (SPEC §2.1) for code = declared **deny-list of whole files** (env.clj never enters — D-003 fail-closed); allowed blobs store verbatim. |
+| 2 · free cut | **Concrete-syntax top-level units, classed into two lanes: code lane (forms) · commentary lane (standalone comments)** (F1, Sid's reframe). Mechanical, no model calls. Code lane now; commentary lane later as its own stratum, zero cost (SPEC §14). Un-minted spans stay unblocked surface (reconstruction lives on the surface, SPEC §2.3). Section-outline (F2) and analyzer cut are separate declared strata. |
 | 3 · form vocabulary | Normalized head symbol, closed table + retained raw head: `clj-ns · clj-def · clj-fn (defn, defn-) · clj-record · clj-protocol · clj-macro · clj-multi (defmulti/defmethod) · clj-comment (;;) · clj-rich-comment ((comment …)) · clj-other`. Project extensions ride the table's version (registry pattern, one-line reviewed change): `defmodule`, Electric `e/defn`, … Form is fact; "this fn is a validation helper" is a mark. |
-| 4 · continuity | **The var as continuant** — ns-qualified name, the durable natural key Clojure gives free. Instance chain = `supersedes` between form-instances, mechanical on name-match within a blob succession (F4 case 1); rename/move = silver similarity proposal, gold-ratifiable (F4 case 2). The ns itself is the file-grain continuant. Standalone comments have NO natural continuant — span identity only; continuity silver via adjacency. |
+| 4 · continuity | **Three ingredients.** (i) **The var as continuant** — ns-qualified name, the durable natural key Clojure gives free; the ns itself is the file-grain continuant. (ii) **Form-text content hash** — same name + same text in a NEW blob (someone edited elsewhere in the file) = the SAME instance **re-addressed**, no event minted; only name-match + text change mints `supersedes` (F4 case 1). Without this, one commit touching line 900 fakes ~100 supersessions — af0e0e2 really changed 6–8 vars of ~100. Prior art: codeq keyed code segments by content so identical forms share identity across blobs; Unison content-addresses at definition grain with names as metadata — we import that insight at form grain while git keeps authority (both prior-art claims from general knowledge — verify before they become load-bearing). Whitespace/alpha-normalized hashing = recorded candidate only. (iii) **Rename/move = silver** similarity proposal, gold-ratifiable (F4 case 2). Standalone comments: span identity only; continuity silver via adjacency. |
 | 5 · mechanical edge floor | `requires` — from the ns form, per-namespace (mechanical, certain). `supersedes` — name-match across blob succession (mechanical). def-site — var-continuant → form-instance (mechanical). `calls`/`references` — analyzer cut (clj-kondo grade), **versioned fallible-mechanical**: still form-not-kind, but deriver@version rides every edge and re-runs are strata (SPEC §14). Rama/Electric macros are the known analyzer hazard — P0-verify at contracting. Plus the family join: SPEC §11.3's tool-call edges resolve `path@commit` → blob surface → refine on demand — the sense-line touches code exactly there, and git_spine already stores the session↔commit joins. |
 
 The family's novum, confirmed: **slot 4 — the version axis and the var as
@@ -117,11 +126,26 @@ continuant.** Prose surfaces are immutable events; code surfaces succeed
 each other under a name that persists. Nothing else in the template
 required a new law — the block grammar absorbed the rest unchanged.
 
+**Versioning is the center (Sid's push, this session).** The Regime-1
+edit loop the atom must survive: edit files → commit → spine ingest →
+new blobs → re-cut → lineage. It survives mechanically: re-cutting a
+stored blob is a no-op (same `(blob, span)` keys, SPEC §6.1); a new blob
+mints instances only where form text changed (slot 4(ii)); everything
+else is re-addressed silently. Forward-compatible with pre-commit
+states: a blob identity exists for any content git can hash, committed
+or not, so mid-edit surfaces need no new identity mechanism if an editor
+integration ever wants them. Contrast that frames ours (general
+knowledge, flagged): Unison stores definitions content-addressed in its
+own database and makes names metadata — the right answer when the tool
+OWNS truth; git owns ours (D-003), so we reconstruct the same two
+ingredients — content hash + durable name — OVER blobs rather than
+instead of them.
+
 ## 4 · Strata plan (consumer → stratum; SPEC §14 plurality)
 
 | stratum | rule kind | serves |
 |---|---|---|
-| reader cut (free): top-level forms + comments | mechanical, clojure-general | pointing/talking · collaboration · the anchor space everything else shares |
+| reader cut (free): top-level forms, two lanes (code · commentary; commentary lane may land later) | mechanical, clojure-general | pointing/talking · collaboration · the anchor space everything else shares |
 | section outline (`;; ──` banners) | mechanical, project convention, own rule-id | orientation, "read the row records" — the markdown-header analogue |
 | DECLS/name-card projection | derived from continuants + form spans (F5) | inventory reading · LLM search |
 | analyzer cut (clj-kondo) | versioned deriver, fallible-mechanical | callers/callees · LLM context assembly |
@@ -162,39 +186,55 @@ truth-kind test.
 
 ## 7 · Open forks (leans recorded; rulings are Sid's)
 
-- **Fork 1 — source storage.** Cache git blobs sha-keyed (git stays
-  authority) vs re-store per commit like md sources. **Lean:
-  blob-keyed cache-with-git-authority** — immutability and cross-commit
-  span stability are free (slot 1); re-store-per-commit would mint new
-  surfaces for every file on every commit or reinvent content
-  addressing. P0-verify at contracting: what git_spine actually stores
-  today (docstring-grade: commit metadata + canonical commit text; file
-  text likely ABSENT).
-- **Fork 2 — dependency edges (requires/calls).** Container-kernel
-  material rows vs silver relations in the relation kernel. **Lean:
-  relation kernel**, asserter = deriver@version — (a) they are typed,
-  non-compositional, cross-container edges, which is D-004's noun,
-  not containment; (b) asserter-scoped identity gives re-run idempotency
-  AND deriver-version strata for free; (c) git_spine already stores
-  mechanical deriver-asserted edges there (parent lineage, session↔commit).
-  Volume (repo-wide calls ≈ thousands) rides the subindexed per-target
-  maps; batch-import cost noted for contracting.
-  - Sub-fork: register `:requires` + `:calls` as kinds (lean — the
-    registry's kind-mush guard argues FOR precise kinds; additions are
-    one-line reviewed changes) vs overloading `:references`.
+- **Fork 2 — dependency edges, sharpened after Sid's AST question.**
+  Two different things hide inside "AST":
+  - **containment** (this `let` sits inside that `defn`) — COMPUTED from
+    spans (SPEC §6.2), stored nowhere; the cut gives it free.
+  - **cross-references** (`requires`, calls) — not derivable from spans;
+    an analyzer PASS extracts them and its OUTPUT is stored as
+    **relation rows** (relation kernel, asserter = deriver@version).
+    This is Sid's own sketch this session: "pass through ast and save
+    the output to relation form" — the final view is built from blocks
+    + computed containment + those relations. The AST itself is never
+    stored; it is a transient parse the deriver walks.
+  Lean unchanged (relation kernel): typed non-compositional edges are
+  D-004's noun; asserter-scoped identity gives re-run idempotency and
+  deriver-version strata free; git_spine is the precedent. Volume +
+  the Rama/Electric-macro analyzer hazard ride to contracting.
+  - Sub-fork still teed (small; may ride to contracting): register
+    `:requires` + `:calls` as kinds (lean — the registry's kind-mush
+    guard argues FOR precise kinds) vs overloading `:references`.
 - **Naming (all scaffolding):** blob-surface · form-instance · var
-  continuant · reader cut / analyzer cut / lineage cut · name-card.
-  Sid names by recurrence.
+  continuant · code lane / commentary lane · re-addressed vs superseded ·
+  reader cut / analyzer cut / lineage cut · name-card. Sid names by
+  recurrence.
 
 ## 8 · Ratified in-flow (this session)
 
 - Specimen = `relation_kernel.clj` (Sid, over the two defaults offered).
+- **Fork 1 RULED: store the raw format AND the atomic breakdown, the
+  transcript pattern** (Sid: "we store the raw format AND the atomic
+  breakdown just like we did for transcript"). Blob-sha is the version
+  key; git stays authority.
+- **Comments are the sense line at the code lens** (Sid's reframe):
+  "comment are there to make sense of code and in softland we are
+  building the sense trail" → two mechanical lanes in the free cut;
+  the commentary lane may land later.
+- Recorded input (design altitude, not this round's build) — Sid: "the
+  ui component will have versioning built into it and changing the
+  version can change the other context in which it was built in iff the
+  user wants … reactively controllable and fine grained permissions and
+  versioning." Spec consequence: occurrence/reference targets come in
+  two grades — **instance-pinned** and **continuant-floating**
+  (policy-resolved, flippable). Permissions noted for a later round.
 
 ## 9 · What the SPEC section must answer when the hand-pass survives
 
 Offsets over blob text (same UTF-16 rule?) · the form-vocabulary table +
-its extension mechanism · lineage edge kinds and their tiers (mechanical
-name-match vs silver move) · the analyzer stratum's declaration shape ·
-the tool-call → blob join · conformance items at code grain (idempotent
-re-cut on the same blob; a second stratum disturbs nothing; census
-reproduction on the specimen).
+its extension mechanism · the two-lane classification rule ·
+re-addressed vs superseded semantics (form-text hash) · lineage edge
+kinds and their tiers (mechanical name-match vs silver move) · occurrence
+target grades (instance-pinned | continuant-floating) · the analyzer
+stratum's declaration shape · the tool-call → blob join · conformance
+items at code grain (idempotent re-cut on the same blob; a second
+stratum disturbs nothing; census reproduction on the specimen).
