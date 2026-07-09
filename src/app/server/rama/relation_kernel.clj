@@ -65,7 +65,12 @@
     :confirms :refutes :supersedes
     ;; code-atom mechanical dependency edges (code-atom CONTRACT §2, SPEC §5.1):
     ;; :requires (ns→ns, from the ns form) + :calls (var→var continuant, clj-kondo).
-    :requires :calls})
+    :requires :calls
+    ;; sense-block mechanical floor + composition (block-kernel CONTRACT §12, SPEC
+    ;; §11.1/§11.3): :grounds (read-tool observation), :assembled-from (assembly,
+    ;; §8.1), :refines (demand refinement, §5). :produced is already registered
+    ;; above and carries the write-tool floor edge. One-line reviewed add.
+    :grounds :assembled-from :refines})
 
 (def request-types #{:relation/assert :relation/retract})
 
