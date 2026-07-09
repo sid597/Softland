@@ -789,6 +789,36 @@
                             (import-payload object-key surfaces units anchors [hint])
                             {:time-ms (:created-at-ms ctx)})))))))
 
+(defn class-hint-import-request
+  "Hint-only OC import carrying ONE event's durable versioned class row (SPEC §3.1),
+   for an event that produces NO surface import: every debris event, AND the rare
+   river event whose only part is empty (e.g. an empty tool_result — river-class,
+   zero blocks; Gate-R2 Finding 1). entry-kind = the event's ACTUAL class; the
+   classifier-id + reason ride in :content-preview so a physical reader tells a
+   classified event from a never-classified one. Returns {:request <import-request>
+   :class <:river|:debris>}. A normal river event carries its class hint on its
+   surface import (event-import-request) and never reaches here."
+  [object-key parsed order]
+  (let [distilled  (distill-event parsed order)
+        class-map  (:class distilled)
+        clazz      (:class class-map)
+        event-uuid (:event-key distilled)
+        imp-key    (import-key object-key event-uuid)
+        request-id (request-id-for object-key event-uuid)
+        ctx        (event-ctx object-key distilled)
+        hint (class-projection-hint
+              {:conv-id (tid/chat-conversation-id object-key)
+               :order order
+               :event-uuid event-uuid
+               :event-id (:event-id ctx)
+               :role (message-role parsed)
+               :content-preview (str (:classifier-id class-map) "/" (name (:reason class-map)))}
+              imp-key request-id clazz)]
+    {:request (import-request object-key event-uuid
+                              (import-payload object-key [] [] [] [hint])
+                              {:time-ms (:created-at-ms ctx)})
+     :class clazz}))
+
 (defn read-conversation-inputs
   "Physically enumerate a conversation's ordered per-message stored payloads (F3:
    no query-topology door exists). Reads $$transcript-conversation-projection by
@@ -914,8 +944,18 @@
                                (update :requests conj request)
                                (update :decisions conj (ocr/await-object-container-decision oc-rt request 20000))
                                (update :river inc)))
-                       (update acc :debris inc))))
-                 {:object-key object-key :requests [] :decisions [] :river 0 :debris 0}
+                       ;; F3 + Gate-R2 Finding 1: no surface import → this event still
+                       ;; needs a DURABLE versioned class row (SPEC §3.1). True for
+                       ;; every debris event AND the rare river event whose only part
+                       ;; is empty (e.g. an empty tool_result). Count by ACTUAL class.
+                       (let [{hreq :request clazz :class}
+                             (class-hint-import-request object-key parsed order)]
+                         (ocr/append-object-container-request! oc-rt hreq)
+                         (-> acc
+                             (update (if (= :river clazz) :river :debris) inc)
+                             (update :class-hint-decisions conj
+                                     (ocr/await-object-container-decision oc-rt hreq 20000)))))))
+                 {:object-key object-key :requests [] :decisions [] :river 0 :debris 0 :class-hint-decisions []}
                  inputs)]
     (if rk-rt
       (merge summary (assert-mechanical-edges! {:oc-rt oc-rt :rk-rt rk-rt
@@ -954,6 +994,38 @@
                       :asserted-at-ms time-ms :sent-at-ms time-ms
                       :request-id idempotency-key :idempotency-key idempotency-key
                       :note note}))
+
+(def refine-resolve-scan-limit
+  "Per-surface unit-scan bound for refine! identity resolution. A surface is ONE
+   conversation part; its distiller units are few — this guard is never hit in
+   practice. Not a page hot-path (refine! is a demand op)."
+  100000)
+
+(defn- resolve-existing-unit-at-span
+  "SPEC §6.1: identity = (surface-id, span). If a sense-block-v0 unit already
+   occupies (surface-id, [start,end)) — e.g. a free-cut structural sub-block whose
+   POSITIONAL id differs from the refine: id — return that unit-id so refine! REUSES
+   it instead of minting a duplicate identity (the F4 bug). nil when the span is
+   genuinely new. Enumerates the surface's derived-unit refs (one range scan;
+   target-id encodes the distiller, so foreign strata are rejected without a read),
+   then reads each candidate's anchor by unit-id ($$source-anchors-by-target holds
+   the full row with offsets; the by-source index stores span-less refs) and matches
+   the exact [start,end). Foreign-read class (like the coarse-unit read), NOT a G13
+   output path."
+  [oc-rt source-id object-key start end]
+  (let [du-seg (str ":" distiller-id ":")
+        bundle (ocr/read-common-material-for-source
+                oc-rt source-id [:derived-units] {} refine-resolve-scan-limit)
+        candidate-ids (->> (:derived-units bundle)
+                           (map :target-id)
+                           (filter #(str/includes? (str %) du-seg)))]
+    (some (fn [uid]
+            (let [a (first (ocr/read-source-anchors oc-rt uid))]
+              (when (and a
+                         (= (long start) (long (:start-offset a)))
+                         (= (long end) (long (:end-offset a))))
+                uid)))
+          candidate-ids)))
 
 (defn refine!
   "SPEC §5 demand law (gate G7). Mint a FINER block inside the coarse block
@@ -1010,27 +1082,37 @@
         _ (when (or (splits-surrogate? sub-start) (splits-surrogate? sub-end))
             (throw (ex-info "refine!: sub-span splits a surrogate pair (G11)"
                             {:sub-span [sub-start sub-end]})))
-        finer-text (subs raw sub-start sub-end)
-        finer-form (or form (:unit-kind coarse-unit))
+        time-ms    (long (or asserted-at-ms (:created-at-ms surface) 0))
+        ;; F4 / SPEC §6.1: (surface-id, span) IS the identity. If a unit already
+        ;; occupies this exact span — e.g. a free-cut structural sub-block, whose
+        ;; positional id differs from the refine: id — REUSE it; minting a second
+        ;; id for one identity was the F4 duplicate. Only mint when the span is new.
+        existing-uid (resolve-existing-unit-at-span oc-rt source-id object-key sub-start sub-end)
+        _ (when (= existing-uid coarse-unit-id)
+            (throw (ex-info "refine!: sub-span equals the coarse block's span — not a refinement; §6.1 resolves it to the coarse unit itself"
+                            {:coarse-unit-id coarse-unit-id :sub-span [sub-start sub-end]})))
+        reuse?     (some? existing-uid)
         bpath      (refine-block-path source-id sub-start sub-end)
-        finer-uid  (derived-unit-id object-key bpath)
-        anchor-id  (oc/source-anchor-id finer-uid)
-        finer-unit (oc/->DerivedUnitRow
-                    finer-uid (:document-container-id surface) source-id
-                    finer-form bpath nil
-                    anchor-id finer-text (oc/source-hash finer-text)
-                    distiller-id distiller-version (:event-id surface))
-        finer-anchor (oc/->SourceAnchorRow
-                      anchor-id :derived-unit finer-uid
-                      source-id (:source-ref surface) (:source-hash surface)
-                      sub-start sub-end bpath (:event-id surface))
-        time-ms       (long (or asserted-at-ms (:created-at-ms surface) 0))
-        endpoint-uuid (str "refine:" source-id ":" sub-start "-" sub-end)
-        oc-req   (import-request object-key endpoint-uuid
-                                 (import-payload object-key [surface] [finer-unit] [finer-anchor] [])
-                                 {:time-ms time-ms})
-        _        (ocr/append-object-container-request! oc-rt oc-req)
-        decision (ocr/await-object-container-decision oc-rt oc-req 20000)
+        finer-uid  (or existing-uid (derived-unit-id object-key bpath))
+        decision   (when-not reuse?
+                     (let [finer-text (subs raw sub-start sub-end)
+                           finer-form (or form (:unit-kind coarse-unit))
+                           anchor-id  (oc/source-anchor-id finer-uid)
+                           finer-unit (oc/->DerivedUnitRow
+                                       finer-uid (:document-container-id surface) source-id
+                                       finer-form bpath nil
+                                       anchor-id finer-text (oc/source-hash finer-text)
+                                       distiller-id distiller-version (:event-id surface))
+                           finer-anchor (oc/->SourceAnchorRow
+                                         anchor-id :derived-unit finer-uid
+                                         source-id (:source-ref surface) (:source-hash surface)
+                                         sub-start sub-end bpath (:event-id surface))
+                           endpoint-uuid (str "refine:" source-id ":" sub-start "-" sub-end)
+                           oc-req   (import-request object-key endpoint-uuid
+                                                    (import-payload object-key [surface] [finer-unit] [finer-anchor] [])
+                                                    {:time-ms time-ms})]
+                       (ocr/append-object-container-request! oc-rt oc-req)
+                       (ocr/await-object-container-decision oc-rt oc-req 20000)))
         from-ref (rk/->target-ref :block finer-uid)
         to-ref   (rk/->target-ref :block coarse-unit-id)
         idem     (edge-idempotency-key finer-uid :refines coarse-unit-id)
@@ -1042,6 +1124,7 @@
     {:finer-unit-id  finer-uid
      :coarse-unit-id coarse-unit-id
      :surface-id     source-id
+     :resolved?      reuse?
      :relation-id    (rk/relation-id-for :refines from-ref to-ref mechanical-asserter)
      :note           note
      :edge-count     1
@@ -1139,6 +1222,186 @@
      :assembled-from      edges
      :edge-count          (count edges)
      :decision            decision}))
+
+;; ===========================================================================
+;; §M · River page (foreign read composition). SPEC §2.3/§3.2, gates G12/G13.
+;; The class ledger and original transcript surface are INPUT substrate reads (F3).
+;; Rendered block material is read ONLY through OC query topologies: the per-source
+;; ordered unit index, then read-unit for the exact stored form/text (N5).
+;; ===========================================================================
+
+(def max-river-page-size
+  "Hard v0 bound for the composition-first read plan. A page examines at most this
+   many river events, per-part surfaces, and unit refs; the dedicated conversation-
+   page query topology remains the CONTRACT §10 scale extension."
+  64)
+
+(def conversation-projection-scan-limit
+  "The class ledger co-tenants with transcript rows and does not carry source ids.
+   One bounded range seek supplies the ordered message lookup plus the `sb:` ledger;
+   the real 7c80ce2a transcript is well below this v0 guard."
+  100000)
+
+(defn- river-ledger-order
+  [row]
+  (let [order-key (str (:order-key row))]
+    (when (str/starts-with? order-key "sb:")
+      (try
+        (Long/parseLong (subs order-key 3))
+        (catch NumberFormatException _ nil)))))
+
+(defn- river-ledger-row?
+  [row]
+  (and (= :river (:entry-kind row))
+       (some? (river-ledger-order row))))
+
+(defn- page-limit
+  [limit]
+  (let [n (long (or limit 0))]
+    (when-not (<= 1 n max-river-page-size)
+      (throw (ex-info "river-page: limit must be within the bounded v0 page size"
+                      {:limit limit :max-limit max-river-page-size})))
+    n))
+
+(defn- render-river-source
+  "Read one per-part surface's ordered block refs through CommonMaterialBundle,
+   resolve at most `remaining` refs through read-unit, and return stored block
+   material. `block-path` is the material-ref order-key and therefore preserves
+   the free cut's span order within this surface."
+  [oc-rt source-id event-order event-uuid event part remaining]
+  (let [bundle (ocr/read-common-material-for-source
+                oc-rt source-id [:derived-units] {} remaining)
+        du-seg (str ":" distiller-id ":")
+        ;; F2/G12: filter to THIS distiller's refs BEFORE read-unit. The ref's
+        ;; target-id encodes the distiller (du:<ok>:sense-block-v0:<path>), so a
+        ;; foreign stratum sharing this surface is rejected with zero point-reads
+        ;; — it can no longer inflate the per-page seek plan (was O(limit^2) when
+        ;; foreign units were read then discarded). Keeps unit-reads <= page size.
+        refs   (->> (:derived-units bundle)
+                    (filter #(str/includes? (str (:target-id %)) du-seg))
+                    (sort-by :order-key))
+        actor  (resolve-actor event part)]
+    {:unit-reads (count refs)
+     :blocks
+     (->> refs
+          (keep (fn [ref]
+                  (let [read-result (ocr/read-unit oc-rt (:target-id ref))
+                        unit (:unit read-result)]
+                    (when (and unit
+                               (= source-id (:source-id unit))
+                               (= distiller-id (:distiller-id unit)))
+                      {:order       [event-order (:part-index part) (:order-key ref)]
+                       :event-uuid  event-uuid
+                       :actor       actor
+                       :form        (:unit-kind unit)
+                       :text        (:derived-content-text unit)
+                       :unit-id     (:unit-id unit)
+                       :source-id   source-id
+                       :part-path   (:part-path part)
+                       :block-path  (:block-path unit)}))))
+          (take remaining)
+          vec)}))
+
+(defn river-page
+  "Render the first bounded page of a conversation's persisted river blocks.
+
+   Input enumeration (F3, G13-exempt): one range read of the transcript conversation
+   projection gives ordered `:message` rows plus the `sb:` river class ledger; each
+   selected river event reads its already-redacted stored payload and deterministically
+   re-derives per-part source ids. Output material (G13-governed) uses ONLY
+   read-common-material-for-source + read-unit query topologies.
+
+   `limit` bounds all three fan-out dimensions: at most `limit` river events, at
+   most `limit` per-part source queries, and at most `limit` unit query invocations.
+   The returned vector carries `:river-page/read-plan` metadata with the measured
+   counts. Since read-unit performs the unit + graduation point reads, the v0 seek
+   bound is 1 + events-read + surfaces-read + 2*unit-reads <= 1 + 4*limit (G12).
+   The projection seek iterates sequentially; CommonMaterialBundle uses one subindexed
+   range seek per selected surface."
+  [{:keys [oc-rt object-key]} limit]
+  (let [limit      (page-limit limit)
+        conv-id    (tid/chat-conversation-id object-key)
+        projection (vec (ocr/read-transcript-conversation-projection
+                         oc-rt conv-id "" conversation-projection-scan-limit))
+        _ (when (= conversation-projection-scan-limit (count projection))
+            (throw (ex-info "river-page: conversation projection hit the v0 scan guard"
+                            {:conversation-id conv-id
+                             :scan-limit conversation-projection-scan-limit})))
+        messages   (vec (filter #(= :message (:entry-kind %)) projection))
+        all-river-rows (->> projection
+                            (filter river-ledger-row?)
+                            (sort-by river-ledger-order))
+        total-river-events (count all-river-rows)
+        river-rows (take limit all-river-rows)
+        initial    {:blocks [] :events-read 0 :surfaces-read 0 :unit-reads 0}
+        result
+        (reduce
+         (fn [{:keys [blocks surfaces-read] :as acc} ledger-row]
+           (if (or (>= (count blocks) limit) (>= surfaces-read limit))
+             (reduced acc)
+             (let [order       (river-ledger-order ledger-row)
+                   message-row (get messages order)
+                   _ (when (nil? message-row)
+                       (throw (ex-info "river-page: class-ledger order has no transcript message"
+                                       {:conversation-id conv-id :order order
+                                        :event-uuid (:message-uuid ledger-row)})))
+                   source      (ocr/read-source oc-rt (:source-id message-row))
+                   _ (when (nil? source)
+                       (throw (ex-info "river-page: transcript input surface is absent"
+                                       {:conversation-id conv-id :order order
+                                        :source-id (:source-id message-row)})))
+                   event       (safe-read-payload (:source-raw-text source))
+                   distilled   (distill-event event order)
+                   event-uuid  (or (:message-uuid ledger-row) (:event-key distilled))
+                   parts       (remove #(str/blank? (str (:text %))) (:parts distilled))
+                   event-acc   (update acc :events-read inc)]
+               (reduce
+                (fn [{:keys [blocks surfaces-read] :as part-acc} part]
+                  (let [remaining (- limit (count blocks))]
+                    (if (or (zero? remaining) (>= surfaces-read limit))
+                      (reduced part-acc)
+                      (let [source-id (per-part-source-id object-key event-uuid (:part-path part))
+                            rendered  (render-river-source oc-rt source-id order event-uuid
+                                                          event part remaining)]
+                        (-> part-acc
+                            (update :blocks into (:blocks rendered))
+                            (update :surfaces-read inc)
+                            (update :unit-reads + (:unit-reads rendered)))))))
+                event-acc
+                parts))))
+         initial
+         river-rows)
+        seek-count (+ 1
+                      (:events-read result)
+                      (:surfaces-read result)
+                      (* 2 (:unit-reads result)))
+        blocks-returned (min limit (count (:blocks result)))
+        ;; F2: never present a capped/short page as complete. Truncated when ANY
+        ;; ceiling was hit — unrendered river events remain, or the surface/block
+        ;; cap stopped the walk. A consumer re-pages until :truncated? is false
+        ;; (a cursor/dedicated query is the CONTRACT §10 scale extension, not v0).
+        truncated? (boolean (or (> total-river-events (:events-read result))
+                                (>= (:surfaces-read result) limit)
+                                (>= (count (:blocks result)) limit)))
+        read-plan  {:projection-range-seeks 1
+                    :projection-rows-iterated (count projection)
+                    :events-read (:events-read result)
+                    :input-source-point-seeks (:events-read result)
+                    :surfaces-read (:surfaces-read result)
+                    :common-material-range-seeks (:surfaces-read result)
+                    :unit-reads (:unit-reads result)
+                    :unit-point-seeks (* 2 (:unit-reads result))
+                    :seek-count seek-count
+                    :seek-bound (+ 1 (* 4 limit))
+                    :limit limit
+                    :river-events-total total-river-events
+                    :river-events-rendered (:events-read result)
+                    :surfaces-rendered (:surfaces-read result)
+                    :blocks-returned blocks-returned
+                    :truncated? truncated?
+                    :page-complete? (not truncated?)}]
+    (with-meta (vec (take limit (:blocks result)))
+      {:river-page/read-plan read-plan})))
 
 (defn start-distiller-runtime!
   "Launch the object-container runtime (OC + transcript-ops on one IPC; every
