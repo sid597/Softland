@@ -760,6 +760,36 @@ spend, future-binding architecture/nouns, North authorship.
   `docs/sessions/block-fixpass-opening-prompt-2026-07-09.md`. This countersign flips the
   entry from PROPOSED to resolved; the fix-pass is execution, not a re-ruling.
 
+- **code-atom GATE REVIEW — PASS with one gate-session fix; F1 in-memory basis
+  ACCEPTED at gate; one item PROPOSED (2026-07-09, Fable gate session; D-006 note).**
+  Artifact: `code-atom/GATE_REVIEW.md`. All three suites reproduced exact pre-fix
+  (8/82 · 8/179 · 2/222) then green post-fix (9/88 · 9/181 · rk untouched); all
+  kernel-behavior claims re-verified at source; §12 dogfood receipt ran END-TO-END
+  on this repo (895/895 blobs, 41s sync + 19s analyzer; whole-tree pins
+  458/5073/279/50 reproduced through the kernel; census + fixed-width-order-key
+  callers + relation-outcome supersedes chain printed; G11 tuple→marks worked
+  example real). **F1 adjudication: the in-memory cluster-scoped `:analyzer-basis`
+  atom is ACCEPTED** (kernel verified to have no by-asserter read; basis lane
+  disjoint from the target-read lane by construction; ephemeral-cluster scope =
+  the correct retraction scope; durable basis slots behind the same seam when the
+  durability fork is ruled). Sid's redline right stands. **G-F1 (NEW, CONFIRMED,
+  fixed in-session):** git history holds committed-BROKEN blobs (5/895 here); the
+  unguarded cut aborted the whole sync — every cheaper layer missed it (P0's
+  "895/895" was enumeration; parse fidelity was HEAD-files-only; gates sync pinned
+  commits). Fix (in-allowlist, revert-cheap, biting regressions): parse failure →
+  0-unit cut carrying `:parse-error`; raw surface still ingests (R1); lineage sees
+  empty maps (no fake edges); `:blobs-unparseable` counted. Receipt proves it
+  end-to-end. **PROPOSED (Sid rules): G-F2** — `imp:clj:` import-keys fall through
+  `extract-object-key` `:else` → foreign `read-import-completion` mis-routes to nil
+  (latent, no consumer; in-topology dedup unaffected; SAME class as the ruled
+  block-kernel F2). Options: (a) key restructure onto a handled prefix (none is
+  semantically honest for clj), (b) ONE additive `imp:clj:` branch in
+  `extract-object-key` mirroring `imp:md:` (kernel edit, needs authorization).
+  Recommendation: (b), bundled with the block-kernel fix-pass window. Minor queued
+  for the same window: N3 basis-missing conflates nil-basis with empty-desired-set
+  (one line); N4 materialize-throw temp-dir corner (one line); N6 basis↔scope
+  docstring. CODE STILL UNCOMMITTED — commits on Sid's word; then close + retro.
+
 ## Amendments A1 · A2 — COUNTERSIGNED 2026-07-08, applied IN PLACE
 
 Ruled by Sid same day, verbatim: "all approved by default and i would even go

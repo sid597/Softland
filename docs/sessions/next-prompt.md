@@ -180,6 +180,23 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   receipt (CONTRACT §12) → code commits on Sid's word → close + retro + adversarial
   retro-recheck + route lessons (/atomize + work-package skill). ⚠ T11: re-run BOTH
   packages' gates after either's registry/code lands.
+- **2026-07-09 (GATE, Fable fresh session): PASS — artifact
+  `code-atom/GATE_REVIEW.md`; decisions.md gate entry is the ruling record.**
+  Suites reproduced exact (8/82 · 8/179 · 2/222), kernel claims re-verified at
+  source, **F1 in-memory basis ACCEPTED at gate** (Sid redline stands).
+  **G-F1 found by the §12 receipt + fixed in-session** (5/895 committed-broken
+  historical blobs aborted the full sync → a parse failure is now a 0-unit cut
+  carrying `:parse-error`, raw surface still stores per R1, `:blobs-unparseable`
+  counted). Post-fix green: adapter 9t/88a · driver 9t/181a · rk untouched;
+  **receipt END-TO-END on this repo** (895/895 blobs, 41s+19s; whole-tree
+  458/5073/279/50 through the kernel; census / fixed-width-order-key callers /
+  relation-outcome supersedes chain printed; G11 worked example real). **G-F2
+  PROPOSED for Sid** (`imp:clj:` unrouted in `extract-object-key`, latent —
+  same class as block-kernel F2; rec: one additive kernel branch) + N3/N4/N6
+  minor, queued for a coordinated fix window; the gate-authored G-F1 fix gets
+  its fresh-context look there too. CODE UNCOMMITTED (Sid's word; ⚠ the rk
+  registry hunk now holds BOTH packages' kinds — manual split at commit).
+  NEXT: Sid rules G-F2 + gives commit word → close + retro + retro-recheck.
 
 ---
 
