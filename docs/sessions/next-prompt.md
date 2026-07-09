@@ -159,8 +159,11 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   defense-in-depth (real guarded shape = whitespace keys, none in 7c80ce2a).
   Micro-deviation: image parts → surface-only (empty span would fail G11), not
   the plan's `material-part` form — SPEC §4.3-consistent. CODE UNCOMMITTED
-  (gates on Sid). NEXT: Phase 1 — per-part surfaces + OC import; F2
-  delegation-home spike (→ possible stop-clause); N4 two-modules-one-IPC.
+  (gates on Sid). **NEXT: boot a FRESH session from
+  `docs/sessions/block-p1-opening-prompt-2026-07-09.md`** — P1 (per-part
+  surfaces + OC import); load /rama-pitfalls first; F2 delegation spike →
+  possible stop-clause to Sid. P0 code should be committed for a clean
+  baseline (awaiting Sid's word).
 
 ---
 
