@@ -93,13 +93,22 @@ identity lives at the anchor layer**: SPEC §6.1's "same (surface, span) ⇒
 same identity" maps to anchor rows; P0 pins anchor-id determinism. The
 distiller id for this work: `sense-block-v0`, version 1.
 
-**R4 · Sources are the container kernel's — no second store.** The distiller
-runs over ALREADY-INGESTED transcript sources (read via the query API), cuts,
-and submits derived-unit import requests for those same sources. P0 GATE:
-verify the import path accepts a second distillation over an existing source
-(the strata question — identity claims / material fingerprints must not
-reject it). Fallback if blocked: a fenced, additive import-request variant
-(stop-clause first — §9).
+**R4 · Sources are the container kernel's — no re-ingest, no second
+redaction.** The distiller runs over ALREADY-INGESTED transcript sources (read
+via the query API) and submits derived-unit import requests against the same
+object-key. P0 verified (PHASE_0.md §2/e) the import path ACCEPTS a second
+distillation over an existing source — empty `:object-containers` + a distinct
+import-key/idempotency-key; markdown hash-checks are skipped for `:transcript`
+format; `object-key` is distiller-independent so the source is shared and only
+`du:`/`sa:` ids diverge. **Surface-fidelity ruling (Sid, 2026-07-09, Phase 0):**
+the existing per-message `SourceArtifactRow.source-raw-text` is
+`(pr-str redacted-payload)` — EDN, not clean per-part text — so the driver mints
+**per-part text surfaces** `(event-id, part-path)` whose raw-text is the exact
+redacted part text, obtained by `read-string`-ing the ALREADY-STORED redacted
+payload (never re-reading the raw jsonl, never re-redacting — R1 preserved).
+These per-part surfaces are lawful re-projections of stored material: "no second
+store" binds as *no re-ingest / no second redaction*, not *no new rows*. Blocks
+anchor into these per-part surfaces (G6 honesty; SPEC §1/§2.3).
 
 **R5 · Block text is anchor-first.** SPEC's no-copies law meets
 `DerivedUnitRow.derived-content-text` (a text field by OC design): the
@@ -112,7 +121,7 @@ is the address. P0 verifies OC tolerates unit rows without derived text.
 
 | SPEC noun | realization | notes |
 |---|---|---|
-| surface | existing source rows (`SourceArtifactRow` / source-line identity) + message containers the transcript adapter already mints | P0 pins the exact source/anchor granularity the transcript adapter uses today (per-file vs per-line) |
+| surface | driver-minted **per-part** `SourceArtifactRow` `(event-id, part-path)`, raw-text = exact redacted part text via `read-string` of the stored payload (R4 ruling), nesting under the transcript adapter's existing per-message containers | P0 found the existing per-message rows store `pr-str` EDN, not per-part clean text (PHASE_0.md §2/f); per-part surfaces are the honest anchor target |
 | block | `DerivedUnitRow` (distiller `sense-block-v0`) + `SourceAnchorRow` | anchor carries the span; unit carries form + provenance |
 | form | `unit-kind` values = SPEC §4.6 vocabulary | vocabulary addition, never new row types (T14) |
 | segmentation provenance | `distiller-id` + `distiller-version` on every unit | already first-class |
@@ -230,14 +239,17 @@ is not gated here (SPEC ≠ BENCHMARK).
 
 ## 9 · Stop clauses (escalate per work-package skill; never improvise)
 
-- Second distillation over an existing source is rejected by the import
-  path (R4 gate) → options: fenced additive request variant vs re-ingest
-  under a distinct source-ref; Sid rules.
-- Anchor ids prove non-deterministic (R3).
-- Redaction policy proves non-deterministic/unversioned (R1).
-- Relation-kernel kind vocabulary is enum-gated (§4).
-- OC requires derived-content-text and cannot hold span-equal text (R5).
-- Any SPEC MUST unimplementable as specified.
+**Phase 0 cleared the two that were live (Sid ruled 2026-07-09):** the import
+path ACCEPTS a second distillation (R4) → per-part surfaces; the relation kind
+enum is gated → `:grounds :assembled-from :refines` authorized (§12). Anchor-id
+determinism (R3), redaction determinism (R1), and OC tolerating nil derived-text
+(R5) all verified clear (PHASE_0.md §2). Remaining live triggers:
+
+- A NON-additive `object_container.clj` change proves necessary (T13).
+- A new row TYPE, or a new `:projection-kind` needing an import-topology
+  `case>` edit, proves necessary (T14; delegation home, §12/h).
+- Any relation-kernel change BEYOND the three authorized kinds.
+- Any SPEC MUST unimplementable as specified (none found in Phase 0).
 
 ## 10 · Extension points (refusals, kept warm)
 
@@ -276,6 +288,9 @@ shell; ONE orchestrating session; QC layers as fresh Opus subagents.
 composition vs one additive query topology (lean: composition first);
 (h) delegation-chain capture point (additive projection fields vs edges).
 
-Budget: local + subscription, no API dollars. What must NOT start without
-Sid: mark-kind schemas · any UI · a second chat file · any non-additive
-object_container.clj change · any relation-kernel amendment.
+Budget: local + subscription, no API dollars. **Authorized 2026-07-09
+(Phase 0, Sid):** the ONE relation_kernel.clj edit permitted is registering
+`:grounds :assembled-from :refines` in `relation-kinds` (additive; the set's own
+comment sanctions it). What still must NOT start without Sid: mark-kind schemas ·
+any UI · a second chat file · any non-additive object_container.clj change · any
+FURTHER relation-kernel amendment beyond those three kinds.

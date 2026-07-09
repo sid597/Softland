@@ -122,6 +122,15 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   Sid micro-items (`image` §4.6 form · `attachment` class · SPEC §15 fixture stale →
   regen golden from live file). Details in PHASE_0.md §0/§4. NEXT: Sid rules
   SC1+SC2 → Plan phase.
+- **2026-07-09 (Phase 0 rulings) Fable — Sid RULED both stop-clauses (recommended
+  path).** SC1: register `:grounds :assembled-from :refines` in relation-kinds (the
+  ONE authorized relation_kernel.clj edit). SC2: driver mints per-part
+  `(event-id,part-path)` surfaces via `read-string` of the stored redacted payload
+  (R4 now = no re-ingest / no second redaction). Executed as in-place CONTRACT edits
+  (R4 · §4 · §9 · §12) + decisions.md ledger note. ⚠ Precedence: STANDING's
+  "relation_kernel.clj UNTOUCHED" is superseded by CONTRACT §12 for exactly those 3
+  kinds. NEXT: Plan phase — fresh Opus subagent authoring PLAN.md; Fable adjudicates
+  + default-fail-validates on return.
 
 ---
 

@@ -696,6 +696,21 @@ spend, future-binding architecture/nouns, North authorship.
 
 ---
 
+- **block-kernel Phase 0 — two stop-clause rulings (Sid, 2026-07-09).** The
+  sense-line block distiller package (D-002 execution; realizes SPEC v0 over the
+  object-container + relation kernels) ran Phase 0; both CONTRACT §9 stop-clauses it
+  surfaced were verified at source and ruled the recommended way. (1) **Relation
+  kinds:** `relation-kinds` (relation_kernel.clj:58-65) is a closed enum; Sid
+  authorized registering `:grounds :assembled-from :refines` (additive; the D-004
+  kernel's own comment sanctions it) — the package's ONE permitted
+  relation_kernel.clj edit. (2) **R4 surface fidelity:** the already-ingested
+  per-message transcript sources store `(pr-str redacted-payload)` (EDN, not per-part
+  clean text), so the driver mints per-part `(event-id, part-path)` surfaces by
+  `read-string`-ing the already-stored redacted payload — "no second store"
+  reinterpreted as *no re-ingest / no second redaction*. Both executed as in-place
+  CONTRACT edits (R4 · §4 · §9 · §12); artifact
+  `build/sense-line-mvp/block-kernel/PHASE_0.md`. NEXT: Plan phase.
+
 ## Amendments A1 · A2 — COUNTERSIGNED 2026-07-08, applied IN PLACE
 
 Ruled by Sid same day, verbatim: "all approved by default and i would even go
