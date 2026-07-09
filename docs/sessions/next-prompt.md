@@ -310,6 +310,22 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   UNCOMMITTED (Sid's word). **NEXT: P2** — class→projection entry-kind + G1/G2
   physical gates (actor/created-by + delegation already STORED by P1's surfaces);
   prompt `docs/sessions/block-p2-opening-prompt-2026-07-09.md`.
+- **2026-07-09 (P2) Opus 4.8 — P2 GREEN: classification ledger + delegation (G1/G2).**
+  Stop-clause CLEARED at source: the `:transcript-conversation-projection` dispatch
+  (object_container.clj:2160-2171) writes ANY entry-kind verbatim ⇒ NO `case>` edit,
+  NO new `:projection-kind`. Driver now emits a class hint per river import — a
+  `TranscriptConversationProjectionRow` (entry-kind `:river`, `sb:`-namespaced order-key
+  so it co-tenants without colliding with the transcript `%020d:` :message rows; the F3
+  read filters `:message` so it never re-ingests its own marks). **G1(phys):** 4 river
+  marked; 10 retained :message rows − 4 = 6 debris (SPEC §3.2 retained-but-unmarked, a
+  set-difference not a new row); actor law `created-by==resolve-actor`, tool_result→"tool".
+  **G2(phys):** `:production-event` on the sidechain surface carries actor + on-behalf-of
+  "a-1" (the F2 option-A home, now READ). Suite: block_distiller_test **12/625**;
+  +object_container_test **18/772**, 0 fail. ADDITIVE-ONLY (no OC/RK edit). CODE
+  UNCOMMITTED (Sid's word). **NEXT: P3a** — register `:grounds :assembled-from :refines`
+  in `relation-kinds` (the ONE authorized rk edit, pre-approved CONTRACT §12) + accept
+  micro-gate; then P3b edge floor (G8/G9, carries the N3 tool_result-endpoint Sid-confirm).
+  Prompt `docs/sessions/block-p3a-opening-prompt-2026-07-09.md`.
 
 ---
 
