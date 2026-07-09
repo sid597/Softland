@@ -343,6 +343,24 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   in `relation-kinds` (the ONE authorized rk edit, pre-approved CONTRACT §12) + accept
   micro-gate; then P3b edge floor (G8/G9, carries the N3 tool_result-endpoint Sid-confirm).
   Prompt `docs/sessions/block-p3a-opening-prompt-2026-07-09.md`.
+- **2026-07-09 (P3a+P3b) Opus 4.8 — P3 GREEN: relation kinds + mechanical edge floor.**
+  P3a: `:grounds :assembled-from :refines` registered in `relation-kinds` (the ONE
+  authorized rk edit; `:produced` already present) + accept micro-gate (**RK accepts
+  `:asserter-type :machine`** — verify-first, no OC-style set rejection). P3b (§J driver):
+  pairs (tool_use,tool_result) → produced/grounds edges. **N3 RULED by Sid: option A** —
+  tool_result endpoint = demand-minted coarse `:tool-result-span` block ([0,len), §5.1
+  lazy). G8 produced(Edit)+grounds(Read) → REAL coarse blocks; G9 unpaired Write → hole
+  (absent `:block`, nil in OC). N4 = two IPCs. `event-ctx` extracted (behavior-preserved:
+  golden byte-identical). Fixture +2 tool_uses/+1 tool_result (no new events; golden regen
+  audited). Falsification `P3_FALSIFICATION.md` (1 test gap found+fixed = coarse-block
+  idempotence; 3 open doubts, non-blocking). Suites re-run independently: block_distiller
+  **15t/740a** · object_container **6t/149a** · relation_kernel **2t/222a**, 0f.
+  ⚠ COORDINATION: my rk 3-kind add + code-atom's `:requires :calls` both live on
+  `relation-kinds` (coexist; relation_kernel_test green with both) — at commit verify BOTH
+  present; any `block_distiller.clj` fixpass must rebase on P3 + re-run (now 15t/740a). CODE
+  UNCOMMITTED (Sid's word). **NEXT: P4** (refine! G7 + assemble! G10, ride P3a's kinds) →
+  `docs/sessions/block-p4-opening-prompt-2026-07-09.md`; then P5 (river-page + e2e +
+  G12/G13) closes the package.
 
 ---
 
