@@ -106,6 +106,22 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   ruled: no superseded-banners — working docs get direct replacement, git
   is the history (memory'd); code-size/verbosity audit QUEUED post-package;
   read-grounded codebase map started at `docs/architecture/MAP.md`.
+- **2026-07-09 (Phase 0) Fable — PHASE 0 DONE + adjudicated; 2 §9 STOP-CLAUSES
+  raised to Sid, both VERIFIED at source.** Artifact `block-kernel/PHASE_0.md`
+  (committed 4e6986e, docs-only, clean; subagent held read-only). **SC1:**
+  `relation-kinds` is a CLOSED enum (relation_kernel.clj:58-65); floor kinds
+  `:grounds :assembled-from :refines` UNREGISTERED → reject at :327 → blocks
+  G8/G10; fix = 3-value additive edit, Sid-gated (rk amendment). **SC2 (R4):**
+  transcript sources store `source-raw-text=(pr-str payload)` per-message
+  (transcript_adapter.clj:251-259), not clean per-part text → cutting breaks
+  G6/§2.3; rec = driver mints per-part surfaces via `read-string` of the stored
+  redacted payload (stretches R4 "no second store"). **VERIFIED GOOD (e):** import
+  path accepts a 2nd distillation (empty containers + distinct import-key). Fable
+  holds guardrails (routing-key=rel-id · additive delegation fields on an existing
+  projection row · containment computed per SPEC §6.2›CONTRACT §4 · `:standard`@1);
+  Sid micro-items (`image` §4.6 form · `attachment` class · SPEC §15 fixture stale →
+  regen golden from live file). Details in PHASE_0.md §0/§4. NEXT: Sid rules
+  SC1+SC2 → Plan phase.
 
 ---
 
