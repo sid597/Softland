@@ -352,15 +352,19 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   lazy). G8 produced(Edit)+grounds(Read) → REAL coarse blocks; G9 unpaired Write → hole
   (absent `:block`, nil in OC). N4 = two IPCs. `event-ctx` extracted (behavior-preserved:
   golden byte-identical). Fixture +2 tool_uses/+1 tool_result (no new events; golden regen
-  audited). Falsification `P3_FALSIFICATION.md` (1 test gap found+fixed = coarse-block
-  idempotence; 3 open doubts, non-blocking). Suites re-run independently: block_distiller
+  audited). **Author self-review** `P3_FALSIFICATION.md` (found+fixed 1 test gap =
+  coarse-block idempotence) — a PRE-PASS, **NOT QC layer 4**; the fresh-context
+  falsification (work-package: "author self-review never substitutes") is **PENDING**,
+  Sid runs it in a SEPARATE session (`docs/sessions/block-p3-falsification-opening-
+  prompt-2026-07-09.md`). Suites re-run independently: block_distiller
   **15t/740a** · object_container **6t/149a** · relation_kernel **2t/222a**, 0f.
   ⚠ COORDINATION: my rk 3-kind add + code-atom's `:requires :calls` both live on
   `relation-kinds` (coexist; relation_kernel_test green with both) — at commit verify BOTH
   present; any `block_distiller.clj` fixpass must rebase on P3 + re-run (now 15t/740a). CODE
-  UNCOMMITTED (Sid's word). **NEXT: P4** (refine! G7 + assemble! G10, ride P3a's kinds) →
-  `docs/sessions/block-p4-opening-prompt-2026-07-09.md`; then P5 (river-page + e2e +
-  G12/G13) closes the package.
+  UNCOMMITTED (Sid's word). **NEXT: fresh-context P3 falsification** (Sid, separate
+  session; prompt above) → fix any CONFIRMED (default-fail) → then **P4** (refine! G7 +
+  assemble! G10, ride P3a's kinds) → `docs/sessions/block-p4-opening-prompt-2026-07-09.md`;
+  then P5 (river-page + e2e + G12/G13) closes the package.
 
 ---
 

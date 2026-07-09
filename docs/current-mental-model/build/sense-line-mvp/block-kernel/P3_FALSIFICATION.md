@@ -1,5 +1,13 @@
 # P3 Falsification — mechanical edge floor (block-kernel)
 
+> ⚠ **THIS IS THE AUTHOR SELF-REVIEW — a pre-pass, NOT QC layer 4.** It was
+> written by the SAME context that implemented P3, so per the work-package skill
+> ("author self-review never substitutes for a fresh-context layer") it does NOT
+> count as the falsification the process requires. It is recorded only as input
+> for the fresh reviewer to *disagree with*, never as a passing verdict. The
+> real fresh-context falsification is **PENDING** — Sid runs it in a separate
+> session (see `docs/sessions/block-p3-falsification-opening-prompt-2026-07-09.md`).
+
 Adversarial pass (CLAUDE.md review protocol) over the P3a+P3b diff:
 `relation_kernel.clj` 3-kind add · `block_distiller.clj` §H/§J additions +
 `event-ctx` extraction · `block_distiller_test.clj` micro-gate + edge gates ·
