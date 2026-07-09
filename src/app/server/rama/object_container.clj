@@ -294,6 +294,16 @@
       (str/starts-with? s "imp:md:")
       (leading-object-key (subs s 7))
 
+      ;; G-F2 (code-atom GATE_REVIEW 2026-07-09; Sid-authorized this package's 2nd and
+      ;; last kernel edit): route clojure import-keys "imp:clj:<object-key>:<sha>" to the
+      ;; object-key partition, exactly like imp:md:. Pre-fix they fell to :else (the whole
+      ;; string) → a foreign read-import-completion mis-routed to nil on a multi-task
+      ;; cluster (the topology writes the completion by (|hash *object-key)). "imp:clj:"
+      ;; is 8 chars (imp:md: is 7). Block-kernel's sibling key routes via a restructured
+      ;; imp:tr: prefix instead, so no imp:sense-block: branch joins this cond.
+      (str/starts-with? s "imp:clj:")
+      (leading-object-key (subs s 8))
+
       (str/starts-with? s "src:")
       (leading-object-key (subs s 4))
 
