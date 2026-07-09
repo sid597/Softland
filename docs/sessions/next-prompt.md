@@ -93,6 +93,19 @@ implementer: `build/sense-line-mvp/block-kernel/ARCHITECTURE.md`.
   live: raw NULs decoded into CONTRACT.md from the Write payload; fixed to
   U+0000 prose, `file` verified text. NEXT: P0 spike (fresh Opus subagent)
   → adjudicate → P1.
+- **2026-07-09 (P0) Opus subagent → Fable adjudication: PASS.** Artifact
+  `code-atom/P0_PARSE_SPIKE.md` (committed fa75ba5). (a) rewrite-clj 1.1.47
+  WINS — G1+G2+G3 on 96/96 files; tools.reader fails G2 on 2 `.cljc`
+  (span-less top-level `#?`) + G3 structurally (drops comments). (b)
+  clj-kondo 2025.06.05: G7 floor 4/4 usages + 7/7 ns deps at BASELINE;
+  `:use`/`:require` indistinguishable in ns-usages (derive `:requires` from
+  `:to`); **Rama 1.6.0 SHIPS clj-kondo hooks** — fabrication 193→6; P3 must
+  STILL allowlist `:calls` to `app.*` (T5 concrete). (c) blob enum =
+  `git log --all --full-history -m --raw --no-abbrev --no-renames -- src
+  test` (895/895 == oracle; naive log silently drops 2 — flags are
+  load-bearing); same pass feeds R3 lineage. Fable spot-checks all exact
+  (kondo exports in jar; reassembly 51,848/32,009; 893/895 replicated).
+  No stop-clauses. NEXT: P1 (adapter) dispatched, fresh Opus subagent.
 
 ---
 
