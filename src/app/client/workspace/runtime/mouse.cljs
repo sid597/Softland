@@ -102,8 +102,15 @@
               content-w (- (:width @!viewport) sb-w)
               code-w (int (* content-w (ws/pane-width-pct local-world :main 0.4)))
               in-editor? (and (ws/local-world-file-workspace? local-world) (< local-x code-w))
+              ;; G16 falsification fix: the full-screen faces render NO editor —
+              ;; without these guards a face click/drag mutates the HIDDEN doc
+              ;; and steals :focus (click space must match render space, R-1
+              ;; debt 1; the handle-mousedown! swallow alone cannot stop this
+              ;; sibling raw-DOM listener)
               in-normal-editor? (and (not (ws/local-world-file-workspace? local-world))
-                                     (not (ws/local-world-flow? local-world)))]
+                                     (not (ws/local-world-flow? local-world))
+                                     (not (ws/local-world-trail-face? local-world))
+                                     (not (ws/local-world-face-assembly? local-world)))]
           (when (or in-editor? in-normal-editor?)
             (let [pos (mouse->pos coords)]
               (reset! !drag-start pos)
@@ -423,7 +430,9 @@
         ;; derived world's judgment), so hit-testing must too, never the
         ;; raw atom alone.
         sb-vis? (and !sidebar-visible @!sidebar-visible
-                     (not (ws/local-world-trail-face? local-world)))
+                     (not (ws/local-world-trail-face? local-world))
+                     ;; assembly-hosted face: same rule (framework W1-INT)
+                     (not (ws/local-world-face-assembly? local-world)))
         ;; Settings overlay
         panel-w 600  panel-h 480
         panel-x (/ (- (:width viewport) panel-w) 2)
@@ -470,6 +479,14 @@
               (ws/local-world-trail-face? local-world)
               (let [sb-w (if sb-vis? sidebar-w 0)]
                 (handle-trail-face-click! atoms (- x sb-w) y scroll-y))
+
+              ;; Assembly-hosted face (framework W1-INT): v0 assemblies are
+              ;; read-only (no :actions in grammar v0, CONTRACT §4) — swallow
+              ;; the click so it cannot fall through to the editor handlers
+              ;; and mutate cursor state invisibly. Hit-testing against the
+              ;; cached !face-scene arrives with :actions at D-008 item-5.
+              (ws/local-world-face-assembly? local-world)
+              nil
 
               (ws/local-world-file-workspace? local-world)
               (let [sb-w (if sb-vis? sidebar-w 0)

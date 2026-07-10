@@ -206,6 +206,19 @@
       ;; /font_atlas.json; passed as DATA into the pure sanitizer)
       :!trail-coverage (atom nil)
 
+      ;; Faces-as-assemblies (framework CONTRACT §5, W1-INT): entry state set
+      ;; by the /face command ({:face <kw> :address <addr|:default>
+      ;; :params {:limit <n> :until-ms <ms|nil>}}); the whole §7 data-context
+      ;; mirrored from the Electric pull; the wear-time compiled builder
+      ;; (compile once per assembly change — trap T3); the cached scene tree
+      ;; (built once per data change; combined_text flattens + mouse hit-tests
+      ;; the SAME object — trap T9: outputs live here, watched inputs never
+      ;; receive per-build writes).
+      :!face-state    (atom nil)
+      :!face-context  (atom nil)
+      :!face-compiled (atom nil)
+      :!face-scene    (atom nil)
+
       ;; Agent / AI
       :!ai-provider     (atom :claude)
       :!agent-output    (atom nil)

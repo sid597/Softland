@@ -135,7 +135,7 @@
    All consumers that currently branch on (flow-canvas-active?) and
    (some? current-file) can instead read :mode from this object."
   [{:keys [selected-artifact active-pane sidebar-visible
-           flow-state agent-output project trail-face-state]}]
+           flow-state agent-output project trail-face-state face-state]}]
   (let [file-open? (and (some? selected-artifact)
                         (= :file (:kind selected-artifact)))
         flow-active? (and (some? flow-state)
@@ -145,7 +145,12 @@
         ;; trail face (view-mvp WP-B2): an explicit full-screen mode set by
         ;; the /trail entry command; wins while set, cleared by /trail off.
         trail-face (:face trail-face-state)
+        ;; assembly-hosted face (framework CONTRACT §5, W1-INT): an explicit
+        ;; full-screen mode set by the /face entry command; wins over the
+        ;; trail faces while set, cleared by /face off.
+        assembly-face (:face face-state)
         mode (cond
+               assembly-face            :face-assembly
                (= :text trail-face)     :trail-text
                (= :timeline trail-face) :trail-timeline
                (and flow-active? (contains? #{:bootstrapping :intake} (:node flow-state))) :flow-intake
@@ -155,7 +160,9 @@
         ;; trail-room R1 guard: the trail faces are the ground + the rim -
         ;; NOTHING else is ambient (no sidebar). The sidebar never auto-
         ;; appears in a trail face; the effective world reports it hidden.
-        trail-face?      (contains? #{:trail-text :trail-timeline} mode)]
+        ;; The assembly-hosted face inherits the same guard (a face IS the
+        ;; ground; trail-face is the precedent).
+        trail-face?      (contains? #{:trail-text :trail-timeline :face-assembly} mode)]
     {:mode             mode
      :selected-artifact selected-artifact
      :file-open?       file-open?
@@ -226,6 +233,12 @@
        :trail-timeline
        [{:pane/id :main    :role :trail-face
          :content :trail-timeline
+         :width-pct 1.0}]
+
+       ;; assembly-hosted face (framework W1-INT): single full-width pane.
+       :face-assembly
+       [{:pane/id :main    :role :face
+         :content :face-assembly
          :width-pct 1.0}])}))
 
 (defn local-world-mode
@@ -263,6 +276,12 @@
   "True when the local world is showing either trail face."
   [local-world]
   (contains? #{:trail-text :trail-timeline} (local-world-mode local-world)))
+
+(defn local-world-face-assembly?
+  "True when the local world is showing an assembly-hosted face
+   (framework CONTRACT §5, W1-INT)."
+  [local-world]
+  (= :face-assembly (local-world-mode local-world)))
 
 (defn local-world-file-workspace?
   "True when the local world is showing the file workspace split."

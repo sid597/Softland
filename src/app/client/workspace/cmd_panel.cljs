@@ -148,7 +148,10 @@
             ;; --- Instance 0: agent output background ---
             agent-panel-h (compute-agent-panel-h agent-output font-size (:height viewport)
                                                  (:width viewport) char-advance)
-            agent-visible? (and (some? (:status agent-output)) (not file-workspace?))
+            ;; no agent panel bg over the assembly-hosted face (G16 fix)
+            agent-visible? (and (some? (:status agent-output))
+                                (not file-workspace?)
+                                (not (ws/local-world-face-assembly? local-world)))
             agent-bg (if agent-visible?
                        (let [agent-y0 (maybe-snap
                                         (+ scroll-y (- (:height viewport)

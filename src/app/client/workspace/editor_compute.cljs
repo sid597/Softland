@@ -10,6 +10,7 @@
             [app.client.workspace.ui-primitives :refer [dt]]
             [app.client.workspace.sidebar :as sidebar :refer [sidebar-w cmd-panel-h status-bar-h build-sidebar-tree derive-effective-sidebar]]
             [app.client.workspace.trail-face.scene :as trail-scene]
+            [app.client.workspace.face-assembly :as face-assembly]
             [app.client.workspace.shell :refer [build-file-layout]]))
 
 ;; ============================================================================
@@ -278,6 +279,7 @@
    !sidebar-truth !sidebar-overlay !sidebar-ui !sidebar-visible !current-file !effective-local-world !sidebar-scene !extract-preview !agent-output
    !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !run-scroll-y !detail-scroll-y
    !trail-face-state !trail-face-scene !trail-text !trail-feed !trail-bundles !trail-coverage
+   !face-state !face-context !face-compiled !face-scene
    compute-ticket-list-rects* compute-run-rects* offset-rects* offset-shadows*
    layout-x layout-y gutter-w]
   (let [;; ── Shared layout context (changes on: resize, settings, font, sidebar toggle) ──
@@ -293,7 +295,10 @@
                   ;; layout consumes the derived judgment, not the raw sidebar
                   ;; atom (which stays untouched, so leaving the trail face
                   ;; restores the sidebar exactly as it was).
-                  trail-face? (ws/local-world-trail-face? local-world)
+                  ;; the assembly-hosted face inherits the trail-face ground
+                  ;; rule: nothing else is ambient (framework W1-INT)
+                  trail-face? (or (ws/local-world-trail-face? local-world)
+                                  (ws/local-world-face-assembly? local-world))
                   sb-vis? (boolean (and sidebar-visible? (not trail-face?)))]
               {:viewport viewport :settings settings :dpr dpr :snap? snap?
                :font-size font-size :char-advance char-advance
@@ -417,6 +422,61 @@
           (m/watch !trail-feed) (m/watch !trail-bundles) (m/watch !trail-coverage))
         ;; 6 fn args, 6 flows
 
+        ;; ── Assembly-hosted face (framework CONTRACT §5, W1-INT) ──
+        ;; The <trail-face shape exactly: build ONCE per input change, cache
+        ;; in !face-scene so combined_text flattens text ops from and mouse
+        ;; hit-tests THE SAME object; compare the input VALUE, never a hash
+        ;; (trap T13 — a collision would freeze a stale scene forever).
+        ;; !face-scene is per-build OUTPUT cached in an atom watched by
+        ;; NOTHING (trap T9). Interpretation cost lives on the data-change
+        ;; path, never the frame path (trap T3): the compiled builder arrives
+        ;; whole from the /face wear command via !face-compiled. Scroll rides
+        ;; the camera (§10 SLOT-C): the scene is scroll-independent, this
+        ;; flow does NOT watch !scroll-y; the interpreter declares
+        ;; :assembly/content-h in the root :data for the wheel clamp.
+        !last-face-struct (atom ::none)
+        <face-assembly
+        (m/latest
+          (fn [layout face-state face-context compiled]
+            (if-not (and (:face face-state) compiled)
+              (do (reset! !face-scene nil)
+                  (reset! !last-face-struct ::none)
+                  nil)
+              (let [{:keys [viewport font-size char-advance]} layout
+                    geom {:viewport-w   (:width viewport)
+                          :viewport-h   (:height viewport)
+                          ;; text-runs wrap at content-w; the root assembly's
+                          ;; padding offsets x, so inset the wrap width to
+                          ;; keep prose off the right edge (lane A note:
+                          ;; geom threads down unchanged, §5)
+                          :content-w    (- (:width viewport) 32)
+                          :line-height  (js/Math.round (* font-size 1.4))
+                          :font-size    font-size
+                          :char-advance char-advance
+                          ;; honest server stamp, never the wall clock (§5)
+                          :now-ms       (or (:face/rendered-at-ms face-context) 0)}
+                    ;; compiled compares by identity inside the value compare
+                    ;; (it holds closures; it only changes by /face reset!)
+                    struct [layout face-state face-context compiled]
+                    changed? (not= struct @!last-face-struct)
+                    scene (if changed?
+                            (let [s (face-assembly/apply-assembly
+                                      compiled face-context
+                                      {:view-instance :face-main
+                                       :address (or (:conversation/address face-context)
+                                                    (:address face-state))
+                                       :geom geom})]
+                              (reset! !last-face-struct struct)
+                              (reset! !face-scene s)
+                              s)
+                            @!face-scene)]
+                (when scene
+                  {:rects (tree->rects scene)
+                   :shadows (tree->shadows scene)}))))
+          <layout (m/watch !face-state) (m/watch !face-context)
+          (m/watch !face-compiled))
+        ;; 4 fn args, 4 flows
+
         ;; ── Flow canvas rects (intake + run) ──
         ;; ── Intake rects (ticket list) ──
         ;; NOT watching: !shimmer-phase, !agent-output, !trail-collapsed, !run-scroll-y
@@ -535,16 +595,17 @@
     ;; Sidebar rects go to the sidebar pool.
     {:<editor-rects
      (m/latest
-       (fn [mode intake run editor-content trail layout]
+       (fn [mode intake run editor-content trail face layout]
          (let [content (case mode
                          :flow-intake intake
                          :flow-run run
                          :trail-text trail
                          :trail-timeline trail
+                         :face-assembly face
                          editor-content)]
            {:rects (vec (offset-rects* (:rects content) (:sb-w layout)))
             :shadows (vec (offset-shadows* (:shadows content) (:sb-w layout)))}))
-       <mode <intake-content <run-content <editor-content <trail-face <layout)
+       <mode <intake-content <run-content <editor-content <trail-face <face-assembly <layout)
      :<sidebar <sidebar}))
 
 ;; --- Markdown rendering helpers for chat pane trail --------------------------

@@ -1,0 +1,23 @@
+;; A small hardcoded conversation (turns -> blocks) — the committed data fixture
+;; the Outline face renders in the golden walk (CONTRACT §11 G1). Turns and
+;; blocks carry :id so node ids travel with items across reorders (trap T6);
+;; the projection (lane C) produces this same shape from real material.
+{:turns
+ [{:id "t-sid-1" :speaker "sid"
+   :blocks
+   [{:id "b1" :kind "text"
+     :text "Can a face be an assembly — pure EDN describing arrangement, walked by one interpreter over a primitive registry, so the AI writes arrangement-data through the lawful path?"}
+    {:id "b2" :kind "text"
+     :text "The load-bearing split: primitives are code (the slow lane), assemblies are data (the fast lane)."}]}
+  {:id "t-claude-1" :speaker "claude"
+   :blocks
+   [{:id "b3" :kind "heading"
+     :text "The seam law"}
+    {:id "b4" :kind "text"
+     :text "Electric owns truth transport into atoms; Missionary owns the frame path; the rt-node tree is the boundary object. Faces are data, so what renders them is an interpreter, not a compiled program."}
+    {:id "b5" :kind "code"
+     :text "{:prim :stack :children [{:each [:turns] :template {:prim :turn-card}}]}"}]}
+  {:id "t-sid-2" :speaker "sid"
+   :blocks
+   [{:id "b6" :kind "text"
+     :text "Evidence before architecture: build the thin slice, measure, report."}]}]}
