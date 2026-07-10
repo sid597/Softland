@@ -13,7 +13,7 @@ thread close. Pre-registered form-break (decisions.md 2026-07-10 note): if a
 fresh session mis-orients — needs more than board + thread file to boot — or
 content creeps back in because there's no room, revert or amend; don't suffer.
 
-**Binding:** `docs/current-mental-model/decisions.md` · open contracts: none.
+**Binding:** `docs/current-mental-model/decisions.md` · open contracts: `build/framework/CONTRACT.md` (v1, 2026-07-11).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
 
@@ -56,11 +56,14 @@ on kinds).
   · model-UXR question bank (post-kinds; apparatus warm, DIRECTION.md §4.3)
   · block/code two-arm braid (noted 07-09, not engaged).
 
-- **8 · framework (faces-as-assemblies) — STAGED (2026-07-11).** Road:
-  `build/framework/ROAD.md` (v2, source-grounded). Prompts ready:
-  `docs/sessions/framework-{probe,contract,w1-lane}*-2026-07-11.md` — probe
-  dispatchable NOW ∥ Fable contract; W1 (3 parallel lanes, disjoint fences)
-  GATED on CONTRACT v1. Thread file: `build/framework/NOW.md`.
+- **8 · framework (faces-as-assemblies) — CONTRACT v1 BINDING (2026-07-11);
+  W1 awaits Sid's wave word.** `build/framework/CONTRACT.md` (grammar v0 ·
+  interpreter · vocabulary · artery · W2 schema; PROBE slots have defaults —
+  wave doesn't block on probe). Lane prompts PINNED:
+  `docs/sessions/framework-w1-lane-prompts-2026-07-11.md` (3 parallel lanes,
+  disjoint fences). ⚠ Sid: two log-entry drafts await countersign (CONTRACT
+  §15: D-011 middle regime · D-012 self-hosting test). Probe prompt still
+  dispatchable ∥. Thread file: `build/framework/NOW.md`.
 
 Kinds-round evidence pile (carried verbatim for the marks/kinds round):
 "sidetrackkkk" branch receipt · serves/invokes family question · cross-scheme
