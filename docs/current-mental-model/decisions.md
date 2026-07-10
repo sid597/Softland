@@ -917,6 +917,29 @@ spend, future-binding architecture/nouns, North authorship.
   run; that is the confirm-side shape of the bet (Fable builds the net; cheaper
   models run it).
 
+- **Baton restructured: monolith → state board + per-thread files (2026-07-10,
+  Sid's ruling in-session; operational amendment, D-010).** `next-prompt.md`
+  (1,568 lines, ~50 live) replaced by direct replacement with a ~70-line board:
+  direction line + pointer/status thread lines; package STANDING/NOW moves to
+  `build/<package>/NOW.md`; one writer per thread file; the board is the single
+  shared surface (cross-thread flags, T11 class); prune at close. BOTH homes of
+  the old keep-everything law amended with the file: CLAUDE.md save-state §3
+  (verbose next-prompt → board flip + thread-file detail) and /work-package
+  (baton section + close-protocol prune step). Grounds: operator form-break
+  signal (same class as the 2026-07-05 cadence break, now at file scale) + the
+  real parallel-package workflow (code-atom ∥ block-kernel both wrote the one
+  monolith) + per-boot load cost. Honest counter-evidence recorded: ZERO
+  observed navigation failures — targeted opening prompts + the top block
+  carried orientation; this is a cost/concurrency amendment, not a rescue.
+  **Pre-registered quality falsifier (Sid's stated worry: "what if amending it
+  drops the quality of future chats"):** the form-break is a fresh session that
+  mis-orients (needs more than board + thread file to boot) or content creeping
+  back into the board for lack of room; on first occurrence revert (one git
+  revert + skill re-amend) or amend — recorded here so the check is a tripwire,
+  not a vibe. The session-end baton-entry rule (ADOPTED 2026-07-04) is unchanged
+  in substance: the assertion-grade entry lands in the session's thread file;
+  the board line flips.
+
 ## Amendments A1 · A2 — COUNTERSIGNED 2026-07-08, applied IN PLACE
 
 Ruled by Sid same day, verbatim: "all approved by default and i would even go

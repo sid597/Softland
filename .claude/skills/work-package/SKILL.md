@@ -46,7 +46,8 @@ lives in the `next-prompt.md` baton; its rulings live in `decisions.md`.
 ## Precedence and binding documents
 
 - `decisions.md` (the decision log) and the package `CONTRACT.md` are binding.
-- The baton NEVER outranks contract or log. STANDING is frozen at package open
+- The baton (the state board + per-package thread files, since 2026-07-10)
+  NEVER outranks contract or log. STANDING is frozen at package open
   and WILL go stale (in cycle 1 it said "10 gates" after the contract said 11
   — two sessions flagged the drift inline, cited precedence, and kept moving).
   When the baton contradicts a binding doc: follow the binding doc, note the
@@ -148,7 +149,18 @@ Two rules that hold across all layers:
 - Handoff section: implementer, reviewer gate definition, what comes after
   green.
 
-**2. The baton** (`docs/sessions/next-prompt.md`), two sections:
+**2. The board line + the thread file** (restructured 2026-07-10; Sid's
+ruling. `docs/sessions/next-prompt.md` is a STATE BOARD — pointer + status
+lines per thread under a direction line; the single shared surface, where
+cross-thread coordination flags of the T11 class live. Grounds: the monolith
+hit 1,568 lines with ~50 live; the REAL N=2 parallel-package workflow
+(code-atom ∥ block-kernel) had both packages writing one shared file; per-boot
+load cost. Zero navigation failures were observed — this is a
+cost/concurrency amendment, not a rescue; the quality falsifier is
+pre-registered in the decisions.md note.) A package gets ONE board line
+(name, phase, status, ⚠ flags; one writer per thread file, sessions touch
+only their own line plus coordination flags) and its own thread file
+`build/<package>/NOW.md`, two sections:
 
 - **STANDING** — the frozen contract-of-engagement: binding docs, the phased
   process, new-files-only allowlist, scope guard, verification duties
@@ -315,7 +327,9 @@ holding CONTRACT.md and every phase artifact.
    wrong causal story — retros are written by the same process they judge.
 5. Route the lessons: coding gotchas → `memory/implementation-quirks.md`;
    process rules → THIS skill (amend it); evaluation notes → `decisions.md`
-   D-006; then write a fresh baton for the queue.
+   D-006; then PRUNE the package's board line to a one-line done-pointer and
+   set the board's next-up (the thread file + git carry the trail — never
+   leave a closed package's block or stale line on the board).
 
 ## Mechanisms that earned their keep (do not drop)
 
