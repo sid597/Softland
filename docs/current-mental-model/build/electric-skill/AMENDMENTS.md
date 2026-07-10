@@ -397,3 +397,31 @@ NEW:
 |---|---:|---:|
 | SID-COUNTERSIGN (CLAUDE.md) | 3 (A1-A3) | 5 |
 | HQ-APPLY (repo docs, memory files, code comments) | 13 (H1-H13) | 17 |
+
+---
+
+## Skill amendment 2026-07-11 (Fable, in-session; skill file is gitignored so this entry is its provenance record)
+
+`.claude/skills/electric-docs/SKILL.md` amended in place (disk-only — `.claude/` is
+gitignored, same precedent as the untracked `reactive_master.md` H13 application):
+
+1. **Precedence section refreshed.** The "A1–A3 PENDING Sid's countersign /
+   CLAUDE.md states older mechanisms" framing was stale — A1–A3 were applied
+   2026-07-05 (Tier-1 note above) and CLAUDE.md now agrees with the laws.
+   Replaced with the post-application reality; A4 noted as the only remainder.
+2. **U4 rescoped.** Its "load-bearing shape for the assembly-interpreter
+   direction" line had drifted: the landed v0 interpreter (framework
+   CONTRACT §6, Step-0 PROBE 2026-07-11) uses a PLAIN-fn registry persisted
+   as keyword+address (trap T5), not e/fn values. U4 now says so, and says
+   the settle-test must precede any lane leaning on e/fn dispatch.
+3. **Coverage note added to §5.** The LAWS are Missionary-deep, Electric-thin
+   (L13–L16); the description's trigger surface (e/Token, forms, scroll,
+   transfer) exceeds law coverage. §5 now states this and names the candidate
+   next probes (e/Token lifecycle, transfer-boundary serialization,
+   e/fn-as-plain-fn arity smell).
+4. **U1–U3 compressed to stubs** pointing at VERDICTS Claims 4/14/19 (detail
+   was duplicated); preamble stamped with the amendment date.
+
+No law text changed; no scope widened. Verified before amending: 9 claim
+tests present and matching by name; all §5 reference paths resolve;
+`src-prod/prod.cljc:9` still requires v2 (Claim 20 stands).
