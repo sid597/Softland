@@ -59,9 +59,11 @@ history as terrain.
 
 `fixtures/a535650e-river-blocks.md` — 64 real blocks from the sibling
 conversation, machine cut and block ids visible, honestly flagged as the
-first page of a longer river. The read conversation itself (`18d63935`) is
-deliberately withheld from fixtures until both readings land
-(PROTOCOL.md §anti-anchoring).
+first page of a longer river. `fixtures/data-shapes.md` — the shape of every
+other cast member: readings/seams and the diff (SYNTHETIC — SHAPE ONLY; no
+real seams exist until the reads land), real debris samples, mechanical-edge
+shape. The read conversation itself (`18d63935`) is deliberately withheld
+from fixtures until both readings land (PROTOCOL.md §anti-anchoring).
 
 ## BOUNDS (the only two)
 
