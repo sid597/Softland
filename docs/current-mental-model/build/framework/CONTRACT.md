@@ -1,15 +1,20 @@
 # Framework Contract — faces as assemblies (grammar v0 · interpreter · vocabulary · artery)
 
-Status: **v1 (Fable, 2026-07-11).** Realizes ROAD.md v2 **Steps 1–2 plus the
+Status: **v1.1 (Fable, 2026-07-11).** Realizes ROAD.md v2 **Steps 1–2 plus the
 Step-4 kernel-object schema (§8)** — not the whole road. Direction source:
 `ROAD.md` (v2, commit `2048472`); this contract is the binding form. Every
 source claim herein re-verified at file:line by the authoring session.
 Binding order: `decisions.md` › this contract › derived artifacts (ROAD is
 direction-grade input, not binding).
 
-PROBE.md had not landed at authoring time; §10 carries three pre-registered
-slots with default rulings, so this contract is dispatchable either way —
-the relation-kernel contract handled its two memory-claims the same way.
+**v1.1 (same day): PROBE reconciliation.** v1 was authored before PROBE.md
+landed, with §10 slots + defaults. The probe's numbers resolved every slot ON
+its default (no activation fired); its one contract-changing finding —
+`:text-layout` is a dead hook and riding it doubles wrap cost — is applied in
+§6/§11-G8; the pane scroll contract is pinned in §5/§10. In-place amendment
+per D-010 reach; v1 is in git. **Wave word GIVEN by Sid 2026-07-11** — W1 is
+dispatchable; the §15 log-entry drafts remain PENDING his countersign
+(explicitly not covered by the wave word).
 
 ---
 
@@ -208,6 +213,17 @@ store does not exist yet (`view-instance` appears nowhere in src); carrying
 the pair from birth makes Δ1 compliance a RENAME when the Δ3 store lands at
 the face-2 contract, not a rework (trap T10).
 
+**The pane scroll contract (PROBE check-b, cited at source).** The assembly
+pane follows the face/camera convention, never the sidebar bake-in: the tree
+is built at (0,0), **scroll-independent** (the flow does NOT watch
+`!scroll-y`; baking scroll into the tree reintroduces per-wheel rebuilds and
+forfeits R3's `identical?` skip); the root `:data` **declares
+`:assembly/content-h`** (measured bottom-up by the walker) so the host wheel
+handler clamps against it (the `:trail-face/content-h` precedent,
+`scene.cljc:772`); the host routes the pane's scroll atom into the camera
+pan (pan-y = −scroll-y) and clips at the pane slot. Content-height + 
+scroll-independence is the pane's WHOLE scroll contract.
+
 **Ids.** Deterministic: root id derives from `(view-instance,
 assembly-name)`; child ids extend the parent id by structural path; an
 `:each` item's segment is the item's `:id` value when present, else the
@@ -264,10 +280,15 @@ constant).
   `:list-item` `:card` `:badge` `:divider` `:empty-state` `:scrollbar`.
 - Wrapped from `trail_face/` cljc builders where the Outline face needs them
   (cards/lanes are proto-primitives; the extraction harvests, originals stay).
-- **Genuinely new (two):** `:text-run` — prose block: wraps via the
-  `:text-layout` engine hook or `wrap-line` directly, and sets its own `:h`
-  = wrapped-line-count × line-height (the measure rule made flesh);
-  `:indent-rail` — the outline indent guide.
+- **Genuinely new (two):** `:text-run` — prose block: **wraps ONCE via
+  `wrap-line` and emits its own positioned text ops** (the
+  `build-empty-state` pattern, `ui_primitives.cljs:189-242`), setting its own
+  `:h` = wrapped-line-count × line-height (the measure rule made flesh).
+  It must NOT ride `:text-layout`/`resolve-text-layout`: PROBE Finding 1 —
+  `:text-layout` is not an `rt-node` constructor param, no shipped code sets
+  it (the hook has never run in production), and riding it DOUBLES wrap cost
+  (measured ≈2×, PROBE §a′) because the primitive must wrap anyway to
+  measure. `:indent-rail` — the outline indent guide.
 - `:stack` — the bare layout node (`rt-node` + `:layout` passthrough:
   direction/gap/padding/align — `:row` and `:column` both exist,
   `rect_tree.cljc:81`).
@@ -474,10 +495,13 @@ ruling).
   exempt; the allowlist starts empty). Hand-mirroring discipline
   demonstrably does not hold — this gate replaces it with a diff.
 - **G8 the two new primitives measure:** `:text-run` over long prose at a
-  fixture width wraps via the engine path and its returned `:h` =
-  wrapped-line-count × line-height (the T7 regression); `:indent-rail`
-  golden. Both goldens include a `resolve-layout`-then-`tree->rects` pass
-  proving non-zero, non-overlapping stacked bounds.
+  fixture width wraps ONCE via `wrap-line`, emits its own positioned text
+  ops, and its returned `:h` = wrapped-line-count × line-height (the T7
+  regression; carve-out: `:text-layout`/`resolve-text-layout` must appear
+  NOWHERE in the vocabulary — the dead hook, §6/PROBE Finding 1);
+  `:indent-rail` golden. Both goldens include a
+  `resolve-layout`-then-`tree->rects` pass proving non-zero, non-overlapping
+  stacked bounds.
 - **G9 JVM purity:** the entire vocabulary + interpreter + goldens run on
   the JVM with no browser (the suite existing and running IS the gate; no
   `js/` outside reader conditionals).
