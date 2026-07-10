@@ -42,3 +42,10 @@ ephemeral — the UI arm re-ingests into its own runtime.
   Next: Sid's read (his pace) ∥ Fable's read (fresh session per PROTOCOL
   §anti-anchoring, after protocol settles) ∥ design session (brief). Board
   thread 1/2 lines updated this session.
+- 2026-07-10 · `DESIGN_BRIEF_PASTE.md` built (brief + both fixtures, one
+  paste for the claude.ai design session). First paste tripped Fable 5's
+  safeguards (session fell back to Opus 4.8): the river fixture's block [63]
+  quotes a LOG.md aside that names biology + Claude-flagging in one breath.
+  That aside is REDACTED in the paste copy only (marked in place); the
+  source fixture stays verbatim. If the paste is ever regenerated from the
+  fixture, re-apply the redaction.
