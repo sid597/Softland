@@ -386,20 +386,35 @@ provenance shapes from birth, and Wave 2 realizes it without rework.
 | T12 | Projection re-reads raw jsonl / re-redacts / adds an index | Second truth; redaction divergence (block-kernel R1/R4 law); silent kernel scope creep | §7: query APIs only; read-only module; no depots, no topologies, no kernel edits |
 | T13 | Hash-compare for scene-rebuild skip | A hash collision freezes a stale scene forever — "state stuck masking future truth" (found by the WP-B2 falsification pass) | §5: compare the input VALUE (`!last-trail-struct` precedent) |
 
-## 10 · PROBE slots (pre-registered; finalize when PROBE.md lands)
+## 10 · PROBE slots (FINALIZED 2026-07-11 — PROBE.md landed same day)
 
-If the Step-0 probe has not landed by wave dispatch, the DEFAULT rulings
-apply and W1-INT verifies the numbers instead (the probe's checks fold into
-the integration artifact). No gate blocks on the probe.
+Pre-registered defaults + activation conditions kept verbatim below (the
+pre-registration is the point); each slot carries its dated outcome. All
+measurements are JVM shape-proxies (JDK 21, Ryzen 9 9900X); browser
+confirmation of the constants rides W1-INT. Fable re-ran the probe suite
+independently: 25/25 green, numbers reproduce within ~3%.
 
 - **SLOT-A · apply cost** at ~hundreds of nodes on data change. Default
   ruling: single-digit ms expected (sidebar/trail precedent: pure scene
   rebuilds measure fine) → the §5 build-once discipline stands as specified.
   Activation: if the measured number is ≥ tens of ms at ~300 nodes, §5 gains
   a pre-named per-item memoization provision — only then.
+  **Outcome (PROBE.md):** 5.0 / 12.1 / 24.4 ms median @ 201/501/1001 nodes,
+  ~linear; arrange (`resolve-layout`) <0.3 ms — the walk dominates, ~half of
+  it wrapping. ~7–8 ms at ~300 nodes → **NOT activated**; §5 stands, no
+  memoization provision. Budget language: low single-digit ms at
+  conversation scale, ~12–25 ms at 1000 nodes, data-change not per-frame.
 - **SLOT-B · wrap-line cost** on long prose at conversation scale. Default:
   eager wrap at build (inside `:text-run`). Activation: if wrap dominates
   apply cost, `:text-run` gains a per-(text,width) wrap cache — only then.
+  **Outcome (PROBE.md):** wrap-line 15.5 µs/block, 7.7 ms/500 prose blocks.
+  Default SHARPENED: `:text-run` wraps ONCE and emits its own positioned ops
+  (`build-empty-state` pattern, T7's measure rule) — riding the
+  `:text-layout` engine hook doubles wrap cost (measured ≈49% saving
+  one-wrap) AND that hook is dead code: not an `rt-node` constructor param
+  (`rect_tree.cljc:45`), attached by nothing shipped, `resolve-text-layout`
+  has never run in production. One-wrap apply is not wrap-dominated → cache
+  **NOT activated**.
 - **SLOT-C · scroll convention** inside an assembly-hosted pane. Default:
   scene scroll-independent, scroll rides the camera (pan-y = −scroll-y), the
   trail-face convention (`editor_compute.cljs:352-354`) — flows do NOT watch
@@ -407,6 +422,17 @@ the integration artifact). No gate blocks on the probe.
   required (nested scrollables), W1-INT adopts the probe's convention and
   G15's wearing check exercises it. Either way the convention is recorded in
   the INT artifact.
+  **Outcome (PROBE.md):** the probe independently derived the default from
+  source (`renderer.cljs:41` camera pan; clamp `scroll.cljs:96-101`); no
+  nested-scrollable need demonstrated → **default stands**. The pane's whole
+  scroll contract: declare content-height in a blessed root `:data` key
+  (walker measures it bottom-up) + stay scroll-independent — never bake
+  `scroll-y` into the tree (per-wheel rebuilds; forfeits R3's skip).
+
+PROBE's remaining contract-changes were already independently present in
+v1 — `:template` named in §4's closed key set; cljs-only extraction scope in
+§11's G14 split — two blind runs converging on the same facts. No further
+amendment from the probe.
 
 ## 11 · Acceptance gates
 
