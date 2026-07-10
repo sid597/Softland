@@ -8,6 +8,7 @@
             [app.client.workspace.trail :refer [compute-agent-panel-h agent-wrapped-line-count]]
             [app.client.workspace.runtime.sidebar-io :refer [save-agent-trail!]]
             [app.client.workspace.runtime.workspace-actions :as ws]
+            [app.client.workspace.face-wiring :as face-wiring]
             [app.client.workflows.dg-flow :as dg :refer [flow-prompt]]
             [app.client.workflows.jit :as jit]))
 
@@ -218,6 +219,9 @@
                          (or (some-> (trail-scene/parse-trail-command
                                        (:command shell-parsed) reader/read-string)
                                      (assoc :kind :trail-face))
+                             (some-> (face-wiring/parse-face-command
+                                       (:command shell-parsed) reader/read-string)
+                                     (assoc :kind :face-cmd))
                              (dg/parse-dg-command (:command shell-parsed))
                              (jit/parse-jit-command (:command shell-parsed))
                              {:kind :error
@@ -318,6 +322,27 @@
                   :order (swap! !tfs assoc :order (:order parsed))
                   :band  (swap! !tfs assoc :band (:band parsed))
                   :set   (reset! !tfs (merge {:expanded #{}} (:state parsed)))
+                  nil)
+                nil)
+
+              ;; Assembly-hosted face entry (framework CONTRACT §5, W1-INT):
+              ;; /face <name> [<address-edn>] | /face until <ms>|off | /face off.
+              ;; :set is WEAR-TIME: fetch + compile the assembly ONCE (trap T3)
+              ;; before the state flip arms the §7 request; scroll resets so
+              ;; the camera starts at the face's top.
+              :face-cmd
+              (let [!fs (:!face-state atoms)]
+                (case (:op parsed)
+                  :off   (reset! !fs nil)
+                  ;; scroll resets with the scrub too: a cut that SHRINKS the
+                  ;; scene below the current scroll-y would strand the camera
+                  ;; past the content — blank pane until the next wheel clamp
+                  ;; (G16 falsification fix)
+                  :until (do (swap! !fs update :params assoc :until-ms (:until-ms parsed))
+                             (reset! !scroll-y 0))
+                  :set   (do (face-wiring/wear-face! atoms (get-in parsed [:state :face]))
+                             (reset! !fs (:state parsed))
+                             (reset! !scroll-y 0))
                   nil)
                 nil)
 

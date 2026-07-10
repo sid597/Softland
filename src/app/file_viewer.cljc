@@ -8,7 +8,11 @@
             #?(:clj [clojure.string :as str])
             #?(:clj [app.server.rama.util-fns :as util-fns])
             #?(:clj [app.server.rama.trail-view :as trail-view])
-            #?(:clj [app.server.ingest-watchers :as ingest-watchers])))
+            #?(:clj [app.server.ingest-watchers :as ingest-watchers])
+            ;; Faces-as-assemblies · the ONE generic face artery (CONTRACT §7).
+            #?(:clj [app.server.rama.face-projection :as face-projection])
+            #?(:clj [app.server.rama.object-container.block-distiller :as block-distiller])
+            #?(:clj [app.server.rama.dogfood.transcript :as transcript])))
 
 ;; ============================================================================
 ;; SERVER SIDE — File I/O (JVM only)
@@ -208,3 +212,116 @@
 
 (e/defn WatchIngestEpoch []
   (e/server (e/watch util-fns/!ingest-epoch-atom)))
+
+;; ============================================================================
+;; Faces-as-assemblies · the ONE generic face artery (framework CONTRACT §7).
+;; FacePull is the single, face-agnostic pull (trap T8: NO face-keyword dispatch
+;; here — dispatch lives server-side in face-projection/serve, the projection
+;; registry). It hands the whole request to `serve` and returns ONE data-context;
+;; the request-watch loop in electric_flow resets ONE !face-data atom with it.
+;;
+;; First-light runtime (OI-1, the trail-view-runtime precedent): no production
+;; block-distiller runtime exists yet, so the first face pull boots an in-process
+;; OC runtime and asynchronously harvests + distills the default conversation
+;; (7c80ce2a) so the Outline face has real durable state to wear. The heavy
+;; exercise of this path is W1-INT/G15 (the wearing); the projection GATES
+;; (G10-G13) drive face-projection/serve directly over a test-stood-up runtime.
+;; ============================================================================
+
+#?(:clj
+   (defn- find-default-transcript []
+     (let [dir (io/file (str (System/getProperty "user.home")
+                             "/.claude/projects/-mnt-data-projects-Softland"))]
+       (when (.isDirectory dir)
+         (first (filter #(re-find #"^7c80ce2a-.*\.jsonl$" (.getName ^java.io.File %))
+                        (.listFiles dir)))))))
+
+#?(:clj
+   (defonce face-projection-runtime
+     ;; Boots the OC runtime synchronously (seconds); harvests + distills the
+     ;; default conversation in a future (minutes on the 6.9MB corpus), publishing
+     ;; the resulting object-key into !default-address when ready. FacePull serves
+     ;; whatever is ready — empty until the distill lands, then the epoch re-pull
+     ;; (INV-19) fills it in. READ-ONLY afterwards (G12): serve never writes.
+     (delay
+       (let [rt (block-distiller/start-distiller-runtime!)
+             !default-address (atom nil)
+             ;; G16 falsification fix: pending / failed / genuinely-blank are
+             ;; THREE realities — the map must not lie. This flag + the
+             ;; resolve-request hint let the projection name each distinctly.
+             !first-light-failed (atom false)]
+         (if-let [file (find-default-transcript)]
+           (future
+             (try
+               (let [req (transcript/transcript-request
+                          :transcript/harvest
+                          {:transcript/request-id "face-projection-default"
+                           :transcript/source :claude-code
+                           :transcript/paths [(.getPath ^java.io.File file)]
+                           :time-ms 0})
+                     obs (vec (transcript/read-jsonl-observations req file 0))
+                     conv-id (some #(when (str/starts-with? (str %) "7c80ce2a") %)
+                                   (distinct (map :transcript/conversation-id obs)))
+                     harvest (transcript/harvest-transcripts-into-object-container!
+                              (:oc-rt rt) req)]
+                 (when (= :complete (:status harvest))
+                   (let [summary (block-distiller/distill-conversation!
+                                  {:oc-rt (:oc-rt rt)
+                                   :source :claude-code
+                                   :conversation-id conv-id})]
+                     (reset! !default-address (:object-key summary))
+                     ;; W1-INT wearing fix (G15): the distill IS an ingest —
+                     ;; bump the ingest epoch like every watcher import does
+                     ;; (ingest_watchers.clj:113), so the INV-19 epoch push →
+                     ;; client debounce → re-stamped request → re-pull fills
+                     ;; the face in. Without this the request value never
+                     ;; changes and the face stays stuck empty (the
+                     ;; "state stuck masking future truth" lifecycle failure).
+                     (swap! util-fns/!ingest-epoch-atom inc)
+                     (println "[FACE] default conversation distilled:"
+                              (:object-key summary) "river=" (:river summary)))))
+               (catch Throwable t
+                 (println "[FACE] default distill failed:" (.getMessage t))
+                 ;; failure is pushed, not hidden: mark failed AND bump the
+                 ;; epoch so the client re-pulls and renders the honest
+                 ;; :first-light-failed error instead of hanging on pending
+                 ;; forever (G16 falsification fix)
+                 (reset! !first-light-failed true)
+                 (swap! util-fns/!ingest-epoch-atom inc))))
+           ;; off-box (no transcript file): first-light can never fill — failed,
+           ;; not eternally pending (G16 falsification fix)
+           (reset! !first-light-failed true))
+         {:oc-rt (:oc-rt rt)
+          :!default-address !default-address
+          :!first-light-failed !first-light-failed}))))
+
+#?(:clj
+   (defn face-ctx
+     "The server ctx `serve` reads: {:oc-rt <runtime>}. Plain map, no face names."
+     []
+     (select-keys @face-projection-runtime [:oc-rt])))
+
+#?(:clj
+   (defn resolve-request
+     "Substitute the first-light default address when a request leaves :address blank
+      or names :default (the bottom-bar command may pick the conversation before the
+      hash is known). Address defaulting only — NOT face dispatch (trap T8).
+      While the default is not (yet) available, stamp the honest first-light
+      status so the projection's error names the ACTUAL reality — distilling vs
+      failed vs a genuinely blank request (G16 falsification fix)."
+     [request]
+     (let [addr (:address request)]
+       (if (or (nil? addr) (= :default addr))
+         (let [{:keys [!default-address !first-light-failed]} @face-projection-runtime]
+           (if-let [default @!default-address]
+             (assoc request :address default)
+             (assoc request :address nil
+                    :face/first-light (if @!first-light-failed
+                                        :first-light-failed
+                                        :first-light-pending))))
+         request))))
+
+(e/defn FacePull [request]
+  ;; ONE generic pull. Server-side `serve` routes the request through the projection
+  ;; registry and returns the whole §7 data-context. No per-face branch, ever.
+  (e/server (face-projection/serve (face-ctx) (resolve-request request))))

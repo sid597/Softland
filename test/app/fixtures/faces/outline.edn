@@ -1,0 +1,26 @@
+;; The Outline face — Wave 1 lane A golden fixture (CONTRACT §4/§11 G1).
+;; Pure EDN arrangement (grammar v0): no lists, no symbols, anywhere (the guard).
+;; Primitives are STUBS defined in test/app/face_assembly_test.clj implementing
+;; the fixed §6 builder-fn interface (fn [ctx props children] -> rt-node); the
+;; interface is contract-fixed, so this fixture stays valid against lane B's real
+;; vocabulary. Belief: belonging is indentation (nested card padding offsets the
+;; content), time is the scroll (turns stack down the column).
+{:assembly/name    "outline-face"
+ :assembly/grammar 0
+ :assembly/belief  "belonging is indentation; time is the scroll"
+ :root
+ {:prim :stack
+  :props {:dir :v :gap 12}
+  :children
+  [{:each [:turns]
+    :template
+    {:prim :card
+     :props {:label {:bind [:speaker]} :variant :turn :pad 12 :gap 8}
+     :children
+     [{:each [:blocks]
+       :template
+       {:prim :card
+        :props {:label {:bind [:kind]} :variant :block :pad 10 :gap 6}
+        :children
+        [{:prim :text-run
+          :props {:value {:bind [:text]}}}]}}]}}]}}

@@ -14,7 +14,7 @@
   [{:keys [!scroll-y !scroll-x !viewport !settings !active-font !sidebar-visible
            !mouse-x !mouse-y !sidebar-truth !sidebar-overlay !sidebar-ui !effective-local-world !agent-output
            !agent-scroll-y !chat-scroll-y !detail-scroll-y !flow-state !collapsed-groups !editor-doc
-           !trail-face-scene]}
+           !trail-face-scene !face-scene]}
    >wheel-events]
   (->> >wheel-events
        (m/reduce
@@ -30,13 +30,22 @@
                  char-advance (* font-size (:char-width @!active-font))
                  sb-vis? (and !sidebar-visible @!sidebar-visible)
                  mouse-x @!mouse-x
-                 in-sidebar? (and sb-vis? (< mouse-x sidebar-w))
                  local-world @!effective-local-world
                  file-workspace? (ws/local-world-file-workspace? local-world)
                  flow-active? (ws/local-world-flow? local-world)
                  trail-face-active? (ws/local-world-trail-face? local-world)
+                 face-assembly-active? (ws/local-world-face-assembly? local-world)
+                 ;; R-1 debt 1, the mouse.cljs rule applied to the wheel:
+                 ;; wheel space must match render space — the full-screen
+                 ;; faces force-hide the sidebar, so the wheel must not
+                 ;; route to it (framework W1-INT).
+                 in-sidebar? (and sb-vis? (< mouse-x sidebar-w)
+                                  (not trail-face-active?)
+                                  (not face-assembly-active?))
                  agent-output @!agent-output
-                 agent-h (if file-workspace?
+                 ;; leftover agent output must not steal the wheel under the
+                 ;; assembly-hosted face (G16 falsification fix)
+                 agent-h (if (or file-workspace? face-assembly-active?)
                            0
                            (compute-agent-panel-h agent-output font-size
                                                   (:height viewport) (:width viewport)
@@ -96,6 +105,19 @@
                trail-face-active?
                (let [scene @!trail-face-scene
                      content-h (if scene (trail-scene/content-height scene) 0)
+                     visible-h (- (:height viewport) cmd-panel-h status-bar-h)]
+                 (swap! !scroll-y
+                        #(trail-scene/clamp-scroll (+ % delta) content-h visible-h)))
+
+               ;; Assembly-hosted face (framework W1-INT) — the trail-face
+               ;; shape: full-screen, reuses !scroll-y (camera pan-y =
+               ;; -scroll-y); clamp on THIS wheel event against the content
+               ;; height the interpreter DECLARED in the scene root :data
+               ;; (:assembly/content-h, §10 SLOT-C — the scene stays
+               ;; scroll-independent; scroll-y is never baked into the tree).
+               face-assembly-active?
+               (let [scene @!face-scene
+                     content-h (get-in scene [:data :assembly/content-h] 0)
                      visible-h (- (:height viewport) cmd-panel-h status-bar-h)]
                  (swap! !scroll-y
                         #(trail-scene/clamp-scroll (+ % delta) content-h visible-h)))

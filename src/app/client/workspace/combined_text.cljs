@@ -21,7 +21,7 @@
    tokenize-fn layout-fn
    <fold-data
    !flow-state !collapsed-groups !hovered-row-idx !drag-state
-   !sidebar-visible !sidebar-scene !trail-face-scene !extract-preview
+   !sidebar-visible !sidebar-scene !trail-face-scene !face-scene !extract-preview
    !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus !run-scroll-y !detail-scroll-y
    compute-ticket-list-text-ops* compute-run-text-ops* offset-text-ops*
    layout-x layout-y cmd-panel-h status-bar-h]
@@ -40,7 +40,9 @@
                   ;; sb-w is 0 there (matches editor_compute's <layout>;
                   ;; the raw atom stays untouched, so leaving the face
                   ;; restores the sidebar exactly as it was).
-                  trail-face? (ws/local-world-trail-face? local-world)
+                  ;; the assembly-hosted face inherits the same ground rule
+                  trail-face? (or (ws/local-world-trail-face? local-world)
+                                  (ws/local-world-face-assembly? local-world))
                   sb-vis? (boolean (and sidebar-visible? (not trail-face?)))]
               {:viewport viewport :settings settings :dpr dpr :snap? snap?
                :font-size font-size :char-width char-width :char-advance char-advance
@@ -203,7 +205,11 @@
                   status-right-w (* (count status-right-text) char-advance)
                   status-right-x (maybe-snap (- (:width viewport) status-right-w 16) dpr snap?)]
               (vec (concat cmd-lines
-                           (when-not file-workspace? agent-lines)
+                           ;; no agent overlay over the assembly-hosted face
+                           ;; (G16 falsification fix)
+                           (when-not (or file-workspace?
+                                         (ws/local-world-face-assembly? local-world))
+                             agent-lines)
                            (if (and trail-mode? (seq rim-slots))
                              ;; the RIM: four slots left-to-right in kraft-neutral
                              ;; chrome ink (item 3 / G2). Editor mode never reaches
@@ -246,7 +252,7 @@
     (m/latest
       (fn [intake-text run-text layout
            lines fold-state scroll-y
-           current-file local-world sidebar-scene trail-face-scene extract-preview agent-output
+           current-file local-world sidebar-scene trail-face-scene face-scene extract-preview agent-output
            shimmer-phase trail-collapsed active-pane scroll-x chat-scroll-y chat-input focus]
         (let [{:keys [viewport settings dpr snap? font-size char-width char-advance line-h
                        sb-vis? sb-w]} layout
@@ -259,6 +265,7 @@
               file-workspace? (ws/local-world-file-workspace? local-world)
               flow-mode? (ws/local-world-flow? local-world)
               trail-mode? (ws/local-world-trail-face? local-world)
+              face-mode? (ws/local-world-face-assembly? local-world)
 
               ;; Sidebar text ops — reads from shared scene (cached by render flow)
               sidebar-text-ops
@@ -285,11 +292,14 @@
                   [(if preview-tree (tree->text-ops preview-tree) [])
                    (vec (range (count lines)))
                    []])
-                (if trail-mode?
-                  ;; Trail face (WP-B2): flatten from the CACHED scene,
-                  ;; threaded in as a flow like sidebar-scene - never a
-                  ;; non-reactive deref here (gate 13 / advisory A3)
-                  [(if trail-face-scene (tree->text-ops trail-face-scene) [])
+                (if (or trail-mode? face-mode?)
+                  ;; Trail face (WP-B2) / assembly-hosted face (framework
+                  ;; W1-INT): flatten from the CACHED scene, threaded in as
+                  ;; a flow like sidebar-scene - never a non-reactive deref
+                  ;; here (gate 13 / advisory A3; trap T9 - mouse hit-tests
+                  ;; the SAME object)
+                  [(let [scene (if face-mode? face-scene trail-face-scene)]
+                     (if scene (tree->text-ops scene) []))
                    (vec (range (count lines)))
                    []]
 
@@ -441,7 +451,7 @@
       <intake-text <run-text <layout
       (m/eduction (map :lines) (dedupe) (m/watch !editor-doc)) <fold-data (m/watch !scroll-y)
       (m/watch !current-file) (m/watch !effective-local-world) (m/watch !sidebar-scene)
-      (m/watch !trail-face-scene)
+      (m/watch !trail-face-scene) (m/watch !face-scene)
       (m/watch !extract-preview) (m/watch !agent-output)
       (m/watch !shimmer-phase) (m/watch !trail-collapsed) (m/watch !active-pane)
       (m/watch !scroll-x) (m/watch !chat-scroll-y) (m/watch !chat-input) (m/watch !focus))]

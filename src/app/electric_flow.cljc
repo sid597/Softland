@@ -478,7 +478,14 @@
                 ;; wiring, pull result + epoch pushed back to it.
                 !trail-request (atom nil)
                 !trail-data (atom nil)
-                !ingest-epoch-remote (atom 0)]
+                !ingest-epoch-remote (atom 0)
+                ;; Faces-as-assemblies · the ONE generic face artery (CONTRACT §7).
+                ;; Request set by face-wiring (a /face command + scrub), data-context
+                ;; pulled back whole. W1-INT threads these into the runtime loop +
+                ;; calls face-wiring/install-face-wiring!; this lane owns the atoms +
+                ;; the generic pull only.
+                !face-request (atom nil)
+                !face-data (atom nil)]
             ;; Reactive sync: Rama PState → Electric → client atom.
             ;; Re-runs whenever the server-side PState changes.
             (reset! !sidebar-truth (fv/WatchSidebarTruth))
@@ -506,6 +513,13 @@
                                         (zipmap (:expanded treq) (repeat b)))
                                       {})}
                           nil))))
+            ;; Faces-as-assemblies · the ONE generic face pull (CONTRACT §7, trap T8).
+            ;; GENERIC: no `case` on the face — FacePull hands the whole request to the
+            ;; server projection registry and returns ONE data-context; we reset ONE
+            ;; !face-data atom. The Electric surface never grows per face.
+            (let [freq (e/watch !face-request)]
+              (when freq
+                (reset! !face-data (fv/FacePull freq))))
             ;; Sidebar visible: default true, but respect persisted workspace truth.
             ;; Must be initialized AFTER workspace truth loads so install-sidebar-watch!
             ;; sees the correct initial value and doesn't auto-show a hidden sidebar.
@@ -600,5 +614,7 @@
                                                     :!remote-workspace-truth !workspace-truth
                                                     :!trail-request !trail-request
                                                     :!trail-data !trail-data
+                                                    :!face-request !face-request
+                                                    :!face-data !face-data
                                                     :!ingest-epoch-remote !ingest-epoch-remote
                                                     :initial-file file-info))))))))))))))))

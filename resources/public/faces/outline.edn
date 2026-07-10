@@ -1,0 +1,38 @@
+;; The Outline face — the WORN assembly (framework W1-INT, CONTRACT §5/§11 G15).
+;; Pure EDN arrangement (grammar v0): no lists, no symbols, anywhere (the §4 guard).
+;; Authored against the REAL vocabulary (face_primitives.cljc registry):
+;; :stack / :badge / :indent-rail / :text-run. Bind paths are the §7 data
+;; contract with the :conversation projection (face_projection.clj):
+;; :turns -> {:id :speaker :order :blocks -> {:id :kind :text :order ...}}.
+;; Item :id drives node identity (trap T6): ids travel with turns/blocks.
+;; NOTE: this is a DIFFERENT artifact from test/app/fixtures/faces/outline.edn
+;; (lane A's interpreter golden over stub primitives); this one is the face
+;; Sid wears. W2 lands assemblies as kernel objects (CONTRACT §8); until then
+;; this file is the wear-time source, fetched like font_atlas.json.
+;; Belief: belonging is indentation; time is the scroll.
+{:assembly/name    "outline-face"
+ :assembly/grammar 0
+ :assembly/belief  "belonging is indentation; time is the scroll"
+ :root
+ {:prim :stack
+  :props {:gap 20 :padding [24 16 40 16]}
+  :children
+  [{:each [:turns]
+    :template
+    {:prim :stack
+     :props {:gap 8}
+     :children
+     [{:prim :badge
+       :props {:label {:bind [:speaker]}}}
+      {:prim :indent-rail
+       :props {:indent 18 :gap 10}
+       :children
+       [{:each [:blocks]
+         :template
+         {:prim :stack
+          :props {:gap 4}
+          :children
+          [{:prim :badge
+            :props {:label {:bind [:kind]}}}
+           {:prim :text-run
+            :props {:value {:bind [:text]}}}]}}]}]}}]}}
