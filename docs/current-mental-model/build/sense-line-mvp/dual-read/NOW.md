@@ -73,7 +73,11 @@ ephemeral — the UI arm re-ingests into its own runtime.
   side; the challenge is the block as visual unit + the nesting grammar
   (blocks top-down in a response · user↔agent loop · turn topology) —
   render multiple faces (outline/roam, canvas/miro, topological tree, …),
-  pick by feel. `DESIGN_BRIEF.md` rewritten to v3 accordingly (git has v2).
-  Session protocol: fresh design chat → paste DESIGN_BRIEF.md → then
-  DESIGN_BRIEF_PASTE_B2.md as message 2. PASTE_A/PASTE (v2-scope) are
-  superseded pointers, kept for the safeguard record.
+  pick by feel. `DESIGN_BRIEF.md` now v4 (git has v2/v3): Sid's second
+  ruling same day — plain DESIGN-TASK language, no internal metaphors
+  (river/debris/night/MOOD banned from briefs; memory
+  feedback-design-briefs-not-contracts updated with the third correction).
+  B2's header swept to match (dataset language). Session protocol: fresh
+  design chat → paste DESIGN_BRIEF.md → then DESIGN_BRIEF_PASTE_B2.md as
+  message 2. PASTE_A/PASTE (v2-scope) superseded, kept for the safeguard
+  record.

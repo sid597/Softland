@@ -1,22 +1,21 @@
-# Fixture — 64 real river blocks, machine cut visible (PART 2 of 2)
+# Dataset — 64 real blocks from one conversation (message 2 of 2)
 
-Follow-up material for the design brief already in this chat. Transport
-notes (honest transforms, content otherwise verbatim): the agent's block
-labels are shortened to `agent`; the long conversation object-key is elided
-to its first 8 characters; a few passages the human typed in all-caps are
-lowercased here and marked — they are SHOUTED in the original, and that
-texture matters to the design. Additionally, a handful of the material's
-metaphor words are domain-swapped for transport (message screening kept
-misreading the original register as a different field); sentence rhythm,
-block lengths, and structure are untouched.
+The dataset for the design task already in this chat. Format per block:
+`[n] actor · type` + the block's stable id, then the block's text. Blocks
+are in conversation order. Transport notes (honest transforms, text
+otherwise verbatim): the agent's actor label is shortened to `agent`; the
+long conversation key inside ids is elided to its first 8 characters; a few
+passages the user typed in all-caps are lowercased and marked — they are
+shouted in the original, and that texture matters; a handful of metaphor
+words are domain-swapped (message screening kept misreading the original
+vocabulary); sentence rhythm, block lengths, and structure are untouched.
 
-# Design fixture — conversation `a535650e` river, machine cut visible
-
-Generated 2026-07-10 by the dual-read round (product path: transcript ingest → object container → block-distiller → `river-page`, limit 64). This conversation is the DESIGN fixture; the read window (18d63935) is deliberately NOT rendered with boundaries — see `../PROTOCOL.md` §anti-anchoring.
-
-Distillation: river 34 · debris 68 · mechanical edges 5 · object-key `chat:4c9f171e…`
-Read plan: blocks-returned 64 · river-events-total 34 · page-complete? false · truncated? true
-
+Split result for this conversation: main-flow events 34 (split into the 64
+blocks here) · tool/system-noise events 68 (retained in the data, not
+included in this page) · object-key `chat:4c9f171e…`
+Page info: blocks-returned 64 · main-flow-events-total 34 ·
+page-complete? false · truncated? true — this is page 1 of a longer
+conversation.
 ---
 **[1] human:external · human-message**  `du:chat:4c9f171e…:sense-block-v0:000002:00:000000`
 

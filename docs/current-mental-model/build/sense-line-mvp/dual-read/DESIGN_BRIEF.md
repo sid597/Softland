@@ -1,69 +1,76 @@
-# Design brief — raw chat ↔ the machine's cut
+# Design task — chat-to-blocks view
 
-v3 · 2026-07-10 · design round 1, re-scoped by Sid (level ruling: the
-containerization view only — no seams, no readers, no reconciliation; those
-belong to a later chapter, after two readings of this material actually
-exist). One paste = this brief; the material arrives as the next message.
-No engineering constraint gates — explore, render alternatives; the human
-picks by feel. Dreams welcome, labeled as dreams.
+v4 · 2026-07-10 · plain design-task language (Sid's ruling: no internal
+metaphors, no mood sections — state the exact problem). Paste 1 of 2; the
+dataset arrives as the next message.
 
-## THE PROBLEM
+## Context
 
-A night of working with an agent is lived as a chat: the human's messages,
-the agent's thinking, the agent's replies, tool noise. A machine now re-cuts
-that lived material into addressable **blocks** — sub-chunks of the human's
-messages, thinking paragraphs, prose paragraphs, list items — each with a
-durable id. Nobody has ever SEEN this. There is no view where a human can
-hold the raw chat and the machine's cut of it together, so nobody can feel
-whether the cut is right, or what a block even IS as a visual thing.
+We ingest transcripts of human↔agent coding sessions. A pipeline splits
+each conversation into addressable units called **blocks**. Every block
+has: a stable id, an actor (user / agent / tool), a type (user-message,
+user-sub-chunk, agent-thinking, agent-prose-paragraph, agent-list-item,
+tool-call, tool-result), and its text. User messages are additionally split
+into sub-chunks: the message is the parent, its paragraphs are children.
+Tool/system noise is retained in the data but is not part of the main flow.
 
-## THE SCREEN'S JOB
+Nobody has ever seen this data rendered. That is the task.
 
-Show one real conversation twice at once — **as it was lived** (raw chat,
-scrollable, the night re-livable) and **as the machine cut it** (blocks) —
-so a human scrolling the night can see material become blocks. Sid's own
-opening image: raw chat on the left, the block breakdown beside it. Start
-there, then push it.
+## The task
 
-## THE STRUCTURE THE DESIGN MUST CARRY (Sid's words, near-verbatim)
+Design a two-pane, scrollable, read-only view of ONE real conversation:
 
-There is inherent structure between blocks: they follow top-down inside a
-single agent response; a user message and the agent's response form one
-loop; a pair of user↔agent turns is again a topological structure, and turn
-follows turn to make the conversation. Blocks within a response, responses
-within a loop, loops within the night — nested topology, not a flat list.
+- **Left pane:** the raw conversation, as a normal chat log reads.
+- **Right pane:** the same conversation as its blocks.
 
-## EXPLORE (this is the whole challenge)
+The core design problem is the **right pane**: how blocks are represented.
 
-1. **The block as a visual unit** — what does ONE block look like? Its id,
-   its actor, its text; a sub-chunk vs its parent message; a 40-line
-   thinking block vs a one-line reply. Where does the id live so it's
-   present but not noise?
-2. **The nesting grammar** — render SEVERAL distinct faces of the topology
-   as first-class alternatives: a plain outline face (roam-blocks-like), a
-   spatial face (miro/canvas-like), a topological tree, and anything you
-   invent beyond those. The pick happens by feel, not argument.
-3. **Raw ↔ cut correspondence** — the same material twice: how do the two
-   sides speak to each other? Aligned scroll, hover-highlight, shared
-   spine, something else?
-4. **Scale honesty** — these 64 blocks are the first page of a longer river
-   (`page-complete? no`), and harness noise (debris) exists in truth:
-   present but quiet. The room must have an answer for "there is more."
+## The structure the right pane must express
 
-## MOOD
+1. Within one agent response, blocks are ordered top-down (thinking, then
+   prose paragraphs, list items, tool calls).
+2. A user message plus the agent response to it form one unit (a turn).
+3. Turns in sequence form the conversation.
+4. User messages contain sub-chunks (parent/child).
 
-A reading room, not a dashboard. No tasks, no queues, no settle-buttons —
-this is a first look at new material, and the room should make you want to
-scroll the whole night. Softland, not app: a place you inhabit.
+So the hierarchy is: block → response → turn → conversation. Four levels of
+nesting; sibling order always matters.
 
-## MATERIAL (next message)
+## Explorations wanted
 
-64 real blocks from a real conversation, machine cut and block ids visible.
-The raw side is reconstructible from the same material: blocks group by
-event id — a human message's sub-chunks share its event; an agent
-response = its thinking + prose + list blocks in order.
+Render each as a full screen over the SAME dataset, desktop width, enough
+rows on screen to judge real density:
 
-## BOUNDS (the only two)
+- **A. Outline** — indented blocks, Roam/Workflowy-like.
+- **B. Canvas** — blocks as spatial cards, Miro-like, grouped by turn.
+- **C. Tree/topology** — explicit structure, nodes and edges.
+- **D. At least one direction of your own** that none of the above covers.
 
-Block ids and the cut's provenance stay visible — the map must not lie.
-The view never mutates the material.
+The human picks by looking, so make the differences real, not skins.
+
+## Design questions every exploration must answer
+
+- What does a single block look like? (id, actor, type, text — id visible
+  but subordinate to the text)
+- How is a sub-chunk shown relative to its parent message?
+- How does a 40-line thinking block coexist with one-line blocks —
+  collapse, preview, something else?
+- Where are the turn boundaries, at a glance?
+- How does left↔right correspondence work — hover or select a message and
+  see its blocks, and the reverse?
+- Where does tool/system noise sit? (present, de-emphasized, never deleted)
+- The dataset is page 1 of a longer conversation — how does the view say
+  "there is more"?
+
+## Data
+
+Next message: 64 real blocks from one conversation — real ids, actors,
+types, and text. Use it as-is; the wildly variable text lengths are part of
+the test. Do not summarize or paraphrase the text; render it.
+
+## Constraints
+
+- Read-only. No tasks, queues, workflow actions, or editing.
+- Ids and types are real data — never invent ids or hide them entirely.
+- Visual tone in one line: quiet, text-forward, built for sustained
+  reading; not a dashboard.
