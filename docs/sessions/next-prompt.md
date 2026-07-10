@@ -28,15 +28,17 @@ on kinds).
 
 ## Threads
 
-- **1 · Sense-line main — NEXT UP.** Open the dual-read falsifier round:
-  chunk selection + reading protocol + two independent reads (Sid ∥ Fable,
-  fresh-cut discipline); the diff of the two readings seeds the
-  reconciliation UI. Boot: `build/sense-line-mvp/DIRECTION.md` ·
-  `sense-line-model.md` · `block-kernel/RETRO.md` §3 (what the substrate
-  measurably does).
-- **2 · Reconciliation UI / step-3 fork — RULING NEEDED (Sid).** Task-UI vs
-  cards-wall; standing proposal: fold into thread 1's reconciliation UI
-  (D-005: the view orders the work). Design pass precedes build.
+- **1 · Sense-line main — dual-read round OPEN (2026-07-10).** Material
+  picked by Sid: the dissolution chain; read window W1 = conversation
+  `18d63935` (51 river events; chain ingested, receipt + braid notes in
+  `build/sense-line-mvp/dual-read/NOW.md`). PROTOCOL.md drafted (Sid
+  redlines); read material + design fixture generated. Next: Sid's read
+  (his pace) ∥ Fable's read (fresh session, PROTOCOL §anti-anchoring) ∥
+  design session (thread 2).
+- **2 · Reconciliation UI — brief ready, fork travels with it.** Sid opens a
+  fresh design session with `build/sense-line-mvp/dual-read/DESIGN_BRIEF.md`
+  (one paste); the task-UI vs cards-wall fork is its EXPLORE item 2 —
+  rendered both ways, picked by feel there. Design pass precedes build.
 - **3 · block-kernel residue — PARKED (D-001).** HEAD re-green confirmed by
   fresh run 2026-07-10 (28/1250/0/0). Parked at `block-kernel/RETRO.md` §5:
   §10 cursor/denormalized query (form-break gated) · multi-stratum under-fill
