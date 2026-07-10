@@ -56,14 +56,14 @@ on kinds).
   · model-UXR question bank (post-kinds; apparatus warm, DIRECTION.md §4.3)
   · block/code two-arm braid (noted 07-09, not engaged).
 
-- **8 · framework (faces-as-assemblies) — W1 WAVE OPEN (wave word given
-  2026-07-11).** CONTRACT v1.1 binding (`build/framework/CONTRACT.md`; §10
-  slots finalized against PROBE.md — all defaults held). **Dispatch: paste
-  `docs/sessions/framework-w1-orchestrator-opening-prompt-2026-07-11.md` in
-  a fresh Fable session** (it runs lanes A/B/C as parallel Opus subagents +
-  W1-INT + the G16 end-gate). ⚠ Sid: two log-entry drafts still await
-  countersign (CONTRACT §15: D-011 middle regime · D-012 self-hosting test —
-  NOT covered by the wave word). Thread file: `build/framework/NOW.md`.
+- **8 · framework (faces-as-assemblies) — W1 CLOSED, GATE PASSED
+  (2026-07-11).** Step-2 exit REACHED: the real `7c80ce2a` conversation
+  renders through the Outline face in the dev app, `:until-ms` scrub works,
+  screenshots + verdicts in `build/framework/W1-INT.md` + `W1-GATE.md`.
+  Code: commit `c84ebfa` (suite 22t/281a green). Wave 2 (design-round faces,
+  §8 kernel objects, watcher, wearing log) NOT started — needs Sid's
+  dispatch. ⚠ Sid: D-011/D-012 drafts STILL await countersign (CONTRACT §15
+  — not covered by the wave word). Thread file: `build/framework/NOW.md`.
 
 Kinds-round evidence pile (carried verbatim for the marks/kinds round):
 "sidetrackkkk" branch receipt · serves/invokes family question · cross-scheme
