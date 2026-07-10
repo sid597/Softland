@@ -51,7 +51,13 @@ ephemeral — the UI arm re-ingests into its own runtime.
   Split into a bisection pair: `DESIGN_BRIEF_PASTE_A.md` (brief + shapes,
   ~8KB, no transcript structure; message 1) + `DESIGN_BRIEF_PASTE_B.md`
   (river fixture de-transcriptified: labels → `agent`, hex elided, shouts
-  lowercased with transport note; message 2). Test ladder: A in fresh
-  design-project chat → if A alone flags, retry A OUTSIDE the project
-  (project-knowledge canon is then the suspect) → if A passes, send B.
-  Fallback that always works: run the design round on Opus 4.8.
+  lowercased with transport note; message 2). BISECTION RESULT (Sid, same
+  day): A passes on Fable 5; B still flags (chat falls back to Opus 4.8
+  with the material ingested). Leading suspect after keyword sweeps came
+  back clean: the material's dense biology-lab METAPHOR register (24×
+  specimen, 12× dissolution, 8× harvest, 7× mutat-, 4× strain over 98KB)
+  reads as bio work to the intentionally-broad classifier. Ruling for the
+  round: don't rewrite the material's vocabulary — design session proceeds
+  on Opus 4.8 (A+B chat already holds everything). Standing note for ALL
+  future claude.ai pastes of this chain's material: expect the bio-metaphor
+  flag; Claude Code file-reads don't trip it.
