@@ -56,6 +56,12 @@ on kinds).
   · model-UXR question bank (post-kinds; apparatus warm, DIRECTION.md §4.3)
   · block/code two-arm braid (noted 07-09, not engaged).
 
+- **8 · framework (faces-as-assemblies) — STAGED (2026-07-11).** Road:
+  `build/framework/ROAD.md` (v2, source-grounded). Prompts ready:
+  `docs/sessions/framework-{probe,contract,w1-lane}*-2026-07-11.md` — probe
+  dispatchable NOW ∥ Fable contract; W1 (3 parallel lanes, disjoint fences)
+  GATED on CONTRACT v1. Thread file: `build/framework/NOW.md`.
+
 Kinds-round evidence pile (carried verbatim for the marks/kinds round):
 "sidetrackkkk" branch receipt · serves/invokes family question · cross-scheme
 bridges (panproto lenses).
