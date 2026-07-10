@@ -77,7 +77,11 @@ ephemeral — the UI arm re-ingests into its own runtime.
   ruling same day — plain DESIGN-TASK language, no internal metaphors
   (river/debris/night/MOOD banned from briefs; memory
   feedback-design-briefs-not-contracts updated with the third correction).
-  B2's header swept to match (dataset language). Session protocol: fresh
-  design chat → paste DESIGN_BRIEF.md → then DESIGN_BRIEF_PASTE_B2.md as
-  message 2. PASTE_A/PASTE (v2-scope) superseded, kept for the safeguard
-  record.
+  B2's header swept to match (dataset language). Sid then dropped real
+  data for the design session entirely: message 2 is now `BLOCK_TYPES.md`
+  — type catalog + one fully-shaped turn, placeholder text, length-variance
+  notes, "assume ~30 turns" (safeguard-proof by construction). Session
+  protocol: fresh design chat → paste DESIGN_BRIEF.md → then
+  BLOCK_TYPES.md. B2/PASTE_A/PASTE superseded, kept for the safeguard
+  record; real-data density check happens later, in-repo, on the surviving
+  direction.
