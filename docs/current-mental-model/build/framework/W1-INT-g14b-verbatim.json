@@ -1,0 +1,157 @@
+{
+  "fixedState": "2 home-dirs, no project, scroll 0, hover nil; geom 260x800 fs14 ca7.84",
+  "sidebarRowCount": 2,
+  "assemblyRowCount": 2,
+  "wholeTreeEqual": false,
+  "rowsEqual": false,
+  "sidebarRows": [
+    {
+      "children": [],
+      "clip?": false,
+      "layout": null,
+      "type": "sidebar-entry",
+      "actions": {},
+      "bounds": {
+        "x": 0,
+        "y": 48,
+        "w": 256,
+        "h": 32
+      },
+      "style": {},
+      "id": "/home/sid/alpha",
+      "text": [
+        {
+          "y": 21.6,
+          "r": 0.65,
+          "type": "text",
+          "size": 14,
+          "g": 0.65,
+          "from": 0,
+          "b": 0.7,
+          "x": 16,
+          "a": 1,
+          "text": "▸ alpha",
+          "to": 7
+        }
+      ],
+      "data": {
+        "entry-type": "home-dir",
+        "entry": {
+          "name": "alpha",
+          "path": "/home/sid/alpha"
+        },
+        "idx": 0
+      }
+    },
+    {
+      "children": [],
+      "clip?": false,
+      "layout": null,
+      "type": "sidebar-entry",
+      "actions": {},
+      "bounds": {
+        "x": 0,
+        "y": 80,
+        "w": 256,
+        "h": 32
+      },
+      "style": {},
+      "id": "/home/sid/beta",
+      "text": [
+        {
+          "y": 21.6,
+          "r": 0.65,
+          "type": "text",
+          "size": 14,
+          "g": 0.65,
+          "from": 0,
+          "b": 0.7,
+          "x": 16,
+          "a": 1,
+          "text": "▸ beta",
+          "to": 6
+        }
+      ],
+      "data": {
+        "entry-type": "home-dir",
+        "entry": {
+          "name": "beta",
+          "path": "/home/sid/beta"
+        },
+        "idx": 1
+      }
+    }
+  ],
+  "assemblyRows": [
+    {
+      "children": [],
+      "clip?": false,
+      "layout": null,
+      "type": "ticket-row",
+      "actions": {},
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "w": 260,
+        "h": 36
+      },
+      "style": {},
+      "id": "g14b.g14b-sidebar-list.0.0",
+      "text": [
+        {
+          "y": 22.8,
+          "r": 0.9,
+          "type": "text",
+          "size": 12,
+          "g": 0.9,
+          "from": 0,
+          "b": 0.92,
+          "x": 48,
+          "a": 1,
+          "text": "alpha",
+          "to": 5
+        }
+      ],
+      "data": {
+        "selected?": false,
+        "hovered?": false,
+        "ghost?": false
+      }
+    },
+    {
+      "children": [],
+      "clip?": false,
+      "layout": null,
+      "type": "ticket-row",
+      "actions": {},
+      "bounds": {
+        "x": 0,
+        "y": 36,
+        "w": 260,
+        "h": 36
+      },
+      "style": {},
+      "id": "g14b.g14b-sidebar-list.0.1",
+      "text": [
+        {
+          "y": 22.8,
+          "r": 0.9,
+          "type": "text",
+          "size": 12,
+          "g": 0.9,
+          "from": 0,
+          "b": 0.92,
+          "x": 48,
+          "a": 1,
+          "text": "beta",
+          "to": 4
+        }
+      ],
+      "data": {
+        "selected?": false,
+        "hovered?": false,
+        "ghost?": false
+      }
+    }
+  ]
+}
