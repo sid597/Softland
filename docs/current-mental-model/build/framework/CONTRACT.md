@@ -522,8 +522,18 @@ ruling).
 - **G12 read-only by construction** (review-time): `face_projection.clj`
   declares no depots, no topologies, performs no writes, and reads ONLY
   named query APIs (`river-page` / `read-common-material-for-source` /
-  `read-unit`) — no PState paths, no new indexes (carve-out: test-only
-  validation readers exempt per T7-block-kernel precedent).
+  `read-unit` / `read-source`) — no PState paths, no new indexes (carve-out:
+  test-only validation readers exempt per T7-block-kernel precedent).
+  *Amended in place 2026-07-11 (D-010 reach, W1-INT orchestrator ruling):
+  `read-source` added to the named read surface — lane C surfaced that NO
+  block-material query API carries a timestamp (units don't graduate;
+  `DerivedUnitRow` has no time), so the `:until-ms` scrub reads
+  `created-at-ms` via the existing `read-source` API, bounded by `:limit`
+  (an F3-class filter read). Read-only, existing API, no kernel edit — the
+  three-name list was the projection's expected surface, never a closed
+  enum of the kernel's read API; trap T12's law ("query APIs only") holds.
+  A block-material read that carries time natively is W2-eligible kernel
+  work if the form breaks against this.*
 - **G13 generic artery** (review-time on the electric diff + one unit test):
   ONE request atom, ONE `FacePull` e/defn, ONE data atom; NO face-keyword
   dispatch anywhere in `electric_flow.cljc`/`file_viewer.cljc` (dispatch
