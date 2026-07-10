@@ -37,11 +37,10 @@ on kinds).
 - **2 · Reconciliation UI / step-3 fork — RULING NEEDED (Sid).** Task-UI vs
   cards-wall; standing proposal: fold into thread 1's reconciliation UI
   (D-005: the view orders the work). Design pass precedes build.
-- **3 · block-kernel residue — PARKED (D-001), one flag.** ⚠ confirm the
-  post-commit re-green (task bz8kybt9z) finished green (HEAD-suite close
-  rule). Parked at `block-kernel/RETRO.md` §5: §10 cursor/denormalized query
-  (form-break gated) · multi-stratum under-fill (waits on a 2nd distiller) ·
-  content-preview asymmetry (marks round).
+- **3 · block-kernel residue — PARKED (D-001).** HEAD re-green confirmed by
+  fresh run 2026-07-10 (28/1250/0/0). Parked at `block-kernel/RETRO.md` §5:
+  §10 cursor/denormalized query (form-break gated) · multi-stratum under-fill
+  (waits on a 2nd distiller) · content-preview asymmetry (marks round).
 - **4 · code-atom residue — PARKED (D-001).** `code-atom/RETRO.md` §5:
   durability fork (in-memory vs durable `:analyzer-basis` — Sid's call,
   revert-cheap) · F4 fault-injection falsifier · N5 history-sort nit.
