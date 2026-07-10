@@ -52,12 +52,18 @@ ephemeral — the UI arm re-ingests into its own runtime.
   ~8KB, no transcript structure; message 1) + `DESIGN_BRIEF_PASTE_B.md`
   (river fixture de-transcriptified: labels → `agent`, hex elided, shouts
   lowercased with transport note; message 2). BISECTION RESULT (Sid, same
-  day): A passes on Fable 5; B still flags (chat falls back to Opus 4.8
-  with the material ingested). Leading suspect after keyword sweeps came
-  back clean: the material's dense biology-lab METAPHOR register (24×
-  specimen, 12× dissolution, 8× harvest, 7× mutat-, 4× strain over 98KB)
-  reads as bio work to the intentionally-broad classifier. Ruling for the
-  round: don't rewrite the material's vocabulary — design session proceeds
-  on Opus 4.8 (A+B chat already holds everything). Standing note for ALL
-  future claude.ai pastes of this chain's material: expect the bio-metaphor
-  flag; Claude Code file-reads don't trip it.
+  day): A passes on Fable 5; B flags. CAVEAT — B's test was CONTAMINATED:
+  regenerating from the verbatim source fixture reintroduced the unredacted
+  biology+flagging LOG aside (exactly the failure this note warned about),
+  so B's flag doesn't cleanly separate that line from the other suspect,
+  the material's biology-lab METAPHOR register (24× specimen, 12×
+  dissolution, 8× harvest, 7× mutat-, anatomy/cell/strain over 98KB).
+  `DESIGN_BRIEF_PASTE_B2.md` carries BOTH fixes: aside redacted + register
+  domain-swapped (specimen→exhibit, dissolution→unravelling,
+  harvest→gather, mutation→drift, anatomy→layout, ~75 swaps; transport
+  note in header; Sid's message text otherwise verbatim, lengths/structure
+  untouched). Next test: fresh chat, paste A, then B2. If B2 also flags →
+  drop real material for claude.ai: structured-synthetic fixture (matched
+  lengths/actors/forms, swapped-domain content, "imagine 64 of these") —
+  Sid's call, keeps Fable; Opus 4.8 with real material stays the other arm.
+  Claude Code file-reads don't trip any of this.
