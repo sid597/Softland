@@ -62,8 +62,18 @@ ephemeral — the UI arm re-ingests into its own runtime.
   domain-swapped (specimen→exhibit, dissolution→unravelling,
   harvest→gather, mutation→drift, anatomy→layout, ~75 swaps; transport
   note in header; Sid's message text otherwise verbatim, lengths/structure
-  untouched). Next test: fresh chat, paste A, then B2. If B2 also flags →
-  drop real material for claude.ai: structured-synthetic fixture (matched
-  lengths/actors/forms, swapped-domain content, "imagine 64 of these") —
-  Sid's call, keeps Fable; Opus 4.8 with real material stays the other arm.
+  untouched). If B2 also flags → structured-synthetic fixture (matched
+  lengths/actors/forms, swapped-domain content, "imagine 64 of these").
   Claude Code file-reads don't trip any of this.
+- 2026-07-10 · DESIGN ROUND RE-SCOPED BY SID (level ruling, after seeing
+  the first render): the reconciliation room (seams/diff/settle) was the
+  round's PROCESS apparatus wrongly promoted to design object — deferred to
+  a later chapter, after real readings exist. Design round 1 = the
+  CONTAINERIZATION VIEW only: raw chat ↔ the machine's block cut, side by
+  side; the challenge is the block as visual unit + the nesting grammar
+  (blocks top-down in a response · user↔agent loop · turn topology) —
+  render multiple faces (outline/roam, canvas/miro, topological tree, …),
+  pick by feel. `DESIGN_BRIEF.md` rewritten to v3 accordingly (git has v2).
+  Session protocol: fresh design chat → paste DESIGN_BRIEF.md → then
+  DESIGN_BRIEF_PASTE_B2.md as message 2. PASTE_A/PASTE (v2-scope) are
+  superseded pointers, kept for the safeguard record.
