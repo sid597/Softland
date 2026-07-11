@@ -559,3 +559,9 @@ is this a worthwile problem to work on given the wave 2 work is on parallel???
 i basically want to make softland shit optimized on every dimension while maintaing the explorable explanations and the lineage of  systems built in their own medium, live and composable from the ground up
 
 ---
+
+## 2026-07-11 — per-object control, 3D, physics-in-the-medium (same session, verbatim)
+
+the pan and zoom implementation first of all is not perfect as it should be ... then there are other topics as well like we want the pan and zoom to both be applicabale to the whole frame but also be able to do so for only an individual container in the frame as well ... so its like i can dynamiclly have the full control over each and every object in frame .... ok now there is another thing how ready is our system for 3d rendering??? can we do 3d rendering and control in our system ?? did we account for this why or why not? ... also i would want to convert https://box2d.org/documentation3d/ to our system as well .....
+
+---
