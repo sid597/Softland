@@ -57,13 +57,16 @@ on kinds).
   · model-UXR question bank (post-kinds; apparatus warm, DIRECTION.md §4.3)
   · block/code two-arm braid (noted 07-09, not engaged).
 
-- **8 · framework (faces-as-assemblies) — WAVE 2 OPEN (dispatched by Sid
-  2026-07-11; W1 closed same day, gate passed, commit `c84ebfa`).** CONTRACT
-  v2 §§16–21 added (arsenal placement + gates G17–G26); D-011/D-012
-  COUNTERSIGNED and entered in decisions.md (the §15 ⚠ is resolved). Lanes:
-  D arsenal kernel ∥ E plurality (Sid's picks: Boxes + Minimap/Reader);
-  W2-INT + G26 ride the orchestrating session. Thread file:
-  `build/framework/NOW.md`.
+- **8 · framework (faces-as-assemblies) — WAVE 2 CLOSED, GATE PASSED
+  (2026-07-11; both waves same day).** Step-3+4 exits REACHED: the real
+  conversation flips live across Outline/Boxes/Minimap-Reader; assemblies
+  are kernel objects (watcher + `imp:asm:` + lineage); the wearing log runs
+  (WAL-durable); Step-7A live (edit `.edn` → re-render). Suite 46t/804a.
+  Artifacts: `build/framework/W2-INT.md` + `W2-GATE.md` (+screenshots).
+  ⚠ Sid, two calls: (a) package-close RETRO + adversarial recheck (subagent
+  spend) — run or defer; (b) the machine-cut package — the G25 evidence
+  (pair structure double-confirmed as the top lack) now ORDERS it (D-005).
+  Thread file: `build/framework/NOW.md`.
 
 Kinds-round evidence pile (carried verbatim for the marks/kinds round):
 "sidetrackkkk" branch receipt · serves/invokes family question · cross-scheme

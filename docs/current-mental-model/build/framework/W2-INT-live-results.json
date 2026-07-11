@@ -1,0 +1,76 @@
+{
+  "g24_roster_initial": {
+    "faces": [
+      {
+        "name": "boxes-face",
+        "status": "candidate",
+        "valid?": true,
+        "object-key": "asm:boxes-face",
+        "wear-count": 0,
+        "last-worn-ms": null
+      },
+      {
+        "name": "minimap-reader-face",
+        "status": "candidate",
+        "valid?": true,
+        "object-key": "asm:minimap-reader-face",
+        "wear-count": 0,
+        "last-worn-ms": null
+      },
+      {
+        "name": "outline-face",
+        "status": "candidate",
+        "valid?": true,
+        "object-key": "asm:outline-face",
+        "wear-count": 0,
+        "last-worn-ms": null
+      }
+    ],
+    "count": 3,
+    "rendered-at-ms": 1783790456047
+  },
+  "g24_wear_compiled": true,
+  "g24_wear_count_bump": {
+    "before": 0,
+    "after": 1
+  },
+  "g24_scrub_no_wear": {
+    "pre": 1,
+    "post": 1,
+    "pass": true
+  },
+  "g25_conversation": {
+    "turns": 35,
+    "blocks": 64
+  },
+  "g25_outline": {
+    "rects": 134,
+    "texts": 574
+  },
+  "g25_boxes": {
+    "rects": 150,
+    "texts": 405
+  },
+  "g25_minimap": {
+    "rects": 69,
+    "texts": 77
+  },
+  "g25_final_counts": [
+    [
+      "boxes-face",
+      1
+    ],
+    [
+      "minimap-reader-face",
+      1
+    ],
+    [
+      "outline-face",
+      1
+    ]
+  ],
+  "step7a": {
+    "compiledBefore": true,
+    "recompiled": true
+  }
+}

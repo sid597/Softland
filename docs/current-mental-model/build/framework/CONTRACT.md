@@ -811,11 +811,18 @@ namespaced envelope keys, so W1 interpreters render W2 files unchanged):
   stays visibly distinct (§8; A2 writers arrive at Step 7B, not this wave).
 
 Edge mechanics: `append-relation-request!` (`relation_kernel.clj:925`) with
-idempotency key derived from `(face object-key, kind, target, import-key)` —
-re-imports never duplicate edges (the git-spine `rk/assert-request`
-discipline, `git_spine.clj:224`). **Existing D-004 kinds only** — a
-transcription or wearing need that wants a new kind (e.g. `pairs-with`) is a
-stop-clause escalation, never an enum edit.
+idempotency key derived from `(face object-key, kind, target)` — STABLE
+across imports, so re-imports never duplicate edges (the git-spine
+`rk/assert-request` discipline, `git_spine.clj:224`). *Amended in place
+2026-07-11 at the G26 gate (D-010 reach): v2's original text named
+`import-key` as a fourth key component — a contract-text error the gate's
+falsification pass caught (the adapter reviewer, HIGH): import-key changes
+on every EDITED save, so including it mints a fresh idempotency key per edit
+and defeats the relation journal, leaving only a racy read-back as defense.
+The import-key stays in the edge's `:note` for provenance; the key itself is
+stable.* **Existing D-004 kinds only** — a transcription or wearing need
+that wants a new kind (e.g. `pairs-with`) is a stop-clause escalation, never
+an enum edit.
 
 **Identity.** The assembly object-key is `asm:<assembly-name>` —
 deterministic on the NAME (Sid's handle, the thing `/face` wears), never the
@@ -876,7 +883,12 @@ falsification-by-class + ONE Fable pass at wave end (G26).
 - **G20 wearing log + index honesty:** wear append → `$$wear-events-by-face`
   (append-only, server-stamped, ordered) + count materialized; duplicate
   wear-id is a no-op (journal asserted); WAL line written per accepted wear;
-  boot replay of a copied WAL reproduces counts exactly; `$$faces-by-name`
+  boot replay of a copied WAL reproduces counts exactly (carve-out, dated
+  2026-07-11 at G26: the WAL's FIRST line per wear-id is the canonical stamp —
+  on a failed-append retry the live cluster holds the retry stamp until the
+  next boot converges it to the first attempt's, which IS the wear time; the
+  divergence window is the retry gap, seconds, on an infra-failure path);
+  `$$faces-by-name`
   rows contain NO assembly material field (T16, asserted on the row shape);
   a face present in OC but missing from the index is still servable by
   `:assembly` name→key fallback failure being HONEST (`:face-list` lack
