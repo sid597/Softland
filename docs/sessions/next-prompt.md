@@ -68,6 +68,28 @@ on kinds).
   (pair structure double-confirmed as the top lack) now ORDERS it (D-005).
   Thread file: `build/framework/NOW.md`.
 
+- **9 · editor-feel — READY (prompt written 2026-07-11, awaiting Sid's
+  dispatch).** Typing-lag hot-path repair; causes pinned at file:line in the
+  prompt. Paste `docs/sessions/editor-feel-opening-prompt-2026-07-11.md`,
+  model Opus 4.8. Thread file: `build/editor-feel/NOW.md` (session creates).
+- **10 · write-echo — READY (prompt written 2026-07-11, awaiting Sid's
+  dispatch).** Direct-to-Rama echo spike with PRE-REGISTERED criterion (p95 ≤
+  50ms, ≤1 stall/min); decides block-write's route (direct vs optimistic —
+  Sid: direct unless infeasible). Paste
+  `docs/sessions/write-echo-opening-prompt-2026-07-11.md`, model Opus 4.8.
+  Verdict returns via Fable → decisions.md PROPOSED.
+- **11 · box3d-spike — READY (prompt written 2026-07-11, awaiting Sid's
+  dispatch).** Box3D v0.1.0 wasm build + determinism de-risk, out-of-repo.
+  Paste `docs/sessions/box3d-spike-opening-prompt-2026-07-11.md`, model
+  Opus 4.8. Gates islands rung 2.
+- **12 · Spatial cluster — NAMED, not dispatched (2026-07-11 direction
+  session).** `container-transforms` (contract AFTER Sid wears Boxes/Minimap —
+  dev app running) · `islands` (awaits Sid's Box3D reading answer:
+  engine/docs/both + first-form pick) · `point-and-say` + `scene-diff`
+  (dimension-agnostic, can rehearse in 2D over live faces) · `G-perf` standing
+  gate clause (one-paragraph template amendment, pending). Direction trail:
+  vision/LOG.md 2026-07-11 entries; analysis in-session (Fable).
+
 Kinds-round evidence pile (carried verbatim for the marks/kinds round):
 "sidetrackkkk" branch receipt · serves/invokes family question · cross-scheme
 bridges (panproto lenses).
