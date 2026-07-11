@@ -99,14 +99,18 @@ on kinds).
   amendment, pending). Direction trail: vision/LOG.md 2026-07-11 entries;
   full analysis: `build/spatial/ROAD.md` (substrate facts · transforms design ·
   islands ladder+gets/loses · point-and-say · scene-diff · Box3D · napkins).
-- **13 · islands-probe — READY (prompt written 2026-07-11, awaiting Sid's
-  dispatch).** Rung-1 render-pipeline probe (offscreen color+depth → minimal
-  WGSL 3D pass → composite quad → orbit → numbers; falsifies the
-  sleeping-island / rate-decoupling / text-in-3D claims). Probe class: code
-  UNCOMMITTED, findings feed the islands CONTRACT (framework Step-0
-  precedent). NOT blocked by container-transforms (absolute-position
-  composite; re-homed later). Paste
-  `docs/sessions/islands-probe-opening-prompt-2026-07-11.md`, model Opus 4.8.
+- **13 · islands-probe — DONE (2026-07-12).** All P1–P6 proven on real HW
+  (Radeon 7900 XTX, headed Chrome). Three claims: **(a) sleeping island ~free**
+  (skip 3D, composite cached texture) + **(b) cost decouples from cadence**
+  SUPPORTED (parallel-presentation still open); **(c) MSDF text in a perspective
+  pass** VERIFIED (needs fwidth-derived screenPxRange). Island holds the land at
+  60 fps up to 1.5 M cubes; single-buffer ceiling ~1.6 M (default 128 MB storage
+  limit — device requested with no requiredLimits). Report + screenshots:
+  `build/islands-probe/REPORT.md`. Probe code UNCOMMITTED in tree
+  (`island_probe.cljs` + 5 mount lines in `render.cljs`, all tagged
+  `islands-probe 2026-07-11`; delete to remove). Feeds the `islands` CONTRACT
+  (thread 12): boot device-limits/timestamp-query, scene-as-data dirty policy,
+  compositing/z-order, fwidth-MSDF text path.
 
 Kinds-round evidence pile (carried verbatim for the marks/kinds round):
 "sidetrackkkk" branch receipt · serves/invokes family question · cross-scheme
