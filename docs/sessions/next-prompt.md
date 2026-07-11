@@ -82,8 +82,11 @@ on kinds).
   COMPOSED (leg3 characterized not E2E); IPC substrate = today's runtime; probe
   UNCOMMITTED. Numbers+method+deviations: `build/write-echo/NOW.md` — the
   empirical input to `build/editor-loop/ROAD.md`'s echo-budget/caret-law.
-  **Hand-off (NOT ruled here):** Fable drafts decisions.md PROPOSED (direct vs
-  stream topology vs pre-registered caret-affordance) → Sid countersign.
+  **D-013 DRAFTED (PROPOSED, 2026-07-12) — awaiting Sid's countersign:**
+  microbatch route closed; same criterion re-aimed at stream; next fallback
+  pre-registered; block-write gated on the follow-up. Follow-up READY:
+  **write-echo-2** — paste
+  `docs/sessions/write-echo-2-opening-prompt-2026-07-12.md`, model Opus 4.8.
 - **11 · box3d-spike — DONE (2026-07-11): BUILDS + DETERMINISTIC.** Box3D
   (MIT) builds native + single-threaded wasm (163 KB gzip); native↔wasm trace
   **byte-identical** → sim = replayable trail. Writer seam proven from JS

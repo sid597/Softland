@@ -369,6 +369,13 @@ decisions.md D-006 as an evaluation note, per the opening prompt — not a skill
 rule; it is already current gate practice, the new datum is the token-flag
 variant preserving the kill record.)
 
+**SIGNED — Fable, 2026-07-12. All four amendments (A–D) applied to
+`.claude/skills/work-package/SKILL.md`** (A: five→six layers, wearing split
+out as a pre-daily-use gate; B: identity⇒data-resolution contract rule; C:
+`delay`-totality gate class; D: evidence-harness op-shape discipline). The
+recheck gate this appendix waited on passed 2026-07-11; each amendment cites
+its concrete failure and none was weakened by the recheck's corrections.
+
 ---
 
 ## Adversarial recheck (step 4) — fresh-context subagent, default-fail

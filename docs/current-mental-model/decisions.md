@@ -618,6 +618,49 @@ against the code lane's hot-reload speed.
 
 ---
 
+## D-013 — Editor write transport: microbatch direct-write REJECTED on pre-registered evidence; stream is the route to prove
+**STATUS: PROPOSED** (drafted by Fable 2026-07-12 from the write-echo spike,
+`build/write-echo/NOW.md`; criterion pre-registered 2026-07-11 BEFORE any
+data and not adjusted after; awaiting Sid's countersign)
+
+**Measured fact.** Direct write→read-back against the CURRENT microbatch
+text-kernel, on the in-process IPC substrate Softland actually runs, FAILS
+the pre-registered criterion (p95 ≤ 50ms AND ≤1 stall >100ms per sustained
+minute) decisively: echo p95 307–394ms, EVERY event a stall (720/720 at
+12/s; 180/180 at 3/s), p50 floor ~210ms = the microbatch iteration cadence —
+payload- and load-independent. Leg decomposition: depot append-ack ~5ms p50
+(cheap, durable); materialization ~210ms (the whole problem); leg-3
+stream-back strictly additive → verdict robust even at leg3 = 0. Root cause
+is the topology CLASS (microbatch buys exactly-once atomicity, not latency);
+Rama's own guidance routes single-digit-ms + write-then-read-back — the
+editor's two needs — to STREAM topologies.
+
+**Rulings (Sid's countersign flips these CLOSED):**
+1. **Direct-on-microbatch is closed as the editor/block-write transport.**
+   No tuning-rescue rounds; a production-cluster re-measure happens only if
+   someone wants to rescue microbatch against Rama's own guidance.
+2. **Sid's default stands: no optimistic text echo by default.** The
+   fallback ladder is NOT engaged — the direct PRINCIPLE was not falsified,
+   the transport was. Next lawful step: **write-echo-2**, the SAME criterion
+   unchanged, aimed at a STREAM-topology probe (append-ack ~5ms already fits
+   budget; open question = stream materialization + leg-3). Prompt:
+   `docs/sessions/write-echo-2-opening-prompt-2026-07-12.md`.
+3. **Pre-registered next fallback, fixed before write-echo-2's data:** if
+   stream ALSO fails, a local caret affordance alone cannot rescue ~200ms
+   TEXT echo (characters a fifth of a second late are broken regardless of
+   caret) — the remaining route would be optimistic-with-reconciliation,
+   which contradicts Sid's stated default and therefore returns to him as
+   its own explicit ruling with this evidence chain attached. Not
+   pre-approved here.
+4. **The block-write contract is GATED on write-echo-2's verdict** and must
+   not assume a transport meanwhile.
+5. **Memory correction recorded:** the 2026-03 "7.5ms" figure was the
+   optimistic ONE-WAY write, not round-trip echo (spike session corrected
+   the memory file); it must never be cited as direct-write feasibility
+   evidence.
+
+---
+
 ## Open questions queued for ruling
 - Fable-window queue (per D-006): ~~gate review of relation-kernel
   implementation~~ (done 2026-07-03, PASS) → trail-view data contract →
