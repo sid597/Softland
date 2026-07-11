@@ -27,8 +27,11 @@
      it is neither a kernel edit nor a new index — so it stays inside G12 and the
      stop-clause is not triggered. Verified empirically monotone-nondecreasing across a
      real river page ⇒ `:until-ms` cuts are prefix-consistent (G11)."
-  (:require [app.server.rama.object-container.runtime :as ocr]
-            [app.server.rama.object-container.block-distiller :as bd]))
+  (:require [app.server.rama.object-container :as oc]
+            [app.server.rama.object-container.runtime :as ocr]
+            [app.server.rama.object-container.block-distiller :as bd]
+            [app.server.rama.object-container.assembly-adapter :as assembly-adapter]
+            [app.server.rama.face-arsenal :as face-arsenal]))
 
 ;; ===========================================================================
 ;; Limits — the projection serves ONE bounded page (block-kernel v0 discipline).
@@ -122,10 +125,19 @@
    is the TRUE durable river-event count (247 on the 7c80ce2a corpus), never the page
    size; debris is excluded BY DESIGN (the projection serves river) and is reported as
    excluded, never dropped silently."
-  [{:keys [blocks read-plan address limit until-ms rendered-at-ms]}]
+  [{:keys [blocks read-plan address limit until-ms focus-turn rendered-at-ms]}]
   (let [turns   (-> blocks blocks->turns (apply-until-ms until-ms))
-        n-blocks (reduce + 0 (map (comp count :blocks) turns))]
+        n-blocks (reduce + 0 (map (comp count :blocks) turns))
+        ;; W2-INT (G25; D-010 revert-cheap): the reader-pane data contract —
+        ;; :params {:focus-turn <order>} picks the focused turn, default =
+        ;; the FIRST served turn (reading order; deterministic under paging).
+        ;; Additive key; faces without a reader ignore it. Focus CONTROL
+        ;; (click/scroll-linked) is :actions-era — only the data serve lands.
+        reader   (or (when focus-turn
+                       (first (filter #(= focus-turn (:order %)) turns)))
+                     (first turns))]
     {:turns turns
+     :reader-turn reader
      :conversation/address            address
      :conversation/limit              limit
      :conversation/until-ms           until-ms
@@ -187,7 +199,108 @@
                              :address        address
                              :limit          limit
                              :until-ms       until-ms
+                             :focus-turn     (:focus-turn params)
                              :rendered-at-ms (System/currentTimeMillis)})))))
+
+;; ===========================================================================
+;; W2 arsenal projections (CONTRACT §16; gates G20/G21). READ-ONLY + TOTAL:
+;; reads go ONLY through named OC query APIs (read-current-revision) + the
+;; arsenal's OWN named read fns (read-face / list-faces / read-wear-count) —
+;; no PState paths here (trap T15: no write can reach serve; G21's law).
+;;
+;; Routing note (worked at lane W2-D): the asm:<name> object-key carries a
+;; colon, so `read-source`/`read-latest-source-by-ref` MISROUTE for assembly
+;; objects (leading-object-key truncates at "asm"). The routing-correct
+;; existing API carrying the same bytes is `read-current-revision` over the
+;; document container `oc:doc:asm:<name>` (extract-object-key's full-remainder
+;; oc:doc: branch; the revision hop is task-local) — the wear-time source read.
+;; ===========================================================================
+
+(defn assembly-projection
+  "Wear-time source serve (§16): face NAME → OC source → verdict. The
+   object-key derives from the NAME deterministically (§17), so a face present
+   in OC but missing from the arsenal index is STILL servable — the index gap
+   is named in the data (:assembly/indexed? false), never invented around
+   (G20/T17 honest degradation). The verdict is recomputed with the SAME .cljc
+   compiler + registry the client wears and the adapter used at ingest (trap
+   T18: one compiler, verdicts equal by construction). Total: any read failure
+   or absent face yields an error-shaped data-context, never a throw."
+  [{:keys [oc-rt arsenal-rt]} {:keys [address] :as request}]
+  (let [face-name (some-> address str)
+        now (System/currentTimeMillis)]
+    (if (or (nil? face-name) (not (assembly-adapter/valid-assembly-name? face-name)))
+      {:assembly/name face-name
+       :assembly/found? false
+       :assembly/valid? false
+       :assembly/errors [{:type :assembly/bad-name :value address}]
+       :face/rendered-at-ms now}
+      (let [object-key (assembly-adapter/assembly-object-key face-name)
+            document-id (oc/document-id-for-object-key object-key)
+            row (when arsenal-rt
+                  (try (face-arsenal/read-face arsenal-rt face-name)
+                       (catch Throwable _ nil)))
+            revision (when oc-rt
+                       (try (ocr/read-current-revision oc-rt document-id)
+                            (catch Throwable _ nil)))]
+        (if (nil? revision)
+          {:assembly/name face-name
+           :assembly/object-key object-key
+           :assembly/found? false
+           :assembly/valid? false
+           :assembly/errors [{:type :assembly/not-found :object-key object-key}]
+           ;; T17's gap window named in the data, both directions honest:
+           ;; indexed-but-unreadable and unindexed-and-absent look different.
+           :assembly/indexed? (some? row)
+           :face/rendered-at-ms now}
+          (let [source (:content-text revision)
+                verdict (assembly-adapter/validate-assembly-source source)]
+            {:assembly/name face-name
+             :assembly/object-key object-key
+             :assembly/found? true
+             :assembly/source source
+             :assembly/valid? (:valid? verdict)
+             :assembly/errors (:errors verdict)
+             :assembly/status (:status row)
+             :assembly/indexed? (some? row)
+             :assembly/source-hash (:content-hash revision)
+             :assembly/revised-at-ms (:created-at-ms revision)
+             :face/rendered-at-ms now}))))))
+
+(defn face-list-projection
+  "The arsenal roster (§16): names + status + wear counts + last-worn — read
+   from RAMA, never the faces directory (trap T14: a file whose import failed
+   must not list as wearable; :valid? carries that honestly). Total: a missing/
+   corrupt arsenal yields an error-shaped data-context with an empty list,
+   never a throw."
+  [{:keys [arsenal-rt]} _request]
+  (let [now (System/currentTimeMillis)]
+    (if (nil? arsenal-rt)
+      {:faces []
+       :face-list/count 0
+       :face-list/error :arsenal-unavailable
+       :face/rendered-at-ms now}
+      (try
+        (let [rows (face-arsenal/list-faces arsenal-rt)
+              faces (mapv (fn [row]
+                            (let [cnt (try (face-arsenal/read-wear-count
+                                            arsenal-rt (:face-name row))
+                                           (catch Throwable _ nil))]
+                              {:name (:face-name row)
+                               :status (:status row)
+                               :valid? (:valid? row)
+                               :object-key (:object-key row)
+                               :wear-count (long (or (:wear-count cnt) 0))
+                               :last-worn-ms (:last-worn-ms cnt)}))
+                          rows)]
+          {:faces faces
+           :face-list/count (count faces)
+           :face/rendered-at-ms now})
+        (catch Throwable t
+          (println "[FACE] face-list read failed:" (.getMessage t))
+          {:faces []
+           :face-list/count 0
+           :face-list/error :arsenal-read-failed
+           :face/rendered-at-ms now})))))
 
 ;; ===========================================================================
 ;; The projection registry + server-side face dispatch (trap T8).
@@ -195,19 +308,46 @@
 
 (def projection-registry
   "Plain value: {<projection-kw> → (fn [ctx request] → data-context)}. Wave 1
-   registers ONE projection. Extensible by adding an entry — never by an Electric
-   `case`. Persisted form (Wave 2, schema §8) is keyword + code address, never fn
-   values (trap T5)."
-  {:conversation conversation-projection})
+   registered ONE projection; W2 adds the two arsenal reads (:assembly wear-time
+   source serve + :face-list roster). Extensible by adding an entry — never by an
+   Electric `case`. Persisted form (Wave 2, schema §8) is keyword + code address,
+   never fn values (trap T5)."
+  {:conversation conversation-projection
+   :assembly     assembly-projection
+   :face-list    face-list-projection})
 
 (def face->projection-kind
-  "Server-side face → projection map (v0). Dispatch lives here, NOT in Electric
-   (trap T8). New faces add an entry; the Electric surface never changes. Identity
-   fallback: a request whose :face already names a registered projection routes
-   straight through (so the client may address a projection by name)."
+  "Server-side face → projection map (v0 static entries). Dispatch lives here,
+   NOT in Electric (trap T8). W2 (G26 fix, 2026-07-11): faces are no longer
+   added HERE — a face registered in the arsenal roster routes to
+   :conversation by default (resolve-projection-kind below); this map keeps
+   only the W1 static names + direct projection addressing. A per-face
+   `:assembly/projection` envelope field is the pre-named extension when a
+   face first needs a non-conversation data context."
   {:outline      :conversation
    "outline-face" :conversation
    :conversation :conversation})
+
+(defn resolve-projection-kind
+  "Face → projection kind, W2 resolution order (G26 fix — the live wearing
+   found /face boxes-face serving :unknown-projection because dispatch only
+   knew the W1 static names):
+   1. the static map;
+   2. a face registered in the arsenal roster → :conversation (the roster IS
+      the face registry; T14 — Rama decides, never the faces directory);
+   3. the face itself (direct projection addressing: :assembly, :face-list);
+   an unregistered, unknown face resolves to itself and misses the registry →
+   the honest :unknown-projection error (never a default-to-conversation for
+   names the land has never seen)."
+  [ctx face]
+  (or (get face->projection-kind face)
+      (when-let [arsenal (:arsenal-rt ctx)]
+        (try
+          (let [face-name (if (keyword? face) (name face) (str face))]
+            (when (some? (face-arsenal/read-face arsenal face-name))
+              :conversation))
+          (catch Throwable _ nil)))
+      face))
 
 (defn error-data-context
   "Honest projection-side error (mirrors §4 error-card totality on the render side):
@@ -232,7 +372,7 @@
   ([ctx request] (serve projection-registry ctx request))
   ([registry ctx request]
    (let [face (:face request)
-         pkw  (get face->projection-kind face face)
+         pkw  (resolve-projection-kind ctx face)
          pfn  (get registry pkw)]
      (if pfn
        ;; totality is load-bearing (L13: no `try` upstream in the render

@@ -31,7 +31,7 @@
            !sidebar-pool !editor-pool !editor-shadow-pool !sidebar-shadow-pool
            !trail-face-state !trail-face-scene !trail-text !trail-feed !trail-bundles
            !trail-coverage
-           !face-state !face-context !face-compiled !face-scene]
+           !face-state !face-context !face-compiled !face-scene !face-list]
     :as atoms}
    {:keys [layout-x layout-y gutter-w]}
    {:keys [device ctx geometry]}
@@ -60,7 +60,7 @@
           !settings !active-font !viewport
           <fold-data <bracket-data
           !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
-          !sidebar-truth !sidebar-overlay !sidebar-ui !sidebar-visible !current-file !effective-local-world !sidebar-scene !extract-preview !agent-output
+          !sidebar-truth !sidebar-overlay !sidebar-ui !sidebar-visible !current-file !effective-local-world !sidebar-scene !extract-preview !agent-output !face-list
           !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !run-scroll-y !detail-scroll-y
           !trail-face-state !trail-face-scene !trail-text !trail-feed !trail-bundles !trail-coverage
           !face-state !face-context !face-compiled !face-scene

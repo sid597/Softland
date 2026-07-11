@@ -401,11 +401,32 @@
           id* (if (contains? props :id)
                 (conj (if (seq id) (pop id) id) (:id props))
                 id)
+          ;; W2 lane-E named interpreter extension (CONTRACT §16 fenced edit;
+          ;; W1-INT Lack 2 "child content-w narrowing"): a prim node's resolved
+          ;; props may carry :child-w (absolute px) or :child-inset (px
+          ;; subtracted from the current content-w) — the node's SUBTREE builds
+          ;; against the narrowed geom, so nested frames/panes wrap prose at
+          ;; their own width instead of the full pane (the W1 worn-face
+          ;; symptom, mitigated then by a global 32px inset). Numbers only —
+          ;; the arithmetic lives HERE in the engine, never in the assembly
+          ;; (§4 guard); follows the §5 `:props {:id ..}` precedent of
+          ;; interpreter-read props. The node ITSELF builds at the parent's
+          ;; width (its own w comes from the un-narrowed ctx below).
+          ctx-kids (let [g  (:geom ctx-base)
+                         cw (or (:content-w g) (:viewport-w g) 300)]
+                     (cond
+                       (number? (:child-w props))
+                       (assoc-in ctx-base [:geom :content-w]
+                                 (max 1 (:child-w props)))
+                       (number? (:child-inset props))
+                       (assoc-in ctx-base [:geom :content-w]
+                                 (max 1 (- cw (:child-inset props))))
+                       :else ctx-base))
           {:keys [nodes report]}
           (reduce
            (fn [acc cplan]
              (let [child-base (conj id* (:seg cplan))
-                   r          (expand-slot cplan data ctx-base child-base)]
+                   r          (expand-slot cplan data ctx-kids child-base)]
                {:nodes  (into (:nodes acc) (:nodes r))
                 :report (merge-reports (:report acc) (:report r))}))
            {:nodes [] :report zero-report}

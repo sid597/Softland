@@ -86,9 +86,12 @@
       (let [r (fp/serve stub ctx {:face :nope})]
         (is (= :unknown-projection (:conversation/error r)) "unknown face → error data-context")
         (is (= [] (:turns r)) "error context is a valid renderable shape (no throw)"))))
-  (testing "the real registry exposes exactly the :conversation projection as a plain fn"
+  (testing "the real registry exposes exactly the three registered projections as plain fns
+            (W2 CONTRACT §16 superseded the W1 [:conversation] pin — amended at W2-INT)"
     (is (fn? (:conversation fp/projection-registry)))
-    (is (= [:conversation] (keys fp/projection-registry)))))
+    (is (fn? (:assembly fp/projection-registry)))
+    (is (fn? (:face-list fp/projection-registry)))
+    (is (= #{:conversation :assembly :face-list} (set (keys fp/projection-registry))))))
 
 ;; ===========================================================================
 ;; G12 (review-time, mechanical) — READ-ONLY by construction.

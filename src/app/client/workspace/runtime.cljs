@@ -26,7 +26,9 @@
   [node device ctx geometry initial-line-lengths initial-lines
    tokenize-fn layout-fn find-bracket-fn detect-folds-fn
    find-form-fn eval-form-fn font-assets & {:keys [font-manifest gpu-budget !sidebar-visible !file-load-request !preview-el !remote-sidebar-truth !remote-settings-truth !remote-agent-trail !remote-flow-session !remote-workspace-truth initial-file
-                                                   !trail-request !trail-data !face-request !face-data !ingest-epoch-remote]}]
+                                                   !trail-request !trail-data !face-request !face-data !ingest-epoch-remote
+                                                   !assembly-request !assembly-data !face-list-request !face-list-data
+                                                   !face-wear-outbox !face-wear-result]}]
 
   (let [;; Phase 2: Build the rt context map
         rt (state/make-runtime-state
@@ -60,6 +62,12 @@
         _ (face-wiring/install-face-wiring!
             atoms {:!face-request !face-request
                    :!face-data !face-data
+                   :!assembly-request !assembly-request
+                   :!assembly-data !assembly-data
+                   :!face-list-request !face-list-request
+                   :!face-list-data !face-list-data
+                   :!face-wear-outbox !face-wear-outbox
+                   :!face-wear-result !face-wear-result
                    :!ingest-epoch-remote !ingest-epoch-remote})
 
         ;; dev observability: the runtime atoms map on window, read-only use

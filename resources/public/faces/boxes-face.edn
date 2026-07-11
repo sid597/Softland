@@ -1,0 +1,79 @@
+;; The Boxes face — design-round candidate 1e, PICKED by Sid 2026-07-11
+;; (framework W2 lane E, CONTRACT §16/§19 G22-G23). Transcribed from
+;; BlockExplorer.dc.html (build/framework/design-round/) mode 'boxes':
+;; "containment made literal — turn ⊃ user-message | response ⊃ blocks,
+;; russian-doll frames with headers; long blocks clip at ~6 lines."
+;; STRUCTURE transcription, not pixel port: frames = :box (:277/:319),
+;; headers = :header-band (:278-283/:320-329), clip = :text-clip
+;; (:333-338 + the ▸ stub :488), page-end honesty = the frame page's
+;; "every view ends with an explicit 'page 2 not loaded' answer".
+;; Pure EDN arrangement (grammar v0): no lists, no symbols (§4 guard).
+;; Bind paths = the §7 :conversation data contract. NAMED LACKS (G23,
+;; logged in W2-E-plurality.md, never improvised around): the design's
+;; turn ⊃ user|response PAIR layer (v0 turns are single-speaker — the
+;; russian doll is 3 layers here, not 4); event ranges; expand/collapse +
+;; click-to-pin verbs (:actions-class, v0-out); toolish dimming classes.
+;; :child-inset/:child-w = the W1-INT Lack-2 interpreter extension (numbers
+;; only; the engine does the narrowing arithmetic).
+;; NO :assembly/birthed-by: the design-round conversation is NOT in the OC —
+;; a fake edge would make the map lie (named provenance lack).
+{:assembly/name    "boxes-face"
+ :assembly/grammar 0
+ :assembly/belief  "containment made literal — every block lives visibly inside its turn's frame"
+ :assembly/status  :candidate
+ :assembly/author  "claude:w2-lane-e"
+ :root
+ {:prim :stack
+  :props {:gap 16 :padding [14 18 50 18] :child-inset 36}
+  :children
+  [{:each [:turns]
+    :template
+    ;; the turn frame — BlockExplorer.dc.html:277 (border #2c3947, radius 10,
+    ;; bg #12171d, 16px rhythm between frames)
+    {:prim :box
+     :props {:radius 10 :border-width 1
+             :border-color [0.173 0.224 0.278 1.0]
+             :bg [0.071 0.090 0.114 1.0]
+             :padding [1 1 1 1] :child-inset 2}
+     :children
+     [;; the turn header band — :278-283 (TURN n · … · N blocks)
+      {:prim :header-band
+       :props {:h 26 :label-prefix "turn " :label {:bind [:order]}
+               :sub {:bind [:speaker]}
+               :count-of {:bind [:blocks]} :count-suffix " blocks"
+               :label-color [0.890 0.925 0.957 1.0]
+               :bg [0.102 0.133 0.173 1.0] :border-bottom? true}}
+      ;; the inner well — :284 (padding 11 12 12)
+      {:prim :box
+       :props {:padding [11 12 12 12] :gap 8 :child-inset 24}
+       :children
+       [{:each [:blocks]
+         :template
+         ;; the block card — :319 (border #26303c, radius 6, bg #161c24)
+         {:prim :box
+          :props {:radius 6 :border-width 1
+                  :border-color [0.149 0.188 0.235 1.0]
+                  :bg [0.086 0.110 0.141 1.0]
+                  :padding [1 1 1 1] :child-inset 2}
+          :children
+          [;; block-card header — :320-329 (kind-colored dot + label, meta chip)
+           {:prim :header-band
+            :props {:h 20 :label {:bind [:kind]} :kind {:bind [:kind]}
+                    :words-of {:bind [:text]}
+                    :border-bottom? true}}
+           ;; the clip rule — intent "long blocks clip at ~6 lines"; :333-338
+           {:prim :text-clip
+            :props {:value {:bind [:text]} :max-lines 6
+                    :padding [6 9 8 9]
+                    :color [0.776 0.820 0.863 1.0]}}]}}]}]}}
+   ;; page-end honesty — frame page verbatim: "every view ends with an
+   ;; explicit 'page 2 not loaded' answer" (:347's dashed TURN 31+ box;
+   ;; dashed border is a cosmetic lack — solid muted frame here)
+   {:prim :box
+    :props {:radius 10 :border-width 1
+            :border-color [0.173 0.224 0.278 1.0]
+            :padding [14 14 14 14]}
+    :children
+    [{:prim :text-run
+      :props {:value {:bind [:conversation/paging-lack]}
+              :color [0.290 0.345 0.400 1.0]}}]}]}}
