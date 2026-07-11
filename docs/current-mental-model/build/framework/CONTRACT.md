@@ -1,11 +1,14 @@
 # Framework Contract — faces as assemblies (grammar v0 · interpreter · vocabulary · artery)
 
-Status: **v1.1 (Fable, 2026-07-11).** Realizes ROAD.md v2 **Steps 1–2 plus the
-Step-4 kernel-object schema (§8)** — not the whole road. Direction source:
-`ROAD.md` (v2, commit `2048472`); this contract is the binding form. Every
-source claim herein re-verified at file:line by the authoring session.
-Binding order: `decisions.md` › this contract › derived artifacts (ROAD is
-direction-grade input, not binding).
+Status: **v2 (Fable, 2026-07-11).** v1/v1.1 realize ROAD.md v2 **Steps 1–2
+plus the Step-4 kernel-object schema (§8)**; **v2 adds §§16–21 — the Wave 2
+phase (ROAD Steps 3–4)** on Sid's W2 dispatch word (2026-07-11, same day as
+the W1 close). W1 sections are untouched except one dated carve-out note in
+§8 (D-010 in-place reach). Direction source: `ROAD.md` (v2, commit
+`2048472`); this contract is the binding form. Every source claim herein
+re-verified at file:line by the authoring session. Binding order:
+`decisions.md` › this contract › derived artifacts (ROAD is direction-grade
+input, not binding).
 
 **v1.1 (same day): PROBE reconciliation.** v1 was authored before PROBE.md
 landed, with §10 slots + defaults. The probe's numbers resolved every slot ON
@@ -361,7 +364,13 @@ provenance shapes from birth, and Wave 2 realizes it without rework.
   object-container ontology** — the authored `.edn` lands as a source (the
   markdown-ingest sibling watcher, ROAD Step 4), the validated assembly form
   is its derived material. NO new row types, NO new module (trap T11; the
-  block-kernel §2 "two truths drift" ruling stands).
+  block-kernel §2 "two truths drift" ruling stands). *Carve-out, dated
+  2026-07-11 at W2 authoring (D-010 reach): the one-liner's scope is assembly
+  MATERIAL — assemblies, their revisions, their lineage live ONLY in OC + the
+  relation kernel. The W2 wearing log + face-name index are usage events and
+  pointers, not assembly material; they live in the `face-arsenal`
+  micro-kernel (§16), which is barred by gate G20 from ever holding assembly
+  content.*
 - **Fields:** name (Sid's handle) · belief line · `:assembly/grammar` version
   · **status ∈ #{candidate, worn, retired}** — a REVISABLE judgment riding
   OC revision/supersedes chains, never destructive edit · provenance
@@ -673,3 +682,284 @@ probably indefinitely). The test's scope is deliberately the middle regime's
 ceiling — it proves the loop (design conversation → land object → daily use)
 closes; Regime-2-for-code would need this test passed AND a used form
 breaking against the code lane's hot-reload speed.
+
+---
+
+# Wave 2 (v2, 2026-07-11) — the plurality + the arsenal (ROAD Steps 3–4; §8 realized)
+
+## 16 · W2 scope, placement, reversal
+
+**Scope.** Two lanes + integration: (D) the **arsenal** — assemblies as
+kernel objects per §8 (watcher, `imp:asm:`, lineage, status), the wearing
+log, the face index, the two read projections; (E) the **plurality** — two
+design-round faces transcribed as assemblies, missing primitives minted by
+gap-fill. W2-INT wires the client arsenal (face list, wear-from-Rama,
+wear-event write, the live flip + the save→re-render loop) and runs the
+wave's ONE end-gate. §8 is the spec floor; nothing in it is re-decided here.
+
+**Design-round correction (facts verified this session).** The real
+candidates are the SIX modes of `BlockExplorer.dc.html` in the claude.ai
+design project `4f144e22…` (`Block Views.dc.html` is the frame page):
+**1a Outline** (worn, W1) · **1b Canvas** · **1c Tree** · **1d Score** ·
+**1e Boxes** · **1f Minimap + Reader** — plus `Reading Room.dc.html`
+(project `1d15ae7c…`), a separate single design. ROAD's "Margin → Arcs"
+names were the converge session's working names and match no artifact —
+recorded here; ROAD is direction-grade and is not edited. Lane E transcribes
+the TWO candidates Sid picks (his by-feel call; primitive-cheapness advises
+the order, never overrides him). The design files are pulled via DesignSync
+by the ORCHESTRATING session only (subagents have no DesignSync access —
+probed 2026-07-11) and land under
+`docs/current-mental-model/build/framework/design-round/` as the lane's
+committed input.
+
+**New namespaces (new files only, except the fenced edits below):**
+
+| What | Where | Why here |
+|---|---|---|
+| Assembly source adapter | `src/app/server/rama/object_container/assembly_adapter.clj` | Sibling of `markdown_adapter.clj` (:443-517 is the template): materialization → `imp:asm:` key → action-request envelope, family `:assembly` |
+| The face-arsenal micro-kernel | `src/app/server/rama/face_arsenal.clj` | Intent-only kernel per the KERNEL-SHAPE taxonomy (`kernel.clj`; text/space are the precedents): ONE depot (wear events + face-registered events), PStates `$$wear-events-by-face` (append-only), `$$wear-counts-by-face`, `$$faces-by-name` (pointer index). Usage events + pointers ONLY — never assembly material (§8 carve-out; G20 enforces) |
+| The two transcribed faces | `resources/public/faces/<name>.edn` | The authoring home the W1 wearing already uses; the watcher root |
+| Tests | `test/app/face_arsenal_test.clj` · `test/app/face_transcription_test.clj` | JVM suite; arsenal tests are IPC (lane D boots `/rama` + `/rama-pitfalls` first) |
+
+**Fenced edits (each named, additive, single-owner):**
+
+- `ingest_watchers.clj` — lane D sole owner. `start-ingest-watchers!` +
+  `initial-sweep!` gain an optional `:classify-fn` (default = the current
+  `classify`, `:49-56` — zero behavior change for existing callers); a new
+  `import-assembly!` drives the adapter through the SAME seam
+  (`append-object-container-request!` → `await-object-container-decision`,
+  `:65-76`); on the accepted decision `run-import!` keeps its epoch-bump
+  (`:113`) and additionally appends the face-registered event to the arsenal
+  depot (trap T17). The assembly branch fires ONLY via the faces watcher's
+  own classify-fn — never bare `.edn` extension over shared roots (trap T19:
+  `docs/`/`vision/` roots contain non-assembly `.edn`; `deps.edn` must never
+  ingest as a face).
+- `object_container.clj` — **ONE additive `imp:asm:` branch in
+  `extract-object-key` (:289-306), mirroring `imp:md:`/`imp:clj:`.** This is
+  the wave's ONLY kernel edit, pre-authorized by §8's named-deliverable
+  clause; it ships WITH the foreign-read routing gate (G18) in the same lane
+  (the twice-fired latent class: code-atom G-F2, block-kernel F2).
+- `face_projection.clj` — lane D owner this wave. Registry gains
+  `:assembly` (wear-time source serve) and `:face-list`; the §7 law is
+  unchanged (server-side dispatch; `serve` total; read-only — arsenal reads
+  are PState reads via the arsenal's OWN read fns, named in G21).
+- `face_primitives.cljc` — lane E owner this wave (gap-fill prims only;
+  G7-pinned copies untouched).
+- `face_assembly.cljc` — READ-ONLY unless a transcription hits the ONE named
+  interpreter extension (child `content-w` narrowing, W1-INT Lack 2); if
+  taken, lane E owns the edit and G22 gains its regression.
+- Client + shared runtime files (`file_viewer.cljc`, `electric_flow.cljc`,
+  `face_wiring.cljs`, `sidebar.cljs`, `runtime/*`, `editor_compute.cljs`,
+  `combined_text.cljs`, `agent_flow.cljs`) — W2-INT only (orchestrating
+  session), same as W1.
+
+**The arsenal placement ruling.** OC has NO by-family enumeration — every
+PState is keyed by id/ref (`object_container.clj:1710-1768`) — so "the
+sidebar lists faces" cannot be an OC read; and reading the faces DIRECTORY
+for the list would violate the back-arrow (UI reads Rama). The index +
+wearing log therefore live in one new intent-only micro-kernel. Why not the
+alternatives: relation kernel (wearing is an event, not a stance; kinds are
+a closed enum, D-004); space kernel (its domain is chat-spaces, not
+workspace usage; editing a live dogfood kernel for a foreign domain);
+OC (the forbidden row-type/edit class, §8). Precedent for a domain getting
+its own module: D-004's relation kernel.
+
+**Durability ruling (honest, same class as W1 first-light).** The dev
+arsenal + OC runtimes are in-memory IPC — durable within one JVM lifetime.
+Boot convergence: faces re-enter via the watcher's `initial-sweep!`
+(deterministic ids + idempotency journals — byte-identical re-import replays
+the accepted decision); wear events get the `/assert` treatment
+(`git_spine.clj:47-55, :582-655` is the verbatim precedent): every accepted
+wear appends one line to `data/face-wear-log.ednl` (write-ahead), and boot
+replays the log into the arsenal depot idempotently (wear-id journal). The
+wearing log is the desire-path instrument — losing it at reboot would
+defeat it; the WAL is the cheapest honest fix.
+
+**The wear write path ruling.** `RecordFaceWear` is the codebase's FIRST
+write e/defn (`file_viewer.cljc` today has only reads/watches, `:102-214`).
+Shape: client mints the wear-id at the outbox (ids before append — the Rama
+event-boundary law) into ONE `!face-wear-outbox` atom; the electric_flow
+loop watches it and calls `(e/server (face-arsenal/record-wear! …))`; the
+server stamps `worn-at-ms` (honest server clock, never the client's),
+appends depot + WAL line, acks; the ack clears the outbox. It must NOT ride
+`FacePull` (trap T15: the read artery stays read-only — G12's law; and a
+serve is a re-pull, not a wear — epoch re-pulls would inflate the log).
+
+**Reversal cost.** Lane D: delete two new namespaces + revert three additive
+diffs (watcher classify-fn, one `extract-object-key` branch, two projection
+registry entries). Lane E: delete `.edn` files + new primitive fns. INT:
+delete the client diff. Nothing rewrites existing behavior; under D-010
+everything here is revert-cheap. The `imp:asm:` branch is the one kernel
+edit and is additive-only.
+
+## 17 · W2 schema deltas — envelope provenance, zero grammar change
+
+The node grammar (§4) is UNTOUCHED — guard included. The ENVELOPE gains
+optional namespaced fields (V1 already tolerates + preserves unknown
+namespaced envelope keys, so W1 interpreters render W2 files unchanged):
+
+- `:assembly/status` ∈ `#{:candidate :worn :retired}` — default `:candidate`.
+  Status is Sid's assertion, revised by editing the file (each save = an OC
+  revision riding the existing chain); wear COUNTS never auto-flip it.
+- `:assembly/birthed-by <conversation object-key|address>` → the adapter
+  asserts a `produced` edge (conversation → face) on accepted import.
+- `:assembly/based-on <face-name|object-key>` → `based-on` edge;
+  `:assembly/supersedes <face-name|object-key>` → `supersedes` edge.
+- `:assembly/author <actor-id>` — edge `asserted-by` uses this actor when
+  present, else the system watcher actor. Human-authored vs machine-proposed
+  stays visibly distinct (§8; A2 writers arrive at Step 7B, not this wave).
+
+Edge mechanics: `append-relation-request!` (`relation_kernel.clj:925`) with
+idempotency key derived from `(face object-key, kind, target, import-key)` —
+re-imports never duplicate edges (the git-spine `rk/assert-request`
+discipline, `git_spine.clj:224`). **Existing D-004 kinds only** — a
+transcription or wearing need that wants a new kind (e.g. `pairs-with`) is a
+stop-clause escalation, never an enum edit.
+
+**Identity.** The assembly object-key is `asm:<assembly-name>` —
+deterministic on the NAME (Sid's handle, the thing `/face` wears), never the
+file path (files move; names are worn). Consequence, recorded: renaming a
+face in its file mints a NEW object (a fork — link it with `based-on`/
+`new-direction` edges by envelope, not magic). Import key:
+`imp:asm:<object-key>:<sha-256(source-ref-key:source-hash)>` — the
+`markdown-import-key` shape verbatim (`markdown_adapter.clj:443-445`).
+
+**Validation at ingest.** The adapter validates the parsed form with the
+SAME `.cljc` compiler the client wears (`face-assembly/compile-assembly`
+against the real `face-primitives/registry` — one compiler, two call sites,
+verdicts equal by construction; trap T18). A malformed or invalid `.edn`
+STILL ingests as source (the block-kernel R1 parse-error discipline: raw
+surface always lands); its derived material carries
+`{:assembly/valid? false :assembly/errors [...]}` honestly. The registry the
+server loads and the registry the client loads are the same namespace —
+divergence is impossible while both exist (G7 pins the copies inside it).
+
+## 18 · Traps ledger — W2 additions
+
+| # | Naive choice | Concrete failure | Ruling |
+|---|---|---|---|
+| T14 | Face list read from the faces DIRECTORY (fs) | The map lies: a file whose import failed lists as wearable; back-arrow broken (UI must read Rama) | §16: `$$faces-by-name` in the arsenal kernel; the projection reads Rama only |
+| T15 | Wear recording fused into `FacePull`/serve | The read artery gains a write (G12 class); INV-19 epoch re-pulls count as wears — the desire-path instrument inflates and lies | §16: separate outbox atom + `RecordFaceWear` write e/defn; serve stays pure read |
+| T16 | Arsenal index holds assembly content | Second truth; drift between index copy and OC material (the T11 death by another door) | §16/§8 carve-out: index rows are POINTERS (name → object-key + status + import-key provenance), refreshed on every accepted import; G20 asserts no material field |
+| T17 | Watcher dual-append (OC accept → arsenal register) treated as atomic | Arsenal append fails after OC accept → face wearable but unlisted, silently forever | §16: arsenal append idempotent by import-key; next change event / boot sweep converges; the gap window is honest degradation (face still wearable by name), asserted in G20 |
+| T18 | Server re-implements assembly validation | Server and client verdicts drift; a face the server calls valid error-cards on wear (or vice versa) | §17: ONE `.cljc` compiler + ONE registry namespace, called from both sides |
+| T19 | `.edn` classified by bare extension across ALL watcher roots | `deps.edn`, fixture `.edn`, config `.edn` under docs/vision roots ingest as faces — garbage objects, garbage index | §16: per-watcher `:classify-fn`; the assembly branch exists only in the faces watcher's classifier |
+
+## 19 · W2 acceptance gates
+
+Wave QC shape unchanged: gates green in-lane; ONE serial suite + ONE batched
+falsification-by-class + ONE Fable pass at wave end (G26).
+
+**Lane D — the arsenal**
+- **G17 watcher round-trip + receipt (ASSERTED, full-real-faces-dir):**
+  initial-sweep + live-save of the REAL faces dir → for EVERY `.edn` under
+  the faces root: exactly one accepted import (family `:assembly`), one
+  latest source version, one derived assembly material row
+  (`:assembly/valid?` honest per file), one `$$faces-by-name` entry; a
+  re-save of identical bytes replays convergently (no new revision); an
+  EDITED save produces exactly one new revision on the same object-key; a
+  malformed `.edn` ingests as source with `valid? false` + errors (R1
+  discipline); the ingest epoch bumps by exactly one per accepted import
+  (verb: every claim above names ingest/materialize/index — the receipt
+  asserts against durable state, never prints).
+- **G18 `imp:asm:` routing + foreign read:** `extract-object-key` routes
+  `imp:asm:` keys to the object-key partition; a FOREIGN
+  `read-import-completion` on an `imp:asm:` key returns the completion row
+  (the G-F2/F2 latent class, killed at birth).
+- **G19 lineage + provenance:** envelope `birthed-by`/`based-on`/
+  `supersedes` each assert exactly one edge of the EXISTING registered kind
+  with correct `asserted-by`; re-import duplicates nothing (idempotency
+  asserted); an envelope naming an unregistered kind is IMPOSSIBLE by
+  construction (adapter maps fields → kinds; no passthrough) — asserted by
+  test.
+- **G20 wearing log + index honesty:** wear append → `$$wear-events-by-face`
+  (append-only, server-stamped, ordered) + count materialized; duplicate
+  wear-id is a no-op (journal asserted); WAL line written per accepted wear;
+  boot replay of a copied WAL reproduces counts exactly; `$$faces-by-name`
+  rows contain NO assembly material field (T16, asserted on the row shape);
+  a face present in OC but missing from the index is still servable by
+  `:assembly` name→key fallback failure being HONEST (`:face-list` lack
+  signalled, T17's degradation named in the data, never invented).
+- **G21 projections read-only + total:** `:assembly` and `:face-list` read
+  ONLY named OC query APIs + the arsenal's named read fns; no PState paths
+  outside the arsenal's own module fns; `serve` remains total (corrupt/empty
+  arsenal → error data-context, never a throw); unit-tested as plain fns
+  (request in → data-context out).
+
+**Lane E — the plurality**
+- **G22 two faces compile + golden:** each transcribed face compiles CLEAN
+  against the real registry (V1–V7); golden rt-tree over the committed
+  projection-shaped fixture (regen = explicit diff-reviewed act);
+  apply-report honest (missing ids/binds counted, target zero); positive
+  `content-h`; every NEW primitive carries a measured golden (G8 discipline:
+  wraps once where prose, `:text-layout` NOWHERE, `resolve-layout` →
+  `tree->rects` non-zero non-overlapping bounds; the ONE
+  `fallback-char-width` constant — F10's law).
+- **G23 fidelity-to-design (structural honesty, not pixel port):** per face,
+  a NAMED anatomy checklist extracted from the design file (bands, panes,
+  rails, badges, collapse stubs, proportionality rules — each checklist item
+  cites the design source) asserted against the golden tree (presence +
+  relative geometry); every design element the vocabulary CANNOT express is
+  LOGGED as a named vocabulary/data lack (D-005 ordering), never silently
+  dropped or improvised around.
+
+**W2-INT — integration (orchestrating session)**
+- **G24 the arsenal live:** sidebar (normal mode) lists faces from Rama
+  (name + status + wear count — T14 honored); `/face <name>` wears FROM RAMA
+  (`:assembly` projection; the W1 HTTP fetch of `/faces/<name>.edn` is
+  RETIRED at INT — one wear path, no fallback ghost); recompile fires on
+  changed source VALUE (T13: string compare, never hash); the Step-7A loop
+  runs live: edit a face `.edn` (belief line), save → watcher import → epoch
+  push → re-pull → recompile → the worn pane re-renders, no re-wear command;
+  each `/face <name>` wear appends exactly one wear event (visible count
+  bump; scrub/epoch re-pulls append NOTHING — T15 asserted live).
+- **G25 the flip (Step-3 exit):** the same real `7c80ce2a` conversation worn
+  through THREE faces (Outline + the two new), flipped live by command;
+  screenshots per face land in the INT artifact; every lack the wearing
+  exposes is logged as ordered data/vocabulary work (D-005) — including
+  whether either new face NEEDS block-role/pair structure (that lack, if
+  real, is what ORDERS the machine-cut package — Step 5 timing rides this
+  evidence, per §20).
+- **G26 wave close:** full serial suite green + ONE batched
+  falsification-by-class (fresh subagents) + the Fable falsification pass
+  (CLAUDE.md protocol) + SLOT re-checks (apply cost on the heaviest new
+  face) + the G17 receipt re-run at committed HEAD (the close-protocol
+  HEAD rule). Code and docs in separate commits at close.
+
+## 20 · W2 non-goals (extension points, not voids)
+
+1. **No machine cut in W2** (ROAD Step 5): G25 records whether a transcribed
+   face NEEDS structure edges; that evidence orders the machine-cut package
+   (D-005) — it is not built here.
+2. **No live tailer** (ROAD Step 6): waits on its pre-registered form-break
+   (the 2026-07-06 gate-raised default).
+3. **No A2 machine-written assemblies** (Step 7B): the watcher gives Claude
+   Code the 7A path for free; the in-land worker path is its own package.
+4. **No paging work**: the ≤64-block first page + honest `:paging-lack`
+   stands (W1 Lack 1 is block-kernel §10 territory, D-001-gated).
+5. **No `:actions`**, no status-strip face rim (design-round material), no
+   `:sidebar-entry` re-expression (the G14b gap stays parked), no
+   harmonization rename (post-wave, unchanged).
+6. **No Reading Room transcription** unless Sid picks it as one of the two.
+
+## 21 · W2 handoff
+
+- **Lanes D + E run parallel** (fresh Opus 4.8 subagents, one phase per
+  fresh context; lane D boots `/rama` + `/rama-pitfalls` before code; lane E
+  reads the pulled design files from `build/framework/design-round/`).
+  Fences per §16 are disjoint by construction.
+- **W2-INT + G26** by the orchestrating session (Fable — the 2026-07-05
+  (e2) ruling), which also owns: the DesignSync pulls, all client/shared
+  files, commits, the board/NOW flips.
+- **Stop clauses** (escalate, never improvise): a transcription
+  inexpressible without logic (grammar change = amendment) · any new
+  relation kind or import-key family beyond `imp:asm:` · the arsenal unable
+  to meet G20 without holding material (T16 vs reality conflict) · any two
+  binding docs in genuine conflict · either design file unreadable/oversized
+  at pull time.
+- **NOT without Sid:** which two candidates lane E transcribes (his by-feel
+  pick) · D-011/D-012 countersign (still pending, §15) · `pairs-with` or any
+  kind addition · opening the machine-cut package · anything touching main.
+- **After G26 green:** close per `/work-package` (retro + adversarial
+  recheck + skill routing + board prune); the machine-cut and Step-6/7B
+  decisions ride the G25 evidence to Sid.
