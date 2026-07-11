@@ -72,18 +72,22 @@ on kinds).
   dispatch).** Typing-lag hot-path repair; causes pinned at file:line in the
   prompt. Paste `docs/sessions/editor-feel-opening-prompt-2026-07-11.md`,
   model Opus 4.8. Thread file: `build/editor-feel/NOW.md` (session creates).
-- **10 · write-echo — READY (prompt written 2026-07-11, awaiting Sid's
-  dispatch).** Direct-to-Rama echo spike with PRE-REGISTERED criterion (p95 ≤
-  50ms, ≤1 stall/min); decides block-write's route (direct vs optimistic —
-  Sid: direct unless infeasible). Paste
-  `docs/sessions/write-echo-opening-prompt-2026-07-11.md`, model Opus 4.8.
-  Verdict returns via Fable → decisions.md PROPOSED. Cluster analysis:
-  `build/editor-loop/ROAD.md` (write-path truth, echo budget, caret law,
-  grain, sequencing → block-write).
-- **11 · box3d-spike — READY (prompt written 2026-07-11, awaiting Sid's
-  dispatch).** Box3D v0.1.0 wasm build + determinism de-risk, out-of-repo.
-  Paste `docs/sessions/box3d-spike-opening-prompt-2026-07-11.md`, model
-  Opus 4.8. Gates islands rung 2.
+- **10 · write-echo — DONE (2026-07-11). Direct-write FAILS the pre-registered
+  criterion** (content 12/s echo p95 **307ms** vs ≤50, 720/720 stalls; 3/s p95
+  394ms/max 1007ms; status 12/s p95 313ms). Cause: text-kernel microbatch
+  materialization floor ~210ms p50 (leg2), payload/load-independent = iteration
+  cadence (leg1 append-ack ~5ms; leg3 additive → verdict robust even at leg3=0).
+  COMPOSED (leg3 characterized not E2E); IPC substrate = today's runtime; probe
+  UNCOMMITTED. Numbers+method+deviations: `build/write-echo/NOW.md` — the
+  empirical input to `build/editor-loop/ROAD.md`'s echo-budget/caret-law.
+  **Hand-off (NOT ruled here):** Fable drafts decisions.md PROPOSED (direct vs
+  stream topology vs pre-registered caret-affordance) → Sid countersign.
+- **11 · box3d-spike — DONE (2026-07-11): BUILDS + DETERMINISTIC.** Box3D
+  (MIT) builds native + single-threaded wasm (163 KB gzip); native↔wasm trace
+  **byte-identical** → sim = replayable trail. Writer seam proven from JS
+  (`b3World_GetBodyEvents`→HEAPF32; settle@957). Caveat: determinism verified
+  one host (x86-64), cross-hardware rests on upstream test. Findings:
+  `build/box3d-spike/REPORT.md`. → islands rung-2 **unblocked**.
 - **12 · Spatial cluster — NAMED, not dispatched (2026-07-11 direction
   session).** `container-transforms` (contract AFTER Sid wears Boxes/Minimap —
   dev app running) · `islands` CONTRACT (awaits islands-probe findings +
