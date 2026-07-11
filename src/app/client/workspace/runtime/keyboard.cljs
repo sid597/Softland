@@ -7,7 +7,7 @@
             [app.client.workspace.text-input :as text-input]
             [app.client.workspace.themes :as themes]
             [app.client.workspace.cmd-panel :refer [cmd-panel-apply-event]]
-            [app.client.workspace.editor-compute :refer [editor-apply-event]]
+            [app.client.workspace.editor-compute :refer [editor-apply-event doc-with-lengths]]
             [app.client.workspace.settings-view :refer [slider-specs font-defaults->settings]]
             [app.client.workspace.runtime.state :refer [save-undo!]]
             [app.client.workspace.runtime.sidebar-io :as sio]
@@ -108,10 +108,11 @@
                (when (seq lines)
                  (let [safe-line (min target-line (max 0 (dec (count lines))))]
                    (js/console.log "[FILE-LOAD] Loading file with" (count lines) "lines, target:" safe-line)
-                   (reset! !editor-doc {:lines (vec lines)
-                                        :cursor {:line safe-line :col 0}
-                                        :selection nil
-                                        :desired-col 0})
+                   (reset! !editor-doc (doc-with-lengths
+                                         {:lines (vec lines)
+                                          :cursor {:line safe-line :col 0}
+                                          :selection nil
+                                          :desired-col 0}))
                    (let [font-size (:font-size @!settings)
                          line-h (* font-size (:line-height @!settings))
                          target-y (* safe-line line-h)]
@@ -132,6 +133,18 @@
 ;; EDITOR KEYS
 ;; ─────────────────────────────────────────────────
 
+(defn- mirror-editor-doc!
+  "Fire-and-forget Phase-4B Rama mirror for the current file, when enabled.
+   No-op on the keystroke hot path unless sio/editor-rama-mirror? is on: the
+   mirrored doc is never read back (get-editor-doc has no callers; :save is a
+   browser Blob download), so nothing is lost while it's off. Kept as a
+   measurement capability — flip the flag to re-measure the committed-path
+   round-trip. Guarded here so the hot path skips even the deref + map alloc."
+  [!current-file lines]
+  (when sio/editor-rama-mirror?
+    (when-let [fp (:path @!current-file)]
+      (sio/save-editor-doc! fp {:lines lines}))))
+
 (defn editor-keys-consumer
   [{:keys [!editor-doc !caret-visible !clipboard !undo-stack !redo-stack
            !eval-result !scroll-y !viewport !settings !active-font !current-file]}
@@ -143,7 +156,10 @@
          (fn [_ event]
            (when event
              (let [doc @!editor-doc
-                   lengths (mapv count (:lines doc))]
+                   ;; cached alongside the doc (doc-with-lengths); recomputed
+                   ;; only for the initial doc that carries no :lengths yet.
+                   ;; Used by movement + :eval; text-mutation branches ignore it.
+                   lengths (or (:lengths doc) (mapv count (:lines doc)))]
                (case (:type event)
                  (:char :backspace :delete :enter :paste)
                  (let [_ (save-undo! {:!undo-stack !undo-stack :!redo-stack !redo-stack}
@@ -151,11 +167,7 @@
                        new-doc (editor-apply-event doc event lengths @!clipboard)]
                    (reset! !editor-doc new-doc)
                    (reset! !caret-visible true)
-                   ;; Phase 4B measurement: fire-and-forget to Rama.
-                   ;; Editor updates locally first (no latency for user).
-                   ;; This measures the round-trip for the direct committed path.
-                   (when-let [fp (:path @!current-file)]
-                     (sio/save-editor-doc! fp {:lines (:lines new-doc)})))
+                   (mirror-editor-doc! !current-file (:lines new-doc)))
 
                  (:left :right :up :down :home :end :word-left :word-right)
                  (let [new-doc (editor-apply-event doc event lengths nil)
@@ -196,35 +208,34 @@
                      (save-undo! {:!undo-stack !undo-stack :!redo-stack !redo-stack}
                                  (:lines doc) (:cursor doc))
                      (reset! !clipboard (:text result))
-                     (let [new-doc (merge doc (:state result))]
+                     (let [new-doc (doc-with-lengths (merge doc (:state result)))]
                        (reset! !editor-doc new-doc)
-                       (when-let [fp (:path @!current-file)]
-                         (sio/save-editor-doc! fp {:lines (:lines new-doc)})))
+                       (mirror-editor-doc! !current-file (:lines new-doc)))
                      (js/console.log "Cut:" (:text result))))
 
                  :undo
                  (when-let [prev (peek @!undo-stack)]
                    (swap! !redo-stack conj {:lines (:lines doc) :cursor (:cursor doc)})
                    (swap! !undo-stack pop)
-                   (reset! !editor-doc (merge doc {:lines (:lines prev)
-                                                   :cursor (:cursor prev)
-                                                   :selection nil
-                                                   :desired-col (:col (:cursor prev))}))
+                   (reset! !editor-doc (doc-with-lengths
+                                         (merge doc {:lines (:lines prev)
+                                                     :cursor (:cursor prev)
+                                                     :selection nil
+                                                     :desired-col (:col (:cursor prev))})))
                    (reset! !caret-visible true)
-                   (when-let [fp (:path @!current-file)]
-                     (sio/save-editor-doc! fp {:lines (:lines prev)})))
+                   (mirror-editor-doc! !current-file (:lines prev)))
 
                  :redo
                  (when-let [next-state (peek @!redo-stack)]
                    (swap! !undo-stack conj {:lines (:lines doc) :cursor (:cursor doc)})
                    (swap! !redo-stack pop)
-                   (reset! !editor-doc (merge doc {:lines (:lines next-state)
-                                                   :cursor (:cursor next-state)
-                                                   :selection nil
-                                                   :desired-col (:col (:cursor next-state))}))
+                   (reset! !editor-doc (doc-with-lengths
+                                         (merge doc {:lines (:lines next-state)
+                                                     :cursor (:cursor next-state)
+                                                     :selection nil
+                                                     :desired-col (:col (:cursor next-state))})))
                    (reset! !caret-visible true)
-                   (when-let [fp (:path @!current-file)]
-                     (sio/save-editor-doc! fp {:lines (:lines next-state)})))
+                   (mirror-editor-doc! !current-file (:lines next-state)))
 
                  :eval
                  (when-let [pos (:cursor doc)]
