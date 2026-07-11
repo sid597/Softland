@@ -565,3 +565,9 @@ i basically want to make softland shit optimized on every dimension while mainta
 the pan and zoom implementation first of all is not perfect as it should be ... then there are other topics as well like we want the pan and zoom to both be applicabale to the whole frame but also be able to do so for only an individual container in the frame as well ... so its like i can dynamiclly have the full control over each and every object in frame .... ok now there is another thing how ready is our system for 3d rendering??? can we do 3d rendering and control in our system ?? did we account for this why or why not? ... also i would want to convert https://box2d.org/documentation3d/ to our system as well .....
 
 ---
+
+## 2026-07-11 — the citizenship criterion for new capabilities (same session, verbatim; asked of 3D islands, applies to any capability)
+
+what i want to understand is what i loose and what i get the tradeoffs etc. if we do 3d islands what can we do with it how controllable is it? how does it follow from our eyes of softland that we are building how buildable and then interactable modifyable it be???? would it be liveable and controable from insied??
+
+---
