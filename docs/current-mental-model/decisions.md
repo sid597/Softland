@@ -573,6 +573,51 @@ spend, future-binding architecture/nouns, North authorship.
 
 ---
 
+## D-011 — The middle regime: the land's furniture as the land's data
+**STATUS: CLOSED** (drafted in framework CONTRACT §15, 2026-07-11; countersigned
+by Sid same day at the W2 dispatch session — asked explicitly, answered
+"Countersign both". Entered verbatim from the draft.)
+
+The assembly layer is a THIRD regime between D-003's two: neither Regime-1
+external code (git-authored, addressed) nor gated Regime-2 self-written
+code. Assemblies are the land's furniture described in the land's own DATA —
+arrangement only, no code enters Rama, the compiled substrate stays entirely
+git-authored (primitives, interpreter, projections are Regime-1 artifacts).
+The arrangement-only guard (framework CONTRACT §4) is the regime boundary's
+enforcement: anything that wants to be a program gets to be a real one, in
+the code lane. Machine-written assemblies ride D-008 A2 (provenance-first
+observations through the lawful worker path) and land validated + error-
+carded, never executed. Evidence: the shipped substrate already splits
+exactly this way (pure-fn builders vs data-shaped scene composition —
+`rect_tree.cljc`'s own header records the desire path); every live-medium
+system converged on structure-as-data over vocabulary-as-code (ROAD §
+invariant 2). Consequence now countersigned: "no code in Rama" stays a hard
+law with a precise meaning — keywords and addresses persist, fn values never
+do (framework CONTRACT §6/§8); Regime-2's gate is untouched.
+
+---
+
+## D-012 — The Regime-2 self-hosting test, formulated
+**STATUS: CLOSED** (drafted in framework CONTRACT §15, 2026-07-11; countersigned
+by Sid same day at the W2 dispatch session. Answers the open question carried
+since D-003 — "Regime 2 self-hosting test formulation".)
+
+The test: **a design conversation produces a usable view without leaving the
+land and without hand-translation** — conversation → proposed assembly (A2
+observation, `based-on` edge to the birthing conversation) → validated +
+rendered beside the chat → worn by Sid — with no human transcription step
+between the conversation and the wearable face. ROAD Step 7B is the first
+worked instance; wearing (not argument) decides survival. Passing the test
+for ARRANGEMENT (faces) does NOT open Regime 2 for CODE (primitives,
+projections): minting vocabulary in-land remains gated on its own form-break
+(ROAD Horizon: hot-reload covers the mint loop, probably indefinitely). The
+test's scope is deliberately the middle regime's ceiling — it proves the
+loop (design conversation → land object → daily use) closes;
+Regime-2-for-code would need this test passed AND a used form breaking
+against the code lane's hot-reload speed.
+
+---
+
 ## Open questions queued for ruling
 - Fable-window queue (per D-006): ~~gate review of relation-kernel
   implementation~~ (done 2026-07-03, PASS) → trail-view data contract →

@@ -643,11 +643,12 @@ faces-as-assemblies framework contract for this substrate."
   kernel objects per §8; the watcher; wearing log; machine-cut timing rides
   W2 per D-005) under its own phase of this contract — §8 is its spec floor.
 
-## 15 · Two decision-log entries — DRAFTED for countersign (not entered)
+## 15 · Two decision-log entries — COUNTERSIGNED + ENTERED (2026-07-11)
 
-Per the opening prompt these are drafted here for Sid's countersign; on his
-word they enter `decisions.md` verbatim as new entries (log mechanics: they
-enter as PROPOSED-with-recommendation; his countersign closes them).
+**Both drafts were countersigned by Sid at the W2 dispatch session
+(2026-07-11, asked explicitly, answered "Countersign both") and entered
+verbatim into `decisions.md` as D-011 and D-012, STATUS CLOSED. The log is
+now the canonical home; the drafts below stay as authoring lineage.**
 
 **D-011 (draft) — The middle regime: the land's furniture as the land's data.**
 The assembly layer is a THIRD regime between D-003's two: neither Regime-1

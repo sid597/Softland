@@ -56,14 +56,13 @@ on kinds).
   · model-UXR question bank (post-kinds; apparatus warm, DIRECTION.md §4.3)
   · block/code two-arm braid (noted 07-09, not engaged).
 
-- **8 · framework (faces-as-assemblies) — W1 CLOSED, GATE PASSED
-  (2026-07-11).** Step-2 exit REACHED: the real `7c80ce2a` conversation
-  renders through the Outline face in the dev app, `:until-ms` scrub works,
-  screenshots + verdicts in `build/framework/W1-INT.md` + `W1-GATE.md`.
-  Code: commit `c84ebfa` (suite 22t/281a green). Wave 2 (design-round faces,
-  §8 kernel objects, watcher, wearing log) NOT started — needs Sid's
-  dispatch. ⚠ Sid: D-011/D-012 drafts STILL await countersign (CONTRACT §15
-  — not covered by the wave word). Thread file: `build/framework/NOW.md`.
+- **8 · framework (faces-as-assemblies) — WAVE 2 OPEN (dispatched by Sid
+  2026-07-11; W1 closed same day, gate passed, commit `c84ebfa`).** CONTRACT
+  v2 §§16–21 added (arsenal placement + gates G17–G26); D-011/D-012
+  COUNTERSIGNED and entered in decisions.md (the §15 ⚠ is resolved). Lanes:
+  D arsenal kernel ∥ E plurality (Sid's picks: Boxes + Minimap/Reader);
+  W2-INT + G26 ride the orchestrating session. Thread file:
+  `build/framework/NOW.md`.
 
 Kinds-round evidence pile (carried verbatim for the marks/kinds round):
 "sidetrackkkk" branch receipt · serves/invokes family question · cross-scheme

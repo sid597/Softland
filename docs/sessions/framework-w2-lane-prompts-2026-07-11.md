@@ -93,7 +93,13 @@ Binding docs, in order: `docs/current-mental-model/decisions.md` ›
 not truth.
 
 **Job.** Transcribe the two Sid-picked design-round candidates —
-**⟨PICK-1⟩** and **⟨PICK-2⟩** — as assemblies over the REAL vocabulary.
+**1e Boxes** and **1f Minimap + Reader** (picked 2026-07-11) — as assemblies
+over the REAL vocabulary. Read
+`build/framework/design-round/INTENT.md` FIRST (verbatim intent + judge
+lines per candidate, plus the transcription notes: interaction verbs are
+v0-out `:actions`-class lacks; the two-pane chat-log frame is the
+exploration harness, not the face; Minimap+Reader's own strip+reader panes
+ARE its anatomy).
 
 **Inputs (read before authoring):**
 - The design sources at

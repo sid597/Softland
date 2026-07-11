@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&amp;display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #0f1318; }
+    * { box-sizing: border-box; }
+    a { color: #6fb3e0; text-decoration: none; }
+    a:hover { color: #a5cdef; text-decoration: underline; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-thumb { background: #2b3540; border-radius: 6px; border: 2px solid #0f1318; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-corner { background: transparent; }
+  </style>
+</helmet>
+<div data-screen-label="{{ modeName }}" style="width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;background:#0f1318;color:#cfd9e3;font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.5">
+
+  <!-- ============ TOP BAR ============ -->
+  <div style="flex:none;height:42px;display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid #232c36;background:#12171d">
+    <span style="flex:none;background:#1c2531;border:1px solid #2c3947;border-radius:4px;padding:3px 10px;font-weight:700;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#e3ecf4">{{ modeName }}</span>
+    <span style="flex:none;color:#5b6a7a;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:330px">{{ convoLabel }}</span>
+    <span style="flex:1"></span>
+    <span style="flex:none;display:flex;align-items:center;gap:9px;font-size:9.5px;color:#77879a">
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:#5fb0ea"></span>user-message</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:#3f88bd"></span>sub-chunk</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:#b48ede"></span>thinking</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:#7fc98f"></span>prose</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:#56bfa6"></span>list</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:#d9a05b"></span>tool-call</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:#9c8a5e"></span>tool-result</span>
+    </span>
+    <span style="flex:none;color:#4a5866;font-size:10.5px">{{ counts }}</span>
+    <span style="flex:none;border:1px dashed #8a6d3f;color:#d9a05b;border-radius:4px;padding:2px 8px;font-size:10px">page 1 · page-complete? false</span>
+  </div>
+
+  <div style="display:flex;flex:1;min-height:0">
+
+    <!-- ============ LEFT: RAW TRANSCRIPT ============ -->
+    <sc-if value="{{ showRaw }}" hint-placeholder-val="{{ true }}">
+      <div style="width:436px;flex:none;display:flex;flex-direction:column;border-right:1px solid #232c36;background:#12161c">
+        <div style="flex:none;height:28px;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid #1d242d;color:#5b6a7a;font-size:10px;letter-spacing:0.08em;text-transform:uppercase">
+          <span style="font-weight:700;color:#8698aa">raw</span>
+          <span>transcript as a chat log reads</span>
+          <span style="flex:1"></span>
+          <span style="text-transform:none">click anything ⇄</span>
+        </div>
+        <div ref="{{ leftRef }}" style="flex:1;overflow-y:auto;overflow-x:hidden;position:relative">
+          <sc-for list="{{ left }}" as="t" hint-placeholder-count="3">
+            <div data-screen-label="turn {{ t.n2 }} raw" style="border-top:1px solid #1d242d;padding:11px 14px 13px">
+              <div style="display:flex;gap:8px;align-items:baseline;margin-bottom:7px">
+                <span style="color:#5b6a7a;font-size:9.5px;font-weight:700;letter-spacing:0.12em">TURN {{ t.n2 }}</span>
+                <span style="color:#39465a;font-size:9.5px">ev {{ t.evFrom }}–{{ t.evTo }}</span>
+              </div>
+              <div style="display:flex;gap:9px">
+                <span data-bid="{{ t.parent.id }}" onClick="{{ t.parent.go }}" style="position:relative;flex:none;align-self:flex-start;background:rgba(95,176,234,0.10);color:#5fb0ea;border:1px solid rgba(95,176,234,0.28);border-radius:3px;font-size:9px;font-weight:700;padding:2px 6px;cursor:pointer;letter-spacing:0.06em">USER<span style="position:absolute;inset:-2px;border:1.5px solid #eab35e;border-radius:4px;pointer-events:none;opacity:{{ t.parent.selOp }}"></span></span>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+                  <sc-for list="{{ t.chunks }}" as="c" hint-placeholder-count="2">
+                    <div data-bid="{{ c.id }}" onClick="{{ c.go }}" style="position:relative;cursor:pointer;white-space:pre-wrap;overflow-wrap:break-word;line-height:1.55;color:#d3dde6;font-size:11.5px;padding:2px 6px;margin:-2px -6px;border-radius:4px" style-hover="background:#1a212b">{{ c.text }}<span style="position:absolute;inset:0;border:1.5px solid #eab35e;border-radius:4px;background:rgba(234,179,94,0.05);pointer-events:none;opacity:{{ c.selOp }}"></span></div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display:flex;gap:9px;margin-top:9px">
+                <span style="flex:none;align-self:flex-start;background:rgba(127,201,143,0.09);color:#7fc98f;border:1px solid rgba(127,201,143,0.22);border-radius:3px;font-size:9px;font-weight:700;padding:2px 5px;letter-spacing:0.06em">AGENT</span>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+                  <sc-for list="{{ t.resp }}" as="b" hint-placeholder-count="3">
+                    <div>
+                      <sc-if value="{{ b.isThink }}" hint-placeholder-val="{{ false }}">
+                        <div data-bid="{{ b.id }}" onClick="{{ b.go }}" style="position:relative;display:flex;gap:6px;align-items:baseline;cursor:pointer;color:#9a86b8;font-size:10.5px;padding:1px 6px;margin:0 -6px;border-radius:4px;min-width:0" style-hover="background:#1a212b"><span style="flex:none">✱ thought · {{ b.words }}w</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;color:#6a5d80">{{ b.preview }}</span><span style="position:absolute;inset:0;border:1.5px solid #eab35e;border-radius:4px;pointer-events:none;opacity:{{ b.selOp }}"></span></div>
+                      </sc-if>
+                      <sc-if value="{{ b.isProse }}" hint-placeholder-val="{{ true }}">
+                        <div data-bid="{{ b.id }}" onClick="{{ b.go }}" style="position:relative;cursor:pointer;white-space:pre-wrap;overflow-wrap:break-word;line-height:1.55;color:#c6d1dc;font-size:11.5px;padding:2px 6px;margin:0 -6px;border-radius:4px" style-hover="background:#1a212b">{{ b.text }}<span style="position:absolute;inset:0;border:1.5px solid #eab35e;border-radius:4px;background:rgba(234,179,94,0.05);pointer-events:none;opacity:{{ b.selOp }}"></span></div>
+                      </sc-if>
+                      <sc-if value="{{ b.isList }}" hint-placeholder-val="{{ false }}">
+                        <div data-bid="{{ b.id }}" onClick="{{ b.go }}" style="position:relative;display:flex;gap:7px;cursor:pointer;padding:1px 6px;margin:0 -6px;border-radius:4px" style-hover="background:#1a212b"><span style="flex:none;color:#56bfa6">–</span><span style="flex:1;min-width:0;white-space:pre-wrap;overflow-wrap:break-word;color:#c6d1dc;font-size:11.5px;line-height:1.5">{{ b.text }}</span><span style="position:absolute;inset:0;border:1.5px solid #eab35e;border-radius:4px;pointer-events:none;opacity:{{ b.selOp }}"></span></div>
+                      </sc-if>
+                      <sc-if value="{{ b.isTool }}" hint-placeholder-val="{{ false }}">
+                        <div data-bid="{{ b.id }}" onClick="{{ b.go }}" style="position:relative;display:flex;gap:6px;align-items:baseline;cursor:pointer;color:#a1793f;font-size:10.5px;padding:1px 6px;margin:0 -6px;border-radius:4px;min-width:0;opacity:0.85" style-hover="background:#1a212b"><span style="flex:none">⌁</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ b.text }}</span><span style="position:absolute;inset:0;border:1.5px solid #eab35e;border-radius:4px;pointer-events:none;opacity:{{ b.selOp }}"></span></div>
+                      </sc-if>
+                      <sc-if value="{{ b.isResult }}" hint-placeholder-val="{{ false }}">
+                        <div data-bid="{{ b.id }}" onClick="{{ b.go }}" style="position:relative;display:flex;gap:6px;align-items:baseline;cursor:pointer;color:#7a6f4e;font-size:10.5px;padding:1px 6px;margin:0 -6px;border-radius:4px;min-width:0;opacity:0.8" style-hover="background:#1a212b"><span style="flex:none">↳ tool-result · {{ b.lines }} ln</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#584f38">{{ b.preview }}</span><span style="position:absolute;inset:0;border:1.5px solid #eab35e;border-radius:4px;pointer-events:none;opacity:{{ b.selOp }}"></span></div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+          <div style="border-top:1px solid #1d242d;padding:16px 14px 26px">
+            <div style="color:#4a5866;font-size:10.5px">▼ conversation continues — {{ moreHint }}</div>
+            <div style="margin-top:10px;height:11px;width:82%;border-radius:3px;background:#161c23"></div>
+            <div style="margin-top:7px;height:11px;width:64%;border-radius:3px;background:#141a20"></div>
+            <div style="margin-top:7px;height:11px;width:43%;border-radius:3px;background:#12171d"></div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ RIGHT: THE BLOCK VIEW ============ -->
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#0f141a">
+      <div style="flex:none;height:28px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid #1d242d;color:#5b6a7a;font-size:10px">
+        <span style="font-weight:700;color:#8698aa;letter-spacing:0.08em;text-transform:uppercase">blocks</span>
+        <span>{{ modeMech }}</span>
+      </div>
+
+      <!-- ======== A · OUTLINE ======== -->
+      <sc-if value="{{ isOutline }}" hint-placeholder-val="{{ true }}">
+        <div ref="{{ rightRef }}" style="flex:1;overflow-y:auto;padding:8px 18px 50px">
+          <sc-for list="{{ outline }}" as="t" hint-placeholder-count="3">
+            <div>
+              <div onClick="{{ t.tog }}" style="display:flex;align-items:center;gap:8px;padding:8px 0 5px;cursor:pointer" style-hover="background:#131a22">
+                <span style="flex:none;width:14px;color:#5b6a7a;font-size:9px;text-align:center">{{ t.chev }}</span>
+                <span style="flex:none;width:8px;height:8px;border-radius:2px;background:#26313e;border:1px solid #46586c"></span>
+                <span style="font-weight:700;color:#e3ecf4;font-size:12px">turn {{ t.n2 }}</span>
+                <span style="color:#4a5866;font-size:10px">ev {{ t.evFrom }}–{{ t.evTo }} · {{ t.blockCount }} blocks · {{ t.words }}w</span>
+              </div>
+              <sc-if value="{{ t.open }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-left:17px;border-left:1px solid #232c36;padding-left:15px">
+                  <div data-bid="{{ t.parent.id }}" onClick="{{ t.parent.go }}" style="position:relative;display:flex;gap:8px;align-items:baseline;padding:3px 6px;border-radius:4px;cursor:pointer;min-width:0" style-hover="background:#161d26">
+                    <span style="flex:none;width:7px;height:7px;border-radius:50%;background:#5fb0ea;align-self:center"></span>
+                    <span style="flex:none;color:#5b6a7a;font-size:9.5px">{{ t.parent.sid }}</span>
+                    <span style="flex:none;color:#38536b;font-size:9.5px;font-weight:700">user-message</span>
+                    <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8fa3b8;font-size:11px;font-style:italic">{{ t.parent.preview }}</span>
+                    <span style="flex:none;color:#5b6a7a;font-size:9px;background:#1a212b;border:1px solid #242e3a;border-radius:3px;padding:1px 6px">{{ t.chunkNote }}</span>
+                    <span style="position:absolute;inset:0;border:1.5px solid #eab35e;border-radius:4px;background:rgba(234,179,94,0.05);pointer-events:none;opacity:{{ t.parent.selOp }}"></span>
+                  </div>
+                  <div style="margin-left:10px;border-left:1px solid #232c36;padding-left:15px">
+                    <sc-for list="{{ t.chunks }}" as="c" hint-placeholder-count="2">
+                      <div data-bid="{{ c.id }}" onClick="{{ c.go }}" style="position:relative;display:flex;gap:8px;padding:3px 6px;border-radius:4px;cursor:pointer;align-items:flex-start" style-hover="background:#161d26">
+                        <span style="flex:none;margin-top:5px;width:7px;height:7px;border-radius:50%;background:#3f88bd"></span>
+                        <span style="flex:none;margin-top:1px;color:#5b6a7a;font-size:9.5px">{{ c.sid }}</span>
+                        <span style="flex:1;min-width:0;white-space:pre-wrap;overflow-wrap:break-word;color:#c6d1dc;font-size:11.5px;line-height:1.5">{{ c.text }}</span>
+                        <span style="position:absolute;inset:0;border:1.5px solid #eab35e;border-radius:4px;background:rgba(234,179,94,0.05);pointer-events:none;opacity:{{ c.selOp }}"></span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex;gap:8px;align-items:center;padding:5px 6px 2px;color:#42525f;font-size:9px;letter-spacing:0.1em;text-transform:uppercase">response · ev {{ t.respEvFrom }}–{{ t.respEvTo }} · {{ t.respCount }} blocks</div>
+                  <div style="margin-left:10px;border-left:1px solid #232c36;padding-left:15px">
+                    <sc-for list="{{ t.resp }}" as="b" hint-placeholder-count="4">
+                      <div data-bid="{{ b.id }}" onClick="{{ b.go }}" style="position:relative;display:flex;gap:8px;padding:3px 6px;border-radius:4px;cursor:pointer;align-items:flex-start;opacity:{{ b.rowOp }}" style-hover="background:#161d26">
+                        <sc-if value="{{ b.expandable }}" hint-placeholder-val="{{ false }}">
+                          <span onClick="{{ b.tog }}" style="flex:none;width:13px;margin-top:2px;color:#8698aa;cursor:pointer;font-size:9px">{{ b.chev }}</span>
+                        </sc-if>
+                        <sc-if value="{{ b.plain }}" hint-placeholder-val="{{ true }}">
+                          <span style="flex:none;width:13px"></span>
+                        </sc-if>
+                        <span style="flex:none;margin-top:5px;width:7px;height:7px;border-radius:50%;background:{{ b.color }}"></span>
+                        <span style="flex:none;margin-top:1px;color:#5b6a7a;font-size:9.5px">{{ b.sid }}</span>
+                        <span style="flex:none;margin-top:1px;color:#42525f;font-size:9.5px">{{ b.tshort }}</span>
+                        <div style="flex:1;min-width:0">
+                          <sc-if value="{{ b.showFull }}" hint-placeholder-val="{{ true }}">
+                            <div style="white-space:pre-wrap;overflow-wrap:break-word;line-height:1.5;color:#c6d1dc;font-size:11.5px">{{ b.text }}</div>
+                          </sc-if>
+                          <sc-if value="{{ b.showStub }}" hint-placeholder-val="{{ false }}">
+                            <div style="display:flex;gap:8px;align-items:baseline;min-width:0">
+                              <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#98a8b8;font-size:11.5px">{{ b.preview }}</span>
+                              <span style="flex:none;color:#5b6a7a;font-size:9px;background:#1a212b;border:1px solid #242e3a;border-radius:3px;padding:1px 6px">{{ b.stub }}</span>
+                            </div>
+                          </sc-if>
+                        </div>
+                        <span style="position:absolute;inset:0;border:1.5px solid #eab35e;border-radius:4px;background:rgba(234,179,94,0.04);pointer-events:none;opacity:{{ b.selOp }}"></span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <div style="margin:16px 0 0 17px;border:1px dashed #2c3947;border-radius:6px;padding:10px 14px;color:#4a5866;font-size:10.5px">▸ turn 31+ — {{ moreHint }}</div>
+        </div>
+      </sc-if>
+
+      <!-- ======== B · CANVAS ======== -->
+      <sc-if value="{{ isCanvas }}" hint-placeholder-val="{{ false }}">
+        <div ref="{{ rightRef }}" style="flex:1;overflow:auto;position:relative">
+          <div style="position:relative;width:{{ cvW }}px;height:{{ cvH }}px;background-image:radial-gradient(#1a222c 1px, transparent 1px);background-size:22px 22px">
+            <svg width="{{ cvW }}" height="{{ cvH }}" style="position:absolute;left:0;top:0;pointer-events:none">
+              <sc-for list="{{ cvEdges }}" as="e" hint-placeholder-count="2">
+                <path d="{{ e.d }}" stroke="#33404f" stroke-width="1.2" fill="none"></path>
+              </sc-for>
+            </svg>
+            <sc-for list="{{ cvFrames }}" as="f" hint-placeholder-count="3">
+              <div style="position:absolute;left:{{ f.x }}px;top:{{ f.y }}px;width:{{ f.w }}px;height:{{ f.h }}px;border:1px solid #2a3542;border-radius:10px;background:rgba(18,23,29,0.78);box-shadow:0 3px 14px rgba(0,0,0,0.25)">
+                <div style="display:flex;gap:8px;align-items:baseline;padding:7px 12px">
+                  <span style="font-weight:700;font-size:12.5px;color:#e3ecf4">T{{ f.n2 }}</span>
+                  <span style="color:#4a5866;font-size:9.5px">ev {{ f.evFrom }}–{{ f.evTo }}</span>
+                  <span style="flex:1"></span>
+                  <span style="color:#4a5866;font-size:9.5px">{{ f.words }}w</span>
+                </div>
+                <div data-bid="{{ f.pId }}" onClick="{{ f.pGo }}" style="position:absolute;left:12px;top:32px;width:240px;height:22px;display:flex;gap:6px;align-items:center;background:rgba(95,176,234,0.10);border:1px solid rgba(95,176,234,0.30);border-radius:5px;padding:0 8px;cursor:pointer;min-width:0">
+                  <span style="flex:none;width:6px;height:6px;border-radius:50%;background:#5fb0ea"></span>
+                  <span style="flex:none;color:#5fb0ea;font-size:9px;font-weight:700">user-message</span>
+                  <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#4a6b85;font-size:9px">{{ f.pSid }}</span>
+                  <span style="position:absolute;inset:-2px;border:1.5px solid #eab35e;border-radius:6px;pointer-events:none;opacity:{{ f.pSelOp }}"></span>
+                </div>
+                <sc-for list="{{ f.cards }}" as="c" hint-placeholder-count="4">
+                  <div data-bid="{{ c.id }}" onClick="{{ c.go }}" style="position:absolute;left:{{ c.x }}px;top:{{ c.y }}px;width:{{ c.w }}px;height:{{ c.h }}px;background:#161d25;border:1px solid #26303c;border-left:2px solid {{ c.color }};border-radius:6px;padding:4px 8px;overflow:hidden;cursor:pointer;opacity:{{ c.op }}" style-hover="border-color:#3b4a5c">
+                    <div style="display:flex;gap:6px;align-items:baseline;margin-bottom:1px;min-width:0">
+                      <span style="flex:none;color:{{ c.color }};font-size:8.5px;font-weight:700">{{ c.tshort }}</span>
+                      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#4a5866;font-size:8.5px">{{ c.sid }}</span>
+                      <span style="flex:none;color:#4a5866;font-size:8.5px">{{ c.metaChip }}</span>
+                    </div>
+                    <div style="white-space:pre-wrap;overflow-wrap:break-word;font-size:10px;line-height:1.42;color:#b9c6d2;overflow:hidden">{{ c.clip }}</div>
+                    <div style="position:absolute;left:0;right:0;bottom:0;height:15px;background:linear-gradient(transparent, #161d25);pointer-events:none;opacity:{{ c.fadeOp }}"></div>
+                    <span style="position:absolute;inset:0;border:1.5px solid #eab35e;border-radius:5px;background:rgba(234,179,94,0.04);pointer-events:none;opacity:{{ c.selOp }}"></span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+            <div style="position:absolute;left:{{ cvGx }}px;top:{{ cvGy }}px;width:700px;height:110px;border:1px dashed #2c3947;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#4a5866;font-size:10.5px">
+              <span style="font-weight:700;color:#5b6a7a">T31+ · page 2</span>
+              <span>{{ moreHint }}</span>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ======== C · TREE ======== -->
+      <sc-if value="{{ isTree }}" hint-placeholder-val="{{ false }}">
+        <div ref="{{ rightRef }}" style="flex:1;overflow-y:auto;padding:10px 16px 50px">
+          <sc-for list="{{ tree }}" as="r" hint-placeholder-count="8">
+            <div style="display:flex;align-items:center;height:25px;min-width:0">
+              <span style="white-space:pre;color:#36435a;font-size:11px;flex:none">{{ r.prefix }}</span>
+              <div data-bid="{{ r.bid }}" onClick="{{ r.go }}" style="position:relative;display:flex;align-items:center;gap:7px;min-width:0;max-width:100%;background:{{ r.bg }};border:1px solid {{ r.bc }};border-radius:5px;padding:1px 8px;cursor:pointer;opacity:{{ r.op }};height:21px" style-hover="border-color:#3b4a5c">
+                <span style="flex:none;width:7px;height:7px;border-radius:50%;background:{{ r.color }}"></span>
+                <span style="flex:none;color:{{ r.labelColor }};font-size:9.5px;font-weight:700">{{ r.label }}</span>
+                <span style="flex:none;color:#4a5866;font-size:9.5px">{{ r.sid }}</span>
+                <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#9fb0c0;font-size:10.5px">{{ r.preview }}</span>
+                <span style="flex:none;color:#42525f;font-size:9px">{{ r.meta }}</span>
+                <span style="position:absolute;inset:-1px;border:1.5px solid #eab35e;border-radius:6px;background:rgba(234,179,94,0.05);pointer-events:none;opacity:{{ r.selOp }}"></span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- ======== D · SCORE ======== -->
+      <sc-if value="{{ isScore }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column">
+          <div ref="{{ rightRef }}" style="flex:1;overflow-y:auto;overflow-x:hidden;position:relative">
+            <div style="position:relative;width:1250px;height:{{ scH }}px;margin:12px 0 0 0">
+              <sc-for list="{{ scRects }}" as="g" hint-placeholder-count="8">
+                <div data-bid="{{ g.bid }}" onClick="{{ g.go }}" title="{{ g.tip }}" style="position:absolute;left:{{ g.x }}px;top:{{ g.y }}px;width:{{ g.w }}px;height:{{ g.h }}px;background:{{ g.bg }};border:1px solid {{ g.bc }};border-radius:2px;overflow:hidden;cursor:pointer;padding:0 6px">
+                  <div style="font-size:9px;line-height:15px;color:{{ g.tc }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.l1 }}</div>
+                  <div style="font-size:9px;line-height:13px;color:#5f7183;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.l2 }}</div>
+                  <span style="position:absolute;inset:0;border:1.5px solid #eab35e;background:rgba(234,179,94,0.08);pointer-events:none;opacity:{{ g.selOp }}"></span>
+                </div>
+              </sc-for>
+              <div style="position:absolute;left:30px;top:{{ scHatchY }}px;width:1196px;height:74px;background:repeating-linear-gradient(45deg,#151b22 0 8px,#11161c 8px 16px);border:1px dashed #2c3947;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#4a5866;font-size:10.5px">▼ {{ moreHint }}</div>
+            </div>
+          </div>
+          <div style="flex:none;height:148px;border-top:1px solid #232c36;background:#12171d;display:flex;flex-direction:column">
+            <div style="flex:none;display:flex;gap:9px;align-items:center;height:28px;padding:0 14px;border-bottom:1px solid #1d242d">
+              <span style="flex:none;width:8px;height:8px;border-radius:50%;background:{{ insColor }}"></span>
+              <span style="font-weight:700;color:#e3ecf4;font-size:10.5px">{{ insLabel }}</span>
+              <span style="color:#5b6a7a;font-size:10px">{{ insId }}</span>
+              <span style="flex:1"></span>
+              <span style="color:#4a5866;font-size:10px">{{ insMeta }}</span>
+            </div>
+            <div style="flex:1;overflow-y:auto;padding:8px 14px;white-space:pre-wrap;overflow-wrap:break-word;font-size:11px;line-height:1.5;color:#b9c6d2">{{ insText }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ======== E · BOXES ======== -->
+      <sc-if value="{{ isBoxes }}" hint-placeholder-val="{{ false }}">
+        <div ref="{{ rightRef }}" style="flex:1;overflow-y:auto;padding:14px 18px 50px">
+          <sc-for list="{{ bx }}" as="t" hint-placeholder-count="2">
+            <div style="border:1px solid #2c3947;border-radius:10px;background:#12171d;margin-bottom:16px;overflow:hidden">
+              <div style="display:flex;gap:10px;align-items:baseline;background:#1a222c;border-bottom:1px solid #232c36;padding:6px 12px">
+                <span style="font-weight:700;font-size:11.5px;color:#e3ecf4;letter-spacing:0.06em">TURN {{ t.n2 }}</span>
+                <span style="color:#4a5866;font-size:9.5px">events {{ t.evFrom }}–{{ t.evTo }}</span>
+                <span style="flex:1"></span>
+                <span style="color:#4a5866;font-size:9.5px">{{ t.blockCount }} blocks · {{ t.words }}w</span>
+              </div>
+              <div style="padding:11px 12px 12px">
+                <div style="border:1px solid rgba(95,176,234,0.32);border-radius:8px;overflow:hidden">
+                  <div data-bid="{{ t.parent.id }}" onClick="{{ t.parent.go }}" style="position:relative;display:flex;gap:8px;align-items:baseline;background:rgba(95,176,234,0.06);padding:5px 10px;cursor:pointer">
+                    <span style="flex:none;width:7px;height:7px;border-radius:50%;background:#5fb0ea;align-self:center"></span>
+                    <span style="color:#5fb0ea;font-weight:700;font-size:10px">user-message</span>
+                    <span style="color:#5b6a7a;font-size:9.5px">{{ t.parent.sid }}</span>
+                    <span style="flex:1"></span>
+                    <span style="color:#4a6b85;font-size:9.5px">{{ t.chunkNote }} · {{ t.parent.words }}w</span>
+                    <span style="position:absolute;inset:0;border:1.5px solid #eab35e;pointer-events:none;opacity:{{ t.parent.selOp }}"></span>
+                  </div>
+                  <div style="padding:9px 10px;display:flex;flex-direction:column;gap:8px">
+                    <sc-for list="{{ t.chunks }}" as="c" hint-placeholder-count="2">
+                      <div data-bid="{{ c.id }}" onClick="{{ c.go }}" style="position:relative;border:1px solid #26303c;border-radius:6px;background:#161c24;padding:5px 9px 7px;cursor:pointer" style-hover="border-color:#3b4a5c">
+                        <div style="display:flex;gap:8px;align-items:baseline;margin-bottom:3px">
+                          <span style="color:#3f88bd;font-size:9px;font-weight:700">sub-chunk</span>
+                          <span style="color:#42506080;color:#42525f;font-size:9px">{{ c.sid }}</span>
+                          <span style="flex:1"></span>
+                          <span style="color:#42525f;font-size:9px">{{ c.words }}w</span>
+                        </div>
+                        <div style="white-space:pre-wrap;overflow-wrap:break-word;font-size:11px;line-height:1.5;color:#c6d1dc">{{ c.text }}</div>
+                        <span style="position:absolute;inset:0;border:1.5px solid #eab35e;border-radius:6px;background:rgba(234,179,94,0.04);pointer-events:none;opacity:{{ c.selOp }}"></span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="border:1px solid rgba(127,201,143,0.24);border-radius:8px;overflow:hidden;margin-top:11px">
+                  <div style="display:flex;gap:8px;align-items:baseline;background:rgba(127,201,143,0.05);padding:5px 10px">
+                    <span style="flex:none;width:7px;height:7px;border-radius:50%;background:#7fc98f;align-self:center"></span>
+                    <span style="color:#7fc98f;font-weight:700;font-size:10px">response</span>
+                    <span style="color:#5b6a7a;font-size:9.5px">events {{ t.respEvFrom }}–{{ t.respEvTo }}</span>
+                    <span style="flex:1"></span>
+                    <span style="color:#55755f;font-size:9.5px">{{ t.respCount }} blocks</span>
+                  </div>
+                  <div style="padding:9px 10px;display:flex;flex-direction:column;gap:8px">
+                    <sc-for list="{{ t.resp }}" as="b" hint-placeholder-count="4">
+                      <div data-bid="{{ b.id }}" onClick="{{ b.go }}" style="position:relative;border:1px solid #26303c;border-radius:6px;background:#161c24;cursor:pointer;overflow:hidden;opacity:{{ b.rowOp }}" style-hover="border-color:#3b4a5c">
+                        <div style="display:flex;gap:8px;align-items:baseline;padding:4px 9px;border-bottom:1px solid #1d242d">
+                          <span style="flex:none;width:7px;height:7px;border-radius:50%;background:{{ b.color }};align-self:center"></span>
+                          <span style="color:{{ b.color }};font-size:9px;font-weight:700">{{ b.tshort }}</span>
+                          <span style="color:#42525f;font-size:9px">{{ b.sid }}</span>
+                          <span style="flex:1"></span>
+                          <span style="color:#42525f;font-size:9px">{{ b.metaChip }}</span>
+                          <sc-if value="{{ b.expandable }}" hint-placeholder-val="{{ false }}">
+                            <span onClick="{{ b.tog }}" style="color:#8698aa;font-size:9px;cursor:pointer;background:#1a212b;border:1px solid #242e3a;border-radius:3px;padding:0 6px">{{ b.expLabel }}</span>
+                          </sc-if>
+                        </div>
+                        <sc-if value="{{ b.showFull }}" hint-placeholder-val="{{ true }}">
+                          <div style="white-space:pre-wrap;overflow-wrap:break-word;font-size:11px;line-height:1.5;color:#c6d1dc;padding:6px 9px 8px">{{ b.text }}</div>
+                        </sc-if>
+                        <sc-if value="{{ b.showClip }}" hint-placeholder-val="{{ false }}">
+                          <div style="position:relative;max-height:92px;overflow:hidden">
+                            <div style="white-space:pre-wrap;overflow-wrap:break-word;font-size:11px;line-height:1.5;color:#c6d1dc;padding:6px 9px 8px">{{ b.clip }}</div>
+                            <div style="position:absolute;left:0;right:0;bottom:0;height:26px;background:linear-gradient(transparent, #161c24);pointer-events:none"></div>
+                          </div>
+                        </sc-if>
+                        <span style="position:absolute;inset:0;border:1.5px solid #eab35e;border-radius:6px;pointer-events:none;opacity:{{ b.selOp }}"></span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+          <div style="border:1px dashed #2c3947;border-radius:10px;padding:14px;color:#4a5866;font-size:10.5px;text-align:center">TURN 31+ ⊃ … — {{ moreHint }}</div>
+        </div>
+      </sc-if>
+
+      <!-- ======== F · MINIMAP + READER ======== -->
+      <sc-if value="{{ isMinimap }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:flex">
+          <div style="width:152px;flex:none;border-right:1px solid #232c36;background:#10151b;display:flex;flex-direction:column">
+            <div style="flex:none;height:24px;display:flex;align-items:center;padding:0 10px;color:#5b6a7a;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;border-bottom:1px solid #1d242d">map · h ∝ √words</div>
+            <div style="flex:1;overflow-y:auto;padding:8px 9px 20px">
+              <sc-for list="{{ mmGroups }}" as="g" hint-placeholder-count="6">
+                <div onClick="{{ g.go }}" style="position:relative;cursor:pointer;margin-bottom:6px;border-radius:4px;padding:3px 5px 4px;border:1px solid {{ g.bc }};background:{{ g.bg }}" style-hover="border-color:#3b4a5c">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline">
+                    <span style="font-size:8.5px;color:#77879a;font-weight:700">T{{ g.n2 }}</span>
+                    <span style="font-size:8.5px;color:#3f4c5b">{{ g.words }}w</span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:1px;margin-top:2px">
+                    <sc-for list="{{ g.slivers }}" as="s" hint-placeholder-count="4">
+                      <div title="{{ s.tip }}" style="height:{{ s.h }}px;border-radius:1px;background:{{ s.bg }}"></div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+              <div style="height:58px;border:1px dashed #2c3947;border-radius:4px;background:repeating-linear-gradient(45deg,#151b22 0 7px,#11161c 7px 14px);display:flex;align-items:center;justify-content:center;text-align:center;color:#4a5866;font-size:8.5px;line-height:1.4">page 2<br>not loaded</div>
+            </div>
+          </div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+            <div style="flex:none;height:34px;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid #1d242d;background:#12171d">
+              <span onClick="{{ mmPrev }}" style="cursor:pointer;color:#8698aa;border:1px solid #2c3947;border-radius:4px;padding:1px 9px;font-size:11px" style-hover="background:#1c2531">‹</span>
+              <span onClick="{{ mmNext }}" style="cursor:pointer;color:#8698aa;border:1px solid #2c3947;border-radius:4px;padding:1px 9px;font-size:11px" style-hover="background:#1c2531">›</span>
+              <span style="font-weight:700;color:#e3ecf4;font-size:12px">turn {{ mmN2 }}</span>
+              <span style="color:#4a5866;font-size:10px">of ≥30 · events {{ mmEvRange }} · {{ mmBlockCount }} blocks · {{ mmWords }}w</span>
+              <span style="flex:1"></span>
+              <sc-if value="{{ mmAtEnd }}" hint-placeholder-val="{{ false }}">
+                <span style="border:1px dashed #8a6d3f;color:#d9a05b;border-radius:4px;padding:1px 8px;font-size:9.5px">next turn is on page 2 — not loaded</span>
+              </sc-if>
+            </div>
+            <div ref="{{ rightRef }}" style="flex:1;overflow-y:auto;padding:14px 16px 50px">
+              <div style="border:1px solid rgba(95,176,234,0.32);border-radius:8px;overflow:hidden">
+                <div data-bid="{{ mmParent.id }}" onClick="{{ mmParent.go }}" style="position:relative;display:flex;gap:8px;align-items:baseline;background:rgba(95,176,234,0.06);padding:5px 10px;cursor:pointer">
+                  <span style="flex:none;width:7px;height:7px;border-radius:50%;background:#5fb0ea;align-self:center"></span>
+                  <span style="color:#5fb0ea;font-weight:700;font-size:10px">user-message</span>
+                  <span style="color:#5b6a7a;font-size:9.5px">{{ mmParent.sid }}</span>
+                  <span style="flex:1"></span>
+                  <span style="color:#4a6b85;font-size:9.5px">{{ mmChunkNote }} · {{ mmParent.words }}w</span>
+                  <span style="position:absolute;inset:0;border:1.5px solid #eab35e;pointer-events:none;opacity:{{ mmParent.selOp }}"></span>
+                </div>
+                <div style="padding:9px 10px;display:flex;flex-direction:column;gap:8px">
+                  <sc-for list="{{ mmChunks }}" as="c" hint-placeholder-count="2">
+                    <div data-bid="{{ c.id }}" onClick="{{ c.go }}" style="position:relative;border:1px solid #26303c;border-radius:6px;background:#161c24;padding:5px 9px 7px;cursor:pointer" style-hover="border-color:#3b4a5c">
+                      <div style="display:flex;gap:8px;align-items:baseline;margin-bottom:3px">
+                        <span style="color:#3f88bd;font-size:9px;font-weight:700">sub-chunk</span>
+                        <span style="color:#42525f;font-size:9px">{{ c.sid }}</span>
+                        <span style="flex:1"></span>
+                        <span style="color:#42525f;font-size:9px">{{ c.words }}w</span>
+                      </div>
+                      <div style="white-space:pre-wrap;overflow-wrap:break-word;font-size:11.5px;line-height:1.55;color:#cfd9e3">{{ c.text }}</div>
+                      <span style="position:absolute;inset:0;border:1.5px solid #eab35e;border-radius:6px;background:rgba(234,179,94,0.04);pointer-events:none;opacity:{{ c.selOp }}"></span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;margin:12px 2px 8px;color:#42525f;font-size:9px;letter-spacing:0.1em;text-transform:uppercase">response · events {{ mmRespRange }}</div>
+              <div style="display:flex;flex-direction:column;gap:9px">
+                <sc-for list="{{ mmResp }}" as="b" hint-placeholder-count="4">
+                  <div data-bid="{{ b.id }}" onClick="{{ b.go }}" style="position:relative;border:1px solid #26303c;border-left:2px solid {{ b.color }};border-radius:6px;background:{{ b.panelBg }};cursor:pointer;overflow:hidden;opacity:{{ b.rowOp }}" style-hover="border-color:#3b4a5c">
+                    <div style="display:flex;gap:8px;align-items:baseline;padding:4px 10px;border-bottom:1px solid #1d242d">
+                      <span style="color:{{ b.color }};font-size:9px;font-weight:700">{{ b.tshort }}</span>
+                      <span style="color:#42525f;font-size:9px">{{ b.sid }}</span>
+                      <span style="flex:1"></span>
+                      <span style="color:#42525f;font-size:9px">{{ b.metaChip }}</span>
+                      <sc-if value="{{ b.expandable }}" hint-placeholder-val="{{ false }}">
+                        <span onClick="{{ b.tog }}" style="color:#8698aa;font-size:9px;cursor:pointer;background:#1a212b;border:1px solid #242e3a;border-radius:3px;padding:0 6px">{{ b.expLabel }}</span>
+                      </sc-if>
+                    </div>
+                    <sc-if value="{{ b.showFull }}" hint-placeholder-val="{{ true }}">
+                      <div style="white-space:pre-wrap;overflow-wrap:break-word;font-size:11.5px;line-height:1.55;color:#cfd9e3;padding:7px 10px 9px">{{ b.text }}</div>
+                    </sc-if>
+                    <sc-if value="{{ b.showClip }}" hint-placeholder-val="{{ false }}">
+                      <div style="position:relative;max-height:330px;overflow:hidden">
+                        <div style="white-space:pre-wrap;overflow-wrap:break-word;font-size:11px;line-height:1.5;color:#b9c6d2;padding:7px 10px 9px">{{ b.clip }}</div>
+                        <div style="position:absolute;left:0;right:0;bottom:0;height:30px;background:linear-gradient(transparent, #12171d);pointer-events:none"></div>
+                      </div>
+                    </sc-if>
+                    <span style="position:absolute;inset:0;border:1.5px solid #eab35e;border-radius:6px;pointer-events:none;opacity:{{ b.selOp }}"></span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1720, &quot;height&quot;: 1100}, &quot;mode&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;outline&quot;, &quot;options&quot;: [&quot;outline&quot;, &quot;canvas&quot;, &quot;tree&quot;, &quot;score&quot;, &quot;boxes&quot;, &quot;minimap&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;View&quot;}, &quot;showRaw&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;View&quot;}}">
+class Component extends DCLogic {
+  state = { ready: false, selId: null, open: {}, focusTurn: 1 };
+
+  TYPE = {
+    'user-message':          { c: '#5fb0ea', short: 'user-msg' },
+    'user-sub-chunk':        { c: '#3f88bd', short: 'chunk' },
+    'agent-thinking':        { c: '#b48ede', short: 'thinking' },
+    'agent-prose-paragraph': { c: '#7fc98f', short: 'prose' },
+    'agent-list-item':       { c: '#56bfa6', short: 'list' },
+    'agent-tool-call':       { c: '#d9a05b', short: 'tool-call' },
+    'tool-result':           { c: '#9c8a5e', short: 'result' },
+  };
+  MODE = {
+    outline: { name: 'A — Outline', mech: 'indent = containment · order = sequence · long blocks collapse to measured stubs · ▸ expands' },
+    canvas:  { name: 'B — Canvas', mech: 'turns are frames on a field · user column ⊣ response column · card size ∝ length · scrolls x + y' },
+    tree:    { name: 'C — Tree', mech: 'every parent→child edge drawn · text demoted to one-line previews · structure is the subject' },
+    score:   { name: 'D — Score', mech: 'height ∝ words^0.62 · columns = nesting depth · labels only where they fit · click a stratum → inspector below' },
+    boxes:   { name: 'E — Boxes', mech: 'containment made literal: turn ⊃ user-message | response ⊃ blocks · long blocks clip at 6 lines, expand in place' },
+    minimap: { name: 'F — Minimap + Reader', mech: 'strip = whole conversation at proportional density · reader = one turn at full fidelity' },
+  };
+
+  leftRef = (el) => { this.leftEl = el; };
+  rightRef = (el) => { this.rightEl = el; };
+
+  componentDidMount() {
+    import('./data.js').then((m) => {
+      this.d = m;
+      this.prep(m);
+      this.setState({ ready: true });
+    }).catch((e) => console.error('data.js failed to load', e));
+  }
+
+  // ---------- prep: per-block presentation fields (computed once) ----------
+  prep(m) {
+    const flat = m.allBlocks;
+    for (const b of flat) {
+      const ti = this.TYPE[b.type];
+      b.color = ti.c;
+      b.tshort = ti.short;
+      b.preview = this.firstWords(b.text, 110);
+      b.isToolish = b.type === 'agent-tool-call' || b.type === 'tool-result';
+      b.metaChip = b.type === 'tool-result' ? b.lines + ' ln' : (b.type === 'agent-thinking' ? b.words + 'w · ' + b.text.split('\n\n').length + '¶' : b.words + 'w');
+      b.expandable = b.words > 70 || b.lines > 5;
+      b.stub = b.type === 'tool-result' ? '▸ ' + b.lines + ' lines' : '▸ ' + b.words + ' words';
+      const ls = b.text.split('\n');
+      b.clip = ls.length > 8 ? ls.slice(0, 8).join('\n') : (b.text.length > 520 ? b.text.slice(0, 520) : b.text);
+    }
+    this._cv = null; this._tree = null; this._sc = null; this._mm = null;
+  }
+  firstWords(t, n) {
+    const s = t.replace(/\s+/g, ' ').trim();
+    return s.length > n ? s.slice(0, n).replace(/\s\S*$/, '') + '…' : s;
+  }
+
+  // ---------- selection + cross-pane scroll ----------
+  sel(id, side) {
+    const ft = (this.d && this.d.turnOf[id]) || this.state.focusTurn;
+    this.setState({ selId: id, focusTurn: ft }, () => {
+      requestAnimationFrame(() => this.syncScroll(id, side));
+    });
+  }
+  syncScroll(id, fromSide) {
+    const target = fromSide === 'L' ? this.rightEl : this.leftEl;
+    if (!target) return;
+    const el = target.querySelector('[data-bid="' + id + '"]');
+    if (!el) return;
+    const rt = target.getBoundingClientRect();
+    const rb = el.getBoundingClientRect();
+    const top = Math.max(0, target.scrollTop + (rb.top - rt.top) - 110);
+    const left = Math.max(0, target.scrollLeft + (rb.left - rt.left) - 200);
+    const dist = Math.abs(top - target.scrollTop) + Math.abs(left - target.scrollLeft);
+    target.scrollTo({ top, left, behavior: dist < 800 ? 'smooth' : 'auto' });
+  }
+  tog(key) {
+    this.setState((s) => { const o = Object.assign({}, s.open); o[key] = !o[key]; return { open: o }; });
+  }
+  goFn(b, side) { return () => this.sel(b.id, side); }
+  vm(b, side) {
+    return {
+      id: b.id, sid: b.sid, text: b.text, words: b.words, lines: b.lines,
+      color: b.color, tshort: b.tshort, preview: b.preview, metaChip: b.metaChip, clip: b.clip,
+      go: this.goFn(b, side), selOp: this.state.selId === b.id ? 1 : 0,
+      rowOp: b.isToolish ? 0.62 : 1,
+    };
+  }
+
+  // ---------- left pane ----------
+  buildLeft() {
+    return this.d.turns.map((t) => {
+      const chunks = (t.user.chunks.length ? t.user.chunks : [t.user.block]).map((c) => this.vm(c, 'L'));
+      const resp = t.response.map((b) => {
+        const v = this.vm(b, 'L');
+        v.isThink = b.type === 'agent-thinking';
+        v.isProse = b.type === 'agent-prose-paragraph';
+        v.isList = b.type === 'agent-list-item';
+        v.isTool = b.type === 'agent-tool-call';
+        v.isResult = b.type === 'tool-result';
+        return v;
+      });
+      return { n2: t.n2, evFrom: t.evFrom, evTo: t.evTo, parent: this.vm(t.user.block, 'L'), chunks, resp };
+    });
+  }
+
+  // ---------- A outline ----------
+  buildOutline() {
+    const open = this.state.open;
+    return this.d.turns.map((t) => {
+      const tKey = 'ot:' + t.n;
+      const isOpen = open[tKey] === undefined ? true : open[tKey];
+      const resp = t.response.map((b) => {
+        const v = this.vm(b, 'R');
+        const k = 'o:' + b.id;
+        const ex = b.expandable;
+        const shown = ex ? !!open[k] : true;
+        v.expandable = ex; v.plain = !ex;
+        v.showFull = shown; v.showStub = !shown;
+        v.chev = shown ? '▾' : '▸';
+        v.stub = b.stub;
+        v.tog = (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.tog(k); };
+        return v;
+      });
+      return {
+        n2: t.n2, evFrom: t.evFrom, evTo: t.evTo, blockCount: t.blockCount, words: t.words,
+        respEvFrom: t.respEvFrom, respEvTo: t.respEvTo, respCount: t.response.length,
+        chunkNote: t.user.chunks.length ? t.user.chunks.length + ' sub-chunks ↓' : 'no sub-chunks',
+        open: isOpen, chev: isOpen ? '▾' : '▸',
+        tog: () => this.tog(tKey),
+        parent: this.vm(t.user.block, 'R'),
+        chunks: t.user.chunks.map((c) => this.vm(c, 'R')),
+        resp,
+      };
+    });
+  }
+
+  // ---------- B canvas (geometry cached) ----------
+  cvGeom() {
+    if (this._cv) return this._cv;
+    const FW = 700, GAP = 26, X0 = 20, COLW = FW + 28;
+    const uX = 12, uW = 240, rX = 264, rW = 424;
+    const capOf = { 'user-sub-chunk': 6, 'user-message': 6, 'agent-thinking': 7, 'agent-prose-paragraph': 6, 'agent-list-item': 2, 'agent-tool-call': 2, 'tool-result': 6 };
+    const cardH = (b, w) => {
+      const cpl = Math.floor((w - 18) / 6.1);
+      const nat = Math.max(Math.ceil(b.text.length / cpl), Math.min(b.lines, 40));
+      const cap = capOf[b.type] || 5;
+      const shown = Math.min(nat, cap);
+      return { h: 17 + shown * 14 + 9, fade: nat > cap ? 1 : 0 };
+    };
+    const colY = [16, 16, 16];
+    const frames = []; const edges = [];
+    for (const t of this.d.turns) {
+      const chunkSrc = t.user.chunks.length ? t.user.chunks : [t.user.block];
+      let uy = 60; const cards = [];
+      for (const c of chunkSrc) {
+        const m = cardH(c, uW);
+        cards.push({ b: c, x: uX, y: uy, w: uW, h: m.h, fade: m.fade });
+        uy += m.h + 7;
+      }
+      let ry = 32;
+      for (const b of t.response) {
+        const m = cardH(b, rW);
+        cards.push({ b, x: rX, y: ry, w: rW, h: m.h, fade: m.fade });
+        ry += m.h + 7;
+      }
+      const fh = Math.max(uy, ry) + 8;
+      let col = 0;
+      for (let i = 1; i < 3; i++) if (colY[i] < colY[col]) col = i;
+      const fx = X0 + col * COLW, fy = colY[col];
+      colY[col] += fh + GAP;
+      frames.push({ t, x: fx, y: fy, w: FW, h: fh, cards });
+    }
+    for (let i = 0; i < frames.length - 1; i++) {
+      const a = frames[i], b = frames[i + 1];
+      const x1 = a.x + a.w / 2, y1 = a.y + a.h, x2 = b.x + b.w / 2, y2 = b.y;
+      edges.push({ d: 'M ' + x1 + ' ' + y1 + ' C ' + x1 + ' ' + (y1 + 46) + ', ' + x2 + ' ' + (y2 - 46) + ', ' + x2 + ' ' + y2 });
+    }
+    let gcol = 0;
+    for (let i = 1; i < 3; i++) if (colY[i] < colY[gcol]) gcol = i;
+    const gx = X0 + gcol * COLW, gy = colY[gcol];
+    const last = frames[frames.length - 1];
+    edges.push({ d: 'M ' + (last.x + last.w / 2) + ' ' + (last.y + last.h) + ' C ' + (last.x + last.w / 2) + ' ' + (last.y + last.h + 46) + ', ' + (gx + 350) + ' ' + (gy - 46) + ', ' + (gx + 350) + ' ' + gy });
+    this._cv = { frames, edges, gx, gy, w: X0 + 3 * COLW, h: Math.max(colY[0], colY[1], colY[2]) + 170 };
+    return this._cv;
+  }
+  buildCanvas() {
+    const g = this.cvGeom();
+    const frames = g.frames.map((f) => ({
+      n2: f.t.n2, evFrom: f.t.evFrom, evTo: f.t.evTo, words: f.t.words,
+      x: f.x, y: f.y, w: f.w, h: f.h,
+      pId: f.t.user.block.id, pSid: f.t.user.block.sid,
+      pGo: this.goFn(f.t.user.block, 'R'),
+      pSelOp: this.state.selId === f.t.user.block.id ? 1 : 0,
+      cards: f.cards.map((c) => {
+        const v = this.vm(c.b, 'R');
+        v.x = c.x; v.y = c.y; v.w = c.w; v.h = c.h; v.fadeOp = c.fade;
+        v.op = c.b.isToolish ? 0.66 : 1;
+        return v;
+      }),
+    }));
+    return { frames, edges: g.edges, gx: g.gx, gy: g.gy, w: g.w, h: g.h };
+  }
+
+  // ---------- C tree ----------
+  treeRows() {
+    if (this._tree) return this._tree;
+    const rows = [];
+    const push = (prefix, o) => rows.push(Object.assign({ prefix }, o));
+    const m = this.d.meta;
+    push('', { kind: 'root', label: 'conversation', sid: m.keyFull, preview: m.title + ' · page 1 of ?', meta: m.turns + ' turns · ' + m.events + ' events' });
+    this.d.turns.forEach((t, i) => {
+      const lastTurn = false; // ghost row follows turn 30
+      const tp = lastTurn ? '└─ ' : '├─ ';
+      const stem = lastTurn ? '   ' : '│  ';
+      push(tp, { kind: 'turn', label: 'turn ' + t.n2, sid: 'ev ' + t.evFrom + '–' + t.evTo, preview: this.firstWords(t.user.block.text, 64), meta: t.blockCount + 'b · ' + t.words + 'w' });
+      push(stem + '├─ ', { kind: 'block', b: t.user.block, label: 'user-message', sid: t.user.block.sid, preview: t.user.block.preview, meta: t.user.chunks.length ? t.user.chunks.length + ' chunks' : 'no chunks' });
+      t.user.chunks.forEach((c, ci) => {
+        const lastC = ci === t.user.chunks.length - 1;
+        push(stem + '│  ' + (lastC ? '└─ ' : '├─ '), { kind: 'block', b: c, label: 'sub-chunk', sid: c.sid, preview: c.preview, meta: c.words + 'w' });
+      });
+      push(stem + '└─ ', { kind: 'group', label: 'response', sid: 'ev ' + t.respEvFrom + '–' + t.respEvTo, preview: '', meta: t.response.length + ' blocks' });
+      t.response.forEach((b, bi) => {
+        const lastB = bi === t.response.length - 1;
+        push(stem + '   ' + (lastB ? '└─ ' : '├─ '), { kind: 'block', b, label: b.tshort, sid: b.sid, preview: b.preview, meta: b.metaChip });
+      });
+    });
+    push('└─ ', { kind: 'ghost', label: 'page 2', sid: 'events ' + m.nextEvent + '+', preview: 'not loaded — page-complete? false', meta: '…' });
+    this._tree = rows;
+    return rows;
+  }
+  buildTree() {
+    return this.treeRows().map((r) => {
+      const b = r.b;
+      const base = {
+        prefix: r.prefix, label: r.label, sid: r.sid, preview: r.preview, meta: r.meta,
+        bid: b ? b.id : '', go: b ? this.goFn(b, 'R') : () => {},
+        selOp: b && this.state.selId === b.id ? 1 : 0,
+        color: b ? b.color : (r.kind === 'root' ? '#8698aa' : r.kind === 'turn' ? '#46586c' : r.kind === 'ghost' ? '#2c3947' : '#7fc98f'),
+        labelColor: b ? b.color : '#8698aa',
+        op: b && b.isToolish ? 0.6 : 1,
+        bg: r.kind === 'block' ? '#161d25' : r.kind === 'root' ? '#1c2531' : r.kind === 'ghost' ? 'transparent' : '#12181f',
+        bc: r.kind === 'ghost' ? '#2c3947' : r.kind === 'block' ? '#26303c' : '#2c3947',
+      };
+      if (r.kind === 'ghost') { base.labelColor = '#5b6a7a'; }
+      return base;
+    });
+  }
+
+  // ---------- D score ----------
+  scGeom() {
+    if (this._sc) return this._sc;
+    const leafH = (b) => Math.max(14, Math.min(200, 6 + Math.round(Math.pow(b.words, 0.62) * 2.9)));
+    const rects = [];
+    let y = 0;
+    const CW = 1226;
+    for (const t of this.d.turns) {
+      const t0 = y;
+      const chunkSrc = t.user.chunks.length ? t.user.chunks : null;
+      let uH = 0;
+      if (chunkSrc) {
+        const hs = chunkSrc.map(leafH);
+        uH = hs.reduce((a, h) => a + h, 0) + (hs.length - 1) * 2;
+        rects.push({ kind: 'block', b: t.user.block, x: 180, y, w: 106, h: uH });
+        let cy = y;
+        chunkSrc.forEach((c, i) => { rects.push({ kind: 'block', b: c, x: 290, y: cy, w: CW - 290, h: hs[i] }); cy += hs[i] + 2; });
+      } else {
+        uH = leafH(t.user.block);
+        rects.push({ kind: 'block', b: t.user.block, x: 180, y, w: CW - 180, h: uH });
+      }
+      rects.push({ kind: 'role', role: 'user', x: 98, y, w: 78, h: uH });
+      y += uH + 4;
+      const r0 = y;
+      let rH = 0;
+      t.response.forEach((b, i) => {
+        const h = leafH(b);
+        rects.push({ kind: 'block', b, x: 180, y, w: CW - 180, h });
+        y += h + 2;
+        rH += h + (i ? 2 : 0);
+      });
+      y -= 2;
+      rects.push({ kind: 'role', role: 'response', x: 98, y: r0, w: 78, h: Math.max(rH, 14) });
+      rects.push({ kind: 'turn', t, x: 30, y: t0, w: 64, h: y - t0 });
+      y += 10;
+    }
+    rects.push({ kind: 'conv', x: 8, y: 0, w: 16, h: y - 10 });
+    this._sc = { rects, hatchY: y + 6, h: y + 110 };
+    return this._sc;
+  }
+  buildScore() {
+    const g = this.scGeom();
+    const rgba = (hex, a) => {
+      const r = parseInt(hex.slice(1, 3), 16), gg = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+      return 'rgba(' + r + ',' + gg + ',' + b + ',' + a + ')';
+    };
+    return g.rects.map((r) => {
+      if (r.kind === 'block') {
+        const b = r.b;
+        const tall = r.h >= 30;
+        const hatch = b.isToolish ? 'repeating-linear-gradient(45deg,' + rgba(b.color, 0.16) + ' 0 6px,' + rgba(b.color, 0.05) + ' 6px 12px)' : rgba(b.color, 0.15);
+        return {
+          bid: b.id, go: this.goFn(b, 'R'), selOp: this.state.selId === b.id ? 1 : 0,
+          x: r.x, y: r.y, w: r.w, h: r.h,
+          bg: hatch, bc: rgba(b.color, 0.42), tc: b.color,
+          l1: r.h >= 15 ? b.sid + '  ' + b.tshort + ' · ' + b.metaChip : '',
+          l2: tall ? b.preview : '', tip: b.tshort + ' ' + b.sid + ' · ' + b.metaChip,
+        };
+      }
+      if (r.kind === 'role') {
+        const user = r.role === 'user';
+        return { bid: '', go: () => {}, selOp: 0, x: r.x, y: r.y, w: r.w, h: r.h, bg: '#141a21', bc: '#242e3a', tc: user ? '#5fb0ea' : '#7fc98f', l1: r.h >= 15 ? (user ? 'user' : 'resp') : '', l2: '', tip: user ? 'user-message + sub-chunks' : 'agent response' };
+      }
+      if (r.kind === 'turn') {
+        return { bid: '', go: () => {}, selOp: 0, x: r.x, y: r.y, w: r.w, h: r.h, bg: '#12181f', bc: '#2c3947', tc: '#8698aa', l1: 'T' + r.t.n2, l2: r.h >= 30 ? r.t.words + 'w' : '', tip: 'turn ' + r.t.n2 + ' · ev ' + r.t.evFrom + '–' + r.t.evTo };
+      }
+      return { bid: '', go: () => {}, selOp: 0, x: r.x, y: r.y, w: r.w, h: r.h, bg: '#1a222c', bc: '#2c3947', tc: '#5b6a7a', l1: '', l2: '', tip: 'conversation — page 1' };
+    });
+  }
+
+  // ---------- E boxes ----------
+  buildBoxes() {
+    const open = this.state.open;
+    return this.d.turns.map((t) => {
+      const resp = t.response.map((b) => {
+        const v = this.vm(b, 'R');
+        const k = 'x:' + b.id;
+        const ex = b.expandable;
+        const shown = ex ? !!open[k] : true;
+        v.expandable = ex; v.showFull = shown; v.showClip = !shown;
+        v.expLabel = shown ? '▴ collapse' : '▾ ' + (b.type === 'tool-result' ? b.lines + ' lines' : b.words + ' words');
+        v.tog = (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.tog(k); };
+        return v;
+      });
+      return {
+        n2: t.n2, evFrom: t.evFrom, evTo: t.evTo, blockCount: t.blockCount, words: t.words,
+        respEvFrom: t.respEvFrom, respEvTo: t.respEvTo, respCount: t.response.length,
+        chunkNote: t.user.chunks.length ? t.user.chunks.length + ' sub-chunks' : 'no sub-chunks',
+        parent: this.vm(t.user.block, 'R'),
+        chunks: t.user.chunks.map((c) => this.vm(c, 'R')),
+        resp,
+      };
+    });
+  }
+
+  // ---------- F minimap ----------
+  mmGeomGroups() {
+    if (this._mm) return this._mm;
+    this._mm = this.d.turns.map((t) => {
+      const blocks = [t.user.block, ...t.user.chunks, ...t.response];
+      return {
+        t,
+        slivers: blocks.map((b) => ({
+          b,
+          h: Math.max(2, Math.min(26, Math.round(Math.sqrt(b.words) * 0.75))),
+        })),
+      };
+    });
+    return this._mm;
+  }
+  buildMinimap() {
+    const rgba = (hex, a) => {
+      const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+      return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+    };
+    const focus = this.state.focusTurn;
+    const groups = this.mmGeomGroups().map((g) => ({
+      n2: g.t.n2, words: g.t.words,
+      go: () => this.setState({ focusTurn: g.t.n }),
+      bc: g.t.n === focus ? '#eab35e' : '#1d2733',
+      bg: g.t.n === focus ? 'rgba(234,179,94,0.07)' : 'transparent',
+      slivers: g.slivers.map((s) => ({
+        h: s.h,
+        bg: rgba(s.b.color, s.b.isToolish ? 0.3 : 0.6),
+        tip: s.b.tshort + ' ' + s.b.sid + ' · ' + s.b.metaChip,
+      })),
+    }));
+    const t = this.d.turns[focus - 1];
+    const open = this.state.open;
+    const resp = t.response.map((b) => {
+      const v = this.vm(b, 'R');
+      const k = 'r:' + b.id;
+      const clipping = b.type === 'tool-result' && b.lines > 20;
+      const shown = clipping ? !!open[k] : true;
+      v.expandable = clipping; v.showFull = shown; v.showClip = !shown;
+      v.expLabel = shown ? '▴ collapse' : '▾ all ' + b.lines + ' lines';
+      v.tog = (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.tog(k); };
+      v.clip = b.text.split('\n').slice(0, 18).join('\n');
+      v.panelBg = b.type === 'agent-thinking' ? 'rgba(180,142,222,0.05)' : '#12171d';
+      return v;
+    });
+    return {
+      groups,
+      n2: t.n2, evRange: t.evFrom + '–' + t.evTo, respRange: t.respEvFrom + '–' + t.respEvTo,
+      blockCount: t.blockCount, words: t.words,
+      atEnd: focus >= this.d.turns.length,
+      parent: this.vm(t.user.block, 'R'),
+      chunkNote: t.user.chunks.length ? t.user.chunks.length + ' sub-chunks' : 'no sub-chunks',
+      chunks: t.user.chunks.map((c) => this.vm(c, 'R')),
+      resp,
+      prev: () => this.setState({ focusTurn: Math.max(1, this.state.focusTurn - 1) }),
+      next: () => this.setState({ focusTurn: Math.min(this.d.turns.length, this.state.focusTurn + 1) }),
+    };
+  }
+
+  // ---------- render ----------
+  renderVals() {
+    const mode = this.props.mode || 'outline';
+    const mi = this.MODE[mode] || this.MODE.outline;
+    const base = {
+      modeName: mi.name, modeMech: mi.mech,
+      showRaw: this.props.showRaw === undefined ? true : this.props.showRaw,
+      isOutline: mode === 'outline', isCanvas: mode === 'canvas', isTree: mode === 'tree',
+      isScore: mode === 'score', isBoxes: mode === 'boxes', isMinimap: mode === 'minimap',
+      leftRef: this.leftRef, rightRef: this.rightRef,
+      convoLabel: '', counts: '', moreHint: '',
+      left: [], outline: [], tree: [], bx: [],
+      cvFrames: [], cvEdges: [], cvW: 800, cvH: 400, cvGx: 20, cvGy: 20,
+      scRects: [], scH: 400, scHatchY: 200,
+      insColor: '#2c3947', insLabel: 'nothing selected', insId: '', insMeta: '', insText: 'click any stratum to inspect it — height ∝ words^0.62, so the monster thinking block and the 190-line test log dominate exactly as they dominate the data.',
+      mmGroups: [], mmResp: [], mmChunks: [], mmN2: '01', mmEvRange: '', mmRespRange: '', mmBlockCount: 0, mmWords: 0, mmAtEnd: false, mmChunkNote: '',
+      mmParent: { id: '', sid: '', words: 0, go: () => {}, selOp: 0 },
+      mmPrev: () => {}, mmNext: () => {},
+    };
+    if (!this.state.ready || !this.d) return base;
+
+    const m = this.d.meta;
+    base.convoLabel = m.keyFull + ' · ' + m.title;
+    base.counts = m.turns + ' turns · ' + m.events + ' events · ' + m.blocks + ' blocks · ' + (m.words / 1000).toFixed(1) + 'k words';
+    base.moreHint = m.moreHint;
+    base.left = this.buildLeft();
+
+    if (mode === 'outline') base.outline = this.buildOutline();
+    if (mode === 'canvas') {
+      const cv = this.buildCanvas();
+      base.cvFrames = cv.frames; base.cvEdges = cv.edges;
+      base.cvW = cv.w; base.cvH = cv.h; base.cvGx = cv.gx; base.cvGy = cv.gy;
+    }
+    if (mode === 'tree') base.tree = this.buildTree();
+    if (mode === 'score') {
+      const g = this.scGeom();
+      base.scRects = this.buildScore(); base.scH = g.h; base.scHatchY = g.hatchY;
+      const sb = this.state.selId && this.d.byId[this.state.selId];
+      if (sb) {
+        base.insColor = sb.color; base.insLabel = sb.type; base.insId = sb.id;
+        base.insMeta = sb.metaChip + ' · turn ' + this.d.turnOf[sb.id] + ' · event ' + sb.event;
+        base.insText = sb.text;
+      }
+    }
+    if (mode === 'boxes') base.bx = this.buildBoxes();
+    if (mode === 'minimap') {
+      const mm = this.buildMinimap();
+      base.mmGroups = mm.groups; base.mmResp = mm.resp; base.mmChunks = mm.chunks;
+      base.mmN2 = mm.n2; base.mmEvRange = mm.evRange; base.mmRespRange = mm.respRange;
+      base.mmBlockCount = mm.blockCount; base.mmWords = mm.words; base.mmAtEnd = mm.atEnd;
+      base.mmParent = mm.parent; base.mmChunkNote = mm.chunkNote;
+      base.mmPrev = mm.prev; base.mmNext = mm.next;
+    }
+    return base;
+  }
+}
+</script>
+</body>
+</html>
