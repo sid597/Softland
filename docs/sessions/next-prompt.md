@@ -65,10 +65,15 @@ on kinds).
   — the G25 pair-structure evidence ORDERS it (D-005); prompt ready
   (`docs/sessions/machine-cut-contract-opening-prompt-2026-07-11.md`).
 
-- **9 · editor-feel — READY (prompt written 2026-07-11, awaiting Sid's
-  dispatch).** Typing-lag hot-path repair; causes pinned at file:line in the
-  prompt. Paste `docs/sessions/editor-feel-opening-prompt-2026-07-11.md`,
-  model Opus 4.8. Thread file: `build/editor-feel/NOW.md` (session creates).
+- **9 · editor-feel — CODE DONE + verified, awaiting Sid's wear (2026-07-11).**
+  All 5 hot-path causes removed/gated: Phase-4B mirror OFF by default
+  (`editor-rama-mirror?`, gated in save-editor-doc! → covers mouse.cljs too),
+  per-key `(mapv count)` → `:lengths` cached on the doc (reused by
+  `<bracket-match`), fold rescan throttled ~150ms (leading, initially-ready —
+  JVM-probed). Compiles clean in the live dev server (3 files, 0 warn);
+  face+missionary suite 85t/1625a green. Code + docs committed separately.
+  Left: `[RAF]`/typing-burst capture + Sid's fingers (dev app is live, serving
+  it). Thread file: `build/editor-feel/NOW.md`.
 - **10 · write-echo — DONE (2026-07-11). Direct-write FAILS the pre-registered
   criterion** (content 12/s echo p95 **307ms** vs ≤50, 720/720 stalls; 3/s p95
   394ms/max 1007ms; status 12/s p95 313ms). Cause: text-kernel microbatch
