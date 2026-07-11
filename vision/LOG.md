@@ -571,3 +571,9 @@ the pan and zoom implementation first of all is not perfect as it should be ... 
 what i want to understand is what i loose and what i get the tradeoffs etc. if we do 3d islands what can we do with it how controllable is it? how does it follow from our eyes of softland that we are building how buildable and then interactable modifyable it be???? would it be liveable and controable from insied??
 
 ---
+
+## 2026-07-11 — point-and-say in 3D + branch-from-base (same session, verbatim)
+
+can i say zoom in turn pan get to some area of the 3d map and then say "make a new xyz here" is that possible?? to point and then say something about it will we be able to get the data or context we are talking about in a way that can be sent to an llm ?? also how much time from you paper napkin math says it will take to make the new thing?? and can we have 2 builtout of the same base like we can with code diff??
+
+---
