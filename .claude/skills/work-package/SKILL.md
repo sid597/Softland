@@ -57,7 +57,7 @@ lives in the `next-prompt.md` baton; its rulings live in `decisions.md`.
   implementable, contract ambiguous) is a stop-clause event, never a silent
   pick by the implementing session.
 
-## The five-layer QC model
+## The six-layer QC model
 
 1. **Contract coherence — fresh-context re-derivation (Phase 0).** A different
    model derives the requirements (operations, invariants, entity×write
@@ -76,7 +76,15 @@ lives in the `next-prompt.md` baton; its rulings live in `decisions.md`.
    test validation, each fresh-context, default-fail, tracing with line
    citations, hunting divergence from plan/contract promises (this is the
    layer that caught the 14-seeks-vs-1 read-path divergence).
-5. **Everything — daily use (D-001).** The built thing proves itself only in
+5. **First integration-drive — the wearing (a gate, run BEFORE daily use).**
+   The built thing is driven live over real material (the `/face`-style first
+   end-to-end drive) before it is declared done: lifecycle and data-binding
+   gaps live in the seam between independently-green subsystems and are
+   invisible to JVM goldens. Grounds: framework G15/G24/G25 caught a real
+   lifecycle defect in BOTH waves (W1 epoch-bump, W2 projection-routing) that
+   no suite layer could see. (Amendment A, framework retro, signed
+   2026-07-12.)
+6. **Everything — daily use (D-001).** The built thing proves itself only in
    use; nothing below this layer closes the loop.
 
 Two rules that hold across all layers:
@@ -109,10 +117,23 @@ Two rules that hold across all layers:
   literally (block-kernel G12: the §8 one-liner lost the v0 carve-out that
   CONTRACT §12/g, PHASE_0 §2/g, and the P5 prompt all carried; Round-1
   strictly-failed it as a stop clause).
+- **Gate class — `delay`-totality for lazily-booted runtimes feeding the
+  render path**: any `delay`/lazy boot whose handle feeds the render path
+  must yield a poisoned-but-TOTAL value on failure, never a cached throw
+  (a `Delay` re-throws its cached exception on every deref → one boot
+  failure = permanent failure for every client). (Framework W2-F7.
+  Amendment C, signed 2026-07-12.)
 - **Scope on every uniqueness/identity claim**: any key, journal, or dedup
   mechanism in a partitioned store names its partition scope in the sentence
   that introduces it ("idempotency key" without "(relation-scoped)" cost a
   validation round plus a ruling).
+- **A schema that fixes an object's IDENTITY must also fix its
+  DATA-RESOLUTION**: if the contract pins how a thing is identified (schema,
+  provenance, addressing), the SAME section pins how consumers resolve its
+  data (the binding/lookup route) — a static code map left beside a fixed
+  schema is how a later wave silently outgrows it. (Framework W2-F1: §8
+  fixed assembly identity; the face→projection binding stayed a code map →
+  empty scenes, found only live. Amendment B, signed 2026-07-12.)
 - **Read plans for performance promises**: a promise like "1 seek" enumerates
   the read plan per query shape. This is contract hygiene — it makes the
   promise checkable at plan level; it will NOT stop an implementation
@@ -289,6 +310,12 @@ holding CONTRACT.md and every phase artifact.
 - Open doubts are recorded non-blocking **with their cheap falsifier named**
   (e.g. "envelope/payload binding is client trust → one-line server-side
   recheck before agent-authored writers appear").
+- **Evidence-harness op-shape discipline**: any visual/evidence-capture
+  harness asserts op-count parity FIRST; a blank capture is a HARNESS mapping
+  bug until the op counts disagree (rect ops are flat, text ops are nested
+  per-node — a shape mismatch renders nothing and masquerades as a product
+  bug). (Framework W2-INT's two blank-PNG runs. Amendment D, signed
+  2026-07-12.)
 - **A strict-fail on a gate's one-line text is classified before it is
   enforced**: when the contract's authorizing sections (and phase prompts)
   pre-bless what the one-liner forbids, the gap is literal-vs-intent — a
