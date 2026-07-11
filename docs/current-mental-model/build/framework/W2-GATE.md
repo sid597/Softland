@@ -12,6 +12,13 @@ Suite after all gate fixes: **46 tests / 804 assertions / 0 failures / 0
 errors** (the W1+W2 serial suite + the new `face_gate_fixes_test` regression
 namespace — one biting regression per fixed finding).
 
+> **Count correction (2026-07-11 close recheck).** This stated **46/804** does
+> not reproduce at committed HEAD (`1725f55`): the seven frozen `face_*` files
+> carry 44 deftests (44/789), and the full 8-namespace serial suite
+> (+ `clojure_adapter_test`) is **54/880**. The suite is GREEN (0f/0e, re-run
+> twice, deterministic) — only the count was mis-stated here. Corrected in
+> `RETRO.md` (Verdict + step-4 recheck addendum).
+
 ## Falsification-by-class — findings + disposition
 
 Five classes, five reviewers (~503k subagent tokens total). 2 CONFIRMED HIGH,

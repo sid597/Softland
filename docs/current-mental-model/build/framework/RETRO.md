@@ -15,12 +15,23 @@ they judge).
 ## Verdict
 
 **Package CLOSED. Both waves gate-passed** (G16, G26 — Fable falsification
-pass each). Suite at committed HEAD: **46 tests / 804 assertions / 0f / 0e**
-across 8 namespaces (7 `face_*` + `clojure_adapter_test`, the
-`object_container.clj` regression guard). No suite reads git HEAD dynamically,
-so the code-atom close-protocol Step-2 trap (a package's own closing commit
-moving HEAD off a pinned specimen) **does not apply here** — the G7
-source-form diff reads the working tree, which is clean, so disk == committed.
+pass each). Suite re-run at committed HEAD by the step-4 recheck (twice,
+deterministic): **54 tests / 880 assertions / 0f / 0e** across the 8 serial
+namespaces — **44/789** for the 7 `face_*` namespaces + **10/91** for
+`clojure_adapter_test` (the `object_container.clj` regression guard). No suite
+reads git HEAD dynamically, so the code-atom close-protocol Step-2 trap (a
+package's own closing commit moving HEAD off a pinned specimen) **does not
+apply here** — the G7 source-form diff reads the working tree, which is clean,
+so disk == committed.
+
+> **Count correction (step-4 recheck).** The **46/804** figure that propagated
+> from W2-GATE.md:11-13 into the opening prompt and this retro's first draft
+> does NOT reproduce at committed HEAD — a `grep -cE '^\(deftest'` over the
+> seven frozen `face_*` files totals **44** deftests, not 46; the true
+> 8-namespace tally is **54/880**. The suite is GREEN either way (0f/0e, both
+> runs); only the number was mis-stated. A stated count can rot even when the
+> suite stays green and no test reads HEAD — re-running it at committed HEAD is
+> the only thing that catches that (§1, layer 8).
 
 One open **evidence** item, not a defect: both new faces want `turn ⊃
 user|response` pair structure the v0 projection cannot serve (double-confirmed,
@@ -44,6 +55,14 @@ live wearing — each returned findings no cheaper layer could have.**
 | **5 · Fable pass** | CLAUDE.md falsification protocol | Consolidated writers/readers/clearers per changed state; open doubts recorded **with named falsifiers** (W2-F5 two-files-one-name; the hardcoded `human:local` wearer; the receipt-at-HEAD via IPC). | Cheap; its value is the recorded-doubt discipline, not new kills. |
 | **6 · Live wearing** | G15 (W1) · G24/G25 (W2), dev app over real `7c80ce2a` | **Caught a real defect no suite could, in BOTH waves** — see §2. Also: the name-vs-stem lesson; the minimap's absent `:reader-turn` rendering as an honest error card (the totality law, live). | Cost: the puppeteer/CDP harness + the **GPU-capture environment lack** — the Vulkan swapchain never composites into CDP on this box, so visual evidence is a labeled CPU rasterization of the live `!face-scene`. A native-session screenshot is still owed. |
 | **7 · Daily use (D-001)** | **Not yet** — the loop's real close | — | Sid wears the three faces going forward (dev app left running); the wearing log is now the live desire-path instrument that decides which face earns primitive investment. |
+
+**Layer 8 — the step-4 recheck itself** (appended below) caught what all seven
+above missed: the **stated** suite count (46/804) was wrong at committed HEAD
+(true: **54/880**, green). A count can rot even when the suite stays green and
+no test reads HEAD — the recheck re-running it is the only thing that catches
+that. The cycle-1 recheck caught a *red shipped* suite; this one caught a
+*miscounted green* one. Same lesson, different failure surface: the close
+protocol is right that a fresh pass must independently re-run, not re-read.
 
 ## 2 · The two cross-cutting findings (the scorecard's spine)
 
@@ -79,10 +98,18 @@ edit and **defeats the relation-kernel journal**, leaving only a racy read-back
 as defense. Every layer that read §17 as *instruction* inherited the error; the
 falsification pass, reading §17 as a *claim to falsify against the code*, is the
 only layer positioned to catch it. §17 was amended in place (dated), the fix is
-in `edge-specs` (`assembly_adapter.clj:469`, stable key; import-key → `:note`),
-and a biting regression pins it. **This is the third consecutive package to
-carry exactly one contract-text error** (code-atom, block-kernel, framework) —
-the handoff's pre-registered prediction, now a confirmed pattern.
+in `edge-specs` (`assembly_adapter.clj:469`) — a stable key over `(object-key,
+kind, provenance-value)`, import-key demoted to `:note` — and a biting
+regression pins it. **The contract carried ≥1 contract-text error, as the
+pre-registered ledger predicts** — the honest ledger (decisions.md) tracks *≥1*
+real text error per consecutive Fable contract (series: relation-kernel ·
+git-spine · trail-room · face-2, several with more than one); §17 is this
+package's confirmed instance. *(Corrected by the step-4 recheck: an earlier
+draft said "exactly one, third consecutive (code-atom, block-kernel,
+framework)" — that re-based the series and overstated. Block-kernel's G12 was a
+Sid ruling between pre-blessed options, not a fresh-reader-caught prose error;
+and this package plausibly carried a second text-level miss in G14(b)'s false
+premise. The claim is the weak ≥1 form.)*
 
 **(c) Two fully-parallel lanes, disjoint fences, zero collisions.** W2-D
 (arsenal: `assembly_adapter.clj`, `face_arsenal.clj`, the `ingest_watchers`
@@ -220,6 +247,18 @@ recheck restored it).
    accepted-import discipline (W2-F4 — a register that never unregisters lies
    about wearability on rename); (d) the one-`.cljc`-compiler-two-call-sites
    parity rule (T18) for any client/server verdict pair.
+9. **Edge idempotency key over raw `value`, not normalized `target`** (found by
+   the step-4 recheck). W2-F3's stable key is `(object-key, kind,
+   provenance-value)` at `assembly_adapter.clj:469` — but F12 normalizes join
+   *targets* (`asm:`-prefixed values fold to the same doc-container). Because
+   the key hashes the raw `value` while the join uses the normalized `target`,
+   two provenance spellings of one face (`"outline-face"` vs `"asm:outline-face"`)
+   resolve to the SAME edge target yet MINT DIFFERENT idempotency keys → two
+   journal rows for one logical edge. Edit-stability (F3's actual goal) is
+   unaffected — a file's provenance text is stable across saves — so this is a
+   latent, not a live defect. **Falsifier:** two envelope provenance forms
+   naming one face → duplicate lineage edges. Fix = hash the normalized target,
+   or document `value` as the identity. Carry into the arsenal's next contract.
 
 ## 6 · Traps that fired vs. traps that held
 
@@ -290,8 +329,106 @@ recheck restored it).
 
 ---
 
-## Adversarial recheck (step 4) — appended after the fresh-subagent pass
+## Appendix · PROPOSED `/work-package` skill amendments (await Fable's signature)
 
-_[pending — a fresh-context subagent re-runs the 8-namespace suite at committed
-HEAD and re-verifies every scorecard claim against source + git, default-fail.
-Its corrections land here; where it disagrees with the body above, it wins.]_
+Drafted by the close session (Opus); NOT applied to `SKILL.md` — Fable signs
+skill/canonical amendments (the canon-authorship rule; the opening prompt's
+"as PROPOSED for Fable's signature"). Each cites its concrete failure. The
+relation-kernel precedent (decisions.md: the skill was "written from RETRO.md
+after its adversarial recheck") governs — these are gated on the recheck below
+before Fable applies them.
+
+- **A · Promote the live wearing to a named QC layer (the five-layer model →
+  six).** Today layer 5 ("everything — daily use, D-001") conflates the FIRST
+  live drive with ongoing use. Split them: the first integration-drive of the
+  built thing (the wearing / `/face` over real material) is a **gate that runs
+  before daily use** and catches write→render→reconcile lifecycle gaps and
+  data-binding gaps invisible to JVM goldens; ongoing daily use stays D-001.
+  Grounds: framework G15/G24/G25 caught a real lifecycle defect in BOTH waves
+  (W1 epoch-bump, W2 projection-routing) that no suite layer could see (§2a).
+- **B · Contract rule: a schema that fixes an object's IDENTITY must also fix
+  its DATA-RESOLUTION.** Add to "Opening a package → The contract" list, beside
+  the read-plan and coverage-verb rules. Grounds: framework W2-F1 — §8 fixed
+  assembly identity/provenance but left face→projection binding as a static
+  code map a later wave silently outgrew (empty scenes, found only live). §3
+  rule 1.
+- **C · Gate class: `delay`-totality for any lazily-booted runtime feeding the
+  render path.** Add beside the style-gate "name where it stops" discipline: any
+  `delay`/lazy boot whose handle feeds the render path must yield a
+  poisoned-but-TOTAL value on failure, never a cached throw (a `Delay`
+  re-throws its cached exception on every deref → one boot failure = permanent
+  failure for all clients). Grounds: framework W2-F7. §3 rule 2.
+- **D · Review discipline: evidence-harness op-shape.** Add to gate-review /
+  verification: a visual/evidence-capture harness asserts op-count parity first;
+  a blank capture is a HARNESS mapping bug until the op counts disagree.
+  Grounds: framework W2-INT's two blank-PNG runs (rect ops flat `r g b a`;
+  text ops nested per-node). §3 rule 4.
+
+(The in-session-fixes-at-gate-under-a-token-flag adaptation is routed to
+decisions.md D-006 as an evaluation note, per the opening prompt — not a skill
+rule; it is already current gate practice, the new datum is the token-flag
+variant preserving the kill record.)
+
+---
+
+## Adversarial recheck (step 4) — fresh-context subagent, default-fail
+
+A fresh Opus subagent (no share of this authoring context) re-ran the
+8-namespace serial suite at committed HEAD **twice** (deterministic) and traced
+every headline claim to source at file:line and to git. Net: **the architecture
+and every code-level headline survive; two corrections were required before this
+retro could feed the skill / decisions.md, both now applied to the body above,
+plus one precision nit (residue item 9).** The first recheck subagent this
+session misfired (0 tool-uses, returned boilerplate) — a reminder that a
+"completed" status is not a verdict; this is the re-dispatched, real pass.
+
+**Suite receipt — CORRECTED (the one hard find).** Exact final line, both runs:
+`Ran 54 tests containing 880 assertions. 0 failures, 0 errors.` Composition at
+HEAD: 7 `face_*` = 44/789 · `clojure_adapter_test` = 10/91 · **8-namespace
+total = 54/880, green.** The **46/804** figure does not reproduce — a
+`grep -cE '^\(deftest'` over the seven frozen face files totals **44** deftests,
+not 46; 46/804 was the gate's mis-stated 7-face number (W2-GATE.md:11-13), and
+even that subset is 44/789 at HEAD. Greenness (0f/0e) intact; only the count
+was wrong. Applied to the Verdict + §1 layer 8.
+
+**Contract-text-error claim — CORRECTED (overreach).** The pre-registered ledger
+(decisions.md) tracks *≥1* text error per consecutive Fable contract (series:
+relation-kernel · git-spine · trail-room · face-2, several with >1). The draft's
+"exactly one, third consecutive (code-atom, block-kernel, framework)" re-based
+the series and overstated — block-kernel's G12 was a Sid *ruling* between
+pre-blessed options, not a caught prose error, and this package plausibly
+carried a second text miss (G14(b)'s false premise). Reverted to the ≥1 form in
+§2b.
+
+**Precision nit + new latent — RECORDED (residue item 9).** W2-F3's stable key's
+third component is the raw provenance `value` (`assembly_adapter.clj:469`), not
+the normalized `target` the docstring (:449) + W2-GATE.md:26 assert. Harmless
+for edit-stability; latent when two provenance spellings name one face. Added
+to §5.
+
+**CONFIRMED at file:line (no change):** W2-F1 roster routing
+(`face_projection.clj:331-350`; `:assembly/projection` a documented pre-named
+extension, not live code — the retro says "pre-named," faithful) · W2-F2
+`number?` guard (`face_arsenal.clj:157`) · W2-F3 stable edge key distinct from
+the OC import-envelope key (`:408`, a different journal) · W2-F4 all three parts
+(`face_arsenal.clj:85-92` / `:227` / `:235`; `ingest_watchers.clj:157-163`) ·
+W2-F7 poisoned-but-total boot (`file_viewer.cljc:254-262, 340-343`) · F9
+root-`:each` reject (`face_assembly.cljc:253-256`) · **F10 honest** — the
+residual `0.56` literals are in `build-empty-state` / `ui-list-item`, both in
+the named-builder set with an EMPTY G7 allowlist and byte-identical to
+`ui_primitives.cljs`; editing them would break the G7 diff (not a drift excuse)
+· "no suite reads git HEAD dynamically" (the only `git show HEAD:` is the
+`clojure_adapter_test` fixture-regen docstring; tests `slurp` pinned `.txt`) ·
+commit file lists match (the one unenumerated W2 file is `kernel.clj`, +36, the
+#6 registration — benign) · "~503k tokens" honestly attributed to W2-GATE.md:17
+(absolute value has no in-repo ledger, so UNVERIFIABLE-but-honest, not a guess)
+· both waves same calendar day (c84ebfa 03:23 IST, 1725f55 23:03 IST) · residue
+item 1 (pair-structure → machine-cut) not stale — no machine-cut build dir
+exists.
+
+**Verdict:** with corrections applied, the retro is sound; the green status and
+every substantive finding stand. This recheck is layer 8 of the scorecard — it
+caught a stated-count error the gate artifact, the opening prompt, AND this
+retro's first draft all carried. The cycle-1 lesson (the recheck catches what
+the close ships) fired again, on a new surface: a miscounted-green suite rather
+than a red one.
