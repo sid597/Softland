@@ -11,6 +11,8 @@
             #?(:clj [app.server.ingest-watchers :as ingest-watchers])
             ;; Faces-as-assemblies · the ONE generic face artery (CONTRACT §7).
             #?(:clj [app.server.rama.face-projection :as face-projection])
+            ;; W2: the face arsenal (CONTRACT §16 — wear log + face index)
+            #?(:clj [app.server.rama.face-arsenal :as face-arsenal])
             #?(:clj [app.server.rama.object-container.block-distiller :as block-distiller])
             #?(:clj [app.server.rama.dogfood.transcript :as transcript])))
 
@@ -244,13 +246,57 @@
      ;; whatever is ready — empty until the distill lands, then the epoch re-pull
      ;; (INV-19) fills it in. READ-ONLY afterwards (G12): serve never writes.
      (delay
-       (let [rt (block-distiller/start-distiller-runtime!)
+       (let [;; G26 fix (server-artery MED): the delay body must be TOTAL — a
+             ;; Delay caches a thrown exception and re-throws on every deref,
+             ;; and face-ctx/resolve-request deref OUTSIDE serve's try (and
+             ;; e/defn has no try, L13). A boot failure must yield a poisoned-
+             ;; but-total runtime map, never a poisoned Delay.
+             rt (try (block-distiller/start-distiller-runtime!)
+                     (catch Throwable t
+                       (println "[FACE] distiller boot FAILED:" (.getMessage t))
+                       nil))
              !default-address (atom nil)
              ;; G16 falsification fix: pending / failed / genuinely-blank are
              ;; THREE realities — the map must not lie. This flag + the
              ;; resolve-request hint let the projection name each distinctly.
-             !first-light-failed (atom false)]
-         (if-let [file (find-default-transcript)]
+             !first-light-failed (atom (nil? rt))
+             ;; W2 (CONTRACT §16): the face arsenal attaches to the OC runtime's
+             ;; IPC (one JVM, one cluster). The module launch is synchronous
+             ;; (the handle must be in the runtime map); WAL replay + faces
+             ;; sweep + watcher run in a FUTURE (G26 fix, server-artery MED —
+             ;; the trail-runtime precedent: the roster fills via epoch pushes,
+             ;; never by stalling every client's first pull on the sweep).
+             ;; Every stage bounded: failure degrades honestly (faces unlisted /
+             ;; wears unrecorded — T17 class), never kills first light.
+             arsenal (when rt
+                       (try
+                         (face-arsenal/start-face-arsenal-runtime!
+                          {:ipc (:ipc (:oc-rt rt))})
+                         (catch Throwable t
+                           (println "[FACE] arsenal launch failed:" (.getMessage t))
+                           nil)))
+             faces-root "resources/public/faces"
+             watcher-rt (when arsenal (merge (:oc-rt rt) arsenal))]
+         (when watcher-rt
+           (future
+             (try
+               ;; order per §16: replay BEFORE the sweep/watcher can matter —
+               ;; wears racing the replay converge via the wear-id journal
+               (let [{:keys [replayed failed]}
+                     (face-arsenal/replay-wear-log! arsenal)]
+                 (println "[FACE] wear-log replay:" replayed "replayed," failed "failed"))
+               (let [{:keys [imported attempted]}
+                     (ingest-watchers/initial-sweep!
+                      {:runtime watcher-rt :roots [faces-root]
+                       :classify-fn ingest-watchers/faces-classify})]
+                 (println "[FACE] faces sweep:" imported "of" attempted "imported"))
+               (ingest-watchers/start-ingest-watchers!
+                {:runtime watcher-rt :roots [faces-root]
+                 :classify-fn ingest-watchers/faces-classify})
+               (println "[FACE] faces watcher running on" faces-root)
+               (catch Throwable t
+                 (println "[FACE] faces boot failed:" (.getMessage t))))))
+         (if-let [file (when rt (find-default-transcript))]
            (future
              (try
                (let [req (transcript/transcript-request
@@ -292,14 +338,17 @@
            ;; not eternally pending (G16 falsification fix)
            (reset! !first-light-failed true))
          {:oc-rt (:oc-rt rt)
+          :arsenal-rt arsenal
           :!default-address !default-address
           :!first-light-failed !first-light-failed}))))
 
 #?(:clj
    (defn face-ctx
-     "The server ctx `serve` reads: {:oc-rt <runtime>}. Plain map, no face names."
+     "The server ctx `serve` reads: {:oc-rt <rt> :arsenal-rt <rt|nil>}. Plain
+      map, no face names. A nil :arsenal-rt degrades honestly (the :assembly /
+      :face-list projections name the lack in their data-contexts, G20/G21)."
      []
-     (select-keys @face-projection-runtime [:oc-rt])))
+     (select-keys @face-projection-runtime [:oc-rt :arsenal-rt])))
 
 #?(:clj
    (defn resolve-request
@@ -311,7 +360,11 @@
       failed vs a genuinely blank request (G16 falsification fix)."
      [request]
      (let [addr (:address request)]
-       (if (or (nil? addr) (= :default addr))
+       ;; G26 fix: default-substitution applies only to requests that CARRY an
+       ;; address (the material-bound pulls); :face-list omits the key entirely
+       ;; — substituting a conversation address onto it was dead-but-misleading
+       (if (and (contains? request :address)
+                (or (nil? addr) (= :default addr)))
          (let [{:keys [!default-address !first-light-failed]} @face-projection-runtime]
            (if-let [default @!default-address]
              (assoc request :address default)
@@ -325,3 +378,30 @@
   ;; ONE generic pull. Server-side `serve` routes the request through the projection
   ;; registry and returns the whole §7 data-context. No per-face branch, ever.
   (e/server (face-projection/serve (face-ctx) (resolve-request request))))
+
+#?(:clj
+   (defn record-wear-safe!
+     "The wear write path's totality wrapper (§16; L13: e/defn has no `try`, so
+      the catch lives HERE, plain clj — the serve-totality pattern applied to
+      the codebase's first write). record-wear! throws on blank ids (the outbox
+      mints the wear-id BEFORE calling, lane D INT note 4) and on a down
+      arsenal; both surface as an honest result map, never a render-path throw."
+     [wear]
+     (try
+       (let [{:keys [arsenal-rt]} @face-projection-runtime]
+         (if (nil? arsenal-rt)
+           {:wear/recorded? false :wear/error :arsenal-unavailable
+            :wear/id (:wear-id wear)}
+           (let [event (face-arsenal/record-wear! arsenal-rt wear)]
+             {:wear/recorded? true :wear/id (:wear/id event)
+              :wear/worn-at-ms (:wear/worn-at-ms event)})))
+       (catch Throwable t
+         {:wear/recorded? false :wear/error (.getMessage t)
+          :wear/id (:wear-id wear)}))))
+
+(e/defn RecordFaceWear [wear]
+  ;; The codebase's FIRST write e/defn (CONTRACT §16 write-path ruling).
+  ;; Arsenal-only, never through FacePull/serve (trap T15: the read artery
+  ;; stays read-only; a serve is a re-pull, not a wear). Totality lives in
+  ;; record-wear-safe! (L13).
+  (e/server (record-wear-safe! wear)))

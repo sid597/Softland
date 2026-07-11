@@ -1,0 +1,50 @@
+;; Projection-shaped conversation fixture for the W2 lane-E transcription
+;; goldens (CONTRACT §19 G22-G23) — the §7 :conversation data contract:
+;; :turns [{:id :speaker :order :blocks [{:id :kind :text :order :time-ms}]}]
+;; + :conversation/* meta. Turns and blocks carry :id so node ids travel with
+;; items (trap T6). Variety on purpose: a long prose block that wraps well
+;; past 6 lines (exercises :text-clip), a multi-line code block, and word
+;; counts spread so sliver heights differ (h ∝ √words).
+;;
+;; :reader-turn is the NAMED DATA LACK made visible (G23/D-005): the real
+;; :conversation projection serves no focus-turn selection yet — this fixture
+;; models the shape the projection WOULD serve once a :reader-turn/:focus
+;; request param lands (it is turn t-claude-1, duplicated verbatim). Worn over
+;; the real projection today, the reader pane renders an honest gap and the
+;; apply-report counts the missing binds — never an invented value.
+{:turns
+ [{:id "t-sid-1" :speaker "sid" :order 1
+   :blocks
+   [{:id "b1" :kind "human-message" :order 1 :time-ms 1000
+     :text "Can a face be an assembly — pure EDN describing arrangement, walked by one interpreter over a primitive registry, so the AI writes arrangement-data through the lawful path?"}]}
+  {:id "t-claude-1" :speaker "claude" :order 2
+   :blocks
+   [{:id "b2" :kind "heading" :order 1 :time-ms 2000
+     :text "The seam law"}
+    {:id "b3" :kind "text" :order 2 :time-ms 3000
+     :text "Electric owns truth transport into atoms and Missionary owns the frame path, with the rt-node tree standing as the boundary object between them. Faces are data, so what renders them must be an interpreter, never code generation into the compiled substrate. The map must not lie: known, proposed, derived and guessed stay visibly distinct, and provenance is soul rather than plumbing. History is terrain — understanding is built in trails and the trail is the material, the log primary, every view a projection of it. A missing primitive during transcription is a cljc function away: minted by gap-fill in the code lane, never by grammar growth, because anything that wants to be a program gets to be a real one. The frontier is where trails end and evidence thins, and the shoreline of ignorance is what the map renders."}
+    {:id "b4" :kind "code" :order 3 :time-ms 4000
+     :text "(defn serve [registry request]\n  (let [proj (get registry (:face request))]\n    (if proj\n      (proj request)\n      {:face/error :unknown-face\n       :face/requested (:face request)})))\n;; dispatch lives server-side (trap T8)\n;; the Electric surface never grows per face\n(comment\n  (serve {:conversation conv-proj} req))"}]}
+  {:id "t-sid-2" :speaker "sid" :order 3
+   :blocks
+   [{:id "b5" :kind "human-message" :order 1 :time-ms 5000
+     :text "Evidence before architecture: build the thin slice, measure, report."}]}]
+ :reader-turn
+ {:id "t-claude-1" :speaker "claude" :order 2
+  :blocks
+  [{:id "b2" :kind "heading" :order 1 :time-ms 2000
+    :text "The seam law"}
+   {:id "b3" :kind "text" :order 2 :time-ms 3000
+    :text "Electric owns truth transport into atoms and Missionary owns the frame path, with the rt-node tree standing as the boundary object between them. Faces are data, so what renders them must be an interpreter, never code generation into the compiled substrate. The map must not lie: known, proposed, derived and guessed stay visibly distinct, and provenance is soul rather than plumbing. History is terrain — understanding is built in trails and the trail is the material, the log primary, every view a projection of it. A missing primitive during transcription is a cljc function away: minted by gap-fill in the code lane, never by grammar growth, because anything that wants to be a program gets to be a real one. The frontier is where trails end and evidence thins, and the shoreline of ignorance is what the map renders."}
+   {:id "b4" :kind "code" :order 3 :time-ms 4000
+    :text "(defn serve [registry request]\n  (let [proj (get registry (:face request))]\n    (if proj\n      (proj request)\n      {:face/error :unknown-face\n       :face/requested (:face request)})))\n;; dispatch lives server-side (trap T8)\n;; the Electric surface never grows per face\n(comment\n  (serve {:conversation conv-proj} req))"}]}
+ :conversation/address "chat:10c22f9b"
+ :conversation/limit 64
+ :conversation/until-ms nil
+ :conversation/river-events-total 247
+ :conversation/blocks-returned 5
+ :conversation/truncated? true
+ :conversation/page-complete? false
+ :conversation/debris-excluded? true
+ :conversation/paging-lack :river-page-has-no-cursor
+ :face/rendered-at-ms 0}

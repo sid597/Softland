@@ -304,6 +304,22 @@
       (str/starts-with? s "imp:clj:")
       (leading-object-key (subs s 8))
 
+      ;; W2 framework (CONTRACT §16 — the wave's ONE pre-authorized kernel
+      ;; edit; ships WITH gate G18, the twice-fired foreign-read latent class:
+      ;; code-atom G-F2 `imp:clj:`, block-kernel F2 `imp:sense-block:`). Route
+      ;; assembly import-keys "imp:asm:<object-key>:<sha>" to the object-key
+      ;; partition, like imp:md:/imp:clj: — EXCEPT the assembly object-key is
+      ;; itself two segments ("asm:<name>", CONTRACT §17: identity is the worn
+      ;; NAME), so this branch takes the first TWO colon segments of the
+      ;; remainder instead of riding leading-object-key, which would truncate
+      ;; at "asm" and mis-route the foreign read this gate exists to kill.
+      ;; "imp:asm:" is 8 chars; the full key reads imp:asm:asm:<name>:<sha>.
+      (str/starts-with? s "imp:asm:")
+      (let [remainder (subs s 8)
+            idx1 (str/index-of remainder ":")
+            idx2 (when idx1 (str/index-of remainder ":" (inc idx1)))]
+        (if idx2 (subs remainder 0 idx2) remainder))
+
       (str/starts-with? s "src:")
       (leading-object-key (subs s 4))
 

@@ -485,7 +485,20 @@
                 ;; calls face-wiring/install-face-wiring!; this lane owns the atoms +
                 ;; the generic pull only.
                 !face-request (atom nil)
-                !face-data (atom nil)]
+                !face-data (atom nil)
+                ;; W2 (CONTRACT §16): two more GENERIC pulls through the SAME
+                ;; FacePull (dispatch stays server-side, trap T8 — these are
+                ;; constant surfaces, not per-face growth): the wear-time
+                ;; assembly-source pull and the sidebar face-list pull. Plus
+                ;; the codebase's first WRITE path: the wear outbox →
+                ;; RecordFaceWear (arsenal-only, never through the read
+                ;; artery — trap T15).
+                !assembly-request (atom nil)
+                !assembly-data (atom nil)
+                !face-list-request (atom nil)
+                !face-list-data (atom nil)
+                !face-wear-outbox (atom nil)
+                !face-wear-result (atom nil)]
             ;; Reactive sync: Rama PState → Electric → client atom.
             ;; Re-runs whenever the server-side PState changes.
             (reset! !sidebar-truth (fv/WatchSidebarTruth))
@@ -520,6 +533,22 @@
             (let [freq (e/watch !face-request)]
               (when freq
                 (reset! !face-data (fv/FacePull freq))))
+            ;; W2: assembly-source pull (wear-time; face_wiring compiles the
+            ;; served source client-side — T18: one .cljc compiler, two call
+            ;; sites) and face-list pull (the sidebar roster from Rama, T14).
+            ;; Same generic FacePull; no face-keyword dispatch here.
+            (let [areq (e/watch !assembly-request)]
+              (when areq
+                (reset! !assembly-data (fv/FacePull areq))))
+            (let [lreq (e/watch !face-list-request)]
+              (when lreq
+                (reset! !face-list-data (fv/FacePull lreq))))
+            ;; W2: the wear write path — outbox value in, result mirrored back;
+            ;; face_wiring clears the outbox on result (depth-1 queue by design,
+            ;; recorded in W2-INT). Idempotent server-side by wear-id journal.
+            (let [wear (e/watch !face-wear-outbox)]
+              (when wear
+                (reset! !face-wear-result (fv/RecordFaceWear wear))))
             ;; Sidebar visible: default true, but respect persisted workspace truth.
             ;; Must be initialized AFTER workspace truth loads so install-sidebar-watch!
             ;; sees the correct initial value and doesn't auto-show a hidden sidebar.
@@ -616,5 +645,11 @@
                                                     :!trail-data !trail-data
                                                     :!face-request !face-request
                                                     :!face-data !face-data
+                                                    :!assembly-request !assembly-request
+                                                    :!assembly-data !assembly-data
+                                                    :!face-list-request !face-list-request
+                                                    :!face-list-data !face-list-data
+                                                    :!face-wear-outbox !face-wear-outbox
+                                                    :!face-wear-result !face-wear-result
                                                     :!ingest-epoch-remote !ingest-epoch-remote
                                                     :initial-file file-info))))))))))))))))

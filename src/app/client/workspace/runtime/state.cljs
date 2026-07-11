@@ -218,6 +218,10 @@
       :!face-context  (atom nil)
       :!face-compiled (atom nil)
       :!face-scene    (atom nil)
+      ;; W2 (CONTRACT §16): the arsenal roster (:face-list data-context,
+      ;; mirrored whole by face-wiring) — the sidebar lists faces FROM RAMA
+      ;; (trap T14), never the faces directory.
+      :!face-list     (atom nil)
 
       ;; Agent / AI
       :!ai-provider     (atom :claude)

@@ -1,0 +1,119 @@
+;; The Minimap + Reader face — design-round candidate 1f, PICKED by Sid
+;; 2026-07-11 (framework W2 lane E, CONTRACT §16/§19 G22-G23). Transcribed
+;; from BlockExplorer.dc.html (build/framework/design-round/) mode 'minimap':
+;; "navigate by density, read at full fidelity: proportional strip of all
+;; turns on the left, one turn fully expanded on the right."
+;; Per the design-round INTENT.md: this face's OWN two panes (strip + reader)
+;; ARE its anatomy and stay — unlike the chat-log frame, which was harness.
+;; STRUCTURE transcription: strip = fixed 152px :box (:354), group cards +
+;; slivers (:357-368, h ∝ √words per :795, computed in the :sliver
+;; primitive), page-2 box (:370), reader top bar (:374-383), focused-turn
+;; frame + full-fidelity block cards (:384-434).
+;; Pure EDN arrangement (grammar v0): no lists, no symbols (§4 guard).
+;; NAMED LACKS (G23, logged in W2-E-plurality.md): :reader-turn — the
+;; projection serves no focus-turn selection yet (a request :params
+;; candidate); until it lands, the reader pane renders an honest gap
+;; (binds-missing counted, never invented). ‹›-nav / click-to-focus /
+;; clip-toggle verbs are :actions-class, v0-out. The design's user|response
+;; pair split inside the reader rides the same pair-structure data lack as
+;; Boxes. Toolish dimming/hatching = noise-class data lack.
+;; :child-inset/:child-w = the W1-INT Lack-2 interpreter extension: the row
+;; narrows both panes' wrap width (152px strip + 8 gap = 160); the strip
+;; narrows to its inner 134/124 (the design's fixed strip is fixed here too).
+;; NO :assembly/birthed-by (named provenance lack — design-round conversation
+;; is not in the OC; a fake edge would make the map lie).
+{:assembly/name    "minimap-reader-face"
+ :assembly/grammar 0
+ :assembly/belief  "navigate by density, read at full fidelity"
+ :assembly/status  :candidate
+ :assembly/author  "claude:w2-lane-e"
+ :root
+ {:prim :stack
+  :props {:direction :row :gap 8 :child-inset 160}
+  :children
+  [;; LEFT — the map strip, fixed 152px by design (:354 width:152px;flex:none)
+   {:prim :box
+    :props {:w 152 :bg [0.063 0.082 0.106 1.0]
+            :border-widths [0 1 0 0] :border-color [0.137 0.173 0.212 1.0]
+            :padding [0 9 20 9] :gap 6 :child-w 134}
+    :children
+    [;; strip header names the density law — :355 "map · h ∝ √words"
+     {:prim :header-band
+      :props {:h 24 :label "map · h ∝ √words" :size 9
+              :label-color [0.357 0.416 0.478 1.0] :border-bottom? true}}
+     {:each [:turns]
+      :template
+      ;; per-turn group card — :358 (radius 4, hairline border)
+      {:prim :box
+       :props {:radius 4 :border-width 1
+               :border-color [0.114 0.153 0.200 1.0]
+               :padding [3 5 4 5] :gap 2 :child-w 124}
+       :children
+       [;; T{n} left · {words}w right — :360-361
+        {:prim :header-band
+         :props {:h 12 :size 9 :label-prefix "T" :label {:bind [:order]}
+                 :label-color [0.467 0.529 0.604 1.0]
+                 :words-of {:bind [:blocks]}}}
+        ;; the sliver column, 1px gaps — :363-367
+        {:prim :stack
+         :props {:gap 1}
+         :children
+         [{:each [:blocks]
+           :template {:prim :sliver
+                      :props {:text {:bind [:text]} :kind {:bind [:kind]}}}}]}]}}
+     ;; strip page-end honesty — :370 "page 2 not loaded" (dashed/hatched
+     ;; fill is a cosmetic lack — solid muted frame here)
+     {:prim :box
+      :props {:radius 4 :border-width 1
+              :border-color [0.173 0.224 0.278 1.0]
+              :padding [8 5 8 5]}
+      :children
+      [{:prim :text-run
+        :props {:value {:bind [:conversation/paging-lack]} :size 9
+                :color [0.290 0.345 0.400 1.0]}}]}]}
+   ;; RIGHT — the reader: ONE turn at full fidelity (:373-435)
+   {:prim :stack
+    :props {:gap 9}
+    :children
+    [;; reader top bar — :374-378 ("turn N · of ≥30 · … · Nw"; the ‹›
+     ;; nav spans are :actions-class, v0-out — named lack)
+     {:prim :header-band
+      :props {:h 34 :label-prefix "turn " :label {:bind [:reader-turn :order]}
+              :sub {:bind [:reader-turn :speaker]}
+              :words-of {:bind [:reader-turn :blocks]}
+              :label-color [0.890 0.925 0.957 1.0]
+              :bg [0.071 0.090 0.114 1.0] :border-bottom? true}}
+     ;; the focused-turn frame — :385-393 (blue-tinted border + header)
+     {:prim :box
+      :props {:radius 8 :border-width 1
+              :border-color [0.373 0.690 0.918 0.32]
+              :padding [1 1 1 1] :child-inset 2}
+      :children
+      [{:prim :header-band
+        :props {:h 26 :dot-color [0.373 0.690 0.918 1.0]
+                :label {:bind [:reader-turn :speaker]}
+                :label-color [0.373 0.690 0.918 1.0]
+                :count-of {:bind [:reader-turn :blocks]} :count-suffix " blocks"
+                :bg [0.373 0.690 0.918 0.06]}}
+       ;; the reader well — :394 (padding 9 10, gap between cards :410)
+       {:prim :box
+        :props {:padding [9 10 10 10] :gap 9 :child-inset 20}
+        :children
+        [{:each [:reader-turn :blocks]
+          :template
+          ;; reader block card — :412-433: header + FULL text (:text-run,
+          ;; never :text-clip — "read at full fidelity"; the design's
+          ;; tool-result>20-lines conditional clip is a conditional-display
+          ;; lack, v0-out)
+          {:prim :box
+           :props {:radius 6 :border-width 1
+                   :border-color [0.149 0.188 0.235 1.0]
+                   :bg [0.071 0.090 0.114 1.0]
+                   :padding [1 1 1 1] :child-inset 2}
+           :children
+           [{:prim :header-band
+             :props {:h 20 :label {:bind [:kind]} :kind {:bind [:kind]}
+                     :words-of {:bind [:text]} :border-bottom? true}}
+            {:prim :text-run
+             :props {:value {:bind [:text]} :padding [7 10 9 10]
+                     :color [0.812 0.851 0.890 1.0]}}]}}]}]}]}]}}

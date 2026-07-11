@@ -23,23 +23,28 @@
 (def sidebar-font-size 13)
 
 (defn derive-effective-sidebar
-  "Derive the effective sidebar state from truth, overlay, and ui layers."
-  [truth overlay ui]
-  (let [project (or (:pending-project overlay) (:project truth))
-        project (when (:path project) project)
-        expanded (set/difference
-                   (set/union (or (:expanded-dirs truth) #{})
-                              (or (:pending-expanded-dirs overlay) #{}))
-                   (or (:pending-collapsed-dirs overlay) #{}))
-        selected (or (:pending-selected-file overlay) (:selected-file truth))
-        selected (when (:path selected) selected)]
-    {:project project
-     :expanded-dirs expanded
-     :selected-file selected
-     :dir-cache (:dir-cache ui)
-     :home-dirs (:home-dirs ui)
-     :scroll-y (:scroll-y ui)
-     :in-flight-dirs (:in-flight-dirs ui)}))
+  "Derive the effective sidebar state from truth, overlay, and ui layers.
+   4-arity (framework W2, CONTRACT §16): `face-list` is the :face-list
+   data-context mirrored from Rama (trap T14 — the roster never comes from
+   the faces directory); nil until the first pull lands."
+  ([truth overlay ui] (derive-effective-sidebar truth overlay ui nil))
+  ([truth overlay ui face-list]
+   (let [project (or (:pending-project overlay) (:project truth))
+         project (when (:path project) project)
+         expanded (set/difference
+                    (set/union (or (:expanded-dirs truth) #{})
+                               (or (:pending-expanded-dirs overlay) #{}))
+                    (or (:pending-collapsed-dirs overlay) #{}))
+         selected (or (:pending-selected-file overlay) (:selected-file truth))
+         selected (when (:path selected) selected)]
+     {:project project
+      :expanded-dirs expanded
+      :selected-file selected
+      :dir-cache (:dir-cache ui)
+      :home-dirs (:home-dirs ui)
+      :scroll-y (:scroll-y ui)
+      :in-flight-dirs (:in-flight-dirs ui)
+      :face-list face-list})))
 
 (defn path->id
   "Domain-identity keyword from a filesystem path.
@@ -86,17 +91,105 @@
               [row]))))
       sorted)))
 
+(defn faces-section-height
+  "Height of the FACES section (framework W2): header row + one row per face,
+   or header + one honest status row when the roster is empty/errored. Zero
+   while the roster has not arrived (no section rendered)."
+  [face-list]
+  (if (nil? face-list)
+    0
+    (let [n (count (:faces face-list))]
+      (* (inc (max 1 n)) sidebar-row-h))))
+
 (defn compute-sidebar-content-height
-  "Total content height in px for sidebar scroll clamping."
+  "Total content height in px for sidebar scroll clamping (includes the W2
+   FACES section — the clamp must match what build-sidebar-tree renders).
+   G26 fix (render MED): the chrome rows that scroll INSIDE
+   :sidebar-scroll-inner count too — the EXPLORER/back header (sidebar-back-h)
+   in both modes, plus the breadcrumb when a file is open. Omitting them left
+   the bottom rows (exactly where the FACES section lives) unreachable."
   [sidebar-state]
-  (let [{:keys [project expanded-dirs dir-cache home-dirs selected-file]} sidebar-state]
+  (let [{:keys [project expanded-dirs dir-cache home-dirs selected-file face-list]} sidebar-state
+        faces-h (faces-section-height face-list)]
     (if (nil? project)
-      ;; Home dirs list
-      (* (count (or home-dirs [])) sidebar-row-h)
-      ;; File tree
+      ;; Home dirs list: header + rows + faces
+      (+ sidebar-back-h
+         (* (count (or home-dirs [])) sidebar-row-h)
+         faces-h)
+      ;; File tree: back button + breadcrumb (when open) + rows + faces
       (let [root-entries (get dir-cache (:path project) [])
             flat (flatten-file-tree root-entries expanded-dirs selected-file dir-cache 0)]
-        (* (count flat) sidebar-row-h)))))
+        (+ sidebar-back-h
+           (if selected-file sidebar-breadcrumb-h 0)
+           (* (count flat) sidebar-row-h)
+           faces-h)))))
+
+;; ============================================================================
+;; FACES SECTION (framework W2, CONTRACT §16 / gate G24)
+;; ============================================================================
+
+(defn faces-section-nodes
+  "The arsenal roster as sidebar rows (display-only in W2 — wearing stays on
+   the /face command; click-to-wear is an :actions-era extension). Data comes
+   from Rama via :!face-list (trap T14). Status glyphs: ● worn · ○ candidate ·
+   × retired · ⚠ invalid (the map must not lie — an invalid face lists as
+   invalid, never as wearable). Returns [] while the roster hasn't arrived."
+  [face-list sb-w font-size max-chars]
+  (if (nil? face-list)
+    []
+    (let [colors (:colors dt)
+          text-muted-c (or (:text-muted (:surfaces dt)) [0.36 0.42 0.50 1.0])
+          header (rt-node :faces-hdr :header
+                   {:x 0 :y 0 :w sb-w :h sidebar-row-h}
+                   :style {:bg (:bg-elevated colors)
+                           :border-widths [1 0 1 0]
+                           :border-color (:border-subtle colors)}
+                   :text [{:text "FACES" :type :comment
+                           :from 0 :to 5
+                           :x sidebar-padding-x :y (+ (/ sidebar-row-h 2) (/ 11 2.5))
+                           :size 11
+                           :r (nth text-muted-c 0) :g (nth text-muted-c 1)
+                           :b (nth text-muted-c 2) :a (nth text-muted-c 3)}])
+          faces (:faces face-list)
+          text-y (+ (/ sidebar-row-h 2) (/ font-size 2.5))
+          rows (if (empty? faces)
+                 ;; honest empty/error state — never an invented list
+                 (let [msg (if (:face-list/error face-list)
+                             (str "unavailable: " (name (:face-list/error face-list)))
+                             "(no faces)")]
+                   [(rt-node :faces-empty :text-block
+                      {:x 0 :y 0 :w sb-w :h sidebar-row-h}
+                      :text [{:text msg :type :comment
+                              :from 0 :to (count msg)
+                              :x sidebar-padding-x :y text-y
+                              :size font-size
+                              :r 0.40 :g 0.40 :b 0.45 :a 0.6}])])
+                 (mapv
+                   (fn [{:keys [name status valid? wear-count]}]
+                     (let [glyph (cond
+                                   (false? valid?)     "⚠"
+                                   (= status :worn)    "●"
+                                   (= status :retired) "×"
+                                   :else               "○")
+                           label (str glyph " " name
+                                      (when (pos? (or wear-count 0))
+                                        (str "  " wear-count "×")))
+                           trunc (if (> (count label) max-chars)
+                                   (str (subs label 0 (- max-chars 2)) "..")
+                                   label)
+                           id-kw (path->id "face" name)]
+                       (rt-node id-kw :sidebar-entry
+                         {:x 0 :y 0 :w sb-w :h sidebar-row-h}
+                         :data {:entry-type :face :face-name name
+                                :status status :valid? valid?}
+                         :text [{:text trunc :type :text
+                                 :from 0 :to (count trunc)
+                                 :x sidebar-padding-x :y text-y
+                                 :size font-size
+                                 :r 0.65 :g 0.65 :b 0.70
+                                 :a (if (false? valid?) 0.55 1.0)}])))
+                   faces))]
+      (into [header] rows))))
 
 ;; ============================================================================
 ;; SIDEBAR TREE BUILDER (rect tree for file sidebar)
@@ -300,10 +393,14 @@
           ;; Scrollable content area (clips children)
           ;; Inner scroll container: offset by -scroll-y, layout positions children,
           ;; outer clip-node hides overflow
+          ;; W2: the FACES section rides below the main content in BOTH modes
+          ;; (home dirs and project tree) — the roster is workspace-global
+          faces-nodes (faces-section-nodes (:face-list sidebar-state)
+                                           sb-w sb-font max-chars)
           scroll-inner (rt-node :sidebar-scroll-inner :container
                          {:x 0 :y (- sidebar-scroll-y) :w sb-w :h 99999}
                          :layout {:direction :column}
-                         :children (vec content-children))
+                         :children (vec (concat content-children faces-nodes)))
           content-node (rt-node :sidebar-content :panel-content
                          {:x 0 :y content-top :w sb-w :h content-h}
                          :clip? true

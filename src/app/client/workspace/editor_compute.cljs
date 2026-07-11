@@ -276,7 +276,7 @@
   [!editor-doc !eval-result !caret-visible !focus !settings !active-font !viewport
    <fold-data <bracket-data
    !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
-   !sidebar-truth !sidebar-overlay !sidebar-ui !sidebar-visible !current-file !effective-local-world !sidebar-scene !extract-preview !agent-output
+   !sidebar-truth !sidebar-overlay !sidebar-ui !sidebar-visible !current-file !effective-local-world !sidebar-scene !extract-preview !agent-output !face-list
    !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !run-scroll-y !detail-scroll-y
    !trail-face-state !trail-face-scene !trail-text !trail-feed !trail-bundles !trail-coverage
    !face-state !face-context !face-compiled !face-scene
@@ -320,18 +320,23 @@
         ;; ── Sidebar rects (independent of content mode) ──
         ;; Builds + resolves the tree once, caches in !sidebar-scene for hit-testing,
         ;; then extracts rects+shadows for GPU. One tree, two consumers.
-        !last-sidebar-struct-hash (atom nil)
+        ;; G26 fix (render LOW): compare the input VALUE, not its hash — the
+        ;; sibling trail/face flows already do (trap T13: a hash collision
+        ;; freezes a stale HIT-TEST scene while the drawn rects move on)
+        !last-sidebar-struct (atom ::none)
         <sidebar
         (m/latest
-          (fn [layout sidebar-truth sidebar-overlay sidebar-ui scroll-y]
+          (fn [layout sidebar-truth sidebar-overlay sidebar-ui scroll-y face-list]
             (if-not (:sb-vis? layout)
               (do (reset! !sidebar-scene nil) nil)
               (let [t0 (js/performance.now)
                     {:keys [viewport font-size char-advance]} layout
-                    sidebar-state (derive-effective-sidebar sidebar-truth sidebar-overlay sidebar-ui)
-                    struct-hash (hash [layout sidebar-truth sidebar-overlay (select-keys sidebar-ui [:scroll-y :dir-cache :home-dirs]) scroll-y])
-                    structure-changed? (not= struct-hash @!last-sidebar-struct-hash)
-                    _ (when structure-changed? (reset! !last-sidebar-struct-hash struct-hash))
+                    ;; W2 (CONTRACT §16): the FACES roster joins the sidebar
+                    ;; state — from Rama via :!face-list (trap T14)
+                    sidebar-state (derive-effective-sidebar sidebar-truth sidebar-overlay sidebar-ui face-list)
+                    struct [layout sidebar-truth sidebar-overlay (select-keys sidebar-ui [:scroll-y :dir-cache :home-dirs]) scroll-y face-list]
+                    structure-changed? (not= struct @!last-sidebar-struct)
+                    _ (when structure-changed? (reset! !last-sidebar-struct struct))
                     
                     raw-tree (build-sidebar-tree sidebar-state true
                                                 (:height viewport) scroll-y font-size char-advance (:hover-id sidebar-ui))
@@ -347,8 +352,8 @@
                         t4 (js/performance.now)]
                     (js/console.log "[SIDEBAR-FLOW] build:" (.toFixed (- t1 t0) 1) "ms | resolve:" (.toFixed (- t2 t1) 1) "ms | rects:" (.toFixed (- t3 t2) 1) "ms | shadows:" (.toFixed (- t4 t3) 1) "ms | TOTAL:" (.toFixed (- t4 t0) 1) "ms | rows:" (count (:children (first (:children (last (:children raw-tree)))))))
                     {:rects rects :shadows shadows})))))
-          <layout (m/watch !sidebar-truth) (m/watch !sidebar-overlay) (m/watch !sidebar-ui) (m/watch !scroll-y))
-        ;; 5 fn args, 5 flows
+          <layout (m/watch !sidebar-truth) (m/watch !sidebar-overlay) (m/watch !sidebar-ui) (m/watch !scroll-y) (m/watch !face-list))
+        ;; 6 fn args, 6 flows
 
         ;; ── Trail face scene (view-mvp WP-B2) ──
         ;; Build ONCE per data/viewport change, cache in !trail-face-scene;

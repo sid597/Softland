@@ -542,6 +542,245 @@
              :children (into [rail] children))))
 
 ;; ===========================================================================
+;; W2 lane-E GAP-FILL primitives (CONTRACT §16/§19 G22-G23) — minted for the
+;; two design-round transcriptions (1e Boxes · 1f Minimap+Reader, Sid's picks
+;; 2026-07-11). Extraction-and-gap-fill, not invention (§6): each primitive
+;; below cites the design element it exists for (BlockExplorer.dc.html under
+;; build/framework/design-round/). The CSS is claude-design's medium; these
+;; transcribe STRUCTURE through the land's own tokens, never pixel-port.
+;; ===========================================================================
+
+(defn- words-in
+  "Word count, computed INSIDE the primitive (measure rule §6; the design-round
+   INTENT.md transcription note: 'no per-block word counts unless computed by a
+   primitive'). A string counts its non-whitespace tokens; a sequential of
+   block maps sums over their :text (the design's per-turn words,
+   BlockExplorer.dc.html buildBoxes t.words)."
+  [x]
+  (cond
+    (string? x)     (count (re-seq #"\S+" x))
+    (sequential? x) (reduce + 0 (map #(words-in (:text %)) x))
+    :else           0))
+
+(def sliver-palette
+  "Block-kind -> color for the kind-coded design elements (sliver bars,
+   header dots/labels). Hex origins are the design's TYPE map
+   (BlockExplorer.dc.html:448-456), converted to the land's [r g b a] floats
+   at the design's non-toolish sliver alpha 0.6 (:814). v0 kinds are a small
+   open set (fixtures use 'text'/'heading'/'code'; the worn projection emits
+   e.g. :human-message) — unknown kinds take the neutral default in the
+   consuming primitive. The design's toolish dimming (alpha 0.3 / rowOp 0.62)
+   rides a noise-class taxonomy the data does not carry (:kind only) — a G23
+   named data lack, never improvised here."
+  {"human-message" [0.373 0.690 0.918 0.6]   ;; #5fb0ea user-message
+   "user-message"  [0.373 0.690 0.918 0.6]
+   "heading"       [0.337 0.749 0.651 0.6]   ;; #56bfa6 structure teal
+   "text"          [0.498 0.788 0.561 0.6]   ;; #7fc98f agent prose
+   "thinking"      [0.706 0.557 0.871 0.6]   ;; #b48ede agent-thinking
+   "code"          [0.851 0.627 0.357 0.6]   ;; #d9a05b tool-call gold
+   "tool-result"   [0.612 0.541 0.369 0.6]}) ;; #9c8a5e result khaki
+
+(defn- kind-color
+  "Palette lookup for a :kind (keyword or string), nil when unknown."
+  [kind]
+  (when kind (get sliver-palette (name (keyword kind)))))
+
+(defn box-prim
+  "`:box` — W2 lane-E gap-fill: the bordered rounded CONTAINMENT frame of the
+   Boxes/Minimap designs — russian-doll turn frames, role frames and block
+   cards (BlockExplorer.dc.html:277 turn frame, :285 user frame, :296 chunk
+   card, :309 response frame, :319 block card — Boxes; :358 strip group card,
+   :385/:412 reader frames — Minimap+Reader). `:card` cannot express it: the
+   G7-pinned ui-card copy carries no :layout, so its children would not stack
+   (and the copy may not be edited). Column layout with :padding/:gap;
+   measures its own :h bottom-up from the already-built children (measure
+   rule, trap T7 — measure in the primitive, arrange in the engine)."
+  [ctx props children]
+  (let [geom  (:geom ctx)
+        w     (content-w props geom)
+        gap   (or (:gap props) 0)
+        pad   (or (:padding props) 0)
+        [pt _pr pb _pl] (rt/normalize-padding pad)
+        h     (or (:h props)
+                  (+ pt pb (sum-children-h children)
+                     (gap-total gap (count children))))
+        style (cond-> {}
+                (:bg props)     (assoc :bg (:bg props))
+                (:radius props) (assoc :radius (:radius props))
+                (:border-width props)
+                (assoc :border-width (:border-width props)
+                       :border-color (or (:border-color props)
+                                         (get-in dt [:colors :border])))
+                (:border-widths props)
+                (assoc :border-widths (:border-widths props)
+                       :border-color (or (:border-color props)
+                                         (get-in dt [:colors :border]))))]
+    (rt-node (:id ctx) :box
+             {:x 0 :y 0 :w w :h h}
+             :style style
+             :layout {:direction :column :gap gap :padding pad
+                      :align (or (:align props) :start)}
+             :children (vec children))))
+
+(defn header-band-prim
+  "`:header-band` — W2 lane-E gap-fill: the fixed-height header strip every
+   Boxes/Minimap frame opens with — leading role dot + bold label at the left,
+   muted meta RIGHT-ALIGNED at the far edge (the design's `flex:1` spacer made
+   flesh): BlockExplorer.dc.html:278-283 turn header, :286-293 user-message
+   header, :310-316 response header, :320-329 block-card header, :355 strip
+   header, :374-383 reader top bar. Emits its own positioned text ops (measure
+   rule §6; the `build-empty-state` pattern). Right-alignment measures text
+   width as fs x (geom advance ratio), falling back to the ONE
+   `fallback-char-width` constant — never a second width literal (G22/F10 law).
+   Props: :label (+ :label-prefix — the design's 'T'/'turn ' literals,
+   :360/:377), :sub, and ONE meta slot: :meta (explicit) | :words-of (string or
+   block-seq -> 'Nw', computed inside the primitive per INTENT.md) | :count-of
+   (+ :count-suffix); :kind derives dot+label color from `sliver-palette` (the
+   design's per-type b.color, :321-322), :dot-color/:label-color override;
+   :h :bg :border-bottom? :size. Interaction verbs on design headers
+   (click-to-pin, expand toggles, nav arrows) are :actions-class — v0-out
+   (CONTRACT §4 reserved), logged as G23 named lacks."
+  [ctx props _children]
+  (let [geom   (:geom ctx)
+        w      (content-w props geom)
+        h      (or (:h props) 24)
+        fs     (or (:size props) (:xs (:font-sizes dt)))
+        ratio  (let [ga (:char-advance geom) gf (:font-size geom)]
+                 (if (and (number? ga) (number? gf) (pos? gf))
+                   (/ ga gf)
+                   fallback-char-width))
+        ca     (* fs ratio)
+        kc     (some-> (:kind props) kind-color (assoc 3 1.0))
+        dotc   (or (:dot-color props) kc)
+        pl0    10
+        pl     (if dotc (+ pl0 7 8) pl0)
+        ;; double division on purpose: golden snapshots are EDN and
+        ;; clojure.edn cannot read ratio literals
+        ty     (+ (/ h 2.0) (/ fs 2.5))
+        label  (str (:label-prefix props "") (:label props ""))
+        sub    (some-> (:sub props) str)
+        meta*  (cond
+                 (some? (:meta props))     (str (:meta props))
+                 (some? (:words-of props)) (str (words-in (:words-of props)) "w")
+                 (some? (:count-of props)) (str (count (:count-of props))
+                                                (:count-suffix props ""))
+                 :else nil)
+        lc     (or (:label-color props) kc (get-in dt [:colors :fg]))
+        mc     (get-in dt [:colors :fg-muted])
+        sub-x  (+ pl (* (count label) ca) 8)
+        ops    (cond-> []
+                 (seq label)
+                 (conj {:text label :type :keyword :from 0 :to (count label)
+                        :x pl :y ty :size fs
+                        :r (nth lc 0) :g (nth lc 1) :b (nth lc 2) :a (nth lc 3)})
+                 sub
+                 (conj {:text sub :type :comment :from 0 :to (count sub)
+                        :x sub-x :y ty :size fs
+                        :r (nth mc 0) :g (nth mc 1) :b (nth mc 2) :a (nth mc 3)})
+                 meta*
+                 (conj {:text meta* :type :comment :from 0 :to (count meta*)
+                        ;; right-aligned: the design's `flex:1` spacer
+                        :x (max pl (- w 10 (* (count meta*) ca))) :y ty :size fs
+                        :r (nth mc 0) :g (nth mc 1) :b (nth mc 2) :a (nth mc 3)}))
+        dot    (when dotc
+                 (rt-node (child-id (:id ctx) :dot) :header-dot
+                          {:x pl0 :y (/ (- h 7) 2.0) :w 7 :h 7}
+                          :style {:bg dotc :radius (:full (:radii dt))}
+                          :data {:layout-skip? true}))
+        style  (cond-> {}
+                 (:bg props) (assoc :bg (:bg props))
+                 (:border-bottom? props)
+                 (assoc :border-widths [0 0 1 0]
+                        :border-color (get-in dt [:colors :border-subtle])))]
+    (rt-node (:id ctx) :header-band
+             {:x 0 :y 0 :w w :h h}
+             :style style
+             :text ops
+             :children (if dot [dot] []))))
+
+(defn text-clip-prim
+  "`:text-clip` — W2 lane-E gap-fill: prose clipped at :max-lines with an
+   HONEST visible remainder stub — the Boxes intent line ('long blocks clip at
+   ~6 lines') and the design's clip branch + measured '▸ N …' stub
+   (BlockExplorer.dc.html:333-338 showClip, :488 b.stub). Wraps ONCE via
+   `wrap-line` (G8 discipline; `:text-layout` NOWHERE — the dead hook, PROBE
+   Finding 1, trap T7), emits its own positioned ops for the first :max-lines
+   wrapped lines plus one muted '▸ N more lines' indicator op when clipped,
+   and measures :h = shown-lines(+stub) x line-height + padding. :data carries
+   {:text/clipped? :text/lines-total :text/lines-shown} so the tree never lies
+   about the cut (map-must-not-lie). The design's expand/collapse TOGGLE is
+   :actions-class (v0 read-only, CONTRACT §4) and its bottom fade gradient is
+   cosmetic — both logged as G23 named lacks, not improvised."
+  [ctx props children]
+  (let [geom      (:geom ctx)
+        w         (content-w props geom)
+        fs        (or (:size props) (:font-size geom) 14)
+        lh        (or (:line-height props) (:line-height geom) 20)
+        ca        (or (:char-advance geom) (* fs fallback-char-width))
+        pad       (or (:padding props) 0)
+        [pt pr pb pl] (rt/normalize-padding pad)
+        avail     (max 1 (- w pl pr))
+        max-chars (max 1 (int (/ avail ca)))
+        max-lines (max 1 (or (:max-lines props) 6))
+        value     (str (:value props (:text props "")))
+        raw       (str/split-lines value)
+        lines     (vec (mapcat (fn [ln] (wrap-line ln max-chars)) raw))
+        total     (count lines)
+        clipped?  (> total max-lines)
+        shown     (if clipped? (subvec lines 0 max-lines) lines)
+        n         (max 1 (count shown))
+        color     (or (:color props) (get-in dt [:colors :fg]))
+        mc        (get-in dt [:colors :fg-muted])
+        ops       (vec (map-indexed
+                        (fn [i line]
+                          {:text line :type (or (:text-type props) :text)
+                           :from 0 :to (count line)
+                           :x pl :y (+ pt (* i lh))
+                           :size fs
+                           :r (nth color 0) :g (nth color 1)
+                           :b (nth color 2) :a (nth color 3)})
+                        shown))
+        stub      (when clipped?
+                    (let [s (str "▸ " (- total max-lines) " more lines")]
+                      {:text s :type :comment :from 0 :to (count s)
+                       :x pl :y (+ pt (* n lh)) :size fs
+                       :r (nth mc 0) :g (nth mc 1) :b (nth mc 2) :a (nth mc 3)}))
+        rows      (if clipped? (inc n) n)
+        h         (+ pt pb (* rows lh))]
+    (rt-node (:id ctx) :text-clip
+             {:x 0 :y 0 :w w :h h}
+             :text (if stub (conj ops stub) ops)
+             :data {:text/clipped?     clipped?
+                    :text/lines-total  total
+                    :text/lines-shown  (count shown)}
+             :children (vec children))))
+
+(defn sliver-prim
+  "`:sliver` — W2 lane-E gap-fill: the Minimap strip's per-block DENSITY BAR —
+   'navigate by density': height ∝ √words, clamped [2,26] px, exactly the
+   design's formula `max(2, min(26, round(sqrt(words)*0.75)))`
+   (BlockExplorer.dc.html:795, and the strip's own header names the law:
+   'map · h ∝ √words', :355), color keyed by block :kind through
+   `sliver-palette` (:814). Words are computed INSIDE the primitive from
+   :text (measure rule §6; INTENT.md sanctions primitive-computed counts —
+   the projection carries none: a G23 named data lack). :data carries the
+   computed {:sliver/words} so tests assert the proportionality law, never a
+   magic height."
+  [ctx props _children]
+  (let [geom  (:geom ctx)
+        w     (content-w props geom)
+        words (words-in (str (:text props "")))
+        h     (max 2 (min 26 (int (+ 0.5 (* 0.75 (Math/sqrt words))))))
+        kind  (some-> (:kind props) keyword name)
+        color (or (:color props)
+                  (kind-color kind)
+                  [0.42 0.51 0.60 0.6])]
+    (rt-node (:id ctx) :sliver
+             {:x 0 :y 0 :w w :h h}
+             :style {:bg color :radius 1}
+             :data {:sliver/words words :sliver/kind kind})))
+
+;; ===========================================================================
 ;; §6 BUILDER-FN wrappers — adapt (ctx props children) to the verbatim copies.
 ;; Each MEASURES the node's bounds from geom + already-built children, then
 ;; calls the original bounds-passing builder. These are the registry values.
@@ -712,4 +951,9 @@
    ;; genuinely new (§6)
    :stack         stack-prim
    :text-run      text-run-prim
-   :indent-rail   indent-rail-prim})
+   :indent-rail   indent-rail-prim
+   ;; W2 lane-E gap-fill (design-round transcription, CONTRACT §16/G22-G23)
+   :box           box-prim
+   :header-band   header-band-prim
+   :text-clip     text-clip-prim
+   :sliver        sliver-prim})

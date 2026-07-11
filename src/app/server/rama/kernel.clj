@@ -5,14 +5,14 @@
 ;;   STATUS: SPEC + LIVE SNAPSHOT.
 ;;     - The top of this file is the prose spec (theory ↔ model, CT framing, formalization matrix).
 ;;     - The bottom of this file is (defkernel KERNEL-SHAPE ...) — a Clojure-readable, inspectable
-;;       description of what kernels look like ACROSS THE 5 CURRENT INSTANCES.
+;;       description of what kernels look like ACROSS THE 6 CURRENT INSTANCES.
 ;;     - The defkernel form is DATA, not code generation. Nothing in the codebase calls it.
 ;;       It exists to be inspected, discussed, and edited as new kernels are built. Git tracks
 ;;       the evolution; this file is the single point of reference for "what is a kernel?"
 ;;
 ;;   In CT terms:
 ;;     prose + KERNEL-SHAPE  =  the *theory* of a kernel
-;;     5 Rama instance files     =  *models* of that theory
+;;     6 Rama instance files     =  *models* of that theory
 ;;     (hypothetical) generator-defkernel  =  a *functor* from DomainDesc to Module — DEFERRED
 ;;
 ;;   In Rama terms: each kernel-instance is a (defmodule ...). In our architecture we call them
@@ -24,7 +24,7 @@
 ;;   WHY THIS FILE EXISTS
 ;;   ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 ;;
-;;   The codebase contains FIVE instances of the same shape:
+;;   The codebase contains SIX instances of the same shape:
 ;;
 ;;     core               shared request/event contracts (src/app/server/rama/core.clj)
 ;;     text-kernel        V0/V1 text-artifact module (src/app/server/rama/text_kernel.clj)
@@ -33,6 +33,8 @@
 ;;     compute-kernel     shell-command execution (src/app/server/rama/dogfood/compute.clj)
 ;;     llm-kernel         LLM turn-run execution (src/app/server/rama/dogfood/llm.clj)
 ;;     transcript-kernel  CLI transcript ingest (src/app/server/rama/dogfood/transcript.clj)
+;;     face-arsenal       face wear log + face-name index (framework W2, CONTRACT §16;
+;;                          intent-only, #6 — src/app/server/rama/face_arsenal.clj)
 ;;
 ;;   The common pattern:
 ;;
@@ -45,7 +47,7 @@
 ;;                                                     └─────────────────────────┘
 ;;
 ;;   The depot family is OPTIONAL at the bottom. Only :intent-depot is always present.
-;;   Some kernels are intent-only (text, space). Some have intent + execution-pair (compute,
+;;   Some kernels are intent-only (text, space, face-arsenal). Some have intent + execution-pair (compute,
 ;;   transcript). One has all four plus a control plane (llm). KERNEL-SHAPE below shows the
 ;;   distribution exactly.
 ;;
@@ -64,7 +66,7 @@
 ;;   │ Has no depot, no PState, no module.       │ Has its own depot family + topology       │ via code generation, if/when useful.      │
 ;;   │                                           │ + pstates + interpret-fn.                 │                                           │
 ;;   │ Lives as:                                 │                                           │ TODAY: not implemented.                   │
-;;   │   • the prose spec at the top of this     │   text_kernel.clj          text-kernel    │   The 5 modules are hand-written.         │
+;;   │   • the prose spec at the top of this     │   text_kernel.clj          text-kernel    │   The 6 modules are hand-written.         │
 ;;   │     file                                  │   dogfood/space.clj        space-kernel   │   defkernel is data-only; describes the   │
 ;;   │   • (defkernel KERNEL-SHAPE ...)          │   dogfood/compute.clj      compute-kernel │   shape, doesn't generate it.             │
 ;;   │     at the bottom of this file            │   dogfood/llm.clj          llm-kernel     │                                           │
@@ -523,9 +525,9 @@
   ;; tie each abstract field to its concrete uses; keep them in sync when modules change.
   ;;
   ;; Distribution at the time of this snapshot:
-  ;;     intent-only kernels (text, space)              :  2 of 5
-  ;;     intent + execution-pair (compute, transcript)  :  2 of 5
-  ;;     intent + execution + control (llm)             :  1 of 5
+  ;;     intent-only kernels (text, space, face-arsenal):  3 of 6
+  ;;     intent + execution-pair (compute, transcript)  :  2 of 6
+  ;;     intent + execution + control (llm)             :  1 of 6
   ;;
   ;; No two kernels use exactly the same subset of fields. That's why the macro is
   ;; deliberately not a code generator yet — see "WHY defkernel IS DATA" above.
@@ -544,7 +546,8 @@
      :space-kernel      :routing/key
      :compute-kernel    :run/id
      :transcript-kernel :transcript/request-id
-     :llm-kernel        :llm-turn-run/id}
+     :llm-kernel        :llm-turn-run/id
+     :face-arsenal      :face/name}        ; framework W2 — plain-map events (rk F1 lesson)
     :notes
     "text-kernel and space-kernel currently partition by :routing/key (a transitional
      placeholder, semantically a 'semantic-vector'). The other 3 kernels partition by
@@ -562,7 +565,7 @@
      (:event-id-conflict) so committed KernelEvents are immutable."}
 
    ;; ────────────────────────────────────────────────────────────────────────────────
-   ;; INTENT DEPOT  (always present — 5 of 5)
+   ;; INTENT DEPOT  (always present — 6 of 6)
    ;; The "do this" request stream. ActionRequests enter here; the topology folds
    ;; them into ActionDecisions, then into KernelEvents.
    ;; ────────────────────────────────────────────────────────────────────────────────
@@ -576,10 +579,11 @@
      :space-kernel      '*space-action-depot
      :compute-kernel    '*compute-depot
      :transcript-kernel '*transcript-depot
-     :llm-kernel        '*llm-depot}}
+     :llm-kernel        '*llm-depot
+     :face-arsenal      '*face-arsenal-depot}}
 
    ;; ────────────────────────────────────────────────────────────────────────────────
-   ;; CLAIM DEPOT  (3 of 5)
+   ;; CLAIM DEPOT  (3 of 6)
    ;; Executor's lock — "I'm taking this work." Folds into the run row to flip
    ;; :pending → :claimed. ALWAYS co-occurs with :observation-depot. The pair
    ;; together IS the back-arrow rule made structural.
@@ -595,7 +599,7 @@
      :llm-kernel        '*llm-claim-depot}}
 
    ;; ────────────────────────────────────────────────────────────────────────────────
-   ;; OBSERVATION DEPOT  (3 of 5)
+   ;; OBSERVATION DEPOT  (3 of 6)
    ;; The back-arrow. Workers stream observations BACK into Rama; Rama is truth.
    ;; The :retry-mode :all-after setting on the source> is REQUIRED — it lets a
    ;; retried fold resume mid-stream after partial failure without re-spawning
@@ -614,7 +618,7 @@
      :llm-kernel        '*llm-obs-depot}}
 
    ;; ────────────────────────────────────────────────────────────────────────────────
-   ;; CONTROL DEPOT  (1 of 5)
+   ;; CONTROL DEPOT  (1 of 6)
    ;; Out-of-band cancel / steer / approve / compact. NOT folded as a normal
    ;; observation; folded with its own type-dispatching reducer
    ;; (record-control / resolve-approval / cancel-run / add-steer / add-compaction).
@@ -630,7 +634,7 @@
     {:llm-kernel '*llm-control-depot}}
 
    ;; ────────────────────────────────────────────────────────────────────────────────
-   ;; TASK-GLOBAL EXECUTOR  (1 of 5)
+   ;; TASK-GLOBAL EXECUTOR  (1 of 6)
    ;; A (declare-object ...) inside the module that creates a reactive task-global.
    ;; The executor polls pending PState rows, spawns work (via spawn-if-absent
    ;; registry), reconciles state. Canonical example: compute.clj:587 — the executor
@@ -648,7 +652,7 @@
     {:compute-kernel '*compute-executor}}
 
    ;; ────────────────────────────────────────────────────────────────────────────────
-   ;; CROSS-MODULE WIRES  (1 of 5)
+   ;; CROSS-MODULE WIRES  (1 of 6)
    ;; Writes into another kernel's depots from this kernel's topology. Operationally
    ;; concrete in Rama:
    ;;   declare side:  (mirror-depot setup *<their-depot> <their-module> "*<their-depot>")

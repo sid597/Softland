@@ -340,7 +340,9 @@
                   ;; (G16 falsification fix)
                   :until (do (swap! !fs update :params assoc :until-ms (:until-ms parsed))
                              (reset! !scroll-y 0))
-                  :set   (do (face-wiring/wear-face! atoms (get-in parsed [:state :face]))
+                  :set   (do (face-wiring/wear-face! atoms
+                                                     (get-in parsed [:state :face])
+                                                     (get-in parsed [:state :address]))
                              (reset! !fs (:state parsed))
                              (reset! !scroll-y 0))
                   nil)

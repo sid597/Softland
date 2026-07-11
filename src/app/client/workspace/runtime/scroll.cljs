@@ -14,7 +14,7 @@
   [{:keys [!scroll-y !scroll-x !viewport !settings !active-font !sidebar-visible
            !mouse-x !mouse-y !sidebar-truth !sidebar-overlay !sidebar-ui !effective-local-world !agent-output
            !agent-scroll-y !chat-scroll-y !detail-scroll-y !flow-state !collapsed-groups !editor-doc
-           !trail-face-scene !face-scene]}
+           !trail-face-scene !face-scene !face-list]}
    >wheel-events]
   (->> >wheel-events
        (m/reduce
@@ -60,9 +60,15 @@
              (cond
                ;; Sidebar file tree
                in-sidebar?
-               (let [ss (derive-effective-sidebar @!sidebar-truth @!sidebar-overlay @!sidebar-ui)
+               ;; W2: the clamp must see the FACES section too (its height is
+               ;; part of what build-sidebar-tree renders)
+               (let [ss (derive-effective-sidebar @!sidebar-truth @!sidebar-overlay @!sidebar-ui
+                                                  (some-> !face-list deref))
                      content-h (compute-sidebar-content-height ss)
-                     visible-h (- (:height viewport) sidebar-tab-h)
+                     ;; G26 fix: build-sidebar-tree renders NO tab bar ("Content
+                     ;; fills full height"); subtracting sidebar-tab-h clamped
+                     ;; the bottom ~36px out of reach
+                     visible-h (:height viewport)
                      max-scroll (max 0 (- content-h visible-h))]
                  (swap! !sidebar-ui update :scroll-y
                         #(-> (+ (or % 0) delta) (max 0) (min max-scroll))))
