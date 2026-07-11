@@ -13,7 +13,7 @@ thread close. Pre-registered form-break (decisions.md 2026-07-10 note): if a
 fresh session mis-orients — needs more than board + thread file to boot — or
 content creeps back in because there's no room, revert or amend; don't suffer.
 
-**Binding:** `docs/current-mental-model/decisions.md` · open contracts: `build/framework/CONTRACT.md` (v1, 2026-07-11).
+**Binding:** `docs/current-mental-model/decisions.md` · open build contracts: none (framework CLOSED 2026-07-11; machine-cut prompt ready, awaiting Sid's dispatch).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
 
@@ -57,16 +57,13 @@ on kinds).
   · model-UXR question bank (post-kinds; apparatus warm, DIRECTION.md §4.3)
   · block/code two-arm braid (noted 07-09, not engaged).
 
-- **8 · framework (faces-as-assemblies) — WAVE 2 CLOSED, GATE PASSED
-  (2026-07-11; both waves same day).** Step-3+4 exits REACHED: the real
-  conversation flips live across Outline/Boxes/Minimap-Reader; assemblies
-  are kernel objects (watcher + `imp:asm:` + lineage); the wearing log runs
-  (WAL-durable); Step-7A live (edit `.edn` → re-render). Suite 46t/804a.
-  Artifacts: `build/framework/W2-INT.md` + `W2-GATE.md` (+screenshots).
-  ⚠ Sid, two calls: (a) package-close RETRO + adversarial recheck (subagent
-  spend) — run or defer; (b) the machine-cut package — the G25 evidence
-  (pair structure double-confirmed as the top lack) now ORDERS it (D-005).
-  Thread file: `build/framework/NOW.md`.
+- **8 · framework (faces-as-assemblies) — CLOSED + retro'd (2026-07-11).**
+  Both waves gate-passed; RETRO + adversarial recheck DONE (suite **54/880**
+  green at committed HEAD — the gate's propagated 46/804 was a miscount,
+  corrected). Retro + residue (D-001): `build/framework/RETRO.md` (§5 residue,
+  incl. pair-structure). **Next-up = Sid's call: open the machine-cut package**
+  — the G25 pair-structure evidence ORDERS it (D-005); prompt ready
+  (`docs/sessions/machine-cut-contract-opening-prompt-2026-07-11.md`).
 
 - **9 · editor-feel — READY (prompt written 2026-07-11, awaiting Sid's
   dispatch).** Typing-lag hot-path repair; causes pinned at file:line in the

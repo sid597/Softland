@@ -985,6 +985,38 @@ against the code lane's hot-reload speed.
   in substance: the assertion-grade entry lands in the session's thread file;
   the board line flips.
 
+- **framework (faces-as-assemblies) package CLOSED — RETRO + adversarial recheck
+  done (2026-07-11, Opus close session; D-006 evaluation note).** Both waves
+  gate-passed the same calendar day; suite GREEN at committed HEAD — **54 tests
+  / 880 assertions / 0f / 0e across 8 namespaces** (the close recheck corrected
+  the 46/804 count that had propagated from the gate artifact into the opening
+  prompt and the retro's first draft; greenness intact, re-run twice). Full
+  retro + step-4 recheck addendum: `build/framework/RETRO.md` (7-layer QC
+  scorecard). D-006 signals: (1) **Traps-ledger criterion MET strongly** —
+  T1–T19 cited by number in code; the skill-derived `imp:asm:` named-deliverable
+  + foreign-read-gate rule killed the THRICE-fired latent import-routing class
+  (code-atom G-F2 `imp:clj:`, block-kernel F2 `imp:sense-block:`) at birth
+  (G18). (2) **In-session-fixes-at-gate under a token flag (new datum):** W2's
+  14 falsification findings were fixed by the ORCHESTRATING session at the gate
+  — no re-dispatch to subagents — on Sid's mid-wave token flag (~503k already
+  spent on the falsification pass). Fix-authoring moved inline WITHOUT losing the
+  kill record: each fix landed a biting regression in `face_gate_fixes_test`,
+  suite re-green after each. A cost-pressure adaptation of the "authoring phase
+  applies the fixes" rule, not a drop in verification. (3) **One-phase-per-fresh-
+  CONTEXT confirmed at its strongest:** both waves closed 2026-07-11 (c84ebfa
+  03:23, 1725f55 23:03 IST) because parallel subagent lanes ran with disjoint
+  fences and ZERO collisions (W2-D arsenal ∥ W2-E plurality; W2-E ran the full
+  suite over D's in-tree edits, green); judgment held in the Fable orchestrating
+  context; one end-gate per wave. (4) **The live wearing caught a real lifecycle
+  defect in BOTH waves** (W1 epoch-bump, W2 projection-routing) that no JVM suite
+  layer could see — proposed to `/work-package` as a named QC layer (RETRO
+  appendix A, await Fable signature; the skill is Fable-signed). Routing done
+  this session: coding gotchas → `implementation-quirks.md`; PROPOSED skill
+  amendments A–D drafted in the RETRO appendix; residue (incl. **pair-structure
+  = the machine-cut package's D-005 ordering evidence**) parked in RETRO §5.
+  Criterion-2 counterfactual probe stays WAIVED (2026-07-11 blanket; unchanged
+  by this package).
+
 ## Blanket countersign — 2026-07-11 (W2 dispatch session, Sid verbatim: "i hereby accepted everything that is pending on me to be approved")
 
 Executed per the 2026-07-09 precedent (defer to recommended). Scope audit run
