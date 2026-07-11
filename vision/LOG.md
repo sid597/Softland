@@ -549,3 +549,13 @@ thats one of the reasons i have been in the ass of yours to fucking think about 
 [follow-up in the same breath — sharpening that this is NOT render-then-componentize:]
 
 hope you are not reading it as UI is rendered and then converted to components like traditionally .... no i am saing that we already have components that WORK in softland system ... so all we are doing is either creatin more mini components or assembling them ..... do you see???? and it does not refer to these 6 particular uis i mean we will have claude design equivalent we will have our softland design ... it will be the orchestrator because we already have (don't have now talking from future pov) the mechanics to build components that compose, are reactive, .. idk how to explain this to you maybe no-code type of stuff but on fuckin steorids of sterooids everything softland ... you can build anything in softland deploy and then use it right there ... and share anyone else can use them toooooo
+
+## 2026-07-11 — the editor lane + the quality bar (from the editor-workflow scheduling session; verbatim)
+
+one parallel task i do want to run is the editor workflow ... i think it can be improved too much currently its not performant there is lag between what i type and when it appears on the screen .. like the editor can be improved tooo much i am not even sure if it is connected to rama yet like the write side of things ... if i have a block container and i edit it how is it edited ... I want to write directly to rama and then stream from there that is the best case scenerio that i want to target and only and only and only if that is not feasable i would go for the optimistic update route but never by default .... not sure if we need to worry about the structure like using rope tree because we are making the system like we can break into chunks and if its chunks we only have the function rendered in it and interacted with .... ok another challange is if we have 64 windows on the canvas and each one of them is an editor and we try to pan, zoom, interact with one editor do some editing what is the performance of all this on the screen
+
+is this a worthwile problem to work on given the wave 2 work is on parallel???
+
+i basically want to make softland shit optimized on every dimension while maintaing the explorable explanations and the lineage of  systems built in their own medium, live and composable from the ground up
+
+---
