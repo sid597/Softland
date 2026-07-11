@@ -985,6 +985,30 @@ against the code lane's hot-reload speed.
   in substance: the assertion-grade entry lands in the session's thread file;
   the board line flips.
 
+## Blanket countersign — 2026-07-11 (W2 dispatch session, Sid verbatim: "i hereby accepted everything that is pending on me to be approved")
+
+Executed per the 2026-07-09 precedent (defer to recommended). Scope audit run
+first: everything evidence-gated stays gated (machine-cut package = G25
+evidence; `pairs-with` = form-break; block-kernel §5 residues = D-001; Wave 3
+does not exist to approve). The genuinely-pending set was TWO items, both
+resolved by adopting the Fable recommendation:
+
+1. **D-006 criterion-2 probe (code-atom + block-kernel consolidated tally):
+   WAIVED for these two packages.** Grounds: the probe ran once already
+   (relation-kernel, 2026-07-05, leaned BET-HOLDS with one ding); the
+   2026-07-10 consolidated tally is unambiguous on the load-bearing layer
+   (fresh-context + real-corpus + default-fail); marginal evidence of a
+   third probe ≈ low. Reopen condition, pre-registered: if the FINAL D-006
+   evaluation is close enough that criterion-2 would swing it, the probe
+   runs then (manifests are pinned in both CONTRACTs §13/§12 — nothing rots).
+2. **code-atom `:analyzer-basis` durability fork: IN-MEMORY STANDS until a
+   used form breaks** (D-001). The basis rebuilds at boot; no consumer
+   demands durability; `code-atom/RETRO.md` §5 confirms a durable basis
+   slots behind the SAME seam when the break comes. Revert-cheap either way
+   — the fork stays pre-named, not open.
+
+---
+
 ## Amendments A1 · A2 — COUNTERSIGNED 2026-07-08, applied IN PLACE
 
 Ruled by Sid same day, verbatim: "all approved by default and i would even go

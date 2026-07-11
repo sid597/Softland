@@ -44,11 +44,12 @@ on kinds).
   §10 cursor/denormalized query (form-break gated) · multi-stratum under-fill
   (waits on a 2nd distiller) · content-preview asymmetry (marks round).
 - **4 · code-atom residue — PARKED (D-001).** `code-atom/RETRO.md` §5:
-  durability fork (in-memory vs durable `:analyzer-basis` — Sid's call,
-  revert-cheap) · F4 fault-injection falsifier · N5 history-sort nit.
-- **5 · D-006 evaluation — ACCUMULATING.** Consolidated two-package tally
-  recorded 2026-07-10 (decisions.md tail). One open ruling: criterion-2
-  counterfactual probe — run or waive (one line, Sid).
+  F4 fault-injection falsifier · N5 history-sort nit. (Durability fork
+  RULED 2026-07-11 blanket: in-memory stands until form-break.)
+- **5 · D-006 evaluation — ACCUMULATING, no open ruling.** Consolidated
+  two-package tally recorded 2026-07-10; criterion-2 probe WAIVED for these
+  packages (2026-07-11 blanket; pre-registered reopen: runs iff the final
+  evaluation is close).
 - **6 · Queued by Sid — UNBLOCKED.** Code-size/verbosity audit of `src/`
   (was gated post-package; both packages now closed).
 - **7 · Design queue — PARKED.** Question-unit design (form-break evidence
