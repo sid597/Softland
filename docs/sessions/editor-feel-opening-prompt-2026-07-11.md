@@ -9,6 +9,22 @@ The zoom-100 editor has felt typing lag (Sid, daily). A Fable session traced the
 keystroke path end-to-end on 2026-07-11 and pinned the causes at file:line. Your
 job: remove them, verify with the existing instrumentation, keep the suite green.
 
+## Background — Sid's ask (grounding, not verbatim; source: vision/LOG.md 2026-07-11)
+
+The editor is Softland at zoom 100 — bedrock, not a dev tool. Sid's frame for
+this lane: "make Softland optimized on every dimension while maintaining the
+explorable explanations and the lineage — live and composable from the ground
+up." Every future form (block editing, faces, canvas plurality, 64 windows)
+inherits this surface's input feel, and Sid evaluates by FEEL — the numbers
+below are how we get there, his fingers are the acceptance.
+
+What that changes about your micro-decisions: prefer REMOVING work over adding
+cleverness (no new caching layers, no defensive machinery — lean); when a
+tradeoff pits mean latency against tail spikes, kill the tails (one swallowed
+keystroke mid-word is the felt failure, not a slow average); leave the
+instrumentation itself in place — measurement is a standing capability here,
+scaffolding on the hot path is not.
+
 ## Boot
 
 1. Read `docs/sessions/next-prompt.md` (board) — you own ONLY the `editor-feel`

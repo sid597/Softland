@@ -12,6 +12,24 @@ to Rama and stream back — no optimistic echo — unless infeasible.** This spi
 measures whether the direct path is feasible at typing speed. It decides the
 `block-write` package's route.
 
+## Background — why this matters to him (grounding, not verbatim)
+
+The countersigned substrate invariant: UI reads Rama, Rama is truth, writes
+stream in (the back-arrow rule). The editor is the LAST surface still exempt —
+client-truth with a write-only telemetry mirror nobody reads back, and block
+containers have no edit path at all (Sid: "if I have a block container and I
+edit it, how is it edited" — today's answer: it isn't). This spike prices the
+missing half of the center loop at the finest grain a hand touches.
+
+Two consequences for how you work: (1) the INTEGRITY of the measurement
+outranks its outcome — Sid will build on this number either way, so a
+flattering figure that hides a tail is the worst artifact you could produce;
+(2) don't pre-optimize the event grain (batching/debouncing keystrokes) to
+make numbers pass — keystroke-grain writes are ON-thesis ("history is
+terrain" at typing resolution; Rama compacts downstream), so measure the
+honest grain first and record coarser grains only as clearly-labeled
+comparison rows if you have budget left.
+
 ## Pre-registered evaluation (drafted by Fable BEFORE this spike; do not adjust
 ## thresholds after seeing data — that's the point of pre-registration)
 

@@ -11,6 +11,24 @@ docs at https://box2d.org/documentation3d/) available to Softland eventually
 **does it actually build to wasm today, and is it deterministic?** A clean
 FAILURE report is a fully successful outcome — it gates the lane honestly.
 
+## Background — where this fits (grounding, not verbatim; vision/LOG.md 2026-07-11)
+
+The direction is "3D islands": 3D faces whose scenes are LAND DATA — addresses
+of Softland objects, not foreign pixels — rendered to texture and composited
+into the 2D land. Sid's citizenship criterion for any capability: "liveable
+and controllable from inside." Box3D's intended role is rung 2 of that ladder:
+a transform WRITER — the engine steps client-side in the RAF loop and writes
+body transforms into per-container transform buffers (the same seam pan/zoom
+gestures write), with settle-states committing to Rama as events.
+
+That endgame reorders what your report should weigh: (a) **determinism
+outranks speed** — a deterministic sim is a REPLAYABLE TRAIL (same seed →
+same history; "history is terrain"), a nondeterministic one is just motion;
+(b) the API question that matters most is reading body transforms OUT to JS
+cheaply every frame (the writer seam), not simulation feature richness;
+(c) note license + maintenance posture — v0.1.0 churn decides whether we
+track upstream or vendor a pinned commit.
+
 ## Steps
 
 1. Locate the real repo from the docs site (likely github.com/erincatto — verify;
