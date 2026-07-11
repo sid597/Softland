@@ -23,7 +23,8 @@ cleverness (no new caching layers, no defensive machinery — lean); when a
 tradeoff pits mean latency against tail spikes, kill the tails (one swallowed
 keystroke mid-word is the felt failure, not a slow average); leave the
 instrumentation itself in place — measurement is a standing capability here,
-scaffolding on the hot path is not.
+scaffolding on the hot path is not. Full cluster analysis:
+`build/editor-loop/ROAD.md`.
 
 ## Boot
 

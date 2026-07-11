@@ -19,7 +19,8 @@ stream in (the back-arrow rule). The editor is the LAST surface still exempt —
 client-truth with a write-only telemetry mirror nobody reads back, and block
 containers have no edit path at all (Sid: "if I have a block container and I
 edit it, how is it edited" — today's answer: it isn't). This spike prices the
-missing half of the center loop at the finest grain a hand touches.
+missing half of the center loop at the finest grain a hand touches. Full
+write-path trace + analysis: `build/editor-loop/ROAD.md`.
 
 Two consequences for how you work: (1) the INTEGRITY of the measurement
 outranks its outcome — Sid will build on this number either way, so a

@@ -77,7 +77,9 @@ on kinds).
   50ms, ≤1 stall/min); decides block-write's route (direct vs optimistic —
   Sid: direct unless infeasible). Paste
   `docs/sessions/write-echo-opening-prompt-2026-07-11.md`, model Opus 4.8.
-  Verdict returns via Fable → decisions.md PROPOSED.
+  Verdict returns via Fable → decisions.md PROPOSED. Cluster analysis:
+  `build/editor-loop/ROAD.md` (write-path truth, echo budget, caret law,
+  grain, sequencing → block-write).
 - **11 · box3d-spike — READY (prompt written 2026-07-11, awaiting Sid's
   dispatch).** Box3D v0.1.0 wasm build + determinism de-risk, out-of-repo.
   Paste `docs/sessions/box3d-spike-opening-prompt-2026-07-11.md`, model
@@ -89,7 +91,8 @@ on kinds).
   `point-and-say` + `scene-diff` (dimension-agnostic, can rehearse in 2D over
   live faces) · `G-perf` standing gate clause (one-paragraph template
   amendment, pending). Direction trail: vision/LOG.md 2026-07-11 entries;
-  analysis in-session (Fable).
+  full analysis: `build/spatial/ROAD.md` (substrate facts · transforms design ·
+  islands ladder+gets/loses · point-and-say · scene-diff · Box3D · napkins).
 - **13 · islands-probe — READY (prompt written 2026-07-11, awaiting Sid's
   dispatch).** Rung-1 render-pipeline probe (offscreen color+depth → minimal
   WGSL 3D pass → composite quad → orbit → numbers; falsifies the

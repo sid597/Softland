@@ -14,6 +14,8 @@ the acceptance criterion for the whole capability. The ladder: rung 1 =
 rendered island (own pipeline, scene-as-data), rung 2 = Box3D as transform
 writer (parallel spike running), rung 3 = land objects as scene nodes.
 
+Full direction analysis (ladder, gets/loses, laws): `build/spatial/ROAD.md`.
+
 THIS probe is rung-1 PIPELINE truth only: prove the render path in our
 renderer's idiom and price it. Scene-as-data, picking, faces integration are
 contract-grade work that comes after — do NOT build them. Absolute-position
