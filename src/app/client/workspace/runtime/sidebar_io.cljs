@@ -15,12 +15,21 @@
         (.then (fn [_] (js/console.log "[WORKSPACE-HTTP] save-truth")))
         (.catch (fn [err] (js/console.error "[WORKSPACE] Save failed:" err))))))
 
+(def ^{:doc "Phase-4B measurement toggle for the editor→Rama mirror. Default
+  OFF: no per-keystroke pr-str-of-the-whole-:lines POST, and no [EDITOR-RAMA]
+  per-response console log. The mirror was measurement scaffolding — the loop
+  never closes: the mirrored doc is never read back (get-editor-doc has zero
+  callers), the editor is optimistic-local, and :save is a browser Blob
+  download. Gated here so BOTH the keyboard and mouse-paste callers honor one
+  switch. Flip to true to re-measure the committed-path round-trip."}
+  editor-rama-mirror? false)
+
 (defn save-editor-doc!
-  "Persist editor document state to Rama. Logs full round-trip latency
-   for Phase 4B measurement. Fire-and-forget — the client does NOT wait
-   for the response to update the editor."
+  "Persist editor document state to Rama. Logs full round-trip latency for
+   Phase-4B measurement. No-op unless editor-rama-mirror? is on (default OFF).
+   Fire-and-forget — the client does NOT wait for the response."
   [file-path doc-state]
-  (when (and file-path doc-state)
+  (when (and editor-rama-mirror? file-path doc-state)
     (let [t0 (js/performance.now)]
       (-> (js/fetch "/api/editor/save-doc"
             (clj->js {:method "POST"

@@ -17,8 +17,23 @@
 ;; LAYER 5: COMPONENT UPDATE FLOWS
 ;; ============================================================================
 
+(defn doc-with-lengths
+  "Attach cached per-line lengths to a doc. This is the ONE place :lengths is
+   derived: every writer that changes (:lines doc) routes the new doc through
+   here, so the keystroke hot path (keyboard) and <bracket-match can read
+   (:lengths doc) instead of recomputing (mapv count lines) on every event.
+   Cursor-only writers leave :lines (and thus :lengths) untouched; the initial
+   doc (state.cljs, out of fence) carries no :lengths and readers fall back
+   with (or (:lengths doc) (mapv count …)) — absent-safe, and stale is
+   impossible because every :lines change comes back through here."
+  [doc]
+  (assoc doc :lengths (mapv count (:lines doc))))
+
 (defn editor-apply-event
-  "Pure function: apply event to editor doc, returns new doc"
+  "Pure function: apply event to editor doc, returns new doc.
+   Line-changing branches refresh the cached :lengths via doc-with-lengths so
+   downstream cursor math never recomputes it; movement branches leave :lines
+   unchanged and carry :lengths through the merge."
   [doc event line-lengths clipboard]
   (let [input {:lines (:lines doc)
                :cursor (:cursor doc)
@@ -27,19 +42,19 @@
     (case (:type event)
       :char
       (let [new-input (text-input/insert-char input (:char event) true)]
-        (merge doc new-input {:selection nil}))
+        (doc-with-lengths (merge doc new-input {:selection nil})))
 
       :backspace
       (let [new-input (text-input/delete-backward input true)]
-        (merge doc new-input))
+        (doc-with-lengths (merge doc new-input)))
 
       :delete
       (let [new-input (text-input/delete-forward input true)]
-        (merge doc new-input))
+        (doc-with-lengths (merge doc new-input)))
 
       :enter
       (let [new-input (text-input/insert-char input "\n" true)]
-        (merge doc new-input {:selection nil}))
+        (doc-with-lengths (merge doc new-input {:selection nil})))
 
       :left
       (let [new-input (text-input/move-cursor input :left true line-lengths)]
@@ -76,7 +91,7 @@
       :paste
       (if clipboard
         (let [new-input (text-input/paste input clipboard true)]
-          (merge doc new-input))
+          (doc-with-lengths (merge doc new-input)))
         doc)
 
       ;; Default: no change
@@ -127,14 +142,37 @@
      :line-mapping line-mapping
      :logical->visual logical->visual}))
 
+(def ^:private fold-recompute-throttle-ms
+  "Fold detection scans every line, so cap its recompute rate during a typing
+   burst instead of rescanning on every char. Fold indicators lag at most this
+   long behind a burst — imperceptible, and text is unaffected (line-mapping is
+   identity whenever nothing is folded, the common case while typing)."
+  150)
+
+(defn- throttle
+  "Leading, rate-limited sampling of a continuous flow: emits the first value
+   immediately, then at most one value per `dur` ms, always settling on the
+   latest within `dur`. Leading (initially ready) is REQUIRED here — <fold-data
+   feeds two m/latest text-rect flows, so a trailing debounce would blank the
+   editor until its first emit (JVM-probed: this shape yields an m/latest value
+   in ~3ms, well inside the window). Defined locally rather than pulled from the
+   contrib.missionary-contrib staging namespace (ambiguous resolution) — the
+   same local-operator practice global_flow.cljs uses."
+  [dur >in]
+  (m/ap
+    (let [x (m/?> (m/relieve {} >in))]
+      (m/amb x (do (m/? (m/sleep dur)) (m/amb))))))
+
 (defn <fold-state
   "Derived flow: fold regions + line mapping.
-   Dedupes on (:lines doc) so cursor-only moves don't trigger recomputation."
+   Dedupes on (:lines doc) so cursor-only moves don't trigger recomputation,
+   and throttles line-changes so a typing burst doesn't rescan folds per char."
   [!editor-doc !folded-lines detect-folds-fn]
   (m/latest
     (fn [lines folded]
       (compute-fold-state lines folded detect-folds-fn))
-    (m/eduction (map :lines) (dedupe) (m/watch !editor-doc))
+    (throttle fold-recompute-throttle-ms
+              (m/eduction (map :lines) (dedupe) (m/watch !editor-doc)))
     (m/watch !folded-lines)))
 
 (defn <bracket-match
@@ -147,7 +185,9 @@
             cursor (:cursor doc)
             selection (:selection doc)]
         (when (and cursor (not selection))
-          (let [lengths (mapv count lines)]
+          ;; reuse the doc's cached line lengths (doc-with-lengths); recomputes
+          ;; only for the initial doc, which carries no :lengths yet
+          (let [lengths (or (:lengths doc) (mapv count lines))]
             (find-bracket-fn cursor lines lengths)))))
     (m/watch !editor-doc)))
 
