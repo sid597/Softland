@@ -84,11 +84,20 @@ on kinds).
   Opus 4.8. Gates islands rung 2.
 - **12 · Spatial cluster — NAMED, not dispatched (2026-07-11 direction
   session).** `container-transforms` (contract AFTER Sid wears Boxes/Minimap —
-  dev app running) · `islands` (awaits Sid's Box3D reading answer:
-  engine/docs/both + first-form pick) · `point-and-say` + `scene-diff`
-  (dimension-agnostic, can rehearse in 2D over live faces) · `G-perf` standing
-  gate clause (one-paragraph template amendment, pending). Direction trail:
-  vision/LOG.md 2026-07-11 entries; analysis in-session (Fable).
+  dev app running) · `islands` CONTRACT (awaits islands-probe findings +
+  Sid's Box3D reading answer: engine/docs/both + first-form pick) ·
+  `point-and-say` + `scene-diff` (dimension-agnostic, can rehearse in 2D over
+  live faces) · `G-perf` standing gate clause (one-paragraph template
+  amendment, pending). Direction trail: vision/LOG.md 2026-07-11 entries;
+  analysis in-session (Fable).
+- **13 · islands-probe — READY (prompt written 2026-07-11, awaiting Sid's
+  dispatch).** Rung-1 render-pipeline probe (offscreen color+depth → minimal
+  WGSL 3D pass → composite quad → orbit → numbers; falsifies the
+  sleeping-island / rate-decoupling / text-in-3D claims). Probe class: code
+  UNCOMMITTED, findings feed the islands CONTRACT (framework Step-0
+  precedent). NOT blocked by container-transforms (absolute-position
+  composite; re-homed later). Paste
+  `docs/sessions/islands-probe-opening-prompt-2026-07-11.md`, model Opus 4.8.
 
 Kinds-round evidence pile (carried verbatim for the marks/kinds round):
 "sidetrackkkk" branch receipt · serves/invokes family question · cross-scheme
