@@ -1,14 +1,15 @@
 (ns app.client.substrate.webgpu.buffer-pool
   "Slot-based GPU buffer pool for differential rendering.
-   Default: 28 floats (112 bytes) per rect. Configurable for other item types
-   (e.g. shadows: 20 floats, 80 bytes) via :floats-per-item and :pack-fn.
+   Default: 29 words (116 bytes) per rect — 28 floats + container u32
+   (scene-substrate P2). Configurable for other item types (e.g. shadows:
+   21 words, 84 bytes) via :floats-per-item and :pack-fn.
    Supports per-slot updates via writeBuffer for O(1) partial writes,
    and batch-update with diff for O(changed) bulk sync."
   (:require [clojure.set]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]))
 
-(def floats-per-rect 28)
-(def bytes-per-rect 112) ;; 28 × 4
+(def floats-per-rect 29)
+(def bytes-per-rect 116) ;; 29 × 4 (28 floats + container u32)
 
 (defn- make-buffer [^js device capacity bytes-per-item]
   (.createBuffer device
@@ -18,9 +19,10 @@
                              js/GPUBufferUsage.COPY_SRC)})))
 
 (defn- pack-rect
-  "Pack a rect map into a Float32Array(28). Same layout as renderer/update-rects."
+  "Pack a rect map into a Float32Array(29). Same layout as renderer/update-rects."
   [rect-map]
   (let [data (js/Float32Array. floats-per-rect)
+        u32-view (js/Uint32Array. (.-buffer data))
         {:keys [x y w h r g b a]} rect-map
         cr (:corner-radii rect-map)
         uniform-r (or (:radius rect-map) 0.0)
@@ -56,13 +58,17 @@
     ;; Slot 6: gradient_color2 [r g b a]
     (aset data 24 (nth gc2 0)) (aset data 25 (nth gc2 1))
     (aset data 26 (nth gc2 2)) (aset data 27 (nth gc2 3))
+    ;; Slot 7: container_idx (u32 view; trap T6 default 0 = identity world)
+    (aset u32-view 28 (or (:container-idx rect-map) 0))
     data))
 
 (defn pack-shadow
-  "Pack a shadow map into a Float32Array(20). Same GPU layout as renderer/update-shadows.
-   20 floats = 80 bytes: expanded_rect, shadow_color, corner_radii, blur_params, inner_rect"
+  "Pack a shadow map into a Float32Array(21). Same GPU layout as renderer/update-shadows.
+   21 words = 84 bytes: expanded_rect, shadow_color, corner_radii, blur_params,
+   inner_rect, container u32 (scene-substrate P2)"
   [shadow-map]
-  (let [data (js/Float32Array. 20)
+  (let [data (js/Float32Array. 21)
+        u32-view (js/Uint32Array. (.-buffer data))
         {:keys [x y w h blur offset-x offset-y spread color radius corner-radii]} shadow-map
         blur   (or blur 8.0)
         ox     (or offset-x 0.0)
@@ -98,6 +104,8 @@
     ;; Slot 4: inner_rect (relative to expanded quad)
     (aset data 16 ix) (aset data 17 iy)
     (aset data 18 w) (aset data 19 h)
+    ;; Slot 5: container_idx (u32 view; trap T6 default 0 = identity world)
+    (aset u32-view 20 (or (:container-idx shadow-map) 0))
     data))
 
 (defn create-pool
