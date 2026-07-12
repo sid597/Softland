@@ -621,7 +621,8 @@
             ;; islands-probe 2026-07-11 (UNCOMMITTED): composite the island onto the land frame
             (island/step! device ctx (:width viewport) (:height viewport) (:dpr viewport) gpu-tracker)
             ;; scene-substrate P2 probe 2026-07-12 (UNCOMMITTED): container-transform soak
-            (ct-probe/step! device ctx viewport)
+            ;; + frame-anatomy receipt (raf-t0 = body entry, _frame-time = rAF stamp)
+            (ct-probe/step! device ctx viewport raf-t0 _frame-time)
 
             {:content-text-geo new-content-geo
              :chrome-text-geo new-chrome-geo

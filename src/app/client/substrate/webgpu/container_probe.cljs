@@ -154,12 +154,31 @@
           r (fn [v] (/ (js/Math.round (* 10 v)) 10))]
       {:p50 (r (q 0.5)) :p95 (r (q 0.95)) :max (r (peek sorted)) :n n})))
 
+(defn- anatomy-stats
+  "Frame-anatomy p50s (diagnosis 2026-07-13): sample = rAF fire → reduce-body
+   entry (the m/latest sampling side, invisible to [RAF]) · body = uploads +
+   draw encode + island step · probe = this file's step! · wait = derived
+   (raf-delta p50 − the rest ≈ GPU/compositor backpressure + scheduling).
+   Segments stay nil until render.cljs passes raf-t0/frame-time through
+   (hard refresh after a hot swap)."
+  [anat delta-p50]
+  (let [sample (:p50 (delta-stats (keep :sample anat)))
+        body   (:p50 (delta-stats (keep :body anat)))
+        probe  (:p50 (delta-stats (keep :probe anat)))]
+    {:sample sample :body body :probe probe
+     :wait (when (and delta-p50 sample body probe)
+             (/ (js/Math.round (* 10 (- delta-p50 sample body probe))) 10))}))
+
 (defn step!
   "Called from the runtime frame (after the main draw): write transforms +
    probe camera, then draw the probe systems in an additive pass. Runs
    OUTSIDE the frame's try/catch — any probe error deactivates the probe
-   instead of tearing down the render consumer (falsification finding #2)."
-  [^js device ^js ctx viewport]
+   instead of tearing down the render consumer (falsification finding #2).
+   raf-t0 = reduce-body entry, frame-time = the rAF callback stamp — both
+   optional (3-arity keeps stale hot-reload callers alive); when present the
+   receipts split each frame into sample/body/probe/wait (anatomy-stats)."
+  ([^js device ^js ctx viewport] (step! device ctx viewport nil nil))
+  ([^js device ^js ctx viewport raf-t0 frame-time]
   (when-let [st @!state]
     (when (:active? st)
       (try
@@ -189,31 +208,53 @@
             (.draw pass 6 (:num-instances text-sys) 0 0))
           (.end pass)
           (.submit (.-queue device) #js [(.finish encoder)]))
+        ;; frame-anatomy ring (diagnosis 2026-07-13): where does the RAF
+        ;; delta actually go — sampling / body JS / probe / GPU wait?
+        (let [t-end (js/performance.now)]
+          (swap! !state update :anat
+                 (fn [xs]
+                   (let [xs (conj (or xs [])
+                                  {:sample (when (and raf-t0 frame-time)
+                                             (- raf-t0 frame-time))
+                                   :body   (when raf-t0 (- now raf-t0))
+                                   :probe  (- t-end now)})]
+                     (if (> (count xs) 600)
+                       (subvec xs (- (count xs) 600)) xs)))))
         (when (zero? (mod (:frames @!state) 300))
           (let [st @!state
                 secs (/ (- now (:t0 st)) 1000.0)
-                ds (delta-stats (:deltas st))]
+                ds (delta-stats (:deltas st))
+                an (anatomy-stats (:anat st) (:p50 ds))]
             (js/console.log "[CT-PROBE]"
                             #js {:frames (:frames st)
                                  :fps (js/Math.round (/ (:frames st) (max secs 0.001)))
                                  :frameMsP50 (:p50 ds)
                                  :frameMsP95 (:p95 ds)
                                  :frameMsMax (:max ds)
+                                 :sampleMsP50 (:sample an)
+                                 :bodyMsP50 (:body an)
+                                 :probeMsP50 (:probe an)
+                                 :waitMsP50 (:wait an)
                                  :containerWrites (:container-writes st)
                                  :instancePacks (:instance-packs st)
                                  :glyphs (:num-instances (:text-sys st))
                                  :zoom (:zoom st)}))))
       (catch :default e
         (swap! !state assoc :active? false)
-        (js/console.error "[CT-PROBE] step failed — probe stopped" e))))))
+        (js/console.error "[CT-PROBE] step failed — probe stopped" e)))))))
 
 (defn stats []
   (let [st @!state
-        ds (delta-stats (:deltas st))]
+        ds (delta-stats (:deltas st))
+        an (anatomy-stats (:anat st) (:p50 ds))]
     #js {:frames (or (:frames st) 0)
          :frameMsP50 (:p50 ds)
          :frameMsP95 (:p95 ds)
          :frameMsMax (:max ds)
+         :sampleMsP50 (:sample an)
+         :bodyMsP50 (:body an)
+         :probeMsP50 (:probe an)
+         :waitMsP50 (:wait an)
          :recentFps (when (:p50 ds) (js/Math.round (/ 1000 (max (:p50 ds) 0.1))))
          :containerWrites (or (:container-writes st) 0)
          :instancePacks (or (:instance-packs st) 0)
