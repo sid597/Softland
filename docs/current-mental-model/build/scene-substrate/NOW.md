@@ -45,9 +45,21 @@
   (islands-probe pattern): `ctProbe.start(16)` → 16 containers ×20 lines,
   one orbits, per-frame writes = transforms only; `.zoom(z)` drives G6.
 - Dev app was NOT running (machine rebooted ~20:45) — restarted via
-  `clj -A:dev -X dev/-main`, build verification pending.
-- Next: compile green → ONE falsification finder over the wave → G4/G6
-  soak (ctProbe) + G5 evidence harness → P3.
+  `clj -A:dev -X dev/-main`; compile GREEN (watch caught 2 arity misses at
+  the font-swap bind-group sites — fixed; remaining 7 warnings are
+  island-probe's pre-existing infer-warnings).
+- Headless G4 attempt FAILED at the environment, not the code: headless
+  Chrome on this box cannot create the WebGPU device at all ("Failed to
+  initialize vulkan surface") — extends the framework-retro GPU-capture
+  finding; SwiftShader would measure CPU raster (meaningless for the
+  gate). G4/G6 receipts therefore come from Sid's HEADED browser:
+  `ctProbe.start(16)` or just open `localhost:8080/?ct-probe=16` —
+  [CT-PROBE] logs print fps/writes receipts every 300 frames. Do NOT
+  re-burn time on headless WebGPU here.
+- G5's honest form on this box (no GPU capture): container-0 identity is
+  mathematically exact in-shader (0 + x·1 = x, IEEE), finder-traced, plus
+  Sid's eyes at the live app.
+- Next: finder verdict → fixes → wave-gate record → P3 (fresh context).
 
 **2026-07-12 · Fable · derivation + contract + P1 dispatch/P2 start**
 - Derived the base layer from first principles against the record:
