@@ -24,7 +24,7 @@
        :a 1.0,
        :text "map · h ∝ √words",
        :to 16}],
-     :data nil}
+     :data #:assembly{:src-path [:root :children 0 :children 0]}}
     {:children
      [{:children [],
        :clip? false,
@@ -57,7 +57,16 @@
          :a 1.0,
          :text "28w",
          :to 3}],
-       :data nil}
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :children
+                   1
+                   :template
+                   :children
+                   0]}}
       {:children
        [{:children [],
          :clip? false,
@@ -69,7 +78,21 @@
          :id
          [:minimap-pane "minimap-reader-face" 0 1 "t-sid-1" 1 0 "b1"],
          :text [],
-         :data #:sliver{:words 28, :kind "human-message"}}],
+         :data
+         {:sliver/words 28,
+          :sliver/kind "human-message",
+          :assembly/src-path
+          [:root
+           :children
+           0
+           :children
+           1
+           :template
+           :children
+           1
+           :children
+           0
+           :template]}}],
        :clip? false,
        :layout {:direction :column, :gap 1, :padding 0, :align :start},
        :type :stack,
@@ -78,7 +101,16 @@
        :style {},
        :id [:minimap-pane "minimap-reader-face" 0 1 "t-sid-1" 1],
        :text [],
-       :data nil}],
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :children
+                   1
+                   :template
+                   :children
+                   1]}}],
      :clip? false,
      :layout
      {:direction :column, :gap 2, :padding [3 5 4 5], :align :start},
@@ -89,7 +121,8 @@
      {:radius 4, :border-width 1, :border-color [0.114 0.153 0.2 1.0]},
      :id [:minimap-pane "minimap-reader-face" 0 1 "t-sid-1"],
      :text [],
-     :data nil}
+     :data
+     #:assembly{:src-path [:root :children 0 :children 1 :template]}}
     {:children
      [{:children [],
        :clip? false,
@@ -122,7 +155,16 @@
          :a 1.0,
          :text "180w",
          :to 4}],
-       :data nil}
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :children
+                   1
+                   :template
+                   :children
+                   0]}}
       {:children
        [{:children [],
          :clip? false,
@@ -141,7 +183,21 @@
           0
           "b2"],
          :text [],
-         :data #:sliver{:words 3, :kind "heading"}}
+         :data
+         {:sliver/words 3,
+          :sliver/kind "heading",
+          :assembly/src-path
+          [:root
+           :children
+           0
+           :children
+           1
+           :template
+           :children
+           1
+           :children
+           0
+           :template]}}
         {:children [],
          :clip? false,
          :layout nil,
@@ -159,7 +215,21 @@
           0
           "b3"],
          :text [],
-         :data #:sliver{:words 139, :kind "text"}}
+         :data
+         {:sliver/words 139,
+          :sliver/kind "text",
+          :assembly/src-path
+          [:root
+           :children
+           0
+           :children
+           1
+           :template
+           :children
+           1
+           :children
+           0
+           :template]}}
         {:children [],
          :clip? false,
          :layout nil,
@@ -177,7 +247,21 @@
           0
           "b4"],
          :text [],
-         :data #:sliver{:words 38, :kind "code"}}],
+         :data
+         {:sliver/words 38,
+          :sliver/kind "code",
+          :assembly/src-path
+          [:root
+           :children
+           0
+           :children
+           1
+           :template
+           :children
+           1
+           :children
+           0
+           :template]}}],
        :clip? false,
        :layout {:direction :column, :gap 1, :padding 0, :align :start},
        :type :stack,
@@ -186,7 +270,16 @@
        :style {},
        :id [:minimap-pane "minimap-reader-face" 0 1 "t-claude-1" 1],
        :text [],
-       :data nil}],
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :children
+                   1
+                   :template
+                   :children
+                   1]}}],
      :clip? false,
      :layout
      {:direction :column, :gap 2, :padding [3 5 4 5], :align :start},
@@ -197,7 +290,8 @@
      {:radius 4, :border-width 1, :border-color [0.114 0.153 0.2 1.0]},
      :id [:minimap-pane "minimap-reader-face" 0 1 "t-claude-1"],
      :text [],
-     :data nil}
+     :data
+     #:assembly{:src-path [:root :children 0 :children 1 :template]}}
     {:children
      [{:children [],
        :clip? false,
@@ -230,7 +324,16 @@
          :a 1.0,
          :text "9w",
          :to 2}],
-       :data nil}
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :children
+                   1
+                   :template
+                   :children
+                   0]}}
       {:children
        [{:children [],
          :clip? false,
@@ -242,7 +345,21 @@
          :id
          [:minimap-pane "minimap-reader-face" 0 1 "t-sid-2" 1 0 "b5"],
          :text [],
-         :data #:sliver{:words 9, :kind "human-message"}}],
+         :data
+         {:sliver/words 9,
+          :sliver/kind "human-message",
+          :assembly/src-path
+          [:root
+           :children
+           0
+           :children
+           1
+           :template
+           :children
+           1
+           :children
+           0
+           :template]}}],
        :clip? false,
        :layout {:direction :column, :gap 1, :padding 0, :align :start},
        :type :stack,
@@ -251,7 +368,16 @@
        :style {},
        :id [:minimap-pane "minimap-reader-face" 0 1 "t-sid-2" 1],
        :text [],
-       :data nil}],
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :children
+                   1
+                   :template
+                   :children
+                   1]}}],
      :clip? false,
      :layout
      {:direction :column, :gap 2, :padding [3 5 4 5], :align :start},
@@ -262,7 +388,8 @@
      {:radius 4, :border-width 1, :border-color [0.114 0.153 0.2 1.0]},
      :id [:minimap-pane "minimap-reader-face" 0 1 "t-sid-2"],
      :text [],
-     :data nil}
+     :data
+     #:assembly{:src-path [:root :children 0 :children 1 :template]}}
     {:children
      [{:children [],
        :clip? false,
@@ -295,7 +422,9 @@
          :a 1.0,
          :text "o-cursor",
          :to 8}],
-       :data nil}],
+       :data
+       #:assembly{:src-path
+                  [:root :children 0 :children 2 :children 0]}}],
      :clip? false,
      :layout
      {:direction :column, :gap 0, :padding [8 5 8 5], :align :start},
@@ -308,7 +437,7 @@
       :border-color [0.173 0.224 0.278 1.0]},
      :id [:minimap-pane "minimap-reader-face" 0 2],
      :text [],
-     :data nil}],
+     :data #:assembly{:src-path [:root :children 0 :children 2]}}],
    :clip? false,
    :layout
    {:direction :column, :gap 6, :padding [0 9 20 9], :align :start},
@@ -321,7 +450,7 @@
     :border-color [0.137 0.173 0.212 1.0]},
    :id [:minimap-pane "minimap-reader-face" 0],
    :text [],
-   :data nil}
+   :data #:assembly{:src-path [:root :children 0]}}
   {:children
    [{:children [],
      :clip? false,
@@ -368,7 +497,7 @@
        :a 1.0,
        :text "180w",
        :to 4}],
-     :data nil}
+     :data #:assembly{:src-path [:root :children 1 :children 0]}}
     {:children
      [{:children
        [{:children [],
@@ -380,7 +509,10 @@
          :style {:bg [0.373 0.69 0.918 1.0], :radius 9999},
          :id [:minimap-pane "minimap-reader-face" 1 1 0 :dot],
          :text [],
-         :data {:layout-skip? true}}],
+         :data
+         {:layout-skip? true,
+          :assembly/src-path
+          [:root :children 1 :children 1 :children 0]}}],
        :clip? false,
        :layout nil,
        :type :header-band,
@@ -411,7 +543,9 @@
          :a 1.0,
          :text "3 blocks",
          :to 8}],
-       :data nil}
+       :data
+       #:assembly{:src-path
+                  [:root :children 1 :children 1 :children 0]}}
       {:children
        [{:children
          [{:children
@@ -425,7 +559,21 @@
              :id
              [:minimap-pane "minimap-reader-face" 1 1 1 0 "b2" 0 :dot],
              :text [],
-             :data {:layout-skip? true}}],
+             :data
+             {:layout-skip? true,
+              :assembly/src-path
+              [:root
+               :children
+               1
+               :children
+               1
+               :children
+               1
+               :children
+               0
+               :template
+               :children
+               0]}}],
            :clip? false,
            :layout nil,
            :type :header-band,
@@ -458,7 +606,20 @@
              :a 1.0,
              :text "3w",
              :to 2}],
-           :data nil}
+           :data
+           #:assembly{:src-path
+                      [:root
+                       :children
+                       1
+                       :children
+                       1
+                       :children
+                       1
+                       :children
+                       0
+                       :template
+                       :children
+                       0]}}
           {:children [],
            :clip? false,
            :layout nil,
@@ -479,7 +640,20 @@
              :a 1.0,
              :text "The seam law",
              :to 12}],
-           :data nil}],
+           :data
+           #:assembly{:src-path
+                      [:root
+                       :children
+                       1
+                       :children
+                       1
+                       :children
+                       1
+                       :children
+                       0
+                       :template
+                       :children
+                       1]}}],
          :clip? false,
          :layout
          {:direction :column,
@@ -496,7 +670,18 @@
           :border-color [0.149 0.188 0.235 1.0]},
          :id [:minimap-pane "minimap-reader-face" 1 1 1 0 "b2"],
          :text [],
-         :data nil}
+         :data
+         #:assembly{:src-path
+                    [:root
+                     :children
+                     1
+                     :children
+                     1
+                     :children
+                     1
+                     :children
+                     0
+                     :template]}}
         {:children
          [{:children
            [{:children [],
@@ -509,7 +694,21 @@
              :id
              [:minimap-pane "minimap-reader-face" 1 1 1 0 "b3" 0 :dot],
              :text [],
-             :data {:layout-skip? true}}],
+             :data
+             {:layout-skip? true,
+              :assembly/src-path
+              [:root
+               :children
+               1
+               :children
+               1
+               :children
+               1
+               :children
+               0
+               :template
+               :children
+               0]}}],
            :clip? false,
            :layout nil,
            :type :header-band,
@@ -542,7 +741,20 @@
              :a 1.0,
              :text "139w",
              :to 4}],
-           :data nil}
+           :data
+           #:assembly{:src-path
+                      [:root
+                       :children
+                       1
+                       :children
+                       1
+                       :children
+                       1
+                       :children
+                       0
+                       :template
+                       :children
+                       0]}}
           {:children [],
            :clip? false,
            :layout nil,
@@ -707,7 +919,20 @@
              :a 1.0,
              :text "renders.",
              :to 8}],
-           :data nil}],
+           :data
+           #:assembly{:src-path
+                      [:root
+                       :children
+                       1
+                       :children
+                       1
+                       :children
+                       1
+                       :children
+                       0
+                       :template
+                       :children
+                       1]}}],
          :clip? false,
          :layout
          {:direction :column,
@@ -724,7 +949,18 @@
           :border-color [0.149 0.188 0.235 1.0]},
          :id [:minimap-pane "minimap-reader-face" 1 1 1 0 "b3"],
          :text [],
-         :data nil}
+         :data
+         #:assembly{:src-path
+                    [:root
+                     :children
+                     1
+                     :children
+                     1
+                     :children
+                     1
+                     :children
+                     0
+                     :template]}}
         {:children
          [{:children
            [{:children [],
@@ -737,7 +973,21 @@
              :id
              [:minimap-pane "minimap-reader-face" 1 1 1 0 "b4" 0 :dot],
              :text [],
-             :data {:layout-skip? true}}],
+             :data
+             {:layout-skip? true,
+              :assembly/src-path
+              [:root
+               :children
+               1
+               :children
+               1
+               :children
+               1
+               :children
+               0
+               :template
+               :children
+               0]}}],
            :clip? false,
            :layout nil,
            :type :header-band,
@@ -770,7 +1020,20 @@
              :a 1.0,
              :text "38w",
              :to 3}],
-           :data nil}
+           :data
+           #:assembly{:src-path
+                      [:root
+                       :children
+                       1
+                       :children
+                       1
+                       :children
+                       1
+                       :children
+                       0
+                       :template
+                       :children
+                       0]}}
           {:children [],
            :clip? false,
            :layout nil,
@@ -890,7 +1153,20 @@
              :a 1.0,
              :text "  (serve {:conversation conv-proj} req))",
              :to 40}],
-           :data nil}],
+           :data
+           #:assembly{:src-path
+                      [:root
+                       :children
+                       1
+                       :children
+                       1
+                       :children
+                       1
+                       :children
+                       0
+                       :template
+                       :children
+                       1]}}],
          :clip? false,
          :layout
          {:direction :column,
@@ -907,7 +1183,18 @@
           :border-color [0.149 0.188 0.235 1.0]},
          :id [:minimap-pane "minimap-reader-face" 1 1 1 0 "b4"],
          :text [],
-         :data nil}],
+         :data
+         #:assembly{:src-path
+                    [:root
+                     :children
+                     1
+                     :children
+                     1
+                     :children
+                     1
+                     :children
+                     0
+                     :template]}}],
        :clip? false,
        :layout
        {:direction :column,
@@ -920,7 +1207,9 @@
        :style {},
        :id [:minimap-pane "minimap-reader-face" 1 1 1],
        :text [],
-       :data nil}],
+       :data
+       #:assembly{:src-path
+                  [:root :children 1 :children 1 :children 1]}}],
      :clip? false,
      :layout
      {:direction :column, :gap 0, :padding [1 1 1 1], :align :start},
@@ -933,7 +1222,7 @@
       :border-color [0.373 0.69 0.918 0.32]},
      :id [:minimap-pane "minimap-reader-face" 1 1],
      :text [],
-     :data nil}],
+     :data #:assembly{:src-path [:root :children 1 :children 1]}}],
    :clip? false,
    :layout {:direction :column, :gap 9, :padding 0, :align :start},
    :type :stack,
@@ -942,7 +1231,7 @@
    :style {},
    :id [:minimap-pane "minimap-reader-face" 1],
    :text [],
-   :data nil}],
+   :data #:assembly{:src-path [:root :children 1]}}],
  :clip? false,
  :layout {:direction :row, :gap 8, :padding 0, :align :start},
  :type :stack,
@@ -952,7 +1241,8 @@
  :id [:minimap-pane "minimap-reader-face"],
  :text [],
  :data
- {:view-instance :minimap-pane,
+ {:assembly/src-path [:root],
+  :view-instance :minimap-pane,
   :address "chat:10c22f9b",
   :assembly/content-h 702,
   :assembly/apply-report {:items-without-id 0, :binds-missing 0}}}

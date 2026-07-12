@@ -96,6 +96,20 @@
                :kind        {:bind [:kind]}
                :relation-id {:bind [:relation-id]}}}}]}})
 
+(defn- strip-src-path
+  "Structural equality is compared MODULO the interpreter's :assembly/src-path
+   provenance stamp: the interpreter records the template node each rt-node came
+   from (designer edit-mode), but the hand-shipped arrangement — built directly,
+   not through the interpreter — legitimately has none. Provenance is metadata,
+   not arrangement, so it is removed before the shape comparison. Removing the
+   only key restores :data to its pre-stamp form (nil), so an unstamped shipped
+   node still matches exactly."
+  [node]
+  (let [d (dissoc (:data node) :assembly/src-path)]
+    (-> node
+        (assoc :data (if (seq d) d nil))
+        (update :children (fn [cs] (mapv strip-src-path cs))))))
+
 (deftest g14a-holes-column-structural-equality
   (let [shipped  (rt/resolve-layout (shipped-holes-column hole-rows))
         compiled (fa/compile-assembly prims/registry holes-slice-assembly)
@@ -105,11 +119,13 @@
                                      :geom geom})]
     (testing "the assembly compiles against the REAL registry"
       (is (not (fa/error? compiled)) (pr-str (fa/compile-errors compiled))))
-    (testing "children are structurally EQUAL — ids, bounds, styles, text, data"
+    (testing "children are structurally EQUAL — ids, bounds, styles, text, data (modulo provenance)"
       (is (= 3 (count (:children shipped)) (count (:children tree))))
-      ;; whole-node equality, child by child (failure prints the diff pair)
+      ;; whole-node equality, child by child (failure prints the diff pair);
+      ;; the assembly side carries the :assembly/src-path stamp the hand-shipped
+      ;; side cannot — stripped before compare (provenance is not arrangement)
       (doseq [[s a] (map vector (:children shipped) (:children tree))]
-        (is (= s a))))
+        (is (= s (strip-src-path a)))))
     (testing "container width equal; height differs by EXACTLY one trailing gap"
       (is (= (get-in shipped [:bounds :w]) (get-in tree [:bounds :w])))
       (is (= (get-in shipped [:bounds :h])

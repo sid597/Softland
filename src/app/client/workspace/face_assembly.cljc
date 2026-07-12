@@ -306,15 +306,25 @@
 (defn- compile-node
   "Compile a validated node into a PLAN — a data-only intermediate with the
    builder fn already resolved from the registry (the graph is closed over
-   once, trap T3). apply-* interprets the plan against a data context."
-  [node registry]
+   once, trap T3). apply-* interprets the plan against a data context.
+
+   `src-path` is the node's TEMPLATE path into the assembly form, recorded on
+   every plan node as :src-path — the SAME path grammar validate-node uses for
+   error paths ([:root], [:root :children N], [... :template]). It rides the plan
+   so apply can stamp each built rt-node with :assembly/src-path provenance (the
+   designer edit-mode ask: every rendered node names the template node it came
+   from). NOTE: an :each plan already carries :path for the DATA path — provenance
+   is the DISTINCT key :src-path, never conflated with it."
+  [node registry src-path]
   (if (contains? node :each)
-    {:kind :each :path (:each node) :template (compile-node (:template node) registry)}
+    {:kind :each :path (:each node) :src-path src-path
+     :template (compile-node (:template node) registry (conj src-path :template))}
     {:kind     :prim
      :prim     (:prim node)
      :builder  (get registry (:prim node))
      :props    (:props node)
-     :children (into [] (map-indexed (fn [i c] (assoc (compile-node c registry) :seg i)))
+     :src-path src-path
+     :children (into [] (map-indexed (fn [i c] (assoc (compile-node c registry (conj src-path :children i)) :seg i)))
                      (or (:children node) []))}))
 
 (defn compile-assembly
@@ -334,7 +344,7 @@
        ::errors  (vec errors)}
       {::status :ok
        ::name   (:assembly/name assembly)
-       ::plan   (compile-node (:root assembly) registry)})))
+       ::plan   (compile-node (:root assembly) registry [:root])})))
 
 ;; ===========================================================================
 ;; §5 · apply-assembly — data-change-time (pure; measure then arrange)
@@ -382,6 +392,25 @@
 
 (declare expand-slot)
 
+(defn- stamp-src-path
+  "Provenance post-pass (designer edit-mode): record the plan node's TEMPLATE
+   path on `built` and any builder-internal descendants that lack one, under
+   [:data :assembly/src-path]. `built` is a builder's OUTPUT — builders are never
+   modified (§6); this stamps their result AFTER invoke-builder returns.
+
+   A descendant that ALREADY carries a src-path was built at a deeper plan
+   position and passed INTO the builder as a child — it keeps its own, more
+   specific path, and its whole subtree is already stamped, so recursion stops
+   there (no clobber). Builder-internal decoration (e.g. a card header) has no
+   plan position of its own, so it inherits its nearest plan ancestor's path —
+   exactly the provenance answer a click on that pixel wants."
+  [built src-path]
+  (if (get-in built [:data :assembly/src-path])
+    built
+    (-> built
+        (assoc-in [:data :assembly/src-path] src-path)
+        (update :children (fn [cs] (mapv #(stamp-src-path % src-path) cs))))))
+
 (defn- build-node
   "Build ONE rt-node from a :prim plan at exactly `id`. Children are built
    post-order (already-built child rt-nodes are passed to the builder, §6), each
@@ -392,9 +421,11 @@
    it renders an error card rather than crashing (trap T4)."
   [plan data ctx-base id]
   (if (not= :prim (:kind plan))
-    {:node (error-card-node id "each-standalone" nil (:address ctx-base)
-                            [{:path [] :msg "an :each node cannot stand alone here — wrap it in a :prim container"}]
-                            (:geom ctx-base))
+    {:node (stamp-src-path
+            (error-card-node id "each-standalone" nil (:address ctx-base)
+                             [{:path [] :msg "an :each node cannot stand alone here — wrap it in a :prim container"}]
+                             (:geom ctx-base))
+            (:src-path plan))
      :report zero-report}
     (let [[props binds-missing] (resolve-props (:props plan) data)
           ;; §5: a bound :props {:id ..} OVERRIDES the derived id segment.
@@ -435,7 +466,7 @@
                  :view-instance (:view-instance ctx-base)
                  :address (:address ctx-base) :geom (:geom ctx-base)}
           built (invoke-builder (:builder plan) ctx props nodes)]
-      {:node   built
+      {:node   (stamp-src-path built (:src-path plan))
        :report (merge-reports report {:binds-missing binds-missing})})))
 
 (defn- expand-slot
@@ -468,10 +499,13 @@
          {:nodes [] :report zero-report}
          (map-indexed vector items))
         ;; §5: honest data absence — an :each over a non-sequential value renders
-        ;; a visible error card, never a crash (trap T4).
-        {:nodes  [(error-card-node (conj base-id 0) "each-not-seq" nil (:address ctx-base)
-                                   [{:path (:path plan) :msg (str ":each path resolved to a non-sequence: " (pr-str items))}]
-                                   (:geom ctx-base))]
+        ;; a visible error card, never a crash (trap T4). The card names the
+        ;; failing :each node's template path (provenance carries through errors).
+        {:nodes  [(stamp-src-path
+                   (error-card-node (conj base-id 0) "each-not-seq" nil (:address ctx-base)
+                                    [{:path (:path plan) :msg (str ":each path resolved to a non-sequence: " (pr-str items))}]
+                                    (:geom ctx-base))
+                   (:src-path plan))]
          :report zero-report}))))
 
 (defn- stamp-root
@@ -512,6 +546,7 @@
         root-id  [vi (::name compiled)]]
     (if (= :error (::status compiled))
       (-> (error-card-node root-id (::name compiled) (::grammar compiled) addr (::errors compiled) geom)
+          (stamp-src-path [:root])   ; the whole-assembly error card is the root's landing pad
           (rt/resolve-layout)
           (stamp-root vi addr zero-report))
       (let [{:keys [node report]} (build-node (::plan compiled) data-context ctx-base root-id)]
