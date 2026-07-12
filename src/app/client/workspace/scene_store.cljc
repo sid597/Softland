@@ -271,6 +271,164 @@
       (stamp-block-addresses unit-ids)))
 
 ;; ============================================================================
+;; Context bundle — point-and-say's data half (scene-substrate P4, CONTRACT §5)
+;; ============================================================================
+;; The deictic seam: pointing at the scene produces a plain-EDN bundle an agent
+;; reads instead of hunter-gathering context. PURE over the store value + the
+;; effective transforms (JVM-tested). Zero fn values (store-fns-free? applies).
+
+(def visible-cap
+  "Cap on :visible addresses in a bundle — the top-N by on-screen area. The
+   TOTAL distinct visible count rides alongside (:visible-count) so a truncated
+   set is never silent (CONTRACT §5)."
+  32)
+
+(def ^:private identity-camera {:x 0.0 :y 0.0 :scale 1.0})
+
+(defn- addressed-rects
+  "Walk a RESOLVED tree; for every node carrying [:data :address], return
+   {:address a :x ax :y ay :w w :h h} in ABSOLUTE container-LOCAL coords (bounds
+   offset down the parent chain — the same accumulation tree->rects/hit-test do).
+   A block's addressed descendants each appear; the caller dedupes per address by
+   MAX area (the shallowest node is the largest, so the block's own rect wins)."
+  [tree]
+  (letfn [(walk [node px py acc]
+            (let [b   (:bounds node)
+                  ax  (+ px (:x b 0))
+                  ay  (+ py (:y b 0))
+                  w   (:w b 0)
+                  h   (:h b 0)
+                  addr (get-in node [:data :address])
+                  acc (if (some? addr)
+                        (conj acc {:address addr :x ax :y ay :w w :h h})
+                        acc)]
+              (reduce (fn [a c] (walk c ax ay a)) acc (:children node))))]
+    (walk tree 0 0 [])))
+
+(defn- rect-screen-area
+  "Clipped on-screen area of a container-LOCAL rect. local →(container eff)→
+   world →(camera)→ screen, then clip to the viewport [0,0,vw,vh]. Camera maps
+   world→screen: screen = (world − [cx cy]) · cs. A fully off-screen rect → 0.0.
+   Uniform camera zoom is a global factor, so ranking by this area matches
+   ranking by any consistent zoom (CONTRACT §5)."
+  [{:keys [x y w h]} eff camera vw vh]
+  (let [es (:scale eff)
+        ;; container-local → world
+        wx (+ (:x eff) (* x es))
+        wy (+ (:y eff) (* y es))
+        ww (* w es)
+        wh (* h es)
+        ;; world → screen
+        cs (:scale camera 1.0)
+        sx (* (- wx (:x camera 0.0)) cs)
+        sy (* (- wy (:y camera 0.0)) cs)
+        sw (* ww cs)
+        sh (* wh cs)
+        ;; clip to viewport
+        x0 (max 0.0 sx)
+        y0 (max 0.0 sy)
+        x1 (min (double vw) (+ sx sw))
+        y1 (min (double vh) (+ sy sh))
+        cw (- x1 x0)
+        ch (- y1 y0)]
+    (if (and (> cw 0.0) (> ch 0.0)) (* cw ch) 0.0)))
+
+(defn visible-addresses
+  "Addresses whose nodes are on screen NOW, selected top-`cap` by descending
+   clipped screen area, plus the total distinct visible count (CONTRACT §5 — the
+   cap carries its count so truncation is never silent). PURE. Every returned
+   address is drawn by a live slot, so it resolves through the fan-out :index.
+   Screen-camera containers (effective :flags bit0) ignore the world camera (they
+   are pinned). Returns {:visible #{addr…} :ranked [addr…] :count n} — :ranked is
+   the full descending order (the cap slices its head); :visible is the pinned
+   §5 set of the head. Ties break by pr-str address for determinism."
+  [store effective-transforms camera vw vh cap]
+  (let [areas (reduce
+               (fn [m slot]
+                 (let [eff (get effective-transforms (:container slot))]
+                   (if (nil? eff)
+                     m
+                     (let [cam (if (= 1 (:flags eff)) identity-camera camera)]
+                       (reduce
+                        (fn [m r]
+                          (let [a (rect-screen-area r eff cam vw vh)]
+                            (if (pos? a)
+                              (update m (:address r) (fnil max 0.0) a)
+                              m)))
+                        m
+                        (addressed-rects (:tree slot)))))))
+               {}
+               (vals (:slots store)))
+        ranked (->> areas
+                    (sort-by (fn [[addr a]] [(- a) (pr-str addr)]))
+                    (mapv key))]
+    {:visible (into #{} (take cap ranked))
+     :ranked  ranked
+     :count   (count ranked)}))
+
+(defn context-bundle
+  "Point-and-say's data half (scene-substrate P4, CONTRACT §5). PURE, plain EDN,
+   fn-free — round-trips pr-str/read-string. Pointing at `world-point` picks the
+   deepest addressed node (nil world-point / a miss → :address nil, but :visible
+   is STILL populated: pointing at empty canvas still describes the scene). The
+   camera describes how the scene maps to the screen: {:world <world camera>
+   :container <the picked container's effective transform, or nil on a miss>}.
+   `viewport` = {:width :height :camera {:x :y :scale}} (camera defaults to
+   identity). Every :visible address AND the picked :address resolves back through
+   the store's fan-out :index (G9)."
+  [store effective-transforms world-point viewport]
+  (let [camera (or (:camera viewport) identity-camera)
+        vw     (:width viewport 0)
+        vh     (:height viewport 0)
+        picked (when world-point (pick store effective-transforms world-point))
+        pcid   (when picked (:container (slot store (:vi picked))))
+        peff   (when pcid (get effective-transforms pcid))
+        {:keys [visible count]} (visible-addresses store effective-transforms
+                                                    camera vw vh visible-cap)]
+    {:vi            (:vi picked)
+     :address       (:address picked)
+     :src-path      (:src-path picked)
+     :camera        {:world camera :container peff}
+     :visible       visible
+     :visible-count count}))
+
+;; ============================================================================
+;; Actions router (scene-substrate P4, CONTRACT §5, trap T1) — dispatch on data
+;; ============================================================================
+;; Descriptors are DATA carried in node :data ({:action <kw> …}); a registry
+;; {action-kw → handler} dispatches them. The registry (fns) lives in a RUNTIME
+;; atom, NEVER in a store value — so scenes stay serializable (G2) while the ONE
+;; legitimate fn-over-descriptor invocation happens here. These pure fns take the
+;; registry as a value so they are JVM-testable (the live atom is in the runtime).
+
+(defn dispatch-descriptor
+  "Invoke `registry`'s handler for descriptor {:action <kw> …} with `ctx`.
+   Returns the handler's result, or ::unregistered when no handler is bound.
+   Pure w.r.t. the registry value (handlers may effect at the consumer edge)."
+  [registry descriptor ctx]
+  (if-let [h (get registry (:action descriptor))]
+    (h descriptor ctx)
+    ::unregistered))
+
+(defn replay-descriptors
+  "Replay `descriptors` in order through `registry` with `ctx` (G10 helper —
+   captures identical call order + args when the handler records). Returns the
+   vector of per-descriptor results."
+  [registry descriptors ctx]
+  (mapv #(dispatch-descriptor registry % ctx) descriptors))
+
+(defn tree-descriptors
+  "Depth-first pre-order (render/replay order) collection of the descriptor at
+   [:data k] from every node that carries one. PURE; used to lift a scene tree's
+   action descriptors for the router (G10)."
+  [tree k]
+  (letfn [(walk [node acc]
+            (let [d   (get-in node [:data k])
+                  acc (if (some? d) (conj acc d) acc)]
+              (reduce (fn [a c] (walk c a)) acc (:children node))))]
+    (walk tree [])))
+
+;; ============================================================================
 ;; Serializability guard (G2 / trap T1) — actions are DATA, never closures
 ;; ============================================================================
 

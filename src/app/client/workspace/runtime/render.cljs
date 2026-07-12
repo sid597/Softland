@@ -676,6 +676,7 @@
         (island/install-window-api! (.-canvas ctx)) ;; islands-probe 2026-07-11 (UNCOMMITTED)
         (ct-probe/install-window-api! device geometry (fn [] @!font-assets)) ;; scene-substrate P2 probe 2026-07-12 (UNCOMMITTED)
         (scene-rt/install-window-api! atoms) ;; scene-substrate P3a dev affordance (UNCOMMITTED)
+        (scene-rt/install-context-window-api! atoms) ;; scene-substrate P4 dev affordance (UNCOMMITTED)
         {:content-text-geo (:text geometry)
        :chrome-text-geo chrome-text-geo
        :cmd-rect-sys @!cmd-rect-sys

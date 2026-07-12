@@ -411,41 +411,44 @@
    BACK to the cached-!face-scene hit-test — legacy untouched (CONTRACT §3).
    Both routes end at block-edit-wiring/face-click! (nil → blur)."
   [{:keys [!face-scene !face-context]} x y-scene]
-  (if-let [hit (and (scene-rt/any-slots?)
-                    (scene-rt/pick-world [x y-scene]))]
-    (block-edit-wiring/face-click! (:address hit))
-    ;; LEGACY fallback — the cached !face-scene hit-test (trap T6: :id path
-    ;; carries the block unit-id; face_assembly threads item :id into node ids).
-    (let [ctx  @!face-context
-          ids  (into #{}
-                     (comp (mapcat :blocks) (keep :id))
-                     (:turns ctx))
-          path (when-let [scene @!face-scene]
-                 (hit-test scene x y-scene))
-          unit-id (when (seq ids)
-                    (some (fn [node]
-                            (when (vector? (:id node))
-                              (some ids (:id node))))
-                          (some-> path rseq)))]
-      (block-edit-wiring/face-click! unit-id))))
+  (let [wp  [x y-scene]
+        hit (and (scene-rt/any-slots?) (scene-rt/pick-world wp))]
+    ;; scene-substrate P4 — record where the user pointed so a following cmd/agent
+    ;; submit carries the deictic bundle (nil hit still records the world-point).
+    (scene-rt/record-pick! wp hit)
+    (if hit
+      (block-edit-wiring/face-click! (:address hit))
+      ;; LEGACY fallback — the cached !face-scene hit-test (trap T6: :id path
+      ;; carries the block unit-id; face_assembly threads item :id into node ids).
+      (let [ctx  @!face-context
+            ids  (into #{}
+                       (comp (mapcat :blocks) (keep :id))
+                       (:turns ctx))
+            path (when-let [scene @!face-scene]
+                   (hit-test scene x y-scene))
+            unit-id (when (seq ids)
+                      (some (fn [node]
+                              (when (vector? (:id node))
+                                (some ids (:id node))))
+                            (some-> path rseq)))]
+        (block-edit-wiring/face-click! unit-id)))))
 
 (defn- handle-trail-face-click!
   "Trail face click (view-mvp WP-B2): hit-test the CACHED scene object -
    never a rebuilt tree (gate 13 / trap 1; the sidebar precedent, not the
    chat/flow rebuild-at-click anti-pattern). Dispatches the
-   :trail-face/* action found on the deepest hit node's :data."
+   :trail-face/* action found on the deepest hit node's :data.
+
+   scene-substrate P4 (G10): the click descriptor now routes through the scene
+   actions registry instead of an inline case — behavior identical, the case
+   branches became registered handlers (scene_runtime/register-action!). The
+   atom to mutate rides in the ctx so the handler stays atom-agnostic + JVM-
+   testable through the pure ss/dispatch-descriptor."
   [{:keys [!trail-face-scene !trail-face-state]} rel-x y scroll-y]
   (when-let [scene @!trail-face-scene]
     (when-let [path (hit-test scene rel-x (+ y scroll-y))]
       (when-let [click (some #(get-in % [:data :trail-face/click]) (rseq path))]
-        (case (:action click)
-          :trail-face/toggle-expand
-          (swap! !trail-face-state update :expanded
-                 (fnil (fn [s] (if (contains? s (:id click))
-                                 (disj s (:id click))
-                                 (conj s (:id click))))
-                       #{}))
-          nil)))))
+        (scene-rt/dispatch-action click {:!trail-face-state !trail-face-state})))))
 
 (defn- handle-mousedown!
   "Route mousedown to the appropriate zone handler."

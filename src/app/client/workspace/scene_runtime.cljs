@@ -33,6 +33,20 @@
 (defonce !scene-store (atom (ss/empty-store)))
 (defonce !containers-registry (atom (ctn/empty-registry)))
 
+;; !last-pick (scene-substrate P4) — the deictic seam's memory: the last face
+;; pick's world-point + resolved node, recorded at the click consumer edge
+;; (mouse.cljs). The context bundle re-picks from :world-point when a cmd/agent
+;; submit is NOT itself a click, so "the thing I just pointed at" reaches the
+;; agent turn. Cleared on face-mode exit through close-all-slots! (the P3b
+;; close-all seam — ONE lifecycle, not a second).
+(defonce !last-pick (atom nil))
+
+;; !action-registry (scene-substrate P4 / G10) — {action-kw → handler}. The
+;; descriptor router's live half: handlers are fns and MUST NOT enter a store
+;; value (G2), so they live HERE in a runtime atom. ss/dispatch-descriptor does
+;; the pure dispatch over this value.
+(defonce !action-registry (atom {}))
+
 ;; Face containers start just above the P2 probe's range (probe uses cids 1..16)
 ;; so the two dev tools never fight over cids in the shared containers buffer.
 ;; write-containers! writes the contiguous [1..max-cid] range, so a low base
@@ -138,7 +152,10 @@
    go with it."
   []
   (doseq [vi (keys (:slots @!scene-store))] (close-instance! vi))
-  (doseq [vi (keys @!vi-faces)] (close-instance! vi)))
+  (doseq [vi (keys @!vi-faces)] (close-instance! vi))
+  ;; scene-substrate P4 — the deictic memory dies with the scene it pointed at
+  ;; (reuse THIS close-all seam; no second lifecycle).
+  (reset! !last-pick nil))
 
 (defn refresh-all-slots!
   "Echo fan-out (G7 / deliverable #6), Rung-1 form: the projection changed (a
@@ -203,6 +220,58 @@
    the deepest addressed node, or nil on a miss."
   [world-point]
   (ss/pick @!scene-store (effective-transforms) world-point))
+
+;; ---------------------------------------------------------------------------
+;; Deictic seam — last pick + context bundle (scene-substrate P4, CONTRACT §5)
+;; ---------------------------------------------------------------------------
+
+(defn record-pick!
+  "Consumer-edge record of a face pick (mouse.cljs): the WORLD point pointed at
+   + the resolved pick (or nil on a store miss). The context bundle re-picks from
+   :world-point at submit time, so an agent turn fired AFTER a click still carries
+   what was pointed at. Edge-only mutation (no m/latest, T4)."
+  [world-point hit]
+  (reset! !last-pick (assoc hit :world-point world-point)))
+
+(defn last-pick [] @!last-pick)
+
+(defn bundle-for-viewport
+  "Assemble the deictic context bundle for the CURRENT scene at the last pick
+   (scene-substrate P4). `viewport` = the runtime viewport; `scroll-y` is the
+   face-mode world-camera pan (screen = world − [0 scroll-y], zoom 1.0 — the world
+   camera is not live yet, CONTRACT §5). Pure delegate to ss/context-bundle over
+   the live store snapshot + effective transforms."
+  [viewport scroll-y]
+  (let [vp {:width  (:width viewport)
+            :height (:height viewport)
+            :camera {:x 0.0 :y (double (or scroll-y 0)) :scale 1.0}}]
+    (ss/context-bundle @!scene-store (effective-transforms)
+                       (:world-point @!last-pick) vp)))
+
+;; ---------------------------------------------------------------------------
+;; Actions router (scene-substrate P4 / G10) — descriptor dispatch
+;; ---------------------------------------------------------------------------
+
+(defn register-action!
+  "Bind a handler (fn [descriptor ctx] → result) to an action keyword in the live
+   registry. Idempotent (assoc); safe to re-run on hot reload."
+  [kw handler]
+  (swap! !action-registry assoc kw handler))
+
+(defn dispatch-action
+  "Dispatch a descriptor {:action <kw> …} through the live registry with `ctx`.
+   Pure dispatch lives in ss/dispatch-descriptor; this wraps the runtime atom."
+  [descriptor ctx]
+  (ss/dispatch-descriptor @!action-registry descriptor ctx))
+
+;; Registered actions (G10) — the trail-face click case migrated to descriptors.
+;; Behavior identical to the pre-P4 case in mouse.cljs/handle-trail-face-click!;
+;; the atom to mutate arrives per-call in ctx so the handler stays atom-agnostic.
+(register-action! :trail-face/toggle-expand
+  (fn [{:keys [id]} {:keys [!trail-face-state]}]
+    (swap! !trail-face-state update :expanded
+           (fnil (fn [s] (if (contains? s id) (disj s id) (conj s id))) #{}))
+    true))
 
 ;; ---------------------------------------------------------------------------
 ;; GPU-frame derivations (missionary flows; merged at the render consumer edge)
@@ -337,3 +406,15 @@
              :scale (fn [vi-n s] (scale-instance! (or vi-n 2) s))
              :list  (fn [] (list-instances))})
   (js/console.log "[SCENE-FACES] window.sceneFaces installed — sceneFaces.spawn(2); wear A, spawn, wear B, spawn(3) for two faces"))
+
+(defn install-context-window-api!
+  "window.sceneContext — inspect the deictic bundle for the current scene at the
+   last pick (scene-substrate P4 dev affordance, UNCOMMITTED; mirrors the
+   sceneFaces install). bundle() → the EDN as a JS object; edn() → the exact
+   pr-str EDN string (round-trips read-string). The SAME bundle is attached to a
+   cmd/agent turn at submit time (agent_flow.cljs) and logged [SCENE-CTX]."
+  [{:keys [!viewport !scroll-y]}]
+  (set! (.-sceneContext js/window)
+        #js {:bundle (fn [] (clj->js (bundle-for-viewport @!viewport @!scroll-y)))
+             :edn    (fn [] (pr-str (bundle-for-viewport @!viewport @!scroll-y)))})
+  (js/console.log "[SCENE-CTX] window.sceneContext installed — sceneContext.bundle() / sceneContext.edn()"))
