@@ -82,7 +82,7 @@ on kinds).
   COMPOSED (leg3 characterized not E2E); IPC substrate = today's runtime; probe
   UNCOMMITTED. Numbers+method+deviations: `build/write-echo/NOW.md` — the
   empirical input to `build/editor-loop/ROAD.md`'s echo-budget/caret-law.
-  **D-013 DRAFTED (PROPOSED, 2026-07-12) — awaiting Sid's countersign:**
+  **D-013 CLOSED (countersigned 2026-07-12):**
   microbatch route closed; same criterion re-aimed at stream; next fallback
   pre-registered; block-write gated on the follow-up. Follow-up READY:
   **write-echo-2** — paste

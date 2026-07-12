@@ -619,9 +619,9 @@ against the code lane's hot-reload speed.
 ---
 
 ## D-013 — Editor write transport: microbatch direct-write REJECTED on pre-registered evidence; stream is the route to prove
-**STATUS: PROPOSED** (drafted by Fable 2026-07-12 from the write-echo spike,
+**STATUS: CLOSED** (drafted by Fable 2026-07-12 from the write-echo spike,
 `build/write-echo/NOW.md`; criterion pre-registered 2026-07-11 BEFORE any
-data and not adjusted after; awaiting Sid's countersign)
+data and not adjusted after; **countersigned by Sid 2026-07-12 in-session**)
 
 **Measured fact.** Direct write→read-back against the CURRENT microbatch
 text-kernel, on the in-process IPC substrate Softland actually runs, FAILS
