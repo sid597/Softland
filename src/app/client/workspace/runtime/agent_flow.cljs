@@ -9,6 +9,7 @@
             [app.client.workspace.runtime.sidebar-io :refer [save-agent-trail!]]
             [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.face-wiring :as face-wiring]
+            [app.client.workspace.scene-runtime :as scene-rt] ;; scene-substrate P4
             [app.client.workflows.dg-flow :as dg :refer [flow-prompt]]
             [app.client.workflows.jit :as jit]))
 
@@ -267,6 +268,15 @@
                     prompt (:prompt parsed)
                     argv (:argv parsed)
                     run-id (str (random-uuid))
+                    ;; scene-substrate P4 — the deictic context bundle: when the
+                    ;; scene store has slots OR the user recently pointed at the
+                    ;; scene, attach point-and-say's data half to the turn as EDN
+                    ;; (the body is pr-str'd, application/edn — the server receives
+                    ;; structured data it can log/forward; NOT stringified into the
+                    ;; prompt). "The agent is a verifier, not a hunter-gatherer of
+                    ;; context" (CONTRACT §2.4/§5).
+                    scene-bundle (when (or (scene-rt/any-slots?) (scene-rt/last-pick))
+                                   (scene-rt/bundle-for-viewport viewport scroll-y))
                     request-body (cond-> {:run-id run-id
                                           :provider provider
                                           :prompt prompt
@@ -274,7 +284,10 @@
                                           :file file-path
                                           :context context}
                                    (seq argv) (assoc :argv argv)
+                                   scene-bundle (assoc :scene-context scene-bundle)
                                    (:session-id @!flow-state) (assoc :session-id (:session-id @!flow-state)))]
+                (when scene-bundle
+                  (js/console.log "[SCENE-CTX]" (pr-str scene-bundle)))
                 (js/console.log "[AGENT][CLIENT][SUBMIT]"
                                 (clj->js {:run-id run-id
                                           :provider provider

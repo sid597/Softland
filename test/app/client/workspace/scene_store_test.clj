@@ -517,6 +517,142 @@
     (is (not (contains? (:index store') "blk-1")) "emptied address entry removed")
     (is (not (contains? (:containers reg') 33)) "its container removed — no orphan")))
 
+;; ============================================================================
+;; P4 — context bundle (G9) + actions router (G10), CONTRACT §8
+;; ============================================================================
+
+(defn- two-scale-fixture
+  "TWO addressed slots in DIFFERENT-scale containers: A (cid 1, scale 1) an
+   addressed 100×40 leaf at world (0,0); B (cid 2, scale 3) an addressed 100×40
+   leaf at LOCAL (500,0) → world (1500,0), 300×120. Returns {:store :effs}."
+  []
+  (let [tree-a (rt/rt-node :ra :box {:x 0 :y 0 :w 400 :h 400}
+                           :children [(rt/rt-node :la :box {:x 0 :y 0 :w 100 :h 40}
+                                                  :data {:address "addr/a"})])
+        tree-b (rt/rt-node :rb :box {:x 0 :y 0 :w 400 :h 400}
+                           :children [(rt/rt-node :lb :box {:x 500 :y 0 :w 100 :h 40}
+                                                  :data {:address "addr/b"})])
+        reg    (-> (ctn/empty-registry)
+                   (ctn/add-container 1 {:x 0 :y 0 :scale 1 :layer 1})
+                   (ctn/add-container 2 {:x 0 :y 0 :scale 3 :layer 2}))]
+    {:store (-> (ss/empty-store)
+                (ss/upsert-slot [:vi :reader-face 1] {:tree tree-a :container 1})
+                (ss/upsert-slot [:vi :reader-face 2] {:tree tree-b :container 2}))
+     :effs  (ctn/effective reg)}))
+
+(deftest g9-visible-ranks-by-screen-area-through-different-scales
+  ;; The load-bearing G9 half: :visible is selected TOP-N by clipped on-screen
+  ;; area, computed through EACH slot's container transform. B's 300×120 world
+  ;; rect (scale 3) beats A's 100×40 (scale 1), so under a cap of 1, B wins.
+  (let [{:keys [store effs]} (two-scale-fixture)
+        camera {:x 0.0 :y 0.0 :scale 1.0}
+        big-vp 4000]
+    (testing "both addresses are visible in a large viewport"
+      (let [{:keys [visible ranked count]} (ss/visible-addresses store effs camera big-vp big-vp 32)]
+        (is (= #{"addr/a" "addr/b"} visible))
+        (is (= 2 count))
+        (is (= "addr/b" (first ranked)) "the larger screen area ranks first")))
+    (testing "cap 1 keeps ONLY the larger-area address (ranking through scales)"
+      (let [{:keys [visible count]} (ss/visible-addresses store effs camera big-vp big-vp 1)]
+        (is (= #{"addr/b"} visible) "B (scale 3) outranks A (scale 1)")
+        (is (= 2 count) "the total count carries — truncation is not silent")))
+    (testing "a rect fully off-screen is not visible (clip to viewport)"
+      ;; a 10×10 viewport clips B (world x≥1500) out entirely; A's leaf at (0,0)
+      ;; survives partially.
+      (let [{:keys [visible]} (ss/visible-addresses store effs camera 10 10 32)]
+        (is (= #{"addr/a"} visible))))))
+
+(deftest g9-context-bundle-roundtrips-and-resolves
+  (let [{:keys [store effs]} (two-scale-fixture)
+        viewport {:width 4000 :height 4000 :camera {:x 0.0 :y 0.0 :scale 1.0}}
+        ;; point at A's leaf (world 10,10) → picks addr/a in vi-a / container 1
+        bundle (ss/context-bundle store effs [10 10] viewport)]
+    (testing "the pick fills :vi/:address/:camera :container"
+      (is (= [:vi :reader-face 1] (:vi bundle)))
+      (is (= "addr/a" (:address bundle)))
+      (is (= (get effs 1) (:container (:camera bundle))) "the picked container's effective transform")
+      (is (= {:x 0.0 :y 0.0 :scale 1.0} (:world (:camera bundle))) "the world camera"))
+    (testing ":visible carries both addresses + the count"
+      (is (= #{"addr/a" "addr/b"} (:visible bundle)))
+      (is (= 2 (:visible-count bundle))))
+    (testing "the bundle round-trips pr-str → read-string to an = value, fn-free"
+      (is (= bundle (edn/read-string (pr-str bundle))))
+      (is (true? (ss/store-fns-free? bundle)) "no fn values anywhere in the bundle"))
+    (testing "every :visible address AND the picked :address resolves via the index"
+      (doseq [addr (conj (:visible bundle) (:address bundle))]
+        (is (seq (ss/slots-for-address store addr))
+            (str addr " resolves to a live slot"))))))
+
+(deftest g9-context-bundle-nil-pick-still-describes-the-scene
+  ;; Pointing at empty canvas (a miss, or no world-point) → :address nil, but
+  ;; :visible is STILL populated (CONTRACT §5).
+  (let [{:keys [store effs]} (two-scale-fixture)
+        viewport {:width 4000 :height 4000 :camera {:x 0.0 :y 0.0 :scale 1.0}}]
+    (testing "nil world-point → nil pick, populated :visible"
+      (let [b (ss/context-bundle store effs nil viewport)]
+        (is (nil? (:address b)))
+        (is (nil? (:vi b)))
+        (is (nil? (:container (:camera b))))
+        (is (= #{"addr/a" "addr/b"} (:visible b)))
+        (is (= b (edn/read-string (pr-str b))) "still round-trips")))
+    (testing "a world-point that misses every tree → nil pick, populated :visible"
+      (let [b (ss/context-bundle store effs [99999 99999] viewport)]
+        (is (nil? (:address b)))
+        (is (= #{"addr/a" "addr/b"} (:visible b)))))))
+
+(deftest g10-actions-router-replays-descriptors-identically
+  ;; A scene tree with trail-face descriptors EDN round-trips; its descriptors
+  ;; replay through the registry with IDENTICAL call order + args (Δ6 falsifier).
+  (let [tree (rt/rt-node :root :feed {:x 0 :y 0 :w 200 :h 200}
+                         :children
+                         [(rt/rt-node [:trail-face/card "ek-1"] :feed-card {:x 0 :y 0 :w 200 :h 40}
+                                      :data {:trail-face/click {:action :trail-face/toggle-expand
+                                                                :id [:trail-face/card "ek-1"]}})
+                          (rt/rt-node [:trail-face/card "ek-2"] :feed-card {:x 0 :y 40 :w 200 :h 40}
+                                      :data {:trail-face/click {:action :trail-face/toggle-expand
+                                                                :id [:trail-face/card "ek-2"]}})])
+        tree'       (edn/read-string (pr-str tree))
+        descriptors (ss/tree-descriptors tree' :trail-face/click)
+        ;; a recording handler stands in for the live registered one
+        !calls   (atom [])
+        registry {:trail-face/toggle-expand
+                  (fn [descriptor ctx]
+                    (swap! !calls conj {:descriptor descriptor :ctx ctx})
+                    [:toggled (:id descriptor)])}
+        ctx      {:tag :test-ctx}
+        results  (ss/replay-descriptors registry descriptors ctx)]
+    (testing "the scene tree round-trips EDN identically (descriptors are data)"
+      (is (= tree tree')))
+    (testing "descriptors lift in render/replay (pre-order) order"
+      (is (= [{:action :trail-face/toggle-expand :id [:trail-face/card "ek-1"]}
+              {:action :trail-face/toggle-expand :id [:trail-face/card "ek-2"]}]
+             descriptors)))
+    (testing "replay hits the handler in order with identical args"
+      (is (= 2 (count @!calls)))
+      (is (= descriptors (mapv :descriptor @!calls)) "call order + descriptor args identical")
+      (is (every? #(= ctx (:ctx %)) @!calls) "ctx threaded to every handler")
+      (is (= [[:toggled [:trail-face/card "ek-1"]] [:toggled [:trail-face/card "ek-2"]]] results)))
+    (testing "an unregistered action returns ::unregistered, never throws"
+      (is (= :app.client.workspace.scene-store/unregistered
+             (ss/dispatch-descriptor {} {:action :nope} ctx))))))
+
+(deftest g10-registered-toggle-expand-matches-legacy-case
+  ;; The handler scene_runtime registers for :trail-face/toggle-expand is the
+  ;; pre-P4 case body verbatim; exercise its DATA shape here (the runtime atom
+  ;; swap is the only cljs part). Toggling twice returns to the start set.
+  (let [!tfs   (atom {:expanded #{}})
+        ;; the exact handler scene_runtime/register-action! installs
+        handler (fn [{:keys [id]} {:keys [!trail-face-state]}]
+                  (swap! !trail-face-state update :expanded
+                         (fnil (fn [s] (if (contains? s id) (disj s id) (conj s id))) #{}))
+                  true)
+        registry {:trail-face/toggle-expand handler}
+        desc    {:action :trail-face/toggle-expand :id "ek-1"}]
+    (ss/dispatch-descriptor registry desc {:!trail-face-state !tfs})
+    (is (= #{"ek-1"} (:expanded @!tfs)) "first toggle expands")
+    (ss/dispatch-descriptor registry desc {:!trail-face-state !tfs})
+    (is (= #{} (:expanded @!tfs)) "second toggle collapses (identical to the legacy case)")))
+
 (deftest store-fns-free?-sees-metadata-closures
   ;; Finding #4: a closure smuggled in metadata survives BOTH pr-str
   ;; round-trip (printing drops meta) and a keys/vals-only walk.
