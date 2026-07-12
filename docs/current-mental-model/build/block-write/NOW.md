@@ -42,3 +42,18 @@
   NOT here — parallel design session, opening prompt at
   `docs/sessions/policy-design-opening-prompt-2026-07-12.md`. Next: Sid
   reads contract; lanes dispatch AFTER machine-cut INT lands.
+
+- 2026-07-12 · Fable (orchestrating session) · **WAVE DISPATCHED.** Phase-0
+  ran first (fresh Opus subagent): `document-container-id` **PINNED — (b)
+  projection field** carrying the unit's OWN field (a per-event
+  `chat-message-id`, `block_distiller.clj:740`), NOT
+  `chat-conversation-id(object-key)` — §4's candidate (a) was a category
+  slip (projection READ key ≠ block's document parent); echo can't tell
+  them apart, durable provenance can (map-must-not-lie broke the tie; not
+  S1). Traces re-verified in-session; pin ADJUDICATED ACCEPTED —
+  `PHASE_0.md`. Lanes A ∥ B dispatched (Opus, disjoint fences). Two
+  pre-adjudicated calls, flagged for gate: (1) `content-hash` stamped
+  server-side in Lane A's entry point via kernel `source-hash` (no cljs
+  crypto port; §4 table said Lane B); (2) block_distiller one-key add sits
+  beyond STANDING's allowlist but inside CONTRACT §4's "ONE additive
+  river-page/projection field" — contract wins. INT (G7/G8) next here.
