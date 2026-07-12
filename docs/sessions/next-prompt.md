@@ -80,24 +80,15 @@ on kinds).
   face+missionary suite 85t/1625a green. Code + docs committed separately.
   Left: `[RAF]`/typing-burst capture + Sid's fingers (dev app is live, serving
   it). Thread file: `build/editor-feel/NOW.md`.
-- **10 · write-echo-2 — DONE (2026-07-12). Direct-write against a STREAM topology
-  PASSES the pre-registered criterion, decisively.** Content 12/s echo p95
-  **7.66ms** (budget ≤50), 0/720 stalls; 3/s p95 14.36ms; status 12/s p95 5.84ms;
-  0/1620 stalled, 0 unmaterialized. **leg2 (materialization) 211→3.1ms vs
-  microbatch, SAME method** → the ~210ms was the microbatch cadence, now gone
-  (tail-inversion gone too: 3/s tail lives in leg1, not leg2). `:ack` round-trip
-  cross-check p95 3.90ms validates the decomposition. leg3 (Electric stream-back)
-  characterized 2–4ms, additive → composed E2E p95 ~11ms (robust to leg-3 ≤~40ms);
-  COMPOSED not browser-measured. Named contract input (not built): stream drops
-  microbatch's cross-PState exactly-once → block-write owes op-id idempotency
-  (overwrite-by-value on retry). Substrate = IPC (clustered re-measure the one
-  caveat that could erode margin — flagged). Probe UNCOMMITTED
-  (`stream_echo_probe.clj`). Full numbers/method/deviations + the microbatch↔stream
-  leg table: `build/write-echo/NOW.md` — empirical input to
-  `build/editor-loop/ROAD.md`'s echo-budget/caret-law. **Verdict NOT ruled here**
-  → fills D-013 ruling-2's evidence slot: **next = a Fable session drafts the
-  decisions.md update (transport commitment + the op-id idempotency obligation) →
-  Sid countersigns.** D-013 ruling-4 (block-write contract) UNBLOCKED pending that.
+- **10 · write-echo-2 → D-014 PROPOSED, awaiting Sid (2026-07-12).** Stream
+  probe PASSED decisively (echo p95 7.66ms vs ≤50 budget, 0/1620 stalls; full
+  numbers/method: `build/write-echo/NOW.md`). Fable verdict drafted:
+  **decisions.md D-014** — transport committed (direct write over STREAM, no
+  optimistic echo), op-id idempotency contract-binding on block-write,
+  clustered re-measure pre-registered at substrate change (not required now),
+  browser E2E closes at the block-write gate. **On countersign: D-013
+  ruling-4's gate lifts → block-write CONTRACT opens** (editor-loop ROAD §6).
+  Probes stay UNCOMMITTED (`write_echo_probe.clj`, `stream_echo_probe.clj`).
 - **11 · box3d-spike — DONE (2026-07-11): BUILDS + DETERMINISTIC.** Box3D
   (MIT) builds native + single-threaded wasm (163 KB gzip); native↔wasm trace
   **byte-identical** → sim = replayable trail. Writer seam proven from JS

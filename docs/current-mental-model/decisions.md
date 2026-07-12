@@ -659,6 +659,78 @@ editor's two needs — to STREAM topologies.
    the memory file); it must never be cited as direct-write feasibility
    evidence.
 
+*2026-07-12 note: ruling-2's evidence slot is FILLED — write-echo-2 ran the
+stream probe under the same criterion and it PASSES decisively. Verdict
+drafted as D-014 (PROPOSED below). Ruling-3's fallback ladder dissolves
+unengaged; ruling-4's gate lifts on D-014's countersign.*
+
+---
+
+## D-014 — Editor write transport COMMITTED: direct write over a STREAM topology; stream's at-least-once priced via op-id idempotency
+**STATUS: PROPOSED** (drafted by Fable 2026-07-12 from the write-echo-2 spike,
+`build/write-echo/NOW.md`; SAME pre-registered criterion as D-013, third use,
+never adjusted; fills D-013 ruling-2's evidence slot. Awaits Sid's countersign,
+which flips this CLOSED.)
+
+**Measured fact.** Direct write→read-back against a minimal STREAM topology —
+per-key serialization identical to the text-kernel's scheme
+(`hash-by :routing/key`), SAME in-process IPC substrate, SAME method and
+isolation as write-echo — PASSES the pre-registered criterion (p95 ≤ 50ms AND
+≤1 stall >100ms per sustained minute) decisively: content 12/s echo p95
+**7.66ms** (~6.5× under budget), 0/1620 events stalled across all scenarios, 0
+unmaterialized. The leg that failed write-echo fell ~70× under an unchanged
+measurement method (leg2 materialization 211 → 3.1ms) — proving the ~210ms was
+the microbatch cadence, nothing else. Closed-loop `:ack` round-trip (the actual
+editor call pattern) independently reproduces the decomposition: p95 3.90ms.
+Leg-3 (Electric stream-back) characterized at 2–4ms from prior art, additive →
+composed E2E p95 ~11ms, robust to any leg-3 ≤ ~40ms. Honest labels carried
+forward: COMPOSED not browser-measured; substrate = today's IPC.
+
+**Rulings (Sid's countersign flips these CLOSED):**
+1. **Transport committed: the editor/block-write path is DIRECT write over a
+   STREAM topology, no optimistic text echo.** Sid's default ("never by
+   default") stands and is now evidence-backed, not merely preferred. The
+   caret rides the echo signal (the L8 co-variance law, editor-loop ROAD §3);
+   at ~11ms composed it reads instant. The LOCAL CARET AFFORDANCE stays
+   pre-registered as the only concession if Sid's fingers find caret feel
+   broken despite the numbers — text truth stays streamed either way.
+2. **D-013 ruling-3's fallback (optimistic-with-reconciliation) DISSOLVES
+   unengaged.** Its trigger — stream also fails — did not fire. It returns
+   only via a form-break against the shipped transport, never via argument.
+3. **The op-id idempotency obligation is CONTRACT-BINDING on block-write.**
+   Stream is at-least-once with per-event atomicity only; microbatch's
+   cross-PState exactly-once is the price paid for the latency. The
+   block-write CONTRACT must specify a deterministic op-id derived from the
+   request-id so a retried stream event overwrites the same keys — idempotent
+   by value, never duplicating (precedents: face-arsenal wear-id journal G20,
+   relation-kernel idempotency key). It enters the traps ledger, and an
+   acceptance gate must exercise a replayed event. No stream write path ships
+   without this.
+4. **Module shape is the contract's to design, not ruled here.** The
+   commitment is the topology CLASS for the write→read-back path. Whether
+   block-write mounts its own stream topology beside the microbatch
+   text-kernel or migrates the text-kernel's write path is block-write
+   CONTRACT territory — bounded by ruling 3 either way. (The probe
+   deliberately proved the class on a minimal module, not a migration.)
+5. **Clustered re-measure: NOT required now; pre-registered as a mandatory
+   gate at substrate change.** Today's substrate IS in-process IPC (the whole
+   app runs on it; `foreign-proxy` broken in 1.6.0 IPC). Requiring a
+   production-cluster number now would gate real work on a substrate Softland
+   doesn't run — the D-001 shape. Pre-registered tripwire instead: before the
+   editor write path first runs on a clustered substrate, the SAME criterion
+   re-runs there (probe repro is one command, `stream_echo_probe.clj`); a
+   failure there reopens THIS ruling as a form-break, not a new argument.
+6. **The browser E2E closes at the block-write acceptance gate, not as
+   another spike.** Unlike write-echo (legs 1+2 failed alone, leg-3 moot),
+   here leg-3 is load-bearing for the E2E claim. The block-write package's
+   acceptance gate must include a measured in-editor echo — real browser,
+   real Electric leg-3 — against the same unchanged criterion, alongside
+   Sid's wear. Sid's fingers stay the final acceptance in both directions
+   (D-013's own words).
+7. **D-013 ruling-4's gate LIFTS on countersign:** the block-write contract
+   may assume the stream transport and proceed (editor-loop ROAD §6
+   sequencing resumes at "block-write CONTRACT").
+
 ---
 
 ## Open questions queued for ruling
