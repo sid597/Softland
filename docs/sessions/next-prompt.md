@@ -13,7 +13,7 @@ thread close. Pre-registered form-break (decisions.md 2026-07-10 note): if a
 fresh session mis-orients — needs more than board + thread file to boot — or
 content creeps back in because there's no room, revert or amend; don't suffer.
 
-**Binding:** `docs/current-mental-model/decisions.md` · open build contracts: **machine-cut** (DRAFT v1 awaiting Sid's countersign — `build/machine-cut/CONTRACT.md`).
+**Binding:** `docs/current-mental-model/decisions.md` · open build contracts: **machine-cut** (v1 COUNTERSIGNED-BINDING 2026-07-12 — `build/machine-cut/CONTRACT.md`).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
 
@@ -61,15 +61,13 @@ on kinds).
   Retro + residue: `build/framework/RETRO.md` (suite 54/880 green at
   committed HEAD). Its pair-structure residue spawned thread 14.
 
-- **14 · machine-cut — CONTRACT DRAFT v1, awaiting Sid (2026-07-12).**
-  Opened on Sid's dispatch (ROAD Step 5; the G25 evidence). Contract
-  authored, every claim source-verified at HEAD `d6bbde7`:
-  `build/machine-cut/CONTRACT.md` · lanes pinned `build/machine-cut/LANES.md`
-  · thread file `build/machine-cut/NOW.md`. **Awaiting Sid, three items:**
-  contract countersign · `:pairs-with` enum authorization (decisions.md
-  2026-07-12 PROPOSED entry; recommendation = authorize) · wave dispatch
-  (lane A driver ∥ lane B serve+face, Opus 4.8). Nothing builds before the
-  countersigns.
+- **14 · machine-cut — COUNTERSIGNED + WAVE RUNNING (2026-07-12).**
+  Contract v1 BINDING (Sid, in-session); `:pairs-with` enum landed
+  (`f864c74`, verified). Lanes A (driver) ∥ B (serve+face) dispatched as
+  parallel Opus 4.8 subagents per `build/machine-cut/LANES.md`. Then: INT
+  (boot attach, WAL wiring, serial suite) → G13 receipt → G14 wearing →
+  falsification batch → gate — this orchestrating session; close/retro =
+  a separate fresh session. Thread file: `build/machine-cut/NOW.md`.
 
 - **9 · editor-feel — CODE DONE + verified, awaiting Sid's wear (2026-07-11).**
   All 5 hot-path causes removed/gated: Phase-4B mirror OFF by default

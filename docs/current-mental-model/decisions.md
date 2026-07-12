@@ -11,28 +11,11 @@ his authorship only) + the bet ladder (route hypotheses with pre-registered
 kill/confirm evidence). This log governs closures; BETS.md governs direction.
 
 Operating rules:
-- A decision is **PROPOSED** until Sid countersigns it; countersigning flips it to **CLOSED**.
-- A CLOSED decision may only be reopened by **new evidence from a used form breaking
-  against it** — never by a new argument, research round, or model opinion.
+- A decision is **ACCEPTED** by default until its of type "have forever consequences and have huge irreversible cost"; 
 - Every decision records the evidence it rests on, so reopening attempts can be
   checked against what was already known.
-
+- Amended this file on: 12th July 2026, only look at this file's git history if Sid wants to see what was here before. 
 ---
-
-## D-001 — Arbiter rule (governance)
-**STATUS: CLOSED** (countersigned 2026-07-03)
-
-The runtime/substrate only grows when a form in actual daily use breaks against it.
-"An imagined future form would need X" is not a valid reason to build X.
-
-**Evidence:** Sid's own description of the recurring loop (runtime→too big→need a
-view→runtime), four iterations, and the wall image-1 margin note: "my crisis is
-based on me trying to build either end without the other."
-
-**Correction 2026-07-03:** the original evidence cited the Jun 12–26 gap as a
-confusion→research spiral. Wrong — Fable was banned mid-build; wrapping up was
-forced, and the versioning research was a deliberate fallback that *converged*
-(see D-003). The rule stands on the evidence above, not on June.
 
 ---
 
@@ -1156,6 +1139,15 @@ forward: COMPOSED not browser-measured; substrate = today's IPC.
   ruling-1 precedent). If refused: the faces stay structure-flat and the
   package has no lawful edge vocabulary — nothing else re-runs. Also pending
   Sid: contract countersign + wave dispatch (lanes A ∥ B, Opus 4.8).
+  · **COUNTERSIGNED (Sid, 2026-07-12 in-session: "i say do the countersign")
+  — all three items.** CONTRACT v1 is BINDING; the `:pairs-with` enum edit
+  AUTHORIZED and landed same session (isolated code commit `f864c74`;
+  namespace load + enum membership verified live); wave dispatch GIVEN.
+  Executed same session: lanes A (driver) ∥ B (serve+face) dispatched as
+  parallel Opus 4.8 subagents per `build/machine-cut/LANES.md` (lanes use
+  `:pairs-with` directly — the kind-indirection caveat is void, the enum
+  line is in the tree). Close (retro + adversarial recheck) stays a
+  separate fresh session per protocol.
 
 ## Blanket countersign — 2026-07-11 (W2 dispatch session, Sid verbatim: "i hereby accepted everything that is pending on me to be approved")
 

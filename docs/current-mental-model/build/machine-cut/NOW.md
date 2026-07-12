@@ -50,3 +50,12 @@
   policy = unpaired (silver under-claims); (5) asserter =
   `llm:machine-cut/v1` (version-scoped, never run-scoped). Next: Sid's
   countersign → dispatch lanes A ∥ B per LANES.md.
+
+- **2026-07-12 · Fable (same session) · countersign + dispatch.**
+  Sid countersigned all three items in-session ("i say do the
+  countersign") — recorded in decisions.md. `:pairs-with` enum line landed
+  + verified (ns loads, kind registered) — isolated code commit `f864c74`.
+  Lanes A ∥ B dispatched as parallel Opus 4.8 subagents (LANES.md prompts;
+  kind-indirection caveat void — enum in tree). Next: lanes land
+  `LANE_A.md`/`LANE_B.md` → INT checklist (boot attach, WAL wiring, serial
+  suite, G13 receipt, G14 wearing) → falsification batch → gate.
