@@ -11,7 +11,7 @@ minutes, the board is broken — fix it.
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
 **Vision:** LOG routed through **2026-07-12** (governance ruling → settled-ground rewrite, done). Open pulls (prune as absorbed):
-- LOG 07-11 **designer edit-mode** (figma-like direct edit over live faces, 80→95%) → BETS Candidate C2; sharpening at next intake sitting
+- LOG 07-11 **designer edit-mode** (figma-like direct edit over live faces, 80→95%) → BETS Candidate C2; sharpening at next intake sitting. Substrate landed 2026-07-12 (`c788188`): every rendered rt-node carries `[:data :assembly/src-path]` = its template node — the click-to-edit-the-template prerequisite for C2.
 - LOG 07-10 **design-loop-in-land beyond the self-hosting loop** (accepted faces → arsenal → Softland-as-design-orchestrator → deploy + share) → BETS Candidate C1; sharpening at next intake sitting
 - LOG 07-11 **"optimized on every dimension while maintaining explorable explanations + lineage, live and composable"** → North-grade sentence, Sid's hand only — next vision sitting
 - LOG 07-11 **branch-from-base** (two worlds built out of one base, code-diff-like) → input to the spatial contracts (SPACE lane)
@@ -50,13 +50,19 @@ serve that; one clock times it:
 ## MACHINE MOVES — running or ready, no Sid needed
 
 - **machine-cut CLOSE session — NEXT** (HEAD suite · G14 record · retro;
-  adversarial recheck = Sid's call on cost).
+  adversarial recheck = Sid's call on cost). ⚠ `boxes-paired-face.golden.edn`
+  was REGENERATED 2026-07-12 (`c788188`, face `:assembly/src-path` provenance
+  stamp; src-path-only, verified vs prior; full face suite green) — do NOT regen
+  it from a stale apply-assembly; re-run `machine-cut-serve-test` after any rebase.
 - **block-write lanes A ∥ B — IN FLIGHT** (orchestrating session, dispatched
   2026-07-12). ⚠ T11: Lane A holds ADDITIVE edits open in
   `face_projection.clj` + `electric_flow.cljc` — machine-cut close session:
   coordinate on this line before touching those files.
 - **Fable's independent dual-read** — fresh session, PROTOCOL anti-anchoring.
-- **src/ code-size/verbosity audit** — ready, any session (queued by Sid).
+- **src/ code-size/verbosity audit — DONE (2026-07-12):**
+  `build/code-audit/REPORT.md` — 47k lines / 83 files; ~440 safe mechanical
+  shrink + ~130 gated + kernel.clj (830) relocatable; probe (1,482) + pinned
+  face-copies (~340) called out separately; headline + cautions Fable-verified.
 
 ## LANES — the trees
 
@@ -87,9 +93,10 @@ round → benchmark room (question bank waits on kinds).
   falsification defaults to ONE finder on the new machinery. Close session
   runs: HEAD suite · G14 · retro (adversarial recheck = Sid's call on cost).
 - Residues — LATER: block-kernel (`block-kernel/RETRO.md` §5: §10 cursor query
-  · multi-stratum under-fill · content-preview asymmetry) · code-atom
-  (`code-atom/RETRO.md` §5: F4 fault-injection · N5 history-sort; in-memory
-  analyzer basis stands, durable variant slots behind the same seam).
+  · multi-stratum under-fill · content-preview asymmetry) · code-atom —
+  **F4 fault-injection + N5 history-sort + the analyzer-sync! settle (GATE §10
+  doubt 2) CLOSED 2026-07-12** (`f06f511`, driver 9t/198a); remaining = the
+  durable analyzer-basis fork (Sid's) + the `:blobs-unparseable` CI-pin nit.
 - Kinds-round evidence pile (carried verbatim for the marks/kinds round):
   "sidetrackkkk" branch receipt · serves/invokes family question · cross-scheme
   bridges (panproto lenses).

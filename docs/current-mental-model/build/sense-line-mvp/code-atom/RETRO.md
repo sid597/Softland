@@ -155,6 +155,15 @@ include a full-corpus receipt as a GATE, not only pinned-specimen gates.
 
 ## 5 · Residue (non-blocking; carries into the next package's contract)
 
+> **CLOSED 2026-07-12** (`f06f511`, driver `code-atoms-test` 9t/198a green):
+> doubt (1) **F4** — a with-redefs falsifier drops one OC decision → `:blobs-unresolved 1`
+> and the seen-identity balances at non-zero; doubt (2) **cross-pass race** — `analyzer-sync!`
+> now settles at exit via one batched `rk/await-relation` over this pass's own appends
+> (`reconcile-edges!` returns the `:settle` descriptor); doubt (4) **N5** — new public
+> `relation-history-display` re-sorts history by the numeric `t<N>` index (count + authoritative
+> row untouched), pinned by a ≥10-transition test. Still open: (3) the `:blobs-unparseable`
+> CI-pin nit, (5) the two-IPC-launch note, and the durable analyzer-basis fork (Sid's call).
+
 - **GATE_REVIEW §10 open doubts, all carried:** (1) F4 non-zero ingest paths
   tested at zero only (falsifier: fault-injected runtime dropping one decision →
   `:blobs-unresolved 1`, identity holds); (2) cross-pass reconcile race — cheap
