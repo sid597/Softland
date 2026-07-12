@@ -109,8 +109,13 @@ Softland or still on paper? (`BETS.md` verdict log.)
   appearance, despawn lifecycle, G8 per-slot text isolation (the
   64-editor wall's gate). Suites 35t/172a; code committed `20ee578` ·
   `a05d6ca` · `44cbad6`.** Rung 3 (main-face flip) stop-claused → staged
-  P3c (CONTRACT). Left on Sid: wearing (ctProbe + sceneFaces — his list).
-  Next machine: P4 (pick/context bundle + actions router) → gate review.
+  P3c (CONTRACT). **P4 LANDED (00:xx 07-13): the deictic context bundle
+  rides every face-mode agent turn as `:scene-context` EDN ([SCENE-CTX]
+  log; `sceneContext.bundle()`); actions = registered descriptors.
+  68t/888a green; committed `8199322`. ALL dispatched phases P1–P4 done
+  in one day.** Left on Sid: wearing (ctProbe + sceneFaces + [SCENE-CTX]
+  — his list). Next machine: package GATE REVIEW (fresh context, full
+  diff, skill protocol) → close + retro.
   Thread: `build/scene-substrate/NOW.md`.
 - **machine-cut CLOSE session — NEXT** (HEAD suite · G14 record · retro;
   adversarial recheck = Sid's call on cost). ⚠ `boxes-paired-face.golden.edn`

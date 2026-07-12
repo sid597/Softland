@@ -28,6 +28,24 @@
 
 ## NOW (append per session, ≤15 lines each)
 
+**2026-07-13 (past midnight, same session) · Fable · P4 LANDED — dispatched phases COMPLETE**
+- Opus subagent (~169k): context-bundle (pure cljc, §5 shape exact,
+  visible ranked by screen area, cap 32 + count carried) · wire-in at the
+  agent seam as `:scene-context` EDN (NO stop-clause needed — the body was
+  already pr-str'd; server `parse-edn-body` tolerates extra keys by
+  construction, Fable-verified at server_jetty.clj:96-100) · last-pick at
+  the mouse edge, cleared via the ONE P3b lifecycle · actions router with
+  trail-face's case migrated (goldens unchanged) · G9 resolve trace:
+  address byte-identical to read-unit's key (file:line cited).
+- Fable re-verified: 68t/888a green across scene-store + block-edit +
+  trail-face; build clean. Committed `8199322`.
+- Package state: P1–P4 ALL landed + committed; wave-1/wave-2
+  falsifications PASS; staged: P3c (main-face flip) · second assembly
+  artery · P5+ (incl. gesture slice w/ zoom-pick gate).
+- REMAINING to close: Sid's wearing (ctProbe G4/G6 + sceneFaces G11 +
+  [SCENE-CTX]) → package gate review (fresh context, full-diff
+  falsification protocol) → retro. Board carries the pointers.
+
 **2026-07-12 · Fable (same session) · P3b LANDED + wave-2 findings closed**
 - Opus subagent (~218k): rung 1 (per-vi builds — N different faces over
   one live conversation via capture-at-spawn; despawn + close-all +
