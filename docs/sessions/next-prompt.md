@@ -10,25 +10,50 @@ minutes, the board is broken — fix it.
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contract: **machine-cut** (`build/machine-cut/CONTRACT.md`, in force 2026-07-12).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-07-12** (governance ruling → settled-ground rewrite, done). Open pulls (prune as absorbed):
-- LOG 07-11 **designer edit-mode** (figma-like direct edit over live faces, 80→95%) → BETS Candidate C2; sharpening at next intake sitting. Substrate landed 2026-07-12 (`c788188`): every rendered rt-node carries `[:data :assembly/src-path]` = its template node — the click-to-edit-the-template prerequisite for C2.
-- LOG 07-10 **design-loop-in-land beyond the self-hosting loop** (accepted faces → arsenal → Softland-as-design-orchestrator → deploy + share) → BETS Candidate C1; sharpening at next intake sitting
+**Vision:** LOG routed through **2026-07-12** incl. Sid's notebook pages (transcribed verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; the FOREST below now carries his five-unlock ordering). Open pulls (prune as absorbed):
+- LOG 07-11 + notebook 07-12 **designer edit-mode / figma-style** (direct edit over live faces, 80→95%) → BETS Candidate C2; notebook = intake material; sharpening at next intake sitting. Substrate landed 2026-07-12 (`c788188`): every rendered rt-node carries `[:data :assembly/src-path]` = its template node — the click-to-edit-the-template prerequisite for C2.
+- LOG 07-10 + notebook 07-12 **design-loop-in-land — "a tool to build the tool: design, deploy and use it all at once all from softland"** (Sid ranks this unlock #1) → BETS Candidate C1; sharpening at next intake sitting
 - LOG 07-11 **"optimized on every dimension while maintaining explorable explanations + lineage, live and composable"** → North-grade sentence, Sid's hand only — next vision sitting
 - LOG 07-11 **branch-from-base** (two worlds built out of one base, code-diff-like) → input to the spatial contracts (SPACE lane)
 
-## FOREST — what everything converges on
+## FOREST — Sid's five unlocks (his 12-07 notebook ordering; verbatim in LOG + `vision/images/2026-07-12-notebook-*`)
 
-Softland replaces the wall as Sid's daily sensemaking surface. Three lanes
-serve that; one clock times it:
-- **READ (sense-line):** the trail view over Softland's own material — now at
-  the **dual-read falsifier** (does the machine's read match Sid's?).
-- **WRITE (editor):** type straight into the land — stream transport PROVEN
-  (p95 7.66ms); **block-write BUILT, all suites green; G7 measured → S3
-  ruling + G8 wearing wait on Sid** (`build/block-write/INT.md`).
-- **SPACE (spatial/3D):** per-object control, islands, point-and-say — probes
-  DONE, contracts staged behind Sid's wear + Box3D answer.
-- **CLOCK:** the bet check ~**2026-07-19** — is new thinking starting inside
-  Softland or still on paper? (`BETS.md` verdict log.)
+Ordered by unlock potential — "how powerful and useful softland would be
+right now and in future" (Sid's own ranking; state current per item):
+
+1. **Design Unlock** — everything buildable + controllable in-frame by agent
+   and mouse/keyb. First rung REAL: faces-as-assemblies + arsenal (07-11),
+   `boxes-paired-face` wearing the real corpus (07-12), click-to-edit
+   substrate landed (`c788188`: every rendered rt-node carries its template
+   node's `:assembly/src-path`). Missing: the in-land design surface +
+   figma-style direct edit → BETS Candidates C1/C2; the notebook IS their
+   intake material. Next concrete: intake sitting → first probe contract.
+2. **Editor + write + per-object control** — Sid: "once we have this every
+   other thing I can just directly build into it." Whole-loop question
+   ANSWERED (07-12): direct Rama round-trip, echo p95 7.66ms, NO optimistic
+   layer. **block-write BUILT same day** — the write organ already existed
+   in object-container (`:object/edit` stream); package = connect fingers to
+   it; all suites green; left on Sid: S3 stall-clause ruling + G8 wearing
+   (`build/block-write/INT.md`). Per-object pan/zoom = container-transforms
+   contract (after Boxes/Minimap wear); editor-feel fixes await fingers.
+3. **Semantic breaking of block types** — containers exist (block-kernel
+   CLOSED); the semantic LAYER is not implemented yet — by design it rides
+   local-LLM marking (llm-module ready). First live piece landed 07-12:
+   machine-cut's annotation runs minting `pairs-with` edges over the real
+   corpus. The lens questions (dg / olog / panproto, multi-marking per node,
+   layers) = the marks/kinds round, after dual-read grounds which marks are
+   real. Kinds-round evidence pile below.
+4. **Representation of semantic blocks** — face machinery DONE (three faces
+   wear a real conversation); design candidates exist (claude.design rounds);
+   reconciliation-UI brief ready (one paste). The composition questions (how
+   do blocks compose; thing = group = obj family) feed the same design round.
+5. **3D render** — both probes DONE (Box3D deterministic native↔wasm; islands
+   60fps @ 1.5M cubes; MSDF-in-perspective verified); build staged behind the
+   islands CONTRACT + Sid's Box3D answer. Last on Sid's list, staged
+   accordingly.
+
+**CLOCK:** the bet check ~**2026-07-19** — is new thinking starting inside
+Softland or still on paper? (`BETS.md` verdict log.)
 
 ## SID'S MOVES — everything that waits on you alone, cheapest first
 

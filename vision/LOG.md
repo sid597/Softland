@@ -601,3 +601,32 @@ remove this shit nothing is parked this motherfucker has been fucking the whole 
 what is the role of these D-00* shit here?? what are we trying to communicated here?? these just creating confusion of what actually to work on ... imagine if someone comes and read it wtf do they gain??? why would i even say to some agent to go and read this ?????
 
 ---
+
+## 2026-07-12 — the notebook re-derivation: history + the five unlocks (handwritten pages, transcribed verbatim; images at `vision/images/2026-07-12-notebook-{1,2,3}.png`)
+
+[page 1 — header + history:]
+
+Sense line → Made a UI then realised dont want it like this.
+
+History: Import code files, transcripts and docs in softland have relations builder, git path to get in code files. Then went ahead and tried to create a UI for this, created artifacts after reviewing found that it was useless. These arrows between files did not communicate anything when I looked at them in design. So started thinking and analysing why, it was due to not able have granular structure whole files communicate nothing what is needed is a sense line not the artifact got created when pov. This gave rise to what is the atomic unit for a transcript, built the whole system then realize object containe is for this so implemented raw chat in breakdown out. Another parallel thought that to be worked on was we need semantic breakup as well the block container is just a place to hold but how do they compose, what are the different dimensions, are different ways to represent a thing in itself (thing = group = obj family)
+
+[page 2:]
+
+thought about that arrived at a elegant framework did not implement the semantic layer yet: I think we added local llm running support because this semantic marking would be done by it. But we did talk about the spec and how to actually arrive at the correct node type, what lenses we could through like dg, olog, panproto etc. and how we can have multiple marking of different types on same node, how different layers mark diff etc. Then we did similar things for code files, what is the right break layer, semantic means different ways of representing code, the correct default way, what are other lenses etc.
+
+Then had a UI design session in claude design which showed different UIs and I was soo excited to see them which nudged me towards that we should be doing this whole design work directly in softland why are we not doing it in softland. We do have a few setups already working but is the framework build out to support this? how do we approach this problem what are the different steps we need to take what is the problem space? can we make it like figma style? What we want is a tool to build the tool in some design, deploy and use it all at once all from softland.
+
+[page 3:]
+
+Now is our current code for electric webgpu and Rama written out to enable this for us? what do we even need in terms of the system to enable this vision did some discovery on this and building out. Then came to mind we already have an editor but how is its performance and is it a whole loop instead of optimistic updates.. Concurrently started looking into if we support the 3D rendering and how controllable can it be in softland and how do we include it in and in the reactive world. So this my understanding and therefore the open areas are in order of unlock potential and how powerful and useful softland would be right now and in future
+
+1. Design Unlock: Everything buildabel and controlable in frame using agent and mouse, keyb
+2. Editor and mouse pan zoom control each object in frame. Have a way to write to a container
+[struck through: 3. 3D interface]
+3. Semantic breaking [struck: into block] of block types
+4. Representation of semantic blocks
+5. 3D Render
+
+2. is where I say we would have the power the full brunt of softland because once we have this every other thing I can just directly build into it.
+
+---
