@@ -630,3 +630,17 @@ Now is our current code for electric webgpu and Rama written out to enable this 
 2. is where I say we would have the power the full brunt of softland because once we have this every other thing I can just directly build into it.
 
 ---
+
+## 2026-07-12 — the base-layer commission (session opener, verbatim; the floor under the five unlocks)
+
+Fable: this session is yours to decide end to end. My only pre-commitments: (1) go broad, not narrow — I don't want one unlock's first probe; I want the base layer that everything needs: the common substrate under all five unlocks, so that what I said about unlock 2 generalizes — "once we have this every other thing I can just directly build into it." (2) Everything else — what that base actually is, its shape, what gets built first, in what order — is solely your call. If your first-principles derivation says the real base is different (smaller, other) than what I or any prior session assumed, presenting that divergence is your duty; then proceed on your derivation.
+
+What "broad" means here: breadth of coverage (the base must serve all five unlocks), not breadth of scope. The base may itself be compact. If you find yourself opening five unrelated fronts, the derivation failed — re-derive.
+
+[boot list + session mechanics omitted; the test he set:] The test your base layer must pass — write it down explicitly: for EACH of the five unlocks (design unlock · editor/write/per-object control · semantic breaking of block types · representation of semantic blocks · 3D render), name what the base gives it such that the unlock's remaining work becomes "build INTO the base," not "build another floor under it." Any unlock that needs something the base doesn't give: either the base is wrong, or that need is genuinely later — say which, with grounds.
+
+[Materials list, staged-not-adopted: one-render-substrate law · container-transforms and islands contracts · point-and-say + scene-diff · the primitive-vocabulary growth engine · block-write organ + committed echo transport · assembly/arsenal kernels · the agent context seam ("I don't have to be hunter and gatherer of context — only verifier").] And weigh the record's rhyme: twice this month the right base already existed before its consumers (object-container → blocks, Jul 9; :object/edit → block-write, Jul 12) — check what already exists before minting new organs.
+
+*(Routed same-session: derivation + ruling → decisions.md "One render substrate" entry amended in place as the base layer; package `build/scene-substrate/` opened, CONTRACT v1 in force; board FOREST carries the base line.)*
+
+---

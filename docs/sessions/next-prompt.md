@@ -7,10 +7,10 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
-**Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contract: **machine-cut** (`build/machine-cut/CONTRACT.md`, in force 2026-07-12).
+**Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **machine-cut** (`build/machine-cut/CONTRACT.md`) · **scene-substrate** (`build/scene-substrate/CONTRACT.md`, in force 2026-07-12 — the base layer under FOREST).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-07-12** incl. Sid's notebook pages (transcribed verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; the FOREST below now carries his five-unlock ordering; the notebook History filled out + corrected against the record: `docs/history/sense-line-story.md`). Open pulls (prune as absorbed):
+**Vision:** LOG routed through **2026-07-12** incl. Sid's notebook pages (transcribed verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; FOREST carries his five-unlock ordering; notebook History corrected against the record: `docs/history/sense-line-story.md`) **+ the base-layer commission** (routed same-session → decisions.md base ruling + `build/scene-substrate/`). Open pulls (prune as absorbed):
 - LOG 07-11 + notebook 07-12 **designer edit-mode / figma-style** (direct edit over live faces, 80→95%) → BETS Candidate C2; notebook = intake material; sharpening at next intake sitting. Substrate landed 2026-07-12 (`c788188`): every rendered rt-node carries `[:data :assembly/src-path]` = its template node — the click-to-edit-the-template prerequisite for C2.
 - LOG 07-10 + notebook 07-12 **design-loop-in-land — "a tool to build the tool: design, deploy and use it all at once all from softland"** (Sid ranks this unlock #1) → BETS Candidate C1; sharpening at next intake sitting
 - LOG 07-11 **"optimized on every dimension while maintaining explorable explanations + lineage, live and composable"** → North-grade sentence, Sid's hand only — next vision sitting
@@ -20,6 +20,16 @@ North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
 
 Ordered by unlock potential — "how powerful and useful softland would be
 right now and in future" (Sid's own ranking; state current per item):
+
+**0. THE BASE (under all five) — scene-substrate, contract in force
+   (2026-07-12).** Derived per Sid's base-layer commission: one client
+   scene store keyed (view-instance, address) + per-container transforms
+   + one pick/context seam + actions-as-data; server floor already exists
+   (the rhyme's third occurrence). Five-unlock test table:
+   `build/scene-substrate/DERIVATION.md`. Absorbs container-transforms /
+   point-and-say / scene-diff (working name — Sid may re-rule it). P1+P2
+   running; wearable moment = P3 (two faces, same conversation, dragged
+   independently).
 
 1. **Design Unlock** — everything buildable + controllable in-frame by agent
    and mouse/keyb. First rung REAL: faces-as-assemblies + arsenal (07-11),
@@ -82,6 +92,11 @@ Softland or still on paper? (`BETS.md` verdict log.)
 
 ## MACHINE MOVES — running or ready, no Sid needed
 
+- **scene-substrate — CONTRACT v1 IN FORCE + P1/P2 RUNNING (2026-07-12).**
+  The base layer under the five unlocks (FOREST item 0). P1 store+containers
+  (subagent, JVM gates G1–G3) ∥ P2 GPU transform leg (Fable, gates G4–G6).
+  Then ONE falsification finder over the wave → P3 (plurality: two faces).
+  Thread: `build/scene-substrate/NOW.md`.
 - **machine-cut CLOSE session — NEXT** (HEAD suite · G14 record · retro;
   adversarial recheck = Sid's call on cost). ⚠ `boxes-paired-face.golden.edn`
   was REGENERATED 2026-07-12 (`c788188`, face `:assembly/src-path` provenance
@@ -168,14 +183,14 @@ round → benchmark room (question bank waits on kinds).
   `stream_echo_probe.clj`).
 
 ### SPACE — spatial/3D
-- **spatial cluster — contracts staged, not dispatched (07-11).**
-  `container-transforms` (contract AFTER Sid wears Boxes/Minimap — dev app
-  running) · `islands` CONTRACT (probe findings in; awaits Sid's Box3D
-  reading answer: engine/docs/both + first-form pick) · `point-and-say` +
-  `scene-diff` (dimension-agnostic, can rehearse in 2D over live faces) ·
-  `G-perf` standing gate clause (one-paragraph template amendment, pending).
-  Direction trail: vision/LOG.md 2026-07-11 entries; full analysis:
-  `build/spatial/ROAD.md`.
+- **spatial cluster — FOLDED INTO scene-substrate (2026-07-12 ruling,
+  decisions.md):** `container-transforms` = its transform leg ·
+  `point-and-say`'s pick/bundle half = its P4 seam · `scene-diff` = a
+  staged first consumer. Remaining separate: `islands` CONTRACT (probe
+  findings in; awaits Sid's Box3D reading answer: engine/docs/both +
+  first-form pick) · `G-perf` standing gate clause (pending). Analysis
+  trail: `build/spatial/ROAD.md` (superseded where it staged separate
+  packages).
 - box3d-spike — DONE (07-11): Box3D (MIT) builds native + single-threaded wasm
   (163 KB gzip); native↔wasm trace **byte-identical** → sim = replayable
   trail; writer seam proven from JS (`b3World_GetBodyEvents`→HEAPF32).
@@ -203,6 +218,7 @@ round → benchmark room (question bank waits on kinds).
 
 **machine-cut** — STANDING + NOW at `build/machine-cut/NOW.md`.
 **block-write** — STANDING + NOW at `build/block-write/NOW.md`.
+**scene-substrate** — STANDING + NOW at `build/scene-substrate/NOW.md`.
 Charter: STANDING (frozen at open) + NOW (≤15-line entries) live in
 `build/<package>/NOW.md`; one line under LANES; prune at close (/work-package
 skill governs the mechanics). Precedence unchanged: thread files and this

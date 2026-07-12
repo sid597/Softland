@@ -60,8 +60,9 @@ which crossroads did we take."
   is committed: **direct write over a STREAM topology, echo streamed back**
   (measured: stream echo p95 7.66ms; microbatch measured ~210ms cadence and
   rejected — don't reopen it, the numbers are in `build/write-echo/NOW.md`).
-  No optimistic text echo. Block-write contract is the live next step; UI
-  write gestures come right after it.
+  No optimistic text echo. Block-write is built and gate-passed
+  (2026-07-12; close waits on Sid's wear + one stall-clause ruling). UI
+  write gestures ride the scene substrate (the base layer, above).
 
 ## Settled architecture — use it, don't re-derive it
 
@@ -87,10 +88,25 @@ which crossroads did we take."
   never; anything that wants to be a program becomes real code in the code
   lane. The loop already closes end-to-end: design conversation → assembly →
   validated → rendered → worn (first done 2026-07-11).
-- **One render substrate:** one scene store keyed `(view-instance, address)`,
-  one diff pipeline, one camera loop; the world, the islands, and the text
-  faces are projections over it. Seams change projections, never
-  architectures. (Instrument: `build/render-north/DELTA-B1.md`.)
+- **One render substrate — ruled the base layer under the five unlocks
+  (2026-07-12):** one client scene store keyed `(view-instance, address)` —
+  slots are EDN values (container-local drawables, face/template address,
+  provenance channel, action DESCRIPTORS — never closures); per-container
+  transforms compose in-shader under two cameras (world/screen), so any
+  object in frame pans/zooms independently; one pick over the store returns
+  addresses + a context bundle (agents and the mouse share the same finger);
+  writes ride `:object/edit` + the committed echo. The world, the islands,
+  and the text faces are projections over it — seams change projections,
+  never architectures. Store coords are f64 world values; GPU buffers hold
+  container-relative f32 only. Settled arrangements (where a container
+  sits/scales) commit as assembly events; in-flight gestures stay
+  client-side at 60Hz. No new Rama organ — the server floor (kernels, write
+  organ, echo, llm seat) already exists. Derivation + the five-unlock test:
+  `build/scene-substrate/DERIVATION.md`; contract in the same directory.
+  (Supersedes the separate staging of container-transforms / point-and-say /
+  scene-diff as independent later packages — they are legs and first
+  consumers of this one organ. Islands stays staged behind Sid's Box3D
+  answer. Instrument: `build/render-north/DELTA-B1.md`.)
 - **Stream writes are at-least-once:** every stream write path derives a
   deterministic op-id from the request-id so a replay overwrites the same
   keys — never duplicates. A replayed-event test ships with every write path.
