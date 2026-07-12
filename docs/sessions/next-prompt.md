@@ -67,12 +67,17 @@ Softland or still on paper? (`BETS.md` verdict log.)
 
 ## SID'S MOVES — everything that waits on you alone, cheapest first
 
-1. **Wear session at the dev app (~35 min covers four at once):** the editor
-   (`build/editor-feel/NOW.md` verdict) · Boxes/Minimap (unlocks the
-   container-transforms contract) · the new `boxes-paired-face` (closes
-   machine-cut G14 — the WAL replays at any boot) · **block-write G8**
-   (edit a block in minimap-reader-face; steps: `build/block-write/INT.md`
-   §5 — dev app is RUNNING now).
+1. **Wear session at the dev app (~40 min covers five at once):** the editor
+   (`build/editor-feel/NOW.md` verdict) · Boxes/Minimap (gesture-feel notes
+   now feed the scene-substrate transform phases) · the new
+   `boxes-paired-face` (closes machine-cut G14 — the WAL replays at any
+   boot) · **block-write G8** (edit a block in minimap-reader-face; steps:
+   `build/block-write/INT.md` §5) · **scene-substrate G4/G6 probe**: in the
+   browser console `ctProbe.start(16)` — 16 containers, one orbits at 60fps
+   with zero re-layout ([CT-PROBE] logs are the receipt); then
+   `ctProbe.zoom(2)` / `ctProbe.zoom(0.5)` (the dormant zoom, awake).
+   NOTE: the machine rebooted ~20:45; Fable RESTARTED the dev app
+   2026-07-12 — it is running again.
 1b. **Rule block-write S3 (one read):** echo p95 passes every run with
    margin; the ≤1-stall/min clause fails (2/4/7/2 thin ~130ms tail, invisible
    while typing — pending-input paints immediately). Numbers + options:

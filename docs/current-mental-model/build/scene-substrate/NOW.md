@@ -28,6 +28,27 @@
 
 ## NOW (append per session, ≤15 lines each)
 
+**2026-07-12 · Fable (same session, later) · P1 LANDED + P2 code complete**
+- P1 (Opus subagent, ~134k tok): `scene_store.cljc` (217 ln) +
+  `containers.cljc` (119 ln) + suite — 15t/54a green; re-run independently
+  by Fable, green. G1–G3 covered verbatim. Three judgment calls flagged
+  (root `[]` path special-case · pick = first ADDRESSED hit · pr-str
+  tie-break) — all read + accepted by Fable; re-resolve idempotency noted
+  for the P3 reviewer.
+- P2 (Fable direct): all four pipelines carry `container_idx` u32
+  (strides 116/84/52/100) + shared `containers` uniform (vec4×1024,
+  binding 1 rect/shadow, 4 text) + screen-flag camera select; packers
+  thread `:container-idx` (default 0 = identity, T6); `write-containers!`
+  consumes `containers/effective` output as-is; draw-frame! `:zoom` kwarg
+  wakes the dormant camera (default 1.0 untouched). Probe
+  `container_probe.cljs` + 4 tagged mount lines in `runtime/render.cljs`
+  (islands-probe pattern): `ctProbe.start(16)` → 16 containers ×20 lines,
+  one orbits, per-frame writes = transforms only; `.zoom(z)` drives G6.
+- Dev app was NOT running (machine rebooted ~20:45) — restarted via
+  `clj -A:dev -X dev/-main`, build verification pending.
+- Next: compile green → ONE falsification finder over the wave → G4/G6
+  soak (ctProbe) + G5 evidence harness → P3.
+
 **2026-07-12 · Fable · derivation + contract + P1 dispatch/P2 start**
 - Derived the base layer from first principles against the record:
   `DERIVATION.md` — five unlocks collapse onto four capabilities, one
