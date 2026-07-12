@@ -589,3 +589,15 @@ the goal is to have framework and infra to be able to make components directly i
 will the system be something a designer can come and edit as well? i want to have a edit mode in which we can see the components that are implemented in softland and then i can interact directly and edit them there like one can in figma atleast get 80% value and i think we can get closer to 90-95% wdyt?
 
 ---
+
+## 2026-07-12 — governance is not an oil company (decisions-restructure session, verbatim)
+
+[on D-001, the arbiter rule, after it was reinstated in the restructured log:]
+
+remove this shit nothing is parked this motherfucker has been fucking the whole project in arse and any other such middle manager bullishit remove them all ... this is not building a oil company this is elon management style company and the governence should be like that as well
+
+[on the D-numbered entries as a genre, quoting the "form" section:]
+
+what is the role of these D-00* shit here?? what are we trying to communicated here?? these just creating confusion of what actually to work on ... imagine if someone comes and read it wtf do they gain??? why would i even say to some agent to go and read this ?????
+
+---
