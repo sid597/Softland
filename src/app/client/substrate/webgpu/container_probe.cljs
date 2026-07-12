@@ -132,8 +132,27 @@
     (renderer/write-containers! device (:containers-buffer st) transforms)
     (swap! !state #(-> %
                        (assoc :transforms transforms)
+                       ;; frame-delta ring (last ~600 RAF deltas) → p50/p95/max
+                       ;; receipts, so "feels like 40fps" becomes a number (G4)
+                       (assoc :last-now now)
+                       (update :deltas (fn [ds]
+                                         (let [ds (or ds [])
+                                               ds (if-let [ln (:last-now %)]
+                                                    (conj ds (- now ln)) ds)]
+                                           (if (> (count ds) 600)
+                                             (subvec ds (- (count ds) 600)) ds))))
                        (update :container-writes inc)
                        (update :frames inc)))))
+
+(defn- delta-stats
+  "p50/p95/max over the recorded frame deltas (ms, 1 decimal)."
+  [deltas]
+  (when (seq deltas)
+    (let [sorted (vec (sort deltas))
+          n (count sorted)
+          q (fn [p] (nth sorted (min (dec n) (int (* p n)))))
+          r (fn [v] (/ (js/Math.round (* 10 v)) 10))]
+      {:p50 (r (q 0.5)) :p95 (r (q 0.95)) :max (r (peek sorted)) :n n})))
 
 (defn step!
   "Called from the runtime frame (after the main draw): write transforms +
@@ -172,10 +191,14 @@
           (.submit (.-queue device) #js [(.finish encoder)]))
         (when (zero? (mod (:frames @!state) 300))
           (let [st @!state
-                secs (/ (- now (:t0 st)) 1000.0)]
+                secs (/ (- now (:t0 st)) 1000.0)
+                ds (delta-stats (:deltas st))]
             (js/console.log "[CT-PROBE]"
                             #js {:frames (:frames st)
                                  :fps (js/Math.round (/ (:frames st) (max secs 0.001)))
+                                 :frameMsP50 (:p50 ds)
+                                 :frameMsP95 (:p95 ds)
+                                 :frameMsMax (:max ds)
                                  :containerWrites (:container-writes st)
                                  :instancePacks (:instance-packs st)
                                  :glyphs (:num-instances (:text-sys st))
@@ -185,8 +208,13 @@
         (js/console.error "[CT-PROBE] step failed — probe stopped" e))))))
 
 (defn stats []
-  (let [st @!state]
+  (let [st @!state
+        ds (delta-stats (:deltas st))]
     #js {:frames (or (:frames st) 0)
+         :frameMsP50 (:p50 ds)
+         :frameMsP95 (:p95 ds)
+         :frameMsMax (:max ds)
+         :recentFps (when (:p50 ds) (js/Math.round (/ 1000 (max (:p50 ds) 0.1))))
          :containerWrites (or (:container-writes st) 0)
          :instancePacks (or (:instance-packs st) 0)
          :active (boolean (:active? st))}))
