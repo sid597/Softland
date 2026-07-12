@@ -577,3 +577,15 @@ what i want to understand is what i loose and what i get the tradeoffs etc. if w
 can i say zoom in turn pan get to some area of the 3d map and then say "make a new xyz here" is that possible?? to point and then say something about it will we be able to get the data or context we are talking about in a way that can be sent to an llm ?? also how much time from you paper napkin math says it will take to make the new thing?? and can we have 2 builtout of the same base like we can with code diff??
 
 ---
+
+## 2026-07-11 — the goal restated + edit mode for designers (framework sitting, verbatim; said mid-wave, W1/W2 both closed same day)
+
+[re-centering the plan on the capability, not the six designs:]
+
+the goal is to have framework and infra to be able to make components directly in softland iff not already there and if there then use the existing ones use them to make a new one ... i dont really understand all this that is going on and planned for
+
+[the designer question — direct-manipulation edit mode over live faces:]
+
+will the system be something a designer can come and edit as well? i want to have a edit mode in which we can see the components that are implemented in softland and then i can interact directly and edit them there like one can in figma atleast get 80% value and i think we can get closer to 90-95% wdyt?
+
+---
