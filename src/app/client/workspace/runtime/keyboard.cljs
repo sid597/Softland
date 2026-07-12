@@ -10,6 +10,7 @@
             [app.client.workspace.editor-compute :refer [editor-apply-event doc-with-lengths]]
             [app.client.workspace.settings-view :refer [slider-specs font-defaults->settings]]
             [app.client.workspace.runtime.state :refer [save-undo!]]
+            [app.client.workspace.block-edit-wiring :as block-edit-wiring]
             [app.client.workspace.runtime.sidebar-io :as sio]
             [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workflows.dg-flow :refer [group-tickets-by-status set-selection]]))
@@ -50,6 +51,12 @@
 
                :escape
                (cond
+                 ;; block-write INT: escape while editing a face block blurs
+                 ;; the edit buffer FIRST (pending-input never outlives focus,
+                 ;; BW-T4) — the block falls back to materialized truth.
+                 (block-edit-wiring/edit-focused?)
+                 (block-edit-wiring/face-blur!)
+
                  (:visible @!settings)
                  (do (swap! !settings assoc :visible false) (reset! !focus :editor))
 

@@ -1294,10 +1294,26 @@
                        :event-uuid  event-uuid
                        :actor       actor
                        :form        (:unit-kind unit)
-                       :text        (:derived-content-text unit)
+                       ;; block-write S2 fix (INT, 2026-07-12): :text serves the
+                       ;; UnitReadResult OVERLAY field — the graduation row's
+                       ;; current content when the unit has been edited, the raw
+                       ;; derived text otherwise (total, unit-read-result). The
+                       ;; raw row field made every edit invisible to river-page
+                       ;; (the import underneath is never mutated by design), so
+                       ;; edited content could not survive a reboot (G8). Un-
+                       ;; edited blocks: (:content-text read-result) is byte-
+                       ;; identical to (:derived-content-text unit) — G9 holds.
+                       :text        (:content-text read-result)
                        :unit-id     (:unit-id unit)
                        :source-id   source-id
                        :part-path   (:part-path part)
+                       ;; block-write PHASE_0 rule 1 (additive projection field):
+                       ;; carry the derived unit's OWN document-container-id so the
+                       ;; edit envelope (CONTRACT §3) can stamp the graduated
+                       ;; container's document parent WITHOUT the client computing
+                       ;; or tracking any container id (BW-T7). No new read — `unit`
+                       ;; is already read here, so the seek plan is unchanged (G9).
+                       :document-container-id (:document-container-id unit)
                        :block-path  (:block-path unit)}))))
           (take remaining)
           vec)}))

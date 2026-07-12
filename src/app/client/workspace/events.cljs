@@ -221,3 +221,13 @@
        (m/eduction (filter (fn [event]
                              (and (= @!focus :settings-panel)
                                   (not (:global? event))))))))
+
+(defn <face-edit-keys
+  "Flow of keyboard events routed to the focused face block (block-write INT;
+   !focus = :face-edit is set by the face click handler). Same R2 shape as the
+   other routers: m/eduction + deref, never an m/ap fork over a watch."
+  [>keyboard !focus]
+  (->> >keyboard
+       (m/eduction (filter (fn [event]
+                             (and (= @!focus :face-edit)
+                                  (not (:global? event))))))))

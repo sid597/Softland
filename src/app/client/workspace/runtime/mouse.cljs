@@ -8,6 +8,7 @@
             [app.client.workspace.shell :refer [build-file-layout]]
             [app.client.workspace.cmd-panel :refer [cmd-panel-apply-event cmd-text-start-x]]
             [app.client.workspace.editor-compute :refer [editor-apply-event]]
+            [app.client.workspace.block-edit-wiring :as block-edit-wiring]
             [app.client.workspace.settings-view :refer [slider-specs]]
             [app.client.workspace.ui-primitives :refer [list-left-pane-pct]]
             [app.client.workspace.runtime.state :refer [save-undo!]]
@@ -397,6 +398,26 @@
 ;; Top-level case handlers
 ;; ═══════════════════════════════════════════════════════════════════════
 
+(defn- handle-face-assembly-click!
+  "block-write INT: assembly-face click → block edit focus. Hit-tests the
+   CACHED !face-scene; the deepest hit node whose :id path contains a block
+   unit-id (blocks carry :id in the served context; face_assembly trap T6
+   threads item :id into node ids) resolves the click to that block. Block →
+   block-edit-wiring/face-click! focuses it; miss → blur."
+  [{:keys [!face-scene !face-context]} x y-scene]
+  (let [ctx  @!face-context
+        ids  (into #{}
+                   (comp (mapcat :blocks) (keep :id))
+                   (:turns ctx))
+        path (when-let [scene @!face-scene]
+               (hit-test scene x y-scene))
+        unit-id (when (seq ids)
+                  (some (fn [node]
+                          (when (vector? (:id node))
+                            (some ids (:id node))))
+                        (some-> path rseq)))]
+    (block-edit-wiring/face-click! unit-id)))
+
 (defn- handle-trail-face-click!
   "Trail face click (view-mvp WP-B2): hit-test the CACHED scene object -
    never a rebuilt tree (gate 13 / trap 1; the sidebar precedent, not the
@@ -480,13 +501,15 @@
               (let [sb-w (if sb-vis? sidebar-w 0)]
                 (handle-trail-face-click! atoms (- x sb-w) y scroll-y))
 
-              ;; Assembly-hosted face (framework W1-INT): v0 assemblies are
-              ;; read-only (no :actions in grammar v0, CONTRACT §4) — swallow
-              ;; the click so it cannot fall through to the editor handlers
-              ;; and mutate cursor state invisibly. Hit-testing against the
-              ;; cached !face-scene arrives with :actions at D-008 item-5.
+              ;; Assembly-hosted face: block-write INT — hit-test the CACHED
+              ;; !face-scene (the trail-face precedent, never a rebuilt tree)
+              ;; for a face BLOCK (a node whose id path carries a unit-id from
+              ;; the served context; face_assembly item :id drives node ids).
+              ;; A block click enters edit mode (focus seeded from truth,
+              ;; BW-T4); any other click blurs. Still never falls through to
+              ;; the editor handlers (the G16 guard stands).
               (ws/local-world-face-assembly? local-world)
-              nil
+              (handle-face-assembly-click! atoms x (+ y scroll-y))
 
               (ws/local-world-file-workspace? local-world)
               (let [sb-w (if sb-vis? sidebar-w 0)
