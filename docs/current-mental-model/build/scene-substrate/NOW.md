@@ -28,6 +28,24 @@
 
 ## NOW (append per session, ≤15 lines each)
 
+**2026-07-13 · Fable (same session) · G11 round 2: click ✓ spawn(2) ✓ echo ✓-but-slow; two mechanisms named**
+- Reactor fix CONFIRMED (click works, no crash). spawn(2) in-frame ✓.
+  spawn(3) stacked on spawn(2) (60px step) → fixed `7d901c8` (0.36vh
+  cascade + scale floor 0.25). Copies still have NO backdrop rect →
+  text interleaves with the main face where boxes gap — backdrop =
+  gate-review item (rt-tree node schema needed, no blind hack).
+- ECHO-TO-COPIES SECONDS — mechanism named: copies rebuild from
+  @!face-context = projection ONLY; the narrow single-unit overlay
+  channel merges into the MAIN face path only. So the fast echo redraws
+  the edited face, then refresh-all-slots! rebuilds copies STALE, and
+  fresh content arrives only with the INV-19 1s-debounced full FacePull
+  (+~140ms full repack per slot). Fix-shape: slots consume the same
+  overlay-merged source as the main face — a real slice, gate review.
+- [SCENE-CTX] non-finding: bundle attaches AT SUBMIT (:run branch);
+  Sid's console had no [AGENT][CLIENT][SUBMIT] → message never sent.
+  Retest: click a block → Ctrl+K → type → ENTER; sceneContext.bundle()
+  inspects without an agent run.
+
 **2026-07-13 · Fable (same session) · G6 CLOSED · G11 round 1: reactor-killing pick bug found+fixed**
 - G6 CLOSED: Sid confirms zoom 0.5 in-frame / 2 crisp / 5 sharp after the
   center-anchor fix. Speed + visual halves both green.
