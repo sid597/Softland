@@ -87,13 +87,14 @@ Softland or still on paper? (`BETS.md` verdict log.)
   was REGENERATED 2026-07-12 (`c788188`, face `:assembly/src-path` provenance
   stamp; src-path-only, verified vs prior; full face suite green) — do NOT regen
   it from a stale apply-assembly; re-run `machine-cut-serve-test` after any rebase.
-- **block-write — BUILT (lanes + INT done, 2026-07-12); falsification finder
-  + gate review running in the orchestrating session.** S2 fired + ruled
-  (river-page raw-text → overlay fix, gated). ⚠ T11: UNCOMMITTED additive
-  edits open in `face_projection.clj`, `electric_flow.cljc`,
-  `block_distiller.clj` + new client ns — machine-cut close session:
-  coordinate here before touching those files. Code commit = Sid's call at
-  close.
+- **block-write — GATE REVIEW PASSED (2026-07-12); close waits on Sid's S3
+  ruling + G8 wearing.** S2 fired + ruled (river-page raw-text → overlay
+  fix); finder's F1 HIGH fixed at gate (union-map truth pull + clear-all
+  prune); suites 74a+1078a+349a green. Record: `build/block-write/INT.md`
+  §6 + `FALSIFY.md`. ⚠ T11: UNCOMMITTED additive edits in
+  `face_projection.clj`, `electric_flow.cljc`, `block_distiller.clj` + new
+  client ns — machine-cut close session: coordinate here first. Code commit
+  = Sid's call (checklist INT.md §6: strip probe requires first).
 - **Fable's independent dual-read** — fresh session, PROTOCOL anti-anchoring.
 - **src/ code-size/verbosity audit — DONE (2026-07-12):**
   `build/code-audit/REPORT.md` — 47k lines / 83 files; ~440 safe mechanical

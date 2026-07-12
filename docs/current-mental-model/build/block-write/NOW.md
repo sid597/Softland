@@ -92,3 +92,17 @@
   (smoke edits survived the server restart). Record + options: `INT.md`.
   **Sid: rule S3** (rec: re-express the tail bound as p99 ≤100ms — all runs
   pass) **+ wear G8** (INT.md §5, ~5 min). Falsification finder next here.
+
+- 2026-07-12 · Fable (orchestrating session) · **GATE REVIEW DONE — code
+  PASS; close waits on Sid (S3 + G8).** ONE finder (~137k): 1 HIGH, 5 MED,
+  4 LOW; traps BW-T1–T10 all held. Fixed at gate w/ regressions: **F1 HIGH**
+  (single-value truth-pull request conflated under Electric → stale overlay
+  masked newer truth permanently + could seed a stale re-edit → union-map
+  request {unit→nonce, cap 8} + clear-all prune on ctx arrival; also kills
+  F5), F3 (pending/continuations bounded 64 + nil-guard), F6 (refusal
+  dismisses on typing/blur). F4 = named LATER (long-block whole-face rebuild
+  drops keystrokes via m/relieve; fix-shape: focused-block partial rebuild).
+  F2 = commit checklist (strip probe requires). Post-fix sweeps green:
+  74a + 1078a + 349a. Record: `INT.md` §6 · `FALSIFY.md`. Dev server + all
+  probes/windows STOPPED (Sid's ask) — G8 step 1 now starts it fresh.
+  Left on Sid: S3 ruling · G8 wearing · code-commit call (checklist §6).

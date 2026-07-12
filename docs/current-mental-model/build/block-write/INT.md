@@ -138,10 +138,12 @@ with these numbers.** Nothing further engaged without his ruling
   design, latest-wins) before reaching the buffer — honest input loss under
   client lag, no phantom text (the buffer never contained them).
 
-## 5 · G8 wearing setup (Sid, ~5 min, dev app already running)
+## 5 · G8 wearing setup (Sid, ~5 min)
 
-1. `http://localhost:8080` → `/face minimap-reader-face` (address defaults to
-   the first-light conversation).
+1. Start your dev server as usual (`clj -A:dev -X dev/-main`; the session's
+   copy was stopped at your request) → `http://localhost:8080` →
+   `/face minimap-reader-face` (address defaults to the first-light
+   conversation).
 2. Click any reader-pane block → it focuses (edit mode); type — text +
    caret bar render as you type; Escape blurs (block falls back to truth).
 3. Restart check: stop/start the dev server, re-enter the face — your edit
@@ -149,6 +151,65 @@ with these numbers.** Nothing further engaged without his ruling
    close it).
 4. Forced refusal (mid-word): console → `window.__blockwrite.forceStale()` —
    the focused block must visibly revert to truth + show
-   "⟂ edit refused: edit/stale". No silent drop.
+   "⟂ edit refused: edit/stale". No silent drop. (The notice clears when you
+   resume typing or blur — gate-review F6 fix.)
 5. Lineage: the import rows underneath are bit-unchanged (gated in G1's
    provenance assertion; graduation rows carry the lineage).
+
+## 6 · Gate review (Fable, this session — CLAUDE.md falsification protocol)
+
+**Inputs:** the ONE falsification finder's record (`FALSIFY.md`: 1 HIGH,
+5 MED, 4 LOW; traps BW-T1–T10 all HELD) + the full diff + fresh suite re-runs
+THIS session. Finder cost: ~137k tokens (the machine-cut cost rule held:
+one finder).
+
+**Adjudication + fixes applied at gate (each with a regression):**
+- **F1 (HIGH) — FIXED.** Root cause: a single-value `!block-truth-request`
+  atom conflates under Electric (latest-wins), losing a cross-unit pull →
+  a stale `!truth-overlay` entry could mask newer truth PERMANENTLY
+  (equality-prune never fired) and seed a re-focused buffer with stale text
+  (durable overwrite of good truth). Fix, two mechanisms: (1) the request is
+  now a UNION map `{unit → nonce}` (conflation lossless by construction —
+  the latest value contains every armed unit; capped at 8, oldest-nonce
+  dropped), server serves all requested units in one read pass
+  (`read-unit` reads at execution time — a late pull can never carry stale
+  content); (2) the overlay prune is CLEAR-ALL on face-context arrival (the
+  arriving context postdates every earlier merge; in-flight narrow results
+  re-add current truth). Also fixes **F5** (paged-out units' entries).
+  Regression: the IPC narrowing gate now asserts multi-unit + unknown-unit
+  service.
+- **F3 (MED) — BOUNDED.** `:pending` + `!continuations` trimmed to the newest
+  64 by seq; a late decision for a trimmed entry no-ops (nil-block-id guard
+  in `on-decision`). Regressions: `f3-bounds-and-unknown-decisions`.
+- **F6 (MED) — FIXED.** Refusal dismisses on resume-typing and on blur
+  (a notice never outlives the edit session). Single-slot refusal stays —
+  accepted v0 residue (one human writer; revisit when agent writers appear).
+  Regression: `f6-refusal-lifecycle`.
+- **F4 (MED) — NAMED LATER** (already in §3): per-keystroke whole-face
+  rebuild makes `m/relieve` drop keystrokes on very long blocks (measured
+  14/720 at ~1.8KB). Fix-shape: focused-block partial rebuild. Falsifier
+  named (headed type-burst asserting emitted == buffer delta).
+- **F2 (MED) — COMMIT-TIME RULE, recorded:** `runtime.cljs:23` (block-edit
+  probe require) and the pre-existing island-probe lines in `render.cljs`
+  MUST be stripped before any code commit (both probe files are untracked;
+  committing the tracked diff as-is breaks the cljs build). Listed in the
+  commit checklist below.
+- **F7/F8/F10 (LOW) — open doubts, non-blocking,** falsifiers named in
+  FALSIFY.md (epoch fan-out audit · hit-test id-collision dump · sidebar-x
+  convention). **F9** (probe edits real blocks) disclosed in §4.
+
+**Suite re-runs at gate (this session, post-fix):** block-edit 11t/74a ·
+face-projection + block-write + block-distiller 39t/1078a ·
+machine-cut-serve + face-transcription 27t/349a — all green.
+
+**Verdict: code PASS at gate** — gates G1–G6, G9 green; traps held; HIGH
+finding fixed with regressions. **Package close still gated on Sid:** the S3
+stall-clause ruling (§3) and the G8 wearing (§5). One honest open item: the
+F1 union-map seam was IPC-gated but not re-driven headed after the fix (the
+measurement rig was shut down at Sid's request) — the wearing exercises it;
+if the echo feels dead there, suspect the request/merge shape first.
+
+**Commit checklist (code commits are Sid's call; separate from docs):**
+strip `runtime.cljs` probe require + islands-probe render.cljs lines · code
+and docs never mixed · probe files stay uncommitted
+(`block_edit_probe.cljs`, `island_probe.cljs`, `src/app/probe/*`).
