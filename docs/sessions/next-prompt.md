@@ -119,9 +119,13 @@ Softland or still on paper? (`BETS.md` verdict log.)
   pass). Receipts at 240Hz: 1000 containers / 628k glyphs flat 4.2ms
   p50 / 4.9 p95, transform write 0.3ms, zero instance writes after
   pack; Sid's 240Hz bar MET at 60× gate scale (receipts in NOW.md).**
-  Left on Sid: G6 one-line visual confirm at zoom ends · sceneFaces
-  G11 + [SCENE-CTX] wearing. Then gate review (fresh context,
-  full-diff falsification) → close + retro.
+  G6 CLOSED · [SCENE-CTX] WORN (bundle rode a real agent turn) · G11
+  rounds 1–3 worn: reactor-killing pick bug + off-screen spawn fixed,
+  cascade + backdrop card landed. Left on Sid: one spawn(2)/(3) look
+  after refresh · G8 (block edit / restart / forceStale, zero copies).
+  Then gate review (fresh context, full-diff falsification; top carried
+  item: copies read the 1s-debounced full pull, not the fast overlay
+  lane) → close + retro.
   Thread: `build/scene-substrate/NOW.md`.
 - **machine-cut CLOSE session — NEXT** (HEAD suite · G14 record · retro;
   adversarial recheck = Sid's call on cost). ⚠ `boxes-paired-face.golden.edn`

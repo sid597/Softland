@@ -28,6 +28,20 @@
 
 ## NOW (append per session, ≤15 lines each)
 
+**2026-07-13 · Fable (same session) · [SCENE-CTX] WORN ✓ · backdrop card landed — G11 nearly closed**
+- SCENE-CTX end-to-end: the bundle rode Sid's real agent turn (:visible
+  65 units incl. the conv root; agent ran, $0.46, answered with repo
+  awareness). :vi/:address nil = the click was on the MAIN face, which
+  lives OUTSIDE the store until P3c — expected shape, noted for review.
+- spawn(3) still interleaved (copies overlap; cascade alone can't fix
+  text-through-gaps) → backdrop card landed `82d9981`: opaque rounded
+  card behind every copy, helper shared by spawn AND refresh-all-slots!
+  so it survives echo rebuilds; no :address so picks can't be hijacked.
+- Remaining wearing: ONE look at spawn(2)+spawn(3) after hard refresh
+  (cards + cascade) · G8 (block edit + restart + forceStale, zero copies
+  open for clean latency). Then gate review — top carried item: copies
+  read the 1s-debounced full pull, not the fast overlay lane.
+
 **2026-07-13 · Fable (same session) · G11 round 2: click ✓ spawn(2) ✓ echo ✓-but-slow; two mechanisms named**
 - Reactor fix CONFIRMED (click works, no crash). spawn(2) in-frame ✓.
   spawn(3) stacked on spawn(2) (60px step) → fixed `7d901c8` (0.36vh
