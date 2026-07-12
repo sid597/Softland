@@ -28,6 +28,25 @@
 
 ## NOW (append per session, ≤15 lines each)
 
+**2026-07-12 · Fable (same session) · P3b LANDED + wave-2 findings closed**
+- Opus subagent (~218k): rung 1 (per-vi builds — N different faces over
+  one live conversation via capture-at-spawn; despawn + close-all +
+  stale-drop: orphans impossible by construction) + rung 2 (G8: per-slot
+  cloned text geos, keystroke reshapes ONLY its slot, msdf+slug through
+  the one path — T12 held). Rung 3 (main-face flip) STOP-CLAUSED on two
+  real walls → staged as P3c in CONTRACT (+ the second assembly artery).
+- Wave-2 findings #1/#2/#3 all closed in-slice (routed mid-flight via
+  SendMessage — new mechanism, worked well).
+- Fable re-verified: 35t/172a green, build clean. Judgment calls all
+  ACCEPTED (capture-at-spawn · upsert-baked container-idx · stop-clause).
+- Committed: `20ee578` (P1+P2) · `a05d6ca` (P3a) · `44cbad6` (P3b) —
+  code-only commits per Sid's "keep committing".
+- Wearing: wear face A → `sceneFaces.spawn(1)` → wear face B (same conv)
+  → `sceneFaces.spawn(3)` → edit a block → both echo, each through its
+  own face; `.close(1)` despawns; `/face off` clears all.
+- Next: P4 (pick/context bundle + actions router — Fable-direct candidate)
+  · P3c when pulled · gate review + G11 wearing before package close.
+
 **2026-07-12 · Fable (same session) · P3a LANDED — plurality is real**
 - Opus subagent (~245k tok): `scene_runtime.cljs` (store+registry atoms,
   edge mutations, `<store-frame`/`<effective` flows, `window.sceneFaces`)

@@ -102,12 +102,15 @@ Softland or still on paper? (`BETS.md` verdict log.)
   landed (17t/59a green); all four GPU pipelines carry per-container
   transforms + the woken zoom; compile green in the live dev watch. Finder:
   0 HIGH/MED, 5 LOW → 3 fixed w/ regressions, 1 contract amendment, 1
-  carried to P3 (`build/scene-substrate/FALSIFY.md`). **P3a LANDED same
-  day: TWO simultaneous reader faces of one conversation — spawn/move/
-  scale via `sceneFaces.*`, edit echoes into both; suites 30t/150a green.**
-  Left on Sid: ctProbe wearing + the sceneFaces two-faces wearing (his
-  list, item 1). Next machine: wave-2 falsifier (one capped finder) →
-  P3b (per-vi builds, main-face migration, per-slot text geos) → P4.
+  carried to P3 (`build/scene-substrate/FALSIFY.md`). **P3a+P3b LANDED
+  same day, wave-2 falsified (PASS-w/fixes, all findings closed
+  in-slice): N different faces over ONE live conversation
+  (capture-at-spawn), per-object move/scale, edit echoes into every
+  appearance, despawn lifecycle, G8 per-slot text isolation (the
+  64-editor wall's gate). Suites 35t/172a; code committed `20ee578` ·
+  `a05d6ca` · `44cbad6`.** Rung 3 (main-face flip) stop-claused → staged
+  P3c (CONTRACT). Left on Sid: wearing (ctProbe + sceneFaces — his list).
+  Next machine: P4 (pick/context bundle + actions router) → gate review.
   Thread: `build/scene-substrate/NOW.md`.
 - **machine-cut CLOSE session — NEXT** (HEAD suite · G14 record · retro;
   adversarial recheck = Sid's call on cost). ⚠ `boxes-paired-face.golden.edn`

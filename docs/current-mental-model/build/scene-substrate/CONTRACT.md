@@ -149,6 +149,19 @@ bundle EDN; cmd-bar affordance attaches the bundle to an agent turn
 (first form of "agent as verifier"); trail-face's `case` migrates to the
 descriptor router. Gates G9–G10.
 
+**P3c — staged (stop-claused out of P3b, 2026-07-12):** the main-face
+flip. Two named walls: (1) the worn face builds over block-edit's
+overlay-face-context (caret/pending-input/refusal painted pre-assembly) —
+migrating it to a store slot means threading edit-state + truth-overlay
+into the store build; (2) reactively silencing the legacy face-mode
+consumers without a double-draw frame. Clean shape: move the block-edit
+overlay onto the per-vi build + give the main face a dedicated container;
+needs its own phase with a live visual criterion. Until then the legacy
+main-face path is in force and fully supported. Also staged: the SECOND
+assembly artery (client-side compile of a face by NAME — today the one
+`!assembly-request` artery is guarded to the worn face; spawn(n, name)
+warns + falls back to capture-at-spawn).
+
 **P5+ — staged extensions (named, not scheduled):** editor-as-container ·
 sidebar/chrome on the screen camera (kills the counter-bake tax) ·
 chat/flow one-tree fix riding their migration (Δ5) · conditional RAF at
