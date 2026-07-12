@@ -690,6 +690,74 @@ not lie":
 
 ---
 
+## 11 · The floor under the five (12–13 July — the commission, the organ, the first wearing)
+
+The same evening the notebook pages were transcribed, Sid handed the
+five-unlock list back as a commission:
+
+> "go broad, not narrow — I don't want one unlock's first probe; I want
+> the base layer that everything needs: the common substrate under all
+> five unlocks ... If you find yourself opening five unrelated fronts,
+> the derivation failed — re-derive."
+
+And he set the test in writing: for EACH unlock, name what the base gives
+it such that the remaining work becomes *build INTO the base*, never
+another floor under it.
+
+**The derivation found the rhyme's third occurrence.** Twice that month
+the right organ had existed before its consumers (object-container →
+blocks; `:object/edit` → block-write). Walking the five unlocks' server
+needs found every organ already standing — kernels, write path, echo,
+llm seat. The missing floor was the client half of the center loop,
+present only as scattered embryos: singleton scene atoms, a
+cached-scene hit-test proven in one place, actions-as-data in one face,
+a camera whose zoom had idled at 1.0 since birth. Five unlocks collapsed
+onto four capabilities — plurality, addressability, per-object
+transform, one write loop — and four capabilities onto one organ: **the
+scene substrate**. The derivation superseded three prior stagings
+(container-transforms, point-and-say, scene-diff were legs of this
+organ, not separate packages) and the birth laws Sid had ruled back on
+06-07 (store keyed `(view-instance, address)`; f64 store / relative f32
+GPU) finally bound at a real birth (`build/scene-substrate/DERIVATION.md`;
+settled ground amended in place the same hour).
+
+**Built, falsified, and committed inside one day** (`20ee578` ·
+`a05d6ca` · `44cbad6` · `8199322`): the keyed store with its address
+fan-out; per-container transforms in all four GPU pipelines — the
+continuous zoom that had been pre-paid at the substrate months earlier
+finally driven; then plurality live — one conversation wearing N
+different faces at once, each independently draggable, one block edit
+echoing into every appearance. Page 1's *"different ways to represent a
+thing in itself"* stopped being sequential and became simultaneous. P4
+closed the day: every face-mode agent turn now carries the deictic
+bundle — what Sid points at, plus everything visible, as addresses an
+agent can query back into Rama. Two falsification passes ran (one per
+wave, PASS and PASS-with-fixes, every finding closed in-slice or staged
+with grounds); two walls were stop-claused honestly rather than patched
+— the main-face flip (block-edit's overlay threading) and
+compile-a-face-by-name — both staged with their walls named.
+
+**And the first wearing kept the map honest.** Past midnight on 13-07
+Sid opened the probe — sixteen containers over the live app, one
+orbiting on nothing but a 16-byte transform write per frame — and wrote:
+
+> "something cool is happening ... but it is also laggy not pretty
+> smooth ... can we make it more fps??? like 240??? my monitor is 240hz"
+
+The upgraded receipts turned the feeling into numbers: **11 fps, 91 ms
+per frame, p95 95.6 ms** — a hard G4 signal. The substrate's own write
+is bytes; the 91 ms lives somewhere in the frame loop around it, and
+the diagnosis is the next session's first move. The wearing gate exists
+precisely because green suites cannot feel a frame; the day the floor
+was born, the floor's first inhabitant found the squeaky board — and
+set the new bar (240 Hz) in the same breath. The clock note stands:
+H1's check lands ~19-07, and tonight's session — the base layer
+derived, built, and worn in one sitting, entirely through the land's
+own write path and faces — is the strongest data point yet on the
+question of where the new thinking happens.
+
+---
+
 ## Corrections ledger — the page vs the record
 
 1. **Setup order.** Imports came first (md by Jun 6; object-container +

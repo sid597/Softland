@@ -28,6 +28,26 @@
 
 ## NOW (append per session, ≤15 lines each)
 
+**2026-07-13 · Fable (session close) · FIRST WEARING: G4 FAIL signal — 91ms frames, diagnosis OPEN**
+- Sid wore the probe (16 containers, orbit visible, "something cool ...
+  but laggy"). Receipts (his paste, two consecutive):
+  `{:fps 11 :frameMsP50 91 :frameMsP95 95.6 :frameMsMax 193 :glyphs 9580
+  :instancePacks 1 :containerWrites 600}` — uniform ~91ms EVERY frame;
+  right-click menu lags 1-2s (main thread saturated).
+- Established: ONE dev server at OS level (his "2 shells" = a dead
+  terminal, not the cause). instancePacks=1 ⇒ instance buffers NOT
+  re-uploading; the 91ms is in the frame loop AROUND the transform write.
+- Suspects for the next session, ordered: (1) cost in the m/latest
+  SAMPLING side — invisible to [RAF] (raf-t0 starts inside the reduce
+  body); (2) console flooding (which label scrolls?); (3) per-frame
+  recompute driven by some ticking input; (4) accumulated hot-reload
+  consumers (needs hard-refresh check). Asked Sid for: [RAF] lines ·
+  scrolling-label check · ctProbe.stop() A/B · 3s Performance recording.
+- Sid's new bar, verbatim: "can we make it more fps??? like 240??? my
+  monitor is 240hz" — RAF follows the monitor; 240Hz budget = 4.2ms.
+- DIAGNOSIS = next machine move, BEFORE gate review. Probe receipts now
+  carry frameMs p50/p95/max (`9fc7329`).
+
 **2026-07-13 (past midnight, same session) · Fable · P4 LANDED — dispatched phases COMPLETE**
 - Opus subagent (~169k): context-bundle (pure cljc, §5 shape exact,
   visible ranked by screen area, cap 32 + count carried) · wire-in at the

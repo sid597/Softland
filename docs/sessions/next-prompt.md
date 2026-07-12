@@ -114,8 +114,13 @@ Softland or still on paper? (`BETS.md` verdict log.)
   log; `sceneContext.bundle()`); actions = registered descriptors.
   68t/888a green; committed `8199322`. ALL dispatched phases P1–P4 done
   in one day.** Left on Sid: wearing (ctProbe + sceneFaces + [SCENE-CTX]
-  — his list). Next machine: package GATE REVIEW (fresh context, full
-  diff, skill protocol) → close + retro.
+  — his list). **FIRST WEARING (00:xx 07-13): G4 FAIL signal — probe at
+  11fps / 91ms-per-frame uniform (receipts in NOW.md); the transform
+  write itself is clean (instancePacks=1); the 91ms is in the frame loop
+  around it. NEXT MACHINE MOVE: the 91ms diagnosis (suspect list in
+  NOW.md; Sid owes [RAF] lines / console-label / ctProbe.stop() A/B /
+  3s profiler recording) — BEFORE gate review.** Then gate review →
+  close + retro. Sid's new bar: 240Hz (4.2ms budget).
   Thread: `build/scene-substrate/NOW.md`.
 - **machine-cut CLOSE session — NEXT** (HEAD suite · G14 record · retro;
   adversarial recheck = Sid's call on cost). ⚠ `boxes-paired-face.golden.edn`
