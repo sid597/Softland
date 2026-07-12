@@ -28,6 +28,27 @@
 
 ## NOW (append per session, ≤15 lines each)
 
+**2026-07-13 · Fable (same session) · G6 CLOSED · G11 round 1: reactor-killing pick bug found+fixed**
+- G6 CLOSED: Sid confirms zoom 0.5 in-frame / 2 crisp / 5 sharp after the
+  center-anchor fix. Speed + visual halves both green.
+- ROOT BUG (Sid's first face click, zero slots): `(and (any-slots?) (pick))`
+  leaked literal FALSE into record-pick! → `(assoc false …)` → **Electric
+  reactor death**. Everything downstream in his report — echo lag, /face
+  erroring, no [SCENE-CTX], "can't spawn again" — is the dead reactor.
+  Fixed `926214a`: `when`, not `and` (record-pick! contract = map-or-nil).
+- Spawn placement: x-off = n·(w+40) with real face w ≈ 3.6k px → copies
+  off-screen ("spawned at x 7352, nothing happens"). Fixed same commit:
+  in-frame, scaled to 45% vw, 60px cascade; move/scale adjust.
+- Copy mouse-drag NOT built (only text drag-select exists) — gesture slice
+  staged P5+; console move/scale is the affordance. Sid's report = expected.
+- OPEN for gate review: (1) echo perf with live slots — spawn repack cost
+  63ms/1 slot, 138ms/2 slots ([RAF] text-gpu); refresh-all-slots! repacks
+  EVERY slot per projection change — Sid: "dog slow … maybe not using the
+  editor infrastructure" (real; measure clean after reactor fix; likely
+  per-slot diff needed). (2) face-mode sidebar/header text tiny — design
+  note for the legibility batch. (3) [SCENE-CTX] absent — retest first,
+  it likely died with the reactor. G11 retest = Sid, after hard refresh.
+
 **2026-07-13 · Fable (same session) · G4/G6 WORN — PASS at 240Hz, 60× gate scale**
 - Receipts (Sid's pastes, steady-state): 16c/9.6k glyphs → 4.2ms p50 /
   4.9 p95 / 238fps over 13.2k frames (~55s soak) · 256c/159k glyphs →
