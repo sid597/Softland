@@ -834,17 +834,38 @@
                               :actor {:actor/id analyzer :actor/type analyzer-asserter-type}
                               :asserted-at-ms head-ms :sent-at-ms head-ms
                               :request-id k :idempotency-key k}))))
-    {:requires-asserted (count (filter #(= :requires (:kind (desired-by-rid %))) to-assert))
-     :calls-asserted    (count (filter #(= :calls (:kind (desired-by-rid %))) to-assert))
-     :retracted         (+ (count to-retract-current) (count basis-retracts))
-     :converged         (count (filter asserted-rids desired-rids))
-     ;; N3: nil? not empty? — an EMPTY {} basis is a prior pass that desired zero edges
-     ;; (present, → 0); only a NIL basis (never run) is missing (→ 1). `prior` is
-     ;; (or prior-basis {}) for basis-candidates; the missing signal reads the raw arg.
-     :reconcile-basis-missing (if (nil? prior-basis) 1 0)
-     ;; the new basis to thread forward: THIS pass's desired set (rid → refs). The
-     ;; caller stores it in its cluster-scoped atom (analyzer-sync! :analyzer-basis).
-     :desired-basis (into {} (map (fn [[rid e]] [rid (select-keys e [:kind :from-ref :to-ref])])) desired-by-rid)}))
+    ;; (c) SETTLE descriptor (GATE_REVIEW 2026-07-09 doubt 2): the appends above use
+    ;; :append-ack (durable, NOT materialized), so a back-to-back analyzer-sync!
+    ;; could read a stale transition count and mint an already-journaled key (the
+    ;; flip dropped). analyzer-sync! awaits THIS pass's own appends materialized at
+    ;; EXIT; here we hand it exactly what to await — the touched target-keys + each
+    ;; appended rid's terminal status (a fully-converged pass appended nothing → {}).
+    (let [settle-retracted (into (set to-retract-current) (map :rid basis-retracts))
+          settle-expected  (merge (zipmap to-assert (repeat :asserted))
+                                  (zipmap settle-retracted (repeat :retracted)))
+          settle-tks (vec (into #{}
+                                (concat
+                                 (mapcat (fn [rid] (let [e (desired-by-rid rid)]
+                                                     [(:target-key (:from-ref e)) (:target-key (:to-ref e))]))
+                                         to-assert)
+                                 (mapcat (fn [rid] (let [row (current-asserted rid)]
+                                                     [(:target-key (:from row)) (:target-key (:to row))]))
+                                         to-retract-current)
+                                 (mapcat (fn [{:keys [b]}]
+                                           [(:target-key (:from-ref b)) (:target-key (:to-ref b))])
+                                         basis-retracts))))]
+      {:requires-asserted (count (filter #(= :requires (:kind (desired-by-rid %))) to-assert))
+       :calls-asserted    (count (filter #(= :calls (:kind (desired-by-rid %))) to-assert))
+       :retracted         (+ (count to-retract-current) (count basis-retracts))
+       :converged         (count (filter asserted-rids desired-rids))
+       ;; N3: nil? not empty? — an EMPTY {} basis is a prior pass that desired zero edges
+       ;; (present, → 0); only a NIL basis (never run) is missing (→ 1). `prior` is
+       ;; (or prior-basis {}) for basis-candidates; the missing signal reads the raw arg.
+       :reconcile-basis-missing (if (nil? prior-basis) 1 0)
+       ;; the new basis to thread forward: THIS pass's desired set (rid → refs). The
+       ;; caller stores it in its cluster-scoped atom (analyzer-sync! :analyzer-basis).
+       :desired-basis (into {} (map (fn [[rid e]] [rid (select-keys e [:kind :from-ref :to-ref])])) desired-by-rid)
+       :settle {:target-keys settle-tks :expected settle-expected}})))
 
 (defn analyzer-sync!
   "Analyzer lane entry (CONTRACT §5 step 4). cfg:
@@ -912,8 +933,50 @@
                       ;; P1+N4: delete the materialized HEAD tree on success OR ANY throw
                       ;; (materialize-head-tree!'s own throw is now inside this try too).
                       (finally (delete-recursively! dir)))))
-        reconcile (reconcile-edges! runtime (:edges derived) head head-ms prior-basis)]
+        reconcile (reconcile-edges! runtime (:edges derived) head head-ms prior-basis)
+        ;; (c) SETTLE AT EXIT (GATE_REVIEW 2026-07-09 doubt 2): reconcile appended with
+        ;; :append-ack (durable, NOT materialized). Await THIS pass's own appends
+        ;; materialized to their terminal status before returning, so a back-to-back
+        ;; analyzer-sync! never reads a stale transition count and drops a flip. ONE
+        ;; batched poll over the touched target-keys — O(polls), not O(edges); a
+        ;; fully-converged pass appended nothing (:expected {}) and skips the wait.
+        {:keys [target-keys expected]} (:settle reconcile)
+        _ (when (seq expected)
+            (rk/await-relation
+             (fn [] (->> (rk/read-relations-for-targets runtime target-keys [:requires :calls] true)
+                         (mapcat val)
+                         (filter #(= analyzer-asserter-actor-id (:asserter-actor-id %)))
+                         (map (juxt :relation-id :relation-status))
+                         (into {})))
+             (fn [rid->status] (every? (fn [[rid st]] (= st (rid->status rid))) expected))
+             15000))]
     (when analyzer-basis (reset! analyzer-basis (:desired-basis reconcile)))
     (merge (:stats derived)
-           (dissoc reconcile :desired-basis)
+           (dissoc reconcile :desired-basis :settle)   ; :settle is internal wiring, not a stat
            {:unresolved-residual (:unresolved-residual derived)})))
+
+;; ── N5 (GATE_REVIEW 2026-07-09) — numeric-aware history DISPLAY ───────────────
+(defn- reconcile-transition-index
+  "The analyzer transition number N parsed from a reconcile request-id
+   `code:<rid>:<head>:t<N>` (assert, akey) or `code:<rid>:<head>:t<N>:retract`
+   (retract, rkey). The regex anchors at end-of-string, so the trailing t<N> is the
+   real transition even if <rid> happens to contain a `:t…` fragment. nil for any id
+   without a t<N> tail (e.g. a lineage :supersedes edge `code:<rid>:<child-sha>`)."
+  [request-id]
+  (when-let [m (re-find #":t(\d+)(?::retract)?$" (str request-id))]
+    (Long/parseLong (second m))))
+
+(defn relation-history-display
+  "A relation's status history in numeric-aware DISPLAY order (consumers/receipts).
+   read-relation-detail returns :history in the status-log's order-key order —
+   fixed-width-order-key(changed-at-ms, request-id) — so at a FIXED head (constant
+   ts) it sorts by request-id LEXICALLY, and an analyzer relation with >=10
+   transitions shows t10 before t2 (N5). This re-sorts by (changed-at-ms, the t<N>
+   transition index), so t2 precedes t10. DISPLAY-ONLY: it reorders the SAME rows —
+   count is preserved, and the authoritative current status is read from
+   read-relation-detail's :row (unchanged), never from this ordering."
+  [runtime relation-id]
+  (->> (:history (rk/read-relation-detail runtime relation-id))
+       (sort-by (juxt (fn [r] (long (or (:changed-at-ms r) 0)))
+                      (fn [r] (or (reconcile-transition-index (:request-id r)) 0))))
+       vec))

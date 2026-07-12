@@ -213,6 +213,33 @@
                 "committer clock, unchanged across the byte-identical re-run (T4)")
             (is (= (str "clj-atoms-v1|mech|" c-af0e0e2) (:note row)) "note unchanged"))))
 
+      ;; ===================================================================
+      ;; F4 (GATE_REVIEW 2026-07-09 doubt 1) — the accounting identity at a
+      ;; NON-ZERO :blobs-unresolved. Fault-inject a DROPPED OC decision (an await
+      ;; timeout returns nil, runtime.clj:326): code-sync! must COUNT it, never
+      ;; silently drop it, and blobs-seen = denied + git-failures + ingested +
+      ;; converged + unresolved must still balance. Prior gates only hit the =0 floor.
+      ;; ===================================================================
+      (testing "F4 — a dropped OC decision is COUNTED as :blobs-unresolved; the identity holds at non-zero"
+        (let [dropped    (atom false)
+              real-await ocr/await-object-container-decision]
+          ;; Variadic: await-object-container-decision is re-entrant (its 3-arg entry
+          ;; resolves keys then re-calls the VAR at 4-arg), so we delegate every arity
+          ;; to the real fn and drop ONLY the first 3-arg call — code-sync!'s ingest
+          ;; await (runtime.clj:314-320). That one blob's decision returns nil (timeout).
+          (with-redefs [ocr/await-object-container-decision
+                        (fn [& args]
+                          (if (and (= 3 (count args)) (compare-and-set! dropped false true))
+                            nil
+                            (apply real-await args)))]
+            (let [rd (ca/code-sync! {:runtime rt :repo-root repo-root :commit-filter #{c-119f3f8}})]
+              (is (true? @dropped) "the fault fired — one decision was dropped")
+              (is (= 1 (:blobs-unresolved rd)) "the dropped blob is COUNTED as unresolved, never silent (F4)")
+              (is (= (:blobs-seen rd)
+                     (+ (:blobs-denied rd) (:git-failures rd) (:blobs-ingested rd)
+                        (:blobs-converged rd) (:blobs-unresolved rd)))
+                  "F4 identity balances at non-zero: seen = denied + git-fail + ingested + converged + unresolved")))))
+
       (finally (tv/close-trail-view-runtime! rt)))))
 
 ;; =============================================================================
@@ -562,5 +589,63 @@
                 "empty desired + empty ({}) prior basis: nothing to do AND basis NOT missing (nil? not empty?)")
             (is (= 0 (:reconcile-basis-missing s7))
                 "a prior pass that legitimately desired zero edges is STILL a prior pass — phantom 1 gone"))))
+
+      ;; ═══════════════════════════════════════════════════════════════════
+      ;; (c) SETTLE (GATE_REVIEW 2026-07-09 doubt 2) + N5 numeric DISPLAY order.
+      ;; Each runs on its OWN basis atom so its single edge stays isolated from the
+      ;; G10 set above; both reuse this launch (the minimize-IPC discipline).
+      ;; ═══════════════════════════════════════════════════════════════════
+      (let [mk  (fn [from to] {:kind :calls
+                               :from-ref (rk/->target-ref ca/var-target-kind from)
+                               :to-ref   (rk/->target-ref ca/var-target-kind to)
+                               :note (str "clj-atoms-v1|analyzer|" head)
+                               :evidence-source-id nil :evidence-anchor-id nil})
+            rid (fn [e] (rk/relation-id-for (:kind e) (:from-ref e) (:to-ref e) ca/analyzer-asserter-actor-id))]
+
+        ;; (c) — the EXIT settle makes back-to-back syncs safe with NO external
+        ;; barrier: sync-1's assert is materialized before it returns, so sync-2
+        ;; reads a fresh count and its retract lands. Pre-fix, sync-2 could read the
+        ;; not-yet-materialized assert (:row nil) → basis-retract skipped → flip dropped.
+        (testing "settle — two immediate syncs flip one edge, NO drain between, final = last desired"
+          (let [basis-s (atom nil)
+                ana-s! (fn [d] (ca/analyzer-sync! {:runtime rt :repo-root repo-root :head-override head
+                                                   :desired-override d :analyzer-basis basis-s}))
+                e-st (mk "app.settle/from" "app.settle/to")
+                r-st (rid e-st)]
+            (ana-s! [e-st])    ; assert — self-settles internally
+            (ana-s! [])        ; retract, IMMEDIATELY — no external barrier between the two calls
+            (is (= :retracted (:relation-status (rk/read-relation-row rt r-st)))
+                "the retract LANDED with no external drain — the exit settle materialized the assert")
+            (is (= [:asserted :retracted]
+                   (statuses (:history (rk/read-relation-detail rt r-st))))
+                "exactly two transitions — the retract was NOT dropped by a stale-count race")
+            (swap! cumulative + 2) (drain!)))   ; 2 transitions appended; keep the barrier honest
+
+        ;; N5 — >=10 transitions at a FIXED head: the raw status-log order-key sorts
+        ;; request-ids LEXICALLY (t10 before t2); relation-history-display re-sorts
+        ;; numeric. Count + authoritative current-status row are untouched.
+        (testing "N5 — >=10 transitions DISPLAY numeric (t2 before t10); count + current status unchanged"
+          (let [basis-n (atom nil)
+                step-n! (fn [d] (let [s (ca/analyzer-sync! {:runtime rt :repo-root repo-root :head-override head
+                                                            :desired-override d :analyzer-basis basis-n})]
+                                  (swap! cumulative + (:requires-asserted s) (:calls-asserted s) (:retracted s))
+                                  (drain!) s))
+                e-n5 (mk "app.n5/from" "app.n5/to")
+                r-n5 (rid e-n5)
+                idx  (fn [h] (vec (keep #(#'ca/reconcile-transition-index (:request-id %)) h)))]
+            (dotimes [i 11] (step-n! (if (even? i) [e-n5] [])))   ; assert t0, retract t1, … assert t10
+            (let [detail  (rk/read-relation-detail rt r-n5)
+                  raw     (:history detail)
+                  display (ca/relation-history-display rt r-n5)]
+              (is (= 11 (count raw)) "11 transitions recorded (t0..t10)")
+              (is (= 11 (count display)) "display preserves the count — DISPLAY-only reorder (N5)")
+              (is (= (vec (range 11)) (idx display))
+                  "display order is NUMERIC: t0,t1,...,t10 — t2 precedes t10")
+              (is (not= (vec (range 11)) (idx raw))
+                  "the RAW status-log order is lexical (t10 before t2) — the fix genuinely reorders")
+              (is (= :asserted (:relation-status (:row detail)))
+                  "authoritative current status unchanged (the last flip was an assert, t10)")
+              (is (= (:relation-status (:row detail)) (:relation-status (last display)))
+                  "current status == the last DISPLAY transition")))))
 
       (finally (tv/close-trail-view-runtime! rt)))))
