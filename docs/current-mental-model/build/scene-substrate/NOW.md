@@ -37,9 +37,12 @@
   counter assertion held at all scales.
 - Gate letter: G4 asks ≥16c / ≥10k glyphs / 60s@60fps / p95 ≤ 8ms →
   beaten 60× on glyphs at 4× the frame rate, p95 4.9. G6 asks zoom
-  [0.5, 2] → driven to the probe clamp (10). Residual, one line from
-  Sid: visual confirm at both zoom ends (no NaN/clip, text crisp —
-  msdf+slug). 155ms one-off at sweep start = start!/warmup transient.
+  [0.5, 2] → speed clean to the clamp (10), but the VISUAL half found a
+  probe gap: origin-anchored zoom sent every container off-frame at the
+  ends (Sid's paste + screenshots). Fixed `b796d61` (center-anchored
+  pan = C·(1−z)); retest = zoom(0.5)/2/5, text should magnify in place
+  and stay crisp. "Unreadable at zoom 1" = by design (grid scales
+  0.55–0.75). 155ms one-off at sweep start = start!/warmup transient.
 - 240Hz persisted: setup-monitors.py gained a post-layout rate-upgrade
   pass (verify + retry + fallback to preferred; rehearsed live, lands
   239.99). fps receipt = recent 1000/p50 (`309a599`).
