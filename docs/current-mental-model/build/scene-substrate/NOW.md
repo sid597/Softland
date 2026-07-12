@@ -28,6 +28,24 @@
 
 ## NOW (append per session, ≤15 lines each)
 
+**2026-07-13 · Fable · DIAGNOSIS: prime suspect = SwiftShader (software WebGPU), verification issued**
+- Sid's new receipts: p50 ~104-106ms / 9-10fps, flat at 300 vs 600 writes,
+  instancePacks 1. His pre/post spine-boot A/B DISPROVES the Rama-ingest
+  suspect: p50 106→103.9 (unchanged); only frameMsMax was boot-correlated
+  (541→161). Testing ground confirmed correct (probe over live app = G4
+  by design; receipts still zoom-1 only, G6 sweep pending).
+- Smoking gun (machine-checked): Chrome runs with --enable-unsafe-webgpu
+  but NO Vulkan feature → Dawn falls back to SwiftShader (CPU raster) on
+  Linux. Hardware itself fine: 2× RX 7900 XTX, conformant Vulkan 1.4, GL
+  accelerated. Explains flat ~100ms full-viewport redraws, quiet JS, menu
+  jank, and why normal use (identical?-skip, no redraws) felt fine.
+- Landed `5430829`: receipts gain sampleMs/bodyMs/probeMs/waitMs p50 split
+  (rAF stamp → body entry → step! → derived GPU wait) — suspect list #1-#4
+  all become one receipt. Hard refresh needed after the hot swap.
+- Sid verification: `(await navigator.gpu.requestAdapter()).info` +
+  chrome://gpu "WebGPU" row; fix = relaunch Chrome with Vulkan enabled,
+  re-run probe. Expected on hardware: p50 low single-digit ms, fps → 240.
+
 **2026-07-13 · Fable (session close) · FIRST WEARING: G4 FAIL signal — 91ms frames, diagnosis OPEN**
 - Sid wore the probe (16 containers, orbit visible, "something cool ...
   but laggy"). Receipts (his paste, two consecutive):
