@@ -6,6 +6,10 @@
 (def rect-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
   @group(0) @binding(0) var<uniform> camera: Camera;
+  // scene-substrate P2: per-container transforms. data[i] = (offset.xy, scale, screen-flag).
+  // Container 0 is the identity world container (trap T6).
+  struct Containers { data: array<vec4<f32>, 1024>, };
+  @group(0) @binding(1) var<uniform> containers: Containers;
   struct InstanceInput {
     @location(0) rect_geometry: vec4<f32>,
     @location(1) color: vec4<f32>,
@@ -14,6 +18,7 @@
     @location(4) border_color: vec4<f32>,
     @location(5) gradient: vec4<f32>,
     @location(6) gradient_color2: vec4<f32>,
+    @location(7) container_idx: u32,
   };
   struct VertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -38,13 +43,19 @@
       }
       let world_pos = vec2<f32>(instance.rect_geometry.x + (pos.x * instance.rect_geometry.z),
                                 instance.rect_geometry.y + (pos.y * instance.rect_geometry.w));
-      let panned = (world_pos * camera.zoom) + camera.pan;
+      let c = containers.data[instance.container_idx];
+      let is_screen = c.w != 0.0;
+      let zm = select(camera.zoom, 1.0, is_screen);
+      let pn = select(camera.pan, vec2<f32>(0.0, 0.0), is_screen);
+      let panned = ((c.xy + world_pos * c.z) * zm) + pn;
       let ndc = (panned / camera.screen_dimensions * 2.0) - vec2<f32>(1.0, 1.0);
       output.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
       output.color = instance.color;
-      // Pass local UV (0..size in pixels) and rect size for SDF evaluation
-      output.local_pos = pos * instance.rect_geometry.zw * camera.zoom;
-      output.rect_size = instance.rect_geometry.zw * camera.zoom;
+      // Pass local UV (0..size in pixels) and rect size for SDF evaluation.
+      // Effective on-screen scale = container scale * camera zoom.
+      let eff = c.z * zm;
+      output.local_pos = pos * instance.rect_geometry.zw * eff;
+      output.rect_size = instance.rect_geometry.zw * eff;
       output.corner_radii = instance.corner_radii;
       output.border_widths = instance.border_widths;
       output.border_color = instance.border_color;
@@ -130,12 +141,16 @@
 (def shadow-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
   @group(0) @binding(0) var<uniform> camera: Camera;
+  // scene-substrate P2: per-container transforms (trap T6: container 0 = identity).
+  struct Containers { data: array<vec4<f32>, 1024>, };
+  @group(0) @binding(1) var<uniform> containers: Containers;
   struct InstanceInput {
     @location(0) expanded_rect: vec4<f32>,
     @location(1) shadow_color: vec4<f32>,
     @location(2) corner_radii: vec4<f32>,
     @location(3) blur_params: vec4<f32>,
     @location(4) inner_rect: vec4<f32>,
+    @location(5) container_idx: u32,
   };
   struct VertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -158,18 +173,23 @@
       }
       let world_pos = vec2<f32>(instance.expanded_rect.x + (pos.x * instance.expanded_rect.z),
                                 instance.expanded_rect.y + (pos.y * instance.expanded_rect.w));
-      let panned = (world_pos * camera.zoom) + camera.pan;
+      let c = containers.data[instance.container_idx];
+      let is_screen = c.w != 0.0;
+      let zm = select(camera.zoom, 1.0, is_screen);
+      let pn = select(camera.pan, vec2<f32>(0.0, 0.0), is_screen);
+      let eff = c.z * zm;
+      let panned = ((c.xy + world_pos * c.z) * zm) + pn;
       let ndc = (panned / camera.screen_dimensions * 2.0) - vec2<f32>(1.0, 1.0);
       output.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
       output.shadow_color = instance.shadow_color;
-      output.local_pos = pos * instance.expanded_rect.zw * camera.zoom;
-      output.rect_size = instance.expanded_rect.zw * camera.zoom;
+      output.local_pos = pos * instance.expanded_rect.zw * eff;
+      output.rect_size = instance.expanded_rect.zw * eff;
       output.corner_radii = instance.corner_radii;
       output.blur_params = instance.blur_params;
-      // Scale inner_rect to match zoom-scaled local_pos
+      // Scale inner_rect to match the effective-scaled local_pos
       output.inner_rect = vec4<f32>(
-          instance.inner_rect.xy * camera.zoom,
-          instance.inner_rect.zw * camera.zoom);
+          instance.inner_rect.xy * eff,
+          instance.inner_rect.zw * eff);
       return output;
   }")
 
@@ -233,8 +253,11 @@
 (def text-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
   @group(0) @binding(2) var<uniform> camera: Camera;
-  // Per-instance: rect (vec4), uv_bounds (vec4), color (vec4) = 12 floats
-  struct InstanceInput { @location(0) rect: vec4<f32>, @location(1) uv_bounds: vec4<f32>, @location(2) color: vec4<f32>, };
+  // scene-substrate P2: per-container transforms (trap T6: container 0 = identity).
+  struct Containers { data: array<vec4<f32>, 1024>, };
+  @group(0) @binding(4) var<uniform> containers: Containers;
+  // Per-instance: rect (vec4), uv_bounds (vec4), color (vec4), container_idx (u32) = 13 words
+  struct InstanceInput { @location(0) rect: vec4<f32>, @location(1) uv_bounds: vec4<f32>, @location(2) color: vec4<f32>, @location(3) container_idx: u32, };
   struct VertexOutput { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, @location(1) v_visual_size: f32, @location(2) color: vec4<f32>, };
 
   @vertex
@@ -250,11 +273,15 @@
                                 instance.rect.y + (pos.y * instance.rect.w));
       let u = mix(instance.uv_bounds.x, instance.uv_bounds.z, pos.x);
       let v = mix(instance.uv_bounds.y, instance.uv_bounds.w, pos.y);
-      let panned = (world_pos * camera.zoom) + camera.pan;
+      let c = containers.data[instance.container_idx];
+      let is_screen = c.w != 0.0;
+      let zm = select(camera.zoom, 1.0, is_screen);
+      let pn = select(camera.pan, vec2<f32>(0.0, 0.0), is_screen);
+      let panned = ((c.xy + world_pos * c.z) * zm) + pn;
       let ndc = (panned / camera.screen_dimensions * 2.0) - vec2<f32>(1.0, 1.0);
       output.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
       output.uv = vec2<f32>(u, v);
-      output.v_visual_size = max(instance.rect.z, instance.rect.w) * camera.zoom;
+      output.v_visual_size = max(instance.rect.z, instance.rect.w) * c.z * zm;
       output.color = instance.color;
       return output;
   }")
@@ -282,6 +309,9 @@
 (def slug-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
   @group(0) @binding(2) var<uniform> camera: Camera;
+  // scene-substrate P2: per-container transforms (trap T6: container 0 = identity).
+  struct Containers { data: array<vec4<f32>, 1024>, };
+  @group(0) @binding(4) var<uniform> containers: Containers;
 
   struct InstanceInput {
     @location(0) rect: vec4<f32>,
@@ -290,6 +320,7 @@
     @location(3) banding: vec4<f32>,
     @location(4) glyph: vec4<u32>,
     @location(5) color: vec4<f32>,
+    @location(6) container_idx: u32,
   };
 
   struct VertexOutput {
@@ -317,9 +348,15 @@
 
     let world_pos = vec2<f32>(instance.rect.x + (pos.x * instance.rect.z),
                               instance.rect.y + (pos.y * instance.rect.w));
-    let dilation = 0.5 / max(camera.zoom, 0.0001);
+    let c = containers.data[instance.container_idx];
+    let is_screen = c.w != 0.0;
+    let zm = select(camera.zoom, 1.0, is_screen);
+    let pn = select(camera.pan, vec2<f32>(0.0, 0.0), is_screen);
+    // Half-pixel dilation in SCREEN space: divide by the effective scale so
+    // delta stays half a screen pixel in glyph-local units.
+    let dilation = 0.5 / max(c.z * zm, 0.0001);
     let delta = sign * dilation;
-    let panned = ((world_pos + delta) * camera.zoom) + camera.pan;
+    let panned = ((c.xy + (world_pos + delta) * c.z) * zm) + pn;
     let ndc = (panned / camera.screen_dimensions * 2.0) - vec2<f32>(1.0, 1.0);
 
     let sample_x = mix(instance.sample_bounds.x, instance.sample_bounds.z, pos.x);
@@ -509,21 +546,70 @@
 
 ;; --- 2. INITIALIZATION ---
 
-(def rect-stride 112)  ;; 28 floats × 4 bytes = 112 bytes per rect
-(def msdf-text-instance-stride 48)
-(def slug-text-instance-stride 96)
+(def rect-stride 116)  ;; 28 floats + container u32, × 4 bytes (scene-substrate P2)
+(def msdf-text-instance-stride 52)  ;; 12 floats + container u32
+(def slug-text-instance-stride 100) ;; 24 words + container u32
+
+;; --- scene-substrate P2: shared per-container transform buffer -------------
+;; One uniform array of vec4 per container: (offset.x, offset.y, scale, flags)
+;; where flags != 0.0 means screen-camera (chrome) — the world camera's
+;; pan/zoom become identity for that container. Container 0 is RESERVED as
+;; the identity world container (trap T6): every packer defaults instances
+;; to it, which keeps the pre-P2 render byte-identical until a producer
+;; assigns real containers.
+(def max-containers 1024)
+
+(defn create-containers-buffer
+  "Create the shared container-transform uniform buffer and write the
+   identity container 0. Shared across all four pipelines like the camera."
+  [^js/GPUDevice device tracker]
+  (let [size (* max-containers 16)
+        buffer (.createBuffer device (clj->js {:size size
+                                               :usage (bit-or js/GPUBufferUsage.UNIFORM
+                                                              js/GPUBufferUsage.COPY_DST)}))
+        identity0 (js/Float32Array. #js [0.0 0.0 1.0 0.0])]
+    (gpu-budget/register-buffer! tracker buffer "containers/shared" size :active-bytes size)
+    (.writeBuffer (.-queue device) buffer 0 identity0)
+    buffer))
+
+(defn write-containers!
+  "Upload effective container transforms. `effective` is {cid {:x :y :scale
+   :flags (0|1) or :screen? bool}} — containers/effective output is accepted
+   as-is. cid 0 (the reserved identity, trap T6) is skipped: it was written at
+   buffer creation and the registry refuses to mutate it. Writes one
+   contiguous range [1 .. max cid]; unlisted cids in the range default to
+   identity, not zero-scale."
+  [^js/GPUDevice device ^js containers-buffer effective]
+  (let [effective (dissoc effective 0)]
+    (when (seq effective)
+      (let [max-cid (apply max (keys effective))
+            _ (when (>= max-cid max-containers)
+                (throw (ex-info "Container id out of range" {:cid max-cid :max max-containers})))
+            floats (js/Float32Array. (* 4 max-cid))] ;; cids 1..max-cid
+        (loop [cid 1]
+          (when (<= cid max-cid)
+            (let [base (* 4 (dec cid))
+                  {:keys [x y scale flags screen?] :or {x 0.0 y 0.0 scale 1.0}} (get effective cid)]
+              (aset floats (+ base 0) x)
+              (aset floats (+ base 1) y)
+              (aset floats (+ base 2) scale)
+              (aset floats (+ base 3) (cond (number? flags) flags screen? 1.0 :else 0.0)))
+            (recur (inc cid))))
+        (.writeBuffer (.-queue device) containers-buffer 16 floats)))))
 
 (defn init-rect-system
   [^js/GPUDevice device fformat camera-buffer
-   & {:keys [initial-capacity tracker label]
+   & {:keys [initial-capacity tracker label containers-buffer]
       :or {initial-capacity 1000
            label "rect/shared-system"}}]
+  (assert containers-buffer "init-rect-system requires :containers-buffer (scene-substrate P2)")
   (let [v-module (.createShaderModule device (clj->js {:code rect-vertex-shader}))
         f-module (.createShaderModule device (clj->js {:code rect-fragment-shader}))
         buf-size (* initial-capacity rect-stride)
         instance-buffer (.createBuffer device (clj->js {:size buf-size :usage (bit-or js/GPUBufferUsage.VERTEX js/GPUBufferUsage.COPY_DST)}))
         _ (gpu-budget/register-buffer! tracker instance-buffer label buf-size :active-bytes 0)
-        bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility (bit-or js/GPUShaderStage.VERTEX js/GPUShaderStage.FRAGMENT) :buffer {:type "uniform"}}]}))
+        bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility (bit-or js/GPUShaderStage.VERTEX js/GPUShaderStage.FRAGMENT) :buffer {:type "uniform"}}
+                                                                     {:binding 1 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}]}))
         pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
         pipeline (.createRenderPipeline device
                    (clj->js {:layout pipeline-layout
@@ -535,12 +621,14 @@
                                                                {:shaderLocation 3 :offset 48 :format "float32x4"}   ;; border_widths
                                                                {:shaderLocation 4 :offset 64 :format "float32x4"}   ;; border_color
                                                                {:shaderLocation 5 :offset 80 :format "float32x4"}   ;; gradient
-                                                               {:shaderLocation 6 :offset 96 :format "float32x4"}]}]}  ;; gradient_color2
+                                                               {:shaderLocation 6 :offset 96 :format "float32x4"}   ;; gradient_color2
+                                                               {:shaderLocation 7 :offset 112 :format "uint32"}]}]}  ;; container_idx
                               :fragment {:module f-module :entryPoint "main"
                                          :targets [{:format fformat :blend {:color {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}
                                                                             :alpha {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}}}]}
                               :primitive {:topology "triangle-list"}}))
-        bind-group (.createBindGroup device (clj->js {:layout bg-layout :entries [{:binding 0 :resource {:buffer camera-buffer}}]}))]
+        bind-group (.createBindGroup device (clj->js {:layout bg-layout :entries [{:binding 0 :resource {:buffer camera-buffer}}
+                                                                                  {:binding 1 :resource {:buffer containers-buffer}}]}))]
     {:pipeline pipeline
      :bind-group bind-group
      :instance-buffer instance-buffer
@@ -565,21 +653,23 @@
     (gpu-budget/register-buffer! tracker buffer label size :active-bytes 0)
     buffer))
 
-(defn- create-msdf-bind-group [^js/GPUDevice device layout sampler texture-view camera-buffer sizes-buffer]
+(defn- create-msdf-bind-group [^js/GPUDevice device layout sampler texture-view camera-buffer sizes-buffer containers-buffer]
   (.createBindGroup device
     (clj->js {:layout layout
               :entries [{:binding 0 :resource sampler}
                         {:binding 1 :resource texture-view}
                         {:binding 2 :resource {:buffer camera-buffer}}
-                        {:binding 3 :resource {:buffer sizes-buffer}}]})))
+                        {:binding 3 :resource {:buffer sizes-buffer}}
+                        {:binding 4 :resource {:buffer containers-buffer}}]})))
 
-(defn- create-slug-bind-group [^js/GPUDevice device layout curve-view band-view camera-buffer sizes-buffer]
+(defn- create-slug-bind-group [^js/GPUDevice device layout curve-view band-view camera-buffer sizes-buffer containers-buffer]
   (.createBindGroup device
     (clj->js {:layout layout
               :entries [{:binding 0 :resource curve-view}
                         {:binding 1 :resource band-view}
                         {:binding 2 :resource {:buffer camera-buffer}}
-                        {:binding 3 :resource {:buffer sizes-buffer}}]})))
+                        {:binding 3 :resource {:buffer sizes-buffer}}
+                        {:binding 4 :resource {:buffer containers-buffer}}]})))
 
 (defn- create-msdf-font-resources [^js/GPUDevice device tracker font-bitmap texture-label]
   (let [texture (.createTexture device (clj->js {:size {:width (.-width font-bitmap)
@@ -689,9 +779,10 @@
 
 (defn- init-msdf-text-system
   [^js/GPUDevice device fformat camera-buffer font-assets
-   & {:keys [initial-capacity tracker label]
+   & {:keys [initial-capacity tracker label containers-buffer]
       :or {initial-capacity 10000
            label "text/content"}}]
+  (assert containers-buffer "init-msdf-text-system requires :containers-buffer (scene-substrate P2)")
   (let [font-bitmap (:bitmap font-assets)
         vertex-module (.createShaderModule device (clj->js {:code text-vertex-shader}))
         fragment-module (.createShaderModule device (clj->js {:code text-fragment-shader}))
@@ -704,7 +795,8 @@
         bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility js/GPUShaderStage.FRAGMENT :sampler {:type "filtering"}}
                                                                      {:binding 1 :visibility js/GPUShaderStage.FRAGMENT :texture {:sampleType "float"}}
                                                                      {:binding 2 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}
-                                                                     {:binding 3 :visibility js/GPUShaderStage.FRAGMENT :buffer {:type "uniform"}}]}))
+                                                                     {:binding 3 :visibility js/GPUShaderStage.FRAGMENT :buffer {:type "uniform"}}
+                                                                     {:binding 4 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}]}))
         pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
         pipeline (.createRenderPipeline device
                    (clj->js {:layout pipeline-layout
@@ -714,14 +806,15 @@
                                                  :stepMode "instance"
                                                  :attributes [{:shaderLocation 0 :offset 0 :format "float32x4"}
                                                               {:shaderLocation 1 :offset 16 :format "float32x4"}
-                                                              {:shaderLocation 2 :offset 32 :format "float32x4"}]}]}
+                                                              {:shaderLocation 2 :offset 32 :format "float32x4"}
+                                                              {:shaderLocation 3 :offset 48 :format "uint32"}]}]}
                              :fragment {:module fragment-module
                                         :entryPoint "main"
                                         :targets [{:format fformat
                                                    :blend {:color {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}
                                                            :alpha {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}}}]}
                              :primitive {:topology "triangle-list"}}))
-        bind-group (create-msdf-bind-group device bg-layout (:font-sampler font-resources) (:font-texture-view font-resources) camera-buffer sizes-buffer)]
+        bind-group (create-msdf-bind-group device bg-layout (:font-sampler font-resources) (:font-texture-view font-resources) camera-buffer sizes-buffer containers-buffer)]
     (js/console.log "[RENDERER] Init text system"
                     {:backend :msdf
                      :label label
@@ -734,6 +827,7 @@
             :bind-group bind-group
             :bind-group-layout bg-layout
             :camera-uniform-buffer camera-buffer
+            :containers-uniform-buffer containers-buffer
             :sizes-uniform-buffer sizes-buffer
             :instance-buffer instance-buffer
             :instance-stride msdf-text-instance-stride
@@ -745,9 +839,10 @@
 
 (defn- init-slug-text-system
   [^js/GPUDevice device fformat camera-buffer font-assets
-   & {:keys [initial-capacity tracker label]
+   & {:keys [initial-capacity tracker label containers-buffer]
       :or {initial-capacity 10000
            label "text/content"}}]
+  (assert containers-buffer "init-slug-text-system requires :containers-buffer (scene-substrate P2)")
   (let [vertex-module (.createShaderModule device (clj->js {:code slug-vertex-shader}))
         fragment-module (.createShaderModule device (clj->js {:code slug-fragment-shader}))
         font-resources (create-slug-font-resources device tracker (:slug font-assets))
@@ -759,7 +854,8 @@
         bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility js/GPUShaderStage.FRAGMENT :texture {:sampleType "unfilterable-float"}}
                                                                      {:binding 1 :visibility js/GPUShaderStage.FRAGMENT :texture {:sampleType "uint"}}
                                                                      {:binding 2 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}
-                                                                     {:binding 3 :visibility js/GPUShaderStage.FRAGMENT :buffer {:type "uniform"}}]}))
+                                                                     {:binding 3 :visibility js/GPUShaderStage.FRAGMENT :buffer {:type "uniform"}}
+                                                                     {:binding 4 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}]}))
         pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
         pipeline (.createRenderPipeline device
                    (clj->js {:layout pipeline-layout
@@ -772,14 +868,15 @@
                                                               {:shaderLocation 2 :offset 32 :format "float32x4"}
                                                               {:shaderLocation 3 :offset 48 :format "float32x4"}
                                                               {:shaderLocation 4 :offset 64 :format "uint32x4"}
-                                                              {:shaderLocation 5 :offset 80 :format "float32x4"}]}]}
+                                                              {:shaderLocation 5 :offset 80 :format "float32x4"}
+                                                              {:shaderLocation 6 :offset 96 :format "uint32"}]}]}
                              :fragment {:module fragment-module
                                         :entryPoint "main"
                                         :targets [{:format fformat
                                                    :blend {:color {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}
                                                            :alpha {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}}}]}
                              :primitive {:topology "triangle-list"}}))
-        bind-group (create-slug-bind-group device bg-layout (:curve-texture-view font-resources) (:band-texture-view font-resources) camera-buffer sizes-buffer)]
+        bind-group (create-slug-bind-group device bg-layout (:curve-texture-view font-resources) (:band-texture-view font-resources) camera-buffer sizes-buffer containers-buffer)]
     (js/console.log "[RENDERER] Init text system"
                     {:backend :slug
                      :label label
@@ -791,6 +888,7 @@
             :bind-group bind-group
             :bind-group-layout bg-layout
             :camera-uniform-buffer camera-buffer
+            :containers-uniform-buffer containers-buffer
             :sizes-uniform-buffer sizes-buffer
             :instance-buffer instance-buffer
             :instance-stride slug-text-instance-stride
@@ -831,7 +929,8 @@
                                                     (:font-sampler font-resources)
                                                     (:font-texture-view font-resources)
                                                     (:camera-uniform-buffer text-sys)
-                                                    (:sizes-uniform-buffer text-sys))
+                                                    (:sizes-uniform-buffer text-sys)
+                                                    (:containers-uniform-buffer text-sys))
                 :owns-font-resources? true}))
 
       :slug
@@ -854,7 +953,8 @@
                                                     (:curve-texture-view font-resources)
                                                     (:band-texture-view font-resources)
                                                     (:camera-uniform-buffer text-sys)
-                                                    (:sizes-uniform-buffer text-sys))
+                                                    (:sizes-uniform-buffer text-sys)
+                                                    (:containers-uniform-buffer text-sys))
                 :owns-font-resources? true})))))
 
 (defn share-font-resources
@@ -886,7 +986,8 @@
                               (:instance-stride old-text-sys)))
         label (:gpu-label old-text-sys)
         tracker (:gpu-tracker old-text-sys)
-        camera-buffer (:camera-uniform-buffer old-text-sys)]
+        camera-buffer (:camera-uniform-buffer old-text-sys)
+        containers-buffer (:containers-uniform-buffer old-text-sys)]
     (js/console.log "[RENDERER] Recreate text system"
                     {:old-backend (:backend old-text-sys)
                      :new-backend (:backend font-assets)
@@ -897,7 +998,8 @@
     (init-text-system device fformat camera-buffer font-assets
                       :initial-capacity capacity
                       :tracker tracker
-                      :label label)))
+                      :label label
+                      :containers-buffer containers-buffer)))
 
 (defn clone-text-system
   "Create a lightweight text system clone sharing pipeline, bind-group, camera,
@@ -915,19 +1017,21 @@
            :owns-sizing-buffer? false)))
 
 ;; --- Shadow system ---
-(def shadow-stride 80)  ;; 20 floats × 4 bytes = 80 bytes per shadow
+(def shadow-stride 84)  ;; 20 floats + container u32, × 4 bytes (scene-substrate P2)
 
 (defn init-shadow-system
   [^js/GPUDevice device fformat camera-buffer
-   & {:keys [initial-capacity tracker label]
+   & {:keys [initial-capacity tracker label containers-buffer]
       :or {initial-capacity 256
            label "shadow/shared-system"}}]
+  (assert containers-buffer "init-shadow-system requires :containers-buffer (scene-substrate P2)")
   (let [v-module (.createShaderModule device (clj->js {:code shadow-vertex-shader}))
         f-module (.createShaderModule device (clj->js {:code shadow-fragment-shader}))
         buf-size (* initial-capacity shadow-stride)
         instance-buffer (.createBuffer device (clj->js {:size buf-size :usage (bit-or js/GPUBufferUsage.VERTEX js/GPUBufferUsage.COPY_DST)}))
         _ (gpu-budget/register-buffer! tracker instance-buffer label buf-size :active-bytes 0)
-        bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility (bit-or js/GPUShaderStage.VERTEX js/GPUShaderStage.FRAGMENT) :buffer {:type "uniform"}}]}))
+        bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility (bit-or js/GPUShaderStage.VERTEX js/GPUShaderStage.FRAGMENT) :buffer {:type "uniform"}}
+                                                                     {:binding 1 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}]}))
         pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
         pipeline (.createRenderPipeline device
                    (clj->js {:layout pipeline-layout
@@ -937,12 +1041,14 @@
                                                                {:shaderLocation 1 :offset 16 :format "float32x4"}   ;; shadow_color
                                                                {:shaderLocation 2 :offset 32 :format "float32x4"}   ;; corner_radii
                                                                {:shaderLocation 3 :offset 48 :format "float32x4"}   ;; blur_params
-                                                               {:shaderLocation 4 :offset 64 :format "float32x4"}]}]}  ;; inner_rect
+                                                               {:shaderLocation 4 :offset 64 :format "float32x4"}   ;; inner_rect
+                                                               {:shaderLocation 5 :offset 80 :format "uint32"}]}]}  ;; container_idx
                               :fragment {:module f-module :entryPoint "main"
                                          :targets [{:format fformat :blend {:color {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}
                                                                             :alpha {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}}}]}
                               :primitive {:topology "triangle-list"}}))
-        bind-group (.createBindGroup device (clj->js {:layout bg-layout :entries [{:binding 0 :resource {:buffer camera-buffer}}]}))]
+        bind-group (.createBindGroup device (clj->js {:layout bg-layout :entries [{:binding 0 :resource {:buffer camera-buffer}}
+                                                                                  {:binding 1 :resource {:buffer containers-buffer}}]}))]
     {:pipeline pipeline
      :bind-group bind-group
      :instance-buffer instance-buffer
@@ -953,8 +1059,9 @@
 
 (defn update-shadows [^js device shadow-system shadows]
   (let [n (count shadows)
-        floats-per-shadow 20
+        floats-per-shadow 21 ;; 20 + container u32 (scene-substrate P2)
         data (js/Float32Array. (* n floats-per-shadow))
+        u32-view (js/Uint32Array. (.-buffer data))
         required-bytes (.-byteLength data)
         current-buffer (:instance-buffer shadow-system)
         current-size (.-size ^js current-buffer)
@@ -1013,6 +1120,8 @@
           ;; Slot 4: inner_rect (relative to expanded quad, in zoom-scaled space)
           (aset data (+ base 16) ix)  (aset data (+ base 17) iy)
           (aset data (+ base 18) w)   (aset data (+ base 19) h)
+          ;; Slot 5: container_idx (u32 view over the same buffer; trap T6 default 0)
+          (aset u32-view (+ base 20) (or (:container-idx s) 0))
           (recur (inc i) (next ss)))))
     (when (pos? n)
       (.writeBuffer (.-queue device) new-buffer 0 data))
@@ -1090,18 +1199,22 @@
 
 (defn create-editor-state [{:keys [device format font-assets gpu-budget]}]
   (let [camera-buffer (create-camera-buffer device gpu-budget)
+        containers-buffer (create-containers-buffer device gpu-budget)
         text-sys (init-text-system device format camera-buffer font-assets
                                    :initial-capacity 1000000
                                    :tracker gpu-budget
-                                   :label "text/content")
+                                   :label "text/content"
+                                   :containers-buffer containers-buffer)
         rect-sys (init-rect-system device format (:camera-uniform-buffer text-sys)
                                    :initial-capacity 50000
                                    :tracker gpu-budget
-                                   :label "rect/shared-system")
+                                   :label "rect/shared-system"
+                                   :containers-buffer containers-buffer)
         shadow-sys (init-shadow-system device format (:camera-uniform-buffer text-sys)
                                        :initial-capacity 256
                                        :tracker gpu-budget
-                                       :label "shadow/shared-system")
+                                       :label "shadow/shared-system"
+                                       :containers-buffer containers-buffer)
         clear-quad (init-clear-quad device format)
 
         camera-floats (js/Float32Array. 6)
@@ -1114,7 +1227,8 @@
                     {:format format
                      :font-id (:id font-assets)
                      :font-backend (:backend font-assets)
-                     :camera-buffer-bytes 24})
+                     :camera-buffer-bytes 24
+                     :containers-buffer-bytes (* max-containers 16)})
 
     {:text-sys text-sys
      :rect-sys rect-sys
@@ -1122,6 +1236,7 @@
      :clear-quad clear-quad
      :format format
      :camera-floats camera-floats
+     :containers-buffer containers-buffer
      :pass-descriptor pass-descriptor}))
 
 ;; --- 3. UPDATES (CPU -> GPU) ---
@@ -1187,7 +1302,8 @@
                         vb (- 1.0 (/ (:bottom ab) atlas-h))]
                     (swap! res conj {:rect [sl st (- sr sl) (- sb st)]
                                      :uv [ul vt ur vb]
-                                     :color [cr cg cb ca]})))))))))
+                                     :color [cr cg cb ca]
+                                     :container (or (:container-idx txt) 0)})))))))))
     @res))
 
 (defn- shape-slug-line
@@ -1239,7 +1355,8 @@
                                            (or (get-in slug [:glyphLoc :y]) 0)
                                            (or (get-in slug [:bandMax :x]) 0)
                                            (or (:packedBandMeta slug) 0)]
-                                   :color [cr cg cb ca]})))))))))
+                                   :color [cr cg cb ca]
+                                   :container (or (:container-idx txt) 0)})))))))))
     @res))
 
 (defn shape-text [texts global-fsize font-assets & {:as opts}]
@@ -1274,7 +1391,7 @@
       (.destroy ^js current-buffer))
     new-buffer))
 
-(defn- pack-msdf-instances! [^js data shaped-lines]
+(defn- pack-msdf-instances! [^js float-view ^js uint-view shaped-lines]
   (loop [lines shaped-lines
          global-i 0]
     (when (seq lines)
@@ -1282,23 +1399,24 @@
         (loop [remaining instances
                sub-i 0]
           (when (seq remaining)
-            (let [{:keys [rect uv color]} (first remaining)
+            (let [{:keys [rect uv color container]} (first remaining)
                   [x y w h] rect
                   [u-min v-min u-max v-max] uv
                   [cr cg cb ca] color
-                  base (* (+ global-i sub-i) 12)]
-              (aset data (+ base 0) x)
-              (aset data (+ base 1) y)
-              (aset data (+ base 2) w)
-              (aset data (+ base 3) h)
-              (aset data (+ base 4) u-min)
-              (aset data (+ base 5) v-min)
-              (aset data (+ base 6) u-max)
-              (aset data (+ base 7) v-max)
-              (aset data (+ base 8) cr)
-              (aset data (+ base 9) cg)
-              (aset data (+ base 10) cb)
-              (aset data (+ base 11) ca)
+                  base (* (+ global-i sub-i) 13)]
+              (aset float-view (+ base 0) x)
+              (aset float-view (+ base 1) y)
+              (aset float-view (+ base 2) w)
+              (aset float-view (+ base 3) h)
+              (aset float-view (+ base 4) u-min)
+              (aset float-view (+ base 5) v-min)
+              (aset float-view (+ base 6) u-max)
+              (aset float-view (+ base 7) v-max)
+              (aset float-view (+ base 8) cr)
+              (aset float-view (+ base 9) cg)
+              (aset float-view (+ base 10) cb)
+              (aset float-view (+ base 11) ca)
+              (aset uint-view (+ base 12) (or container 0))
               (recur (next remaining) (inc sub-i)))))
         (recur (next lines) (+ global-i (:count (first lines))))))))
 
@@ -1310,14 +1428,14 @@
         (loop [remaining instances
                sub-i 0]
           (when (seq remaining)
-            (let [{:keys [rect sample-bounds inv-jac banding glyph color]} (first remaining)
+            (let [{:keys [rect sample-bounds inv-jac banding glyph color container]} (first remaining)
                   [x y w h] rect
                   [sl st sr sb] sample-bounds
                   [jx jy kx ky] inv-jac
                   [sx sy ox oy] banding
                   [gx gy gzx gwy] glyph
                   [cr cg cb ca] color
-                  base (* (+ global-i sub-i) 24)]
+                  base (* (+ global-i sub-i) 25)]
               (aset float-view (+ base 0) x)
               (aset float-view (+ base 1) y)
               (aset float-view (+ base 2) w)
@@ -1342,6 +1460,7 @@
               (aset float-view (+ base 21) cg)
               (aset float-view (+ base 22) cb)
               (aset float-view (+ base 23) ca)
+              (aset uint-view (+ base 24) (or container 0))
               (recur (next remaining) (inc sub-i)))))
         (recur (next lines) (+ global-i (:count (first lines))))))))
 
@@ -1368,12 +1487,15 @@
         active-bytes (* actual-instances stride)]
     (case (:backend renderer-state)
       :msdf
-      (let [data (js/Float32Array. (* buffer-instance-count 12))
-            required-size (.-byteLength data)
+      (let [raw-buffer (js/ArrayBuffer. (* buffer-instance-count stride))
+            float-view (js/Float32Array. raw-buffer)
+            uint-view (js/Uint32Array. raw-buffer)
+            upload-view (js/Uint8Array. raw-buffer)
+            required-size (.-byteLength upload-view)
             new-buffer (ensure-text-instance-buffer device renderer-state required-size active-bytes)
             atlas-em (or (get-in font-assets [:atlas :atlas :size]) 64.0)]
-        (pack-msdf-instances! data shaped-lines)
-        (.writeBuffer (.-queue device) new-buffer 0 data)
+        (pack-msdf-instances! float-view uint-view shaped-lines)
+        (.writeBuffer (.-queue device) new-buffer 0 upload-view)
         (when-let [sizes-buffer (:sizes-uniform-buffer renderer-state)]
           (let [sizes (js/Float32Array. #js [(float px-range) (float atlas-em) (float sharpness) 0.0])]
             (.writeBuffer (.-queue device) sizes-buffer 0 sizes)))
@@ -1408,8 +1530,9 @@
 
 (defn update-rects [^js device rect-system rects]
   (let [n (count rects)
-        floats-per-rect 28
+        floats-per-rect 29 ;; 28 + container u32 (scene-substrate P2)
         data (js/Float32Array. (* n floats-per-rect))
+        u32-view (js/Uint32Array. (.-buffer data))
         required-bytes (.-byteLength data)
         current-buffer (:instance-buffer rect-system)
         current-size (.-size ^js current-buffer)
@@ -1484,6 +1607,8 @@
           (aset data (+ base 25) (nth gc2 1))
           (aset data (+ base 26) (nth gc2 2))
           (aset data (+ base 27) (nth gc2 3))
+          ;; Slot 7: container_idx (u32 view over the same buffer; trap T6 default 0)
+          (aset u32-view (+ base 28) (or (:container-idx rect) 0))
           (recur (inc i) (next rs)))))
     (when (pos? n)
       (.writeBuffer (.-queue device) new-buffer 0 data))
@@ -1550,16 +1675,19 @@
                              settings-line-count settings-visible settings-rect-sys
                              diagnostics-visible diagnostics-line-index agent-visible
                              editor-shadow-pool-info sidebar-shadow-pool-info sidebar-pool-info
-                             dirty-rect render-target clear-quad frame-idx]
+                             dirty-rect render-target clear-quad frame-idx zoom]
                       :or {cmd-panel-visible false cmd-panel-h 40 chrome-text-sys nil chrome-base-line-count 0
                            settings-line-count 0 settings-visible false
                            settings-rect-sys nil agent-visible false
                            editor-shadow-pool-info nil sidebar-shadow-pool-info nil sidebar-pool-info nil
-                           dirty-rect nil render-target nil clear-quad nil frame-idx 0}}]
-  (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y 1.0 w h)
+                           dirty-rect nil render-target nil clear-quad nil frame-idx 0
+                           zoom 1.0}}]
+  ;; scene-substrate P2: the world camera zoom wakes — callers may drive it;
+  ;; default 1.0 keeps every existing call byte-identical.
+  (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y zoom w h)
   (when (and chrome-text-sys
              (not= (:camera-uniform-buffer chrome-text-sys) (:camera-uniform-buffer text-sys)))
-    (update-camera device (:camera-uniform-buffer chrome-text-sys) camera-floats pan-x pan-y 1.0 w h))
+    (update-camera device (:camera-uniform-buffer chrome-text-sys) camera-floats pan-x pan-y zoom w h))
 
   (let [encoder (.createCommandEncoder device)
           swap-texture (.getCurrentTexture context)

@@ -128,14 +128,14 @@
       :!editor-shadow-pool  (pool/create-pool device 16
                               (:pipeline (:shadow geometry))
                               (:bind-group (:shadow geometry))
-                              :floats-per-item 20
+                              :floats-per-item 21 ;; 20 + container u32 (scene-substrate P2)
                               :pack-fn pool/pack-shadow
                               :tracker gpu-budget
                               :label "pool/editor-shadow")
       :!sidebar-shadow-pool (pool/create-pool device 64
                               (:pipeline (:shadow geometry))
                               (:bind-group (:shadow geometry))
-                              :floats-per-item 20
+                              :floats-per-item 21 ;; 20 + container u32 (scene-substrate P2)
                               :pack-fn pool/pack-shadow
                               :tracker gpu-budget
                               :label "pool/sidebar-shadow")
