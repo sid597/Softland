@@ -28,3 +28,6 @@ external-resources/
 resources/electric-manifest.edn
 # throwaway backups
 *.bak
+# python bytecode (scripts/ tooling)
+__pycache__/
+*.pyc
