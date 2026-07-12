@@ -27,11 +27,23 @@
      it is neither a kernel edit nor a new index — so it stays inside G12 and the
      stop-clause is not triggered. Verified empirically monotone-nondecreasing across a
      real river page ⇒ `:until-ms` cuts are prefix-consistent (G11)."
-  (:require [app.server.rama.object-container :as oc]
+  (:require [clojure.string :as str]
+            [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.object-container.block-distiller :as bd]
+            [app.server.rama.object-container.transcript-identity :as tid]
             [app.server.rama.object-container.assembly-adapter :as assembly-adapter]
-            [app.server.rama.face-arsenal :as face-arsenal]))
+            [app.server.rama.face-arsenal :as face-arsenal]
+            ;; READ-ONLY use of the relation kernel's PUBLIC query surface (rk
+            ;; CONTRACT §7 — read-relations-for-targets ONLY; never a PState path,
+            ;; never an append). Machine-cut pair structure (CONTRACT §4.4/§6).
+            [app.server.rama.relation-kernel :as rk]
+            ;; ONE def, two call sites (INT re-home, LANES §INT item 3): the
+            ;; asserter id this projection filters served edges to is the
+            ;; DRIVER's canonical constant — drift impossible while both exist
+            ;; (the T18 parity shape). Required for the constant only; nothing
+            ;; else of the driver is read here (the projection stays read-only).
+            [app.server.rama.machine-cut :as machine-cut]))
 
 ;; ===========================================================================
 ;; Limits — the projection serves ONE bounded page (block-kernel v0 discipline).
@@ -172,35 +184,218 @@
                       src-ids)]
     (mapv (fn [b] (assoc b :time-ms (long (or (get times (:source-id b)) 0)))) blocks)))
 
+;; ===========================================================================
+;; Machine-cut pair structure (CONTRACT §4.4/§6). The :conversation projection
+;; gains pair structure served from the relation kernel's :pairs-with edges;
+;; `:turns` and every existing key stay byte-identical (MC-T8) — these are
+;; ADDITIVE keys derived AFTER the until-ms cut (MC-T11). The PURE core
+;; (derive-pair-structure) is directly unit-testable with synthetic turns +
+;; edges (G4); the IPC read (read-machine-cut-edges) is ONE total call.
+;; ===========================================================================
+
+(def machine-cut-actor-v0
+  "The v0 machine-cut asserter id this projection filters served edges to
+   (CONTRACT §4.3/§4.4). Aliased from the driver's canonical def (INT re-home,
+   2026-07-12) — one value, two call sites, drift impossible (T18 shape)."
+  machine-cut/machine-cut-actor-id)
+
+(defn actor->structure-label
+  "Header label for a machine-cut asserter id: \"llm:machine-cut/v1\" →
+   \"machine-cut v1\" (CONTRACT §6 structure-line example). Strips the leading
+   asserter-type segment and renders the version readably. PURE."
+  [actor]
+  (let [s (str actor)
+        s (if (str/starts-with? s "llm:") (subs s 4) s)]
+    (str/replace s "/" " ")))
+
+(defn dedup-edges-by-relation-id
+  "MC-T14: both endpoint copies of every intra-conversation edge land under ONE
+   target-key (relation_kernel.clj:505-508), so a target read can carry each edge
+   TWICE (o:/i: sort-key copies, byte-identical). Keep the FIRST occurrence per
+   relation-id, order-stable. (The R1 query already dedups; this makes the pure
+   core robust to a both-copies fixture — the MC-T14 pin.) PURE."
+  [edge-rows]
+  (:out
+   (reduce (fn [{:keys [seen] :as acc} row]
+             (let [rid (:relation-id row)]
+               (if (contains? seen rid)
+                 acc
+                 (-> acc (update :seen conj rid) (update :out conj row)))))
+           {:seen #{} :out []}
+           edge-rows)))
+
+(defn derive-pair-structure
+  "PURE (CONTRACT §4.4/§6; MC-T10/T11/T14). Partition the POST-CUT `turns` (river
+   order) into pair structure over the machine-cut :pairs-with edges.
+
+   `turns`     — the shape-conversation :turns AFTER apply-until-ms (MC-T11: a
+                 cut prompt strands its responses in :unpaired; a served prompt
+                 whose responses are all cut keeps an empty :responses).
+   `edge-rows` — raw RelationEdgeRow-like maps under the conversation key: may
+                 carry both endpoint copies (MC-T14) AND foreign asserters
+                 (MC-T10). `from` = response event, `to` = prompt event; each
+                 endpoint's :target-id is (tid/chat-message-id address event-uuid).
+   `address`   — the conversation object-key (matches the served turns' events).
+   `actor`     — the configured machine-cut asserter id; foreign asserters are
+                 COUNTED, never merged (MC-T10).
+
+   Returns ONLY the four ADDITIVE keys (never :turns — MC-T8):
+   {:pairs :unpaired :conversation/structure :conversation/structure-line}.
+   Totality (§6): every served turn appears in exactly one of :pairs (as prompt
+   or response) or :unpaired."
+  [turns edge-rows address actor]
+  (let [turn-index    (into {} (map-indexed (fn [i t] [(:id t) i])) turns)
+        turn-by-id    (into {} (map (fn [t] [(:id t) t])) turns)
+        ;; Served turns only — the map answers \"is this event on the page?\".
+        tid->turn-id  (into {} (map (fn [t] [(tid/chat-message-id address (:id t))
+                                             (:id t)]))
+                            turns)
+        order-of      (fn [tid] (get turn-index tid Long/MAX_VALUE))
+        ;; MC-T14 dedup, then MC-T10 split by asserter (foreign counted, not merged).
+        deduped       (dedup-edges-by-relation-id edge-rows)
+        grouped       (group-by (fn [e] (= (str (:asserter-actor-id e)) (str actor)))
+                                deduped)
+        mc-edges      (vec (get grouped true))
+        foreign-cnt   (count (get grouped false))
+        ;; Resolve each machine-cut edge to (response-turn-id, prompt-turn-id);
+        ;; nil endpoints are events not on the served page (cut or off-page).
+        resolved      (map (fn [e]
+                             {:resp   (tid->turn-id (:target-id (:from e)))
+                              :prompt (tid->turn-id (:target-id (:to e)))})
+                           mc-edges)
+        ;; MC-T11: a pair forms only if its PROMPT is served (post-cut). A cut
+        ;; prompt drops the edge → its response (if served) falls to :unpaired.
+        usable        (filter (fn [{:keys [prompt]}] (some? prompt)) resolved)
+        prompt-ids    (into #{} (map :prompt) usable)
+        ;; Response assignment: a response is claimed only if it is served AND is
+        ;; not itself a pair head (totality — a head is never nested as another
+        ;; pair's response; the defensive chain rule). Conflict (MC-T11/§6): a
+        ;; response with ≥2 candidate prompts → the river-order-earliest wins,
+        ;; +1 :conflicts.
+        resp->prompts (reduce (fn [m {:keys [resp prompt]}]
+                                (if (and (some? resp) (not (contains? prompt-ids resp)))
+                                  (update m resp (fnil conj #{}) prompt)
+                                  m))
+                              {}
+                              usable)
+        conflicts     (count (filter (fn [[_ ps]] (> (count ps) 1)) resp->prompts))
+        resp->chosen  (into {}
+                            (map (fn [[resp ps]]
+                                   [resp (apply min-key order-of (vec ps))]))
+                            resp->prompts)
+        prompt->resps (reduce (fn [m [resp prompt]]
+                                (update m prompt (fnil conj []) resp))
+                              {}
+                              resp->chosen)
+        pairs         (->> prompt-ids
+                           (sort-by order-of)
+                           (mapv (fn [pid]
+                                   {:id pid
+                                    :user-turn (turn-by-id pid)
+                                    :responses (->> (get prompt->resps pid [])
+                                                    (sort-by order-of)
+                                                    (mapv turn-by-id))
+                                    :asserted-by actor})))
+        paired-ids    (into prompt-ids (keys resp->chosen))
+        unpaired      (->> turns
+                           (remove (fn [t] (contains? paired-ids (:id t))))
+                           vec)
+        pairs-count   (count pairs)
+        ;; Scope note (FALSIFY_B F3, recorded 2026-07-12): :pairs-count and
+        ;; :unpaired-count are WINDOW-scoped (the served page); :edges-read,
+        ;; :conflicts and :foreign-asserter-edges count ALL machine-cut edges
+        ;; under the conversation key — diagnostics of the whole conversation,
+        ;; not the page. They coincide at the default limit (the annotation
+        ;; window IS the served page in v0).
+        structure     {:source                 (if (pos? pairs-count) :machine-cut :none)
+                       :asserter               actor
+                       :pairs-count            pairs-count
+                       :unpaired-count         (count unpaired)
+                       :edges-read             (count mc-edges)
+                       :conflicts              conflicts
+                       :foreign-asserter-edges foreign-cnt}
+        line          (if (pos? pairs-count)
+                        (str (actor->structure-label actor)
+                             " · " pairs-count " pairs · " (count unpaired) " unpaired")
+                        "no machine cut")]
+    {:pairs                      pairs
+     :unpaired                   unpaired
+     :conversation/structure     structure
+     :conversation/structure-line line}))
+
+(def none-structure
+  "The totality landing value (CONTRACT §6, G12): absent rk-rt / no edges / a read
+   failure → honest :none, never a throw. Additive keys only (MC-T8)."
+  {:pairs                      []
+   :unpaired                   []
+   :conversation/structure     {:source                 :none
+                                :asserter               machine-cut-actor-v0
+                                :pairs-count            0
+                                :unpaired-count         0
+                                :edges-read             0
+                                :conflicts              0
+                                :foreign-asserter-edges 0}
+   :conversation/structure-line "no machine cut"})
+
+(defn read-machine-cut-edges
+  "Total read of the conversation's :pairs-with edges (CONTRACT §4.4): ONE
+   conversation-key call to the relation kernel's PUBLIC query surface (rk
+   CONTRACT §7 — never a direct PState path, never an append). The stored
+   target-key of every intra-conversation pair edge IS the conversation
+   object-key (§4.2), so `address` is both the read key and the returned map key
+   (the query already retract-filters and dedups by relation-id). Absent rk-rt or
+   ANY read failure → [] (serve totality, G12 — never a throw; MC-T12: a poisoned
+   boot handle degrades honestly here, it never re-throws)."
+  [rk-rt address]
+  (if (or (nil? rk-rt) (nil? address))
+    []
+    (try
+      (get (rk/read-relations-for-targets rk-rt [address] [:pairs-with] false)
+           address [])
+      (catch Throwable t
+        (println "[FACE] machine-cut edge read failed:" (.getMessage t))
+        []))))
+
 (defn conversation-projection
   "The ONE Wave-1 projection: conversation → turns → blocks-with-kinds, over the
    block kernel's durable state via `river-page` (READ-ONLY). `ctx` carries the OC
    runtime; `request` is the CONTRACT §7 shape {:face :address :params :epoch}, where
    :address is the conversation object-key and :params {:limit :until-ms}. Returns the
    §7 data-context (never throws — a bad address yields an error data-context)."
-  [{:keys [oc-rt]} {:keys [address params] :as request}]
+  [{:keys [oc-rt rk-rt]} {:keys [address params] :as request}]
   (let [limit    (clamp-limit (:limit params))
         until-ms (:until-ms params)]
     (if (nil? address)
-      {:turns []
-       ;; the map must not lie: a first-light runtime still distilling (or
-       ;; failed) is a DIFFERENT reality than a genuinely blank request —
-       ;; resolve-request (file_viewer) stamps the hint (G16 falsification fix)
-       :conversation/error (:face/first-light request :missing-address)
-       :conversation/river-events-total 0
-       :conversation/blocks-returned 0
-       :conversation/truncated? false
-       :face/rendered-at-ms (System/currentTimeMillis)}
+      (merge
+       none-structure                     ; additive pair keys, totality (MC-T8/§6)
+       {:turns []
+        ;; the map must not lie: a first-light runtime still distilling (or
+        ;; failed) is a DIFFERENT reality than a genuinely blank request —
+        ;; resolve-request (file_viewer) stamps the hint (G16 falsification fix)
+        :conversation/error (:face/first-light request :missing-address)
+        :conversation/river-events-total 0
+        :conversation/blocks-returned 0
+        :conversation/truncated? false
+        :face/rendered-at-ms (System/currentTimeMillis)})
       (let [page      (bd/river-page {:oc-rt oc-rt :object-key address} limit)
             read-plan (:river-page/read-plan (meta page))
-            blocks    (attach-source-times oc-rt page)]
-        (shape-conversation {:blocks         blocks
-                             :read-plan      read-plan
-                             :address        address
-                             :limit          limit
-                             :until-ms       until-ms
-                             :focus-turn     (:focus-turn params)
-                             :rendered-at-ms (System/currentTimeMillis)})))))
+            blocks    (attach-source-times oc-rt page)
+            dc        (shape-conversation {:blocks         blocks
+                                           :read-plan      read-plan
+                                           :address        address
+                                           :limit          limit
+                                           :until-ms       until-ms
+                                           :focus-turn     (:focus-turn params)
+                                           :rendered-at-ms (System/currentTimeMillis)})
+            ;; §4.4/§6: read the machine-cut :pairs-with edges (total; [] on any
+            ;; failure or absent rk-rt), derive pair structure over the SAME
+            ;; post-until-ms `:turns` shape-conversation served (MC-T11). Merge
+            ;; ONLY the four additive keys — `:turns` + every existing key stay
+            ;; byte-identical (MC-T8).
+            edges     (read-machine-cut-edges rk-rt address)
+            structure (derive-pair-structure (:turns dc) edges address
+                                             machine-cut-actor-v0)]
+        (merge dc structure)))))
 
 ;; ===========================================================================
 ;; W2 arsenal projections (CONTRACT §16; gates G20/G21). READ-ONLY + TOTAL:
@@ -353,13 +548,15 @@
   "Honest projection-side error (mirrors §4 error-card totality on the render side):
    a valid data-context that names the failure, never a throw into the pull."
   [request reason]
-  {:turns []
-   :conversation/error reason
-   :conversation/requested-face (:face request)
-   :conversation/river-events-total 0
-   :conversation/blocks-returned 0
-   :conversation/truncated? false
-   :face/rendered-at-ms (System/currentTimeMillis)})
+  (merge
+   none-structure                         ; additive pair keys, totality (MC-T8/§6)
+   {:turns []
+    :conversation/error reason
+    :conversation/requested-face (:face request)
+    :conversation/river-events-total 0
+    :conversation/blocks-returned 0
+    :conversation/truncated? false
+    :face/rendered-at-ms (System/currentTimeMillis)}))
 
 (defn serve
   "The artery's server entrypoint (CONTRACT §7): resolve the projection for a request

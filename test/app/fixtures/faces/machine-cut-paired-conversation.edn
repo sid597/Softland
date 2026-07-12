@@ -1,0 +1,72 @@
+;; Projection-shaped PAIRED conversation fixture — machine-cut CONTRACT §6/§7
+;; (Lane B golden input). The §6 ADDITIVE pair contract layered onto the same
+;; :turns the boxes-face wears (turns copied verbatim from
+;; plurality-conversation.edn so the two faces render the SAME material — one is
+;; pair-flat, one pair-structured). :pairs / :unpaired / :conversation/structure
+;; / :conversation/structure-line are EXACTLY what
+;; face-projection/derive-pair-structure produces over these 3 turns + one
+;; machine-cut :pairs-with edge (t-claude-1 → t-sid-1) — the
+;; g4-fixture-parity test asserts that equality, so the golden input can never
+;; drift from the pure function (MC-T8: :turns byte-identical to boxes-face).
+;;
+;; Structure: pair (user t-sid-1 ⊃ response t-claude-1) + one :unpaired prompt
+;; (t-sid-2, a user message the annotator declined — no response pairs-with it).
+;; This is the 4-layer russian doll W2 wanted: pair ⊃ user|response ⊃ blocks.
+{:turns
+ [{:id "t-sid-1" :speaker "sid" :order 1
+   :blocks
+   [{:id "b1" :kind "human-message" :order 1 :time-ms 1000
+     :text "Can a face be an assembly — pure EDN describing arrangement, walked by one interpreter over a primitive registry, so the AI writes arrangement-data through the lawful path?"}]}
+  {:id "t-claude-1" :speaker "claude" :order 2
+   :blocks
+   [{:id "b2" :kind "heading" :order 1 :time-ms 2000
+     :text "The seam law"}
+    {:id "b3" :kind "text" :order 2 :time-ms 3000
+     :text "Electric owns truth transport into atoms and Missionary owns the frame path, with the rt-node tree standing as the boundary object between them. Faces are data, so what renders them must be an interpreter, never code generation into the compiled substrate. The map must not lie: known, proposed, derived and guessed stay visibly distinct, and provenance is soul rather than plumbing. History is terrain — understanding is built in trails and the trail is the material, the log primary, every view a projection of it. A missing primitive during transcription is a cljc function away: minted by gap-fill in the code lane, never by grammar growth, because anything that wants to be a program gets to be a real one. The frontier is where trails end and evidence thins, and the shoreline of ignorance is what the map renders."}
+    {:id "b4" :kind "code" :order 3 :time-ms 4000
+     :text "(defn serve [registry request]\n  (let [proj (get registry (:face request))]\n    (if proj\n      (proj request)\n      {:face/error :unknown-face\n       :face/requested (:face request)})))\n;; dispatch lives server-side (trap T8)\n;; the Electric surface never grows per face\n(comment\n  (serve {:conversation conv-proj} req))"}]}
+  {:id "t-sid-2" :speaker "sid" :order 3
+   :blocks
+   [{:id "b5" :kind "human-message" :order 1 :time-ms 5000
+     :text "Evidence before architecture: build the thin slice, measure, report."}]}]
+ :pairs
+ [{:id "t-sid-1"
+   :user-turn
+   {:id "t-sid-1" :speaker "sid" :order 1
+    :blocks
+    [{:id "b1" :kind "human-message" :order 1 :time-ms 1000
+      :text "Can a face be an assembly — pure EDN describing arrangement, walked by one interpreter over a primitive registry, so the AI writes arrangement-data through the lawful path?"}]}
+   :responses
+   [{:id "t-claude-1" :speaker "claude" :order 2
+     :blocks
+     [{:id "b2" :kind "heading" :order 1 :time-ms 2000
+       :text "The seam law"}
+      {:id "b3" :kind "text" :order 2 :time-ms 3000
+       :text "Electric owns truth transport into atoms and Missionary owns the frame path, with the rt-node tree standing as the boundary object between them. Faces are data, so what renders them must be an interpreter, never code generation into the compiled substrate. The map must not lie: known, proposed, derived and guessed stay visibly distinct, and provenance is soul rather than plumbing. History is terrain — understanding is built in trails and the trail is the material, the log primary, every view a projection of it. A missing primitive during transcription is a cljc function away: minted by gap-fill in the code lane, never by grammar growth, because anything that wants to be a program gets to be a real one. The frontier is where trails end and evidence thins, and the shoreline of ignorance is what the map renders."}
+      {:id "b4" :kind "code" :order 3 :time-ms 4000
+       :text "(defn serve [registry request]\n  (let [proj (get registry (:face request))]\n    (if proj\n      (proj request)\n      {:face/error :unknown-face\n       :face/requested (:face request)})))\n;; dispatch lives server-side (trap T8)\n;; the Electric surface never grows per face\n(comment\n  (serve {:conversation conv-proj} req))"}]}]
+   :asserted-by "llm:machine-cut/v1"}]
+ :unpaired
+ [{:id "t-sid-2" :speaker "sid" :order 3
+   :blocks
+   [{:id "b5" :kind "human-message" :order 1 :time-ms 5000
+     :text "Evidence before architecture: build the thin slice, measure, report."}]}]
+ :conversation/structure
+ {:source :machine-cut
+  :asserter "llm:machine-cut/v1"
+  :pairs-count 1
+  :unpaired-count 1
+  :edges-read 1
+  :conflicts 0
+  :foreign-asserter-edges 0}
+ :conversation/structure-line "machine-cut v1 · 1 pairs · 1 unpaired"
+ :conversation/address "chat:10c22f9b"
+ :conversation/limit 64
+ :conversation/until-ms nil
+ :conversation/river-events-total 247
+ :conversation/blocks-returned 5
+ :conversation/truncated? true
+ :conversation/page-complete? false
+ :conversation/debris-excluded? true
+ :conversation/paging-lack :river-page-has-no-cursor
+ :face/rendered-at-ms 0}

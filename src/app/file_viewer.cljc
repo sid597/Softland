@@ -14,6 +14,9 @@
             ;; W2: the face arsenal (CONTRACT §16 — wear log + face index)
             #?(:clj [app.server.rama.face-arsenal :as face-arsenal])
             #?(:clj [app.server.rama.object-container.block-distiller :as block-distiller])
+            ;; machine-cut (CONTRACT §6 boot attach): the WAL boot replay; the
+            ;; relation runtime it asserts into is the TRAIL cluster's (below).
+            #?(:clj [app.server.rama.machine-cut :as machine-cut])
             #?(:clj [app.server.rama.dogfood.transcript :as transcript])))
 
 ;; ============================================================================
@@ -246,7 +249,25 @@
      ;; whatever is ready — empty until the distill lands, then the epoch re-pull
      ;; (INV-19) fills it in. READ-ONLY afterwards (G12): serve never writes.
      (delay
-       (let [;; G26 fix (server-artery MED): the delay body must be TOTAL — a
+       (let [;; machine-cut boot attach (CONTRACT §6; W2-INT lack 5's pre-named
+             ;; extension): the relation runtime the :conversation projection
+             ;; reads :pairs-with edges from is THE TRAIL CLUSTER's relation
+             ;; kernel — the git-spine edge store. ONE edge truth in the dev
+             ;; JVM, never a second store; and no third in-process cluster.
+             ;; The first wearing (G14, 2026-07-12) caught the alternative
+             ;; live: a fresh rk cluster booting concurrently with the face
+             ;; OC's in-flight module launch collided in the shared simulated
+             ;; worker registry (transcript-ops mirror resolved onto the rk
+             ;; cluster's task → chronic worker-launch failure). Deref FIRST
+             ;; also forces the trail boot to complete before the face OC
+             ;; cluster launches — sequential, no race. TOTAL (MC-T12): any
+             ;; failure → nil → the projection's honest :structure :none.
+             rk-rt (try @trail-view-runtime
+                        (catch Throwable t
+                          (println "[FACE] trail/relation runtime unavailable:"
+                                   (.getMessage t))
+                          nil))
+             ;; G26 fix (server-artery MED): the delay body must be TOTAL — a
              ;; Delay caches a thrown exception and re-throws on every deref,
              ;; and face-ctx/resolve-request deref OUTSIDE serve's try (and
              ;; e/defn has no try, L13). A boot failure must yield a poisoned-
@@ -277,6 +298,25 @@
                            nil)))
              faces-root "resources/public/faces"
              watcher-rt (when arsenal (merge (:oc-rt rt) arsenal))]
+         ;; machine-cut WAL boot replay (CONTRACT §5.5, gate G11 shape): re-assert
+         ;; the durable annotation log into the fresh ephemeral cluster — ZERO
+         ;; LLM calls (replay-wal! takes no adapter). In a FUTURE (the arsenal
+         ;; replay precedent): first light never stalls on it. MC-T6: replayed
+         ;; edges are an ingest — bump the epoch so INV-19 re-pulls re-serve
+         ;; pair structure once the edges land.
+         (when rk-rt
+           (future
+             (try
+               (let [{:keys [asserted retracted lines failed]}
+                     (machine-cut/replay-wal! {:rk-rt rk-rt})]
+                 (println "[FACE] machine-cut WAL replay:" lines "lines,"
+                          asserted "asserted," retracted "retracted,"
+                          failed "failed")
+                 (when (pos? (+ (long asserted) (long retracted)))
+                   (swap! util-fns/!ingest-epoch-atom inc)))
+               (catch Throwable t
+                 (println "[FACE] machine-cut WAL replay failed:"
+                          (.getMessage t))))))
          (when watcher-rt
            (future
              (try
@@ -339,16 +379,31 @@
            (reset! !first-light-failed true))
          {:oc-rt (:oc-rt rt)
           :arsenal-rt arsenal
+          :rk-rt rk-rt
           :!default-address !default-address
           :!first-light-failed !first-light-failed}))))
 
 #?(:clj
-   (defn face-ctx
-     "The server ctx `serve` reads: {:oc-rt <rt> :arsenal-rt <rt|nil>}. Plain
-      map, no face names. A nil :arsenal-rt degrades honestly (the :assembly /
-      :face-list projections name the lack in their data-contexts, G20/G21)."
+   (defn machine-cut-ctx
+     "The LAWFUL live-annotation ctx (machine-cut CONTRACT §5.7; FALSIFY_C
+      MC-C2): the v0 REPL/CLI trigger MUST use THIS — the same rk cluster the
+      projection reads and the same oc runtime the faces wear. Minting a fresh
+      rk cluster for a live annotate would land edges in a store nothing
+      serves (silent edge-store split). llm-rt is the caller's (annotation
+      runs need one only when actually annotating)."
      []
-     (select-keys @face-projection-runtime [:oc-rt :arsenal-rt])))
+     (let [{:keys [oc-rt rk-rt]} @face-projection-runtime]
+       {:oc-rt oc-rt :rk-rt rk-rt})))
+
+#?(:clj
+   (defn face-ctx
+     "The server ctx `serve` reads: {:oc-rt <rt> :arsenal-rt <rt|nil>
+      :rk-rt <rt|nil>}. Plain map, no face names. A nil :arsenal-rt degrades
+      honestly (the :assembly / :face-list projections name the lack in their
+      data-contexts, G20/G21); a nil :rk-rt serves pair structure as the honest
+      :structure :none (machine-cut CONTRACT §6, G12)."
+     []
+     (select-keys @face-projection-runtime [:oc-rt :arsenal-rt :rk-rt])))
 
 #?(:clj
    (defn resolve-request
