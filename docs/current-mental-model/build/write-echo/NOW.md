@@ -149,6 +149,135 @@ flagged for the Fable/Sid decision.)
 - **Reproduce:** `clojure -J-Xss16m -M -m app.probe.write-echo-probe`
   (probe file untracked; ~3.5 min; prints the tables above + writes summary EDN).
 
+═══════════════════════════════════════════════════════════════════════════════
+
+# write-echo-2 — STREAM result (2026-07-12)
+
+Continuation (board thread 10; D-013 ruling-2). SAME pre-registered criterion,
+SAME method + isolation, DIFFERENT topology CLASS. Model Opus 4.8, one session.
+Probe UNCOMMITTED: `src/app/probe/stream_echo_probe.clj` (self-contained minimal
+stream module + the write-echo harness method verbatim; `write_echo_probe.clj`
+left untouched so its repro still stands).
+
+## RESULT — **STANDS**, decisively (~6.5× under budget; zero stalls)
+
+Direct write→read-back against a MINIMAL **stream** topology (head/revision +
+status writes, per-key serialized on `hash-by :routing/key = [:artifact id]` —
+the text-kernel's exact scheme), on the SAME in-process IPC substrate:
+
+| scenario (60 s) | echo p50 | echo **p95** | echo p99 | echo max | stalls >100ms | verdict |
+|---|---|---|---|---|---|---|
+| content 12/s (fast typist)  | 5.50 | **7.66**  | 10.09 | 13.20 | **0 / 720** | STANDS |
+| content 3/s (relaxed)       | 5.14 | **14.36** | 15.01 | 18.63 | **0 / 180** | STANDS |
+| status 12/s (smallest write)| 3.74 | **5.84**  | 8.78  | 10.92 | **0 / 720** | STANDS |
+
+*echo = leg1 + leg2 (client emit → PState materialized), ms.* p95 ≤ 50 AND
+stalls ≤ 1/min BOTH hold in every scenario, with margin. **0 / 1620** events
+stalled; 0 unmaterialized. Cold first-keystroke echo 4.1–7.1 ms. Poll resolution
+~0.07 ms/read (~810–865 k reads/run) — far finer than the 50 ms budget.
+
+## The leg that moved — microbatch vs stream, SAME method
+
+| leg (content 12/s, p50) | microbatch (write-echo) | stream (write-echo-2) |
+|---|---|---|
+| leg1 emit → append-ack (durable)   | 5.8 ms  | 2.3 ms |
+| **leg2 append-ack → materialized** | **211 ms** | **3.1 ms** |
+
+**leg2 fell ~70× (211 → 3.1 ms).** leg1 (durable append) was always cheap in
+both. The entire write-echo failure lived in leg2, and leg2 is exactly what the
+topology CLASS governs: microbatch materializes on a batch clock (~210 ms
+cadence, payload/load-independent); stream participates in depot ack and makes
+writes visible per event (auto-batches to size ~1 at ≤12/s — stream ref L138).
+The ~210 ms was the cadence, proven by its disappearance under an unchanged
+measurement method.
+
+**The microbatch tail-inversion is gone.** write-echo's tail got WORSE at lower
+load (3/s max 1007 ms — sparse events each waited a fuller batch). Here the 3/s
+tail is only mildly higher (max 18.6 ms) and lives in **leg1** (emit/durability
+jitter, p95 11.3 ms), not leg2 (materialized p95 3.2 ms). No cadence to wait on.
+
+## Cross-check — the real write-then-read-back call agrees
+
+Closed-loop `:ack` round-trip (n = 300): `foreign-append! … :ack` blocks until
+the stream event tree completes AND the write is visible, then read-back — ONE
+call, the actual editor pattern. **p50 3.45 / p95 3.90 / p99 5.71 / max 19.62 ms.**
+This independently reproduces the polled leg1+leg2 (~single-digit ms) → the
+poller is not manufacturing an optimistic number; the leg decomposition is trusted.
+
+## Leg 3 (stream-back) — characterized, not measured — E2E now depends on it
+
+Leg 3 = server mirror atom bumped AFTER materialization → `e/watch` → client atom
+(the S40 pattern; `foreign-proxy-async` still broken in 1.6.0 IPC, so no PState
+subscription). Prior art (2026-03 localhost Electric transport): **2–4 ms** for
+the direct truth-atom shape; the faces epoch+debounce+re-pull shape is strictly
+larger. Additive and sequential (fires after materialization). Composed full-E2E
+p95 ≈ 7.66 + ~3 ≈ **~11 ms** — and the pass is robust to a GENEROUS leg-3: E2E
+stays ≤ 50 ms for any leg-3 up to ~40 ms. **COMPOSED, NOT END-TO-END** (leg-3 not
+browser-measured — the same honest label as write-echo). Unlike write-echo (legs
+1+2 failed, so leg-3 was moot), here leg-3 is load-bearing for the E2E claim; the
+margin absorbs it, but a browser E2E is the clean confirmation.
+
+## Contract input to NAME (not built here) — the price of leaving microbatch
+
+Stream is **at-least-once** with per-event (per-task, between-partitioner)
+atomicity ONLY. Microbatch's **cross-PState exactly-once** — the stated reason
+the text-kernel is microbatch (`text_kernel.clj:417`) — is LOST. The eventual
+**block-write** design therefore owes idempotency at the application layer: a
+deterministic **op-id derived from the request-id**, so a retried stream event
+**overwrites the same keys (idempotent by value)** instead of duplicating — the
+face-arsenal wear-id-journal (G20) and relation-kernel idempotency-key
+precedents. NB: THIS probe's topology is deliberately NOT retry-hardened (clean
+IPC, no retries in the measured run) — retry-idempotence is the named block-write
+obligation, not a probe deliverable.
+
+## Method (deltas from write-echo; the rest carries over verbatim)
+
+- **Module:** own request depot `(hash-by :routing/key)` → ONE `stream-topology`
+  → PStates `$$echo-heads` (head pointer), `$$echo-revisions` (the full ~185-char
+  block — a realistic-sized write, mirrors `$$text-revisions`), `$$echo-statuses`
+  (status row, mirrors `$$unit-statuses`). Content path writes revision+head in
+  ONE event (zero partitioner hops → same task → atomic; timing the head times
+  the revision). Launch opts `{:tasks 4 :threads 2}` (identical to write-echo).
+- **Legs / loads / isolation:** unchanged — `:append-ack` leg1 + tight-poll leg2;
+  open-loop 12/s & 3/s for 60 s (emit regardless of materialization); per-scenario
+  fresh artifact + tag-scoped ids (the stale-head fake-instant trap; re-verified
+  in smoke — a fresh artifact reads index −1). Achieved rate 12.00 / 3.00 exact.
+- **Added:** the `:ack` closed-loop cross-check (n = 300).
+- **Repro:** `clojure -J-Xss16m -M -m app.probe.stream-echo-probe` (~3.5 min;
+  prints the tables + writes summary EDN). Probe UNCOMMITTED.
+
+## Deviations from the pre-registered method (honest disclosure)
+
+1. **Minimal topology omits line-unit re-derivation** (the content path's bulk
+   per-event work). Bounded single-digit ms two ways: (a) write-echo's
+   payload-independence (microbatch content-leg2 211 ≈ status 218 ms); (b)
+   RE-CONFIRMED here — stream content-leg2 (3.1 ms, incl. the revision write) vs
+   status-leg2 (1.7 ms) differ by only ~1.4 ms. Per-event application work is
+   single-digit ms; it cannot threaten the ~6.5× margin.
+2. **Status path skips unit-existence validation** (the kernel reads
+   `$$units-by-artifact` first) — one colocated seek (~0.5 ms), within noise.
+3. **COMPOSED, not END-TO-END** — leg 3 characterized, not browser-measured (see
+   above). Here the margin makes the composition robust.
+4. **Substrate = in-process IPC** (today's real substrate). This caveat cuts the
+   OPPOSITE way from write-echo's: there, IPC-vs-cluster could only ADD latency
+   to an already-failing microbatch (moot); HERE a production cluster adds
+   replication network to leg1 (and some to leg2's external visibility) that a
+   passing stream must SURVIVE. Stream stays few-ms by design and the margin is
+   large, but the decisive pass is on IPC — a clustered re-measure is the clean
+   confirmation, flagged not hidden.
+
+## Hand-off
+
+- **The verdict is NOT this session's to rule.** These numbers fill D-013
+  ruling-2's evidence slot → a Fable session drafts the `decisions.md` update →
+  Sid countersigns. Sid's fingers on the real editor stay final both directions.
+- **What the evidence says:** direct write→read-back against a STREAM topology
+  PASSES the pre-registered criterion decisively (legs 1+2, the Rama half — the
+  dominant unknown D-013 named) on today's substrate. This clears the path D-013
+  ruling-4 gated (the block-write contract). NOT ruled here: the transport
+  commitment, the named op-id idempotency obligation, and the clustered-substrate
+  confirmation — Fable's draft + Sid's countersign.
+
 ## NOW (≤15 lines per entry; newest last)
 
 - 2026-07-11 · write-echo (Opus, this session) · **SPIKE DONE — direct-write
@@ -163,3 +292,18 @@ flagged for the Fable/Sid decision.)
   write-then-read-back — the editor's two needs. Substrate = in-process IPC
   (what Softland runs today). Probe UNCOMMITTED. Verdict routing: Fable drafts
   decisions.md PROPOSED → Sid countersigns; not ruled here.
+- 2026-07-12 · write-echo-2 (Opus, this session) · **STREAM PASSES the
+  pre-registered criterion, decisively.** Content 12/s echo p95 **7.66 ms**
+  (budget ≤50), 0/720 stalls; 3/s p95 14.36 ms; status 12/s p95 5.84 ms;
+  0/1620 stalled, 0 unmaterialized. **leg2 (materialization) 211 → 3.1 ms vs
+  microbatch — SAME method, only the topology class changed** → the ~210 ms was
+  the microbatch cadence, now gone (tail-inversion gone too: 3/s tail lives in
+  leg1, not leg2). `:ack` round-trip cross-check p95 3.90 ms validates the
+  decomposition. leg3 (Electric stream-back) characterized 2–4 ms (localhost
+  prior art), additive → composed E2E p95 ~11 ms, robust to leg-3 ≤ ~40 ms;
+  COMPOSED not browser-measured. Named contract input (not built): stream drops
+  microbatch's cross-PState exactly-once → block-write owes op-id idempotency
+  (overwrite-by-value on retry). Substrate = IPC (clustered re-measure the one
+  caveat that could erode margin — flagged). Probe UNCOMMITTED
+  (`stream_echo_probe.clj`). Verdict routing: Fable drafts decisions.md → Sid
+  countersigns; not ruled here.
