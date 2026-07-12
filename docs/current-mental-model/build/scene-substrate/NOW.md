@@ -28,6 +28,22 @@
 
 ## NOW (append per session, ≤15 lines each)
 
+**2026-07-12 · Fable (same session, close) · wave 1 FALSIFIED — PASS + fixes in**
+- ONE finder (per machine-cut retro rule; Opus, ~188k tok): VERDICT PASS,
+  0 HIGH/MED, 5 LOW. Record: `FALSIFY.md`. Risk center (stride math ×4
+  pipelines + pool packers) traced EXACTLY consistent; G5 back-compat
+  byte-identical at zoom 1.0.
+- Fixed same session w/ regressions: #1 nested-same-address write order
+  (deepest-first) · #2 probe step! try/catch self-deactivates · #4
+  store-fns-free? walks metadata. #3 = CONTRACT G4 read-plan amended in
+  place. #5 (unregistered :container silent) carried to P3 as a gate.
+- Suite 17t/59a green (was 15t/54a); compile green at final state (one
+  intermediate paren failure between two edits, self-resolved).
+- Wave subagent cost, honest ledger: P1 ~134k + finder ~188k ≈ **322k**
+  vs the ~150–200k stated up front — overrun flagged to Sid.
+- Waits on Sid: ctProbe wearing (G4/G6, one-liner/URL on the board).
+  Next machine move: P3 (face path → store; fresh context under §11).
+
 **2026-07-12 · Fable (same session, later) · P1 LANDED + P2 code complete**
 - P1 (Opus subagent, ~134k tok): `scene_store.cljc` (217 ln) +
   `containers.cljc` (119 ln) + suite — 15t/54a green; re-run independently

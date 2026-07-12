@@ -209,10 +209,14 @@ Box3D answer).
   replace, but an UNCHANGED store never reallocates ops. JVM test.
 - **G4 (P2)** Live probe: ≥16 containers, ≥10k glyphs total; drag+zoom ONE
   container at 60fps for 60s — `[RAF]` p95 ≤ 8ms; op arrays `identical?`
-  across the gesture (zero CPU re-layout — counter assertion); untouched
-  containers' buffers get zero writes (writer counters). Read plan for the
-  promise: gesture → container transform write (16 B) → redraw; store and
-  text geos untouched.
+  across the gesture (zero CPU re-layout — counter assertion); instance
+  buffers (text/rect/shadow) get zero writes after the one start-time pack
+  (pack counters). Read plan for the promise: gesture → one
+  containers-buffer range write (≤ max-cid × 16 B, 256 B at 16 containers)
+  → redraw; store, text geos, and instance buffers untouched. (Amended
+  2026-07-12 at the wave falsification, finding #3: the naive "16 B"
+  claim described a per-cid write the code doesn't do; the load-bearing
+  claim — instance buffers never re-upload — is what the gate asserts.)
 - **G5 (P2)** Back-compat: the existing app (editor + sidebar + chrome +
   a worn face) renders pixel-identical with container 0 (screenshot
   compare via the framework evidence harness; op-count parity asserted

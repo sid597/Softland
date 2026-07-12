@@ -97,11 +97,15 @@ Softland or still on paper? (`BETS.md` verdict log.)
 
 ## MACHINE MOVES — running or ready, no Sid needed
 
-- **scene-substrate — CONTRACT v1 IN FORCE + P1/P2 RUNNING (2026-07-12).**
-  The base layer under the five unlocks (FOREST item 0). P1 store+containers
-  (subagent, JVM gates G1–G3) ∥ P2 GPU transform leg (Fable, gates G4–G6).
-  Then ONE falsification finder over the wave → P3 (plurality: two faces).
-  Thread: `build/scene-substrate/NOW.md`.
+- **scene-substrate — WAVE 1 (P1+P2) BUILT + FALSIFIED PASS (2026-07-12).**
+  The base layer under the five unlocks (FOREST item 0). Store+containers
+  landed (17t/59a green); all four GPU pipelines carry per-container
+  transforms + the woken zoom; compile green in the live dev watch. Finder:
+  0 HIGH/MED, 5 LOW → 3 fixed w/ regressions, 1 contract amendment, 1
+  carried to P3 (`build/scene-substrate/FALSIFY.md`). Left on Sid: the
+  ctProbe wearing (his list, item 1). Next machine move: **P3 — the face
+  path enters the store; TWO simultaneous reader faces** (fresh context,
+  CONTRACT §6/§11). Thread: `build/scene-substrate/NOW.md`.
 - **machine-cut CLOSE session — NEXT** (HEAD suite · G14 record · retro;
   adversarial recheck = Sid's call on cost). ⚠ `boxes-paired-face.golden.edn`
   was REGENERATED 2026-07-12 (`c788188`, face `:assembly/src-path` provenance
