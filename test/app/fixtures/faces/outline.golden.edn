@@ -21,7 +21,7 @@
        :x 0,
        :a 1.0,
        :text "sid"}],
-     :data nil}
+     :data #:assembly{:src-path [:root :children 0 :template]}}
     {:children
      [{:children [],
        :clip? false,
@@ -41,7 +41,9 @@
          :x 0,
          :a 1.0,
          :text "text"}],
-       :data nil}
+       :data
+       #:assembly{:src-path
+                  [:root :children 0 :template :children 0 :template]}}
       {:children [],
        :clip? false,
        :layout nil,
@@ -71,7 +73,17 @@
          :a 1.0,
          :text
          "primitive registry, so the AI writes arrangement-data through the lawful path?"}],
-       :data nil}],
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :template
+                   :children
+                   0
+                   :template
+                   :children
+                   0]}}],
      :clip? false,
      :layout {:direction :column, :gap 6, :padding 10},
      :type :card,
@@ -84,7 +96,9 @@
       :border-color [0.25 0.27 0.32 1.0]},
      :id [:outline-pane "outline-face" 0 "t-sid-1" 0 "b1"],
      :text [],
-     :data nil}
+     :data
+     #:assembly{:src-path
+                [:root :children 0 :template :children 0 :template]}}
     {:children
      [{:children [],
        :clip? false,
@@ -104,7 +118,9 @@
          :x 0,
          :a 1.0,
          :text "text"}],
-       :data nil}
+       :data
+       #:assembly{:src-path
+                  [:root :children 0 :template :children 0 :template]}}
       {:children [],
        :clip? false,
        :layout nil,
@@ -133,7 +149,17 @@
          :x 4,
          :a 1.0,
          :text "lane)."}],
-       :data nil}],
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :template
+                   :children
+                   0
+                   :template
+                   :children
+                   0]}}],
      :clip? false,
      :layout {:direction :column, :gap 6, :padding 10},
      :type :card,
@@ -146,7 +172,9 @@
       :border-color [0.25 0.27 0.32 1.0]},
      :id [:outline-pane "outline-face" 0 "t-sid-1" 0 "b2"],
      :text [],
-     :data nil}],
+     :data
+     #:assembly{:src-path
+                [:root :children 0 :template :children 0 :template]}}],
    :clip? false,
    :layout {:direction :column, :gap 8, :padding 12},
    :type :card,
@@ -159,7 +187,7 @@
     :border-color [0.25 0.27 0.32 1.0]},
    :id [:outline-pane "outline-face" 0 "t-sid-1"],
    :text [],
-   :data nil}
+   :data #:assembly{:src-path [:root :children 0 :template]}}
   {:children
    [{:children [],
      :clip? false,
@@ -179,7 +207,7 @@
        :x 0,
        :a 1.0,
        :text "claude"}],
-     :data nil}
+     :data #:assembly{:src-path [:root :children 0 :template]}}
     {:children
      [{:children [],
        :clip? false,
@@ -199,7 +227,9 @@
          :x 0,
          :a 1.0,
          :text "heading"}],
-       :data nil}
+       :data
+       #:assembly{:src-path
+                  [:root :children 0 :template :children 0 :template]}}
       {:children [],
        :clip? false,
        :layout nil,
@@ -218,7 +248,17 @@
          :x 4,
          :a 1.0,
          :text "The seam law"}],
-       :data nil}],
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :template
+                   :children
+                   0
+                   :template
+                   :children
+                   0]}}],
      :clip? false,
      :layout {:direction :column, :gap 6, :padding 10},
      :type :card,
@@ -231,7 +271,9 @@
       :border-color [0.25 0.27 0.32 1.0]},
      :id [:outline-pane "outline-face" 0 "t-claude-1" 0 "b3"],
      :text [],
-     :data nil}
+     :data
+     #:assembly{:src-path
+                [:root :children 0 :template :children 0 :template]}}
     {:children
      [{:children [],
        :clip? false,
@@ -251,7 +293,9 @@
          :x 0,
          :a 1.0,
          :text "text"}],
-       :data nil}
+       :data
+       #:assembly{:src-path
+                  [:root :children 0 :template :children 0 :template]}}
       {:children [],
        :clip? false,
        :layout nil,
@@ -290,7 +334,17 @@
          :x 4,
          :a 1.0,
          :text "program."}],
-       :data nil}],
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :template
+                   :children
+                   0
+                   :template
+                   :children
+                   0]}}],
      :clip? false,
      :layout {:direction :column, :gap 6, :padding 10},
      :type :card,
@@ -303,7 +357,9 @@
       :border-color [0.25 0.27 0.32 1.0]},
      :id [:outline-pane "outline-face" 0 "t-claude-1" 0 "b4"],
      :text [],
-     :data nil}
+     :data
+     #:assembly{:src-path
+                [:root :children 0 :template :children 0 :template]}}
     {:children
      [{:children [],
        :clip? false,
@@ -323,7 +379,9 @@
          :x 0,
          :a 1.0,
          :text "code"}],
-       :data nil}
+       :data
+       #:assembly{:src-path
+                  [:root :children 0 :template :children 0 :template]}}
       {:children [],
        :clip? false,
        :layout nil,
@@ -343,7 +401,17 @@
          :a 1.0,
          :text
          "{:prim :stack :children [{:each [:turns] :template {:prim :turn-card}}]}"}],
-       :data nil}],
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :template
+                   :children
+                   0
+                   :template
+                   :children
+                   0]}}],
      :clip? false,
      :layout {:direction :column, :gap 6, :padding 10},
      :type :card,
@@ -356,7 +424,9 @@
       :border-color [0.25 0.27 0.32 1.0]},
      :id [:outline-pane "outline-face" 0 "t-claude-1" 0 "b5"],
      :text [],
-     :data nil}],
+     :data
+     #:assembly{:src-path
+                [:root :children 0 :template :children 0 :template]}}],
    :clip? false,
    :layout {:direction :column, :gap 8, :padding 12},
    :type :card,
@@ -369,7 +439,7 @@
     :border-color [0.25 0.27 0.32 1.0]},
    :id [:outline-pane "outline-face" 0 "t-claude-1"],
    :text [],
-   :data nil}
+   :data #:assembly{:src-path [:root :children 0 :template]}}
   {:children
    [{:children [],
      :clip? false,
@@ -389,7 +459,7 @@
        :x 0,
        :a 1.0,
        :text "sid"}],
-     :data nil}
+     :data #:assembly{:src-path [:root :children 0 :template]}}
     {:children
      [{:children [],
        :clip? false,
@@ -409,7 +479,9 @@
          :x 0,
          :a 1.0,
          :text "text"}],
-       :data nil}
+       :data
+       #:assembly{:src-path
+                  [:root :children 0 :template :children 0 :template]}}
       {:children [],
        :clip? false,
        :layout nil,
@@ -429,7 +501,17 @@
          :a 1.0,
          :text
          "Evidence before architecture: build the thin slice, measure, report."}],
-       :data nil}],
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :template
+                   :children
+                   0
+                   :template
+                   :children
+                   0]}}],
      :clip? false,
      :layout {:direction :column, :gap 6, :padding 10},
      :type :card,
@@ -442,7 +524,9 @@
       :border-color [0.25 0.27 0.32 1.0]},
      :id [:outline-pane "outline-face" 0 "t-sid-2" 0 "b6"],
      :text [],
-     :data nil}],
+     :data
+     #:assembly{:src-path
+                [:root :children 0 :template :children 0 :template]}}],
    :clip? false,
    :layout {:direction :column, :gap 8, :padding 12},
    :type :card,
@@ -455,7 +539,7 @@
     :border-color [0.25 0.27 0.32 1.0]},
    :id [:outline-pane "outline-face" 0 "t-sid-2"],
    :text [],
-   :data nil}],
+   :data #:assembly{:src-path [:root :children 0 :template]}}],
  :clip? false,
  :layout {:direction :column, :gap 12},
  :type :stack,
@@ -465,7 +549,8 @@
  :id [:outline-pane "outline-face"],
  :text [],
  :data
- {:view-instance :outline-pane,
+ {:assembly/src-path [:root],
+  :view-instance :outline-pane,
   :address "conv:7c80ce2a",
   :assembly/content-h 764,
   :assembly/apply-report {:items-without-id 0, :binds-missing 0}}}

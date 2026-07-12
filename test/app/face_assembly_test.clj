@@ -359,3 +359,46 @@
       (is (fa/error? c))
       (is (some #(str/includes? % "bind ref") (error-msgs c)))
       (is (= :error-card (:type (fa/apply-assembly c {} view-ctx)))))))
+
+;; ===========================================================================
+;; G7 — :assembly/src-path provenance (designer edit-mode: every rendered node
+;; names the template node it came from). Provenance is DISTINCT from identity:
+;; the id travels with the DATA item (T6), the src-path with the TEMPLATE node.
+;; ===========================================================================
+
+(deftest g7-src-path-provenance
+  (testing "provenance is TOTAL — every built node carries a template src-path"
+    (let [tree (build-outline)]
+      (is (every? #(vector? (get-in % [:data :assembly/src-path])) (walk-nodes tree))
+          "every node — including builder-internal card headers — carries a path")
+      (is (= [:root] (get-in tree [:data :assembly/src-path]))
+          "the root stack's path is [:root]")
+      ;; the stamp is additive — the root's Δ1 keys survive alongside it (§5)
+      (is (= :outline-pane (get-in tree [:data :view-instance])))
+      (is (map? (get-in tree [:data :assembly/apply-report])))))
+  (testing ":each siblings SHARE one template path while their instance ids DIFFER"
+    (let [tree  (build-outline)
+          turns (:children tree)]              ; the :each [:turns] expansion — 3 turn cards
+      (is (= 3 (count turns)))
+      (is (= [[:root :children 0 :template]]
+             (distinct (map #(get-in % [:data :assembly/src-path]) turns)))
+          "all three turn cards carry the SAME :each template path (provenance)")
+      (is (= 3 (count (distinct (map :id turns))))
+          "but their ids are distinct — identity travels with items (T6)")))
+  (testing "a builder-internal node inherits its nearest plan ancestor's path"
+    (let [tree   (build-outline)
+          header (find-node tree #(= :card-header (:type %)))]
+      (is (some? header) "the outline has card-header nodes (card-stub decoration)")
+      (is (vector? (get-in header [:data :assembly/src-path]))
+          "the card header carries the card's template path, never nil")))
+  (testing "an error card carries the FAILING node's template path"
+    (let [asm  {:assembly/name "e" :assembly/grammar 0
+                :root {:prim :stack :props {}
+                       :children [{:each [:items]
+                                   :template {:prim :text-run :props {:value {:bind [:label]}}}}]}}
+          tree (fa/apply-assembly (fa/compile-assembly stub-registry asm)
+                                  {:items 42} view-ctx)          ; :each over a non-sequence
+          card (find-node tree #(= :error-card (:type %)))]
+      (is (some? card) "a non-sequential :each renders an error card (trap T4)")
+      (is (= [:root :children 0] (get-in card [:data :assembly/src-path]))
+          "the card names the :each node whose data path failed"))))

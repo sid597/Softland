@@ -48,7 +48,8 @@
        :a 1.0,
        :text "1 blocks",
        :to 8}],
-     :data nil}
+     :data
+     #:assembly{:src-path [:root :children 0 :template :children 0]}}
     {:children
      [{:children
        [{:children
@@ -61,7 +62,20 @@
            :style {:bg [0.373 0.69 0.918 1.0], :radius 9999},
            :id [:boxes-pane "boxes-face" 0 "t-sid-1" 1 0 "b1" 0 :dot],
            :text [],
-           :data {:layout-skip? true}}],
+           :data
+           {:layout-skip? true,
+            :assembly/src-path
+            [:root
+             :children
+             0
+             :template
+             :children
+             1
+             :children
+             0
+             :template
+             :children
+             0]}}],
          :clip? false,
          :layout nil,
          :type :header-band,
@@ -94,7 +108,19 @@
            :a 1.0,
            :text "28w",
            :to 3}],
-         :data nil}
+         :data
+         #:assembly{:src-path
+                    [:root
+                     :children
+                     0
+                     :template
+                     :children
+                     1
+                     :children
+                     0
+                     :template
+                     :children
+                     0]}}
         {:children [],
          :clip? false,
          :layout nil,
@@ -129,7 +155,21 @@
            "over a primitive registry, so the AI writes arrangement-data through the lawful path?",
            :to 85}],
          :data
-         #:text{:clipped? false, :lines-total 2, :lines-shown 2}}],
+         {:text/clipped? false,
+          :text/lines-total 2,
+          :text/lines-shown 2,
+          :assembly/src-path
+          [:root
+           :children
+           0
+           :template
+           :children
+           1
+           :children
+           0
+           :template
+           :children
+           1]}}],
        :clip? false,
        :layout
        {:direction :column, :gap 0, :padding [1 1 1 1], :align :start},
@@ -143,7 +183,17 @@
         :border-color [0.149 0.188 0.235 1.0]},
        :id [:boxes-pane "boxes-face" 0 "t-sid-1" 1 0 "b1"],
        :text [],
-       :data nil}],
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :template
+                   :children
+                   1
+                   :children
+                   0
+                   :template]}}],
      :clip? false,
      :layout
      {:direction :column,
@@ -156,7 +206,8 @@
      :style {},
      :id [:boxes-pane "boxes-face" 0 "t-sid-1" 1],
      :text [],
-     :data nil}],
+     :data
+     #:assembly{:src-path [:root :children 0 :template :children 1]}}],
    :clip? false,
    :layout
    {:direction :column, :gap 0, :padding [1 1 1 1], :align :start},
@@ -170,7 +221,7 @@
     :border-color [0.173 0.224 0.278 1.0]},
    :id [:boxes-pane "boxes-face" 0 "t-sid-1"],
    :text [],
-   :data nil}
+   :data #:assembly{:src-path [:root :children 0 :template]}}
   {:children
    [{:children [],
      :clip? false,
@@ -217,7 +268,8 @@
        :a 1.0,
        :text "3 blocks",
        :to 8}],
-     :data nil}
+     :data
+     #:assembly{:src-path [:root :children 0 :template :children 0]}}
     {:children
      [{:children
        [{:children
@@ -231,7 +283,20 @@
            :id
            [:boxes-pane "boxes-face" 0 "t-claude-1" 1 0 "b2" 0 :dot],
            :text [],
-           :data {:layout-skip? true}}],
+           :data
+           {:layout-skip? true,
+            :assembly/src-path
+            [:root
+             :children
+             0
+             :template
+             :children
+             1
+             :children
+             0
+             :template
+             :children
+             0]}}],
          :clip? false,
          :layout nil,
          :type :header-band,
@@ -264,7 +329,19 @@
            :a 1.0,
            :text "3w",
            :to 2}],
-         :data nil}
+         :data
+         #:assembly{:src-path
+                    [:root
+                     :children
+                     0
+                     :template
+                     :children
+                     1
+                     :children
+                     0
+                     :template
+                     :children
+                     0]}}
         {:children [],
          :clip? false,
          :layout nil,
@@ -286,7 +363,21 @@
            :text "The seam law",
            :to 12}],
          :data
-         #:text{:clipped? false, :lines-total 1, :lines-shown 1}}],
+         {:text/clipped? false,
+          :text/lines-total 1,
+          :text/lines-shown 1,
+          :assembly/src-path
+          [:root
+           :children
+           0
+           :template
+           :children
+           1
+           :children
+           0
+           :template
+           :children
+           1]}}],
        :clip? false,
        :layout
        {:direction :column, :gap 0, :padding [1 1 1 1], :align :start},
@@ -300,7 +391,17 @@
         :border-color [0.149 0.188 0.235 1.0]},
        :id [:boxes-pane "boxes-face" 0 "t-claude-1" 1 0 "b2"],
        :text [],
-       :data nil}
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :template
+                   :children
+                   1
+                   :children
+                   0
+                   :template]}}
       {:children
        [{:children
          [{:children [],
@@ -313,7 +414,20 @@
            :id
            [:boxes-pane "boxes-face" 0 "t-claude-1" 1 0 "b3" 0 :dot],
            :text [],
-           :data {:layout-skip? true}}],
+           :data
+           {:layout-skip? true,
+            :assembly/src-path
+            [:root
+             :children
+             0
+             :template
+             :children
+             1
+             :children
+             0
+             :template
+             :children
+             0]}}],
          :clip? false,
          :layout nil,
          :type :header-band,
@@ -346,7 +460,19 @@
            :a 1.0,
            :text "139w",
            :to 4}],
-         :data nil}
+         :data
+         #:assembly{:src-path
+                    [:root
+                     :children
+                     0
+                     :template
+                     :children
+                     1
+                     :children
+                     0
+                     :template
+                     :children
+                     0]}}
         {:children [],
          :clip? false,
          :layout nil,
@@ -440,7 +566,21 @@
            :text "▸ 4 more lines",
            :to 14}],
          :data
-         #:text{:clipped? true, :lines-total 10, :lines-shown 6}}],
+         {:text/clipped? true,
+          :text/lines-total 10,
+          :text/lines-shown 6,
+          :assembly/src-path
+          [:root
+           :children
+           0
+           :template
+           :children
+           1
+           :children
+           0
+           :template
+           :children
+           1]}}],
        :clip? false,
        :layout
        {:direction :column, :gap 0, :padding [1 1 1 1], :align :start},
@@ -454,7 +594,17 @@
         :border-color [0.149 0.188 0.235 1.0]},
        :id [:boxes-pane "boxes-face" 0 "t-claude-1" 1 0 "b3"],
        :text [],
-       :data nil}
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :template
+                   :children
+                   1
+                   :children
+                   0
+                   :template]}}
       {:children
        [{:children
          [{:children [],
@@ -467,7 +617,20 @@
            :id
            [:boxes-pane "boxes-face" 0 "t-claude-1" 1 0 "b4" 0 :dot],
            :text [],
-           :data {:layout-skip? true}}],
+           :data
+           {:layout-skip? true,
+            :assembly/src-path
+            [:root
+             :children
+             0
+             :template
+             :children
+             1
+             :children
+             0
+             :template
+             :children
+             0]}}],
          :clip? false,
          :layout nil,
          :type :header-band,
@@ -500,7 +663,19 @@
            :a 1.0,
            :text "38w",
            :to 3}],
-         :data nil}
+         :data
+         #:assembly{:src-path
+                    [:root
+                     :children
+                     0
+                     :template
+                     :children
+                     1
+                     :children
+                     0
+                     :template
+                     :children
+                     0]}}
         {:children [],
          :clip? false,
          :layout nil,
@@ -588,7 +763,21 @@
            :text "▸ 4 more lines",
            :to 14}],
          :data
-         #:text{:clipped? true, :lines-total 10, :lines-shown 6}}],
+         {:text/clipped? true,
+          :text/lines-total 10,
+          :text/lines-shown 6,
+          :assembly/src-path
+          [:root
+           :children
+           0
+           :template
+           :children
+           1
+           :children
+           0
+           :template
+           :children
+           1]}}],
        :clip? false,
        :layout
        {:direction :column, :gap 0, :padding [1 1 1 1], :align :start},
@@ -602,7 +791,17 @@
         :border-color [0.149 0.188 0.235 1.0]},
        :id [:boxes-pane "boxes-face" 0 "t-claude-1" 1 0 "b4"],
        :text [],
-       :data nil}],
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :template
+                   :children
+                   1
+                   :children
+                   0
+                   :template]}}],
      :clip? false,
      :layout
      {:direction :column,
@@ -615,7 +814,8 @@
      :style {},
      :id [:boxes-pane "boxes-face" 0 "t-claude-1" 1],
      :text [],
-     :data nil}],
+     :data
+     #:assembly{:src-path [:root :children 0 :template :children 1]}}],
    :clip? false,
    :layout
    {:direction :column, :gap 0, :padding [1 1 1 1], :align :start},
@@ -629,7 +829,7 @@
     :border-color [0.173 0.224 0.278 1.0]},
    :id [:boxes-pane "boxes-face" 0 "t-claude-1"],
    :text [],
-   :data nil}
+   :data #:assembly{:src-path [:root :children 0 :template]}}
   {:children
    [{:children [],
      :clip? false,
@@ -676,7 +876,8 @@
        :a 1.0,
        :text "1 blocks",
        :to 8}],
-     :data nil}
+     :data
+     #:assembly{:src-path [:root :children 0 :template :children 0]}}
     {:children
      [{:children
        [{:children
@@ -689,7 +890,20 @@
            :style {:bg [0.373 0.69 0.918 1.0], :radius 9999},
            :id [:boxes-pane "boxes-face" 0 "t-sid-2" 1 0 "b5" 0 :dot],
            :text [],
-           :data {:layout-skip? true}}],
+           :data
+           {:layout-skip? true,
+            :assembly/src-path
+            [:root
+             :children
+             0
+             :template
+             :children
+             1
+             :children
+             0
+             :template
+             :children
+             0]}}],
          :clip? false,
          :layout nil,
          :type :header-band,
@@ -722,7 +936,19 @@
            :a 1.0,
            :text "9w",
            :to 2}],
-         :data nil}
+         :data
+         #:assembly{:src-path
+                    [:root
+                     :children
+                     0
+                     :template
+                     :children
+                     1
+                     :children
+                     0
+                     :template
+                     :children
+                     0]}}
         {:children [],
          :clip? false,
          :layout nil,
@@ -745,7 +971,21 @@
            "Evidence before architecture: build the thin slice, measure, report.",
            :to 68}],
          :data
-         #:text{:clipped? false, :lines-total 1, :lines-shown 1}}],
+         {:text/clipped? false,
+          :text/lines-total 1,
+          :text/lines-shown 1,
+          :assembly/src-path
+          [:root
+           :children
+           0
+           :template
+           :children
+           1
+           :children
+           0
+           :template
+           :children
+           1]}}],
        :clip? false,
        :layout
        {:direction :column, :gap 0, :padding [1 1 1 1], :align :start},
@@ -759,7 +999,17 @@
         :border-color [0.149 0.188 0.235 1.0]},
        :id [:boxes-pane "boxes-face" 0 "t-sid-2" 1 0 "b5"],
        :text [],
-       :data nil}],
+       :data
+       #:assembly{:src-path
+                  [:root
+                   :children
+                   0
+                   :template
+                   :children
+                   1
+                   :children
+                   0
+                   :template]}}],
      :clip? false,
      :layout
      {:direction :column,
@@ -772,7 +1022,8 @@
      :style {},
      :id [:boxes-pane "boxes-face" 0 "t-sid-2" 1],
      :text [],
-     :data nil}],
+     :data
+     #:assembly{:src-path [:root :children 0 :template :children 1]}}],
    :clip? false,
    :layout
    {:direction :column, :gap 0, :padding [1 1 1 1], :align :start},
@@ -786,7 +1037,7 @@
     :border-color [0.173 0.224 0.278 1.0]},
    :id [:boxes-pane "boxes-face" 0 "t-sid-2"],
    :text [],
-   :data nil}
+   :data #:assembly{:src-path [:root :children 0 :template]}}
   {:children
    [{:children [],
      :clip? false,
@@ -808,7 +1059,7 @@
        :a 1.0,
        :text ":river-page-has-no-cursor",
        :to 25}],
-     :data nil}],
+     :data #:assembly{:src-path [:root :children 1 :children 0]}}],
    :clip? false,
    :layout
    {:direction :column, :gap 0, :padding [14 14 14 14], :align :start},
@@ -821,7 +1072,7 @@
     :border-color [0.173 0.224 0.278 1.0]},
    :id [:boxes-pane "boxes-face" 1],
    :text [],
-   :data nil}],
+   :data #:assembly{:src-path [:root :children 1]}}],
  :clip? false,
  :layout
  {:direction :column, :gap 16, :padding [14 18 50 18], :align :start},
@@ -832,7 +1083,8 @@
  :id [:boxes-pane "boxes-face"],
  :text [],
  :data
- {:view-instance :boxes-pane,
+ {:assembly/src-path [:root],
+  :view-instance :boxes-pane,
   :address "chat:10c22f9b",
   :assembly/content-h 869,
   :assembly/apply-report {:items-without-id 0, :binds-missing 0}}}
