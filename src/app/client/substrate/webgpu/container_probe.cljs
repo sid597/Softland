@@ -227,7 +227,12 @@
                 an (anatomy-stats (:anat st) (:p50 ds))]
             (js/console.log "[CT-PROBE]"
                             #js {:frames (:frames st)
-                                 :fps (js/Math.round (/ (:frames st) (max secs 0.001)))
+                                 ;; fps = recent (1000/p50); fpsCum is frames /
+                                 ;; wall-clock since start! — hidden-tab time
+                                 ;; pollutes it (rAF pauses, the clock doesn't)
+                                 :fps (when (:p50 ds)
+                                        (js/Math.round (/ 1000 (max (:p50 ds) 0.1))))
+                                 :fpsCum (js/Math.round (/ (:frames st) (max secs 0.001)))
                                  :frameMsP50 (:p50 ds)
                                  :frameMsP95 (:p95 ds)
                                  :frameMsMax (:max ds)
