@@ -23,7 +23,7 @@ serve that; one clock times it:
 - **READ (sense-line):** the trail view over Softland's own material — now at
   the **dual-read falsifier** (does the machine's read match Sid's?).
 - **WRITE (editor):** type straight into the land — stream transport PROVEN
-  (p95 7.66ms); **block-write contract is next**.
+  (p95 7.66ms); **block-write CONTRACT in force — lanes await dispatch**.
 - **SPACE (spatial/3D):** per-object control, islands, point-and-say — probes
   DONE, contracts staged behind Sid's wear + Box3D answer.
 - **CLOCK:** the bet check ~**2026-07-19** — is new thinking starting inside
@@ -35,19 +35,24 @@ serve that; one clock times it:
    (`build/editor-feel/NOW.md` verdict) · Boxes/Minimap (unlocks the
    container-transforms contract) · the new `boxes-paired-face` (closes
    machine-cut G14 — the WAL replays at any boot).
-2. **Dual-read of window W1** (your half of the falsifier, your pace) —
+2. **WRITE lane, two moves:** dispatch block-write lanes A ∥ B (contract in
+   force: `build/block-write/CONTRACT.md`) · paste
+   `docs/sessions/policy-design-opening-prompt-2026-07-12.md` into a fresh
+   session (component-policy design — runs parallel, no blocker).
+3. **Dual-read of window W1** (your half of the falsifier, your pace) —
    `build/sense-line-mvp/dual-read/PROTOCOL.md`.
-3. **Box3D reading answer** (engine / docs / both + first-form pick) —
+4. **Box3D reading answer** (engine / docs / both + first-form pick) —
    unlocks the islands contract.
-4. **One paste**: `build/sense-line-mvp/dual-read/DESIGN_BRIEF.md` into a
+5. **One paste**: `build/sense-line-mvp/dual-read/DESIGN_BRIEF.md` into a
    fresh design chat (reconciliation UI).
-5. **~07-19:** the H1 answer — where does new thinking start?
+6. **~07-19:** the H1 answer — where does new thinking start?
 
 ## MACHINE MOVES — running or ready, no Sid needed
 
 - **machine-cut CLOSE session — NEXT** (HEAD suite · G14 record · retro;
   adversarial recheck = Sid's call on cost).
-- **block-write CONTRACT** — next Fable window (transport ruling unblocked it).
+- **block-write lanes A ∥ B** — contract in force; await Sid's dispatch
+  (coordinate with machine-cut close on any face-file fixes).
 - **Fable's independent dual-read** — fresh session, PROTOCOL anti-anchoring.
 - **src/ code-size/verbosity audit** — ready, any session (queued by Sid).
 
@@ -88,10 +93,19 @@ round → benchmark room (question bank waits on kinds).
   bridges (panproto lenses).
 
 ### WRITE — editor
-- **block-write CONTRACT — NEXT UP (Fable).** First WRITE face: editing blocks
-  in the reader face (editor-loop ROAD §6). Bounds already settled: direct
-  write over STREAM, deterministic op-id + replay gate, browser E2E measured
-  at the acceptance gate, Sid's fingers final.
+- **block-write — CONTRACT v1 IN FORCE (Fable, 2026-07-12); lanes await
+  dispatch.** Read-pass discovery re-scoped the package: the write organ
+  EXISTS — object-container stream `:object/edit` (validation,
+  graduation/revision lineage, stale-seq protection, object-key-scoped
+  idempotency journal), and `read-unit` already overlays edits into
+  river-page. Package = connect fingers to it: reader-face edit affordance +
+  request outbox, `document-container-id` resolution pin, epoch-bump echo
+  (pre-named single-unit narrowing), browser E2E vs the unchanged criterion,
+  wearing. `build/block-write/CONTRACT.md` (traps BW-T1-T10, gates G1-G9,
+  claims file:line-verified) · thread file `build/block-write/NOW.md`.
+  **Policy vocabulary/visibility = its own PARALLEL design session** (Sid's
+  two-layer distinction preserved): opening prompt at
+  `docs/sessions/policy-design-opening-prompt-2026-07-12.md`.
 - **editor-feel — CODE DONE + verified, awaiting Sid's wear (07-11).** All 5
   hot-path causes removed/gated: Phase-4B mirror OFF by default
   (`editor-rama-mirror?`, gated in save-editor-doc! → covers mouse.cljs too),
@@ -140,6 +154,7 @@ round → benchmark room (question bank waits on kinds).
 ## Active package blocks
 
 **machine-cut** — STANDING + NOW at `build/machine-cut/NOW.md`.
+**block-write** — STANDING + NOW at `build/block-write/NOW.md`.
 Charter: STANDING (frozen at open) + NOW (≤15-line entries) live in
 `build/<package>/NOW.md`; one line under LANES; prune at close (/work-package
 skill governs the mechanics). Precedence unchanged: thread files and this

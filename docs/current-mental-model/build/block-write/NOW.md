@@ -1,0 +1,44 @@
+# block-write — thread file
+
+## STANDING (frozen at open, 2026-07-12)
+
+- **Binding:** decisions.md (settled ground) > `CONTRACT.md` (this package) >
+  this file. Precedence rule verbatim: this file is a baton, not a source of
+  truth; if it contradicts CONTRACT.md or decisions.md, those win — flag the
+  discrepancy in NOW, do not pause.
+- **Package:** connect the reader face's blocks to the EXISTING
+  object-container `:object/edit` stream path; echo = materialized truth;
+  measure E2E vs the settled criterion. No new module/depot/topology (BW-T1).
+- **Allowlist:** Lane B = new client namespace(s) under
+  `src/app/client/workspace/` + reader-face wiring; Lane A = ADDITIVE-only
+  edits in `face_projection.clj` / artery (`electric_flow.cljc`) + IPC test
+  namespaces. NOBODY touches `edit-effects`/kernel semantics, `text_kernel.clj`,
+  or `machine_cut.clj`. Probe files stay uncommitted.
+- **Verification duty:** memory-derived platform claims re-verified against
+  the §11 manifest before code; suites per /rama + /work-package mechanics.
+- **Definition of done:** gates G1-G9 green (G7 numbers in the gate artifact,
+  G8 worn by Sid) → falsification gate review → close + retro.
+- **Stop clauses:** CONTRACT §10 (S1 resolution ambiguity, S2 overlay break,
+  S3 echo fail post-narrowing). Escalate, never improvise.
+- **Must not start without Sid:** wave dispatch (subagent spend). T11
+  coordination: machine-cut code is committed; only its close session could
+  still touch `face_projection.clj`/artery — coordinate via the board.
+- **Hard rules:** docs commits on the docs branch only, code/docs never
+  mixed; never read `env.clj`.
+
+## NOW (≤15 lines per entry; newest last)
+
+- 2026-07-12 · Fable (this session) · **PACKAGE OPENED — CONTRACT v1
+  authored.** Read pass discovered the write organ already exists:
+  object-container STREAM topology + `:object/edit` with validation,
+  graduation/revision model, stale-seq protection, object-key-scoped
+  idempotency journal; `read-unit` already overlays graduated content
+  (`block_distiller.clj:1317`) → the reader face's river-page SEES edits.
+  Package re-scoped to the honest gap: client affordance + outbox
+  (envelope CONTRACT §3), `document-container-id` resolution pin (§4,
+  stop-clause S1), epoch-bump echo + pre-named single-unit narrowing (§5),
+  browser E2E G7 vs the unchanged criterion, wearing G8. Every claim
+  file:line-verified (§11). Traps BW-T1-T10. Policy vocabulary/visibility
+  NOT here — parallel design session, opening prompt at
+  `docs/sessions/policy-design-opening-prompt-2026-07-12.md`. Next: Sid
+  reads contract; lanes dispatch AFTER machine-cut INT lands.
