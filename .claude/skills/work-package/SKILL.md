@@ -276,10 +276,11 @@ holding CONTRACT.md and every phase artifact.
     ruling). Fix, cite the precedent, move on.
   - **Genuine policy fork**: two readings that cannot both hold physically
     (cycle 1: relation-scoped vs global idempotency). Escalate.
-- Escalation: record in `decisions.md` Open Questions as PROPOSED — the
-  conflict with verbatim citations, the options, a recommendation with
-  grounds, and what re-runs under each option. Sid (or Fable on Sid's
-  referral) rules.
+- Escalation: record in `decisions.md` Open Questions — the conflict with
+  verbatim citations, the options, a recommendation with grounds, and what
+  re-runs under each option. Sid (or Fable on Sid's referral) rules; the
+  ruling lands as current law under its axis, the open-question line is
+  deleted (log regime 2026-07-12: current state only, git keeps the trail).
 - **Ruling execution is a sweep, not a banner**: amend the introducing
   sentence AND grep every derived enumeration, count, and list across
   contract, spec, plan, and baton (gate lists, "all N gates", matrices).
