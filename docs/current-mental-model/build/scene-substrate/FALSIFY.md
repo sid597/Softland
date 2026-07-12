@@ -1,4 +1,32 @@
-# scene-substrate — wave 1 (P1+P2) falsification record
+# scene-substrate — falsification records
+
+## Wave 2 (P3a, commit a05d6ca) — 2026-07-12, one capped finder (82k tok)
+
+**VERDICT: PASS-with-fixes.** Reactive core traced CLEAN: echo-fan-out
+ordering (synchronous consumer edge, no reorder possible) · Missionary
+laws (two single-source flows, one combine, effects at the reduce edge)
+· T5 identity (unchanged store ⇒ no re-shape) · op-shape plumbing
+(per-token container-idx survives to the shaders) · pick inverse
+composition (pan then container, correctly reversed).
+
+Findings → dispositions:
+1. **HIGH — no clear lifecycle + unconditional cross-mode merge**: an
+   orphaned slot (face un-worn / conversation switched) keeps compositing
+   over other modes forever; reachable only via the dev spawn API.
+   → ROUTED into P3b mid-flight (its rung 1 IS the despawn/clear
+   lifecycle; instructed to prove orphans impossible by construction or
+   add the mode gate).
+2. **LOW — one-frame skew**: fan-out stamps addresses from a separately
+   sampled `@!face-context`; blocks transiently unpickable, self-heals.
+   → ROUTED to P3b (its per-vi rebuild replaces the path; single-sample
+   instructed).
+3. **NOTE — pick assumes world zoom 1.0** (shared with legacy, not a P3a
+   regression). → STAGED: the gesture slice's gate adds camera-inverse
+   (divide by zoom) to pick when zoom gestures land.
+4. **NOTE — cid base 100 ⇒ ~1.6KB range writes** (cosmetic). → ROUTED to
+   P3b (lower base or fix comment).
+
+## Wave 1 (P1+P2) falsification record
 
 **2026-07-12 · one fresh-context finder (Opus, ~188k tok) per the
 machine-cut retro rule · VERDICT: PASS.** No HIGH/MED survived tracing.

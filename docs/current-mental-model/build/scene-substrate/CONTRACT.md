@@ -153,7 +153,9 @@ descriptor router. Gates G9–G10.
 sidebar/chrome on the screen camera (kills the counter-bake tax) ·
 chat/flow one-tree fix riding their migration (Δ5) · conditional RAF at
 Δ15's trigger · scene-diff wearing · islands compositing (behind Sid's
-Box3D answer).
+Box3D answer) · **gesture slice gate (wave-2 finding #3): when zoom
+gestures land, pick composes the camera inverse (divide by zoom) before
+the container inverse — today both pick paths assume world zoom 1.0.**
 
 ## 7. Traps ledger (cite by number in code comments)
 
