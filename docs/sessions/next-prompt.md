@@ -35,10 +35,10 @@ serve that; one clock times it:
    (`build/editor-feel/NOW.md` verdict) · Boxes/Minimap (unlocks the
    container-transforms contract) · the new `boxes-paired-face` (closes
    machine-cut G14 — the WAL replays at any boot).
-2. **WRITE lane, one move left:** paste
-   `docs/sessions/policy-design-opening-prompt-2026-07-12.md` into a fresh
-   session (component-policy design — runs parallel, no blocker). Lanes A ∥ B
-   dispatched 2026-07-12 (orchestrating session running).
+2. **Redline the policy-model proposal (one read):**
+   `build/policy-model/PROPOSAL.md` — LAW candidates + the open forks in §2
+   marked for you; nothing downstream blocks on it (block-write's §6 seam
+   already fits it).
 3. **Dual-read of window W1** (your half of the falsifier, your pace) —
    `build/sense-line-mvp/dual-read/PROTOCOL.md`.
 4. **Box3D reading answer** (engine / docs / both + first-form pick) —
@@ -105,9 +105,11 @@ round → benchmark room (question bank waits on kinds).
   (pre-named single-unit narrowing), browser E2E vs the unchanged criterion,
   wearing. `build/block-write/CONTRACT.md` (traps BW-T1-T10, gates G1-G9,
   claims file:line-verified) · thread file `build/block-write/NOW.md`.
-  **Policy vocabulary/visibility = its own PARALLEL design session** (Sid's
-  two-layer distinction preserved): opening prompt at
-  `docs/sessions/policy-design-opening-prompt-2026-07-12.md`.
+  **Policy-model design — PROPOSAL LANDED (2026-07-12):**
+  `build/policy-model/PROPOSAL.md` — Sid's two questions kept separate;
+  monotonic-narrowing + tower-cut LAW candidates; question 2 framed as
+  option spaces; plugs the §6 seam without re-plumbing. Awaiting Sid's
+  redline; block-write does NOT block on it.
 - **editor-feel — CODE DONE + verified, awaiting Sid's wear (07-11).** All 5
   hot-path causes removed/gated: Phase-4B mirror OFF by default
   (`editor-rama-mirror?`, gated in save-editor-doc! → covers mouse.cljs too),
