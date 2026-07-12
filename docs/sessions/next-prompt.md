@@ -23,7 +23,7 @@ serve that; one clock times it:
 - **READ (sense-line):** the trail view over Softland's own material — now at
   the **dual-read falsifier** (does the machine's read match Sid's?).
 - **WRITE (editor):** type straight into the land — stream transport PROVEN
-  (p95 7.66ms); **block-write CONTRACT in force — lanes await dispatch**.
+  (p95 7.66ms); **block-write lanes A ∥ B IN FLIGHT (dispatched 2026-07-12)**.
 - **SPACE (spatial/3D):** per-object control, islands, point-and-say — probes
   DONE, contracts staged behind Sid's wear + Box3D answer.
 - **CLOCK:** the bet check ~**2026-07-19** — is new thinking starting inside
@@ -35,10 +35,10 @@ serve that; one clock times it:
    (`build/editor-feel/NOW.md` verdict) · Boxes/Minimap (unlocks the
    container-transforms contract) · the new `boxes-paired-face` (closes
    machine-cut G14 — the WAL replays at any boot).
-2. **WRITE lane, two moves:** dispatch block-write lanes A ∥ B (contract in
-   force: `build/block-write/CONTRACT.md`) · paste
+2. **WRITE lane, one move left:** paste
    `docs/sessions/policy-design-opening-prompt-2026-07-12.md` into a fresh
-   session (component-policy design — runs parallel, no blocker).
+   session (component-policy design — runs parallel, no blocker). Lanes A ∥ B
+   dispatched 2026-07-12 (orchestrating session running).
 3. **Dual-read of window W1** (your half of the falsifier, your pace) —
    `build/sense-line-mvp/dual-read/PROTOCOL.md`.
 4. **Box3D reading answer** (engine / docs / both + first-form pick) —
@@ -51,8 +51,10 @@ serve that; one clock times it:
 
 - **machine-cut CLOSE session — NEXT** (HEAD suite · G14 record · retro;
   adversarial recheck = Sid's call on cost).
-- **block-write lanes A ∥ B** — contract in force; await Sid's dispatch
-  (coordinate with machine-cut close on any face-file fixes).
+- **block-write lanes A ∥ B — IN FLIGHT** (orchestrating session, dispatched
+  2026-07-12). ⚠ T11: Lane A holds ADDITIVE edits open in
+  `face_projection.clj` + `electric_flow.cljc` — machine-cut close session:
+  coordinate on this line before touching those files.
 - **Fable's independent dual-read** — fresh session, PROTOCOL anti-anchoring.
 - **src/ code-size/verbosity audit** — ready, any session (queued by Sid).
 
