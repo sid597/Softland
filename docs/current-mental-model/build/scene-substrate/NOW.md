@@ -28,6 +28,24 @@
 
 ## NOW (append per session, ≤15 lines each)
 
+**2026-07-13 · Fable (same session) · G4/G6 WORN — PASS at 240Hz, 60× gate scale**
+- Receipts (Sid's pastes, steady-state): 16c/9.6k glyphs → 4.2ms p50 /
+  4.9 p95 / 238fps over 13.2k frames (~55s soak) · 256c/159k glyphs →
+  4.1ms · 1000c/628k glyphs → 4.2ms p50, probeMs 0.3 (= the per-frame
+  1000-transform write itself), bodyMs 0.1 · zoom driven to 10 → 4.1ms.
+  instancePacks constant within every soak — G4's zero-instance-writes
+  counter assertion held at all scales.
+- Gate letter: G4 asks ≥16c / ≥10k glyphs / 60s@60fps / p95 ≤ 8ms →
+  beaten 60× on glyphs at 4× the frame rate, p95 4.9. G6 asks zoom
+  [0.5, 2] → driven to the probe clamp (10). Residual, one line from
+  Sid: visual confirm at both zoom ends (no NaN/clip, text crisp —
+  msdf+slug). 155ms one-off at sweep start = start!/warmup transient.
+- 240Hz persisted: setup-monitors.py gained a post-layout rate-upgrade
+  pass (verify + retry + fallback to preferred; rehearsed live, lands
+  239.99). fps receipt = recent 1000/p50 (`309a599`).
+- Package remaining: sceneFaces G11 + [SCENE-CTX] wearing → gate review
+  (fresh context, full-diff falsification) → retro.
+
 **2026-07-13 · Fable (same session) · DIAGNOSIS CLOSED: SwiftShader CONFIRMED + FIXED — G4 signal now vsync-bound**
 - adapter.info receipt: `isFallbackAdapter: true, type: CPU, description:
   "SwiftShader Device (Subzero)"` — the 91-106ms frames were CPU raster.

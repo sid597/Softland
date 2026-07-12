@@ -72,10 +72,10 @@ Softland or still on paper? (`BETS.md` verdict log.)
    now feed the scene-substrate transform phases) · the new
    `boxes-paired-face` (closes machine-cut G14 — the WAL replays at any
    boot) · **block-write G8** (edit a block in minimap-reader-face; steps:
-   `build/block-write/INT.md` §5) · **scene-substrate G4/G6 probe**: in the
-   browser console `ctProbe.start(16)` — 16 containers, one orbits at 60fps
-   with zero re-layout ([CT-PROBE] logs are the receipt); then
-   `ctProbe.zoom(2)` / `ctProbe.zoom(0.5)` (the dormant zoom, awake).
+   `build/block-write/INT.md` §5) · **scene-substrate G4/G6: WORN + PASS
+   07-13** (240Hz, 628k glyphs flat 4.2ms — receipts in the thread file);
+   residual = one line: at `ctProbe.zoom(10)` and `ctProbe.zoom(0.1)`,
+   text crisp, no artifacts at the ends?
    NOTE: the machine rebooted ~20:45; Fable RESTARTED the dev app
    2026-07-12 — it is running again.
 1b. **Rule block-write S3 (one read):** echo p95 passes every run with
@@ -113,14 +113,15 @@ Softland or still on paper? (`BETS.md` verdict log.)
   rides every face-mode agent turn as `:scene-context` EDN ([SCENE-CTX]
   log; `sceneContext.bundle()`); actions = registered descriptors.
   68t/888a green; committed `8199322`. ALL dispatched phases P1–P4 done
-  in one day.** Left on Sid: wearing (ctProbe + sceneFaces + [SCENE-CTX]
-  — his list). **FIRST WEARING (00:xx 07-13): G4 FAIL signal — probe at
-  11fps / 91ms-per-frame uniform (receipts in NOW.md); the transform
-  write itself is clean (instancePacks=1); the 91ms is in the frame loop
-  around it. NEXT MACHINE MOVE: the 91ms diagnosis (suspect list in
-  NOW.md; Sid owes [RAF] lines / console-label / ctProbe.stop() A/B /
-  3s profiler recording) — BEFORE gate review.** Then gate review →
-  close + retro. Sid's new bar: 240Hz (4.2ms budget).
+  in one day.** **G4/G6 WORN + PASS (07-13): the 91ms was SwiftShader
+  (Chrome WebGPU on CPU, no Vulkan flag) — fixed (#enable-vulkan) +
+  display to 240Hz (persisted: setup-monitors.py verify+fallback rate
+  pass). Receipts at 240Hz: 1000 containers / 628k glyphs flat 4.2ms
+  p50 / 4.9 p95, transform write 0.3ms, zero instance writes after
+  pack; Sid's 240Hz bar MET at 60× gate scale (receipts in NOW.md).**
+  Left on Sid: G6 one-line visual confirm at zoom ends · sceneFaces
+  G11 + [SCENE-CTX] wearing. Then gate review (fresh context,
+  full-diff falsification) → close + retro.
   Thread: `build/scene-substrate/NOW.md`.
 - **machine-cut CLOSE session — NEXT** (HEAD suite · G14 record · retro;
   adversarial recheck = Sid's call on cost). ⚠ `boxes-paired-face.golden.edn`
