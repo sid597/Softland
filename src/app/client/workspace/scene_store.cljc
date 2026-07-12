@@ -17,7 +17,8 @@
    recomputed by scanning slots at read time. Resolution route:
    address → :index → vis → slot :addresses → index-paths → nodes."
   (:require [app.client.workspace.rect-tree :as rt]
-            [app.client.workspace.containers :as containers]))
+            [app.client.workspace.containers :as containers]
+            [app.client.workspace.face-assembly :as fa]))
 
 ;; ============================================================================
 ;; Slot construction — resolve + flatten + subtree address index
@@ -48,16 +49,31 @@
    :rects   (rt/tree->rects tree)
    :shadows (rt/tree->shadows tree)})
 
+(defn- stamp-ops-container
+  "Bake the slot's container index onto every flattened op so the GPU places each
+   glyph/rect/shadow through its container transform (P2 plumbing: pack-rect,
+   pack-shadow, shape-* all read :container-idx). Done HERE at upsert (P3b Rung 2),
+   not per-frame, so a slot's ops stay identity-stable across a SIBLING slot's
+   change — the per-slot text geo's identical?-skip (G8) depends on it (trap T5).
+   :container is a stable int for a slot's whole life (move/scale change the
+   registry transform, not the cid). Text ops are nested [[op..]..] (lines);
+   rects and shadows are flat."
+  [ops container]
+  (let [cid (or container 0)]
+    {:text    (mapv (fn [line] (mapv #(assoc % :container-idx cid) line)) (:text ops))
+     :rects   (mapv #(assoc % :container-idx cid) (:rects ops))
+     :shadows (mapv #(assoc % :container-idx cid) (:shadows ops))}))
+
 (defn- build-slot
-  "Resolve → flatten → index a tree into a slot value. The ONE slot-building
-   path, shared by upsert-slot and update-nodes-by-address so ops are computed
-   on a single code path (trap T5)."
+  "Resolve → flatten → stamp container-idx → index a tree into a slot value. The
+   ONE slot-building path, shared by upsert-slot and update-nodes-by-address so
+   ops are computed on a single code path (trap T5)."
   [vi {:keys [tree container meta stratum]}]
   (let [resolved (rt/resolve-layout tree)]
     {:vi        vi
      :container container
      :tree      resolved
-     :ops       (flatten-ops resolved)
+     :ops       (stamp-ops-container (flatten-ops resolved) container)
      :addresses (collect-addresses resolved)
      :meta      (or meta {})
      :stratum   (or stratum :world)}))
@@ -226,6 +242,33 @@
                 (update node :children (fn [cs] (mapv walk cs)))
                 node)))]
     (walk tree)))
+
+;; ============================================================================
+;; Per-view-instance face build (P3b Rung 1) — one compiled face, one projection
+;; ============================================================================
+
+(defn build-face-tree
+  "PURE per-view-instance face build (P3b Rung 1, JVM-testable). Run ONE compiled
+   assembly over ONE data projection into a RESOLVED, address-stamped,
+   container-LOCAL rt-tree — the tree a store slot holds. This is the general
+   form P3a lacked: P3a reused the ALREADY-built singleton !face-scene for every
+   spawned instance (so all instances wore the MAIN face); this builds each
+   instance through ITS OWN compiled assembly, so N different arsenal faces can
+   render one live conversation at once (Sid's MINDBLOW).
+
+   `compiled` is a face_assembly/compile-assembly result (holds builder closures —
+   it lives in the runtime's !vi-faces registry, NEVER in a store slot; slots stay
+   serializable, G2). `projection` is the §7 data-context. `view-ctx` is the
+   apply-assembly view context {:view-instance :address :geom}. `unit-ids` are the
+   block unit-ids in the projection — stamp-block-addresses lifts them to
+   [:data :address] so the store's fan-out index (CONTRACT §5) keys blocks.
+
+   apply-assembly is pure + TOTAL (never throws — a bad assembly renders an error
+   card); so is this. Same (compiled, projection, view-ctx) → an EQUAL tree, so
+   an unchanged echo leaves a slot's :ops identical? after upsert (trap T5)."
+  [compiled projection view-ctx unit-ids]
+  (-> (fa/apply-assembly compiled projection view-ctx)
+      (stamp-block-addresses unit-ids)))
 
 ;; ============================================================================
 ;; Serializability guard (G2 / trap T1) — actions are DATA, never closures
