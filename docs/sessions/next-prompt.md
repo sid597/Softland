@@ -23,7 +23,8 @@ serve that; one clock times it:
 - **READ (sense-line):** the trail view over Softland's own material — now at
   the **dual-read falsifier** (does the machine's read match Sid's?).
 - **WRITE (editor):** type straight into the land — stream transport PROVEN
-  (p95 7.66ms); **block-write lanes A ∥ B IN FLIGHT (dispatched 2026-07-12)**.
+  (p95 7.66ms); **block-write BUILT, all suites green; G7 measured → S3
+  ruling + G8 wearing wait on Sid** (`build/block-write/INT.md`).
 - **SPACE (spatial/3D):** per-object control, islands, point-and-say — probes
   DONE, contracts staged behind Sid's wear + Box3D answer.
 - **CLOCK:** the bet check ~**2026-07-19** — is new thinking starting inside
@@ -31,10 +32,17 @@ serve that; one clock times it:
 
 ## SID'S MOVES — everything that waits on you alone, cheapest first
 
-1. **Wear session at the dev app (~30 min covers three at once):** the editor
+1. **Wear session at the dev app (~35 min covers four at once):** the editor
    (`build/editor-feel/NOW.md` verdict) · Boxes/Minimap (unlocks the
    container-transforms contract) · the new `boxes-paired-face` (closes
-   machine-cut G14 — the WAL replays at any boot).
+   machine-cut G14 — the WAL replays at any boot) · **block-write G8**
+   (edit a block in minimap-reader-face; steps: `build/block-write/INT.md`
+   §5 — dev app is RUNNING now).
+1b. **Rule block-write S3 (one read):** echo p95 passes every run with
+   margin; the ≤1-stall/min clause fails (2/4/7/2 thin ~130ms tail, invisible
+   while typing — pending-input paints immediately). Numbers + options:
+   `build/block-write/INT.md` §3. Rec: re-express the tail bound as
+   p99 ≤100ms (all runs pass).
 2. **Redline the policy-model proposal (one read):**
    `build/policy-model/PROPOSAL.md` — LAW candidates + the open forks in §2
    marked for you; nothing downstream blocks on it (block-write's §6 seam
@@ -54,10 +62,13 @@ serve that; one clock times it:
   was REGENERATED 2026-07-12 (`c788188`, face `:assembly/src-path` provenance
   stamp; src-path-only, verified vs prior; full face suite green) — do NOT regen
   it from a stale apply-assembly; re-run `machine-cut-serve-test` after any rebase.
-- **block-write lanes A ∥ B — IN FLIGHT** (orchestrating session, dispatched
-  2026-07-12). ⚠ T11: Lane A holds ADDITIVE edits open in
-  `face_projection.clj` + `electric_flow.cljc` — machine-cut close session:
-  coordinate on this line before touching those files.
+- **block-write — BUILT (lanes + INT done, 2026-07-12); falsification finder
+  + gate review running in the orchestrating session.** S2 fired + ruled
+  (river-page raw-text → overlay fix, gated). ⚠ T11: UNCOMMITTED additive
+  edits open in `face_projection.clj`, `electric_flow.cljc`,
+  `block_distiller.clj` + new client ns — machine-cut close session:
+  coordinate here before touching those files. Code commit = Sid's call at
+  close.
 - **Fable's independent dual-read** — fresh session, PROTOCOL anti-anchoring.
 - **src/ code-size/verbosity audit — DONE (2026-07-12):**
   `build/code-audit/REPORT.md` — 47k lines / 83 files; ~440 safe mechanical

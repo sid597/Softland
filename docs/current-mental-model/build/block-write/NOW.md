@@ -77,3 +77,18 @@
   shape holds; full 60s run next. INV-19 1s debounce = the as-built full-pull
   miss (BW-T10 finding, Lane A). Probe UNCOMMITTED (`block_edit_probe.cljs` +
   tagged require in runtime.cljs).
+
+- 2026-07-12 · Fable (orchestrating session) · **G7 MEASURED — S3 FIRED,
+  returns to Sid.** 4 × 60s @ 12/s headed runs (real WebGPU face, real
+  keydowns, full product path): narrow-channel echo p95 31.7-39.5ms (budget
+  50 — every run PASSES) **but stalls >100ms = 2/4/7/2 vs the ≤1/min clause
+  — FAIL every run.** Thin 0.3-1% tail, max ~145ms, not load/length-shaped
+  (R4 forensics: t=0.75s cold + t=16s isolated). As-built full-pull channel
+  p50 ~31s (INV-19 re-arms under typing) — first-measure miss recorded, §5
+  narrowing engaged per contract. Typist never waits (pending-input paints
+  immediately); echo bounds only refusal-revert (~145ms worst). Real boundary
+  found: ~1.8KB block → 14 relieve-dropped keystrokes (whole-face rebuild per
+  key) → LATER: focused-block partial rebuild. Restart-survival observed live
+  (smoke edits survived the server restart). Record + options: `INT.md`.
+  **Sid: rule S3** (rec: re-express the tail bound as p99 ≤100ms — all runs
+  pass) **+ wear G8** (INT.md §5, ~5 min). Falsification finder next here.
