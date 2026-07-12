@@ -1675,13 +1675,14 @@
                              settings-line-count settings-visible settings-rect-sys
                              diagnostics-visible diagnostics-line-index agent-visible
                              editor-shadow-pool-info sidebar-shadow-pool-info sidebar-pool-info
-                             dirty-rect render-target clear-quad frame-idx zoom]
+                             dirty-rect render-target clear-quad frame-idx zoom
+                             extra-text-geos]
                       :or {cmd-panel-visible false cmd-panel-h 40 chrome-text-sys nil chrome-base-line-count 0
                            settings-line-count 0 settings-visible false
                            settings-rect-sys nil agent-visible false
                            editor-shadow-pool-info nil sidebar-shadow-pool-info nil sidebar-pool-info nil
                            dirty-rect nil render-target nil clear-quad nil frame-idx 0
-                           zoom 1.0}}]
+                           zoom 1.0 extra-text-geos nil}}]
   ;; scene-substrate P2: the world camera zoom wakes — callers may drive it;
   ;; default 1.0 keeps every existing call byte-identical.
   (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y zoom w h)
@@ -1767,6 +1768,19 @@
         (.setBindGroup pass 0 (:bind-group text-sys))
         (.setVertexBuffer pass 0 (:instance-buffer text-sys))
         (.draw pass 6 (:num-instances text-sys) 0 0))
+
+      ;; scene-substrate P3b Rung 2: per-slot isolated text geos (drawn AFTER
+      ;; content, before chrome). Each is a clone of the content text system
+      ;; (shared pipeline/bind-group/camera/containers-buffer), so its OWN
+      ;; instance buffer draws at its container's transform — msdf AND slug both
+      ;; work because a clone inherits the parent's backend pipeline (T12: no
+      ;; second text path). G8 isolation: a slot edit reshapes only its own geo.
+      (doseq [geo extra-text-geos]
+        (when (and geo (> (:num-instances geo) 0))
+          (.setPipeline pass (:pipeline geo))
+          (.setBindGroup pass 0 (:bind-group geo))
+          (.setVertexBuffer pass 0 (:instance-buffer geo))
+          (.draw pass 6 (:num-instances geo) 0 0)))
 
       (let [chrome-ready? (and chrome-text-sys (> (:num-instances chrome-text-sys) 0))
             chrome-offsets (:line-offsets chrome-text-sys)

@@ -55,6 +55,23 @@
     (throw (ex-info "unknown container" {:cid cid})))
   (update-in reg [:containers cid] merge (select-keys t [:x :y :scale])))
 
+(defn remove-container
+  "Drop a container from the registry (P3b Rung 1 despawn — the lifecycle half
+   P3a lacked). Throws on cid 0 (reserved) or an unknown cid; refuses to remove a
+   container that any other container still names as :parent (that would orphan
+   the child and make `effective` throw). Face containers are flat (no parent, no
+   children), so a despawn is always a clean single dissoc."
+  [reg cid]
+  (when (= cid 0)
+    (throw (ex-info "cid 0 is reserved and cannot be removed" {:cid cid})))
+  (when-not (contains? (:containers reg) cid)
+    (throw (ex-info "unknown container" {:cid cid})))
+  (when-let [child (some (fn [[c m]] (when (= cid (:parent m)) c))
+                         (:containers reg))]
+    (throw (ex-info "cannot remove a container with children"
+                    {:cid cid :child child})))
+  (update reg :containers dissoc cid))
+
 ;; ============================================================================
 ;; Transform-tree composition → effective (absolute) transforms
 ;; ============================================================================

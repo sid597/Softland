@@ -4,8 +4,7 @@
             [app.client.substrate.webgpu.renderer :as editor]
             [app.client.substrate.webgpu.island-probe :as island] ;; islands-probe 2026-07-11 (UNCOMMITTED)
             [app.client.substrate.webgpu.container-probe :as ct-probe] ;; scene-substrate P2 probe 2026-07-12 (UNCOMMITTED)
-            [app.client.workspace.scene-store :as scene-store] ;; scene-substrate P3a
-            [app.client.workspace.scene-runtime :as scene-rt] ;; scene-substrate P3a
+            [app.client.workspace.scene-runtime :as scene-rt] ;; scene-substrate P3a/P3b
             [app.client.substrate.webgpu.buffer-pool :as pool]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.workspace.events :refer [maybe-snap]]
@@ -23,6 +22,47 @@
   (let [payload (clj->js data)]
     (js/console.log label payload)
     (js/console.log (str label " JSON " (js/JSON.stringify payload)))))
+
+(defn- reconcile-slot-text-geos!
+  "scene-substrate P3b Rung 2 (G8): keep ONE isolated text geo per store slot,
+   separate from the monolithic content geo. For each vi in `text-by-vi`:
+   - unchanged text (identical? to last frame) AND no reclone → REUSE the geo,
+     zero GPU writes (trap T5 skip);
+   - changed text → reshape ONLY that slot's geo via update-text-data;
+   - new vi, or `reclone?` (font/backend change → the content clone-parent is
+     fresh) → clone a new geo off the content system (shared pipeline/bind-group/
+     camera/containers-buffer/font — NOT a second text path, T12) and shape it.
+   Destroys geos for vanished vis (and the stale ones a reclone replaces).
+   Returns [geos-map write-count]; write-count is the G8 receipt (how many slot
+   geos reshaped this frame — a CONTENT-geo edit must never bump it)."
+  [device content-geo font-assets prev-geos text-by-vi reclone?
+   font-size px-range line-h char-width snap-step sharpness]
+  (let [shape! (fn [geo texts]
+                 (editor/update-text-data device geo (vec texts) font-assets font-size
+                                          :px-range px-range :line-height line-h
+                                          :char-width char-width :snap-step snap-step
+                                          :sharpness sharpness))
+        {:keys [geos writes]}
+        (reduce-kv
+          (fn [acc vi texts]
+            (let [prev (get prev-geos vi)]
+              (if (and prev (not reclone?) (identical? texts (:text prev)))
+                (update acc :geos assoc vi prev)
+                (let [base (if (and prev (not reclone?))
+                             (:geo prev)                    ; evolve this slot's geo in place
+                             (do (when (and prev reclone?)  ; stale clone (old font) → free
+                                   (editor/destroy-text-system! (:geo prev)))
+                                 (editor/clone-text-system device content-geo 256)))
+                      geo  (shape! base texts)]
+                  (-> acc
+                      (update :geos assoc vi {:geo geo :text texts})
+                      (update :writes inc))))))
+          {:geos {} :writes 0}
+          (or text-by-vi {}))]
+    (doseq [[vi prev] prev-geos]
+      (when-not (contains? geos vi)
+        (editor/destroy-text-system! (:geo prev))))
+    [geos writes]))
 
 (defn render-consumer
   "Missionary consumer: assemble derived flows, build world snapshot, diff-upload to GPU, draw on RAF."
@@ -98,6 +138,12 @@
                             {:text-data text-data
                              :store-frame store-frame ;; scene-substrate P3a
                              :effective   effective   ;; scene-substrate P3a
+                             ;; P3b finding #1: the store composites ONLY in face
+                             ;; mode — a defensive gate mirroring the click
+                             ;; dispatch (mouse.cljs), so a slot that outlives its
+                             ;; face view (mode switch that never nils face-scene)
+                             ;; cannot paint over the editor/file workspace.
+                             :face-mode?  (ws/local-world-face-assembly? local-world)
                              :editor-rect-data editor-rect-data
                              :sidebar-data sidebar-data
                              :cmd-rects cmd-rects
@@ -150,27 +196,43 @@
                 editor-rects   (:rects editor-rect-data)
                 editor-shadows (:shadows editor-rect-data)
 
-                ;; ── scene-substrate P3a: store contribution + echo fan-out ──
+                ;; ── scene-substrate P3b: store contribution + echo fan-out ──
                 store-frame          (:store-frame world)
                 effective            (:effective world)
+                face-mode?           (:face-mode? world)
                 store-frame-changed? (not (identical? store-frame (:prev-store-frame prev-state)))
-                store-text-ops       (:text-ops store-frame)
-                store-rects          (:rects store-frame)
-                store-shadows        (:shadows store-frame)
+                ;; P3b finding #1: gate the store's compositing on face mode. When
+                ;; not in a face view the store contributes NOTHING (nil), so an
+                ;; orphaned slot can never paint over the editor. store-frame-
+                ;; changed? still fires on the clearing transition, so leaving
+                ;; face mode re-uploads content WITHOUT the store text (orphan
+                ;; removal) exactly once, then settles.
+                store-text-by-vi     (when face-mode? (:text-by-vi store-frame))
+                store-rects          (when face-mode? (:rects store-frame))
+                store-shadows        (when face-mode? (:shadows store-frame))
                 containers-buffer    (:containers-buffer (:pipelines geometry))
-                ;; Echo fan-out (G7): the singleton legacy scene rebuilds on
-                ;; every projection/edit change (editor_compute <face-assembly)
-                ;; and that change ALWAYS rides a world change (its rects feed
-                ;; editor-rect-data), so we observe it here at the consumer edge.
-                ;; Stamp block addresses from the current context, rebuild EVERY
-                ;; store slot from the SAME projection (deliverable #6). Mutates
-                ;; the store at the edge only (T4); shows next frame (1-frame lag).
+                ;; Echo fan-out (G7, Rung-1 form): the singleton legacy scene
+                ;; rebuilds on every projection/edit change (editor_compute
+                ;; <face-assembly) and that change ALWAYS rides a world change (its
+                ;; rects feed editor-rect-data), so we observe it here at the
+                ;; consumer edge. ONE deref of @!face-context (finding #2: tree AND
+                ;; addresses build from the SAME sampled projection — no cross-
+                ;; frame skew): refresh-all-slots! rebuilds every instance through
+                ;; ITS OWN compiled face. face-scene nil (worn face off) → clear
+                ;; the spawned copies. Mutates the store at the edge only (T4).
                 face-scene           @!face-scene
                 face-scene-changed?  (not (identical? face-scene (:prev-face-scene prev-state)))
-                _ (when (and face-scene-changed? face-scene (scene-rt/any-slots?))
-                    (scene-rt/refresh-all-slots!
-                      (scene-store/stamp-block-addresses
-                        face-scene (scene-rt/block-unit-ids @!face-context))))
+                _ (cond
+                    ;; left face mode by ANY path (mode switch, /face off) → clear
+                    ;; every spawned instance (finding #1: no orphan, no leak).
+                    (and (not face-mode?) (scene-rt/any-slots?))
+                    (scene-rt/close-all-slots!)
+                    ;; projection changed while in face mode → echo fan-out (one
+                    ;; deref of @!face-context; face-scene nil = face just off).
+                    (and face-scene-changed? (scene-rt/any-slots?))
+                    (if face-scene
+                      (scene-rt/refresh-all-slots! @!face-context)
+                      (scene-rt/close-all-slots!)))
                 ;; Upload composed container transforms only when they changed
                 ;; (drag/spawn); instance buffers untouched (identical? skip).
                 _ (when-not (identical? effective (:prev-effective prev-state))
@@ -258,26 +320,38 @@
 
                 ;; ── Content text (editor + sidebar — the bulk) ──
                 content-ops (:content-ops text-data)
-                ;; scene-substrate P3a: store slots' text rides the SAME content
-                ;; path (the monolith re-shapes on edit — accepted; smooth drag
-                ;; comes from transforms, not re-shape). Stamped per-token
-                ;; :container-idx already; concat only on the rebuild branch.
+                ;; scene-substrate P3b Rung 2: store slots' text NO LONGER rides
+                ;; the content geo — each slot owns an ISOLATED text geo (G8), so
+                ;; content-same? drops the store-frame dependency and a face edit
+                ;; never reshapes the content geo (the G8 receipt below proves it).
                 content-same? (and (identical? content-ops (:prev-content-ops prev-state))
-                                   (not store-frame-changed?)
                                    settings-same?)
 
                 raf-t1 (js/performance.now)
                 new-content-geo (if content-same?
                                   updated-content-geo
                                   (editor/update-text-data device updated-content-geo
-                                                           (cond-> (vec content-ops)
-                                                             (seq store-text-ops) (into store-text-ops))
+                                                           (vec content-ops)
                                                            font-assets font-size
                                                            :px-range px-range
                                                            :line-height line-h
                                                            :char-width char-width
                                                            :snap-step snap-step
                                                            :sharpness sharpness))
+
+                ;; ── P3b Rung 2: per-slot isolated text geos (G8) ──
+                ;; Reconcile one text geo per store slot off the content system.
+                ;; reclone on a font change (the content clone-parent is fresh).
+                prev-slot-geos (:slot-text-geos prev-state)
+                [slot-text-geos slot-text-writes]
+                (reconcile-slot-text-geos! device new-content-geo font-assets
+                                           prev-slot-geos store-text-by-vi
+                                           (boolean font-changed?)
+                                           font-size px-range line-h char-width snap-step sharpness)
+                _ (when (pos? slot-text-writes)
+                    (js/console.log "[SCENE-FACES/G8] slot text geos reshaped:" slot-text-writes
+                                    "| content geo reshaped this frame?:" (not content-same?)
+                                    "| live slots:" (count store-text-by-vi)))
 
                 ;; ── Chrome text (cmd + agent + status + settings + diagnostics) ──
                 chrome-ops (:chrome-ops text-data)
@@ -522,7 +596,9 @@
                                     :sidebar-pool-info (pool/pool-draw-info !sidebar-pool)
                                     :dirty-rect dirty-rect
                                     :render-target render-target
-                                    :clear-quad (:clear-quad (:pipelines geometry)))
+                                    :clear-quad (:clear-quad (:pipelines geometry))
+                                    ;; scene-substrate P3b Rung 2: per-slot geos
+                                    :extra-text-geos (mapv :geo (vals slot-text-geos)))
               (catch :default err
                 (js/console.error "[RENDER/DRAW-FAIL]"
                                   err
@@ -576,6 +652,8 @@
              :prev-store-frame store-frame
              :prev-effective effective
              :prev-face-scene face-scene
+             ;; scene-substrate P3b Rung 2: per-slot text geos {vi {:geo :text}}
+             :slot-text-geos slot-text-geos
              :frame-idx frame-idx})))
 
       (let [tracker @!gpu-budget
@@ -627,6 +705,8 @@
        :prev-store-frame nil
        :prev-effective nil
        :prev-face-scene nil
+       ;; scene-substrate P3b Rung 2
+       :slot-text-geos {}
        :frame-idx 0})
 
       (m/sample vector <world-snapshot >raf))))
