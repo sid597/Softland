@@ -185,8 +185,15 @@
       (let [now (js/performance.now)
             {:keys [width height]} viewport]
         (write-frame-transforms! device st now)
-        (renderer/update-camera device (:camera-buffer st) (:camera-floats st)
-                                0 0 (:zoom st) width height)
+        ;; Zoom anchored at the viewport CENTER (shader: screen = world·zoom
+        ;; + pan): pan = C·(1−z) pins the world point at the center, so the
+        ;; scene stays in frame across the whole [0.1, 10] sweep. G6 wearing
+        ;; found origin-anchored zoom sent every container off-screen.
+        (let [z (:zoom st)
+              cx (/ width 2.0)
+              cy (/ height 2.0)]
+          (renderer/update-camera device (:camera-buffer st) (:camera-floats st)
+                                  (* cx (- 1.0 z)) (* cy (- 1.0 z)) z width height))
         (let [st @!state
               encoder (.createCommandEncoder device)
               view (.createView (.getCurrentTexture ctx))
