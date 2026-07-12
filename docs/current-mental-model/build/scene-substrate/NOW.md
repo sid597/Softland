@@ -28,6 +28,25 @@
 
 ## NOW (append per session, ≤15 lines each)
 
+**2026-07-13 · Fable (same session) · DIAGNOSIS CLOSED: SwiftShader CONFIRMED + FIXED — G4 signal now vsync-bound**
+- adapter.info receipt: `isFallbackAdapter: true, type: CPU, description:
+  "SwiftShader Device (Subzero)"` — the 91-106ms frames were CPU raster.
+- Fix worn: chrome://flags #enable-vulkan → Enabled, relaunch. Receipt
+  after: `frameMsP50 16.7 · sampleMs 0.7 · bodyMs 0.1 · probeMs 0 ·
+  waitMs 15.9` — app JS ~0.8ms/frame, rest is pure 60Hz vsync wait.
+  Sid: "omggg the smoothness of the renderrrr".
+- 60 vs 240: xrandr shows the 4K primary AT 60.00Hz with 239.99 available
+  (second monitor 1440p@180). Next wearing step: set 240Hz, expect
+  frameMsP50 → ~4.2ms. `fps` receipt field fixed to recent 1000/p50
+  (`309a599`) — cumulative was polluted by hidden-tab wall-clock.
+- Scale ladder for G4/G6: max-containers = 1024 (renderer.cljs storage
+  buffer, cid ≥ 1024 throws) → start(256) → start(1000) ≈ 600k glyphs;
+  watch bodyMs (transform-write JS scales with n) + waitMs. 16k containers
+  needs a constant+buffer bump — only if a real consumer wants it.
+- Flag debt (Sid's chrome://flags): GPU rasterization sits Disabled
+  (old manual flag; chrome://gpu lists it under Problems) → set Default.
+  #force-enable-webgpu-interop NOT needed (Vulkan compositing active).
+
 **2026-07-13 · Fable · DIAGNOSIS: prime suspect = SwiftShader (software WebGPU), verification issued**
 - Sid's new receipts: p50 ~104-106ms / 9-10fps, flat at 300 vs 600 writes,
   instancePacks 1. His pre/post spine-boot A/B DISPROVES the Rama-ingest
