@@ -348,18 +348,27 @@
             view-ctx  {:view-instance vi :address src :geom geom}
             tree      (ss/build-face-tree compiled projection view-ctx uids)
             w         (or (get-in tree [:bounds :w]) (:content-w geom) 600)
-            x-off     (* (dec (max 1 n)) (+ w 40.0))]
+            ;; G11 wearing finding (07-13): real faces are wider than the
+            ;; viewport (w ≈ 3.6k px), so x-off = n·(w+40) landed every copy
+            ;; off-screen ("spawned at x 7352 — nothing happens"). Place
+            ;; copies IN FRAME: scaled to ~45% of viewport width, right
+            ;; half, cascading 60px per n; move/scale adjust from there.
+            vw        (or (:width @!viewport) 1830.0)
+            scale     (min 1.0 (/ (* 0.45 vw) (max w 1.0)))
+            x-off     (* 0.52 vw)
+            y-off     (* (dec (max 1 n)) 60.0)]
         ;; clean re-spawn: drop any prior instance at this n (orphan container)
         (close-instance! vi)
         (let [{:keys [container]} (register-face-instance!
                                     vi tree
-                                    {:x x-off :y 0.0 :scale 1.0 :layer n
+                                    {:x x-off :y y-off :scale scale :layer n
                                      :meta {:face (some-> worn name) :n n :src src}})]
           (swap! !vi-faces assoc vi
                  {:face (some-> worn name) :compiled compiled
                   :src src :geom geom :container container}))
         (js/console.log "[SCENE-FACES] spawned" (pr-str vi)
-                        "face" (some-> worn name) "at x" x-off "blocks" (count uids))
+                        "face" (some-> worn name) "at x" x-off "y" y-off
+                        "scale" scale "blocks" (count uids))
         (pr-str vi)))))
 
 (defn- move-instance! [n x y]
