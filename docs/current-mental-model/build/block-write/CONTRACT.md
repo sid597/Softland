@@ -34,10 +34,18 @@ organ already exists. The object-container kernel is a stream topology
   out-of-order (client-id, seq) writes as durable `:edit/stale` decisions.
 - Idempotency journal: `$$decisions-by-idempotency` (`:1730`),
   **object-key-scoped** (rides `hash-by :partition/key`, `:1723`).
-- Read-back already overlays edits: `read-unit` "performs the unit +
-  graduation point reads" (`block_distiller.clj:1317`), and `river-page`
-  (`:1305`) — the reader face's only block-material source
-  (`face_projection.clj:16-19`) — is built on it.
+- Read-back overlays edits: `read-unit` returns a `UnitReadResult` whose
+  top-level `:content-text` is the graduation overlay (current edited content
+  when graduated, refreshed on every revision — `object_container.clj:1491-1499`;
+  the raw derived text otherwise). **S2 fired at INT (2026-07-12):** river-page
+  (`:1305`) called `read-unit` but served `:text` from the RAW
+  `(:derived-content-text unit)` row field — the import row is never mutated,
+  so every edit was invisible to river-page and edited content could not
+  survive a reboot (G8). Fixed at INT: `render-river-source` `:text` now reads
+  the overlay field `(:content-text read-result)`; never-edited blocks are
+  byte-identical under both readings (gated in `block_write_test.clj`). The
+  reader face's only block-material source (`face_projection.clj:16-19`)
+  therefore now genuinely sees edits.
 
 **What is missing (the package):** nobody CALLS this from a surface. The only
 declared `:object/edit` actors are import adapters. There is no edit

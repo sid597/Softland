@@ -57,3 +57,23 @@
   crypto port; §4 table said Lane B); (2) block_distiller one-key add sits
   beyond STANDING's allowlist but inside CONTRACT §4's "ONE additive
   river-page/projection field" — contract wins. INT (G7/G8) next here.
+
+- 2026-07-12 · Fable (orchestrating session) · **LANES GREEN + S2 FIRED AND
+  RULED at INT.** Lane A: G1-G5(IPC)+G9 first-run green (41a) + entry point
+  `submit-block-edit!` in the artery (face_projection is read-only BY
+  CONSTRUCTION — g12 grep; placement divergence flagged). Lane B: outbox +
+  buffer machine + G6/G5-client green (6t/47a). INT wired the seam (decision
+  shape adapted ONE place, `atom-submit!`), face click-to-focus, `:face-edit`
+  key routing, scene-level pending-input/caret/refusal overlay, `:block-truth`
+  single-unit serve + truth overlay (§5 narrowing). **S2 verbatim: river-page
+  served `:text (:derived-content-text unit)` — the raw import row, never the
+  graduation overlay; probe run showed full-pull channel echoed 0/120 and
+  edits could not survive reboot (G8).** Ruling (S2: "stop, re-verify,
+  contract amends"): distiller `:text` → `(:content-text read-result)` (the
+  overlay, total); CONTRACT §1 amended in place; gated (edited block serves
+  revised content, never-edited blocks byte-identical). Suites: block-write
+  49a + distiller + face-projection = 1003a green. G7 smoke (10s@12/s,
+  headed, real WebGPU face): narrow-path echo p95 40.7ms, 1 stall — criterion
+  shape holds; full 60s run next. INV-19 1s debounce = the as-built full-pull
+  miss (BW-T10 finding, Lane A). Probe UNCOMMITTED (`block_edit_probe.cljs` +
+  tagged require in runtime.cljs).
