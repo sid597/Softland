@@ -157,6 +157,23 @@
   ;; (reuse THIS close-all seam; no second lifecycle).
   (reset! !last-pick nil))
 
+(defn- backdrop-wrapped
+  "Wrap a built face tree in an opaque backdrop card (G11 round-2 finding:
+   overlapping copies interleave text without one). Plain rt-node wrapper —
+   no :layout (children keep their own bounds), no :address (a backdrop can
+   never hijack a pick — deepest ADDRESSED node wins). Used by BOTH spawn
+   and refresh so the card survives echo rebuilds."
+  [tree]
+  (let [w (or (get-in tree [:bounds :w]) 600.0)
+        h (or (get-in tree [:bounds :h]) 400.0)]
+    {:bounds {:x 0.0 :y 0.0 :w w :h h}
+     :children [{:bounds {:x -12.0 :y -12.0 :w (+ w 24.0) :h (+ h 24.0)}
+                 :style {:bg [0.07 0.09 0.13 1.0]
+                         :radius 10.0
+                         :border-width 1.5
+                         :border-color [0.45 0.58 0.85 0.9]}}
+                tree]}))
+
 (defn refresh-all-slots!
   "Echo fan-out (G7 / deliverable #6), Rung-1 form: the projection changed (a
    block edit echoed) — rebuild EVERY registered instance through ITS OWN
@@ -180,7 +197,8 @@
                   (fn [st [vi vf]]
                     (if-let [slot (get-in st [:slots vi])]
                       (let [view-ctx {:view-instance vi :address src' :geom (:geom vf)}
-                            tree     (ss/build-face-tree (:compiled vf) projection view-ctx uids)]
+                            tree     (backdrop-wrapped
+                                      (ss/build-face-tree (:compiled vf) projection view-ctx uids))]
                         (ss/upsert-slot st vi {:tree      tree
                                                :container (:container slot)
                                                :meta      (:meta slot)
@@ -365,7 +383,7 @@
         ;; clean re-spawn: drop any prior instance at this n (orphan container)
         (close-instance! vi)
         (let [{:keys [container]} (register-face-instance!
-                                    vi tree
+                                    vi (backdrop-wrapped tree)
                                     {:x x-off :y y-off :scale scale :layer n
                                      :meta {:face (some-> worn name) :n n :src src}})]
           (swap! !vi-faces assoc vi
