@@ -1060,6 +1060,30 @@ editor's two needs — to STREAM topologies.
   Criterion-2 counterfactual probe stays WAIVED (2026-07-11 blanket; unchanged
   by this package).
 
+- **machine-cut package OPENED — CONTRACT DRAFT v1 authored; `:pairs-with`
+  PROPOSED (2026-07-12, Fable contract session; awaits Sid).** ROAD Step 5
+  dispatched by Sid this session; contract at `build/machine-cut/CONTRACT.md`
+  (every claim verified at file:line at HEAD `d6bbde7`), lanes pinned at
+  `build/machine-cut/LANES.md`. Scope = consumer 1 only (Boxes/Minimap pair
+  binds; the G25 double-confirmed lack); roles/episodes are extension points.
+  Shape: annotation runs RIDE llm-module (intent→executor, synthetic
+  deterministic ids); edges ride the D-004 kernel (endpoints =
+  `oc:chat-message:` addresses → all pair edges of a conversation colocate
+  under its object-key, one-seek serve); WAL-first durability on the
+  ephemeral dev cluster; additive projection keys (`:turns` untouched).
+  **PROPOSED for countersign — the `:pairs-with` kind addition**: the
+  pre-named form-break (framework CONTRACT §8: "named authorization item
+  requiring Sid's explicit countersign on a used-form break") has fired
+  (W2-E lack 1 + W2-INT lack 1 + RETRO §5.1). Audit of all 15 existing kinds
+  in CONTRACT §4.1: none fits without making kind-filtered views lie
+  (`:based-on`/`:produced` would pollute the trail view's product DAG with
+  intra-conversation noise). Recommendation: **authorize** — one additive
+  line in `relation-kinds` (`relation_kernel.clj:58-80`), this package's ONE
+  kernel edit, landing at INT only after the countersign (block-kernel P0
+  ruling-1 precedent). If refused: the faces stay structure-flat and the
+  package has no lawful edge vocabulary — nothing else re-runs. Also pending
+  Sid: contract countersign + wave dispatch (lanes A ∥ B, Opus 4.8).
+
 ## Blanket countersign — 2026-07-11 (W2 dispatch session, Sid verbatim: "i hereby accepted everything that is pending on me to be approved")
 
 Executed per the 2026-07-09 precedent (defer to recommended). Scope audit run

@@ -13,7 +13,7 @@ thread close. Pre-registered form-break (decisions.md 2026-07-10 note): if a
 fresh session mis-orients — needs more than board + thread file to boot — or
 content creeps back in because there's no room, revert or amend; don't suffer.
 
-**Binding:** `docs/current-mental-model/decisions.md` · open build contracts: none (framework CLOSED 2026-07-11; machine-cut prompt ready, awaiting Sid's dispatch).
+**Binding:** `docs/current-mental-model/decisions.md` · open build contracts: **machine-cut** (DRAFT v1 awaiting Sid's countersign — `build/machine-cut/CONTRACT.md`).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
 
@@ -58,12 +58,18 @@ on kinds).
   · block/code two-arm braid (noted 07-09, not engaged).
 
 - **8 · framework (faces-as-assemblies) — CLOSED + retro'd (2026-07-11).**
-  Both waves gate-passed; RETRO + adversarial recheck DONE (suite **54/880**
-  green at committed HEAD — the gate's propagated 46/804 was a miscount,
-  corrected). Retro + residue (D-001): `build/framework/RETRO.md` (§5 residue,
-  incl. pair-structure). **Next-up = Sid's call: open the machine-cut package**
-  — the G25 pair-structure evidence ORDERS it (D-005); prompt ready
-  (`docs/sessions/machine-cut-contract-opening-prompt-2026-07-11.md`).
+  Retro + residue: `build/framework/RETRO.md` (suite 54/880 green at
+  committed HEAD). Its pair-structure residue spawned thread 14.
+
+- **14 · machine-cut — CONTRACT DRAFT v1, awaiting Sid (2026-07-12).**
+  Opened on Sid's dispatch (ROAD Step 5; the G25 evidence). Contract
+  authored, every claim source-verified at HEAD `d6bbde7`:
+  `build/machine-cut/CONTRACT.md` · lanes pinned `build/machine-cut/LANES.md`
+  · thread file `build/machine-cut/NOW.md`. **Awaiting Sid, three items:**
+  contract countersign · `:pairs-with` enum authorization (decisions.md
+  2026-07-12 PROPOSED entry; recommendation = authorize) · wave dispatch
+  (lane A driver ∥ lane B serve+face, Opus 4.8). Nothing builds before the
+  countersigns.
 
 - **9 · editor-feel — CODE DONE + verified, awaiting Sid's wear (2026-07-11).**
   All 5 hot-path causes removed/gated: Phase-4B mirror OFF by default
@@ -74,19 +80,24 @@ on kinds).
   face+missionary suite 85t/1625a green. Code + docs committed separately.
   Left: `[RAF]`/typing-burst capture + Sid's fingers (dev app is live, serving
   it). Thread file: `build/editor-feel/NOW.md`.
-- **10 · write-echo — DONE (2026-07-11). Direct-write FAILS the pre-registered
-  criterion** (content 12/s echo p95 **307ms** vs ≤50, 720/720 stalls; 3/s p95
-  394ms/max 1007ms; status 12/s p95 313ms). Cause: text-kernel microbatch
-  materialization floor ~210ms p50 (leg2), payload/load-independent = iteration
-  cadence (leg1 append-ack ~5ms; leg3 additive → verdict robust even at leg3=0).
-  COMPOSED (leg3 characterized not E2E); IPC substrate = today's runtime; probe
-  UNCOMMITTED. Numbers+method+deviations: `build/write-echo/NOW.md` — the
-  empirical input to `build/editor-loop/ROAD.md`'s echo-budget/caret-law.
-  **D-013 CLOSED (countersigned 2026-07-12):**
-  microbatch route closed; same criterion re-aimed at stream; next fallback
-  pre-registered; block-write gated on the follow-up. Follow-up READY:
-  **write-echo-2** — paste
-  `docs/sessions/write-echo-2-opening-prompt-2026-07-12.md`, model Opus 4.8.
+- **10 · write-echo-2 — DONE (2026-07-12). Direct-write against a STREAM topology
+  PASSES the pre-registered criterion, decisively.** Content 12/s echo p95
+  **7.66ms** (budget ≤50), 0/720 stalls; 3/s p95 14.36ms; status 12/s p95 5.84ms;
+  0/1620 stalled, 0 unmaterialized. **leg2 (materialization) 211→3.1ms vs
+  microbatch, SAME method** → the ~210ms was the microbatch cadence, now gone
+  (tail-inversion gone too: 3/s tail lives in leg1, not leg2). `:ack` round-trip
+  cross-check p95 3.90ms validates the decomposition. leg3 (Electric stream-back)
+  characterized 2–4ms, additive → composed E2E p95 ~11ms (robust to leg-3 ≤~40ms);
+  COMPOSED not browser-measured. Named contract input (not built): stream drops
+  microbatch's cross-PState exactly-once → block-write owes op-id idempotency
+  (overwrite-by-value on retry). Substrate = IPC (clustered re-measure the one
+  caveat that could erode margin — flagged). Probe UNCOMMITTED
+  (`stream_echo_probe.clj`). Full numbers/method/deviations + the microbatch↔stream
+  leg table: `build/write-echo/NOW.md` — empirical input to
+  `build/editor-loop/ROAD.md`'s echo-budget/caret-law. **Verdict NOT ruled here**
+  → fills D-013 ruling-2's evidence slot: **next = a Fable session drafts the
+  decisions.md update (transport commitment + the op-id idempotency obligation) →
+  Sid countersigns.** D-013 ruling-4 (block-write contract) UNBLOCKED pending that.
 - **11 · box3d-spike — DONE (2026-07-11): BUILDS + DETERMINISTIC.** Box3D
   (MIT) builds native + single-threaded wasm (163 KB gzip); native↔wasm trace
   **byte-identical** → sim = replayable trail. Writer seam proven from JS
@@ -121,8 +132,9 @@ bridges (panproto lenses).
 
 ## Active package blocks
 
-None. When a package opens: STANDING (frozen at open) + NOW (≤15-line
-entries) live in `build/<package>/NOW.md`; add a one-line board entry under
-Threads; prune it at close (/work-package skill governs the mechanics).
+**machine-cut** — STANDING + NOW at `build/machine-cut/NOW.md` (thread 14).
+Charter: STANDING (frozen at open) + NOW (≤15-line entries) live in
+`build/<package>/NOW.md`; one board line under Threads; prune at close
+(/work-package skill governs the mechanics).
 Precedence unchanged: thread files and this board NEVER outrank CONTRACT.md
 or decisions.md — flag discrepancies inline, don't pause.
