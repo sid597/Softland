@@ -70,7 +70,13 @@
     ;; §11.1/§11.3): :grounds (read-tool observation), :assembled-from (assembly,
     ;; §8.1), :refines (demand refinement, §5). :produced is already registered
     ;; above and carries the write-tool floor edge. One-line reviewed add.
-    :grounds :assembled-from :refines})
+    :grounds :assembled-from :refines
+    ;; machine-cut discourse structure (machine-cut CONTRACT §4.1; the framework
+    ;; CONTRACT §8 pre-named form-break, fired at G25; authorized by Sid
+    ;; 2026-07-12, decisions.md dated entry). Directed: from = response event,
+    ;; to = user-message/prompt event ("this response pairs-with that prompt").
+    ;; That package's ONE kernel edit. One-line reviewed add.
+    :pairs-with})
 
 (def request-types #{:relation/assert :relation/retract})
 
