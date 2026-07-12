@@ -85,6 +85,13 @@
                          :order    (:order b)
                          :time-ms  (:time-ms b)
                          :part-path (:part-path b)
+                         ;; block-write PHASE_0 rule 2 (additive thread-through):
+                         ;; surface the unit's own document-container-id (from
+                         ;; river-page rule 1) alongside :id, so the edit outbox
+                         ;; (Lane B) copies it verbatim into the §3 payload — the
+                         ;; client tracks no container id (BW-T7). Purely additive;
+                         ;; existing served keys are byte-stable (MC-T8 class).
+                         :document-container-id (:document-container-id b)
                          :block-path (:block-path b)}]
             (if-let [idx (get order->idx euid)]
               (update-in acc [:turns idx :blocks] conj block)
@@ -501,15 +508,46 @@
 ;; The projection registry + server-side face dispatch (trap T8).
 ;; ===========================================================================
 
+(defn block-truth-projection
+  "block-write INT · the §5 narrowing serve: edited units' materialized truth
+   via the SAME read-unit overlay river-page uses (the graduation overlay
+   returns edited content — Lane A G1). Narrower read, same transport, same
+   criterion (CONTRACT §5). Read-only by construction (G12). Request:
+   {:face :block-truth :address <object-key>
+    :params {:units {<unit-id> <nonce>}} :epoch n} — a UNION map, not a
+   single id (FALSIFY F1: Electric conflates a single-value request atom to
+   the latest value, silently dropping a cross-unit pull; a union map makes
+   conflation lossless — the latest value contains every armed unit; capped
+   client-side). Reaches this entry by direct projection addressing (resolve
+   order 3). Total: unknown units serve found? false, never a throw (L13)."
+  [{:keys [oc-rt]} request]
+  (let [units (keys (get-in request [:params :units]))]
+    {:block-truth/units
+     (into {}
+           (map (fn [unit-id]
+                  ;; UnitReadResult's TOP-LEVEL :content-text is the overlay:
+                  ;; the graduation row's current content when edited
+                  ;; (refreshed per revision, object_container.clj:1491-1499),
+                  ;; the derived text when never edited — the same truth
+                  ;; river-page serves. Read AT EXECUTION time: a late pull
+                  ;; can never serve stale content.
+                  (let [result (ocr/read-unit oc-rt unit-id)]
+                    [unit-id {:found? (some? result)
+                              :text   (:content-text result)}])))
+           units)
+     :face/rendered-at-ms (System/currentTimeMillis)}))
+
 (def projection-registry
   "Plain value: {<projection-kw> → (fn [ctx request] → data-context)}. Wave 1
    registered ONE projection; W2 adds the two arsenal reads (:assembly wear-time
    source serve + :face-list roster). Extensible by adding an entry — never by an
    Electric `case`. Persisted form (Wave 2, schema §8) is keyword + code address,
-   never fn values (trap T5)."
+   never fn values (trap T5). block-write INT adds :block-truth (the §5
+   single-unit echo read)."
   {:conversation conversation-projection
    :assembly     assembly-projection
-   :face-list    face-list-projection})
+   :face-list    face-list-projection
+   :block-truth  block-truth-projection})
 
 (def face->projection-kind
   "Server-side face → projection map (v0 static entries). Dispatch lives here,

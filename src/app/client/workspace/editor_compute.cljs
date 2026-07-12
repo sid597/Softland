@@ -11,6 +11,8 @@
             [app.client.workspace.sidebar :as sidebar :refer [sidebar-w cmd-panel-h status-bar-h build-sidebar-tree derive-effective-sidebar]]
             [app.client.workspace.trail-face.scene :as trail-scene]
             [app.client.workspace.face-assembly :as face-assembly]
+            [app.client.workspace.block-edit :as block-edit]
+            [app.client.workspace.block-edit-wiring :as block-edit-wiring]
             [app.client.workspace.shell :refer [build-file-layout]]))
 
 ;; ============================================================================
@@ -482,7 +484,7 @@
         !last-face-struct (atom ::none)
         <face-assembly
         (m/latest
-          (fn [layout face-state face-context compiled]
+          (fn [layout face-state face-context compiled edit-st truth-overlay]
             (if-not (and (:face face-state) compiled)
               (do (reset! !face-scene nil)
                   (reset! !last-face-struct ::none)
@@ -500,6 +502,14 @@
                           :char-advance char-advance
                           ;; honest server stamp, never the wall clock (§5)
                           :now-ms       (or (:face/rendered-at-ms face-context) 0)}
+                    ;; block-write INT: paint the edit UI onto the served
+                    ;; context BEFORE interpretation — the focused block's
+                    ;; pending-input (buffer text+caret, ONE value — BW-T6/L8),
+                    ;; refusal notices (G5), and the §5 single-unit truth
+                    ;; overlay all ride THIS one m/latest; pure fn, no side
+                    ;; effects here (R3/BW-T9). Fast-path identity when idle.
+                    face-context (block-edit/overlay-face-context
+                                   face-context edit-st truth-overlay)
                     ;; compiled compares by identity inside the value compare
                     ;; (it holds closures; it only changes by /face reset!)
                     struct [layout face-state face-context compiled]
@@ -519,8 +529,10 @@
                   {:rects (tree->rects scene)
                    :shadows (tree->shadows scene)}))))
           <layout (m/watch !face-state) (m/watch !face-context)
-          (m/watch !face-compiled))
-        ;; 4 fn args, 4 flows
+          (m/watch !face-compiled)
+          (m/watch block-edit-wiring/!edit-state)
+          (m/watch block-edit-wiring/!truth-overlay))
+        ;; 6 fn args, 6 flows (block-write INT: +edit-state +truth-overlay)
 
         ;; ── Flow canvas rects (intake + run) ──
         ;; ── Intake rects (ticket list) ──

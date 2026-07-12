@@ -4,6 +4,13 @@
             [hyperfiddle.electric-dom3 :as dom]
             [app.client.workspace.themes :as themes]
             [app.file-viewer :as fv]
+            ;; block-write Lane A · server-only edit entry point deps (the write
+            ;; layer, never on the client). face_projection.clj stays READ-ONLY
+            ;; (its g12 grep forbids the append form), so the ONE :object/edit
+            ;; entry point lives HERE in the artery, beside RecordFaceWear.
+            #?@(:clj [[app.server.rama.object-container :as oc]
+                      [app.server.rama.object-container.runtime :as ocr]
+                      [app.server.rama.util-fns :as util-fns]])
             #?@(:cljs [[app.client.substrate.webgpu.renderer :as editor]
                        [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
                        [app.client.workspace.runtime.fonts :as runtime-fonts]
@@ -31,6 +38,78 @@
 #?(:clj (defn sci-eval [_] {:error "SCI only available in browser"}))
 #?(:clj (defn sci-eval-form [_] "SCI only available in browser"))
 #?(:clj (defn find-form-at-cursor [_ _ _] nil))
+
+#?(:clj
+   (defn submit-block-edit!
+     "block-write Lane A · the ONE server edit entry point (CONTRACT §3 envelope →
+      :object/edit on the EXISTING object-container stream path; no new module /
+      depot / topology — BW-T1). Callable from Electric server context (the artery
+      wiring in Main below; Lane B's reader-face outbox connects at INT).
+
+      `env` carries client-minted fields: :request-id, :idempotency-key (deterministic
+      f(request-id), object-key-scoped — nil lets the kernel builder derive it that
+      way), :edit-client-id, :edit-seq, :actor (sid's map WITH capability :object/edit),
+      :time-ms, :target {:target/kind :target/id}, and :payload {:document-container-id
+      :object-key :content-text}. The SERVER stamps :content-hash itself via the kernel's
+      own `oc/source-hash` (one hash rule, HERE — no cljs crypto port, no drift; any
+      client-supplied hash is IGNORED). Appends with :ack (ack ⇒ event tree complete ⇒
+      materialized, CONTRACT §3), reads the DURABLE decision (accepted OR rejected — the
+      refusal reason SURFACES, G5), and on an ACCEPT bumps the ingest epoch so the generic
+      FacePull re-reads truth. The bump lives in THIS ack continuation ONLY — never a
+      render / m/latest path (BW-T9). Returns a plain, wire-safe map (no raw record)."
+     ([oc-rt env] (submit-block-edit! oc-rt env util-fns/!ingest-epoch-atom))
+     ([oc-rt env !epoch]
+      (let [{:keys [request-id idempotency-key edit-client-id edit-seq actor time-ms
+                    target payload]} env
+            {:keys [document-container-id object-key content-text]} payload
+            content-text (str content-text)
+            request (oc/object-edit-request
+                     (:target/kind target)
+                     (:target/id target)
+                     content-text
+                     {:object-key            object-key
+                      :document-container-id document-container-id
+                      ;; server stamps the hash (CONTRACT §4) — client hash ignored
+                      :content-hash          (oc/source-hash content-text)
+                      :request-id            request-id
+                      :idempotency-key       idempotency-key
+                      :edit-client-id        edit-client-id
+                      :edit-seq              edit-seq
+                      :actor                 actor
+                      :time-ms               time-ms})
+            ;; BW-T5 replay detection: a same-request-id re-append hits the audit
+            ;; short-circuit (object_container.clj:1818), which ack-returns the PRIOR
+            ;; decision VERBATIM — no replay marker on the row. So the honest signal is
+            ;; "was this request-id already decided BEFORE this append?" (one cheap point
+            ;; read). A same-idempotency-key / different-request-id replay instead carries
+            ;; :replayed-from-decision-id; we honour both.
+            already-decided? (some? (ocr/read-decision oc-rt request))]
+        ;; :ack IS the barrier on this stream topology (materialized on return —
+        ;; the deterministic barrier, never a poll).
+        (ocr/append-object-container-request! oc-rt request :ack)
+        (let [decision  (ocr/read-decision oc-rt request)
+              accepted? (oc/decision-accepted? decision)
+              replay?   (or already-decided?
+                            (some? (:replayed-from-decision-id decision)))]
+          ;; BW-T9: epoch bump ONLY here, after the ack barrier, and ONLY on a real
+          ;; truth change (a fresh accept — not a replay, not a rejection). A rejection
+          ;; changes no state; the caller reverts the block from the returned reason.
+          (when (and accepted? (not replay?)) (swap! !epoch inc))
+          {:accepted?  accepted?
+           :replay?    replay?
+           :reason     (:reason decision)   ;; G5: refusal reason surfaced
+           :errors     (:errors decision)
+           :status     (:status decision)
+           :request-id request-id
+           :object-key object-key
+           :target-id  (:target/id target)})))))
+
+(e/defn SubmitBlockEdit [env]
+  ;; block-write Lane A · the edit write e/defn (CONTRACT §3). Same indirection as
+  ;; RecordFaceWear (fv): server-only body, oc-rt resolved from face-ctx, plain-map
+  ;; result crosses back. The accept-side epoch bump inside submit-block-edit!
+  ;; (BW-T9) drives the existing WatchIngestEpoch → FacePull re-read.
+  (e/server (submit-block-edit! (:oc-rt (fv/face-ctx)) env)))
 
 #?(:cljs
    (do
@@ -498,7 +577,23 @@
                 !face-list-request (atom nil)
                 !face-list-data (atom nil)
                 !face-wear-outbox (atom nil)
-                !face-wear-result (atom nil)]
+                !face-wear-result (atom nil)
+                ;; block-write Lane A · the edit write seam (CONTRACT §3/§5). Lane B's
+                ;; reader-face outbox sets !block-edit-outbox (one envelope per
+                ;; keystroke); the server e/watch below drives submit-block-edit! and
+                ;; mirrors the plain result back. The epoch bump lives inside that fn's
+                ;; ack continuation (BW-T9), so an accept re-pulls the face via the
+                ;; SAME WatchIngestEpoch + FacePull path (no second epoch channel).
+                !block-edit-outbox (atom nil)
+                !block-edit-result (atom nil)
+                ;; block-write INT · the §5 narrowing echo: an ACCEPTED edit
+                ;; arms ONE single-unit truth pull (same generic FacePull
+                ;; transport, same read-unit overlay river-page uses) — the
+                ;; INV-19 1s debounce guards FULL-face pulls, not this narrow
+                ;; read. Same shape as !assembly-request (a second FacePull
+                ;; call site, not a new transport).
+                !block-truth-request (atom nil)
+                !block-truth-data (atom nil)]
             ;; Reactive sync: Rama PState → Electric → client atom.
             ;; Re-runs whenever the server-side PState changes.
             (reset! !sidebar-truth (fv/WatchSidebarTruth))
@@ -549,6 +644,18 @@
             (let [wear (e/watch !face-wear-outbox)]
               (when wear
                 (reset! !face-wear-result (fv/RecordFaceWear wear))))
+            ;; block-write Lane A · the edit write path (CONTRACT §3). Same shape as
+            ;; the wear outbox: envelope in → server submit-block-edit! → plain result
+            ;; mirrored back. The accept-side epoch bump inside submit-block-edit! (BW-T9)
+            ;; drives the existing WatchIngestEpoch → debounced FacePull re-read; this
+            ;; is NOT a second epoch channel. Lane B clears the outbox on result.
+            (let [edit (e/watch !block-edit-outbox)]
+              (when edit
+                (reset! !block-edit-result (SubmitBlockEdit edit))))
+            ;; block-write INT · the single-unit truth pull (§5 narrowing).
+            (let [breq (e/watch !block-truth-request)]
+              (when breq
+                (reset! !block-truth-data (fv/FacePull breq))))
             ;; Sidebar visible: default true, but respect persisted workspace truth.
             ;; Must be initialized AFTER workspace truth loads so install-sidebar-watch!
             ;; sees the correct initial value and doesn't auto-show a hidden sidebar.
@@ -651,5 +758,12 @@
                                                     :!face-list-data !face-list-data
                                                     :!face-wear-outbox !face-wear-outbox
                                                     :!face-wear-result !face-wear-result
+                                                    ;; block-write Lane A · edit write seam threaded to the client
+                                                    ;; runtime (Lane B destructures these in runtime.cljs at INT;
+                                                    ;; start-loop! varargs ignores them until then — safe additive).
+                                                    :!block-edit-outbox !block-edit-outbox
+                                                    :!block-edit-result !block-edit-result
+                                                    :!block-truth-request !block-truth-request
+                                                    :!block-truth-data !block-truth-data
                                                     :!ingest-epoch-remote !ingest-epoch-remote
                                                     :initial-file file-info))))))))))))))))

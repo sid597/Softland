@@ -17,6 +17,7 @@
             [app.client.workspace.runtime.keyboard :as kbd]
             [app.client.workspace.trail-face.wiring :as trail-wiring]
             [app.client.workspace.face-wiring :as face-wiring]
+            [app.client.workspace.block-edit-wiring :as block-edit-wiring]
             [app.client.workspace.runtime.render :as render]))
 
 (defn start-loop!
@@ -28,7 +29,9 @@
    find-form-fn eval-form-fn font-assets & {:keys [font-manifest gpu-budget !sidebar-visible !file-load-request !preview-el !remote-sidebar-truth !remote-settings-truth !remote-agent-trail !remote-flow-session !remote-workspace-truth initial-file
                                                    !trail-request !trail-data !face-request !face-data !ingest-epoch-remote
                                                    !assembly-request !assembly-data !face-list-request !face-list-data
-                                                   !face-wear-outbox !face-wear-result]}]
+                                                   !face-wear-outbox !face-wear-result
+                                                   !block-edit-outbox !block-edit-result
+                                                   !block-truth-request !block-truth-data]}]
 
   (let [;; Phase 2: Build the rt context map
         rt (state/make-runtime-state
@@ -69,6 +72,15 @@
                    :!face-wear-outbox !face-wear-outbox
                    :!face-wear-result !face-wear-result
                    :!ingest-epoch-remote !ingest-epoch-remote})
+
+        ;; ── Block edit (block-write INT) ────────────────────────────
+        ;; The reader-face edit seam: outbox/result ride Lane A's artery
+        ;; atoms (back-arrow); the §5 narrowing pull rides !block-truth-*.
+        _ (block-edit-wiring/install-block-edit-wiring!
+            atoms {:!block-edit-outbox !block-edit-outbox
+                   :!block-edit-result !block-edit-result
+                   :!block-truth-request !block-truth-request
+                   :!block-truth-data !block-truth-data})
 
         ;; dev observability: the runtime atoms map on window, read-only use
         ;; (drives live INT checks — G14(b)/G15 console equality + state
@@ -373,6 +385,7 @@
         <cmd-keyboard     (events/<cmd-panel-keys >keyboard-events (:!focus atoms))
         <chat-keyboard    (events/<chat-input-keys >keyboard-events (:!focus atoms))
         <settings-keyboard (events/<settings-panel-keys >keyboard-events (:!focus atoms))
+        <face-edit-keyboard (events/<face-edit-keys >keyboard-events (:!focus atoms))
 
         ;; ── DOM listeners (raw, not Missionary) ─────────────────────
         _ (mouse/install-drag-select! atoms layout node)
@@ -411,6 +424,7 @@
       (kbd/command-keys-consumer atoms (:submit-agent-run! agent-api) <cmd-keyboard)
       (kbd/chat-keys-consumer atoms (:submit-agent-run! agent-api) <chat-keyboard)
       (kbd/settings-keys-consumer atoms <settings-keyboard)
+      (block-edit-wiring/face-edit-keys-consumer <face-edit-keyboard)
 
       ;; Render loop (the terminal consumer)
       (render/render-consumer atoms layout gpu deps >raf))))
