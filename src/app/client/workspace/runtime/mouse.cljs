@@ -9,6 +9,7 @@
             [app.client.workspace.cmd-panel :refer [cmd-panel-apply-event cmd-text-start-x]]
             [app.client.workspace.editor-compute :refer [editor-apply-event]]
             [app.client.workspace.block-edit-wiring :as block-edit-wiring]
+            [app.client.workspace.scene-runtime :as scene-rt] ;; scene-substrate P3a
             [app.client.workspace.settings-view :refer [slider-specs]]
             [app.client.workspace.ui-primitives :refer [list-left-pane-pct]]
             [app.client.workspace.runtime.state :refer [save-undo!]]
@@ -399,24 +400,34 @@
 ;; ═══════════════════════════════════════════════════════════════════════
 
 (defn- handle-face-assembly-click!
-  "block-write INT: assembly-face click → block edit focus. Hit-tests the
-   CACHED !face-scene; the deepest hit node whose :id path contains a block
-   unit-id (blocks carry :id in the served context; face_assembly trap T6
-   threads item :id into node ids) resolves the click to that block. Block →
-   block-edit-wiring/face-click! focuses it; miss → blur."
+  "block-write INT: assembly-face click → block edit focus.
+
+   scene-substrate P3a: (x, y-scene) is ALREADY the WORLD point — the caller
+   added scroll-y (world camera pan (0,−scroll-y)) and sb-w is 0 in face mode,
+   zoom 1.0. Try the scene STORE first: pick inverse-transforms the point per
+   container (trap T8) and resolves the deepest addressed node → its :address is
+   the block unit-id → face-click!. A store miss (no extra instances, or a click
+   over the MAIN face which rides the legacy singleton, not the store) FALLS
+   BACK to the cached-!face-scene hit-test — legacy untouched (CONTRACT §3).
+   Both routes end at block-edit-wiring/face-click! (nil → blur)."
   [{:keys [!face-scene !face-context]} x y-scene]
-  (let [ctx  @!face-context
-        ids  (into #{}
-                   (comp (mapcat :blocks) (keep :id))
-                   (:turns ctx))
-        path (when-let [scene @!face-scene]
-               (hit-test scene x y-scene))
-        unit-id (when (seq ids)
-                  (some (fn [node]
-                          (when (vector? (:id node))
-                            (some ids (:id node))))
-                        (some-> path rseq)))]
-    (block-edit-wiring/face-click! unit-id)))
+  (if-let [hit (and (scene-rt/any-slots?)
+                    (scene-rt/pick-world [x y-scene]))]
+    (block-edit-wiring/face-click! (:address hit))
+    ;; LEGACY fallback — the cached !face-scene hit-test (trap T6: :id path
+    ;; carries the block unit-id; face_assembly threads item :id into node ids).
+    (let [ctx  @!face-context
+          ids  (into #{}
+                     (comp (mapcat :blocks) (keep :id))
+                     (:turns ctx))
+          path (when-let [scene @!face-scene]
+                 (hit-test scene x y-scene))
+          unit-id (when (seq ids)
+                    (some (fn [node]
+                            (when (vector? (:id node))
+                              (some ids (:id node))))
+                          (some-> path rseq)))]
+      (block-edit-wiring/face-click! unit-id))))
 
 (defn- handle-trail-face-click!
   "Trail face click (view-mvp WP-B2): hit-test the CACHED scene object -
