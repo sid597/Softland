@@ -412,7 +412,10 @@
    Both routes end at block-edit-wiring/face-click! (nil → blur)."
   [{:keys [!face-scene !face-context]} x y-scene]
   (let [wp  [x y-scene]
-        hit (and (scene-rt/any-slots?) (scene-rt/pick-world wp))]
+        ;; `when`, not `and`: record-pick!'s contract is map-or-nil, and
+        ;; `and` leaks a literal `false` when no slots exist — (assoc false …)
+        ;; killed the reactor on the first face click (G11 wearing, 07-13).
+        hit (when (scene-rt/any-slots?) (scene-rt/pick-world wp))]
     ;; scene-substrate P4 — record where the user pointed so a following cmd/agent
     ;; submit carries the deictic bundle (nil hit still records the world-point).
     (scene-rt/record-pick! wp hit)
