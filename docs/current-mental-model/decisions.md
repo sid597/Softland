@@ -667,10 +667,11 @@ unengaged; ruling-4's gate lifts on D-014's countersign.*
 ---
 
 ## D-014 — Editor write transport COMMITTED: direct write over a STREAM topology; stream's at-least-once priced via op-id idempotency
-**STATUS: PROPOSED** (drafted by Fable 2026-07-12 from the write-echo-2 spike,
+**STATUS: CLOSED** (drafted by Fable 2026-07-12 from the write-echo-2 spike,
 `build/write-echo/NOW.md`; SAME pre-registered criterion as D-013, third use,
-never adjusted; fills D-013 ruling-2's evidence slot. Awaits Sid's countersign,
-which flips this CLOSED.)
+never adjusted; fills D-013 ruling-2's evidence slot. **Countersigned by Sid
+2026-07-12 in-session** — D-013 ruling-4's gate is lifted; block-write
+CONTRACT may open.)
 
 **Measured fact.** Direct write→read-back against a minimal STREAM topology —
 per-key serialization identical to the text-kernel's scheme

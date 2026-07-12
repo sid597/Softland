@@ -80,15 +80,15 @@ on kinds).
   face+missionary suite 85t/1625a green. Code + docs committed separately.
   Left: `[RAF]`/typing-burst capture + Sid's fingers (dev app is live, serving
   it). Thread file: `build/editor-feel/NOW.md`.
-- **10 · write-echo-2 → D-014 PROPOSED, awaiting Sid (2026-07-12).** Stream
-  probe PASSED decisively (echo p95 7.66ms vs ≤50 budget, 0/1620 stalls; full
-  numbers/method: `build/write-echo/NOW.md`). Fable verdict drafted:
-  **decisions.md D-014** — transport committed (direct write over STREAM, no
-  optimistic echo), op-id idempotency contract-binding on block-write,
-  clustered re-measure pre-registered at substrate change (not required now),
-  browser E2E closes at the block-write gate. **On countersign: D-013
-  ruling-4's gate lifts → block-write CONTRACT opens** (editor-loop ROAD §6).
-  Probes stay UNCOMMITTED (`write_echo_probe.clj`, `stream_echo_probe.clj`).
+- **10 · write-echo → D-014 CLOSED (countersigned 2026-07-12); thread done.**
+  Stream probe PASSED decisively (p95 7.66ms, 0/1620 stalls; numbers/method:
+  `build/write-echo/NOW.md`). **decisions.md D-014** rules the transport:
+  direct write over STREAM, no optimistic echo; op-id idempotency
+  contract-binding; clustered re-measure pre-registered at substrate change;
+  browser E2E at the block-write gate. **Next: Fable drafts the block-write
+  CONTRACT** (editor-loop ROAD §6 — first WRITE face, editing blocks in the
+  reader face). Probes stay UNCOMMITTED (`write_echo_probe.clj`,
+  `stream_echo_probe.clj`).
 - **11 · box3d-spike — DONE (2026-07-11): BUILDS + DETERMINISTIC.** Box3D
   (MIT) builds native + single-threaded wasm (163 KB gzip); native↔wasm trace
   **byte-identical** → sim = replayable trail. Writer seam proven from JS
