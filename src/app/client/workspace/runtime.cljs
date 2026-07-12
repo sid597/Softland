@@ -18,6 +18,9 @@
             [app.client.workspace.trail-face.wiring :as trail-wiring]
             [app.client.workspace.face-wiring :as face-wiring]
             [app.client.workspace.block-edit-wiring :as block-edit-wiring]
+            ;; block-write G7 probe mount (UNCOMMITTED — strip before commit,
+            ;; islands-probe convention; file: block_edit_probe.cljs)
+            [app.client.workspace.block-edit-probe]
             [app.client.workspace.runtime.render :as render]))
 
 (defn start-loop!

@@ -2,6 +2,7 @@
   "Render consumer: derived flow assembly, world snapshot, GPU upload diffing, draw."
   (:require [missionary.core :as m]
             [app.client.substrate.webgpu.renderer :as editor]
+            [app.client.substrate.webgpu.island-probe :as island] ;; islands-probe 2026-07-11 (UNCOMMITTED)
             [app.client.substrate.webgpu.buffer-pool :as pool]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.workspace.events :refer [maybe-snap]]
@@ -122,7 +123,8 @@
     ;; Render pulse: sample world on each RAF tick
     (m/reduce
       (fn [prev-state [world _frame-time]]
-        (if (identical? world (:prev-world prev-state))
+        (if (and (identical? world (:prev-world prev-state))
+                 (not (island/driving?))) ;; islands-probe: force redraw so probe gets continuous frames
           prev-state
 
           (let [frame-idx (inc (or (:frame-idx prev-state) 0))
@@ -486,6 +488,9 @@
                   (js/console.log "[RAF] prep:" (.toFixed (- raf-t1 raf-t0) 1) "ms | text-gpu:" (.toFixed (- raf-t2 raf-t1) 1) "ms | rects-gpu:" (.toFixed (- raf-t3 raf-t2) 1) "ms | draw:" (.toFixed (- raf-t4 raf-t3) 1) "ms | TOTAL:" (.toFixed (- raf-t4 raf-t0) 1) "ms | content-same?:" content-same? "chrome-same?:" chrome-same?
                                   "dirty-rect:" (if dirty-rect "partial" "full")))))
 
+            ;; islands-probe 2026-07-11 (UNCOMMITTED): composite the island onto the land frame
+            (island/step! device ctx (:width viewport) (:height viewport) (:dpr viewport) gpu-tracker)
+
             {:content-text-geo new-content-geo
              :chrome-text-geo new-chrome-geo
              :cmd-rect-sys new-cmd-sys
@@ -530,6 +535,7 @@
                         :persistent-render-target? use-persistent-render-target?
                         :has-render-target? (boolean render-target)})
         (gpu-budget/log-startup-report! tracker)
+        (island/install-window-api! (.-canvas ctx)) ;; islands-probe 2026-07-11 (UNCOMMITTED)
         {:content-text-geo (:text geometry)
        :chrome-text-geo chrome-text-geo
        :cmd-rect-sys @!cmd-rect-sys
