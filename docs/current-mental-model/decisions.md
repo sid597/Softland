@@ -8,7 +8,10 @@ records (gates, retros, fix waves, countersign events) live in `build/<pkg>/`
 artifacts; "where are we now" lives on the board (`docs/sessions/next-prompt.md`).
 
 Companion: `BETS.md` (same directory) — North (Sid's authorship only) + the bet
-ladder. This log governs closures; BETS.md governs direction.
+ladder. This log governs closures; BETS.md governs direction. Beneath both:
+`vision/LOG.md` — Sid's verbatim vision depot (append-only, his words only).
+Every LOG entry gets ROUTED into this structure per D-015; the board's Vision
+line tracks the high-water mark, so new wants are never silently excluded.
 
 ## Operating rules
 
@@ -44,6 +47,15 @@ ladder. This log governs closures; BETS.md governs direction.
   Work happens on **three frontiers only: rama · ui · framework**; the
   benchmark front is pushed back (resume is Sid's call; its rankings feed
   intake when resumed).
+- **D-016 — the citizenship criterion** (Sid's own test, LOG 2026-07-11
+  verbatim; already applied in practice in `build/spatial/ROAD.md`'s islands
+  gets/loses ladder). Any proposed new capability answers, before adoption:
+  what do we lose and what do we get; how controllable is it; how does it
+  follow from Softland's own eyes; how buildable / interactable / modifiable
+  is it from inside; would it be liveable and controllable from within the
+  land? D-001 rules WHEN to build; this rules WHAT is admissible as a
+  citizen — a capability that can only ever be a bolt-on fails regardless of
+  demand.
 - **Standing stops, unaffected by any default:** never push/merge the docs
   branch; never read `env.clj`; code and docs in separate commits; North
   stays Sid-authored; spend stops for Sid.
@@ -213,6 +225,20 @@ stall >100ms per sustained minute.
   question that can't name its source isn't asked). Guardrails: one ACTIVE
   bet; promotion only by Sid at review sittings; form-break fixes outrank
   speculative probes.
+- **D-015 — the vision interleave** (ruled with Sid 2026-07-12; the operator
+  form-break: LOG entries landed verbatim and were then structurally excluded
+  — the BETS Candidates inbox sat empty since 2026-07-03 while the
+  2026-07-10/11 sittings' wants reached structure only where a session
+  happened to be listening). `vision/LOG.md` is the depot; the standing
+  structure must materialize it. Duty: the session that appends a LOG entry
+  ROUTES it same-session — rule-shaped → an axis here; thread-shaped → a
+  board thread aim or new thread line; bet-shaped → BETS Candidates
+  (entry is cheap, sharpening may be queued visibly); question-shaped →
+  Open questions — then updates the board's **Vision line** (high-water date
+  + open pulls, pruned as absorbed). Any session that boots and finds the
+  LOG tail newer than the high-water flags it before building. Register rule
+  unchanged: build sessions still never boot FROM the LOG — the board's
+  Vision line is how a want reaches them.
 - **Process rules.** Every session ends with an assertion-grade entry in its
   THREAD file and a board-line flip (adopted 2026-07-04). The board
   (`next-prompt.md`, charter 2026-07-10) is pointer + status lines only;

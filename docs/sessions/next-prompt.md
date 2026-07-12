@@ -17,6 +17,13 @@ content creeps back in because there's no room, revert or amend; don't suffer.
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
 
+**Vision (D-015):** LOG routed through **2026-07-11**. Open pulls (prune as absorbed):
+- LOG 07-11 **designer edit-mode** (figma-like direct edit over live faces, 80→95%) → filed as BETS Candidate C2; sharpening at next intake sitting
+- LOG 07-10 **design-loop-in-land beyond D-012** (accepted faces → arsenal → Softland-as-design-orchestrator → deploy + share) → BETS Candidate C1; sharpening at next intake sitting
+- LOG 07-11 **"optimized on every dimension while maintaining explorable explanations + lineage, live and composable"** → North-grade sentence, Sid's hand only — next vision sitting
+- LOG 07-11 **branch-from-base** (two worlds built out of one base, code-diff-like) → input to the spatial cluster contracts (thread 12)
+- **BETS H1 KILL evaluation due ~2026-07-19** (verdict log): do new thinking panels still start on paper / wall photos still get pasted into chats?
+
 ## Direction line (countersigned 2026-07-09: "all agree on the specs")
 
 spec v0 + CONTRACT v1 ✅ → substrate ✅ (block-kernel + code-atom families both

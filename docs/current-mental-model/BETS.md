@@ -155,9 +155,29 @@ and its dependencies — then files it here. Rules:
   here. If candidates pile up unsharpened or unreviewed, say so at the next
   sitting — this section is an inbox, not a graveyard.
 
-*(empty — first intake sitting seeds from vision/LOG.md, the wall, and the
-dated pre-reads in `docs/current-mental-model/intake/`; first pre-read:
-`intake/2026-07-04-painting.md`)*
+- **C1 — the design loop closes in-land, then compounds** (filed 2026-07-12
+  from `vision/LOG.md` 2026-07-10, verbatim source there; routed per D-015).
+  Raw claim: once faces born from design conversations are accepted into the
+  arsenal, Softland becomes its own design orchestrator — the next chat can
+  wear any accepted face ("live conversation rendered in 6 different places"),
+  and eventually components are built, deployed, shared, and reused entirely
+  in-land ("no-code on steroids... anyone else can use them too"). D-012's
+  self-hosting test is this claim's first rung, already law; C1 is the
+  compounding tail beyond it. **Sharpening pending** (falsifiable statement +
+  kill/confirm) — next Fable intake sitting.
+- **C2 — designer edit-mode over live faces** (filed 2026-07-12 from
+  `vision/LOG.md` 2026-07-11, verbatim source there; routed per D-015).
+  Raw claim: a designer can enter an edit mode, see the components implemented
+  in Softland, and directly manipulate/edit them in place, figma-like — 80%
+  of the value soon, 90–95% reachable. Rides the framework lane
+  (faces-as-assemblies makes arrangement editable DATA — the D-011 shape is
+  what makes this plausible). Subject to D-016 citizenship + D-001 pacing.
+  **Sharpening pending** — next Fable intake sitting.
+
+*(Intake also draws from the wall and the dated pre-reads in
+`docs/current-mental-model/intake/`; first pre-read:
+`intake/2026-07-04-painting.md`. If candidates sit unsharpened, the board's
+Vision line says so — that's the D-015 tripwire, not a graveyard.)*
 
 ## Verdict log (append-only)
 - **2026-07-05 — H1 clock: NOT started at first light; arming event pre-registered.**
