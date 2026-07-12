@@ -51,6 +51,22 @@
   `llm:machine-cut/v1` (version-scoped, never run-scoped). Next: Sid's
   countersign → dispatch lanes A ∥ B per LANES.md.
 
+- **2026-07-12 · Fable (same session) · wave RUN + gate + close-on-Sid's-word.**
+  Lanes A∥B GREEN first-run (LANE_A/B.md). INT: enum pre-landed (`f864c74`);
+  boot attach REWORKED to reuse the TRAIL cluster's rk (the first wearing
+  caught the cluster collision live) + `machine-cut-ctx`; constant re-homed;
+  model plumbed. G13 receipt PASS (real corpus, real run, $0.37, agreement
+  100% on a structurally-trivial window — RECEIPT_G13.edn). Falsification:
+  A=4 HIGH CONFIRMED (journal-key/barriers/noop/replay-scope) — ALL fixed at
+  gate with `gate-fix-*` regressions; B/C=0 HIGH. CONTRACT §4.3/§3/§5.5
+  amended in place (dated). **OPEN: G14 wearing (driver interrupted at Sid's
+  close) + quiet-box serial re-run** (post-fix run: 93t/1458a, 6 fails = llm
+  timing flake under dev-server boot, green isolated 12/114). Verdict + full
+  dispositions: INT.md. Sid flagged wave cost (~990k subagent tokens);
+  retro rule proposed: falsification defaults to ONE finder on new machinery.
+  Next: CLOSE session (suite at committed HEAD · G14 · retro; recheck = Sid's
+  call on cost).
+
 - **2026-07-12 · Fable (same session) · countersign + dispatch.**
   Sid countersigned all three items in-session ("i say do the
   countersign") — recorded in decisions.md. `:pairs-with` enum line landed

@@ -64,13 +64,19 @@ on kinds).
   Retro + residue: `build/framework/RETRO.md` (suite 54/880 green at
   committed HEAD). Its pair-structure residue spawned thread 14.
 
-- **14 · machine-cut — COUNTERSIGNED + WAVE RUNNING (2026-07-12).**
-  Contract v1 BINDING (Sid, in-session); `:pairs-with` enum landed
-  (`f864c74`, verified). Lanes A (driver) ∥ B (serve+face) dispatched as
-  parallel Opus 4.8 subagents per `build/machine-cut/LANES.md`. Then: INT
-  (boot attach, WAL wiring, serial suite) → G13 receipt → G14 wearing →
-  falsification batch → gate — this orchestrating session; close/retro =
-  a separate fresh session. Thread file: `build/machine-cut/NOW.md`.
+- **14 · machine-cut — WAVE DONE + COMMITTED (`ceb84da` code · `f864c74`
+  enum); gate PASS w/ 2 open items; close session NEXT (2026-07-12).**
+  Built + gated in one day: lanes GREEN, G13 receipt PASS (real run over
+  the real corpus, $0.37), falsification 4-HIGH cluster fixed at gate with
+  regressions, contract amended in place. **Open: G14 wearing**
+  (interrupted at Sid's cost-close; the WAL replays at any boot — wear
+  `boxes-paired-face` when the dev app is next up) + the **quiet-box
+  serial re-run at committed HEAD** (post-fix run 93t/1458a with 6 llm
+  timing flakes under concurrent boot; green isolated). Full record:
+  `build/machine-cut/INT.md` + `NOW.md`. Cost flag (Sid, verbatim ledger
+  ~990k subagent tokens): retro rule proposed — falsification defaults to
+  ONE finder on the new machinery. Close session runs: HEAD suite · G14 ·
+  retro (adversarial recheck = Sid's call on cost).
 
 - **9 · editor-feel — CODE DONE + verified, awaiting Sid's wear (2026-07-11).**
   All 5 hot-path causes removed/gated: Phase-4B mirror OFF by default

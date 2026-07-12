@@ -102,6 +102,10 @@ The annotation RUN is an llm-module turn-run. No llm-module code changes.
     `"space-event:<turn-id>:<bundle-id>"` (`llm.clj:195-197`) is therefore
     deterministic: re-submitting the same annotation intent is a total no-op.
     A deliberate re-guess over identical input takes an explicit `:salt`.
+    *(Amended 2026-07-12, FALSIFY_A F1: the no-op is VERIFIED — the prior
+    succeeded run's own WAL line is re-reconciled against current edge state
+    and converged, never taken on run-state faith; a succeeded run with no
+    WAL line returns honest `:stale-no-wal`.)*
 - **Executor**: the driver claims and runs synchronously via
   `run-one-pending-with-claude!` (`llm.clj:2260-2267`) — headless
   `claude -p --input-format stream-json --output-format stream-json`
@@ -191,10 +195,21 @@ precedent shape.
   extension (§10.7), v0 ships v1 only.
 - **relation-id** = `relation-id-for(:pairs-with, from, to, actor)` —
   deterministic; re-annotation converges on the same ids (rk trap 2).
-- **idempotency-key = request-id** = `"mc:" + relation-id` — STABLE across
-  runs. Never embed run-id or any per-run volatile (the framework W2-F3
-  fire: a volatile component mints a fresh key per run and defeats the
-  relation journal; §8 MC-T2). Same discipline as `git_spine.clj:215-235`.
+- **idempotency-key = request-id** = stable per logical TRANSITION. *Amended
+  in place 2026-07-12 at the gate (FALSIFY_A F2/F3 — the pre-registered ≥1
+  contract-text-error ledger's instance for this contract): v1's flat
+  `"mc:" + relation-id` was stable per-edge-FOREVER, and the relation
+  journal REPLAYS a duplicate key's prior decision — so
+  assert→retract→re-assert replayed the original assert decision and the
+  edge stayed retracted (the map lied); WAL replay could not converge an
+  A→B→A history either.* The rule: the FIRST assert of a never-seen
+  relation keys `"mc:" + relation-id`; any transition on an INCUMBENT row
+  keys `"mc:" + relation-id + ":" + <desired-status> + ":" + <incumbent
+  status-changed-at-ms>` — deterministic from READ state, so a client retry
+  of the same transition re-derives the same key. MC-T2's ban stands: never
+  a run-id, never a wall clock (the framework W2-F3 fire class). Discipline
+  precedent: `git_spine.clj:215-235` (whose edges never flip and so keep
+  the flat key legitimately).
 - **evidence-source-id** = the response event's FIRST river block's
   `:source-id` (a real per-part SourceArtifactRow,
   `block_distiller.clj:1293-1301`); evidence-anchor-id nil in v0.
@@ -284,8 +299,11 @@ timestamps, token usage if present), and the validated pair-set + rejection
 counts. Boot replay: re-derive the edge requests from each line
 deterministically and re-append (journal + deterministic ids converge; ZERO
 adapter calls — §9 G11); torn trailing line dropped honestly (arsenal
-`:146` precedent); later lines re-apply reconcile in file order. WAL path
-follows the arsenal's relative-path convention; compaction is a non-goal.
+`:146` precedent); later lines re-apply reconcile in file order, each line
+scoped to its OWN annotated window *(amended 2026-07-12, FALSIFY_A F6 — an
+address-wide replay reconcile would retract edges outside the window the
+line annotated)*. WAL path follows the arsenal's relative-path convention;
+compaction is a non-goal.
 
 ### 5.6 Completion side-effects
 

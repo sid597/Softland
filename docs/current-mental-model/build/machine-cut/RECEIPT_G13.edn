@@ -1,0 +1,39 @@
+#:g13{:baseline
+      {:agreement-pct 100.0, :mechanical-pairs 1, :disagreements []},
+      :edges {:asserted 34, :in-rk 34},
+      :served
+      {:structure
+       {:source :machine-cut,
+        :asserter "llm:machine-cut/v1",
+        :pairs-count 1,
+        :unpaired-count 0,
+        :edges-read 34,
+        :conflicts 0,
+        :foreign-asserter-edges 0},
+       :pairs 1,
+       :unpaired 0,
+       :structure-line "machine-cut v1 · 1 pairs · 0 unpaired"},
+      :window
+      {:address
+       "chat:10c22f9b6ccc059e397f065a7bd95ee6f19dce7260b0a1def19dccf195048a56",
+       :limit 64,
+       :river-events-total 247,
+       :blocks-returned 64,
+       :truncated? true},
+      :failures [],
+      :address
+      "chat:10c22f9b6ccc059e397f065a7bd95ee6f19dce7260b0a1def19dccf195048a56",
+      :counts
+      {:pairs 1,
+       :unpaired 0,
+       :unknown-ids 0,
+       :non-human-prompts 0,
+       :duplicates 0,
+       :unclassified 0},
+      :verdict :PASS,
+      :run
+      {:run-id
+       "llm-run-mc:8852d944a7537a99bbcdfb436cab71692e1f5f721395c1b54606809619a7b631",
+       :observed-model "claude-fable-5",
+       :cost-usd 0.3675475,
+       :duration-ms 67926}}
