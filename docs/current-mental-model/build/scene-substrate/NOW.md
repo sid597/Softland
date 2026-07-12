@@ -28,6 +28,24 @@
 
 ## NOW (append per session, ≤15 lines each)
 
+**2026-07-12 · Fable (same session) · P3a LANDED — plurality is real**
+- Opus subagent (~245k tok): `scene_runtime.cljs` (store+registry atoms,
+  edge mutations, `<store-frame`/`<effective` flows, `window.sceneFaces`)
+  + `stamp-block-addresses` (cljc) + render/mouse wiring. Suites re-run by
+  Fable: 30t/150a green (scene-store 19/76 + block-edit 11/74, no
+  regression); build green, zero P3 warnings.
+- Adjudicated + ACCEPTED two divergences: (1) slots rebuild from the
+  singleton `!face-scene` at the consumer edge — the literal "generalize
+  the build" would put a side effect in m/latest (T4); the wall was
+  reported, not patched. (2) MAIN face stays legacy/world-anchored;
+  spawned copies are store-managed/draggable. → P3b: true per-vi builds +
+  main-face migration + per-slot text geos (G8).
+- Wearing (G7 browser half, Sid): wear a face → console `sceneFaces.spawn(2)`
+  → `.move(2,1400,120)` / `.scale(2,1.3)` → edit a block in either → echo
+  lands in BOTH. Verdict goes here.
+- Next machine move: wave-2 falsifier (ONE finder, capped ~60–80k, per the
+  wave-1 rule) after Sid's wear; then P3b/P4.
+
 **2026-07-12 · Fable (same session, close) · wave 1 FALSIFIED — PASS + fixes in**
 - ONE finder (per machine-cut retro rule; Opus, ~188k tok): VERDICT PASS,
   0 HIGH/MED, 5 LOW. Record: `FALSIFY.md`. Risk center (stride math ×4
