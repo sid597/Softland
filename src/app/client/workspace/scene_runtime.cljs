@@ -354,9 +354,14 @@
             ;; copies IN FRAME: scaled to ~45% of viewport width, right
             ;; half, cascading 60px per n; move/scale adjust from there.
             vw        (or (:width @!viewport) 1830.0)
-            scale     (min 1.0 (/ (* 0.45 vw) (max w 1.0)))
-            x-off     (* 0.52 vw)
-            y-off     (* (dec (max 1 n)) 60.0)]
+            vh        (or (:height @!viewport) 1020.0)
+            idx       (max 0 (- n 2))
+            ;; scale clamped ≥0.25 so very wide faces stay readable (they may
+            ;; overflow right — move/scale adjust); copies cascade a third of
+            ;; a viewport down per n so they don't stack (G11 round-2 finding).
+            scale     (-> (/ (* 0.45 vw) (max w 1.0)) (min 1.0) (max 0.25))
+            x-off     (* vw (+ 0.5 (* 0.04 idx)))
+            y-off     (* vh 0.36 idx)]
         ;; clean re-spawn: drop any prior instance at this n (orphan container)
         (close-instance! vi)
         (let [{:keys [container]} (register-face-instance!
