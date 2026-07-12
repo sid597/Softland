@@ -3,6 +3,9 @@
   (:require [missionary.core :as m]
             [app.client.substrate.webgpu.renderer :as editor]
             [app.client.substrate.webgpu.island-probe :as island] ;; islands-probe 2026-07-11 (UNCOMMITTED)
+            [app.client.substrate.webgpu.container-probe :as ct-probe] ;; scene-substrate P2 probe 2026-07-12 (UNCOMMITTED)
+            [app.client.workspace.scene-store :as scene-store] ;; scene-substrate P3a
+            [app.client.workspace.scene-runtime :as scene-rt] ;; scene-substrate P3a
             [app.client.substrate.webgpu.buffer-pool :as pool]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.workspace.events :refer [maybe-snap]]
@@ -80,13 +83,21 @@
         <settings-rect-data (<settings-panel-rects !settings !focus !viewport !scroll-y !font-manifest)
         <settings-text-data (<settings-panel-text !settings !viewport !scroll-y !font-manifest)
 
+        ;; ── scene-substrate P3a: the store's GPU contribution + composed
+        ;; container transforms. TWO independent single-source flows (store /
+        ;; registry) combined ONCE in the world snapshot — no diamond (T3).
+        <store-frame (scene-rt/<store-frame)
+        <effective   (scene-rt/<effective)
+
         ;; World snapshot (now includes sidebar data for pool updates)
         <world-snapshot (m/latest
                           (fn [text-data editor-rect-data sidebar-data
                                cmd-rects settings-rects settings-text
                                viewport scroll-y cmd-panel settings active-font agent-output
-                               local-world]
+                               local-world store-frame effective]
                             {:text-data text-data
+                             :store-frame store-frame ;; scene-substrate P3a
+                             :effective   effective   ;; scene-substrate P3a
                              :editor-rect-data editor-rect-data
                              :sidebar-data sidebar-data
                              :cmd-rects cmd-rects
@@ -118,13 +129,16 @@
                           (m/watch !settings)
                           (m/watch !active-font)
                           (m/watch !agent-output)
-                          (m/watch !effective-local-world))]
+                          (m/watch !effective-local-world)
+                          <store-frame   ;; scene-substrate P3a
+                          <effective)]   ;; scene-substrate P3a
 
     ;; Render pulse: sample world on each RAF tick
     (m/reduce
       (fn [prev-state [world _frame-time]]
         (if (and (identical? world (:prev-world prev-state))
-                 (not (island/driving?))) ;; islands-probe: force redraw so probe gets continuous frames
+                 (not (island/driving?)) ;; islands-probe: force redraw so probe gets continuous frames
+                 (not (ct-probe/driving?))) ;; scene-substrate P2 probe: same
           prev-state
 
           (let [frame-idx (inc (or (:frame-idx prev-state) 0))
@@ -135,6 +149,32 @@
                         snap-to-pixel? show-diagnostics?]} world
                 editor-rects   (:rects editor-rect-data)
                 editor-shadows (:shadows editor-rect-data)
+
+                ;; ── scene-substrate P3a: store contribution + echo fan-out ──
+                store-frame          (:store-frame world)
+                effective            (:effective world)
+                store-frame-changed? (not (identical? store-frame (:prev-store-frame prev-state)))
+                store-text-ops       (:text-ops store-frame)
+                store-rects          (:rects store-frame)
+                store-shadows        (:shadows store-frame)
+                containers-buffer    (:containers-buffer (:pipelines geometry))
+                ;; Echo fan-out (G7): the singleton legacy scene rebuilds on
+                ;; every projection/edit change (editor_compute <face-assembly)
+                ;; and that change ALWAYS rides a world change (its rects feed
+                ;; editor-rect-data), so we observe it here at the consumer edge.
+                ;; Stamp block addresses from the current context, rebuild EVERY
+                ;; store slot from the SAME projection (deliverable #6). Mutates
+                ;; the store at the edge only (T4); shows next frame (1-frame lag).
+                face-scene           @!face-scene
+                face-scene-changed?  (not (identical? face-scene (:prev-face-scene prev-state)))
+                _ (when (and face-scene-changed? face-scene (scene-rt/any-slots?))
+                    (scene-rt/refresh-all-slots!
+                      (scene-store/stamp-block-addresses
+                        face-scene (scene-rt/block-unit-ids @!face-context))))
+                ;; Upload composed container transforms only when they changed
+                ;; (drag/spawn); instance buffers untouched (identical? skip).
+                _ (when-not (identical? effective (:prev-effective prev-state))
+                    (editor/write-containers! device containers-buffer effective))
 
                 ;; Differential sidebar pool update — keyed by identity (Phase 5)
                 sidebar-rects (or (:rects sidebar-data) [])
@@ -218,14 +258,21 @@
 
                 ;; ── Content text (editor + sidebar — the bulk) ──
                 content-ops (:content-ops text-data)
+                ;; scene-substrate P3a: store slots' text rides the SAME content
+                ;; path (the monolith re-shapes on edit — accepted; smooth drag
+                ;; comes from transforms, not re-shape). Stamped per-token
+                ;; :container-idx already; concat only on the rebuild branch.
                 content-same? (and (identical? content-ops (:prev-content-ops prev-state))
+                                   (not store-frame-changed?)
                                    settings-same?)
 
                 raf-t1 (js/performance.now)
                 new-content-geo (if content-same?
                                   updated-content-geo
                                   (editor/update-text-data device updated-content-geo
-                                                           content-ops font-assets font-size
+                                                           (cond-> (vec content-ops)
+                                                             (seq store-text-ops) (into store-text-ops))
+                                                           font-assets font-size
                                                            :px-range px-range
                                                            :line-height line-h
                                                            :char-width char-width
@@ -297,9 +344,14 @@
                                     :editor-line-count editor-line-count)
 
                 ;; Differential editor pool update — ordered keyed diff (Phase 6A)
-                _editor-pool-diff (when-not (identical? editor-rects (:prev-editor-rects prev-state))
+                ;; scene-substrate P3a: store slots' rects ride the SAME pool,
+                ;; each stamped with its :container-idx (pack-rect honors it).
+                _editor-pool-diff (when (or (not (identical? editor-rects (:prev-editor-rects prev-state)))
+                                            store-frame-changed?)
                                     (let [t0 (js/performance.now)
-                                          result (pool/ordered-diff-update-pool! !editor-pool editor-rects)
+                                          result (pool/ordered-diff-update-pool! !editor-pool
+                                                   (cond-> (vec editor-rects)
+                                                     (seq store-rects) (into store-rects)))
                                           t1 (js/performance.now)]
                                       (when (pos? (:total-writes result))
                                         (js/console.log "[EDITOR-POOL] ordered-diff:"
@@ -312,8 +364,10 @@
 
                 ;; Per-source shadow pools (Phase 6C) — independent diffs, no cross-source shifts
                 _editor-shadow-diff
-                (when-not (identical? editor-shadows (:prev-editor-shadows prev-state))
-                  (let [shadows (or editor-shadows [])
+                (when (or (not (identical? editor-shadows (:prev-editor-shadows prev-state)))
+                          store-frame-changed?) ;; scene-substrate P3a: store shadows ride this pool
+                  (let [shadows (cond-> (vec (or editor-shadows []))
+                                  (seq store-shadows) (into store-shadows))
                         t0 (js/performance.now)
                         writes (pool/batch-update-pool! !editor-shadow-pool shadows)
                         t1 (js/performance.now)]
@@ -490,6 +544,8 @@
 
             ;; islands-probe 2026-07-11 (UNCOMMITTED): composite the island onto the land frame
             (island/step! device ctx (:width viewport) (:height viewport) (:dpr viewport) gpu-tracker)
+            ;; scene-substrate P2 probe 2026-07-12 (UNCOMMITTED): container-transform soak
+            (ct-probe/step! device ctx viewport)
 
             {:content-text-geo new-content-geo
              :chrome-text-geo new-chrome-geo
@@ -516,6 +572,10 @@
              :prev-snap-step snap-step
              :prev-font-id (:id font-assets)
              :prev-font-backend (:backend font-assets)
+             ;; scene-substrate P3a
+             :prev-store-frame store-frame
+             :prev-effective effective
+             :prev-face-scene face-scene
              :frame-idx frame-idx})))
 
       (let [tracker @!gpu-budget
@@ -536,6 +596,8 @@
                         :has-render-target? (boolean render-target)})
         (gpu-budget/log-startup-report! tracker)
         (island/install-window-api! (.-canvas ctx)) ;; islands-probe 2026-07-11 (UNCOMMITTED)
+        (ct-probe/install-window-api! device geometry (fn [] @!font-assets)) ;; scene-substrate P2 probe 2026-07-12 (UNCOMMITTED)
+        (scene-rt/install-window-api! atoms) ;; scene-substrate P3a dev affordance (UNCOMMITTED)
         {:content-text-geo (:text geometry)
        :chrome-text-geo chrome-text-geo
        :cmd-rect-sys @!cmd-rect-sys
@@ -561,6 +623,10 @@
        :prev-snap-step nil
        :prev-font-id (:id @!font-assets)
        :prev-font-backend (:backend @!font-assets)
+       ;; scene-substrate P3a
+       :prev-store-frame nil
+       :prev-effective nil
+       :prev-face-scene nil
        :frame-idx 0})
 
       (m/sample vector <world-snapshot >raf))))
