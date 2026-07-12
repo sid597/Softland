@@ -1,0 +1,171 @@
+;; The Boxes-Paired face — machine-cut CONTRACT §7 (Lane B). Transcribed FROM
+;; boxes-face.edn (envelope :assembly/based-on "boxes-face"; the §17 lineage
+;; machinery derives the rest — the worn boxes-face is NOT mutated). This face
+;; wears the PAIR layer the W2 wearing found lacking (W2-E-plurality §Named-lacks
+;; item 1; RETRO §5 item 1): Boxes' 4-layer russian doll — turn ⊃ user|response
+;; ⊃ blocks — flattened to 3 in v0 because the :conversation projection served
+;; single-speaker :turns. Machine-cut restores the pair layer:
+;;   pair ⊃ [user-message frame ⊃ blocks] + [response frame ⊃ blocks]
+;; bound over the projection's ADDITIVE `:pairs` (CONTRACT §6). The silver mark
+;; (machine-guessed structure NAMES itself): the top header binds
+;; `:conversation/structure-line` and every pair header binds `:asserted-by`.
+;; Pure EDN arrangement (grammar v0): no lists, no symbols (§4 guard). Every
+;; primitive (:stack :box :header-band :text-clip :text-run) is the EXISTING
+;; W2 vocabulary — ZERO interpreter/grammar edits (CONTRACT §7; no stop-clause).
+;; Bind paths = the §6 additive pair contract; MULTI-SEGMENT binds/each
+;; (`[:user-turn :order]`, `{:each [:user-turn :blocks]}`) ride get-in — verified
+;; in face_assembly's resolve-props/expand-slot. NAMED LACKS (inherited from
+;; boxes-face, never improvised around): event ranges; expand/collapse +
+;; click-to-pin verbs (:actions-class, v0-out); toolish dimming classes.
+;; NO :assembly/birthed-by: this face has no OC conversation of its own — a fake
+;; edge would make the map lie (named provenance lack, same as boxes-face).
+{:assembly/name     "boxes-paired-face"
+ :assembly/grammar  0
+ :assembly/based-on "boxes-face"
+ :assembly/belief   "structure made literal — each machine-cut pair frames its user-message and every response as nested russian dolls, and the machine names itself"
+ :assembly/status   :candidate
+ :assembly/author   "claude:machine-cut-lane-b"
+ :root
+ {:prim :stack
+  :props {:gap 16 :padding [14 18 50 18] :child-inset 36}
+  :children
+  [;; the silver mark — the machine-cut provenance header (CONTRACT §7): the
+   ;; face NAMES the machine that guessed this structure. Binds the projection's
+   ;; pre-composed honest header (§6 :conversation/structure-line).
+   {:prim :header-band
+    :props {:h 26 :label {:bind [:conversation/structure-line]}
+            :label-color [0.612 0.541 0.369 1.0]      ;; silver/khaki — machine-guessed
+            :bg [0.102 0.133 0.173 1.0] :border-bottom? true}}
+   ;; one russian-doll PAIR frame per machine-cut pair (§6 :pairs, river order)
+   {:each [:pairs]
+    :template
+    {:prim :box
+     :props {:radius 10 :border-width 1
+             :border-color [0.173 0.224 0.278 1.0]
+             :bg [0.071 0.090 0.114 1.0]
+             :padding [1 1 1 1] :child-inset 2}
+     :children
+     [;; the pair header band — user-turn order + the per-pair silver mark
+      {:prim :header-band
+       :props {:h 24 :label-prefix "pair · turn " :label {:bind [:user-turn :order]}
+               :sub {:bind [:asserted-by]}
+               :label-color [0.890 0.925 0.957 1.0]
+               :bg [0.086 0.110 0.141 1.0] :border-bottom? true}}
+      ;; the pair well — holds the user-message frame + response frames
+      {:prim :box
+       :props {:padding [10 12 12 12] :gap 10 :child-inset 22}
+       :children
+       [;; the USER-MESSAGE frame (russian-doll layer 2a; the pair's prompt)
+        {:prim :box
+         :props {:radius 8 :border-width 1
+                 :border-color [0.204 0.298 0.400 1.0]      ;; user blue-tint
+                 :bg [0.078 0.106 0.141 1.0]
+                 :padding [1 1 1 1] :child-inset 2}
+         :children
+         [{:prim :header-band
+           :props {:h 20 :label-prefix "user " :label {:bind [:user-turn :order]}
+                   :sub {:bind [:user-turn :speaker]}
+                   :count-of {:bind [:user-turn :blocks]} :count-suffix " blocks"
+                   :label-color [0.373 0.690 0.918 1.0]
+                   :border-bottom? true}}
+          {:prim :box
+           :props {:padding [8 12 12 12] :gap 8 :child-inset 22}
+           :children
+           [{:each [:user-turn :blocks]
+             :template
+             {:prim :box
+              :props {:radius 6 :border-width 1
+                      :border-color [0.149 0.188 0.235 1.0]
+                      :bg [0.086 0.110 0.141 1.0]
+                      :padding [1 1 1 1] :child-inset 2}
+              :children
+              [{:prim :header-band
+                :props {:h 20 :label {:bind [:kind]} :kind {:bind [:kind]}
+                        :words-of {:bind [:text]}
+                        :border-bottom? true}}
+               {:prim :text-clip
+                :props {:value {:bind [:text]} :max-lines 6
+                        :padding [6 9 8 9]
+                        :color [0.776 0.820 0.863 1.0]}}]}}]}]}
+        ;; the RESPONSE frames (russian-doll layer 2b) — one per response turn
+        {:each [:responses]
+         :template
+         {:prim :box
+          :props {:radius 8 :border-width 1
+                  :border-color [0.204 0.353 0.318 1.0]     ;; response teal-tint
+                  :bg [0.078 0.118 0.106 1.0]
+                  :padding [1 1 1 1] :child-inset 2}
+          :children
+          [{:prim :header-band
+            :props {:h 20 :label-prefix "response " :label {:bind [:order]}
+                    :sub {:bind [:speaker]}
+                    :count-of {:bind [:blocks]} :count-suffix " blocks"
+                    :label-color [0.498 0.788 0.561 1.0]
+                    :border-bottom? true}}
+           {:prim :box
+            :props {:padding [8 12 12 12] :gap 8 :child-inset 22}
+            :children
+            [{:each [:blocks]
+              :template
+              {:prim :box
+               :props {:radius 6 :border-width 1
+                       :border-color [0.149 0.188 0.235 1.0]
+                       :bg [0.086 0.110 0.141 1.0]
+                       :padding [1 1 1 1] :child-inset 2}
+               :children
+               [{:prim :header-band
+                 :props {:h 20 :label {:bind [:kind]} :kind {:bind [:kind]}
+                         :words-of {:bind [:text]}
+                         :border-bottom? true}}
+                {:prim :text-clip
+                 :props {:value {:bind [:text]} :max-lines 6
+                         :padding [6 9 8 9]
+                         :color [0.776 0.820 0.863 1.0]}}]}}]}]}}]}]}}
+   ;; the UNPAIRED turns (§6 totality made visible): served material the
+   ;; annotator declined to pair — asides, harness noise, prompts with no
+   ;; response, stranded/trailing material. Shown in a muted frame, NEVER
+   ;; silently dropped (the map must not lie; the structure-line already names
+   ;; the count). One muted frame per unpaired turn (river order).
+   {:each [:unpaired]
+    :template
+    {:prim :box
+     :props {:radius 8 :border-width 1
+             :border-color [0.192 0.220 0.251 1.0]        ;; muted grey
+             :bg [0.078 0.090 0.106 1.0]
+             :padding [1 1 1 1] :child-inset 2}
+     :children
+     [{:prim :header-band
+       :props {:h 20 :label-prefix "unpaired · turn " :label {:bind [:order]}
+               :sub {:bind [:speaker]}
+               :count-of {:bind [:blocks]} :count-suffix " blocks"
+               :label-color [0.510 0.545 0.596 1.0]
+               :border-bottom? true}}
+      {:prim :box
+       :props {:padding [8 12 12 12] :gap 8 :child-inset 22}
+       :children
+       [{:each [:blocks]
+         :template
+         {:prim :box
+          :props {:radius 6 :border-width 1
+                  :border-color [0.149 0.188 0.235 1.0]
+                  :bg [0.086 0.110 0.141 1.0]
+                  :padding [1 1 1 1] :child-inset 2}
+          :children
+          [{:prim :header-band
+            :props {:h 20 :label {:bind [:kind]} :kind {:bind [:kind]}
+                    :words-of {:bind [:text]}
+                    :border-bottom? true}}
+           {:prim :text-clip
+            :props {:value {:bind [:text]} :max-lines 6
+                    :padding [6 9 8 9]
+                    :color [0.776 0.820 0.863 1.0]}}]}}]}]}}
+   ;; page-end honesty — verbatim from boxes-face (:69-79): the view ENDS with
+   ;; the explicit paging answer, never a silent cut.
+   {:prim :box
+    :props {:radius 10 :border-width 1
+            :border-color [0.173 0.224 0.278 1.0]
+            :padding [14 14 14 14]}
+    :children
+    [{:prim :text-run
+      :props {:value {:bind [:conversation/paging-lack]}
+              :color [0.290 0.345 0.400 1.0]}}]}]}}
