@@ -1,1187 +1,237 @@
-# Softland Decision Log
-
-Seeded 2026-07-03, Fable session (wall-photo stress test). Revised same day after
-Sid's corrections (Fable-ban context; 2026-06-30 code-ingestor consolidation).
-**Countersigned by Sid in-session 2026-07-03** ("this is correct decision tree and
-I want to commit to it") — D-001 through D-005 are CLOSED. Reopening requires
-evidence of a used form breaking, per the operating rules below.
-
-Companion file: `BETS.md` (same directory) — North (Sid's vision as commitment,
-his authorship only) + the bet ladder (route hypotheses with pre-registered
-kill/confirm evidence). This log governs closures; BETS.md governs direction.
-
-Operating rules:
-- A decision is **ACCEPTED** by default until its of type "have forever consequences and have huge irreversible cost"; 
-- Every decision records the evidence it rests on, so reopening attempts can be
-  checked against what was already known.
-- Amended this file on: 12th July 2026, only look at this file's git history if Sid wants to see what was here before. 
----
-
----
-
-## D-002 — First form = the trail view (the 27-04-2026 panel)
-**STATUS: CLOSED** (countersigned 2026-07-03)
-
-The first form is the view Sid drew on 27-04-2026: timeline, what-changed-
-concretely, product-DAG with dead-ends, answering "where are we / how did we get
-here / what crossroads did we take" — rendered in Softland, over Softland's own
-material (code, git history, docs, Claude/Codex chats). Panel 2's "View 3: AI
-agent" is part of the same form: the material must be legible to agents, not only
-to Sid.
-
-Sid's 2026-07-03 message confirms this is the goal ("make the 27-04-2026 view come
-true in softland itself"). The earlier framing of this decision as "overruling the
-headless plan" was wrong — the real dispute was sequencing, now split out as D-005.
-
-**AMENDED IN PLACE 2026-07-08 (A1; countersigned — Sid's blanket, session
-`18d63935`): the UNIT is rescoped.** The first form's unit moves from containers
-(sessions/files/commits as peers) to sense-line units (episodes and their marks),
-per the 2026-07-07 form-break (`design/claude/atomic-unit-2026-07-07.md` §1 —
-container granularity cannot meet this decision's stated goal at any rendering).
-The goal and View-3 agent-legibility are unchanged; the container trail demotes
-to one evidence-lens. Model: `sense-line-model.md`; working map:
-`build/sense-line-mvp/DIRECTION.md`.
-
----
-
-## D-003 — Code enters Softland per the two-regime split (Regime-1 spine first)
-**STATUS: CLOSED** (countersigned 2026-07-03; adopts Sid's 2026-06-30 consolidation as the ruling)
-
-"Code ingestor" is two problems wearing one name; the tell is the unit (flow vs
-code). This log adopts Sid's consolidated understanding:
-
-- **Regime 1 — external code as a VIEW.** git owns versioning; filesystem owns
-  storage; Softland imports a derived view. Unit = the thread of divergence.
-  Address the code (blob-sha + path anchors), don't copy it. Two boundaries:
-  import (git→Rama, commit-grained) and commit (Rama→git); Rama is truth only for
-  in-flight work between them. Drift discipline: on git change re-extract the
-  changed set; on conflict git wins.
-- **Regime 2 — recursive Softland (self-hosting substrate).** Unit = capability.
-  Gated on the self-hosting test: building Softland's next capability must be a
-  worked instance of "a user extending Softland." object-kernel-revision.md
-  belongs here, not to the code ingestor.
-
-**Ruling for the first form:** the 27-04 view needs only the **Regime-1 spine** —
-commit metadata (sha, date, message, parents, files touched) + sha/path addresses
-+ the joins (transcript↔commit, transcript↔doc, commit↔commit). The joins are
-extractable from already-ingested transcripts (tool calls carry file paths and git
-activity). Code *content* resolves live through pinned addresses. The atomic-block
-semantic graph is built when the rendered view demands it; Regime 2 waits for its
-gate.
-
-**Settled inputs carried in from Sid's consolidation:** git-authority; commit-
-boundary ingest; trail-to-code resolution as first consumer; the exactness rule
-("the map must not lie"); file-granularity; fail-closed scope (env.clj can never
-enter).
-
----
-
-## D-004 — Ontology: core sound; missing noun = typed relation edge
-**STATUS: CLOSED** (countersigned 2026-07-03)
-
-The object-container ontology (identity / history / provenance / containment,
-`object_container.clj:38-171`) is well-factored; the graduation pattern holds.
-Missing: a typed, non-compositional relation edge between containers. Verified
-2026-07-03: the only edge type in src is CompositionEdgeRow.
-
-**Fill (from Sid's own artifacts, not a general theory):**
-- Starter relation kinds = the arrows of the 27-04 panel: `based-on`, `produced`,
-  `built-over` / `new-direction`, `dead-end`; plus `elaborates` (kraft overlay)
-  and `references` (footnote-style panel refs).
-- Home: the **space kernel** — Sid's dismantling names it as the connector layer
-  that makes relations among artifact types.
-- Every relation carries provenance: `asserted-by` (sid | llm | import) must be
-  first-class, so LLM-proposed glue is visibly distinct from human-asserted
-  structure (calibration: the map must not lie).
-
-**Amendment 2026-07-03 (contract recon):** the evidence overstated absence. The
-space kernel holds an untyped forward/reverse adjacency pair
-(`$$artifact-graph` / `$$artifact-graph-in`, `space.clj:1484-1485`) populated
-with derived workflow-plumbing edges (thread→turn→bundle→llm-run). The decision
-stands: no *typed, asserted, provenance-carrying* relation exists. Home ruling
-refined by the contract: relations live in a NEW `relation-kernel-module`
-(implementing the connector role Sid assigned to the space kernel); the
-plumbing graph stays separate as derived adjacency. Full reasoning:
-`docs/current-mental-model/build/relation-kernel/CONTRACT.md` §2.
-
----
-
-## D-005 — View-first sequencing (the one live disagreement)
-**STATUS: CLOSED** (countersigned 2026-07-03)
-
-The 27-04 view starts rendering **now**, on material already in the substrate
-(transcripts + markdown, ingested Jun 7–8) plus the small commit-metadata adapter.
-It will be ugly and gappy; each gap names the next ingestor slice. Ingestors are
-built in the order the rendered view demands — the view orders the import work,
-not the other way around.
-
-This replaces "finish the headless import round, then show it in the UI."
-
-**Evidence:** the image-1 margin note (data and view co-evolve; "the end product
-is only produced when I keep track of both"); a completeness-gated import round
-has no external signal for "done enough."
-
----
-
-## D-006 — Fable-window allocation (bet + pre-registered evaluation)
-**STATUS: CLOSED as a bet** (placed 2026-07-03; evaluation pending, criteria fixed below)
-
-**The worry (Sid, recorded verbatim in spirit):** spending Fable-level intelligence
-on MVP-path work may waste the limited window on tasks a cheaper model could do.
-
-**The bet (Fable):** the window goes to (a) two load-bearing contracts — RelationEdge,
-then the trail-view data contract + acceptance gates; (b) gate reviews of cheaper
-models' work packages; (c) adjudication of forks; (d) a succession document.
-NOT continuous orchestration, NOT implementation, NOT Regime-2 theory (gated by D-001).
-
-**Why Fable for the RelationEdge contract specifically:**
-1. Highest wrongness-cost artifact in the MVP path: the trail view, the space
-   kernel, and the future DG protocol all build on this noun. A subtle identity or
-   partitioning error is a rewrite of everything above it, discovered months later.
-2. The hard parts are prior-failure-shaped: cross-partition writes / event
-   boundaries (the Slice-A v1→v2.1 class of bug), retry semantics, and revisable
-   judgments (a `dead-end` mark can change) riding on an immutable event log.
-3. Contract errors are cheap now (text) and expensive later (kernel + consumers).
-
-**Pre-registered evaluation — run after the contract exists:**
-1. **Trap count.** The contract must name, for each load-bearing choice, the naive
-   alternative and the concrete failure it causes. Fewer than 3 non-obvious traps
-   caught ⇒ Fable added little over a careful Opus pass.
-2. **Counterfactual probe.** Give Opus 4.8 (fresh session) the same input manifest
-   (recorded with the contract) and ask for the same contract. Diff the
-   load-bearing choices. If Opus independently makes the same calls, the bet loses.
-3. ~~**Codex falsification round.**~~ **Waived by Sid 2026-07-03**, replaced by
-   a stronger criterion: **implementation contact**. The contract must survive
-   the implementer's full phased Rama process to green acceptance gates
-   (CONTRACT.md §11) **without a contract amendment**. A contract-breaking flaw
-   found during implementation ⇒ bet loses on quality, recorded here. The two
-   memory-based claims flagged in-session (microbatch mid-batch replay fine
-   print; query-topology fan-out idiom) are assigned to the implementer's
-   Phase 1 verification against the on-disk Rama references.
-4. **Token ledger.** Record roughly what the contract cost from the window.
-   In-session estimate: contract session ≈ one long Fable conversation
-   (recon + contract + log upkeep), no implementation tokens spent.
-
-**Evaluation notes (running):**
-- 2026-07-03, first stop-clause firing (corrected record): TWO
-  `PHASE_VALIDATION:fail` rounds preceded escalation. Round-1 findings
-  (duplicate-key conflict decision, reassertion no-ops, N>M query reads) were
-  fixed by a Codex plan revision. Round-2 F1 (plan invented a
-  `RelationRequestRow` depot record that couldn't route via
-  `hash-by :relation/routing-key`) was fixed by an Opus session reverting to
-  the contract's map-envelope idiom, verified against codebase precedent — no
-  adjudication needed. Round-2 F2 (idempotency scope: CONTRACT's colocated
-  journal vs IMPLICIT_SPEC's global-sounding entity) was correctly escalated
-  per the stop clause and ruled by Fable: **relation-scoped** (see Open
-  Questions ruling). Honest scoring against criterion 3: by the LETTER
-  ("without a contract amendment") this is a ding — the contract left
-  idempotency scope implicit where a validator had to catch it. By SPIRIT the
-  design held: no schema/plan/topology change; the ruling made the contract's
-  stated intent explicit. Both readings recorded; Sid weighs them at final
-  evaluation. Positive signal for the QC layers: three defect classes were
-  caught and fixed by fresh-context validation/revision cycles before a single
-  implementation token was spent, and the one genuine policy fork was
-  escalated rather than improvised.
-- 2026-07-03, Fable gate review: **PASS** — full record in
-  `build/relation-kernel/GATE_REVIEW.md`. Suite independently re-run (2 tests,
-  165 assertions, 0 failures); traps 1/2/7 spot-checked in the diff (incl.
-  byte-verifying the NUL id-separator); falsification pass produced 4
-  non-blocking open doubts (envelope/payload binding is client trust — cheap
-  server-side recheck when agent writers appear; dead
-  `replayed-from-decision-id` field; O(n²) R1 dedup; single-worker tests).
-  Criteria status: 1 (trap count) met; 3 (implementation contact) stands at
-  the already-recorded letter-ding/spirit-held split — nothing after the F2
-  ruling required amendment; 2 (counterfactual probe) NOT yet run; 4 (ledger)
-  gate ≈ one read-heavy Fable session. Package is gate-complete; commit and
-  close are Sid's.
-- 2026-07-03, package CLOSED (Sid + Fable, same session): code committed
-  (`2796044`), docs trail committed (`736708f`+), retro run —
-  `build/relation-kernel/RETRO.md` (QC-layer scorecard, 7 next-contract rules,
-  mechanisms to keep). The retro is the pre-registered input to the
-  work-package succession skill (queued below); write that skill in a fresh
-  session from RETRO.md.
-- 2026-07-04, trail-view WP1 Phase 0 (fresh-context re-derivation, Opus —
-  the succession skill's layer 1, first reuse after relation-kernel):
-  verified ALL contract code citations (0 failures), derived 20 ops / 23
-  invariants / 26 matrix rows / 16 edge cases, and caught **1 genuine
-  contract conflict** (F-1: claimed-window feed retrieval vs arrival-keyed
-  buckets vs O(window) promise — any two hold, never all three) plus 5
-  implementer-fixable ambiguities. Fable ruled F-1 same day as contract
-  author (arrival-only window selection; `:order` param; claimed-index as
-  pre-named promotion path — D-001 grounds) and swept all six fixes into
-  CONTRACT v1.1 before any plan/code tokens. Honest scoring in the
-  criterion-3 style: by the LETTER an amendment happened during the process
-  (ding); by SPIRIT the QC layer did exactly its job — conflict caught at
-  text-time, zero downstream cost, no schema/topology change. Also logged:
-  the NUL-escape tool-JSON trap fired a fourth time (in the contract
-  itself), caught at Phase-0 close by file(1), repaired; file(1)-must-say-
-  text is now a standing package gate.
-- 2026-07-05, **process form-break, ruled with Sid in-session — fresh
-  context ≠ fresh session.** Sid reported the same failure on BOTH live
-  tracks: the remaining WP1 work rendered as "~5 more sessions" and he was
-  disoriented by the package shell itself ("this track is feeling so big to
-  me with no clarity if this is actually useful"). Evidence gathered before
-  ruling: WP1 Phase A = 227 changed code lines vs ~300KB (~75k words) of
-  process docs across the two packages; the baton at 939 lines with 1–2k-word
-  NOW entries; cycle-2 marginal catch-rate falling (plan validation R1
-  PASS-with-advisories only, A1/A2/A3 all first-run green, zero stop-clauses)
-  while per-session orientation cost stayed constant. Root cause: the
-  2026-07-04 token-economics routing ("no more Fable-priced wake-ups for
-  mechanical phases") bound the fresh-CONTEXT QC requirement to fresh
-  SESSIONS — a ledger that counted model tokens and priced Sid's attention at
-  zero; and the scheduled Fable gate re-entry meant fragmentation no longer
-  even saved Fable tokens (the re-entry boot was coming anyway). **Ruling
-  (Sid's countersign = his in-session selection of the collapsed plan):** QC
-  layers keep their kill record and stay; session boundaries go. Default
-  shape: one orchestrating session (Fable when already booted) runs phases
-  with fresh-context Opus subagents as the validation/review layers; routing
-  tables are advisory on model/effort, never binding on session structure;
-  baton NOW entries capped ~15 lines. Skill amended same session
-  (work-package SKILL.md, four edits, provenance noted). D-006 itself is NOT
-  reopened — Fable-does-contracts/gates/adjudication held; what broke was
-  the second-order session cadence built around it. Scoring note for final
-  evaluation: this is the pre-registered implementation-contact criterion
-  doing its job at the PROCESS layer — the operator is also a user of the
-  form, and the form broke against him.
-- 2026-07-05, **WP1 gate review: PASS** — full record
-  `build/trail-view/GATE_REVIEW.md`. Suite independently re-run twice this
-  session (final: 3 tests / 302 assertions / 0 failures — 222 Phase A + 74
-  Phase B + 6 reviewer-added). One gate gap found AT gate: gate 10's
-  trail-view half (custody projection) had no executed assertion — closed by
-  a reviewer-authored test-only block, green first run. The client-composition
-  deviation from PLAN ruled contract-sanctioned (§7 pre-named fallback;
-  letter-ding/spirit-held recorded in the artifact). Criterion 3 for Phase B:
-  contract survived implementation with ZERO amendments. Process note:
-  implementation, falsification, and gate ran as three distinct contexts
-  across two Sid-authorized sessions after a double-dispatch collision (root
-  cause + fix in the process ruling above); the collapsed cadence delivered
-  contract→green→falsified→gated inside 24 hours. Eight non-blocking open
-  doubts with named falsifiers in the artifact. Commit and package close are
-  Sid's.
-- 2026-07-05, WP1 package **CLOSED** (executed by Fable under Sid's in-session
-  time-box blanket — "use the recommended option, note the others"; the
-  alternative, holding for a full retro session, is noted in RETRO.md). Code
-  was already committed (`af0e0e2`/`fd59b78`/`63202b0`/`67f75eb`); light retro
-  at `build/trail-view/RETRO.md`; carried items routed — 8 open doubts stay
-  live in GATE_REVIEW.md, display-name enrichment assigned to the WP2 window,
-  the write-path pair (/assert affordance + OI-1 durability) scheduled same
-  day. WP-B2 close waits only on gate-15 evidence (Sid, ~20 min).
-- 2026-07-05 (session close), **delivery-mode ruling (Sid, verbatim): "lets
-  do all the coding tasks first ... then a batch testing one ... we don't
-  need to do the falsification one sprinkled all over because we will do the
-  coding using fable now and its going to get it right the first time ...
-  our goal is delivery not slowing down due to process and management
-  things."** Effect on D-006 allocation: (e2) Fable MAY implement directly
-  when it is the fastest path (supersedes "NOT implementation" as a hard
-  bar); QC consolidates to ONE serial test batch + ONE batched
-  falsification/gate at the END of a coding wave — never sprinkled
-  per-phase. Honest ledger recorded for future evaluation, not argument:
-  today's per-artifact validation rounds caught two Fable-authored contract
-  errors (R1 invisible-edges, R2 impossible-reader) at text time; the
-  consolidated end-gate must be sized to catch that class. CLOSED by Sid's
-  words above; reversible on form-break like every process ruling.
-- 2026-07-05 (delivery session), **first full delivery-mode wave CLOSED:
-  git-spine WP2 + trail-room R-1 gate-passed and committed.** The (e2) shape
-  ran end-to-end: one batched falsification (6 should-fixes, 0 blockers) →
-  one Fable gate review (`build/git-spine/GATE_REVIEW.md`) with all fixes
-  applied DIRECTLY at gate by Fable (route custody validation, deterministic
-  idempotency, allowlist non-join drop, replay/extract per-item isolation,
-  UTF-8 pins, reader field-preservation) → one serial suite (**191 tests /
-  2202 assertions / 0 failures**) → per-package code commits
-  (eac6dd5/ed2db8a/a1fda21/dc743d6/7827f6f/57b0113). Evaluation evidence for
-  the honest ledger: the batched end-gate caught ONE new defect the
-  falsification missed (kraft-label overflow — same class as a found one,
-  instance-vs-class hunting) and ONE root cause beneath a found defect
-  (rect_tree clip? replaced the ancestor clip instead of intersecting —
-  the layer-below rule). Both fixed in-wave. Fable also self-caught one bug
-  in its own fix before commit (truthy blank-string override). Delivery-mode
-  cadence HELD for a 4-package wave; retros at `build/git-spine/RETRO.md` +
-  `build/trail-room/RETRO.md`. Packages CLOSED.
-- 2026-07-05 (delivery session, Sid-AFK window), **criterion 2 RUN** — the
-  counterfactual probe, open since 2026-07-03, executed as pre-registered
-  (blind Opus 4.8 over the CONTRACT §13 manifest, inputs reconstructed at
-  pre-contract git states, two post-contract leaks stripped). **PROPOSED
-  scoring: leans BET HOLDS with one honest ding** — the headline placement
-  call (new module over D-004's literal "space kernel", same role-vs-file
-  reasoning, same flag-for-Sid instinct) MATCHED; but the probe's envelope
-  reproduced, uncorrected, the exact F1 defect class the real cycle's
-  validation caught pre-code (defrecord + namespaced hash-by → one-task
-  funnel), its re-assert-as-dedup suppresses the transition events the
-  revisable-judgment substrate exists for, and its id-embeds-object-key
-  scheme costs a substrate touch. Full diff + caveats (post-implementation
-  timing, scaffolded axes, n=1):
-  `build/relation-kernel/COUNTERFACTUAL_PROBE.md`; rival contract verbatim
-  alongside it. Sid weighs at final evaluation. **Same-day counter-evidence
-  for the honest ledger:** the R-2 contract validation round returned FAIL
-  with two REAL blockers against a Fable-authored contract
-  (`build/trail-room/CONTRACT_R2_VALIDATION_R1.md` — impossible cross-band
-  bounds gate; incoherent order-as-data gate; both fixed in v1.1). Running
-  tally: fresh-context validation layers have now caught contract-text
-  errors in THREE Fable contracts (relation-kernel F2-adjacent scope, git-
-  spine R1/R2, trail-room R2 B1/B2) — the value concentrates in the layers
-  around the author, Fable included; weigh D-006 accordingly.
-- 2026-07-06 (session close), **Sid's countersigns**: trail-room R-2 v1.1
-  CONTRACT COUNTERSIGNED (binding; build authorized; round-2 validation
-  WAIVED ENTIRELY — Sid: "implementation forward"; Fable's narrow-diff
-  alternative recorded in the contract header; residual risk assigned to
-  implementation contact + the wave's end-gate); **view-mvp WP-B2 CLOSED** on the
-  gate-15 evidence (`build/view-mvp/MEASUREMENT_RAF.md` — RAF PASS at
-  corpus scale on Sid's first boot; feel verdict indicts the lane interim,
-  which R-2 cures). H1 arming candidate preserved
-  (`vision/images/2026-07-05-h1-arming-candidate.png`); the BETS
-  verdict-log arming entry stays Sid's own hand, pending.
-- 2026-07-06 (Trunk-5), **wave boundary of the Trunk-4 all-fronts marathon
-  CLOSED: three gates PASS (R2 / SEAMS / D7), five fixes applied at gate.**
-  Delivery mode HELD for a 4-branch parallel wave (disjoint fences, one
-  shared tree; t4-room on Fable, spine/substrate/bench on Opus; bench
-  PAUSED on Sid's word). One serial suite (204/2500/0, up from baseline
-  191/2210 with the wave's own gates), ONE batched falsification by CLASS
-  (3 fresh Opus subagents, ~460k tokens), three Fable gates with code read
-  in full. Honest-ledger evidence, both directions: (a) **the
-  falsification-by-class layer caught the wave-1 kill class AGAIN** —
-  fixture-vs-live drift (endpoint gap live-probed: zero threads over the
-  real corpus while fixture gates ran green) plus two sibling drifts
-  (fixture-invented asserters; transcript entry mis-mirrored) AND two
-  latent logic breaks with concrete failing inputs (phantom move chips on
-  thread-merge re-rooting; same-ms transition order-dependence) — all in
-  code Fable wrote directly, none caught by the 28/680 in-batch gates;
-  (b) the Fable gate pass independently corrected one branch-report claim
-  (the SEAMS "same healing shape" line) and the falsifiers' one blocker
-  was already trunk-ordered before they ran. Class-hunting keeps beating
-  instance-hunting. STANDING PROPOSAL from this wave (for the face-2
-  contract): a MECHANICAL fixture-fidelity gate that diffs fixture keys
-  against live-builder output keys — the drift class has now fired in two
-  consecutive waves and hand-mirroring discipline demonstrably does not
-  hold. Face-2 validation R1 kill record rides the wave too (4th
-  consecutive Fable contract with real text errors: B1 fence-collision,
-  B2 imagined-demand + allowlist-unreachable, S1 false GPU citation).
-  Gates: `build/trail-room/GATE_REVIEW_R2.md` ·
-  `build/git-spine/GATE_REVIEW_SEAMS.md` ·
-  `build/render-north/GATE_REVIEW_D7.md`; falsification artifacts
-  alongside. Commits landed on Sid's word same session
-  (4d543a2 room · f6257a9 spine · 8549a69 fonts · 39b93ec docs).
-- 2026-07-06 (Trunk-5, same session), **Sid's blanket countersign +
-  R-2 FIRST LIGHT.** Sid booted the app, pasted the first-light
-  screenshot (threads over the real corpus, move chips firing, two-clock
-  stamps live, kraft `based-on`/`produced by import:git-spine` edges on
-  the expanded 2232fbb card — preserved at
-  `vision/images/2026-07-06-r2-first-light.png`), and countersigned
-  verbatim: **"from my side everything is approved just fucking get to
-  it."** Effects: **face-2 CONTRACT v1.1 COUNTERSIGNED-BINDING** (Δ9
-  client-side deviation stands; round-2 validation waived; wave OPEN);
-  the gate-raised defaults stand approved without build (importer
-  provenance stays nil-honest; incremental-jsonl stays unbuilt pending
-  form-break — the fork remains open in Open Questions for a route
-  ruling only if the cost bites); bench grading resume authorized.
-  H1 arming entry remains Sid's own hand in BETS (not delegable).
-
----
-
-## D-007 — The bet foundry: claims→bets intake + Fable questioning practice
-**STATUS: CLOSED** (proposed by Fable 2026-07-03 from Sid's in-session idea;
-**countersigned by Sid 2026-07-04 in-session** — "on the decisions i
-countersign to d-007")
-
-Sid's proposal (verbatim source: `vision/LOG.md` 2026-07-03 "the bet-foundry
-idea + the HCI thesis"): BETS.md is where all his claims/hypotheses/bets land;
-Fable's window includes making those bets real — sharpening, breaking down,
-actually working toward them; and Fable proactively asks Sid questions about
-the vision so bets are formed together, better informed.
-
-What this closes if countersigned:
-
-1. **Intake pipeline** (mostly already built at the 2026-07-03 sitting; this
-   ratifies it): raw claims land verbatim in `vision/LOG.md` first (existing
-   law); the BETS.md **Candidates** inbox holds only sharpened forms —
-   falsifiable statement + pre-registered kill/confirm evidence +
-   dependencies. Fable-grade sessions do the sharpening. Entry is cheap;
-   activation is rationed.
-2. **Fable-window allocation extension** (amends D-006's list): add
-   (e) **bet formation** — sharpening candidates, and decomposing promoted
-   bets into work-package-shaped probes, each probe then run per the
-   `/work-package` skill; and (f) the **questioning practice** — a
-   Fable-window session that touches vision/bets opens or closes with 1–3
-   questions from the frontier: where a bet lacks a falsifier, where North is
-   silent on something the ladder assumes, where two bets quietly conflict.
-   No quota — a question must name its frontier source or it isn't asked
-   (anti-ceremony guard). Sid's answers, his words → LOG; the sharpened
-   consequences → BETS.md.
-3. **Guardrails carried over unchanged**: one ACTIVE bet at a time; promotion
-   only at review sittings, by Sid; the ladder never grows by accumulation;
-   North stays Sid-authored; and all realization work remains evidence-paced —
-   a bet's work package must be the cheapest discriminating probe, and
-   form-break fixes outrank speculative probes (D-001 is not amended by this).
-
-Evidence this rests on: the relation-kernel cycle proved the decomposition
-machinery end to end (contract → phases → gate → retro → skill); the
-Candidates inbox exists and is empty — what was missing is exactly the intake
-motion and the questioning practice this entry names.
-
----
-
-## D-008 — Read-only MVP: the first trail view writes nothing
-**STATUS: CLOSED** (drafted by Fable 2026-07-04 in the track-A WP1 contract
-session, from Sid's own 2026-07-04 ruling — verbatim in `vision/LOG.md`
-"the read-only MVP ruling"; **countersigned by Sid 2026-07-04 in-session**,
-same day: "Countersigned as yes")
-
-What this closes:
-
-1. **The first trail view is READ-ONLY**: zero kernel writes from the view.
-   Local view-state (zoom, filter, selection) is allowed. Enforced
-   structurally in WP1: the trail-view module declares no depots and no ETL
-   topologies (contract gate 14) — it physically cannot write.
-2. **The write surface is the existing Claude CLI.** The LLM is phase-1's
-   writer: Sid instructs in CLI, the agent asserts (payload asserter = sid,
-   envelope actor = the agent). Consequence, hard-gated BEFORE phase-1 daily
-   use: the relation kernel must durably record BOTH actors (custody
-   amendment, trail-view CONTRACT §5.1) — verified 2026-07-04 that today it
-   persists only the payload asserter.
-3. **Watchers are triggers over existing ingestors** (transcripts, md,
-   commits once the spine lands) — never new ingestors; safe because the
-   kernels were built for convergent re-import (deterministic ids,
-   idempotency journals).
-4. **Sid's loop:** work in CLI → view updates near-live → screenshot back
-   into CLI when he wants action. Every face renders its own ADDRESS as text
-   (the query + params that produced it), so a screenshot is a resolvable
-   pointer (contract §3).
-5. **read→write is the NAMED second milestone**, entered when observed
-   read-only friction demands it — desire-paths sequencing (D-001) applied
-   to the write surface itself. Walk-capture (`last-walked`) explicitly
-   waits for that milestone; the field exists now, nullable, rendered as
-   unknown.
-
-Evidence this rests on: Sid's 2026-07-04 ruling (LOG verbatim: "for the very
-first MVP we don't need the write surface... we would not be rethinking and
-expanding scope... it will be testable by me"); the Fable falsification pass
-the same day found no scope hole (the one real gap it surfaced — custody
-recording — is item 2's hard gate).
-
-**AMENDED IN PLACE 2026-07-08 (A2; countersigned — Sid's blanket, session
-`18d63935`): the WRITE boundary is rescoped.** The machine marker writes marks
-as provenance-first observations via the lawful worker→Rama path (back-arrow
-compliant; the view still never mutates truth; silver/gold provenance tiers
-visible per map-must-not-lie). Human write-gestures through the UI remain gated
-until spec'd — item 1's view-write prohibition stands for the VIEW; item 5's
-read→write milestone now governs UI gestures only. Sid 2026-07-08: "should we
-work read-only? my answer is no — we already have some code written out … start
-from where we are."
-
----
-
-## D-009 — Fork 2: ONE SUBSTRATE (three projection families over one address space)
-**STATUS: CLOSED** (ruled by Sid in-session 2026-07-06 at the Track-D
-sitting; countersign verbatim in `vision/LOG.md` 2026-07-06 — **"ONE
-SUBSTRATE TO RULE THEM ALL"**; full record `build/render-north/FORK-2.md`,
-which supersedes NORTH §10's OPEN marker. Entry recorded 2026-07-06 by the
-Trunk-1 checkup session from those sources — recorded, not re-derived.)
-
-One scene store (keyed `(view-instance, address)`, birth-law H6), one diff
-pipeline, one camera loop, one spec grammar; the world, the islands, and the
-token face are PROJECTIONS over the single substrate — seams are where
-projections change, never where architectures change. Grounds (FORK-2 §3,
-ruled on foreclosure asymmetry, not cost): three-substrate foreclosures are
-vision-shaped and permanent — "one land at every zoom" dies at the island
-border; cross-seam transclusion becomes a sync protocol that eventually
-lies; the move-then-speak agent flow stitches three dialects (H2/H3
-worsen); specs-as-assertions gets readmitted-around via a DOM-shaped island
-engine; self-hosting loses a third of its object. One-substrate
-foreclosures are cost-shaped and dated — no off-the-shelf UI maturity (the
-text pit is ours alone); foreign live surfaces stay second-class behind a
-controlled compositing seam (wish recorded).
-
-Binding on DIRECTION; build stays D-001-paced. `build/render-north/
-DELTA-B1.md` is the ordered instrument: birth-laws Δ1 (H6 keying) + Δ2
-(f64 store / camera-relative f32) bind at scene-store birth; the Δ3 store
-promotion fires at the FACE-2 contract, not before; Δ7 slug-glyph expansion
-gates face 2 shipping the design language. Modular-code note (Sid's
-standing requirement, named at the sitting): one substrate ≠ one program —
-the two thin registries are the modularity story, and registry entries are
-the first candidate for code-as-addressed-material.
-
----
-
-## D-010 — Countersign threshold: approve-by-default; only future-binding cost reaches Sid
-**STATUS: CLOSED** (ruled by Sid in-session 2026-07-06 at the Trunk-4
-orientation session's close; verbatim in `vision/LOG.md` 2026-07-06 —
-"everything is countersigned .. modify that option .. until its is something
-that has the cost of this will effect future thing .. countersign everything
-all approved .. push the benchmark back .. i want the work to happen on 3
-frontiers only rama, ui and framework". His words are the countersign.)
-
-What this closes:
-
-1. **Blanket:** everything pending approval at 2026-07-06 is COUNTERSIGNED.
-   Most prominent application, executed same-session: the **H1 arming entry**
-   written into the BETS verdict log per the recorded recommendation
-   (t0 = 2026-07-05; reversible on Sid's review — see BETS).
-2. **The protocol amendment — the default flips.** Work products (contracts,
-   phase closes, retros, batch scopes, wave dispatches) are APPROVED BY
-   DEFAULT: the builder/trunk adopts the recommended option and records
-   alternatives. ONLY decisions whose cost binds the future — irreversible
-   architecture, vision/bets authorship, anything foreclosing a named door —
-   still stop for Sid's hand. Operating test: **"if this is wrong, is undoing
-   it a revert or a rewrite?"** Revert-cheap ⇒ proceed and record.
-   Rewrite-costly ⇒ Sid.
-3. **Three frontiers only: rama · ui · framework.** Sid's own map (canonical
-   plain language): rama = the internal data mapping · ui = his surface for
-   making sense of the raw underneath data · framework = the glue both ways
-   (data mapping → ui render; ui interaction → data fetch). **The benchmark
-   front is PUSHED BACK** — paused, artifacts stay committed, resume is
-   Sid's call at a future sitting; its rankings feed intake whenever resumed.
-4. **The two open forks routed under the new rule:** importer provenance on
-   source rows = revert-cheap ⇒ builder rules it with recorded alternative.
-   The durability fork (durable cluster vs durable spine-edge replay log) =
-   future-binding write-side architecture ⇒ remains Sid's, surfaced once.
-5. **Unchanged:** North stays Sid-authored; CLOSED decisions still reopen
-   only on form-break evidence; hard rules (env.clj, docs branch never
-   pushed, code/docs separate commits) unaffected.
-
-Evidence this rests on: the Trunk-5 wave receipts (five defects caught by the
-QC layers with zero Sid attention in the loop) and the observed bottleneck at
-wave close — every lane was queued on approvals whose cost was revert-cheap.
-
-**REACH CLARIFIED 2026-07-08 (Sid verbatim, session `18d63935`):** "all
-approved by default and i would even go far to say just make the amendment in
-place all theses decisions seems to be at the operational level … they are
-cockblocking types no one fucking reads this to even countersign … remove that
-can't commit shit as well .. we can commit." Applied: (a) operational
-amendments to CLOSED decisions are edited IN PLACE with dated, attributed
-notes — no PROPOSED queue; (b) sessions COMMIT their own work without
-word-gating (stale baton language "commits on Sid's word (hard rule)" is
-SUPERSEDED); (c) the §2 operating test governs Fable's own behavior, not just
-work products — revert-cheap ⇒ do it and record. Standing stops remain only at
-irreversible boundaries: pushing/merging the docs branch (never), env.clj,
-spend, future-binding architecture/nouns, North authorship.
-
----
-
-## D-011 — The middle regime: the land's furniture as the land's data
-**STATUS: CLOSED** (drafted in framework CONTRACT §15, 2026-07-11; countersigned
-by Sid same day at the W2 dispatch session — asked explicitly, answered
-"Countersign both". Entered verbatim from the draft.)
-
-The assembly layer is a THIRD regime between D-003's two: neither Regime-1
-external code (git-authored, addressed) nor gated Regime-2 self-written
-code. Assemblies are the land's furniture described in the land's own DATA —
-arrangement only, no code enters Rama, the compiled substrate stays entirely
-git-authored (primitives, interpreter, projections are Regime-1 artifacts).
-The arrangement-only guard (framework CONTRACT §4) is the regime boundary's
-enforcement: anything that wants to be a program gets to be a real one, in
-the code lane. Machine-written assemblies ride D-008 A2 (provenance-first
-observations through the lawful worker path) and land validated + error-
-carded, never executed. Evidence: the shipped substrate already splits
-exactly this way (pure-fn builders vs data-shaped scene composition —
-`rect_tree.cljc`'s own header records the desire path); every live-medium
-system converged on structure-as-data over vocabulary-as-code (ROAD §
-invariant 2). Consequence now countersigned: "no code in Rama" stays a hard
-law with a precise meaning — keywords and addresses persist, fn values never
-do (framework CONTRACT §6/§8); Regime-2's gate is untouched.
-
----
-
-## D-012 — The Regime-2 self-hosting test, formulated
-**STATUS: CLOSED** (drafted in framework CONTRACT §15, 2026-07-11; countersigned
-by Sid same day at the W2 dispatch session. Answers the open question carried
-since D-003 — "Regime 2 self-hosting test formulation".)
-
-The test: **a design conversation produces a usable view without leaving the
-land and without hand-translation** — conversation → proposed assembly (A2
-observation, `based-on` edge to the birthing conversation) → validated +
-rendered beside the chat → worn by Sid — with no human transcription step
-between the conversation and the wearable face. ROAD Step 7B is the first
-worked instance; wearing (not argument) decides survival. Passing the test
-for ARRANGEMENT (faces) does NOT open Regime 2 for CODE (primitives,
-projections): minting vocabulary in-land remains gated on its own form-break
-(ROAD Horizon: hot-reload covers the mint loop, probably indefinitely). The
-test's scope is deliberately the middle regime's ceiling — it proves the
-loop (design conversation → land object → daily use) closes;
-Regime-2-for-code would need this test passed AND a used form breaking
-against the code lane's hot-reload speed.
-
----
-
-## D-013 — Editor write transport: microbatch direct-write REJECTED on pre-registered evidence; stream is the route to prove
-**STATUS: CLOSED** (drafted by Fable 2026-07-12 from the write-echo spike,
-`build/write-echo/NOW.md`; criterion pre-registered 2026-07-11 BEFORE any
-data and not adjusted after; **countersigned by Sid 2026-07-12 in-session**)
-
-**Measured fact.** Direct write→read-back against the CURRENT microbatch
-text-kernel, on the in-process IPC substrate Softland actually runs, FAILS
-the pre-registered criterion (p95 ≤ 50ms AND ≤1 stall >100ms per sustained
-minute) decisively: echo p95 307–394ms, EVERY event a stall (720/720 at
-12/s; 180/180 at 3/s), p50 floor ~210ms = the microbatch iteration cadence —
-payload- and load-independent. Leg decomposition: depot append-ack ~5ms p50
-(cheap, durable); materialization ~210ms (the whole problem); leg-3
-stream-back strictly additive → verdict robust even at leg3 = 0. Root cause
-is the topology CLASS (microbatch buys exactly-once atomicity, not latency);
-Rama's own guidance routes single-digit-ms + write-then-read-back — the
-editor's two needs — to STREAM topologies.
-
-**Rulings (Sid's countersign flips these CLOSED):**
-1. **Direct-on-microbatch is closed as the editor/block-write transport.**
-   No tuning-rescue rounds; a production-cluster re-measure happens only if
-   someone wants to rescue microbatch against Rama's own guidance.
-2. **Sid's default stands: no optimistic text echo by default.** The
-   fallback ladder is NOT engaged — the direct PRINCIPLE was not falsified,
-   the transport was. Next lawful step: **write-echo-2**, the SAME criterion
-   unchanged, aimed at a STREAM-topology probe (append-ack ~5ms already fits
-   budget; open question = stream materialization + leg-3). Prompt:
-   `docs/sessions/write-echo-2-opening-prompt-2026-07-12.md`.
-3. **Pre-registered next fallback, fixed before write-echo-2's data:** if
-   stream ALSO fails, a local caret affordance alone cannot rescue ~200ms
-   TEXT echo (characters a fifth of a second late are broken regardless of
-   caret) — the remaining route would be optimistic-with-reconciliation,
-   which contradicts Sid's stated default and therefore returns to him as
-   its own explicit ruling with this evidence chain attached. Not
-   pre-approved here.
-4. **The block-write contract is GATED on write-echo-2's verdict** and must
-   not assume a transport meanwhile.
-5. **Memory correction recorded:** the 2026-03 "7.5ms" figure was the
-   optimistic ONE-WAY write, not round-trip echo (spike session corrected
-   the memory file); it must never be cited as direct-write feasibility
-   evidence.
-
-*2026-07-12 note: ruling-2's evidence slot is FILLED — write-echo-2 ran the
-stream probe under the same criterion and it PASSES decisively. Verdict
-drafted as D-014 (PROPOSED below). Ruling-3's fallback ladder dissolves
-unengaged; ruling-4's gate lifts on D-014's countersign.*
-
----
-
-## D-014 — Editor write transport COMMITTED: direct write over a STREAM topology; stream's at-least-once priced via op-id idempotency
-**STATUS: CLOSED** (drafted by Fable 2026-07-12 from the write-echo-2 spike,
-`build/write-echo/NOW.md`; SAME pre-registered criterion as D-013, third use,
-never adjusted; fills D-013 ruling-2's evidence slot. **Countersigned by Sid
-2026-07-12 in-session** — D-013 ruling-4's gate is lifted; block-write
-CONTRACT may open.)
-
-**Measured fact.** Direct write→read-back against a minimal STREAM topology —
-per-key serialization identical to the text-kernel's scheme
-(`hash-by :routing/key`), SAME in-process IPC substrate, SAME method and
-isolation as write-echo — PASSES the pre-registered criterion (p95 ≤ 50ms AND
-≤1 stall >100ms per sustained minute) decisively: content 12/s echo p95
-**7.66ms** (~6.5× under budget), 0/1620 events stalled across all scenarios, 0
-unmaterialized. The leg that failed write-echo fell ~70× under an unchanged
-measurement method (leg2 materialization 211 → 3.1ms) — proving the ~210ms was
-the microbatch cadence, nothing else. Closed-loop `:ack` round-trip (the actual
-editor call pattern) independently reproduces the decomposition: p95 3.90ms.
-Leg-3 (Electric stream-back) characterized at 2–4ms from prior art, additive →
-composed E2E p95 ~11ms, robust to any leg-3 ≤ ~40ms. Honest labels carried
-forward: COMPOSED not browser-measured; substrate = today's IPC.
-
-**Rulings (Sid's countersign flips these CLOSED):**
-1. **Transport committed: the editor/block-write path is DIRECT write over a
-   STREAM topology, no optimistic text echo.** Sid's default ("never by
-   default") stands and is now evidence-backed, not merely preferred. The
-   caret rides the echo signal (the L8 co-variance law, editor-loop ROAD §3);
-   at ~11ms composed it reads instant. The LOCAL CARET AFFORDANCE stays
-   pre-registered as the only concession if Sid's fingers find caret feel
-   broken despite the numbers — text truth stays streamed either way.
-2. **D-013 ruling-3's fallback (optimistic-with-reconciliation) DISSOLVES
-   unengaged.** Its trigger — stream also fails — did not fire. It returns
-   only via a form-break against the shipped transport, never via argument.
-3. **The op-id idempotency obligation is CONTRACT-BINDING on block-write.**
-   Stream is at-least-once with per-event atomicity only; microbatch's
-   cross-PState exactly-once is the price paid for the latency. The
-   block-write CONTRACT must specify a deterministic op-id derived from the
-   request-id so a retried stream event overwrites the same keys — idempotent
-   by value, never duplicating (precedents: face-arsenal wear-id journal G20,
-   relation-kernel idempotency key). It enters the traps ledger, and an
-   acceptance gate must exercise a replayed event. No stream write path ships
-   without this.
-4. **Module shape is the contract's to design, not ruled here.** The
-   commitment is the topology CLASS for the write→read-back path. Whether
-   block-write mounts its own stream topology beside the microbatch
-   text-kernel or migrates the text-kernel's write path is block-write
-   CONTRACT territory — bounded by ruling 3 either way. (The probe
-   deliberately proved the class on a minimal module, not a migration.)
-5. **Clustered re-measure: NOT required now; pre-registered as a mandatory
-   gate at substrate change.** Today's substrate IS in-process IPC (the whole
-   app runs on it; `foreign-proxy` broken in 1.6.0 IPC). Requiring a
-   production-cluster number now would gate real work on a substrate Softland
-   doesn't run — the D-001 shape. Pre-registered tripwire instead: before the
-   editor write path first runs on a clustered substrate, the SAME criterion
-   re-runs there (probe repro is one command, `stream_echo_probe.clj`); a
-   failure there reopens THIS ruling as a form-break, not a new argument.
-6. **The browser E2E closes at the block-write acceptance gate, not as
-   another spike.** Unlike write-echo (legs 1+2 failed alone, leg-3 moot),
-   here leg-3 is load-bearing for the E2E claim. The block-write package's
-   acceptance gate must include a measured in-editor echo — real browser,
-   real Electric leg-3 — against the same unchanged criterion, alongside
-   Sid's wear. Sid's fingers stay the final acceptance in both directions
-   (D-013's own words).
-7. **D-013 ruling-4's gate LIFTS on countersign:** the block-write contract
-   may assume the stream transport and proceed (editor-loop ROAD §6
-   sequencing resumes at "block-write CONTRACT").
-
----
+# Softland Decision Log — current law
+
+What is decided, right now, grouped by axis — never how we got here. This file
+holds CURRENT STATE ONLY (Sid, 2026-07-12): amendments edit the text in place,
+superseded text is deleted, and git keeps every prior form — look at this
+file's git history only if Sid wants to see what was here before. Execution
+records (gates, retros, fix waves, countersign events) live in `build/<pkg>/`
+artifacts; "where are we now" lives on the board (`docs/sessions/next-prompt.md`).
+
+Companion: `BETS.md` (same directory) — North (Sid's authorship only) + the bet
+ladder. This log governs closures; BETS.md governs direction.
+
+## Operating rules
+
+- A decision is **ACCEPTED by default**. Only a decision of the type "forever
+  consequences / huge irreversible cost" stops for Sid's sign-off. Operating
+  test (D-010): if this is wrong, is undoing it a revert or a rewrite?
+  Revert-cheap ⇒ proceed and record; rewrite-costly ⇒ Sid.
+- Every decision records the evidence it rests on — one line pointing at the
+  artifact that holds the detail — so a reopening attempt can be checked
+  against what was already known.
+- A standing decision reopens only on **evidence of a used form breaking
+  against it** — never on a new argument, research round, or model opinion.
+- D-numbers are stable names, not positions — cite them from anywhere. Axes
+  grow, shrink, and merge as the territory changes. A new ruling takes the
+  next D-number and lands under its axis (mint a new axis if none fits); it
+  does not append a diary entry.
+
+## Governance
+
+- **D-001 — arbiter rule.** The runtime/substrate grows only when a form in
+  actual daily use breaks against it; "an imagined future form would need X"
+  is never a reason to build X. Evidence: Sid's own recurring
+  runtime→too-big→need-a-view→runtime loop (four iterations) and the 27-04
+  wall margin note ("my crisis is based on me trying to build either end
+  without the other").
+- **D-010 — approve-by-default.** Work products (contracts, phase closes,
+  retros, batch scopes, wave dispatches) are approved by default: adopt the
+  recommended option, record alternatives. Only future-binding cost —
+  irreversible architecture, vision/BETS authorship, spend, foreclosing a
+  named door — stops for Sid. Reach (2026-07-08): the same test governs
+  Fable's own behavior; sessions commit their own work without word-gates.
+  2026-07-12: promoted to this log's own operating rule (header above).
+  Work happens on **three frontiers only: rama · ui · framework**; the
+  benchmark front is pushed back (resume is Sid's call; its rankings feed
+  intake when resumed).
+- **Standing stops, unaffected by any default:** never push/merge the docs
+  branch; never read `env.clj`; code and docs in separate commits; North
+  stays Sid-authored; spend stops for Sid.
+
+## The form — what we are building first
+
+- **D-002 — first form = the trail view** (Sid's 27-04-2026 wall panel):
+  timeline · what-changed-concretely · product-DAG with dead-ends, answering
+  "where are we / how did we get here / what crossroads did we take" —
+  rendered in Softland, over Softland's own material. View 3 (agent-legible)
+  is part of the same form: the material must be legible to agents, not only
+  to Sid. **Unit (A1, 2026-07-08): sense-line units** — episodes and their
+  marks; the container trail (sessions/files/commits) demotes to one
+  evidence-lens. Model: `sense-line-model.md`; working map:
+  `build/sense-line-mvp/DIRECTION.md`. Evidence for the unit rescope: the
+  2026-07-07 form-break (`design/claude/atomic-unit-2026-07-07.md` §1 —
+  container granularity cannot meet this decision's goal at any rendering).
+- **D-005 — view-first sequencing.** The view renders NOW on material already
+  in the substrate; it will be ugly and gappy, and each gap names the next
+  ingestor slice — the rendered view orders the import work, never the other
+  way around. Evidence: the wall margin note (data and view co-evolve; a
+  completeness-gated import round has no signal for "done enough").
+- **Face order** (ruled 2026-07-04 on Sid's delegation): **View 3 first** —
+  nearly coextensive with the data contract itself, a minimal text projection;
+  the threaded/DAG timeline second, as Sid's first pixel surface; canvas
+  parked until the wall-replacement ambition earns activation.
+- **D-008 — write surface.** The view is READ-ONLY and structurally cannot
+  write (declares no depots, no ETL topologies). The write surface is the
+  Claude CLI: the agent asserts on Sid's instruction — payload asserter = sid,
+  envelope actor = the agent, and the write path durably records BOTH.
+  Machine marks (A2, 2026-07-08) write as provenance-first observations via
+  the lawful worker→Rama path (back-arrow compliant; silver/gold provenance
+  tiers visible — the map must not lie). Human write-gestures through the UI
+  stay gated until spec'd: read→write is the named second milestone for UI
+  gestures, entered on observed read-only friction. Watchers are triggers
+  over existing ingestors, never new ingestors. Evidence: Sid's 2026-07-04 +
+  2026-07-08 rulings, verbatim in `vision/LOG.md`.
+
+## Code regimes — how code enters the land
+
+- **D-003 — Regime 1: external code as VIEW.** git owns versioning, the
+  filesystem owns storage; Softland imports a derived view. Address the code
+  (blob-sha + path anchors), don't copy it. Two boundaries: import (git→Rama,
+  commit-grained) and commit (Rama→git); Rama is truth only for in-flight
+  work between them; on conflict git wins. Settled inputs: git-authority,
+  commit-boundary ingest, exactness ("the map must not lie"),
+  file-granularity, fail-closed scope (`env.clj` can never enter). The first
+  form needs only the **Regime-1 spine**: commit metadata + sha/path
+  addresses + the transcript↔commit/doc joins. Evidence: Sid's 2026-06-30
+  consolidation ("code ingestor" was two problems wearing one name; the tell
+  is the unit — flow vs code).
+- **D-011 — middle regime: the land's furniture as the land's data.**
+  Assemblies are arrangement-only DATA; no code enters Rama — keywords and
+  addresses persist, fn values never (framework CONTRACT §4/§6/§8). Anything
+  that wants to be a program gets to be a real one, in the code lane.
+  Machine-written assemblies ride D-008's worker path and land validated +
+  error-carded, never executed. Evidence: the shipped substrate already split
+  exactly this way (`rect_tree.cljc` header records the desire path);
+  live-medium precedent (ROAD § invariant 2).
+- **D-012 — the Regime-2 gate (self-hosting test).** Regime 2 (recursive
+  Softland; unit = capability) opens only when a design conversation produces
+  a usable view without leaving the land and without hand-translation:
+  conversation → proposed assembly → validated + rendered beside the chat →
+  worn by Sid. Passing for ARRANGEMENT does not open Regime 2 for CODE — that
+  additionally needs a used form breaking against the code lane's hot-reload
+  speed. `object-kernel-revision.md` is entirely gated as authority behind
+  this test (ruled 2026-07-04); no Regime-1 artifact may cite it as a
+  requirement source.
+
+## Kernel & data model
+
+- **D-004 — the missing noun is a typed RelationEdge.** Landed:
+  `src/app/server/rama/relation_kernel.clj` (`relation-kernel-module`).
+  Every relation carries first-class `asserted-by` provenance
+  (sid | llm | import) so LLM-proposed glue is visibly distinct from
+  human-asserted structure. Kinds are a **closed enum** — the source of truth
+  is `relation-kinds` in the kernel (wall arrows + stance + mechanical +
+  sense-block + discourse families) — grown additively on form-break only:
+  one authorized kernel edit per package, each kind naming its direction
+  semantics at registration. Precedent chain: block-kernel
+  `:grounds :assembled-from :refines` · code-atom `:requires :calls` ·
+  machine-cut `:pairs-with` (Sid, 2026-07-12). Contract:
+  `build/relation-kernel/CONTRACT.md`.
+- **Two-clock discipline** (law for every new Regime-1 artifact carrying
+  time; adopted 2026-07-04): claimed-time (`asserted-at-ms`, orders semantic
+  history) is distinct from ingest/arrival-time (when the land learned it) —
+  a July re-import of April notes must not render as "today."
+- **Custody vs assertion** (same ruling): wherever envelope actor and payload
+  asserter legitimately differ, the write path durably records both.
+- **Transcript↔commit joins are durable import-asserted RelationEdges**
+  (ruled 2026-07-05): asserter-type `:import`, version-free actor-id
+  (`"import:git-spine"`), shas verified against the repo before asserting,
+  exactness via note-grammar v1 (promoted to a structured field only when a
+  view demands rendering it). Grounds + traps: `build/git-spine/CONTRACT.md` §2.
+
+## Render substrate
+
+- **D-009 — ONE SUBSTRATE** (Sid, 2026-07-06: "one substrate to rule them
+  all"): one scene store keyed `(view-instance, address)`, one diff pipeline,
+  one camera loop, one spec grammar; the world, the islands, and the token
+  face are PROJECTIONS over the single substrate — seams are where
+  projections change, never where architectures change. Ruled on foreclosure
+  asymmetry: three-substrate foreclosures are vision-shaped and permanent;
+  one-substrate foreclosures are cost-shaped and dated. Binding on DIRECTION;
+  build stays D-001-paced. Ordered instrument: `build/render-north/DELTA-B1.md`
+  (Δ1 H6-keying + Δ2 f64-store/camera-relative-f32 bind at scene-store birth;
+  Δ3 store promotion at the FACE-2 contract; Δ7 slug-glyph expansion gates
+  face-2 shipping the design language). One substrate ≠ one program: the two
+  thin registries are the modularity story. Full record:
+  `build/render-north/FORK-2.md`.
+
+## Editor write transport
+
+Pre-registered criterion, used three times unchanged: echo p95 ≤ 50ms AND ≤1
+stall >100ms per sustained minute.
+
+- **D-013 — microbatch REJECTED** for the editor/block-write transport: echo
+  p95 307–394ms, every event a stall; the ~210ms floor IS the microbatch
+  iteration cadence (payload- and load-independent — the topology CLASS, not
+  a tuning problem). No tuning-rescue rounds. The 2026-03 "7.5ms" figure was
+  the optimistic ONE-WAY write — never cite it as echo evidence. Numbers:
+  `build/write-echo/NOW.md`.
+- **D-014 — transport COMMITTED: direct write over a STREAM topology, no
+  optimistic text echo** (Sid, 2026-07-12). Stream echo p95 7.66ms (~6.5×
+  under budget), 0/1620 stalls; composed E2E ~11ms; the caret rides the echo
+  signal (the L8 co-variance law). Binding obligations: (1) **op-id
+  idempotency is CONTRACT-BINDING on block-write** — deterministic op-id from
+  the request-id so a retried stream event overwrites the same keys (stream
+  is at-least-once); an acceptance gate must exercise a replayed event.
+  (2) The **local caret affordance** is the only pre-registered concession if
+  Sid's fingers find caret feel broken despite the numbers — text truth stays
+  streamed either way. (3) **Clustered re-measure is a mandatory gate at
+  substrate change** (same criterion; probe repro is one command,
+  `src/app/probe/stream_echo_probe.clj`). (4) The **browser E2E closes at the
+  block-write acceptance gate** — real leg-3, same criterion, Sid's fingers
+  final. (5) Module shape (own stream topology vs text-kernel write-path
+  migration) is block-write CONTRACT territory, bounded by (1) either way.
+  Optimistic-with-reconciliation returns only via a form-break against the
+  shipped transport, never via argument. Numbers + method:
+  `build/write-echo/NOW.md`.
+
+## Working model — how the work runs
+
+- **D-006 — Fable allocation** (bet; evaluation running). Fable's window =
+  contracts, gate reviews, fork adjudication, bet formation + the questioning
+  practice (D-007), succession docs — and, since delivery mode (Sid,
+  2026-07-05: "our goal is delivery"), Fable MAY implement directly when it
+  is the fastest path. QC shape: ONE batched falsification + ONE end-gate per
+  coding wave, never sprinkled per-phase; **fresh CONTEXT ≠ fresh session** —
+  one orchestrating session runs phases with fresh-context subagents as the
+  QC layers. Evaluation state: criteria pre-registered 2026-07-03 (traps
+  caught · counterfactual probe · implementation contact · token ledger).
+  Consolidated finding across three packages: the load-bearing QC layer is
+  **fresh-context + real-corpus + default-fail** — it repeatedly caught what
+  fixture/synthetic layers were structurally blind to. Counterfactual probe
+  run once (relation-kernel: leans BET-HOLDS, one ding), waived since with a
+  pre-registered reopen (runs iff the final evaluation is close). The running
+  ledger lives in the package GATE_REVIEW/RETRO artifacts and this file's git
+  history (pre-2026-07-12); the final weigh is Sid's.
+- **D-007 — the bet foundry.** Raw claims land verbatim in `vision/LOG.md`
+  first; the BETS.md Candidates inbox holds only sharpened forms (falsifiable
+  statement + pre-registered kill/confirm evidence + dependencies);
+  Fable-grade sessions sharpen, and decompose promoted bets into
+  work-package-shaped probes (cheapest discriminating probe first). The
+  questioning practice: a Fable session touching vision/bets opens or closes
+  with 1–3 questions that each name their frontier source (no quota — a
+  question that can't name its source isn't asked). Guardrails: one ACTIVE
+  bet; promotion only by Sid at review sittings; form-break fixes outrank
+  speculative probes.
+- **Process rules.** Every session ends with an assertion-grade entry in its
+  THREAD file and a board-line flip (adopted 2026-07-04). The board
+  (`next-prompt.md`, charter 2026-07-10) is pointer + status lines only;
+  detail lives in `build/<pkg>/NOW.md` (entries ≤15 lines); prune at close;
+  git is the archive. Pre-registered board falsifier: a fresh session that
+  mis-orients, or content creeping back onto the board, means revert or
+  amend — don't suffer. Package mechanics live in
+  `.claude/skills/work-package/SKILL.md` (Fable signs canon).
 
 ## Open questions queued for ruling
-- Fable-window queue (per D-006): ~~gate review of relation-kernel
-  implementation~~ (done 2026-07-03, PASS) → trail-view data contract →
-  hypothesis kill-conditions at first trail-view render → ~~succession
-  document~~ (done 2026-07-03, pulled ahead per Sid's next-prompt sequencing:
-  skill at `.claude/skills/work-package/SKILL.md`, written from RETRO.md after
-  its adversarial recheck).
-  D-006 criterion 2 (counterfactual probe, input manifest CONTRACT §13) is
-  still unrun and can slot anywhere — it needs an Opus session, not the
-  Fable window.
-- Succession document spec (write AFTER the first full work-package cycle, as
-  a skill at `.claude/skills/work-package/`, amended by what the cycle taught):
-  (1) the five-layer QC model — contract coherence via fresh-context
-  re-derivation / plan via validation sessions / code via executable gates /
-  diff via adversarial falsification review / everything via daily use;
-  (2) how to open a work package — contract with traps ledger + acceptance
-  gates + input manifest, next-prompt.md STANDING/NOW baton, precedence rule
-  (baton never outranks contract or log); (3) how to run a gate review without
-  Fable — CLAUDE.md falsification protocol against the diff, verdict recorded
-  in this log; (4) re-entry triggers — gates green or stop clause tripped;
-  (5) the retro procedure — package trail (NOW log + phase artifacts) →
-  lessons routed to implementation-quirks / operating-model / D-006 notes —
-  first exercised at relation-kernel close; that first retro is INPUT to
-  writing this skill. **EXECUTED 2026-07-03 (Fable)**: the queued adversarial
-  recheck of RETRO.md ran first (addendum in RETRO.md — 4 corrections, 2 new
-  lessons, 1 residue addition; suite independently re-run green, 165
-  assertions), then the skill was written at
-  `.claude/skills/work-package/SKILL.md` covering all five spec items.
-- object-kernel-revision.md (Jun 26): now framed by D-003 as a **Regime 2**
-  document. Rule on whether anything in it constrains the Regime-1 spine, or
-  whether it is entirely gated behind the self-hosting test.
-  **RULED 2026-07-04** (by Fable, in the track-A WP1 contract session, per the
-  session duty Sid delegated on the track page): **entirely gated as
-  authority.** None of its five encoding decisions (§6: merge operator,
-  claim/disagreement encoding, credential algebra, non-monotone fold
-  treatment, distortion-budget distribution) may be built ahead of the
-  self-hosting gate, and no Regime-1 artifact may cite the doc as a
-  requirement source. Nothing in it blocks the Regime-1 spine or the
-  trail-view data contract. Two zero-cost *naming/semantics disciplines* that
-  the doc's [HOLDS] items corroborate are adopted for new Regime-1 artifacts —
-  on independent Regime-1 grounds, so they stand even if the doc is later
-  revised: (1) **two-clock discipline** — every new row/feed that carries time
-  distinguishes claimed-time (client-supplied `asserted-at-ms`, orders
-  semantic history; the relation-kernel importer-timestamp residue) from
-  ingest/arrival-time (when the land learned it); grounds: a July re-import of
-  April notes must not render as "today" in the trail view. (2) **custody vs
-  assertion recording** — where envelope actor and payload asserter
-  legitimately differ (phase-1: agent writes on Sid's instruction), the write
-  path must durably record BOTH; grounds: gate-review open doubt #1, and
-  verified 2026-07-04 that the relation kernel currently persists only the
-  payload asserter (envelope `:actor` is checked for retraction rights and
-  dropped — `relation_kernel.clj` RelationDecisionRow/RelationEventRow carry
-  no envelope-actor field). Everything else in the doc that touches Regime-1
-  territory (omissions marking, disagreement-preserved-not-merged) is already
-  Regime-1 law via D-003 settled inputs and D-004 — the doc adds no new
-  obligations there.
-- Which face of the trail view renders first (View 3 agent-legibility is
-  cheapest; View 1 outline; View 2 canvas replaces the wall but costs most).
-  Decide after D-002/D-005 countersign.
-  **RULED 2026-07-04** (by Fable, on Sid's explicit delegation via Roam card —
-  "I am not sure you decide"): **View 3 first** — it is nearly coextensive
-  with the data contract itself (context bundles + the two query topologies;
-  a minimal text projection, not a pixel investment); **the threaded/DAG
-  timeline face second** (the 27-04 outline form) as Sid's first pixel
-  surface for the read-only screenshot loop (INPUTS item 13/14); **canvas
-  last**, parked until the wall-replacement ambition earns activation.
-  Grounds: the first paying reader is the agent; the Sid-face rides the same
-  queries View 3 defines, so the ordering costs nothing extra.
-- **Solo-operator discipline rule — ADOPTED 2026-07-04** (Sid via Roam card:
-  "yes adopt this"; origin: Q2 from the 2026-07-04 sessions): every session —
-  build or thinking — ends with an assertion-grade baton entry in
-  `docs/sessions/next-prompt.md`: what was decided / verified / doubted,
-  findings verbatim on any FAIL, judgment calls flagged; everything else is
-  recoverable. Cycle-1 evidence: the baton's verbatim entries were the only
-  survivors of the overwritten PLAN_VALIDATION FAIL artifacts. Encoded in the
-  interim protocol (baton item 9) and Claude memory.
-- Regime 2 self-hosting test formulation (carried from Sid's consolidation).
-- Confidence/credential algebra for the trail→code join; rename/move continuity
-  (parked in the code-ingestor contract).
-- **Transcript↔commit join representation — RULED 2026-07-05** (Fable, under
-  Sid's in-session time-box blanket; reversible on his review): **durable
-  import-asserted RelationEdges** — asserter-type `:import`, version-free
-  actor-id `"import:git-spine"`, evidence refs to transcript session + entry,
-  shas verified against the repo before asserting, exactness via a documented
-  note-grammar v1 (promoted to a structured field only when a view demands
-  rendering it — D-001). Alternative recorded, not taken: projection-time
-  joins (no storage/staleness, but cannot carry asserted-by/exactness/
-  retraction and need new query topologies per join type). Full grounds and
-  traps: `build/git-spine/CONTRACT.md` §2. The exactness-flag semantics
-  question queued alongside it is answered by the same ruling (note-grammar
-  v1).
-- **Relation-kernel idempotency scope (BLOCKS the relation-kernel work package;
-  D-006 evaluation signal).** Surfaced at implementation contact after two
-  `PHASE_VALIDATION:fail` rounds (PLAN_VALIDATION F2). The binding CONTRACT
-  (§4-5: journal "copied from object-container's decisions-by-idempotency
-  pattern", colocated on the relation-id task) and the binding IMPLICIT_SPEC
-  (models `IdempotencyKey` as a standalone entity; "same idempotency key
-  collapses to one decision") disagree on whether an idempotency key is unique
-  **per relation** or **globally**. These cannot both hold in Rama: a colocated
-  relation-id journal is physically relation-scoped; global uniqueness needs a
-  `hash(idempotency-key)` index on a different task. **Recommendation (high
-  confidence): confirm relation-scoped `(relation-id, idempotency-key)`** — it is
-  a one-to-one copy of the object-container idiom the contract names (verified
-  `object_container.clj:1693,1786`), and global collapse would silently drop a
-  relation when two imports reuse a key (violates "the map must not lie"). Ruling
-  options and the full trace are in
-  `build/relation-kernel/PLAN.md` → "Idempotency scope (ESCALATED)". Option (A,
-  recommended): a countersigned line here + reconcile IMPLICIT_SPEC wording, no
-  plan change → re-run Phase 2. Option (B): amend CONTRACT §4-5 colocation, add a
-  global index → re-run Phase 1. *Not decided by the implementing session, per
-  the handoff stop clause (no improvising policy on binding docs).*
-  **RULED 2026-07-03: (A) relation-scoped `(relation-id, idempotency-key)`** —
-  by Fable on Sid's in-session referral of the fork (Sid: flag if you meant to
-  hold this one personally). Reasoning: the key is a client retry token, not an
-  operation identity (that is the deterministic relation-id); global collapse
-  silently drops assertions (exactness rule); a global journal needs a
-  pre-gate partition hop that un-colocates the gate; object-container precedent
-  is partition-scoped. Executed: CONTRACT §5 amended (explicit scope), §11
-  gained gate 11 (cross-relation key reuse), IMPLICIT_SPEC amendment banner
-  added. CLOSED.
 
----
-
-- **block-kernel Phase 0 — two stop-clause rulings (Sid, 2026-07-09).** The
-  sense-line block distiller package (D-002 execution; realizes SPEC v0 over the
-  object-container + relation kernels) ran Phase 0; both CONTRACT §9 stop-clauses it
-  surfaced were verified at source and ruled the recommended way. (1) **Relation
-  kinds:** `relation-kinds` (relation_kernel.clj:58-65) is a closed enum; Sid
-  authorized registering `:grounds :assembled-from :refines` (additive; the D-004
-  kernel's own comment sanctions it) — the package's ONE permitted
-  relation_kernel.clj edit. (2) **R4 surface fidelity:** the already-ingested
-  per-message transcript sources store `(pr-str redacted-payload)` (EDN, not per-part
-  clean text), so the driver mints per-part `(event-id, part-path)` surfaces by
-  `read-string`-ing the already-stored redacted payload — "no second store"
-  reinterpreted as *no re-ingest / no second redaction*. Both executed as in-place
-  CONTRACT edits (R4 · §4 · §9 · §12); artifact
-  `build/sense-line-mvp/block-kernel/PHASE_0.md`. NEXT: Plan phase.
-
-- **code-atom FIX WAVE — 8 falsification findings applied (2026-07-09, Opus fix
-  session; D-006 implementation-contact note).** All 6 CONFIRMED + 2 PLAUSIBLE
-  from `code-atom/DIFF_FALSIFICATION.md` fixed with biting regressions; suites
-  green (adapter 8t/82a · driver+analyzer 8t/179a · rk 2t/222a untouched). Record
-  at `code-atom/FIXWAVE.md`. **One judgment flagged for redline (revert-cheap):**
-  F1 (stale-edge leak when both an edge's endpoints leave HEAD) was realized as an
-  **in-memory, cluster-scoped `:analyzer-basis` atom, NOT the sketched durable edn
-  file.** Grounds: the relation kernel is target-partitioned (no read-by-asserter
-  query — closing F1 by reading Rama alone would need a new kernel index = outside
-  the §2 allowlist), and a durable snapshot is precisely the "durable side-state ×
-  ephemeral create-ipc cluster poisons the next boot" footgun (implementation-quirks).
-  The atom lives+dies with the cluster — the correct retraction scope for an
-  ephemeral cluster (a fresh boot re-asserts only HEAD's edges; no cross-boot leak).
-  **Deferred, not decided:** cross-BOOT retraction of a both-endpoints-gone edge in
-  a hypothetical durable-cluster world rides **Sid's durability fork** (durable
-  cluster vs spine-edge replay log — future-binding, his); a durable basis would
-  slot behind the same seam. `:reconcile-basis-missing` counts every reconcile
-  lacking a prior basis, so the map declares the boundary. Sid may redline to the
-  durable snapshot instead — revert-cheap either way.
-
-- **block-kernel P1/P2 falsification — 2 items RULED (Sid took the recommended fixes, 2026-07-09).**
-  A fresh-context adversarial review of P1/P2 (artifact
-  `build/sense-line-mvp/block-kernel/P1P2_FALSIFICATION.md`) found the code
-  functionally correct (all gates green) but surfaced two questions touching binding
-  docs. Both are LATENT (no gate fails). (1) **F1 · SPEC §6.1 identity:** a
-  single-paragraph human turn mints a whole-block AND a coincident `:human-sub` at the
-  same `(surface, span)` with two distinct unit-ids — SPEC §6.1 (MUST) says same
-  `(surface,span)` ⇒ same identity; CONTRACT R3's "identity maps to anchor rows" is
-  unrealized (anchor-id = `sa:unit-id`, not `(surface,span)`-keyed). Inherited from P0's
-  `free-cut-part`; not fixture-exercised. Recommended: drop a sub-block whose span == the
-  whole-message span (subs only where real structure exists, SPEC §4.4). Sid rules —
-  §6.1 is countersigned and this is form-break evidence. (2) **F2 · T4 routing:** the
-  `imp:sense-block:` import-key falls through `extract-object-key` (:284-339) to `:else`,
-  so a FOREIGN `read-import-completion` mis-routes to nil (in-topology dedup unaffected; no
-  package consumer calls it → latent). Recommended in-allowlist fix: restructure the key
-  so the object-key follows a handled prefix (`imp:tr:<object-key>:sb:<hash>` — routes
-  right, still a distinct full key so R4 holds); alt = a kernel `extract-object-key` branch
-  (T13). Sid confirms the fix vs R4's "distinct prefix" wording. F3 (a G4 test-power gap) +
-  N5 (docstring) are implementer-fixable, queued for a coordinated pass (P3 is live-editing
-  the same files). **RULED (Sid, 2026-07-09): take the recommended step on both** — F1 =
-  drop a sub-block whose span == the whole-message span (realizes §6.1 without disturbing
-  §4.4 silver subs; add a single-paragraph human case to the fixture + regen golden to
-  exercise it); F2 = the in-allowlist import-key restructure `imp:tr:<object-key>:sb:<hash>`
-  (routes via `extract-object-key`, still a distinct key so R4 holds). **Where:** a POST-P3
-  coordinated FIX-PASS session (fixes layer on P3's settled tree, not the P1/P2 snapshot;
-  applies F1+F2+F3+N5, full P1–P3 re-green, one code commit on Sid's word). Prompt:
-  `docs/sessions/block-fixpass-opening-prompt-2026-07-09.md`. This countersign flips the
-  entry from PROPOSED to resolved; the fix-pass is execution, not a re-ruling.
-  · **EXECUTED 2026-07-09 (fix-pass session, post-P3-falsification).** F1+F2+F3+N5 applied
-  on the settled P3 tree; suite GREEN one JVM (block_distiller **15t/770a** · object_container
-  6t/149a · relation_kernel 2t/222a, 0f). F1 golden regen diff-proven (only the single-para
-  `u-solo` case added; `u-human`'s 5 proper subs byte-unchanged); F2 `import-key` →
-  `imp:tr:<ok>:sb:<hash>` (routes via extract-object-key; distinct from the transcript
-  adapter's `imp:tr:<ok>:<hash>` so R4 holds) + a folded routing gate (5 river
-  import-completions now foreign-readable — nil before). SPEC §4.4 clarified in place (silver
-  subs = PROPER sub-spans only; single-para resolves to the whole block per §6.1). CODE
-  uncommitted (Sid's word). ⚠ The block-kernel code commit MUST carry the `relation_kernel.clj`
-  P3a 3-kind diff (`:grounds :assembled-from :refines`) — the code-atom commit `6fbfd75`
-  committed only `:requires :calls`, leaving the 3 block kinds uncommitted in the tree (T11).
-
-- **code-atom GATE REVIEW — PASS with one gate-session fix; F1 in-memory basis
-  ACCEPTED at gate; one item PROPOSED (2026-07-09, Fable gate session; D-006 note).**
-  Artifact: `code-atom/GATE_REVIEW.md`. All three suites reproduced exact pre-fix
-  (8/82 · 8/179 · 2/222) then green post-fix (9/88 · 9/181 · rk untouched); all
-  kernel-behavior claims re-verified at source; §12 dogfood receipt ran END-TO-END
-  on this repo (895/895 blobs, 41s sync + 19s analyzer; whole-tree pins
-  458/5073/279/50 reproduced through the kernel; census + fixed-width-order-key
-  callers + relation-outcome supersedes chain printed; G11 tuple→marks worked
-  example real). **F1 adjudication: the in-memory cluster-scoped `:analyzer-basis`
-  atom is ACCEPTED** (kernel verified to have no by-asserter read; basis lane
-  disjoint from the target-read lane by construction; ephemeral-cluster scope =
-  the correct retraction scope; durable basis slots behind the same seam when the
-  durability fork is ruled). Sid's redline right stands. **G-F1 (NEW, CONFIRMED,
-  fixed in-session):** git history holds committed-BROKEN blobs (5/895 here); the
-  unguarded cut aborted the whole sync — every cheaper layer missed it (P0's
-  "895/895" was enumeration; parse fidelity was HEAD-files-only; gates sync pinned
-  commits). Fix (in-allowlist, revert-cheap, biting regressions): parse failure →
-  0-unit cut carrying `:parse-error`; raw surface still ingests (R1); lineage sees
-  empty maps (no fake edges); `:blobs-unparseable` counted. Receipt proves it
-  end-to-end. **PROPOSED (Sid rules): G-F2** — `imp:clj:` import-keys fall through
-  `extract-object-key` `:else` → foreign `read-import-completion` mis-routes to nil
-  (latent, no consumer; in-topology dedup unaffected; SAME class as the ruled
-  block-kernel F2). Options: (a) key restructure onto a handled prefix (none is
-  semantically honest for clj), (b) ONE additive `imp:clj:` branch in
-  `extract-object-key` mirroring `imp:md:` (kernel edit, needs authorization).
-  Recommendation: (b), bundled with the block-kernel fix-pass window. Minor queued
-  for the same window: N3 basis-missing conflates nil-basis with empty-desired-set
-  (one line); N4 materialize-throw temp-dir corner (one line); N6 basis↔scope
-  docstring. CODE STILL UNCOMMITTED — commits on Sid's word; then close + retro.
-  **COUNTERSIGNED (Sid, 2026-07-09: "I agree to anything that is pending on me but
-  has a recommended answer — I defer to recommended"):** G-F2 = option (b), the one
-  additive `imp:clj:` branch in `extract-object-key` is AUTHORIZED (this package's
-  second and last kernel-file edit); N3/N4/N6 recommended fixes taken; **commit
-  word GIVEN** with the recommended three-way split (adapter+tests+fixtures ·
-  driver+tests · registry/deps/kernel-branch — registry hunk manually split so
-  ONLY `:requires :calls` lands, T11). Execution routed to a fresh close session:
-  `docs/sessions/code-atom-close-opening-prompt-2026-07-09.md` (fix window →
-  re-green + receipt → commits → close + retro + adversarial retro-recheck).
-
-- **code-atom package CLOSED — RETRO + adversarial recheck done (2026-07-09, Opus
-  close session; D-006 evaluation note).** Fix window (G-F2 `imp:clj:` branch +
-  N3/N4/N6) applied with biting regressions; 4 code commits — `1d823bc` adapter ·
-  `9a2445b` driver · `6fbfd75` registry/deps/kernel (T11 hunk split, only `:requires
-  :calls` staged) · `381c445` analyzer-gates pin fix (recheck-found). Suites green at
-  HEAD: adapter 10t/91a · driver 9t/187a · rk 2t/222a; §12 receipt re-run end-to-end
-  exact (895/895, `:blobs-unparseable 5`, whole-tree 458/5073/279/50). Artifact:
-  `code-atom/RETRO.md`. **D-006 evidence (pre-registered):** the five-layer QC model
-  earned its keep IN ORDER — gates proved happy-path math, the fresh-context adversarial
-  diff killed 8 seam bugs, and the §12 dogfood receipt (the ONLY layer that touches the
-  full real corpus) found G-F1 — a break FIVE cheaper layers structurally could not see
-  (each used pinned-specimen commits / HEAD files / parseable synthetics). The retro's
-  adversarial recheck (fresh subagent) then caught a green-pre-commit / red-post-commit
-  staleness the close session had missed (fixed `381c445`) — that layer earned its keep
-  too. **PROPOSED skill amendments (Fable signs canon — NOT self-signed by this Opus
-  session):** (1) /work-package — a whole-corpus/whole-history processor gates a
-  full-real-corpus RECEIPT at the first phase that touches the full corpus, not only at
-  review; (2) /work-package — a coverage claim ("N/N") names its VERB
-  (enumerate|parse|ingest|analyze), and the close protocol re-runs every HEAD-reading
-  suite AFTER the code commits; (3) /atomize + /work-package — a new object-container
-  import-key PREFIX registers its `extract-object-key` routing (or rides a handled prefix)
-  with a routing gate (the G-F2 class bit BOTH code-atom and block-kernel). Consumer
-  disciplines + open doubts carried in RETRO §5. **T11 resolved:** block-kernel landed its
-  `:grounds :assembled-from :refines` on top of `6fbfd75` (`a146dc8`), both packages'
-  kinds coexist, both suites green. Durability fork (in-memory vs durable
-  `:analyzer-basis`) remains Sid's — deferred, revert-cheap.
-
-- **block-kernel PACKAGE GATE Round 1 — FAIL (4 P1 blockers); F1 RULED → Option A
-  (Sid, 2026-07-10).** Fresh-context whole-package (P0–P5) falsification: suites green
-  (26t/1216a) + the real `7c80ce2a` receipt ran, but FOUR contract-level blockers.
-  **F1 (STOP CLAUSE) — G12 read literally.** `river-page` does 2 point-reads per block
-  via `read-unit` (bounded by a 64-cap, but a per-block point-read fan-out). Verified vs
-  the code AND the authorizing docs: PHASE_0 §2/g + CONTRACT §12/g/§10 + the P5 opening
-  prompt all pre-blessed composition-first-with-bounded-point-reads for v0; only the §8
-  one-liner reads strictly-fail. **Ruling A: clarify G12 to forbid CONVERSATION-scaled
-  fan-out while accepting a hard page cap + a page-size-bounded, truncation-signalled
-  measured seek plan; the denormalized `read-conversation-sources` query is the §10 scale
-  extension, built only on a used-form break (D-001).** G12 amended IN PLACE in
-  `build/sense-line-mvp/block-kernel/CONTRACT.md` §8. Option B (strict zero per-block
-  fan-out via an additive OC physical shape) deferred to that form-break. **F2 + F4 fixed
-  in-package** (F2: distiller pre-filter → honest `1+4·limit` bound + `:truncated?`
-  page-completeness signal; F4: `refine!` resolves `(surface,span)` to the incumbent unit
-  — no duplicate id, SPEC §6.1), each with a biting IPC test. **F3 (durable debris class,
-  SPEC §3.1) hit a NEW stop-clause** — `import-request-validation-errors`
-  (`object_container.clj:775`) rejects hint-only (empty-source) imports, so a durable
-  debris row needs either (A) a 1-line additive OC validation relaxation [code-atom G-F2
-  class] or (B) a ruling that debris class is DERIVED, not materialized. **PENDING Sid.**
-  Fix wave in progress; a NEW fresh-context gate round is required before RETRO/close
-  (the Round-1 FAIL artifact is NOT overwritten).
-
-- **block-kernel PACKAGE GATE Round 2 — PASS; package IMPLEMENTATION-COMPLETE
-  (2026-07-10).** F3 ruled A by Sid: an additive `object_container.clj` validator
-  relaxation (the authorized 2nd kernel edit) accepts projection-hint-only imports
-  → durable versioned `entry-kind :debris` class rows. Fresh-context Round-2 gate
-  reproduced all F1–F4 fixes, independently re-ran the suites (**28t/1250a, 0
-  fail**) + the real receipt (**247 river / 399 debris / 44 edges / 0 rejections**);
-  verdict **PASS** with 3 non-blocking findings. **Finding 1 [MEDIUM] closed
-  in-window:** surfaceless river events (empty `tool_result` → 0 blocks) got no
-  durable class row + wrong counts → generalized to class-based hint emission
-  (`class-hint-import-request`: every event → exactly ONE durable class row, counted
-  by actual class); pure test added; re-verified (244/402 → 247/399). Findings 2/3
-  [LOW] deferred (cursor/§10; multi-stratum, unreachable in v0). Artifacts:
-  `build/sense-line-mvp/block-kernel/GATE_ROUND_2.md` + `RETRO.md`. **D-006 evidence:**
-  the fresh-context gate earned its keep twice — Round-1 surfaced F1–F4 by reading
-  cold; Round-2's Finding-1 (surfaceless-river) is invisible to the fixture and only
-  the real 402-debris chat exposed it (same class as code-atom G-F1). **Package
-  closes on Sid's code-commit word** — 3 files: `object_container.clj` (kernel edit,
-  isolate) + `block_distiller.clj` + test; docs auto-committed on this branch.
-  RETRO §6 honest gap: Finding-1's fix is self-verified, not fresh-context re-gated.
-
-- **Both packages' process lessons SIGNED into skills; consolidated D-006 data point
-  (2026-07-10, Fable authority pass).** Fact-checked the closes' PROPOSED amendments
-  against both RETROs + adversarial rechecks at source; all five verified real; one
-  grounds reclassification while signing: block-kernel Round-1 F1–F4 evidences the
-  fresh-context GATE layer (cold read), not the receipt rule — moved to the tally
-  below. **Signed into `/work-package`:** (1) whole-corpus/whole-history processors
-  gate a full-real-corpus receipt at the FIRST phase that touches the full corpus,
-  and the receipt ASSERTS the completeness invariant against durable state —
-  run-and-print catches aborts (G-F1's sync abort) but not silent class gaps
-  (Finding-1 printed 244/402 for a true 247/399); (2) coverage claims name their
-  VERB ("895/895" was enumeration read as parse), and the close protocol re-runs
-  every HEAD-reading suite AFTER the code commits (analyzer-gates 7f/3e at committed
-  HEAD, fixed `381c445`), with pin-to-specimen (`:head-override`) as the test-side
-  discipline; (3) a new `imp:<family>:` prefix is a named deliverable —
-  `extract-object-key` routing (or a handled prefix) + a foreign-read routing gate
-  (identical class twice: G-F2 `imp:clj:`, block-kernel F2 `imp:sense-block:`);
-  (4) a gate's one-line text carries its authorizing carve-outs at authoring, and a
-  gate-time strict-fail is classified literal-vs-intent → stop clause → reconcile to
-  intent (A), never a stricter bar no used form needs (D-001) — the F1/G12 ruling as
-  protocol. **Signed into `/atomize`:** the prefix-routing law [R2], and A5 RULED a
-  design law placed there (not memory, not work-package — its process shadow IS the
-  receipt-assertion rule): classification is total and keyed on the THING
-  (`classify-event`), never the code path; every ingested input gets exactly one
-  durable class row even with no material (F3 + Finding-1 = two instances of the one
-  failure; "the map must not lie" applied to class provenance). **Consolidated D-006
-  evaluation point (two independent packages):** the fresh-context + real-corpus +
-  default-fail layer is the load-bearing QC layer — it caught code-atom G-F1 (FIVE
-  cheaper layers structurally blind: pinned specimens / HEAD files / parseable
-  synthetics), block-kernel F1–F4 (cold read), and Finding-1 (fixture-blind; only
-  the real 402-debris chat exposed it). The synthetic/fixture layers could not have
-  caught any of these classes — that is structure, not chance, corroborated across
-  two packages. Allocation nuance for the final evaluation: the receipt MECHANISM
-  was invented at the Fable gate session (code-atom §12) and is now a signed
-  protocol rule — a Fable-grade catch converted into machinery any fresh gate can
-  run; that is the confirm-side shape of the bet (Fable builds the net; cheaper
-  models run it).
-
-- **Baton restructured: monolith → state board + per-thread files (2026-07-10,
-  Sid's ruling in-session; operational amendment, D-010).** `next-prompt.md`
-  (1,568 lines, ~50 live) replaced by direct replacement with a ~70-line board:
-  direction line + pointer/status thread lines; package STANDING/NOW moves to
-  `build/<package>/NOW.md`; one writer per thread file; the board is the single
-  shared surface (cross-thread flags, T11 class); prune at close. BOTH homes of
-  the old keep-everything law amended with the file: CLAUDE.md save-state §3
-  (verbose next-prompt → board flip + thread-file detail) and /work-package
-  (baton section + close-protocol prune step). Grounds: operator form-break
-  signal (same class as the 2026-07-05 cadence break, now at file scale) + the
-  real parallel-package workflow (code-atom ∥ block-kernel both wrote the one
-  monolith) + per-boot load cost. Honest counter-evidence recorded: ZERO
-  observed navigation failures — targeted opening prompts + the top block
-  carried orientation; this is a cost/concurrency amendment, not a rescue.
-  **Pre-registered quality falsifier (Sid's stated worry: "what if amending it
-  drops the quality of future chats"):** the form-break is a fresh session that
-  mis-orients (needs more than board + thread file to boot) or content creeping
-  back into the board for lack of room; on first occurrence revert (one git
-  revert + skill re-amend) or amend — recorded here so the check is a tripwire,
-  not a vibe. The session-end baton-entry rule (ADOPTED 2026-07-04) is unchanged
-  in substance: the assertion-grade entry lands in the session's thread file;
-  the board line flips.
-
-- **framework (faces-as-assemblies) package CLOSED — RETRO + adversarial recheck
-  done (2026-07-11, Opus close session; D-006 evaluation note).** Both waves
-  gate-passed the same calendar day; suite GREEN at committed HEAD — **54 tests
-  / 880 assertions / 0f / 0e across 8 namespaces** (the close recheck corrected
-  the 46/804 count that had propagated from the gate artifact into the opening
-  prompt and the retro's first draft; greenness intact, re-run twice). Full
-  retro + step-4 recheck addendum: `build/framework/RETRO.md` (7-layer QC
-  scorecard). D-006 signals: (1) **Traps-ledger criterion MET strongly** —
-  T1–T19 cited by number in code; the skill-derived `imp:asm:` named-deliverable
-  + foreign-read-gate rule killed the THRICE-fired latent import-routing class
-  (code-atom G-F2 `imp:clj:`, block-kernel F2 `imp:sense-block:`) at birth
-  (G18). (2) **In-session-fixes-at-gate under a token flag (new datum):** W2's
-  14 falsification findings were fixed by the ORCHESTRATING session at the gate
-  — no re-dispatch to subagents — on Sid's mid-wave token flag (~503k already
-  spent on the falsification pass). Fix-authoring moved inline WITHOUT losing the
-  kill record: each fix landed a biting regression in `face_gate_fixes_test`,
-  suite re-green after each. A cost-pressure adaptation of the "authoring phase
-  applies the fixes" rule, not a drop in verification. (3) **One-phase-per-fresh-
-  CONTEXT confirmed at its strongest:** both waves closed 2026-07-11 (c84ebfa
-  03:23, 1725f55 23:03 IST) because parallel subagent lanes ran with disjoint
-  fences and ZERO collisions (W2-D arsenal ∥ W2-E plurality; W2-E ran the full
-  suite over D's in-tree edits, green); judgment held in the Fable orchestrating
-  context; one end-gate per wave. (4) **The live wearing caught a real lifecycle
-  defect in BOTH waves** (W1 epoch-bump, W2 projection-routing) that no JVM suite
-  layer could see — proposed to `/work-package` as a named QC layer (RETRO
-  appendix A, await Fable signature; the skill is Fable-signed). Routing done
-  this session: coding gotchas → `implementation-quirks.md`; PROPOSED skill
-  amendments A–D drafted in the RETRO appendix; residue (incl. **pair-structure
-  = the machine-cut package's D-005 ordering evidence**) parked in RETRO §5.
-  Criterion-2 counterfactual probe stays WAIVED (2026-07-11 blanket; unchanged
-  by this package).
-
-- **machine-cut package OPENED — CONTRACT DRAFT v1 authored; `:pairs-with`
-  PROPOSED (2026-07-12, Fable contract session; awaits Sid).** ROAD Step 5
-  dispatched by Sid this session; contract at `build/machine-cut/CONTRACT.md`
-  (every claim verified at file:line at HEAD `d6bbde7`), lanes pinned at
-  `build/machine-cut/LANES.md`. Scope = consumer 1 only (Boxes/Minimap pair
-  binds; the G25 double-confirmed lack); roles/episodes are extension points.
-  Shape: annotation runs RIDE llm-module (intent→executor, synthetic
-  deterministic ids); edges ride the D-004 kernel (endpoints =
-  `oc:chat-message:` addresses → all pair edges of a conversation colocate
-  under its object-key, one-seek serve); WAL-first durability on the
-  ephemeral dev cluster; additive projection keys (`:turns` untouched).
-  **PROPOSED for countersign — the `:pairs-with` kind addition**: the
-  pre-named form-break (framework CONTRACT §8: "named authorization item
-  requiring Sid's explicit countersign on a used-form break") has fired
-  (W2-E lack 1 + W2-INT lack 1 + RETRO §5.1). Audit of all 15 existing kinds
-  in CONTRACT §4.1: none fits without making kind-filtered views lie
-  (`:based-on`/`:produced` would pollute the trail view's product DAG with
-  intra-conversation noise). Recommendation: **authorize** — one additive
-  line in `relation-kinds` (`relation_kernel.clj:58-80`), this package's ONE
-  kernel edit, landing at INT only after the countersign (block-kernel P0
-  ruling-1 precedent). If refused: the faces stay structure-flat and the
-  package has no lawful edge vocabulary — nothing else re-runs. Also pending
-  Sid: contract countersign + wave dispatch (lanes A ∥ B, Opus 4.8).
-  · **COUNTERSIGNED (Sid, 2026-07-12 in-session: "i say do the countersign")
-  — all three items.** CONTRACT v1 is BINDING; the `:pairs-with` enum edit
-  AUTHORIZED and landed same session (isolated code commit `f864c74`;
-  namespace load + enum membership verified live); wave dispatch GIVEN.
-  Executed same session: lanes A (driver) ∥ B (serve+face) dispatched as
-  parallel Opus 4.8 subagents per `build/machine-cut/LANES.md` (lanes use
-  `:pairs-with` directly — the kind-indirection caveat is void, the enum
-  line is in the tree). Close (retro + adversarial recheck) stays a
-  separate fresh session per protocol.
-
-## Blanket countersign — 2026-07-11 (W2 dispatch session, Sid verbatim: "i hereby accepted everything that is pending on me to be approved")
-
-Executed per the 2026-07-09 precedent (defer to recommended). Scope audit run
-first: everything evidence-gated stays gated (machine-cut package = G25
-evidence; `pairs-with` = form-break; block-kernel §5 residues = D-001; Wave 3
-does not exist to approve). The genuinely-pending set was TWO items, both
-resolved by adopting the Fable recommendation:
-
-1. **D-006 criterion-2 probe (code-atom + block-kernel consolidated tally):
-   WAIVED for these two packages.** Grounds: the probe ran once already
-   (relation-kernel, 2026-07-05, leaned BET-HOLDS with one ding); the
-   2026-07-10 consolidated tally is unambiguous on the load-bearing layer
-   (fresh-context + real-corpus + default-fail); marginal evidence of a
-   third probe ≈ low. Reopen condition, pre-registered: if the FINAL D-006
-   evaluation is close enough that criterion-2 would swing it, the probe
-   runs then (manifests are pinned in both CONTRACTs §13/§12 — nothing rots).
-2. **code-atom `:analyzer-basis` durability fork: IN-MEMORY STANDS until a
-   used form breaks** (D-001). The basis rebuilds at boot; no consumer
-   demands durability; `code-atom/RETRO.md` §5 confirms a durable basis
-   slots behind the SAME seam when the break comes. Revert-cheap either way
-   — the fork stays pre-named, not open.
-
----
-
-## Amendments A1 · A2 — COUNTERSIGNED 2026-07-08, applied IN PLACE
-
-Ruled by Sid same day, verbatim: "all approved by default and i would even go
-far to say just make the amendment in place all theses decisions seems to be
-at the operational level." Applied as dated amendment notes inside D-002 (A1:
-unit rescoped to sense-line units) and D-008 (A2: write boundary rescoped for
-the machine marker) — the in-place form the D-010 reach clarification above
-mandates; this entry is lineage only. Source session `18d63935`; context:
-`build/sense-line-mvp/DIRECTION.md` §5 + `sense-line-model.md`; grounds: the
-2026-07-07 form-break (`design/claude/atomic-unit-2026-07-07.md` §1) + Sid's
-2026-07-08 raw-note rulings. The PROPOSED-queue form this section briefly wore
-(same day) was itself an instance of the ceremony D-010 abolished — retired.
+- **Durability fork** (Sid's — future-binding write-side architecture):
+  durable cluster vs durable spine-edge replay log. The in-memory
+  `:analyzer-basis` and cross-boot edge retraction slot behind the same seam
+  when ruled.
+- Confidence/credential algebra for the trail→code join; rename/move
+  continuity (parked in the code-ingestor contract).
+- Question-as-first-class-unit design (form-break evidence acquired
+  2026-07-04; queued on the design track — board thread 7).
+- Benchmark front resume (pushed back by D-010; Sid's call).
+- D-006 final evaluation sitting (Sid weighs; the criterion-2 probe reopens
+  iff it would swing the verdict).
