@@ -69,37 +69,63 @@ windows, interruptions, the "sidetrackkkk" class) sits beyond page 1 —
 reaching it rides the paging extension (block-kernel §10, D-001-gated).
 Recorded, not argued from.
 
-## G14 — the wearing: NOT COMPLETED (honest close, Sid's word 2026-07-12)
+## G14 — the wearing: WORN 2026-07-13 (during scene-substrate G11; recorded at close)
 
-The FIRST wearing attempt earned its keep before being cut short: the live
-boot caught the **concurrent-cluster worker-registry collision** (a fresh rk
-cluster racing the face OC's in-flight module launch → chronic
-transcript-ops worker failure) — fixed by reusing the TRAIL cluster's
-relation kernel (one edge store beside the git-spine edges) + the
-`machine-cut-ctx` accessor. The re-run against the fixed boot was in flight
-when Sid closed the session on cost ("just do the commit close the handoff")
-— **G14 remains the one open gate**: pair frames + silver structure-line +
-epoch re-render live, driver at scratchpad `wearing_g14.js`, method = the
-W1/W2 precedent. The WAL (`data/machine-cut-log.ednl`, 1 completed line, 34
-edges) replays at any dev boot, so the wearing needs only: boot the dev app,
-`/face boxes-paired-face`, wait for distill+replay epochs.
+The FIRST wearing attempt (2026-07-12) earned its keep before being cut short
+at Sid's cost-close: the live boot caught the **concurrent-cluster
+worker-registry collision** (a fresh rk cluster racing the face OC's
+in-flight module launch → chronic transcript-ops worker failure) — fixed by
+reusing the TRAIL cluster's relation kernel + the `machine-cut-ctx` accessor.
 
-## Final suite state (honest)
+The wearing itself then arrived without being scheduled: Sid drove
+`boxes-paired-face` live through all three scene-substrate G11 rounds on
+2026-07-13 — spawned copies of it, clicked it, edited through it (his console
+receipts in that session cite "boxes-paired-face … blocks 64" — the exact
+64-block G13 window, i.e. the annotated window was the one served). The boot
+that served it logged the replay receipt (session `bc6ff1b2`, boot
+2026-07-12T18:59Z, post-reboot restart):
 
-Post-fix serial suite: **93 tests / 1458 assertions / 6 fail / 0 error** —
-all 6 fails in `dogfood-llm-test/stale-approval-on-executor-death-test`,
-a timing-sensitive llm-module test that ran while the dev server booted on
-the same box; **green in isolation immediately after (12/114/0/0)** and
-green in the pre-fix serial run (90/1431/0/0). Machine-cut's own namespaces
-including all `gate-fix-*` regressions: green. The quiet-box authoritative
-re-run + the committed-HEAD re-run are the CLOSE session's step-2 duty.
+    [FACE] machine-cut WAL replay: 1 lines, 34 asserted, 0 retracted, 0 failed
+
+— exactly the WAL's 1 completed line / 34 edges, replayed into the trail
+cluster's rk at a boot the package never orchestrated: the "replays at any
+dev boot" claim observed in the wild. Evidence split, honestly: the replay
+receipt and the face being driven live are machine-verified (boot log +
+transcript); the visual half (pair frames + silver structure-line) rides the
+wearer's word — Sid: "boxes-paired-face was worn 2026-07-13 during G11" — no
+structure-line screenshot exists. **G14 CLOSED** on that word + receipt
+(close session 2026-07-13). Residue, named: the gate text's salted
+re-annotate → re-render-without-re-wear half was not run live — its
+mechanics are pinned green at the IPC layer (G8 reconcile + G9 epoch);
+the live falsifier is one paid salted run (~$0.40) whenever a real
+re-annotation is next wanted.
+
+## Final suite state
+
+Close session (2026-07-13), quiet box (no dev app, no concurrent JVMs), one
+JVM, all 12 namespaces serial, at committed HEAD:
+**`Ran 94 tests containing 1476 assertions. 0 failures, 0 errors.`**
+
+The first close-run had ONE failure — `g21-read-only-scan`
+(face_arsenal_test.clj), framework's style gate pinning
+face_projection.clj's exact OC read surface, stale-red against
+block-write's committed `ocr/read-unit` (`ad19b96`, its F1 gate fix — a
+read-only OC query API, exactly the class the scan's intent blesses;
+block-write's suite selection never ran this scan). Classified
+literal-vs-intent, NOT a machine-cut or block-write code defect; scan
+enumeration updated with the citation; full suite re-run green (above).
+For the record: the 07-12 post-fix run's 6 fails were llm timing flakes
+under a concurrent dev-server boot (green isolated 12/114) — the quiet-box
+rule confirmed both ways.
 
 ## Gate verdict (Fable, orchestrating session)
 
 **Wave PASS with two open items** — G1–G13 + G15/G16 green (G13 asserted on
 the real corpus with a real run); the falsification batch's HIGH cluster
 fixed at gate with biting regressions; open: **G14 wearing** (above) and the
-**quiet-box serial re-run**. Both route to the close session. Open doubts
+**quiet-box serial re-run**. Both route to the close session — **both closed
+there 2026-07-13** (G14 §above; suite 94t/1476a/0f/0e at committed HEAD);
+package CLOSED, retro at `RETRO.md`. Open doubts
 carried with named falsifiers in §falsification above. D-006 notes: the
 traps ledger held (MC-T2's own contract sentence was the one that needed
 amending — the ≥1 contract-text-error ledger confirmed again); cost signal

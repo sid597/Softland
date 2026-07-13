@@ -75,3 +75,18 @@
   kind-indirection caveat void — enum in tree). Next: lanes land
   `LANE_A.md`/`LANE_B.md` → INT checklist (boot attach, WAL wiring, serial
   suite, G13 receipt, G14 wearing) → falsification batch → gate.
+
+- **2026-07-13 · Fable · CLOSE session — package CLOSED.**
+  G14 CLOSED: `boxes-paired-face` worn in the wild during scene-substrate
+  G11 (Sid drove it 3 rounds over the annotated 64-block window); boot-log
+  receipt verified in the G11 session transcript: `[FACE] machine-cut WAL
+  replay: 1 lines, 34 asserted, 0 retracted, 0 failed` (evidence split +
+  salted-re-annotate residue: INT.md §G14). Quiet-box serial suite at
+  committed HEAD: first run 94t/1476a/1f — the one fail = framework's
+  g21 read-surface scan stale vs block-write's committed `ocr/read-unit`
+  (`ad19b96`; literal-vs-intent, scan updated with citation) — re-run
+  **94t/1476a/0f/0e GREEN**. RETRO.md written; lessons routed (skill: ONE-
+  finder falsification, transition-keyed identity, cross-package scans,
+  inherited wearing; quirks: unread barriers, one-cluster-per-land).
+  Adversarial recheck NOT run — Sid's call on cost. Board pruned to a
+  one-line done-pointer. T11 resolved on the board (edits committed).

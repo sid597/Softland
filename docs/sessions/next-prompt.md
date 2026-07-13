@@ -7,7 +7,7 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
-**Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **machine-cut** (`build/machine-cut/CONTRACT.md`) · **scene-substrate** (`build/scene-substrate/CONTRACT.md`, in force 2026-07-12 — the base layer under FOREST).
+**Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **scene-substrate** (`build/scene-substrate/CONTRACT.md`, in force 2026-07-12 — the base layer under FOREST) · **block-write** (close pending Sid's S3 + G8).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
 **Vision:** LOG routed through **2026-07-12** incl. Sid's notebook pages (transcribed verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; FOREST carries his five-unlock ordering; notebook History corrected against the record: `docs/history/sense-line-story.md`) **+ the base-layer commission** (routed same-session → decisions.md base ruling + `build/scene-substrate/`). Open pulls (prune as absorbed):
@@ -67,17 +67,15 @@ Softland or still on paper? (`BETS.md` verdict log.)
 
 ## SID'S MOVES — everything that waits on you alone, cheapest first
 
-1. **Wear session at the dev app (~40 min covers five at once):** the editor
+1. **Wear session at the dev app (~40 min covers four at once):** the editor
    (`build/editor-feel/NOW.md` verdict) · Boxes/Minimap (gesture-feel notes
-   now feed the scene-substrate transform phases) · the new
-   `boxes-paired-face` (closes machine-cut G14 — the WAL replays at any
-   boot) · **block-write G8** (edit a block in minimap-reader-face; steps:
-   `build/block-write/INT.md` §5) · **scene-substrate G4/G6: WORN + PASS
-   07-13** (240Hz, 628k glyphs flat 4.2ms — receipts in the thread file);
-   residual = one line: at `ctProbe.zoom(10)` and `ctProbe.zoom(0.1)`,
-   text crisp, no artifacts at the ends?
-   NOTE: the machine rebooted ~20:45; Fable RESTARTED the dev app
-   2026-07-12 — it is running again.
+   now feed the scene-substrate transform phases) · **block-write G8**
+   (edit a block in minimap-reader-face; steps: `build/block-write/INT.md`
+   §5) · **scene-substrate G4/G6: WORN + PASS 07-13** (240Hz, 628k glyphs
+   flat 4.2ms — receipts in the thread file); residual = one line: at
+   `ctProbe.zoom(10)` and `ctProbe.zoom(0.1)`, text crisp, no artifacts at
+   the ends? (machine-cut G14 came off this list — worn during G11,
+   recorded closed 07-13.)
 1b. **Rule block-write S3 (one read):** echo p95 passes every run with
    margin; the ≤1-stall/min clause fails (2/4/7/2 thin ~130ms tail, invisible
    while typing — pending-input paints immediately). Numbers + options:
@@ -127,19 +125,14 @@ Softland or still on paper? (`BETS.md` verdict log.)
   item: copies read the 1s-debounced full pull, not the fast overlay
   lane) → close + retro.
   Thread: `build/scene-substrate/NOW.md`.
-- **machine-cut CLOSE session — NEXT** (HEAD suite · G14 record · retro;
-  adversarial recheck = Sid's call on cost). ⚠ `boxes-paired-face.golden.edn`
-  was REGENERATED 2026-07-12 (`c788188`, face `:assembly/src-path` provenance
-  stamp; src-path-only, verified vs prior; full face suite green) — do NOT regen
-  it from a stale apply-assembly; re-run `machine-cut-serve-test` after any rebase.
 - **block-write — GATE REVIEW PASSED (2026-07-12); close waits on Sid's S3
   ruling + G8 wearing.** S2 fired + ruled (river-page raw-text → overlay
   fix); finder's F1 HIGH fixed at gate (union-map truth pull + clear-all
   prune); suites 74a+1078a+349a green. Record: `build/block-write/INT.md`
-  §6 + `FALSIFY.md`. ⚠ T11: UNCOMMITTED additive edits in
-  `face_projection.clj`, `electric_flow.cljc`, `block_distiller.clj` + new
-  client ns — machine-cut close session: coordinate here first. Code commit
-  = Sid's call (checklist INT.md §6: strip probe requires first).
+  §6 + `FALSIFY.md`. T11 RESOLVED: the edits are COMMITTED (`ad19b96`);
+  machine-cut close updated framework's g21 read-surface scan to admit
+  `ocr/read-unit` (stale-red at HEAD — the scan block-write's suites never
+  ran).
 - **Fable's independent dual-read** — fresh session, PROTOCOL anti-anchoring.
 - **src/ code-size/verbosity audit — DONE (2026-07-12):**
   `build/code-audit/REPORT.md` — 47k lines / 83 files; ~440 safe mechanical
@@ -162,18 +155,11 @@ round → benchmark room (question bank waits on kinds).
   design session with `build/sense-line-mvp/dual-read/DESIGN_BRIEF.md` (one
   paste); the task-UI vs cards-wall fork is its EXPLORE item 2 — rendered both
   ways, picked by feel there. Design pass precedes build.
-- **machine-cut — WAVE DONE + COMMITTED (`ceb84da` code · `f864c74` enum);
-  gate PASS w/ 2 open items; close session NEXT (2026-07-12).** Built + gated
-  in one day: lanes GREEN, G13 receipt PASS (real run over the real corpus,
-  $0.37), falsification 4-HIGH cluster fixed at gate with regressions,
-  contract amended in place. **Open: G14 wearing** (interrupted at Sid's
-  cost-close; the WAL replays at any boot — wear `boxes-paired-face` when the
-  dev app is next up) + the **quiet-box serial re-run at committed HEAD**
-  (post-fix run 93t/1458a with 6 llm timing flakes under concurrent boot;
-  green isolated). Full record: `build/machine-cut/INT.md` + `NOW.md`. Cost
-  flag (Sid, verbatim ledger ~990k subagent tokens): retro rule proposed —
-  falsification defaults to ONE finder on the new machinery. Close session
-  runs: HEAD suite · G14 · retro (adversarial recheck = Sid's call on cost).
+- **machine-cut — CLOSED 2026-07-13** (all gates incl. G14 worn in the wild
+  during scene-substrate G11 — WAL replay receipt in the boot log; quiet-box
+  suite 94t/1476a green at HEAD after one stale cross-package scan fix;
+  retro + routed lessons: `build/machine-cut/RETRO.md`). Adversarial recheck
+  of the retro NOT run — Sid's call on cost.
 - Residues — LATER: block-kernel (`block-kernel/RETRO.md` §5: §10 cursor query
   · multi-stratum under-fill · content-preview asymmetry) · code-atom —
   **F4 fault-injection + N5 history-sort + the analyzer-sync! settle (GATE §10
@@ -246,7 +232,6 @@ round → benchmark room (question bank waits on kinds).
 
 ## Active package blocks
 
-**machine-cut** — STANDING + NOW at `build/machine-cut/NOW.md`.
 **block-write** — STANDING + NOW at `build/block-write/NOW.md`.
 **scene-substrate** — STANDING + NOW at `build/scene-substrate/NOW.md`.
 Charter: STANDING (frozen at open) + NOW (≤15-line entries) live in

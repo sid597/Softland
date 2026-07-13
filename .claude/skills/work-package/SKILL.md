@@ -35,6 +35,11 @@ at zero. QC layers themselves are unchanged — they keep their kill record.
 their adversarial rechecks are the sources; every added rule cites its
 concrete failure inline — no speculative hardening).
 
+**Amended 2026-07-13 at the machine-cut close** (retro is the source; its
+adversarial recheck is deferred on cost — Sid's call — so these rules carry
+that caveat): falsification-batch sizing, transition-keyed identity,
+cross-package pinned scans, inherited wearing.
+
 ## What a work package is
 
 One bounded build (so far: a Rama kernel) run against a binding contract, by
@@ -76,6 +81,13 @@ lives in the `next-prompt.md` baton; its rulings live in `decisions.md`.
    test validation, each fresh-context, default-fail, tracing with line
    citations, hunting divergence from plan/contract promises (this is the
    layer that caught the 14-seeks-vs-1 read-path divergence).
+   **Sizing (machine-cut close, 2026-07-13): the batch defaults to ONE
+   finder, aimed at the genuinely-new machinery.** Grounds: machine-cut ran
+   three by class; the driver-lifecycle finder found ALL 4 HIGH, the other
+   two (serve/fixture drift, boot seams) found 0 HIGH for ~2/3 of the
+   ~990k-token batch — and the one real boot-seam defect (C-MC-C2) was
+   independently caught live by layer 5. Widen only for a prior kill class
+   that the wearing will NOT independently exercise.
 5. **First integration-drive — the wearing (a gate, run BEFORE daily use).**
    The built thing is driven live over real material (the `/face`-style first
    end-to-end drive) before it is declared done: lifecycle and data-binding
@@ -83,7 +95,12 @@ lives in the `next-prompt.md` baton; its rulings live in `decisions.md`.
    invisible to JVM goldens. Grounds: framework G15/G24/G25 caught a real
    lifecycle defect in BOTH waves (W1 epoch-bump, W2 projection-routing) that
    no suite layer could see. (Amendment A, framework retro, signed
-   2026-07-12.)
+   2026-07-12.) **A wearing can be INHERITED from real use** (machine-cut
+   G14, 2026-07-13): if the built thing gets driven live inside another
+   package's session before its own wearing is staged, harvest the receipts
+   (boot log, transcript, the operator's word) instead of scheduling a
+   duplicate drive — evidence from unstaged use is stronger, the bar is
+   unchanged, and the close session's job becomes verifying receipts.
 6. **Everything — daily use (D-001).** The built thing proves itself only in
    use; nothing below this layer closes the loop.
 
@@ -126,7 +143,12 @@ Two rules that hold across all layers:
 - **Scope on every uniqueness/identity claim**: any key, journal, or dedup
   mechanism in a partitioned store names its partition scope in the sentence
   that introduces it ("idempotency key" without "(relation-scoped)" cost a
-  validation round plus a ruling).
+  validation round plus a ruling). **And its TRANSITION story** (machine-cut
+  A-F2/F3): "stable per identity" and "stable per transition" are different
+  laws — a flat per-edge-forever idempotency key met the contract's letter
+  and made assert→retract→re-assert impossible (the journal replays the
+  first decision forever). If the keyed thing has a lifecycle, the key
+  sentence says which transitions mint a NEW key.
 - **A schema that fixes an object's IDENTITY must also fix its
   DATA-RESOLUTION**: if the contract pins how a thing is identified (schema,
   provenance, addressing), the SAME section pins how consumers resolve its
@@ -263,6 +285,16 @@ holding CONTRACT.md and every phase artifact.
     HEAD — the package's OWN closing commit moved the blobs off the pinned
     specimen; only the retro's adversarial recheck caught it (fixed by
     pinning, `381c445`).
+  - **A package that edits a file runs every pinned-enumeration scan over
+    that file — grep the test tree for the file's path before calling the
+    suite selection done.** Style-gate scans pin ANOTHER file's surface from
+    a test namespace the editing package may never run: block-write added
+    `ocr/read-unit` to `face_projection.clj` (legitimate, gate-reviewed) and
+    went green on its own suites; framework's `g21-read-only-scan` in
+    `face_arsenal_test.clj` pins that file's exact read surface and went
+    stale-red, caught only at the NEXT package's close re-run (machine-cut,
+    2026-07-13). The scan's enumeration is a shared surface; whoever moves
+    the surface updates the scan in the same change.
 
 ## Stop clause and escalation
 
