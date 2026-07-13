@@ -21,15 +21,13 @@ North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
 Ordered by unlock potential — "how powerful and useful softland would be
 right now and in future" (Sid's own ranking; state current per item):
 
-**0. THE BASE (under all five) — scene-substrate, contract in force
-   (2026-07-12).** Derived per Sid's base-layer commission: one client
-   scene store keyed (view-instance, address) + per-container transforms
-   + one pick/context seam + actions-as-data; server floor already exists
-   (the rhyme's third occurrence). Five-unlock test table:
-   `build/scene-substrate/DERIVATION.md`. Absorbs container-transforms /
-   point-and-say / scene-diff (working name — Sid may re-rule it). P1+P2
-   running; wearable moment = P3 (two faces, same conversation, dragged
-   independently).
+**0. THE BASE (under all five) — scene-substrate BUILT + GATE-PASSED
+   (2026-07-13).** One client scene store keyed (view-instance, address) +
+   per-container transforms + one pick/context seam + actions-as-data;
+   absorbs container-transforms / point-and-say / scene-diff. Worn at
+   240Hz, 60× gate scale; records `build/scene-substrate/GATE.md` +
+   `RETRO.md`. Close = Sid's two looks (wear list). Staged next slice:
+   P3c (main-face flip + overlay echo lane to copies + per-slot diff).
 
 1. **Design Unlock** — everything buildable + controllable in-frame by agent
    and mouse/keyb. First rung REAL: faces-as-assemblies + arsenal (07-11),
@@ -71,11 +69,11 @@ Softland or still on paper? (`BETS.md` verdict log.)
    (`build/editor-feel/NOW.md` verdict) · Boxes/Minimap (gesture-feel notes
    now feed the scene-substrate transform phases) · **block-write G8**
    (edit a block in minimap-reader-face; steps: `build/block-write/INT.md`
-   §5) · **scene-substrate G4/G6: WORN + PASS 07-13** (240Hz, 628k glyphs
-   flat 4.2ms — receipts in the thread file); residual = one line: at
-   `ctProbe.zoom(10)` and `ctProbe.zoom(0.1)`, text crisp, no artifacts at
-   the ends? (machine-cut G14 came off this list — worn during G11,
-   recorded closed 07-13.)
+   §5) · **scene-substrate final two looks (gate + retro PASSED 07-13):**
+   (a) hard refresh → `sceneFaces.spawn(2)` + `spawn(3)` — backdrop cards +
+   cascade, no interleave? (b) the G8 look — block edit with zero copies
+   open, clean latency. These two close the package. (machine-cut G14 came
+   off this list — worn during G11, recorded closed 07-13.)
 1b. **Rule block-write S3 (one read):** echo p95 passes every run with
    margin; the ≤1-stall/min clause fails (2/4/7/2 thin ~130ms tail, invisible
    while typing — pending-input paints immediately). Numbers + options:
@@ -95,36 +93,17 @@ Softland or still on paper? (`BETS.md` verdict log.)
 
 ## MACHINE MOVES — running or ready, no Sid needed
 
-- **scene-substrate — WAVE 1 (P1+P2) BUILT + FALSIFIED PASS (2026-07-12).**
-  The base layer under the five unlocks (FOREST item 0). Store+containers
-  landed (17t/59a green); all four GPU pipelines carry per-container
-  transforms + the woken zoom; compile green in the live dev watch. Finder:
-  0 HIGH/MED, 5 LOW → 3 fixed w/ regressions, 1 contract amendment, 1
-  carried to P3 (`build/scene-substrate/FALSIFY.md`). **P3a+P3b LANDED
-  same day, wave-2 falsified (PASS-w/fixes, all findings closed
-  in-slice): N different faces over ONE live conversation
-  (capture-at-spawn), per-object move/scale, edit echoes into every
-  appearance, despawn lifecycle, G8 per-slot text isolation (the
-  64-editor wall's gate). Suites 35t/172a; code committed `20ee578` ·
-  `a05d6ca` · `44cbad6`.** Rung 3 (main-face flip) stop-claused → staged
-  P3c (CONTRACT). **P4 LANDED (00:xx 07-13): the deictic context bundle
-  rides every face-mode agent turn as `:scene-context` EDN ([SCENE-CTX]
-  log; `sceneContext.bundle()`); actions = registered descriptors.
-  68t/888a green; committed `8199322`. ALL dispatched phases P1–P4 done
-  in one day.** **G4/G6 WORN + PASS (07-13): the 91ms was SwiftShader
-  (Chrome WebGPU on CPU, no Vulkan flag) — fixed (#enable-vulkan) +
-  display to 240Hz (persisted: setup-monitors.py verify+fallback rate
-  pass). Receipts at 240Hz: 1000 containers / 628k glyphs flat 4.2ms
-  p50 / 4.9 p95, transform write 0.3ms, zero instance writes after
-  pack; Sid's 240Hz bar MET at 60× gate scale (receipts in NOW.md).**
-  G6 CLOSED · [SCENE-CTX] WORN (bundle rode a real agent turn) · G11
-  rounds 1–3 worn: reactor-killing pick bug + off-screen spawn fixed,
-  cascade + backdrop card landed. Left on Sid: one spawn(2)/(3) look
-  after refresh · G8 (block edit / restart / forceStale, zero copies).
-  Then gate review (fresh context, full-diff falsification; top carried
-  item: copies read the 1s-debounced full pull, not the fast overlay
-  lane) → close + retro.
-  Thread: `build/scene-substrate/NOW.md`.
+- **scene-substrate — GATE REVIEW PASS + RETRO (2026-07-13); close waits
+  only on Sid's two looks (wear list item 1).** P1–P4 built, falsified
+  (waves 1–2), worn (240Hz receipts at 60× gate scale), then the full-diff
+  gate finder: 0 HIGH, three fixes landed + compile-verified at gate —
+  echo refresh re-keyed to face-context identity (per-keystroke repack of
+  every copy: gone), agent-submit bundle guarded, cid recycling (overflow
+  was latent reactor death). F1's lane half (copies consume the
+  overlay-merged source) + per-slot echo diff folded into staged P3c.
+  Records: `build/scene-substrate/GATE.md` + `RETRO.md` (retro recheck =
+  Sid's call on cost) · thread `NOW.md`. Gate fixes committed on top of
+  `20ee578`→`82d9981`.
 - **block-write — GATE REVIEW PASSED (2026-07-12); close waits on Sid's S3
   ruling + G8 wearing.** S2 fired + ruled (river-page raw-text → overlay
   fix); finder's F1 HIGH fixed at gate (union-map truth pull + clear-all

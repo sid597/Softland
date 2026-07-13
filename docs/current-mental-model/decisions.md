@@ -106,7 +106,12 @@ which crossroads did we take."
   (Supersedes the separate staging of container-transforms / point-and-say /
   scene-diff as independent later packages — they are legs and first
   consumers of this one organ. Islands stays staged behind Sid's Box3D
-  answer. Instrument: `build/render-north/DELTA-B1.md`.)
+  answer. Instrument: `build/render-north/DELTA-B1.md`.) **Built, worn, and
+  gate-passed 2026-07-13** (P1–P4; two wave falsifications + full-diff gate
+  finder, all PASS; 240Hz receipts at 60× gate scale; records in
+  `build/scene-substrate/GATE.md` + `RETRO.md`). Staged next slice: P3c —
+  main-face flip + the overlay-merged echo lane to copies + per-slot echo
+  diff.
 - **Stream writes are at-least-once:** every stream write path derives a
   deterministic op-id from the request-id so a replay overwrites the same
   keys — never duplicates. A replayed-event test ships with every write path.

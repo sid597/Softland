@@ -1,5 +1,13 @@
 # scene-substrate — falsification records
 
+## Gate wave (full diff `20ee578^..HEAD`, incl. all wearing fixes) — 2026-07-13
+
+ONE fresh finder (Opus, 192k tok) · **PASS-with-fixes**, all three fix-now
+findings landed + compile-verified at gate. Full record: `GATE.md` (same
+dir) — F1 keystroke-repack/slow-lane split ruling (trigger fixed, lane →
+P3c) · F2 submit-path guard · F3 cid recycling · F5 backdrop concern
+refuted by trace · open doubts with falsifiers named.
+
 ## Wave 2 (P3a, commit a05d6ca) — 2026-07-12, one capped finder (82k tok)
 
 **VERDICT: PASS-with-fixes.** Reactive core traced CLEAN: echo-fan-out

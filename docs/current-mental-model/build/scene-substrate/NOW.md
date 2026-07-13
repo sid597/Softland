@@ -28,6 +28,21 @@
 
 ## NOW (append per session, ≤15 lines each)
 
+**2026-07-13 · Fable · GATE REVIEW PASS + RETRO — package closes on Sid's two looks**
+- Suites re-run by the gate session: 68t/888a green. ONE finder over the
+  FULL diff (Opus, 192k): PASS-with-fixes, 0 HIGH. Record: `GATE.md`.
+- Fixed at gate + compile-verified in the live watch: F1 echo trigger
+  re-keyed to face-context identity (per-keystroke full repack of every
+  copy — gone; content behavior identical) · F2 bundle build guarded on
+  the agent-submit path · F3 cid recycling (overflow = reactor death).
+- F1's lane half (copies consume the overlay-merged source) folds into
+  P3c — it IS P3c's wall #1; per-slot echo diff (F8) joins it there.
+- Backdrop-card pool concern REFUTED by trace (F5). Open doubts +
+  falsifiers: GATE.md. RETRO.md written (recheck = Sid's call on cost).
+- Board T11 flag corrected: block-write code landed in `ad19b96`.
+- Remaining before full close: Sid's spawn(2)/(3) look + G8 block-edit
+  look (steps in the board's wear list). Then prune to done-pointer.
+
 **2026-07-13 · Fable (same session) · [SCENE-CTX] WORN ✓ · backdrop card landed — G11 nearly closed**
 - SCENE-CTX end-to-end: the bundle rode Sid's real agent turn (:visible
   65 units incl. the conv root; agent ran, $0.46, answered with repo

@@ -35,6 +35,24 @@ at zero. QC layers themselves are unchanged — they keep their kill record.
 their adversarial rechecks are the sources; every added rule cites its
 concrete failure inline — no speculative hardening).
 
+**Amended 2026-07-13 at the scene-substrate close** (`build/scene-substrate/
+RETRO.md`; recheck pending Sid's cost call). Three contract-hygiene rules,
+each from a concrete failure in that package:
+- **GPU/perf gates open with an environment attestation.** The receipt's
+  FIRST field is the adapter/device identity (e.g. WebGPU
+  `isFallbackAdapter` + description); a perf number without it is
+  unclassifiable. (Scene-substrate G4's 91ms FAIL was SwiftShader — Chrome
+  rendering on CPU; one full diagnosis cycle proved the code innocent.)
+- **A gate letter naming an external system pins its executable form in the
+  same sentence.** "Resolves through existing read APIs" shipped with no
+  named test shape; the executable half silently became the weaker in-store
+  claim (gate F7).
+- **Any echo/refresh trigger names its KEYING SOURCE.** "Rebuild on
+  projection change" never pinned which atom's identity MEANS
+  projection-changed; the implementation keyed a fast-flipping identity
+  while rebuilding from a slow-changing source — per-keystroke full repacks
+  plus seconds-stale copies (gate F1, the package's top finding).
+
 **Amended 2026-07-13 at the machine-cut close** (retro is the source; its
 adversarial recheck is deferred on cost — Sid's call — so these rules carry
 that caveat): falsification-batch sizing, transition-keyed identity,
