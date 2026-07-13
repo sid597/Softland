@@ -211,28 +211,35 @@
                 store-rects          (when face-mode? (:rects store-frame))
                 store-shadows        (when face-mode? (:shadows store-frame))
                 containers-buffer    (:containers-buffer (:pipelines geometry))
-                ;; Echo fan-out (G7, Rung-1 form): the singleton legacy scene
-                ;; rebuilds on every projection/edit change (editor_compute
-                ;; <face-assembly) and that change ALWAYS rides a world change (its
-                ;; rects feed editor-rect-data), so we observe it here at the
-                ;; consumer edge. ONE deref of @!face-context (finding #2: tree AND
-                ;; addresses build from the SAME sampled projection — no cross-
-                ;; frame skew): refresh-all-slots! rebuilds every instance through
-                ;; ITS OWN compiled face. face-scene nil (worn face off) → clear
-                ;; the spawned copies. Mutates the store at the edge only (T4).
+                ;; Echo fan-out (G7, Rung-1 form): copies rebuild from
+                ;; @!face-context, so the refresh keys on FACE-CONTEXT identity —
+                ;; not face-scene, whose m/latest struct includes the overlay-
+                ;; merged edit state and therefore flips on EVERY keystroke/caret
+                ;; move (gate-review F1, 2026-07-13: keying on face-scene made
+                ;; every open copy full-repack per keystroke for zero visual
+                ;; change). face-context only changes on a real projection change
+                ;; (the debounced FacePull), which is the only event that can
+                ;; alter copy content until P3c threads the overlay lane into the
+                ;; per-vi build. ONE deref (wave-2 finding #2: tree AND addresses
+                ;; build from the SAME sampled projection). face-scene nil (worn
+                ;; face off) → clear the spawned copies. Edge-only mutation (T4).
                 face-scene           @!face-scene
                 face-scene-changed?  (not (identical? face-scene (:prev-face-scene prev-state)))
+                face-context         @!face-context
+                face-context-changed? (not (identical? face-context (:prev-face-context prev-state)))
                 _ (cond
                     ;; left face mode by ANY path (mode switch, /face off) → clear
                     ;; every spawned instance (finding #1: no orphan, no leak).
                     (and (not face-mode?) (scene-rt/any-slots?))
                     (scene-rt/close-all-slots!)
-                    ;; projection changed while in face mode → echo fan-out (one
-                    ;; deref of @!face-context; face-scene nil = face just off).
-                    (and face-scene-changed? (scene-rt/any-slots?))
-                    (if face-scene
-                      (scene-rt/refresh-all-slots! @!face-context)
-                      (scene-rt/close-all-slots!)))
+                    ;; worn face just turned off → the copies' projection died
+                    ;; with it; clear them.
+                    (and face-scene-changed? (nil? face-scene) (scene-rt/any-slots?))
+                    (scene-rt/close-all-slots!)
+                    ;; projection changed while a face is worn → echo fan-out.
+                    (and face-scene face-context face-context-changed?
+                         (scene-rt/any-slots?))
+                    (scene-rt/refresh-all-slots! face-context))
                 ;; Upload composed container transforms only when they changed
                 ;; (drag/spawn); instance buffers untouched (identical? skip).
                 _ (when-not (identical? effective (:prev-effective prev-state))
@@ -653,6 +660,7 @@
              :prev-store-frame store-frame
              :prev-effective effective
              :prev-face-scene face-scene
+             :prev-face-context face-context
              ;; scene-substrate P3b Rung 2: per-slot text geos {vi {:geo :text}}
              :slot-text-geos slot-text-geos
              :frame-idx frame-idx})))
@@ -707,6 +715,7 @@
        :prev-store-frame nil
        :prev-effective nil
        :prev-face-scene nil
+       :prev-face-context nil
        ;; scene-substrate P3b Rung 2
        :slot-text-geos {}
        :frame-idx 0})

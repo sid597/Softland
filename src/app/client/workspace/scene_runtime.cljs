@@ -55,6 +55,22 @@
 (def ^:private face-cid-base 32)
 (defonce ^:private !next-cid (atom face-cid-base))
 
+;; Gate-review F3 (2026-07-13): cids must RECYCLE. A monotonic counter walks
+;; into the renderer's 1024-container ceiling after ~992 spawn/despawn cycles,
+;; and the resulting write-containers! throw lands OUTSIDE the draw try/catch —
+;; reactor death from a dev affordance. Freed cids return to a pool; the
+;; counter only grows when the pool is empty (JS is single-threaded, so the
+;; peek/pop pair cannot race).
+(defonce ^:private !free-cids (atom []))
+
+(defn- alloc-cid! []
+  (if-let [cid (peek @!free-cids)]
+    (do (swap! !free-cids pop) cid)
+    (swap! !next-cid inc)))
+
+(defn- free-cid! [cid]
+  (when cid (swap! !free-cids conj cid)))
+
 ;; !vi-faces (P3b Rung 1) — vi → {:face <name> :compiled <compiled-assembly>
 ;; :src <conversation address> :geom <geom> :container <cid>}. This is the OTHER
 ;; half of a slot that must NOT be serializable: the compiled assembly holds
@@ -126,7 +142,7 @@
    {:vi :container}."
   [vi tree {:keys [x y scale layer meta]
             :or   {x 0.0 y 0.0 scale 1.0 layer 1}}]
-  (let [cid (swap! !next-cid inc)]
+  (let [cid (alloc-cid!)]
     (swap! !containers-registry ctn/add-container cid
            {:x x :y y :scale scale :camera :world :layer layer})
     (assert-container-registered! cid)
@@ -141,7 +157,8 @@
   [vi]
   (when-let [slot (ss/slot @!scene-store vi)]
     (swap! !scene-store ss/remove-slot vi)
-    (swap! !containers-registry ctn/remove-container (:container slot)))
+    (swap! !containers-registry ctn/remove-container (:container slot))
+    (free-cid! (:container slot)))
   (swap! !vi-faces dissoc vi)
   nil)
 
