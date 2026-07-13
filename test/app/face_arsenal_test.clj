@@ -203,9 +203,9 @@
             (str "must not contain write/topology/raw-path form: " forbidden)))
       ;; The read surface is EXACTLY the named APIs (G21): OC query APIs +
       ;; the arsenal's own named read fns.
-      (is (= #{"ocr/read-source" "ocr/read-current-revision"}
+      (is (= #{"ocr/read-source" "ocr/read-current-revision" "ocr/read-unit"}
              (set (re-seq #"ocr/[a-z\-]+" src)))
-          "OC reads: river-page's :until-ms filter read (W1, G12-amended) + the wear-time revision read")
+          "OC reads: river-page's :until-ms filter read (W1, G12-amended) + the wear-time revision read + block-write's execution-time unit truth pull (ad19b96, BW gate F1)")
       (is (= #{"face-arsenal/read-face" "face-arsenal/list-faces"
                "face-arsenal/read-wear-count"}
              (set (re-seq #"face-arsenal/[a-z\-]+" src)))
