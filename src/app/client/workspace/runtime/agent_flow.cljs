@@ -275,8 +275,14 @@
                     ;; structured data it can log/forward; NOT stringified into the
                     ;; prompt). "The agent is a verifier, not a hunter-gatherer of
                     ;; context" (CONTRACT §2.4/§5).
+                    ;; Gate-review F2 (2026-07-13): the bundle is deictic garnish
+                    ;; on a user-visible action — it must never be able to kill
+                    ;; the submit. On any throw the turn goes out bundle-less.
                     scene-bundle (when (or (scene-rt/any-slots?) (scene-rt/last-pick))
-                                   (scene-rt/bundle-for-viewport viewport scroll-y))
+                                   (try (scene-rt/bundle-for-viewport viewport scroll-y)
+                                        (catch :default e
+                                          (js/console.warn "[SCENE-CTX] bundle build failed — submitting without it:" e)
+                                          nil)))
                     request-body (cond-> {:run-id run-id
                                           :provider provider
                                           :prompt prompt
