@@ -10,9 +10,8 @@ minutes, the board is broken — fix it.
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **block-write** (close pending Sid's S3 + G8). scene-substrate CLOSED 07-13 (its CONTRACT stays the binding spec for the staged P3c/P5+ slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-07-12** incl. Sid's notebook pages (transcribed verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; FOREST carries his five-unlock ordering; notebook History corrected against the record: `docs/history/sense-line-story.md`) **+ the base-layer commission** (routed same-session → decisions.md base ruling + `build/scene-substrate/`). Open pulls (prune as absorbed):
-- LOG 07-11 + notebook 07-12 **designer edit-mode / figma-style** (direct edit over live faces, 80→95%) → BETS Candidate C2; notebook = intake material; sharpening at next intake sitting. Substrate landed 2026-07-12 (`c788188`): every rendered rt-node carries `[:data :assembly/src-path]` = its template node — the click-to-edit-the-template prerequisite for C2.
-- LOG 07-10 + notebook 07-12 **design-loop-in-land — "a tool to build the tool: design, deploy and use it all at once all from softland"** (Sid ranks this unlock #1) → BETS Candidate C1; sharpening at next intake sitting
+**Vision:** LOG routed through **2026-07-13** (latest: **the drawn views are references, not targets** — Sid, close session, verbatim in LOG: the claude.ai-drawn views were REFERENCE examples for "we need a way to design in softland itself"; he does NOT agree their content is direction. Routed: C1/C2 lines below reworded; no view content is settled anywhere). Earlier: notebook pages 07-12 (verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; FOREST carries the five-unlock ordering) + the base-layer commission (→ decisions.md base ruling + `build/scene-substrate/`). Open pulls (prune as absorbed):
+- LOG 07-10/11/12+13 **the design unlock = the LOOP, not the drawn views** — "a tool to build the tool: design, deploy and use it all at once all from softland" (Sid ranks it #1) + figma-style direct edit as a capability ask. BETS Candidates C1/C2 carry these; **all claude.ai renders + existing example faces = reference scrap with zero authority (Sid, 07-13)** — what views should represent is an open question only Sid answers, ideally from inside the land once the loop exists. Substrate prerequisite already landed (`c788188`: every rendered rt-node carries its template's `:assembly/src-path`).
 - LOG 07-11 **"optimized on every dimension while maintaining explorable explanations + lineage, live and composable"** → North-grade sentence, Sid's hand only — next vision sitting
 - LOG 07-11 **branch-from-base** (two worlds built out of one base, code-diff-like) → input to the spatial contracts (SPACE lane)
 
@@ -30,12 +29,14 @@ right now and in future" (Sid's own ranking; state current per item):
    per-slot diff); gesture slice (mouse-drag copies) at P5+.
 
 1. **Design Unlock** — everything buildable + controllable in-frame by agent
-   and mouse/keyb. First rung REAL: faces-as-assemblies + arsenal (07-11),
-   `boxes-paired-face` wearing the real corpus (07-12), click-to-edit
-   substrate landed (`c788188`: every rendered rt-node carries its template
-   node's `:assembly/src-path`). Missing: the in-land design surface +
-   figma-style direct edit → BETS Candidates C1/C2; the notebook IS their
-   intake material. Next concrete: intake sitting → first probe contract.
+   and mouse/keyb. The target is the LOOP (design, deploy, use — all inside
+   softland), NOT any drawn view: Sid's 07-13 correction — the claude.ai
+   renders + existing example faces are reference scrap with zero authority;
+   what views represent is his open question. Machinery real: faces-as-
+   assemblies + arsenal (07-11), click-to-edit substrate (`c788188`), the
+   scene floor (CLOSED 07-13). Next concrete: Sid states what the design
+   loop's first form should be (his sitting, his terms); C1/C2 = capability
+   labels only.
 2. **Editor + write + per-object control** — Sid: "once we have this every
    other thing I can just directly build into it." Whole-loop question
    ANSWERED (07-12): direct Rama round-trip, echo p95 7.66ms, NO optimistic

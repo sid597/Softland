@@ -644,3 +644,11 @@ What "broad" means here: breadth of coverage (the base must serve all five unloc
 *(Routed same-session: derivation + ruling → decisions.md "One render substrate" entry amended in place as the base layer; package `build/scene-substrate/` opened, CONTRACT v1 in force; board FOREST carries the base line.)*
 
 ---
+
+## 2026-07-13 — the drawn views are references, not targets (scene-substrate close session, verbatim)
+
+> but i don't even agree with what these views represent .... i saw the
+> designs and then i was like we need to have a way to design in softland
+> itself and these were the examples that were drawn in claude ai and i
+> showed them to you as a reference and now we are just building towards
+> them i mean what
