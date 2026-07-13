@@ -28,6 +28,16 @@
 
 ## NOW (append per session, ≤15 lines each)
 
+**2026-07-13 · Fable (same session) · PACKAGE CLOSED — Sid's final looks in**
+- Sid confirms he has worn the remaining scenes (spawn cascade + backdrop,
+  G8 block-edit look) — no issues raised. G11 CLOSED → definition of done
+  complete (G1–G10 + G11 + falsifications + gate + retro).
+- Board pruned to done-pointer. Staged next slice in this lane: **P3c**
+  (main-face flip + overlay-merged echo lane to copies (gate F1b) +
+  per-slot echo diff (F8) + second assembly artery) — contract when pulled.
+- Residues tracked in RETRO.md §Residue; open doubts + falsifiers in
+  GATE.md. Retro adversarial recheck = Sid's call on cost.
+
 **2026-07-13 · Fable · GATE REVIEW PASS + RETRO — package closes on Sid's two looks**
 - Suites re-run by the gate session: 68t/888a green. ONE finder over the
   FULL diff (Opus, 192k): PASS-with-fixes, 0 HIGH. Record: `GATE.md`.

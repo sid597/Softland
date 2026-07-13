@@ -7,7 +7,7 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
-**Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **scene-substrate** (`build/scene-substrate/CONTRACT.md`, in force 2026-07-12 — the base layer under FOREST) · **block-write** (close pending Sid's S3 + G8).
+**Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **block-write** (close pending Sid's S3 + G8). scene-substrate CLOSED 07-13 (its CONTRACT stays the binding spec for the staged P3c/P5+ slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
 **Vision:** LOG routed through **2026-07-12** incl. Sid's notebook pages (transcribed verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; FOREST carries his five-unlock ordering; notebook History corrected against the record: `docs/history/sense-line-story.md`) **+ the base-layer commission** (routed same-session → decisions.md base ruling + `build/scene-substrate/`). Open pulls (prune as absorbed):
@@ -21,13 +21,13 @@ North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
 Ordered by unlock potential — "how powerful and useful softland would be
 right now and in future" (Sid's own ranking; state current per item):
 
-**0. THE BASE (under all five) — scene-substrate BUILT + GATE-PASSED
-   (2026-07-13).** One client scene store keyed (view-instance, address) +
-   per-container transforms + one pick/context seam + actions-as-data;
-   absorbs container-transforms / point-and-say / scene-diff. Worn at
-   240Hz, 60× gate scale; records `build/scene-substrate/GATE.md` +
-   `RETRO.md`. Close = Sid's two looks (wear list). Staged next slice:
-   P3c (main-face flip + overlay echo lane to copies + per-slot diff).
+**0. THE BASE (under all five) — scene-substrate CLOSED 2026-07-13.**
+   One client scene store keyed (view-instance, address) + per-container
+   transforms + one pick/context seam + actions-as-data; absorbs
+   container-transforms / point-and-say / scene-diff. Worn at 240Hz, 60×
+   gate scale; records `build/scene-substrate/GATE.md` + `RETRO.md`.
+   Staged next slice: P3c (main-face flip + overlay echo lane to copies +
+   per-slot diff); gesture slice (mouse-drag copies) at P5+.
 
 1. **Design Unlock** — everything buildable + controllable in-frame by agent
    and mouse/keyb. First rung REAL: faces-as-assemblies + arsenal (07-11),
@@ -65,15 +65,12 @@ Softland or still on paper? (`BETS.md` verdict log.)
 
 ## SID'S MOVES — everything that waits on you alone, cheapest first
 
-1. **Wear session at the dev app (~40 min covers four at once):** the editor
-   (`build/editor-feel/NOW.md` verdict) · Boxes/Minimap (gesture-feel notes
-   now feed the scene-substrate transform phases) · **block-write G8**
-   (edit a block in minimap-reader-face; steps: `build/block-write/INT.md`
-   §5) · **scene-substrate final two looks (gate + retro PASSED 07-13):**
-   (a) hard refresh → `sceneFaces.spawn(2)` + `spawn(3)` — backdrop cards +
-   cascade, no interleave? (b) the G8 look — block edit with zero copies
-   open, clean latency. These two close the package. (machine-cut G14 came
-   off this list — worn during G11, recorded closed 07-13.)
+1. **Wear session at the dev app:** the editor (`build/editor-feel/NOW.md`
+   verdict) · Boxes/Minimap (gesture-feel notes feed the P3c/gesture
+   slices) · **block-write G8** (edit a block in minimap-reader-face;
+   steps: `build/block-write/INT.md` §5). (scene-substrate's final looks
+   came off this list — worn 07-13, package CLOSED; machine-cut G14
+   likewise closed 07-13.)
 1b. **Rule block-write S3 (one read):** echo p95 passes every run with
    margin; the ≤1-stall/min clause fails (2/4/7/2 thin ~130ms tail, invisible
    while typing — pending-input paints immediately). Numbers + options:
@@ -93,17 +90,12 @@ Softland or still on paper? (`BETS.md` verdict log.)
 
 ## MACHINE MOVES — running or ready, no Sid needed
 
-- **scene-substrate — GATE REVIEW PASS + RETRO (2026-07-13); close waits
-  only on Sid's two looks (wear list item 1).** P1–P4 built, falsified
-  (waves 1–2), worn (240Hz receipts at 60× gate scale), then the full-diff
-  gate finder: 0 HIGH, three fixes landed + compile-verified at gate —
-  echo refresh re-keyed to face-context identity (per-keystroke repack of
-  every copy: gone), agent-submit bundle guarded, cid recycling (overflow
-  was latent reactor death). F1's lane half (copies consume the
-  overlay-merged source) + per-slot echo diff folded into staged P3c.
-  Records: `build/scene-substrate/GATE.md` + `RETRO.md` (retro recheck =
-  Sid's call on cost) · thread `NOW.md`. Gate fixes committed on top of
-  `20ee578`→`82d9981`.
+- **scene-substrate — CLOSED 2026-07-13** (P1–P4 built + falsified + worn
+  by Sid + gate PASS 0-HIGH + retro; records `build/scene-substrate/
+  GATE.md` + `RETRO.md`; retro recheck = Sid's call on cost). Staged next
+  slice when pulled: **P3c** — main-face flip + overlay echo lane to
+  copies + per-slot echo diff + second assembly artery (CONTRACT §P3c +
+  gate F1b/F8).
 - **block-write — GATE REVIEW PASSED (2026-07-12); close waits on Sid's S3
   ruling + G8 wearing.** S2 fired + ruled (river-page raw-text → overlay
   fix); finder's F1 HIGH fixed at gate (union-map truth pull + clear-all
@@ -212,7 +204,6 @@ round → benchmark room (question bank waits on kinds).
 ## Active package blocks
 
 **block-write** — STANDING + NOW at `build/block-write/NOW.md`.
-**scene-substrate** — STANDING + NOW at `build/scene-substrate/NOW.md`.
 Charter: STANDING (frozen at open) + NOW (≤15-line entries) live in
 `build/<package>/NOW.md`; one line under LANES; prune at close (/work-package
 skill governs the mechanics). Precedence unchanged: thread files and this
