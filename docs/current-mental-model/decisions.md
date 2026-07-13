@@ -128,6 +128,7 @@ spine-edge replay log.
 
 ## Open questions — undecided; say your take when you hit one
 
+- The genesis act (Sid's abiogenesis question, LOG 2026-07-14): with all bases landed and the old UI discarded as past, what is the first thing that lives in Softland — what does login show, and how does building-Softland-in-Softland actually start?
 - The durability fork (above — Sid's).
 - Confidence/credential algebra for the trail→code join.
 - Question-as-first-class-unit design (design track).

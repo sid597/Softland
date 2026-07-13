@@ -7,10 +7,10 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
-**Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **block-write** (close pending Sid's S3 + G8). scene-substrate CLOSED 07-13 (its CONTRACT stays the binding spec for the staged P3c/P5+ slices).
+**Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: none. block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (their CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-07-13** (latest: **the drawn views are references, not targets** — Sid, close session, verbatim in LOG: the claude.ai-drawn views were REFERENCE examples for "we need a way to design in softland itself"; he does NOT agree their content is direction. Routed: C1/C2 lines below reworded; no view content is settled anywhere). Earlier: notebook pages 07-12 (verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; FOREST carries the five-unlock ordering) + the base-layer commission (→ decisions.md base ruling + `build/scene-substrate/`). Open pulls (prune as absorbed):
+**Vision:** LOG routed through **2026-07-14** (latest: **the abiogenesis question** — substrate done, old UI discarded as past; "what even is the first thing that will live in softland? … how do i use the softland to build softland?" Routed → decisions.md Open questions; direction exploration ran same session). Earlier: **the drawn views are references, not targets** (07-13 — REFERENCE examples for "we need a way to design in softland itself"; no view content is settled anywhere; C1/C2 reworded) · notebook pages 07-12 (verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; FOREST carries the five-unlock ordering) + the base-layer commission (→ decisions.md base ruling + `build/scene-substrate/`). Open pulls (prune as absorbed):
 - LOG 07-10/11/12+13 **the design unlock = the LOOP, not the drawn views** — "a tool to build the tool: design, deploy and use it all at once all from softland" (Sid ranks it #1) + figma-style direct edit as a capability ask. BETS Candidates C1/C2 carry these; **all claude.ai renders + existing example faces = reference scrap with zero authority (Sid, 07-13)** — what views should represent is an open question only Sid answers, ideally from inside the land once the loop exists. Substrate prerequisite already landed (`c788188`: every rendered rt-node carries its template's `:assembly/src-path`).
 - LOG 07-11 **"optimized on every dimension while maintaining explorable explanations + lineage, live and composable"** → North-grade sentence, Sid's hand only — next vision sitting
 - LOG 07-11 **branch-from-base** (two worlds built out of one base, code-diff-like) → input to the spatial contracts (SPACE lane)
@@ -40,10 +40,10 @@ right now and in future" (Sid's own ranking; state current per item):
 2. **Editor + write + per-object control** — Sid: "once we have this every
    other thing I can just directly build into it." Whole-loop question
    ANSWERED (07-12): direct Rama round-trip, echo p95 7.66ms, NO optimistic
-   layer. **block-write BUILT same day** — the write organ already existed
-   in object-container (`:object/edit` stream); package = connect fingers to
-   it; all suites green; left on Sid: S3 stall-clause ruling + G8 wearing
-   (`build/block-write/INT.md`). Per-object pan/zoom = container-transforms
+   layer. **block-write BUILT same day and CLOSED 07-13** — the write organ
+   already existed in object-container (`:object/edit` stream); the package
+   connected fingers to it. S3 ruled; corrected G8 worn across a real JVM
+   replacement; close suites green (`build/block-write/RETRO.md`). Per-object pan/zoom = container-transforms
    contract (after Boxes/Minimap wear); editor-feel fixes await fingers.
 3. **Semantic breaking of block types** — containers exist (block-kernel
    CLOSED); the semantic LAYER is not implemented yet — by design it rides
@@ -68,15 +68,9 @@ Softland or still on paper? (`BETS.md` verdict log.)
 
 1. **Wear session at the dev app:** the editor (`build/editor-feel/NOW.md`
    verdict) · Boxes/Minimap (gesture-feel notes feed the P3c/gesture
-   slices) · **block-write G8** (edit a block in minimap-reader-face;
-   steps: `build/block-write/INT.md` §5). (scene-substrate's final looks
+   slices). (block-write G8 and scene-substrate's final looks
    came off this list — worn 07-13, package CLOSED; machine-cut G14
    likewise closed 07-13.)
-1b. **Rule block-write S3 (one read):** echo p95 passes every run with
-   margin; the ≤1-stall/min clause fails (2/4/7/2 thin ~130ms tail, invisible
-   while typing — pending-input paints immediately). Numbers + options:
-   `build/block-write/INT.md` §3. Rec: re-express the tail bound as
-   p99 ≤100ms (all runs pass).
 2. **Redline the policy-model proposal (one read):**
    `build/policy-model/PROPOSAL.md` — LAW candidates + the open forks in §2
    marked for you; nothing downstream blocks on it (block-write's §6 seam
@@ -97,14 +91,13 @@ Softland or still on paper? (`BETS.md` verdict log.)
   slice when pulled: **P3c** — main-face flip + overlay echo lane to
   copies + per-slot echo diff + second assembly artery (CONTRACT §P3c +
   gate F1b/F8).
-- **block-write — GATE REVIEW PASSED (2026-07-12); close waits on Sid's S3
-  ruling + G8 wearing.** S2 fired + ruled (river-page raw-text → overlay
-  fix); finder's F1 HIGH fixed at gate (union-map truth pull + clear-all
-  prune); suites 74a+1078a+349a green. Record: `build/block-write/INT.md`
-  §6 + `FALSIFY.md`. T11 RESOLVED: the edits are COMMITTED (`ad19b96`);
-  machine-cut close updated framework's g21 read-surface scan to admit
-  `ocr/read-unit` (stale-red at HEAD — the scan block-write's suites never
-  ran).
+- **block-write — CLOSED 2026-07-13.** S2 fired + ruled; finder's F1 HIGH
+  fixed; Sid ruled S3 (p95 <=50ms, p99 <=100ms, no optimistic echo) and wore
+  corrected G8: visible stale refusal/revert plus same-unit truth across a full
+  JVM replacement (`10 replayed, 0 failed`). Close suites 11t/74a + 29t/1008a
+  + 27t/349a green. Records: `build/block-write/INT.md`, `FALSIFY.md`,
+  `RETRO.md`. New WAL boundaries routed LATER: multi-conversation readiness,
+  no-fsync tail, compaction. Code commit remains Sid's call.
 - **Fable's independent dual-read** — fresh session, PROTOCOL anti-anchoring.
 - **src/ code-size/verbosity audit — DONE (2026-07-12):**
   `build/code-audit/REPORT.md` — 47k lines / 83 files; ~440 safe mechanical
@@ -142,16 +135,11 @@ round → benchmark room (question bank waits on kinds).
   bridges (panproto lenses).
 
 ### WRITE — editor
-- **block-write — CONTRACT v1 IN FORCE (Fable, 2026-07-12); lanes await
-  dispatch.** Read-pass discovery re-scoped the package: the write organ
-  EXISTS — object-container stream `:object/edit` (validation,
-  graduation/revision lineage, stale-seq protection, object-key-scoped
-  idempotency journal), and `read-unit` already overlays edits into
-  river-page. Package = connect fingers to it: reader-face edit affordance +
-  request outbox, `document-container-id` resolution pin, epoch-bump echo
-  (pre-named single-unit narrowing), browser E2E vs the unchanged criterion,
-  wearing. `build/block-write/CONTRACT.md` (traps BW-T1-T10, gates G1-G9,
-  claims file:line-verified) · thread file `build/block-write/NOW.md`.
+- **block-write — CLOSED 2026-07-13.** Existing object-container edit stream is
+  connected to the reader face with pending-input, Rama truth echo, refusal,
+  lineage, and corrected full-JVM WAL survival. Contract + close record:
+  `build/block-write/CONTRACT.md` + `RETRO.md`. LATER: long-block input loss,
+  multi-conversation replay readiness, no-fsync tail, WAL compaction.
   **Policy-model design — PROPOSAL LANDED (2026-07-12):**
   `build/policy-model/PROPOSAL.md` — Sid's two questions kept separate;
   monotonic-narrowing + tower-cut LAW candidates; question 2 framed as
@@ -204,9 +192,7 @@ round → benchmark room (question bank waits on kinds).
 
 ## Active package blocks
 
-**block-write** — STANDING + NOW at `build/block-write/NOW.md`.
-Charter: STANDING (frozen at open) + NOW (≤15-line entries) live in
-`build/<package>/NOW.md`; one line under LANES; prune at close (/work-package
-skill governs the mechanics). Precedence unchanged: thread files and this
-board NEVER outrank CONTRACT.md or settled ground — flag discrepancies
-inline, don't pause.
+None. Closed package records remain under `build/<package>/`; active entries are
+added here only while work is live. Precedence unchanged: thread files and this
+board NEVER outrank CONTRACT.md or settled ground — flag discrepancies inline,
+don't pause.
