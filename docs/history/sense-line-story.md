@@ -758,6 +758,78 @@ question of where the new thinking happens.
 
 ---
 
+## 12 · The squeak was the ground, not the floor (13 July — diagnosis, 240 Hz, the first inhabitants' bugs, the gate)
+
+Chapter 11 ended on a hard signal: the floor's first inhabitant found a
+squeaky board — 11 fps, 91 ms a frame — and set a 240 Hz bar in the same
+breath. Tonight's chapter is what the squeak turned out to be, and it is
+the "map must not lie" principle running as a debugging method.
+
+**The floor was innocent.** The suspect list said the cost could live in
+the sampling side, the console, a ticking input, hot-reload residue. Sid's
+own receipts killed the first wrong story before it cost anything: his
+pre/post A/B paste showed the frame time identical with and without the
+Rama spine booting — measurement disproving a plausible suspect in two
+lines. Then the machine check found the real one: Chrome was running with
+WebGPU enabled but **no Vulkan**, so Dawn had quietly handed the land a
+**SwiftShader device — the GPU pipeline rasterizing on the CPU**. The
+receipt that settled it was one field deep:
+`isFallbackAdapter: true … "SwiftShader Device (Subzero)"`. The squeak was
+never the floor; it was the ground the house stood on. One flag flip
+(`#enable-vulkan`) and:
+
+> "omggg the smoothness of the renderrrr"
+
+**Then the bar he set was met — with a factor of sixty to spare.** The 4K
+panel was still at 60 Hz with 239.99 on offer; the monitor script learned
+to claim it and keep it. At 240 Hz the probe receipts came back flat:
+**1,000 containers, 628k glyphs, 4.2 ms p50 / 4.9 p95** at 238 fps —
+sixty times the gate's glyph scale at four times its frame rate, the
+per-frame cost being nothing but a 0.3 ms transform write. Zero instance
+buffer writes after the one start-time pack, at every scale tried. The
+substrate's whole promise — gesture = transform write, never re-layout —
+held in the receipts, not the prose.
+
+**The first inhabitants found the bugs only inhabitants can find.** Sid's
+first real face click, with zero copies spawned, leaked a literal `false`
+into the pick recorder and **killed the Electric reactor** — and every
+symptom he reported afterward (echo lag, `/face` erroring, no context
+bundle, "can't spawn again") was that one dead reactor wearing five masks
+(`926214a`). Copies spawned at x = 7352 — off-screen, because real faces
+are 3,600 px wide (fixed in-frame, scaled, cascading). Overlapping copies
+interleaved their text through each other's gaps until every copy got an
+opaque backdrop card (`82d9981`). None of this was visible to a single
+green suite; all of it was visible to one person clicking once. And the
+deictic seam drew its first real breath: the context bundle rode an actual
+agent turn — 65 visible units, the pointed-at conversation root among
+them — and the agent answered knowing what Sid was pointing at.
+
+**Then the gate.** Suites re-run fresh (68 tests, 888 assertions, green);
+one fresh-context finder over the full 2,450-line package diff. Verdict:
+**PASS** — zero HIGH findings, and the finder's catches were exactly the
+class wearing cannot reach: the echo trigger fired on every keystroke and
+full-repacked every open copy for zero visual change; the agent-submit
+path carried an unguarded garnish; container ids never recycled, a slow
+walk toward a latent reactor death. All three fixed at the gate
+(`f392770`). The pattern worth recording: the wearing layer and the
+falsification layer caught **disjoint** defect classes, in both
+directions — which is the whole bet of running both. The one real
+latency (edits reach copies on the one-second debounced pull, not the
+fast overlay lane) folded into the already-staged main-face phase, whose
+named wall it turns out to be.
+
+The base layer went commission → derivation → contract → four phases →
+two falsification waves → wearing → gate **in about thirty hours**, and
+the map stayed honest the whole way: a wrong suspect killed by receipts,
+an environment fault confessed by one adapter field, five phantom bugs
+resolved to one dead reactor. The package closes on two of Sid's looks;
+the floor already holds 628k glyphs at 4.2 ms. The clock note stands a
+final time: H1's check lands ~19-07, and the land now has a floor on
+which N appearances of one conversation can stand side by side — the
+question is still whether the next thought chooses to stand there.
+
+---
+
 ## Corrections ledger — the page vs the record
 
 1. **Setup order.** Imports came first (md by Jun 6; object-container +
