@@ -26,8 +26,10 @@ right now and in future" (Sid's own ranking; state current per item):
    transforms + one pick/context seam + actions-as-data; absorbs
    container-transforms / point-and-say / scene-diff. Worn at 240Hz, 60×
    gate scale; records `build/scene-substrate/GATE.md` + `RETRO.md`.
-   Staged next slice: P3c (main-face flip + overlay echo lane to copies +
-   per-slot diff); gesture slice (mouse-drag copies) at P5+.
+   Staged next slice: P3c — **main-face seam absorbs into first-light
+   Phase 0 on ratification** (flip + overlay/truth + real pick context);
+   copy echo, per-slot diff, second artery stay staged until pulled;
+   gesture slice (mouse-drag copies) at P5+.
 
 1. **Design Unlock** — everything buildable + controllable in-frame by agent
    and mouse/keyb. The target is the LOOP (design, deploy, use — all inside
@@ -35,10 +37,12 @@ right now and in future" (Sid's own ranking; state current per item):
    renders + existing example faces are reference scrap with zero authority;
    what views represent is his open question. Machinery real: faces-as-
    assemblies + arsenal (07-11), click-to-edit substrate (`c788188`), the
-   scene floor (CLOSED 07-13). Next concrete: **first-light STAGED** — the
-   07-14 genesis landing (`build/first-light/DIRECTION.md`: the evolution
-   law, wish-unit conversation face, first vertical slice, latency
-   measures); Sid ratifies the DIRECTION + orders it vs P3c. C1/C2 =
+   scene floor (CLOSED 07-13). Next concrete: **first-light STAGED,
+   awaiting Sid's one-line ratification** — the 07-14 genesis landing,
+   amended 07-15 (`build/first-light/DIRECTION.md`: the evolution law;
+   wish-unit conversation face; split A = one local worn arrangement
+   repair / B = inheritance, opens only on genuine recurrence; absorbs
+   the minimum P3c main-face seam — the vs-P3c fork was false). C1/C2 =
    capability labels only.
 2. **Editor + write + per-object control** — Sid: "once we have this every
    other thing I can just directly build into it." Whole-loop question
