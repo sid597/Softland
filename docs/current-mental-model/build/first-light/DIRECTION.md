@@ -59,6 +59,8 @@ First-light does not queue behind P3c, and P3c does not run whole as a prerequis
 
 If the first real friction is **behavioral** ("reply to just this block"), the wish still lands — and the land says honestly that it needs a new capability rather than pretending an arrangement patch satisfies it. That wish becomes the originating pressure for the code lane. Two evolutionary routes, one gesture: arrangement wish → candidate assembly → wear/accept; behavior wish → candidate code/primitive → test → available to assemblies → wear/accept. The inhabitant expresses friction the same way; Softland determines which stratum must change.
 
+**No-fabrication clause (symmetric with B):** the arrangement gate waits for a real arrangement friction to occur in wear, exactly as B waits for genuine recurrence. If early frictions are all behavioral, they land and route honestly while the gate waits. A staged or invented friction fails the gate by definition — the gate measures the land's ability to metabolize real pressure, not our ability to supply specimens.
+
 Pass = an inhabitant's care modified the medium from within, without leaving the land. Fail = any beautiful agent UI is camouflage.
 
 ## The measures
