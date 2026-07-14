@@ -35,9 +35,11 @@ right now and in future" (Sid's own ranking; state current per item):
    renders + existing example faces are reference scrap with zero authority;
    what views represent is his open question. Machinery real: faces-as-
    assemblies + arsenal (07-11), click-to-edit substrate (`c788188`), the
-   scene floor (CLOSED 07-13). Next concrete: Sid states what the design
-   loop's first form should be (his sitting, his terms); C1/C2 = capability
-   labels only.
+   scene floor (CLOSED 07-13). Next concrete: **first-light STAGED** — the
+   07-14 genesis landing (`build/first-light/DIRECTION.md`: the evolution
+   law, wish-unit conversation face, first vertical slice, latency
+   measures); Sid ratifies the DIRECTION + orders it vs P3c. C1/C2 =
+   capability labels only.
 2. **Editor + write + per-object control** — Sid: "once we have this every
    other thing I can just directly build into it." Whole-loop question
    ANSWERED (07-12): direct Rama round-trip, echo p95 7.66ms, NO optimistic
