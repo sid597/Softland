@@ -132,5 +132,8 @@ spine-edge replay log.
 - The durability fork (above — Sid's).
 - Confidence/credential algebra for the trail→code join.
 - Question-as-first-class-unit design (design track).
+- The requests-vs-walls law's final strength: Sid removed the BINDING form
+  from CLAUDE.md and is 50-50 on the softened version (now in memory
+  working-agreements) — his call, whenever.
 - The bet check ~2026-07-19: is new thinking starting inside Softland or
   still on paper? (`BETS.md` verdict log — the active bet's clock.)
