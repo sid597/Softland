@@ -39,6 +39,24 @@ Shape — the log is primary, applied to ops; the running cluster becomes a cach
 
 **Why journal, not Rama's own disk (answers Sid's "not confident in the existing structure and code"):** the journal is *code-independent* — plain lines any future implementation can replay, even a full rewrite; Rama cluster state is opaque and version-coupled. This inverts the confidence problem: the ONE artifact that must be right is the journal format; all code stays churnable. The log outlives the code; the code is a view.
 
+**The path, as confirmed with Sid (07-15):**
+
+```
+  YOU (type · wish · accept)          AGENT (subprocess observations)
+        └───────────────┬──────────────────┘
+                        ▼
+  ① JOURNAL  (PC disk, append-only, flushed first — the only artifact
+              that must survive; everything below rebuilds from it)
+                        ▼
+  ② RAMA depots (RAM) → ③ topologies/PStates (RAM) → ④ projection (seen)
+      what Sid sees = echo of processed truth, own keystrokes included
+
+  BOOT:    journal/*.ndedn ──replay──▶ ② ▶ ③ ▶ ④   (nothing else)
+  BACKUP:  journal/ ──rsync when both awake──▶ MacBook vault
+  LOSS BOUND: one in-flight event (a keystroke that never reached disk
+  never existed anywhere); half-written tail line skipped at replay.
+```
+
 **Falsification list for the slice contract:** replay must be pure materialization — executors/LLM intents must NOT re-fire on replayed events (intent-vs-executor split verified under replay); every depot entry point passes the shim (foreign appends audited); fsync policy vs write latency measured on the real write path (block-write p95 must survive); truncated-tail recovery tested by killing the JVM mid-write; replay idempotence tested by double-replay; boot time at N months of events measured, snapshot threshold named.
 
 ## Subscriptions, not API (Sid's constraint — already the built default)
