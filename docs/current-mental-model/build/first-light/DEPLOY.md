@@ -24,8 +24,18 @@ First-light's gate says "restart preserves conversation, face revision, and caus
 
 1. **Where the land lives (first-light):** (a) laptop, as now — zero new ops, it's where Sid works ← pick · (b) always-on home box · (c) VPS. The always-on box becomes right when overnight agents / the consolidator arrive; log-primary keeps the move cheap once durability exists.
 2. **Durability (forced by the restart gate) — needs one technical check before the contract locks:** (a) real single-node Rama locally (native disk persistence; exact recipe + licensing checked against Rama docs/skill) · (b) keep IPC + the land journals native events to a local append-only file and replays at boot (files stay the durable layer — consistent with how ingest already works; hand-rolls part of what Rama does) · (c) RAM-only + transcript-ingest fallback — REJECTED, fails the gate for wishes/face revisions.
-3. **Model lane for first-light:** (a) keep the claude-CLI subprocess lane (exists, worn, receipts captured) ← pick · (b) direct API · (c) both later via the replaceable-reader boundary.
+3. **Model lane for first-light:** (a) keep the CLI subprocess lanes (claude + codex) on **subscription auth** ← pick, and Sid's stated constraint (2026-07-15: "use the subscription that i have for claude and codex, not API pricing") · (b) direct API — API pricing; fallback/special-cases only · (c) swappable later via the replaceable-reader boundary (unchanged).
 4. **Backups:** nightly copy of the durable layer (journal or cluster dir) alongside existing git — boring on purpose ← pick.
+
+## Subscriptions, not API (Sid's constraint — already the built default)
+
+The problem space is already researched and canonical: `architecture/dogfood-runtime/llm-track-claude-research.md` (auth-path priority order §~207; the two Softland modes; the OpenClaw ban patterns §4) and `llm-track-canonical.md` (§2 Codex protocol). Verified in code this session:
+
+- `claude-process-spec` defaults `:llm/auth-mode` to **`:subscription`** (`dogfood/llm.clj:1878`).
+- In subscription mode the child env is the system env **stripped of sensitive keys** (`claude-child-env`, llm.clj:1851-1856) — `ANTHROPIC_API_KEY` etc. are removed, so the CLI can only fall back to its logged-in OAuth (Sid's Max plan). API-key mode is the explicit, opt-in branch and (per the research doc) spawns `claude --bare` so it structurally cannot drift onto subscription credentials. Clean either/or, subscription-safe by default.
+- Codex is a first-class backend (`#{:codex :claude}`, full observation vocabulary) — its ChatGPT-subscription path is the `llm-track-canonical.md` §2 protocol (not line-verified this session).
+
+Consequences: **(1)** the CLI-subprocess lane isn't just convenient — it is the only legitimate way to ride the subscriptions, which pins Decision 3(a). **(2)** Wherever the land runs, the CLIs must be logged in there — laptop-local aligns perfectly; a future host means logging in Sid's CLIs on Sid's own box (single-user, own workload = the sanctioned shape per the research doc; the banned shapes are pooling/serving others — and North's own answer for visitors is "every visitor arrives with their own assistant," never Softland holding their tokens). **(3)** Budgets are rate-limit-shaped, not dollar-shaped: overnight/consolidator work spends Max-plan window capacity; `:result/cost-usd` in subscription mode is API-equivalent accounting, render it as such, never as money spent.
 
 ## The rest of the ops question space (one-line stances)
 
