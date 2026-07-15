@@ -43,9 +43,11 @@ right now and in future" (Sid's own ranking; state current per item):
    wish-unit conversation face; split A = one local worn arrangement
    repair / B = inheritance, opens only on genuine recurrence; absorbs
    the minimum P3c main-face seam — the vs-P3c fork was false). Pre-req
-   slice **durable-log** (Sid's 07-15 durability ruling; `build/first-light/
-   DEPLOY.md`): journal WAL + replay-only boot + boot-ingest OFF startup
-   (must land together) + rsync vault to the MacBook. C1/C2 =
+   slice **durable-ground** (Sid's 07-15 durability ruling; mechanism
+   corrected same day after his catch — no hand-rolled journal, depots
+   ARE the durable log; `build/first-light/DEPLOY.md`): real single-node
+   Rama cluster + native backups → rsync vault + boot-ingest OFF
+   startup; contract to be written under /rama. C1/C2 =
    capability labels only.
 2. **Editor + write + per-object control** — Sid: "once we have this every
    other thing I can just directly build into it." Whole-loop question
