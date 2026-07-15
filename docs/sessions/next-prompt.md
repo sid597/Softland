@@ -42,7 +42,10 @@ right now and in future" (Sid's own ranking; state current per item):
    amended 07-15 (`build/first-light/DIRECTION.md`: the evolution law;
    wish-unit conversation face; split A = one local worn arrangement
    repair / B = inheritance, opens only on genuine recurrence; absorbs
-   the minimum P3c main-face seam — the vs-P3c fork was false). C1/C2 =
+   the minimum P3c main-face seam — the vs-P3c fork was false). Pre-req
+   slice **durable-log** (Sid's 07-15 durability ruling; `build/first-light/
+   DEPLOY.md`): journal WAL + replay-only boot + boot-ingest OFF startup
+   (must land together) + rsync vault to the MacBook. C1/C2 =
    capability labels only.
 2. **Editor + write + per-object control** — Sid: "once we have this every
    other thing I can just directly build into it." Whole-loop question

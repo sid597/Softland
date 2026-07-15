@@ -22,10 +22,23 @@ First-light's gate says "restart preserves conversation, face revision, and caus
 
 ## Decisions
 
-1. **Where the land lives (first-light):** (a) laptop, as now — zero new ops, it's where Sid works ← pick · (b) always-on home box · (c) VPS. The always-on box becomes right when overnight agents / the consolidator arrive; log-primary keeps the move cheap once durability exists.
-2. **Durability (forced by the restart gate) — needs one technical check before the contract locks:** (a) real single-node Rama locally (native disk persistence; exact recipe + licensing checked against Rama docs/skill) · (b) keep IPC + the land journals native events to a local append-only file and replays at boot (files stay the durable layer — consistent with how ingest already works; hand-rolls part of what Rama does) · (c) RAM-only + transcript-ingest fallback — REJECTED, fails the gate for wishes/face revisions.
+1. **Where the land lives: DECIDED (Sid, 2026-07-15).** The land runs on the PC (where Sid works; can power off / lose power). The MacBook (8GB, low spec, configured to stay on) is the **vault, never a runtime** — it holds journal copies over the existing rsync pipe. Files rsync; clusters don't.
+2. **Durability: DECIDED (Sid's requirement, 2026-07-15 — "before first-light I want the log to exist and some form of backup so we can replay it in future").** The **durable-log slice** (below), pre-first-light: write-ahead journal + replay-only boot + explicit ingest + rsync vault. Real single-node Rama demoted to a later graduation (when replay gets slow → snapshot or real cluster; the journal survives that migration too).
 3. **Model lane for first-light:** (a) keep the CLI subprocess lanes (claude + codex) on **subscription auth** ← pick, and Sid's stated constraint (2026-07-15: "use the subscription that i have for claude and codex, not API pricing") · (b) direct API — API pricing; fallback/special-cases only · (c) swappable later via the replaceable-reader boundary (unchanged).
 4. **Backups:** nightly copy of the durable layer (journal or cluster dir) alongside existing git — boring on purpose ← pick.
+
+## The durable-log slice (pre-first-light; contract next)
+
+Shape — the log is primary, applied to ops; the running cluster becomes a cache:
+
+1. **Write-ahead journal.** Every event entering any depot is appended first to a plain append-only file (one self-describing EDN map per line: schema version, wall time, depot, event verbatim), fsync'd, then appended to the depot. Segments roll daily (`journal/YYYY-MM-DD.ndedn`). Power cut ⇒ at worst one truncated final line, detected and skipped at replay — never corruption.
+2. **Boot = replay only.** Startup reads segments in order and re-appends into the in-memory cluster. The boot-time ingest (`initial-sweep!` + `start-ingest-watchers!` + `run-git-spine-boot!`, `file_viewer.cljc:193-198`) comes OFF the startup path (Sid, 2026-07-15: "they were for testing and now it's done") and becomes an explicit act — a callable command now, a wish later. **Ordering law: removal lands WITH replay in one slice** — removed alone, every boot is an empty land (boot-ingest is what currently refills RAM).
+3. **Ingest writes through the journal too.** Explicit ingestion appends events like everything else — one truth path, one replay path; recovery never needs re-ingest. Events carry their existing deterministic ids, so replay re-appends stored events verbatim, regenerating nothing.
+4. **Backup = the existing rsync pipe.** Journal dir → MacBook on a timer whenever the Mac is reachable (append-only files rsync cheaply). PC off ⇒ backup resumes next co-uptime. Sense-line privacy: the vault copy inherits the never-pushed rule; encrypt if it ever leaves the two machines.
+
+**Why journal, not Rama's own disk (answers Sid's "not confident in the existing structure and code"):** the journal is *code-independent* — plain lines any future implementation can replay, even a full rewrite; Rama cluster state is opaque and version-coupled. This inverts the confidence problem: the ONE artifact that must be right is the journal format; all code stays churnable. The log outlives the code; the code is a view.
+
+**Falsification list for the slice contract:** replay must be pure materialization — executors/LLM intents must NOT re-fire on replayed events (intent-vs-executor split verified under replay); every depot entry point passes the shim (foreign appends audited); fsync policy vs write latency measured on the real write path (block-write p95 must survive); truncated-tail recovery tested by killing the JVM mid-write; replay idempotence tested by double-replay; boot time at N months of events measured, snapshot threshold named.
 
 ## Subscriptions, not API (Sid's constraint — already the built default)
 
