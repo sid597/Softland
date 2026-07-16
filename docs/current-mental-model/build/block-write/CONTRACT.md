@@ -88,10 +88,12 @@ face or the kernel.
 
 Focused block → local edit buffer (the in-flight keystroke state; NOT an
 optimistic echo — it renders as pending-input inside the focused block only)
-→ per-keystroke request → `append-object-container-request!`
-(`runtime.clj:90`) with `:ack` → decision + event + rows materialize (same
-stream event) → epoch bump → generic `FacePull` re-read → block re-renders
-from truth; caret position derives from the SAME pulled signal as the text.
+→ per-keystroke request → WAL-first `append-block-edit-request-durably!`
+(`runtime.clj`) → the existing object-container depot with `:ack` → decision +
+event + rows materialize (same stream event) → epoch bump → generic `FacePull`
+re-read → block re-renders from truth; caret position derives from the SAME
+pulled signal as the text. The wrapper adds recovery storage, not a second
+write module, depot, topology, or truth path.
 
 - **Envelope (all fields existing kernel vocabulary, none invented):**
   `request-id` (client-minted, unique per keystroke) · `idempotency-key`
@@ -228,14 +230,17 @@ design round produces plugs into THIS seam without re-plumbing.
   pending-input never renders outside the focused block.
 - **G7 browser E2E echo (headed, real reader face):** 60s sustained 12/s
   keystroke-grain edits on a real conversation block: **echo p95 ≤ 50ms AND
-  ≤1 stall >100ms** (the settled criterion, third reuse, unchanged), echo =
-  keydown→painted truth; report the numbers in the gate artifact. The §5
-  narrowing seam (single-unit pull) may be engaged to pass; transport and
-  criterion may not change.
-- **G8 wearing (live, before daily use):** Sid edits a real conversation
-  block in the reader face; edited content survives app restart; the
-  underlying import rows are bit-unchanged (lineage intact via graduation
-  rows); a mid-word refusal (forced stale) visibly reverts.
+  p99 ≤ 100ms** (Sid's S3 ruling, 2026-07-13; replaces the inherited
+  ≤1-stall->100ms/min clause), echo = keydown→painted truth; report the numbers
+  in the gate artifact. The §5 narrowing seam (single-unit pull) may be engaged
+  to pass; transport stays unchanged. Full optimistic echo remains forbidden;
+  long-block input loss (F4) remains a named LATER and is not waived by G7.
+- **G8 wearing (live, before daily use):** Sid accepts an edit on a deliberately
+  chosen real conversation block; a forced stale edit visibly shows its reason
+  and reverts to that accepted truth; the server JVM is stopped and replaced,
+  boot reports block-edit WAL replay with zero failures, and the exact same
+  conversation + unit still serves the accepted text. The underlying import
+  rows remain bit-unchanged (lineage lives in graduation/revision rows).
 - **G9 read-plan conservation (IPC):** untouched blocks' river-page
   read-plan metadata unchanged by any projection addition (seek bound stays
   `1 + 4*limit`).
@@ -266,9 +271,11 @@ design round produces plugs into THIS seam without re-plumbing.
 - **S2:** G1 shows the graduation overlay does NOT return revised content
   through `read-unit`/river-page in some class of blocks → the §1 discovered
   fact broke; stop, re-verify, contract amends.
-- **S3:** G7 fails AFTER the §5 narrowing → returns to Sid with numbers;
-  pre-registered next: local caret affordance only (text truth still
-  streamed); full optimistic stays off the table (settled).
+- **S3 — FIRED + RULED 2026-07-13:** G7 failed the inherited stall-count
+  clause after §5 narrowing (2/4/7/2 stalls >100ms; every run passed p95 and
+  p99). Sid ruled the pending-input/caret design already supplies the local
+  affordance: G7 is now p95 ≤50ms AND p99 ≤100ms. Text truth stays streamed;
+  full optimistic echo stays forbidden; F4 long-block input loss stays LATER.
 
 ## 11 · Input manifest (reproduce-the-contract set; verified 2026-07-12)
 

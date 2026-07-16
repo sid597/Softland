@@ -106,3 +106,54 @@
   74a + 1078a + 349a. Record: `INT.md` §6 · `FALSIFY.md`. Dev server + all
   probes/windows STOPPED (Sid's ask) — G8 step 1 now starts it fresh.
   Left on Sid: S3 ruling · G8 wearing · code-commit call (checklist §6).
+
+- 2026-07-13 · Codex · **S3 RULED; FALSE-POSITIVE RECORD CORRECTED; G8
+  PAUSED.** Sid replaces the inherited ≤1-stall->100ms/min clause with
+  **p95 ≤50ms AND p99 ≤100ms** for the pending-input design; all four G7
+  runs pass. Full optimistic echo stays forbidden; truth stays streamed;
+  F4 long-block input loss remains a named LATER. Correction to the 07-12
+  entry above: "restart-survival observed live" was a client reconnect, NOT
+  a JVM replacement. Pre-WAL survival across a full server restart was
+  architecturally impossible because the dev object-container runtime
+  rebuilt from imports. Exact same-conversation+unit testing exposed the
+  loss. Closure is paused until contaminated WAL state is removed and G8's
+  remaining red, refusal present in state/scene but absent from pixels, is
+  fixed within the package allowlist and re-worn by Sid.
+
+- 2026-07-13 · Codex · **G8 MACHINE PRE-DRILL GREEN; HANDED TO SID.** Pixel
+  path exonerated: the failed screenshot inspected a whole-message copy at
+  y=809 while `setup(4)` focused the duplicate sense block offscreen at y=3184;
+  the actual focused block paints caret + `edit refused: stale`. No renderer
+  or kernel change. Non-precious drill used synthetic fixture block "just one
+  line, no structure." (`…:000010:00:000000`): accepted `.!?`, stale transient
+  reverted exactly, notice visible at y=134, full JVM replacement replayed
+  4 intents / 0 failed, same unit/text survived. Probe stale IDs are now unique.
+  Synthetic WAL deleted; normal boot = 0 replayed / 0 failed; real unit pristine
+  (`sell it to me.`). A disk-full boot failure was reported immediately; 20
+  orphaned `/tmp/ipc*` Rama dirs (no live JVM) removed, 152GB recovered; retry
+  green. Closure now waits ONLY on Sid's corrected four-part G8 wear (`INT.md`
+  §5); post-wear WAL mini-falsification, close suites, retro, board flip follow.
+
+- 2026-07-13 · Codex · **G8 WORN BY SID — PASS; WAL MINI-FALSIFICATION DONE.**
+  Sid's real accepted suffix `hello` remained truth; forced stale flashed `x`,
+  reverted, and painted `edit refused: stale` on the same visible block. A full
+  JVM stop/start then booted with `10 replayed, 0 failed`; Sid confirmed the
+  same accepted text remained. Live WAL slice: 10/10 parseable `:object/edit`
+  lines, unique request ids, one expected object/document, hashes present,
+  complete newline tail. No post-wear machine edit touched Sid's material; his
+  WAL stays in place. Post-gate residue routed LATER, not fixed: arbitrary
+  multi-conversation replay needs per-target import readiness; writer close is
+  not filesystem fsync; WAL growth needs compaction/checkpoint policy. Next:
+  close suites → RETRO → board flip → prepare WAL-only code commit, no commit.
+
+- 2026-07-13 · Codex · **PACKAGE CLOSED; CODE COMMIT PREPARED, NOT COMMITTED.**
+  Close suites green: client 11t/74a; face-projection + block-write +
+  block-distiller 29t/1008a (gate cumulative 40t/1082a after G8's +1t/+4a);
+  machine-cut-serve + face-transcription 27t/349a. Test JVMs exited, zero
+  `/tmp/ipc*`, 152GB free. `RETRO.md` written; board marks CLOSED and prunes the
+  active block. Staged candidate is WAL-only: `electric_flow.cljc`,
+  `file_viewer.cljc`, OC `runtime.clj`, restart test; cached check clean; no docs
+  or probes staged; no commit made. Checklist correction: probe namespaces were
+  checkpointed earlier in `a54bee1`, so F2's old "untracked/missing namespace"
+  premise is stale; the staged WAL surface itself contains no probe require.
+  Final fresh-context adversarial close recheck follows; Sid owns commit call.

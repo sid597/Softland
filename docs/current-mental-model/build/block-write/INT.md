@@ -91,14 +91,16 @@ now measured). This is the recorded first-measure miss that engages the §5
 narrowing. Post-run the full pull DOES deliver edited content (S2 fix
 live-verified: 720/720 echoed at drain).
 
-**Verdict vs the criterion (p95 ≤ 50ms AND ≤1 stall >100ms/min, unchanged):**
+**Verdict vs the inherited criterion (p95 ≤ 50ms AND ≤1 stall >100ms/min):**
 - p95: PASS every run, margin ~1.6× (31.7–39.5 vs 50).
 - Stall clause: **FAIL every run** (2, 4, 7, 2 vs ≤1) — a thin 0.3–1% tail,
   max ~145ms, not load- or length-proportional.
 
-**→ Stop clause S3 fires: G7 failed after the §5 narrowing. Returns to Sid
-with these numbers.** Nothing further engaged without his ruling
-(pre-registered next in the contract: local caret affordance — see analysis).
+**→ Stop clause S3 FIRED and was RULED by Sid on 2026-07-13.** The inherited
+stall-count clause is replaced for this pending-input design by **p95 ≤ 50ms
+AND p99 ≤ 100ms**; all four runs pass. The pending-input/caret path already
+is the pre-registered local affordance. Full optimistic echo remains forbidden,
+truth stays streamed, and F4 long-block input loss stays a named LATER.
 
 **Analysis for the ruling (Fable):**
 1. The failure is a tail, not a floor: every percentile through p99 is inside
@@ -119,16 +121,16 @@ with these numbers.** Nothing further engaged without his ruling
    re-express G7's tail bound as p99 ≤ 100ms (all runs pass; R4 42.1) —
    recommendation, grounds above; (b) chase the ~130ms tail before wearing
    (machine time, likely GC tuning); (c) the pre-registered S3 next — moot
-   per (2). Sid rules; the criterion is not mine to reinterpret.
+   per (2). Sid ruled (a) on 2026-07-13.
 
 ## 4 · Deviations / honest disclosures
 
-- Probe typed append-only into blocks 0–2 of the first-light conversation —
-  those blocks now carry probe text (durable; revision history holds the
-  trail; imports untouched underneath). Visible in the reader face until
-  edited back. This also produced a REAL G8 observation: the smoke run's
-  edits survived the full server restart (WAL replay + graduation overlay)
-  and seeded run R1's buffer.
+- Probe typed append-only into blocks 0–2 of the first-light conversation.
+  **Correction 2026-07-13:** the recorded "restart survival" was a client
+  reconnect, not a JVM replacement. Before the block-edit WAL existed, the
+  development object-container runtime rebuilt from imports on JVM restart,
+  so survival was architecturally impossible. The observation is retracted;
+  G8 now requires an exact conversation+unit receipt across process replacement.
 - Paint timestamps are RAF-quantized (±1 frame) and the probe's rAF is a
   sibling of the render loop's — echo values carry ~±16.7ms resolution;
   the criterion spans ~3 frames.
@@ -138,23 +140,51 @@ with these numbers.** Nothing further engaged without his ruling
   design, latest-wins) before reaching the buffer — honest input loss under
   client lag, no phantom text (the buffer never contained them).
 
-## 5 · G8 wearing setup (Sid, ~5 min)
+## 5 · G8 wearing setup (Sid, ~4 min)
 
-1. Start your dev server as usual (`clj -A:dev -X dev/-main`; the session's
-   copy was stopped at your request) → `http://localhost:8080` →
-   `/face minimap-reader-face` (address defaults to the first-light
-   conversation).
-2. Click any reader-pane block → it focuses (edit mode); type — text +
-   caret bar render as you type; Escape blurs (block falls back to truth).
-3. Restart check: stop/start the dev server, re-enter the face — your edit
-   must still be there (the machine half already observed this; your eyes
-   close it).
-4. Forced refusal (mid-word): console → `window.__blockwrite.forceStale()` —
-   the focused block must visibly revert to truth + show
-   "⟂ edit refused: edit/stale". No silent drop. (The notice clears when you
-   resume typing or blur — gate-review F6 fix.)
-5. Lineage: the import rows underneath are bit-unchanged (gated in G1's
-   provenance assertion; graduation rows carry the lineage).
+**Machine pre-drill, 2026-07-13 — green on non-precious material.** Isolated
+synthetic conversation `chat:7b0aa3…`, designated fixture block **"just one
+line, no structure."**, unit `…:000010:00:000000`: real keydown accepted
+`just one line, no structure.!?`; forced stale reverted the transient `x` to
+that exact truth and painted `edit refused: stale` at scene y=134 / scroll 0;
+a full JVM replacement boot replayed 4 request intents / 0 failed and served
+the same text from the same unit. The test WAL was then deleted. Normal boot
+reported 0 replayed / 0 failed; the previously contaminated real unit again
+ends byte-for-byte at `sell it to me.`
+
+**Pixel diagnosis:** nothing in scene→pixels dropped the notice. `setup(4)`
+had focused an offscreen sense-block copy at y=3184 while the screenshot showed
+identical prose from the whole-message block at y=809. Bringing the actual
+focused block into the camera painted caret + notice. No kernel or renderer
+change was made; the probe now uses a unique stale request id per invocation.
+
+1. The normal dev server is live at `http://localhost:8080`. Enter
+   `/face minimap-reader-face` (default = first-light conversation).
+2. Pick a real block whose edit you deliberately want to keep. **Click that
+   visibly rendered block; do not call `setup(n)`** (it can focus an offscreen
+   duplicate). Type a short suffix of your choosing and see it settle as truth.
+3. Without reloading the page, run `window.__blockwrite.forceStale()` once.
+   A transient `x` may flash; it must disappear, leaving exactly your accepted
+   suffix, and the same visible block must show `edit refused: stale`.
+4. Stop the server with Ctrl-C, start it again with
+   `clj -A:dev -X dev/-main`, wait for `[FACE] block-edit WAL replay: N
+   replayed, 0 failed`, re-enter the face, and inspect the same block. Your
+   accepted suffix must still be present after the full JVM replacement.
+5. Lineage is the machine half: G1's physical provenance assertion and the
+   two-runtime WAL regression prove import rows remain bit-unchanged while
+   graduation/revision rows carry the edit. Sid's wear closes surface + restart.
+
+**Pass receipt to return:** accepted suffix · visible stale revert + reason ·
+full-JVM boot replay line · same block text after restart.
+
+**Sid's wearing receipt, 2026-07-13 — PASS.** On the deliberately chosen real
+block, accepted suffix `hello` remained served truth; `forceStale()` produced a
+transient `x`, reverted to the accepted text, and Sid saw `edit refused: stale`
+on that same visible block. Codex then stopped the JVM and started a fresh one;
+boot reported `[FACE] block-edit WAL replay: 10 replayed, 0 failed`. Sid
+re-entered the same block and confirmed the accepted text was still present.
+This is the corrected four-part G8 receipt: accepted edit, visible refusal +
+revert, full process replacement, same-unit persistence.
 
 ## 6 · Gate review (Fable, this session — CLAUDE.md falsification protocol)
 
@@ -189,27 +219,54 @@ one finder).
   rebuild makes `m/relieve` drop keystrokes on very long blocks (measured
   14/720 at ~1.8KB). Fix-shape: focused-block partial rebuild. Falsifier
   named (headed type-burst asserting emitted == buffer delta).
-- **F2 (MED) — COMMIT-TIME RULE, recorded:** `runtime.cljs:23` (block-edit
-  probe require) and the pre-existing island-probe lines in `render.cljs`
-  MUST be stripped before any code commit (both probe files are untracked;
-  committing the tracked diff as-is breaks the cljs build). Listed in the
-  commit checklist below.
+- **F2 (MED) — HISTORICAL COMMIT-TIME FINDING, corrected:** at the 07-12 gate,
+  `runtime.cljs:23` (block-edit probe require) and the island-probe lines in
+  `render.cljs` pointed at then-untracked probe files, so that candidate would
+  have broken a clean cljs build. Commit `a54bee1` subsequently checkpointed
+  both probes and mounts as local-only evidence; the missing-namespace premise
+  is therefore no longer current. The present WAL candidate excludes all probe
+  and doc changes; probe cleanup remains a separate boundary.
 - **F7/F8/F10 (LOW) — open doubts, non-blocking,** falsifiers named in
   FALSIFY.md (epoch fan-out audit · hit-test id-collision dump · sidebar-x
   convention). **F9** (probe edits real blocks) disclosed in §4.
 
-**Suite re-runs at gate (this session, post-fix):** block-edit 11t/74a ·
-face-projection + block-write + block-distiller 39t/1078a ·
-machine-cut-serve + face-transcription 27t/349a — all green.
+**Suite re-runs at the 07-12 gate (post-fix):** client block-edit 11t/74a;
+face-projection + server block-write + block-distiller 28t/1004a (cumulative
+gate command 39t/1078a); machine-cut-serve + face-transcription 27t/349a — all
+green. The 07-13 close adds G8's 1t/4a: server group 29t/1008a, cumulative
+40t/1082a.
 
 **Verdict: code PASS at gate** — gates G1–G6, G9 green; traps held; HIGH
-finding fixed with regressions. **Package close still gated on Sid:** the S3
-stall-clause ruling (§3) and the G8 wearing (§5). One honest open item: the
-F1 union-map seam was IPC-gated but not re-driven headed after the fix (the
-measurement rig was shut down at Sid's request) — the wearing exercises it;
-if the echo feels dead there, suspect the request/merge shape first.
+finding fixed with regressions. **Close gates completed 2026-07-13:** Sid ruled
+S3 (§3), then wore all four G8 parts (§5) across a full JVM replacement. One
+honest open item at the 07-12 gate was that the F1 union-map seam was IPC-gated
+but not re-driven headed after the fix (the measurement rig was shut down at
+Sid's request); the corrected wearing exercised the live request/merge shape
+and passed.
 
-**Commit checklist (code commits are Sid's call; separate from docs):**
-strip `runtime.cljs` probe require + islands-probe render.cljs lines · code
-and docs never mixed · probe files stay uncommitted
-(`block_edit_probe.cljs`, `island_probe.cljs`, `src/app/probe/*`).
+**Commit checklist (code commits are Sid's call; separate from docs):** prepare
+only the WAL code + its test; strip probe requires from that release surface;
+leave docs, `block_edit_probe.cljs`, `island_probe.cljs`, and `src/app/probe/*`
+unstaged. Stop before commit.
+
+### Post-G8 WAL mini-falsification (2026-07-13)
+
+The live slice was inspected structurally without printing block content:
+10/10 complete EDN lines, all `:object/edit`, 10 unique request ids, one
+expected object/document, every payload content-hashed, newline-terminated.
+Fresh-JVM replay consumed all 10 with zero failures. The user's WAL remains in
+place because it now carries their deliberate edit; no machine verification
+edit was added to it after wearing.
+
+New surface routed, not fixed at close:
+- **Multi-conversation replay readiness — LATER.** Boot currently reconstructs
+  the default transcript, then replays the whole edit WAL. Targets from other
+  conversations need per-target import readiness or deferred replay before
+  this can claim arbitrary-conversation recovery.
+- **No-fsync tail — LATER.** Append is WAL-first and closes/flushed the writer,
+  but does not call filesystem `fsync`; sudden host/power loss may lose or tear
+  the newest line. Replay isolates malformed lines, which bounds recovery but
+  is not a durability claim.
+- **WAL growth/compaction — LATER.** Every request intent is retained and replayed;
+  compaction or checkpointing belongs with the already-named history-stratum
+  policy, not this connection package.
