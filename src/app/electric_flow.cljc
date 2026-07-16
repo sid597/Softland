@@ -86,7 +86,7 @@
             already-decided? (some? (ocr/read-decision oc-rt request))]
         ;; :ack IS the barrier on this stream topology (materialized on return —
         ;; the deterministic barrier, never a poll).
-        (ocr/append-object-container-request! oc-rt request :ack)
+        (ocr/append-block-edit-request-durably! oc-rt request :ack)
         (let [decision  (ocr/read-decision oc-rt request)
               accepted? (oc/decision-accepted? decision)
               replay?   (or already-decided?

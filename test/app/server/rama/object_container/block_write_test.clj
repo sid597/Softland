@@ -262,3 +262,48 @@
             (is (every? #(some? (:document-container-id %)) p)
                 "rule-1 field still present on the re-pulled page"))))
       (finally (bd/close-distiller-runtime! rt)))))
+
+(deftest g8-block-edit-wal-survives-runtime-restart
+  (let [wal (java.io.File/createTempFile "block-edit-" ".ednl")]
+    (.delete wal)
+    (try
+      (let [rt (bd/start-distiller-runtime!)
+            oc-rt (assoc (:oc-rt rt) :block-edit-log-path (.getPath wal))]
+        (try
+          (bdt/ingest-fixture! oc-rt)
+          (let [summary (bd/distill-conversation! {:oc-rt oc-rt
+                                                   :source bdt/fixture-source
+                                                   :conversation-id bdt/fixture-conversation-id})
+                object-key (:object-key summary)
+                block (first (bd/river-page {:oc-rt oc-rt :object-key object-key}
+                                            bd/max-river-page-size))
+                res (ef/submit-block-edit!
+                     oc-rt
+                     (edit-env object-key block "G8 persisted body"
+                               {:request-id "bw-g8-restart"
+                                :edit-client-id "sid-g8"
+                                :edit-seq 1
+                                :time-ms 100600
+                                :actor sid-actor})
+                     (atom 0))]
+            (is (true? (:accepted? res)))
+            (is (.exists wal) "accepted edit intent is WAL'd before ack"))
+          (finally (bd/close-distiller-runtime! rt))))
+
+      (let [rt (bd/start-distiller-runtime!)
+            oc-rt (assoc (:oc-rt rt) :block-edit-log-path (.getPath wal))]
+        (try
+          (bdt/ingest-fixture! oc-rt)
+          (let [summary (bd/distill-conversation! {:oc-rt oc-rt
+                                                   :source bdt/fixture-source
+                                                   :conversation-id bdt/fixture-conversation-id})
+                object-key (:object-key summary)
+                block (first (bd/river-page {:oc-rt oc-rt :object-key object-key}
+                                            bd/max-river-page-size))
+                stats (ocr/replay-block-edit-log! oc-rt)
+                unit (ocr/read-unit oc-rt (:unit-id block))]
+            (is (= {:replayed 1 :failed 0} stats))
+            (is (= "G8 persisted body" (:content-text unit))
+                "the same unit reads edited truth after a fresh runtime rebuild"))
+          (finally (bd/close-distiller-runtime! rt))))
+      (finally (.delete wal)))))
