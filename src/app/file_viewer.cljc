@@ -14,6 +14,7 @@
             ;; W2: the face arsenal (CONTRACT §16 — wear log + face index)
             #?(:clj [app.server.rama.face-arsenal :as face-arsenal])
             #?(:clj [app.server.rama.object-container.block-distiller :as block-distiller])
+            #?(:clj [app.server.rama.object-container.runtime :as ocr])
             ;; machine-cut (CONTRACT §6 boot attach): the WAL boot replay; the
             ;; relation runtime it asserts into is the TRAIL cluster's (below).
             #?(:clj [app.server.rama.machine-cut :as machine-cut])
@@ -272,10 +273,13 @@
              ;; and face-ctx/resolve-request deref OUTSIDE serve's try (and
              ;; e/defn has no try, L13). A boot failure must yield a poisoned-
              ;; but-total runtime map, never a poisoned Delay.
-             rt (try (block-distiller/start-distiller-runtime!)
-                     (catch Throwable t
-                       (println "[FACE] distiller boot FAILED:" (.getMessage t))
-                       nil))
+             rt0 (try (block-distiller/start-distiller-runtime!)
+                      (catch Throwable t
+                        (println "[FACE] distiller boot FAILED:" (.getMessage t))
+                        nil))
+             rt (when rt0
+                  (update rt0 :oc-rt assoc :block-edit-log-path
+                          (ocr/default-block-edit-log-path {})))
              !default-address (atom nil)
              ;; G16 falsification fix: pending / failed / genuinely-blank are
              ;; THREE realities — the map must not lie. This flag + the
@@ -355,6 +359,13 @@
                                   {:oc-rt (:oc-rt rt)
                                    :source :claude-code
                                    :conversation-id conv-id})]
+                     ;; The ephemeral dev cluster reconstructs imports on every
+                     ;; server boot. Replay edit intents only after their target
+                     ;; units exist, before the face becomes addressable.
+                     (let [{:keys [replayed failed]}
+                           (ocr/replay-block-edit-log! (:oc-rt rt))]
+                       (println "[FACE] block-edit WAL replay:" replayed
+                                "replayed," failed "failed"))
                      (reset! !default-address (:object-key summary))
                      ;; W1-INT wearing fix (G15): the distill IS an ingest —
                      ;; bump the ingest epoch like every watcher import does

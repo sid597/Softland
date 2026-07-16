@@ -2,6 +2,10 @@
   (:use [com.rpl.rama]
         [com.rpl.rama.path])
   (:require [app.server.rama.object-container :as oc]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.string :as str]
+            [clojure.walk :as walk]
             [com.rpl.rama.test :refer [create-ipc launch-module!]]))
 
 (defn start-object-container-runtime!
@@ -86,6 +90,68 @@
     (try
       (.close ipc)
       (catch Exception _ nil))))
+
+(def block-edit-log-relative-path "data/block-edit-log.ednl")
+
+(defn default-block-edit-log-path
+  [{:keys [repo-root]}]
+  (str (or repo-root (System/getProperty "user.dir")) "/"
+       block-edit-log-relative-path))
+
+(def ^:private block-edit-log-lock (Object.))
+
+(defn- append-block-edit-log-line!
+  [path request]
+  (locking block-edit-log-lock
+    (let [f (io/file path)]
+      (io/make-parents f)
+      (with-open [w (io/writer f :append true :encoding "UTF-8")]
+        (.write w (pr-str (walk/postwalk #(if (record? %) (into {} %) %) request)))
+        (.write w "\n")))))
+
+(defn append-block-edit-request-durably!
+  "WAL-first append for interactive :object/edit requests. A runtime without
+   :block-edit-log-path (focused IPC tests) keeps the existing direct append."
+  ([runtime request]
+   (append-block-edit-request-durably! runtime request :ack))
+  ([runtime request ack-level]
+   (when-let [path (:block-edit-log-path runtime)]
+     (append-block-edit-log-line! path request))
+   (foreign-append! (:object-container-requests-depot runtime) request ack-level)))
+
+(defn replay-block-edit-log!
+  "Replay stored edit intents into a freshly rebuilt object-container runtime.
+   Replay appends depot-only, never back to the WAL; request identity and the
+   object-scoped journal make duplicate lines no-ops. Malformed lines are
+   isolated so one torn tail cannot hide later edits."
+  [runtime]
+  (let [path (or (:block-edit-log-path runtime)
+                 (default-block-edit-log-path {}))
+        f (io/file path)]
+    (if-not (.exists f)
+      {:replayed 0 :failed 0}
+      (with-open [rdr (io/reader f :encoding "UTF-8")]
+        (reduce
+         (fn [stats [line-idx line]]
+           (if (str/blank? line)
+             stats
+             (try
+               (let [request (edn/read-string line)]
+                 (if (= :object/edit (oc/request-type request))
+                   (do (foreign-append! (:object-container-requests-depot runtime)
+                                        request :ack)
+                       (update stats :replayed inc))
+                   (do (binding [*out* *err*]
+                         (println "[BLOCK-WRITE] replay: line" line-idx
+                                  "is not :object/edit, skipping"))
+                       (update stats :failed inc))))
+               (catch Exception e
+                 (binding [*out* *err*]
+                   (println "[BLOCK-WRITE] replay: line" line-idx
+                            "failed, skipping:" (.getMessage e)))
+                 (update stats :failed inc)))))
+         {:replayed 0 :failed 0}
+         (map-indexed vector (line-seq rdr)))))))
 
 (defn append-object-container-request!
   ([runtime request]
