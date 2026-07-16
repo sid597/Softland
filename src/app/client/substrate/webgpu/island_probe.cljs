@@ -454,6 +454,7 @@ fn fs(in: VOut) -> @location(0) vec4<f32> {
 }")
 
 (defonce !atlas (atom nil))
+(defonce !runtime (atom nil)) ;; {:device :ctx :tracker} — stashed every land frame for bench!
 
 (defn- build-text-instances [glyph-map s]
   ;; → {:data Float32Array(8/glyph) :count n :total-adv em}
@@ -513,7 +514,7 @@ fn fs(in: VOut) -> @location(0) vec4<f32> {
   []
   (if @!atlas
     (js/Promise.resolve "already loaded")
-    (let [{:keys [device tracker]} @!runtime
+    (let [{:keys [^js device tracker]} @!runtime
           fformat (swap-format)]
       (-> (js/Promise.all
             #js [(.then (js/fetch "/font_atlas.json") (fn [r] (.json r)))
@@ -526,7 +527,7 @@ fn fs(in: VOut) -> @location(0) vec4<f32> {
                              size (get-in j [:atlas :size])
                              w (get-in j [:atlas :width]) h (get-in j [:atlas :height])
                              dist (get-in j [:atlas :distanceRange])
-                             tex (.createTexture device (clj->js {:size {:width w :height h}
+                             ^js tex (.createTexture device (clj->js {:size {:width w :height h}
                                                                   :format "rgba8unorm"
                                                                   :usage (bit-or js/GPUTextureUsage.TEXTURE_BINDING
                                                                                  js/GPUTextureUsage.RENDER_ATTACHMENT
@@ -603,8 +604,6 @@ fn fs(in: VOut) -> @location(0) vec4<f32> {
 ;; ─────────────────────────────────────────────────────────────────────────
 ;; The per-frame step (called right after draw-frame! in render.cljs)
 ;; ─────────────────────────────────────────────────────────────────────────
-
-(defonce !runtime (atom nil)) ;; {:device :ctx :tracker} — stashed every land frame for bench!
 
 (defn driving?
   "When true, render.cljs forces a redraw so the probe gets continuous frames."

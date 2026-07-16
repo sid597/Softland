@@ -85,16 +85,47 @@
         seq* (dec (:next-seq st))]
     (if-not (and b (>= seq* 0))
       (js/console.error "[G8] focus a block and type at least one key first")
-      (let [env (be/mint-envelope {:block b :object-key okey
-                                   :content-text "stale drill"
+      (let [truth-text (or (get @bew/!truth-overlay uid) (:text b) "")
+            pending-text (str truth-text "x")
+            env (be/mint-envelope {:block b :object-key okey
+                                   :content-text pending-text
                                    :edit-client-id (:edit-client-id st)
                                    :edit-seq seq*})
-            rid (str (:request-id env) "-stale")
+            rid (str (:request-id env) "-stale-" (random-uuid))
             env (assoc env
                        :request-id rid
-                       :idempotency-key (be/idempotency-key okey (:id b) rid))]
+                       :idempotency-key (be/idempotency-key okey (:id b) rid))
+            pending {:block-id uid :seq seq*}]
+        ;; The raw probe envelope must still enter the SAME pending-input state
+        ;; the real keystroke path uses. Without this entry, on-decision treats
+        ;; the returned request id as unknown and intentionally no-ops (F3
+        ;; bound), so the old drill could never demonstrate G8's visible revert.
+        (swap! bew/!edit-state
+               (fn [s]
+                 (-> s
+                     (assoc :buffer {:block-id uid
+                                     :text pending-text
+                                     :caret (count pending-text)})
+                     (assoc :refusal nil)
+                     (assoc-in [:pending rid] pending))))
         (bew/submit-envelope! env)
         rid))))
+
+(defn snapshot
+  "G8 identity receipt for restart checks: same conversation + same unit +
+   served/materialized text. Returns plain JS for convenient console capture."
+  []
+  (let [ctx (some-> (atoms*) :!face-context deref)
+        st @bew/!edit-state
+        uid (:focused-id st)
+        blocks (vec (concat (get-in ctx [:reader-turn :blocks])
+                            (mapcat :blocks (:turns ctx))))
+        block (some #(when (= uid (:id %)) %) blocks)]
+    (clj->js {:conversation-address (:conversation/address ctx)
+              :focused-id uid
+              :served-text (:text block)
+              :buffer-text (get-in st [:buffer :text])
+              :refusal (:refusal st)})))
 
 (defn- dispatch-key! [ch]
   (.dispatchEvent js/window
@@ -200,5 +231,6 @@
                  :setup      (fn [& [n]] (setup! (or n 0)))
                  :start      (fn [secs rate] (start! secs rate))
                  :forceStale (fn [] (force-stale!))
+                 :snapshot   (fn [] (snapshot))
                  :report     (fn [] (report))})
       true))
