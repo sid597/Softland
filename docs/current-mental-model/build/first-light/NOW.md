@@ -63,3 +63,19 @@
   open doubts: `P1.md` + `images/p1-*.png`. Suites 84t/978a green, compile
   0 warnings; corpus drill-restored exactly. Next: P2 (ground + episode —
   adjudicate P0 flags C/D/F at design time).
+
+- **2026-07-17 · Fable (durable-ground session) · CONTRACT AMENDED — the
+  ground ships BARE (Sid's word, live correction).** Sid: "it will be a
+  blank screen, can add text and only have ctrl+enter to communicate with
+  the ai." §3 + T9 + §9.1 rewritten: NO command panel, NO /commands, NO
+  workspace bridge, NO hatch at genesis — every projection affordance for
+  the existing world (trail, corpus, workspace) is deliberately ungrown,
+  arriving only as wishes from inside. Drift source named: DIRECTION's
+  "one keystroke from lighting up" is about the MATERIAL (durable,
+  undeleted), and this contract's original T9 over-read it into a UI
+  commitment ("file workspace remains reachable") — that reading is dead.
+  §9 redline 1 = ANSWERED (direct + bare); redlines 2/3 stay on defaults
+  (the evening session proceeded on them; veto anytime). P2 impact: the
+  bare-ground ruling CONSTRAINS the P0 flag-C/F adjudications — the
+  utterance lane is the ONLY input surface at genesis, Ctrl+Enter is the
+  send gesture.

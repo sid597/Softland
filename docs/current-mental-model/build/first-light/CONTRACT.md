@@ -51,11 +51,18 @@ Rama module (zero) · editor-feel work · multi-inhabitant anything.
 
 ## 3. The genesis moves (P2) — what becomes real
 
-- **Login shows the ground**: boot wears the conversation face over the
-  living episode (today it boots a file workspace with electric_flow.cljc
-  open — RECON Q5). The file workspace stays one keystroke away (it is the
-  unprojected world, not deleted chrome). World-state-zero blankness
-  happens ONCE, at the genesis episode's birth; later logins resume.
+- **Login shows the ground — and the ground ships BARE (Sid, 2026-07-17,
+  verbatim intent): a blank screen · text can be added · Ctrl+Enter
+  communicates with the AI. Nothing else.** No command panel, no /commands,
+  no sidebar, no workspace bridge, no hatch of any kind. "Unprojected
+  world, not empty" is a statement about the MATERIAL (the corpus stays
+  durable underneath; nothing is deleted), never a UI commitment — every
+  affordance for projecting the existing world into view is deliberately
+  ungrown and arrives only as wishes from inside the land. The dev
+  workspace (today's boot: electric_flow.cljc in a file workspace — RECON
+  Q5) remains build-time scaffolding, launched separately by builders,
+  never linked from the ground. World-state-zero blankness happens ONCE,
+  at the genesis episode's birth; later logins resume the episode.
 - **The first utterance is durable at utterance time.** Today typed chat
   text reaches the CLI as argv and is durable only via later transcript
   re-ingest (RECON Q1). The genesis joint: Sid's typed utterance lands in
@@ -163,9 +170,13 @@ Anything else that looks kernel-shaped → stop clause.
 - **T8 — post-turn re-distill must be idempotent** — deterministic import
   keys make re-runs converge (the migration-day receipts prove the class);
   a turn distilled twice must not mint twice.
-- **T9 — the genesis boot change must not orphan the file workspace** —
-  it remains reachable (the unprojected world); blankness is birth-only,
-  never imposed on return (DIRECTION).
+- **T9 — the ground ships BARE; no scaffolding leaks into it.** The
+  genesis surface is blank + text + Ctrl+Enter, NOTHING else (Sid,
+  2026-07-17): no command panel, no /commands, no sidebar, no workspace
+  bridge, no hatch. "Unprojected world" describes the MATERIAL (durable,
+  undeleted), never a shipped affordance — projection affordances arrive
+  only as wishes from inside. The dev workspace stays a separately-launched
+  builder scaffold. Blankness is birth-only, never imposed on return.
 - **T10 — no fabricated friction.** G9 waits for a real arrangement
   friction from real wear. A staged specimen fails the gate BY DEFINITION.
   Machinery gates (G1–G8) are drillable; the metabolism gate is not.
@@ -242,9 +253,11 @@ Anything else that looks kernel-shaped → stop clause.
 
 ## 9. Sid redlines (cheap, non-blocking — flag on first read)
 
-1. **Boot-to-ground** (§3): login wears the episode instead of the file
-   workspace. Daily-experience change; say the word if you want it staged
-   behind a flag first.
+1. **ANSWERED (Sid, 2026-07-17):** boot-to-ground goes DIRECT and the
+   ground ships BARE — blank screen · add text · Ctrl+Enter to the AI ·
+   nothing else (§3 + T9 as amended). The earlier "file workspace one
+   keystroke away" reading is dead — that phrase in DIRECTION describes
+   the durable material, not a shipped affordance.
 2. **`:references` as the wish edge** (§4) until recurrence names a Wish
    kind — confirm or name the kind now (one reviewed line either way).
 3. **Candidate naming** `asm:<name>--wish-<n>` (§4) — working scaffolding;
