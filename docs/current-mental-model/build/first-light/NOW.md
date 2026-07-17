@@ -43,3 +43,23 @@
   · candidate naming. Durable-ground closed same day (its GATE/RETRO feed
   T11/T12 here). Next: Sid's §9 read (cheap, non-blocking) · P0 fresh
   re-derivation · then P1 (the P3c minimum seam per RECON §A inventory).
+
+- **2026-07-17 (evening) · Fable · P0 + P1 DONE, G1 + G2 PASS.**
+  P0 (fresh Opus subagent): `PHASE_0.md` — 12/15 primitives active-in-A;
+  6 flags, none binding P1: A wish-edge target-kind (→P3), B reverse vs
+  import-dedup (→P5), C utterance entry existence (→P2), D double-mint
+  imp:ep:/imp:tr: (→P2), E G1-baseline provenance (RESOLVED: durable-ground
+  G3 n=10 cold, NOW.md:80), F distill trigger (→P2). Sid's §9 answers came
+  through as unfilled template brackets — proceeded on contract defaults
+  (direct boot-to-ground · `:references` · contract naming); veto anytime.
+  P1 (Fable direct): the flip is LIVE — `:face-main` store slot, overlay
+  threaded (T5), legacy rects+text+hit-test silenced (T6), both stamps (T7).
+  **G1 PASS** narrow echo p50 22.3/p95 26.6/p99 29.3 (bar 52; pre-flip
+  control 19.9/24.2 via stash round-trip) after three measured perf fixes
+  (microtask-deferred build · GPU buffer growth slack · glyph-map per-line
+  rebuild → WeakMap cache — the naive flip FAILED at p95 58.7/p99 162).
+  **G2 PASS** real pick {vi :face-main, address du:…000005…, src-path
+  [:root …]} + bundle + edit focus. Receipts/screenshots/judgment calls/
+  open doubts: `P1.md` + `images/p1-*.png`. Suites 84t/978a green, compile
+  0 warnings; corpus drill-restored exactly. Next: P2 (ground + episode —
+  adjudicate P0 flags C/D/F at design time).

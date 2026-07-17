@@ -213,14 +213,20 @@ round → benchmark room (question bank waits on kinds).
 
 ## Active package blocks
 
-**first-light A — OPEN 2026-07-17** (the genesis package: metabolism — one
-local worn arrangement repair). Contract + recon + thread:
-`build/first-light/{CONTRACT,RECON,NOW}.md`. Phases: P0 re-derivation → P1
-P3c-minimum seam → P2 ground+episode → P3 wish → P4 proposal+membrane → P5
-accept/reject/reverse/explain → P6 metabolism (G9 WAITS for a real
-friction — no fabrication). Sid's §9 redlines: boot-to-ground staging ·
-`:references` as the wish edge · candidate naming. Durable ground is live
-under it: the dev boot rides the real cluster by default.
+**first-light A — OPEN 2026-07-17 · P0+P1 DONE, G1+G2 PASS** (the genesis
+package: metabolism — one local worn arrangement repair). Contract + recon
++ thread: `build/first-light/{CONTRACT,RECON,NOW}.md`; phase records
+`PHASE_0.md` + `P1.md`. **The flip is live**: the worn face is a `:face-main`
+scene-store slot (overlay/T5, legacy silenced/T6, both stamps/T7); typing
+drill p95 26.6ms (bar 52) after three measured perf fixes; picks return real
+{vi, address, src-path}. Remaining: P2 ground+episode → P3 wish → P4
+proposal+membrane → P5 accept/reject/reverse/explain → P6 metabolism (G9
+WAITS for a real friction — no fabrication). P0 flags C/D/F adjudicate at
+P2, A at P3, B at P5 (PHASE_0.md §C). Sid's §9 redlines arrived as unfilled
+brackets — P1 ran on contract defaults (direct boot-to-ground · `:references`
+· contract naming); veto anytime. P1 code UNCOMMITTED (client-only, 7 files,
+hot-loaded in the live dev app). Durable ground live under it: the dev boot
+rides the real cluster by default.
 
 durable-ground — CLOSED 2026-07-17 (one day, P0→close): gate PASS, records
 `build/durable-ground/{CONTRACT,GATE,RETRO,NOW}.md`; G5c reboot receipt =
