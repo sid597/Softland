@@ -7,7 +7,7 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
-**Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (opening — `build/first-light/DIRECTION.md`). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
+**Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
 **Vision:** LOG routed through **2026-07-17** (the genesis sitting lands: **first-light RATIFIED** + **durability reaffirmed verbatim** + the lineage harvest + the walkthrough drills; strands in the LOG 07-17 entry, routing recorded there). Prior high-water **2026-07-14, two entries** (latest: **naming + care + instance→type** — Softland is the counter-position to Dynamicland, "build the dream of dynamicland in softland"; **care as the human feature** — caretaker guides doer, humans drive, never autopilot; UI evolution mechanic = repair an instance → promotes to the type, "starting from a point of: I can chat with softland". Earlier same day: **the abiogenesis question** → decisions.md Open questions. Direction exploration ran same session — landing routes at close). Earlier: **the drawn views are references, not targets** (07-13 — REFERENCE examples for "we need a way to design in softland itself"; no view content is settled anywhere; C1/C2 reworded) · notebook pages 07-12 (verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; FOREST carries the five-unlock ordering) + the base-layer commission (→ decisions.md base ruling + `build/scene-substrate/`). Open pulls (prune as absorbed):
@@ -213,9 +213,14 @@ round → benchmark room (question bank waits on kinds).
 
 ## Active package blocks
 
-**first-light A — OPENING** (the genesis package; contract being authored per
-`build/first-light/DIRECTION.md` + the durable-ground close). Durable ground
-is live under it: the dev boot rides the real cluster by default.
+**first-light A — OPEN 2026-07-17** (the genesis package: metabolism — one
+local worn arrangement repair). Contract + recon + thread:
+`build/first-light/{CONTRACT,RECON,NOW}.md`. Phases: P0 re-derivation → P1
+P3c-minimum seam → P2 ground+episode → P3 wish → P4 proposal+membrane → P5
+accept/reject/reverse/explain → P6 metabolism (G9 WAITS for a real
+friction — no fabrication). Sid's §9 redlines: boot-to-ground staging ·
+`:references` as the wish edge · candidate naming. Durable ground is live
+under it: the dev boot rides the real cluster by default.
 
 durable-ground — CLOSED 2026-07-17 (one day, P0→close): gate PASS, records
 `build/durable-ground/{CONTRACT,GATE,RETRO,NOW}.md`; G5c reboot receipt =
