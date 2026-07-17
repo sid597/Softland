@@ -680,3 +680,33 @@ ok 2 things first here are my thoughts
 [his read-back of the first genesis reply — the instance→type mechanic, transcribed voice note:]
 
 So it's like raw bare bones getting started, and then from there, the problems will naturally emerge from the UI point of view. Example, I will have some raw chat interface in front of me, then I will have the issue of I want to only reply to certain blocks of text, or I want to extract some of the blocks of text that make sense to me and keep them in my personal notes as an entry add comments for myself for the llm agent chat reply. So the action for Softland becomes, uh, help me create a UI for this. Then the question becomes how. We are starting a work from an instance. This work, when done, will affect both the instance, but also all the future instances as well. So, basically, all instances of the UI type, in this case, the UI type would be the chat interface, who will be transformed, and, uh, we will have a new type of UI, uh, that would... or could be used cases of chatting. So this essentially would, uh, give us the information of how the system is evolving starting from a point of, uh, I can chat with softland ...
+
+---
+
+## 2026-07-17 — the genesis sitting lands: walkthrough drills, the grain push, durability reaffirmed, first-light ratified (three-day direction→build session, verbatim strands)
+
+[the lived-walkthrough demand — how every step must be designed:]
+
+I want you do this style of inquiry yourself as well for the other moments or do you think this is enough to get started and build upon? I was also telling you how to think steps as a user who will actually use it live it through ... i think these are small small things that we need to think through on each step because its easy to say just get started but is it there yet?
+
+[the standing charge:]
+
+beware of your own failure modes while working with me .. see your memory etc skills if needed be .. I am paying huge amount of cost for you so i need that deep thinking and reasoning
+
+[the grain push (his second push — triggered the re-derivation) and the question that reopened durability at system level:]
+
+i am still not sure about the claim you made for what the event unit should be for a text write shuld it be per letter (yeah need it for the snappy feedback) but the semantics and the amount of events we will be creating and the through put (maybe not since humans now a days write less and its all like streaming text by llms) but this goes into a bigger thing ... what about pan and zoom then if we say its 240 fps and i start panning are these events getting stored? ... for the text problem i wonder if electric has an affordance for this problem space it should have something imo ... then most imp one is will the logs be written to local system so that next time i start my computer and softland previous log is replayed
+
+[the cost-premise relapse toward IPC+EDN — premise corrected in-session (Rama verified free ≤2 nodes, 2026-07-17) — and the spare machine offered:]
+
+I dont want to do any optimistic updates and i think for now lets do ipc with edn logs? Because hosting would cost money and on i have a local pc that is not being used i can hook it up with ups and use as server?? It has 16 gb ram ryzen 5 2600
+
+[the reaffirmation, verbatim — the durability fork closes:]
+
+lets go with this durable-ground = a real single-node Rama cluster on your PC + Rama-native backups rsync'd to the Mac vault, boot-time ingest off the startup path. No hand-rolled journal.
+
+[the ratification and the go:]
+
+and i want to you to get into work mode and start working i want to see the first light asap
+
+*(Routed same-session: durability → decisions.md settled ground, fork closed under Only-Sid · first-light RATIFIED → decisions.md NOW + board FOREST 1 · durable-ground package OPEN → board Active blocks, contract under /rama · care-amplification frame → Vision-line pull beside the 07-14 care entry (North candidate, Sid's hand only) · session's verified organ findings (Space kernel turn taxonomy `draft-save`/`compose-and-send`/`comment-create`, hashed per-turn context bundles, subscription-auth model lane exercised, Electric conflation as the grain affordance, committed-vs-ephemeral event taxonomy) → first-light A contract Phase 0 inputs.)*

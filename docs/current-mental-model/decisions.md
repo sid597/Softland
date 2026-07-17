@@ -60,15 +60,37 @@ which crossroads did we take."
   is committed: **direct write over a STREAM topology, echo streamed back**
   (measured: stream echo p95 7.66ms; microbatch measured ~210ms cadence and
   rejected — don't reopen it, the numbers are in `build/write-echo/NOW.md`).
-  No optimistic text echo. Block-write is built and gate-passed
-  (2026-07-12; close waits on Sid's wear + one stall-clause ruling). UI
-  write gestures ride the scene substrate (the base layer, above).
+  No optimistic text echo. Block-write is CLOSED (2026-07-13; S3 ruled, G8
+  worn across a real JVM replacement). UI write gestures ride the scene
+  substrate (the base layer, above).
+- **first-light — RATIFIED 2026-07-17** (Sid: "i want to see the first light
+  asap"): genesis of building-Softland-in-Softland per
+  `build/first-light/DIRECTION.md`, now in force as direction. Sequence:
+  the durable-ground slice first (real cluster — settled below), then
+  first-light A (one local worn arrangement repair); inheritance (B) opens
+  only from a genuine second friction, never a fabricated gate example;
+  first-light absorbs the minimum P3c main-face/overlay/pick seam.
 
 ## Settled architecture — use it, don't re-derive it
 
 - **Rama is truth.** Workers, agents, and UI actions stream observations and
   requests INTO Rama as events; the UI reads materialized state OUT. No
   side-channel state, no truth outside the log.
+- **Durable ground (Sid 2026-07-15; reaffirmed verbatim 2026-07-17):** the
+  land runs on a REAL single-node Rama cluster on Sid's PC — depots and
+  PStates are the durable log; restart recovery is native. Backups are
+  Rama's built-in mechanism to a local filesystem target, rsync'd to the Mac
+  vault (vault copies inherit never-pushed privacy; encrypt if they ever
+  leave the two machines). Boot-time ingest comes OFF the startup path (an
+  explicit command instead). **No hand-rolled journals** — an EDN WAL beside
+  Rama is the recorded dead branch (`build/first-light/DEPLOY.md`
+  correction-of-record; relapsed once in-session 07-16 and caught). The
+  existing `data/*.ednl` logs are bridges: they replay once into the
+  cluster, then retire. License verified 2026-07-17: Rama free for
+  production ≤2 nodes. Server-trigger rule: the land moves to an always-on
+  box only when the first organ must run while Sid sleeps (consolidator /
+  overnight agents / phone); the idle Ryzen 5 2600 PC is earmarked for that
+  day; the MacBook stays vault-only, never a runtime.
 - **The map must not lie.** Provenance is first-class everywhere:
   `asserted-by` (sid | llm | import) rides every relation; machine output is
   visibly distinct from Sid's hand, always; silver/gold tiers where machine
@@ -122,14 +144,12 @@ which crossroads did we take."
 ## Only Sid decides
 
 Spending money · pushing/merging the docs branch (never) · `env.clj` (never
-read it) · North's text · genuinely irreversible architecture forks. Current
-open fork of that kind: **durability** — durable cluster vs durable
-spine-edge replay log.
+read it) · North's text · genuinely irreversible architecture forks. No fork
+of that kind is currently open (durability closed 2026-07-17 — settled
+architecture above).
 
 ## Open questions — undecided; say your take when you hit one
 
-- The genesis act (Sid's abiogenesis question, LOG 2026-07-14): with all bases landed and the old UI discarded as past, what is the first thing that lives in Softland — what does login show, and how does building-Softland-in-Softland actually start? Candidate landing from the same-day three-track exploration: `build/first-light/DIRECTION.md` (the evolution law + wish-unit conversation-face genesis) — awaits Sid's ratification.
-- The durability fork (above — Sid's).
 - Confidence/credential algebra for the trail→code join.
 - Question-as-first-class-unit design (design track).
 - The requests-vs-walls law's final strength: Sid removed the BINDING form

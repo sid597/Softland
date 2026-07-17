@@ -7,11 +7,11 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
-**Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: none. block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (their CONTRACTs remain binding records for staged later slices).
+**Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **durable-ground** (OPEN 07-17, `build/durable-ground/`). block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (their CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-07-14, two entries** (latest: **naming + care + instance→type** — Softland is the counter-position to Dynamicland, "build the dream of dynamicland in softland"; **care as the human feature** — caretaker guides doer, humans drive, never autopilot; UI evolution mechanic = repair an instance → promotes to the type, "starting from a point of: I can chat with softland". Earlier same day: **the abiogenesis question** → decisions.md Open questions. Direction exploration ran same session — landing routes at close). Earlier: **the drawn views are references, not targets** (07-13 — REFERENCE examples for "we need a way to design in softland itself"; no view content is settled anywhere; C1/C2 reworded) · notebook pages 07-12 (verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; FOREST carries the five-unlock ordering) + the base-layer commission (→ decisions.md base ruling + `build/scene-substrate/`). Open pulls (prune as absorbed):
-- LOG 07-14 **care as the human feature / caretaker-guides-doer** + **Softland = build Dynamicland's dream in software** (the naming rationale) → North candidates, next vision sitting (Sid's hand only)
+**Vision:** LOG routed through **2026-07-17** (the genesis sitting lands: **first-light RATIFIED** + **durability reaffirmed verbatim** + the lineage harvest + the walkthrough drills; strands in the LOG 07-17 entry, routing recorded there). Prior high-water **2026-07-14, two entries** (latest: **naming + care + instance→type** — Softland is the counter-position to Dynamicland, "build the dream of dynamicland in softland"; **care as the human feature** — caretaker guides doer, humans drive, never autopilot; UI evolution mechanic = repair an instance → promotes to the type, "starting from a point of: I can chat with softland". Earlier same day: **the abiogenesis question** → decisions.md Open questions. Direction exploration ran same session — landing routes at close). Earlier: **the drawn views are references, not targets** (07-13 — REFERENCE examples for "we need a way to design in softland itself"; no view content is settled anywhere; C1/C2 reworded) · notebook pages 07-12 (verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; FOREST carries the five-unlock ordering) + the base-layer commission (→ decisions.md base ruling + `build/scene-substrate/`). Open pulls (prune as absorbed):
+- LOG 07-14 **care as the human feature / caretaker-guides-doer** + **Softland = build Dynamicland's dream in software** (the naming rationale) → North candidates, next vision sitting (Sid's hand only); the 07-15/17 sitting adds the joining frame **care-amplification** — intelligence became cheap, care is the scarce input the medium should compound (Fable frame, Sid-engaged; LOG 07-17)
 - LOG 07-10/11/12+13 **the design unlock = the LOOP, not the drawn views** — "a tool to build the tool: design, deploy and use it all at once all from softland" (Sid ranks it #1) + figma-style direct edit as a capability ask. BETS Candidates C1/C2 carry these; **all claude.ai renders + existing example faces = reference scrap with zero authority (Sid, 07-13)** — what views should represent is an open question only Sid answers, ideally from inside the land once the loop exists. Substrate prerequisite already landed (`c788188`: every rendered rt-node carries its template's `:assembly/src-path`).
 - LOG 07-11 **"optimized on every dimension while maintaining explorable explanations + lineage, live and composable"** → North-grade sentence, Sid's hand only — next vision sitting
 - LOG 07-11 **branch-from-base** (two worlds built out of one base, code-diff-like) → input to the spatial contracts (SPACE lane)
@@ -37,18 +37,20 @@ right now and in future" (Sid's own ranking; state current per item):
    renders + existing example faces are reference scrap with zero authority;
    what views represent is his open question. Machinery real: faces-as-
    assemblies + arsenal (07-11), click-to-edit substrate (`c788188`), the
-   scene floor (CLOSED 07-13). Next concrete: **first-light STAGED,
-   awaiting Sid's one-line ratification** — the 07-14 genesis landing,
-   amended 07-15 (`build/first-light/DIRECTION.md`: the evolution law;
-   wish-unit conversation face; split A = one local worn arrangement
-   repair / B = inheritance, opens only on genuine recurrence; absorbs
-   the minimum P3c main-face seam — the vs-P3c fork was false). Pre-req
-   slice **durable-ground** (Sid's 07-15 durability ruling; mechanism
-   corrected same day after his catch — no hand-rolled journal, depots
-   ARE the durable log; `build/first-light/DEPLOY.md`): real single-node
-   Rama cluster + native backups → rsync vault + boot-ingest OFF
-   startup; contract to be written under /rama. C1/C2 =
-   capability labels only.
+   scene floor (CLOSED 07-13). Next concrete: **first-light RATIFIED
+   2026-07-17** (Sid: "i want to see the first light asap") — the 07-14
+   genesis landing, amended 07-15 (`build/first-light/DIRECTION.md`: the
+   evolution law; wish-unit conversation face; split A = one local worn
+   arrangement repair / B = inheritance, opens only on genuine recurrence;
+   absorbs the minimum P3c main-face seam — the vs-P3c fork was false).
+   Pre-req slice **durable-ground — OPEN 07-17** (Sid's 07-15 durability
+   ruling, reaffirmed verbatim 07-17; mechanism corrected after his catch —
+   no hand-rolled journal, depots ARE the durable log;
+   `build/first-light/DEPLOY.md`): real single-node Rama cluster + native
+   backups → rsync vault + boot-ingest OFF startup; contract at
+   `build/durable-ground/CONTRACT.md` under /rama (license check answered
+   07-17: free ≤2 nodes). first-light A contract follows durable-ground.
+   C1/C2 = capability labels only.
 2. **Editor + write + per-object control** — Sid: "once we have this every
    other thing I can just directly build into it." Whole-loop question
    ANSWERED (07-12): direct Rama round-trip, echo p95 7.66ms, NO optimistic
@@ -204,7 +206,18 @@ round → benchmark room (question bank waits on kinds).
 
 ## Active package blocks
 
-None. Closed package records remain under `build/<package>/`; active entries are
+**durable-ground — OPEN 2026-07-17.** Pre-first-light durability slice per the
+07-15 ruling (`build/first-light/DEPLOY.md`, reaffirmed verbatim 07-17): real
+single-node Rama cluster on the PC + Rama-native backups → rsync vault +
+boot-ingest off the startup path; no hand-rolled journals; existing
+`data/*.ednl` WALs replay once as bridges, then retire. Thread:
+`build/durable-ground/NOW.md` · contract: `build/durable-ground/CONTRACT.md`
+(written under /rama). Fable implements directly (Sid: "first light asap").
+Gates carried from DEPLOY.md: kill-9-mid-typing restart drill · echo
+re-measure vs the S3 budget (p95≤50ms / p99≤100ms) · IPC-developed modules
+deploy unchanged · backup + restore exercised · footprint measured.
+
+Closed package records remain under `build/<package>/`; active entries are
 added here only while work is live. Precedence unchanged: thread files and this
 board NEVER outrank CONTRACT.md or settled ground — flag discrepancies inline,
 don't pause.
