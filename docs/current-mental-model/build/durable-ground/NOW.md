@@ -66,3 +66,34 @@
   commits are Sid's call. Next: P3 — `app.server.rama.cluster` ns +
   boot-flag seam in `file_viewer.cljc` (T5, T6), then G3 full-app boot
   against the cluster.
+
+- **2026-07-17 · Fable · P3 + P4 — DONE. G3 PASS (one item open), G4 PASS.**
+  P3: `app.server.rama.cluster` (manager + shape-identical bundles,
+  total-with-RETRY memos — a delay would cache a cluster-down nil, T6; no
+  com.rpl.rama.test require = T5 by construction) + seam: `trail-rt`/`face-rt`
+  branch on LAND_CLUSTER=1; jetty /assert routed via `trail-runtime-ref`
+  (IDeref+IPending — `realized?` on a plain reify throws) + nil log-path in
+  cluster mode; `record-wear!` explicit-nil = WAL off (fallback default would
+  have silently defeated P4's WAL-off; flagged as sanctioned WAL-removal work).
+  **G3:** app boots on cluster, WebGPU up, 0 client errors, ZERO ingest lines
+  (T9 clean); reader face worn over migrated conversation; REAL keystroke
+  round-trip: narrow truth-echo p50 30ms/p95 52ms/0 stalls/0 unechoed (n=10,
+  cold — S3 verdict belongs to P5's 720-sample run); drill chars RESTORED by
+  Backspace through the same organ, tail verified via cluster read. Open G3
+  item: trail-face render check (drive `/trail` in browser) — next session.
+  **P4/G4 receipt:** sweep 308/308 · spine 685 commits/712 edges · wear bridge
+  57/0 · faces 4/4 · distill river 247 debris 399, object-key == the
+  PRE-COMPUTED deterministic address (boot never re-distills) · block-edit
+  bridge 10/0 (the G8 numbers) · machine-cut 34/0 · relation-assert WAL absent
+  on disk → honest no-op (the "4th log" never existed) · same-unit truth +
+  stale `{:rejected :edit/stale}` durable + §3 id-families disjoint
+  (oc:doc: vs chat:/du:) + 4403 activity entries. Judgment calls: foreign
+  client threads are NON-DAEMON → `-X` entries System/exit (observed hang);
+  spine-run-id now STABLE "durable-ground-cluster" (delete cursor if cluster
+  ever rebuilt empty); machine-cut live-annotate WAL left ON (doubles as its
+  stale-reconcile — residue); util-fns text-kernel IPC delay is action-driven,
+  outside §4 scope (residue); default-conversation literal duplicated in
+  cluster ns until the IPC branch retires. bin/land grew ingest|migrate
+  (clj -X one-shots). Code UNCOMMITTED. Next: P5 drills (kill-9 mid-typing,
+  daemon restart, echo re-measure vs S3, footprint; REBOOT = SID) → P6
+  backup/restore → close (incl. LAND_CLUSTER default flip decision).

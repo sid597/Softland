@@ -206,16 +206,19 @@ round → benchmark room (question bank waits on kinds).
 
 ## Active package blocks
 
-**durable-ground — OPEN 2026-07-17.** Pre-first-light durability slice per the
-07-15 ruling (`build/first-light/DEPLOY.md`, reaffirmed verbatim 07-17): real
-single-node Rama cluster on the PC + Rama-native backups → rsync vault +
-boot-ingest off the startup path; no hand-rolled journals; existing
-`data/*.ednl` WALs replay once as bridges, then retire. Thread:
-`build/durable-ground/NOW.md` · contract: `build/durable-ground/CONTRACT.md`
-(written under /rama). Fable implements directly (Sid: "first light asap").
-Gates carried from DEPLOY.md: kill-9-mid-typing restart drill · echo
-re-measure vs the S3 budget (p95≤50ms / p99≤100ms) · IPC-developed modules
-deploy unchanged · backup + restore exercised · footprint measured.
+**durable-ground — OPEN 2026-07-17 · P0–P4 DONE (G1–G4 PASS).** Pre-first-light
+durability slice per the 07-15 ruling (`build/first-light/DEPLOY.md`,
+reaffirmed verbatim 07-17): real single-node Rama cluster on the PC +
+Rama-native backups → rsync vault + boot-ingest off the startup path; no
+hand-rolled journals; the `data/*.ednl` WALs bridge-replayed 2026-07-17 and
+retired (WAL writes off in cluster mode). Cluster LIVE with the land's five
+modules + migrated corpus; LAND_CLUSTER=1 boots the app on it (G3: 0 errors,
+edit round-trip receipted). Thread + receipts: `build/durable-ground/NOW.md` ·
+contract: `build/durable-ground/CONTRACT.md`. Remaining: G3 trail-face render
+check · P5 drills (kill-9 mid-typing · daemon restart · echo re-measure vs S3
+p95≤50ms/p99≤100ms · footprint · **machine reboot = SID'S MOVE**) · P6
+backup+restore · close (gate review, retro, LAND_CLUSTER default flip). Code
+UNCOMMITTED (Sid's call). Fable implements directly (Sid: "first light asap").
 
 Closed package records remain under `build/<package>/`; active entries are
 added here only while work is live. Precedence unchanged: thread files and this
