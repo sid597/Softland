@@ -97,3 +97,29 @@
   (clj -X one-shots). Code UNCOMMITTED. Next: P5 drills (kill-9 mid-typing,
   daemon restart, echo re-measure vs S3, footprint; REBOOT = SID) → P6
   backup/restore → close (incl. LAND_CLUSTER default flip decision).
+
+- **2026-07-17 · Fable · G3-leftover + P5 + P6 + CLOSE — DONE. Gate PASS
+  (G5c reboot = Sid's open slot).** G3: `/trail timeline` typed through the
+  real panel → migrated corpus rendered from cluster PStates, 0 errors.
+  P5a: OC worker 84500 kill-9 at t+10s mid-typing → replacement 213986 at
+  t+11s; cluster read = pre-text + exactly the 50 pre-kill chars (acked=
+  durable, zero loss); unit restored via the organ. FINDING: in-flight
+  foreign failure kills the live Electric session (reload heals; 30s pong
+  timeout) — availability residue → first-light. P5b/P6 minted **T11**:
+  interrupted shutdownCluster RESUMES on next boot killing all workers; a
+  COMPLETED shutdown self-exits every daemon; bin/land down/backup now wait
+  on the terminal marker (set-e-safe if-forms). P5d: cluster echo c12 n=720
+  p95 7.86 / p99 9.98 ms, 0 stalls — S3 PASS ~6x headroom (+0.2ms vs IPC).
+  P5e: cluster ~8.1GB RSS total. P6/G6: cold backup 20260717-200611 (1.6G);
+  scratch-dir restore booted + served identical reads. CLOSE: default-on
+  flip (LAND_CLUSTER=0 opts out) verified by bare-env boot; suites 19t/314a
+  + 21t/333a green; T4/T6 re-checked (T6 driven BOTH halves — down=honest
+  empty, up=same-JVM heal). GATE.md + RETRO.md written. Probe-rig facts
+  (recipe — /tmp scripts are disposable): headed Chrome DISPLAY=:0 + CDP
+  :9222 + `--enable-unsafe-webgpu --enable-features=Vulkan`; the cmd panel
+  BOOTS OPEN (Ctrl+K would close it — type directly); keystrokes ride
+  window KeyboardEvents (m/relieve last-wins — pace ≥50ms/char); cljs
+  interop via `window.cljs.core` + `__softland_atoms`. Leftovers for Sid:
+  reboot drill card (close handoff) · `rm -rf /mnt/data/rama/
+  data-restore-scratch` · vault rsync · code commit (then re-run git-spine
+  suites).

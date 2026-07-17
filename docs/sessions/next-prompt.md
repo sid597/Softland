@@ -7,7 +7,7 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
-**Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **durable-ground** (OPEN 07-17, `build/durable-ground/`). block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (their CONTRACTs remain binding records for staged later slices).
+**Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (opening — `build/first-light/DIRECTION.md`). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
 **Vision:** LOG routed through **2026-07-17** (the genesis sitting lands: **first-light RATIFIED** + **durability reaffirmed verbatim** + the lineage harvest + the walkthrough drills; strands in the LOG 07-17 entry, routing recorded there). Prior high-water **2026-07-14, two entries** (latest: **naming + care + instance→type** — Softland is the counter-position to Dynamicland, "build the dream of dynamicland in softland"; **care as the human feature** — caretaker guides doer, humans drive, never autopilot; UI evolution mechanic = repair an instance → promotes to the type, "starting from a point of: I can chat with softland". Earlier same day: **the abiogenesis question** → decisions.md Open questions. Direction exploration ran same session — landing routes at close). Earlier: **the drawn views are references, not targets** (07-13 — REFERENCE examples for "we need a way to design in softland itself"; no view content is settled anywhere; C1/C2 reworded) · notebook pages 07-12 (verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; FOREST carries the five-unlock ordering) + the base-layer commission (→ decisions.md base ruling + `build/scene-substrate/`). Open pulls (prune as absorbed):
@@ -37,19 +37,16 @@ right now and in future" (Sid's own ranking; state current per item):
    renders + existing example faces are reference scrap with zero authority;
    what views represent is his open question. Machinery real: faces-as-
    assemblies + arsenal (07-11), click-to-edit substrate (`c788188`), the
-   scene floor (CLOSED 07-13). Next concrete: **first-light RATIFIED
-   2026-07-17** (Sid: "i want to see the first light asap") — the 07-14
-   genesis landing, amended 07-15 (`build/first-light/DIRECTION.md`: the
-   evolution law; wish-unit conversation face; split A = one local worn
-   arrangement repair / B = inheritance, opens only on genuine recurrence;
-   absorbs the minimum P3c main-face seam — the vs-P3c fork was false).
-   Pre-req slice **durable-ground — OPEN 07-17** (Sid's 07-15 durability
-   ruling, reaffirmed verbatim 07-17; mechanism corrected after his catch —
-   no hand-rolled journal, depots ARE the durable log;
-   `build/first-light/DEPLOY.md`): real single-node Rama cluster + native
-   backups → rsync vault + boot-ingest OFF startup; contract at
-   `build/durable-ground/CONTRACT.md` under /rama (license check answered
-   07-17: free ≤2 nodes). first-light A contract follows durable-ground.
+   scene floor (CLOSED 07-13). Next concrete: **first-light A** (RATIFIED
+   2026-07-17, Sid: "i want to see the first light asap"; the 07-14 genesis
+   landing amended 07-15 — `build/first-light/DIRECTION.md`: the evolution
+   law; wish-unit conversation face; split A = one local worn arrangement
+   repair / B = inheritance, opens only on genuine recurrence; absorbs the
+   minimum P3c main-face seam). Pre-req **durable-ground CLOSED 07-17**:
+   the land runs on the real single-node cluster BY DEFAULT
+   (LAND_CLUSTER=0 opts back to IPC); acked writes survive kill-9 (worn);
+   echo p95 7.86ms on-cluster (S3 ~6x headroom); backup+scratch-restore
+   proven; records `build/durable-ground/{GATE,RETRO,NOW}.md`.
    C1/C2 = capability labels only.
 2. **Editor + write + per-object control** — Sid: "once we have this every
    other thing I can just directly build into it." Whole-loop question
@@ -80,6 +77,16 @@ Softland or still on paper? (`BETS.md` verdict log.)
 
 ## SID'S MOVES — everything that waits on you alone, cheapest first
 
+0. **durable-ground leftovers (all one-liners):** (a) the G5c REBOOT drill —
+   reboot the PC, log in, `bin/land up`, wait ~2 min, `clj -M:dev:test -m dev`,
+   open the app: the same conversation + revisions + trail present = receipt
+   (paste what you see into the next session). (b) `rm -rf
+   /mnt/data/rama/data-restore-scratch` (1.6G drill leftover; rm was
+   permission-blocked for the session). (c) vault leg: rsync
+   `/mnt/data/rama/backups/` to the Mac. (d) CODE commit (your call, one
+   commit: cluster.clj + 4 seam files + bin/land + ops/ + build.clj; docs
+   already committed separately) — then re-run the git-spine suite pair
+   (HEAD moves).
 1. **Wear session at the dev app:** the editor (`build/editor-feel/NOW.md`
    verdict) · Boxes/Minimap (gesture-feel notes feed the P3c/gesture
    slices). (block-write G8 and scene-substrate's final looks
@@ -206,19 +213,13 @@ round → benchmark room (question bank waits on kinds).
 
 ## Active package blocks
 
-**durable-ground — OPEN 2026-07-17 · P0–P4 DONE (G1–G4 PASS).** Pre-first-light
-durability slice per the 07-15 ruling (`build/first-light/DEPLOY.md`,
-reaffirmed verbatim 07-17): real single-node Rama cluster on the PC +
-Rama-native backups → rsync vault + boot-ingest off the startup path; no
-hand-rolled journals; the `data/*.ednl` WALs bridge-replayed 2026-07-17 and
-retired (WAL writes off in cluster mode). Cluster LIVE with the land's five
-modules + migrated corpus; LAND_CLUSTER=1 boots the app on it (G3: 0 errors,
-edit round-trip receipted). Thread + receipts: `build/durable-ground/NOW.md` ·
-contract: `build/durable-ground/CONTRACT.md`. Remaining: G3 trail-face render
-check · P5 drills (kill-9 mid-typing · daemon restart · echo re-measure vs S3
-p95≤50ms/p99≤100ms · footprint · **machine reboot = SID'S MOVE**) · P6
-backup+restore · close (gate review, retro, LAND_CLUSTER default flip). Code
-UNCOMMITTED (Sid's call). Fable implements directly (Sid: "first light asap").
+**first-light A — OPENING** (the genesis package; contract being authored per
+`build/first-light/DIRECTION.md` + the durable-ground close). Durable ground
+is live under it: the dev boot rides the real cluster by default.
+
+durable-ground — CLOSED 2026-07-17 (one day, P0→close): gate PASS, records
+`build/durable-ground/{CONTRACT,GATE,RETRO,NOW}.md`; G5c reboot receipt =
+Sid's slot (his move list, item 0a); code UNCOMMITTED (Sid's call).
 
 Closed package records remain under `build/<package>/`; active entries are
 added here only while work is live. Precedence unchanged: thread files and this

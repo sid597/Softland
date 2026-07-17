@@ -76,18 +76,26 @@ which crossroads did we take."
 - **Rama is truth.** Workers, agents, and UI actions stream observations and
   requests INTO Rama as events; the UI reads materialized state OUT. No
   side-channel state, no truth outside the log.
-- **Durable ground (Sid 2026-07-15; reaffirmed verbatim 2026-07-17):** the
-  land runs on a REAL single-node Rama cluster on Sid's PC — depots and
-  PStates are the durable log; restart recovery is native. Backups are
-  Rama's built-in mechanism to a local filesystem target, rsync'd to the Mac
-  vault (vault copies inherit never-pushed privacy; encrypt if they ever
-  leave the two machines). Boot-time ingest comes OFF the startup path (an
-  explicit command instead). **No hand-rolled journals** — an EDN WAL beside
-  Rama is the recorded dead branch (`build/first-light/DEPLOY.md`
+- **Durable ground (Sid 2026-07-15; reaffirmed verbatim 2026-07-17; BUILT —
+  package closed 2026-07-17, gate PASS):** the land runs on a REAL
+  single-node Rama cluster on Sid's PC — depots and PStates are the durable
+  log; restart recovery is native (worn: kill -9 mid-typing lost zero acked
+  writes, worker replaced in ~1s; on-cluster echo p95 7.86ms, S3 with ~6x
+  headroom). The dev boot rides the cluster BY DEFAULT; `LAND_CLUSTER=0`
+  opts back into the in-memory IPC boot; tests use IPC constructors
+  directly, untouched. `bin/land` owns daemon/deploy/backup mechanics.
+  Backups are the free-tier COLD procedure to a local target
+  (backup+scratch-restore proven), rsync'd to the Mac vault (vault copies
+  inherit never-pushed privacy; encrypt if they ever leave the two
+  machines). Boot-time ingest is OFF the startup path (`bin/land ingest`
+  explicit). **No hand-rolled journals** — an EDN WAL beside Rama is the
+  recorded dead branch (`build/first-light/DEPLOY.md`
   correction-of-record; relapsed once in-session 07-16 and caught). The
-  existing `data/*.ednl` logs are bridges: they replay once into the
-  cluster, then retire. License verified 2026-07-17: Rama free for
-  production ≤2 nodes. Server-trigger rule: the land moves to an always-on
+  `data/*.ednl` logs were bridges: replayed once into the cluster
+  2026-07-17, retired (kept as history). License verified 2026-07-17: Rama
+  free for production ≤2 nodes. Records:
+  `build/durable-ground/{GATE,RETRO}.md`; the machine-reboot receipt is
+  Sid's outstanding slot. Server-trigger rule: the land moves to an always-on
   box only when the first organ must run while Sid sleeps (consolidator /
   overnight agents / phone); the idle Ryzen 5 2600 PC is earmarked for that
   day; the MacBook stays vault-only, never a runtime.

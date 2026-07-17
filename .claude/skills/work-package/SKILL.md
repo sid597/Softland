@@ -58,6 +58,30 @@ adversarial recheck is deferred on cost — Sid's call — so these rules carry
 that caveat): falsification-batch sizing, transition-keyed identity,
 cross-package pinned scans, inherited wearing.
 
+**Amended 2026-07-17 at the durable-ground close** (`build/durable-ground/
+RETRO.md`; recheck deferred on cost — Sid's call). Ops-heavy packages (live
+external systems, drills as the wearing layer) add four rules, each from a
+concrete failure that day:
+- **Ops scripts gating on an external state machine wait on the TERMINAL
+  marker, never a sleep or a CLI exit code** — an interrupted
+  `shutdownCluster` persisted in ZK and RESUMED on the next boot, killing
+  every worker (P5b); the completing CLI's own poll dies once daemons
+  self-exit, so its exit code lies (P6). And in `set -e` scripts, wait-loops
+  use if-forms — a no-match `grep -q X && break` aborts the script silently
+  (the first backup run died exactly there).
+- **Failure-drill receipts are SERVER-READ receipts.** A client-side
+  snapshot captured across a kill drill can be the frozen cache of a session
+  the drill itself killed — P5a's "restored" snapshot came from a dead
+  Electric session; the cluster read told the truth (and a stronger one).
+- **Bank receipt numbers at capture time; /tmp probe rigs are disposable.**
+  A tmpfiles sweep deleted two sessions' scratchpads mid-close (scripts, raw
+  results, screenshots); zero evidence was lost only because every number
+  was already in the conversation/NOW. The reusable rig FACTS (flags, traps,
+  interop shapes) go in the thread file, not the scripts.
+- **Size guesses about durable state are measured at first contact** — the
+  contract said backup snapshots are "MBs"; reality was 1.6GB quiesced/3.0GB
+  live. Harmless here; a cadence decision made on it would not have been.
+
 ## What a work package is
 
 One bounded build (so far: a Rama kernel) run against a binding contract, by
