@@ -10,9 +10,9 @@ receipt there.
 
 Amended 2026-07-18 — the moment-0 correction (Sid, verbatim in
 `vision/LOG.md` 07-18; WALKTHROUGH revised in place same day): §3.1, T9,
-§7 (P2b + G4b inserted), §9 (redlines 4–6). P2's durability machinery and
-its G3/G4 receipts stand unchanged — the correction is projection/input
-layer only.
+§7 (P2b + G4b inserted), §9 (redlines 4–5 added). P2's durability
+machinery and its G3/G4 receipts stand unchanged — the correction is
+projection/input layer only.
 
 ## 1. Purpose
 
@@ -63,7 +63,10 @@ Rama module (zero) · editor-feel work · multi-inhabitant anything.
   A pre-placed cursor is the substrate choosing the first position; the
   first position is the first act of taste. Click → caret at the chosen
   point → typed words become a block THERE (type-without-click lands
-  under the pointer). Enter = newline; Ctrl+Enter speaks to the resident.
+  under the pointer). Enter = newline; Ctrl+Enter speaks to the resident
+  — addressing, never saving: text is durable as typed, and un-sent
+  blocks stay unread by the resident (the "just noting" semantics)
+  until the ambient-reader era.
   The land is a pannable/zoomable space; blocks are draggable objects;
   camera + positions persist as settled truth (WALKTHROUGH laws
   1/3/10/15, moments 0–6). No command panel, no /commands, no sidebar,
@@ -250,10 +253,12 @@ Anything else that looks kernel-shaped → stop clause.
   extended with a settled class: never per-event, one write at burst-end
   (debounce ~300–500ms) + flush on leave; restore at boot (same place,
   same zoom, blocks where left — the settings-truth lane shape,
-  runtime.cljs:181–260). Typing durability is NOT open — §9.4 is the
-  standing law (everything through Rama, committed echo); the client-only
-  buffer dies in this phase. One design call before coding: the position
-  truth home — §9.5 (lean on-unit). **G4b:**
+  runtime.cljs:181–260). Typing rides the standing law like everything
+  else — every keystroke through Rama, rendered from the committed echo
+  (the unit exists from birth via the §5.1 lane; keystrokes on the
+  block-write grain — worn organ, echo p95 7.66ms stream / 26.6ms
+  browser); P2's client-only buffer dies in this phase. One design call
+  before coding: the position truth home — §9.4 (lean on-unit). **G4b:**
   fresh world screenshots as NOTHING; click-place → power-cycle → the
   block returns at its position with sid provenance and the camera
   returns where left (G3's grade extended to geometry); Ctrl+Enter
@@ -312,29 +317,12 @@ Anything else that looks kernel-shaped → stop clause.
    kind — confirm or name the kind now (one reviewed line either way).
 3. **Candidate naming** `asm:<name>--wish-<n>` (§4) — working scaffolding;
    rename at will, the fork identity survives renames via `based-on`.
-4. **Pre-send durability — NEVER A FORK (recorded 2026-07-18).** The
-   standing law covers typing like everything else: every write goes
-   through Rama and renders from the committed echo; Rama's disk log
-   replays on boot, so state survives UI and PC shutdown (proven at
-   power-cycle grade, G3). P2's client-only buffer (typed text held in
-   a browser atom until Ctrl+Enter) was a DEVIATION from that law, not
-   an incumbent design — P2b removes it, no adjudication, no options.
-   The path rides existing organs: the block unit exists from birth
-   (the §5.1 native lane), keystrokes ride the committed edit grain
-   (block-write — worn organ, echo p95 7.66ms stream / 26.6ms browser);
-   exact wiring is the implementing session's call INSIDE existing
-   organs (§8 governs anything topology-shaped). Ctrl+Enter is pure
-   addressing over already-durable material ("i do want the text to
-   persist it just does not go to llm if i don't do ctrl+enter" — Sid).
-   Corollary stands: durable ≠ in-the-resident's-context — un-sent
-   blocks are permanent in the land but unread by the resident, which
-   IS the "just noting" semantics until the ambient-reader era.
-5. **Position truth home.** Lean: birth-position at mint + drag-settle
+4. **Position truth home.** Lean: birth-position at mint + drag-settle
    edits ON the OC unit riding existing edit machinery — geometry as
    material attribute; the log stays truth, geometry stays projection.
    Alternative (assembly-arrangement revisions — one revision per drag)
    judged too heavy. Anything topology-shaped → stop.
-6. **Placement + gesture defaults**: reply beneath the spoken block,
+5. **Placement + gesture defaults**: reply beneath the spoken block,
    left-aligned; press-move threshold separates drag from click-to-edit.
    Both named wish-fodder; re-tune at will.
 
