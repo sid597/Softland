@@ -1,6 +1,7 @@
 (ns build
   (:require
     [build.slug-font :as slug-font]
+    [clojure.edn :as edn]
     [clojure.tools.build.api :as b]
     [clojure.tools.logging :as log]
     [shadow.cljs.devtools.api :as shadow-api]
@@ -60,6 +61,30 @@
              :uber-file jar-name
              :basis     (b/create-basis {:project "deps.edn" :aliases aliases})})
     (log/info jar-name)))
+
+(defn module-jar
+  "Slim source jar for `rama deploy` (durable-ground CONTRACT §7 P2, traps
+   T4/T5): server module sources + non-rama deps. NO client build; NO
+   com.rpl/rama — the cluster provides it, so the dep tree is resolved with
+   rama removed at the root and excluded from rama-helpers (Maven
+   provided-scope equivalent). Invoke: clj -X:build module-jar
+   Gate (T4): jar < 150MB and no rpl/rama impl classes inside."
+  [_argmap]
+  (b/delete {:path "target/land-modules"})
+  (b/delete {:path "target/land-modules.jar"})
+  ;; env.clj carries secrets and no module requires it — it must never ride
+  ;; into a deploy artifact (hard rule; belt regardless of jar staying local).
+  (b/copy-dir {:target-dir "target/land-modules/classes" :src-dirs ["src"]
+               :ignores [#"env\.clj"]})
+  (let [deps (-> (slurp "deps.edn")
+                 edn/read-string
+                 (update :deps dissoc 'com.rpl/rama)
+                 (update-in [:deps 'com.rpl/rama-helpers]
+                            assoc :exclusions ['com.rpl/rama]))]
+    (b/uber {:class-dir "target/land-modules/classes"
+             :uber-file "target/land-modules.jar"
+             :basis     (b/create-basis {:project deps})})
+    (log/info "module jar: target/land-modules.jar")))
 
 (defn build-slug-font
   "Generate Slug assets for the default DejaVu Sans Mono font bundle.

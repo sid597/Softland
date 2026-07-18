@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+# bin/land — durable-ground cluster operations (CONTRACT §2, §7).
+# The ONE place module vars/names and daemon mechanics live (trap T7).
+# Usage: bin/land up|down|status|license|deploy|ingest|migrate|backup|restore-drill|help
+set -euo pipefail
+
+RAMA_ROOT="${LAND_RAMA_ROOT:-/mnt/data/rama}"
+RELEASE_DIR="$RAMA_ROOT"                # release unpacks FLAT: rama CLI at root
+DATA_DIR="$RAMA_ROOT/data"              # local.dir (ZK + depots + PStates)
+BACKUP_DIR="$RAMA_ROOT/backups"
+LOG_DIR="$RAMA_ROOT/daemon-logs"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+RAMA="$RELEASE_DIR/rama"
+
+# CONTRACT §4 — the deployed module set. Clojure deploys take the
+# namespace-qualified VAR (--module); status/destroy take the module NAME.
+# Both spellings live HERE and nowhere else (T7).
+MODULE_VARS=(
+  "app.server.rama.object-container/object-container-module"
+  "app.server.rama.object-container/object-container-transcript-ops-module"
+  "app.server.rama.relation-kernel/relation-kernel-module"
+  "app.server.rama.trail-view/trail-view-module"
+  "app.server.rama.face-arsenal/face-arsenal-module"
+)
+# Module NAMES are printed by `bin/land status` from deployed-module list;
+# filled in at P2 once get-module-name output is observed (TBD until then).
+
+UBERJAR="$REPO_DIR/target/land-modules.jar"
+DEPLOY_OPTS=(--tasks 8 --threads 4 --workers 1)
+CONFIG_OVERRIDES="$REPO_DIR/ops/worker-overrides.yaml"   # T2: worker heap pin
+
+need_release() {
+  [[ -x "$RAMA" ]] || { echo "no release at $RAMA — run the P1 unpack first"; exit 1; }
+  # CLI reads rama.yaml beside the script — keep it synced from the repo copy.
+  cp "$REPO_DIR/ops/rama.yaml" "$RELEASE_DIR/rama.yaml"
+}
+
+# Daemon identification: every Rama JVM carries rpl.rama.distributed.* as its
+# main class (verified live, P1): command.dev_zookeeper · daemon.conductor ·
+# daemon.supervisor · workers. Match on main class, never on wrapper names.
+pattern_for() {
+  case "$1" in
+    devzookeeper) echo "rpl.rama.distributed.command.dev_zookeeper" ;;
+    conductor)    echo "rpl.rama.distributed.daemon.conductor" ;;
+    supervisor)   echo "rpl.rama.distributed.daemon.supervisor" ;;
+    all)          echo "rpl.rama.distributed" ;;
+  esac
+}
+
+start_daemon() { # name, command...
+  local name="$1"; shift
+  mkdir -p "$LOG_DIR"
+  if pgrep -f "$(pattern_for "$name")" >/dev/null 2>&1; then
+    echo "$name: already running"; return 0
+  fi
+  # setsid + nohup: daemons survive the launching shell/session (P1 note:
+  # systemd user units are the later nicety; this is the worn-first form).
+  (cd "$RELEASE_DIR" && setsid nohup "$@" >>"$LOG_DIR/$name.log" 2>&1 &)
+  echo "$name: started (log: $LOG_DIR/$name.log)"
+}
+
+case "${1:-help}" in
+  up)
+    need_release
+    mkdir -p "$DATA_DIR"
+    start_daemon devzookeeper ./rama devZookeeper
+    sleep 3
+    start_daemon conductor    ./rama conductor
+    sleep 3
+    start_daemon supervisor   ./rama supervisor
+    echo "cluster UI: http://localhost:8888"
+    ;;
+  down)
+    # Graceful when possible; the daemons are safe to kill hard (recovery is
+    # native — that is the whole point of this package).
+    # T11 (P5b finding): an INTERRUPTED shutdownCluster persists its intent in
+    # ZK; the next conductor boot RESUMES it and kills every worker into
+    # CLUSTER-SHUTDOWN-COMPLETE ("Awaiting exit"). Always wait for the
+    # terminal state (watching only log lines newer than the call) before
+    # pkill. Recovery if it ever fires anyway: one more plain restart — a
+    # COMPLETED shutdown clears on the next fresh boot.
+    need_release
+    lines_before=$(wc -l < "$RAMA_ROOT/logs/conductor.log" 2>/dev/null || echo 0)
+    # P6 finding: shutdownCluster's own completion-poll dies with a thrift
+    # connect error once the daemons exit — guard it, completion is judged
+    # from the log/procs below, not from the CLI's exit code.
+    (cd "$RELEASE_DIR" && ./rama shutdownCluster) || true
+    for i in $(seq 1 60); do
+      # if-form: a no-match grep must not trip set -e (P6 finding)
+      if tail -n +"$((lines_before + 1))" "$RAMA_ROOT/logs/conductor.log" 2>/dev/null \
+           | grep -q 'CLUSTER-SHUTDOWN-COMPLETE'; then break; fi
+      # a COMPLETED shutdown makes every daemon exit itself (P6 observation)
+      if ! pgrep -f "$(pattern_for all)" >/dev/null 2>&1; then break; fi
+      sleep 2
+    done
+    pkill -f "$(pattern_for all)" || true
+    echo "daemons stopped"
+    ;;
+  status)
+    need_release
+    (cd "$RELEASE_DIR" && ./rama licenseInfo) || true
+    curl -s -o /dev/null -w "cluster UI :8888 -> HTTP %{http_code}\n" http://localhost:8888 || true
+    pgrep -f "$(pattern_for all)" >/dev/null 2>&1 \
+      && ps -o pid=,rss= -p $(pgrep -d, -f "$(pattern_for all)") | awk '{printf "  pid %s  rss %.0fMB\n", $1, $2/1024}' \
+      || echo "  no rama processes"
+    ;;
+  license)
+    need_release
+    (cd "$RELEASE_DIR" && ./rama licenseInfo)
+    ;;
+  deploy)
+    need_release
+    [[ -f "$UBERJAR" ]] || { echo "no uberjar at $UBERJAR — run: clj -T:build uberjar"; exit 1; }
+    for mv in "${MODULE_VARS[@]}"; do
+      echo "deploying $mv ..."
+      (cd "$RELEASE_DIR" && ./rama deploy --action launch --jar "$UBERJAR" \
+          --module "$mv" "${DEPLOY_OPTS[@]}" \
+          --configOverrides "$CONFIG_OVERRIDES")
+      # Settle before the next deploy: concurrent launches collided at P2
+      # (batch died on module #2; same class as the board's G14 IPC note).
+      for i in $(seq 1 24); do
+        st="$(cd "$RELEASE_DIR" && ./rama moduleStatus "$mv" 2>/dev/null \
+              | grep -o '"moduleState":"[A-Z_]*"' | head -1)"
+        [[ "$st" == '"moduleState":"RUNNING"' ]] && break
+        sleep 5
+      done
+      echo "   $mv -> ${st:-unknown}"
+    done
+    ;;
+  ingest)
+    # T9: sweep + git-spine, EXPLICIT (never on the app startup path). Safe to
+    # re-run — deterministic ids + idempotency journals converge.
+    (cd "$REPO_DIR" && clj -X:test app.server.rama.cluster/ingest!)
+    ;;
+  migrate)
+    # CONTRACT §7 P4 — migration day, one-shot: corpus ingest → faces + wear
+    # bridge → default-conversation harvest/distill + block-edit bridge →
+    # machine-cut bridge. Prints the G4 receipt map.
+    (cd "$REPO_DIR" && clj -X:test app.server.rama.cluster/migrate!)
+    ;;
+  backup)
+    # CONTRACT §5 — free-tier COLD backup: shutdown → copy → restart → vault.
+    need_release
+    stamp="$(date +%Y%m%d-%H%M%S)"
+    dest="$BACKUP_DIR/$stamp"
+    echo "cold backup → $dest (cluster goes down briefly)"
+    # T11: wait for the TERMINAL shutdown state, not a guessed sleep — an
+    # interrupted shutdown resumes on the next boot and kills the workers.
+    # Guards + if-form + daemons-gone clause: P6 findings (see `down`).
+    lines_before=$(wc -l < "$RAMA_ROOT/logs/conductor.log" 2>/dev/null || echo 0)
+    (cd "$RELEASE_DIR" && ./rama shutdownCluster) || true
+    echo "waiting for CLUSTER-SHUTDOWN-COMPLETE..."
+    for i in $(seq 1 60); do
+      if tail -n +"$((lines_before + 1))" "$RAMA_ROOT/logs/conductor.log" 2>/dev/null \
+           | grep -q 'CLUSTER-SHUTDOWN-COMPLETE'; then break; fi
+      if ! pgrep -f "$(pattern_for all)" >/dev/null 2>&1; then break; fi
+      sleep 2
+    done
+    pkill -f "$(pattern_for all)" || true; sleep 2
+    mkdir -p "$dest"
+    cp -a "$DATA_DIR" "$dest/data"
+    echo "$stamp $(du -sh "$dest" | cut -f1)" >> "$BACKUP_DIR/ledger.txt"
+    "$0" up
+    echo "backup done: $dest — rsync to the vault is the second leg (Mac awake)."
+    ;;
+  restore-drill)
+    # G6: prove the recipe against a SCRATCH dir — never the live data dir.
+    latest="$(ls -1 "$BACKUP_DIR" | grep -v ledger | sort | tail -1 || true)"
+    [[ -n "$latest" ]] || { echo "no backups in $BACKUP_DIR"; exit 1; }
+    echo "restore drill would use: $BACKUP_DIR/$latest (scratch local.dir swap —"
+    echo "run at P6 with the cluster down; see CONTRACT §7 P6)"
+    ;;
+  help|*)
+    sed -n '2,4p' "$0"
+    echo "commands: up · down · status · license · deploy · ingest · migrate · backup · restore-drill"
+    ;;
+esac

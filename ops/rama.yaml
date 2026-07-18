@@ -1,0 +1,22 @@
+# durable-ground single-node cluster config (CONTRACT §7 P1).
+# Copied into the unpacked release dir by `bin/land up` — the rama CLI reads
+# rama.yaml from the directory of the `rama` script. Conductor + Supervisor
+# share this file on a single node (each uses its own subdir of local.dir).
+# devZookeeper also runs from the same release (T1: persistence verified by
+# the G1/G5 drills; swap to a real single-node Zookeeper if T1 fires).
+
+zookeeper.servers:
+  - "localhost"
+
+conductor.host: "localhost"
+
+# All durable state (ZK data, depot log segments, PState RocksDB, worker
+# dirs) lives under this directory — the thing `bin/land backup` snapshots.
+local.dir: "/mnt/data/rama/data"
+
+# Defaults kept explicit so footprint is a chosen number (T2 pins worker
+# heap separately via --configOverrides at deploy time):
+# conductor.child.opts: "-Xmx1024m"   (default)
+# supervisor.child.opts: "-Xmx256m"   (default)
+# cluster.ui.port: 8888               (default)
+cluster.metadata: "softland durable-ground (single node)"
