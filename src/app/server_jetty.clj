@@ -770,35 +770,44 @@ information."
                (try (.flush writer) (catch Exception _ nil))
                (try (.close writer) (catch Exception _ nil)))))))}))
 
-;;; ── first-light A P2 · the episode turn (SSE over POST) ────────────────────
+;;; ── first-light A P2b · the episode turn (SSE over POST) ───────────────────
 ;;
-;; The ground's ONE lane (CONTRACT §3, T9): Ctrl+Enter → this endpoint. Event
-;; order IS the causal order the contract demands:
-;;   :episode-durable   — the utterance is in object-container, sid-asserted,
-;;                        acked (append+await), BEFORE the agent is spawned (G3)
+;; The ground's send lane (CONTRACT §7 P2b addressing): Ctrl+Enter fires from
+;; the FOCUSED block, whose content is ALREADY durable (birthed + committed-
+;; echo edits — the P2 client-buffer mint is dead). What becomes durable HERE,
+;; BEFORE the agent spawns, is the revision-pinned TURN RECORD: source-block-id
+;; + the pinned content (text + kernel hash) + send-time position — later
+;; edits or moves never rewrite what the resident answered. Event order:
+;;   :episode-durable   — the turn record is acked (append+await), BEFORE the
+;;                        agent is spawned (the durable-BEFORE-agent law,
+;;                        unchanged)
 ;;   <claude stream events> — the resident agent's live turn (the existing CLI
 ;;                        lane; subscription auth, zero keys)
 ;;   :run-done/:run-error   — the turn closes honestly (timeout/failed named)
 ;;   :episode-distilled — post-turn harvest+distill receipt (T8; G4); the
 ;;                        ingest epoch bump makes the worn face re-pull TRUTH
-;; A failed utterance mint emits :run-error and never spawns the agent.
+;; The turn cell's status is overwritten :open → :complete/:failed/:timeout at
+;; turn end; an abrupt JVM death leaves :open — the honest open fact (G4b).
+;; A failed turn-record mint emits :run-error and never spawns the agent.
 
 (defn run-episode-turn
-  "POST /api/episode/utterance {:text :turn-id :time-ms :prev-turn-id} → SSE.
-   turn-id + time-ms are CLIENT-minted once per Ctrl+Enter (the wear-id
-   precedent) so an HTTP retry re-derives identical import identity and the
-   journal no-ops — never a double utterance."
+  "POST /api/episode/utterance {:source-unit-id :content-text :position
+   :turn-id :time-ms :prev-turn-id} → SSE. turn-id + time-ms are CLIENT-minted
+   once per Ctrl+Enter (the wear-id precedent) so an HTTP retry re-derives
+   identical import identity and the journal no-ops — never a double turn."
   [request-data]
-  (let [text         (str (:text request-data))
-        turn-id      (str (:turn-id request-data))
-        time-ms      (long (or (:time-ms request-data) (System/currentTimeMillis)))
-        prev-turn-id (:prev-turn-id request-data)
-        cwd          (str (or (:cwd request-data) (System/getProperty "user.dir")))
-        timeout-ms   (long (or (:timeout-ms request-data) 600000))
-        ;; drill seam (G3/G4): a machinery drill names its OWN episode so the
-        ;; GENESIS first utterance stays Sid's act (§11). The ground client
+  (let [text           (str (:content-text request-data))
+        source-unit-id (:source-unit-id request-data)
+        position       (:position request-data)
+        turn-id        (str (:turn-id request-data))
+        time-ms        (long (or (:time-ms request-data) (System/currentTimeMillis)))
+        prev-turn-id   (:prev-turn-id request-data)
+        cwd            (str (or (:cwd request-data) (System/getProperty "user.dir")))
+        timeout-ms     (long (or (:timeout-ms request-data) 600000))
+        ;; drill seam (G3/G4/G4b): a machinery drill names its OWN episode so
+        ;; the GENESIS first utterance stays Sid's act (§11). The ground client
         ;; never sends this; nil = the genesis episode.
-        conv-id      (:conversation-id request-data)]
+        conv-id        (:conversation-id request-data)]
     {:status  200
      :headers {"Content-Type"      "text/event-stream"
                "Cache-Control"     "no-cache"
@@ -810,15 +819,21 @@ information."
          (let [writer (OutputStreamWriter. output-stream "UTF-8")]
            (try
              (let [oc-rt (:oc-rt (fv/face-ctx))]
-               (if (or (str/blank? text) (str/blank? turn-id) (nil? oc-rt))
+               (if (or (str/blank? text) (str/blank? turn-id)
+                       (str/blank? (str source-unit-id)) (nil? oc-rt))
                  (write-event! writer {:kind :run-error :event :run-error
                                        :ts (System/currentTimeMillis)
                                        :error (cond (nil? oc-rt) :land-unavailable
                                                     (str/blank? text) :empty-utterance
+                                                    (str/blank? (str source-unit-id)) :missing-source-block
                                                     :else :missing-turn-id)})
                  (let [durable (try
-                                 (episode/append-utterance!
-                                  oc-rt {:text text :turn-id turn-id
+                                 (episode/record-turn!
+                                  oc-rt {:turn-id turn-id
+                                         :source-unit-id source-unit-id
+                                         :content-text text
+                                         :position position
+                                         :status :open
                                          :time-ms time-ms :prev-turn-id prev-turn-id
                                          :conversation-id conv-id})
                                  (catch Exception e
@@ -826,18 +841,15 @@ information."
                    (if-not (= :accepted (:status durable))
                      (write-event! writer {:kind :run-error :event :run-error
                                            :ts (System/currentTimeMillis)
-                                           :error :utterance-not-durable
+                                           :error :turn-not-durable
                                            :detail (dissoc durable :decision)})
                      (do
-                       ;; the mint IS an ingest — the worn face re-pulls the
-                       ;; utterance from durable truth (INV-19; no optimism)
-                       (swap! util-fns/!ingest-epoch-atom inc)
                        (write-event! writer {:kind :episode-durable :event :episode-durable
                                              :ts (System/currentTimeMillis)
                                              :turn-id turn-id
+                                             :source-unit-id source-unit-id
                                              :address (:address durable)
-                                             :import-key (:import-key durable)
-                                             :unit-ids (:unit-ids durable)})
+                                             :import-key (:import-key durable)})
                        (let [!stream-state (atom (initial-stream-state))
                              done-promise  (promise)
                              argv (episode/summon-argv {:cwd cwd :prompt text
@@ -869,6 +881,21 @@ information."
                                       [state* emit] (apply-stream-invariants @!stream-state terminal-evt)]
                                   (reset! !stream-state state*)
                                   (when emit (write-event! writer emit))))
+                              ;; the turn cell's status overwrite (:open →
+                              ;; :complete/:failed/:timeout) — best-effort; a
+                              ;; failure here leaves the honest :open fact
+                              (try
+                                (episode/record-turn!
+                                 oc-rt {:turn-id turn-id
+                                        :source-unit-id source-unit-id
+                                        :content-text text
+                                        :position position
+                                        :status status
+                                        :time-ms time-ms :prev-turn-id prev-turn-id
+                                        :conversation-id conv-id})
+                                (catch Exception e
+                                  (log/warn "[EPISODE][TURN-STATUS-FAILED]"
+                                            {:turn-id turn-id :error (.getMessage e)})))
                               ;; post-turn distill runs on the waiter thread —
                               ;; the stream stays open until the receipt lands
                               (let [distill (try
@@ -1414,6 +1441,63 @@ information."
                        {:remote-addr (:remote-addr ring-req) :uri uri})
             (json-response {:error (str "Episode turn failed: " (.getMessage e))})))
         (json-response {:error "Method not allowed. Use POST."}))
+
+      ;; first-light A P2b — block birth: the FIRST content act mints the
+      ;; durable block at the chosen point (unit + birth-position geometry
+      ;; cell in ONE acked import — §5.1 lane; block-id + time-ms are
+      ;; CLIENT-minted once, so retries converge). Escape before content
+      ;; never reaches here — no unit is ever minted for an abandoned anchor.
+      (= uri "/api/episode/block-birth")
+      (if (= request-method :post)
+        (try
+          (let [{:keys [block-id text time-ms position conversation-id]}
+                (parse-edn-body ring-req)
+                oc-rt (:oc-rt (fv/face-ctx))]
+            (if (or (nil? oc-rt) (str/blank? (str block-id)) (nil? text))
+              (edn-response 400 {:status :rejected
+                                 :error (if (nil? oc-rt) :land-unavailable :bad-request)})
+              (let [r (episode/append-utterance!
+                       oc-rt {:text (str text) :turn-id (str block-id)
+                              :time-ms (long (or time-ms (System/currentTimeMillis)))
+                              :position position
+                              :conversation-id conversation-id})]
+                (when (= :accepted (:status r))
+                  ;; the mint IS an ingest (INV-19) — the face re-pull is the
+                  ;; committed-echo cross-check channel
+                  (swap! util-fns/!ingest-epoch-atom inc))
+                (edn-response (if (= :accepted (:status r)) 200 409)
+                              (dissoc r :decision)))))
+          (catch Exception e
+            (log/error e "[EPISODE][BIRTH-ERROR]" {:uri uri})
+            (edn-response 500 {:status :error :error (.getMessage e)})))
+        (edn-response 405 {:error "Method not allowed. Use POST."}))
+
+      ;; first-light A P2b — the geometry settle write: camera + block
+      ;; positions as SETTLE-STATE truth (one acked write per gesture burst,
+      ;; never per-event; the ack IS the safety mechanism). Hint-only import,
+      ;; settled cells (P2B.md receipt a). No epoch bump — geometry changes
+      ;; no served block material.
+      (= uri "/api/episode/geometry")
+      (if (= request-method :post)
+        (try
+          (let [{:keys [cells camera settle-id time-ms conversation-id]}
+                (parse-edn-body ring-req)
+                oc-rt (:oc-rt (fv/face-ctx))]
+            (if (or (nil? oc-rt) (str/blank? (str settle-id))
+                    (and (empty? cells) (nil? camera)))
+              (edn-response 400 {:status :rejected
+                                 :error (if (nil? oc-rt) :land-unavailable :bad-request)})
+              (let [r (episode/settle-geometry!
+                       oc-rt {:cells (vec cells) :camera camera
+                              :settle-id (str settle-id)
+                              :time-ms (long (or time-ms (System/currentTimeMillis)))
+                              :conversation-id conversation-id})]
+                (edn-response (if (= :accepted (:status r)) 200 409)
+                              (dissoc r :decision)))))
+          (catch Exception e
+            (log/error e "[EPISODE][GEOMETRY-ERROR]" {:uri uri})
+            (edn-response 500 {:status :error :error (.getMessage e)})))
+        (edn-response 405 {:error "Method not allowed. Use POST."}))
 
       (= uri "/api/agent/run-status")
       (let [run-id (get query-params "run-id")]

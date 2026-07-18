@@ -202,16 +202,271 @@
    (subs (str text) 0 (min 120 (count (str text))))
    nil))
 
+;; ===========================================================================
+;; §B2 · Geometry cells + turn records (P2b — settled truth as projection
+;; cells; receipt: P2B.md §receipt-a)
+;;
+;; A settled cell = ONE :transcript-conversation-projection hint at a
+;; DETERMINISTIC order-key — the import topology's hint write is an upsert
+;; keyed (conversation-container-id, order-key), so each settle overwrites
+;; the cell in place; last acknowledged settle wins. Rides hint-only imports
+;; (the F3 ruling) under the EXISTING imp:ep: shape (routing is shape-based —
+;; zero kernel edits). geo:/ep-turn: order-keys are namespace-disjoint from
+;; every co-tenant and invisible to river-page/read-utterance-rows (positive
+;; entry-kind filters). The cell value rides an extra assoc'd :geometry /
+;; :turn key (round-trip proven live) with :content-preview carrying
+;; (pr-str value) as the fingerprinted belt.
+;;
+;; Placement identity is world-scoped (§9.3): for A the genesis world IS the
+;; episode container, so world-id = the episode object-key; B/worlds mint
+;; real world-ids. A unit never means one position in all Softlands.
+;; ===========================================================================
+
+(defn world-id
+  "The world a geometry cell belongs to. A-scoped: the episode object-key."
+  [object-key]
+  object-key)
+
+(defn geometry-order-key
+  "geo:unit:<sha8(unit-id)> — ONE settled cell per unit (upsert-in-place)."
+  [unit-id]
+  (str "geo:unit:" (subs (core/sha-256 (str unit-id)) 0 8)))
+
+(def camera-order-key "geo:camera")
+
+(defn geometry-cell-hint
+  "ONE settled-cell hint row. `value` is the whole world-scoped cell value
+   ({:world-id :unit-id :x :y} or camera {:world-id :x :y :zoom})."
+  [object-key order-key entry-kind value settle-id imp-key request-id]
+  (let [event-id (str "evt:" object-key ":"
+                      (core/sha-256 (str "geo " settle-id " " order-key)))]
+    (assoc (oc/->TranscriptConversationProjectionRow
+            :transcript-conversation-projection
+            (tid/chat-conversation-id object-key)
+            order-key entry-kind
+            nil nil nil nil nil nil
+            event-id request-id imp-key
+            nil nil
+            (pr-str value)
+            nil)
+           :geometry value)))
+
+(defn geometry-settle-request
+  "ONE hint-only import carrying a settle write: per-unit position cells +
+   (optionally) the camera cell, all in one acked barrier. settle-id is
+   CLIENT-minted once per gesture-end (the turn-id precedent): a retry
+   re-derives identical identity and journals a no-op; a REUSED settle-id
+   with different geometry fingerprint-conflicts into a durable rejection
+   (the G4b forced-stale drill's mechanism)."
+  [{:keys [object-key cells camera settle-id time-ms]}]
+  (let [imp-key    (str "imp:ep:" object-key ":"
+                        (core/sha-256 (str "geometry-settle " settle-id)))
+        request-id (str "req:episode-geo:" object-key ":"
+                        (core/sha-256 (str settle-id)))
+        wid        (world-id object-key)
+        cell-hints (mapv (fn [{:keys [unit-id x y]}]
+                           (geometry-cell-hint
+                            object-key (geometry-order-key unit-id)
+                            :episode-geometry
+                            {:world-id wid :unit-id unit-id
+                             :x (double x) :y (double y)}
+                            settle-id imp-key request-id))
+                         cells)
+        cam-hint   (when camera
+                     (geometry-cell-hint
+                      object-key camera-order-key :episode-camera
+                      {:world-id wid
+                       :x (double (:x camera)) :y (double (:y camera))
+                       :zoom (double (or (:zoom camera) 1.0))}
+                      settle-id imp-key request-id))
+        hints      (cond-> cell-hints cam-hint (conj cam-hint))
+        payload    {:object-key           object-key
+                    :source-artifacts     []
+                    :object-containers    []
+                    :revisions            []
+                    :derived-units        []
+                    :source-anchors       []
+                    :composition-edges    []
+                    :source-versions      []
+                    :projection-hints     hints
+                    :source-line-statuses []}
+        fingerprint (oc/import-material-fingerprint object-key imp-key payload)]
+    (assoc (core/action-request
+            {:request-id   request-id
+             :request-type :object-container/import-material
+             :time-ms      (long time-ms)
+             :actor        (utterance-actor)
+             :target       {:target/kind :object-container-import
+                            :target/id imp-key
+                            :target/address {:object/key object-key}}
+             :action       {:action/type :object-container/import-material
+                            :action/capability :object-container/import-material
+                            :action/params {:source/format :episode-geometry}}
+             :routing/key  [:object-container/import object-key]
+             :payload      payload
+             :provenance   {:source/type :episode}})
+           :partition/key      object-key
+           :object/key         object-key
+           :import/key         imp-key
+           :idempotency/key    imp-key
+           :material/fingerprint fingerprint)))
+
+(defn settle-geometry!
+  "Land ONE settle write (append+await — the ack IS the acknowledged settle,
+   the safety mechanism; the exit flush is only a belt)."
+  [oc-rt {:keys [conversation-id] :as args}]
+  (let [object-key (episode-object-key (or conversation-id genesis-conversation-id))
+        req (geometry-settle-request (assoc args :object-key object-key))]
+    (ocr/append-object-container-request! oc-rt req)
+    (let [decision (ocr/await-object-container-decision oc-rt req 20000)]
+      {:status (if (= :accepted (:status decision)) :accepted :rejected)
+       :address object-key
+       :decision decision})))
+
+(defn read-geometry-cells
+  "{unit-id → cell-value} + :camera — the boot-restore read (also served
+   through the face pull; this is the receipt/drill form)."
+  [oc-rt object-key]
+  (let [rows (->> (ocr/read-transcript-conversation-projection
+                   oc-rt (tid/chat-conversation-id object-key) "" 100000)
+                  (filter #(contains? #{:episode-geometry :episode-camera}
+                                      (:entry-kind %))))]
+    {:cells  (into {} (keep (fn [r]
+                              (when (= :episode-geometry (:entry-kind r))
+                                (when-let [g (:geometry r)]
+                                  [(:unit-id g) g]))))
+                   rows)
+     :camera (some #(when (= :episode-camera (:entry-kind %)) (:geometry %)) rows)}))
+
+(defn turn-order-key
+  "ep-turn:<%020d time>:<sha8(turn-id)> — ONE cell per turn; status updates
+   overwrite it (open → complete/failed). Disjoint from every co-tenant."
+  [time-ms turn-id]
+  (str "ep-turn:" (format "%020d" (long time-ms)) ":"
+       (subs (core/sha-256 (str turn-id)) 0 8)))
+
+(defn turn-record-request
+  "The revision-pinned turn record (P2b addressing): source-block-id + the
+   pinned content (text + kernel source-hash) + send-time position + status.
+   Durable BEFORE the agent is spawned; later edits/moves never rewrite what
+   the resident answered — the pin lives in this cell. Each STATUS mints its
+   own import-key (same-status retries converge; different statuses overwrite
+   the one cell)."
+  [{:keys [object-key turn-id source-unit-id content-text position
+           time-ms prev-turn-id status]}]
+  (let [imp-key    (str "imp:ep:" object-key ":"
+                        (core/sha-256 (str "turn-record " turn-id " " (name status))))
+        request-id (str "req:episode-turn:" object-key ":"
+                        (core/sha-256 (str turn-id " " (name status))))
+        value      {:world-id       (world-id object-key)
+                    :turn-id        (str turn-id)
+                    :source-unit-id source-unit-id
+                    :content-text   (str content-text)
+                    :content-hash   (oc/source-hash (str content-text))
+                    :position       position
+                    :status         status
+                    :time-ms        (long time-ms)
+                    :prev-turn-id   prev-turn-id}
+        event-id   (str "evt:" object-key ":"
+                        (core/sha-256 (str "turn " turn-id " " (name status))))
+        hint       (assoc (oc/->TranscriptConversationProjectionRow
+                           :transcript-conversation-projection
+                           (tid/chat-conversation-id object-key)
+                           (turn-order-key time-ms turn-id)
+                           :episode-turn
+                           nil nil nil nil nil nil
+                           event-id request-id imp-key
+                           (str turn-id) utterance-actor-id
+                           ;; fingerprinted pin: hash + status + source + pos
+                           ;; (full text rides :turn; preview stays bounded)
+                           (pr-str (select-keys value
+                                                [:turn-id :source-unit-id
+                                                 :content-hash :position
+                                                 :status :prev-turn-id]))
+                           nil)
+                          :turn value)
+        payload    {:object-key           object-key
+                    :source-artifacts     []
+                    :object-containers    []
+                    :revisions            []
+                    :derived-units        []
+                    :source-anchors       []
+                    :composition-edges    []
+                    :source-versions      []
+                    :projection-hints     [hint]
+                    :source-line-statuses []}
+        fingerprint (oc/import-material-fingerprint object-key imp-key payload)]
+    (assoc (core/action-request
+            {:request-id   request-id
+             :request-type :object-container/import-material
+             :time-ms      (long time-ms)
+             :actor        (utterance-actor)
+             :target       {:target/kind :object-container-import
+                            :target/id imp-key
+                            :target/address {:object/key object-key}}
+             :action       {:action/type :object-container/import-material
+                            :action/capability :object-container/import-material
+                            :action/params {:source/format :episode-turn}}
+             :routing/key  [:object-container/import object-key]
+             :payload      payload
+             :provenance   {:source/type :episode}})
+           :partition/key      object-key
+           :object/key         object-key
+           :import/key         imp-key
+           :idempotency/key    imp-key
+           :material/fingerprint fingerprint)))
+
+(defn record-turn!
+  "Land ONE turn-record status write (append+await). :open lands BEFORE the
+   agent spawns (durable-BEFORE-agent, the existing lane's law); :complete/
+   :failed/:timeout overwrite the same cell at turn end. An abrupt JVM death
+   between the two leaves :open — the honest open fact G4b demands."
+  [oc-rt {:keys [conversation-id] :as args}]
+  (let [object-key (episode-object-key (or conversation-id genesis-conversation-id))
+        req (turn-record-request (assoc args :object-key object-key))]
+    (ocr/append-object-container-request! oc-rt req)
+    (let [decision (ocr/await-object-container-decision oc-rt req 20000)]
+      {:status (if (= :accepted (:status decision)) :accepted :rejected)
+       :address object-key
+       :import-key (:import/key req)
+       :decision decision})))
+
+(defn read-turn-records
+  "Turn cells in time order (the drill/receipt read; the serve path threads
+   the same rows through the face pull)."
+  [oc-rt object-key]
+  (->> (ocr/read-transcript-conversation-projection
+        oc-rt (tid/chat-conversation-id object-key) "" 100000)
+       (filter #(= :episode-turn (:entry-kind %)))
+       (sort-by :order-key)
+       (keep :turn)
+       vec))
+
 (defn utterance-import-request
   "ONE :object-container/import-material action-request for ONE utterance.
    Deterministic request-id/import-key/fingerprint on (turn-id, text,
    time-ms) — the client mints turn-id + time-ms ONCE per Ctrl+Enter, so
-   retries converge (T8's class). Mirrors bd/import-request."
-  [{:keys [object-key turn-id text time-ms] :as args}]
+   retries converge (T8's class). Mirrors bd/import-request.
+   P2b: `turn-id` is the BIRTH id — the client-minted block id whose first
+   content act mints this unit; `:position` (optional) adds the block's
+   birth-position geometry cell to the SAME payload, so birth + placement
+   land in one acked import (birth-position at mint, §9.3)."
+  [{:keys [object-key turn-id text time-ms position] :as args}]
   (let [{:keys [surface units anchors event-id source-id]} (utterance-rows args)
         imp-key     (utterance-import-key object-key turn-id)
         request-id  (utterance-request-id object-key turn-id)
         hint        (utterance-projection-hint args imp-key request-id source-id event-id)
+        geo-hints   (when position
+                      (mapv (fn [u]
+                              (geometry-cell-hint
+                               object-key (geometry-order-key (:unit-id u))
+                               :episode-geometry
+                               {:world-id (world-id object-key)
+                                :unit-id (:unit-id u)
+                                :x (double (:x position))
+                                :y (double (:y position))}
+                               (str "birth " turn-id) imp-key request-id))
+                            units))
         payload     {:object-key           object-key
                      :source-artifacts     [surface]
                      :object-containers    []
@@ -220,7 +475,7 @@
                      :source-anchors       anchors
                      :composition-edges    []
                      :source-versions      []
-                     :projection-hints     [hint]
+                     :projection-hints     (into [hint] geo-hints)
                      :source-line-statuses []}
         fingerprint (oc/import-material-fingerprint object-key imp-key payload)]
     (assoc (core/action-request
@@ -253,13 +508,14 @@
    :address :unit-ids :import-key :decision}. The caller MUST see :accepted
    before the agent is summoned — the utterance is durable BEFORE any agent
    reads it (CONTRACT §3, G3)."
-  [oc-rt {:keys [text turn-id time-ms prev-turn-id conversation-id]}]
+  [oc-rt {:keys [text turn-id time-ms prev-turn-id conversation-id position]}]
   (let [object-key (episode-object-key (or conversation-id genesis-conversation-id))
         args {:object-key object-key
               :turn-id (str turn-id)
               :text (str text)
               :time-ms (long time-ms)
-              :prev-turn-id prev-turn-id}
+              :prev-turn-id prev-turn-id
+              :position position}
         req  (utterance-import-request args)]
     (ocr/append-object-container-request! oc-rt req)
     (let [decision (ocr/await-object-container-decision oc-rt req 20000)
@@ -268,6 +524,11 @@
        :address object-key
        :import-key (:import/key req)
        :unit-ids (mapv :unit-id (get-in req [:payload :derived-units]))
+       ;; P2b: the birth ack hands the client the envelope identity it needs
+       ;; for the FIRST replayed edits (BW-T7 — the client computes nothing;
+       ;; the served pull is not back yet at replay time)
+       :document-container-id (:document-container-id
+                               (first (get-in req [:payload :derived-units])))
        :decision decision})))
 
 (defn read-utterance-rows

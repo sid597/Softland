@@ -109,3 +109,91 @@
         "a tool_result-bearing user event is the agent's turn material — distill")
     (is (not (ep/native-turn-event? assistant (bd/distill-event assistant 2)))
         "assistant events always distill")))
+
+;; ===========================================================================
+;; first-light P2b — geometry cells + turn records (P2B.md receipt a)
+;; ===========================================================================
+
+(deftest geometry-settle-request-valid
+  (let [req (ep/geometry-settle-request
+             {:object-key (ep/genesis-object-key)
+              :cells [{:unit-id "du:test:u1" :x 100.5 :y 200.25}]
+              :camera {:x -40.0 :y 12.0 :zoom 1.5}
+              :settle-id "settle-0001"
+              :time-ms 1752700000000})]
+    (is (empty? (oc/import-request-validation-errors req))
+        "a hint-only settle import passes kernel validation (the F3 ruling)")
+    (is (= (ep/genesis-object-key) (oc/extract-object-key (:import/key req)))
+        "the settle key routes on the imp:ep: SHAPE — zero kernel edits")
+    (let [hints (get-in req [:payload :projection-hints])]
+      (is (= 2 (count hints)) "one cell + the camera")
+      (is (= #{:episode-geometry :episode-camera} (set (map :entry-kind hints))))
+      (is (every? #(clojure.string/starts-with? (str (:order-key %)) "geo:") hints)
+          "geo: namespace — disjoint from ep:/sb:/%020d co-tenants")
+      (is (= (ep/genesis-object-key)
+             (get-in (first hints) [:geometry :world-id]))
+          "placement identity is world-scoped [world-id, unit-id] (§9.3)"))))
+
+(deftest geometry-settle-determinism-and-cells
+  (testing "same settle-id + same payload = identical identity (retry no-op)"
+    (let [args {:object-key (ep/genesis-object-key)
+                :cells [{:unit-id "du:test:u1" :x 1.0 :y 2.0}]
+                :camera nil :settle-id "s1" :time-ms 5}
+          a (ep/geometry-settle-request args)
+          b (ep/geometry-settle-request args)]
+      (is (= (:import/key a) (:import/key b)))
+      (is (= (:material/fingerprint a) (:material/fingerprint b)))))
+  (testing "same settle-id + DIFFERENT geometry = fingerprint conflict material
+            (the G4b forced-stale drill's mechanism)"
+    (let [base {:object-key (ep/genesis-object-key)
+                :cells [{:unit-id "du:test:u1" :x 1.0 :y 2.0}]
+                :camera nil :settle-id "s1" :time-ms 5}
+          a (ep/geometry-settle-request base)
+          b (ep/geometry-settle-request (assoc-in base [:cells 0 :x] 999.0))]
+      (is (= (:import/key a) (:import/key b)) "same settle-id → same key")
+      (is (not= (:material/fingerprint a) (:material/fingerprint b))
+          "geometry participates in the fingerprint via the preview carrier")))
+  (testing "one unit = ONE cell address (upsert-in-place — settled semantics)"
+    (is (= (ep/geometry-order-key "du:test:u1") (ep/geometry-order-key "du:test:u1")))
+    (is (not= (ep/geometry-order-key "du:test:u1") (ep/geometry-order-key "du:test:u2")))))
+
+(deftest turn-record-pins-the-revision
+  (let [args {:object-key (ep/genesis-object-key)
+              :turn-id "turn-77" :source-unit-id "du:test:u1"
+              :content-text "the pinned words" :position {:x 3.0 :y 4.0}
+              :time-ms 1752700000000 :prev-turn-id "turn-76" :status :open}
+        req (ep/turn-record-request args)
+        [hint] (get-in req [:payload :projection-hints])]
+    (is (empty? (oc/import-request-validation-errors req)))
+    (is (= :episode-turn (:entry-kind hint)))
+    (is (clojure.string/starts-with? (str (:order-key hint)) "ep-turn:"))
+    (is (= "the pinned words" (get-in hint [:turn :content-text]))
+        "the pin carries the send-time content whole")
+    (is (= (oc/source-hash "the pinned words") (get-in hint [:turn :content-hash]))
+        "…and the kernel's own hash of it")
+    (testing "status updates overwrite ONE cell under DISTINCT import keys"
+      (let [done (ep/turn-record-request (assoc args :status :complete))]
+        (is (= (:order-key hint)
+               (:order-key (first (get-in done [:payload :projection-hints]))))
+            "same cell address")
+        (is (not= (:import/key req) (:import/key done))
+            "a status change is a new import, never a fingerprint conflict")))
+    (testing "same status retries converge"
+      (let [again (ep/turn-record-request args)]
+        (is (= (:import/key req) (:import/key again)))
+        (is (= (:material/fingerprint req) (:material/fingerprint again)))))))
+
+(deftest birth-carries-position-in-one-import
+  (let [req (ep/utterance-import-request
+             (assoc args :position {:x 55.0 :y 66.0}))
+        hints (get-in req [:payload :projection-hints])
+        geo   (filter #(= :episode-geometry (:entry-kind %)) hints)
+        units (get-in req [:payload :derived-units])]
+    (is (empty? (oc/import-request-validation-errors req))
+        "birth + placement land in ONE valid acked import (§9.3 birth-position at mint)")
+    (is (= (count units) (count geo)) "every birthed unit gets its cell")
+    (is (= 55.0 (get-in (first geo) [:geometry :x])))
+    (testing "no position → no geo hints (P2-shape unchanged)"
+      (is (empty? (filter #(= :episode-geometry (:entry-kind %))
+                          (get-in (ep/utterance-import-request args)
+                                  [:payload :projection-hints])))))))

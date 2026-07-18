@@ -224,6 +224,14 @@
                   :!face-context !face-context
                   :!focus        (:!focus atoms)})))
 
+(defn edit-submit!
+  "Raw access to the installed submit! seam (first-light P2b: the ground's
+   intent queue routes decisions through its OWN pure machine — ground_edit
+   — not be/on-decision; the continuation registry + result watch are
+   shared, keyed by request-id). nil until install."
+  []
+  (:submit! @!api))
+
 (defn edit-focused?
   "True when a face block is in edit mode (drives keyboard routing + escape)."
   []

@@ -114,6 +114,15 @@
    because folds need the artifact model for per-file scoping."
   #{:fold :unfold})
 
+(def ground-settled-events
+  "first-light P2b — the SETTLED class, the taxonomy's third member:
+   in-flight the gesture is EPHEMERAL (client 60Hz transforms, no events);
+   gesture-end ARMS one settle write (debounced over the burst) whose ACK
+   makes the settled state COMMITTED truth (episode geometry cells).
+   Never per-event; safety is the acknowledged settle write — the exit
+   flush is a belt, not the mechanism."
+  #{:block-position-settle :camera-settle})
+
 (defn editor-event-committed?
   "True if this editor event type is committed (content-changing or structural)."
   [event-type]
