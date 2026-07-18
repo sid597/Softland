@@ -235,7 +235,13 @@ Anything else that looks kernel-shaped → stop clause.
   Click → caret → block at the chosen point (type-without-click → under
   the pointer); Enter newline; Ctrl+Enter rides the EXISTING utterance
   lane (durable-BEFORE-agent unchanged); the reply renders as a
-  border-tinted block beneath the spoken block (default; wish-fodder).
+  border-tinted block beneath the SPOKEN block (default; wish-fodder).
+  Multi-block truth (the 5-blocks scenario, Sid 07-18): each block is
+  its own focusable slot; Ctrl+Enter fires from the FOCUSED block, so
+  the target is never ambiguous; the utterance POST carries the spoken
+  block's identity + position; the reply slot spawns relative to THAT
+  block (parent-relative placement — the container-transform substrate;
+  turn chaining via prev-turn-id already durable).
   The world camera goes live (pan/zoom — the scene-substrate seam, today
   pinned scroll-only/zoom-1.0 at scene_runtime.cljs:321); blocks drag
   with per-frame client transforms (`set-transform!`, the cheap path).
@@ -305,15 +311,20 @@ Anything else that looks kernel-shaped → stop clause.
    kind — confirm or name the kind now (one reviewed line either way).
 3. **Candidate naming** `asm:<name>--wish-<n>` (§4) — working scaffolding;
    rename at will, the fork identity survives renames via `based-on`.
-4. **Pre-send durability lane (WALKTHROUGH law 15).** Sid's 07-18 words
-   ("no save, no draft state, no submit … permanent as they appear")
-   reverse P2's shipped simplification (typed buffer = client-only until
-   Ctrl+Enter — leave mid-block today and the words are lost, which
-   breaks moment 5's trust). Contract default: durable-as-typed via the
-   block-write grain (proven organ — stream echo p95 7.66ms, browser
-   path 26.6ms); Ctrl+Enter becomes pure addressing over already-durable
-   material. Adjudicated at P2b design time with receipts; if no
-   existing organ carries it → stop clause.
+4. **Pre-send durability — ANSWERED (Sid, 2026-07-18): the text
+   PERSISTS as typed; Ctrl+Enter ONLY addresses the resident** ("i do
+   want the text to persist it just does not go to llm if i don't do
+   ctrl+enter"). This reverses P2's shipped simplification (typed buffer
+   = client-only browser state until Ctrl+Enter — as built, leaving
+   mid-block loses the words). What remains design-time is the LANE
+   only: durable-as-typed via the block-write grain (proven organ —
+   stream echo p95 7.66ms, browser path 26.6ms) vs a staged
+   settle-flush; adjudicated at P2b with receipts; if no existing organ
+   carries it → stop clause. Corollary, deliberate: durable ≠
+   in-the-resident's-context — the resident resumes its own CLI
+   transcript and reads only material that rode the send lane; un-sent
+   blocks are permanent in the land but unread, which IS the
+   "just noting" semantics until the ambient-reader era widens the read.
 5. **Position truth home.** Lean: birth-position at mint + drag-settle
    edits ON the OC unit riding existing edit machinery — geometry as
    material attribute; the log stays truth, geometry stays projection.

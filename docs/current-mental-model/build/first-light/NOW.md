@@ -128,3 +128,12 @@
   write at burst-end, never per-event). First light now WAITS on P2b;
   genesis stays VIRGIN. Next: P2b session (HANDOFF prompt at board
   top; §9.4–9.5 adjudications first).
+  **Later same day — §9.4 ANSWERED** (Sid verbatim: "i do want the text
+  to persist it just does not go to llm if i don't do ctrl+enter"):
+  persistence RULED IN; only the lane pick stays design-time. Corollary
+  recorded in §9.4: durable ≠ in-the-resident's-context (the resident
+  reads only lane material — the "just noting" semantics for free).
+  Reply placement confirmed for the multi-block case: beneath the
+  SPOKEN (focused) block — P2b spec now names the association plumbing
+  (per-block focus · POST carries source block identity + position ·
+  reply slot parent-relative).
