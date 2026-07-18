@@ -77,16 +77,15 @@ Softland or still on paper? (`BETS.md` verdict log.)
 
 ## SID'S MOVES — everything that waits on you alone, cheapest first
 
-0. **durable-ground leftovers (all one-liners):** (a) the G5c REBOOT drill —
-   reboot the PC, log in, `bin/land up`, wait ~2 min, `clj -M:dev:test -m dev`,
-   open the app: the same conversation + revisions + trail present = receipt
-   (paste what you see into the next session). (b) `rm -rf
-   /mnt/data/rama/data-restore-scratch` (1.6G drill leftover; rm was
+0. **durable-ground leftovers:** (a) the G5c REBOOT drill — the PC-reboot +
+   `bin/land up` half HAPPENED 2026-07-18 (mid-P2; machine-half receipts in
+   `build/first-light/P2.md`: drill episode + corpus 35/64/247 both served
+   post-reboot); YOUR half = open the app and see the conversation. (b)
+   `rm -rf /mnt/data/rama/data-restore-scratch` (1.6G drill leftover; rm was
    permission-blocked for the session). (c) vault leg: rsync
-   `/mnt/data/rama/backups/` to the Mac. (d) CODE commit (your call, one
-   commit: cluster.clj + 4 seam files + bin/land + ops/ + build.clj; docs
-   already committed separately) — then re-run the git-spine suite pair
-   (HEAD moves).
+   `/mnt/data/rama/backups/` to the Mac. ((d) CODE commit DONE 2026-07-18 at
+   Sid's word — `99e0a13` durable-ground + `34cb9e2` first-light P1+P2;
+   git-spine suite pair re-run at new HEAD: 16t/365a green.)
 1. **Wear session at the dev app:** the editor (`build/editor-feel/NOW.md`
    verdict) · Boxes/Minimap (gesture-feel notes feed the P3c/gesture
    slices). (block-write G8 and scene-substrate's final looks
@@ -231,10 +230,10 @@ utterance is Sid's act (§11): open localhost:8080 and speak.** Remaining:
 P3 wish (flag A adjudicates there) → P4 proposal+membrane → P5
 accept/reject/reverse/explain → P6 metabolism (G9 WAITS for a real
 friction — no fabrication). §9 redlines 2/3 still on contract defaults
-(`:references` · contract naming); veto anytime. P1+P2 code UNCOMMITTED
-(client + server + one §5.1 kernel branch; commit = Sid's call). G5c
-machine-half banked in passing: corpus 35/64/247 post-reboot — Sid's
-app-open check completes it.
+(`:references` · contract naming); veto anytime. Code COMMITTED 2026-07-18
+at Sid's word (`99e0a13` + `34cb9e2`; spine pair 16t/365a green at new
+HEAD). G5c machine-half banked in passing: corpus 35/64/247 post-reboot —
+Sid's app-open check completes it.
 
 durable-ground — CLOSED 2026-07-17 (one day, P0→close): gate PASS, records
 `build/durable-ground/{CONTRACT,GATE,RETRO,NOW}.md`; G5c reboot receipt =
