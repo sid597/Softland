@@ -250,9 +250,10 @@ Anything else that looks kernel-shaped → stop clause.
   extended with a settled class: never per-event, one write at burst-end
   (debounce ~300–500ms) + flush on leave; restore at boot (same place,
   same zoom, blocks where left — the settings-truth lane shape,
-  runtime.cljs:181–260). Two design-time adjudications with receipts
-  BEFORE building them (the flags-C/D/F pattern): (a) the pre-send
-  durability lane — §9.4; (b) the position truth home — §9.5. **G4b:**
+  runtime.cljs:181–260). Typing durability is NOT open — §9.4 is the
+  standing law (everything through Rama, committed echo); the client-only
+  buffer dies in this phase. One design call before coding: the position
+  truth home — §9.5 (lean on-unit). **G4b:**
   fresh world screenshots as NOTHING; click-place → power-cycle → the
   block returns at its position with sid provenance and the camera
   returns where left (G3's grade extended to geometry); Ctrl+Enter
@@ -311,20 +312,23 @@ Anything else that looks kernel-shaped → stop clause.
    kind — confirm or name the kind now (one reviewed line either way).
 3. **Candidate naming** `asm:<name>--wish-<n>` (§4) — working scaffolding;
    rename at will, the fork identity survives renames via `based-on`.
-4. **Pre-send durability — ANSWERED (Sid, 2026-07-18): the text
-   PERSISTS as typed; Ctrl+Enter ONLY addresses the resident** ("i do
-   want the text to persist it just does not go to llm if i don't do
-   ctrl+enter"). This reverses P2's shipped simplification (typed buffer
-   = client-only browser state until Ctrl+Enter — as built, leaving
-   mid-block loses the words). What remains design-time is the LANE
-   only: durable-as-typed via the block-write grain (proven organ —
-   stream echo p95 7.66ms, browser path 26.6ms) vs a staged
-   settle-flush; adjudicated at P2b with receipts; if no existing organ
-   carries it → stop clause. Corollary, deliberate: durable ≠
-   in-the-resident's-context — the resident resumes its own CLI
-   transcript and reads only material that rode the send lane; un-sent
-   blocks are permanent in the land but unread, which IS the
-   "just noting" semantics until the ambient-reader era widens the read.
+4. **Pre-send durability — NEVER A FORK (recorded 2026-07-18).** The
+   standing law covers typing like everything else: every write goes
+   through Rama and renders from the committed echo; Rama's disk log
+   replays on boot, so state survives UI and PC shutdown (proven at
+   power-cycle grade, G3). P2's client-only buffer (typed text held in
+   a browser atom until Ctrl+Enter) was a DEVIATION from that law, not
+   an incumbent design — P2b removes it, no adjudication, no options.
+   The path rides existing organs: the block unit exists from birth
+   (the §5.1 native lane), keystrokes ride the committed edit grain
+   (block-write — worn organ, echo p95 7.66ms stream / 26.6ms browser);
+   exact wiring is the implementing session's call INSIDE existing
+   organs (§8 governs anything topology-shaped). Ctrl+Enter is pure
+   addressing over already-durable material ("i do want the text to
+   persist it just does not go to llm if i don't do ctrl+enter" — Sid).
+   Corollary stands: durable ≠ in-the-resident's-context — un-sent
+   blocks are permanent in the land but unread by the resident, which
+   IS the "just noting" semantics until the ambient-reader era.
 5. **Position truth home.** Lean: birth-position at mint + drag-settle
    edits ON the OC unit riding existing edit machinery — geometry as
    material attribute; the log stays truth, geometry stays projection.

@@ -37,7 +37,7 @@
 1. **Utterance close — ANSWERED (Sid; built in P2):** Enter = newline; **Ctrl+Enter speaks to the AI**. (The earlier Enter-sends pick is dead.)
 2. **Click vs drag on a block:** default — press-and-move beyond a small threshold = drag the block as object; a clean click = edit caret at that point. Named default, wish-fodder.
 3. **Where wish text lives (P3):** at the target, as speech-at-attention (Law 11); exact rendering is P3 design.
-4. **Pre-send durability — ANSWERED (Sid, 07-18):** text persists as typed; Ctrl+Enter only addresses the resident. The lane pick + position truth home remain contract-level — CONTRACT §9.4–9.5.
+4. **Position truth home:** CONTRACT §9.5. (Pre-send durability was never a decision point — the standing law covers it: everything through Rama, rendered from the committed echo, replayed on boot; Law 15. Ctrl+Enter only addresses the resident.)
 
 ## Explicitly NOT in slice one
 

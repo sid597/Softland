@@ -29,9 +29,11 @@ Deliver P2b per the contract phase spec: arrival = NOTHING → click →
 caret → block at the chosen point · Enter newline / Ctrl+Enter → the
 existing durable-BEFORE-agent lane · reply = border-tinted block beneath
 · world camera pan/zoom live · drag via per-frame client transforms ·
-camera + positions as settle-state truth, restored at boot. Adjudicate
-FIRST, with receipts (the flags-C/D/F pattern): §9.4 pre-send durability
-lane · §9.5 position truth home. Gate G4b before declaring (includes
+camera + positions as settle-state truth, restored at boot. Typing
+durability is NOT open — §9.4 is standing law (everything through Rama,
+committed echo; the P2 client-only buffer dies in this phase). One
+design call before coding: §9.5 position truth home (lean on-unit).
+Gate G4b before declaring (includes
 power-cycle at position+camera grade; feel bar narrow-echo p95 ≤ 52ms).
 Stop clauses: CONTRACT §8 + anything topology-shaped for geometry.
 /rama before any Rama touch; falsification pass before close; append
@@ -264,8 +266,9 @@ caret contradicted his genesis (LOG 07-18, verbatim; WALKTHROUGH revised
 in place — arrival = NOTHING, click breaks it, blocks in a
 pannable/zoomable space). His first utterance lands in the corrected
 arrival (§11). Remaining: **P2b the open ground** (HANDOFF prompt at board
-top; §9.4–9.5 adjudications first — pre-send durability lane · position
-truth home) → P3 wish (flag A adjudicates there) → P4 proposal+membrane →
+top; one design call at build time — §9.5 position home; §9.4 typing
+durability was never open, standing law) → P3 wish (flag A adjudicates
+there) → P4 proposal+membrane →
 P5 accept/reject/reverse/explain → P6 metabolism (G9 WAITS for a real
 friction — no fabrication). §9 redlines 2/3 still on contract defaults
 (`:references` · contract naming); veto anytime. Code COMMITTED 2026-07-18

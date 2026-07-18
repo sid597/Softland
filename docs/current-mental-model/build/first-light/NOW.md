@@ -137,3 +137,12 @@
   SPOKEN (focused) block — P2b spec now names the association plumbing
   (per-block focus · POST carries source block identity + position ·
   reply slot parent-relative).
+  **Correction, same day (Sid's third push):** §9.4 was mis-framed
+  twice — first as "the walkthrough reverses P2," then as an open lane
+  pick. Polarity fixed everywhere: the standing law (everything through
+  Rama · committed echo · boot replay) ALWAYS covered typing; P2's
+  client-only buffer was a deviation from settled ground, not an
+  incumbent; P2b removes it with no adjudication. Generator named:
+  coherence-preservation — the session defended the built artifact's
+  frame instead of re-deriving from settled ground. Recut: §9.4, P2b
+  spec, walkthrough D4, board block + HANDOFF.
