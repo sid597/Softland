@@ -197,8 +197,8 @@ round → benchmark room (question bank waits on kinds).
   face+missionary suite 85t/1625a green. Left: `[RAF]`/typing-burst capture +
   Sid's fingers (dev app is live). Thread file: `build/editor-feel/NOW.md`.
 - write-echo — DONE (2026-07-12): stream echo p95 7.66ms; ruling in settled
-  ground; numbers `build/write-echo/NOW.md`. (Probe files ended up COMMITTED
-  — `src/app/probe/` — on the code kill-list, Sid's word.)
+  ground; numbers `build/write-echo/NOW.md`. (Harnesses archived under
+  `probes/`, off the classpath — Sid: keep, quarantined.)
 
 ### SPACE — spatial/3D
 - **spatial cluster — FOLDED INTO scene-substrate (2026-07-12 ruling,
@@ -213,9 +213,8 @@ round → benchmark room (question bank waits on kinds).
   trail; findings `build/box3d-spike/REPORT.md`; islands rung-2 unblocked.
 - islands-probe — DONE (07-12): all P1–P6 proven on real HW (60fps @ 1.5M
   cubes; MSDF-in-perspective verified); report + islands-CONTRACT inputs:
-  `build/islands-probe/REPORT.md`. (Probe code ended up COMMITTED —
-  `island_probe.cljs` + tagged mount lines in `render.cljs` whose
-  "(UNCOMMITTED)" comments now lie — on the code kill-list, Sid's word.)
+  `build/islands-probe/REPORT.md`. (Harness archived under `probes/`;
+  mount lines removed from `render.cljs`.)
 
 ### STANDING
 - design queue — LATER: question-unit design (noted 07-04; settled-ground Open

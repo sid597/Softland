@@ -182,3 +182,10 @@
   **Re-gate at `38ce344`: READY TO CODE, zero fatal blockers** — the two
   §7 P2b receipts stand as mandatory pre-coding execution gates (not
   contract defects); §8 stop clauses intact. P2b is build-ready.
+  **Sid, same day:** the reply model confirmed as intended — replies
+  BECOME durable and connected (same episode, revision-pinned to the
+  spoken block) at turn end; the provisional→durable shape stands, veto
+  window closed. Probe harnesses archived under `probes/` at his word
+  (`d0800e8` — keep, quarantined, off every classpath; the redraw-forcing
+  driving? clauses left with them, product redraw condition back to the
+  pure identical?-skip).
