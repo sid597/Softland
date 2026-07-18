@@ -2,8 +2,6 @@
   "Render consumer: derived flow assembly, world snapshot, GPU upload diffing, draw."
   (:require [missionary.core :as m]
             [app.client.substrate.webgpu.renderer :as editor]
-            [app.client.substrate.webgpu.island-probe :as island] ;; islands-probe 2026-07-11 (UNCOMMITTED)
-            [app.client.substrate.webgpu.container-probe :as ct-probe] ;; scene-substrate P2 probe 2026-07-12 (UNCOMMITTED)
             [app.client.workspace.scene-runtime :as scene-rt] ;; scene-substrate P3a/P3b
             [app.client.substrate.webgpu.buffer-pool :as pool]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
@@ -214,9 +212,7 @@
       ;; Render pulse: sample world on each RAF tick
       (m/reduce
       (fn [prev-state [world _frame-time]]
-        (if (and (identical? world (:prev-world prev-state))
-                 (not (island/driving?)) ;; islands-probe: force redraw so probe gets continuous frames
-                 (not (ct-probe/driving?))) ;; scene-substrate P2 probe: same
+        (if (identical? world (:prev-world prev-state))
           prev-state
 
           (let [frame-idx (inc (or (:frame-idx prev-state) 0))
@@ -665,12 +661,6 @@
                   (js/console.log "[RAF] prep:" (.toFixed (- raf-t1 raf-t0) 1) "ms | text-gpu:" (.toFixed (- raf-t2 raf-t1) 1) "ms | rects-gpu:" (.toFixed (- raf-t3 raf-t2) 1) "ms | draw:" (.toFixed (- raf-t4 raf-t3) 1) "ms | TOTAL:" (.toFixed (- raf-t4 raf-t0) 1) "ms | content-same?:" content-same? "chrome-same?:" chrome-same?
                                   "dirty-rect:" (if dirty-rect "partial" "full")))))
 
-            ;; islands-probe 2026-07-11 (UNCOMMITTED): composite the island onto the land frame
-            (island/step! device ctx (:width viewport) (:height viewport) (:dpr viewport) gpu-tracker)
-            ;; scene-substrate P2 probe 2026-07-12 (UNCOMMITTED): container-transform soak
-            ;; + frame-anatomy receipt (raf-t0 = body entry, _frame-time = rAF stamp)
-            (ct-probe/step! device ctx viewport raf-t0 _frame-time)
-
             {:content-text-geo new-content-geo
              :chrome-text-geo new-chrome-geo
              :cmd-rect-sys new-cmd-sys
@@ -722,10 +712,8 @@
                         :persistent-render-target? use-persistent-render-target?
                         :has-render-target? (boolean render-target)})
         (gpu-budget/log-startup-report! tracker)
-        (island/install-window-api! (.-canvas ctx)) ;; islands-probe 2026-07-11 (UNCOMMITTED)
-        (ct-probe/install-window-api! device geometry (fn [] @!font-assets)) ;; scene-substrate P2 probe 2026-07-12 (UNCOMMITTED)
-        (scene-rt/install-window-api! atoms) ;; scene-substrate P3a dev affordance (UNCOMMITTED)
-        (scene-rt/install-context-window-api! atoms) ;; scene-substrate P4 dev affordance (UNCOMMITTED)
+        (scene-rt/install-window-api! atoms) ;; scene-substrate P3a dev affordance
+        (scene-rt/install-context-window-api! atoms) ;; scene-substrate P4 dev affordance
         {:content-text-geo (:text geometry)
        :chrome-text-geo chrome-text-geo
        :cmd-rect-sys @!cmd-rect-sys
