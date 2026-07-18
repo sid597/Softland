@@ -1,15 +1,13 @@
-# first-light — lived walkthrough (pre-contract seed)
+# first-light — lived walkthrough
 
-2026-07-15 · Born from Sid's interrogation of the step proposals ("cursor where? why? blocks why? arranged how, why?" — and the correction: run that interrogation over EVERYTHING yourself, bring back steps + decision points). Method: every moment answers **see / do / know / why** — each why is a derived principle, a citation of Sid's own words, or a named taste-call with a default-and-reason. A moment that can't answer its whys doesn't ship.
-
-**Revised in place 2026-07-18** from Sid's moment-0 correction (verbatim: `vision/LOG.md` 07-18): the arrival is symmetric nothing — the click breaks it; the land is a pannable, zoomable space; blocks land where you point. The tip-input genesis this file previously carried is dead; git holds it.
+Born from Sid's interrogation of the step proposals ("cursor where? why? blocks why? arranged how, why?" — and the correction: run that interrogation over EVERYTHING yourself, bring back steps + decision points). Method: every moment answers **see / do / know / why** — each why is a derived principle, a citation of Sid's own words, or a named taste-call with a default-and-reason. A moment that can't answer its whys doesn't ship.
 
 ## Laws derived
 
-1. **Speech lands at the point YOU chose — the land never proposes a position.** At arrival there is no caret anywhere: a pre-placed cursor is the substrate choosing your first position for you, and the first position is itself the first act of taste (Sid, 07-18). Click → a caret at that spot, an acknowledgment, never a proposal. Type without ever clicking → the words land under the pointer — attention made literal; the land never swallows speech waiting for a ceremony (no-ritual). Focused on old material → speech attaches THERE as reply/mark; a selection held → the wish targets it.
+1. **Speech lands at the point YOU chose — the land never proposes a position.** At arrival there is no caret anywhere: a pre-placed cursor is the substrate choosing your first position for you, and the first position is itself the first act of taste (Sid). Click → a caret at that spot, an acknowledgment, never a proposal. Type without ever clicking → the words land under the pointer — attention made literal; the land never swallows speech waiting for a ceremony (no-ritual). Focused on old material → speech attaches THERE as reply/mark; a selection held → the wish targets it.
 2. **There is no top-left.** Documents have edges; an infinite land has a "here" — where the camera looks.
-3. **The camera is the inhabitant's; material never moves on its own.** Pan, zoom, and drag are capabilities of the space (real estate on demand — Sid, 07-18). There is no structural tip for the camera to follow: the conversation is a pattern that forms where you speak, not a rail the camera rides.
-4. **Truth is the raw stream; blocks are the default view over it.** Stored exactly as streamed (log-primary); pointable parts at paragraph seams (same grain as md ingest — one grammar for all material); re-chunkable later without loss. Geometry is projection: position is meaning, but time-order is never lost — any spatial scatter re-projects as a trail on demand. Pointability provenance: Sid 07-14 — "I want to only reply to certain blocks of text, or extract some of the blocks."
+3. **The camera is the inhabitant's; material never moves on its own.** Pan, zoom, and drag are capabilities of the space (real estate on demand — Sid). There is no structural tip for the camera to follow: the conversation is a pattern that forms where you speak, not a rail the camera rides.
+4. **Truth is the raw stream; blocks are the default view over it.** Stored exactly as streamed (log-primary); pointable parts at paragraph seams (same grain as md ingest — one grammar for all material); re-chunkable later without loss. Geometry is projection: position is meaning, but time-order is never lost — any spatial scatter re-projects as a trail on demand. Pointability provenance (Sid): "I want to only reply to certain blocks of text, or extract some of the blocks."
 5. **Streaming renders live; parts firm up as they complete.** "Ask for more" = point at a part and wish on it.
 6. **Machine-written and Sid-written are different strata forever.** At genesis the mark is the block's border tint — a quiet provenance mark, not avatars, not bubbles, no speaker sides (SMS heritage; sides don't scale past two minds). Must still read at far zoom — turns as rhythm/texture from altitude.
 7. **Spacing encodes containment, nothing else.** paragraph-gap < turn-gap < episode-gap — the visible containment tree.
@@ -34,10 +32,9 @@
 
 ## Decision points
 
-1. **Utterance close — ANSWERED (Sid; built in P2):** Enter = newline; **Ctrl+Enter speaks to the AI**. (The earlier Enter-sends pick is dead.)
-2. **Click vs drag on a block:** default — press-and-move beyond a small threshold = drag the block as object; a clean click = edit caret at that point. Named default, wish-fodder.
-3. **Where wish text lives (P3):** at the target, as speech-at-attention (Law 11); exact rendering is P3 design.
-4. **Position truth home:** CONTRACT §9.4 (lean: on the unit).
+1. **Click vs drag on a block:** default — press-and-move beyond a small threshold = drag the block as object; a clean click = edit caret at that point. Named default, wish-fodder.
+2. **Where wish text lives (P3):** at the target, as speech-at-attention (Law 11); exact rendering is P3 design.
+3. **Position truth home:** CONTRACT §9.3 (lean: on the unit).
 
 ## Explicitly NOT in slice one
 
