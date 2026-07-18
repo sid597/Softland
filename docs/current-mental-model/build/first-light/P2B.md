@@ -106,3 +106,142 @@ the queue is invisible.
 
 ## Build receipts (appended during the phase)
 
+### What landed (one diff; the tip pattern died in it)
+
+- **Server** — `episode.clj` §B2: geometry cells + camera cell + turn
+  records (settled-cell hint imports, all `imp:ep:`-shaped, zero kernel
+  edits); `utterance-import-request` gains `:position` (birth + placement
+  in ONE acked import); birth ack returns `:document-container-id` (the
+  replayed first edits need envelope identity before the pull returns).
+  `server_jetty.clj`: `/api/episode/block-birth` · `/api/episode/geometry`
+  · `/api/episode/utterance` REWORKED to the P2b form — the client-text
+  mint is DEAD; what lands durable-BEFORE-agent is the revision-pinned
+  turn record (:open), overwritten :complete/:failed/:timeout at turn end.
+  `block_distiller.clj` river-page exposes geo/turn rows as additive meta
+  (same projection read, zero new seeks); `face_projection.clj` serves
+  `:conversation/geometry` + `:conversation/camera` +
+  `:conversation/turn-records` (additive keys, MC-T8 class);
+  `file_viewer.cljc` resolve-request gains the `:drill-conversation-id`
+  face half of the §11 drill seam.
+- **Client** — `ground.cljs` REWRITTEN (the P2 tip: pre-placed caret,
+  `!ground-input` single buffer, `input-tree`/`face-bottom`/`reposition!`
+  — deleted, never gated). The open ground: per-block scene slots in
+  their own containers · world camera (wheel zooms at pointer; drag pans)
+  · §9.4 pointer grammar (~4 CSS px threshold) · birth at first content
+  act · committed-echo typing over `ground_edit.cljc` (NEW pure intent-
+  queue machine, JVM-tested) · revision-pinned Ctrl+Enter + busy refusal
+  at the block · provisional projection replaced at distill · settle
+  driver (gesture-end arm, 400ms debounce, ack = safety, beforeunload/
+  visibilitychange belt) · boot restore of camera+positions, zero
+  attention state. Routing branches: mouse/scroll/keyboard consumers +
+  paste; render.cljs drives the real camera uniform (`draw-frame!`
+  `:zoom` — the seam was already staged) + the ground scene edge replaces
+  `build-main-face!` in ground mode; `workspace_actions.cljs` gains the
+  SETTLED class; `block_edit_wiring.cljs` exposes the submit seam.
+
+### Live receipts (drill episodes; genesis VIRGIN)
+
+- **Suites**: episode 18t (incl. new geometry/turn/birth-position units) ·
+  ground-edit 5t · block-edit · scene-store · trail-face · face suites —
+  103t/1262a green; cljs build 0 warnings.
+- **Server loop live** (`p2b-receipt-drill-01`): birth accepted + retry
+  converged (identical import identity, journaled no-op) · geometry
+  settle accepted · serve returns geometry/camera/turn-records · edit
+  lane on the birthed unit: 2 edits accepted, truth reads back the
+  committed echo byte-exact; identical-retry replays without clobbering.
+- **G4b browser drills** (headed Chromium, real GPU; `?drill=` worlds):
+  - arrival = NOTHING: 0 blocks, mode rest, pure black
+    (`images/p2b-arrival-nothing.png`); no hidden input (canvas app — the
+    only key sink is the routed consumer).
+  - click → anchor caret; Escape → rest, 0 blocks; server: native rows
+    stayed 0 until the first content act (final count 1 after typing).
+  - burst typing 37 keys ≈28/s: every emitted key acked (37 samples),
+    confirmed = final committed = server truth BYTE-EXACT
+    ("first light drill line one\nsecond line"); block born at the
+    clicked point (400,250) (`images/p2b-first-block.png` — caret + box
+    on attention).
+  - **narrow echo p50 13ms · p95 18.9ms · p99 28ms (n=48)** — bar 52ms:
+    PASS with 2.7× headroom (`__ground.echo` samples, envelope→decision→
+    confirmed-render).
+  - reload: acknowledged prefix exact, position exact, NO focus/caret/
+    box (`images/p2b-return.png` — material at rest).
+  - drag (400,250)→(580,370) + settle-ack + reload → EXACT return;
+    geometry cell reads (580,370). Wheel zoom ×2 + settle + reload →
+    camera restored to the float (cell:
+    zoom 3.5089…, x −1605.71…, y −1003.57…).
+  - turn (uuid drill episode): Ctrl+Enter → turn cell :open BEFORE agent
+    → provisional (activity + stream, dim) → busy refusal on a second
+    send, AT the block, amber, transient
+    (`images/p2b-busy-refusal.png`) → SOURCE BLOCK EDITED MID-STREAM
+    (seq 47→65 while streaming) → distill: provisional REPLACED by the
+    durable machine reply "ACK", silver edge tint (Law 6), beneath the
+    source, left-aligned, position settled durable; reload returns both
+    blocks exactly (`images/p2b-reply-block.png`,
+    `images/p2b-reply-after-reload.png`). **The pin held**: the turn
+    cell reads status :complete + the SEND-TIME text (no
+    EDITED-MID-STREAM) + send-time position.
+- **Forced-stale finding (recorded, not a failure):** a REUSED settle-id
+  with different geometry is journaled as a REPLAY of the original
+  accept — the stale content NEVER lands (cell read back at the first
+  acked value). Truth is protected by idempotent convergence, not by
+  rejection; the client's visible-revert path fires on any :rejected/
+  non-2xx settle response (code + unit-tested response shapes), and the
+  same-key/different-content class cannot arise from the client's own
+  protocol (fresh settle-id per fire; retries re-send identical bodies).
+- **One live falsification banked:** reconcile! originally stored the
+  served context at fn END while rebuild-block! read truth THROUGH it —
+  every block rendered from the PREVIOUS pull on the first paint after
+  boot (empty 26px boxes; the drag drill missed and panned). Fixed:
+  context lands first. The class: state written after its readers run.
+
+### G4b verdict — PASS at destructive grade (clause map)
+
+- fresh world = zero content pixels + no hidden input — PASS (drill 1 +
+  screenshot; the only key sink is the routed consumer).
+- click + Escape mints nothing — PASS (client mode transitions + server
+  native-row count stayed 0).
+- burst typing → emitted = accepted = final committed, one revision for
+  text+caret — PASS (37/37 acked; truth byte-exact).
+- reload mid-burst → exactly the acknowledged prefix — PASS destructively
+  (44 typed, 31 acked at the kill, truth = the 31-char prefix, clean).
+- Ctrl+Enter durable-BEFORE-agent + pin under mid-stream edits — PASS
+  (endpoint event order + turn cell :open before spawn; cell holds
+  send-time text/position while the source advanced seq 47→65 mid-stream).
+- second send during a turn → visible busy refusal — PASS (amber notice AT
+  the block, transient, no queue; other blocks stayed writable — the
+  mid-stream edit IS the receipt).
+- kill client mid-stream → no provisional survives as durable (structural:
+  provisional state is client-only; nothing of it in truth) · the turn
+  completed server-side and its DISTILLED reply returned at the next boot,
+  placed beneath its source FROM THE DURABLE TURN RECORDS (the client's
+  session memory was dead) — PASS. The honest-open branch is structural:
+  the cell flips from :open only via the completion write.
+- drag → settle-ack → kill the browser → exact world-scoped positions +
+  camera return — PASS (browser-kill grade). The literal power-cycle half
+  rides the proven class: geometry/turn cells are
+  $$transcript-conversation-projection rows on the durable cluster — the
+  exact PState the mid-P2 REAL power-cycle (Sid's G5c) already carried
+  whole; graceful close is not relied on (fresh-context reads after hard
+  page death). A literal PC re-cycle is Sid's optional re-drill.
+- forced-stale geometry write — the kernel journals a same-key conflicting
+  write as a REPLAY (truth stays at the acked value; stale content never
+  lands); the visible-revert path covers :rejected/non-2xx responses. See
+  the finding above — recorded honestly, not drilled as a browser revert.
+- return restores no focus/caret/hover/selection — PASS (drill 4 + moment-6
+  screenshot: material at rest).
+- feel bar: narrow echo p50 13 / **p95 18.9** / p99 28 ms (n=48) on the
+  spatial face — bar 52ms — PASS with 2.7× headroom.
+
+### Honest lacks (named, wish-fodder or later)
+
+- In-edit drag = caret placement, not text selection yet (selection needs
+  render + delete-selection through the queue; §9.4 names it wish-fodder).
+- :up/:down caret moves ride ground-edit's line math; :word-left/right
+  no-op in blocks.
+- A paste AS the first content act with multi-paragraph text births
+  multiple units (free-cut grain); focus lands on the first.
+- Kill-mid-stream leaves the CLI turn's material in the episode jsonl;
+  the NEXT turn's incremental harvest converges it (offset cursor) — the
+  turn cell stays the honest :open/:failed fact meanwhile.
+- Hover picks run per mousemove (cheap at genesis scale; batch later).
+

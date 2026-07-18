@@ -10,39 +10,28 @@ minutes, the board is broken — fix it.
 ## HANDOFF — next implementation session (paste this)
 
 ```
-first-light P2b — the open ground (the moment-0 correction). BUILD session.
+first-light P3 — the wish. BUILD session. (P2b CLOSED G4b-PASS 07-18;
+first light itself is Sid's act — do not fabricate it.)
 
 Read in order, then build — no re-derivation of settled ground:
-1. docs/current-mental-model/build/first-light/CONTRACT.md — §3.1, T9,
-   §7 P2b + G4b, §9
-2. docs/current-mental-model/build/first-light/WALKTHROUGH.md — laws
-   1/3/10/15, moments 0–6
-3. build/first-light/NOW.md tail + vision/LOG.md 07-18 (Sid's verbatim —
-   the authority when readings conflict)
-4. Source: client/workspace/ground.cljs (the tip pattern being REPLACED) ·
-   scene_runtime.cljs (container transforms; camera seam :321 "not live
-   yet") · runtime/workspace_actions.cljs:94-106 (committed vs ephemeral)
-   · runtime.cljs:181-260 (settings-truth persist/restore — the shape for
-   camera/position truth) · runtime/{keyboard,mouse}.cljs + events.cljs
-   (focus/gesture routing) · server/episode.clj + server_jetty.clj (the
-   utterance lane gaining source-block + revision + position)
+1. docs/current-mental-model/build/first-light/CONTRACT.md — §4, §7 P3
+   + G5, §9 redlines 1/2 (still on defaults: `:references` · contract
+   naming — veto anytime)
+2. build/first-light/{NOW,P2B}.md tails — the open-ground organs P3
+   builds ON: per-block slots + picks return real {vi, address}
+   (spatially-placed blocks, T7 stamps unchanged), turn records +
+   geometry cells as settled-cell precedents
+3. RECON.md §relation-kernel + relation_kernel.clj:58-83 (the twenty
+   kinds; `:references` available)
 
-Deliver P2b per the contract phase spec: arrival = NOTHING · block born
-at first content at the chosen point · committed-echo typing over an
-invisible intent queue (the P2 client-only buffer dies here) ·
-Ctrl+Enter = revision-pinned send on the existing durable-BEFORE-agent
-lane, busy → visible refusal at the block · provisional stream REPLACED
-at distill by the durable provenance-marked reply block · world camera
-pan/zoom + block drag · camera + positions as settle-ack truth,
-restored at boot. Two receipts BEFORE coding: §9.3 geometry feasibility
-(stop if topology-shaped) · the intent-queue/committed-render seam vs
-block-write's painted pending. Swap rule: the tip pattern DIES in the
-same diff — delete the pre-placed caret path and the single-buffer
-assumption from ground.cljs, never gate them off.
-Gate G4b before declaring (destructive grade: kill mid-stream honesty,
-power-cycle after settle-ack, revision pinning under mid-stream edits;
-feel bar narrow-echo p95 ≤ 52ms).
-Stop clauses: CONTRACT §8 + anything topology-shaped for geometry.
+Deliver P3 per the contract: point → say → wish unit (durable OC
+material in the episode, asserted-by sid) + `:references` edge to the
+picked target + a visible projection ON the target. Wish-ness lives in
+material + projection, never a transport field (T2); no new relation
+kind (stop clause §8). Adjudicate P0 flag A (wish-edge target kind) at
+design time. Gate G5: wish unit + edge readable via kernel-level
+foreign reads; the wish renders coupled to its target; address +
+src-path from a REAL pick.
 /rama before any Rama touch; falsification pass before close; append
 NOW.md; docs only on the docs branch; code commit = Sid's word.
 ```
@@ -117,13 +106,17 @@ Softland or still on paper? (`BETS.md` verdict log.)
 
 ## SID'S MOVES — everything that waits on you alone, cheapest first
 
-0. **durable-ground leftovers:** (a) the G5c REBOOT drill — the PC-reboot +
-   `bin/land up` half HAPPENED 2026-07-18 (mid-P2; machine-half receipts in
-   `build/first-light/P2.md`: drill episode + corpus 35/64/247 both served
-   post-reboot); YOUR half = open the app (`?dev=1` — the product boot is
-   the bare ground now) and see the conversation. (b)
-   `rm -rf /mnt/data/rama/data-restore-scratch` (1.6G drill leftover; rm was
-   permission-blocked for the session). (c) vault leg: rsync
+0. **FIRST LIGHT — open `localhost:8080`, click anywhere, speak** (the
+   genesis episode is virgin; your first utterance is §11's irreplaceable
+   act; the walkthrough is live: arrival = NOTHING, wheel zooms, drag
+   pans/moves, Ctrl+Enter speaks to the resident). This also completes
+   your G5c half (the machine half — corpus 35/64/247 post-reboot — is
+   banked; `?dev=1` still reaches the dev workspace if you want the old
+   view). Then: **P2b code commit = your word** (all suites green,
+   uncommitted by law).
+0b. **durable-ground leftovers:** (a)
+   `rm -rf /mnt/data/rama/data-restore-scratch` (1.6G drill leftover; rm
+   was permission-blocked for the session). (b) vault leg: rsync
    `/mnt/data/rama/backups/` to the Mac.
 1. **Wear session at the dev app:** the editor (`build/editor-feel/NOW.md`
    verdict) · Boxes/Minimap (gesture-feel notes feed the P3c/gesture
@@ -226,33 +219,34 @@ round → benchmark room (question bank waits on kinds).
 
 ## Active package blocks
 
-**first-light A — OPEN 2026-07-17 · P0–P2 DONE, G1–G4 PASS · P2b OPEN
-2026-07-18 (the moment-0 correction)** (the genesis
-package: metabolism — one local worn arrangement repair). Contract + recon
-+ thread: `build/first-light/{CONTRACT,RECON,NOW}.md`; phase records
-`PHASE_0.md` + `P1.md` + `P2.md`. **The flip is live** (P1: p95 26.6ms,
-real picks) and **THE BARE GROUND IS LIVE** (P2, 2026-07-18): product boot
-at localhost:8080 = black screen · type · Ctrl+Enter → utterance durable
-in OC (`imp:ep:`, asserted-by sid, acked) BEFORE the resident agent
-(CLI --session-id/--resume, one object-key with the distilled material)
-→ post-turn incremental harvest+distill (user echoes → :native class rows,
-never re-minted) → the face re-renders from truth. G3 passed at
-POWER-CYCLE grade (the PC rebooted mid-drill — Sid's G5c — and the episode
-resumed whole); G4 convergence receipted (re-run = 0 new lines, identical
-counts); flags C/D/F adjudicated (C adapter-level, NO stop clause). Dev
-workspace moved behind `?dev`. **The GENESIS EPISODE IS VIRGIN — first
-light waits on P2b** (arrival = NOTHING, the click breaks it, blocks in a
-pannable/zoomable space — WALKTHROUGH + CONTRACT carry it; Sid's first
-utterance lands there, §11). Remaining: **P2b the open ground — contract gated READY TO CODE
-(Codex re-gate at `38ce344`, zero fatal blockers)** (HANDOFF prompt at
-board top; one design call at build time — §9.3 position home)
-→ P3 wish (flag A adjudicates there) → P4 proposal+membrane →
-P5 accept/reject/reverse/explain → P6 metabolism (G9 WAITS for a real
-friction — no fabrication). §9 redlines 1/2 still on contract defaults
-(`:references` · contract naming); veto anytime. Code COMMITTED 2026-07-18
-at Sid's word (`99e0a13` + `34cb9e2`; spine pair 16t/365a green at new
-HEAD). G5c machine-half banked in passing: corpus 35/64/247 post-reboot —
-Sid's app-open check completes it.
+**first-light A — OPEN 2026-07-17 · P0–P2b DONE, G1–G4b PASS** (the
+genesis package: metabolism — one local worn arrangement repair). Contract
++ recon + thread: `build/first-light/{CONTRACT,RECON,NOW}.md`; phase
+records `PHASE_0.md` + `P1.md` + `P2.md` + `P2B.md`. **THE OPEN GROUND IS
+LIVE** (P2b, 2026-07-18, G4b PASS destructive grade): product boot at
+localhost:8080 = NOTHING · click → caret anchor at the chosen point ·
+block born durable at the FIRST content act (unit + birth-position, one
+acked import) · committed-echo typing (narrow echo p95 18.9ms, bar 52;
+the invisible intent queue — no painted pending) · Ctrl+Enter =
+revision-pinned send from the focused block (turn cell :open
+durable-BEFORE-agent; the pin held under mid-stream edits) · busy →
+visible refusal at the block · provisional stream REPLACED at distill by
+silver-tinted durable replies beneath the source · world camera pan/zoom
++ block drag, camera + positions as settle-ack truth (settled cells in
+the conversation projection — the §9.3 position-home call, veto anytime),
+restored exactly across reloads and client kills; return restores zero
+attention state. Reload-mid-burst = exactly the acknowledged prefix
+(destructive receipt). The reply model Sid confirmed same-day is the
+shape built. Machinery drills ran on `?drill=` episodes — **THE GENESIS
+EPISODE IS STILL VIRGIN; first light is now Sid's click** (§11).
+Remaining: **P3 wish** (HANDOFF at board top; flag A adjudicates there)
+→ P4 proposal+membrane → P5 accept/reject/reverse/explain → P6 metabolism
+(G9 WAITS for a real friction — no fabrication). §9 redlines 1/2 still on
+contract defaults (`:references` · contract naming); veto anytime. P2
+code committed 07-18 (`99e0a13` + `34cb9e2`); **P2b code UNCOMMITTED —
+commit = Sid's word** (suites 103t/1262a green; cljs 0 warnings). G5c
+machine-half banked: corpus 35/64/247 post-reboot — Sid's first-light
+open completes his half.
 
 durable-ground — CLOSED 2026-07-17 (one day, P0→close): gate PASS, records
 `build/durable-ground/{CONTRACT,GATE,RETRO,NOW}.md`; G5c reboot receipt =

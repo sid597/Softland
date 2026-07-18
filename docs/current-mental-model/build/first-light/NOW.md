@@ -182,6 +182,29 @@
   **Re-gate at `38ce344`: READY TO CODE, zero fatal blockers** — the two
   §7 P2b receipts stand as mandatory pre-coding execution gates (not
   contract defects); §8 stop clauses intact. P2b is build-ready.
+
+- **2026-07-18 · Fable · P2b DONE, G4b PASS (destructive grade).** Both
+  pre-code receipts landed first (`P2B.md`): (a) §9.3 geometry — the edit
+  envelope CANNOT carry geometry adapter-level (edit-effects drops unknown
+  keys; changing it = unsanctioned kernel edit), but the import family
+  does with ZERO kernel edits: hint-only imports (F3 ruling) + the hint
+  write being an upsert keyed (conv, order-key) = settled cells; proven
+  LIVE (extra-key round-trip + overwrite-in-place). Position home DECIDED
+  (veto anytime): world-scoped cells in the conversation projection, not
+  on the unit. (b) the invisible intent queue replaces block-write's
+  painted pending; render = ONE confirmed value. Landed: the tip DIED
+  (ground.cljs rewritten; ground_edit.cljc pure machine), birth at first
+  content act (unit + position, one import), committed-echo typing (p95
+  18.9ms, bar 52), revision-pinned turns (cell :open before agent; pin
+  held under mid-stream edits), busy refusal at the block, provisional
+  replaced by tinted durable replies, world camera + drag + settle-ack
+  truth restored across kills. Live falsifications banked: reconcile!
+  context-ordering (blocks rendered from the PREVIOUS pull) · camera rows
+  dropped by an entry-kind filter · reply stacking · settle-retry
+  camera re-arm. Suites 103t/1262a + new episode/ground-edit units; cljs
+  0 warnings. Drills on ?drill= episodes — **GENESIS STILL VIRGIN**.
+  Records: `P2B.md` + `images/p2b-*.png`. Next: Sid's first light
+  (localhost:8080 — click, speak) · P3 the wish · code commit = Sid's word.
   **Sid, same day:** the reply model confirmed as intended — replies
   BECOME durable and connected (same episode, revision-pinned to the
   spoken block) at turn end; the provisional→durable shape stands, veto
