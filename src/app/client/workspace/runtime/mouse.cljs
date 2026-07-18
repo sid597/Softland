@@ -34,6 +34,12 @@
               (.preventDefault e)
               (reset! !clipboard text)
               (case @!focus
+                ;; first-light P2b: paste on the ground is a CONTENT ACT —
+                ;; it births a block at the anchor/pointer or edits the
+                ;; focused block through the committed-echo lane.
+                :ground-input
+                (ground/handle-paste! text)
+
                 :editor
                 (let [doc @!editor-doc
                       lengths (mapv count (:lines doc))]
@@ -429,10 +435,10 @@
     (let [ids  (scene-rt/block-unit-ids @!face-context)
           addr (:address hit)
           block? (contains? ids addr)]
-      (block-edit-wiring/face-click! (when block? addr))
-      ;; first-light A P2: on the ground, a background click returns the
-      ;; caret to the tip (focus-ground! no-ops off-ground).
-      (when-not block? (ground/focus-ground!)))))
+      ;; first-light P2b: ground-mode clicks never reach this handler (the
+      ;; mouse consumer routes them to ground/* first) — this is the DEV
+      ;; workspace's assembly-face click path only.
+      (block-edit-wiring/face-click! (when block? addr)))))
 
 (defn- handle-trail-face-click!
   "Trail face click (view-mvp WP-B2): hit-test the CACHED scene object -
@@ -652,14 +658,27 @@
 ;; ═══════════════════════════════════════════════════════════════════════
 
 (defn mouse-consumer
-  "Missionary consumer: route mouse events to named handlers."
+  "Missionary consumer: route mouse events to named handlers.
+   first-light P2b: the open ground owns the WHOLE pointer grammar (one
+   ~4 CSS px threshold splits click/caret from pan/drag; §9.4) — every
+   mouse event routes to ground/* and NOTHING falls through (T9: no
+   workspace surface exists on the ground to click)."
   [atoms layout deps io >mouse-events]
   (->> >mouse-events
        (m/reduce
          (fn [_ [type coords]]
-           (case type
-             :mousedown (handle-mousedown! atoms layout deps io (:x coords) (:y coords))
-             :mousemove (handle-mousemove! atoms coords)
-             :mouseup   (handle-mouseup! atoms)
-             nil))
+           (if (ground/ground-active?)
+             (case type
+               :mousedown (ground/pointer-down! (:x coords) (:y coords))
+               :mousemove (do (reset! (:!mouse-x atoms) (:x coords))
+                              (reset! (:!mouse-y atoms) (:y coords))
+                              (ground/pointer-move! (:x coords) (:y coords)))
+               :mouseup   (ground/pointer-up! (:x coords) (:y coords))
+               nil)
+             (case type
+               :mousedown (handle-mousedown! atoms layout deps io (:x coords) (:y coords))
+               :mousemove (handle-mousemove! atoms coords)
+               :mouseup   (handle-mouseup! atoms)
+               nil))
+           nil)
          nil)))

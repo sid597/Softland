@@ -135,10 +135,15 @@
                           (fn [text-data editor-rect-data sidebar-data
                                cmd-rects settings-rects settings-text
                                viewport scroll-y cmd-panel settings active-font agent-output
-                               local-world store-frame effective]
+                               local-world store-frame effective ground-camera]
                             {:text-data text-data
                              :store-frame store-frame ;; scene-substrate P3a
                              :effective   effective   ;; scene-substrate P3a
+                             ;; first-light P2b: the ground's world camera
+                             ;; (pan+zoom, shader terms) — drives draw-frame!
+                             ;; in ground mode; a camera move redraws (world
+                             ;; identity changes) with a full clear.
+                             :ground-camera ground-camera
                              ;; P3b finding #1: the store composites ONLY in face
                              ;; mode — a defensive gate mirroring the click
                              ;; dispatch (mouse.cljs), so a slot that outlives its
@@ -178,7 +183,8 @@
                           (m/watch !agent-output)
                           (m/watch !effective-local-world)
                           <store-frame   ;; scene-substrate P3a
-                          <effective)]   ;; scene-substrate P3a
+                          <effective     ;; scene-substrate P3a
+                          (m/watch ground/!camera))]  ;; first-light P2b
 
     ;; Two joined consumers: the main-face slot edge + the RAF render pulse.
     (m/join vector
@@ -201,11 +207,12 @@
                 (fn []
                   (reset! !queued? false)
                   (when-let [b @!pending]
-                    (build-main-face! b)
-                    ;; first-light A P2: the ground tip rides the trail's
-                    ;; growth — container transform only, same edge, ordered
-                    ;; right after the face slot lands (no-op off-ground).
-                    (ground/reposition!)))))
+                    ;; first-light P2b: on the open ground the outline-face
+                    ;; TREE never renders — the served projection reconciles
+                    ;; into per-block slots (the tip pattern is DEAD).
+                    (if (ground/ground-active?)
+                      (ground/on-face-bundle! b)
+                      (build-main-face! b))))))
             nil)
           nil <face-main-flow))
 
@@ -228,6 +235,10 @@
                 store-frame          (:store-frame world)
                 effective            (:effective world)
                 face-mode?           (:face-mode? world)
+                ;; first-light P2b: the ground's world camera
+                ground?              (ground/ground-active?)
+                gcam                 (or (:ground-camera world)
+                                         {:x 0.0 :y 0.0 :zoom 1.0})
                 store-frame-changed? (not (identical? store-frame (:prev-store-frame prev-state)))
                 ;; P3b finding #1: gate the store's compositing on face mode. When
                 ;; not in a face view the store contributes NOTHING (nil), so an
@@ -538,10 +549,16 @@
                   ;; Editor: right of sidebar, above chrome
                   ;; Chrome: bottom strip (cmd panel + status bar)
                   ;; Settings: full viewport (overlay, conservative)
+                  ;; first-light P2b: a camera move (pan/zoom) shifts EVERY
+                  ;; world-camera pixel — partial scissor would smear; force
+                  ;; a full clear.
+                  camera-moved? (not= (:ground-camera world)
+                                      (:prev-ground-camera prev-state))
                   dirty-rect
                   (cond
                     ;; First frame, resize, or settings/font changed → full clear, no scissor
-                    (or first-frame? rt-resized? (not settings-same?) font-changed?)
+                    (or first-frame? rt-resized? (not settings-same?) font-changed?
+                        camera-moved?)
                     nil
 
                     ;; Content or chrome text changed → full viewport (text spans everything)
@@ -621,8 +638,13 @@
                                     new-content-geo (pool/pool-draw-info !editor-pool) new-cmd-sys
                                     (:camera-floats (:pipelines geometry))
                                     (:pass-descriptor (:pipelines geometry))
-                                    0 (- scroll-y)
+                                    ;; first-light P2b: the ground drives the
+                                    ;; REAL world camera (pan+zoom, Laws 2/3);
+                                    ;; every other mode keeps the scroll rail.
+                                    (if ground? (:x gcam) 0)
+                                    (if ground? (:y gcam) (- scroll-y))
                                     (:width viewport) (:height viewport)
+                                    :zoom (if ground? (:zoom gcam) 1.0)
                                     :frame-idx frame-idx
                                     :cmd-panel-visible cmd-visible
                                     :cmd-panel-h cmd-panel-h
@@ -667,6 +689,7 @@
              :settings-rect-sys new-settings-sys
              :render-target render-target
              :prev-world world
+             :prev-ground-camera (:ground-camera world)  ;; first-light P2b
              :prev-content-ops content-ops
              :prev-chrome-ops chrome-ops
              :prev-sidebar-data sidebar-data

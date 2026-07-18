@@ -476,7 +476,13 @@
        ;; Birth-blankness = the container being empty, not a state flag.
        (cond
         (= :episode addr)
-        (assoc request :address (episode/genesis-object-key))
+        ;; P2b: the DRILL seam's face half (G4b machinery drills run on their
+        ;; OWN episode so the genesis stays virgin, §11) — the ground client
+        ;; sends :drill-conversation-id only under ?drill=; absent = genesis.
+        (assoc request :address
+               (episode/episode-object-key
+                (or (get-in request [:params :drill-conversation-id])
+                    episode/genesis-conversation-id)))
 
         ;; G26 fix: default-substitution applies only to requests that CARRY an
         ;; address (the material-bound pulls); :face-list omits the key entirely

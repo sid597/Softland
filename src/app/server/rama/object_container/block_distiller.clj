@@ -1518,8 +1518,21 @@
     ;; Native blocks APPEND after the river page (each lane bounded by the
     ;; same limit); global reading order is the projection's time merge
     ;; (conversation-projection), never this vector's order.
+    ;; first-light P2b: geometry cells (entry-kind :episode-geometry, geo:
+    ;; order-keys — settled position/camera truth) and turn records
+    ;; (:episode-turn, ep-turn: keys) ride the SAME projection read; expose
+    ;; them as additive meta so the serve layer threads them without a
+    ;; second range seek. Both are invisible to the block lanes above
+    ;; (positive entry-kind filters).
     (with-meta (into (vec (take limit (:blocks result))) (:blocks native))
-      {:river-page/read-plan read-plan})))
+      {:river-page/read-plan read-plan
+       :river-page/geo-rows  (vec (filter #(contains? #{:episode-geometry
+                                                        :episode-camera}
+                                                      (:entry-kind %))
+                                          projection))
+       :river-page/turn-rows (vec (sort-by :order-key
+                                           (filter #(= :episode-turn (:entry-kind %))
+                                                   projection)))})))
 
 (defn start-distiller-runtime!
   "Launch the object-container runtime (OC + transcript-ops on one IPC; every

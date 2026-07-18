@@ -2,6 +2,7 @@
   "Scroll consumer: wheel routing across sidebar, agent, chat, editor, flow canvas."
   (:require [missionary.core :as m]
             [app.client.workspace.events :refer [maybe-snap]]
+            [app.client.workspace.ground :as ground]
             [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.sidebar :refer [sidebar-w sidebar-tab-h cmd-panel-h status-bar-h compute-sidebar-content-height derive-effective-sidebar]]
             [app.client.workspace.trail :refer [compute-agent-panel-h agent-wrapped-line-count]]
@@ -19,7 +20,12 @@
   (->> >wheel-events
        (m/reduce
          (fn [_ wheel-evt]
-           (let [delta (:dy wheel-evt 0)
+           (if (ground/ground-active?)
+             ;; first-light P2b: on the open ground the wheel ZOOMS at the
+             ;; pointer (§9.4 — the world point under the pointer stays under
+             ;; it); there is no scroll rail to ride (Law 2: no top-left).
+             (ground/handle-wheel! wheel-evt)
+             (let [delta (:dy wheel-evt 0)
                  dx (:dx wheel-evt 0)
                  shift? (:shift? wheel-evt)
                  viewport @!viewport
@@ -159,6 +165,6 @@
                                       (+ sb-off (int (* cw (ws/pane-width-pct local-world :main 0.4))))
                                       (+ sb-off cw))]
                    (when (and (not (zero? h-delta)) (< mouse-x editor-right))
-                     (swap! !scroll-x #(max 0 (+ (or % 0) h-delta))))))))
+                     (swap! !scroll-x #(max 0 (+ (or % 0) h-delta)))))))))
            nil)
          )))

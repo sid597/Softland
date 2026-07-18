@@ -28,6 +28,7 @@
      stop-clause is not triggered. Verified empirically monotone-nondecreasing across a
      real river page ⇒ `:until-ms` cuts are prefix-consistent (G11)."
   (:require [clojure.string :as str]
+            [clojure.edn :as edn]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.object-container.block-distiller :as bd]
@@ -412,6 +413,31 @@
       (let [page      (bd/river-page {:oc-rt oc-rt :object-key address} limit)
             read-plan (:river-page/read-plan (meta page))
             blocks    (merge-episode-lanes (attach-source-times oc-rt page))
+            ;; first-light P2b (ADDITIVE keys, MC-T8 class): settled geometry
+            ;; cells + the world camera + revision-pinned turn records, from
+            ;; the SAME projection read river-page already performed (meta
+            ;; keys — zero extra seeks). Cell values ride the :geometry/:turn
+            ;; extra keys (round-trip proven, P2B.md receipt a); the
+            ;; content-preview pr-str copy is the belt for any row whose
+            ;; extra key did not survive.
+            cell-of   (fn [row k]
+                        (or (get row k)
+                            (try (some-> (:content-preview row)
+                                         edn/read-string)
+                                 (catch Exception _ nil))))
+            geo-rows  (:river-page/geo-rows (meta page))
+            geometry  (into {}
+                            (keep (fn [r]
+                                    (when (= :episode-geometry (:entry-kind r))
+                                      (when-let [g (cell-of r :geometry)]
+                                        [(:unit-id g) g]))))
+                            geo-rows)
+            camera    (some (fn [r]
+                              (when (= :episode-camera (:entry-kind r))
+                                (cell-of r :geometry)))
+                            geo-rows)
+            turn-recs (vec (keep #(cell-of % :turn)
+                                 (:river-page/turn-rows (meta page))))
             dc        (shape-conversation {:blocks         blocks
                                            :read-plan      read-plan
                                            :address        address
@@ -419,6 +445,10 @@
                                            :until-ms       until-ms
                                            :focus-turn     (:focus-turn params)
                                            :rendered-at-ms (System/currentTimeMillis)})
+            dc        (assoc dc
+                             :conversation/geometry geometry
+                             :conversation/camera camera
+                             :conversation/turn-records turn-recs)
             ;; §4.4/§6: read the machine-cut :pairs-with edges (total; [] on any
             ;; failure or absent rk-rt), derive pair structure over the SAME
             ;; post-until-ms `:turns` shape-conversation served (MC-T11). Merge

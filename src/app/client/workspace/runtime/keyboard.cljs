@@ -29,16 +29,14 @@
        (m/reduce
          (fn [_ event]
             (when event
-              ;; first-light A P2 (T9): the bare ground ships NO panels, NO
-              ;; /commands, NO sidebar toggle, NO save hatch. Escape returns
-              ;; the caret to the tip (after blurring a block edit first —
-              ;; BW-T4 still holds). Builders' shortcuts live in the dev
-              ;; workspace boot only.
+              ;; first-light A P2b (T9): the open ground ships NO panels, NO
+              ;; /commands, NO sidebar toggle, NO save hatch. Escape blurs
+              ;; the focused block or discards the ephemeral anchor — an
+              ;; abandoned anchor leaves NOTHING (moment 1). Builders'
+              ;; shortcuts live in the dev workspace boot only.
               (if (ground/ground-active?)
                 (case (:type event)
-                  :escape (do (when (block-edit-wiring/edit-focused?)
-                                (block-edit-wiring/face-blur!))
-                              (ground/focus-ground!))
+                  :escape (ground/escape!)
                   nil)
               (case (:type event)
                 :toggle-command-panel
