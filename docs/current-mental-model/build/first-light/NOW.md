@@ -64,6 +64,31 @@
   0 warnings; corpus drill-restored exactly. Next: P2 (ground + episode —
   adjudicate P0 flags C/D/F at design time).
 
+- **2026-07-18 · Fable · P2 DONE, G3 + G4 PASS (power-cycle grade).**
+  Flags C/D/F adjudicated at design time (C: adapter-level, NO stop clause —
+  the import lane is the create path, one imp:ep: routing branch; D: the
+  native unit IS the utterance, distill skips user text events → :native
+  class rows, echo never mints; F: sanctioned turn-end trigger, one file,
+  never boot). Landed: the §5.1 kernel branch + episode ns + /api/episode/
+  utterance SSE lane (durable-BEFORE-agent by event order) + distiller
+  native lane + merge-episode-lanes + THE BARE GROUND (product boot, T9:
+  black + text + Ctrl+Enter, chrome gated off — a probe caught the cmd-bar
+  leak, fixed + screenshot-verified `images/p2-ground-bare.png`). Identity:
+  episode conv-id = CLI session uuid via --session-id/--resume; one
+  object-key for native + distilled material. Mid-drill the PC rebooted
+  (Sid's G5c) → G3's kill-drill upgraded to power-cycle: both drill
+  utterances survived with sid provenance, turn 3 resumed through the
+  endpoint, merged page renders 4 turns in time order. G4 convergence:
+  re-run = 0 new lines, identical counts, routing gate PASS. One live
+  falsification banked: offset-0 re-harvest of a grown conversation
+  fingerprint-conflicts → harvest rides the stored offset cursor now
+  (P2.md §falsification). Suites 38t/1227a + CLJS 0 warnings. G5c
+  machine-half in passing: corpus serves 35/64/247 post-reboot. **Genesis
+  stays VIRGIN — the drill ran on its own episode; the first utterance is
+  Sid's (§11).** Receipts: `P2.md`. Next: Sid's first light (open
+  localhost:8080, speak) · P3 (the wish; flag A adjudicates there) · code
+  commit = Sid's call.
+
 - **2026-07-17 · Fable (durable-ground session) · CONTRACT AMENDED — the
   ground ships BARE (Sid's word, live correction).** Sid: "it will be a
   blank screen, can add text and only have ctrl+enter to communicate with

@@ -213,20 +213,28 @@ round → benchmark room (question bank waits on kinds).
 
 ## Active package blocks
 
-**first-light A — OPEN 2026-07-17 · P0+P1 DONE, G1+G2 PASS** (the genesis
+**first-light A — OPEN 2026-07-17 · P0–P2 DONE, G1–G4 PASS** (the genesis
 package: metabolism — one local worn arrangement repair). Contract + recon
 + thread: `build/first-light/{CONTRACT,RECON,NOW}.md`; phase records
-`PHASE_0.md` + `P1.md`. **The flip is live**: the worn face is a `:face-main`
-scene-store slot (overlay/T5, legacy silenced/T6, both stamps/T7); typing
-drill p95 26.6ms (bar 52) after three measured perf fixes; picks return real
-{vi, address, src-path}. Remaining: P2 ground+episode → P3 wish → P4
-proposal+membrane → P5 accept/reject/reverse/explain → P6 metabolism (G9
-WAITS for a real friction — no fabrication). P0 flags C/D/F adjudicate at
-P2, A at P3, B at P5 (PHASE_0.md §C). Sid's §9 redlines arrived as unfilled
-brackets — P1 ran on contract defaults (direct boot-to-ground · `:references`
-· contract naming); veto anytime. P1 code UNCOMMITTED (client-only, 7 files,
-hot-loaded in the live dev app). Durable ground live under it: the dev boot
-rides the real cluster by default.
+`PHASE_0.md` + `P1.md` + `P2.md`. **The flip is live** (P1: p95 26.6ms,
+real picks) and **THE BARE GROUND IS LIVE** (P2, 2026-07-18): product boot
+at localhost:8080 = black screen · type · Ctrl+Enter → utterance durable
+in OC (`imp:ep:`, asserted-by sid, acked) BEFORE the resident agent
+(CLI --session-id/--resume, one object-key with the distilled material)
+→ post-turn incremental harvest+distill (user echoes → :native class rows,
+never re-minted) → the face re-renders from truth. G3 passed at
+POWER-CYCLE grade (the PC rebooted mid-drill — Sid's G5c — and the episode
+resumed whole); G4 convergence receipted (re-run = 0 new lines, identical
+counts); flags C/D/F adjudicated (C adapter-level, NO stop clause). Dev
+workspace moved behind `?dev`. **The GENESIS EPISODE IS VIRGIN — the first
+utterance is Sid's act (§11): open localhost:8080 and speak.** Remaining:
+P3 wish (flag A adjudicates there) → P4 proposal+membrane → P5
+accept/reject/reverse/explain → P6 metabolism (G9 WAITS for a real
+friction — no fabrication). §9 redlines 2/3 still on contract defaults
+(`:references` · contract naming); veto anytime. P1+P2 code UNCOMMITTED
+(client + server + one §5.1 kernel branch; commit = Sid's call). G5c
+machine-half banked in passing: corpus 35/64/247 post-reboot — Sid's
+app-open check completes it.
 
 durable-ground — CLOSED 2026-07-17 (one day, P0→close): gate PASS, records
 `build/durable-ground/{CONTRACT,GATE,RETRO,NOW}.md`; G5c reboot receipt =
