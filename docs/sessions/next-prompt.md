@@ -23,20 +23,25 @@ Read in order, then build — no re-derivation of settled ground:
    scene_runtime.cljs (container transforms; camera seam :321 "not live
    yet") · runtime/workspace_actions.cljs:94-106 (committed vs ephemeral)
    · runtime.cljs:181-260 (settings-truth persist/restore — the shape for
-   camera/position truth)
+   camera/position truth) · runtime/{keyboard,mouse}.cljs + events.cljs
+   (focus/gesture routing) · server/episode.clj + server_jetty.clj (the
+   utterance lane gaining source-block + revision + position)
 
-Deliver P2b per the contract phase spec: arrival = NOTHING → click →
-caret → block at the chosen point · Enter newline / Ctrl+Enter → the
-existing durable-BEFORE-agent lane · reply = border-tinted block beneath
-· world camera pan/zoom live · drag via per-frame client transforms ·
-camera + positions as settle-state truth, restored at boot. Typing is
-durable as typed — standing law (everything through Rama, committed
-echo); the P2 client-only buffer dies in this phase. One design call
-before coding: §9.3 position truth home (lean on-unit). Swap rule: the
-tip pattern DIES in the same diff — delete the pre-placed caret path
-and the single-buffer assumption from ground.cljs, never gate them off.
-Gate G4b before declaring (includes
-power-cycle at position+camera grade; feel bar narrow-echo p95 ≤ 52ms).
+Deliver P2b per the contract phase spec: arrival = NOTHING · block born
+at first content at the chosen point · committed-echo typing over an
+invisible intent queue (the P2 client-only buffer dies here) ·
+Ctrl+Enter = revision-pinned send on the existing durable-BEFORE-agent
+lane, busy → visible refusal at the block · provisional stream REPLACED
+at distill by the durable provenance-marked reply block · world camera
+pan/zoom + block drag · camera + positions as settle-ack truth,
+restored at boot. Two receipts BEFORE coding: §9.3 geometry feasibility
+(stop if topology-shaped) · the intent-queue/committed-render seam vs
+block-write's painted pending. Swap rule: the tip pattern DIES in the
+same diff — delete the pre-placed caret path and the single-buffer
+assumption from ground.cljs, never gate them off.
+Gate G4b before declaring (destructive grade: kill mid-stream honesty,
+power-cycle after settle-ack, revision pinning under mid-stream edits;
+feel bar narrow-echo p95 ≤ 52ms).
 Stop clauses: CONTRACT §8 + anything topology-shaped for geometry.
 /rama before any Rama touch; falsification pass before close; append
 NOW.md; docs only on the docs branch; code commit = Sid's word.

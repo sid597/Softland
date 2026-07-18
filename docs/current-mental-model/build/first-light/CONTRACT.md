@@ -58,9 +58,10 @@ Rama module (zero) · editor-feel work · multi-inhabitant anything.
   first position is the first act of taste. Click → caret at the chosen
   point → typed words become a block THERE (type-without-click lands
   under the pointer). Enter = newline; Ctrl+Enter speaks to the resident
-  — addressing, never saving: text is durable as typed, and un-sent
-  blocks stay unread by the resident (the "just noting" semantics)
-  until the ambient-reader era.
+  — addressing, never saving: text is durable as typed; un-sent blocks
+  are not supplied to the resident automatically (the "just noting"
+  semantics — a context-assembly rule, not a privacy wall) until the
+  ambient-reader era.
   The land is a pannable/zoomable space; blocks are draggable objects;
   camera + positions persist as settled truth (WALKTHROUGH laws
   1/3/10/15, moments 0–6). No command panel, no /commands, no sidebar,
@@ -91,7 +92,10 @@ Rama module (zero) · editor-feel work · multi-inhabitant anything.
   API keys — hard rule; RECON Q2 verified no keys in argv). Its responses
   become durable material via **post-turn harvest+distill of the episode**
   (the proven transcript organ, now triggered at turn end instead of
-  migration day; idempotent by import keys). No new durable chat pipeline.
+  migration day; idempotent by import keys). No new durable chat
+  pipeline. The resumable CLI session is a continuity cache, never
+  canonical land memory — durable episode material outlives it;
+  reconstructing resident context FROM the land is deliberately later.
 
 ## 4. The wish and the repair (P3–P5) — the unit, executably
 
@@ -227,38 +231,76 @@ Anything else that looks kernel-shaped → stop clause.
   re-running the distill is a receipted no-op; the §5.1 foreign-read
   routing gate passes.
 - **P2b — the open ground.** Unmount the boot-time tip (the pre-placed
-  caret dies); arrival renders NOTHING.
-  Click → caret → block at the chosen point (type-without-click → under
-  the pointer); Enter newline; Ctrl+Enter rides the EXISTING utterance
-  lane (durable-BEFORE-agent unchanged); the reply renders as a
-  border-tinted block beneath the SPOKEN block (default; wish-fodder).
-  Multi-block truth (the 5-blocks scenario, Sid): each block is
-  its own focusable slot; Ctrl+Enter fires from the FOCUSED block, so
-  the target is never ambiguous; the utterance POST carries the spoken
-  block's identity + position; the reply slot spawns relative to THAT
-  block (parent-relative placement — the container-transform substrate;
-  turn chaining via prev-turn-id already durable).
-  The world camera goes live (pan/zoom — the scene-substrate seam, today
-  pinned scroll-only/zoom-1.0 at scene_runtime.cljs:321); blocks drag
-  with per-frame client transforms (`set-transform!`, the cheap path).
-  Camera + block positions persist as SETTLE-STATE truth only — the
-  committed-vs-ephemeral taxonomy (workspace_actions.cljs:94–106)
-  extended with a settled class: never per-event, one write at burst-end
-  (debounce ~300–500ms) + flush on leave; restore at boot (same place,
-  same zoom, blocks where left — the settings-truth lane shape,
-  runtime.cljs:181–260). Typing rides the standing law like everything
-  else — every keystroke through Rama, rendered from the committed echo
-  (the unit exists from birth via the §5.1 lane; keystrokes on the
-  block-write grain — worn organ, echo p95 7.66ms stream / 26.6ms
-  browser); P2's client-only buffer dies in this phase. One design call
-  before coding: the position truth home — §9.3 (lean on-unit). **G4b:**
-  fresh world screenshots as NOTHING; click-place → power-cycle → the
-  block returns at its position with sid provenance and the camera
-  returns where left (G3's grade extended to geometry); Ctrl+Enter
-  durable-BEFORE-agent re-receipted on the new surface; the reply block
-  renders with distinct provenance; feel holds the G1 bar (narrow echo
-  p95 ≤ 52ms) on the spatial face. Anything topology-shaped for geometry
-  → stop clause (§8).
+  caret dies — deleted, never gated); arrival renders NOTHING: zero
+  content pixels, zero caret, no hidden focused input.
+  **Birth:** click = an ephemeral caret anchor at the chosen point
+  (type-without-click anchors under the pointer); the durable block is
+  minted at the FIRST content act (char/paste/Enter) via the §5.1
+  native lane — Escape before content leaves no unit; a block emptied
+  later stays addressable. Enter = newline; no wrap, no clip — width
+  grows with the longest line; the interaction box = glyph extents +
+  hit padding.
+  **Addressing (the N-blocks truth, Sid):** each block is its own
+  focusable slot; Ctrl+Enter fires from the FOCUSED block (target never
+  ambiguous) and rides the EXISTING utterance lane (durable-BEFORE-agent
+  unchanged), capturing source-block-id + the exact committed revision
+  (id or content hash) + send-time position — later edits or moves never
+  rewrite what the resident answered; turn chaining via prev-turn-id
+  already durable. Busy resident → visible transient refusal AT the
+  source block, never a silent swallow, no queue; other blocks stay
+  writable and draggable during a turn; a failed turn closes visibly at
+  its source, the failure fact riding the existing episode append lane
+  (durable if adapter-level carries it, else honest visible absence +
+  §8); retry = a new linked turn.
+  **Reply:** while the turn is open, an explicitly PROVISIONAL
+  projection renders (activity + stream — process-state, never truth,
+  never camera motion); at distill it is REPLACED by the durable
+  provenance-marked machine block, spawned parent-relative beneath the
+  source's current position (the container-transform substrate),
+  independent once born — moving the source never moves it; overlap
+  allowed, no auto-reflow (wish-fodder).
+  **Typing truth:** every keystroke through Rama, glyphs rendered from
+  the committed echo (block-write grain — worn organ, echo p95 7.66ms
+  stream / 26.6ms browser); P2's client-only buffer dies here. The
+  client MAY keep an invisible ordered intent queue SOLELY to construct
+  and sequence idempotent edit requests — never a rendered text source;
+  visible text and the key-induced caret derive from the SAME confirmed
+  revision; refusal rebases pending intent onto the last confirmed
+  revision and explains itself visibly at the block.
+  **Space:** the world camera goes live (pan/zoom — the seam pinned
+  scroll-only/zoom-1.0 at scene_runtime.cljs:321; zoom holds the world
+  point under the pointer); blocks drag with per-frame client
+  transforms (`set-transform!`, the cheap path); one screen-space
+  threshold (~4 CSS px) splits click/caret from pan/drag. Camera +
+  positions persist as SETTLE-STATE truth only (the
+  committed-vs-ephemeral taxonomy, workspace_actions.cljs:94–106, gains
+  a settled class): gesture-end ARMS the settle write, debounce
+  (~300–500ms) covers continuous bursts, exit flush is best-effort belt
+  — SAFETY IS THE ACKNOWLEDGED SETTLE WRITE; abrupt kill restores the
+  last acknowledged state (the settings-truth lane shape,
+  runtime.cljs:181–260). Placement identity is world-scoped — logically
+  [genesis-world-id, unit-id], physically on the unit for A if the
+  receipt allows — a unit never means one position in all Softlands.
+  **Two receipts BEFORE coding** (then build: birth+typing →
+  addressing+reply → space+return): (a) §9.3 geometry feasibility — the
+  existing OC edit machinery carries birth-position + drag-settle
+  adapter-level, else stop; (b) the intent-queue/committed-render seam
+  against block-write's painted-pending pattern. **G4b (destructive
+  grade):** fresh world = zero content/caret pixels + no hidden input;
+  click + Escape mints nothing; burst typing (~12 keys/s) → emitted =
+  accepted = final committed text, caret and text from one revision;
+  reload mid-burst reproduces exactly the acknowledged prefix;
+  Ctrl+Enter durable-BEFORE-agent re-receipted, the turn record pinning
+  the send-time revision while the block is edited mid-stream; a second
+  send during a turn → visible busy refusal; kill the client mid-stream
+  → no provisional text survives as durable, a distilled reply returns,
+  an unfinished turn returns as an honest open/failed fact; drag →
+  settle-ack → kill the browser or power-cycle the PC → exact
+  world-scoped positions + camera return (graceful close NOT relied
+  on); forced-stale geometry write → visible revert at the block;
+  return restores no focus/caret/hover/selection; feel holds the G1 bar
+  (narrow echo p95 ≤ 52ms) on the spatial face. Anything topology-shaped
+  for geometry → stop clause (§8).
 - **P3 — the wish.** Point → say → wish unit + `:references` edge +
   visible projection on the target. Picks now target spatially-placed
   blocks (T7 stamps unchanged — the seam already returns
@@ -306,13 +348,21 @@ Anything else that looks kernel-shaped → stop clause.
 2. **Candidate naming** `asm:<name>--wish-<n>` (§4) — working scaffolding;
    rename at will, the fork identity survives renames via `based-on`.
 3. **Position truth home.** Lean: birth-position at mint + drag-settle
-   edits ON the OC unit riding existing edit machinery — geometry as
-   material attribute; the log stays truth, geometry stays projection.
-   Alternative (assembly-arrangement revisions — one revision per drag)
-   judged too heavy. Anything topology-shaped → stop.
+   edits riding existing OC edit machinery — geometry as material
+   attribute; the log stays truth, geometry stays projection. Placement
+   identity is logically [world-id, unit-id] (physically on the unit
+   for A if the receipt allows) — never an unqualified global x/y
+   meaning one position in all Softlands. The P2b feasibility receipt
+   precedes coding: the edit envelope is content-oriented today and has
+   never carried geometry — prove adapter-level or stop. Alternative
+   (assembly-arrangement revisions — one revision per drag) judged too
+   heavy.
 4. **Placement + gesture defaults**: reply beneath the spoken block,
-   left-aligned; press-move threshold separates drag from click-to-edit.
-   Both named wish-fodder; re-tune at will.
+   left-aligned, independent once born, overlap allowed (no
+   auto-reflow); one ~4 CSS-px screen-space threshold separates click
+   from pan/drag; zoom holds the world point under the pointer; in-edit
+   drag selects text, boundary drag moves the block. All named
+   wish-fodder; re-tune at will.
 
 ## 10. Input manifest
 

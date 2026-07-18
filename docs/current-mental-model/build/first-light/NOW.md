@@ -146,3 +146,36 @@
   coherence-preservation — the session defended the built artifact's
   frame instead of re-deriving from settled ground. Recut: §9.4, P2b
   spec, walkthrough D4, board block + HANDOFF.
+
+- **2026-07-18 · Fable · Codex gate ingested — P2b contract repaired.**
+  Codex verdict NEEDS-REVISION; the experiential spine confirmed (all
+  RULED items preserved, none reopened). ACCEPTED and landed: the
+  just-noting delivery claim was false (durable-unsent is P2b work, not
+  current state — wording now "not supplied automatically", a
+  context-assembly rule); revision-pinned sends (source-block-id +
+  committed revision + send-time position); the invisible ordered
+  intent queue + committed text/caret co-variance (the sharpest catch —
+  "buffer dies" taken literally would break burst typing at 26ms echo);
+  block birth at FIRST content act (no empty-unit litter); provenance
+  mark split from the attention-only interaction box (one border could
+  not satisfy both laws); no-wrap/70ch resolved (width grows; measure
+  deferred); pointer grammar defaults (4 CSS-px threshold, zoom holds
+  the point under the pointer, in-edit drag = selection); busy →
+  visible refusal, failure durable via the existing episode append lane
+  or honest absence; reply independent once born, overlap allowed;
+  placement identity world-scoped [genesis-world-id, unit-id] +
+  geometry feasibility receipt before coding; settle-ack is the safety
+  mechanism (exit flush = belt) with G4b upgraded to destructive grade;
+  return restores no attention state; resident context = resumable CLI
+  cache, never canonical memory. DECIDED by Fable under Sid's "now you
+  decide" (veto anytime): reply permanence = provisional projection
+  visibly process-state, durable provenance-marked block at distill —
+  no new durable chat pipeline (contract non-goal stands); per-chunk
+  persistence stays a later upgrade if the seam grates in wear.
+  REJECTED: the three-axis marker taxonomy as a doc format (the
+  authority/delivery distinction honored in plain wording instead), a
+  separate contract-repair phase (done same-day), the numeric scores.
+  Repairs: WALKTHROUGH laws 6/10/14 + moments 1/2/5/6 + pointer
+  grammar; CONTRACT P2b rewritten (Birth/Addressing/Reply/Typing-truth/
+  Space + two pre-code receipts + destructive G4b), §9.3/§9.4
+  sharpened, §3 honest wording; HANDOFF updated.
