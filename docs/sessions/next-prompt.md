@@ -32,7 +32,9 @@ existing durable-BEFORE-agent lane · reply = border-tinted block beneath
 camera + positions as settle-state truth, restored at boot. Typing is
 durable as typed — standing law (everything through Rama, committed
 echo); the P2 client-only buffer dies in this phase. One design call
-before coding: §9.4 position truth home (lean on-unit).
+before coding: §9.4 position truth home (lean on-unit). Swap rule: the
+tip pattern DIES in the same diff — delete the pre-placed caret path
+and the single-buffer assumption from ground.cljs, never gate them off.
 Gate G4b before declaring (includes
 power-cycle at position+camera grade; feel bar narrow-echo p95 ≤ 52ms).
 Stop clauses: CONTRACT §8 + anything topology-shaped for geometry.
@@ -117,14 +119,10 @@ Softland or still on paper? (`BETS.md` verdict log.)
    the bare ground now) and see the conversation. (b)
    `rm -rf /mnt/data/rama/data-restore-scratch` (1.6G drill leftover; rm was
    permission-blocked for the session). (c) vault leg: rsync
-   `/mnt/data/rama/backups/` to the Mac. ((d) CODE commit DONE 2026-07-18 at
-   Sid's word — `99e0a13` durable-ground + `34cb9e2` first-light P1+P2;
-   git-spine suite pair re-run at new HEAD: 16t/365a green.)
+   `/mnt/data/rama/backups/` to the Mac.
 1. **Wear session at the dev app:** the editor (`build/editor-feel/NOW.md`
    verdict) · Boxes/Minimap (gesture-feel notes feed the P3c/gesture
-   slices). (block-write G8 and scene-substrate's final looks
-   came off this list — worn 07-13, package CLOSED; machine-cut G14
-   likewise closed 07-13.)
+   slices).
 2. **Redline the policy-model proposal (one read):**
    `build/policy-model/PROPOSAL.md` — LAW candidates + the open forks in §2
    marked for you; nothing downstream blocks on it (block-write's §6 seam
@@ -139,20 +137,9 @@ Softland or still on paper? (`BETS.md` verdict log.)
 
 ## MACHINE MOVES — running or ready, no Sid needed
 
-- **scene-substrate — CLOSED 2026-07-13** (P1–P4 built + falsified + worn
-  by Sid + gate PASS 0-HIGH + retro; records `build/scene-substrate/
-  GATE.md` + `RETRO.md`; retro recheck = Sid's call on cost). Staged next
-  slice when pulled: **P3c** — main-face flip + overlay echo lane to
-  copies + per-slot echo diff + second assembly artery (CONTRACT §P3c +
-  gate F1b/F8).
-- **block-write — CLOSED 2026-07-13.** S2 fired + ruled; finder's F1 HIGH
-  fixed; Sid ruled S3 (p95 <=50ms, p99 <=100ms, no optimistic echo) and wore
-  corrected G8: visible stale refusal/revert plus same-unit truth across a full
-  JVM replacement (`10 replayed, 0 failed`). Close suites 11t/74a + 29t/1008a
-  + 27t/349a green. Records: `build/block-write/INT.md`, `FALSIFY.md`,
-  `RETRO.md`. New WAL boundaries routed LATER: multi-conversation readiness,
-  no-fsync tail, compaction. Code commit remains Sid's call.
 - **Fable's independent dual-read** — fresh session, PROTOCOL anti-anchoring.
+  (Closed packages live in their FOREST/LANES lines + `build/<pkg>/` records
+  — not here; this section is running-or-ready only, pruned per the header.)
 - **src/ code-size/verbosity audit — DONE (2026-07-12):**
   `build/code-audit/REPORT.md` — 47k lines / 83 files; ~440 safe mechanical
   shrink + ~130 gated + kernel.clj (830) relocatable; probe (1,482) + pinned
@@ -174,11 +161,9 @@ round → benchmark room (question bank waits on kinds).
   design session with `build/sense-line-mvp/dual-read/DESIGN_BRIEF.md` (one
   paste); the task-UI vs cards-wall fork is its EXPLORE item 2 — rendered both
   ways, picked by feel there. Design pass precedes build.
-- **machine-cut — CLOSED 2026-07-13** (all gates incl. G14 worn in the wild
-  during scene-substrate G11 — WAL replay receipt in the boot log; quiet-box
-  suite 94t/1476a green at HEAD after one stale cross-package scan fix;
-  retro + routed lessons: `build/machine-cut/RETRO.md`). Adversarial recheck
-  of the retro NOT run — Sid's call on cost.
+- **machine-cut — CLOSED 2026-07-13** (retro + routed lessons:
+  `build/machine-cut/RETRO.md`; adversarial retro-recheck not run — Sid's
+  call on cost).
 - Residues — LATER: block-kernel (`block-kernel/RETRO.md` §5: §10 cursor query
   · multi-stratum under-fill · content-preview asymmetry) · code-atom —
   **F4 fault-injection + N5 history-sort + the analyzer-sync! settle (GATE §10
@@ -189,11 +174,10 @@ round → benchmark room (question bank waits on kinds).
   bridges (panproto lenses).
 
 ### WRITE — editor
-- **block-write — CLOSED 2026-07-13.** Existing object-container edit stream is
-  connected to the reader face with pending-input, Rama truth echo, refusal,
-  lineage, and corrected full-JVM WAL survival. Contract + close record:
-  `build/block-write/CONTRACT.md` + `RETRO.md`. LATER: long-block input loss,
-  multi-conversation replay readiness, no-fsync tail, WAL compaction.
+- **block-write — CLOSED 2026-07-13** (records
+  `build/block-write/{CONTRACT,INT,FALSIFY,RETRO}.md`; WAL residues routed
+  LATER in the RETRO; the S3 + no-optimistic-echo ruling lives in settled
+  ground).
   **Policy-model design — PROPOSAL LANDED (2026-07-12):**
   `build/policy-model/PROPOSAL.md` — Sid's two questions kept separate;
   monotonic-narrowing + tower-cut LAW candidates; question 2 framed as
@@ -207,10 +191,9 @@ round → benchmark room (question bank waits on kinds).
   JVM-probed). Compiles clean in the live dev server (3 files, 0 warn);
   face+missionary suite 85t/1625a green. Left: `[RAF]`/typing-burst capture +
   Sid's fingers (dev app is live). Thread file: `build/editor-feel/NOW.md`.
-- write-echo — DONE (2026-07-12). Stream echo p95 7.66ms, 0/1620 stalls
-  (numbers/method: `build/write-echo/NOW.md`); the ruling lives in settled
-  ground. Probes stay UNCOMMITTED (`write_echo_probe.clj`,
-  `stream_echo_probe.clj`).
+- write-echo — DONE (2026-07-12): stream echo p95 7.66ms; ruling in settled
+  ground; numbers `build/write-echo/NOW.md`. (Probe files ended up COMMITTED
+  — `src/app/probe/` — on the code kill-list, Sid's word.)
 
 ### SPACE — spatial/3D
 - **spatial cluster — FOLDED INTO scene-substrate (2026-07-12 ruling,
@@ -221,20 +204,13 @@ round → benchmark room (question bank waits on kinds).
   first-form pick) · `G-perf` standing gate clause (pending). Analysis
   trail: `build/spatial/ROAD.md` (superseded where it staged separate
   packages).
-- box3d-spike — DONE (07-11): Box3D (MIT) builds native + single-threaded wasm
-  (163 KB gzip); native↔wasm trace **byte-identical** → sim = replayable
-  trail; writer seam proven from JS (`b3World_GetBodyEvents`→HEAPF32).
-  Caveat: determinism verified one host. Findings:
-  `build/box3d-spike/REPORT.md`. → islands rung-2 unblocked.
-- islands-probe — DONE (07-12): all P1–P6 proven on real HW (Radeon 7900 XTX,
-  headed Chrome): sleeping island ~free · cost decouples from cadence · MSDF
-  text in a perspective pass VERIFIED (fwidth-derived screenPxRange); 60 fps
-  to 1.5M cubes, single-buffer ceiling ~1.6M (default 128 MB storage limit).
-  Report + screenshots: `build/islands-probe/REPORT.md`. Probe code
-  UNCOMMITTED in tree (`island_probe.cljs` + 5 mount lines in `render.cljs`,
-  tagged `islands-probe 2026-07-11`; delete to remove). Feeds the islands
-  CONTRACT: boot device-limits/timestamp-query, scene-as-data dirty policy,
-  compositing/z-order, fwidth-MSDF text path.
+- box3d-spike — DONE (07-11): native↔wasm byte-identical → sim = replayable
+  trail; findings `build/box3d-spike/REPORT.md`; islands rung-2 unblocked.
+- islands-probe — DONE (07-12): all P1–P6 proven on real HW (60fps @ 1.5M
+  cubes; MSDF-in-perspective verified); report + islands-CONTRACT inputs:
+  `build/islands-probe/REPORT.md`. (Probe code ended up COMMITTED —
+  `island_probe.cljs` + tagged mount lines in `render.cljs` whose
+  "(UNCOMMITTED)" comments now lie — on the code kill-list, Sid's word.)
 
 ### STANDING
 - design queue — LATER: question-unit design (noted 07-04; settled-ground Open
@@ -277,7 +253,7 @@ Sid's app-open check completes it.
 
 durable-ground — CLOSED 2026-07-17 (one day, P0→close): gate PASS, records
 `build/durable-ground/{CONTRACT,GATE,RETRO,NOW}.md`; G5c reboot receipt =
-Sid's slot (his move list, item 0a); code UNCOMMITTED (Sid's call).
+Sid's slot (his move list, item 0a); code committed 07-18 (`99e0a13`).
 
 Closed package records remain under `build/<package>/`; active entries are
 added here only while work is live. Precedence unchanged: thread files and this
