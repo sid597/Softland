@@ -1,0 +1,3 @@
+# durable-ground worker config overrides (CONTRACT §4, trap T2).
+# Re-specified on every module update (overrides do not carry over).
+worker.child.opts: "-Xmx3072m"

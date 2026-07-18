@@ -317,8 +317,14 @@
                            :wearer wearer
                            :address address
                            :worn-at-ms (System/currentTimeMillis)})
-        path (or (:face-wear-log-path runtime) (default-wear-log-path {}))]
-    (append-wear-log-line! path event)
+        ;; durable-ground P4: an EXPLICITLY-nil :face-wear-log-path means the
+        ;; WAL is OFF (cluster runtimes — the depot IS the durable log); only
+        ;; an ABSENT key falls back to the legacy default path.
+        path (if (contains? runtime :face-wear-log-path)
+               (:face-wear-log-path runtime)
+               (default-wear-log-path {}))]
+    (when path
+      (append-wear-log-line! path event))
     (foreign-append! (:face-arsenal-depot runtime) event :ack)
     event))
 
