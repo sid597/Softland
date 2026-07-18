@@ -179,3 +179,6 @@
   grammar; CONTRACT P2b rewritten (Birth/Addressing/Reply/Typing-truth/
   Space + two pre-code receipts + destructive G4b), §9.3/§9.4
   sharpened, §3 honest wording; HANDOFF updated.
+  **Re-gate at `38ce344`: READY TO CODE, zero fatal blockers** — the two
+  §7 P2b receipts stand as mandatory pre-coding execution gates (not
+  contract defects); §8 stop clauses intact. P2b is build-ready.

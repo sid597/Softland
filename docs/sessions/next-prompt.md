@@ -244,8 +244,9 @@ counts); flags C/D/F adjudicated (C adapter-level, NO stop clause). Dev
 workspace moved behind `?dev`. **The GENESIS EPISODE IS VIRGIN — first
 light waits on P2b** (arrival = NOTHING, the click breaks it, blocks in a
 pannable/zoomable space — WALKTHROUGH + CONTRACT carry it; Sid's first
-utterance lands there, §11). Remaining: **P2b the open ground** (HANDOFF
-prompt at board top; one design call at build time — §9.3 position home)
+utterance lands there, §11). Remaining: **P2b the open ground — contract gated READY TO CODE
+(Codex re-gate at `38ce344`, zero fatal blockers)** (HANDOFF prompt at
+board top; one design call at build time — §9.3 position home)
 → P3 wish (flag A adjudicates there) → P4 proposal+membrane →
 P5 accept/reject/reverse/explain → P6 metabolism (G9 WAITS for a real
 friction — no fabrication). §9 redlines 1/2 still on contract defaults
