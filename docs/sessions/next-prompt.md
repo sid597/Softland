@@ -112,8 +112,7 @@ Softland or still on paper? (`BETS.md` verdict log.)
    pans/moves, Ctrl+Enter speaks to the resident). This also completes
    your G5c half (the machine half — corpus 35/64/247 post-reboot — is
    banked; `?dev=1` still reaches the dev workspace if you want the old
-   view). Then: **P2b code commit = your word** (all suites green,
-   uncommitted by law).
+   view). (P2b code committed 07-18 at your word — `325439a`.)
 0b. **durable-ground leftovers:** (a)
    `rm -rf /mnt/data/rama/data-restore-scratch` (1.6G drill leftover; rm
    was permission-blocked for the session). (b) vault leg: rsync
@@ -243,8 +242,7 @@ Remaining: **P3 wish** (HANDOFF at board top; flag A adjudicates there)
 → P4 proposal+membrane → P5 accept/reject/reverse/explain → P6 metabolism
 (G9 WAITS for a real friction — no fabrication). §9 redlines 1/2 still on
 contract defaults (`:references` · contract naming); veto anytime. P2
-code committed 07-18 (`99e0a13` + `34cb9e2`); **P2b code UNCOMMITTED —
-commit = Sid's word** (suites 103t/1262a green; cljs 0 warnings). G5c
+code committed 07-18 (`99e0a13` + `34cb9e2`); P2b code committed 07-18 at Sid's word (`325439a`) (suites 103t/1262a green; cljs 0 warnings). G5c
 machine-half banked: corpus 35/64/247 post-reboot — Sid's first-light
 open completes his half.
 
