@@ -32,6 +32,11 @@
 (def distiller-id "sense-block-v0")
 (def distiller-version 1)
 (def river-debris-classifier-id "river-debris-v0")
+(def episode-native-classifier-id
+  "The :native class-ledger stamp (first-light A P2, flag D): marks a user
+   text event whose material is already durable under imp:ep: — see
+   class-hint-import-request's 4-arity."
+  "episode-native-v0")
 (def mechanical-asserter "sense-block/mechanical@1")
 (def mechanical-asserter-type :machine)
 
@@ -798,26 +803,37 @@
    classified event from a never-classified one. Returns {:request <import-request>
    :class <:river|:debris>}. A normal river event carries its class hint on its
    surface import (event-import-request) and never reaches here."
-  [object-key parsed order]
-  (let [distilled  (distill-event parsed order)
-        class-map  (:class distilled)
-        clazz      (:class class-map)
-        event-uuid (:event-key distilled)
-        imp-key    (import-key object-key event-uuid)
-        request-id (request-id-for object-key event-uuid)
-        ctx        (event-ctx object-key distilled)
-        hint (class-projection-hint
-              {:conv-id (tid/chat-conversation-id object-key)
-               :order order
-               :event-uuid event-uuid
-               :event-id (:event-id ctx)
-               :role (message-role parsed)
-               :content-preview (str (:classifier-id class-map) "/" (name (:reason class-map)))}
-              imp-key request-id clazz)]
-    {:request (import-request object-key event-uuid
-                              (import-payload object-key [] [] [] [hint])
-                              {:time-ms (:created-at-ms ctx)})
-     :class clazz}))
+  ([object-key parsed order]
+   (class-hint-import-request object-key parsed order nil))
+  ;; entry-kind-override (first-light A P2, flag D): the episode distill
+  ;; classes a natively-minted user text event :native — its material lives
+  ;; under imp:ep:, so no surface import here, but the class ledger stays
+  ;; total (SPEC §3.1). river-page ignores it (river-ledger-row? demands
+  ;; :river); the merge lane renders the NATIVE units instead. Same
+  ;; deterministic keys → re-runs converge (T8/G4).
+  ([object-key parsed order entry-kind-override]
+   (let [distilled  (distill-event parsed order)
+         class-map  (:class distilled)
+         clazz      (:class class-map)
+         entry-kind (or entry-kind-override clazz)
+         event-uuid (:event-key distilled)
+         imp-key    (import-key object-key event-uuid)
+         request-id (request-id-for object-key event-uuid)
+         ctx        (event-ctx object-key distilled)
+         hint (class-projection-hint
+               {:conv-id (tid/chat-conversation-id object-key)
+                :order order
+                :event-uuid event-uuid
+                :event-id (:event-id ctx)
+                :role (message-role parsed)
+                :content-preview (if entry-kind-override
+                                   (str episode-native-classifier-id "/native")
+                                   (str (:classifier-id class-map) "/" (name (:reason class-map))))}
+               imp-key request-id entry-kind)]
+     {:request (import-request object-key event-uuid
+                               (import-payload object-key [] [] [] [hint])
+                               {:time-ms (:created-at-ms ctx)})
+      :class clazz})))
 
 (defn read-conversation-inputs
   "Physically enumerate a conversation's ordered per-message stored payloads (F3:
@@ -929,15 +945,22 @@
    event (:append-ack; await the per-request decision). Debris is skipped (it is
    retained upstream by the transcript ingest; its river/debris ledger is Phase 2).
    When an `:rk-rt` (relation-kernel runtime) is supplied, ALSO runs the P3b
-   mechanical edge floor (SPEC §11.3, gates G8/G9). Returns
-   {:object-key :requests :decisions :river :debris :edges :edge-count}."
-  [{:keys [oc-rt rk-rt source conversation-id]}]
+   mechanical edge floor (SPEC §11.3, gates G8/G9). When a `:skip-event?`
+   predicate is supplied ((fn [parsed distilled] -> bool) — first-light A P2,
+   flag D), matching events mint NO surface import: they get a class-only
+   :native ledger row (their material is already durable under imp:ep:) and
+   count under :native in the summary. Returns
+   {:object-key :requests :decisions :river :debris :native :edges :edge-count}."
+  [{:keys [oc-rt rk-rt source conversation-id skip-event?]}]
   (let [object-key (tid/transcript-object-key source conversation-id)
         inputs (read-conversation-inputs oc-rt object-key)
         summary (reduce
                  (fn [acc {:keys [order payload-str]}]
                    (let [parsed  (safe-read-payload payload-str)
-                         request (event-import-request object-key parsed order)]
+                         skip?   (boolean (and skip-event? parsed
+                                               (skip-event? parsed (distill-event parsed order))))
+                         request (when-not skip?
+                                   (event-import-request object-key parsed order))]
                      (if request
                        (do (ocr/append-object-container-request! oc-rt request)
                            (-> acc
@@ -947,15 +970,20 @@
                        ;; F3 + Gate-R2 Finding 1: no surface import → this event still
                        ;; needs a DURABLE versioned class row (SPEC §3.1). True for
                        ;; every debris event AND the rare river event whose only part
-                       ;; is empty (e.g. an empty tool_result). Count by ACTUAL class.
+                       ;; is empty (e.g. an empty tool_result) AND (flag D) every
+                       ;; skip-event? match (:native — material durable under imp:ep:).
+                       ;; Count by ACTUAL class, :native counted separately.
                        (let [{hreq :request clazz :class}
-                             (class-hint-import-request object-key parsed order)]
+                             (class-hint-import-request object-key parsed order
+                                                        (when skip? :native))]
                          (ocr/append-object-container-request! oc-rt hreq)
                          (-> acc
-                             (update (if (= :river clazz) :river :debris) inc)
+                             (update (cond skip? :native
+                                           (= :river clazz) :river
+                                           :else :debris) inc)
                              (update :class-hint-decisions conj
                                      (ocr/await-object-container-decision oc-rt hreq 20000)))))))
-                 {:object-key object-key :requests [] :decisions [] :river 0 :debris 0 :class-hint-decisions []}
+                 {:object-key object-key :requests [] :decisions [] :river 0 :debris 0 :native 0 :class-hint-decisions []}
                  inputs)]
     (if rk-rt
       (merge summary (assert-mechanical-edges! {:oc-rt oc-rt :rk-rt rk-rt
@@ -1318,6 +1346,52 @@
           (take remaining)
           vec)}))
 
+(defn- native-utterance-row?
+  "first-light A P2: a native episode row (entry-kind :episode-utterance,
+   ep:-namespaced order-key) — material minted at utterance time under
+   imp:ep:, enumerated from the SAME projection range read as everything
+   else and rendered beside the river."
+  [row]
+  (and (= :episode-utterance (:entry-kind row))
+       (str/starts-with? (str (:order-key row)) "ep:")))
+
+(defn- render-native-source
+  "Blocks for ONE native utterance row: source → this stratum's unit refs →
+   read-unit (G13 paths — same seek shape as render-river-source; the
+   graduation overlay serves edited content with the same honesty). Actor =
+   the row's role slot (the native lane stores the ACTOR id there — sid);
+   :lane :episode marks the block for the projection's time merge."
+  [oc-rt row remaining]
+  (let [source-id (:source-id row)
+        bundle (ocr/read-common-material-for-source
+                oc-rt source-id [:derived-units] {} remaining)
+        du-seg (str ":" episode-native-classifier-id ":")
+        refs   (->> (:derived-units bundle)
+                    (filter #(str/includes? (str (:target-id %)) du-seg))
+                    (sort-by :order-key))]
+    {:unit-reads (count refs)
+     :blocks
+     (->> refs
+          (keep (fn [ref]
+                  (let [read-result (ocr/read-unit oc-rt (:target-id ref))
+                        unit (:unit read-result)]
+                    (when (and unit
+                               (= source-id (:source-id unit))
+                               (= episode-native-classifier-id (:distiller-id unit)))
+                      {:order       [:ep (:order-key row) (:order-key ref)]
+                       :event-uuid  (:message-uuid row)
+                       :actor       (:role row)
+                       :form        (:unit-kind unit)
+                       :text        (:content-text read-result)
+                       :unit-id     (:unit-id unit)
+                       :source-id   source-id
+                       :part-path   "utterance"
+                       :document-container-id (:document-container-id unit)
+                       :block-path  (:block-path unit)
+                       :lane        :episode}))))
+          (take remaining)
+          vec)}))
+
 (defn river-page
   "Render the first bounded page of a conversation's persisted river blocks.
 
@@ -1387,18 +1461,39 @@
                 parts))))
          initial
          river-rows)
+        ;; first-light A P2 — the native lane: episode-utterance rows from the
+        ;; SAME projection read (zero extra range seeks), each source's units
+        ;; rendered through the same G13 paths. Bounded by the SAME limit.
+        native-rows (->> projection (filter native-utterance-row?) (sort-by :order-key))
+        native (reduce
+                (fn [{:keys [blocks surfaces-read] :as acc} row]
+                  (if (or (>= (count blocks) limit) (>= surfaces-read limit))
+                    (reduced acc)
+                    (let [rendered (render-native-source oc-rt row (- limit (count blocks)))]
+                      (-> acc
+                          (update :blocks into (:blocks rendered))
+                          (update :surfaces-read inc)
+                          (update :unit-reads + (:unit-reads rendered))))))
+                {:blocks [] :surfaces-read 0 :unit-reads 0}
+                native-rows)
         seek-count (+ 1
                       (:events-read result)
                       (:surfaces-read result)
-                      (* 2 (:unit-reads result)))
-        blocks-returned (min limit (count (:blocks result)))
+                      (* 2 (:unit-reads result))
+                      (:surfaces-read native)
+                      (* 2 (:unit-reads native)))
+        blocks-returned (+ (min limit (count (:blocks result)))
+                           (count (:blocks native)))
         ;; F2: never present a capped/short page as complete. Truncated when ANY
         ;; ceiling was hit — unrendered river events remain, or the surface/block
-        ;; cap stopped the walk. A consumer re-pages until :truncated? is false
-        ;; (a cursor/dedicated query is the CONTRACT §10 scale extension, not v0).
+        ;; cap stopped the walk (either lane). A consumer re-pages until
+        ;; :truncated? is false (a cursor/dedicated query is the CONTRACT §10
+        ;; scale extension, not v0).
         truncated? (boolean (or (> total-river-events (:events-read result))
                                 (>= (:surfaces-read result) limit)
-                                (>= (count (:blocks result)) limit)))
+                                (>= (count (:blocks result)) limit)
+                                (> (count native-rows) (:surfaces-read native))
+                                (>= (count (:blocks native)) limit)))
         read-plan  {:projection-range-seeks 1
                     :projection-rows-iterated (count projection)
                     :events-read (:events-read result)
@@ -1413,10 +1508,17 @@
                     :river-events-total total-river-events
                     :river-events-rendered (:events-read result)
                     :surfaces-rendered (:surfaces-read result)
+                    :native-rows-total (count native-rows)
+                    :native-surfaces-read (:surfaces-read native)
+                    :native-unit-reads (:unit-reads native)
+                    :native-blocks-returned (count (:blocks native))
                     :blocks-returned blocks-returned
                     :truncated? truncated?
                     :page-complete? (not truncated?)}]
-    (with-meta (vec (take limit (:blocks result)))
+    ;; Native blocks APPEND after the river page (each lane bounded by the
+    ;; same limit); global reading order is the projection's time merge
+    ;; (conversation-projection), never this vector's order.
+    (with-meta (into (vec (take limit (:blocks result))) (:blocks native))
       {:river-page/read-plan read-plan})))
 
 (defn start-distiller-runtime!

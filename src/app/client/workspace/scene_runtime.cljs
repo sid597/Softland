@@ -113,11 +113,10 @@
 ;; ---------------------------------------------------------------------------
 
 (defn block-unit-ids
-  "The set of block unit-ids in a served face data-context (turns → blocks →
-   :id) — the SAME derivation the legacy handle-face-assembly-click! uses, so
-   the store path and the legacy path resolve identical blocks."
+  "The set of block unit-ids in a served face data-context. Pure derivation
+   lives in scene-store (first-light P1); this alias keeps runtime callers."
   [ctx]
-  (into #{} (comp (mapcat :blocks) (keep :id)) (:turns ctx)))
+  (ss/block-unit-ids ctx))
 
 (defn- assert-container-registered!
   "FALSIFY finding #5 (carried to P3): a slot whose :container cid is NOT in
@@ -140,14 +139,15 @@
    address-stamped, container-LOCAL rt-tree (root at 0,0 — the container
    transform places it; :world camera so it pans/zooms with the scene). Returns
    {:vi :container}."
-  [vi tree {:keys [x y scale layer meta]
+  [vi tree {:keys [x y scale layer meta pre-resolved?]
             :or   {x 0.0 y 0.0 scale 1.0 layer 1}}]
   (let [cid (alloc-cid!)]
     (swap! !containers-registry ctn/add-container cid
            {:x x :y y :scale scale :camera :world :layer layer})
     (assert-container-registered! cid)
     (swap! !scene-store ss/upsert-slot vi
-           {:tree tree :container cid :meta (or meta {})})
+           {:tree tree :container cid :meta (or meta {})
+            :pre-resolved? pre-resolved?})
     {:vi vi :container cid}))
 
 (defn close-instance!
@@ -223,6 +223,50 @@
                       st))
                   store
                   survivors)))))))
+
+;; ---------------------------------------------------------------------------
+;; Main-face slot (first-light P1 — the P3c minimum flip)
+;; ---------------------------------------------------------------------------
+;; The worn face's singleton legacy render path retires: the MAIN face becomes
+;; a store slot like any other view-instance, in its OWN container at identity
+;; transform (x 0, y 0, scale 1, :world camera) so it renders pixel-identically
+;; to the legacy path — the world camera pan (0,−scroll-y) applies in-shader
+;; exactly as before. Layer 1: below spawned copies (layer n ≥ 2), above root.
+;; No backdrop wrap — the main face IS the ground, not a floating card.
+;; Mutations here are called ONLY from the dedicated consumer edge in
+;; render.cljs (T4: edges only, and NOT the RAF edge — a same-wave upsert keeps
+;; the keystroke→paint path at one frame, no +1-frame store lag).
+
+(def main-face-vi
+  "The worn conversation face's view-instance key (the legacy singleton's
+   :face-main identity, carried into the store)."
+  :face-main)
+
+(defn upsert-main-face!
+  "Insert or refresh the main face's slot from a RESOLVED, address-stamped
+   tree (ss/build-face-tree output — root Δ1 stamp + per-block [:data :address],
+   trap T7). First call registers the container; later calls re-use it."
+  [tree]
+  (if-let [slot (ss/slot @!scene-store main-face-vi)]
+    (swap! !scene-store ss/upsert-slot main-face-vi
+           {:tree          tree
+            :container     (:container slot)
+            :meta          (:meta slot)
+            :stratum       (:stratum slot)
+            ;; build-face-tree output is already resolved (apply-assembly
+            ;; resolves internally) — skip the second resolve pass (P1 perf)
+            :pre-resolved? true})
+    (register-face-instance! main-face-vi tree
+                             {:x 0.0 :y 0.0 :scale 1.0 :layer 1
+                              :meta {:main? true}
+                              :pre-resolved? true}))
+  nil)
+
+(defn close-main-face!
+  "Drop the main face's slot + container. No-op when absent (close-all-slots!
+   may have already taken it on a mode exit — both paths stay idempotent)."
+  []
+  (close-instance! main-face-vi))
 
 (defn set-transform!
   "In-flight container transform (T10: client-side 60Hz, NO events). Mutates
@@ -324,9 +368,16 @@
   []
   (m/latest
     (fn [store]
-      (let [slots (:slots store)]
-        {:rects      (into [] (mapcat (comp :rects :ops)) (vals slots))
-         :shadows    (into [] (mapcat (comp :shadows :ops)) (vals slots))
+      (let [slots (:slots store)
+            ;; first-light P1: deterministic paint order — the main face draws
+            ;; FIRST (under every spawned copy), copies then by vi. Pre-flip the
+            ;; legacy path appended store rects AFTER the singleton's, so copies
+            ;; always painted over the main face; hash order would break that.
+            ordered (sort-by (fn [s] [(if (= main-face-vi (:vi s)) 0 1)
+                                      (pr-str (:vi s))])
+                             (vals slots))]
+        {:rects      (into [] (mapcat (comp :rects :ops)) ordered)
+         :shadows    (into [] (mapcat (comp :shadows :ops)) ordered)
          :text-by-vi (reduce-kv (fn [m vi slot] (assoc m vi (get-in slot [:ops :text])))
                                 {} slots)}))
     (m/watch !scene-store)))

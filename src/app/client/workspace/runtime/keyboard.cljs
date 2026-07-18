@@ -11,6 +11,7 @@
             [app.client.workspace.settings-view :refer [slider-specs font-defaults->settings]]
             [app.client.workspace.runtime.state :refer [save-undo!]]
             [app.client.workspace.block-edit-wiring :as block-edit-wiring]
+            [app.client.workspace.ground :as ground]
             [app.client.workspace.runtime.sidebar-io :as sio]
             [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workflows.dg-flow :refer [group-tickets-by-status set-selection]]))
@@ -28,6 +29,17 @@
        (m/reduce
          (fn [_ event]
             (when event
+              ;; first-light A P2 (T9): the bare ground ships NO panels, NO
+              ;; /commands, NO sidebar toggle, NO save hatch. Escape returns
+              ;; the caret to the tip (after blurring a block edit first —
+              ;; BW-T4 still holds). Builders' shortcuts live in the dev
+              ;; workspace boot only.
+              (if (ground/ground-active?)
+                (case (:type event)
+                  :escape (do (when (block-edit-wiring/edit-focused?)
+                                (block-edit-wiring/face-blur!))
+                              (ground/focus-ground!))
+                  nil)
               (case (:type event)
                 :toggle-command-panel
                 (let [visible? (:visible @!cmd-panel)
@@ -94,7 +106,7 @@
                  (js/URL.revokeObjectURL url)
                  (js/console.log "Saved file: code.clj" (count content) "bytes"))
 
-               nil))
+               nil)))
            nil)
          nil)))
 

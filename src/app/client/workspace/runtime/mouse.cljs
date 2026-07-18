@@ -9,6 +9,7 @@
             [app.client.workspace.cmd-panel :refer [cmd-panel-apply-event cmd-text-start-x]]
             [app.client.workspace.editor-compute :refer [editor-apply-event]]
             [app.client.workspace.block-edit-wiring :as block-edit-wiring]
+            [app.client.workspace.ground :as ground]
             [app.client.workspace.scene-runtime :as scene-rt] ;; scene-substrate P3a
             [app.client.workspace.settings-view :refer [slider-specs]]
             [app.client.workspace.ui-primitives :refer [list-left-pane-pct]]
@@ -404,13 +405,19 @@
 
    scene-substrate P3a: (x, y-scene) is ALREADY the WORLD point — the caller
    added scroll-y (world camera pan (0,−scroll-y)) and sb-w is 0 in face mode,
-   zoom 1.0. Try the scene STORE first: pick inverse-transforms the point per
-   container (trap T8) and resolves the deepest addressed node → its :address is
-   the block unit-id → face-click!. A store miss (no extra instances, or a click
-   over the MAIN face which rides the legacy singleton, not the store) FALLS
-   BACK to the cached-!face-scene hit-test — legacy untouched (CONTRACT §3).
-   Both routes end at block-edit-wiring/face-click! (nil → blur)."
-  [{:keys [!face-scene !face-context]} x y-scene]
+   zoom 1.0. first-light P1: the MAIN face is a store slot now, so the store
+   pick is the ONLY route — the legacy cached-!face-scene hit-test fallback
+   retires (trap T6). Pick inverse-transforms the point per container (trap
+   T8) and resolves the deepest addressed node.
+
+   One pick, two grains: record-pick! keeps the RAW hit — a background click
+   resolves to the face ROOT (its Δ1 :address is the conversation), which is
+   exactly what the deictic bundle should carry (\"I'm pointing at this
+   face\"). Edit focus is BLOCK-grain only: face-click! gets the address only
+   when it is a block unit-id in the served context; the root/conversation
+   address maps to nil → blur, preserving the legacy click-elsewhere-blurs
+   behavior (focus! on a non-block id would mint :target/not-found refusals)."
+  [{:keys [!face-context]} x y-scene]
   (let [wp  [x y-scene]
         ;; `when`, not `and`: record-pick!'s contract is map-or-nil, and
         ;; `and` leaks a literal `false` when no slots exist — (assoc false …)
@@ -419,22 +426,13 @@
     ;; scene-substrate P4 — record where the user pointed so a following cmd/agent
     ;; submit carries the deictic bundle (nil hit still records the world-point).
     (scene-rt/record-pick! wp hit)
-    (if hit
-      (block-edit-wiring/face-click! (:address hit))
-      ;; LEGACY fallback — the cached !face-scene hit-test (trap T6: :id path
-      ;; carries the block unit-id; face_assembly threads item :id into node ids).
-      (let [ctx  @!face-context
-            ids  (into #{}
-                       (comp (mapcat :blocks) (keep :id))
-                       (:turns ctx))
-            path (when-let [scene @!face-scene]
-                   (hit-test scene x y-scene))
-            unit-id (when (seq ids)
-                      (some (fn [node]
-                              (when (vector? (:id node))
-                                (some ids (:id node))))
-                            (some-> path rseq)))]
-        (block-edit-wiring/face-click! unit-id)))))
+    (let [ids  (scene-rt/block-unit-ids @!face-context)
+          addr (:address hit)
+          block? (contains? ids addr)]
+      (block-edit-wiring/face-click! (when block? addr))
+      ;; first-light A P2: on the ground, a background click returns the
+      ;; caret to the tip (focus-ground! no-ops off-ground).
+      (when-not block? (ground/focus-ground!)))))
 
 (defn- handle-trail-face-click!
   "Trail face click (view-mvp WP-B2): hit-test the CACHED scene object -

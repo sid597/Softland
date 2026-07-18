@@ -1251,8 +1251,19 @@
   (let [v (* fsize char-width)]
     (if snap (snap v) v)))
 
+;; first-light P1 (G1 drill finding): glyph-map is rebuilt PER LINE by
+;; shape-msdf-line/shape-slug-line — a whole-conversation reshape rebuilt the
+;; full unicode→glyph map hundreds of times per keystroke (~23ms/keystroke,
+;; CPU-profiled). The map is a pure derivation of the font's glyphs vector,
+;; which only changes identity on a font/backend swap — cache per vector
+;; identity (WeakMap: no leak, old fonts' entries die with their vectors).
+(defonce ^:private glyph-map-cache (js/WeakMap.))
+
 (defn- glyph-map [glyphs]
-  (reduce (fn [acc glyph] (assoc acc (:unicode glyph) glyph)) {} glyphs))
+  (or (.get glyph-map-cache glyphs)
+      (let [m (reduce (fn [acc glyph] (assoc acc (:unicode glyph) glyph)) {} glyphs)]
+        (when glyphs (.set glyph-map-cache glyphs m))
+        m)))
 
 (defn- font-line-height [font-assets]
   (or (get-in font-assets [:atlas :metrics :lineHeight])
@@ -1378,14 +1389,22 @@
   (let [current-buffer (:instance-buffer renderer-state)
         current-size (.-size ^js current-buffer)
         needs-resize? (> required-size current-size)
+        ;; first-light P1 (G1 drill finding): grow with 1.5× slack, never to the
+        ;; exact required size. An exact-size buffer re-reallocs on EVERY
+        ;; append (typing adds one instance per keystroke → GPUBuffer
+        ;; create+destroy+full-upload per key), and that churn measurably
+        ;; delayed websocket message delivery ~30ms/keystroke on the per-slot
+        ;; text geos (cloned small, grown to exact). The content geo never hit
+        ;; this only because its initial 10k-instance capacity was slack.
+        alloc-size (js/Math.ceil (* 1.5 required-size))
         new-buffer (if needs-resize?
-                     (.createBuffer device (clj->js {:size required-size
+                     (.createBuffer device (clj->js {:size alloc-size
                                                      :usage (bit-or js/GPUBufferUsage.VERTEX
                                                                     js/GPUBufferUsage.COPY_DST)}))
                      current-buffer)]
     (when needs-resize?
       (gpu-budget/replace-buffer! (:gpu-tracker renderer-state) current-buffer new-buffer (:gpu-label renderer-state)
-                                  required-size
+                                  alloc-size
                                   :active-bytes active-bytes
                                   :reason :text-resize)
       (.destroy ^js current-buffer))

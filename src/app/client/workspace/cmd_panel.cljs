@@ -3,6 +3,7 @@
   (:require [clojure.string :as str]
             [missionary.core :as m]
             [app.client.workspace.events :refer [maybe-snap]]
+            [app.client.workspace.ground :as ground]
             [app.client.workspace.rect-tree :refer [rt-node]]
             [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.text-input :as text-input]
@@ -136,6 +137,11 @@
   (m/latest
     (fn [panel focus caret-visible scroll-y viewport settings active-font
          agent-output sidebar-visible? local-world]
+      ;; first-light A P2 (T9): the bare ground ships NO chrome rects — no
+      ;; agent panel, no command panel, no panel caret, no status bar.
+      (if (ground/ground-active?)
+        (let [invisible {:x 0 :y 0 :w 0 :h 0 :r 0 :g 0 :b 0 :a 0}]
+          [invisible invisible invisible invisible])
       (let [sb-w (if (boolean sidebar-visible?) sidebar-w 0)
             dpr (:dpr viewport)
             snap? (:snap-to-pixel? settings)
@@ -191,7 +197,7 @@
                        :w (:width viewport) :h status-bar-h
                        :r 0.12 :g 0.12 :b 0.16 :a 1.0}]
 
-        [agent-bg cmd-bg caret status-bg]))
+        [agent-bg cmd-bg caret status-bg])))
     (m/watch !cmd-panel)
     (m/watch !focus)
     (m/watch !caret-visible)

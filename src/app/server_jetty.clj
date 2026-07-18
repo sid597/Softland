@@ -7,6 +7,8 @@
     [clojure.tools.logging :as log]
     [contrib.assert :refer [check]]
     [app.file-viewer :as fv]
+    [app.server.episode :as episode]
+    [app.server.rama.cluster :as cluster]
     [app.server.review-pack :as review-pack]
     [components.adapter :as adapter]
     [components.compiler :as compiler]
@@ -768,6 +770,133 @@ information."
                (try (.flush writer) (catch Exception _ nil))
                (try (.close writer) (catch Exception _ nil)))))))}))
 
+;;; ── first-light A P2 · the episode turn (SSE over POST) ────────────────────
+;;
+;; The ground's ONE lane (CONTRACT §3, T9): Ctrl+Enter → this endpoint. Event
+;; order IS the causal order the contract demands:
+;;   :episode-durable   — the utterance is in object-container, sid-asserted,
+;;                        acked (append+await), BEFORE the agent is spawned (G3)
+;;   <claude stream events> — the resident agent's live turn (the existing CLI
+;;                        lane; subscription auth, zero keys)
+;;   :run-done/:run-error   — the turn closes honestly (timeout/failed named)
+;;   :episode-distilled — post-turn harvest+distill receipt (T8; G4); the
+;;                        ingest epoch bump makes the worn face re-pull TRUTH
+;; A failed utterance mint emits :run-error and never spawns the agent.
+
+(defn run-episode-turn
+  "POST /api/episode/utterance {:text :turn-id :time-ms :prev-turn-id} → SSE.
+   turn-id + time-ms are CLIENT-minted once per Ctrl+Enter (the wear-id
+   precedent) so an HTTP retry re-derives identical import identity and the
+   journal no-ops — never a double utterance."
+  [request-data]
+  (let [text         (str (:text request-data))
+        turn-id      (str (:turn-id request-data))
+        time-ms      (long (or (:time-ms request-data) (System/currentTimeMillis)))
+        prev-turn-id (:prev-turn-id request-data)
+        cwd          (str (or (:cwd request-data) (System/getProperty "user.dir")))
+        timeout-ms   (long (or (:timeout-ms request-data) 600000))
+        ;; drill seam (G3/G4): a machinery drill names its OWN episode so the
+        ;; GENESIS first utterance stays Sid's act (§11). The ground client
+        ;; never sends this; nil = the genesis episode.
+        conv-id      (:conversation-id request-data)]
+    {:status  200
+     :headers {"Content-Type"      "text/event-stream"
+               "Cache-Control"     "no-cache"
+               "X-Accel-Buffering" "no"
+               "Connection"        "keep-alive"}
+     :body
+     (reify ring-protocols/StreamableResponseBody
+       (write-body-to-stream [_ _response output-stream]
+         (let [writer (OutputStreamWriter. output-stream "UTF-8")]
+           (try
+             (let [oc-rt (:oc-rt (fv/face-ctx))]
+               (if (or (str/blank? text) (str/blank? turn-id) (nil? oc-rt))
+                 (write-event! writer {:kind :run-error :event :run-error
+                                       :ts (System/currentTimeMillis)
+                                       :error (cond (nil? oc-rt) :land-unavailable
+                                                    (str/blank? text) :empty-utterance
+                                                    :else :missing-turn-id)})
+                 (let [durable (try
+                                 (episode/append-utterance!
+                                  oc-rt {:text text :turn-id turn-id
+                                         :time-ms time-ms :prev-turn-id prev-turn-id
+                                         :conversation-id conv-id})
+                                 (catch Exception e
+                                   {:status :error :error (.getMessage e)}))]
+                   (if-not (= :accepted (:status durable))
+                     (write-event! writer {:kind :run-error :event :run-error
+                                           :ts (System/currentTimeMillis)
+                                           :error :utterance-not-durable
+                                           :detail (dissoc durable :decision)})
+                     (do
+                       ;; the mint IS an ingest — the worn face re-pulls the
+                       ;; utterance from durable truth (INV-19; no optimism)
+                       (swap! util-fns/!ingest-epoch-atom inc)
+                       (write-event! writer {:kind :episode-durable :event :episode-durable
+                                             :ts (System/currentTimeMillis)
+                                             :turn-id turn-id
+                                             :address (:address durable)
+                                             :import-key (:import-key durable)
+                                             :unit-ids (:unit-ids durable)})
+                       (let [!stream-state (atom (initial-stream-state))
+                             done-promise  (promise)
+                             argv (episode/summon-argv {:cwd cwd :prompt text
+                                                        :conversation-id conv-id})]
+                         (log/info "[EPISODE][TURN-START]"
+                                   {:turn-id turn-id :argv argv :cwd cwd})
+                         (stream-cli-process
+                          argv cwd timeout-ms
+                          (fn [line]
+                            (when-let [evt0 (parse-stream-json-line line)]
+                              (let [[state* evt] (apply-stream-invariants @!stream-state evt0)]
+                                (reset! !stream-state state*)
+                                (when evt (write-event! writer evt)))))
+                          (fn [{:keys [exit-code timed-out? duration-ms]}]
+                            (let [status (cond timed-out? :timeout
+                                               (zero? exit-code) :complete
+                                               :else :failed)]
+                              (when-not (:terminal-kind @!stream-state)
+                                (let [terminal-evt (if (= status :complete)
+                                                     {:kind :run-done :event :run-done
+                                                      :ts (System/currentTimeMillis)
+                                                      :status status :exit-code exit-code
+                                                      :duration-ms duration-ms}
+                                                     {:kind :run-error :event :run-error
+                                                      :ts (System/currentTimeMillis)
+                                                      :status status :exit-code exit-code
+                                                      :duration-ms duration-ms
+                                                      :error (if timed-out? :timeout :process-failed)})
+                                      [state* emit] (apply-stream-invariants @!stream-state terminal-evt)]
+                                  (reset! !stream-state state*)
+                                  (when emit (write-event! writer emit))))
+                              ;; post-turn distill runs on the waiter thread —
+                              ;; the stream stays open until the receipt lands
+                              (let [distill (try
+                                              (episode/post-turn-distill!
+                                               oc-rt {:cwd cwd :conversation-id conv-id})
+                                              (catch Exception e
+                                                {:status :distill-failed :error (.getMessage e)}))]
+                                (log/info "[EPISODE][TURN-DISTILLED]"
+                                          {:turn-id turn-id
+                                           :status (:status distill)
+                                           :river (:river distill)
+                                           :native (:native distill)})
+                                (write-event! writer
+                                              {:kind :episode-distilled :event :episode-distilled
+                                               :ts (System/currentTimeMillis)
+                                               :status (:status distill)
+                                               :river (:river distill)
+                                               :native (:native distill)
+                                               :debris (:debris distill)
+                                               :error (:error distill)}))
+                              (deliver done-promise true))))
+                         @done-promise))))))
+             (catch Exception e
+               (println "[EPISODE][STREAM-ERROR]" (.getMessage e)))
+             (finally
+               (try (.flush writer) (catch Exception _ nil))
+               (try (.close writer) (catch Exception _ nil)))))))}))
+
 ;; =====================================================================
 ;; Relation /assert write shim — git-spine WP2 component W (CONTRACT §3.E).
 ;;
@@ -940,7 +1069,11 @@ information."
                         :idempotency-key request-id
                         :note note})]
       ;; write-ahead FIRST: if the log write throws, the depot is never touched.
-      (append-assert-log-line! log-path request)
+      ;; durable-ground P4: a nil log-path means the WAL is OFF (cluster mode —
+      ;; the depot append below IS the durable log); the depot ack replaces the
+      ;; write-ahead line, not the other way around.
+      (when log-path
+        (append-assert-log-line! log-path request))
       (rk/append-relation-request! runtime request)
       (edn-response 200 {:ok true
                          :relation-id (rk/relreq-routing-key request)
@@ -988,7 +1121,11 @@ information."
       (= uri "/api/relation/assert")
       (if (= request-method :post)
         (try
-          (handle-assert-route ring-req fv/trail-view-runtime (default-assert-log-path))
+          (handle-assert-route ring-req fv/trail-runtime-ref
+                               ;; durable-ground P4: cluster mode writes no
+                               ;; assert WAL — the relation depot is the log.
+                               (when-not (cluster/cluster-boot?)
+                                 (default-assert-log-path)))
           (catch Exception e
             (log/error e "[RELATION][ASSERT][ERROR]" {:uri uri})
             (edn-response 500 {:ok false :error :server-error
@@ -1260,6 +1397,22 @@ information."
             (log/error e "[AGENT][STREAM][HTTP-ERROR]"
                        {:remote-addr (:remote-addr ring-req) :uri uri})
             (json-response {:error (str "Stream failed: " (.getMessage e))})))
+        (json-response {:error "Method not allowed. Use POST."}))
+
+      ;; first-light A P2 — the ground's one lane (T9: Ctrl+Enter lands here)
+      (= uri "/api/episode/utterance")
+      (if (= request-method :post)
+        (try
+          (let [request-data (parse-edn-body ring-req)]
+            (log/info "[EPISODE][HTTP-IN]"
+                      {:remote-addr (:remote-addr ring-req)
+                       :turn-id (:turn-id request-data)
+                       :chars (count (str (:text request-data)))})
+            (run-episode-turn request-data))
+          (catch Exception e
+            (log/error e "[EPISODE][HTTP-ERROR]"
+                       {:remote-addr (:remote-addr ring-req) :uri uri})
+            (json-response {:error (str "Episode turn failed: " (.getMessage e))})))
         (json-response {:error "Method not allowed. Use POST."}))
 
       (= uri "/api/agent/run-status")

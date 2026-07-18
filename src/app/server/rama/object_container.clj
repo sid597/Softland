@@ -320,6 +320,19 @@
             idx2 (when idx1 (str/index-of remainder ":" (inc idx1)))]
         (if idx2 (subs remainder 0 idx2) remainder))
 
+      ;; first-light A (CONTRACT §5.1 — the package's ONE sanctioned routing
+      ;; edit; ships with gate G18's family, the THRICE-fired foreign-read
+      ;; latent class: imp:clj: G-F2, imp:sense-block: block-kernel F2,
+      ;; imp:asm: framework G18). Route native-episode import-keys
+      ;; "imp:ep:<object-key>:<sha>" to the object-key partition — the
+      ;; episode object-key is transcript-shaped ("chat:<hex>", two colon
+      ;; segments), which leading-object-key already handles. Without this
+      ;; branch the :else whole-string fall-through mis-routes a foreign
+      ;; read-import-completion to nil on the multi-task cluster. "imp:ep:"
+      ;; is 7 chars, like imp:md:/imp:tr:.
+      (str/starts-with? s "imp:ep:")
+      (leading-object-key (subs s 7))
+
       (str/starts-with? s "src:")
       (leading-object-key (subs s 4))
 
