@@ -8,6 +8,12 @@ any thread file. Grounding: three fresh-context source recons (2026-07-17,
 digest + receipts in `RECON.md`) — every organ/joint claim below carries a
 receipt there.
 
+Amended 2026-07-18 — the moment-0 correction (Sid, verbatim in
+`vision/LOG.md` 07-18; WALKTHROUGH revised in place same day): §3.1, T9,
+§7 (P2b + G4b inserted), §9 (redlines 4–6). P2's durability machinery and
+its G3/G4 receipts stand unchanged — the correction is projection/input
+layer only.
+
 ## 1. Purpose
 
 Prove metabolism: real use → real friction → targeted visible wish →
@@ -51,18 +57,26 @@ Rama module (zero) · editor-feel work · multi-inhabitant anything.
 
 ## 3. The genesis moves (P2) — what becomes real
 
-- **Login shows the ground — and the ground ships BARE (Sid, 2026-07-17,
-  verbatim intent): a blank screen · text can be added · Ctrl+Enter
-  communicates with the AI. Nothing else.** No command panel, no /commands,
-  no sidebar, no workspace bridge, no hatch of any kind. "Unprojected
-  world, not empty" is a statement about the MATERIAL (the corpus stays
-  durable underneath; nothing is deleted), never a UI commitment — every
+- **Login shows the ground — and the ground ships as NOTHING (Sid,
+  2026-07-18, the moment-0 correction): a truly blank space · no
+  pre-placed caret or input · the first act is the inhabitant's click.**
+  A pre-placed cursor is the substrate choosing the first position; the
+  first position is the first act of taste. Click → caret at the chosen
+  point → typed words become a block THERE (type-without-click lands
+  under the pointer). Enter = newline; Ctrl+Enter speaks to the resident.
+  The land is a pannable/zoomable space; blocks are draggable objects;
+  camera + positions persist as settled truth (WALKTHROUGH laws
+  1/3/10/15, moments 0–6). No command panel, no /commands, no sidebar,
+  no workspace bridge, no hatch of any kind. "Unprojected world, not
+  empty" is a statement about the MATERIAL (the corpus stays durable
+  underneath; nothing is deleted), never a UI commitment — every
   affordance for projecting the existing world into view is deliberately
   ungrown and arrives only as wishes from inside the land. The dev
   workspace (today's boot: electric_flow.cljc in a file workspace — RECON
   Q5) remains build-time scaffolding, launched separately by builders,
   never linked from the ground. World-state-zero blankness happens ONCE,
-  at the genesis episode's birth; later logins resume the episode.
+  at the genesis episode's birth; later logins resume the episode — the
+  scene exactly where it was left.
 - **The first utterance is durable at utterance time.** Today typed chat
   text reaches the CLI as argv and is durable only via later transcript
   re-ingest (RECON Q1). The genesis joint: Sid's typed utterance lands in
@@ -170,13 +184,16 @@ Anything else that looks kernel-shaped → stop clause.
 - **T8 — post-turn re-distill must be idempotent** — deterministic import
   keys make re-runs converge (the migration-day receipts prove the class);
   a turn distilled twice must not mint twice.
-- **T9 — the ground ships BARE; no scaffolding leaks into it.** The
-  genesis surface is blank + text + Ctrl+Enter, NOTHING else (Sid,
-  2026-07-17): no command panel, no /commands, no sidebar, no workspace
-  bridge, no hatch. "Unprojected world" describes the MATERIAL (durable,
-  undeleted), never a shipped affordance — projection affordances arrive
-  only as wishes from inside. The dev workspace stays a separately-launched
-  builder scaffold. Blankness is birth-only, never imposed on return.
+- **T9 — the ground ships BARE; no scaffolding leaks into it — and BARE
+  means NOTHING RENDERED.** The genesis surface is a blank space, NOTHING
+  else (Sid, 2026-07-17, sharpened 2026-07-18): no command panel, no
+  /commands, no sidebar, no workspace bridge, no hatch — and no
+  pre-placed caret or input either; the tip-input pattern is dead (the
+  substrate never chooses the first position). "Unprojected world"
+  describes the MATERIAL (durable, undeleted), never a shipped
+  affordance — projection affordances arrive only as wishes from inside.
+  The dev workspace stays a separately-launched builder scaffold.
+  Blankness is birth-only, never imposed on return.
 - **T10 — no fabricated friction.** G9 waits for a real arrangement
   friction from real wear. A staged specimen fails the gate BY DEFINITION.
   Machinery gates (G1–G8) are drillable; the metabolism gate is not.
@@ -213,8 +230,34 @@ Anything else that looks kernel-shaped → stop clause.
   beneath). **G4:** an agent turn's material lands via post-turn distill;
   re-running the distill is a receipted no-op; the §5.1 foreign-read
   routing gate passes.
+- **P2b — the open ground (the 07-18 moment-0 correction).** Unmount the
+  boot-time tip (the pre-placed caret dies); arrival renders NOTHING.
+  Click → caret → block at the chosen point (type-without-click → under
+  the pointer); Enter newline; Ctrl+Enter rides the EXISTING utterance
+  lane (durable-BEFORE-agent unchanged); the reply renders as a
+  border-tinted block beneath the spoken block (default; wish-fodder).
+  The world camera goes live (pan/zoom — the scene-substrate seam, today
+  pinned scroll-only/zoom-1.0 at scene_runtime.cljs:321); blocks drag
+  with per-frame client transforms (`set-transform!`, the cheap path).
+  Camera + block positions persist as SETTLE-STATE truth only — the
+  committed-vs-ephemeral taxonomy (workspace_actions.cljs:94–106)
+  extended with a settled class: never per-event, one write at burst-end
+  (debounce ~300–500ms) + flush on leave; restore at boot (same place,
+  same zoom, blocks where left — the settings-truth lane shape,
+  runtime.cljs:181–260). Two design-time adjudications with receipts
+  BEFORE building them (the flags-C/D/F pattern): (a) the pre-send
+  durability lane — §9.4; (b) the position truth home — §9.5. **G4b:**
+  fresh world screenshots as NOTHING; click-place → power-cycle → the
+  block returns at its position with sid provenance and the camera
+  returns where left (G3's grade extended to geometry); Ctrl+Enter
+  durable-BEFORE-agent re-receipted on the new surface; the reply block
+  renders with distinct provenance; feel holds the G1 bar (narrow echo
+  p95 ≤ 52ms) on the spatial face. Anything topology-shaped for geometry
+  → stop clause (§8).
 - **P3 — the wish.** Point → say → wish unit + `:references` edge +
-  visible projection on the target. **G5:** the wish unit + edge readable
+  visible projection on the target. Picks now target spatially-placed
+  blocks (T7 stamps unchanged — the seam already returns
+  {vi, address, src-path}). **G5:** the wish unit + edge readable
   (kernel-level foreign reads); the wish renders coupled to its target in
   the face; the wish records address + src-path from a REAL pick.
 - **P4 — proposal + membrane.** Agent proposal → string-source import
@@ -262,6 +305,23 @@ Anything else that looks kernel-shaped → stop clause.
    kind — confirm or name the kind now (one reviewed line either way).
 3. **Candidate naming** `asm:<name>--wish-<n>` (§4) — working scaffolding;
    rename at will, the fork identity survives renames via `based-on`.
+4. **Pre-send durability lane (WALKTHROUGH law 15).** Sid's 07-18 words
+   ("no save, no draft state, no submit … permanent as they appear")
+   reverse P2's shipped simplification (typed buffer = client-only until
+   Ctrl+Enter — leave mid-block today and the words are lost, which
+   breaks moment 5's trust). Contract default: durable-as-typed via the
+   block-write grain (proven organ — stream echo p95 7.66ms, browser
+   path 26.6ms); Ctrl+Enter becomes pure addressing over already-durable
+   material. Adjudicated at P2b design time with receipts; if no
+   existing organ carries it → stop clause.
+5. **Position truth home.** Lean: birth-position at mint + drag-settle
+   edits ON the OC unit riding existing edit machinery — geometry as
+   material attribute; the log stays truth, geometry stays projection.
+   Alternative (assembly-arrangement revisions — one revision per drag)
+   judged too heavy. Anything topology-shaped → stop.
+6. **Placement + gesture defaults**: reply beneath the spoken block,
+   left-aligned; press-move threshold separates drag from click-to-edit.
+   Both named wish-fodder; re-tune at will.
 
 ## 10. Input manifest
 

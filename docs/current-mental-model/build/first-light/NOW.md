@@ -104,3 +104,27 @@
   bare-ground ruling CONSTRAINS the P0 flag-C/F adjudications — the
   utterance lane is the ONLY input surface at genesis, Ctrl+Enter is the
   send gesture.
+
+- **2026-07-18 · Fable · CONTRACT AMENDED — the moment-0 correction;
+  P2b OPENED.** Sid saw the built ground and the first felt friction was
+  the ground itself: "why does the blank screen has a cursor in it?" +
+  the full walkthrough he wants (verbatim: `vision/LOG.md` 07-18). The
+  pre-placed tip caret was the 07-15 walkthrough's law 1 faithfully
+  built (ground.cljs "blank-birth caret") — that law is dead.
+  WALKTHROUGH.md rewritten in place (laws 1/3/6/10 revised + law 15
+  added; moments now 0–6: nothing → click → block → space → leave →
+  return; D1 recorded ANSWERED = Ctrl+Enter). Contract: §3.1 + T9
+  rewritten (bare = NOTHING, no pre-placed input), P2b + G4b inserted
+  (§7), §9 redlines 4–6 added (pre-send lane · position home ·
+  placement/gesture defaults). P2 machinery + G3/G4 receipts stand
+  untouched — the correction is projection/input layer only. Verified
+  for P2b this session: world camera "not live yet"
+  (scene_runtime.cljs:321 — scroll-only, zoom pinned 1.0, no wheel-zoom
+  in mouse.cljs); NO viewport persistence today (persisted client lanes
+  = settings/trail/flow via the Rama truth round-trip,
+  runtime.cljs:181–260; scroll-y in no persistent-keys set); the
+  committed-vs-ephemeral taxonomy already codified
+  (workspace_actions.cljs:94–106) — P2b adds the settled class (one
+  write at burst-end, never per-event). First light now WAITS on P2b;
+  genesis stays VIRGIN. Next: P2b session (HANDOFF prompt at board
+  top; §9.4–9.5 adjudications first).
