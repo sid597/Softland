@@ -10,7 +10,8 @@
             [app.client.workspace.ui-primitives :refer [dt]]
             [app.client.workspace.sidebar :as sidebar :refer [sidebar-w cmd-panel-h status-bar-h build-sidebar-tree derive-effective-sidebar]]
             [app.client.workspace.trail-face.scene :as trail-scene]
-            [app.client.workspace.face-assembly :as face-assembly]
+            [app.client.workspace.scene-store :as ss]
+            [app.client.workspace.scene-runtime :as scene-rt]
             [app.client.workspace.block-edit :as block-edit]
             [app.client.workspace.block-edit-wiring :as block-edit-wiring]
             [app.client.workspace.shell :refer [build-file-layout]]))
@@ -309,12 +310,87 @@
                  (if caret-rect [caret-rect] [])
                  (if eval-rect [eval-rect] [])))))
 
+(def ^:private empty-face-content
+  "first-light P1 (trap T6): the editor pool's face-mode contribution — a
+   SHARED constant so identical? holds frame-over-frame while the :face-main
+   store slot carries the actual face ops."
+  {:rects [] :shadows []})
+
+;; ── first-light P1: the main-face build, DEFERRED off the transport path ──
+;; The <trail-face caching shape: build ONCE per input change, compare the
+;; input VALUE never a hash (trap T13); !face-scene + these caches are
+;; per-build OUTPUT watched by NOTHING (trap T9). Called ONLY from the render
+;; consumer's microtask (T4: edge-only mutation; microtasks drain before the
+;; browser paints, so the slot lands the same frame as the change).
+
+(defonce ^:private !last-face-struct (atom ::none))
+(defonce ^:private !last-slotted (atom nil))
+
+(defn build-main-face!
+  "Consume one <face-main bundle: overlay the edit UI onto the served context
+   (trap T5), build the RESOLVED address-stamped tree (ss/build-face-tree —
+   both Δ1 stamps, trap T7), and upsert/close the :face-main store slot.
+   Value-compared build cache + identity-compared slot write, so an unchanged
+   bundle is a no-op. Idempotent; last-write-wins under coalescing."
+  [{:keys [layout face-state face-context compiled edit-st truth-overlay
+           !face-scene]}]
+  (if-not (and (:face face-state) compiled)
+    (do (reset! !face-scene nil)
+        (reset! !last-face-struct ::none)
+        (when @!last-slotted
+          (reset! !last-slotted nil)
+          (scene-rt/close-main-face!)))
+    (let [{:keys [viewport font-size char-advance face-mode?]} layout
+          geom {:viewport-w   (:width viewport)
+                :viewport-h   (:height viewport)
+                ;; text-runs wrap at content-w; the root assembly's padding
+                ;; offsets x, so inset the wrap width to keep prose off the
+                ;; right edge (lane A note: geom threads down unchanged, §5)
+                :content-w    (- (:width viewport) 32)
+                :line-height  (js/Math.round (* font-size 1.4))
+                :font-size    font-size
+                :char-advance char-advance
+                ;; honest server stamp, never the wall clock (§5)
+                :now-ms       (or (:face/rendered-at-ms face-context) 0)}
+          ;; block-write INT: the focused block's pending-input (buffer
+          ;; text+caret, ONE value — BW-T6/L8), refusal notices (G5), and the
+          ;; §5 single-unit truth overlay enter the projection BEFORE
+          ;; interpretation — trap T5: the overlay survives the flip because
+          ;; it enters the tree the slot is built from.
+          face-context (block-edit/overlay-face-context
+                         face-context edit-st truth-overlay)
+          ;; compiled compares by identity inside the value compare
+          ;; (it holds closures; it only changes by /face reset!)
+          struct [layout face-state face-context compiled]
+          changed? (not= struct @!last-face-struct)
+          scene (if changed?
+                  (let [uids (ss/block-unit-ids face-context)
+                        s (ss/build-face-tree
+                            compiled face-context
+                            {:view-instance :face-main
+                             :address (or (:conversation/address face-context)
+                                          (:address face-state))
+                             :geom geom}
+                            uids)]
+                    (reset! !last-face-struct struct)
+                    (reset! !face-scene s)
+                    s)
+                  @!face-scene)
+          slotted (when face-mode? scene)]
+      (when-not (identical? slotted @!last-slotted)
+        (reset! !last-slotted slotted)
+        (if slotted
+          (scene-rt/upsert-main-face! slotted)
+          (scene-rt/close-main-face!))))))
+
 (defn <editor-rects+sidebar
-  "Derived flows: editor rectangles + sidebar rectangles (separate).
-   Returns {:<editor-rects <flow> :<sidebar <flow>} so sidebar rects
-   can be routed to a differential buffer pool instead of the editor rect system.
-   Split into scoped sub-flows so each mode only watches its own atoms.
-   Caret blink no longer recomputes flow-canvas rects and vice versa."
+  "Derived flows: editor rectangles + sidebar rectangles (separate), plus the
+   main-face tree flow (first-light P1). Returns {:<editor-rects <flow>
+   :<sidebar <flow> :<face-main <flow>} — sidebar rects route to a differential
+   buffer pool; the main-face tree routes to its dedicated store-slot consumer
+   edge in render.cljs. Split into scoped sub-flows so each mode only watches
+   its own atoms. Caret blink no longer recomputes flow-canvas rects and vice
+   versa."
   [!editor-doc !eval-result !caret-visible !focus !settings !active-font !viewport
    <fold-data <bracket-data
    !flow-state !scroll-y !collapsed-groups !hovered-row-idx !drag-state
@@ -339,11 +415,16 @@
                   ;; restores the sidebar exactly as it was).
                   ;; the assembly-hosted face inherits the trail-face ground
                   ;; rule: nothing else is ambient (framework W1-INT)
+                  face-mode? (ws/local-world-face-assembly? local-world)
                   trail-face? (or (ws/local-world-trail-face? local-world)
-                                  (ws/local-world-face-assembly? local-world))
+                                  face-mode?)
                   sb-vis? (boolean (and sidebar-visible? (not trail-face?)))]
               {:viewport viewport :settings settings :dpr dpr :snap? snap?
                :font-size font-size :char-advance char-advance
+               ;; first-light P1: the face flow gates its emission on the mode
+               ;; through THIS derived map — one source, no second
+               ;; local-world watch beside <layout (L8: no diamond).
+               :face-mode? face-mode?
                :sb-vis? sb-vis? :sb-w (if sb-vis? sidebar-w 0)}))
           (m/watch !viewport) (m/watch !settings) (m/watch !active-font) (m/watch !sidebar-visible)
           (m/watch !effective-local-world))
@@ -469,65 +550,41 @@
           (m/watch !trail-feed) (m/watch !trail-bundles) (m/watch !trail-coverage))
         ;; 6 fn args, 6 flows
 
-        ;; ── Assembly-hosted face (framework CONTRACT §5, W1-INT) ──
-        ;; The <trail-face shape exactly: build ONCE per input change, cache
-        ;; in !face-scene so combined_text flattens text ops from and mouse
-        ;; hit-tests THE SAME object; compare the input VALUE, never a hash
+        ;; ── Assembly-hosted face → the MAIN-FACE STORE SLOT (first-light P1,
+        ;; the P3c minimum flip) ──
+        ;; The <trail-face shape for caching: build ONCE per input change,
+        ;; cache in !face-scene; compare the input VALUE, never a hash
         ;; (trap T13 — a collision would freeze a stale scene forever).
         ;; !face-scene is per-build OUTPUT cached in an atom watched by
         ;; NOTHING (trap T9). Interpretation cost lives on the data-change
-        ;; path, never the frame path (trap T3): the compiled builder arrives
-        ;; whole from the /face wear command via !face-compiled. Scroll rides
-        ;; the camera (§10 SLOT-C): the scene is scroll-independent, this
-        ;; flow does NOT watch !scroll-y; the interpreter declares
-        ;; :assembly/content-h in the root :data for the wheel clamp.
-        !last-face-struct (atom ::none)
-        <face-assembly
+        ;; path, never the frame path (trap T3). Scroll rides the camera
+        ;; (§10 SLOT-C): the scene is scroll-independent, this flow does NOT
+        ;; watch !scroll-y.
+        ;;
+        ;; FLIPPED: this flow no longer emits GPU ops for the editor pool —
+        ;; it emits the RESOLVED, ADDRESS-STAMPED tree (ss/build-face-tree:
+        ;; root Δ1 stamp + per-block [:data :address], trap T7) for the
+        ;; dedicated consumer edge in render.cljs, which upserts it as the
+        ;; :face-main store slot in the SAME propagation wave (T4 edge-only
+        ;; mutation without a +1-frame paint lag). The edit overlay
+        ;; (pending-input/caret/refusal + truth overlay) is threaded onto the
+        ;; projection BEFORE interpretation, exactly as before — trap T5: the
+        ;; overlay survives the flip because it enters the tree the slot is
+        ;; built from. Emission is nil outside face mode (layout :face-mode?)
+        ;; so mode exits close the slot and re-entries re-land it.
+        <face-main
         (m/latest
           (fn [layout face-state face-context compiled edit-st truth-overlay]
-            (if-not (and (:face face-state) compiled)
-              (do (reset! !face-scene nil)
-                  (reset! !last-face-struct ::none)
-                  nil)
-              (let [{:keys [viewport font-size char-advance]} layout
-                    geom {:viewport-w   (:width viewport)
-                          :viewport-h   (:height viewport)
-                          ;; text-runs wrap at content-w; the root assembly's
-                          ;; padding offsets x, so inset the wrap width to
-                          ;; keep prose off the right edge (lane A note:
-                          ;; geom threads down unchanged, §5)
-                          :content-w    (- (:width viewport) 32)
-                          :line-height  (js/Math.round (* font-size 1.4))
-                          :font-size    font-size
-                          :char-advance char-advance
-                          ;; honest server stamp, never the wall clock (§5)
-                          :now-ms       (or (:face/rendered-at-ms face-context) 0)}
-                    ;; block-write INT: paint the edit UI onto the served
-                    ;; context BEFORE interpretation — the focused block's
-                    ;; pending-input (buffer text+caret, ONE value — BW-T6/L8),
-                    ;; refusal notices (G5), and the §5 single-unit truth
-                    ;; overlay all ride THIS one m/latest; pure fn, no side
-                    ;; effects here (R3/BW-T9). Fast-path identity when idle.
-                    face-context (block-edit/overlay-face-context
-                                   face-context edit-st truth-overlay)
-                    ;; compiled compares by identity inside the value compare
-                    ;; (it holds closures; it only changes by /face reset!)
-                    struct [layout face-state face-context compiled]
-                    changed? (not= struct @!last-face-struct)
-                    scene (if changed?
-                            (let [s (face-assembly/apply-assembly
-                                      compiled face-context
-                                      {:view-instance :face-main
-                                       :address (or (:conversation/address face-context)
-                                                    (:address face-state))
-                                       :geom geom})]
-                              (reset! !last-face-struct struct)
-                              (reset! !face-scene s)
-                              s)
-                            @!face-scene)]
-                (when scene
-                  {:rects (tree->rects scene)
-                   :shadows (tree->shadows scene)}))))
+            ;; CHEAP bundle only — the build is DEFERRED to a microtask at the
+            ;; consumer edge (build-main-face!). Rationale (G1 drill, measured):
+            ;; building synchronously inside this combine put ~7-15ms of work
+            ;; into EVERY keystroke/decision/truth propagation turn, delaying
+            ;; the edit envelope's dispatch and the echo's processing — narrow
+            ;; echo p50 went 20→52ms. A microtask still completes before the
+            ;; browser paints (no +1 frame), but off the transport path.
+            {:layout layout :face-state face-state :face-context face-context
+             :compiled compiled :edit-st edit-st :truth-overlay truth-overlay
+             :!face-scene !face-scene})
           <layout (m/watch !face-state) (m/watch !face-context)
           (m/watch !face-compiled)
           (m/watch block-edit-wiring/!edit-state)
@@ -647,22 +704,29 @@
           (m/watch !active-pane) (m/watch !chat-scroll-y) (m/watch !chat-input))]
         ;; 18 fn args, 18 flows
 
-    ;; ── Return both flows separately ──
+    ;; ── Return the flows separately ──
     ;; Editor rects (content only, offset by sidebar width) go to the editor pool.
-    ;; Sidebar rects go to the sidebar pool.
+    ;; Sidebar rects go to the sidebar pool. The main-face tree flow goes to its
+    ;; dedicated consumer edge (render.cljs) — the store slot is its only sink.
     {:<editor-rects
      (m/latest
-       (fn [mode intake run editor-content trail face layout]
-         (let [content (case mode
-                         :flow-intake intake
-                         :flow-run run
-                         :trail-text trail
-                         :trail-timeline trail
-                         :face-assembly face
-                         editor-content)]
-           {:rects (vec (offset-rects* (:rects content) (:sb-w layout)))
-            :shadows (vec (offset-shadows* (:shadows content) (:sb-w layout)))}))
-       <mode <intake-content <run-content <editor-content <trail-face <face-assembly <layout)
-     :<sidebar <sidebar}))
+       (fn [mode intake run editor-content trail layout]
+         (if (= mode :face-assembly)
+           ;; first-light P1 (trap T6): the worn face's rects/shadows now ride
+           ;; its :face-main store slot — the editor pool contributes NOTHING
+           ;; in face mode. A shared constant, so editor-rects stays identical?
+           ;; frame-over-frame and the pool never churns on face edits.
+           empty-face-content
+           (let [content (case mode
+                           :flow-intake intake
+                           :flow-run run
+                           :trail-text trail
+                           :trail-timeline trail
+                           editor-content)]
+             {:rects (vec (offset-rects* (:rects content) (:sb-w layout)))
+              :shadows (vec (offset-shadows* (:shadows content) (:sb-w layout)))})))
+       <mode <intake-content <run-content <editor-content <trail-face <layout)
+     :<sidebar <sidebar
+     :<face-main <face-main}))
 
 ;; --- Markdown rendering helpers for chat pane trail --------------------------

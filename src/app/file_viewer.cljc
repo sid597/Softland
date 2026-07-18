@@ -18,6 +18,12 @@
             ;; machine-cut (CONTRACT §6 boot attach): the WAL boot replay; the
             ;; relation runtime it asserts into is the TRAIL cluster's (below).
             #?(:clj [app.server.rama.machine-cut :as machine-cut])
+            ;; durable-ground (CONTRACT §7 P3): the boot-flag seam — the durable
+            ;; cluster is the DEFAULT boot (close flip); LAND_CLUSTER=0 opts
+            ;; back into the in-memory IPC boot.
+            #?(:clj [app.server.rama.cluster :as cluster])
+            ;; first-light A P2: the episode seam (ground address resolution)
+            #?(:clj [app.server.episode :as episode])
             #?(:clj [app.server.rama.dogfood.transcript :as transcript])))
 
 ;; ============================================================================
@@ -201,7 +207,33 @@
                (println "[TRAIL] ingest boot failed:" (.getMessage t)))))
          rt))))
 
-#?(:clj (defn trail-rt [] @trail-view-runtime))
+#?(:clj
+   (defn trail-rt
+     "The boot-flag seam (durable-ground T6): cluster mode goes through the
+      cluster ns's total-with-retry accessors — nil while the cluster is down,
+      healing without a JVM restart; the IPC delay (with its boot-time ingest)
+      is never realized in cluster mode (T9: ingest is explicit there)."
+     []
+     (if (cluster/cluster-boot?)
+       (cluster/trail-runtime)
+       @trail-view-runtime)))
+
+#?(:clj
+   (def trail-runtime-ref
+     "Deref-able runtime for the jetty /assert route — cluster-aware,
+      replacing the raw IPC delay that would otherwise silently boot an
+      in-memory cluster in cluster mode. The route probes via `realized?`
+      (A3: a probe must never trigger the heavyweight IPC boot + ingest);
+      in cluster mode the connect is a cheap, ingest-free, total-with-retry
+      handshake, so 'realized' honestly means 'cluster reachable'."
+     (reify
+       clojure.lang.IDeref
+       (deref [_] (trail-rt))
+       clojure.lang.IPending
+       (isRealized [_]
+         (if (cluster/cluster-boot?)
+           (some? (cluster/trail-runtime))
+           (realized? trail-view-runtime))))))
 
 (e/defn TrailBundle [targets opts]
   (e/server (trail-view/read-context-bundle (trail-rt) targets opts)))
@@ -395,6 +427,18 @@
           :!first-light-failed !first-light-failed}))))
 
 #?(:clj
+   (defn face-rt
+     "The face half of the boot-flag seam (durable-ground §3 unification): in
+      cluster mode BOTH handle bundles ride the ONE deployed module set via the
+      cluster ns (total-with-retry, stable atoms — resolve-request derefs them
+      outside serve's try); the IPC delay body (launches + boot replays +
+      harvest/distill) is never realized there."
+     []
+     (if (cluster/cluster-boot?)
+       (cluster/face-projection-runtime)
+       @face-projection-runtime)))
+
+#?(:clj
    (defn machine-cut-ctx
      "The LAWFUL live-annotation ctx (machine-cut CONTRACT §5.7; FALSIFY_C
       MC-C2): the v0 REPL/CLI trigger MUST use THIS — the same rk cluster the
@@ -403,7 +447,7 @@
       serves (silent edge-store split). llm-rt is the caller's (annotation
       runs need one only when actually annotating)."
      []
-     (let [{:keys [oc-rt rk-rt]} @face-projection-runtime]
+     (let [{:keys [oc-rt rk-rt]} (face-rt)]
        {:oc-rt oc-rt :rk-rt rk-rt})))
 
 #?(:clj
@@ -414,7 +458,7 @@
       data-contexts, G20/G21); a nil :rk-rt serves pair structure as the honest
       :structure :none (machine-cut CONTRACT §6, G12)."
      []
-     (select-keys @face-projection-runtime [:oc-rt :arsenal-rt :rk-rt])))
+     (select-keys (face-rt) [:oc-rt :arsenal-rt :rk-rt])))
 
 #?(:clj
    (defn resolve-request
@@ -426,19 +470,28 @@
       failed vs a genuinely blank request (G16 falsification fix)."
      [request]
      (let [addr (:address request)]
-       ;; G26 fix: default-substitution applies only to requests that CARRY an
-       ;; address (the material-bound pulls); :face-list omits the key entirely
-       ;; — substituting a conversation address onto it was dead-but-misleading
-       (if (and (contains? request :address)
-                (or (nil? addr) (= :default addr)))
-         (let [{:keys [!default-address !first-light-failed]} @face-projection-runtime]
+       ;; first-light A P2 (T9 ground): `:episode` resolves to the genesis
+       ;; episode's DETERMINISTIC object-key — computed, never stored, never
+       ;; harvested at boot (the durable-ground default-address pattern).
+       ;; Birth-blankness = the container being empty, not a state flag.
+       (cond
+        (= :episode addr)
+        (assoc request :address (episode/genesis-object-key))
+
+        ;; G26 fix: default-substitution applies only to requests that CARRY an
+        ;; address (the material-bound pulls); :face-list omits the key entirely
+        ;; — substituting a conversation address onto it was dead-but-misleading
+        (and (contains? request :address)
+             (or (nil? addr) (= :default addr)))
+         (let [{:keys [!default-address !first-light-failed]} (face-rt)]
            (if-let [default @!default-address]
              (assoc request :address default)
              (assoc request :address nil
                     :face/first-light (if @!first-light-failed
                                         :first-light-failed
                                         :first-light-pending))))
-         request))))
+
+        :else request))))
 
 (e/defn FacePull [request]
   ;; ONE generic pull. Server-side `serve` routes the request through the projection
@@ -454,7 +507,7 @@
       arsenal; both surface as an honest result map, never a render-path throw."
      [wear]
      (try
-       (let [{:keys [arsenal-rt]} @face-projection-runtime]
+       (let [{:keys [arsenal-rt]} (face-rt)]
          (if (nil? arsenal-rt)
            {:wear/recorded? false :wear/error :arsenal-unavailable
             :wear/id (:wear-id wear)}

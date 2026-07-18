@@ -191,6 +191,31 @@
                       src-ids)]
     (mapv (fn [b] (assoc b :time-ms (long (or (get times (:source-id b)) 0)))) blocks)))
 
+(defn merge-episode-lanes
+  "first-light A P2 — the episode time merge (PURE). river-page appends the
+   native (:lane :episode) blocks after the river page; global reading order
+   for an episode conversation is a STABLE sort by effective time (the
+   apply-until-ms running-max discipline: a zero/backwards clock inherits the
+   floor of everything before it IN ITS LANE, so within-lane order is
+   preserved and no cross-lane sort can reorder a lane against itself).
+   Conversations with no native blocks return the vector UNTOUCHED — the
+   proven river order stays byte-identical (MC-T8 class)."
+  [blocks]
+  (if-not (some #(= :episode (:lane %)) blocks)
+    blocks
+    (let [eff (fn [floor b] (max (long floor) (long (or (:time-ms b) 0))))
+          stamp (fn [lane-blocks]
+                  (loop [bs lane-blocks, floor 0, out []]
+                    (if-let [b (first bs)]
+                      (let [t (eff floor b)]
+                        (recur (rest bs) t (conj out (assoc b ::eff t))))
+                      out)))
+          lanes (group-by #(= :episode (:lane %)) blocks)
+          stamped (into (stamp (get lanes false [])) (stamp (get lanes true [])))]
+      (->> stamped
+           (sort-by ::eff)                 ; clojure sort is stable
+           (mapv #(dissoc % ::eff))))))
+
 ;; ===========================================================================
 ;; Machine-cut pair structure (CONTRACT §4.4/§6). The :conversation projection
 ;; gains pair structure served from the relation kernel's :pairs-with edges;
@@ -386,7 +411,7 @@
         :face/rendered-at-ms (System/currentTimeMillis)})
       (let [page      (bd/river-page {:oc-rt oc-rt :object-key address} limit)
             read-plan (:river-page/read-plan (meta page))
-            blocks    (attach-source-times oc-rt page)
+            blocks    (merge-episode-lanes (attach-source-times oc-rt page))
             dc        (shape-conversation {:blocks         blocks
                                            :read-plan      read-plan
                                            :address        address

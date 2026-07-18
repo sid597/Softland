@@ -10,7 +10,14 @@
             [app.client.workspace.trail :as trail :refer [trail->display-lines trail->chat-nodes agent-wrapped-line-count compute-agent-panel-h]]
             [app.client.workspace.shell :refer [build-file-layout]]
             [app.client.workspace.cmd-panel :refer [cmd-prompt-text cmd-text-start-x]]
+            [app.client.workspace.ground :as ground]
             [app.client.workspace.themes :as themes]))
+
+(def ^:private empty-content-ops
+  "first-light P1 (trap T6): face mode's content-text contribution — a SHARED
+   constant so the extracted ops stay identical? across re-runs while the
+   :face-main store slot's per-slot geo carries the face text."
+  [])
 
 (defn <combined-text-ops
   "Derived flow: combined text render ops (editor + command panel + status bar).
@@ -21,7 +28,7 @@
    tokenize-fn layout-fn
    <fold-data
    !flow-state !collapsed-groups !hovered-row-idx !drag-state
-   !sidebar-visible !sidebar-scene !trail-face-scene !face-scene !extract-preview
+   !sidebar-visible !sidebar-scene !trail-face-scene !extract-preview
    !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus !run-scroll-y !detail-scroll-y
    compute-ticket-list-text-ops* compute-run-text-ops* offset-text-ops*
    layout-x layout-y cmd-panel-h status-bar-h]
@@ -98,6 +105,10 @@
         (m/latest
           (fn [layout panel provider agent-output agent-scroll-y scroll-y
                doc current-file local-world flow-state trail-face-scene]
+            ;; first-light A P2 (T9): the bare ground ships NO chrome — no
+            ;; command panel, no Ask-AI prompt, no agent strip, no status bar.
+            (if (ground/ground-active?)
+              []
             (let [{:keys [viewport dpr snap? font-size char-width char-advance sb-w]} layout
                   file-workspace? (ws/local-world-file-workspace? local-world)
                   flow-mode? (ws/local-world-flow? local-world)
@@ -235,7 +246,7 @@
                               [{:text status-right-text :type :comment
                                 :from 0 :to (count status-right-text)
                                 :x status-right-x :y status-y :size font-size
-                                :r 0.65 :g 0.65 :b 0.65 :a 0.9}]))))))
+                                :r 0.65 :g 0.65 :b 0.65 :a 0.9}])))))))
           <layout
           (m/watch !cmd-panel) (m/watch !ai-provider)
           (m/watch !agent-output) (m/watch !agent-scroll-y) (m/watch !scroll-y)
@@ -252,7 +263,7 @@
     (m/latest
       (fn [intake-text run-text layout
            lines fold-state scroll-y
-           current-file local-world sidebar-scene trail-face-scene face-scene extract-preview agent-output
+           current-file local-world sidebar-scene trail-face-scene extract-preview agent-output
            shimmer-phase trail-collapsed active-pane scroll-x chat-scroll-y chat-input focus]
         (let [{:keys [viewport settings dpr snap? font-size char-width char-advance line-h
                        sb-vis? sb-w]} layout
@@ -293,13 +304,19 @@
                    (vec (range (count lines)))
                    []])
                 (if (or trail-mode? face-mode?)
-                  ;; Trail face (WP-B2) / assembly-hosted face (framework
-                  ;; W1-INT): flatten from the CACHED scene, threaded in as
-                  ;; a flow like sidebar-scene - never a non-reactive deref
-                  ;; here (gate 13 / advisory A3; trap T9 - mouse hit-tests
-                  ;; the SAME object)
-                  [(let [scene (if face-mode? face-scene trail-face-scene)]
-                     (if scene (tree->text-ops scene) []))
+                  ;; Trail face (WP-B2): flatten from the CACHED scene,
+                  ;; threaded in as a flow like sidebar-scene - never a
+                  ;; non-reactive deref here (gate 13 / advisory A3; trap T9 -
+                  ;; mouse hit-tests the SAME object).
+                  ;; first-light P1 (trap T6): the MAIN face's text no longer
+                  ;; rides the content geo — it rides its :face-main store
+                  ;; slot's isolated per-slot text geo (render.cljs G8 path),
+                  ;; so face mode contributes NO content text ops here and
+                  ;; this flow no longer watches !face-scene (a keystroke on
+                  ;; the worn face leaves the content geo untouched).
+                  [(if face-mode?
+                     empty-content-ops
+                     (if trail-face-scene (tree->text-ops trail-face-scene) []))
                    (vec (range (count lines)))
                    []]
 
@@ -451,7 +468,7 @@
       <intake-text <run-text <layout
       (m/eduction (map :lines) (dedupe) (m/watch !editor-doc)) <fold-data (m/watch !scroll-y)
       (m/watch !current-file) (m/watch !effective-local-world) (m/watch !sidebar-scene)
-      (m/watch !trail-face-scene) (m/watch !face-scene)
+      (m/watch !trail-face-scene)
       (m/watch !extract-preview) (m/watch !agent-output)
       (m/watch !shimmer-phase) (m/watch !trail-collapsed) (m/watch !active-pane)
       (m/watch !scroll-x) (m/watch !chat-scroll-y) (m/watch !chat-input) (m/watch !focus))]

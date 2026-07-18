@@ -5,6 +5,7 @@
             [clojure.set :as set]
             [missionary.core :as m]
             [app.client.workspace.events :as events]
+            [app.client.workspace.ground :as ground]
             [app.client.workspace.sidebar :refer [cmd-panel-h status-bar-h]]
             [app.client.workspace.runtime.state :as state]
             [app.client.workspace.runtime.fonts :as fonts]
@@ -93,7 +94,14 @@
         ;; ── Sidebar I/O ─────────────────────────────────────────────
         io (sidebar-io/make-sidebar-io atoms)
         _ (sidebar-io/install-sidebar-watch! atoms (:fetch-home-dirs! io))
-        _ (sidebar-io/seed-initial-file! atoms io initial-file)
+        ;; first-light A P2 (T9): the PRODUCT boot is the bare ground — no
+        ;; initial file, no workspace; the worn conversation face over the
+        ;; genesis episode + the utterance tip. Builders opt into the dev
+        ;; workspace with ?dev (launched separately, never linked).
+        ground? (ground/ground-boot?)
+        _ (if ground?
+            (ground/install-ground! atoms)
+            (sidebar-io/seed-initial-file! atoms io initial-file))
 
         ;; ── Rama truth sync (Electric → local sidebar state) ──────
         ;; Live reconciliation: Rama truth -> !sidebar-truth.
@@ -389,6 +397,7 @@
         <chat-keyboard    (events/<chat-input-keys >keyboard-events (:!focus atoms))
         <settings-keyboard (events/<settings-panel-keys >keyboard-events (:!focus atoms))
         <face-edit-keyboard (events/<face-edit-keys >keyboard-events (:!focus atoms))
+        <ground-keyboard  (events/<ground-input-keys >keyboard-events (:!focus atoms))
 
         ;; ── DOM listeners (raw, not Missionary) ─────────────────────
         _ (mouse/install-drag-select! atoms layout node)
@@ -428,6 +437,7 @@
       (kbd/chat-keys-consumer atoms (:submit-agent-run! agent-api) <chat-keyboard)
       (kbd/settings-keys-consumer atoms <settings-keyboard)
       (block-edit-wiring/face-edit-keys-consumer <face-edit-keyboard)
+      (ground/ground-keys-consumer atoms <ground-keyboard)
 
       ;; Render loop (the terminal consumer)
       (render/render-consumer atoms layout gpu deps >raf))))

@@ -67,9 +67,16 @@
 (defn- build-slot
   "Resolve → flatten → stamp container-idx → index a tree into a slot value. The
    ONE slot-building path, shared by upsert-slot and update-nodes-by-address so
-   ops are computed on a single code path (trap T5)."
-  [vi {:keys [tree container meta stratum]}]
-  (let [resolved (rt/resolve-layout tree)]
+   ops are computed on a single code path (trap T5).
+
+   `:pre-resolved? true` (first-light P1) skips the resolve pass for trees that
+   ALREADY went through resolve-layout (build-face-tree output — apply-assembly
+   resolves internally). resolve-layout is idempotent on a resolved tree, so
+   the skip changes nothing semantically; it removes a full-tree pass from the
+   per-keystroke main-face rebuild. Opt-in only — mutated trees
+   (update-nodes-by-address) still resolve."
+  [vi {:keys [tree container meta stratum pre-resolved?]}]
+  (let [resolved (if pre-resolved? tree (rt/resolve-layout tree))]
     {:vi        vi
      :container container
      :tree      resolved
@@ -234,14 +241,32 @@
    a block resolves to that block). Nodes with no matching id are untouched."
   [tree unit-ids]
   (letfn [(walk [node]
-            (let [id   (:id node)
-                  addr (when (and (vector? id) (seq unit-ids))
-                         (some unit-ids id))
-                  node (if addr (assoc-in node [:data :address] addr) node)]
-              (if (seq (:children node))
-                (update node :children (fn [cs] (mapv walk cs)))
-                node)))]
+            (let [id    (:id node)
+                  addr  (when (and (vector? id) (seq unit-ids))
+                          (some unit-ids id))
+                  cs    (:children node)
+                  ;; structure-sharing (first-light P1): return the SAME child
+                  ;; vector — and the SAME node — when nothing below changed,
+                  ;; so the per-keystroke stamp pass allocates only along
+                  ;; stamped paths instead of rebuilding the whole tree.
+                  cs'   (when (seq cs)
+                          (let [mapped (mapv walk cs)]
+                            (if (some identity (map #(when-not (identical? %1 %2) true)
+                                                    mapped cs))
+                              mapped
+                              cs)))
+                  node' (cond-> node
+                          addr (assoc-in [:data :address] addr)
+                          (and cs' (not (identical? cs' cs))) (assoc :children cs'))]
+              node'))]
     (walk tree)))
+
+(defn block-unit-ids
+  "The set of block unit-ids in a served face data-context (turns → blocks →
+   :id). PURE (first-light P1: moved here from scene-runtime so the store path
+   and every pick consumer resolve identical blocks from one derivation)."
+  [ctx]
+  (into #{} (comp (mapcat :blocks) (keep :id)) (:turns ctx)))
 
 ;; ============================================================================
 ;; Per-view-instance face build (P3b Rung 1) — one compiled face, one projection

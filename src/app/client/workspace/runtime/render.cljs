@@ -8,9 +8,10 @@
             [app.client.substrate.webgpu.buffer-pool :as pool]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.workspace.events :refer [maybe-snap]]
+            [app.client.workspace.ground :as ground]
             [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.sidebar :refer [cmd-panel-h status-bar-h]]
-            [app.client.workspace.editor-compute :refer [<fold-state <bracket-match <editor-rects+sidebar]]
+            [app.client.workspace.editor-compute :refer [<fold-state <bracket-match <editor-rects+sidebar build-main-face!]]
             [app.client.workspace.combined-text :refer [<combined-text-ops]]
             [app.client.workspace.cmd-panel :refer [<cmd-panel-rects]]
             [app.client.workspace.settings-view :refer [<settings-panel-rects <settings-panel-text]]
@@ -91,14 +92,16 @@
                       tokenize-fn layout-fn
                       <fold-data
                       !flow-state !collapsed-groups !hovered-row-idx !drag-state
-                      !sidebar-visible !sidebar-scene !trail-face-scene !face-scene !extract-preview
+                      !sidebar-visible !sidebar-scene !trail-face-scene !extract-preview
                       !shimmer-phase !trail-collapsed !active-pane !scroll-x !chat-scroll-y !chat-input !focus !run-scroll-y !detail-scroll-y
                       dg/compute-ticket-list-text-ops dg/compute-run-text-ops dg/offset-text-ops
                       layout-x layout-y cmd-panel-h status-bar-h)
 
-        ;; Split: editor rects (content only) + sidebar rects (for pool)
+        ;; Split: editor rects (content only) + sidebar rects (for pool) +
+        ;; the main-face tree flow (first-light P1 — feeds the store slot)
         {<editor-rect-flow :<editor-rects
-         <sidebar-flow     :<sidebar}
+         <sidebar-flow     :<sidebar
+         <face-main-flow   :<face-main}
         (<editor-rects+sidebar
           !editor-doc !eval-result !caret-visible !focus
           !settings !active-font !viewport
@@ -179,8 +182,37 @@
                           <store-frame   ;; scene-substrate P3a
                           <effective)]   ;; scene-substrate P3a
 
-    ;; Render pulse: sample world on each RAF tick
-    (m/reduce
+    ;; Two joined consumers: the main-face slot edge + the RAF render pulse.
+    (m/join vector
+      ;; ── first-light P1: the main-face slot consumer ──
+      ;; A DEDICATED edge (T4: store mutations at edges only), deliberately NOT
+      ;; the RAF edge — and the build runs in a COALESCING MICROTASK, not
+      ;; synchronously in the propagation. Measured (G1 drill): the in-combine
+      ;; build put ~7-15ms into every keystroke/decision/truth turn and pushed
+      ;; narrow echo p50 20→52ms; a microtask drains before the browser
+      ;; paints (slot lands the SAME frame — no store-lag frame) while the
+      ;; envelope dispatch and echo processing run unblocked. Bursts within
+      ;; one turn coalesce to one build (last bundle wins).
+      (let [!pending (atom nil)
+            !queued? (atom false)]
+        (m/reduce
+          (fn [_ bundle]
+            (reset! !pending bundle)
+            (when (compare-and-set! !queued? false true)
+              (js/queueMicrotask
+                (fn []
+                  (reset! !queued? false)
+                  (when-let [b @!pending]
+                    (build-main-face! b)
+                    ;; first-light A P2: the ground tip rides the trail's
+                    ;; growth — container transform only, same edge, ordered
+                    ;; right after the face slot lands (no-op off-ground).
+                    (ground/reposition!)))))
+            nil)
+          nil <face-main-flow))
+
+      ;; Render pulse: sample world on each RAF tick
+      (m/reduce
       (fn [prev-state [world _frame-time]]
         (if (and (identical? world (:prev-world prev-state))
                  (not (island/driving?)) ;; islands-probe: force redraw so probe gets continuous frames
@@ -230,7 +262,15 @@
                 _ (cond
                     ;; left face mode by ANY path (mode switch, /face off) → clear
                     ;; every spawned instance (finding #1: no orphan, no leak).
-                    (and (not face-mode?) (scene-rt/any-slots?))
+                    ;; first-light P1: RE-CHECK the LIVE mode before the
+                    ;; destructive close — the sampled world can lag one frame
+                    ;; behind the atoms, and on face-mode ENTRY the main-face
+                    ;; slot lands via its own consumer edge before the world
+                    ;; catches up; a stale-world close here would blank the
+                    ;; face until the next tree rebuild.
+                    (and (not face-mode?)
+                         (not (ws/local-world-face-assembly? @!effective-local-world))
+                         (scene-rt/any-slots?))
                     (scene-rt/close-all-slots!)
                     ;; worn face just turned off → the copies' projection died
                     ;; with it; clear them.
@@ -720,4 +760,4 @@
        :slot-text-geos {}
        :frame-idx 0})
 
-      (m/sample vector <world-snapshot >raf))))
+      (m/sample vector <world-snapshot >raf)))))
