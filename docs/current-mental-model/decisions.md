@@ -145,9 +145,14 @@ which crossroads did we take."
 - **One canvas, many conversations (Sid 2026-07-21):** on the open ground, a
   conversation lane is an ATTENTION, not an identity — each thread of talk
   scopes its own CLI session (per-thread uuid: `--session-id` at birth,
-  `--resume` after), while every cell of every thread lands in the ONE canvas
-  container: one river, blocks from all threads individually addressable and
-  gatherable across threads. Nothing durable treats a session uuid as a mind.
+  `--resume` after). One river, blocks from all threads individually
+  addressable and gatherable across threads — the river is merged AT SERVE:
+  canvas truth (utterances, turn records, geometry) lives in the canvas
+  container; a thread's distilled material lives in its session's own
+  container (harvest identity follows the jsonl line's sessionId by design —
+  fighting that meant surgery on the proven fingerprint chain); the turn
+  cells are the thread registry the serve merge reads from. BUILT 2026-07-21
+  (`7b36a02`). Nothing durable treats a session uuid as a mind.
   Busy-refusal is per-thread — a mid-turn thread refuses at its block, the
   canvas stays live. As threads multiply, context comes by BRIEFING (assemble
   from the land's blocks), never by merging transcripts. Turn records stay

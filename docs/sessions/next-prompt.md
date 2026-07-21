@@ -106,6 +106,10 @@ Softland or still on paper? (`BETS.md` verdict log.)
 
 ## SID'S MOVES — everything that waits on you alone, cheapest first
 
+0a. **WEAR concurrent chat** — restart the dev server (it runs pre-`7b36a02`
+   code), then: three fresh blocks, Ctrl+Enter each → three lanes at once,
+   replies under their own blocks; Ctrl+Enter a block again → its thread
+   resumes. Old blocks keep the genesis lane; `?drill=` unchanged.
 0. **FIRST LIGHT — open `localhost:8080`, click anywhere, speak** (the
    genesis episode is virgin; your first utterance is §11's irreplaceable
    act; the walkthrough is live: arrival = NOTHING, wheel zooms, drag
@@ -217,6 +221,15 @@ round → benchmark room (question bank waits on kinds).
   green at committed HEAD); its pair-structure residue spawned machine-cut.
 
 ## Active package blocks
+
+**concurrent-chat — BUILT 2026-07-21 at Sid's word, awaiting his wear**
+(the bootstrap sitting's yield: one canvas, many conversations). Frame in
+settled ground ("One canvas, many conversations"); code `7b36a02` (docs
+`0f5a553`): per-thread lanes + per-thread busy + serve-level river merge +
+thread-scoped reply attribution; drill lane untouched; suites 38t/267a
+green incl. an end-to-end serve probe; cljs 0 warnings. Wear = Sid's move
+0a. Deferred by design: gather, thread UI grammar, branch-from-quote —
+they accrete in-land from habitation.
 
 **first-light A — OPEN 2026-07-17 · P0–P2b DONE, G1–G4b PASS** (the
 genesis package: metabolism — one local worn arrangement repair). Contract
