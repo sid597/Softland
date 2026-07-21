@@ -90,11 +90,12 @@
   (atom {}))
 
 (defonce ^:private !thread-of
-  ;; unit-id → thread-key. An ENTRY (even nil-valued) means the block holds
-  ;; a thread: nil = genesis. Absence means never sent — the first Ctrl+Enter
+  ;; unit-id → thread-key. No entry = no thread yet — the next Ctrl+Enter
   ;; mints a fresh uuid ("a block holds a multi-turn thread on one uuid").
-  ;; Rebuilt from served turn records on every reconcile; session mints are
-  ;; added optimistically at send.
+  ;; EVERY block rides the new lanes (Sid 2026-07-21) — pre-thread turn
+  ;; records map to nothing, so old blocks fork fresh lanes too; only drill
+  ;; pages hold nil entries (their legacy single lane). Rebuilt from served
+  ;; turn records on every reconcile; session mints added at send.
   (atom {}))
 
 (defonce ^:private !provisional-open (atom #{}))  ; thread-keys with live slots
@@ -484,11 +485,15 @@
           awaits   (into {} (keep (fn [[k r]]
                                     (when-let [a (:await-reply r)] [k a])))
                          @!ground-runs)]
-      ;; served turn records are the durable block→thread map (nil = genesis);
-      ;; reload re-derives every thread from these cells
+      ;; served turn records are the durable block→thread map. Pre-thread
+      ;; records (nil thread) map to NOTHING (Sid 2026-07-21: everything
+      ;; rides the new infra) — an old block's next send mints a fresh lane
+      ;; like any block; the old genesis session goes dormant, its material
+      ;; stays served
       (doseq [r turn-recs]
         (when-let [su (:source-unit-id r)]
-          (swap! !thread-of assoc su (:thread-id r))))
+          (when-let [tid (:thread-id r)]
+            (swap! !thread-of assoc su tid))))
       ;; camera restore — ONCE, at boot (later logins resume the scene; the
       ;; live camera is the inhabitant's after that — Law 3)
       (when (and (not (:camera-restored? @!world)))
