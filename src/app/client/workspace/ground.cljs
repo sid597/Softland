@@ -136,6 +136,25 @@
 (def ^:private machine-tint [0.62 0.66 0.76 0.6])
 (def ^:private attention-border [0.45 0.52 0.66 0.55])
 
+(defn- wrap-lines
+  "Display-only greedy wrap at `col` chars (monospace: char count IS width —
+   see metrics). The raw text is never touched; machine blocks only. A word
+   longer than col hard-breaks."
+  [lines col]
+  (vec (mapcat
+        (fn [l]
+          (if (<= (count l) col)
+            [l]
+            (loop [s l, out []]
+              (if (<= (count s) col)
+                (conj out s)
+                (let [head (subs s 0 (inc col))
+                      i    (str/last-index-of head " ")
+                      cut  (if (and i (pos? i)) i col)]
+                  (recur (str/triml (subs s cut))
+                         (conj out (subs s 0 cut))))))))
+        lines)))
+
 (defn- block-tree
   "One block's container-LOCAL resolved tree (root at 0,0; the container
    transform places it in the world). No wrap, no clip — width grows with
@@ -144,8 +163,9 @@
    interaction box shows only on attention (Law 10); machine provenance is a
    quiet persistent edge tint (Law 6) — two separate primitives."
   [unit-id {:keys [text caret focused? refusal]} machine? hover? notice
-   {:keys [font-size char-advance line-h]}]
-  (let [lines   (str/split (or text "") #"\n" -1)
+   {:keys [font-size char-advance line-h]} wrap-col]
+  (let [lines   (cond-> (str/split (or text "") #"\n" -1)
+                  (and machine? wrap-col) (wrap-lines wrap-col))
         n       (count lines)
         max-len (reduce max 1 (map count lines))
         w       (+ (* max-len char-advance) (* 2 block-pad))
@@ -236,7 +256,7 @@
           tree (block-tree unit-id view (:machine? b)
                            (= unit-id @!hover)
                            (when (= unit-id (:unit-id n)) (:text n))
-                           (metrics))]
+                           (metrics) (:wrap-col b))]
       (upsert-block-slot! unit-id tree (:x b) (:y b))
       (swap! !world update-in [:blocks unit-id]
              assoc :w (get-in tree [:bounds :w]) :h (get-in tree [:bounds :h])))))
@@ -389,20 +409,22 @@
 
 (defn- default-position
   "Derived default for a block with no settled cell and no live position:
-   a machine block lands beneath the source block of its turn (§9.4 reply
+   a machine block lands beneath its RUN's source block (§9.4 reply
    placement, left-aligned — parent-relative at birth, independent after);
-   successive reply blocks of one turn stack beneath EACH OTHER (all-
-   anchored-on-source would pile them on one point); anything else falls
-   beneath the previous block in reading order. Ephemeral until a real
-   gesture settles it — a derived default is not a settle-write."
-  [blocks-acc prev-uid turn-recs block machine? {:keys [line-h]}]
-  (let [src-uid (when machine?
-                  (:source-unit-id
-                   (last (filter #(<= (:time-ms % 0) (:time-ms block 0)) turn-recs))))
-        prev    (get blocks-acc prev-uid)
-        anchor  (or (when (and machine? (:machine? prev)) prev)
-                    (get blocks-acc src-uid)
-                    prev)]
+   successive machine blocks of the SAME source stack beneath each other
+   (all-anchored-on-source would pile them on one point) — but a machine
+   block never chains under a DIFFERENT run's block (found live 2026-07-20:
+   Task 3's reply stacked under Task 2's tail instead of under #TASK 3);
+   anything else falls beneath the previous block in reading order.
+   Ephemeral until a real gesture settles it — a derived default is not a
+   settle-write."
+  [blocks-acc prev-uid src-uid machine? {:keys [line-h]}]
+  (let [prev   (get blocks-acc prev-uid)
+        anchor (or (when (and machine? (:machine? prev)
+                              (= (:src-uid prev) src-uid))
+                     prev)
+                   (get blocks-acc src-uid)
+                   prev)]
     (if anchor
       {:x (:x anchor)
        :y (+ (:y anchor) (or (:h anchor) line-h) reply-gap)}
@@ -438,13 +460,33 @@
                 machine? (not= (str (:speaker b)) "sid")
                 live     (get-in @!world [:blocks uid])
                 cell     (get geometry uid)
+                ;; the run this block answers: the turn record at or before
+                ;; its time names the source block it ran from — ONE
+                ;; attribution shared by position anchor and wrap width
+                src-uid  (when machine?
+                           (:source-unit-id
+                            (last (filter #(<= (:time-ms % 0) (:time-ms b 0))
+                                          turn-recs))))
                 pos      (cond
                            (and live (:x live)) {:x (:x live) :y (:y live)}
                            cell {:x (double (:x cell)) :y (double (:y cell))}
-                           :else (default-position placed prev turn-recs b machine? m))
-                derived? (and (nil? (and live (:x live))) (nil? cell))]
+                           :else (default-position placed prev src-uid machine? m))
+                derived? (and (nil? (and live (:x live))) (nil? cell))
+                ;; a machine block wraps at ITS SOURCE block's width (Sid):
+                ;; its longest line is the wrap column (floor 32, fallback 80
+                ;; when no source resolves — e.g. pre-turn-record history)
+                wrap-col (when machine?
+                           (let [src-txt (when src-uid
+                                           (some #(when (= src-uid (:id %)) (:text %))
+                                                 blocks))]
+                             (if src-txt
+                               (max 32 (reduce max 0
+                                               (map count
+                                                    (str/split src-txt #"\n" -1))))
+                               80)))]
             (swap! !world update-in [:blocks uid]
-                   (fn [e] (merge e {:machine? machine? :local? false} pos)))
+                   (fn [e] (merge e {:machine? machine? :local? false
+                                     :wrap-col wrap-col} pos)))
             (when-let [cid (get-in @!world [:blocks uid :cid])]
               (scene-rt/set-transform! cid pos))
             (rebuild-block! uid)
@@ -452,7 +494,8 @@
               (swap! !settle assoc-in [:acked uid] {:x (:x pos) :y (:y pos)}))
             (recur (rest bs)
                    (assoc placed uid (merge pos {:h (get-in @!world [:blocks uid :h])
-                                                 :machine? machine?}))
+                                                 :machine? machine?
+                                                 :src-uid src-uid}))
                    uid
                    (cond-> new-replies
                      ;; a reply born by THIS session's distill: its computed
@@ -475,13 +518,74 @@
       (refresh-provisional!)
       nil)))
 
+(defn- merge-machine-turn-blocks
+  "Interim render rule (Sid): everything the agent did in ONE turn-run —
+   thinking, tool calls, tool results, the final reply — renders as ONE raw
+   block. A run = the turn RECORD it answers (every ctrl+enter mints one:
+   source block + time; a machine turn belongs to the latest record at or
+   before its first block's time) — NOT \"consecutive non-sid turns\": Sid
+   typing while the agent still works must not fuse the interrupted run
+   with the next one (found live 2026-07-20: #TASK 3 typed mid-run glued
+   Task 2's tail and the whole Task 3 reply into one block). Each run
+   collapses to ONE turn seated at its first member's position, carrying a
+   single block (served order, blank-line joins) under the FIRST unit's
+   identity; Sid's interjections keep their own seats. Machine turns older
+   than every record (pre-record history) pass through un-merged.
+   Presentation only: the durable cut is untouched. While this holds,
+   machine blocks are read-only (see pointer-up!) — an edit envelope
+   carrying the merged text would rewrite unit 1's durable truth."
+  [ctx]
+  (let [recs   (vec (sort-by #(:time-ms % 0) (:conversation/turn-records ctx [])))
+        run-of (fn [turn]
+                 (let [tm (:time-ms (first (:blocks turn)) 0)
+                       n  (count (take-while #(<= (:time-ms % 0) tm) recs))]
+                   (when (pos? n) (dec n))))]
+    (update ctx :turns
+            (fn [turns]
+              (let [keyed  (mapv (fn [t]
+                                   (assoc t ::run
+                                          (when-not (= "sid" (str (:speaker t)))
+                                            (or (run-of t) ::recordless))))
+                                 turns)
+                    by-run (group-by ::run keyed)]
+                (->> keyed
+                     (keep (fn [t]
+                             (let [r (::run t)]
+                               (if (number? r)
+                                 (let [members (get by-run r)]
+                                   (when (identical? t (first members))
+                                     (let [bs (mapcat :blocks members)]
+                                       (-> (first members)
+                                           (assoc :blocks
+                                                  [(assoc (first bs)
+                                                          :text (str/join "\n\n"
+                                                                          (map :text bs)))])
+                                           (dissoc ::run)))))
+                                 ;; sid turn, or pre-record machine history
+                                 (dissoc t ::run)))))
+                     vec))))))
+
+;; the raw served context last reconciled — the change guard compares RAW
+;; (the world stores the merged view, so raw-vs-world would never match)
+(defonce ^:private !last-raw-context (atom nil))
+
 (defn on-face-bundle!
   "The <face-main consumer edge in ground mode (replaces build-main-face! —
    the outline-face tree never renders here; the ground IS per-block slots)."
   [{:keys [face-context]}]
   (when face-context
-    (when-not (identical? face-context (:context @!world))
-      (reconcile! face-context))
+    (when-not (identical? face-context @!last-raw-context)
+      (reset! !last-raw-context face-context)
+      ;; the served page is honest about truncation; the ground must be too —
+      ;; a cut page means durable turns exist that this render cannot show
+      ;; (river-page has no cursor and reads from the FRONT), and the symptom
+      ;; otherwise presents as "the agent's reply vanished at settle"
+      (when (:conversation/truncated? face-context)
+        (js/console.warn "[GROUND] served page truncated — newest turns may be missing:"
+                         (:conversation/blocks-returned face-context) "blocks served of"
+                         (:conversation/river-events-total face-context) "river events, limit"
+                         (:conversation/limit face-context)))
+      (reconcile! (merge-machine-turn-blocks face-context)))
     ;; adopt narrowed truth into a resting confirmed value (cross-check)
     (when-let [fid (:focus @!ground-edit)]
       (swap! !ground-edit ge/adopt-truth fid (truth-text fid))
@@ -796,20 +900,28 @@
           (swap! !ground-edit ge/set-anchor {:x wx :y wy})
           (refresh-anchor!)
           (when-let [old (:focus @!ground-edit)] (rebuild-block! old)))
-        ;; clean click on a block: edit caret at the clicked position
+        ;; clean click on a block: edit caret at the clicked position.
+        ;; Machine blocks are read-only while replies render merged
+        ;; (merge-machine-turn-blocks): focusing one would route an edit
+        ;; envelope carrying the whole turn's text at a single unit.
         (let [uid   (:target p)
               b     (get-in @!world [:blocks uid])
-              old   (:focus @!ground-edit)
-              m     (metrics)
-              [wx wy] (:world p)
-              truth (or (truth-text uid) "")
-              line  (js/Math.floor (/ (- wy (:y b)) (:line-h m)))
-              col   (js/Math.round (/ (- wx (:x b)) (:char-advance m)))
-              caret (ge/line-col->caret truth (max 0 line) (max 0 col))]
-          (swap! !ground-edit ge/focus-block uid truth caret)
-          (refresh-anchor!)
-          (when (and old (not= old uid)) (rebuild-block! old))
-          (rebuild-block! uid)))
+              old   (:focus @!ground-edit)]
+          (if (:machine? b)
+            (do (swap! !ground-edit ge/escape)
+                (refresh-anchor!)
+                (when old (rebuild-block! old))
+                (rebuild-block! uid))
+            (let [m     (metrics)
+                  [wx wy] (:world p)
+                  truth (or (truth-text uid) "")
+                  line  (js/Math.floor (/ (- wy (:y b)) (:line-h m)))
+                  col   (js/Math.round (/ (- wx (:x b)) (:char-advance m)))
+                  caret (ge/line-col->caret truth (max 0 line) (max 0 col))]
+              (swap! !ground-edit ge/focus-block uid truth caret)
+              (refresh-anchor!)
+              (when (and old (not= old uid)) (rebuild-block! old))
+              (rebuild-block! uid)))))
       :dragging
       (let [uid (:target p)
             b   (get-in @!world [:blocks uid])]
@@ -850,7 +962,12 @@
   (when-let [!p (:!cmd-panel atoms)] (swap! !p assoc :visible false))
   (reset! (:!face-state atoms)
           {:face :outline-face :address :episode
-           :params (cond-> {:limit 64}
+           ;; no :limit — the server serves its whole bounded page (clamp-limit
+           ;; defaults to max-river-page-size). A client-pinned 64 is what kept
+           ;; cutting settled replies off the ground: river-page reads from the
+           ;; FRONT, so once the episode passed 64 events every NEW turn fell
+           ;; outside the served window (streamed live, vanished at settle).
+           :params (cond-> {}
                      (drill-conversation-id)
                      (assoc :drill-conversation-id (drill-conversation-id)))})
   (face-wiring/wear-face! atoms :outline-face :episode)
