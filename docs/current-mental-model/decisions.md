@@ -142,6 +142,21 @@ which crossroads did we take."
   `build/scene-substrate/GATE.md` + `RETRO.md`). Staged next slice: P3c —
   main-face flip + the overlay-merged echo lane to copies + per-slot echo
   diff.
+- **One canvas, many conversations (Sid 2026-07-21):** on the open ground, a
+  conversation lane is an ATTENTION, not an identity — each thread of talk
+  scopes its own CLI session (per-thread uuid: `--session-id` at birth,
+  `--resume` after), while every cell of every thread lands in the ONE canvas
+  container: one river, blocks from all threads individually addressable and
+  gatherable across threads. Nothing durable treats a session uuid as a mind.
+  Busy-refusal is per-thread — a mid-turn thread refuses at its block, the
+  canvas stays live. As threads multiply, context comes by BRIEFING (assemble
+  from the land's blocks), never by merging transcripts. Turn records stay
+  open to a future `gather` — the set of block-ids a turn drew as context
+  (Sid's quote-mechanic, LOG 2026-07-21); not built until a real friction
+  summons it. Genesis is the first thread among many — no ongoing
+  specialness; `?drill=` canvases keep full isolation (session AND storage).
+  Multi-thread affordance grammar (how you chat with many threads) is
+  deliberately NOT designed here — it accretes in-land from habitation.
 - **Stream writes are at-least-once:** every stream write path derives a
   deterministic op-id from the request-id so a replay overwrites the same
   keys — never duplicates. A replayed-event test ships with every write path.
