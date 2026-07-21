@@ -7,6 +7,7 @@
    DURABLE halves (G3/G4) drill against the live cluster, not here."
   (:require [clojure.test :refer [deftest is testing]]
             [app.server.episode :as ep]
+            [app.server.rama.face-projection :as fp]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.block-distiller :as bd]))
 
@@ -197,3 +198,78 @@
       (is (empty? (filter #(= :episode-geometry (:entry-kind %))
                           (get-in (ep/utterance-import-request args)
                                   [:payload :projection-hints])))))))
+
+(deftest turn-record-carries-its-thread
+  ;; one canvas, many conversations: the turn cell is the canvas's thread
+  ;; registry — :thread-id names the lane's CLI session; nil = genesis
+  (let [args {:object-key (ep/genesis-object-key)
+              :turn-id "turn-91" :source-unit-id "du:test:u9"
+              :content-text "spoken on a thread" :position {:x 1.0 :y 2.0}
+              :time-ms 1753000000000 :prev-turn-id nil :status :open
+              :thread-id "3d38aaaa-0000-4000-8000-000000000001"}
+        req    (ep/turn-record-request args)
+        [hint] (get-in req [:payload :projection-hints])]
+    (is (empty? (oc/import-request-validation-errors req)))
+    (is (= "3d38aaaa-0000-4000-8000-000000000001"
+           (get-in hint [:turn :thread-id]))
+        "the cell value carries the lane")
+    (testing "the genesis thread is nil — pre-thread cells keep their shape"
+      (let [bare (ep/turn-record-request (dissoc args :thread-id))]
+        (is (nil? (get-in (first (get-in bare [:payload :projection-hints]))
+                          [:turn :thread-id])))
+        (is (= (:order-key hint)
+               (:order-key (first (get-in bare [:payload :projection-hints]))))
+            "thread never moves the cell address — same turn, same cell")))
+    (testing "same turn + same thread retries converge"
+      (let [again (ep/turn-record-request args)]
+        (is (= (:import/key req) (:import/key again)))
+        (is (= (:material/fingerprint req) (:material/fingerprint again)))))))
+
+(deftest one-canvas-many-conversations-serve-probe
+  ;; the composed chain on ONE in-process cluster: turn cell (the canvas's
+  ;; thread registry) → thread-container read → one merged river with thread
+  ;; stamps. Material lands through the REAL import lane; the CLI/harvest
+  ;; halves are the proven per-session organs (identity follows the jsonl
+  ;; line's sessionId — drilled live 2026-07-21), not re-proven here.
+  (let [{:keys [oc-rt]} (bd/start-distiller-runtime!)]
+    (try
+      (let [canvas-conv "11111111-2222-4333-8444-555555555555"
+            thread-conv "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+            canvas-key  (ep/episode-object-key canvas-conv)
+            t0          1753100000000]
+        (is (= :accepted (:status (ep/append-utterance!
+                                   oc-rt {:text "the question block"
+                                          :turn-id "blk-1" :time-ms t0
+                                          :conversation-id canvas-conv})))
+            "sid speaks at the canvas")
+        (is (= :accepted (:status (ep/record-turn!
+                                   oc-rt {:turn-id "blk-1"
+                                          :source-unit-id (ep/utterance-unit-id
+                                                           canvas-key "blk-1" 0)
+                                          :content-text "the question block"
+                                          :status :open :time-ms (+ t0 10)
+                                          :conversation-id canvas-conv
+                                          :thread-id thread-conv})))
+            "the turn cell lands in the CANVAS, naming its thread")
+        (is (= :accepted (:status (ep/append-utterance!
+                                   oc-rt {:text "the thread reply material"
+                                          :turn-id "reply-1" :time-ms (+ t0 500)
+                                          :conversation-id thread-conv})))
+            "the thread's material lives in ITS OWN container")
+        (let [dc (fp/conversation-projection
+                  {:oc-rt oc-rt}
+                  {:face :conversation :address canvas-key :params {}})]
+          (is (= [thread-conv] (:conversation/thread-ids dc))
+              "the turn cells ARE the thread registry")
+          (is (= thread-conv (:thread-id (first (:conversation/turn-records dc))))
+              "served turn records carry the lane")
+          (let [turns        (:turns dc)
+                thread-turns (filter :thread-id turns)]
+            (is (= 2 (count turns)) "canvas block + thread block: ONE river")
+            (is (= [thread-conv] (mapv :thread-id thread-turns)))
+            (is (= "the thread reply material"
+                   (:text (first (:blocks (first thread-turns))))))
+            (is (= ["the question block" "the thread reply material"]
+                   (mapv #(:text (first (:blocks %))) turns))
+                "time order holds across containers"))))
+      (finally (bd/close-distiller-runtime! {:oc-rt oc-rt})))))

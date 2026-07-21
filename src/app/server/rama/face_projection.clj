@@ -80,30 +80,34 @@
        (reduce
         (fn [{:keys [order->idx turns] :as acc} b]
           (let [euid    (:event-uuid b)
-                block   {:id       (:unit-id b)
-                         :kind     (:form b)
-                         :text     (:text b)
-                         :order    (:order b)
-                         :time-ms  (:time-ms b)
-                         :part-path (:part-path b)
-                         ;; block-write PHASE_0 rule 2 (additive thread-through):
-                         ;; surface the unit's own document-container-id (from
-                         ;; river-page rule 1) alongside :id, so the edit outbox
-                         ;; (Lane B) copies it verbatim into the §3 payload — the
-                         ;; client tracks no container id (BW-T7). Purely additive;
-                         ;; existing served keys are byte-stable (MC-T8 class).
-                         :document-container-id (:document-container-id b)
-                         :block-path (:block-path b)}]
+                block   (cond-> {:id       (:unit-id b)
+                                 :kind     (:form b)
+                                 :text     (:text b)
+                                 :order    (:order b)
+                                 :time-ms  (:time-ms b)
+                                 :part-path (:part-path b)
+                                 ;; block-write PHASE_0 rule 2 (additive thread-through):
+                                 ;; surface the unit's own document-container-id (from
+                                 ;; river-page rule 1) alongside :id, so the edit outbox
+                                 ;; (Lane B) copies it verbatim into the §3 payload — the
+                                 ;; client tracks no container id (BW-T7). Purely additive;
+                                 ;; existing served keys are byte-stable (MC-T8 class).
+                                 :document-container-id (:document-container-id b)
+                                 :block-path (:block-path b)}
+                          ;; one canvas, many conversations: the lane a block's
+                          ;; material came from (additive; canvas blocks carry none)
+                          (:thread-id b) (assoc :thread-id (:thread-id b)))]
             (if-let [idx (get order->idx euid)]
               (update-in acc [:turns idx :blocks] conj block)
               (let [idx (count turns)]
                 (-> acc
                     (assoc-in [:order->idx euid] idx)
                     (update :turns conj
-                            {:id     euid
-                             :speaker (:actor b)
-                             :order  (first (:order b))
-                             :blocks [block]}))))))
+                            (cond-> {:id     euid
+                                     :speaker (:actor b)
+                                     :order  (first (:order b))
+                                     :blocks [block]}
+                              (:thread-id b) (assoc :thread-id (:thread-id b)))))))))
         {:order->idx {} :turns []})
        :turns))
 
@@ -180,6 +184,14 @@
 ;; IPC-backed :conversation projection — river-page composition + until-ms times.
 ;; ===========================================================================
 
+(def episode-thread-source
+  "Matches app.server.episode/episode-source — the transcript source every
+   thread session's jsonl harvests under. Duplicated by VALUE because episode
+   is the adapter layer above this one (requiring it here inverts layering);
+   the constant is birth-fixed (2026-07-17) — it names on-disk identity and
+   cannot drift."
+  :claude-code)
+
 (defn- attach-source-times
   "Attach :time-ms (per-part SourceArtifactRow.created-at-ms) to each block, reading
    ONE point per DISTINCT source (≤ page surfaces ≤ :limit). Bounded per-page cost,
@@ -215,6 +227,33 @@
           stamped (into (stamp (get lanes false [])) (stamp (get lanes true [])))]
       (->> stamped
            (sort-by ::eff)                 ; clojure sort is stable
+           (mapv #(dissoc % ::eff))))))
+
+(defn merge-thread-lanes
+  "One canvas, many conversations — the serve-level river merge (PURE). The
+   canvas's own blocks (already lane-merged by merge-episode-lanes) count as
+   ONE lane; each thread container's page is another. Same running-max floor
+   discipline as merge-episode-lanes: a zero/backwards clock inherits its
+   lane's floor, so no cross-lane sort can reorder a lane against itself.
+   `thread-lanes` = seq of [thread-id blocks]; every thread block is stamped
+   :thread-id. Empty thread-lanes returns canvas-blocks UNTOUCHED — the
+   single-thread serve stays byte-identical (MC-T8 class)."
+  [canvas-blocks thread-lanes]
+  (if (empty? thread-lanes)
+    (vec canvas-blocks)
+    (let [stamp (fn [lane-blocks]
+                  (loop [bs lane-blocks, floor 0, out []]
+                    (if-let [b (first bs)]
+                      (let [t (max (long floor) (long (or (:time-ms b) 0)))]
+                        (recur (rest bs) t (conj out (assoc b ::eff t))))
+                      out)))
+          all   (reduce (fn [acc [tid blocks]]
+                          (into acc (stamp (mapv #(assoc % :thread-id (str tid))
+                                                 blocks))))
+                        (stamp (vec canvas-blocks))
+                        thread-lanes)]
+      (->> all
+           (sort-by ::eff)                 ; stable — within-lane order holds
            (mapv #(dissoc % ::eff))))))
 
 ;; ===========================================================================
@@ -412,7 +451,44 @@
         :face/rendered-at-ms (System/currentTimeMillis)})
       (let [page      (bd/river-page {:oc-rt oc-rt :object-key address} limit)
             read-plan (:river-page/read-plan (meta page))
-            blocks    (merge-episode-lanes (attach-source-times oc-rt page))
+            canvas-blocks (merge-episode-lanes (attach-source-times oc-rt page))
+            ;; one canvas, many conversations: the canvas's turn records ARE
+            ;; its thread registry — each :thread-id names a per-thread CLI
+            ;; session whose distilled material lives in that session's OWN
+            ;; container (identity follows the jsonl line's sessionId). Read
+            ;; each thread's page and merge it into the one river. Guarded +
+            ;; total: a failed thread page degrades to absence, named in
+            ;; :conversation/thread-errors — never a thrown canvas.
+            cell-of*  (fn [row]
+                        (or (:turn row)
+                            (try (some-> (:content-preview row) edn/read-string)
+                                 (catch Exception _ nil))))
+            thread-ids (->> (:river-page/turn-rows (meta page))
+                            (keep cell-of*)
+                            (keep :thread-id)
+                            distinct
+                            vec)
+            thread-reads (mapv (fn [tid]
+                                 (let [tkey (tid/transcript-object-key
+                                             episode-thread-source tid)]
+                                   (try
+                                     (let [tpage (bd/river-page
+                                                  {:oc-rt oc-rt :object-key tkey}
+                                                  limit)
+                                           tplan (:river-page/read-plan (meta tpage))]
+                                       {:tid tid
+                                        :blocks (attach-source-times oc-rt tpage)
+                                        :truncated? (:truncated? tplan)})
+                                     (catch Throwable t
+                                       {:tid tid :error (.getMessage t)}))))
+                               thread-ids)
+            thread-lanes (vec (keep (fn [{:keys [tid blocks error]}]
+                                      (when-not error [tid blocks]))
+                                    thread-reads))
+            thread-errors (into {} (keep (fn [{:keys [tid error]}]
+                                           (when error [tid error]))
+                                         thread-reads))
+            blocks    (merge-thread-lanes canvas-blocks thread-lanes)
             ;; first-light P2b (ADDITIVE keys, MC-T8 class): settled geometry
             ;; cells + the world camera + revision-pinned turn records, from
             ;; the SAME projection read river-page already performed (meta
@@ -449,6 +525,15 @@
                              :conversation/geometry geometry
                              :conversation/camera camera
                              :conversation/turn-records turn-recs)
+            ;; thread honesty (additive; map-must-not-lie): a truncated thread
+            ;; page or a failed thread read is a named fact, never silence
+            dc        (cond-> dc
+                        (seq thread-ids)
+                        (assoc :conversation/thread-ids thread-ids)
+                        (some :truncated? thread-reads)
+                        (assoc :conversation/truncated? true)
+                        (seq thread-errors)
+                        (assoc :conversation/thread-errors thread-errors))
             ;; §4.4/§6: read the machine-cut :pairs-with edges (total; [] on any
             ;; failure or absent rk-rt), derive pair structure over the SAME
             ;; post-until-ms `:turns` shape-conversation served (MC-T11). Merge

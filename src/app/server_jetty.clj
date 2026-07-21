@@ -807,7 +807,13 @@ information."
         ;; drill seam (G3/G4/G4b): a machinery drill names its OWN episode so
         ;; the GENESIS first utterance stays Sid's act (§11). The ground client
         ;; never sends this; nil = the genesis episode.
-        conv-id        (:conversation-id request-data)]
+        conv-id        (:conversation-id request-data)
+        ;; one canvas, many conversations: :thread-id scopes the CLI SESSION
+        ;; (and its jsonl/distill container) while conv-id keeps naming the
+        ;; canvas container where turn records land. Absent = the genesis
+        ;; thread — session and container coincide, the pre-thread behavior.
+        thread-id      (some-> (:thread-id request-data) str not-empty)
+        session-id     (or thread-id conv-id)]
     {:status  200
      :headers {"Content-Type"      "text/event-stream"
                "Cache-Control"     "no-cache"
@@ -835,7 +841,8 @@ information."
                                          :position position
                                          :status :open
                                          :time-ms time-ms :prev-turn-id prev-turn-id
-                                         :conversation-id conv-id})
+                                         :conversation-id conv-id
+                                         :thread-id thread-id})
                                  (catch Exception e
                                    {:status :error :error (.getMessage e)}))]
                    (if-not (= :accepted (:status durable))
@@ -853,9 +860,10 @@ information."
                        (let [!stream-state (atom (initial-stream-state))
                              done-promise  (promise)
                              argv (episode/summon-argv {:cwd cwd :prompt text
-                                                        :conversation-id conv-id})]
+                                                        :conversation-id session-id})]
                          (log/info "[EPISODE][TURN-START]"
-                                   {:turn-id turn-id :argv argv :cwd cwd})
+                                   {:turn-id turn-id :argv argv :cwd cwd
+                                    :thread-id thread-id})
                          (stream-cli-process
                           argv cwd timeout-ms
                           (fn [line]
@@ -892,15 +900,20 @@ information."
                                         :position position
                                         :status status
                                         :time-ms time-ms :prev-turn-id prev-turn-id
-                                        :conversation-id conv-id})
+                                        :conversation-id conv-id
+                                        :thread-id thread-id})
                                 (catch Exception e
                                   (log/warn "[EPISODE][TURN-STATUS-FAILED]"
                                             {:turn-id turn-id :error (.getMessage e)})))
                               ;; post-turn distill runs on the waiter thread —
-                              ;; the stream stays open until the receipt lands
+                              ;; the stream stays open until the receipt lands.
+                              ;; It harvests the SESSION's jsonl into the
+                              ;; session's own container (identity follows the
+                              ;; line's sessionId by design) — the serve merge
+                              ;; reads it back into the canvas.
                               (let [distill (try
                                               (episode/post-turn-distill!
-                                               oc-rt {:cwd cwd :conversation-id conv-id})
+                                               oc-rt {:cwd cwd :conversation-id session-id})
                                               (catch Exception e
                                                 {:status :distill-failed :error (.getMessage e)}))]
                                 (log/info "[EPISODE][TURN-DISTILLED]"

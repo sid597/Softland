@@ -75,14 +75,29 @@
   ;; :context — last served face-context · :camera-restored? — boot-once flag
   (atom {:blocks {} :context nil :camera-restored? false}))
 
-(defonce !ground-run
-  ;; Law 8: one current-activity line + the arriving stream — explicitly
-  ;; PROVISIONAL (process-state, never truth). :source-unit-id anchors the
-  ;; projection beneath the spoken block.
-  (atom {:phase :idle :activity nil :stream-text "" :error nil
-         :source-unit-id nil :turn-id nil :await-reply nil}))
+(defonce !ground-runs
+  ;; Law 8, per-thread (one canvas, many conversations): thread-key → one
+  ;; run map {:phase :activity :stream-text :error :source-unit-id :turn-id
+  ;; :await-reply}. thread-key = the thread's session uuid string; nil = the
+  ;; genesis thread. Every run is explicitly PROVISIONAL (process-state,
+  ;; never truth); each projection anchors beneath ITS OWN source block.
+  ;; Busy is a per-thread fact — a mid-turn thread refuses at its block,
+  ;; every other thread stays sendable.
+  (atom {}))
 
-(defonce ^:private !last-turn-id (atom nil))
+(defonce ^:private !last-turn-ids
+  ;; thread-key → last durable turn-id (the per-thread prev-turn chain)
+  (atom {}))
+
+(defonce ^:private !thread-of
+  ;; unit-id → thread-key. An ENTRY (even nil-valued) means the block holds
+  ;; a thread: nil = genesis. Absence means never sent — the first Ctrl+Enter
+  ;; mints a fresh uuid ("a block holds a multi-turn thread on one uuid").
+  ;; Rebuilt from served turn records on every reconcile; session mints are
+  ;; added optimistically at send.
+  (atom {}))
+
+(defonce ^:private !provisional-open (atom #{}))  ; thread-keys with live slots
 
 (defonce ^:private !pointer (atom {:phase :idle}))
 (defonce ^:private !hover (atom nil))
@@ -284,57 +299,76 @@
                                              :pre-resolved? true})))
       (scene-rt/close-instance! :ground-anchor))))
 
+(defn- provisional-vi [thread-key]
+  [:vi :ground-provisional (or thread-key "genesis")])
+
+(defn- render-provisional-slot!
+  "ONE run's PROVISIONAL projection (Law 8): one current-activity line + the
+   arriving stream, dimmed — process-state, never truth, never camera motion.
+   Placed beneath ITS run's source block; REPLACED at distill by the durable
+   provenance-marked reply."
+  [thread-key {:keys [phase activity stream-text error source-unit-id]}]
+  (let [{:keys [font-size line-h char-advance]} (metrics)
+        open?  (contains? #{:streaming :distilling} phase)
+        vi     (provisional-vi thread-key)
+        src    (get-in @!world [:blocks source-unit-id])
+        sx     (if src (:x src) 60.0)
+        sy     (if src (+ (:y src) (or (:h src) line-h) reply-gap) 60.0)
+        slines (when (seq (str stream-text))
+                 (str/split-lines (str stream-text)))
+        kids   (cond-> []
+                 open?
+                 (conj (rt-node :ground-activity :text-run
+                                {:x 0 :y 0 :w 600 :h line-h}
+                                :text [(text-op (str "· " (or activity "the resident is working"))
+                                                0 line-h font-size dim 0)]))
+                 (seq slines)
+                 (conj (rt-node :ground-stream :text-run
+                                {:x 0 :y line-h
+                                 :w (+ (* (reduce max 1 (map count slines))
+                                          char-advance) 16)
+                                 :h (* (count slines) line-h)}
+                                :text (vec (map-indexed
+                                            (fn [i l] (text-op l i line-h font-size dim 0))
+                                            slines))))
+                 (some? error)
+                 (conj (rt-node :ground-turn-error :text-run
+                                {:x 0 :y 0 :w 600 :h line-h}
+                                :text [(text-op (str "⟂ " error " — retry is a new turn")
+                                                0 line-h font-size err-col 0)])))
+        tree (rt/resolve-layout
+              (rt-node :ground-provisional :stack
+                       {:x 0 :y 0 :w 600 :h 0}
+                       :layout {:direction :column :gap 6 :auto-height? true}
+                       :children kids))]
+    (if-let [slot (ss/slot (scene-rt/store-snapshot) vi)]
+      (do (swap! scene-rt/!scene-store ss/upsert-slot vi
+                 {:tree tree :container (:container slot)
+                  :meta (:meta slot) :stratum (:stratum slot)
+                  :pre-resolved? true})
+          (scene-rt/set-transform! (:container slot) {:x sx :y sy}))
+      (scene-rt/register-face-instance! vi tree
+                                        {:x sx :y sy :scale 1.0 :layer 6
+                                         :meta {:ground-provisional? true}
+                                         :pre-resolved? true}))))
+
 (defn- refresh-provisional!
-  "The open turn's PROVISIONAL projection (Law 8): one current-activity line
-   + the arriving stream, dimmed — process-state, never truth, never camera
-   motion. Placed beneath the source block; REPLACED at distill by the
-   durable provenance-marked reply."
+  "Render every live run's provisional slot; close slots whose runs went
+   quiet (their distilled truth replaces them). One slot per thread — three
+   concurrent runs = three activity lines, each under its own block."
   []
-  (let [{:keys [phase activity stream-text error source-unit-id]} @!ground-run
-        {:keys [font-size line-h char-advance]} (metrics)
-        open? (contains? #{:streaming :distilling} phase)]
-    (if (or open? (some? error))
-      (let [src    (get-in @!world [:blocks source-unit-id])
-            sx     (if src (:x src) 60.0)
-            sy     (if src (+ (:y src) (or (:h src) line-h) reply-gap) 60.0)
-            slines (when (seq (str stream-text))
-                     (str/split-lines (str stream-text)))
-            kids   (cond-> []
-                     open?
-                     (conj (rt-node :ground-activity :text-run
-                                    {:x 0 :y 0 :w 600 :h line-h}
-                                    :text [(text-op (str "· " (or activity "the resident is working"))
-                                                    0 line-h font-size dim 0)]))
-                     (seq slines)
-                     (conj (rt-node :ground-stream :text-run
-                                    {:x 0 :y line-h
-                                     :w (+ (* (reduce max 1 (map count slines))
-                                              char-advance) 16)
-                                     :h (* (count slines) line-h)}
-                                    :text (vec (map-indexed
-                                                (fn [i l] (text-op l i line-h font-size dim 0))
-                                                slines))))
-                     (some? error)
-                     (conj (rt-node :ground-turn-error :text-run
-                                    {:x 0 :y 0 :w 600 :h line-h}
-                                    :text [(text-op (str "⟂ " error " — retry is a new turn")
-                                                    0 line-h font-size err-col 0)])))
-            tree (rt/resolve-layout
-                  (rt-node :ground-provisional :stack
-                           {:x 0 :y 0 :w 600 :h 0}
-                           :layout {:direction :column :gap 6 :auto-height? true}
-                           :children kids))]
-        (if-let [slot (ss/slot (scene-rt/store-snapshot) :ground-provisional)]
-          (do (swap! scene-rt/!scene-store ss/upsert-slot :ground-provisional
-                     {:tree tree :container (:container slot)
-                      :meta (:meta slot) :stratum (:stratum slot)
-                      :pre-resolved? true})
-              (scene-rt/set-transform! (:container slot) {:x sx :y sy}))
-          (scene-rt/register-face-instance! :ground-provisional tree
-                                            {:x sx :y sy :scale 1.0 :layer 6
-                                             :meta {:ground-provisional? true}
-                                             :pre-resolved? true})))
-      (scene-rt/close-instance! :ground-provisional))))
+  (let [runs @!ground-runs
+        want (into #{} (keep (fn [[k {:keys [phase error]}]]
+                               (when (or (contains? #{:streaming :distilling} phase)
+                                         (some? error))
+                                 k)))
+                   runs)]
+    (doseq [k @!provisional-open]
+      (when-not (contains? want k)
+        (scene-rt/close-instance! (provisional-vi k))))
+    (reset! !provisional-open want)
+    (doseq [k want]
+      (render-provisional-slot! k (get runs k)))))
 
 ;; ===========================================================================
 ;; The settle driver — camera + positions as SETTLE-STATE truth
@@ -445,7 +479,16 @@
           turn-recs (sort-by :time-ms (:conversation/turn-records ctx []))
           blocks   (context-blocks ctx)
           seen     (set (map :id blocks))
-          await    (:await-reply @!ground-run)]
+          ;; per-thread await windows (a settling reply matches ITS thread's
+          ;; run, never another thread's — concurrent distills stay disjoint)
+          awaits   (into {} (keep (fn [[k r]]
+                                    (when-let [a (:await-reply r)] [k a])))
+                         @!ground-runs)]
+      ;; served turn records are the durable block→thread map (nil = genesis);
+      ;; reload re-derives every thread from these cells
+      (doseq [r turn-recs]
+        (when-let [su (:source-unit-id r)]
+          (swap! !thread-of assoc su (:thread-id r))))
       ;; camera restore — ONCE, at boot (later logins resume the scene; the
       ;; live camera is the inhabitant's after that — Law 3)
       (when (and (not (:camera-restored? @!world)))
@@ -460,12 +503,17 @@
                 machine? (not= (str (:speaker b)) "sid")
                 live     (get-in @!world [:blocks uid])
                 cell     (get geometry uid)
-                ;; the run this block answers: the turn record at or before
-                ;; its time names the source block it ran from — ONE
-                ;; attribution shared by position anchor and wrap width
+                b-thread (:thread-id b)
+                ;; the run this block answers: the latest turn record at or
+                ;; before its time WITHIN ITS OWN THREAD names the source
+                ;; block it ran from — ONE attribution shared by position
+                ;; anchor and wrap width. Thread-scoped so interleaved
+                ;; concurrent runs never claim each other's replies (nil ==
+                ;; nil keeps pre-thread history byte-identical).
                 src-uid  (when machine?
                            (:source-unit-id
-                            (last (filter #(<= (:time-ms % 0) (:time-ms b 0))
+                            (last (filter #(and (= (:thread-id %) b-thread)
+                                                (<= (:time-ms % 0) (:time-ms b 0)))
                                           turn-recs))))
                 pos      (cond
                            (and live (:x live)) {:x (:x live) :y (:y live)}
@@ -501,10 +549,12 @@
                    (cond-> new-replies
                      ;; a reply born by THIS session's distill: its computed
                      ;; birth position becomes durable (independent once
-                     ;; born — moving the source later never moves it)
-                     (and machine? derived? await
-                          (>= (:time-ms b 0) (:time-ms await 0)))
-                     (conj [uid pos]))))
+                     ;; born — moving the source later never moves it).
+                     ;; Matched against ITS OWN thread's await window.
+                     (and machine? derived?
+                          (when-let [await (get awaits b-thread)]
+                            (>= (:time-ms b 0) (:time-ms await 0))))
+                     (conj [uid pos b-thread]))))
           (do
             ;; blocks gone from truth: close their slots (locally-birthed
             ;; blocks awaiting their first re-pull stay)
@@ -513,9 +563,19 @@
                 (scene-rt/close-instance! (block-vi uid))
                 (swap! !world update :blocks dissoc uid)))
             (when (seq new-replies)
-              (doseq [[uid pos] new-replies]
+              (doseq [[uid pos _] new-replies]
                 (arm-settle! :cell uid pos))
-              (swap! !ground-run assoc :await-reply nil)))))
+              ;; clear ONLY the matched threads' awaits; prune runs that are
+              ;; fully quiet (idle, no error, nothing awaited)
+              (doseq [tk (distinct (map #(nth % 2) new-replies))]
+                (swap! !ground-runs update tk assoc :await-reply nil))
+              (swap! !ground-runs
+                     (fn [runs]
+                       (into {} (remove (fn [[_ r]]
+                                          (and (= :idle (:phase r))
+                                               (nil? (:error r))
+                                               (nil? (:await-reply r))))
+                                        runs))))))))
       (refresh-provisional!)
       nil)))
 
@@ -537,10 +597,16 @@
    carrying the merged text would rewrite unit 1's durable truth."
   [ctx]
   (let [recs   (vec (sort-by #(:time-ms % 0) (:conversation/turn-records ctx [])))
+        ;; runs are per-thread: a machine turn belongs to the latest record
+        ;; at or before its time IN ITS OWN THREAD (nil = genesis), so two
+        ;; threads' interleaved replies never fuse into one block
+        recs-by-thread (group-by :thread-id recs)
         run-of (fn [turn]
-                 (let [tm (:time-ms (first (:blocks turn)) 0)
-                       n  (count (take-while #(<= (:time-ms % 0) tm) recs))]
-                   (when (pos? n) (dec n))))]
+                 (let [tid   (:thread-id turn)
+                       trecs (get recs-by-thread tid [])
+                       tm    (:time-ms (first (:blocks turn)) 0)
+                       n     (count (take-while #(<= (:time-ms % 0) tm) trecs))]
+                   (when (pos? n) [tid (dec n)])))]
     (update ctx :turns
             (fn [turns]
               (let [keyed  (mapv (fn [t]
@@ -552,7 +618,7 @@
                 (->> keyed
                      (keep (fn [t]
                              (let [r (::run t)]
-                               (if (number? r)
+                               (if (vector? r)
                                  (let [members (get by-run r)]
                                    (when (identical? t (first members))
                                      (let [bs (mapcat :blocks members)]
@@ -677,38 +743,40 @@
 ;; The send lane — Ctrl+Enter, revision-pinned, durable-BEFORE-agent
 ;; ===========================================================================
 
-(defn- run-event! [turn-id evt]
+(defn- run-event! [thread-key turn-id evt]
   (case (:kind evt)
     :episode-durable
-    (do (reset! !last-turn-id turn-id)
-        (swap! !ground-run assoc :phase :streaming
+    (do (swap! !last-turn-ids assoc thread-key turn-id)
+        (swap! !ground-runs update thread-key assoc :phase :streaming
                :activity "the resident is reading" :error nil))
 
     :text-delta
-    (swap! !ground-run
+    (swap! !ground-runs update thread-key
            (fn [r] (-> r (assoc :activity nil)
                        (update :stream-text str (:text evt)))))
 
     :thinking-delta
-    (swap! !ground-run assoc :activity "thinking")
+    (swap! !ground-runs update thread-key assoc :activity "thinking")
 
     :tool-use-start
-    (swap! !ground-run assoc :activity (str "using " (:tool-name evt)))
+    (swap! !ground-runs update thread-key assoc
+           :activity (str "using " (:tool-name evt)))
 
     :run-done
-    (swap! !ground-run assoc :phase :distilling :activity "landing the turn")
+    (swap! !ground-runs update thread-key assoc
+           :phase :distilling :activity "landing the turn")
 
     :run-error
     ;; the turn closes VISIBLY at its source; retry is a new turn; the
     ;; durable failure fact is the turn cell's status (server-side)
-    (swap! !ground-run assoc :phase :idle :activity nil
+    (swap! !ground-runs update thread-key assoc :phase :idle :activity nil
            :error (str (or (:error evt) :run-error)
                        (when (:detail evt) (str " " (pr-str (:detail evt))))))
 
     :episode-distilled
     ;; provisional text never survives as truth: the projection drops WHOLE;
     ;; the epoch re-pull renders the durable provenance-marked reply
-    (swap! !ground-run
+    (swap! !ground-runs update thread-key
            (fn [r] {:phase :idle :activity nil :stream-text "" :error nil
                     :source-unit-id (:source-unit-id r) :turn-id nil
                     :await-reply {:source-unit-id (:source-unit-id r)
@@ -729,41 +797,54 @@
   "Ctrl+Enter from the FOCUSED block (target never ambiguous). The pinned
    revision = the block's confirmed text at send time — the turn record
    makes the pin durable BEFORE the agent spawns; mid-stream edits never
-   rewrite what the resident answered. A busy resident refuses VISIBLY at
-   the block — no queue at genesis; other blocks stay writable/draggable."
+   rewrite what the resident answered.
+
+   One canvas, many conversations: the block's THREAD scopes the run. A
+   block that already holds a thread (a served turn record, or a send this
+   session) reuses its uuid — later sends resume that CLI session. A fresh
+   block's first send MINTS a thread: a new attention with fresh context,
+   running concurrently with every other thread. Busy is per-thread — a
+   mid-turn thread refuses VISIBLY at its block; the rest of the canvas
+   stays sendable. Drill pages (?drill=) keep the legacy single lane."
   []
   (let [st  @!ground-edit
         fid (:focus st)]
-    (cond
-      (nil? fid) nil
-
-      (not= :idle (:phase @!ground-run))
-      (transient-notice! fid "the resident is mid-turn — this block was not sent")
-
-      :else
-      (let [text (get-in st [:queue :confirmed :text])
-            b    (get-in @!world [:blocks fid])]
-        (when-not (str/blank? (or text ""))
-          (let [turn-id (str (random-uuid))]
-            (swap! !ground-run assoc :phase :streaming
-                   :activity "reaching the land" :stream-text ""
-                   :error nil :source-unit-id fid :turn-id turn-id)
-            (refresh-provisional!)
-            (agent/stream-agent-run!
-             "/api/episode/utterance"
-             (cond-> {:source-unit-id fid
-                      :content-text text
-                      :position {:x (:x b) :y (:y b)}
-                      :turn-id turn-id
-                      :time-ms (js/Date.now)
-                      :prev-turn-id @!last-turn-id}
-               (drill-conversation-id)
-               (assoc :conversation-id (drill-conversation-id)))
-             (partial run-event! turn-id)
-             (fn [err]
-               (swap! !ground-run assoc :phase :idle :activity nil
-                      :error (str "send failed: " (.-message err)))
-               (refresh-provisional!)))))))))
+    (when fid
+      (let [drill  (drill-conversation-id)
+            thread (cond
+                     drill nil
+                     (contains? @!thread-of fid) (get @!thread-of fid)
+                     :else (str (random-uuid)))
+            run    (get @!ground-runs thread)]
+        (if (contains? #{:streaming :distilling} (:phase run))
+          (transient-notice! fid "this thread is mid-turn — the block was not sent")
+          (let [text (get-in st [:queue :confirmed :text])
+                b    (get-in @!world [:blocks fid])]
+            (when-not (str/blank? (or text ""))
+              (let [turn-id (str (random-uuid))]
+                (swap! !thread-of assoc fid thread)
+                (swap! !ground-runs assoc thread
+                       {:phase :streaming :activity "reaching the land"
+                        :stream-text "" :error nil
+                        :source-unit-id fid :turn-id turn-id
+                        :await-reply nil})
+                (refresh-provisional!)
+                (agent/stream-agent-run!
+                 "/api/episode/utterance"
+                 (cond-> {:source-unit-id fid
+                          :content-text text
+                          :position {:x (:x b) :y (:y b)}
+                          :turn-id turn-id
+                          :time-ms (js/Date.now)
+                          :prev-turn-id (get @!last-turn-ids thread)}
+                   thread (assoc :thread-id thread)
+                   drill  (assoc :conversation-id drill))
+                 (partial run-event! thread turn-id)
+                 (fn [err]
+                   (swap! !ground-runs update thread assoc
+                          :phase :idle :activity nil
+                          :error (str "send failed: " (.-message err)))
+                   (refresh-provisional!)))))))))))
 
 ;; ===========================================================================
 ;; Keys — the :ground-input focus lane (ALL ground keys route here)
@@ -1012,7 +1093,25 @@
              :mode      (fn [] (name (:mode @!ground-edit)))
              :focus     (fn [] (str (:focus @!ground-edit)))
              :confirmed (fn [] (clj->js (get-in @!ground-edit [:queue :confirmed])))
-             :run       (fn [] (name (:phase @!ground-run)))})
+             ;; :run keeps the G4b receipt shape as the AGGREGATE phase;
+             ;; :runs/:threads expose the per-thread truth
+             :run       (fn [] (let [ps (set (map :phase (vals @!ground-runs)))]
+                                 (name (cond (ps :streaming)  :streaming
+                                             (ps :distilling) :distilling
+                                             :else            :idle))))
+             :runs      (fn [] (clj->js
+                                (into {}
+                                      (map (fn [[k r]]
+                                             [(or k "genesis")
+                                              (-> r
+                                                  (select-keys [:phase :activity :error
+                                                                :source-unit-id :turn-id])
+                                                  (update :phase name))]))
+                                      @!ground-runs)))
+             :threads   (fn [] (clj->js
+                                (into {}
+                                      (map (fn [[uid tk]] [uid (or tk "genesis")]))
+                                      @!thread-of)))})
   ;; exit flush — best-effort BELT; safety is the acknowledged settle write
   (js/window.addEventListener "beforeunload"
                               (fn [_] (fire-settle! :keepalive? true)))

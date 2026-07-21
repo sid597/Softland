@@ -181,9 +181,17 @@
         (let [times (mapv :time-ms proj-blocks)]
           (is (every? (comp pos? long) times))
           (is (= times (sort times)) "monotone non-decreasing across the page")))
-      (testing "truncation is signalled when :limit cuts (247 events > one 64-block page)"
-        (is (true? (:conversation/truncated? dc)))
-        (is (= :river-page-has-no-cursor (:conversation/paging-lack dc))))
+      (testing "truncation is signalled when :limit cuts (247 events > a 64-block page)"
+        ;; the ceiling was raised 64 → 512 (ea8f120: the pinned serve window
+        ;; cut settled replies), so truncation needs an EXPLICIT small limit
+        (let [cut (fp/conversation-projection {:oc-rt oc-rt}
+                                              {:face :conversation :address object-key
+                                               :params {:limit 64}})]
+          (is (true? (:conversation/truncated? cut)))
+          (is (= :river-page-has-no-cursor (:conversation/paging-lack cut)))))
+      (testing "the raised ceiling serves the 247-event corpus WHOLE — honestly complete"
+        (is (false? (:conversation/truncated? dc)))
+        (is (nil? (:conversation/paging-lack dc))))
       (testing "debris excluded BY DESIGN — reported, never leaked as a river block"
         (is (true? (:conversation/debris-excluded? dc)))
         (is (= 399 (:debris summary)) "the 399 debris rows are retained upstream, absent here")
@@ -222,3 +230,40 @@
                       (mapcat :blocks (:turns (serve t-lo))))
               "every kept block is within the cut"))))
     (println "  [skip] real 7c80ce2a transcript not present — G11 skipped off-box")))
+
+;; ===========================================================================
+;; One canvas, many conversations — the thread merge (pure half)
+;; ===========================================================================
+
+(deftest thread-lanes-merge-into-one-river
+  (let [canvas [{:event-uuid "e1" :actor "sid" :unit-id "c1" :form :prose
+                 :text "one" :order [0 0 "a"] :time-ms 100}
+                {:event-uuid "e2" :actor "sid" :unit-id "c2" :form :prose
+                 :text "four" :order [1 0 "a"] :time-ms 400}]
+        t1     [{:event-uuid "e3" :actor "model:claude" :unit-id "t1a" :form :prose
+                 :text "two" :order [0 0 "a"] :time-ms 200}]
+        t2     [{:event-uuid "e4" :actor "model:claude" :unit-id "t2a" :form :prose
+                 :text "three" :order [0 0 "a"] :time-ms 300}
+                {:event-uuid "e5" :actor "model:claude" :unit-id "t2b" :form :prose
+                 :text "zero clock" :order [1 0 "a"] :time-ms 0}]
+        merged (fp/merge-thread-lanes canvas [["th-1" t1] ["th-2" t2]])]
+    (is (= ["c1" "t1a" "t2a" "t2b" "c2"] (mapv :unit-id merged))
+        "global time order across lanes; the zero clock inherits ITS lane's floor")
+    (is (= [nil "th-1" "th-2" "th-2" nil] (mapv :thread-id merged))
+        "thread blocks stamped with their lane; canvas blocks untouched")
+    (testing "no threads → the canvas is byte-identical (single-thread serve unchanged)"
+      (is (= canvas (fp/merge-thread-lanes canvas []))))))
+
+(deftest thread-stamp-flows-into-turns
+  (let [blocks [{:event-uuid "ev1" :actor "model:claude" :unit-id "u1" :form :prose
+                 :text "hi" :order [0 0 "a"] :time-ms 10 :thread-id "th-9"}
+                {:event-uuid "ev1" :actor "model:claude" :unit-id "u2" :form :prose
+                 :text "more" :order [0 1 "b"] :time-ms 11 :thread-id "th-9"}
+                {:event-uuid "ev2" :actor "sid" :unit-id "u3" :form :prose
+                 :text "canvas words" :order [1 0 "a"] :time-ms 12}]
+        turns  (fp/blocks->turns blocks)]
+    (is (= "th-9" (:thread-id (first turns))) "the turn carries its lane")
+    (is (= ["th-9" "th-9"] (mapv :thread-id (:blocks (first turns)))))
+    (testing "canvas turns carry NO thread key — absent, not nil (byte-stable serve)"
+      (is (not (contains? (second turns) :thread-id)))
+      (is (not (contains? (first (:blocks (second turns))) :thread-id))))))
