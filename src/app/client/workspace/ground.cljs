@@ -109,9 +109,11 @@
   (atom {:dirty {} :camera? false :timer nil :acked {}}))
 
 (defonce ^:private !notice (atom nil))  ; {:unit-id :text} transient (busy etc.)
-;; merged run blocks showing FULL raw (default: collapsed to :reply-text) —
+;; per merged run block: which sections show (Task 7, Sid) — two independent
+;; header toggles, :noise? (thinking + tool calls) and :prose? (the reply).
 ;; attention state like hover: ephemeral, never settled, never restored
-(defonce ^:private !expanded (atom #{}))
+(defonce ^:private !folds (atom {}))
+(def ^:private fold-default {:noise? false :prose? true})
 
 (def ^:private drag-threshold-px 4.0)
 (def ^:private block-pad 8.0)
@@ -182,10 +184,11 @@
    interaction box shows only on attention (Law 10); machine provenance is a
    quiet persistent edge tint (Law 6) — two separate primitives."
   [unit-id {:keys [text caret focused? refusal]} machine? hover? notice
-   {:keys [font-size char-advance line-h]} wrap-col header]
+   {:keys [font-size char-advance line-h]} wrap-col headers]
   (let [lines   (cond-> (str/split (or text "") #"\n" -1)
                   (and machine? wrap-col) (wrap-lines wrap-col))
-        lines   (if header (into [header] lines) lines)
+        nh      (count headers)
+        lines   (if (pos? nh) (into (vec headers) lines) lines)
         n       (count lines)
         max-len (reduce max 1 (map count lines))
         w       (+ (* max-len char-advance) (* 2 block-pad))
@@ -193,7 +196,7 @@
         ops     (vec (map-indexed
                       (fn [i l] (text-op l i line-h font-size
                                          (cond
-                                           (and header (zero? i)) machine-tint
+                                           (< i nh) machine-tint
                                            machine? dim
                                            :else fg)
                                          0))
@@ -278,36 +281,48 @@
 (defn rebuild-block!
   "Rebuild ONE block slot from the current edit state + truth (the
    keystroke-echo hot path — one small tree, same-frame paint). A merged
-   run block (marked by :reply-text) renders collapsed to the reply by
-   default; its header line is the raw/reply toggle (Task 6, Sid)."
+   run block (marked by :reply-text) folds into two sections, each behind
+   its own header-line toggle (Tasks 6+7, Sid): thinking+tools (:noise?,
+   hidden by default) and the reply (:prose?, shown by default)."
   [unit-id]
   (when-let [b (get-in @!world [:blocks unit-id])]
     (let [st   @!ground-edit
           run  (when (:machine? b)
                  (let [cb (context-block-entry unit-id)]
                    (when (contains? cb :reply-text) cb)))
-          expanded? (contains? @!expanded unit-id)
-          display (when (and run (not expanded?))
-                    (let [r (:reply-text run)]
-                      (if (str/blank? (or r ""))
-                        (str/join "\n" (take 3 (str/split (or (:text run) "")
-                                                          #"\n" -1)))
-                        r)))
-          header (when run
-                   (if expanded?
-                     "▾ raw — click here for reply only"
-                     (let [total  (count (str/split (or (:text run) "") #"\n" -1))
-                           shown  (count (str/split (or display "") #"\n" -1))
-                           hidden (max 0 (- total shown))]
-                       (str "▸ reply — click here for raw"
-                            (when (pos? hidden) (str " (+" hidden " lines)"))))))
+          {:keys [noise? prose?]} (get @!folds unit-id fold-default)
+          display (when run
+                    (cond
+                      ;; both on → the full raw :text, served interleaved
+                      ;; order (splitting the folds would lose the weave)
+                      (and noise? prose?) (:text run)
+                      noise?  (:noise-text run)
+                      ;; a run with no prose (interrupted mid-work) still
+                      ;; peeks its first raw lines — never an empty block
+                      prose?  (let [r (:reply-text run)]
+                                (if (str/blank? (or r ""))
+                                  (str/join "\n" (take 3 (str/split (or (:text run) "")
+                                                                    #"\n" -1)))
+                                  r))
+                      :else   ""))
+          sec-lines (fn [s] (if (str/blank? (or s "")) 0
+                                (count (str/split s #"\n" -1))))
+          fold-header (fn [shown? label text]
+                        (if shown?
+                          (str "▾ " label " — click to hide")
+                          (str "▸ " label " — click to show"
+                               (let [c (sec-lines text)]
+                                 (when (pos? c) (str " (+" c " lines)"))))))
+          headers (when run
+                    [(fold-header noise? "thinking+tools" (:noise-text run))
+                     (fold-header prose? "reply" (:reply-text run))])
           view (ge/block-view st unit-id (truth-text unit-id))
           view (if display (assoc view :text display) view)
           n    @!notice
           tree (block-tree unit-id view (:machine? b)
                            (= unit-id @!hover)
                            (when (= unit-id (:unit-id n)) (:text n))
-                           (metrics) (:wrap-col b) header)]
+                           (metrics) (:wrap-col b) headers)]
       (upsert-block-slot! unit-id tree (:x b) (:y b))
       (swap! !world update-in [:blocks unit-id]
              assoc :w (get-in tree [:bounds :w]) :h (get-in tree [:bounds :h])))))
@@ -619,6 +634,11 @@
       (refresh-provisional!)
       nil)))
 
+(def ^:private noise-kinds
+  "Run-block section split (Tasks 6+7): these kinds are the thinking +
+   tool-call fold; everything else is the reply prose."
+  #{:thinking :tool-use :tool-result-span :material-part})
+
 (defn- merge-machine-turn-blocks
   "Interim render rule (Sid): everything the agent did in ONE turn-run —
    thinking, tool calls, tool results, the final reply — renders as ONE raw
@@ -662,13 +682,14 @@
                                  (let [members (get by-run r)]
                                    (when (identical? t (first members))
                                      (let [bs (mapcat :blocks members)
-                                           ;; the reply view (Task 6): the run's
-                                           ;; prose only — thinking + tool noise
-                                           ;; hides behind the header toggle
-                                           prose (remove #(contains? #{:thinking
-                                                                       :tool-use
-                                                                       :tool-result-span
-                                                                       :material-part}
+                                           ;; the two folds (Tasks 6+7): the
+                                           ;; reply prose and the thinking +
+                                           ;; tool noise, each behind its own
+                                           ;; header toggle
+                                           prose (remove #(contains? noise-kinds
+                                                                     (:kind %))
+                                                         bs)
+                                           noise (filter #(contains? noise-kinds
                                                                      (:kind %))
                                                          bs)]
                                        (-> (first members)
@@ -678,7 +699,10 @@
                                                                           (map :text bs))
                                                           :reply-text
                                                           (str/join "\n\n"
-                                                                    (map :text prose)))])
+                                                                    (map :text prose))
+                                                          :noise-text
+                                                          (str/join "\n\n"
+                                                                    (map :text noise)))])
                                            (dissoc ::run)))))
                                  ;; sid turn, or pre-record machine history
                                  (dissoc t ::run)))))
@@ -1063,11 +1087,14 @@
             (let [m (metrics)
                   [_wx wy] (:world p)
                   run? (contains? (context-block-entry uid) :reply-text)
-                  ;; the header line (top row) is the toggle target
-                  header-hit? (and run? (< wy (+ (:y b) (:line-h m))))]
-              (if header-hit?
-                (do (swap! !expanded
-                           (fn [s] (if (contains? s uid) (disj s uid) (conj s uid))))
+                  ;; the two header lines are the toggle targets (Task 7):
+                  ;; row 0 = thinking+tools, row 1 = reply
+                  row  (max 0 (js/Math.floor (/ (- wy (:y b)) (:line-h m))))
+                  fold (when (and run? (<= row 1))
+                         (if (zero? row) :noise? :prose?))]
+              (if fold
+                (do (swap! !folds update uid
+                           (fn [f] (update (or f fold-default) fold not)))
                     (rebuild-block! uid))
                 (do (swap! !ground-edit ge/escape)
                     (refresh-anchor!)
