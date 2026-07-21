@@ -486,7 +486,8 @@
                                80)))]
             (swap! !world update-in [:blocks uid]
                    (fn [e] (merge e {:machine? machine? :local? false
-                                     :wrap-col wrap-col} pos)))
+                                     :wrap-col wrap-col :source-uid src-uid}
+                                  pos)))
             (when-let [cid (get-in @!world [:blocks uid :cid])]
               (scene-rt/set-transform! cid pos))
             (rebuild-block! uid)
@@ -841,6 +842,18 @@
   (let [[wx wy] (screen->world sx sy)]
     (when (scene-rt/any-slots?) (scene-rt/pick-world [wx wy]))))
 
+(defn- drag-group
+  "The rigid drag unit (Task 4, Sid): a user block + every machine block
+   whose run launched from it move as ONE — grabbing either end moves both.
+   A machine block with no resolved source drags alone."
+  [uid]
+  (let [bs  (:blocks @!world)
+        e   (get bs uid)
+        src (if (:machine? e) (:source-uid e) uid)]
+    (if (nil? src)
+      [uid]
+      (into [src] (keep (fn [[k v]] (when (= src (:source-uid v)) k)) bs)))))
+
 (defn pointer-down! [sx sy]
   (let [hit  (pick-at sx sy)
         ;; deictic seam (scene-substrate P4): pointing is a click act, never
@@ -852,7 +865,13 @@
     (reset! !pointer
             (if b
               {:phase :pending :screen [sx sy] :world [wx wy]
-               :target uid :grab [(- (:x b) wx) (- (:y b) wy)]}
+               :target uid :grab [(- (:x b) wx) (- (:y b) wy)]
+               ;; per-member grabs frozen at press: the group drags as a
+               ;; RIGID formation (each member keeps its offset exactly)
+               :group (vec (keep (fn [guid]
+                                   (when-let [gb (get-in @!world [:blocks guid])]
+                                     [guid [(- (:x gb) wx) (- (:y gb) wy)]]))
+                                 (drag-group uid)))}
               {:phase :pending :screen [sx sy] :world [wx wy]
                :target :ground :cam-start @!camera}))))
 
@@ -879,13 +898,13 @@
                                :x (+ (:x cam0) (- sx sx0))
                                :y (+ (:y cam0) (- sy sy0)))))
       :dragging
-      (let [[wx wy] (screen->world sx sy)
-            [gx gy] (:grab p)
-            uid (:target p)
-            pos {:x (+ wx gx) :y (+ wy gy)}]
-        (swap! !world update-in [:blocks uid] merge pos)
-        (when-let [cid (get-in @!world [:blocks uid :cid])]
-          (scene-rt/set-transform! cid pos)))
+      (let [[wx wy] (screen->world sx sy)]
+        (doseq [[guid [gx gy]] (or (seq (:group p))
+                                   [[(:target p) (:grab p)]])]
+          (let [pos {:x (+ wx gx) :y (+ wy gy)}]
+            (swap! !world update-in [:blocks guid] merge pos)
+            (when-let [cid (get-in @!world [:blocks guid :cid])]
+              (scene-rt/set-transform! cid pos)))))
       nil)))
 
 (defn pointer-up! [sx sy]
@@ -923,11 +942,12 @@
               (when (and old (not= old uid)) (rebuild-block! old))
               (rebuild-block! uid)))))
       :dragging
-      (let [uid (:target p)
-            b   (get-in @!world [:blocks uid])]
-        ;; gesture end ARMS the settle (positions settle as truth at
-        ;; release — the settled state of a burst, never per-event)
-        (arm-settle! :cell uid {:x (:x b) :y (:y b)}))
+      ;; gesture end ARMS the settle for EVERY dragged member (positions
+      ;; settle as truth at release — the debounce coalesces the group
+      ;; into ONE acked cells write, never per-event)
+      (doseq [[guid _] (or (seq (:group p)) [[(:target p) nil]])]
+        (when-let [gb (get-in @!world [:blocks guid])]
+          (arm-settle! :cell guid {:x (:x gb) :y (:y gb)})))
       :panning
       (arm-settle! :camera)
       nil)))
