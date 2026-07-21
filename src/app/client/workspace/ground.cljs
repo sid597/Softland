@@ -78,9 +78,10 @@
 (defonce !ground-runs
   ;; Law 8, per-thread (one canvas, many conversations): thread-key → one
   ;; run map {:phase :activity :stream-text :error :source-unit-id :turn-id
-  ;; :await-reply}. thread-key = the thread's session uuid string; nil = the
-  ;; genesis thread. Every run is explicitly PROVISIONAL (process-state,
-  ;; never truth); each projection anchors beneath ITS OWN source block.
+  ;; :wrap-col :await-reply}. thread-key = the thread's session uuid string;
+  ;; nil = the genesis thread. Every run is explicitly PROVISIONAL
+  ;; (process-state, never truth); each projection anchors beneath ITS OWN
+  ;; source block.
   ;; Busy is a per-thread fact — a mid-turn thread refuses at its block,
   ;; every other thread stays sendable.
   (atom {}))
@@ -175,6 +176,16 @@
                   (recur (str/triml (subs s cut))
                          (conj out (subs s 0 cut))))))))
         lines)))
+
+(defn- reply-wrap-col
+  "A machine reply wraps at ITS SOURCE block's width (Sid): the source's
+   longest line is the wrap column (floor 32, fallback 80 when no source
+   resolves — e.g. pre-turn-record history). ONE rule shared by the settled
+   render and the provisional stream (Task 8)."
+  [src-txt]
+  (if src-txt
+    (max 32 (reduce max 0 (map count (str/split src-txt #"\n" -1))))
+    80))
 
 (defn- block-tree
   "One block's container-LOCAL resolved tree (root at 0,0; the container
@@ -357,16 +368,20 @@
   "ONE run's PROVISIONAL projection (Law 8): one current-activity line + the
    arriving stream, dimmed — process-state, never truth, never camera motion.
    Placed beneath ITS run's source block; REPLACED at distill by the durable
-   provenance-marked reply."
-  [thread-key {:keys [phase activity stream-text error source-unit-id]}]
+   provenance-marked reply. The stream wraps at the source block's width —
+   the same rule as the distilled reply, so the projection never runs wider
+   than the truth that replaces it (Task 8)."
+  [thread-key {:keys [phase activity stream-text error source-unit-id
+                      wrap-col]}]
   (let [{:keys [font-size line-h char-advance]} (metrics)
         open?  (contains? #{:streaming :distilling} phase)
         vi     (provisional-vi thread-key)
         src    (get-in @!world [:blocks source-unit-id])
         sx     (if src (:x src) 60.0)
         sy     (if src (+ (:y src) (or (:h src) line-h) reply-gap) 60.0)
+        wcol   (or wrap-col (reply-wrap-col (truth-text source-unit-id)))
         slines (when (seq (str stream-text))
-                 (str/split-lines (str stream-text)))
+                 (wrap-lines (str/split-lines (str stream-text)) wcol))
         kids   (cond-> []
                  open?
                  (conj (rt-node :ground-activity :text-run
@@ -579,14 +594,10 @@
                 ;; its longest line is the wrap column (floor 32, fallback 80
                 ;; when no source resolves — e.g. pre-turn-record history)
                 wrap-col (when machine?
-                           (let [src-txt (when src-uid
-                                           (some #(when (= src-uid (:id %)) (:text %))
-                                                 blocks))]
-                             (if src-txt
-                               (max 32 (reduce max 0
-                                               (map count
-                                                    (str/split src-txt #"\n" -1))))
-                               80)))]
+                           (reply-wrap-col
+                            (when src-uid
+                              (some #(when (= src-uid (:id %)) (:text %))
+                                    blocks))))]
             (swap! !world update-in [:blocks uid]
                    (fn [e] (merge e {:machine? machine? :local? false
                                      :wrap-col wrap-col :source-uid src-uid}
@@ -903,6 +914,7 @@
                        {:phase :streaming :activity "reaching the land"
                         :stream-text "" :error nil
                         :source-unit-id fid :turn-id turn-id
+                        :wrap-col (reply-wrap-col text)
                         :await-reply nil})
                 (refresh-provisional!)
                 (agent/stream-agent-run!
