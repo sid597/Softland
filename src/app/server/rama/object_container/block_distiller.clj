@@ -1261,8 +1261,10 @@
 (def max-river-page-size
   "Hard v0 bound for the composition-first read plan. A page examines at most this
    many river events, per-part surfaces, and unit refs; the dedicated conversation-
-   page query topology remains the CONTRACT §10 scale extension."
-  64)
+   page query topology remains the CONTRACT §10 scale extension. Raised 64 -> 512
+   at the first used-form break: the genesis episode outgrew one page and the serve
+   window cut the newest turns off the ground (the page reads from the FRONT)."
+  512)
 
 (def conversation-projection-scan-limit
   "The class ledger co-tenants with transcript rows and does not carry source ids.

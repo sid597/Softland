@@ -26,7 +26,7 @@
   "\"/face ...\" command text -> a face-state op, or nil when it is not a face
    command (the parse-trail-command shape). Forms:
      /face <name> [<address-edn>]  -> {:op :set :state {:face <kw>
-                                       :address <addr|:default> :params {:limit 64}}}
+                                       :address <addr|:default> :params {}}}
      /face until <ms>|off          -> {:op :until :until-ms <n|nil>}
                                       (the :until-ms replay/scrub cut, CONTRACT §7)
      /face off                     -> {:op :off}"
@@ -52,7 +52,9 @@
           (seq word)
           {:op :set :state {:face (keyword word)
                             :address (if (seq tail) (read-edn tail) :default)
-                            :params {:limit 64}}}
+                            ;; no :limit — the server clamps to its own max page;
+                            ;; a client-pinned limit silently narrows the window
+                            :params {}}}
 
           :else nil)))))
 
