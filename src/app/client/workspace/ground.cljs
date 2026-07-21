@@ -114,7 +114,7 @@
 ;; header toggles, :noise? (thinking + tool calls) and :prose? (the reply).
 ;; attention state like hover: ephemeral, never settled, never restored
 (defonce ^:private !folds (atom {}))
-(def ^:private fold-default {:noise? false :prose? true})
+(def ^:private fold-default {:noise? false :prose? false})
 
 (def ^:private drag-threshold-px 4.0)
 (def ^:private block-pad 8.0)
@@ -294,7 +294,7 @@
    keystroke-echo hot path — one small tree, same-frame paint). A merged
    run block (marked by :reply-text) folds into two sections, each behind
    its own header-line toggle (Tasks 6+7, Sid): thinking+tools (:noise?,
-   hidden by default) and the reply (:prose?, shown by default)."
+   hidden by default) and the reply (:prose?, also closed by default — Task 9, Sid)."
   [unit-id]
   (when-let [b (get-in @!world [:blocks unit-id])]
     (let [st   @!ground-edit
