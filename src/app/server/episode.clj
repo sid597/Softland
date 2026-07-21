@@ -351,9 +351,12 @@
    Durable BEFORE the agent is spawned; later edits/moves never rewrite what
    the resident answered — the pin lives in this cell. Each STATUS mints its
    own import-key (same-status retries converge; different statuses overwrite
-   the one cell)."
+   the one cell). :thread-id names the conversation lane the turn ran on
+   (one canvas, many conversations): the per-thread CLI session uuid, nil =
+   the genesis thread. The cell is the canvas's thread registry — the serve
+   merge discovers thread containers from these values."
   [{:keys [object-key turn-id source-unit-id content-text position
-           time-ms prev-turn-id status]}]
+           time-ms prev-turn-id status thread-id]}]
   (let [imp-key    (str "imp:ep:" object-key ":"
                         (core/sha-256 (str "turn-record " turn-id " " (name status))))
         request-id (str "req:episode-turn:" object-key ":"
@@ -366,7 +369,8 @@
                     :position       position
                     :status         status
                     :time-ms        (long time-ms)
-                    :prev-turn-id   prev-turn-id}
+                    :prev-turn-id   prev-turn-id
+                    :thread-id      (some-> thread-id str)}
         event-id   (str "evt:" object-key ":"
                         (core/sha-256 (str "turn " turn-id " " (name status))))
         hint       (assoc (oc/->TranscriptConversationProjectionRow
@@ -378,11 +382,13 @@
                            event-id request-id imp-key
                            (str turn-id) utterance-actor-id
                            ;; fingerprinted pin: hash + status + source + pos
-                           ;; (full text rides :turn; preview stays bounded)
+                           ;; + thread (full text rides :turn; preview stays
+                           ;; bounded — and the belt must not lose the lane)
                            (pr-str (select-keys value
                                                 [:turn-id :source-unit-id
                                                  :content-hash :position
-                                                 :status :prev-turn-id]))
+                                                 :status :prev-turn-id
+                                                 :thread-id]))
                            nil)
                           :turn value)
         payload    {:object-key           object-key
