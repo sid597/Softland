@@ -109,6 +109,9 @@
   (atom {:dirty {} :camera? false :timer nil :acked {}}))
 
 (defonce ^:private !notice (atom nil))  ; {:unit-id :text} transient (busy etc.)
+;; merged run blocks showing FULL raw (default: collapsed to :reply-text) —
+;; attention state like hover: ephemeral, never settled, never restored
+(defonce ^:private !expanded (atom #{}))
 
 (def ^:private drag-threshold-px 4.0)
 (def ^:private block-pad 8.0)
@@ -179,16 +182,21 @@
    interaction box shows only on attention (Law 10); machine provenance is a
    quiet persistent edge tint (Law 6) — two separate primitives."
   [unit-id {:keys [text caret focused? refusal]} machine? hover? notice
-   {:keys [font-size char-advance line-h]} wrap-col]
+   {:keys [font-size char-advance line-h]} wrap-col header]
   (let [lines   (cond-> (str/split (or text "") #"\n" -1)
                   (and machine? wrap-col) (wrap-lines wrap-col))
+        lines   (if header (into [header] lines) lines)
         n       (count lines)
         max-len (reduce max 1 (map count lines))
         w       (+ (* max-len char-advance) (* 2 block-pad))
         h       (+ (* n line-h) (* 2 block-pad))
         ops     (vec (map-indexed
                       (fn [i l] (text-op l i line-h font-size
-                                         (if machine? dim fg) 0))
+                                         (cond
+                                           (and header (zero? i)) machine-tint
+                                           machine? dim
+                                           :else fg)
+                                         0))
                       lines))
         caret-lc (when (and focused? caret)
                    (ge/caret->line-col text caret))
@@ -261,18 +269,45 @@
       (some (fn [t] (some #(when (= unit-id (:id %)) (:text %)) (:blocks t)))
             (:turns (:context @!world)))))
 
+(defn- context-block-entry
+  "The served (post-merge) block map for a unit-id, or nil."
+  [unit-id]
+  (some (fn [t] (some #(when (= unit-id (:id %)) %) (:blocks t)))
+        (:turns (:context @!world))))
+
 (defn rebuild-block!
   "Rebuild ONE block slot from the current edit state + truth (the
-   keystroke-echo hot path — one small tree, same-frame paint)."
+   keystroke-echo hot path — one small tree, same-frame paint). A merged
+   run block (marked by :reply-text) renders collapsed to the reply by
+   default; its header line is the raw/reply toggle (Task 6, Sid)."
   [unit-id]
   (when-let [b (get-in @!world [:blocks unit-id])]
     (let [st   @!ground-edit
+          run  (when (:machine? b)
+                 (let [cb (context-block-entry unit-id)]
+                   (when (contains? cb :reply-text) cb)))
+          expanded? (contains? @!expanded unit-id)
+          display (when (and run (not expanded?))
+                    (let [r (:reply-text run)]
+                      (if (str/blank? (or r ""))
+                        (str/join "\n" (take 3 (str/split (or (:text run) "")
+                                                          #"\n" -1)))
+                        r)))
+          header (when run
+                   (if expanded?
+                     "▾ raw — click here for reply only"
+                     (let [total  (count (str/split (or (:text run) "") #"\n" -1))
+                           shown  (count (str/split (or display "") #"\n" -1))
+                           hidden (max 0 (- total shown))]
+                       (str "▸ reply — click here for raw"
+                            (when (pos? hidden) (str " (+" hidden " lines)"))))))
           view (ge/block-view st unit-id (truth-text unit-id))
+          view (if display (assoc view :text display) view)
           n    @!notice
           tree (block-tree unit-id view (:machine? b)
                            (= unit-id @!hover)
                            (when (= unit-id (:unit-id n)) (:text n))
-                           (metrics) (:wrap-col b))]
+                           (metrics) (:wrap-col b) header)]
       (upsert-block-slot! unit-id tree (:x b) (:y b))
       (swap! !world update-in [:blocks unit-id]
              assoc :w (get-in tree [:bounds :w]) :h (get-in tree [:bounds :h])))))
@@ -626,12 +661,24 @@
                                (if (vector? r)
                                  (let [members (get by-run r)]
                                    (when (identical? t (first members))
-                                     (let [bs (mapcat :blocks members)]
+                                     (let [bs (mapcat :blocks members)
+                                           ;; the reply view (Task 6): the run's
+                                           ;; prose only — thinking + tool noise
+                                           ;; hides behind the header toggle
+                                           prose (remove #(contains? #{:thinking
+                                                                       :tool-use
+                                                                       :tool-result-span
+                                                                       :material-part}
+                                                                     (:kind %))
+                                                         bs)]
                                        (-> (first members)
                                            (assoc :blocks
                                                   [(assoc (first bs)
                                                           :text (str/join "\n\n"
-                                                                          (map :text bs)))])
+                                                                          (map :text bs))
+                                                          :reply-text
+                                                          (str/join "\n\n"
+                                                                    (map :text prose)))])
                                            (dissoc ::run)))))
                                  ;; sid turn, or pre-record machine history
                                  (dissoc t ::run)))))
@@ -1013,10 +1060,19 @@
               b     (get-in @!world [:blocks uid])
               old   (:focus @!ground-edit)]
           (if (:machine? b)
-            (do (swap! !ground-edit ge/escape)
-                (refresh-anchor!)
-                (when old (rebuild-block! old))
-                (rebuild-block! uid))
+            (let [m (metrics)
+                  [_wx wy] (:world p)
+                  run? (contains? (context-block-entry uid) :reply-text)
+                  ;; the header line (top row) is the toggle target
+                  header-hit? (and run? (< wy (+ (:y b) (:line-h m))))]
+              (if header-hit?
+                (do (swap! !expanded
+                           (fn [s] (if (contains? s uid) (disj s uid) (conj s uid))))
+                    (rebuild-block! uid))
+                (do (swap! !ground-edit ge/escape)
+                    (refresh-anchor!)
+                    (when old (rebuild-block! old))
+                    (rebuild-block! uid))))
             (let [m     (metrics)
                   [wx wy] (:world p)
                   truth (or (truth-text uid) "")
