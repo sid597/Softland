@@ -273,3 +273,146 @@
                    (mapv #(:text (first (:blocks %))) turns))
                 "time order holds across containers"))))
       (finally (bd/close-distiller-runtime! {:oc-rt oc-rt})))))
+
+;; ===========================================================================
+;; D-core (Sid 2026-07-22) · the episode chain — pure units + the serve weave
+;; ===========================================================================
+
+(deftest decide-episode-boundary-rule
+  (let [mint (constantly "minted-uuid")]
+    (testing "virgin lane: the first episode IS the lane (identity B), no seed"
+      (is (= {:episode-id "lane-1" :fresh? true :seed? false}
+             (ep/decide-episode {:lane-id "lane-1" :entry nil :last-turn nil
+                                 :now-ms 1000 :mint-id mint}))))
+    (testing "a warm lane rides its current episode"
+      (is (= {:episode-id "ep-A" :fresh? false :seed? false}
+             (ep/decide-episode {:lane-id "lane-1"
+                                 :entry {:episode-id "ep-A" :last-turn-ms 1000}
+                                 :now-ms (+ 1000 ep/episode-idle-ms -1)
+                                 :mint-id mint}))))
+    (testing "the boundary mints a seeded successor — the old episode is NEVER resumed"
+      (is (= {:episode-id "minted-uuid" :fresh? true :seed? true}
+             (ep/decide-episode {:lane-id "lane-1"
+                                 :entry {:episode-id "ep-A" :last-turn-ms 1000}
+                                 :now-ms (+ 1000 ep/episode-idle-ms)
+                                 :mint-id mint}))))
+    (testing "restart adoption: durable cells stand in for the lost runtime cell"
+      (is (= {:episode-id "ep-B" :fresh? false :seed? false}
+             (ep/decide-episode {:lane-id "lane-1" :entry nil
+                                 :last-turn {:episode-id "ep-B" :time-ms 5000}
+                                 :now-ms 6000 :mint-id mint})))
+      (is (= {:episode-id "lane-1" :fresh? false :seed? false}
+             (ep/decide-episode {:lane-id "lane-1" :entry nil
+                                 :last-turn {:episode-id nil :time-ms 5000}
+                                 :now-ms 6000 :mint-id mint}))
+          "pre-chain cells adopt the lane itself"))))
+
+(deftest summon-argv-episode-chain
+  (testing "a fresh episode opens AS its uuid"
+    (is (= ["claude" "--session-id" "ep-1" "-p" "hi"]
+           (subvec (ep/summon-argv {:prompt "hi" :session-id "ep-1" :fresh? true})
+                   0 5))))
+  (testing "a warm episode resumes WITHIN its boundary (append-only, same file)"
+    (is (= ["claude" "--resume" "ep-1" "-p" "hi"]
+           (subvec (ep/summon-argv {:prompt "hi" :session-id "ep-1" :fresh? false})
+                   0 5)))))
+
+(deftest turn-record-carries-its-episode
+  (let [args {:object-key (ep/genesis-object-key)
+              :turn-id "turn-ep" :source-unit-id "u-1"
+              :content-text "text" :position {:x 1 :y 2}
+              :status :open :time-ms 1753100000000
+              :episode-id "ep-2"}
+        req  (ep/turn-record-request args)
+        hint (first (get-in req [:payload :projection-hints]))]
+    (is (= "ep-2" (get-in hint [:turn :episode-id]))
+        "the cell is the durable chain link")
+    (testing "pre-chain cells keep their shape (nil episode)"
+      (is (nil? (get-in (first (get-in (ep/turn-record-request
+                                        (dissoc args :episode-id))
+                                       [:payload :projection-hints]))
+                        [:turn :episode-id]))))
+    (testing "the fingerprint pins the episode — a different session is a different fact"
+      (is (not= (:material/fingerprint req)
+                (:material/fingerprint (ep/turn-record-request
+                                        (assoc args :episode-id "ep-3"))))))
+    (testing "same turn + same episode retries converge"
+      (is (= (:material/fingerprint req)
+             (:material/fingerprint (ep/turn-record-request args)))))))
+
+(deftest successor-episode-weave-pure
+  (testing "no successors: canvas untouched (MC-T8 class)"
+    (let [canvas [{:id "a" :time-ms 1} {:id "b" :time-ms 2}]]
+      (is (= canvas (fp/merge-successor-episodes canvas [])))))
+  (testing "successors weave by time, stamped :episode-id, NO :thread-id"
+    (let [merged (fp/merge-successor-episodes
+                  [{:id "a" :time-ms 100} {:id "c" :time-ms 300}]
+                  [["ep-2" [{:id "b" :time-ms 200}]]])]
+      (is (= ["a" "b" "c"] (mapv :id merged)))
+      (is (= "ep-2" (:episode-id (second merged))))
+      (is (nil? (:thread-id (second merged)))))))
+
+(deftest episode-seed-composition
+  (let [dc {:turns [{:speaker "sid"
+                     :blocks [{:kind :paragraph :text "the question"}]}
+                    {:speaker "resident"
+                     :blocks [{:kind :thinking :text "hidden reasoning"}
+                              {:kind :tool-use :text "tool json"}
+                              {:kind :paragraph :text "the answer"}]}
+                    {:speaker "sid" :thread-id "t-1"
+                     :blocks [{:kind :paragraph :text "side thread talk"}]}]}]
+    (testing "prose only, speaker-labelled, main-lane scoped"
+      (let [seed (fp/compose-episode-seed dc nil)]
+        (is (string? seed))
+        (is (re-find #"sid: the question" seed))
+        (is (re-find #"agent: the answer" seed))
+        (is (not (re-find #"hidden reasoning" seed)) "noise folds away")
+        (is (not (re-find #"side thread talk" seed)) "other lanes stay out")))
+    (testing "a thread lane seeds from ITS OWN column"
+      (let [seed (fp/compose-episode-seed dc "t-1")]
+        (is (re-find #"side thread talk" seed))
+        (is (not (re-find #"the question" seed)))))
+    (testing "nothing to inherit → nil (the seedless virgin spawn)"
+      (is (nil? (fp/compose-episode-seed {:turns []} nil))))))
+
+(deftest episode-chain-serve-probe
+  ;; the woven chain on ONE cluster: a turn cell carrying :episode-id (the
+  ;; durable chain link) → successor-container read → ONE river, successor
+  ;; blocks in the MAIN column (:episode-id stamp, no :thread-id stamp).
+  (let [{:keys [oc-rt]} (bd/start-distiller-runtime!)]
+    (try
+      (let [canvas-conv "22222222-3333-4444-8555-666666666666"
+            succ-conv   "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff"
+            canvas-key  (ep/episode-object-key canvas-conv)
+            t0          1753200000000]
+        (is (= :accepted (:status (ep/append-utterance!
+                                   oc-rt {:text "before the boundary"
+                                          :turn-id "blk-1" :time-ms t0
+                                          :conversation-id canvas-conv}))))
+        (is (= :accepted (:status (ep/record-turn!
+                                   oc-rt {:turn-id "blk-2"
+                                          :source-unit-id (ep/utterance-unit-id
+                                                           canvas-key "blk-1" 0)
+                                          :content-text "after the boundary"
+                                          :status :open :time-ms (+ t0 100)
+                                          :conversation-id canvas-conv
+                                          :episode-id succ-conv})))
+            "the turn cell carries the successor episode")
+        (is (= :accepted (:status (ep/append-utterance!
+                                   oc-rt {:text "successor reply material"
+                                          :turn-id "reply-1" :time-ms (+ t0 500)
+                                          :conversation-id succ-conv})))
+            "the successor's material lives in ITS OWN container (identity B)")
+        (let [dc    (fp/conversation-projection
+                     {:oc-rt oc-rt}
+                     {:face :conversation :address canvas-key :params {}})
+              turns (:turns dc)]
+          (is (= ["before the boundary" "successor reply material"]
+                 (mapv #(:text (first (:blocks %))) turns))
+              "one river across the chain, time order holds")
+          (let [succ-turn (second turns)]
+            (is (= succ-conv (:episode-id succ-turn))
+                "the weave stamps the episode for the boundary marker")
+            (is (nil? (:thread-id succ-turn))
+                "successors continue the MAIN column, never a thread lane"))))
+      (finally (bd/close-distiller-runtime! {:oc-rt oc-rt})))))

@@ -8,6 +8,7 @@
     [contrib.assert :refer [check]]
     [app.file-viewer :as fv]
     [app.server.episode :as episode]
+    [app.server.rama.face-projection :as face-projection]
     [app.server.rama.cluster :as cluster]
     [app.server.review-pack :as review-pack]
     [components.adapter :as adapter]
@@ -808,12 +809,13 @@ information."
         ;; the GENESIS first utterance stays Sid's act (§11). The ground client
         ;; never sends this; nil = the genesis episode.
         conv-id        (:conversation-id request-data)
-        ;; one canvas, many conversations: :thread-id scopes the CLI SESSION
-        ;; (and its jsonl/distill container) while conv-id keeps naming the
-        ;; canvas container where turn records land. Absent = the genesis
-        ;; thread — session and container coincide, the pre-thread behavior.
-        thread-id      (some-> (:thread-id request-data) str not-empty)
-        session-id     (or thread-id conv-id)]
+        ;; one canvas, many conversations: :thread-id scopes the LANE while
+        ;; conv-id keeps naming the canvas container where turn records land.
+        ;; Absent = the genesis lane. The CLI SESSION serving the lane is the
+        ;; lane's CURRENT EPISODE (D-core) — decided inside the body where the
+        ;; OC runtime binds (current-episode!), never (or thread-id conv-id)
+        ;; directly: lanes are permanent, sessions are bounded.
+        thread-id      (some-> (:thread-id request-data) str not-empty)]
     {:status  200
      :headers {"Content-Type"      "text/event-stream"
                "Cache-Control"     "no-cache"
@@ -833,7 +835,25 @@ information."
                                                     (str/blank? text) :empty-utterance
                                                     (str/blank? (str source-unit-id)) :missing-source-block
                                                     :else :missing-turn-id)})
-                 (let [durable (try
+                 (let [;; D-core: the lane's CURRENT episode decides the CLI
+                       ;; session BEFORE anything durable lands — the turn
+                       ;; cell carries :episode-id, the durable chain link.
+                       ;; Total: a failed decision degrades to the lane's
+                       ;; pre-chain behavior (its own file, resume-if-exists).
+                       episode (try
+                                 (episode/current-episode!
+                                  oc-rt {:conversation-id conv-id
+                                         :thread-id thread-id
+                                         :now-ms time-ms :cwd cwd})
+                                 (catch Exception _
+                                   (let [lid (or thread-id conv-id
+                                                 episode/genesis-conversation-id)]
+                                     {:episode-id lid
+                                      :fresh? (not (.exists ^java.io.File
+                                                            (episode/episode-jsonl-file cwd lid)))
+                                      :seed? false})))
+                       episode-id (:episode-id episode)
+                       durable (try
                                  (episode/record-turn!
                                   oc-rt {:turn-id turn-id
                                          :source-unit-id source-unit-id
@@ -842,7 +862,8 @@ information."
                                          :status :open
                                          :time-ms time-ms :prev-turn-id prev-turn-id
                                          :conversation-id conv-id
-                                         :thread-id thread-id})
+                                         :thread-id thread-id
+                                         :episode-id episode-id})
                                  (catch Exception e
                                    {:status :error :error (.getMessage e)}))]
                    (if-not (= :accepted (:status durable))
@@ -859,11 +880,30 @@ information."
                                              :import-key (:import-key durable)})
                        (let [!stream-state (atom (initial-stream-state))
                              done-promise  (promise)
-                             argv (episode/summon-argv {:cwd cwd :prompt text
-                                                        :conversation-id session-id})]
+                             ;; D-core seed: a successor episode's first prompt
+                             ;; inherits the lane's prose thread (durable truth,
+                             ;; never a jsonl replay). The seed rides ONLY the
+                             ;; CLI prompt — the turn record above carries the
+                             ;; RAW text, and flag-D skips the whole user event
+                             ;; at distill, so seed material never re-enters
+                             ;; the container as new blocks.
+                             seed (when (:seed? episode)
+                                    (face-projection/episode-seed
+                                     (fv/face-ctx)
+                                     (episode/episode-object-key
+                                      (or conv-id episode/genesis-conversation-id))
+                                     thread-id))
+                             argv (episode/summon-argv {:prompt (str (or seed "") text)
+                                                        :session-id episode-id
+                                                        :fresh? (:fresh? episode)})]
+                         (episode/note-episode-turn! thread-id conv-id
+                                                     episode-id time-ms)
                          (log/info "[EPISODE][TURN-START]"
-                                   {:turn-id turn-id :argv argv :cwd cwd
-                                    :thread-id thread-id})
+                                   {:turn-id turn-id :cwd cwd
+                                    :thread-id thread-id
+                                    :episode-id episode-id
+                                    :fresh? (:fresh? episode)
+                                    :seed-chars (count (or seed ""))})
                          (stream-cli-process
                           argv cwd timeout-ms
                           (fn [line]
@@ -901,19 +941,20 @@ information."
                                         :status status
                                         :time-ms time-ms :prev-turn-id prev-turn-id
                                         :conversation-id conv-id
-                                        :thread-id thread-id})
+                                        :thread-id thread-id
+                                        :episode-id episode-id})
                                 (catch Exception e
                                   (log/warn "[EPISODE][TURN-STATUS-FAILED]"
                                             {:turn-id turn-id :error (.getMessage e)})))
                               ;; post-turn distill runs on the waiter thread —
                               ;; the stream stays open until the receipt lands.
-                              ;; It harvests the SESSION's jsonl into the
-                              ;; session's own container (identity follows the
+                              ;; It harvests the EPISODE's jsonl into the
+                              ;; episode's own container (identity follows the
                               ;; line's sessionId by design) — the serve merge
-                              ;; reads it back into the canvas.
+                              ;; weaves it back into the lane.
                               (let [distill (try
                                               (episode/post-turn-distill!
-                                               oc-rt {:cwd cwd :conversation-id session-id})
+                                               oc-rt {:cwd cwd :conversation-id episode-id})
                                               (catch Exception e
                                                 {:status :distill-failed :error (.getMessage e)}))]
                                 (log/info "[EPISODE][TURN-DISTILLED]"

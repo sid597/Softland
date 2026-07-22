@@ -96,7 +96,10 @@
                                  :block-path (:block-path b)}
                           ;; one canvas, many conversations: the lane a block's
                           ;; material came from (additive; canvas blocks carry none)
-                          (:thread-id b) (assoc :thread-id (:thread-id b)))]
+                          (:thread-id b) (assoc :thread-id (:thread-id b))
+                          ;; D-core: the episode (CLI session) the material rode —
+                          ;; absent = the lane's first episode (pre-chain material)
+                          (:episode-id b) (assoc :episode-id (:episode-id b)))]
             (if-let [idx (get order->idx euid)]
               (update-in acc [:turns idx :blocks] conj block)
               (let [idx (count turns)]
@@ -107,7 +110,8 @@
                                      :speaker (:actor b)
                                      :order  (first (:order b))
                                      :blocks [block]}
-                              (:thread-id b) (assoc :thread-id (:thread-id b)))))))))
+                              (:thread-id b) (assoc :thread-id (:thread-id b))
+                              (:episode-id b) (assoc :episode-id (:episode-id b)))))))))
         {:order->idx {} :turns []})
        :turns))
 
@@ -229,17 +233,14 @@
            (sort-by ::eff)                 ; clojure sort is stable
            (mapv #(dissoc % ::eff))))))
 
-(defn merge-thread-lanes
-  "One canvas, many conversations — the serve-level river merge (PURE). The
-   canvas's own blocks (already lane-merged by merge-episode-lanes) count as
-   ONE lane; each thread container's page is another. Same running-max floor
+(defn- merge-stamped-lanes
+  "The serve-level river merge core (PURE): canvas as ONE lane, each extra
+   lane stamped by `stamp-fn [lane-id block]`. Same running-max floor
    discipline as merge-episode-lanes: a zero/backwards clock inherits its
    lane's floor, so no cross-lane sort can reorder a lane against itself.
-   `thread-lanes` = seq of [thread-id blocks]; every thread block is stamped
-   :thread-id. Empty thread-lanes returns canvas-blocks UNTOUCHED — the
-   single-thread serve stays byte-identical (MC-T8 class)."
-  [canvas-blocks thread-lanes]
-  (if (empty? thread-lanes)
+   Empty lanes returns canvas-blocks UNTOUCHED (MC-T8 class)."
+  [canvas-blocks lanes stamp-fn]
+  (if (empty? lanes)
     (vec canvas-blocks)
     (let [stamp (fn [lane-blocks]
                   (loop [bs lane-blocks, floor 0, out []]
@@ -247,14 +248,33 @@
                       (let [t (max (long floor) (long (or (:time-ms b) 0)))]
                         (recur (rest bs) t (conj out (assoc b ::eff t))))
                       out)))
-          all   (reduce (fn [acc [tid blocks]]
-                          (into acc (stamp (mapv #(assoc % :thread-id (str tid))
-                                                 blocks))))
+          all   (reduce (fn [acc [lid blocks]]
+                          (into acc (stamp (mapv #(stamp-fn lid %) blocks))))
                         (stamp (vec canvas-blocks))
-                        thread-lanes)]
+                        lanes)]
       (->> all
            (sort-by ::eff)                 ; stable — within-lane order holds
            (mapv #(dissoc % ::eff))))))
+
+(defn merge-thread-lanes
+  "One canvas, many conversations — the thread weave (PURE shell over
+   merge-stamped-lanes). `thread-lanes` = seq of [thread-id blocks]; every
+   thread block is stamped :thread-id. Empty thread-lanes returns
+   canvas-blocks UNTOUCHED — the single-thread serve stays byte-identical
+   (MC-T8 class)."
+  [canvas-blocks thread-lanes]
+  (merge-stamped-lanes canvas-blocks thread-lanes
+                       (fn [tid b] (assoc b :thread-id (str tid)))))
+
+(defn merge-successor-episodes
+  "D-core weave (PURE shell over merge-stamped-lanes): a lane's successor-
+   episode containers merge INTO the lane — no :thread-id stamp, successors
+   continue the same column; :episode-id rides each block for the client's
+   boundary marker. `episode-lanes` = seq of [episode-id blocks]. Empty =
+   canvas-blocks untouched (MC-T8 class)."
+  [canvas-blocks episode-lanes]
+  (merge-stamped-lanes canvas-blocks episode-lanes
+                       (fn [eid b] (assoc b :episode-id (str eid)))))
 
 ;; ===========================================================================
 ;; Machine-cut pair structure (CONTRACT §4.4/§6). The :conversation projection
@@ -463,22 +483,59 @@
                         (or (:turn row)
                             (try (some-> (:content-preview row) edn/read-string)
                                  (catch Exception _ nil))))
-            thread-ids (->> (:river-page/turn-rows (meta page))
-                            (keep cell-of*)
-                            (keep :thread-id)
-                            distinct
-                            vec)
+            cells     (vec (keep cell-of* (:river-page/turn-rows (meta page))))
+            thread-ids (->> cells (keep :thread-id) distinct vec)
+            ;; D-core: the turn cells are the durable episode CHAIN. A lane's
+            ;; FIRST episode is its own container (canvas = address; thread =
+            ;; the thread-id's container); only SUCCESSOR episodes are extra
+            ;; reads, woven INTO their lane by merge-successor-episodes (no
+            ;; :thread-id stamp — same column, :episode-id for the boundary).
+            lane-key  (fn [eid] (tid/transcript-object-key
+                                 episode-thread-source eid))
+            successors (fn [tid]
+                         (->> cells
+                              (filter #(= tid (:thread-id %)))
+                              (keep :episode-id)
+                              distinct
+                              (remove #(if tid
+                                         (= % tid)
+                                         (= (lane-key %) address)))
+                              vec))
+            episode-page (fn [eid]
+                           (try
+                             (let [epage (bd/river-page
+                                          {:oc-rt oc-rt :object-key (lane-key eid)}
+                                          limit)
+                                   eplan (:river-page/read-plan (meta epage))]
+                               {:eid eid
+                                :blocks (attach-source-times oc-rt epage)
+                                :truncated? (:truncated? eplan)})
+                             (catch Throwable t
+                               {:eid eid :error (.getMessage t)})))
+            ok-lanes  (fn [reads]
+                        (vec (keep (fn [{:keys [eid blocks error]}]
+                                     (when-not error [eid blocks]))
+                                   reads)))
+            main-ep-reads (mapv episode-page (successors nil))
+            canvas-blocks (merge-successor-episodes canvas-blocks
+                                                    (ok-lanes main-ep-reads))
             thread-reads (mapv (fn [tid]
-                                 (let [tkey (tid/transcript-object-key
-                                             episode-thread-source tid)]
+                                 (let [tkey (lane-key tid)]
                                    (try
                                      (let [tpage (bd/river-page
                                                   {:oc-rt oc-rt :object-key tkey}
                                                   limit)
-                                           tplan (:river-page/read-plan (meta tpage))]
+                                           tplan (:river-page/read-plan (meta tpage))
+                                           ereads (mapv episode-page (successors tid))]
                                        {:tid tid
-                                        :blocks (attach-source-times oc-rt tpage)
-                                        :truncated? (:truncated? tplan)})
+                                        :blocks (merge-successor-episodes
+                                                 (attach-source-times oc-rt tpage)
+                                                 (ok-lanes ereads))
+                                        :ep-errors (into {} (keep (fn [{:keys [eid error]}]
+                                                                    (when error [eid error]))
+                                                                  ereads))
+                                        :truncated? (or (:truncated? tplan)
+                                                        (boolean (some :truncated? ereads)))})
                                      (catch Throwable t
                                        {:tid tid :error (.getMessage t)}))))
                                thread-ids)
@@ -488,6 +545,12 @@
             thread-errors (into {} (keep (fn [{:keys [tid error]}]
                                            (when error [tid error]))
                                          thread-reads))
+            episode-errors (into {}
+                                 (concat
+                                  (keep (fn [{:keys [eid error]}]
+                                          (when error [eid error]))
+                                        main-ep-reads)
+                                  (mapcat :ep-errors thread-reads)))
             blocks    (merge-thread-lanes canvas-blocks thread-lanes)
             ;; first-light P2b (ADDITIVE keys, MC-T8 class): settled geometry
             ;; cells + the world camera + revision-pinned turn records, from
@@ -533,7 +596,13 @@
                         (some :truncated? thread-reads)
                         (assoc :conversation/truncated? true)
                         (seq thread-errors)
-                        (assoc :conversation/thread-errors thread-errors))
+                        (assoc :conversation/thread-errors thread-errors)
+                        ;; D-core honesty: a truncated or failed successor-
+                        ;; episode read is a named fact, never silence
+                        (some :truncated? main-ep-reads)
+                        (assoc :conversation/truncated? true)
+                        (seq episode-errors)
+                        (assoc :conversation/episode-errors episode-errors))
             ;; §4.4/§6: read the machine-cut :pairs-with edges (total; [] on any
             ;; failure or absent rk-rt), derive pair structure over the SAME
             ;; post-until-ms `:turns` shape-conversation served (MC-T11). Merge
@@ -771,3 +840,56 @@
            (println "[FACE] projection read failed:" (.getMessage t))
            (error-data-context request :projection-read-failed)))
        (error-data-context request :unknown-projection)))))
+
+;; ===========================================================================
+;; D-core · the successor-episode seed (Sid 2026-07-22). A fresh episode's
+;; first prompt inherits its lane's conversation as PLAIN PROSE — utterances
+;; and reply prose, noise folded away — so the new CLI session continues the
+;; conversation without replaying a single foreign jsonl line.
+;; ===========================================================================
+
+(def seed-noise-kinds
+  "The run-block noise split, duplicated by VALUE from the client's fold rule
+   (ground.cljs noise-kinds — the client is the layer above; requiring it here
+   is impossible): these kinds fold away; the seed carries prose only."
+  #{:thinking :tool-use :tool-result-span :material-part})
+
+(defn compose-episode-seed
+  "PURE over the §7 data-context: the lane's turns (canvas lane when
+   `lane-thread-id` is nil, else that thread's) as a speaker-labelled prose
+   transcript, wrapped for a fresh session's first message. Returns nil when
+   there is nothing to inherit — the seedless virgin-lane spawn."
+  [dc lane-thread-id]
+  (let [ltid  (some-> lane-thread-id str not-empty)
+        lines (->> (:turns dc)
+                   (filter #(= ltid (some-> (:thread-id %) str)))
+                   (keep (fn [t]
+                           (let [prose (->> (:blocks t)
+                                            (remove #(contains? seed-noise-kinds
+                                                                (:kind %)))
+                                            (keep :text)
+                                            (remove str/blank?)
+                                            (str/join "\n\n"))]
+                             (when-not (str/blank? prose)
+                               (str (if (= "sid" (str (:speaker t))) "sid" "agent")
+                                    ": " prose)))))
+                   vec)]
+    (when (seq lines)
+      (str "<conversation-so-far>\n"
+           "This fresh session continues an ongoing conversation on the same"
+           " canvas. The thread so far, prose only (tool work elided):\n\n"
+           (str/join "\n\n" lines)
+           "\n</conversation-so-far>\n\n"))))
+
+(defn episode-seed
+  "Driver shell (TOTAL): read the canvas's conversation through the SAME
+   projection the render serves, compose the lane's seed. Any failure yields
+   nil — a seedless fresh session, never a blocked spawn."
+  [ctx canvas-address lane-thread-id]
+  (try
+    (compose-episode-seed
+     (conversation-projection ctx {:address canvas-address :params {}})
+     lane-thread-id)
+    (catch Throwable t
+      (println "[FACE] episode-seed failed:" (.getMessage t))
+      nil)))

@@ -212,7 +212,7 @@
    interaction box shows only on attention (Law 10); machine provenance is a
    quiet persistent edge tint (Law 6) — two separate primitives."
   [unit-id {:keys [text caret focused? refusal selection]} machine? hover? notice
-   {:keys [font-size char-advance line-h]} wrap-col headers msel]
+   {:keys [font-size char-advance line-h]} wrap-col headers msel boundary?]
   (let [lines   (cond-> (str/split (or text "") #"\n" -1)
                   (and machine? wrap-col) (wrap-lines wrap-col))
         nh      (count headers)
@@ -290,7 +290,14 @@
                                  {:x 0 :y (* (+ n (if refusal 1 0)) line-h)
                                   :w w :h line-h}
                                  :text [(text-op (str notice) 0 line-h font-size
-                                                 amber 0)])))]
+                                                 amber 0)]))
+                  ;; D-core boundary (Sid): a fresh CLI session opened here —
+                  ;; a quiet line above the episode's first served block
+                  boundary?
+                  (conj (rt-node :ground-episode-boundary :text-run
+                                 {:x 0 :y (- (* 1.6 line-h)) :w w :h line-h}
+                                 :text [(text-op "— fresh session —" 0 line-h
+                                                 font-size machine-tint 0)])))]
     (rt/resolve-layout
      (rt-node :ground-block :text-run
               {:x 0 :y 0 :w (max w char-advance) :h (max h line-h)}
@@ -422,16 +429,17 @@
           notice (when (= unit-id (:unit-id n)) (:text n))
           hover? (= unit-id @!hover)
           msel   (let [ms @!machine-sel] (when (and ms (= unit-id (:uid ms))) ms))
+          bnd?   (boolean (:episode-boundary? (context-block-entry unit-id)))
           m      (metrics)
           ;; everything block-tree consumes (viewport excluded — unused):
           ;; equal sig ⇒ identical pixels ⇒ the build is pure waste
-          sig    [view (:machine? b) hover? notice (:wrap-col b) headers msel
+          sig    [view (:machine? b) hover? notice (:wrap-col b) headers msel bnd?
                   (:font-size m) (:char-advance m) (:line-h m)]]
       (if (and (= sig (:render-sig b))
                (some? (ss/slot (scene-rt/store-snapshot) (block-vi unit-id))))
         (swap! !rebuild-stats update :skips inc)
         (let [tree (block-tree unit-id view (:machine? b) hover? notice
-                               m (:wrap-col b) headers msel)]
+                               m (:wrap-col b) headers msel bnd?)]
           (swap! !rebuild-stats update :builds inc)
           (upsert-block-slot! unit-id tree (:x b) (:y b))
           (swap! !world update-in [:blocks unit-id]
@@ -877,6 +885,34 @@
                        "block(s) — deduped client-side (thread re-harvest suspect)"))
     (assoc ctx :turns turns')))
 
+(defn- mark-episode-boundaries
+  "D-core (Sid): stamp :episode-boundary? on the first block of each turn
+   whose :episode-id DIFFERS from the previous turn's in the SAME lane (nil
+   lane = the main column; each thread column tracks its own chain). Sid's
+   utterances ride the canvas container un-stamped, so the marker lands on
+   the fresh session's first machine block — 'resuming fresh session,
+   underneath it the new streaming message' (Sid). The very first turn a
+   page shows sets the lane's baseline and is never marked (a page that
+   OPENS mid-episode must not flash a boundary at its top edge)."
+  [ctx]
+  (let [[turns' _]
+        (reduce
+         (fn [[out seen] t]
+           (let [lane (:thread-id t)
+                 eid  (:episode-id t)
+                 prev (get seen lane ::none)
+                 boundary? (and (some? eid)
+                                (not= prev ::none)
+                                (not= prev eid)
+                                (seq (:blocks t)))
+                 t' (if boundary?
+                      (update-in t [:blocks 0] assoc :episode-boundary? true)
+                      t)]
+             [(conj out t') (assoc seen lane eid)]))
+         [[] {}]
+         (:turns ctx))]
+    (assoc ctx :turns turns')))
+
 ;; the raw served context last reconciled — the change guard compares RAW
 ;; (the world stores the merged view, so raw-vs-world would never match)
 (defonce ^:private !last-raw-context (atom nil))
@@ -898,7 +934,9 @@
                          (:conversation/river-events-total face-context) "river events, limit"
                          (:conversation/limit face-context)))
       (let [t0 (js/performance.now)]
-        (reconcile! (merge-machine-turn-blocks (dedupe-context-blocks face-context)))
+        (reconcile! (mark-episode-boundaries
+                     (merge-machine-turn-blocks
+                      (dedupe-context-blocks face-context))))
         (let [dt (- (js/performance.now) t0)]
           (swap! !reconcile-samples
                  (fn [xs] (let [xs (if (>= (count xs) 64) (subvec xs 1) xs)]
