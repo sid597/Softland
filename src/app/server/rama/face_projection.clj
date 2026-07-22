@@ -756,7 +756,17 @@
        ;; error data-context, never a throw into the pull (G16 falsification
        ;; fix; the docstring's promise, now actually kept).
        (try
-         (pfn ctx request)
+         ;; the edit-ack path shares this Electric session's sequential
+         ;; propagation: a slow serve here is FELT as a typing stall (the
+         ;; ground report's slow-echo outliers) — name it in the log so the
+         ;; two sides correlate by timestamp
+         (let [t0 (System/nanoTime)
+               r  (pfn ctx request)
+               ms (/ (- (System/nanoTime) t0) 1e6)]
+           (when (> ms 100.0)
+             (println (format "[FACE] slow serve %.0fms face=%s at=%s"
+                              ms (str face) (str (java.time.Instant/now)))))
+           r)
          (catch Throwable t
            (println "[FACE] projection read failed:" (.getMessage t))
            (error-data-context request :projection-read-failed)))
