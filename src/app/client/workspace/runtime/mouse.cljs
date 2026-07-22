@@ -669,7 +669,11 @@
          (fn [_ [type coords]]
            (if (ground/ground-active?)
              (case type
-               :mousedown (ground/pointer-down! (:x coords) (:y coords))
+               :mousedown (do (js/console.log "[GROUND-SEL] mousedown"
+                                              (str "shift?=" (:shift? coords))
+                                              (str "x=" (:x coords) " y=" (:y coords)))
+                              (ground/pointer-down! (:x coords) (:y coords)
+                                                    (:shift? coords)))
                :mousemove (do (reset! (:!mouse-x atoms) (:x coords))
                               (reset! (:!mouse-y atoms) (:y coords))
                               (ground/pointer-move! (:x coords) (:y coords)))

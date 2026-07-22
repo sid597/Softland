@@ -116,6 +116,14 @@
 (defonce ^:private !folds (atom {}))
 (def ^:private fold-default {:noise? false :prose? false})
 
+;; Task 11: read-only selection over a MACHINE block's rendered lines —
+;; {:uid :anchor {:line :col} :head {:line :col}}; attention state only
+(defonce ^:private !machine-sel (atom nil))
+
+;; Task 5 observability (report()): sig-skip efficacy + reconcile timings
+(defonce ^:private !rebuild-stats (atom {:builds 0 :skips 0}))
+(defonce ^:private !reconcile-samples (atom []))
+
 (def ^:private drag-threshold-px 4.0)
 (def ^:private block-pad 8.0)
 (def ^:private reply-gap 34.0)
@@ -177,6 +185,15 @@
                          (conj out (subs s 0 cut))))))))
         lines)))
 
+(defn- lines-offset
+  "Visual {:line :col} over rendered lines → flat offset into their
+   newline-join, clamped."
+  [lines {:keys [line col]}]
+  (let [n    (count lines)
+        line (max 0 (min (long (or line 0)) (dec (max 1 n))))
+        col  (max 0 (min (long (or col 0)) (count (nth lines line ""))))]
+    (+ (reduce + 0 (map #(inc (count %)) (take line lines))) col)))
+
 (defn- reply-wrap-col
   "A machine reply wraps at ITS SOURCE block's width (Sid): the source's
    longest line is the wrap column (floor 32, fallback 80 when no source
@@ -194,8 +211,8 @@
    picks resolve to the unit (T7). At rest the land reads as material: the
    interaction box shows only on attention (Law 10); machine provenance is a
    quiet persistent edge tint (Law 6) — two separate primitives."
-  [unit-id {:keys [text caret focused? refusal]} machine? hover? notice
-   {:keys [font-size char-advance line-h]} wrap-col headers]
+  [unit-id {:keys [text caret focused? refusal selection]} machine? hover? notice
+   {:keys [font-size char-advance line-h]} wrap-col headers msel]
   (let [lines   (cond-> (str/split (or text "") #"\n" -1)
                   (and machine? wrap-col) (wrap-lines wrap-col))
         nh      (count headers)
@@ -214,7 +231,34 @@
                       lines))
         caret-lc (when (and focused? caret)
                    (ge/caret->line-col text caret))
-        extra   (cond-> []
+        ;; Task 11: the selection wash — one translucent rect per selected
+        ;; line span (glyphs stay readable through the alpha). msel is the
+        ;; machine-block selection in visual {:line :col} space.
+        msel-range (when msel
+                     (let [a (lines-offset lines (:anchor msel))
+                           h (lines-offset lines (:head msel))]
+                       (when (not= a h) [(min a h) (max a h)])))
+        sel-nodes (when-let [[sel-s sel-e] (or (and focused? selection)
+                                               msel-range)]
+                    (loop [i 0, start 0, out []]
+                      (if (>= i n)
+                        out
+                        (let [l    (nth lines i)
+                              lend (+ start (count l))
+                              s'   (max sel-s start)
+                              e'   (min sel-e lend)]
+                          (recur (inc i) (inc lend)
+                                 (if (< s' e')
+                                   (conj out
+                                         (rt-node (keyword (str "ground-sel-" i))
+                                                  :rect
+                                                  {:x (* (- s' start) char-advance)
+                                                   :y (* i line-h)
+                                                   :w (max 2.0 (* (- e' s') char-advance))
+                                                   :h line-h}
+                                                  :style {:bg [0.35 0.5 0.8 0.3]}))
+                                   out))))))
+        extra   (cond-> (vec sel-nodes)
                   ;; provenance mark (Law 6): quiet persistent edge tint,
                   ;; machine stratum only — never an attention effect
                   machine?
@@ -277,66 +321,122 @@
 
 (defn- truth-text
   "Materialized truth for a block: the narrowing overlay when present, else
-   the served context text. NEVER a queue value."
+   the served context text (via the per-context index — reconcile calls this
+   for EVERY block on every context emission, i.e. per keystroke, so a turn
+   scan here is O(blocks²)). NEVER a queue value."
   [unit-id]
   (or (get @bew/!truth-overlay unit-id)
-      (some (fn [t] (some #(when (= unit-id (:id %)) (:text %)) (:blocks t)))
-            (:turns (:context @!world)))))
+      (:text (get (:block-index @!world) unit-id))))
 
 (defn- context-block-entry
   "The served (post-merge) block map for a unit-id, or nil."
   [unit-id]
-  (some (fn [t] (some #(when (= unit-id (:id %)) %) (:blocks t)))
-        (:turns (:context @!world))))
+  (get (:block-index @!world) unit-id))
+
+(defn- sec-line-count [s]
+  (if (str/blank? (or s ""))
+    0
+    (loop [i 0 n 1]
+      (let [j (.indexOf s "\n" i)]
+        (if (neg? j) n (recur (inc j) (inc n)))))))
+
+(defn- fold-header-line [shown? label text]
+  (if shown?
+    (str "▾ " label " — click to hide")
+    (str "▸ " label " — click to show"
+         (let [c (sec-line-count text)]
+           (when (pos? c) (str " (+" c " lines)"))))))
+
+(defn- run-view
+  "A run block's fold-derived render inputs {:display :headers}; nil for
+   plain machine history (no run record). ONE assembly shared by the
+   rebuild path and the machine-selection copy path."
+  [unit-id]
+  (let [cb  (context-block-entry unit-id)
+        run (when (contains? cb :reply-text) cb)
+        {:keys [noise? prose?]} (get @!folds unit-id fold-default)]
+    (when run
+      {:display (cond
+                  ;; both on → the full raw :text, served interleaved
+                  ;; order (splitting the folds would lose the weave)
+                  (and noise? prose?) (:text run)
+                  noise?  (:noise-text run)
+                  ;; a run with no prose (interrupted mid-work) still
+                  ;; peeks its first raw lines — never an empty block
+                  prose?  (let [r (:reply-text run)]
+                            (if (str/blank? (or r ""))
+                              (str/join "\n" (take 3 (str/split (or (:text run) "")
+                                                                #"\n" -1)))
+                              r))
+                  :else   "")
+       :headers [(fold-header-line noise? "thinking+tools" (:noise-text run))
+                 (fold-header-line prose? "reply" (:reply-text run))]})))
+
+(defn- machine-visual-lines
+  "The RENDERED lines of a machine block (headers + folded display + wrap) —
+   the visual text a machine selection lives over (copy what you see)."
+  [uid]
+  (when-let [b (get-in @!world [:blocks uid])]
+    (when (:machine? b)
+      (let [{:keys [display headers] :as rv} (run-view uid)
+            text  (if rv display (or (truth-text uid) ""))
+            lines (cond-> (str/split (or text "") #"\n" -1)
+                    (:wrap-col b) (wrap-lines (:wrap-col b)))]
+        (if rv (into (vec headers) lines) (vec lines))))))
+
+(defn- machine-sel-text
+  "The machine selection's visual substring (wrap breaks copy as newlines)."
+  []
+  (when-let [{:keys [uid anchor head]} @!machine-sel]
+    (when-let [lines (machine-visual-lines uid)]
+      (let [a (lines-offset lines anchor)
+            h (lines-offset lines head)
+            sel-s (min a h) sel-e (max a h)]
+        (when (< sel-s sel-e)
+          (subs (str/join "\n" lines) sel-s sel-e))))))
+
+(defn- clear-machine-sel! []
+  (when-let [{:keys [uid]} @!machine-sel]
+    (reset! !machine-sel nil)
+    (rebuild-block! uid)))
 
 (defn rebuild-block!
   "Rebuild ONE block slot from the current edit state + truth (the
    keystroke-echo hot path — one small tree, same-frame paint). A merged
    run block (marked by :reply-text) folds into two sections, each behind
    its own header-line toggle (Tasks 6+7, Sid): thinking+tools (:noise?,
-   hidden by default) and the reply (:prose?, also closed by default — Task 9, Sid)."
+   hidden by default) and the reply (:prose?, also closed by default — Task 9, Sid).
+   Task 5: the build SKIPS when the render inputs equal the last built
+   signature — reconcile calls this for every block on every context
+   emission (i.e. per keystroke), and layout+upsert over unchanged blocks
+   was the typing lag."
   [unit-id]
   (when-let [b (get-in @!world [:blocks unit-id])]
     (let [st   @!ground-edit
-          run  (when (:machine? b)
-                 (let [cb (context-block-entry unit-id)]
-                   (when (contains? cb :reply-text) cb)))
-          {:keys [noise? prose?]} (get @!folds unit-id fold-default)
-          display (when run
-                    (cond
-                      ;; both on → the full raw :text, served interleaved
-                      ;; order (splitting the folds would lose the weave)
-                      (and noise? prose?) (:text run)
-                      noise?  (:noise-text run)
-                      ;; a run with no prose (interrupted mid-work) still
-                      ;; peeks its first raw lines — never an empty block
-                      prose?  (let [r (:reply-text run)]
-                                (if (str/blank? (or r ""))
-                                  (str/join "\n" (take 3 (str/split (or (:text run) "")
-                                                                    #"\n" -1)))
-                                  r))
-                      :else   ""))
-          sec-lines (fn [s] (if (str/blank? (or s "")) 0
-                                (count (str/split s #"\n" -1))))
-          fold-header (fn [shown? label text]
-                        (if shown?
-                          (str "▾ " label " — click to hide")
-                          (str "▸ " label " — click to show"
-                               (let [c (sec-lines text)]
-                                 (when (pos? c) (str " (+" c " lines)"))))))
-          headers (when run
-                    [(fold-header noise? "thinking+tools" (:noise-text run))
-                     (fold-header prose? "reply" (:reply-text run))])
+          ;; fold-derived display + headers come from run-view (ONE assembly
+          ;; shared with the machine-selection copy path)
+          {:keys [display headers]} (when (:machine? b) (run-view unit-id))
           view (ge/block-view st unit-id (truth-text unit-id))
           view (if display (assoc view :text display) view)
-          n    @!notice
-          tree (block-tree unit-id view (:machine? b)
-                           (= unit-id @!hover)
-                           (when (= unit-id (:unit-id n)) (:text n))
-                           (metrics) (:wrap-col b) headers)]
-      (upsert-block-slot! unit-id tree (:x b) (:y b))
-      (swap! !world update-in [:blocks unit-id]
-             assoc :w (get-in tree [:bounds :w]) :h (get-in tree [:bounds :h])))))
+          n      @!notice
+          notice (when (= unit-id (:unit-id n)) (:text n))
+          hover? (= unit-id @!hover)
+          msel   (let [ms @!machine-sel] (when (and ms (= unit-id (:uid ms))) ms))
+          m      (metrics)
+          ;; everything block-tree consumes (viewport excluded — unused):
+          ;; equal sig ⇒ identical pixels ⇒ the build is pure waste
+          sig    [view (:machine? b) hover? notice (:wrap-col b) headers msel
+                  (:font-size m) (:char-advance m) (:line-h m)]]
+      (if (and (= sig (:render-sig b))
+               (some? (ss/slot (scene-rt/store-snapshot) (block-vi unit-id))))
+        (swap! !rebuild-stats update :skips inc)
+        (let [tree (block-tree unit-id view (:machine? b) hover? notice
+                               m (:wrap-col b) headers msel)]
+          (swap! !rebuild-stats update :builds inc)
+          (upsert-block-slot! unit-id tree (:x b) (:y b))
+          (swap! !world update-in [:blocks unit-id]
+                 assoc :w (get-in tree [:bounds :w]) :h (get-in tree [:bounds :h])
+                 :render-sig sig))))))
 
 ;; ===========================================================================
 ;; Anchor + provisional slots
@@ -418,7 +518,7 @@
                                          :meta {:ground-provisional? true}
                                          :pre-resolved? true}))))
 
-(defn- refresh-provisional!
+(defn- refresh-provisional*!
   "Render every live run's provisional slot; close slots whose runs went
    quiet (their distilled truth replaces them). One slot per thread — three
    concurrent runs = three activity lines, each under its own block."
@@ -435,6 +535,19 @@
     (reset! !provisional-open want)
     (doseq [k want]
       (render-provisional-slot! k (get runs k)))))
+
+(defonce ^:private !prov-frame (atom false))
+
+(defn- refresh-provisional!
+  "Coalesce provisional renders to ONE per animation frame (Task 5): the
+   stream fires run-event! per text delta, and every render re-wraps the
+   WHOLE accumulated stream — per-delta that is quadratic over a long
+   reply, and it competes with typing on the main thread. Paint rate is
+   the ceiling; rendering faster than the frame is invisible."
+  []
+  (when (compare-and-set! !prov-frame false true)
+    (js/requestAnimationFrame
+     (fn [_] (reset! !prov-frame false) (refresh-provisional*!)))))
 
 ;; ===========================================================================
 ;; The settle driver — camera + positions as SETTLE-STATE truth
@@ -538,8 +651,11 @@
   (when (and @!refs ctx)
     ;; the context lands FIRST: rebuild-block! reads truth THROUGH it during
     ;; the placement loop (found live: end-of-fn assoc rendered every block
-    ;; from the PREVIOUS pull — empty boxes on the first pull after boot)
-    (swap! !world assoc :context ctx)
+    ;; from the PREVIOUS pull — empty boxes on the first pull after boot).
+    ;; :block-index rides along — the O(1) index behind truth-text /
+    ;; context-block-entry (reconcile touches EVERY block per emission)
+    (swap! !world assoc :context ctx
+           :block-index (into {} (map (juxt :id identity)) (context-blocks ctx)))
     (let [m        (metrics)
           geometry (:conversation/geometry ctx)
           turn-recs (sort-by :time-ms (:conversation/turn-records ctx []))
@@ -612,8 +728,12 @@
                    (fn [e] (merge e {:machine? machine? :local? false
                                      :wrap-col wrap-col :source-uid src-uid}
                                   pos)))
-            (when-let [cid (get-in @!world [:blocks uid :cid])]
-              (scene-rt/set-transform! cid pos))
+            ;; transform only when the position MOVED — this loop runs per
+            ;; keystroke; a store swap per unmoved block is pure waste
+            (when (or (nil? live)
+                      (not= [(:x live) (:y live)] [(:x pos) (:y pos)]))
+              (when-let [cid (get-in @!world [:blocks uid :cid])]
+                (scene-rt/set-transform! cid pos)))
             (rebuild-block! uid)
             (when cell
               (swap! !settle assoc-in [:acked uid] {:x (:x pos) :y (:y pos)}))
@@ -729,6 +849,34 @@
                                  (dissoc t ::run)))))
                      vec))))))
 
+;; served-page dedupe (Task 11 finding): a RESUMED thread session re-harvests
+;; its whole jsonl, landing the same historical turns in the thread container
+;; again — the run-merge then joins the duplicates into one block (text ×N,
+;; seen live as triple-copy). Until the harvest is idempotent server-side,
+;; the client drops repeated block ids — FIRST occurrence wins, the same
+;; rule truth-text always applied, so render and copy stay one value.
+(defonce ^:private !dup-blocks (atom 0))
+
+(defn- dedupe-context-blocks
+  [ctx]
+  (let [seen    (volatile! #{})
+        dropped (volatile! 0)
+        turns'  (into []
+                      (keep (fn [t]
+                              (let [bs (into []
+                                             (keep (fn [b]
+                                                     (if (contains? @seen (:id b))
+                                                       (do (vswap! dropped inc) nil)
+                                                       (do (vswap! seen conj (:id b)) b))))
+                                             (:blocks t))]
+                                (when (seq bs) (assoc t :blocks bs)))))
+                      (:turns ctx))]
+    (reset! !dup-blocks @dropped)
+    (when (pos? @dropped)
+      (js/console.warn "[GROUND] served page repeats" @dropped
+                       "block(s) — deduped client-side (thread re-harvest suspect)"))
+    (assoc ctx :turns turns')))
+
 ;; the raw served context last reconciled — the change guard compares RAW
 ;; (the world stores the merged view, so raw-vs-world would never match)
 (defonce ^:private !last-raw-context (atom nil))
@@ -749,7 +897,15 @@
                          (:conversation/blocks-returned face-context) "blocks served of"
                          (:conversation/river-events-total face-context) "river events, limit"
                          (:conversation/limit face-context)))
-      (reconcile! (merge-machine-turn-blocks face-context)))
+      (let [t0 (js/performance.now)]
+        (reconcile! (merge-machine-turn-blocks (dedupe-context-blocks face-context)))
+        (let [dt (- (js/performance.now) t0)]
+          (swap! !reconcile-samples
+                 (fn [xs] (let [xs (if (>= (count xs) 64) (subvec xs 1) xs)]
+                            (conj xs dt))))
+          (when (> dt 32)
+            (js/console.warn "[GROUND] slow reconcile" (.toFixed dt 1)
+                             "ms — paste __ground.report() output")))))
     ;; adopt narrowed truth into a resting confirmed value (cross-check)
     (when-let [fid (:focus @!ground-edit)]
       (swap! !ground-edit ge/adopt-truth fid (truth-text fid))
@@ -761,18 +917,42 @@
 
 (defn- block-info
   "The focused block's envelope identity {:id :document-container-id} from
-   served truth (BW-T7: the client computes nothing)."
+   served truth (BW-T7: the client computes nothing; O(1) via the context
+   index — this runs per keystroke)."
   [unit-id]
-  (some (fn [t] (some #(when (= unit-id (:id %))
-                         {:id (:id %)
-                          :document-container-id (:document-container-id %)})
-                      (:blocks t)))
-        (:turns (:context @!world))))
+  (when-let [b (get (:block-index @!world) unit-id)]
+    {:id (:id b) :document-container-id (:document-container-id b)}))
 
 ;; narrow-echo samples (the G1 bar's measurement seam — envelope submit →
 ;; decision → confirmed render, ms). Read via window.__softland_atoms-style
 ;; console access; never rendered.
 (defonce !echo-samples (atom []))
+
+;; the "sometimes": every echo over the 52ms bar, with WHEN and what the
+;; resident was doing — the report's answer to "what stalled?"
+(defonce !echo-outliers (atom []))
+
+;; client main-thread stall probe: a 250ms heartbeat that records how LATE
+;; each tick fires. A late tick = THIS tab's main thread was blocked (GC /
+;; long task) — the decisive split for slow echoes: outlier clusters that
+;; match these timestamps are client freezes; clusters with a clean
+;; heartbeat are server/transport stalls. Hidden tabs throttle timers, so
+;; those ticks are ignored rather than recorded as fake stalls.
+(defonce !client-stalls (atom []))
+#_{:clj-kondo/ignore [:unused-private-var]}
+(defonce ^:private !stall-probe
+  (let [expected (atom (+ (js/performance.now) 250))]
+    (js/setInterval
+     (fn []
+       (let [now  (js/performance.now)
+             late (- now @expected)]
+         (reset! expected (+ now 250))
+         (when (and (> late 100) (not (.-hidden js/document)))
+           (swap! !client-stalls
+                  (fn [xs] (let [xs (if (>= (count xs) 32) (subvec xs 1) xs)]
+                             (conj xs {:ms (js/Math.round late)
+                                       :at (.toISOString (js/Date.))})))))))
+     250)))
 
 (defn- submit-envelope! [env]
   (when-let [submit! (bew/edit-submit!)]
@@ -783,9 +963,23 @@
                  (when-let [fid (or (:focus @!ground-edit)
                                     (get-in env [:target :target/id]))]
                    (rebuild-block! fid))
-                 (swap! !echo-samples
-                        (fn [xs] (let [xs (if (>= (count xs) 512) (subvec xs 1) xs)]
-                                   (conj xs (- (js/performance.now) t0))))))))))
+                 (let [dt (- (js/performance.now) t0)]
+                   (swap! !echo-samples
+                          (fn [xs] (let [xs (if (>= (count xs) 512) (subvec xs 1) xs)]
+                                     (conj xs dt))))
+                   (when (> dt 52)
+                     (let [ps  (set (map :phase (vals @!ground-runs)))
+                           run (cond (ps :streaming)  "streaming"
+                                     (ps :distilling) "distilling"
+                                     :else            "idle")]
+                       (swap! !echo-outliers
+                              (fn [xs] (let [xs (if (>= (count xs) 32) (subvec xs 1) xs)]
+                                         (conj xs {:ms (js/Math.round dt)
+                                                   :at (.toISOString (js/Date.))
+                                                   :run run}))))
+                       (js/console.warn "[GROUND] slow echo" (.toFixed dt 1)
+                                        "ms (bar 52, resident" run
+                                        ") — paste __ground.report() output")))))))))
 
 (defn- object-key* []
   (:conversation/address (:context @!world)))
@@ -1028,6 +1222,56 @@
 
       nil)))
 
+(defn- copy-current!
+  "Ctrl+C (Task 11): the selection when one exists, else the focused block's
+   confirmed text, else the hovered machine block's reply prose (raw text
+   fallback). A pure client read — clipboard only; machine blocks stay
+   read-only; nothing durable moves."
+  []
+  (let [st  @!ground-edit
+        fid (:focus st)
+        sel (ge/selection-text st)
+        msel-txt (machine-sel-text)
+        [src uid text]
+        (cond
+          (seq (or sel ""))
+          [:selection fid sel]
+
+          (seq (or msel-txt ""))
+          [:machine-selection (:uid @!machine-sel) msel-txt]
+
+          (and fid (= :editing (:mode st)))
+          [:focused-block fid (get-in st [:queue :confirmed :text])]
+
+          :else
+          (or (when-let [h @!hover]
+                (let [b (get-in @!world [:blocks h])]
+                  (when (:machine? b)
+                    (let [cb (context-block-entry h)
+                          r  (:reply-text cb)]
+                      [:hovered-reply h
+                       (or (when-not (str/blank? (or r "")) r)
+                           (:text cb)
+                           (truth-text h))]))))
+              [:none nil nil]))]
+    (js/console.log "[GROUND-COPY] ctrl+c" (str "source=" src)
+                    (str "uid=" (pr-str uid))
+                    (str "chars=" (count (or text "")))
+                    (str "mode=" (:mode st))
+                    (str "hover=" (pr-str @!hover)))
+    (if-not (seq (or text ""))
+      (js/console.log "[GROUND-COPY] nothing to copy — no selection, no focused block, no hovered machine block")
+      (if-let [clip (.-clipboard js/navigator)]
+        (-> (.writeText clip text)
+            (.then (fn [_]
+                     (js/console.log "[GROUND-COPY] clipboard write OK")
+                     (when uid (transient-notice! uid (str "copied " (count text) " chars")))))
+            (.catch (fn [e]
+                      (js/console.error "[GROUND-COPY] clipboard write FAILED" e)
+                      (when uid (transient-notice! uid "copy failed — clipboard unavailable")))))
+        (do (js/console.error "[GROUND-COPY] navigator.clipboard undefined (insecure origin?)")
+            (when uid (transient-notice! uid "copy failed — clipboard unavailable")))))))
+
 (defn ground-keys-consumer
   [_atoms <ground-keyboard]
   (->> <ground-keyboard
@@ -1036,6 +1280,7 @@
           (when event
             (case (:type event)
               :eval (submit-turn!)
+              :copy (copy-current!)
               (:char :backspace :delete :enter :paste
                :left :right :up :down :home :end :word-left :word-right)
               (handle-content-key! event)
@@ -1051,6 +1296,7 @@
   "Escape: blur the focused block / discard the anchor (an abandoned anchor
    leaves NOTHING). Attention state only — nothing durable moves."
   []
+  (clear-machine-sel!)
   (swap! !ground-edit (fn [st]
                         (let [fid (:focus st)
                               st' (ge/escape st)]
@@ -1067,6 +1313,20 @@
   (let [[wx wy] (screen->world sx sy)]
     (when (scene-rt/any-slots?) (scene-rt/pick-world [wx wy]))))
 
+(defn- world->caret
+  "World point → caret index inside a block's text (monospace math — the
+   same line/col rule as the caret click)."
+  [b text wx wy {:keys [line-h char-advance]}]
+  (let [line (js/Math.floor (/ (- wy (:y b)) line-h))
+        col  (js/Math.round (/ (- wx (:x b)) char-advance))]
+    (ge/line-col->caret (or text "") (max 0 line) (max 0 col))))
+
+(defn- world->lc
+  "World point → visual {:line :col} inside a block (monospace grid)."
+  [b wx wy {:keys [line-h char-advance]}]
+  {:line (js/Math.floor (/ (- wy (:y b)) line-h))
+   :col  (js/Math.round (/ (- wx (:x b)) char-advance))})
+
 (defn- drag-group
   "The rigid drag unit (Task 4, Sid): a user block + every machine block
    whose run launched from it move as ONE — grabbing either end moves both.
@@ -1079,26 +1339,59 @@
       [uid]
       (into [src] (keep (fn [[k v]] (when (= src (:source-uid v)) k)) bs)))))
 
-(defn pointer-down! [sx sy]
-  (let [hit  (pick-at sx sy)
-        ;; deictic seam (scene-substrate P4): pointing is a click act, never
-        ;; a hover side effect
-        _    (scene-rt/record-pick! (vec (screen->world sx sy)) hit)
-        uid  (:address hit)
-        b    (when uid (get-in @!world [:blocks uid]))
-        [wx wy] (screen->world sx sy)]
-    (reset! !pointer
-            (if b
-              {:phase :pending :screen [sx sy] :world [wx wy]
-               :target uid :grab [(- (:x b) wx) (- (:y b) wy)]
-               ;; per-member grabs frozen at press: the group drags as a
-               ;; RIGID formation (each member keeps its offset exactly)
-               :group (vec (keep (fn [guid]
-                                   (when-let [gb (get-in @!world [:blocks guid])]
-                                     [guid [(- (:x gb) wx) (- (:y gb) wy)]]))
-                                 (drag-group uid)))}
-              {:phase :pending :screen [sx sy] :world [wx wy]
-               :target :ground :cam-start @!camera}))))
+(defn pointer-down!
+  ([sx sy] (pointer-down! sx sy false))
+  ([sx sy shift?]
+   (let [hit  (pick-at sx sy)
+         ;; deictic seam (scene-substrate P4): pointing is a click act, never
+         ;; a hover side effect
+         _    (scene-rt/record-pick! (vec (screen->world sx sy)) hit)
+         uid  (:address hit)
+         b    (when uid (get-in @!world [:blocks uid]))
+         [wx wy] (screen->world sx sy)
+         ;; Task 11 (Sid's rule): SHIFT+press-drag on a block is TEXTUAL — it
+         ;; selects; a plain drag ALWAYS moves the block group. Shift on an
+         ;; unfocused user block focuses it in the same gesture; on a MACHINE
+         ;; block it selects over the RENDERED lines (read-only — copy what
+         ;; you see, no edit lane).
+         text?  (boolean (and shift? b (not (:machine? b))))
+         mtext? (boolean (and shift? b (:machine? b)))
+         _ (js/console.log "[GROUND-SEL] down"
+                           (str "shift?=" shift?)
+                           (str "uid=" (pr-str uid))
+                           (str "machine?=" (boolean (:machine? b)))
+                           (str "focus=" (pr-str (:focus @!ground-edit)))
+                           (str "text?=" text?)
+                           (str "mtext?=" mtext?))]
+     (when (and text? (not= uid (:focus @!ground-edit)))
+       (let [old   (:focus @!ground-edit)
+             truth (or (truth-text uid) "")]
+         (swap! !ground-edit ge/focus-block uid truth
+                (world->caret b truth wx wy (metrics)))
+         (refresh-anchor!)
+         (when old (rebuild-block! old))
+         (rebuild-block! uid)))
+     (reset! !pointer
+             (if b
+               (cond-> {:phase :pending :screen [sx sy] :world [wx wy]
+                        :target uid :grab [(- (:x b) wx) (- (:y b) wy)]
+                        ;; per-member grabs frozen at press: the group drags as
+                        ;; a RIGID formation (each member keeps its offset)
+                        :group (vec (keep (fn [guid]
+                                            (when-let [gb (get-in @!world [:blocks guid])]
+                                              [guid [(- (:x gb) wx) (- (:y gb) wy)]]))
+                                          (drag-group uid)))}
+                 text?
+                 (assoc :text? true
+                        :sel-caret (world->caret
+                                    b (get-in @!ground-edit
+                                              [:queue :confirmed :text])
+                                    wx wy (metrics)))
+                 mtext?
+                 (assoc :mtext? true
+                        :sel-lc (world->lc b wx wy (metrics))))
+               {:phase :pending :screen [sx sy] :world [wx wy]
+                :target :ground :cam-start @!camera})))))
 
 (defn pointer-move! [sx sy]
   ;; hover = attention (Law 10) — ephemeral, never restored
@@ -1114,8 +1407,43 @@
     (case (:phase p)
       :pending
       (when (ge/drag? (:screen p) [sx sy] drag-threshold-px)
-        (swap! !pointer assoc :phase
-               (if (= :ground (:target p)) :panning :dragging)))
+        (cond
+          (:text? p)
+          (do (js/console.log "[GROUND-SEL] threshold → :selecting"
+                              (str "caret0=" (:sel-caret p)))
+              (clear-machine-sel!)
+              (swap! !ground-edit ge/begin-select (:sel-caret p))
+              (swap! !pointer assoc :phase :selecting))
+          (:mtext? p)
+          (do (js/console.log "[GROUND-SEL] threshold → :mselecting"
+                              (str "lc0=" (pr-str (:sel-lc p))))
+              (when-let [old (:focus @!ground-edit)]
+                (swap! !ground-edit assoc :selection nil)
+                (rebuild-block! old))
+              (reset! !machine-sel {:uid (:target p)
+                                    :anchor (:sel-lc p) :head (:sel-lc p)})
+              (swap! !pointer assoc :phase :mselecting))
+          :else
+          (let [ph (if (= :ground (:target p)) :panning :dragging)]
+            (js/console.log "[GROUND-SEL] threshold →" (str ph)
+                            (str "target=" (pr-str (:target p))))
+            (swap! !pointer assoc :phase ph))))
+      :mselecting
+      (let [uid (:target p)
+            b   (get-in @!world [:blocks uid])
+            [wx wy] (screen->world sx sy)]
+        (when b
+          (swap! !machine-sel assoc :head (world->lc b wx wy (metrics)))
+          (rebuild-block! uid)))
+      :selecting
+      (let [fid (:target p)
+            b   (get-in @!world [:blocks fid])
+            [wx wy] (screen->world sx sy)]
+        (when b
+          (swap! !ground-edit ge/extend-select
+                 (world->caret b (get-in @!ground-edit [:queue :confirmed :text])
+                               wx wy (metrics)))
+          (rebuild-block! fid)))
       :panning
       (let [[sx0 sy0] (:screen p)
             cam0 (:cam-start p)]
@@ -1134,10 +1462,15 @@
 
 (defn pointer-up! [sx sy]
   (let [p @!pointer]
+    (js/console.log "[GROUND-SEL] up" (str "phase=" (:phase p))
+                    (str "sel=" (pr-str (ge/selection-range @!ground-edit))))
     (reset! !pointer {:phase :idle})
     (case (:phase p)
       :pending
-      (if (= :ground (:target p))
+      (do
+        ;; a clean click anywhere dissolves the machine selection
+        (clear-machine-sel!)
+        (if (= :ground (:target p))
         ;; click on empty ground: caret anchor at the chosen point (Law 1);
         ;; click-elsewhere leaves a focused block first
         (let [[wx wy] (:world p)]
@@ -1177,7 +1510,7 @@
               (swap! !ground-edit ge/focus-block uid truth caret)
               (refresh-anchor!)
               (when (and old (not= old uid)) (rebuild-block! old))
-              (rebuild-block! uid)))))
+              (rebuild-block! uid))))))
       :dragging
       ;; gesture end ARMS the settle for EVERY dragged member (positions
       ;; settle as truth at release — the debounce coalesces the group
@@ -1201,6 +1534,60 @@
                      :y (- y (* wy zoom'))
                      :zoom zoom'})
     (arm-settle! :camera)))
+
+;; ===========================================================================
+;; Diagnostics — __ground.report(): ONE paste-able snapshot for lag reports
+;; ===========================================================================
+
+(defn- pct [xs p]
+  (when (seq xs)
+    (let [v (vec (sort xs))]
+      (nth v (min (dec (count v)) (long (* p (count v))))))))
+
+(defn- fmt1 [x] (if (number? x) (.toFixed x 1) "-"))
+
+(defn- diag-report
+  "Everything a lag report needs, as ONE paste-able string: echo + reconcile
+   timings, sig-skip efficacy, canvas + served-page size, run phases.
+   Console: copy(__ground.report()) — then paste into the session."
+  []
+  (let [st   @!ground-edit
+        echo @!echo-samples
+        rc   @!reconcile-samples
+        {:keys [builds skips]} @!rebuild-stats
+        bs   (:blocks @!world)
+        idx  (:block-index @!world)
+        ctx  @!last-raw-context]
+    (str "[ground report " (.toISOString (js/Date.)) "]\n"
+         "mode=" (name (:mode st)) " focus=" (pr-str (:focus st))
+         " inflight=" (count (get-in st [:queue :inflight] []))
+         " next-seq=" (:next-seq st)
+         " selection=" (pr-str (ge/selection-range st))
+         " machine-sel=" (pr-str @!machine-sel)
+         " pointer=" (name (:phase @!pointer :idle)) "\n"
+         "echo ms (envelope→confirmed render, bar 52): n=" (count echo)
+         " p50=" (fmt1 (pct echo 0.5)) " p95=" (fmt1 (pct echo 0.95))
+         " p99=" (fmt1 (pct echo 0.99))
+         " max=" (fmt1 (when (seq echo) (reduce max echo))) "\n"
+         "reconcile ms (per context emission): n=" (count rc)
+         " last=" (fmt1 (peek rc)) " p95=" (fmt1 (pct rc 0.95))
+         " max=" (fmt1 (when (seq rc) (reduce max rc))) "\n"
+         "rebuilds since boot: built=" builds " skipped=" skips "\n"
+         "canvas: blocks=" (count bs)
+         " machine=" (count (filter :machine? (vals bs)))
+         " served-chars=" (reduce + 0 (map #(count (or (:text %) "")) (vals idx))) "\n"
+         "page: river-events=" (:conversation/river-events-total ctx)
+         " blocks-served=" (:conversation/blocks-returned ctx)
+         " truncated?=" (boolean (:conversation/truncated? ctx))
+         " dup-blocks-dropped=" (pr-str @!dup-blocks) "\n"
+         "slow echoes (>52ms, last 8): "
+         (pr-str (vec (take-last 8 @!echo-outliers))) "\n"
+         "client stalls (main thread blocked >100ms, last 8): "
+         (pr-str (vec (take-last 8 @!client-stalls))) "\n"
+         "runs=" (pr-str (into {} (map (fn [[k r]] [(or k "genesis")
+                                                    (name (:phase r :idle))]))
+                               @!ground-runs))
+         " zoom=" (fmt1 (:zoom @!camera)))))
 
 ;; ===========================================================================
 ;; Install (the boot seam)
@@ -1240,7 +1627,22 @@
   ;; dev observability (the __softland_atoms precedent): read-only state +
   ;; the narrow-echo samples — drives G4b console receipts, renders nothing
   (set! (.-__ground js/window)
-        #js {:echo      (fn [] (clj->js @!echo-samples))
+        #js {:report    (fn [] (diag-report))
+             ;; read the ACTUAL clipboard and count how many times its own
+             ;; opening line repeats — judges copy by the clipboard itself,
+             ;; not by any paste target's behavior
+             :clip      (fn []
+                          (-> (.readText (.-clipboard js/navigator))
+                              (.then (fn [t]
+                                       (let [probe (subs t 0 (min 60 (count t)))
+                                             reps  (when (seq probe)
+                                                     (loop [i 0 c 0]
+                                                       (let [j (.indexOf t probe i)]
+                                                         (if (neg? j) c (recur (inc j) (inc c))))))]
+                                         (js/console.log "[CLIP]" (count t) "chars;"
+                                                         "opening 60 chars appear" reps "time(s)"))))
+                              (.catch (fn [e] (js/console.error "[CLIP] read failed" e)))))
+             :echo      (fn [] (clj->js @!echo-samples))
              :camera    (fn [] (clj->js @!camera))
              :blocks    (fn [] (clj->js (into {}
                                               (map (fn [[k v]]
