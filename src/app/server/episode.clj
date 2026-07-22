@@ -354,9 +354,12 @@
    the one cell). :thread-id names the conversation lane the turn ran on
    (one canvas, many conversations): the per-thread CLI session uuid, nil =
    the genesis thread. The cell is the canvas's thread registry — the serve
-   merge discovers thread containers from these values."
+   merge discovers thread containers from these values. :episode-id names the
+   CLI session the turn actually rode (D-core): nil/= lane-id for the lane's
+   first episode; a successor uuid after a boundary — the cells are the
+   durable episode chain the serve weaves successor containers from."
   [{:keys [object-key turn-id source-unit-id content-text position
-           time-ms prev-turn-id status thread-id]}]
+           time-ms prev-turn-id status thread-id episode-id]}]
   (let [imp-key    (str "imp:ep:" object-key ":"
                         (core/sha-256 (str "turn-record " turn-id " " (name status))))
         request-id (str "req:episode-turn:" object-key ":"
@@ -370,7 +373,8 @@
                     :status         status
                     :time-ms        (long time-ms)
                     :prev-turn-id   prev-turn-id
-                    :thread-id      (some-> thread-id str)}
+                    :thread-id      (some-> thread-id str)
+                    :episode-id     (some-> episode-id str)}
         event-id   (str "evt:" object-key ":"
                         (core/sha-256 (str "turn " turn-id " " (name status))))
         hint       (assoc (oc/->TranscriptConversationProjectionRow
@@ -388,7 +392,7 @@
                                                 [:turn-id :source-unit-id
                                                  :content-hash :position
                                                  :status :prev-turn-id
-                                                 :thread-id]))
+                                                 :thread-id :episode-id]))
                            nil)
                           :turn value)
         payload    {:object-key           object-key
@@ -548,6 +552,91 @@
        vec))
 
 ;; ===========================================================================
+;; §C2 · The episode chain (D-core, Sid 2026-07-22) — bounded CLI sessions
+;;
+;; A LANE (the genesis column, or one thread's column) is permanent; the CLI
+;; session serving it is not. Turns ride the lane's CURRENT episode while the
+;; lane stays warm; silence past the boundary closes that episode FOREVER —
+;; no cross-boundary --resume exists anywhere in the system (the re-harvest
+;; duplication class dies structurally). The next turn opens a FRESH CLI
+;; session seeded with the lane's prose thread (identity B: containers stay
+;; keyed by the CLI sessionId — the P2 adjudication untouched; the chain is
+;; woven from turn cells' :episode-id by the serve merge).
+;; ===========================================================================
+
+(declare episode-jsonl-file)
+
+(def episode-idle-ms
+  "The boundary (Sid: default): a lane silent this long closes its episode.
+   Aligned with the 1h prompt-cache TTL — past it the old session's context
+   re-reads cold anyway, so the cut is the cheap place."
+  (* 60 60 1000))
+
+(defonce ^:private !episode-chains
+  ;; runtime currency ONLY — {lane-id {:episode-id str :last-turn-ms long}}.
+  ;; The durable chain is the turn cells' :episode-id; a JVM restart re-adopts
+  ;; from those (current-episode!'s fallback read).
+  (atom {}))
+
+(defn decide-episode
+  "PURE boundary rule. `entry` is the runtime cell {:episode-id :last-turn-ms};
+   `last-turn` the lane's newest durable turn cell (restart adoption); `mint-id`
+   a thunk minting a fresh session uuid. Returns {:episode-id :fresh? :seed?}:
+   fresh? = spawn with --session-id (else --resume); seed? = a predecessor
+   exists, inherit its prose."
+  [{:keys [lane-id entry last-turn now-ms idle-ms mint-id]}]
+  (let [idle (long (or idle-ms episode-idle-ms))
+        cur  (or entry
+                 (when last-turn
+                   {:episode-id   (or (:episode-id last-turn) lane-id)
+                    :last-turn-ms (long (or (:time-ms last-turn) 0))}))]
+    (cond
+      (nil? cur)
+      {:episode-id lane-id :fresh? true :seed? false}
+
+      (< (- (long now-ms) (long (:last-turn-ms cur))) idle)
+      {:episode-id (:episode-id cur) :fresh? false :seed? false}
+
+      :else
+      {:episode-id (mint-id) :fresh? true :seed? true})))
+
+(defn current-episode!
+  "The lane's episode for a turn arriving now (stateful shell over
+   decide-episode). Fallback order: runtime cell → the lane's durable turn
+   cells (JVM restart adopts a still-warm episode) → file-existence belt (a
+   pre-chain lane whose cells never carried an episode resumes its file
+   rather than minting over it). Total: any read failure degrades to the
+   virgin-lane decision."
+  [oc-rt {:keys [conversation-id thread-id now-ms cwd]}]
+  (let [conv-id (or conversation-id genesis-conversation-id)
+        lane-id (or (some-> thread-id str not-empty) conv-id)
+        entry   (get @!episode-chains lane-id)
+        last-turn
+        (when (nil? entry)
+          (try
+            (->> (read-turn-records oc-rt (episode-object-key conv-id))
+                 (filter #(= (some-> thread-id str not-empty) (:thread-id %)))
+                 (sort-by #(:time-ms % 0))
+                 last)
+            (catch Exception _ nil)))
+        d (decide-episode {:lane-id lane-id :entry entry :last-turn last-turn
+                           :now-ms now-ms
+                           :mint-id #(str (java.util.UUID/randomUUID))})]
+    (if (and (:fresh? d) (= (:episode-id d) lane-id)
+             (.exists ^java.io.File (episode-jsonl-file cwd lane-id)))
+      {:episode-id lane-id :fresh? false :seed? false}
+      d)))
+
+(defn note-episode-turn!
+  "Stamp the lane's runtime cell at spawn time — the warmth the NEXT turn's
+   decide-episode reads."
+  [thread-id conversation-id episode-id now-ms]
+  (let [lane-id (or (some-> thread-id str not-empty)
+                    (or conversation-id genesis-conversation-id))]
+    (swap! !episode-chains assoc lane-id
+           {:episode-id (str episode-id) :last-turn-ms (long now-ms)})))
+
+;; ===========================================================================
 ;; §D · The resident agent (the existing CLI lane — argv, no keys)
 ;; ===========================================================================
 
@@ -561,20 +650,19 @@
                    "/.claude/projects/" slug "/" conversation-id ".jsonl")))))
 
 (defn summon-argv
-  "The resident agent's argv. Turn 1 opens the session AS the episode uuid
-   (--session-id); later turns resume it (--resume, NO --fork-session — the
-   id and jsonl stay stable, so harvest keys every line to the ONE episode
-   conversation). Subscription CLI, zero keys (hard rule)."
-  [{:keys [cwd prompt conversation-id]}]
-  (let [conv-id (or conversation-id genesis-conversation-id)
-        existing? (.exists ^java.io.File (episode-jsonl-file cwd conv-id))]
-    (vec (concat ["claude"]
-                 (if existing?
-                   ["--resume" conv-id]
-                   ["--session-id" conv-id])
-                 ["-p" (str prompt)
-                  "--output-format" "stream-json"
-                  "--include-partial-messages"]))))
+  "The resident agent's argv. The episode CHAIN decides the session (D-core):
+   a fresh episode opens AS its minted uuid (--session-id, seeded prompt);
+   a warm episode resumes WITHIN its boundary (--resume appends to the SAME
+   jsonl — docs-verified — so the offset-cursor harvest stays sound; no
+   cross-boundary resume exists). Subscription CLI, zero keys (hard rule)."
+  [{:keys [prompt session-id fresh?]}]
+  (vec (concat ["claude"]
+               (if fresh?
+                 ["--session-id" (str session-id)]
+                 ["--resume" (str session-id)])
+               ["-p" (str prompt)
+                "--output-format" "stream-json"
+                "--include-partial-messages"])))
 
 ;; ===========================================================================
 ;; §E · Post-turn harvest + distill (flag F: the sanctioned turn-end trigger
