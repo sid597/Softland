@@ -111,3 +111,37 @@
   (testing "the ~4px threshold splits click from drag"
     (is (not (ge/drag? [0 0] [2 2] 4.0)))
     (is (ge/drag? [0 0] [5 1] 4.0))))
+
+(deftest selection-is-attention-state-over-confirmed
+  (let [st (-> (fresh) (ge/focus-block "du:u1" "hello\nworld" 0))]
+    (testing "begin+extend normalize across direction; text reads confirmed"
+      (let [sel (-> st (ge/begin-select 8) (ge/extend-select 2))]
+        (is (= [2 8] (ge/selection-range sel)))
+        (is (= "llo\nwo" (ge/selection-text sel)))
+        (is (= [2 8] (:selection (ge/block-view sel "du:u1" "hello\nworld"))))))
+    (testing "collapsed selection is no selection"
+      (let [sel (-> st (ge/begin-select 3) (ge/extend-select 3))]
+        (is (nil? (ge/selection-range sel)))
+        (is (nil? (ge/selection-text sel)))))
+    (testing "the head clamps into confirmed text"
+      (is (= [0 11] (ge/selection-range
+                     (-> st (ge/begin-select 0) (ge/extend-select 999))))))
+    (testing "a content key clears the selection (MVP: copy-only selection)"
+      (let [sel (-> st (ge/begin-select 0) (ge/extend-select 4))
+            r   (ge/input sel {:type :char :char "x"} bi ok)]
+        (is (nil? (ge/selection-range (:state r))))
+        (is (some? (:envelope r)))))
+    (testing "a caret key clears the selection"
+      (let [st5 (-> (fresh) (ge/focus-block "du:u1" "hello\nworld" 5))
+            sel (-> st5 (ge/begin-select 0) (ge/extend-select 4))
+            r   (ge/input sel {:type :left} bi ok)]
+        (is (nil? (ge/selection-range (:state r))))
+        (is (nil? (:envelope r)))))
+    (testing "escape kills the selection with the focus"
+      (is (nil? (:selection (-> st (ge/begin-select 0) (ge/extend-select 4)
+                                ge/escape)))))
+    (testing "re-focus starts clean"
+      (is (nil? (:selection (-> st (ge/begin-select 0) (ge/extend-select 4)
+                                (ge/focus-block "du:u2" "other" 0))))))
+    (testing "selection outside :editing arms nothing"
+      (is (nil? (:selection (ge/begin-select (fresh) 3)))))))

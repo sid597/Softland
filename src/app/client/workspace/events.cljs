@@ -59,7 +59,9 @@
       (let [get-coords (fn [e]
                          (let [rect (.getBoundingClientRect node)]
                            {:x (- (.-clientX e) (.-left rect))
-                            :y (- (.-clientY e) (.-top rect))}))
+                            :y (- (.-clientY e) (.-top rect))
+                            ;; Task 11: shift splits textual from spatial drag
+                            :shift? (.-shiftKey e)}))
             down-h (fn [e] (! [:mousedown (get-coords e)]))
             up-h   (fn [e] (! [:mouseup (get-coords e)]))
             move-h (fn [e] (! [:mousemove (get-coords e)]))]

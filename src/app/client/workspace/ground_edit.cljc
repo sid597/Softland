@@ -39,6 +39,7 @@
    :birth          nil     ; {:block-id :text :caret :pos :queue [events]}
    :focus          nil     ; focused unit-id (:editing)
    :queue          nil     ; {:confirmed {:text :caret :seq} :inflight [..]}
+   :selection      nil     ; {:anchor :head} caret span over confirmed (Task 11)
    :refusal        nil     ; {:unit-id :reason} — visible, at the block
    :edit-client-id edit-client-id
    :next-seq       0})
@@ -84,7 +85,8 @@
   [st]
   (case (:mode st)
     :anchor   (assoc st :mode :rest :anchor nil :refusal nil)
-    :editing  (assoc st :mode :rest :focus nil :queue nil :refusal nil)
+    :editing  (assoc st :mode :rest :focus nil :queue nil :refusal nil
+                     :selection nil)
     :birthing (assoc st :mode :rest :refusal nil)
     (assoc st :refusal nil)))
 
@@ -94,6 +96,7 @@
   [st unit-id truth-text caret]
   (let [txt (or truth-text "")]
     (assoc st :mode :editing :focus unit-id :anchor nil :birth nil
+           :selection nil
            :queue {:confirmed {:text txt
                                :caret (max 0 (min (long (or caret (count txt)))
                                                   (count txt)))
@@ -178,10 +181,12 @@
       (if-let [r (apply-ground-keydown {:text (:text proj) :caret (:caret proj)} keydown)]
         (case (:op r)
           :caret
-          {:state (update-in st [:queue :confirmed]
-                             (fn [{:keys [text] :as c}]
-                               (assoc c :caret (max 0 (min (long (:new-caret r))
-                                                           (count text))))))
+          {:state (-> st
+                      (assoc :selection nil)
+                      (update-in [:queue :confirmed]
+                                 (fn [{:keys [text] :as c}]
+                                   (assoc c :caret (max 0 (min (long (:new-caret r))
+                                                               (count text)))))))
            :envelope nil}
           :edit
           (let [seq' (:next-seq st)
@@ -192,7 +197,7 @@
                                         :edit-seq       seq'})]
             {:state (-> st
                         (update :next-seq inc)
-                        (assoc :refusal nil)
+                        (assoc :refusal nil :selection nil)
                         (update-in [:queue :inflight]
                                    (fn [q]
                                      (conj (if (>= (count q) 64) (subvec q 1) q)
@@ -245,6 +250,47 @@
     st))
 
 ;; ============================================================================
+;; Selection (Task 11 — attention-state: never settled, never restored)
+;; ============================================================================
+
+(defn begin-select
+  "Press on the FOCUSED block arms a text selection at `caret`; drag extends
+   it (§9.4 amendment: attention-in makes the drag textual — a focused block
+   moves only after blur). Lives over CONFIRMED text only — the one value
+   the eye and the clipboard may read."
+  [st caret]
+  (if (= :editing (:mode st))
+    (let [n (count (get-in st [:queue :confirmed :text] ""))
+          c (max 0 (min (long (or caret 0)) n))]
+      (assoc st :selection {:anchor c :head c}))
+    st))
+
+(defn extend-select
+  "Drag moves the selection head (the anchor stays)."
+  [st caret]
+  (if (and (= :editing (:mode st)) (:selection st))
+    (let [n (count (get-in st [:queue :confirmed :text] ""))
+          c (max 0 (min (long (or caret 0)) n))]
+      (assoc-in st [:selection :head] c))
+    st))
+
+(defn selection-range
+  "Normalized [start end] over confirmed text, or nil when collapsed/absent
+   (clamped — adopt-truth may shrink confirmed under a live selection)."
+  [st]
+  (when-let [{:keys [anchor head]} (and (= :editing (:mode st)) (:selection st))]
+    (let [n (count (get-in st [:queue :confirmed :text] ""))
+          s (min (min anchor head) n)
+          e (min (max anchor head) n)]
+      (when (< s e) [s e]))))
+
+(defn selection-text
+  "The selected substring of CONFIRMED text, or nil."
+  [st]
+  (when-let [[s e] (selection-range st)]
+    (subs (get-in st [:queue :confirmed :text] "") s e)))
+
+;; ============================================================================
 ;; Render derivation (ONE value — no tear)
 ;; ============================================================================
 
@@ -258,6 +304,7 @@
               {:unit-id unit-id
                :text  (get-in st [:queue :confirmed :text])
                :caret (get-in st [:queue :confirmed :caret])
+               :selection (selection-range st)
                :focused? true}
               {:unit-id unit-id :text (or truth-text "") :caret nil :focused? false})
       (= unit-id (:unit-id (:refusal st)))
