@@ -144,8 +144,8 @@ which crossroads did we take."
   diff.
 - **One canvas, many conversations (Sid 2026-07-21):** on the open ground, a
   conversation lane is an ATTENTION, not an identity — each thread of talk
-  scopes its own CLI session (per-thread uuid: `--session-id` at birth,
-  `--resume` after). One river, blocks from all threads individually
+  scopes its own CLI session (per-thread uuid; sessions are bounded
+  episodes — next bullet). One river, blocks from all threads individually
   addressable and gatherable across threads — the river is merged AT SERVE:
   canvas truth (utterances, turn records, geometry) lives in the canvas
   container; a thread's distilled material lives in its session's own
@@ -162,6 +162,26 @@ which crossroads did we take."
   specialness; `?drill=` canvases keep full isolation (session AND storage).
   Multi-thread affordance grammar (how you chat with many threads) is
   deliberately NOT designed here — it accretes in-land from habitation.
+- **Episodes bound every CLI session (Sid 2026-07-22):** a lane (the main
+  column, or one thread's) is permanent; the CLI session serving it is not.
+  An hour of lane-silence closes the episode forever — cross-boundary
+  `--resume` does not exist, so the unbounded-context ride and the
+  re-harvest duplication class die together (LLM statelessness means every
+  turn re-sends its window; the episode keeps that window bounded and
+  cache-warm instead of months-long). The next word opens a fresh session
+  whose first prompt is seeded with the lane's prose thread —
+  speaker-labelled, noise elided, other lanes excluded — composed from
+  durable truth through the same projection that renders the screen, never
+  a jsonl replay. The seed rides ONLY the CLI prompt (the flag-D skip keeps
+  it from re-entering the container as blocks); the raw utterance stays the
+  durable record. Identity unchanged from the bullet above: each session's
+  material lives in its own container; turn cells carry the episode id —
+  the durable chain the serve weaves successor containers from, into the
+  lane's own column, a quiet "fresh session" line at the boundary. Within
+  an episode, turns resume the same append-only file. Staged transport
+  swap: the persistent stdin process (probe-proven on this machine: one
+  process, many turns, one file) behind `summon-argv`. BUILT 2026-07-22
+  (`a7c40e6`).
 - **Stream writes are at-least-once:** every stream write path derives a
   deterministic op-id from the request-id so a replay overwrites the same
   keys — never duplicates. A replayed-event test ships with every write path.

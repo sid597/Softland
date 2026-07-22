@@ -106,10 +106,15 @@ Softland or still on paper? (`BETS.md` verdict log.)
 
 ## SID'S MOVES — everything that waits on you alone, cheapest first
 
-0a. **WEAR concurrent chat** — restart the dev server (it runs pre-`7b36a02`
-   code), then: three fresh blocks, Ctrl+Enter each → three lanes at once,
-   replies under their own blocks; Ctrl+Enter a block again → its thread
-   resumes. Old blocks keep the genesis lane; `?drill=` unchanged.
+0a. **WEAR concurrent chat + the episode chain** — restart the dev server
+   (it runs pre-`a7c40e6` code), then: three fresh blocks, Ctrl+Enter each
+   → three lanes at once, replies under their own blocks; Ctrl+Enter a
+   block again → its thread resumes. Old blocks keep the genesis lane;
+   `?drill=` unchanged. Episodes: the first turn in a lane idle >1h logs
+   `[EPISODE][TURN-START] ... :fresh? true :seed-chars n`, a
+   "— fresh session —" line marks the boundary — and history must NOT
+   duplicate on the canvas (the seed's no-re-render defense is reasoned
+   from flag-D, not yet observed live; a duplicate = flag it).
 0. **FIRST LIGHT — open `localhost:8080`, click anywhere, speak** (the
    genesis episode is virgin; your first utterance is §11's irreplaceable
    act; the walkthrough is live: arrival = NOTHING, wheel zooms, drag
@@ -221,6 +226,23 @@ round → benchmark room (question bank waits on kinds).
   green at committed HEAD); its pair-structure residue spawned machine-cut.
 
 ## Active package blocks
+
+**episode-chain — BUILT 2026-07-22 at Sid's word, awaiting his wear**
+(bounded CLI sessions under every lane — the multi-turn round's verdict:
+lanes are permanent, sessions are not). Frame in settled ground ("Episodes
+bound every CLI session"); code `a7c40e6` + window-listener guard
+`d027f58`: pure boundary rule (`decide-episode`) + seeded successor spawn
++ turn cells carry the episode + serve weaves successor containers into
+their lane + "fresh session" marker; suites 17t/96a (episode, incl. the
+chain serve probe) + 33t/225a (face regressions) green; cljs 0 warnings.
+Wear = Sid's move 0a. Known edge: a fresh spawn dying before its file
+exists strands the lane until the next boundary (retry-rollback queued).
+Deferred next, in order: the rerender fix (cause-tagged ingest epoch →
+narrow pulls; serve off the ack lane — the typing-stall root, diagnosed
+2026-07-22) · persistent stdin CLI process per episode (probe-proven:
+one process, many turns, one file) · server-side harvest idempotency
+backstop · distillate seed compression (the seed is verbatim prose today,
+bounded only by the river page).
 
 **concurrent-chat — BUILT 2026-07-21 at Sid's word, awaiting his wear**
 (the bootstrap sitting's yield: one canvas, many conversations). Frame in
