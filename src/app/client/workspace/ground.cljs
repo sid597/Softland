@@ -559,6 +559,16 @@
         (when-let [su (:source-unit-id r)]
           (when-let [tid (:thread-id r)]
             (swap! !thread-of assoc su tid))))
+      ;; the per-thread prev-turn chain survives reload: served records seed
+      ;; each thread's tail (turn-recs are time-sorted, so the reduce keeps
+      ;; the newest per thread); a turn-id this session already holds
+      ;; outranks the page — it is never older than what the serve returned
+      (let [served-tail (reduce (fn [m r]
+                                  (if-let [tid (:thread-id r)]
+                                    (assoc m tid (:turn-id r))
+                                    m))
+                                {} turn-recs)]
+        (swap! !last-turn-ids #(merge served-tail %)))
       ;; camera restore — ONCE, at boot (later logins resume the scene; the
       ;; live camera is the inhabitant's after that — Law 3)
       (when (and (not (:camera-restored? @!world)))
@@ -880,6 +890,46 @@
                           (rebuild-block! unit-id)))
                  2200))
 
+(defn- adoptive-thread-for
+  "Speak beneath a thread and you join it (Task 10): a fresh block's first
+   send looks for the thread whose COLUMN it sits in — horizontally
+   overlapping the thread's blocks (every source + their replies),
+   vertically inside that column or within a short reach below its lowest
+   block. Found → the send rides that thread, and the resident answers
+   with the whole conversation behind it (the server resumes the thread's
+   CLI session); not found → the send mints a fresh attention, as before.
+   Judged at send time, so dragging a block into (or out of) a column
+   before speaking counts."
+  [fid]
+  (let [bs   (:blocks @!world)
+        b    (get bs fid)
+        tmap @!thread-of]
+    (when (and b (:x b))
+      (let [bx0   (:x b)
+            bx1   (+ bx0 (:w b 0))
+            reach (* 3 (:line-h (metrics)))
+            cols  (reduce-kv
+                   (fn [m uid e]
+                     (let [tid (or (get tmap uid)
+                                   (when (:machine? e)
+                                     (get tmap (:source-uid e))))]
+                       (if (and tid (not= uid fid) (:x e))
+                         (update m tid (fnil conj []) e)
+                         m)))
+                   {} bs)]
+        (->> cols
+             (keep (fn [[tid es]]
+                     (let [x0 (reduce min (map :x es))
+                           x1 (reduce max (map #(+ (:x %) (:w % 0)) es))
+                           y0 (reduce min (map :y es))
+                           y1 (reduce max (map #(+ (:y %) (:h % 0)) es))]
+                       (when (and (< bx0 x1) (> bx1 x0)
+                                  (>= (:y b) y0)
+                                  (<= (:y b) (+ y1 reach)))
+                         [tid (max 0 (- (:y b) y1))]))))
+             (sort-by second)
+             ffirst)))))
+
 (defn submit-turn!
   "Ctrl+Enter from the FOCUSED block (target never ambiguous). The pinned
    revision = the block's confirmed text at send time — the turn record
@@ -889,8 +939,10 @@
    One canvas, many conversations: the block's THREAD scopes the run. A
    block that already holds a thread (a served turn record, or a send this
    session) reuses its uuid — later sends resume that CLI session. A fresh
-   block's first send MINTS a thread: a new attention with fresh context,
-   running concurrently with every other thread. Busy is per-thread — a
+   block's first send joins the thread whose column it sits in
+   (adoptive-thread-for — speak beneath a thread and you're in it) or
+   MINTS a thread: a new attention with fresh context, running
+   concurrently with every other thread. Busy is per-thread — a
    mid-turn thread refuses VISIBLY at its block; the rest of the canvas
    stays sendable. Drill pages (?drill=) keep the legacy single lane."
   []
@@ -898,10 +950,12 @@
         fid (:focus st)]
     (when fid
       (let [drill  (drill-conversation-id)
+            adopted (when-not (or drill (contains? @!thread-of fid))
+                      (adoptive-thread-for fid))
             thread (cond
                      drill nil
                      (contains? @!thread-of fid) (get @!thread-of fid)
-                     :else (str (random-uuid)))
+                     :else (or adopted (str (random-uuid))))
             run    (get @!ground-runs thread)]
         (if (contains? #{:streaming :distilling} (:phase run))
           (transient-notice! fid "this thread is mid-turn — the block was not sent")
@@ -910,6 +964,8 @@
             (when-not (str/blank? (or text ""))
               (let [turn-id (str (random-uuid))]
                 (swap! !thread-of assoc fid thread)
+                (when adopted
+                  (transient-notice! fid "joined the conversation above"))
                 (swap! !ground-runs assoc thread
                        {:phase :streaming :activity "reaching the land"
                         :stream-text "" :error nil
