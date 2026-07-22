@@ -23,6 +23,19 @@
 ;; Paste + drag-select (raw DOM, not Missionary)
 ;; ═══════════════════════════════════════════════════════════════════════
 
+;; WINDOW listeners survive a runtime remount (hot reload, Electric
+;; reconnect) — without removal they STACK, and a paste inserts once per
+;; stacked handler (the ×N genus, paste-side). One cell per listener kind:
+;; installing swaps the window's handler instead of adding a sibling.
+(defonce ^:private !window-handlers (atom {}))
+
+(defn- swap-window-listener!
+  [event-name handler]
+  (when-let [old (get @!window-handlers event-name)]
+    (.removeEventListener js/window event-name old))
+  (swap! !window-handlers assoc event-name handler)
+  (.addEventListener js/window event-name handler))
+
 (defn install-paste-handler!
   "Wire system clipboard paste to editor/cmd/chat based on focus."
   [{:keys [!clipboard !focus !editor-doc !cmd-panel !chat-input !caret-visible
@@ -63,7 +76,7 @@
                   (reset! !chat-input {:text new-text :cursor (+ ci-cursor (count text))})
                   (reset! !caret-visible true))
                 nil))))]
-    (.addEventListener js/window "paste" paste-handler)))
+    (swap-window-listener! "paste" paste-handler)))
 
 (defn install-drag-select!
   "Install raw DOM drag-select listeners (bypasses Missionary async scheduling)."
@@ -128,7 +141,7 @@
                      :cursor pos :selection nil :desired-col (:col pos))
               (reset! !focus :editor)
               (reset! !caret-visible true))))))
-    (.addEventListener js/window "mousemove"
+    (swap-window-listener! "mousemove"
       (fn [e]
         (when @!dragging?
           (let [pos (mouse->pos (get-coords e))
@@ -136,7 +149,7 @@
             (when (and start (not= pos start))
               (swap! !editor-doc assoc
                      :selection {:start start :end pos}))))))
-    (.addEventListener js/window "mouseup"
+    (swap-window-listener! "mouseup"
       (fn [_]
         (reset! !dragging? false)
         (reset! !drag-start nil)))))
