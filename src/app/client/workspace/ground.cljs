@@ -120,6 +120,11 @@
 ;; {:uid :anchor {:line :col} :head {:line :col}}; attention state only
 (defonce ^:private !machine-sel (atom nil))
 
+;; Task 18 (Sid): marquee group-selection — shift+drag on EMPTY ground sweeps
+;; a rect; blocks inside join the group. Pure attention state (Law 10): a
+;; click, Escape, or a fresh marquee dissolves it; never saved, never restored.
+(defonce ^:private !group-sel (atom #{}))
+
 ;; Task 5 observability (report()): sig-skip efficacy + reconcile timings
 (defonce ^:private !rebuild-stats (atom {:builds 0 :skips 0}))
 (defonce ^:private !reconcile-samples (atom []))
@@ -212,7 +217,8 @@
    interaction box shows only on attention (Law 10); machine provenance is a
    quiet persistent edge tint (Law 6) — two separate primitives."
   [unit-id {:keys [text caret focused? refusal selection]} machine? hover? notice
-   {:keys [font-size char-advance line-h]} wrap-col headers msel boundary?]
+   {:keys [font-size char-advance line-h]} wrap-col headers msel boundary?
+   gsel?]
   (let [lines   (cond-> (str/split (or text "") #"\n" -1)
                   (and machine? wrap-col) (wrap-lines wrap-col))
         nh      (count headers)
@@ -259,6 +265,13 @@
                                                   :style {:bg [0.35 0.5 0.8 0.3]}))
                                    out))))))
         extra   (cond-> (vec sel-nodes)
+                  ;; Task 18: group-selection member mark (marquee wash)
+                  gsel?
+                  (conj (rt-node :ground-gsel :rect
+                                 {:x (- block-pad) :y (- block-pad) :w w :h h}
+                                 :style {:border-width 1.5
+                                         :border-color [0.55 0.65 0.9 0.8]
+                                         :bg [0.35 0.5 0.8 0.10]}))
                   ;; provenance mark (Law 6): quiet persistent edge tint,
                   ;; machine stratum only — never an attention effect
                   machine?
@@ -430,21 +443,28 @@
           hover? (= unit-id @!hover)
           msel   (let [ms @!machine-sel] (when (and ms (= unit-id (:uid ms))) ms))
           bnd?   (boolean (:episode-boundary? (context-block-entry unit-id)))
+          gsel?  (contains? @!group-sel unit-id)
           m      (metrics)
           ;; everything block-tree consumes (viewport excluded — unused):
           ;; equal sig ⇒ identical pixels ⇒ the build is pure waste
           sig    [view (:machine? b) hover? notice (:wrap-col b) headers msel bnd?
-                  (:font-size m) (:char-advance m) (:line-h m)]]
+                  gsel? (:font-size m) (:char-advance m) (:line-h m)]]
       (if (and (= sig (:render-sig b))
                (some? (ss/slot (scene-rt/store-snapshot) (block-vi unit-id))))
         (swap! !rebuild-stats update :skips inc)
         (let [tree (block-tree unit-id view (:machine? b) hover? notice
-                               m (:wrap-col b) headers msel bnd?)]
+                               m (:wrap-col b) headers msel bnd? gsel?)]
           (swap! !rebuild-stats update :builds inc)
           (upsert-block-slot! unit-id tree (:x b) (:y b))
           (swap! !world update-in [:blocks unit-id]
                  assoc :w (get-in tree [:bounds :w]) :h (get-in tree [:bounds :h])
                  :render-sig sig))))))
+
+(defn- clear-group-sel! []
+  (let [uids @!group-sel]
+    (when (seq uids)
+      (reset! !group-sel #{})
+      (doseq [uid uids] (rebuild-block! uid)))))
 
 ;; ===========================================================================
 ;; Anchor + provisional slots
@@ -844,6 +864,9 @@
                                        (-> (first members)
                                            (assoc :blocks
                                                   [(assoc (first bs)
+                                                          ;; Task 18: the run renders under the FIRST
+                                                          ;; member's identity — a delete tombstones ALL
+                                                          :member-ids (mapv :id bs)
                                                           :text (str/join "\n\n"
                                                                           (map :text bs))
                                                           :reply-text
@@ -1310,6 +1333,58 @@
         (do (js/console.error "[GROUND-COPY] navigator.clipboard undefined (insecure origin?)")
             (when uid (transient-notice! uid "copy failed — clipboard unavailable")))))))
 
+(defn- delete-group!
+  "Delete the marquee-selected blocks (Task 18). ONE durable tombstone write
+   rides the geometry settle lane (:deleted? cells, append+await): the serve
+   stops including tombstoned units and bumps the epoch, so the blocks leave
+   through the normal truth loop — slots close only on the ACK (the tombstone
+   IS acked truth), never optimistically. A merged run block expands to ALL
+   its member unit-ids (it renders under the FIRST member's identity;
+   tombstoning one member would resurrect the run re-keyed on the next)."
+  []
+  (let [uids  @!group-sel
+        all   (vec (distinct (mapcat (fn [uid]
+                                       (or (seq (:member-ids (context-block-entry uid)))
+                                           [uid]))
+                                     uids)))
+        cells (mapv (fn [uid]
+                      (let [b (get-in @!world [:blocks uid])]
+                        {:unit-id uid
+                         :x (double (or (:x b) 0.0))
+                         :y (double (or (:y b) 0.0))
+                         :deleted? true}))
+                    all)]
+    (when (seq cells)
+      (js/console.log "[GROUND-DEL] delete" (count uids) "block(s) →"
+                      (count cells) "unit tombstone(s)")
+      (-> (js/fetch "/api/episode/geometry"
+                    (clj->js {:method "POST"
+                              :headers {"Content-Type" "application/edn"}
+                              :body (pr-str (cond-> {:cells cells
+                                                     :settle-id (str (random-uuid))
+                                                     :time-ms (js/Date.now)}
+                                              (drill-conversation-id)
+                                              (assoc :conversation-id
+                                                     (drill-conversation-id))))}))
+          (.then (fn [resp]
+                   (if (.-ok resp)
+                     (do (js/console.log "[GROUND-DEL] tombstones acked —"
+                                         "closing slots")
+                         (reset! !group-sel #{})
+                         (doseq [uid uids]
+                           (when (get-in @!world [:blocks uid])
+                             (scene-rt/close-instance! (block-vi uid))
+                             (swap! !world update :blocks dissoc uid))))
+                     (do (js/console.error "[GROUND-DEL] delete refused"
+                                           (.-status resp))
+                         (when-let [uid (first uids)]
+                           (transient-notice! uid "delete refused"))))))
+          (.catch (fn [e]
+                    (js/console.error "[GROUND-DEL] delete unreachable" e)
+                    (when-let [uid (first uids)]
+                      (transient-notice! uid
+                                         "delete failed — land unreachable"))))))))
+
 (defn ground-keys-consumer
   [_atoms <ground-keyboard]
   (->> <ground-keyboard
@@ -1321,7 +1396,13 @@
               :copy (copy-current!)
               (:char :backspace :delete :enter :paste
                :left :right :up :down :home :end :word-left :word-right)
-              (handle-content-key! event)
+              ;; Task 18: delete/backspace fires the group delete when a
+              ;; marquee selection stands and no block is being edited
+              (if (and (contains? #{:backspace :delete} (:type event))
+                       (seq @!group-sel)
+                       (not= :editing (:mode @!ground-edit)))
+                (delete-group!)
+                (handle-content-key! event))
               nil))
           nil)
         nil)))
@@ -1335,6 +1416,7 @@
    leaves NOTHING). Attention state only — nothing durable moves."
   []
   (clear-machine-sel!)
+  (clear-group-sel!)
   (swap! !ground-edit (fn [st]
                         (let [fid (:focus st)
                               st' (ge/escape st)]
@@ -1364,6 +1446,46 @@
   [b wx wy {:keys [line-h char-advance]}]
   {:line (js/Math.floor (/ (- wy (:y b)) line-h))
    :col  (js/Math.round (/ (- wx (:x b)) char-advance))})
+
+(defn- marquee-rect
+  "The sweep rect in world coords, press point → pointer (Task 18)."
+  [p wx wy]
+  (let [[ax ay] (:world p)]
+    {:x (min ax wx) :y (min ay wy)
+     :w (max 2.0 (js/Math.abs (- wx ax)))
+     :h (max 2.0 (js/Math.abs (- wy ay)))}))
+
+(defn- refresh-marquee!
+  "Paint/resize the marquee slot (attention-only visual, anchor pattern)."
+  [{:keys [x y w h]}]
+  (let [tree (rt/resolve-layout
+              (rt-node :ground-marquee :rect {:x 0 :y 0 :w w :h h}
+                       :style {:border-width 1.0
+                               :border-color [0.55 0.65 0.9 0.7]
+                               :bg [0.35 0.5 0.8 0.08]}))]
+    (if-let [slot (ss/slot (scene-rt/store-snapshot) :ground-marquee)]
+      (do (swap! scene-rt/!scene-store ss/upsert-slot :ground-marquee
+                 {:tree tree :container (:container slot)
+                  :meta (:meta slot) :stratum (:stratum slot)
+                  :pre-resolved? true})
+          (scene-rt/set-transform! (:container slot) {:x x :y y}))
+      (scene-rt/register-face-instance! :ground-marquee tree
+                                        {:x x :y y :scale 1.0 :layer 4
+                                         :meta {:ground-marquee? true}
+                                         :pre-resolved? true}))))
+
+(defn- marquee-hits
+  "Unit-ids whose block AABB intersects the sweep rect."
+  [{:keys [x y w h]}]
+  (into #{}
+        (keep (fn [[uid b]]
+                (when (and (:x b)
+                           (< x (+ (:x b) (or (:w b) 0.0)))
+                           (< (:x b) (+ x w))
+                           (< y (+ (:y b) (or (:h b) 0.0)))
+                           (< (:y b) (+ y h)))
+                  uid)))
+        (:blocks @!world)))
 
 (defn- drag-group
   "The rigid drag unit (Task 4, Sid): a user block + every machine block
@@ -1429,7 +1551,7 @@
                  (assoc :mtext? true
                         :sel-lc (world->lc b wx wy (metrics))))
                {:phase :pending :screen [sx sy] :world [wx wy]
-                :target :ground :cam-start @!camera})))))
+                :target :ground :cam-start @!camera :shift? shift?})))))
 
 (defn pointer-move! [sx sy]
   ;; hover = attention (Law 10) — ephemeral, never restored
@@ -1461,11 +1583,22 @@
               (reset! !machine-sel {:uid (:target p)
                                     :anchor (:sel-lc p) :head (:sel-lc p)})
               (swap! !pointer assoc :phase :mselecting))
+          ;; Task 18: shift+drag on EMPTY ground sweeps a group-selection
+          (and (= :ground (:target p)) (:shift? p))
+          (let [[wx wy] (screen->world sx sy)]
+            (js/console.log "[GROUND-SEL] threshold → :marquee")
+            (clear-machine-sel!)
+            (clear-group-sel!)
+            (swap! !pointer assoc :phase :marquee)
+            (refresh-marquee! (marquee-rect p wx wy)))
           :else
           (let [ph (if (= :ground (:target p)) :panning :dragging)]
             (js/console.log "[GROUND-SEL] threshold →" (str ph)
                             (str "target=" (pr-str (:target p))))
             (swap! !pointer assoc :phase ph))))
+      :marquee
+      (let [[wx wy] (screen->world sx sy)]
+        (refresh-marquee! (marquee-rect p wx wy)))
       :mselecting
       (let [uid (:target p)
             b   (get-in @!world [:blocks uid])
@@ -1506,8 +1639,9 @@
     (case (:phase p)
       :pending
       (do
-        ;; a clean click anywhere dissolves the machine selection
+        ;; a clean click anywhere dissolves the machine + group selections
         (clear-machine-sel!)
+        (clear-group-sel!)
         (if (= :ground (:target p))
         ;; click on empty ground: caret anchor at the chosen point (Law 1);
         ;; click-elsewhere leaves a focused block first
@@ -1549,6 +1683,13 @@
               (refresh-anchor!)
               (when (and old (not= old uid)) (rebuild-block! old))
               (rebuild-block! uid))))))
+      :marquee
+      (let [[wx wy] (screen->world sx sy)
+            hit (marquee-hits (marquee-rect p wx wy))]
+        (scene-rt/close-instance! :ground-marquee)
+        (js/console.log "[GROUND-SEL] marquee up" (str "hit=" (count hit)))
+        (reset! !group-sel hit)
+        (doseq [uid hit] (rebuild-block! uid)))
       :dragging
       ;; gesture end ARMS the settle for EVERY dragged member (positions
       ;; settle as truth at release — the debounce coalesces the group
@@ -1602,6 +1743,7 @@
          " next-seq=" (:next-seq st)
          " selection=" (pr-str (ge/selection-range st))
          " machine-sel=" (pr-str @!machine-sel)
+         " group-sel=" (pr-str @!group-sel)
          " pointer=" (name (:phase @!pointer :idle)) "\n"
          "echo ms (envelope→confirmed render, bar 52): n=" (count echo)
          " p50=" (fmt1 (pct echo 0.5)) " p95=" (fmt1 (pct echo 0.95))

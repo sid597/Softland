@@ -577,6 +577,14 @@
                             geo-rows)
             turn-recs (vec (keep #(cell-of % :turn)
                                  (:river-page/turn-rows (meta page))))
+            ;; Task 18: tombstoned units (geometry cell :deleted?) leave the
+            ;; serve — the client's reconcile closes vanished slots through
+            ;; the normal truth loop; the geometry endpoint bumps the epoch
+            ;; so the re-pull lands promptly
+            blocks    (if (some :deleted? (vals geometry))
+                        (vec (remove #(:deleted? (get geometry (:unit-id %)))
+                                     blocks))
+                        blocks)
             dc        (shape-conversation {:blocks         blocks
                                            :read-plan      read-plan
                                            :address        address

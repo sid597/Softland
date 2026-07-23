@@ -264,12 +264,16 @@
         request-id (str "req:episode-geo:" object-key ":"
                         (core/sha-256 (str settle-id)))
         wid        (world-id object-key)
-        cell-hints (mapv (fn [{:keys [unit-id x y]}]
+        cell-hints (mapv (fn [{:keys [unit-id x y deleted?]}]
                            (geometry-cell-hint
                             object-key (geometry-order-key unit-id)
                             :episode-geometry
-                            {:world-id wid :unit-id unit-id
-                             :x (double x) :y (double y)}
+                            (cond-> {:world-id wid :unit-id unit-id
+                                     :x (double x) :y (double y)}
+                              ;; Task 18: a tombstone cell — the serve drops
+                              ;; the unit from the page (upsert-in-place: the
+                              ;; LAST settle wins, so un-delete = re-settle)
+                              deleted? (assoc :deleted? true))
                             settle-id imp-key request-id))
                          cells)
         cam-hint   (when camera
