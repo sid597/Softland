@@ -12,6 +12,12 @@ LOG_DIR="$RAMA_ROOT/daemon-logs"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RAMA="$RELEASE_DIR/rama"
 
+# Shutdown patience: the 07-17 drains finished in ~60s on a day-old cluster;
+# the 07-24 drain (a week of state, five busy workers) blew the old 120s
+# bound — the fail-open kill that followed is the P1 stop-clause finding.
+# Generous default; override per-invocation when needed.
+SHUTDOWN_WAIT_SECS="${LAND_SHUTDOWN_WAIT_SECS:-900}"
+
 # CONTRACT §4 — the deployed module set. Clojure deploys take the
 # namespace-qualified VAR (--module); status/destroy take the module NAME.
 # Both spellings live HERE and nowhere else (T7).
@@ -45,6 +51,25 @@ pattern_for() {
     supervisor)   echo "rpl.rama.distributed.daemon.supervisor" ;;
     all)          echo "rpl.rama.distributed" ;;
   esac
+}
+
+# Wait for the conductor to log CLUSTER-SHUTDOWN-COMPLETE past line $1.
+# Returns 0 iff the TERMINAL state was actually observed (P1 finding: the
+# old bounded wait fell through silently and the copy proceeded anyway —
+# fail-open). Daemons self-exit on a COMPLETED shutdown (P6), so a
+# daemons-gone break still re-checks the log before judging.
+await_shutdown_complete() { # lines_before
+  local lines_before="$1"
+  local tries=$((SHUTDOWN_WAIT_SECS / 2))
+  for i in $(seq 1 "$tries"); do
+    if tail -n +"$((lines_before + 1))" "$RAMA_ROOT/logs/conductor.log" 2>/dev/null \
+         | grep -q 'CLUSTER-SHUTDOWN-COMPLETE'; then return 0; fi
+    if ! pgrep -f "$(pattern_for all)" >/dev/null 2>&1; then break; fi
+    sleep 2
+  done
+  sleep 2  # log-flush beat before the final judgement
+  tail -n +"$((lines_before + 1))" "$RAMA_ROOT/logs/conductor.log" 2>/dev/null \
+    | grep -q 'CLUSTER-SHUTDOWN-COMPLETE'
 }
 
 start_daemon() { # name, command...
@@ -83,18 +108,18 @@ case "${1:-help}" in
     lines_before=$(wc -l < "$RAMA_ROOT/logs/conductor.log" 2>/dev/null || echo 0)
     # P6 finding: shutdownCluster's own completion-poll dies with a thrift
     # connect error once the daemons exit — guard it, completion is judged
-    # from the log/procs below, not from the CLI's exit code.
+    # from the log (await_shutdown_complete), not from the CLI's exit code.
     (cd "$RELEASE_DIR" && ./rama shutdownCluster) || true
-    for i in $(seq 1 60); do
-      # if-form: a no-match grep must not trip set -e (P6 finding)
-      if tail -n +"$((lines_before + 1))" "$RAMA_ROOT/logs/conductor.log" 2>/dev/null \
-           | grep -q 'CLUSTER-SHUTDOWN-COMPLETE'; then break; fi
-      # a COMPLETED shutdown makes every daemon exit itself (P6 observation)
-      if ! pgrep -f "$(pattern_for all)" >/dev/null 2>&1; then break; fi
-      sleep 2
-    done
-    pkill -f "$(pattern_for all)" || true
-    echo "daemons stopped"
+    if await_shutdown_complete "$lines_before"; then
+      pkill -f "$(pattern_for all)" || true
+      echo "daemons stopped (clean: CLUSTER-SHUTDOWN-COMPLETE observed)"
+    else
+      pkill -f "$(pattern_for all)" || true
+      echo "daemons stopped DIRTY: shutdown never reached"
+      echo "CLUSTER-SHUTDOWN-COMPLETE in ${SHUTDOWN_WAIT_SECS}s — T11: the"
+      echo "intent persists in ZK; the NEXT BOOT RESUMES the shutdown. Boot,"
+      echo "let it complete (however long), then boot again fresh."
+    fi
     ;;
   status)
     need_release
@@ -149,17 +174,23 @@ case "${1:-help}" in
     # Guards + if-form + daemons-gone clause: P6 findings (see `down`).
     lines_before=$(wc -l < "$RAMA_ROOT/logs/conductor.log" 2>/dev/null || echo 0)
     (cd "$RELEASE_DIR" && ./rama shutdownCluster) || true
-    echo "waiting for CLUSTER-SHUTDOWN-COMPLETE..."
-    for i in $(seq 1 60); do
-      if tail -n +"$((lines_before + 1))" "$RAMA_ROOT/logs/conductor.log" 2>/dev/null \
-           | grep -q 'CLUSTER-SHUTDOWN-COMPLETE'; then break; fi
-      if ! pgrep -f "$(pattern_for all)" >/dev/null 2>&1; then break; fi
-      sleep 2
-    done
+    echo "waiting for CLUSTER-SHUTDOWN-COMPLETE (up to ${SHUTDOWN_WAIT_SECS}s)..."
+    # FAIL CLOSED (P1 stop-clause fix): no terminal state ⇒ NO copy, NO
+    # ledger line, NO kill — the drain is left running for the operator
+    # (watch logs/conductor.log), and the exit is loud and nonzero. A copy
+    # taken after a mid-drain kill is crash-consistent at best and must
+    # never be recorded as the documented cold-backup procedure.
+    if ! await_shutdown_complete "$lines_before"; then
+      echo "backup ABORTED: CLUSTER-SHUTDOWN-COMPLETE not observed in ${SHUTDOWN_WAIT_SECS}s."
+      echo "Nothing was copied; nothing was killed; the drain (if any) is"
+      echo "still running — watch $RAMA_ROOT/logs/conductor.log. Investigate"
+      echo "before retrying; raise LAND_SHUTDOWN_WAIT_SECS if it is just slow."
+      exit 1
+    fi
     pkill -f "$(pattern_for all)" || true; sleep 2
     mkdir -p "$dest"
     cp -a "$DATA_DIR" "$dest/data"
-    echo "$stamp $(du -sh "$dest" | cut -f1)" >> "$BACKUP_DIR/ledger.txt"
+    echo "$stamp $(du -sh "$dest" | cut -f1) clean-shutdown-observed" >> "$BACKUP_DIR/ledger.txt"
     "$0" up
     echo "backup done: $dest — rsync to the vault is the second leg (Mac awake)."
     ;;
