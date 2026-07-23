@@ -816,3 +816,13 @@ why does the blank screen has a cursor in it? this is the walkthrough and log an
 *(Routed same-session: the layer + portal + paradigm rulings + facet/binding architecture → `build/editable-material/DIRECTION.md`, adopted at Sid's word, probe = wear test · probe HANDOFF staged at board top, first-light P3 staged second · first-light genesis flipped lit on the board — A's metabolism gate stays open (terminal-escape ≈ all repairs so far) · Vision line updated · decisions.md untouched by design: its bullet waits on probe wear.)*
 
 ---
+
+## 2026-07-24 — the final adjudication and the build order (verdict round + Sid's word, verbatim)
+
+[after two independent reviews (a second fable-max session; Codex) converged and were gated in-session — VERDICT: SETTLE WITH AMENDMENTS — the tempo and scope ruling, his word:]
+
+> I want to build this out fully and only then i will go back to using softland because i am blocked no not phase a b i want to do all whatever they are no matter how many they are
+
+*(Routed same-session: DIRECTION.md rewritten SETTLED — the criterion, three loops, four gates, receipt/silver/gold ladder, second-wearer falsifier, master ≠ recipe ≠ attachment identity table, aliveness laws, plurality, tempo ruling · CAMPAIGN.md created — P1→P8 ladder, banked-demand gates, pre-registered stops, Sid's touchpoints · board HANDOFF = campaign P1; first-light P3/P4/P5 mapped to ride campaign P4/P6 under their own contract · standing campaign word recorded on the board, veto-able · aliveness honesty kept: gates close on banked pressure, the first full breath is Sid's return.)*
+
+---

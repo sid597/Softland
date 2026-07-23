@@ -10,56 +10,38 @@ minutes, the board is broken — fix it.
 ## HANDOFF — next implementation session (paste this)
 
 ```
-editable-material probe — extract the provenance facet. BUILD session.
-Read in order, then build:
-1. docs/current-mental-model/build/editable-material/DIRECTION.md — whole
-   thing (the layer, the guards, the probe pass/fail — it is the contract)
-2. src/app/client/workspace/ground.cljs — block-tree + rebuild-block! (the
-   three provenance sites: machine rail, fold-header tint, boundary line;
-   one machine-tint constant) + the 52ms echo-bar machinery (the gate)
-3. face_assembly.cljc + face_wiring.cljs — the serve/epoch/revision loop
-   the facet-master rides (precedent; reuse, don't reinvent)
-Deliver: provenance facet-master as served revisioned material; the block
-renders its three sites through it, contributions stamped with the master;
-wear = ONE master revision moves all three live; echo bar unchanged. ONE
-facet only — no taxonomy, no dispatch rewrite, no second extraction.
-Falsification pass before close; open build/editable-material/NOW.md;
-docs on the docs branch; code commit = Sid's word.
+editable-material CAMPAIGN — Package 1: anatomy (Gate 1). BUILD session.
+Sid's order 07-24: the FULL layer gets built before he returns. Read
+build/editable-material/CAMPAIGN.md first (ladder, stops, touchpoints),
+then:
+1. build/editable-material/DIRECTION.md — SETTLED 07-24: spine, laws,
+   §Probe-FINAL (it is P1's contract)
+2. src/app/client/workspace/ground.cljs — block-tree + rebuild-block!
+   (three provenance sites, one machine-tint constant) + the 52ms
+   echo-bar machinery (the standing gate)
+3. assembly_adapter.clj + face_projection.clj + face_wiring.cljs — the
+   serve/revision/epoch precedent (generalize, never fork)
+Deliver Gate 1 whole per DIRECTION §Probe-FINAL: provenance master as
+revisioned OC material with an EXPLICIT active-pointer (active≠latest,
+rollback = repoint); three sites render through it, stamped
+master+revision; machine-tint constant DELETED; restart restores
+active; post-activation births wear it; malformed → error card + worn
+surface unharmed (floor drill on ?drill=, keep the trace for Gate 4);
+byte-identical at current values; one revision moves all three live;
+echo bar unchanged. /rama before Rama touches; work-package mechanics;
+open build/editable-material/NOW.md; docs on the docs branch; code
+commits ride Sid's standing 07-24 word (veto anytime).
 ```
 
-**Staged second (contract unchanged — paste when the probe closes):**
-
-```
-first-light P3 — the wish. BUILD session. (P2b CLOSED G4b-PASS 07-18;
-genesis lit 07-23 — see the first-light package block.)
-
-Read in order, then build — no re-derivation of settled ground:
-1. docs/current-mental-model/build/first-light/CONTRACT.md — §4, §7 P3
-   + G5, §9 redlines 1/2 (still on defaults: `:references` · contract
-   naming — veto anytime)
-2. build/first-light/{NOW,P2B}.md tails — the open-ground organs P3
-   builds ON: per-block slots + picks return real {vi, address}
-   (spatially-placed blocks, T7 stamps unchanged), turn records +
-   geometry cells as settled-cell precedents
-3. RECON.md §relation-kernel + relation_kernel.clj:58-83 (the twenty
-   kinds; `:references` available)
-
-Deliver P3 per the contract: point → say → wish unit (durable OC
-material in the episode, asserted-by sid) + `:references` edge to the
-picked target + a visible projection ON the target. Wish-ness lives in
-material + projection, never a transport field (T2); no new relation
-kind (stop clause §8). Adjudicate P0 flag A (wish-edge target kind) at
-design time. Gate G5: wish unit + edge readable via kernel-level
-foreign reads; the wish renders coupled to its target; address +
-src-path from a REAL pick.
-/rama before any Rama touch; falsification pass before close; append
-NOW.md; docs only on the docs branch; code commit = Sid's word.
-```
-
+**Campaign after P1:** P2 inspector → P3 facet spread ∥ P4 circulation →
+P5 bindings → P6 truth loop (Gates 3+4) → P7 portal → P8 verb-from-inside
+— ladder, stops, and Sid's touchpoints in `CAMPAIGN.md`. first-light
+P3/P4/P5 ride campaign P4/P6 under the first-light CONTRACT (no fork;
+flag discrepancies inline).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-07-23** (the editable-material sitting: components-in-softland → the layer — type-objects with arrangement + binding strata · records as edge-queries, never containers · portals deterministic + the strange loop ("the portal is an instance of the softland space") · describe-never-gate, masters ≠ kinds · facets + bindings, mechanism-in-code/policy-in-material · schema-first as seed, kernel-shrink as the self-hosting metric · "Then lets go???" → probe adopted. Routed: `build/editable-material/DIRECTION.md` + probe HANDOFF at board top + first-light genesis flipped lit with A's gate kept open + LOG). Prior: **2026-07-21** (the third-surface refusal + the quote-mechanic: direction work outside Softland is guilt but a fresh drill room is worse — a third surface; the bullet bitten for the bootstrap sitting whose yield ends its own necessity; the quote-mechanic — a single thread becomes multi-threaded by gathering quoted blocks, the human IS the briefing organ v0, the divergence/convergence fractal, "store raw AND cut into blocks" retro-justified as the gather's alphabet; verdicts: lane = attention not identity · briefing over merging · a-land-where-attentions-run = yes, now · block-rooted thread stays pure mechanism for a while. Routed: settled-ground bullet **"One canvas, many conversations"** + the concurrent-chat build pulled into NOW in-session at Sid's word). Prior: **2026-07-18** (the moment-0 correction: arrival is symmetric NOTHING — no pre-placed caret, the click breaks it; blocks land where you point in a pannable/zoomable space; replies as border-tinted blocks; the ambient-reader ladder named. Routed: WALKTHROUGH + CONTRACT carry it (P2b + G4b) · HANDOFF staged at board top). Prior: **2026-07-17** (the genesis sitting lands: **first-light RATIFIED** + **durability reaffirmed verbatim** + the lineage harvest + the walkthrough drills; strands in the LOG 07-17 entry, routing recorded there) · **2026-07-14, two entries** (latest: **naming + care + instance→type** — Softland is the counter-position to Dynamicland, "build the dream of dynamicland in softland"; **care as the human feature** — caretaker guides doer, humans drive, never autopilot; UI evolution mechanic = repair an instance → promotes to the type, "starting from a point of: I can chat with softland". Earlier same day: **the abiogenesis question** → decisions.md Open questions. Direction exploration ran same session — landing routes at close). Earlier: **the drawn views are references, not targets** (07-13 — REFERENCE examples for "we need a way to design in softland itself"; no view content is settled anywhere; C1/C2 reworded) · notebook pages 07-12 (verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; FOREST carries the five-unlock ordering) + the base-layer commission (→ decisions.md base ruling + `build/scene-substrate/`). Open pulls (prune as absorbed):
+**Vision:** LOG routed through **2026-07-24** (the final adjudication + the build order: two independent reviews (second Fable session · Codex) fused and gated here — VERDICT: SETTLE WITH AMENDMENTS; the criterion + three loops + four gates + receipt/silver/gold ladder + second-wearer falsifier + plurality settled into DIRECTION.md; Sid: "i want to build this out fully and only then i will go back to using softland … i want to do all whatever they are no matter how many they are" → full campaign staged, usage resumes at return. Routed: DIRECTION.md SETTLED + CAMPAIGN.md + HANDOFF + first-light absorption mapping + LOG). Prior: **2026-07-23** (the editable-material sitting: components-in-softland → the layer — type-objects with arrangement + binding strata · records as edge-queries, never containers · portals deterministic + the strange loop ("the portal is an instance of the softland space") · describe-never-gate, masters ≠ kinds · facets + bindings, mechanism-in-code/policy-in-material · schema-first as seed, kernel-shrink as the self-hosting metric · "Then lets go???" → probe adopted. Routed: `build/editable-material/DIRECTION.md` + probe HANDOFF at board top + first-light genesis flipped lit with A's gate kept open + LOG). Prior: **2026-07-21** (the third-surface refusal + the quote-mechanic: direction work outside Softland is guilt but a fresh drill room is worse — a third surface; the bullet bitten for the bootstrap sitting whose yield ends its own necessity; the quote-mechanic — a single thread becomes multi-threaded by gathering quoted blocks, the human IS the briefing organ v0, the divergence/convergence fractal, "store raw AND cut into blocks" retro-justified as the gather's alphabet; verdicts: lane = attention not identity · briefing over merging · a-land-where-attentions-run = yes, now · block-rooted thread stays pure mechanism for a while. Routed: settled-ground bullet **"One canvas, many conversations"** + the concurrent-chat build pulled into NOW in-session at Sid's word). Prior: **2026-07-18** (the moment-0 correction: arrival is symmetric NOTHING — no pre-placed caret, the click breaks it; blocks land where you point in a pannable/zoomable space; replies as border-tinted blocks; the ambient-reader ladder named. Routed: WALKTHROUGH + CONTRACT carry it (P2b + G4b) · HANDOFF staged at board top). Prior: **2026-07-17** (the genesis sitting lands: **first-light RATIFIED** + **durability reaffirmed verbatim** + the lineage harvest + the walkthrough drills; strands in the LOG 07-17 entry, routing recorded there) · **2026-07-14, two entries** (latest: **naming + care + instance→type** — Softland is the counter-position to Dynamicland, "build the dream of dynamicland in softland"; **care as the human feature** — caretaker guides doer, humans drive, never autopilot; UI evolution mechanic = repair an instance → promotes to the type, "starting from a point of: I can chat with softland". Earlier same day: **the abiogenesis question** → decisions.md Open questions. Direction exploration ran same session — landing routes at close). Earlier: **the drawn views are references, not targets** (07-13 — REFERENCE examples for "we need a way to design in softland itself"; no view content is settled anywhere; C1/C2 reworded) · notebook pages 07-12 (verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; FOREST carries the five-unlock ordering) + the base-layer commission (→ decisions.md base ruling + `build/scene-substrate/`). Open pulls (prune as absorbed):
 - LOG 07-14 **care as the human feature / caretaker-guides-doer** + **Softland = build Dynamicland's dream in software** (the naming rationale) → North candidates, next vision sitting (Sid's hand only); the 07-15/17 sitting adds the joining frame **care-amplification** — intelligence became cheap, care is the scarce input the medium should compound (Fable frame, Sid-engaged; LOG 07-17)
 - LOG 07-10/11/12+13 **the design unlock = the LOOP, not the drawn views** — "a tool to build the tool: design, deploy and use it all at once all from softland" (Sid ranks it #1) + figma-style direct edit as a capability ask. BETS Candidates C1/C2 carry these; **all claude.ai renders + existing example faces = reference scrap with zero authority (Sid, 07-13)** — what views should represent is an open question only Sid answers, ideally from inside the land once the loop exists. Substrate prerequisite already landed (`c788188`: every rendered rt-node carries its template's `:assembly/src-path`). **editable-material DIRECTION (07-23) is this pull's first landed form — probe staged.**
 - LOG 07-11 **"optimized on every dimension while maintaining explorable explanations + lineage, live and composable"** → North-grade sentence, Sid's hand only — next vision sitting
@@ -138,6 +120,11 @@ Softland or still on paper? (`BETS.md` verdict log.)
    past us its already well lit" — genesis-day note in-land, Tasks 1–11
    metabolized, zones inhabited). G5c Sid-half complete with it. (P2b
    code committed 07-18 — `325439a`.)
+0c. **Campaign standing word — given 07-24** ("do all whatever they
+   are"): code commits ride it, veto any line anytime. Your ONLY
+   remaining touchpoints: `build/editable-material/CAMPAIGN.md`
+   §Sid's-touchpoints (≈ten one-liners + the Gate-3 activation word +
+   the return wear).
 0b. **durable-ground leftovers:** (a)
    `rm -rf /mnt/data/rama/data-restore-scratch` (1.6G drill leftover; rm
    was permission-blocked for the session). (b) vault leg: rsync
@@ -243,18 +230,20 @@ round → benchmark room (question bank waits on kinds).
 
 ## Active package blocks
 
-**editable-material — DIRECTION adopted 2026-07-23 at Sid's word ("Then
-lets go???"), probe staged at board top** (the 07-23 sitting: Softland's
-components become Softland's material). Frame:
-`build/editable-material/DIRECTION.md` — type-objects (arrangement +
-binding strata; records are edge-queries; portals deterministic;
-describe-never-gate; masters ≠ kinds), facet architecture (mechanism in
-code, policy in material; one dispatch law; guards: worn-code-only facets,
-provenance stamps, priority + lint-as-material, 52ms echo-bar gate,
-code-floor bindings, strangler-only migration, camera last). First act =
-the provenance-facet probe — doubles as first facet-master AND first
-type-object. decisions.md bullet waits on probe wear. Falsifiers named in
-DIRECTION §probe.
+**editable-material — SETTLED 2026-07-24, CAMPAIGN OPEN at Sid's word**
+("build this out fully … all whatever they are no matter how many").
+Direction: `build/editable-material/DIRECTION.md` (settled spine: the
+criterion · three loops · four gates · receipt/silver/gold ladder ·
+second-wearer falsifier · conductivity · plurality; identity table —
+master ≠ recipe ≠ attachment, the probe births a MASTER, the first
+recipe/type is named at recurrence). Execution:
+`build/editable-material/CAMPAIGN.md` — P1 anatomy (HANDOFF at top) →
+P2 inspector → P3 facet spread ∥ P4 circulation (Gate 2; fulfills
+first-light P3) → P5 bindings → P6 truth loop (Gates 3+4; fulfills
+first-light P4/P5) → P7 portal → P8 verb-from-inside; ~14–22 sessions,
+gates on banked frictions, Sid's touchpoints ≈ ten one-liners; the
+first full BREATH lands at his return, by design. decisions.md bullet
+when Gate 3 closes.
 
 **episode-chain — BUILT 2026-07-22 at Sid's word, awaiting his wear**
 (bounded CLI sessions under every lane — the multi-turn round's verdict:
@@ -307,10 +296,13 @@ metabolized through the resident). **A's metabolism gate stays OPEN** —
 repairs so far ride the code lane, terminal-escape ≈ all (no wish
 objects, no preview membrane, no reversal): exactly P3–P5's remaining
 work.
-Remaining: **P3 wish** (HANDOFF staged second at board top; flag A
-adjudicates there)
-→ P4 proposal+membrane → P5 accept/reject/reverse/explain → P6 metabolism
-(G9 WAITS for a real friction — no fabrication). §9 redlines 1/2 still on
+Remaining phases RIDE the editable-material CAMPAIGN under THIS
+contract's terms (no fork; flag discrepancies inline): P3 wish =
+campaign P4's Gate-2 gold path (flag A adjudicates there) · P4
+membrane = campaign P6 candidate-preview · P5 accept/reverse/explain =
+campaign P6 activation + derived case report · P6 metabolism = Gate 3
+on a BANKED friction (G9's no-fabrication honored — the frictions are
+already lived and recorded; Sid's felt half completes at return). §9 redlines 1/2 still on
 contract defaults (`:references` · contract naming); veto anytime. P2
 code committed 07-18 (`99e0a13` + `34cb9e2`); P2b code committed 07-18 at Sid's word (`325439a`) (suites 103t/1262a green; cljs 0 warnings). G5c
 machine-half banked: corpus 35/64/247 post-reboot — Sid's first-light
