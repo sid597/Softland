@@ -1529,8 +1529,9 @@ information."
       ;; first-light A P2b — the geometry settle write: camera + block
       ;; positions as SETTLE-STATE truth (one acked write per gesture burst,
       ;; never per-event; the ack IS the safety mechanism). Hint-only import,
-      ;; settled cells (P2B.md receipt a). No epoch bump — geometry changes
-      ;; no served block material.
+      ;; settled cells (P2B.md receipt a). No epoch bump for position/camera
+      ;; cells (they change no served block material) — but a TOMBSTONE cell
+      ;; (Task 18 delete) does, so those settles bump the epoch below.
       (= uri "/api/episode/geometry")
       (if (= request-method :post)
         (try
@@ -1546,6 +1547,11 @@ information."
                               :settle-id (str settle-id)
                               :time-ms (long (or time-ms (System/currentTimeMillis)))
                               :conversation-id conversation-id})]
+                ;; Task 18: a tombstone settle changes served block material —
+                ;; bump the epoch so faces re-pull without waiting for the
+                ;; next content act
+                (when (and (= :accepted (:status r)) (some :deleted? cells))
+                  (swap! util-fns/!ingest-epoch-atom inc))
                 (edn-response (if (= :accepted (:status r)) 200 409)
                               (dissoc r :decision)))))
           (catch Exception e
