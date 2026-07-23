@@ -10,8 +10,28 @@ minutes, the board is broken — fix it.
 ## HANDOFF — next implementation session (paste this)
 
 ```
+editable-material probe — extract the provenance facet. BUILD session.
+Read in order, then build:
+1. docs/current-mental-model/build/editable-material/DIRECTION.md — whole
+   thing (the layer, the guards, the probe pass/fail — it is the contract)
+2. src/app/client/workspace/ground.cljs — block-tree + rebuild-block! (the
+   three provenance sites: machine rail, fold-header tint, boundary line;
+   one machine-tint constant) + the 52ms echo-bar machinery (the gate)
+3. face_assembly.cljc + face_wiring.cljs — the serve/epoch/revision loop
+   the facet-master rides (precedent; reuse, don't reinvent)
+Deliver: provenance facet-master as served revisioned material; the block
+renders its three sites through it, contributions stamped with the master;
+wear = ONE master revision moves all three live; echo bar unchanged. ONE
+facet only — no taxonomy, no dispatch rewrite, no second extraction.
+Falsification pass before close; open build/editable-material/NOW.md;
+docs on the docs branch; code commit = Sid's word.
+```
+
+**Staged second (contract unchanged — paste when the probe closes):**
+
+```
 first-light P3 — the wish. BUILD session. (P2b CLOSED G4b-PASS 07-18;
-first light itself is Sid's act — do not fabricate it.)
+genesis lit 07-23 — see the first-light package block.)
 
 Read in order, then build — no re-derivation of settled ground:
 1. docs/current-mental-model/build/first-light/CONTRACT.md — §4, §7 P3
@@ -36,12 +56,12 @@ src-path from a REAL pick.
 NOW.md; docs only on the docs branch; code commit = Sid's word.
 ```
 
-**Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
+**Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-07-21** (the third-surface refusal + the quote-mechanic: direction work outside Softland is guilt but a fresh drill room is worse — a third surface; the bullet bitten for the bootstrap sitting whose yield ends its own necessity; the quote-mechanic — a single thread becomes multi-threaded by gathering quoted blocks, the human IS the briefing organ v0, the divergence/convergence fractal, "store raw AND cut into blocks" retro-justified as the gather's alphabet; verdicts: lane = attention not identity · briefing over merging · a-land-where-attentions-run = yes, now · block-rooted thread stays pure mechanism for a while. Routed: settled-ground bullet **"One canvas, many conversations"** + the concurrent-chat build pulled into NOW in-session at Sid's word). Prior: **2026-07-18** (the moment-0 correction: arrival is symmetric NOTHING — no pre-placed caret, the click breaks it; blocks land where you point in a pannable/zoomable space; replies as border-tinted blocks; the ambient-reader ladder named. Routed: WALKTHROUGH + CONTRACT carry it (P2b + G4b) · HANDOFF staged at board top). Prior: **2026-07-17** (the genesis sitting lands: **first-light RATIFIED** + **durability reaffirmed verbatim** + the lineage harvest + the walkthrough drills; strands in the LOG 07-17 entry, routing recorded there) · **2026-07-14, two entries** (latest: **naming + care + instance→type** — Softland is the counter-position to Dynamicland, "build the dream of dynamicland in softland"; **care as the human feature** — caretaker guides doer, humans drive, never autopilot; UI evolution mechanic = repair an instance → promotes to the type, "starting from a point of: I can chat with softland". Earlier same day: **the abiogenesis question** → decisions.md Open questions. Direction exploration ran same session — landing routes at close). Earlier: **the drawn views are references, not targets** (07-13 — REFERENCE examples for "we need a way to design in softland itself"; no view content is settled anywhere; C1/C2 reworded) · notebook pages 07-12 (verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; FOREST carries the five-unlock ordering) + the base-layer commission (→ decisions.md base ruling + `build/scene-substrate/`). Open pulls (prune as absorbed):
+**Vision:** LOG routed through **2026-07-23** (the editable-material sitting: components-in-softland → the layer — type-objects with arrangement + binding strata · records as edge-queries, never containers · portals deterministic + the strange loop ("the portal is an instance of the softland space") · describe-never-gate, masters ≠ kinds · facets + bindings, mechanism-in-code/policy-in-material · schema-first as seed, kernel-shrink as the self-hosting metric · "Then lets go???" → probe adopted. Routed: `build/editable-material/DIRECTION.md` + probe HANDOFF at board top + first-light genesis flipped lit with A's gate kept open + LOG). Prior: **2026-07-21** (the third-surface refusal + the quote-mechanic: direction work outside Softland is guilt but a fresh drill room is worse — a third surface; the bullet bitten for the bootstrap sitting whose yield ends its own necessity; the quote-mechanic — a single thread becomes multi-threaded by gathering quoted blocks, the human IS the briefing organ v0, the divergence/convergence fractal, "store raw AND cut into blocks" retro-justified as the gather's alphabet; verdicts: lane = attention not identity · briefing over merging · a-land-where-attentions-run = yes, now · block-rooted thread stays pure mechanism for a while. Routed: settled-ground bullet **"One canvas, many conversations"** + the concurrent-chat build pulled into NOW in-session at Sid's word). Prior: **2026-07-18** (the moment-0 correction: arrival is symmetric NOTHING — no pre-placed caret, the click breaks it; blocks land where you point in a pannable/zoomable space; replies as border-tinted blocks; the ambient-reader ladder named. Routed: WALKTHROUGH + CONTRACT carry it (P2b + G4b) · HANDOFF staged at board top). Prior: **2026-07-17** (the genesis sitting lands: **first-light RATIFIED** + **durability reaffirmed verbatim** + the lineage harvest + the walkthrough drills; strands in the LOG 07-17 entry, routing recorded there) · **2026-07-14, two entries** (latest: **naming + care + instance→type** — Softland is the counter-position to Dynamicland, "build the dream of dynamicland in softland"; **care as the human feature** — caretaker guides doer, humans drive, never autopilot; UI evolution mechanic = repair an instance → promotes to the type, "starting from a point of: I can chat with softland". Earlier same day: **the abiogenesis question** → decisions.md Open questions. Direction exploration ran same session — landing routes at close). Earlier: **the drawn views are references, not targets** (07-13 — REFERENCE examples for "we need a way to design in softland itself"; no view content is settled anywhere; C1/C2 reworded) · notebook pages 07-12 (verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; FOREST carries the five-unlock ordering) + the base-layer commission (→ decisions.md base ruling + `build/scene-substrate/`). Open pulls (prune as absorbed):
 - LOG 07-14 **care as the human feature / caretaker-guides-doer** + **Softland = build Dynamicland's dream in software** (the naming rationale) → North candidates, next vision sitting (Sid's hand only); the 07-15/17 sitting adds the joining frame **care-amplification** — intelligence became cheap, care is the scarce input the medium should compound (Fable frame, Sid-engaged; LOG 07-17)
-- LOG 07-10/11/12+13 **the design unlock = the LOOP, not the drawn views** — "a tool to build the tool: design, deploy and use it all at once all from softland" (Sid ranks it #1) + figma-style direct edit as a capability ask. BETS Candidates C1/C2 carry these; **all claude.ai renders + existing example faces = reference scrap with zero authority (Sid, 07-13)** — what views should represent is an open question only Sid answers, ideally from inside the land once the loop exists. Substrate prerequisite already landed (`c788188`: every rendered rt-node carries its template's `:assembly/src-path`).
+- LOG 07-10/11/12+13 **the design unlock = the LOOP, not the drawn views** — "a tool to build the tool: design, deploy and use it all at once all from softland" (Sid ranks it #1) + figma-style direct edit as a capability ask. BETS Candidates C1/C2 carry these; **all claude.ai renders + existing example faces = reference scrap with zero authority (Sid, 07-13)** — what views should represent is an open question only Sid answers, ideally from inside the land once the loop exists. Substrate prerequisite already landed (`c788188`: every rendered rt-node carries its template's `:assembly/src-path`). **editable-material DIRECTION (07-23) is this pull's first landed form — probe staged.**
 - LOG 07-11 **"optimized on every dimension while maintaining explorable explanations + lineage, live and composable"** → North-grade sentence, Sid's hand only — next vision sitting
 - LOG 07-11 **branch-from-base** (two worlds built out of one base, code-diff-like) → input to the spatial contracts (SPACE lane)
 
@@ -76,7 +96,9 @@ right now and in future" (Sid's own ranking; state current per item):
    (LAND_CLUSTER=0 opts back to IPC); acked writes survive kill-9 (worn);
    echo p95 7.86ms on-cluster (S3 ~6x headroom); backup+scratch-restore
    proven; records `build/durable-ground/{GATE,RETRO,NOW}.md`.
-   C1/C2 = capability labels only.
+   editable-material DIRECTION adopted 07-23
+   (`build/editable-material/DIRECTION.md`: type-objects, facets +
+   bindings; probe staged at board top). C1/C2 = capability labels only.
 2. **Editor + write + per-object control** — Sid: "once we have this every
    other thing I can just directly build into it." Whole-loop question
    ANSWERED (07-12): direct Rama round-trip, echo p95 7.66ms, NO optimistic
@@ -106,22 +128,16 @@ Softland or still on paper? (`BETS.md` verdict log.)
 
 ## SID'S MOVES — everything that waits on you alone, cheapest first
 
-0a. **WEAR concurrent chat + the episode chain** — restart the dev server
-   (it runs pre-`a7c40e6` code), then: three fresh blocks, Ctrl+Enter each
-   → three lanes at once, replies under their own blocks; Ctrl+Enter a
-   block again → its thread resumes. Old blocks keep the genesis lane;
-   `?drill=` unchanged. Episodes: the first turn in a lane idle >1h logs
-   `[EPISODE][TURN-START] ... :fresh? true :seed-chars n`, a
-   "— fresh session —" line marks the boundary — and history must NOT
-   duplicate on the canvas (the seed's no-re-render defense is reasoned
-   from flag-D, not yet observed live; a duplicate = flag it).
-0. **FIRST LIGHT — open `localhost:8080`, click anywhere, speak** (the
-   genesis episode is virgin; your first utterance is §11's irreplaceable
-   act; the walkthrough is live: arrival = NOTHING, wheel zooms, drag
-   pans/moves, Ctrl+Enter speaks to the resident). This also completes
-   your G5c half (the machine half — corpus 35/64/247 post-reboot — is
-   banked; `?dev=1` still reaches the dev workspace if you want the old
-   view). (P2b code committed 07-18 at your word — `325439a`.)
+0a. **concurrent chat + episodes — WORN in practice** (07-23 screenshots:
+   per-thread lanes, fold toggles, Tasks 1–11 live in the land). Formal
+   checks still open: the "— fresh session —" boundary line renders at an
+   episode swap, and history must NOT duplicate on the canvas (the seed's
+   no-re-render defense is reasoned from flag-D, not yet observed live; a
+   duplicate = flag it).
+0. **FIRST LIGHT — DONE; the land is lit** (Sid 07-23: "first light is
+   past us its already well lit" — genesis-day note in-land, Tasks 1–11
+   metabolized, zones inhabited). G5c Sid-half complete with it. (P2b
+   code committed 07-18 — `325439a`.)
 0b. **durable-ground leftovers:** (a)
    `rm -rf /mnt/data/rama/data-restore-scratch` (1.6G drill leftover; rm
    was permission-blocked for the session). (b) vault leg: rsync
@@ -227,6 +243,19 @@ round → benchmark room (question bank waits on kinds).
 
 ## Active package blocks
 
+**editable-material — DIRECTION adopted 2026-07-23 at Sid's word ("Then
+lets go???"), probe staged at board top** (the 07-23 sitting: Softland's
+components become Softland's material). Frame:
+`build/editable-material/DIRECTION.md` — type-objects (arrangement +
+binding strata; records are edge-queries; portals deterministic;
+describe-never-gate; masters ≠ kinds), facet architecture (mechanism in
+code, policy in material; one dispatch law; guards: worn-code-only facets,
+provenance stamps, priority + lint-as-material, 52ms echo-bar gate,
+code-floor bindings, strangler-only migration, camera last). First act =
+the provenance-facet probe — doubles as first facet-master AND first
+type-object. decisions.md bullet waits on probe wear. Falsifiers named in
+DIRECTION §probe.
+
 **episode-chain — BUILT 2026-07-22 at Sid's word, awaiting his wear**
 (bounded CLI sessions under every lane — the multi-turn round's verdict:
 lanes are permanent, sessions are not). Frame in settled ground ("Episodes
@@ -271,9 +300,15 @@ the conversation projection — the §9.3 position-home call, veto anytime),
 restored exactly across reloads and client kills; return restores zero
 attention state. Reload-mid-burst = exactly the acknowledged prefix
 (destructive receipt). The reply model Sid confirmed same-day is the
-shape built. Machinery drills ran on `?drill=` episodes — **THE GENESIS
-EPISODE IS STILL VIRGIN; first light is now Sid's click** (§11).
-Remaining: **P3 wish** (HANDOFF at board top; flag A adjudicates there)
+shape built. Machinery drills ran on `?drill=` episodes — **genesis HAPPENED; the
+land is lit and inhabited** (flipped 07-23 at Sid's word: "first light
+is past us its already well lit"; genesis-day note in-land, Tasks 1–11
+metabolized through the resident). **A's metabolism gate stays OPEN** —
+repairs so far ride the code lane, terminal-escape ≈ all (no wish
+objects, no preview membrane, no reversal): exactly P3–P5's remaining
+work.
+Remaining: **P3 wish** (HANDOFF staged second at board top; flag A
+adjudicates there)
 → P4 proposal+membrane → P5 accept/reject/reverse/explain → P6 metabolism
 (G9 WAITS for a real friction — no fabrication). §9 redlines 1/2 still on
 contract defaults (`:references` · contract naming); veto anytime. P2
