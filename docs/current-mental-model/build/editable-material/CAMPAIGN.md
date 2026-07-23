@@ -3,6 +3,8 @@
 Sid's order (2026-07-24): build the WHOLE layer — all packages, however many
 — then he resumes living in the land. He is blocked on usage until it stands.
 DIRECTION.md (settled 07-24) is the law; this file is the execution ladder.
+Codex prompts for P2–P8 (send ONE per gate PASS): `PROMPTS.md` beside this
+file — P1's proven skeleton, each package's fences + pre-registered stops.
 Work-package mechanics per `.claude/skills/work-package/SKILL.md` for every
 package: contract → phases (cheaper models where sensible) → batched
 falsification → gate → NOW.md entry + board flip. Parallel sessions are
