@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # bin/land — durable-ground cluster operations (CONTRACT §2, §7).
 # The ONE place module vars/names and daemon mechanics live (trap T7).
-# Usage: bin/land up|down|status|license|deploy|ingest|migrate|backup|restore-drill|help
+# Usage: bin/land up|down|status|license|deploy|ingest|migrate|backup|unwedge|restore-drill|help
 set -euo pipefail
 
 RAMA_ROOT="${LAND_RAMA_ROOT:-/mnt/data/rama}"
@@ -116,9 +116,9 @@ case "${1:-help}" in
     else
       pkill -f "$(pattern_for all)" || true
       echo "daemons stopped DIRTY: shutdown never reached"
-      echo "CLUSTER-SHUTDOWN-COMPLETE in ${SHUTDOWN_WAIT_SECS}s — T11: the"
-      echo "intent persists in ZK; the NEXT BOOT RESUMES the shutdown. Boot,"
-      echo "let it complete (however long), then boot again fresh."
+      echo "CLUSTER-SHUTDOWN-COMPLETE in ${SHUTDOWN_WAIT_SECS}s — the drain"
+      echo "state persists in ZK and the next boot will WEDGE (LEADER-FALLING,"
+      echo "conductor never ready). Run: bin/land unwedge   then: bin/land up"
     fi
     ;;
   status)
@@ -194,6 +194,36 @@ case "${1:-help}" in
     "$0" up
     echo "backup done: $dest — rsync to the vault is the second leg (Mac awake)."
     ;;
+  unwedge)
+    # 07-24 finding (NOW.md editable-material): drains hang structurally at
+    # stop-replication on this cluster ("waiting for depot appends to
+    # flush" never completes — platform issue, OPEN). Any dirty kill
+    # mid-drain persists [:cluster-draining] in ZK; every later boot then
+    # wedges: workers LEADER-FALLING (:shutdown? false), conductor never
+    # READY, shutdownCluster/forceClusterOpen silent no-ops. This writes
+    # the terminal state the drain was seeking (nippy round-trip verified
+    # byte-identical 07-24); the next boot is the normal post-backup boot.
+    # Touches ONE znode; application data untouched. Daemons must be DOWN.
+    need_release
+    if pgrep -f "$(pattern_for all)" >/dev/null 2>&1; then
+      echo "daemons still running — bin/land down first"; exit 1
+    fi
+    (cd "$RELEASE_DIR" && setsid nohup ./rama devZookeeper >>"$LOG_DIR/devzookeeper.log" 2>&1 &)
+    sleep 8
+    (cd "$RELEASE_DIR" && ./rama repl <<'CLJ'
+(import '[org.apache.zookeeper ZooKeeper Watcher])
+(require '[taoensso.nippy :as nippy])
+(def zk (ZooKeeper. "localhost:2000" 15000 (reify Watcher (process [_ e]))))
+(Thread/sleep 2000)
+(println "BEFORE:" (pr-str (nippy/thaw (.getData zk "/rama/version/1.6/conductor/state" false nil))))
+(.setData zk "/rama/version/1.6/conductor/state" (nippy/freeze [:cluster-shutdown-complete]) -1)
+(println "AFTER:" (pr-str (nippy/thaw (.getData zk "/rama/version/1.6/conductor/state" false nil))))
+(System/exit 0)
+CLJ
+    ) | grep -E 'BEFORE|AFTER' || true
+    pkill -f "$(pattern_for all)" || true
+    echo "state znode → [:cluster-shutdown-complete]; bin/land up now boots clean"
+    ;;
   restore-drill)
     # G6: prove the recipe against a SCRATCH dir — never the live data dir.
     latest="$(ls -1 "$BACKUP_DIR" | grep -v ledger | sort | tail -1 || true)"
@@ -203,6 +233,6 @@ case "${1:-help}" in
     ;;
   help|*)
     sed -n '2,4p' "$0"
-    echo "commands: up · down · status · license · deploy · ingest · migrate · backup · restore-drill"
+    echo "commands: up · down · status · license · deploy · ingest · migrate · backup · unwedge · restore-drill"
     ;;
 esac
