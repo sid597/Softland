@@ -5,8 +5,11 @@
   (:require [app.server.rama.kernel :as kernel]
             [clojure.test :refer [deftest is testing]]))
 
-(def five-kernels
-  #{:text-kernel :space-kernel :compute-kernel :transcript-kernel :llm-kernel})
+(def committed-kernels
+  "The six committed instances KERNEL-SHAPE describes (face-arsenal joined at
+   framework W2, 1725f55)."
+  #{:text-kernel :space-kernel :compute-kernel :transcript-kernel :llm-kernel
+    :face-arsenal})
 
 (deftest kernel-shape-loads-and-is-inspectable-test
   (testing "the defkernel form produced inspectable data"
@@ -19,12 +22,12 @@
                    :observation-depot :control-depot :task-global-executor
                    :cross-module-wires :interpret-fn :materialize-fns
                    :pstate-spec :projections])))
-    (testing "every always-present field carries examples from all five committed instances"
+    (testing "every always-present field carries examples from every committed instance"
       (doseq [field [:ingress-partitioner :intent-depot :interpret-fn :materialize-fns]]
-        (is (= five-kernels (set (keys (get-in shape [field :examples]))))
-            (str field " :examples must cover the five kernels"))))
-    (testing "pstate counts cover the five kernels"
-      (is (= five-kernels (set (keys (get-in shape [:pstate-spec :counts]))))))
+        (is (= committed-kernels (set (keys (get-in shape [field :examples]))))
+            (str field " :examples must cover the committed kernels"))))
+    (testing "pstate counts cover the committed kernels"
+      (is (= committed-kernels (set (keys (get-in shape [:pstate-spec :counts]))))))
     (testing "optional depots declare where they are present"
       (is (= #{:compute-kernel :transcript-kernel :llm-kernel}
              (set (get-in shape [:claim-depot :present-in]))

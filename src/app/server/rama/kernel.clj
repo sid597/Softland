@@ -703,7 +703,11 @@
                          control variants — see dogfood/space.clj"
      :compute-kernel    'interpret-run-command-request
      :transcript-kernel 'request-validation-errors
-     :llm-kernel        'interpret-turn-run-request}}
+     :llm-kernel        'interpret-turn-run-request
+     :face-arsenal      "valid-face-event? — an ingress validity guard over
+                         plain-map events (no ActionRequest/ActionDecision
+                         fold; the rk F1 lesson), dispatched per :event/type
+                         by case> inline in the topology — see face_arsenal.clj"}}
 
    ;; ────────────────────────────────────────────────────────────────────────────────
    ;; MATERIALIZE FNS  (always present)
@@ -740,7 +744,11 @@
                           fold-observation
                           fold-control
                           upsert-thread-row
-                          run-detail-projection]}}
+                          run-detail-projection]
+     :face-arsenal      "inline in the topology: wear-row + next-count-row +
+                         the wear-journal write (one wear event, three writes,
+                         one task — atomic together), registry-row roster
+                         upsert and NONE> removal — see face_arsenal.clj"}}
 
    ;; ────────────────────────────────────────────────────────────────────────────────
    ;; PSTATE SPEC  (always present)
@@ -765,7 +773,8 @@
              :space-kernel      24
              :compute-kernel    4
              :transcript-kernel 4
-             :llm-kernel        20}}
+             :llm-kernel        20
+             :face-arsenal      4}}  ; $$faces-by-name + wear events/counts/journal (framework W2)
 
    ;; ────────────────────────────────────────────────────────────────────────────────
    ;; PROJECTIONS  (variable)
@@ -781,7 +790,7 @@
     :present-heavy  [:space-kernel :llm-kernel]
     :present-light  [:compute-kernel]
     :scaffold-only  [:text-kernel]
-    :absent         [:transcript-kernel]
+    :absent         [:transcript-kernel :face-arsenal]
     :examples
     {:space-kernel      '[$$projection-chat-canvas
                           $$projection-object-detail
@@ -790,7 +799,8 @@
                           $$llm-views]
      :compute-kernel    '[$$compute-views]
      :text-kernel       '[$$projection-cache]   ; declared but unwritten — scaffold
-     :transcript-kernel []}}})
+     :transcript-kernel []
+     :face-arsenal      []}}})
 
 
 ;; ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
