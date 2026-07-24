@@ -576,10 +576,10 @@
                 !assembly-data (atom nil)
                 !face-list-request (atom nil)
                 !face-list-data (atom nil)
-                ;; editable-material P1: one constant projection request through
-                ;; the existing FacePull + ingest-epoch artery.
-                !provenance-material-request (atom nil)
-                !provenance-material-data (atom nil)
+                ;; editable-material P3: one constant, batched facet projection
+                ;; through the existing FacePull + ingest-epoch artery.
+                !facet-materials-request (atom nil)
+                !facet-materials-data (atom nil)
                 ;; editable-material P2: console-triggered, read-only inspector
                 ;; through the SAME server projection registry + FacePull.
                 !material-inspector-request (atom nil)
@@ -646,9 +646,9 @@
             (let [lreq (e/watch !face-list-request)]
               (when lreq
                 (reset! !face-list-data (fv/FacePull lreq))))
-            (let [mreq (e/watch !provenance-material-request)]
+            (let [mreq (e/watch !facet-materials-request)]
               (when mreq
-                (reset! !provenance-material-data (fv/FacePull mreq))))
+                (reset! !facet-materials-data (fv/FacePull mreq))))
             (let [ireq (e/watch !material-inspector-request)]
               (when ireq
                 (reset! !material-inspector-data (fv/FacePull ireq))))
@@ -770,8 +770,8 @@
                                                     :!assembly-data !assembly-data
                                                     :!face-list-request !face-list-request
                                                     :!face-list-data !face-list-data
-                                                    :!provenance-material-request !provenance-material-request
-                                                    :!provenance-material-data !provenance-material-data
+                                                    :!facet-materials-request !facet-materials-request
+                                                    :!facet-materials-data !facet-materials-data
                                                     :!material-inspector-request !material-inspector-request
                                                     :!material-inspector-data !material-inspector-data
                                                     :!face-wear-outbox !face-wear-outbox

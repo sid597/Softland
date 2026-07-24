@@ -1,10 +1,11 @@
 (ns app.shared.provenance-material
-  (:require #?(:clj [clojure.edn :as edn]
-               :cljs [cljs.reader :as edn])))
+  (:require [app.shared.facet-material :as facet-material]))
 
 (def master-id "fm:provenance")
 (def grammar-version 0)
 (def code-floor-revision-id "code-floor:fm:provenance:v0")
+(def composition-grammar-version 1)
+(def composition-code-floor-revision-id "code-floor:fm:provenance:v1")
 
 (def default-form
   {:facet-master/id master-id
@@ -14,102 +15,66 @@
 
 (def default-source (pr-str default-form))
 
-(def ^:private allowed-keys
-  #{:facet-master/id
-    :facet-master/grammar
-    :facet-master/facet
-    :provenance/tint})
+(def composition-form
+  (assoc default-form
+         :facet-master/grammar composition-grammar-version
+         :facet-master/merge :append
+         :facet-master/priority 10))
 
-(defn- finite-number?
-  [x]
-  (and (number? x)
-       #?(:clj (Double/isFinite (double x))
-          :cljs (js/Number.isFinite x))))
+(def composition-source (pr-str composition-form))
 
 (defn valid-tint?
   [x]
-  (and (vector? x)
-       (= 4 (count x))
-       (every? #(and (finite-number? %) (<= 0 % 1)) x)))
+  (facet-material/valid-rgba? x))
+
+(def spec
+  {:facet-master/id master-id
+   :facet-master/facet :provenance
+   :facet-master/source-ref "softland://facet-master/provenance"
+   :facet-master/default-form default-form
+   ;; P3's explicit composition revision is the new code floor. Durable v0
+   ;; remains accepted by its original grammar entry below; it is never
+   ;; backfilled with v1 meaning.
+   :facet-master/floor-form composition-form
+   :facet-master/code-floor-revision-id composition-code-floor-revision-id
+   :facet-master/grammars
+   {grammar-version
+    {:material-keys #{:provenance/tint}
+     :validators
+     {:provenance/tint
+      {:valid? valid-tint?
+       :error-type :provenance/tint-invalid}}}
+    composition-grammar-version
+    {:material-keys
+     #{:facet-master/merge
+       :facet-master/priority
+       :provenance/tint}
+     :validators
+     {:facet-master/merge
+      {:valid? #{:append}
+       :error-type :facet-master/merge-invalid}
+      :facet-master/priority
+      {:valid? facet-material/integer-number?
+       :error-type :facet-master/priority-invalid}
+      :provenance/tint
+      {:valid? valid-tint?
+       :error-type :provenance/tint-invalid}}}}})
 
 (defn compile-form
-  "Total compiler for the one P1 facet. It accepts data only and returns a
-   render-ready value or closed, machine-readable errors."
   [form]
-  (let [unknown (when (map? form)
-                  (seq (remove allowed-keys (keys form))))
-        errors (cond-> []
-                 (not (map? form))
-                 (conj {:type :facet-master/not-a-map})
-
-                 (and (map? form)
-                      (not= master-id (:facet-master/id form)))
-                 (conj {:type :facet-master/id-invalid
-                        :expected master-id
-                        :actual (:facet-master/id form)})
-
-                 (and (map? form)
-                      (not= grammar-version (:facet-master/grammar form)))
-                 (conj {:type :facet-master/grammar-invalid
-                        :expected grammar-version
-                        :actual (:facet-master/grammar form)})
-
-                 (and (map? form)
-                      (not= :provenance (:facet-master/facet form)))
-                 (conj {:type :facet-master/facet-invalid
-                        :expected :provenance
-                        :actual (:facet-master/facet form)})
-
-                 (and (map? form)
-                      (not (valid-tint? (:provenance/tint form))))
-                 (conj {:type :provenance/tint-invalid
-                        :actual (:provenance/tint form)})
-
-                 unknown
-                 (conj {:type :facet-master/unknown-keys
-                        :keys (vec unknown)}))]
-    (if (seq errors)
-      {:valid? false :errors errors :material nil}
-      {:valid? true
-       :errors []
-       :material {:provenance/tint (:provenance/tint form)}})))
+  (facet-material/compile-form spec form))
 
 (defn compile-source
-  "Parse and compile material source without throwing."
   [source]
-  (try
-    (compile-form (edn/read-string (str source)))
-    (catch #?(:clj Throwable :cljs :default) t
-      {:valid? false
-       :errors [{:type :facet-master/parse-error
-                 :message #?(:clj (.getMessage t)
-                             :cljs (.-message t))}]
-       :material nil})))
+  (facet-material/compile-source spec source))
 
 (def code-floor
-  (assoc (:material (compile-form default-form))
-         :facet-master/id master-id
-         :facet-master/revision-id code-floor-revision-id
-         :facet-master/floor? true))
+  (facet-material/code-floor spec))
 
 (defn resolved-wear
-  "Return the served active material when complete, otherwise the shared code
-   floor. The floor is also the exact form imported at bootstrap, so P1 has
-   one default policy value rather than a client-side tint copy."
   [served]
-  (let [tint (get-in served [:facet-master/material :provenance/tint])
-        revision-id (:facet-master/active-revision-id served)]
-    (if (and (= master-id (:facet-master/id served))
-             (string? revision-id)
-             (valid-tint? tint))
-      {:facet-master/id master-id
-       :facet-master/revision-id revision-id
-       :facet-master/floor? false
-       :provenance/tint tint}
-      code-floor)))
+  (facet-material/resolved-wear spec served))
 
 (defn contribution-stamp
-  [wear site]
-  {:material/master (:facet-master/id wear)
-   :material/revision (:facet-master/revision-id wear)
-   :material/site site})
+  [wear subject site role slot]
+  (facet-material/contribution-stamp wear subject site role slot))

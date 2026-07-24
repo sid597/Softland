@@ -22,12 +22,14 @@
             [app.server.rama.machine-cut :as machine-cut]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.block-distiller :as block-distiller]
-            [app.server.rama.object-container.provenance-material :as provenance-material]
+            [app.server.rama.object-container.facet-master :as facet-master]
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.object-container.transcript-identity :as tid]
             [app.server.rama.dogfood.transcript :as transcript]
             [app.server.rama.relation-kernel :as rk]
             [app.server.rama.trail-view :as trail-view]
+            [app.shared.facet-masters :as facet-masters]
+            [app.shared.provenance-material :as provenance-material]
             [clojure.java.io :as io]
             [clojure.string :as str]))
 
@@ -319,25 +321,63 @@
                (:attempted sweep))
       {:wear-bridge wear :faces-sweep sweep})))
 
-(defn provenance-material-ingest!
-  "Idempotently install the P1 provenance master and explicit active pointer in
-   the durable object-container module. This is an explicit deploy-time action,
-   never part of the cluster-backed application startup read path."
-  ([_argmap] (provenance-material-ingest!) (System/exit 0))
+(defn facet-materials-ingest!
+  "Idempotently preserve provenance v0, explicitly activate its composition
+   grammar revision, and install every other registered facet master through
+   the same revision/pointer path. This is a deploy-time action, never an
+   application startup write."
+  ([_argmap] (facet-materials-ingest!) (System/exit 0))
   ([]
    (let [oc-rt (object-container-runtime)]
      (when-not oc-rt
        (throw (ex-info "cluster unavailable — run bin/land up first" {})))
-     (let [result (provenance-material/ensure-master! oc-rt)
-           state (:state result)]
-       (println "[CLUSTER-INGEST] provenance material:"
-                {:latest-revision-id
-                 (some-> state :latest-revision :revision-id)
-                 :active-revision-id
-                 (some-> state :active-revision :revision-id)
-                 :pointer-revision-id
-                 (some-> state :active-pointer :revision-id)})
-       result))))
+     (let [provenance-v0
+           (facet-master/ensure-master! oc-rt provenance-material/spec)
+           provenance-v1
+           (facet-master/ensure-active-source!
+            oc-rt
+            provenance-material/spec
+            provenance-material/composition-source
+            {:request-id "facet-master-provenance-v1"
+             :activation-request-id
+             "facet-master-provenance-activate-v1"
+             :time-ms 1})
+           masters
+           (into
+            {}
+            (comp
+             (remove
+              #(= provenance-material/master-id
+                  (:facet-master/id %)))
+             (map
+              (fn [spec]
+                [(:facet-master/id spec)
+                 (facet-master/ensure-master! oc-rt spec)])))
+            facet-masters/specs)
+           results
+           (into
+            {provenance-material/master-id (:state provenance-v1)}
+            (map (fn [[master-id boot]]
+                   [master-id (:state boot)]))
+            masters)]
+       (println
+        "[CLUSTER-INGEST] facet materials:"
+        (into
+         (sorted-map)
+         (map
+          (fn [[master-id state]]
+            [master-id
+             {:latest-revision-id
+              (some-> state :latest-revision :revision-id)
+              :active-revision-id
+              (some-> state :active-revision :revision-id)
+              :pointer-revision-id
+              (some-> state :active-pointer :revision-id)}]))
+         results))
+       {:provenance-v0 provenance-v0
+        :provenance-v1 provenance-v1
+        :masters masters
+        :states results}))))
 
 (defn first-light-ingest!
   "Harvest + distill the default conversation into the DURABLE store, then
