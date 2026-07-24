@@ -182,3 +182,23 @@
   committed and nothing was pushed. P1 code and this private phase note remain
   local; cluster is up, active is the default revision, and latest is the
   retained malformed drill trace.
+
+- **2026-07-24 · Fable · P1 GATE — PASS. Code committed `83aa5dd`; P2 open.**
+- Full record: `GATE_P1.md`. Every receipt independently re-run: full suite
+  383t/5,183a with the ONLY red being kernel-shape (pre-P1); the six
+  stale-approval failures did NOT reproduce in-suite (flake class clinched —
+  two standalone greens + one in-suite green; registry amended in
+  memory/implementation-quirks.md). CLJS 0 warnings. Falsification pass held
+  on all load-bearing claims (routing byte-verified, totality chain closed,
+  no optimistic render, startup read-only).
+- Adjudications: (a) tests-green SATISFIED — kernel-shape drift was
+  framework-W2 debt (`1725f55`), repaired this session as its own commit
+  `b6f3d75` (KERNEL-SHAPE completed + test re-pins six kernels; 10/10
+  standalone); suite now honestly green for P2–P8 fences. (b)
+  `src/app/shared/` ACCEPTED as the home for both-sides .cljc (CLAUDE.md
+  updated; face_assembly migrates at a natural P3 touchpoint). (c) commit
+  rode Sid's standing 07-24 word; stray `.wtest` deleted, not committed.
+- Open doubts (non-blocking, falsifiers in GATE_P1.md): cross-JVM activation
+  epoch staleness (check at P6 review) · wear in every render-sig (echo-gate
+  data point) · drill accretion is by-design retained trace.
+- Next: Sid sends the P2 prompt (PROMPTS.md §P2) to a fresh Codex session.
