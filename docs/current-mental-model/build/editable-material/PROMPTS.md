@@ -83,7 +83,7 @@ STOPS: reuse-test FAIL · reasoning-cost FAIL · echo regression → NOW.md
 + END. Output: per-facet proof list + the facet-2 verdicts.
 ```
 
-## P4 — circulation, Gate 2 (send after P2; may run ∥ P3 ONLY in a separate worktree)
+## P4 — circulation, Gate 2 (send ONLY after the P3 facet-2-halt session fills the FLAG-A RULING line at the bottom of this prompt; may run ∥ P3 ONLY in a separate worktree)
 
 ```
 MODE: IMPLEMENT · one package only · repo /mnt/data/projects/Softland
@@ -100,8 +100,10 @@ co-presence ONLY and must never render as aboutness. As-of resolution
 of worn context comes from activation history — no snapshots.
 (2) EDGES — relation-kernel kinds grown by ONE reviewed line each
 (instance-of-shaped; about-shaped), tests included, flagged loudly in
-NOW.md for the gate. Adjudicate first-light flag A (wish-edge target
-kind) explicitly in NOW.md at design time.
+NOW.md for the gate. First-light flag A (wish-edge target kind) is
+PRE-RULED by Fable — the FLAG-A RULING line at the bottom of this
+prompt is binding; implement against it and flag any conflict in
+NOW.md, never re-adjudicate it.
 (3) THE GOLD PATH — point → say → the utterance lands durable,
 edge-attached, with a visible projection ON the target (first-light P3
 deliverable, its G5 gate criteria verbatim).
@@ -124,6 +126,11 @@ work, receipt automatic, queryable path to the material world,
 deterministic return to origin; terminal-escape detector armed (a
 code-lane commit changing material-owned policy with no activation
 event = one escape).
+
+FLAG-A RULING (Fable, filled at the P3 facet-2-halt session; sending
+this prompt with the line below unfilled is a send error):
+<PENDING — read build/first-light/CONTRACT.md flag A, rule the
+wish-edge target kind, replace this line with the ruling + grounds>
 ```
 
 ## P5 — bindings + dispatch (send after P3 gate PASS)
@@ -159,7 +166,7 @@ priority · any gesture family that will not fit the closed grammar →
 NOW.md + END. Output: per-family proof + the drill receipt.
 ```
 
-## P6 — the truth loop whole, Gates 3 + 4 (send after P4 AND P5 gate PASS)
+## P6 — the truth loop whole, Gates 3 + 4 (send after P4 AND P5 gate PASS — and ONLY after a Fable session has authored build/editable-material/CONTRACT_P6.md; CAMPAIGN §P6 makes that contract mandatory: the owner-condensation is pre-adjudicated there, this prompt is the implementation half only)
 
 ```
 MODE: IMPLEMENT · one package only · repo /mnt/data/projects/Softland

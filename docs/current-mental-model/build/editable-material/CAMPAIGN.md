@@ -50,7 +50,11 @@ calibrated per DIRECTION); retroactive kinds over the existing
 this material" served; as-of resolution against activation history;
 pre-material records associated, never rewritten. **Fulfills first-light P3
 under its CONTRACT terms (point→say→wish = the gold path)** — one contract,
-no fork; flag any discrepancy inline. Gate 2 closes here. ~2–3 sessions.
+no fork; flag any discrepancy inline. **First-light flag A (wish-edge
+target kind) is PRE-RULED by Fable at the P3 facet-2-halt session; the P4
+prompt ships with the ruling, never the ask** (Sid's division ruling
+07-24: contract forks are Fable's before the package opens, not the
+implementer's mid-package). Gate 2 closes here. ~2–3 sessions.
 
 **P5 — bindings + dispatch.** Binding rows as material; the one rule
 replaces the pointer cond ladders strangler-style, gesture family by gesture
@@ -67,7 +71,11 @@ reports with declared grounds (fulfills first-light P5's explain) ·
 standable history (as-of portal). The material-truth owner condenses HERE if
 a homeless truth demands it (platform-check against OC + relation kernel
 first; one Rama module only if needed — /rama + rama-pitfalls before any
-touch). **Gate 3:** one BANKED friction from Sid's own corpus (candidates:
+touch). **P6 opens with a Fable-authored CONTRACT.md** — the
+owner-condensation decision is pre-adjudicated there (Fable runs the
+platform-check; traps ledger + numbered gates per the work-package skill)
+and Codex implements against it, never rules it (Sid's division ruling,
+07-24). The P6 prompt in PROMPTS.md is the implementation half only. **Gate 3:** one BANKED friction from Sid's own corpus (candidates:
 reply width, muted-gray legibility — both recorded in his notes) travels
 pressure → record → candidate → preview → Sid's one-line activation word →
 announced change → zero terminal anywhere. **Gate 4 formal close:** the P1

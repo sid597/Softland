@@ -23,7 +23,13 @@ Boot, in order:
    review: P3 must halt after facet 2 for the second-wearer +
    reasoning-cost verdicts — that halt is a gate INSIDE the package) ·
    DIRECTION.md (§spine FAIL-tells, §layer identities) · CAMPAIGN.md
-   §P3/§P4 + §Standing-stops · PROMPTS.md
+   §P3/§P4 + §Standing-stops · PROMPTS.md. The facet-2-halt session
+   ALSO pre-rules first-light flag A (read build/first-light/
+   CONTRACT.md) and fills the FLAG-A RULING line in PROMPTS.md §P4 —
+   P4 must NOT be sent while that line reads PENDING (Sid's division
+   ruling 07-24: contract forks are Fable's, pre-ruled, never the
+   implementer's mid-package; P6 additionally requires a Fable
+   CONTRACT_P6.md before its prompt goes out — CAMPAIGN §P6).
 3. git log --oneline -8 — suite fully green at c6bb5d8 (385t/5,220a);
    flake registry in memory/implementation-quirks.md
 Role: fresh-context falsification + gate (work-package skill): re-run
