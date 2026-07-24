@@ -10,52 +10,52 @@ minutes, the board is broken — fix it.
 ## HANDOFF — next implementation session (paste this)
 
 ```
-editable-material campaign — ORCHESTRATION session (Fable). Gate P4
-and/or gate P5 (whichever Codex report is in; two lanes may be live —
-P4 in the Softland-p4 worktree, P5 in the main tree).
-Prereq: P1/P2/P3 gates all PASS (commits 83aa5dd+b6f3d75, c6bb5d8,
-13f1dac); Sid has sent §P4 (worktree lane, flag-A ruling filled) and
-§P5 after P3's PASS.
+editable-material campaign — ORCHESTRATION session (Fable). Gate P5 +
+author CONTRACT_P6.md. FRESH session (the prior orchestrator ran
+P1–P4 gates across 500k tokens — phase-scoped sessions law).
+Prereq: P1–P4 gates all PASS, Gates 1+2 CLOSED (commits 83aa5dd+
+b6f3d75, c6bb5d8, 13f1dac, 2642ad6); P5 (bindings) sent to an Opus 5
+implementer session in the main tree; its report is in.
 Boot, in order:
-1. build/editable-material/NOW.md — thread tail: the P3-END gate entry
-   (07-25, PASS, 13f1dac) + the new Codex report(s)
-2. GATE_P1/P2/P3.md (conventions + carried open doubts BIND the
-   review: cross-JVM epoch check at P6 · trail→event truth at P6 ·
-   reconcile-storm cost = first suspect on any echo complaint) ·
-   DIRECTION.md · CAMPAIGN.md §P4/§P5 + §Standing-stops · PROMPTS.md.
-   P4-gate extra: the worktree branched at 5c0eaa2 — reconcile onto
-   13f1dac (P3's facet layer) BEFORE gating; flag-A ruling was
-   pre-filled (:references stays the wish edge). P6 still requires a
-   Fable CONTRACT_P6.md before its prompt goes out (CAMPAIGN §P6).
-3. git log --oneline -8 — flake registry in
-   memory/implementation-quirks.md (llm-probe + ingest-watchers IPC
-   port-conflict class both fired at the P3-END gate, standalone-green)
-Role: fresh-context falsification + gate (work-package skill): re-run
-suites yourself, read the diff in full. P4 gate axes: receipts are
-co-presence never aboutness · kernel growth = the two reviewed lines
-only · silver visibly machine · no promotion machinery · first-light
-P3 fulfilled under its CONTRACT · terminal-escape detector armed. P5
-gate axes: closed binding grammar (material never names code) · one
-dispatch law · frozen branch counts per migrated family · code-floor
-bindings unbreakable (malformed-bindings drill) · no side effects in
-reactive queries · echo + input latency. Ops: land UP; drains hang at
-depot-flush (platform OPEN; down → dirty → unwedge → up sanctioned).
-On P4 PASS: Gate 2 closes. On P5 PASS: author CONTRACT_P6.md (Fable)
-before handing Sid P6.
+1. build/editable-material/NOW.md — thread tail: the P4 GATE entry
+   (07-25: PASS, Gate 2 closed, kinds deployed + live-proven, clean
+   cold backup 20260725-clean-predeploy-p4) + the P5 report
+2. GATE_P1..P4.md (conventions + carried doubts BIND the review; P6
+   contract inputs live in GATE_P4 §Deferred + the causal-time
+   finding) · DIRECTION.md · CAMPAIGN.md §P5/§P6 + §Standing-stops ·
+   PROMPTS.md
+3. git log --oneline -8 · flake registry in
+   memory/implementation-quirks.md
+Role: fresh-context falsification + gate on P5 (work-package skill):
+re-run suites yourself, read the diff in full. P5 axes: closed
+binding grammar (material never names code) · ONE dispatch law ·
+frozen branch counts per migrated family · code-floor bindings
+unbreakable (malformed-bindings drill receipt) · no side effects in
+reactive queries · echo + input latency unchanged. Then author
+CONTRACT_P6.md (Fable-only, CAMPAIGN §P6 law): owner-condensation
+pre-adjudicated (platform-check OC + relation kernel), honest
+activation-event times (the P4 causal-time finding), Gate-3 Sid-word
+stop verbatim, Gate-4 wound-trace landing, traps + numbered gates.
+Only then hand Sid the P6 prompt.
+Ops: land UP, five modules RUNNING at the updated relation-kernel;
+depot-flush drain hang is INTERMITTENT (07-25 clean drain observed);
+Softland-p4 worktree retired — `git worktree remove` at leisure.
+Sid one-liners still open: "kinds ok" · click a block →
+__material.picked() · headed look at the ⌁ wish / ≈ machine-guess
+marks.
 ```
 
-**Campaign state:** **P1 + P2 + P3 CLOSED — all gates PASS**
-(`GATE_P1.md` `83aa5dd`+`b6f3d75` · `GATE_P2.md` `c6bb5d8` ·
-`GATE_P3.md` `13f1dac` 07-25: the worn five are served material on ONE
-generic facet-master layer, six masters registered, activation-boundary
-re-cut verified, same-process byte-proof with GPU attestation; Sid's
-one headed line still open: click a block → `__material.picked()`).
-**P4 circulation BUILT in the Softland-p4 worktree (`ba12442`, base
-5c0eaa2) — next act: the INTEGRATION prompt (PROMPTS.md §P4-integration,
-worktree only, rebase onto 13f1dac); gate DEFERRED to the integrated
-branch; the two kernel kind lines await Sid's one-line review; deploy
-of the kinds rides the gate's backup-fence adjudication. P5 bindings
-SENDABLE/RUNNING — main tree.** Then P6 truth loop (Gates 3+4 —
+**Campaign state:** **P1–P4 CLOSED — all gates PASS; Gates 1 + 2 of the
+four DIRECTION gates are CLOSED** (`GATE_P1.md` `83aa5dd`+`b6f3d75` ·
+`GATE_P2.md` `c6bb5d8` · `GATE_P3.md` `13f1dac` · `GATE_P4.md`
+`2642ad6` 07-25: circulation live — receipts automatic, gold path
+proven on the real cluster, `:instance-of`+`:felt-at` deployed and
+live-proven, terminal-escape armed, first-light P3 fulfilled; first
+CLEAN cold backup `20260725-clean-predeploy-p4`). **P5 bindings
+RUNNING (Opus 5, main tree, green-lit post-merge). On its report: a
+FRESH Fable session gates P5 + authors CONTRACT_P6.md (HANDOFF
+above).** Sid's open one-liners: "kinds ok" · `__material.picked()`
+click · headed ⌁/≈ marks look. Then P6 truth loop (Gates 3+4 —
 Fable CONTRACT_P6.md required first) → P7 portal → P8
 verb-from-inside — ladder, stops, Sid's touchpoints in `CAMPAIGN.md`.
 first-light P3/P4/P5 ride campaign P4/P6 under the first-light

@@ -501,3 +501,28 @@
   bottom): rebase onto 13f1dac, resolve the facet-master conflicts,
   re-prove IPC suites; NO deploy, NO main-tree touch (P5 may be live
   there). Then the Fable P4 gate on the integrated branch.
+
+- **2026-07-25 · Fable · P4 GATE — PASS; GATE 2 (circulation) CLOSED.
+  Merged `2642ad6`; kinds deployed + live-proven.**
+- Full record: `GATE_P4.md`. Integrated branch suite fully green
+  (46ns/397t/5,416a, re-run here); clean cherry-pick to main;
+  HEAD-reading suites green. **First-ever CLEAN cold backup**
+  (`20260725-clean-predeploy-p4`, byte-complete-verified; the depot-flush
+  hang is intermittent — platform-probe data point). Single-module
+  relation-kernel update deployed → RUNNING; `:instance-of` + `:felt-at`
+  live-proven by assert→retract probe (honest retracted trace).
+- Falsification held on all P4 axes (receipts co-presence-only, strata
+  never fuse, causal as-of never invents, detector honest, one batched
+  roundtrip, A-F4 asserted writes). Deploy was load-bearing: ordinary
+  gold-less Ctrl+Enter fires ambient silver asynchronously in live use.
+- Findings: starter culture live ran :completed but 0-matched — the
+  #TASK/#Feedback corpus is NOT in the main conversation's river window
+  (locate + re-run, idempotent). Deploy-artifact note: `module-jar` is
+  the deploy builder; `-T:build uberjar` trips the pre-broken :prod
+  client build.
+- Deferred honestly in GATE_P4.md: live model turn (canned seam proven) ·
+  headed ⌁/≈ visual (Sid's next session) · corpus starter-culture ·
+  in-app LLM runtime first-invocation seam.
+- Next: P5 runs (Opus 5, green-lit — the P4 merge landed before any P5
+  base). On P5's report: FRESH Fable session — gate P5 + author
+  CONTRACT_P6.md. Sid's open one-liner: "kinds ok" (or veto).
