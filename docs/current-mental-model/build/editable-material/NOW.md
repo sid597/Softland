@@ -227,3 +227,118 @@
 - Ops: land left UP (five modules RUNNING, dev app on 8080).
 - Next: Sid sends P3 (PROMPTS.md §P3) and P4 (§P4 — ∥ ONLY in a separate
   git worktree) to fresh Codex sessions.
+
+- **2026-07-24 · Codex · P3 FACET 2 (attention) — IMPLEMENTED; mandatory
+  second-wearer halt. Awaiting Fable adjudication before facet 3.**
+- **Facet 1 / provenance proof carried forward and made collision-explicit.**
+  Durable grammar 0 keeps its original source bytes and tint meaning and
+  remains rewearable. A separate immutable grammar-1 revision declares only
+  the composition law demanded by the first real collision:
+  `:facet-master/merge :append`, priority `10`; it is explicitly imported and
+  activated, never backfilled into v0. The old provenance-only OC adapter is
+  deleted.
+- **Facet 2 / attention proof.** `fm:attention` now owns the exact worn box
+  policy: hit padding `8.0`, border width `1.0`, border color
+  `[0.45 0.52 0.66 0.55]`, transparent background, merge `:append`, priority
+  `20`. The old `block-pad` and `attention-border` constants are deleted from
+  the renderer. Hover/focus remain ephemeral mechanism. Attention rides the
+  same deterministic OC identity, immutable revision, active pointer,
+  activation, rollback, one ingest epoch, one batched `:facet-materials`
+  FacePull, causal master+revision stamps, and code-floor/error-card totality
+  as provenance.
+- **First collision proof.** Provenance's machine rail and attention's box
+  both contribute to `:block/decorations`. The masters declare append with
+  priorities `10` then `20`; the minimum composer orders them deterministically.
+  Missing/incompatible merge, missing priority, or a priority tie returns
+  structured conflict data which the actual block tree renders as visible
+  `:error-card` lint. There is no silent winner and no recipe.
+- **Current-value render proof.** Compiler assertions pin every extracted
+  value to the deleted literals and pin the code floor to the same policy.
+  A headed before/after wear at the same camera preserved the box at
+  x≈92..576, y≈92..188 and the sampled left/right/bottom border pixels
+  exactly. Whole-PNG bytes were not used as the receipt: separate Chrome/WebGPU
+  processes varied glyph/top-edge antialiasing while geometry and policy
+  remained unchanged. No later-facet literal moved.
+- **Lifecycle/totality proof.** Candidate save advanced latest without moving
+  active; accepted activation moved the attention pointer; rollback repointed
+  only that pointer. The live malformed attention candidate
+  `rev:fm:attention:57c9d6b23b767b2be42f80ab0044533bd0c6685c85834a627d05076bc799c6f0:a1f13e6e8e0112b048e6c28b4e16f083a130a3a20bc7cc0845e8b1fdce61b33c`
+  remains latest and queryable, its parse error renders beside the land, and
+  active remains the valid default revision
+  `rev:fm:attention:57c9d6b23b767b2be42f80ab0044533bd0c6685c85834a627d05076bc799c6f0:7cdb19ad7515dd939abe0e821a153e6e93b22097e39cf7ff1cc31c6fd1509733`.
+  A post-restart cluster-backed inspector read returned boolean
+  `:attachment/present? true` for both attention and provenance, with their
+  independent active/latest identities.
+- **Echo and executable receipts.** The isolated attention drill recorded
+  `n=4 p50=23.7 p95=29.2 p99=29.2 max=29.2` ms against the unchanged 52ms
+  bar. Focused lifecycle/composition/projection tests: 15 tests / 195
+  assertions, all green. Fresh-context full-suite rerun: 45 namespaces, 386
+  tests / 5,246 assertions, all green. Two earlier all-namespace runs each
+  exposed only the registered `dogfood-llm-probe` suite-order flake; its exact
+  namespace reran standalone green (1 test / 67 assertions), and the
+  fresh-context full run did not reproduce it. CLJS dev build: 305 files, 0
+  warnings. `git diff --check`: clean.
+- **SECOND-WEARER REUSE TEST — PASS.** Explicit FAIL-tell matrix:
+  1. no parallel artery — one registry batch, FacePull, mirror, and epoch;
+  2. no source-specific client transport branch — facet-specific code only
+     consumes its policy at the honest render boundary;
+  3. no compatibility adapter — the provenance-only adapter is deleted;
+  4. no v0 reinterpretation — provenance v0 and v1 are separate grammars and
+     immutable revisions;
+  5. no divergent activation — both use the same generic pointer edit;
+  6. no duplicated identity machinery — document/import/revision/pointer
+     identities are derived once from each spec;
+  7. no hidden compositor case — the real shared slot declares merge+priority,
+     and invalid collisions visibly lint;
+  8. no weakened totality or performance — every master independently floors,
+     malformed latest never wears, the inspector performs fixed reads per
+     selected registered master with no wearer N+1, and the live echo stays
+     below the bar.
+- **REASONING-COST CHECK — PASS.** The two-facet path has one uniform trace:
+  facet spec → immutable OC revision → explicit active pointer → one batched
+  serve → total resolved wear → causal stamp → declared slot/merge/priority →
+  node or visible lint. That single invariant surface replaces embedded
+  literals, the provenance-only lifecycle, and implicit child ordering. Facet
+  policy stays local to two small masters; transport, identity, activation,
+  totality, inspection, and composition do not fork per facet. The added
+  composer makes the one actual collision easier to inspect than the monolith,
+  not harder.
+- **Fences and halt.** No recipe, bindings, dispatch/verb migration, bulk
+  extraction, new facet, Rama module/PState/depot, durable attachment owner,
+  wear index, or §Horizon machinery was added. `fold-default`, fold header
+  text, `reply-gap 34.0`, placement/birth rules, thread-column adoption, and
+  wrap floor/fallback remain in code untouched. Both stop checks PASS and echo
+  did not regress. **END P3 RUN HERE: facet 3 (foldable) waits for Fable.**
+
+- **2026-07-24 · Fable · P3 FACET-2 HALT — ADJUDICATED: second-wearer PASS ·
+  reasoning-cost PASS. Facet 3 AUTHORIZED. Flag A pre-ruled; P4 sendable.**
+- Independent verification, not report-trust: full diff read (19 files); all
+  8 FAIL-tells checked against source — one artery (one `:facet-materials`
+  batch/request/mirror/epoch); provenance adapter DELETED with its v0
+  request-ids byte-preserved in the generic `ensure-master!` (live durable
+  rows replay as no-ops); the per-version grammar map makes v0
+  reinterpretation structurally impossible; one lifecycle parameterized by
+  spec; the real `:block/decorations` collision composed with structured
+  conflicts rendered as visible lint; per-facet try/catch floors that still
+  compose (the floor's move to v1 carries merge/priority — load-bearing).
+  `fm:attention` rides P1's generic `fm:` routing — ZERO Rama edits for
+  wearer 2, the reuse thesis proven at the kernel layer.
+- Suite re-run here: 386t/5,246a; only red = the registered
+  `dogfood-llm-probe` flake (standalone green 1t/67a — protocol satisfied;
+  Codex's fresh-context run was 0-fail). The re-cut is the sanctioned
+  two-wearer generalization (DIRECTION: "or re-cut while there are only two
+  wearers").
+- Deviation recorded: the whole-PNG byte-proof degraded to sampled border
+  pixels + geometry + compiler value-pins (cross-process WebGPU antialias
+  variance, honestly disclosed). Non-blocking; the P3-END gate re-attempts a
+  controlled proof; Sid's headed eyes at return are the standing falsifier.
+- **FLAG A RULING (first-light §9 redline 1): `:references` STAYS the wish
+  edge — no Wish kind is minted.** Wish-ness lives in the wish unit's
+  material + projection per first-light §4, never the edge; kind-naming is
+  recurrence-driven and Sid-only (DIRECTION: precedent, not statute); P4's
+  kernel budget stays the two enumerated reviewed lines. Revisit trigger:
+  recurring wish-shaped queries filtering `:references` by wish material →
+  Sid names the kind at the marks/kinds round; `based-on` chains survive.
+  Ruling filled into PROMPTS.md §P4; Sid may veto in one line.
+- Next: Codex resumes P3 from facet 3 (resume line at PROMPTS.md bottom);
+  P4 is sendable (∥ ONLY in a separate git worktree).

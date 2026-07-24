@@ -19,17 +19,15 @@ Boot, in order:
 1. build/editable-material/NOW.md — thread tail: P1+P2 GATE entries
    (commits 83aa5dd, b6f3d75, c6bb5d8; adjudications; open doubts) +
    the new Codex report(s)
-2. GATE_P1.md + GATE_P2.md (conventions + open doubts BIND the next
-   review: P3 must halt after facet 2 for the second-wearer +
-   reasoning-cost verdicts — that halt is a gate INSIDE the package) ·
-   DIRECTION.md (§spine FAIL-tells, §layer identities) · CAMPAIGN.md
-   §P3/§P4 + §Standing-stops · PROMPTS.md. The facet-2-halt session
-   ALSO pre-rules first-light flag A (read build/first-light/
-   CONTRACT.md) and fills the FLAG-A RULING line in PROMPTS.md §P4 —
-   P4 must NOT be sent while that line reads PENDING (Sid's division
-   ruling 07-24: contract forks are Fable's, pre-ruled, never the
-   implementer's mid-package; P6 additionally requires a Fable
-   CONTRACT_P6.md before its prompt goes out — CAMPAIGN §P6).
+2. GATE_P1.md + GATE_P2.md + the NOW.md facet-2-halt adjudication
+   (07-24: second-wearer PASS · reasoning-cost PASS · facet 3
+   authorized · flag A RULED — :references stays the wish edge, filled
+   in PROMPTS.md §P4; render-proof deviation recorded, P3-END gate
+   re-attempts a controlled byte proof) · DIRECTION.md (§spine
+   FAIL-tells, §layer identities) · CAMPAIGN.md §P3/§P4 +
+   §Standing-stops · PROMPTS.md. P6 still requires a Fable
+   CONTRACT_P6.md before its prompt goes out (CAMPAIGN §P6; Sid's
+   division ruling 07-24).
 3. git log --oneline -8 — suite fully green at c6bb5d8 (385t/5,220a);
    flake registry in memory/implementation-quirks.md
 Role: fresh-context falsification + gate (work-package skill): re-run

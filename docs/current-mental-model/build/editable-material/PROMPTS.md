@@ -127,10 +127,17 @@ deterministic return to origin; terminal-escape detector armed (a
 code-lane commit changing material-owned policy with no activation
 event = one escape).
 
-FLAG-A RULING (Fable, filled at the P3 facet-2-halt session; sending
-this prompt with the line below unfilled is a send error):
-<PENDING — read build/first-light/CONTRACT.md flag A, rule the
-wish-edge target kind, replace this line with the ruling + grounds>
+FLAG-A RULING (Fable, 2026-07-24 facet-2-halt session — BINDING):
+`:references` STAYS the wish edge; no Wish kind is minted in P4.
+Grounds: first-light CONTRACT §4 places wish-ness in the wish unit's
+material and projection, never the edge; kind-naming is recurrence-
+driven and Sid-only (DIRECTION: precedent-not-statute, names finalize
+by recurrence); P4's kernel growth stays the two enumerated reviewed
+lines. Revisit trigger: recurring wish-shaped queries that filter
+:references edges by wish material — that recurrence is Sid's signal
+to name the kind at the marks/kinds round; based-on chains survive
+the rename. Implement against this; flag conflicts in NOW.md, never
+re-adjudicate.
 ```
 
 ## P5 — bindings + dispatch (send after P3 gate PASS)
@@ -267,6 +274,29 @@ terminal-escape gauge reading for the whole run.
 ```
 
 ---
+
+## P3 resume line (facet-2 halt PASS — Fable adjudication 07-24)
+
+```
+P3 RESUMED — the facet-2 halt is adjudicated by Fable in NOW.md:
+second-wearer reuse test PASS, reasoning-cost PASS (read that entry
+first; its conventions and the recorded render-proof deviation bind
+you). Continue Package P3 from facet 3 under the SAME P3 prompt terms
+(AUTHORITY: DIRECTION.md + CAMPAIGN.md; the uncommitted facet-2 tree
+is your base): foldable (header text + fold defaults) → positioned
+(reply-gap, placement defaults, birth rules — settle cells stay its
+instance data) → threaded (column adoption reach) → text-body policy
+slice (wrap floor/fallback). Each extraction rides the PROVEN generic
+layer (facet spec + registry entry + render-boundary consumption);
+byte-identical at current values (value-pin assertions + same-camera
+geometry/pixel receipts; disclose any cross-process AA variance
+honestly, as facet 2 did); echo bar unchanged; old constants DELETED.
+Composition vocabulary grows only as real collisions demand, exactly
+as at facet 2. FENCES and STOPS unchanged from the P3 prompt. At
+package end: full suite + cljs 0 warnings + per-facet proof list in
+NOW.md; do NOT commit — the P3-END Fable gate commits at Sid's
+standing word.
+```
 
 ## P1 resume line (final — ops recovery done 07-24)
 
