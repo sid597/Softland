@@ -36,6 +36,7 @@
             [app.server.rama.object-container.assembly-adapter :as assembly-adapter]
             [app.server.rama.object-container.provenance-material :as provenance-adapter]
             [app.server.rama.face-arsenal :as face-arsenal]
+            [app.shared.material-inspector :as material-inspector]
             [app.shared.provenance-material :as provenance-material]
             ;; READ-ONLY use of the relation kernel's PUBLIC query surface (rk
             ;; CONTRACT §7 — read-relations-for-targets ONLY; never a PState path,
@@ -781,6 +782,180 @@
                  :facet-master/candidate-errors (:errors latest-compiled)))))))
 
 ;; ===========================================================================
+;; editable-material P2 — one server-batched, deterministic inspector read.
+;; ===========================================================================
+
+(def ^:private material-inspector-history-limit
+  "One facet's complete current trail is expected to be tiny. The inherited OC
+   page limit keeps a corrupt/unbounded history from monopolizing a Rama task;
+   the result names whether the read was complete instead of silently cutting."
+  oc/default-outline-page-size)
+
+(defn- inspector-entity
+  [entity-id unit-result]
+  (let [unit (:unit unit-result)]
+    {:entity/id entity-id
+     :entity/found? (some? unit-result)
+     :entity/kind (:unit-kind unit)
+     :entity/document-container-id (:document-container-id unit)
+     :entity/source-id (:source-id unit)
+     :entity/target-kind (:target-kind unit-result)
+     :entity/target-id (:target-id unit-result)}))
+
+(defn- candidate-trail-entry
+  [revision active-id latest-id]
+  (let [compiled (provenance-material/compile-source (:content-text revision))
+        revision-id (:revision-id revision)]
+    {:trail/kind :candidate
+     :trail/time-ms (:created-at-ms revision)
+     :trail/order-key (:order-key revision)
+     :trail/revision-id revision-id
+     :trail/event-id (:event-id revision)
+     :trail/valid? (true? (:valid? compiled))
+     :trail/active? (= revision-id active-id)
+     :trail/latest? (= revision-id latest-id)}))
+
+(defn- activation-trail
+  [pointer-revisions current-pointer-id]
+  (:entries
+   (reduce
+    (fn [{:keys [seen previous entries]} pointer-revision]
+      (let [target-id (:content-text pointer-revision)
+            rollback? (and (string? target-id)
+                           (not= target-id previous)
+                           (contains? seen target-id))]
+        {:seen (cond-> seen (string? target-id) (conj target-id))
+         :previous target-id
+         :entries
+         (conj entries
+               {:trail/kind (if rollback? :rollback :activation)
+                :trail/time-ms (:created-at-ms pointer-revision)
+                :trail/order-key (:order-key pointer-revision)
+                :trail/revision-id target-id
+                :trail/pointer-revision-id
+                (:revision-id pointer-revision)
+                :trail/event-id (:event-id pointer-revision)
+                :trail/current?
+                (= current-pointer-id (:revision-id pointer-revision))})}))
+    {:seen #{} :previous nil :entries []}
+    (sort-by (juxt :created-at-ms :order-key :revision-id)
+             pointer-revisions))))
+
+(defn- trail-sort-key
+  [entry]
+  [(:trail/time-ms entry)
+   (if (= :candidate (:trail/kind entry)) 0 1)
+   (:trail/order-key entry)
+   (pr-str (:trail/kind entry))
+   (:trail/revision-id entry)
+   (:trail/pointer-revision-id entry)])
+
+(defn material-inspector-result
+  "Join one picked block, the current client scene's stamped wearers, and the
+   provenance master's durable OC state in one server projection invocation.
+   No wall clock enters the result; canonicalization makes repeated answers
+   byte-equal for the same request snapshot and Rama world."
+  [oc-rt entity-id wearer-snapshot]
+  (let [wearers (material-inspector/normalize-wearers wearer-snapshot)]
+    (if (nil? oc-rt)
+      (material-inspector/canonicalize
+       {:material-inspector/version 0
+        :material-inspector/error :object-container-unavailable
+        :material-inspector/entity
+        {:entity/id entity-id :entity/found? false}
+        :material-inspector/current-wearers wearers
+        :material-inspector/wearer-basis :current-client-scene})
+      (let [unit-result (when (string? entity-id)
+                          (ocr/read-unit oc-rt entity-id))
+            {:keys [latest-revision active-pointer active-revision]}
+            (provenance-adapter/read-master oc-rt)
+            candidate-revisions
+            (ocr/read-revision-history
+             oc-rt provenance-adapter/document-id ""
+             material-inspector-history-limit)
+            pointer-revisions
+            (ocr/read-revision-history
+             oc-rt provenance-adapter/active-pointer-container-id ""
+             material-inspector-history-limit)
+            active-id (:revision-id active-revision)
+            latest-id (:revision-id latest-revision)
+            current-pointer-id (:revision-id active-pointer)
+            selected-wearer
+            (some #(when (= entity-id (:wearer/entity-id %)) %) wearers)
+            selected-revisions (set (:wearer/revision-ids selected-wearer))
+            candidates
+            (mapv #(candidate-trail-entry % active-id latest-id)
+                  candidate-revisions)
+            activations
+            (activation-trail pointer-revisions current-pointer-id)
+            trail (->> (concat candidates activations)
+                       (sort-by trail-sort-key)
+                       vec)
+            history-complete?
+            (and (< (count candidate-revisions)
+                    material-inspector-history-limit)
+                 (< (count pointer-revisions)
+                    material-inspector-history-limit))]
+        (material-inspector/canonicalize
+         {:material-inspector/version 0
+          :material-inspector/entity
+          (inspector-entity entity-id unit-result)
+          :material-inspector/provenance-attachment
+          {:attachment/facet :provenance
+           :attachment/master-id provenance-material/master-id
+           :attachment/authority :derived
+           :attachment/basis :rendered-contribution-stamps
+           :attachment/present? (some? selected-wearer)
+           :attachment/wears-active?
+           (and (string? active-id)
+                (contains? selected-revisions active-id))
+           :attachment/contribution-sites
+           (vec (:wearer/contribution-sites selected-wearer))}
+          :material-inspector/facet-master
+          {:facet-master/id provenance-material/master-id
+           :facet-master/active-revision-id active-id
+           :facet-master/latest-revision-id latest-id
+           :facet-master/active-latest-distinct?
+           (and (string? active-id)
+                (string? latest-id)
+                (not= active-id latest-id))
+           :facet-master/pointer-revision-id current-pointer-id}
+          :material-inspector/contribution-sites
+          material-inspector/contribution-sites
+          :material-inspector/current-wearers wearers
+          :material-inspector/wearer-basis :current-client-scene
+          :material-inspector/revision-trail trail
+          :material-inspector/revision-trail-complete? history-complete?})))))
+
+(defn material-inspector-projection
+  "P2 console projection transport. The token is transport-only; the answer
+   and its canonical EDN bytes exclude it."
+  [{:keys [oc-rt]} request]
+  (let [token (get-in request [:params :request-token])
+        entity-id (get-in request [:params :entity-id])
+        wearers (get-in request [:params :wearers])]
+    (try
+      (let [result (material-inspector-result oc-rt entity-id wearers)]
+        {:material-inspector/request-token token
+         :material-inspector/result result
+         :material-inspector/edn
+         (material-inspector/canonical-edn result)})
+      (catch Throwable _
+        (let [result
+              (material-inspector/canonicalize
+               {:material-inspector/version 0
+                :material-inspector/error :projection-read-failed
+                :material-inspector/entity
+                {:entity/id entity-id :entity/found? false}
+                :material-inspector/current-wearers
+                (material-inspector/normalize-wearers wearers)
+                :material-inspector/wearer-basis :current-client-scene})]
+          {:material-inspector/request-token token
+           :material-inspector/result result
+           :material-inspector/edn
+           (material-inspector/canonical-edn result)})))))
+
+;; ===========================================================================
 ;; The projection registry + server-side face dispatch (trap T8).
 ;; ===========================================================================
 
@@ -819,11 +994,13 @@
    source serve + :face-list roster). Extensible by adding an entry — never by an
    Electric `case`. Persisted form (Wave 2, schema §8) is keyword + code address,
    never fn values (trap T5). block-write INT adds :block-truth (the §5
-   single-unit echo read)."
+   single-unit echo read); editable-material P2 adds the read-only, batched
+   :material-inspector."
   {:conversation conversation-projection
    :assembly     assembly-projection
    :face-list    face-list-projection
    :provenance-material provenance-material-projection
+   :material-inspector material-inspector-projection
    :block-truth  block-truth-projection})
 
 (def face->projection-kind
