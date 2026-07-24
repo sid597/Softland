@@ -50,9 +50,12 @@ before handing Sid P6.
 generic facet-master layer, six masters registered, activation-boundary
 re-cut verified, same-process byte-proof with GPU attestation; Sid's
 one headed line still open: click a block → `__material.picked()`).
-**P4 circulation RUNNING in the Softland-p4 worktree (flag-A ruling
-filled). P5 bindings is SENDABLE — Sid pastes PROMPTS.md §P5 into a
-fresh Codex session (main tree).** Then P6 truth loop (Gates 3+4 —
+**P4 circulation BUILT in the Softland-p4 worktree (`ba12442`, base
+5c0eaa2) — next act: the INTEGRATION prompt (PROMPTS.md §P4-integration,
+worktree only, rebase onto 13f1dac); gate DEFERRED to the integrated
+branch; the two kernel kind lines await Sid's one-line review; deploy
+of the kinds rides the gate's backup-fence adjudication. P5 bindings
+SENDABLE/RUNNING — main tree.** Then P6 truth loop (Gates 3+4 —
 Fable CONTRACT_P6.md required first) → P7 portal → P8
 verb-from-inside — ladder, stops, Sid's touchpoints in `CAMPAIGN.md`.
 first-light P3/P4/P5 ride campaign P4/P6 under the first-light

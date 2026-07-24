@@ -275,6 +275,44 @@ terminal-escape gauge reading for the whole run.
 
 ---
 
+## P4 integration line (send after the P4 BUILT report; runs ONLY in /mnt/data/projects/Softland-p4)
+
+```
+MODE: INTEGRATE · P4 onto the settled P3 layer · work ONLY in the
+worktree /mnt/data/projects/Softland-p4 (branch
+codex/editable-material-p4) — NEVER touch /mnt/data/projects/Softland
+(another lane may be live there). AUTHORITY: DIRECTION.md +
+CAMPAIGN.md; read the NOW.md tail (the 07-25 Fable P4-deferral entry
+binds you: the gate judges the INTEGRATED branch).
+
+Task: rebase (or cherry-pick ba12442) onto 13f1dac — P3's generic
+facet-master layer. Expected conflicts, resolve TOWARD P3's layer: the
+provenance-specific adapter is DELETED (generic facet_master.clj +
+per-facet specs replace it); contribution stamps are generic
+(subject/site/role/slot + derived attachment); the serve is one
+:facet-materials batch; ground consumes wears via
+current-material-wears. P4's receipts/worn-material references must
+read the ACTIVE revision through the same causal chain it already
+uses. Keep P4's causal as-of (parent-chain, never time sort) — it is
+the corrected reading; P3's time-ms 1 activation stays as durable
+history, never rewritten.
+
+Re-prove in the worktree after rebase: P4 circulation + episode +
+face-projection + relation-kernel + scene-store suites AND P3's facet
+lifecycle suites, plus the full *_test.clj sweep; cljs compile-check
+0 warnings; git diff --check clean. Commit the rebased result on the
+same branch (code-only, house style, never push).
+
+FENCES: NO live-cluster module deploy (the relation-kernel update with
+:instance-of/:felt-at rides the backup-fence adjudication — the Fable
+gate's act); no new kinds, no promotion machinery, no bindings; the
+two reviewed kernel lines stay exactly as committed. STOPS: any
+conflict resolution that would REINTERPRET P3's durable revisions or
+weaken P4's causal as-of → NOW.md (worktree copy) + END.
+Output: rebased commit id + per-suite receipts + a conflict ledger
+(file → resolution + why).
+```
+
 ## P3 resume line (facet-2 halt PASS — Fable adjudication 07-24)
 
 ```

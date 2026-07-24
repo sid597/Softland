@@ -474,3 +474,30 @@
 - Next: Sid sends P5 (PROMPTS.md §P5) to a fresh Codex session (main tree);
   P4 continues in its worktree; gate-P4 and gate-P5 boot from the board
   HANDOFF as reports land.
+
+- **2026-07-25 · Fable · P4 report received — BUILT in the worktree
+  (`ba12442`, codex/editable-material-p4, base 5c0eaa2). GATE DEFERRED to
+  post-integration: the shipped object is the branch REBASED onto P3's
+  `13f1dac`, so the gate judges that, not the pre-P3 base.**
+- Kernel touchpoint for Sid (first-light growth rule — his review): exactly
+  two reviewed lines land in relation-kinds — `:instance-of` (semantic kind
+  predicate) + `:felt-at` (machine-proposed aboutness; DIRECTION's own
+  sense-line vocabulary). Flag-A honored: `:references` is the wish edge, no
+  Wish kind minted.
+- **Cross-package finding (feeds CONTRACT_P6):** P3's deterministic
+  activation times (`time-ms 0/1`) make activation history
+  NON-MONOTONE in wall-clock terms — P4's as-of resolution correctly moved
+  to the pointer's causal parent chain, and its terminal-escape detector
+  honestly returns `:ambiguous-activation-history` (clock regression
+  `1721800000002 → 1`) instead of fabricating a count. Quirks registry
+  amended. P6's activation events must carry honest request times.
+- Deferred live proofs (Codex, honestly disclosed): relation-kernel module
+  update with the two kinds NOT deployed (live gold proof rode the existing
+  `:references`); ambient silver used the canned stream-JSON seam, no live
+  model turn; headed browser proof incomplete (dev build paused at
+  Electric's interactive activation). The deploy rides the backup-fence
+  adjudication — that is the GATE session's act, never the integrator's.
+- Next: Codex integration session IN THE WORKTREE (prompt at PROMPTS.md
+  bottom): rebase onto 13f1dac, resolve the facet-master conflicts,
+  re-prove IPC suites; NO deploy, NO main-tree touch (P5 may be live
+  there). Then the Fable P4 gate on the integrated branch.
