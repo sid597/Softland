@@ -20,7 +20,9 @@
   (:require [clojure.string :as string]
             [cljs.reader :as reader]
             [app.client.workspace.face-assembly :as fa]
-            [app.client.workspace.face-primitives :as prims]))
+            [app.client.workspace.face-primitives :as prims]
+            [app.client.workspace.scene-runtime :as scene-rt]
+            [app.shared.material-inspector :as material-inspector]))
 
 (defn parse-face-command
   "\"/face ...\" command text -> a face-state op, or nil when it is not a face
@@ -68,6 +70,8 @@
 ;; hash). ::none on wear entry so an identical re-wear recompiles (the W1
 ;; re-entry law).
 (defonce ^:private !last-compiled-source (atom ::none))
+
+(defonce ^:private !material-inspector-nonce (atom 0))
 
 (defn- drill-mode?
   []
@@ -122,6 +126,89 @@
                                (clj->js (fa/compile-errors compiled))))
             (reset! !face-compiled compiled)))))))
 
+(defn- picked-entity-id
+  []
+  (let [address (:address (scene-rt/last-pick))]
+    (when (string? address) address)))
+
+(defn- current-material-wearers
+  []
+  (material-inspector/wearers-from-scene-store
+   (scene-rt/store-snapshot)))
+
+(defn- material-inspection!
+  [!request !data entity-id]
+  (if-not (string? entity-id)
+    (js/Promise.reject
+     (js/Error.
+      "Pick a block first, or pass its string entity id to __material.inspect(id)."))
+    (let [token (str "material-inspector-"
+                     (swap! !material-inspector-nonce inc))
+          watch-key (str token "-watch")
+          !timeout-id (atom nil)
+          cleanup! (fn []
+                     (remove-watch !data watch-key)
+                     (when-let [timeout-id @!timeout-id]
+                       (js/clearTimeout timeout-id)
+                       (reset! !timeout-id nil)))]
+      (js/Promise.
+       (fn [resolve reject]
+         (reset! !data nil)
+         (add-watch
+          !data watch-key
+          (fn [_ _ _ response]
+            (when response
+              (if (= token (:material-inspector/request-token response))
+                (do
+                  (cleanup!)
+                  (resolve response))
+                (when (:conversation/error response)
+                  (cleanup!)
+                  (reject
+                   (js/Error.
+                    (str "Material inspector projection failed: "
+                         (name (:conversation/error response))))))))))
+         (reset! !timeout-id
+                 (js/setTimeout
+                  (fn []
+                    (cleanup!)
+                    (reject
+                     (js/Error.
+                      "Material inspector projection timed out after 10 seconds.")))
+                  10000))
+         (reset! !request
+                 {:face :material-inspector
+                  :params {:request-token token
+                           :entity-id entity-id
+                           :wearers (current-material-wearers)}}))))))
+
+(defn- install-material-inspector-api!
+  [!request !data]
+  (when (and !request !data)
+    (letfn [(request! [entity-id]
+              (material-inspection! !request !data
+                                    (or entity-id (picked-entity-id))))
+            (inspect
+              ([] (inspect nil))
+              ([entity-id]
+               (.then (request! entity-id)
+                      (fn [response]
+                        (clj->js
+                         (:material-inspector/result response))))))
+            (edn
+              ([] (edn nil))
+              ([entity-id]
+               (.then (request! entity-id)
+                      (fn [response]
+                        (:material-inspector/edn response)))))]
+      (set! (.-__material js/window)
+            #js {:picked (fn [] (picked-entity-id))
+                 :wearers (fn [] (clj->js (current-material-wearers)))
+                 :inspect inspect
+                 :edn edn})
+      (js/console.log
+       "[MATERIAL] window.__material installed — click a block, then await __material.inspect() / await __material.edn()"))))
+
 (defn install-face-wiring!
   "Wire the generic face pulls + the wear write path:
    - !face-state (set by the /face command + address/scrub selection) derives
@@ -143,6 +230,7 @@
                  !assembly-request !assembly-data
                  !face-list-request !face-list-data
                  !provenance-material-request !provenance-material-data
+                 !material-inspector-request !material-inspector-data
                  !face-wear-outbox !face-wear-result]}]
   (let [{:keys [!face-state !ingest-epoch]} atoms
         !last-pull-epoch (atom 0)
@@ -202,6 +290,11 @@
                  (fn [_ _ _ data]
                    (when data
                      (reset! (:!provenance-material atoms) data)))))
+    ;; P2: console-only, read-only inspector. One request carries the picked
+    ;; entity plus the complete current scene wearer snapshot; the server
+    ;; registry performs the durable joins in one FacePull.
+    (install-material-inspector-api!
+     !material-inspector-request !material-inspector-data)
     ;; W2: wear ack → clear the outbox + refresh the roster (the count bump is
     ;; visible without waiting for an ingest epoch; the :refresh nonce changes
     ;; the request VALUE so Electric re-pulls)
