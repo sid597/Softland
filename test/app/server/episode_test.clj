@@ -57,6 +57,55 @@
     (is (= "sid" (get-in req [:actor :actor/id])) "asserted-by sid")
     (is (= :human (get-in req [:actor :actor/type])))))
 
+(deftest p4-birth-and-turn-carry-the-real-pick-receipt
+  (let [scene-context
+        {:receipt/captured-at-ms 1752700000000
+         :receipt/picked-at
+         {:address "du:chat:p4:target"
+          :src-path [:turns 2 :blocks 0]
+          :view-instance [:vi :ground "target"]
+          :point-world [90 120]}
+         :receipt/placement {:point-world [90 120]}
+         :receipt/worn-materials
+         [{:material/master "fm:provenance"
+           :material/revision "rev:fm:provenance:r1"
+           :material/site :machine-rail}]
+         :visible-count 9}
+        birth (ep/utterance-import-request
+               (assoc args
+                      :position {:x 90 :y 120}
+                      :scene-context scene-context))
+        hint (first (filter #(= :episode-utterance (:entry-kind %))
+                            (get-in birth [:payload :projection-hints])))
+        unit (first (get-in birth [:payload :derived-units]))
+        turn (ep/turn-record-request
+              {:object-key (ep/genesis-object-key)
+               :turn-id "turn-p4"
+               :source-unit-id (:unit-id unit)
+               :content-text "wish the target were calmer"
+               :position {:x 90 :y 120}
+               :time-ms 1752700000000
+               :status :open
+               :episode-id "episode-p4"
+               :scene-context scene-context})
+        turn-receipt
+        (get-in turn [:payload :projection-hints 0 :turn :receipt])]
+    (is (= "du:chat:p4:target"
+           (get-in hint [:receipt :receipt/picked-at :address])))
+    (is (= [:turns 2 :blocks 0]
+           (get-in unit [:receipt :receipt/picked-at :src-path]))
+        "the wish unit material itself retains the real pick provenance")
+    (is (= (mapv :unit-id (get-in birth [:payload :derived-units]))
+           (:origin-unit-ids hint))
+        "every cut unit points back to the one birth receipt")
+    (is (= "episode-p4"
+           (get-in turn-receipt
+                   [:receipt/created-during :episode/id])))
+    (is (= "du:chat:p4:target"
+           (get-in turn-receipt [:receipt/picked-at :address])))
+    (is (empty? (oc/import-request-validation-errors birth)))
+    (is (empty? (oc/import-request-validation-errors turn)))))
+
 (deftest utterance-import-determinism
   (testing "an HTTP retry re-derives IDENTICAL import identity (T8 class)"
     (let [a (ep/utterance-import-request args)

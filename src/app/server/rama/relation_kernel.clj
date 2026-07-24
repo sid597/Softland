@@ -76,7 +76,11 @@
     ;; 2026-07-12, decisions.md dated entry). Directed: from = response event,
     ;; to = user-message/prompt event ("this response pairs-with that prompt").
     ;; That package's ONE kernel edit. One-line reviewed add.
-    :pairs-with})
+    :pairs-with
+    ;; editable-material P4 reviewed line 1/2: semantic kind predicate.
+    :instance-of
+    ;; editable-material P4 reviewed line 2/2: machine-proposed aboutness.
+    :felt-at})
 
 (def request-types #{:relation/assert :relation/retract})
 

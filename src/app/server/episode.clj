@@ -44,6 +44,7 @@
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.object-container.transcript-identity :as tid]
             [app.server.rama.dogfood.transcript :as transcript]
+            [app.server.rama.material-circulation :as circulation]
             [app.server.rama.util-fns :as util-fns]
             [clojure.java.io :as io]
             [clojure.string :as str]))
@@ -138,7 +139,7 @@
    block + proper structural silver subs), so the unit grammar never forks
    by lane (T1). created-by = sid (G3's provenance read lands here);
    :production-event is the delegation home (the F2-option-A extra key)."
-  [{:keys [object-key turn-id text time-ms prev-turn-id]}]
+  [{:keys [object-key turn-id text time-ms prev-turn-id receipt]}]
   (let [source-id  (utterance-source-id object-key turn-id)
         source-ref (str "ep-utterance:" turn-id)
         text       (str text)
@@ -158,18 +159,21 @@
                            doc-id
                            (long (count (.getBytes text "UTF-8")))
                            (long time-ms) utterance-actor-id event-id)
-                          :production-event production)
+                          :production-event production
+                          :receipt receipt)
         units      (mapv (fn [[i b]]
                            (let [unit-id (utterance-unit-id object-key turn-id i)
                                  btext   (str (:text b))]
-                             (oc/->DerivedUnitRow
-                              unit-id doc-id source-id (:unit-kind b)
-                              (str "ep:" (subs (core/sha-256 (str turn-id)) 0 8) ":"
-                                   (format "%06d" (long i)))
-                              nil
-                              (oc/source-anchor-id unit-id)
-                              btext (oc/source-hash btext)
-                              episode-distiller-id episode-distiller-version event-id)))
+                             (assoc
+                              (oc/->DerivedUnitRow
+                               unit-id doc-id source-id (:unit-kind b)
+                               (str "ep:" (subs (core/sha-256 (str turn-id)) 0 8) ":"
+                                    (format "%06d" (long i)))
+                               nil
+                               (oc/source-anchor-id unit-id)
+                               btext (oc/source-hash btext)
+                               episode-distiller-id episode-distiller-version event-id)
+                              :receipt receipt)))
                          blocks)
         anchors    (mapv (fn [[i b]]
                            (let [unit-id (utterance-unit-id object-key turn-id i)]
@@ -190,17 +194,21 @@
    read walks source→units exactly like river-page's message rows), role =
    the ACTOR id (sid — this lane's rows carry actor identity, not a
    transport role; documented divergence from the :message rows)."
-  [{:keys [object-key turn-id time-ms text]} imp-key request-id source-id event-id]
-  (oc/->TranscriptConversationProjectionRow
-   :transcript-conversation-projection
-   (tid/chat-conversation-id object-key)
-   (utterance-order-key time-ms turn-id)
-   :episode-utterance
-   nil nil nil source-id nil nil
-   event-id request-id imp-key
-   (str turn-id) utterance-actor-id
-   (subs (str text) 0 (min 120 (count (str text))))
-   nil))
+  [{:keys [object-key turn-id time-ms text receipt origin-unit-ids]}
+   imp-key request-id source-id event-id]
+  (assoc
+   (oc/->TranscriptConversationProjectionRow
+    :transcript-conversation-projection
+    (tid/chat-conversation-id object-key)
+    (utterance-order-key time-ms turn-id)
+    :episode-utterance
+    nil nil nil source-id nil nil
+    event-id request-id imp-key
+    (str turn-id) utterance-actor-id
+    (subs (str text) 0 (min 120 (count (str text))))
+    nil)
+   :receipt receipt
+   :origin-unit-ids origin-unit-ids))
 
 ;; ===========================================================================
 ;; §B2 · Geometry cells + turn records (P2b — settled truth as projection
@@ -363,11 +371,20 @@
    first episode; a successor uuid after a boundary — the cells are the
    durable episode chain the serve weaves successor containers from."
   [{:keys [object-key turn-id source-unit-id content-text position
-           time-ms prev-turn-id status thread-id episode-id]}]
+           time-ms prev-turn-id status thread-id episode-id scene-context]}]
   (let [imp-key    (str "imp:ep:" object-key ":"
                         (core/sha-256 (str "turn-record " turn-id " " (name status))))
         request-id (str "req:episode-turn:" object-key ":"
                         (core/sha-256 (str turn-id " " (name status))))
+        receipt    (circulation/receipt-from-context
+                    {:created-during
+                     {:conversation/address object-key
+                      :episode/id (some-> episode-id str)
+                      :turn/id (str turn-id)}
+                     :captured-at-ms
+                     (or (:receipt/captured-at-ms scene-context) time-ms)
+                     :position position
+                     :scene-context scene-context})
         value      {:world-id       (world-id object-key)
                     :turn-id        (str turn-id)
                     :source-unit-id source-unit-id
@@ -378,7 +395,8 @@
                     :time-ms        (long time-ms)
                     :prev-turn-id   prev-turn-id
                     :thread-id      (some-> thread-id str)
-                    :episode-id     (some-> episode-id str)}
+                    :episode-id     (some-> episode-id str)
+                    :receipt        receipt}
         event-id   (str "evt:" object-key ":"
                         (core/sha-256 (str "turn " turn-id " " (name status))))
         hint       (assoc (oc/->TranscriptConversationProjectionRow
@@ -396,7 +414,8 @@
                                                 [:turn-id :source-unit-id
                                                  :content-hash :position
                                                  :status :prev-turn-id
-                                                 :thread-id :episode-id]))
+                                                 :thread-id :episode-id
+                                                 :receipt]))
                            nil)
                           :turn value)
         payload    {:object-key           object-key
@@ -443,6 +462,7 @@
       {:status (if (= :accepted (:status decision)) :accepted :rejected)
        :address object-key
        :import-key (:import/key req)
+       :receipt (get-in req [:payload :projection-hints 0 :turn :receipt])
        :decision decision})))
 
 (defn read-turn-records
@@ -456,6 +476,41 @@
        (keep :turn)
        vec))
 
+(defn read-receipt-records
+  "All durable receipt carriers for one conversation, normalized to
+   {:origin-unit-id :receipt :receipt/act}. Birth and utterance-time records
+   remain distinct facts; neither is interpreted as aboutness."
+  [oc-rt object-key]
+  (let [rows
+        (ocr/read-transcript-conversation-projection
+         oc-rt (tid/chat-conversation-id object-key) "" 100000)
+        births
+        (for [row rows
+              :when (= :episode-utterance (:entry-kind row))
+              origin (:origin-unit-ids row)
+              :when (:receipt row)]
+          {:origin-unit-id origin
+           :receipt/act :birth
+           :receipt (:receipt row)})
+        turns
+        (for [row rows
+              :when (= :episode-turn (:entry-kind row))
+              :let [turn (:turn row)]
+              :when (and (:source-unit-id turn) (:receipt turn))]
+          {:origin-unit-id (:source-unit-id turn)
+           :receipt/act :utterance
+           :receipt (:receipt turn)})]
+    (vec (concat births turns))))
+
+(defn read-birth-receipt
+  "The durable birth receipt for one unit, or nil for pre-P4 material."
+  [oc-rt object-key unit-id]
+  (some (fn [record]
+          (when (and (= unit-id (:origin-unit-id record))
+                     (= :birth (:receipt/act record)))
+            (:receipt record)))
+        (read-receipt-records oc-rt object-key)))
+
 (defn utterance-import-request
   "ONE :object-container/import-material action-request for ONE utterance.
    Deterministic request-id/import-key/fingerprint on (turn-id, text,
@@ -465,11 +520,22 @@
    content act mints this unit; `:position` (optional) adds the block's
    birth-position geometry cell to the SAME payload, so birth + placement
    land in one acked import (birth-position at mint, §9.3)."
-  [{:keys [object-key turn-id text time-ms position] :as args}]
-  (let [{:keys [surface units anchors event-id source-id]} (utterance-rows args)
+  [{:keys [object-key turn-id time-ms position scene-context] :as args}]
+  (let [receipt      (circulation/receipt-from-context
+                      {:created-during
+                       {:conversation/address object-key
+                        :birth/id (str turn-id)}
+                       :captured-at-ms
+                       (or (:receipt/captured-at-ms scene-context) time-ms)
+                       :position position
+                       :scene-context scene-context})
+        args         (assoc args :receipt receipt)
+        {:keys [surface units anchors event-id source-id]} (utterance-rows args)
         imp-key     (utterance-import-key object-key turn-id)
         request-id  (utterance-request-id object-key turn-id)
-        hint        (utterance-projection-hint args imp-key request-id source-id event-id)
+        hint        (utterance-projection-hint
+                     (assoc args :origin-unit-ids (mapv :unit-id units))
+                     imp-key request-id source-id event-id)
         geo-hints   (when position
                       (mapv (fn [u]
                               (geometry-cell-hint
@@ -522,14 +588,16 @@
    :address :unit-ids :import-key :decision}. The caller MUST see :accepted
    before the agent is summoned — the utterance is durable BEFORE any agent
    reads it (CONTRACT §3, G3)."
-  [oc-rt {:keys [text turn-id time-ms prev-turn-id conversation-id position]}]
+  [oc-rt {:keys [text turn-id time-ms prev-turn-id conversation-id position
+                 scene-context]}]
   (let [object-key (episode-object-key (or conversation-id genesis-conversation-id))
         args {:object-key object-key
               :turn-id (str turn-id)
               :text (str text)
               :time-ms (long time-ms)
               :prev-turn-id prev-turn-id
-              :position position}
+              :position position
+              :scene-context scene-context}
         req  (utterance-import-request args)]
     (ocr/append-object-container-request! oc-rt req)
     (let [decision (ocr/await-object-container-decision oc-rt req 20000)
@@ -543,6 +611,7 @@
        ;; the served pull is not back yet at replay time)
        :document-container-id (:document-container-id
                                (first (get-in req [:payload :derived-units])))
+       :receipt (get-in req [:payload :projection-hints 0 :receipt])
        :decision decision})))
 
 (defn read-utterance-rows

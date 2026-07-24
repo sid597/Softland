@@ -327,6 +327,20 @@
     (ss/context-bundle @!scene-store (effective-transforms)
                        (:world-point @!last-pick) vp)))
 
+(defn bundle-at-world-point
+  "Build a receipt-capable context bundle at an explicit WORLD point. The open
+   ground uses this at birth and Ctrl+Enter so the pointer may indicate a target
+   while keyboard focus remains on the utterance block — point→say with no
+   selection ritual. `camera` is the live world camera {:x :y :zoom|:scale}."
+  [world-point viewport camera]
+  (let [scale (double (or (:scale camera) (:zoom camera) 1.0))
+        vp {:width (:width viewport)
+            :height (:height viewport)
+            :camera {:x (double (or (:x camera) 0))
+                     :y (double (or (:y camera) 0))
+                     :scale scale}}]
+    (ss/context-bundle @!scene-store (effective-transforms) world-point vp)))
+
 ;; ---------------------------------------------------------------------------
 ;; Actions router (scene-substrate P4 / G10) — descriptor dispatch
 ;; ---------------------------------------------------------------------------

@@ -18,7 +18,8 @@
    address → :index → vis → slot :addresses → index-paths → nodes."
   (:require [app.client.workspace.rect-tree :as rt]
             [app.client.workspace.containers :as containers]
-            [app.client.workspace.face-assembly :as fa]))
+            [app.client.workspace.face-assembly :as fa]
+            [app.shared.material-inspector :as material-inspector]))
 
 ;; ============================================================================
 ;; Slot construction — resolve + flatten + subtree address index
@@ -415,7 +416,23 @@
      :src-path      (:src-path picked)
      :camera        {:world camera :container peff}
      :visible       visible
-     :visible-count count}))
+     :visible-count count
+     ;; editable-material P4: the receipt half of the deictic seam. These are
+     ;; mechanical co-presence facts only; no relation/aboutness is inferred.
+     ;; Worn material is referenced by master+revision ids found in the actual
+     ;; picked render path — never copied as material bytes.
+     :receipt/picked-at
+     {:address (:address picked)
+      :src-path (:src-path picked)
+      :view-instance (:vi picked)
+      :point-world world-point
+      :point-local (:point-local picked)}
+     :receipt/placement
+     {:point-world world-point
+      :point-local (:point-local picked)
+      :camera {:world camera :container peff}}
+     :receipt/worn-materials
+     (material-inspector/contribution-stamps (:path picked))}))
 
 ;; ============================================================================
 ;; Actions router (scene-substrate P4, CONTRACT §5, trap T1) — dispatch on data

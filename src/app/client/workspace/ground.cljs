@@ -272,7 +272,7 @@
    quiet persistent edge tint (Law 6) — two separate primitives."
   [unit-id {:keys [text caret focused? refusal selection]} machine? hover? notice
    {:keys [font-size char-advance line-h]} wrap-col headers msel boundary?
-   gsel? placement-derived? wears]
+   gsel? placement-derived? wears gold-marks silver-marks]
   (let [provenance-wear (:provenance wears)
         attention-wear (:attention wears)
         foldable-wear (:foldable wears)
@@ -456,7 +456,45 @@
                                   :block/prelude)))
 
                   (seq conflict-nodes)
-                  (into conflict-nodes))]
+                  (into conflict-nodes)
+
+                  ;; editable-material P4 gold projection: the durable wish
+                  ;; remains its own OC block; this target-side line is only a
+                  ;; projection coupled by the :references edge.
+                  (seq gold-marks)
+                  (conj (rt-node :ground-wish-mark :text-run
+                                 {:x 0 :y (- (* (if boundary? 2.8 1.4) line-h))
+                                  :w (max w (* 42 char-advance))
+                                  :h line-h}
+                                 :text
+                                 [(text-op
+                                   (let [{:keys [text count]} (first gold-marks)]
+                                     (str "⌁ wish · " text
+                                          (when (> count 1)
+                                            (str "  +" (dec count)))))
+                                   0 line-h font-size amber 0)]))
+
+                  ;; Silver stays visibly machine and explicitly tentative.
+                  ;; Like gold, this is a target-side projection; the source
+                  ;; record remains separately addressable.
+                  (seq silver-marks)
+                  (conj
+                   (rt-node
+                    :ground-silver-mark :text-run
+                    {:x 0
+                     :y (- (* (+ (if boundary? 1.4 0.0)
+                                 (if (seq gold-marks) 1.4 0.0)
+                                 1.4)
+                              line-h))
+                     :w (max w (* 48 char-advance))
+                     :h line-h}
+                    :text
+                    [(text-op
+                      (let [{:keys [text count]} (first silver-marks)]
+                        (str "≈ machine guess · " text
+                             (when (> count 1)
+                               (str "  +" (dec count)))))
+                      0 line-h font-size dim 0)])))]
     (rt/resolve-layout
      (rt-node :ground-block :text-run
               {:x 0 :y 0 :w (max w char-advance) :h (max h line-h)}
@@ -634,6 +672,13 @@
   [unit-id]
   (get (:block-index @!world) unit-id))
 
+(defn- mark-preview
+  "Bounded source-material preview for a target-side experience mark."
+  [unit-id]
+  (when-let [t (truth-text unit-id)]
+    (let [s (str t)]
+      (subs s 0 (min 96 (count s))))))
+
 (defn- sec-line-count [s]
   (if (str/blank? (or s ""))
     0
@@ -739,18 +784,41 @@
           msel   (let [ms @!machine-sel] (when (and ms (= unit-id (:uid ms))) ms))
           bnd?   (boolean (:episode-boundary? (context-block-entry unit-id)))
           gsel?  (contains? @!group-sel unit-id)
+          gold-specs
+          (get-in @!world
+                  [:context :conversation/experience
+                   :experience/gold-marks-by-target unit-id])
+          gold-marks
+          (when (seq gold-specs)
+            (let [texts (->> gold-specs
+                             (keep (comp mark-preview :wish-unit-id))
+                             vec)]
+              (when (seq texts)
+                [{:text (first texts) :count (count texts)}])))
+          silver-specs
+          (get-in @!world
+                  [:context :conversation/experience
+                   :experience/silver-marks-by-target unit-id])
+          silver-marks
+          (when (seq silver-specs)
+            (let [texts (->> silver-specs
+                             (keep (comp mark-preview :record-unit-id))
+                             vec)]
+              (when (seq texts)
+                [{:text (first texts) :count (count texts)}])))
           m      (metrics)
           ;; everything block-tree consumes (viewport excluded — unused):
           ;; equal sig ⇒ identical pixels ⇒ the build is pure waste
           sig    [view (:machine? b) hover? notice (:wrap-col b) headers msel bnd?
-                  gsel? (:placement-derived? b) wears
+                  gsel? (:placement-derived? b) wears gold-marks silver-marks
                   (:font-size m) (:char-advance m) (:line-h m)]]
       (if (and (= sig (:render-sig b))
                (some? (ss/slot (scene-rt/store-snapshot) (block-vi unit-id))))
         (swap! !rebuild-stats update :skips inc)
         (let [tree (block-tree unit-id view (:machine? b) hover? notice
                                m (:wrap-col b) headers msel bnd? gsel?
-                               (:placement-derived? b) wears)]
+                               (:placement-derived? b) wears
+                               gold-marks silver-marks)]
           (swap! !rebuild-stats update :builds inc)
           (upsert-block-slot! unit-id tree (:x b) (:y b))
           (swap! !world update-in [:blocks unit-id]
@@ -1414,14 +1482,36 @@
 ;; Birth — the first content act mints the durable block (§5.1 lane)
 ;; ===========================================================================
 
+(defn- context-at-world-point
+  "Mechanical P4 receipt context at one world point. The server supplies
+   created-during identity; the client supplies the real pick/placement/worn
+   references and the act's timestamp."
+  [world-point captured-at-ms]
+  (assoc
+   (scene-rt/bundle-at-world-point
+    world-point (:viewport (metrics)) @!camera)
+   :receipt/captured-at-ms captured-at-ms))
+
+(defn- pointer-context
+  "Context under the live pointer without changing keyboard focus. This is the
+   no-ritual point→say seam used by Ctrl+Enter."
+  [captured-at-ms]
+  (let [{:keys [!mouse-x !mouse-y]} (:atoms @!refs)]
+    (context-at-world-point
+     (screen->world (or @!mouse-x 200) (or @!mouse-y 200))
+     captured-at-ms)))
+
 (defn- post-birth! [{:keys [block-id text pos]}]
-  (-> (js/fetch "/api/episode/block-birth"
+  (let [time-ms (js/Date.now)
+        scene-context (context-at-world-point [(:x pos) (:y pos)] time-ms)]
+    (-> (js/fetch "/api/episode/block-birth"
                 (clj->js {:method "POST"
                           :headers {"Content-Type" "application/edn"}
                           :body (pr-str (cond-> {:block-id block-id
                                                  :text text
-                                                 :time-ms (js/Date.now)
-                                                 :position {:x (:x pos) :y (:y pos)}}
+                                                 :time-ms time-ms
+                                                 :position {:x (:x pos) :y (:y pos)}
+                                                 :scene-context scene-context}
                                           (drill-conversation-id)
                                           (assoc :conversation-id (drill-conversation-id))))}))
       (.then (fn [resp] (.then (.text resp)
@@ -1457,7 +1547,7 @@
                (doseq [env envelopes] (submit-envelope! env)))))))
       (.catch (fn [_e]
                 (swap! !ground-edit ge/birth-failed :birth-unreachable)
-                (refresh-anchor!)))))
+                (refresh-anchor!))))))
 
 ;; ===========================================================================
 ;; The send lane — Ctrl+Enter, revision-pinned, durable-BEFORE-agent
@@ -1587,7 +1677,9 @@
           (let [text (get-in st [:queue :confirmed :text])
                 b    (get-in @!world [:blocks fid])]
             (when-not (str/blank? (or text ""))
-              (let [turn-id (str (random-uuid))]
+              (let [turn-id (str (random-uuid))
+                    time-ms (js/Date.now)
+                    scene-context (pointer-context time-ms)]
                 (swap! !thread-of assoc fid thread)
                 (when adopted
                   (transient-notice! fid "joined the conversation above"))
@@ -1608,7 +1700,8 @@
                           :content-text text
                           :position {:x (:x b) :y (:y b)}
                           :turn-id turn-id
-                          :time-ms (js/Date.now)
+                          :time-ms time-ms
+                          :scene-context scene-context
                           :prev-turn-id (get @!last-turn-ids thread)}
                    thread (assoc :thread-id thread)
                    drill  (assoc :conversation-id drill))

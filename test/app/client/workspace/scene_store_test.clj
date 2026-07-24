@@ -600,6 +600,49 @@
         (is (nil? (:address b)))
         (is (= #{"addr/a" "addr/b"} (:visible b)))))))
 
+(deftest p4-context-bundle-captures-real-pick-placement-and-worn-refs
+  (let [tree (rt/rt-node
+              :root :feed {:x 0 :y 0 :w 200 :h 100}
+              :children
+              [(rt/rt-node
+                :picked :rect {:x 0 :y 0 :w 120 :h 40}
+                :data {:address "du:chat:p4:target"
+                       :assembly/src-path [:turns 0 :blocks 0]
+                       :material/subject "du:chat:p4:target"
+                       :material/attachment
+                       [:derived :provenance "du:chat:p4:target"]
+                       :material/master "fm:provenance"
+                       :material/revision "rev:fm:provenance:r1"
+                       :material/site :machine-rail
+                       :material/role :provenance-marker
+                       :material/slot :block/decorations}
+                :style {:bg [0 0 0 0]})])
+        reg (-> (ctn/empty-registry)
+                (ctn/add-container 1 {:x 10 :y 20 :scale 1
+                                      :camera :world :layer 1}))
+        store (-> (ss/empty-store)
+                  (ss/upsert-slot [:vi :p4] {:tree tree :container 1}))
+        bundle (ss/context-bundle
+                store (ctn/effective reg) [20 30]
+                {:width 500 :height 500
+                 :camera {:x 0 :y 0 :scale 1}})]
+    (is (= "du:chat:p4:target"
+           (get-in bundle [:receipt/picked-at :address])))
+    (is (= [:turns 0 :blocks 0]
+           (get-in bundle [:receipt/picked-at :src-path])))
+    (is (= [20 30]
+           (get-in bundle [:receipt/placement :point-world])))
+    (is (= [{:material/subject "du:chat:p4:target"
+             :material/attachment
+             [:derived :provenance "du:chat:p4:target"]
+             :material/master "fm:provenance"
+             :material/revision "rev:fm:provenance:r1"
+             :material/site :machine-rail
+             :material/role :provenance-marker
+             :material/slot :block/decorations}]
+           (:receipt/worn-materials bundle)))
+    (is (= bundle (edn/read-string (pr-str bundle))))))
+
 (deftest g10-actions-router-replays-descriptors-identically
   ;; A scene tree with trail-face descriptors EDN round-trips; its descriptors
   ;; replay through the registry with IDENTICAL call order + args (Δ6 falsifier).
