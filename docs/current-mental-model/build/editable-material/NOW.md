@@ -202,3 +202,28 @@
   epoch staleness (check at P6 review) · wear in every render-sig (echo-gate
   data point) · drill accretion is by-design retained trace.
 - Next: Sid sends the P2 prompt (PROMPTS.md §P2) to a fresh Codex session.
+
+- **2026-07-24 · Codex · P2 (material inspector) — BUILT, stopped honestly at
+  the dead cluster (host reboot, not Codex); live replay NOT PROVEN their
+  turn.** Full proof list in their report; adjudicated at the gate below.
+
+- **2026-07-24 · Fable · P2 GATE — PASS. Code committed `c6bb5d8`; P3 ∥ P4
+  open.**
+- Full record: `GATE_P2.md`. Receipts re-run here: full suite 385t/5,220a
+  FULLY green (45 nss; kernel-shape repair holds, no flake fired) · cljs 302
+  files 0 warnings · falsification held (read-only fence physical-proven,
+  fixed read cost, no wall clock, g21 scan widened minimally).
+- The gate ran the wearing Codex was blocked on: recovered the cluster
+  (`bin/land up`, no unwedge — host-reboot kill recovers natively), booted
+  the dev app, drove `window.__material` headless: 34 wearers on v0,
+  active ≠ latest LIVE (latest = P1's retained malformed candidate,
+  byte-identical to the NOW record, across the reboot), trail 3/2/1
+  complete, `edn()` twice byte-equal (22,197B). Sid's one headed line:
+  click a block → `__material.picked()`.
+- Adjudications: scene-derived wearers = CORRECT fence reading (durable
+  index is §Horizon/P6; honest `:derived` labels) · no face = correct ·
+  open doubts in GATE_P2.md (roster-shadowing nit; trail classification
+  switches to event truth at P6).
+- Ops: land left UP (five modules RUNNING, dev app on 8080).
+- Next: Sid sends P3 (PROMPTS.md §P3) and P4 (§P4 — ∥ ONLY in a separate
+  git worktree) to fresh Codex sessions.

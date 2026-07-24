@@ -10,38 +10,46 @@ minutes, the board is broken — fix it.
 ## HANDOFF — next implementation session (paste this)
 
 ```
-editable-material campaign — ORCHESTRATION session (Fable). Gate P2.
-Prereq: Codex has run the P2 prompt (PROMPTS.md §P2 — Sid sends it;
-P1 gate PASS 07-24 unblocked it) and ended with its proof list.
+editable-material campaign — ORCHESTRATION session (Fable). Gate P3
+and/or P4 (whichever Codex report is in; two lanes may be live — P4
+runs in a separate git worktree).
+Prereq: P2 gate PASS 07-24; Sid has sent PROMPTS.md §P3 (and §P4) to
+fresh Codex sessions and pasted the report(s).
 Boot, in order:
-1. build/editable-material/NOW.md — thread tail: the P1 GATE entry
-   (PASS, commits 83aa5dd code + b6f3d75 kernel-shape baseline repair;
-   adjudications a/b/c; open doubts) + Codex's P2 report
-2. GATE_P1.md (the P1 gate record — conventions + open doubts bind
-   P2's review) · DIRECTION.md (§layer identities) · CAMPAIGN.md §P2 ·
-   PROMPTS.md (P3 + P4 both send after P2 PASS — P4 ∥ only in a
-   separate worktree)
-3. git log --oneline -8 — suite honestly green at b6f3d75 (383t/5,183a;
-   flake registry: stale-approval + dogfood-space/llm-probe classes in
-   memory/implementation-quirks.md)
-Role: fresh-context falsification + gate on P2 (work-package skill):
-re-run suites yourself, read the diff in full, verify read-only fence
-(no writes, no new PStates), replayable console receipts, batched
-server-side query (never client N+1). Known ops: cluster READY; drains
-hang at depot-flush (platform OPEN; bin/land down → dirty → unwedge →
-up is sanctioned). On PASS: flip the board, hand Sid the P3 AND P4
-prompts from PROMPTS.md.
+1. build/editable-material/NOW.md — thread tail: P1+P2 GATE entries
+   (commits 83aa5dd, b6f3d75, c6bb5d8; adjudications; open doubts) +
+   the new Codex report(s)
+2. GATE_P1.md + GATE_P2.md (conventions + open doubts BIND the next
+   review: P3 must halt after facet 2 for the second-wearer +
+   reasoning-cost verdicts — that halt is a gate INSIDE the package) ·
+   DIRECTION.md (§spine FAIL-tells, §layer identities) · CAMPAIGN.md
+   §P3/§P4 + §Standing-stops · PROMPTS.md
+3. git log --oneline -8 — suite fully green at c6bb5d8 (385t/5,220a);
+   flake registry in memory/implementation-quirks.md
+Role: fresh-context falsification + gate (work-package skill): re-run
+suites yourself, read the diff in full. P3 gate axes: byte-identical
+render at current values per extraction · old constants DELETED ·
+P1-convention reuse (the FAIL-tells) · echo bar. P4 gate axes:
+receipts are co-presence never aboutness · kernel growth = reviewed
+lines only · silver visibly machine · first-light P3 fulfilled under
+its CONTRACT. Ops: land UP (five modules RUNNING, dev app 8080);
+drains hang at depot-flush (platform OPEN; down → dirty → unwedge →
+up sanctioned). On P3 PASS: hand Sid P5. On P4 PASS: Gate 2 closes.
 ```
 
-**Campaign state:** **P1 CLOSED — gate PASS 07-24** (`GATE_P1.md`; code
-`83aa5dd`, baseline repair `b6f3d75`; Gate 1 anatomy PROVEN live:
-active ≠ latest, rollback = repoint, byte-identical pixels, error-card
-drill). **P2 inspector is NEXT — Sid pastes PROMPTS.md §P2 into a fresh
-Codex session.** Then P3 facet spread ∥ P4 circulation → P5 bindings →
-P6 truth loop (Gates 3+4) → P7 portal → P8 verb-from-inside — ladder,
-stops, Sid's touchpoints in `CAMPAIGN.md`. first-light P3/P4/P5 ride
-campaign P4/P6 under the first-light CONTRACT (no fork; flag
-discrepancies inline).
+**Campaign state:** **P1 + P2 CLOSED — both gates PASS 07-24**
+(`GATE_P1.md` code `83aa5dd` + repair `b6f3d75`; `GATE_P2.md` code
+`c6bb5d8` — inspector live-replayed on the recovered cluster:
+active ≠ latest live, trail 3/2/1, edn byte-equal; Sid's one headed
+line: click a block → `__material.picked()`). **P3 facet spread ∥ P4
+circulation are NEXT — Sid pastes PROMPTS.md §P3 and §P4 into fresh
+Codex sessions (P4 ∥ ONLY in a separate git worktree).** Then P5
+bindings → P6 truth loop (Gates 3+4) → P7 portal → P8
+verb-from-inside — ladder, stops, Sid's touchpoints in `CAMPAIGN.md`.
+first-light P3/P4/P5 ride campaign P4/P6 under the first-light
+CONTRACT (no fork; flag discrepancies inline). Land is UP (five
+modules RUNNING, dev app 8080; host-reboot recovery 07-24 in
+GATE_P2.md §Ops).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
@@ -243,14 +251,18 @@ master ≠ recipe ≠ attachment, the probe births a MASTER, the first
 recipe/type is named at recurrence). Execution:
 `build/editable-material/CAMPAIGN.md` — **P1 anatomy CLOSED (gate PASS
 07-24, `GATE_P1.md`; code `83aa5dd` + baseline repair `b6f3d75`)** →
-P2 inspector (NEXT — PROMPTS.md §P2 to a fresh Codex session; gate-P2
-boot in HANDOFF) → P3 facet spread ∥ P4 circulation (Gate 2; fulfills
-first-light P3) → P5 bindings → P6 truth loop (Gates 3+4; fulfills
-first-light P4/P5; carries the P1 wound trace as first immune memory +
-the cross-JVM-epoch open doubt from GATE_P1.md) → P7 portal → P8
-verb-from-inside; ~14–22 sessions, gates on banked frictions, Sid's
-touchpoints ≈ ten one-liners; the first full BREATH lands at his
-return, by design. decisions.md bullet when Gate 3 closes.
+**P2 inspector CLOSED (gate PASS 07-24, `GATE_P2.md`; code `c6bb5d8`;
+live-replayed on the recovered cluster)** → P3 facet spread ∥ P4
+circulation (NEXT — PROMPTS.md §P3 + §P4 to fresh Codex sessions, P4
+in a separate worktree; Gate 2; fulfills first-light P3; P3 halts
+after facet 2 for the second-wearer + reasoning-cost verdicts) → P5
+bindings → P6 truth loop (Gates 3+4; fulfills first-light P4/P5;
+carries the P1 wound trace as first immune memory + the
+cross-JVM-epoch and trail-classification doubts from the gate records)
+→ P7 portal → P8 verb-from-inside; ~14–22 sessions, gates on banked
+frictions, Sid's touchpoints ≈ ten one-liners; the first full BREATH
+lands at his return, by design. decisions.md bullet when Gate 3
+closes.
 
 **episode-chain — BUILT 2026-07-22 at Sid's word, awaiting his wear**
 (bounded CLI sessions under every lane — the multi-turn round's verdict:
