@@ -10,27 +10,30 @@ minutes, the board is broken — fix it.
 ## HANDOFF — next implementation session (paste this)
 
 ```
-editable-material CAMPAIGN — Package 1: anatomy (Gate 1). BUILD session.
-Sid's order 07-24: the FULL layer gets built before he returns. Read
-build/editable-material/CAMPAIGN.md first (ladder, stops, touchpoints),
-then:
-1. build/editable-material/DIRECTION.md — SETTLED 07-24: spine, laws,
-   §Probe-FINAL (it is P1's contract)
-2. src/app/client/workspace/ground.cljs — block-tree + rebuild-block!
-   (three provenance sites, one machine-tint constant) + the 52ms
-   echo-bar machinery (the standing gate)
-3. assembly_adapter.clj + face_projection.clj + face_wiring.cljs — the
-   serve/revision/epoch precedent (generalize, never fork)
-Deliver Gate 1 whole per DIRECTION §Probe-FINAL: provenance master as
-revisioned OC material with an EXPLICIT active-pointer (active≠latest,
-rollback = repoint); three sites render through it, stamped
-master+revision; machine-tint constant DELETED; restart restores
-active; post-activation births wear it; malformed → error card + worn
-surface unharmed (floor drill on ?drill=, keep the trace for Gate 4);
-byte-identical at current values; one revision moves all three live;
-echo bar unchanged. /rama before Rama touches; work-package mechanics;
-open build/editable-material/NOW.md; docs on the docs branch; code
-commits ride Sid's standing 07-24 word (veto anytime).
+editable-material campaign — ORCHESTRATION session (Fable). Gate P1.
+Boot, in order:
+1. build/editable-material/NOW.md — the WHOLE thread: P1 phases, the
+   07-24 ops incident + adjudications, and Codex's final STOP report
+   (P1 built + all live drills PROVEN incl. byte-identical pixels and
+   one-revision-moves-all-three; stopped ONLY at the full-suite fence)
+2. DIRECTION.md (settled spine, §Probe-FINAL) · CAMPAIGN.md (ladder,
+   standing stops, Sid's touchpoints) · PROMPTS.md (P2–P8; send one
+   per gate PASS)
+3. git log --oneline -8 — P1 code is UNCOMMITTED in the tree BY DESIGN
+   (stop clause); ops context: cd4fcb4, b933419, a334a79
+Role: fresh-context falsification + gate on P1 (work-package skill).
+The gate must adjudicate: (a) the 8 full-suite failures — 6 are the
+known order-sensitive flake class (standalone-green; see
+implementation-quirks registry protocol), 2 are PRE-P1 baseline drift
+(kernel_shape_test expects 5 kernels; committed kernel.clj has 6 since
+1725f55) — rule whether tests-green is satisfied-with-recorded-
+deviation and where the baseline fix belongs; (b) the src/app/shared/
+placement vs the face_assembly.cljc shared-code convention; (c) P1
+code commit at Sid's standing word if PASS. Known ops context: cluster
+READY; drains hang at depot-flush (platform issue OPEN; bin/land
+unwedge is the recovery); backup fence = quiesced snapshot,
+adjudicated in NOW.md. On PASS: flip the board, hand Sid the P2 prompt
+from PROMPTS.md.
 ```
 
 **Campaign after P1:** P2 inspector → P3 facet spread ∥ P4 circulation →

@@ -118,3 +118,67 @@
   modules RUNNING. Codex resumes P1 from the deploy step; resume line in
   PROMPTS.md (do NOT rerun `bin/land backup` first; on any refused module
   update, stop and report).
+
+- **2026-07-24 · Codex · P1 Phase 2 (deploy + Probe-FINAL live drills) —
+  PASS; Phase 3 full-suite gate — STOP.**
+- Honored the adjudicated backup deviation: did not rerun `bin/land backup`.
+  Issued exactly one update for the existing object-container module; it was
+  accepted and returned to RUNNING. No module, depot, PState, topology branch,
+  query, or durable row shape was added.
+- Explicit `provenance-material-ingest!` installed the default material
+  revision
+  `rev:fm:provenance:3cd873dd99ebc288c8ca8f6fef031e36ff9a5b163610df65074ed25896f4db09:dc85777d27451037b12a90ee2905dc6030c2c51f52fba4f7e5616d52b91bc120`
+  and pointer revision
+  `rev:fm:provenance:aa8fadced2e8e1dee4aca996b2ed0db571cf58a468d2051699354c29e0193638:f68ece31ff6c393770677961a3e80eb28d6b86cfdfda7d270bb733cc30131a98`.
+  The application startup path is read-only; the deploy-time ingest remains
+  the sole initializer.
+- Restart drill: `bin/land down` reached its clean terminal marker after about
+  900s; the sanctioned `bin/land unwedge` was still run and was idempotent
+  (`[:cluster-shutdown-complete]` before and after), followed by
+  `bin/land up`. All five modules returned RUNNING. A read-only material query
+  returned the same active, latest, and pointer revision IDs.
+- Live browser activation imported and activated revision
+  `rev:fm:provenance:3cd873dd99ebc288c8ca8f6fef031e36ff9a5b163610df65074ed25896f4db09:4c950d3a53aa358a2148e96a972c49db1bbca410c0297db4385a7ad2a4e7b3f5`
+  with tint `[0.18 0.84 0.32 0.95]`. Confirmed scene-store contributions were
+  68 fold headers, 34 machine rails, and 1 episode boundary; all 103 carried
+  master `fm:provenance`, the same activated revision, and their contribution
+  site. A page born after activation wore that revision.
+- The `?drill=p1-final-1784884925150` malformed candidate was retained as
+  latest revision
+  `rev:fm:provenance:3cd873dd99ebc288c8ca8f6fef031e36ff9a5b163610df65074ed25896f4db09:26c3dfd7ac4ccf9ec44d4af9ed2a18e036bc3ac8dfb57d93c1b77b1ab5db5043`.
+  Activation closed on `EOF while reading`; the separate error card named the
+  candidate and error while all 103 worn contributions remained on the green
+  active revision. The rejected candidate trace remains durable.
+- Same-page rollback repointed active to the original default revision while
+  latest remained the malformed candidate. Without reload, all 68/34/1
+  contributions changed together to the default revision and tint; counts and
+  layout remained stable. This proves active is independent of latest and
+  rollback is a pointer edit.
+- Byte proof: untouched `HEAD` (`a334a79`) constant-backed render, the new
+  master-backed default render, and the same-page rollback render produced
+  identical 1440x1000 PNG bytes: SHA-256
+  `f9a5f3eeed43587d0f7944fdcbc4e27ba83a0a76860dcb03ae1f048477356946`.
+  ImageMagick reported 0 changed pixels.
+- Echo machinery was not edited. Isolated browser samples were
+  `[26.3, 41.6, 55.0]` ms; `__ground.report()` returned
+  `n=3 p50=41.6 p95=55.0 p99=55.0 max=55.0` against the unchanged 52ms bar,
+  with the one 55.0ms idle-run outlier retained honestly.
+- Focused gate is green: `app.provenance-material-test` plus
+  `app.face-projection-test` ran 12 tests / 132 assertions, 0 failures, 0
+  errors. The current client compiled 301 files with 0 CLJS warnings.
+- Full repository suite was attempted by loading and running every one of the
+  44 `*_test.clj` namespaces: 383 tests / 5,183 assertions, 8 failures, 0
+  errors. Six order-sensitive failures came from
+  `stale-approval-on-executor-death-test`; that namespace passes alone (12
+  tests / 114 assertions). Two deterministic failures remain in
+  `kernel_shape_test`: it requires exactly five kernel examples, while
+  committed `src/app/server/rama/kernel.clj` includes the pre-existing
+  `:face-arsenal` sixth example. Both failing test/implementation surfaces are
+  unchanged by P1; the mismatch was introduced before this package by
+  `1725f55`.
+- Standing stop fired: the hard `tests green` fence conflicts with observed
+  committed code. Repairing the unrelated kernel-shape contract test would
+  expand this one-package change beyond P1. Per the stop clause, no code was
+  committed and nothing was pushed. P1 code and this private phase note remain
+  local; cluster is up, active is the default revision, and latest is the
+  retained malformed drill trace.
