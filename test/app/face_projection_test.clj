@@ -10,7 +10,9 @@
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [clojure.string :as str]
             [clojure.java.io :as io]
+            [app.server.episode :as episode]
             [app.server.rama.face-projection :as fp]
+            [app.server.rama.material-circulation :as circulation]
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.object-container.block-distiller :as bd]
             [app.server.rama.dogfood.transcript :as tr]))
@@ -94,10 +96,34 @@
     (is (fn? (:face-list fp/projection-registry)))
     (is (fn? (:facet-materials fp/projection-registry)))
     (is (fn? (:material-inspector fp/projection-registry)))
+    (is (fn? (:material-experience fp/projection-registry)))
     (is (fn? (:block-truth fp/projection-registry)))
     (is (= #{:conversation :assembly :face-list :facet-materials
-             :material-inspector :block-truth}
+             :material-inspector :material-experience :block-truth}
            (set (keys fp/projection-registry))))))
+
+(deftest material-experience-names-failed-record-sources
+  (with-redefs [episode/read-receipt-records
+                (fn [& _] (throw (ex-info "receipt read poisoned" {})))
+                circulation/read-circulation-records
+                (fn [& _] (throw (ex-info "silver read poisoned" {})))]
+    (let [result
+          (fp/material-experience-projection
+           {:oc-rt :present :rk-rt nil}
+           {:address "du:chat:map-honesty:target"
+            :params {:conversation-address "chat:map-honesty"}})
+          sources (set (map :source (:experience/source-errors result)))]
+      (is (= #{:receipt :silver-record} sources))
+      (is (false?
+           (get-in result
+                   [:experience/query-plan :relation-runtime-available?])))
+      (is (true?
+           (get-in result
+                   [:experience/query-plan
+                    :object-container-runtime-available?])))
+      (is (= 0
+             (get-in result
+                     [:experience/query-plan :relation-roundtrips]))))))
 
 ;; ===========================================================================
 ;; G12 (review-time, mechanical) — READ-ONLY by construction.

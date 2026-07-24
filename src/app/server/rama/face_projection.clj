@@ -35,6 +35,8 @@
             [app.server.rama.object-container.transcript-identity :as tid]
             [app.server.rama.object-container.assembly-adapter :as assembly-adapter]
             [app.server.rama.object-container.facet-master :as facet-master]
+            [app.server.episode :as episode]
+            [app.server.rama.material-circulation :as circulation]
             [app.server.rama.face-arsenal :as face-arsenal]
             [app.shared.facet-material :as facet-material]
             [app.shared.facet-masters :as facet-masters]
@@ -452,6 +454,18 @@
         (println "[FACE] machine-cut edge read failed:" (.getMessage t))
         []))))
 
+(defn- circulation-record-read
+  "Keep a failed circulation source visible. Empty durable truth and a failed
+   query are not the same observation (P4 map-must-not-lie fence)."
+  [source read-fn]
+  (try
+    {:records (vec (read-fn))}
+    (catch Throwable t
+      {:records []
+       :error {:source source
+               :reason :projection-read-failed
+               :message (.getMessage t)}})))
+
 (defn conversation-projection
   "The ONE Wave-1 projection: conversation → turns → blocks-with-kinds, over the
    block kernel's durable state via `river-page` (READ-ONLY). `ctx` carries the OC
@@ -581,6 +595,29 @@
                             geo-rows)
             turn-recs (vec (keep #(cell-of % :turn)
                                  (:river-page/turn-rows (meta page))))
+            ;; editable-material P4 circulation: receipt carriers are ordinary
+            ;; OC projection rows; activation context is resolved as-of from
+            ;; the pointer history (one history read for the whole batch).
+            receipt-read
+            (circulation-record-read
+             :receipt
+             #(circulation/resolve-records-as-of
+               oc-rt (episode/read-receipt-records oc-rt address)))
+            machine-read
+            (circulation-record-read
+             :silver-record
+             #(mapv
+               (fn [record]
+                 {:origin-unit-id
+                  (get-in record [:observation :record-unit-id])
+                  :circulation record})
+               (circulation/read-circulation-records oc-rt address)))
+            receipt-records (:records receipt-read)
+            machine-records (:records machine-read)
+            circulation-errors
+            (vec (keep :error [receipt-read machine-read]))
+            experience-records
+            (into receipt-records machine-records)
             ;; Task 18: tombstoned units (geometry cell :deleted?) leave the
             ;; serve — the client's reconcile closes vanished slots through
             ;; the normal truth loop; the geometry endpoint bumps the epoch
@@ -600,6 +637,27 @@
                              :conversation/geometry geometry
                              :conversation/camera camera
                              :conversation/turn-records turn-recs)
+            experience0
+            (try
+              (circulation/experience-around-many
+               rk-rt
+               (mapv :id (mapcat :blocks (:turns dc)))
+               experience-records)
+              (catch Throwable t
+                 {:experience/material-ids []
+                 :experience/items []
+                 :experience/gold-marks-by-target {}
+                 :experience/silver-marks-by-target {}
+                 :experience/composition {:receipt 0 :silver 0 :gold 0}
+                 :experience/error :projection-read-failed
+                 :experience/error-message (.getMessage t)}))
+            experience
+            (cond->
+             (update experience0 :experience/query-plan assoc
+                     :object-container-runtime-available? (boolean oc-rt))
+              (seq circulation-errors)
+              (assoc :experience/source-errors circulation-errors))
+            dc        (assoc dc :conversation/experience experience)
             ;; thread honesty (additive; map-must-not-lie): a truncated thread
             ;; page or a failed thread read is a named fact, never silence
             dc        (cond-> dc
@@ -624,6 +682,49 @@
             structure (derive-pair-structure (:turns dc) edges address
                                              machine-cut-actor-v0)]
         (merge dc structure)))))
+
+(defn material-experience-projection
+  "Direct standing query: everything experienced around one or more material
+   ids. The relation kernel is invoked once for the whole target vector;
+   receipts come from the owning conversation and are resolved as-of against
+   activation history. Request:
+   {:face :material-experience :address <material-id>
+    :params {:material-ids [...] :conversation-address <optional>}}."
+  [{:keys [oc-rt rk-rt]} {:keys [address params]}]
+  (let [ids (vec (distinct
+                  (filter rk/present-string?
+                          (or (seq (:material-ids params)) [address]))))
+        object-key (or (:conversation-address params)
+                       (some-> (first ids) oc/extract-object-key))
+        receipt-read
+        (circulation-record-read
+         :receipt
+         #(if (and oc-rt (rk/present-string? object-key))
+            (circulation/resolve-records-as-of
+             oc-rt (episode/read-receipt-records oc-rt object-key))
+            []))
+        machine-read
+        (circulation-record-read
+         :silver-record
+         #(if (and oc-rt (rk/present-string? object-key))
+            (mapv
+             (fn [record]
+               {:origin-unit-id
+                (get-in record [:observation :record-unit-id])
+                :circulation record})
+             (circulation/read-circulation-records oc-rt object-key))
+            []))
+        records (into (:records receipt-read) (:records machine-read))
+        errors (vec (keep :error [receipt-read machine-read]))]
+    (cond->
+     (assoc
+      (update
+       (circulation/experience-around-many rk-rt ids records)
+       :experience/query-plan assoc
+       :object-container-runtime-available? (boolean oc-rt))
+      :experience/conversation-address object-key
+      :face/rendered-at-ms (System/currentTimeMillis))
+      (seq errors) (assoc :experience/source-errors errors))))
 
 ;; ===========================================================================
 ;; W2 arsenal projections (CONTRACT §16; gates G20/G21). READ-ONLY + TOTAL:
@@ -1083,6 +1184,7 @@
    :face-list    face-list-projection
    :facet-materials facet-materials-projection
    :material-inspector material-inspector-projection
+   :material-experience material-experience-projection
    :block-truth  block-truth-projection})
 
 (def face->projection-kind

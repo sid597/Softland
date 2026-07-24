@@ -19,7 +19,9 @@
   (:use [com.rpl.rama])
   (:require [app.server.ingest-watchers :as ingest-watchers]
             [app.server.rama.face-arsenal :as face-arsenal]
+            [app.server.rama.git-spine :as git-spine]
             [app.server.rama.machine-cut :as machine-cut]
+            [app.server.rama.material-circulation :as circulation]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.block-distiller :as block-distiller]
             [app.server.rama.object-container.facet-master :as facet-master]
@@ -429,6 +431,46 @@
                (:failed mc) "failed")
       mc)))
 
+(defn starter-culture-ingest!
+  "Editable-material P4 migration adapter. Apply the two literal legacy
+   predicates to the existing conversation window and assert silver
+   :instance-of associations. These are associations only — no historical
+   receipt is manufactured. The bounded river-page truncation fact is returned
+   so this migration never overclaims whole-corpus coverage."
+  [object-key]
+  (let [oc-rt (object-container-runtime)
+        rk-rt (trail-runtime)]
+    (when-not (and oc-rt rk-rt)
+      (throw (ex-info "cluster unavailable — run bin/land up first" {})))
+    (let [page (block-distiller/river-page
+                {:oc-rt oc-rt :object-key object-key}
+                block-distiller/max-river-page-size)
+          read-plan (:river-page/read-plan (meta page))
+          result (circulation/seed-starter-culture!
+                  rk-rt (vec page) (System/currentTimeMillis))
+          receipt (assoc result
+                         :window/blocks-returned (:blocks-returned read-plan)
+                         :window/truncated? (boolean (:truncated? read-plan)))]
+      (println "[CLUSTER-INGEST] starter culture:"
+               (:materialized result) "of" (:matched result)
+               "associations · truncated?" (:window/truncated? receipt))
+      receipt)))
+
+(defn terminal-escape-report
+  "Run P4's mechanical terminal-escape detector against git-spine commit facts
+   and the provenance master's activation log."
+  []
+  (let [oc-rt (object-container-runtime)]
+    (when-not oc-rt
+      (throw (ex-info "cluster unavailable — run bin/land up first" {})))
+    (circulation/terminal-escape-report
+     (git-spine/read-commits (repo-root))
+     (ocr/read-revision-history
+      oc-rt
+      (facet-master/active-pointer-container-id provenance-material/spec)
+      ""
+      100000))))
+
 (defn migrate!
   "Migration day (CONTRACT §7 P4), T8 order: corpus ingest (imported bases
    first) → faces + wear bridge → transcript harvest/distill + block-edit
@@ -441,15 +483,21 @@
    (let [corpus (ingest!)
          faces (faces-ingest!)
          first-light (first-light-ingest!)
+         starter-culture (starter-culture-ingest! (:object-key first-light))
+         terminal-escape (terminal-escape-report)
          machine-cut (machine-cut-bridge!)]
      (println "[CLUSTER-INGEST] migration receipt:")
      (println {:corpus corpus
                :faces (dissoc faces :wear-bridge)
                :first-light (select-keys first-light [:object-key :river :debris :block-edit-bridge])
+               :starter-culture starter-culture
+               :terminal-escape terminal-escape
                :machine-cut machine-cut})
      {:corpus corpus
       :faces faces
       :first-light first-light
+      :starter-culture starter-culture
+      :terminal-escape terminal-escape
       :machine-cut machine-cut})))
 
 (defn start-watchers!

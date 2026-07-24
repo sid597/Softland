@@ -8,8 +8,11 @@
     [contrib.assert :refer [check]]
     [app.file-viewer :as fv]
     [app.server.episode :as episode]
+    [app.server.rama.material-circulation :as circulation]
     [app.server.rama.face-projection :as face-projection]
     [app.server.rama.object-container.facet-master :as facet-master]
+    [app.server.rama.object-container.runtime :as ocr]
+    [app.server.rama.dogfood.llm :as llm]
     [app.server.rama.cluster :as cluster]
     [app.shared.facet-masters :as facet-masters]
     [app.server.review-pack :as review-pack]
@@ -793,6 +796,49 @@ information."
 ;; turn end; an abrupt JVM death leaves :open — the honest open fact (G4b).
 ;; A failed turn-record mint emits :run-error and never spawns the agent.
 
+(defonce ^:private ambient-autotag-runtime
+  ;; The llm-module remains an intent/observation lifecycle organ only; durable
+  ;; record/proposal truth lands in the cluster-backed OC + relation runtimes.
+  ;; Delay it so gold-pointed work pays zero annotation boot cost.
+  (delay (llm/start-llm-runtime!)))
+
+(defn- run-ambient-autotag!
+  "Best-effort ambient P4 silver lane. It runs off the response thread and
+   cannot delay or prevent the already-durable resident turn. Identical input
+   converges through material-circulation's OC record before any proposal edge."
+  [oc-rt rk-rt object-key source-unit-id text receipt]
+  (let [candidate-ids (->> (:receipt/visible-addresses receipt)
+                           (remove #{source-unit-id})
+                           distinct
+                           vec)
+        candidates
+        (->> candidate-ids
+             (keep
+              (fn [unit-id]
+                (when-let [result (ocr/read-unit oc-rt unit-id)]
+                  {:id unit-id :text (:content-text result)})))
+             vec)]
+    (when (seq candidates)
+      (let [source-read (ocr/read-unit oc-rt source-unit-id)
+            result
+            (circulation/autotag-material!
+             {:llm-rt @ambient-autotag-runtime
+              :oc-rt oc-rt
+              :rk-rt rk-rt}
+             object-key
+             {:record-unit-id source-unit-id
+              :record-text text
+              :candidates candidates
+              :evidence-source-id (get-in source-read [:unit :source-id])
+              :timeout-ms 120000})]
+        (log/info "[CIRCULATION][AUTOTAG]"
+                  {:source-unit-id source-unit-id
+                   :candidates (count candidates)
+                   :status (:status result)
+                   :run-id (:run-id result)
+                   :relation-id (get-in result [:edge :relation-id])})
+        result))))
+
 (defn run-episode-turn
   "POST /api/episode/utterance {:source-unit-id :content-text :position
    :turn-id :time-ms :prev-turn-id} → SSE. turn-id + time-ms are CLIENT-minted
@@ -807,6 +853,7 @@ information."
         prev-turn-id   (:prev-turn-id request-data)
         cwd            (str (or (:cwd request-data) (System/getProperty "user.dir")))
         timeout-ms     (long (or (:timeout-ms request-data) 600000))
+        scene-context  (:scene-context request-data)
         ;; drill seam (G3/G4/G4b): a machinery drill names its OWN episode so
         ;; the GENESIS first utterance stays Sid's act (§11). The ground client
         ;; never sends this; nil = the genesis episode.
@@ -828,7 +875,7 @@ information."
        (write-body-to-stream [_ _response output-stream]
          (let [writer (OutputStreamWriter. output-stream "UTF-8")]
            (try
-             (let [oc-rt (:oc-rt (fv/face-ctx))]
+             (let [{:keys [oc-rt rk-rt]} (fv/face-ctx)]
                (if (or (str/blank? text) (str/blank? turn-id)
                        (str/blank? (str source-unit-id)) (nil? oc-rt))
                  (write-event! writer {:kind :run-error :event :run-error
@@ -865,7 +912,8 @@ information."
                                          :time-ms time-ms :prev-turn-id prev-turn-id
                                          :conversation-id conv-id
                                          :thread-id thread-id
-                                         :episode-id episode-id})
+                                         :episode-id episode-id
+                                         :scene-context scene-context})
                                  (catch Exception e
                                    {:status :error :error (.getMessage e)}))]
                    (if-not (= :accepted (:status durable))
@@ -873,13 +921,62 @@ information."
                                            :ts (System/currentTimeMillis)
                                            :error :turn-not-durable
                                            :detail (dissoc durable :decision)})
-                     (do
+                     (let [birth-receipt
+                           (try
+                             (episode/read-birth-receipt
+                              oc-rt (:address durable) source-unit-id)
+                             (catch Exception _ nil))
+                           gold-receipt
+                           (circulation/select-gold-receipt
+                            source-unit-id (:receipt durable) birth-receipt)
+                           gold
+                           (when gold-receipt
+                             (try
+                               (circulation/bank-gold!
+                                rk-rt
+                                {:source-unit-id source-unit-id
+                                 :target-unit-id
+                                 (circulation/receipt-target gold-receipt)
+                                 :receipt gold-receipt
+                                 :asserted-at-ms time-ms})
+                               (catch Exception e
+                                 {:status :error :error (.getMessage e)})))]
+                       (if (and gold-receipt
+                                (not= :materialized (:status gold)))
+                         (write-event!
+                          writer
+                          {:kind :run-error :event :run-error
+                           :ts (System/currentTimeMillis)
+                           :error :wish-not-durable
+                           :turn-id turn-id
+                           :source-unit-id source-unit-id
+                           :target-unit-id
+                           (circulation/receipt-target gold-receipt)
+                           :detail gold})
+                         (do
                        (write-event! writer {:kind :episode-durable :event :episode-durable
                                              :ts (System/currentTimeMillis)
                                              :turn-id turn-id
                                              :source-unit-id source-unit-id
                                              :address (:address durable)
-                                             :import-key (:import-key durable)})
+                                             :import-key (:import-key durable)
+                                             :wish-relation-id (:relation-id gold)
+                                             :wish-target-id (:target-unit-id gold)})
+                       ;; No explicit gold point: let the calibrated resident
+                       ;; propose one silver :felt-at edge from the mechanically
+                       ;; co-present visible candidates. It is deliberately
+                       ;; asynchronous; the user's resident turn starts now.
+                       (when (and (nil? gold-receipt) rk-rt)
+                         (future
+                           (try
+                             (run-ambient-autotag!
+                              oc-rt rk-rt (:address durable)
+                              source-unit-id text (:receipt durable))
+                             (catch Throwable t
+                               (log/warn
+                                "[CIRCULATION][AUTOTAG-FAILED]"
+                                {:source-unit-id source-unit-id
+                                 :error (.getMessage t)})))))
                        (let [!stream-state (atom (initial-stream-state))
                              done-promise  (promise)
                              ;; D-core seed: a successor episode's first prompt
@@ -944,7 +1041,8 @@ information."
                                         :time-ms time-ms :prev-turn-id prev-turn-id
                                         :conversation-id conv-id
                                         :thread-id thread-id
-                                        :episode-id episode-id})
+                                        :episode-id episode-id
+                                        :scene-context scene-context})
                                 (catch Exception e
                                   (log/warn "[EPISODE][TURN-STATUS-FAILED]"
                                             {:turn-id turn-id :error (.getMessage e)})))
@@ -973,7 +1071,7 @@ information."
                                                :debris (:debris distill)
                                                :error (:error distill)}))
                               (deliver done-promise true))))
-                         @done-promise))))))
+                         @done-promise))))))))
              (catch Exception e
                (println "[EPISODE][STREAM-ERROR]" (.getMessage e)))
              (finally
@@ -1026,7 +1124,7 @@ information."
    object (keyed on its oc:doc container id) — the exact non-join CONTRACT
    v1.1 removed from the import path (§2.3). Assert about a commit as
    :container + the commit's oc:doc:<key> id, which View-3 prints."
-  #{:container :source :doc-file :conversation})
+  #{:container :source :doc-file :conversation :derived-unit :kind})
 
 (defn validate-assert-params
   "nil when `params` is a valid assert; else {:reason <string>} naming the first
@@ -1542,7 +1640,8 @@ information."
       (= uri "/api/episode/block-birth")
       (if (= request-method :post)
         (try
-          (let [{:keys [block-id text time-ms position conversation-id]}
+          (let [{:keys [block-id text time-ms position conversation-id
+                        scene-context]}
                 (parse-edn-body ring-req)
                 oc-rt (:oc-rt (fv/face-ctx))]
             (if (or (nil? oc-rt) (str/blank? (str block-id)) (nil? text))
@@ -1552,6 +1651,7 @@ information."
                        oc-rt {:text (str text) :turn-id (str block-id)
                               :time-ms (long (or time-ms (System/currentTimeMillis)))
                               :position position
+                              :scene-context scene-context
                               :conversation-id conversation-id})]
                 (when (= :accepted (:status r))
                   ;; the mint IS an ingest (INV-19) — the face re-pull is the
