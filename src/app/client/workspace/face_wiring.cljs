@@ -229,7 +229,7 @@
   [atoms {:keys [!face-request !face-data !ingest-epoch-remote
                  !assembly-request !assembly-data
                  !face-list-request !face-list-data
-                 !provenance-material-request !provenance-material-data
+                 !facet-materials-request !facet-materials-data
                  !material-inspector-request !material-inspector-data
                  !face-wear-outbox !face-wear-result]}]
   (let [{:keys [!face-state !ingest-epoch]} atoms
@@ -241,9 +241,9 @@
                                   (cond-> {:face :face-list :epoch epoch}
                                     nonce (assoc :refresh nonce)))))
         material-request! (fn [epoch]
-                            (when !provenance-material-request
-                              (reset! !provenance-material-request
-                                      {:face :provenance-material
+                            (when !facet-materials-request
+                              (reset! !facet-materials-request
+                                      {:face :facet-materials
                                        :params {:drill? (drill-mode?)}
                                        :epoch epoch})))
         request! (fn []
@@ -283,13 +283,13 @@
       (add-watch !face-list-data :face-list-mirror
                  (fn [_ _ _ data]
                    (when data (reset! (:!face-list atoms) data)))))
-    ;; P1: confirmed material projection data is mirrored whole. Ground watches
-    ;; this atom; candidate writes and activation acks never touch render state.
-    (when (and !provenance-material-data (:!provenance-material atoms))
-      (add-watch !provenance-material-data :provenance-material-mirror
+    ;; P3: both masters arrive in one confirmed, batched projection. Ground
+    ;; watches this atom; candidate writes and activation acks never touch it.
+    (when (and !facet-materials-data (:!facet-materials atoms))
+      (add-watch !facet-materials-data :facet-materials-mirror
                  (fn [_ _ _ data]
                    (when data
-                     (reset! (:!provenance-material atoms) data)))))
+                     (reset! (:!facet-materials atoms) data)))))
     ;; P2: console-only, read-only inspector. One request carries the picked
     ;; entity plus the complete current scene wearer snapshot; the server
     ;; registry performs the durable joins in one FacePull.

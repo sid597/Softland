@@ -9,8 +9,9 @@
     [app.file-viewer :as fv]
     [app.server.episode :as episode]
     [app.server.rama.face-projection :as face-projection]
-    [app.server.rama.object-container.provenance-material :as provenance-material]
+    [app.server.rama.object-container.facet-master :as facet-master]
     [app.server.rama.cluster :as cluster]
+    [app.shared.facet-masters :as facet-masters]
     [app.server.review-pack :as review-pack]
     [components.adapter :as adapter]
     [components.compiler :as compiler]
@@ -1393,27 +1394,32 @@ information."
             (json-response {:error (str "Trail save failed: " (.getMessage e))})))
         (json-response {:error "Method not allowed. Use POST."}))
 
-      ;; editable-material P1 — a deterministic malformed candidate drill. The
-      ;; import is durable; validation refuses to submit an active-pointer edit.
-      ;; The client ignores this response for rendering and waits for FacePull.
-      (= uri "/api/material/provenance/drill")
+      ;; editable-material — one deterministic malformed-candidate drill for
+      ;; any registered master. Validation closes before active-pointer edit;
+      ;; rendering still waits for the one batched FacePull.
+      (= uri "/api/material/facet-master/drill")
       (if (= request-method :post)
         (try
           (let [oc-rt (:oc-rt (fv/face-ctx))
-                {:keys [drill-id]} (parse-edn-body ring-req)]
+                {:keys [drill-id master-id]} (parse-edn-body ring-req)
+                spec (facet-masters/spec master-id)]
             (cond
               (nil? oc-rt)
               (edn-response 503 {:status :error :error :land-unavailable})
 
-              (str/blank? (str drill-id))
+              (or (str/blank? (str drill-id))
+                  (nil? spec))
               (edn-response 400 {:status :error :error :bad-request})
 
               :else
-              (let [_ (provenance-material/ensure-master! oc-rt)
-                    result (provenance-material/malformed-drill! oc-rt drill-id)]
+              (let [_ (facet-master/ensure-master! oc-rt spec)
+                    result
+                    (facet-master/malformed-drill!
+                     oc-rt spec drill-id)]
                 (edn-response
                  200
                  {:status :rejected
+                  :master-id master-id
                   :candidate-revision-id (:candidate-revision-id result)
                   :activation-errors (:activation-errors result)
                   :active-revision-id

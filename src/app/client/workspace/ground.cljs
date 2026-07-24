@@ -40,7 +40,14 @@
             [app.client.workspace.rect-tree :as rt :refer [rt-node]]
             [app.client.workspace.scene-runtime :as scene-rt]
             [app.client.workspace.scene-store :as ss]
-            [app.shared.provenance-material :as provenance-material]))
+            [app.shared.attention-material :as attention-material]
+            [app.shared.facet-material :as facet-material]
+            [app.shared.facet-masters :as facet-masters]
+            [app.shared.foldable-material :as foldable-material]
+            [app.shared.positioned-material :as positioned-material]
+            [app.shared.provenance-material :as provenance-material]
+            [app.shared.text-body-material :as text-body-material]
+            [app.shared.threaded-material :as threaded-material]))
 
 ;; ===========================================================================
 ;; Boot decision
@@ -79,7 +86,8 @@
 (defonce !ground-runs
   ;; Law 8, per-thread (one canvas, many conversations): thread-key → one
   ;; run map {:phase :activity :stream-text :error :source-unit-id :turn-id
-  ;; :wrap-col :await-reply}. thread-key = the thread's session uuid string;
+  ;; :wrap-source-columns :await-reply}. thread-key = the thread's session uuid
+  ;; string;
   ;; nil = the genesis thread. Every run is explicitly PROVISIONAL
   ;; (process-state, never truth); each projection anchors beneath ITS OWN
   ;; source block.
@@ -115,7 +123,6 @@
 ;; header toggles, :noise? (thinking + tool calls) and :prose? (the reply).
 ;; attention state like hover: ephemeral, never settled, never restored
 (defonce ^:private !folds (atom {}))
-(def ^:private fold-default {:noise? false :prose? false})
 
 ;; Task 11: read-only selection over a MACHINE block's rendered lines —
 ;; {:uid :anchor {:line :col} :head {:line :col}}; attention state only
@@ -131,8 +138,6 @@
 (defonce ^:private !reconcile-samples (atom []))
 
 (def ^:private drag-threshold-px 4.0)
-(def ^:private block-pad 8.0)
-(def ^:private reply-gap 34.0)
 (def ^:private settle-debounce-ms 400)
 
 (declare rebuild-block! reconcile! refresh-provisional! context-block-entry)
@@ -169,13 +174,50 @@
 (def ^:private dim [0.55 0.58 0.62 1.0])
 (def ^:private err-col [0.95 0.45 0.40 1.0])
 (def ^:private amber [0.92 0.75 0.35 1.0])
-(def ^:private attention-border [0.45 0.52 0.66 0.55])
 
-(defn- current-material-wear
+(defn- current-material-wears
   []
-  (let [!served (get-in @!refs [:atoms :!provenance-material])]
-    (provenance-material/resolved-wear
-     (when !served @!served))))
+  (let [!served (get-in @!refs [:atoms :!facet-materials])
+        by-id (:facet-materials/by-id (when !served @!served))]
+    {:provenance
+     (provenance-material/resolved-wear
+      (get by-id provenance-material/master-id))
+     :attention
+     (attention-material/resolved-wear
+      (get by-id attention-material/master-id))
+     :foldable
+     (foldable-material/resolved-wear
+      (get by-id foldable-material/master-id))
+     :positioned
+     (positioned-material/resolved-wear
+      (get by-id positioned-material/master-id))
+     :threaded
+     (threaded-material/resolved-wear
+      (get by-id threaded-material/master-id))
+     :text-body
+     (text-body-material/resolved-wear
+      (get by-id text-body-material/master-id))}))
+
+(defn- composition-lint-nodes
+  [conflicts w h line-h font-size]
+  (mapv
+   (fn [i conflict]
+     (rt-node (keyword (str "ground-material-conflict-" i))
+              :error-card
+              {:x 0
+               :y (+ h (* i line-h))
+               :w w
+               :h line-h}
+              :style {:bg [0.24 0.07 0.08 0.98]
+                      :border-width 1.0
+                      :border-color [0.9 0.3 0.3 1.0]}
+              :text [(text-op
+                      (str "material conflict · "
+                           (name (:type conflict)))
+                      0 line-h font-size err-col 0)]
+              :data conflict))
+   (range)
+   conflicts))
 
 (defn- wrap-lines
   "Display-only greedy wrap at `col` chars (monospace: char count IS width —
@@ -205,15 +247,21 @@
         col  (max 0 (min (long (or col 0)) (count (nth lines line ""))))]
     (+ (reduce + 0 (map #(inc (count %)) (take line lines))) col)))
 
+(defn- reply-source-columns
+  [src-txt]
+  (when src-txt
+    (reduce max 0 (map count (str/split src-txt #"\n" -1)))))
+
 (defn- reply-wrap-col
   "A machine reply wraps at ITS SOURCE block's width (Sid): the source's
-   longest line is the wrap column (floor 32, fallback 80 when no source
-   resolves — e.g. pre-turn-record history). ONE rule shared by the settled
-   render and the provisional stream (Task 8)."
-  [src-txt]
-  (if src-txt
-    (max 32 (reduce max 0 (map count (str/split src-txt #"\n" -1))))
-    80))
+   longest line is the wrap column, bounded by the worn text-body floor; the
+   worn fallback applies when no source resolves (e.g. pre-turn-record
+  history). ONE rule shared by the settled render and provisional stream."
+  [text-body-wear src-txt]
+  (if-some [source-columns (reply-source-columns src-txt)]
+    (max (:text-body/wrap-floor-columns text-body-wear)
+         source-columns)
+    (:text-body/wrap-fallback-columns text-body-wear)))
 
 (defn- block-tree
   "One block's container-LOCAL resolved tree (root at 0,0; the container
@@ -224,26 +272,75 @@
    quiet persistent edge tint (Law 6) — two separate primitives."
   [unit-id {:keys [text caret focused? refusal selection]} machine? hover? notice
    {:keys [font-size char-advance line-h]} wrap-col headers msel boundary?
-   gsel? wear]
-  (let [tint    (:provenance/tint wear)
-        stamp   #(provenance-material/contribution-stamp wear %)
+   gsel? placement-derived? wears]
+  (let [provenance-wear (:provenance wears)
+        attention-wear (:attention wears)
+        foldable-wear (:foldable wears)
+        positioned-wear (:positioned wears)
+        threaded-wear (:threaded wears)
+        text-body-wear (:text-body wears)
+        tint    (:provenance/tint provenance-wear)
+        pad     (:attention/hit-padding attention-wear)
+        provenance-stamp
+        #(facet-material/contribution-stamp
+          provenance-wear unit-id %1 %2 %3)
+        attention-stamp
+        #(facet-material/contribution-stamp
+          attention-wear unit-id %1 %2 %3)
+        foldable-stamp
+        #(facet-material/contribution-stamp
+          foldable-wear unit-id %1 %2 %3)
+        positioned-stamp
+        #(facet-material/contribution-stamp
+          positioned-wear unit-id %1 %2 %3)
+        threaded-stamp
+        #(facet-material/contribution-stamp
+          threaded-wear unit-id %1 %2 %3)
+        text-body-stamp
+        #(facet-material/contribution-stamp
+          text-body-wear unit-id %1 %2 %3)
         lines   (cond-> (str/split (or text "") #"\n" -1)
                   (and machine? wrap-col) (wrap-lines wrap-col))
         nh      (count headers)
         lines   (if (pos? nh) (into (vec headers) lines) lines)
         n       (count lines)
         max-len (reduce max 1 (map count lines))
-        w       (+ (* max-len char-advance) (* 2 block-pad))
-        h       (+ (* n line-h) (* 2 block-pad))
+        w       (+ (* max-len char-advance) (* 2 pad))
+        h       (+ (* n line-h) (* 2 pad))
         ops     (vec (map-indexed
                       (fn [i l]
-                        (cond-> (text-op l i line-h font-size
-                                        (cond
-                                          (< i nh) tint
-                                          machine? dim
-                                          :else fg)
-                                        0)
-                          (< i nh) (merge (stamp :fold-header))))
+                        (let [header? (< i nh)
+                              body? (and machine? (not header?))
+                              p-stamp
+                              (when header?
+                                (provenance-stamp
+                                 :fold-header :text-color :block/content))
+                              f-stamp
+                              (when header?
+                                (foldable-stamp
+                                 (if (zero? i)
+                                   :noise-header
+                                   :prose-header)
+                                 :header-copy
+                                 :block/fold-header-text))
+                              body-stamp
+                              (when body?
+                                (text-body-stamp
+                                 :wrapped-body
+                                 :wrap-policy
+                                 :block/content-flow))]
+                          (cond->
+                              (text-op l i line-h font-size
+                                       (cond
+                                         header? tint
+                                         machine? dim
+                                         :else fg)
+                                       0)
+                            header? (merge p-stamp)
+                            body? (merge body-stamp)
+                            header?
+                            (assoc :material/contributions
+                                   [p-stamp f-stamp]))))
                       lines))
         caret-lc (when (and focused? caret)
                    (ge/caret->line-col text caret))
@@ -274,28 +371,58 @@
                                                    :h line-h}
                                                   :style {:bg [0.35 0.5 0.8 0.3]}))
                                    out))))))
+        decoration-composition
+        (facet-material/compose
+         [(when machine?
+            {:wear provenance-wear
+             :stamp
+             (provenance-stamp
+              :machine-rail :provenance-marker :block/decorations)
+             :value
+             (rt-node :ground-mark :rect
+                      {:x (- pad) :y (- pad) :w 2.5 :h h}
+                      :style {:bg tint}
+                      :data
+                      (provenance-stamp
+                       :machine-rail
+                       :provenance-marker
+                       :block/decorations))})
+          (when (or focused? hover?)
+            {:wear attention-wear
+             :stamp
+             (attention-stamp
+              :attention-box :attention-border :block/decorations)
+             :value
+             (rt-node :ground-box :rect
+                      {:x (- pad) :y (- pad) :w w :h h}
+                      :style
+                      {:border-width
+                       (:attention/border-width attention-wear)
+                       :border-color
+                       (:attention/border-color attention-wear)
+                       :bg (:attention/background attention-wear)}
+                      :data
+                      (attention-stamp
+                       :attention-box
+                       :attention-border
+                       :block/decorations))})])
+        decoration-nodes
+        (mapv :value (:contributions decoration-composition))
+        conflict-nodes
+        (composition-lint-nodes
+         (:conflicts decoration-composition) w h line-h font-size)
         extra   (cond-> (vec sel-nodes)
                   ;; Task 18: group-selection member mark (marquee wash)
                   gsel?
                   (conj (rt-node :ground-gsel :rect
-                                 {:x (- block-pad) :y (- block-pad) :w w :h h}
+                                 {:x (- pad) :y (- pad) :w w :h h}
                                  :style {:border-width 1.5
                                          :border-color [0.55 0.65 0.9 0.8]
                                          :bg [0.35 0.5 0.8 0.10]}))
-                  ;; provenance mark (Law 6): quiet persistent edge tint,
-                  ;; machine stratum only — never an attention effect
-                  machine?
-                  (conj (rt-node :ground-mark :rect
-                                 {:x (- block-pad) :y (- block-pad) :w 2.5 :h h}
-                                 :style {:bg tint}
-                                 :data (stamp :machine-rail)))
-                  ;; interaction box (Law 10): attention only
-                  (or focused? hover?)
-                  (conj (rt-node :ground-box :rect
-                                 {:x (- block-pad) :y (- block-pad) :w w :h h}
-                                 :style {:border-width 1.0
-                                         :border-color attention-border
-                                         :bg [0.0 0.0 0.0 0.0]}))
+
+                  (seq decoration-nodes)
+                  (into decoration-nodes)
+
                   (and focused? caret-lc)
                   (conj (rt-node :ground-caret :rect
                                  {:x (* (:col caret-lc) char-advance)
@@ -322,12 +449,38 @@
                                  {:x 0 :y (- (* 1.6 line-h)) :w w :h line-h}
                                  :text [(text-op "— fresh session —" 0 line-h
                                                  font-size tint 0)]
-                                 :data (stamp :episode-boundary))))]
+                                 :data
+                                 (provenance-stamp
+                                  :episode-boundary
+                                  :boundary-label
+                                  :block/prelude)))
+
+                  (seq conflict-nodes)
+                  (into conflict-nodes))]
     (rt/resolve-layout
      (rt-node :ground-block :text-run
               {:x 0 :y 0 :w (max w char-advance) :h (max h line-h)}
               :text ops
-              :data {:address unit-id}
+              :data
+              (cond->
+                  (merge
+                   {:address unit-id}
+                   (attention-stamp
+                    :hit-box :hit-target :block/hit-area))
+                placement-derived?
+                (assoc
+                 :material/positioned
+                 (positioned-stamp
+                  :derived-placement
+                  :placement-default
+                  :block/placement))
+                (not machine?)
+                (assoc
+                 :material/threaded
+                 (threaded-stamp
+                  :send-adoption
+                  :column-adoption-policy
+                  :block/thread-adoption)))
               :children extra))))
 
 ;; ===========================================================================
@@ -353,28 +506,59 @@
 
 (def ^:private material-error-vi :ground-material-error)
 
+(defn- drill-master-id
+  []
+  (or (some-> (second
+               (re-find #"[?&]material-master=([^&]+)"
+                        (str (.-search js/window.location))))
+              js/decodeURIComponent)
+      (first facet-masters/master-ids)))
+
 (defn- material-render-state
   [served]
-  (select-keys served
-               [:facet-master/active-revision-id
-                :facet-master/material
-                :facet-master/candidate-revision-id
-                :facet-master/candidate-errors]))
+  (into (sorted-map)
+        (map
+         (fn [[master-id facet]]
+           [master-id
+            (select-keys
+             facet
+             [:facet-master/active-revision-id
+              :facet-master/material
+              :facet-master/candidate-revision-id
+              :facet-master/candidate-errors])]))
+        (:facet-materials/by-id served)))
 
 (defn- refresh-material-error!
-  "The malformed-candidate drill lands beside the worn surface as its own
-   card. It reports candidate truth only; active material remains the sole
-   input to every block render."
+  "Malformed candidates land beside the worn surface as one generic card.
+   It reports candidate truth only; active material remains the sole input to
+   every block render."
   []
-  (let [!served (get-in @!refs [:atoms :!provenance-material])
+  (let [!served (get-in @!refs [:atoms :!facet-materials])
         served (when !served @!served)
-        errors (:facet-master/candidate-errors served)]
-    (if (and (drill-conversation-id) (seq errors))
+        failures
+        (->> (:facet-materials/by-id served)
+             (keep
+              (fn [[master-id facet]]
+                (when (seq (:facet-master/candidate-errors facet))
+                  {:master-id master-id
+                   :revision-id
+                   (:facet-master/candidate-revision-id facet)
+                   :errors (:facet-master/candidate-errors facet)})))
+             (sort-by :master-id)
+             vec)]
+    (if (and (drill-conversation-id) (seq failures))
       (let [{:keys [font-size char-advance line-h]} (metrics)
-            revision (:facet-master/candidate-revision-id served)
-            lines (into [(str "provenance material rejected · " revision)]
-                        (map #(pr-str (select-keys % [:type :message :actual])))
-                        (take 4 errors))
+            lines
+            (vec
+             (mapcat
+              (fn [{:keys [master-id revision-id errors]}]
+                (into
+                 [(str master-id " rejected · " revision-id)]
+                 (map
+                  #(pr-str
+                    (select-keys % [:type :message :actual]))
+                  (take 4 errors))))
+              failures))
             pad 10.0
             max-len (reduce max 1 (map count lines))
             w (+ (* 2 pad) (* max-len char-advance))
@@ -392,9 +576,8 @@
                                    :border-color [0.9 0.3 0.3 1.0]
                                    :radius 4}
                            :text ops
-                           :data {:material/master provenance-material/master-id
-                                  :material/revision revision
-                                  :material/errors (vec errors)}))]
+                           :data
+                           {:material/failures failures}))]
         (if-let [slot (ss/slot (scene-rt/store-snapshot) material-error-vi)]
           (do
             (swap! scene-rt/!scene-store ss/upsert-slot material-error-vi
@@ -411,18 +594,18 @@
 
 (defn- rebuild-material-sites!
   []
-  (doseq [[unit-id b] (:blocks @!world)]
-    (when (or (:machine? b)
-              (:episode-boundary? (context-block-entry unit-id)))
-      (rebuild-block! unit-id))))
+  (doseq [unit-id (keys (:blocks @!world))]
+    (rebuild-block! unit-id)))
 
 (defn- run-material-drill!
   []
   (when-let [drill-id (drill-conversation-id)]
-    (-> (js/fetch "/api/material/provenance/drill"
+    (-> (js/fetch "/api/material/facet-master/drill"
                   (clj->js {:method "POST"
                             :headers {"Content-Type" "application/edn"}
-                            :body (pr-str {:drill-id drill-id})}))
+                            :body (pr-str
+                                   {:drill-id drill-id
+                                    :master-id (drill-master-id)})}))
         (.then (fn [resp]
                  (.then (.text resp)
                         (fn [body]
@@ -458,21 +641,31 @@
       (let [j (.indexOf s "\n" i)]
         (if (neg? j) n (recur (inc j) (inc n)))))))
 
-(defn- fold-header-line [shown? label text]
-  (if shown?
-    (str "▾ " label " — click to hide")
-    (str "▸ " label " — click to show"
-         (let [c (sec-line-count text)]
-           (when (pos? c) (str " (+" c " lines)"))))))
+(defn- fold-header-line
+  [foldable-wear shown? section text]
+  (let [copy (:foldable/header-copy foldable-wear)
+        label (get copy
+                   (case section
+                     :noise :noise-label
+                     :prose :prose-label))]
+    (if shown?
+      (str (:expanded-marker copy) label (:hide-suffix copy))
+      (str (:collapsed-marker copy) label (:show-suffix copy)
+           (let [c (sec-line-count text)]
+             (when (pos? c)
+               (str (:line-count-prefix copy)
+                    c
+                    (:line-count-suffix copy))))))))
 
 (defn- run-view
   "A run block's fold-derived render inputs {:display :headers}; nil for
    plain machine history (no run record). ONE assembly shared by the
    rebuild path and the machine-selection copy path."
-  [unit-id]
+  [unit-id foldable-wear]
   (let [cb  (context-block-entry unit-id)
         run (when (contains? cb :reply-text) cb)
-        {:keys [noise? prose?]} (get @!folds unit-id fold-default)]
+        {:keys [noise? prose?]}
+        (get @!folds unit-id (:foldable/defaults foldable-wear))]
     (when run
       {:display (cond
                   ;; both on → the full raw :text, served interleaved
@@ -487,8 +680,10 @@
                                                                 #"\n" -1)))
                               r))
                   :else   "")
-       :headers [(fold-header-line noise? "thinking+tools" (:noise-text run))
-                 (fold-header-line prose? "reply" (:reply-text run))]})))
+       :headers [(fold-header-line
+                  foldable-wear noise? :noise (:noise-text run))
+                 (fold-header-line
+                  foldable-wear prose? :prose (:reply-text run))]})))
 
 (defn- machine-visual-lines
   "The RENDERED lines of a machine block (headers + folded display + wrap) —
@@ -496,7 +691,8 @@
   [uid]
   (when-let [b (get-in @!world [:blocks uid])]
     (when (:machine? b)
-      (let [{:keys [display headers] :as rv} (run-view uid)
+      (let [foldable-wear (:foldable (current-material-wears))
+            {:keys [display headers] :as rv} (run-view uid foldable-wear)
             text  (if rv display (or (truth-text uid) ""))
             lines (cond-> (str/split (or text "") #"\n" -1)
                     (:wrap-col b) (wrap-lines (:wrap-col b)))]
@@ -522,18 +718,19 @@
   "Rebuild ONE block slot from the current edit state + truth (the
    keystroke-echo hot path — one small tree, same-frame paint). A merged
    run block (marked by :reply-text) folds into two sections, each behind
-   its own header-line toggle (Tasks 6+7, Sid): thinking+tools (:noise?,
-   hidden by default) and the reply (:prose?, also closed by default — Task 9, Sid).
+   its own material-supplied header-line toggle (Tasks 6+7, Sid).
    Task 5: the build SKIPS when the render inputs equal the last built
    signature — reconcile calls this for every block on every context
    emission (i.e. per keystroke), and layout+upsert over unchanged blocks
    was the typing lag."
   [unit-id]
   (when-let [b (get-in @!world [:blocks unit-id])]
-    (let [st   @!ground-edit
+    (let [st    @!ground-edit
+          wears (current-material-wears)
           ;; fold-derived display + headers come from run-view (ONE assembly
           ;; shared with the machine-selection copy path)
-          {:keys [display headers]} (when (:machine? b) (run-view unit-id))
+          {:keys [display headers]}
+          (when (:machine? b) (run-view unit-id (:foldable wears)))
           view (ge/block-view st unit-id (truth-text unit-id))
           view (if display (assoc view :text display) view)
           n      @!notice
@@ -542,17 +739,18 @@
           msel   (let [ms @!machine-sel] (when (and ms (= unit-id (:uid ms))) ms))
           bnd?   (boolean (:episode-boundary? (context-block-entry unit-id)))
           gsel?  (contains? @!group-sel unit-id)
-          wear   (current-material-wear)
           m      (metrics)
           ;; everything block-tree consumes (viewport excluded — unused):
           ;; equal sig ⇒ identical pixels ⇒ the build is pure waste
           sig    [view (:machine? b) hover? notice (:wrap-col b) headers msel bnd?
-                  gsel? wear (:font-size m) (:char-advance m) (:line-h m)]]
+                  gsel? (:placement-derived? b) wears
+                  (:font-size m) (:char-advance m) (:line-h m)]]
       (if (and (= sig (:render-sig b))
                (some? (ss/slot (scene-rt/store-snapshot) (block-vi unit-id))))
         (swap! !rebuild-stats update :skips inc)
         (let [tree (block-tree unit-id view (:machine? b) hover? notice
-                               m (:wrap-col b) headers msel bnd? gsel? wear)]
+                               m (:wrap-col b) headers msel bnd? gsel?
+                               (:placement-derived? b) wears)]
           (swap! !rebuild-stats update :builds inc)
           (upsert-block-slot! unit-id tree (:x b) (:y b))
           (swap! !world update-in [:blocks unit-id]
@@ -599,14 +797,27 @@
    the same rule as the distilled reply, so the projection never runs wider
    than the truth that replaces it (Task 8)."
   [thread-key {:keys [phase activity stream-text error source-unit-id
-                      wrap-col]}]
+                      wrap-source-columns]}]
   (let [{:keys [font-size line-h char-advance]} (metrics)
+        wears (current-material-wears)
+        positioned-wear (:positioned wears)
+        text-body-wear (:text-body wears)
+        fallback (:positioned/fallback-position positioned-wear)
         open?  (contains? #{:streaming :distilling} phase)
         vi     (provisional-vi thread-key)
         src    (get-in @!world [:blocks source-unit-id])
-        sx     (if src (:x src) 60.0)
-        sy     (if src (+ (:y src) (or (:h src) line-h) reply-gap) 60.0)
-        wcol   (or wrap-col (reply-wrap-col (truth-text source-unit-id)))
+        sx     (if src (:x src) (:x fallback))
+        sy     (if src
+                 (+ (:y src)
+                    (or (:h src) line-h)
+                    (:positioned/reply-gap positioned-wear))
+                 (:y fallback))
+        wcol   (if-some [source-columns wrap-source-columns]
+                 (max (:text-body/wrap-floor-columns text-body-wear)
+                      source-columns)
+                 (reply-wrap-col
+                  text-body-wear
+                  (truth-text source-unit-id)))
         slines (when (seq (str stream-text))
                  (wrap-lines (str/split-lines (str stream-text)) wcol))
         kids   (cond-> []
@@ -633,6 +844,25 @@
               (rt-node :ground-provisional :stack
                        {:x 0 :y 0 :w 600 :h 0}
                        :layout {:direction :column :gap 6 :auto-height? true}
+                       :data
+                       (let [subject
+                             (or source-unit-id
+                                 (str "provisional:"
+                                      (or thread-key "genesis")))]
+                         (assoc
+                          (positioned-material/contribution-stamp
+                           positioned-wear
+                           subject
+                           :provisional-placement
+                           :reply-placement
+                           :appearance/placement)
+                          :material/text-body
+                          (text-body-material/contribution-stamp
+                           text-body-wear
+                           subject
+                           :provisional-body
+                           :wrap-policy
+                           :appearance/content-flow)))
                        :children kids))]
     (if-let [slot (ss/slot (scene-rt/store-snapshot) vi)]
       (do (swap! scene-rt/!scene-store ss/upsert-slot vi
@@ -747,6 +977,23 @@
   (vec (mapcat (fn [t] (map #(assoc % :speaker (:speaker t)) (:blocks t)))
                (:turns ctx))))
 
+(defn- placement-anchor
+  [blocks-acc prev-uid src-uid rule]
+  (case rule
+    :same-source-tail
+    (let [prev (get blocks-acc prev-uid)]
+      (when (and (:machine? prev)
+                 (= (:src-uid prev) src-uid))
+        prev))
+
+    :source
+    (get blocks-acc src-uid)
+
+    :previous
+    (get blocks-acc prev-uid)
+
+    nil))
+
 (defn- default-position
   "Derived default for a block with no settled cell and no live position:
    a machine block lands beneath its RUN's source block (§9.4 reply
@@ -758,17 +1005,20 @@
    anything else falls beneath the previous block in reading order.
    Ephemeral until a real gesture settles it — a derived default is not a
    settle-write."
-  [blocks-acc prev-uid src-uid machine? {:keys [line-h]}]
-  (let [prev   (get blocks-acc prev-uid)
-        anchor (or (when (and machine? (:machine? prev)
-                              (= (:src-uid prev) src-uid))
-                     prev)
-                   (get blocks-acc src-uid)
-                   prev)]
+  [positioned-wear blocks-acc prev-uid src-uid machine? {:keys [line-h]}]
+  (let [order
+        (get-in positioned-wear
+                [:positioned/anchor-order
+                 (if machine? :machine :ordinary)])
+        anchor
+        (some #(placement-anchor blocks-acc prev-uid src-uid %) order)
+        fallback (:positioned/fallback-position positioned-wear)]
     (if anchor
       {:x (:x anchor)
-       :y (+ (:y anchor) (or (:h anchor) line-h) reply-gap)}
-      {:x 60.0 :y 60.0})))
+       :y (+ (:y anchor)
+             (or (:h anchor) line-h)
+             (:positioned/reply-gap positioned-wear))}
+      fallback)))
 
 (defn reconcile!
   "Full reconcile of block slots against a served face-context (the context/
@@ -788,6 +1038,9 @@
           turn-recs (sort-by :time-ms (:conversation/turn-records ctx []))
           blocks   (context-blocks ctx)
           seen     (set (map :id blocks))
+          wears (current-material-wears)
+          positioned-wear (:positioned wears)
+          text-body-wear (:text-body wears)
           ;; per-thread await windows (a settling reply matches ITS thread's
           ;; run, never another thread's — concurrent distills stay disjoint)
           awaits   (into {} (keep (fn [[k r]]
@@ -839,21 +1092,31 @@
                                                 (<= (:time-ms % 0) (:time-ms b 0)))
                                           turn-recs))))
                 pos      (cond
-                           (and live (:x live)) {:x (:x live) :y (:y live)}
+                           (and live
+                                (:x live)
+                                (not (:placement-derived? live)))
+                           {:x (:x live) :y (:y live)}
                            cell {:x (double (:x cell)) :y (double (:y cell))}
-                           :else (default-position placed prev src-uid machine? m))
-                derived? (and (nil? (and live (:x live))) (nil? cell))
-                ;; a machine block wraps at ITS SOURCE block's width (Sid):
-                ;; its longest line is the wrap column (floor 32, fallback 80
-                ;; when no source resolves — e.g. pre-turn-record history)
+                           :else
+                           (default-position
+                            positioned-wear
+                            placed prev src-uid machine? m))
+                derived? (and (nil? cell)
+                              (or (nil? (and live (:x live)))
+                                  (:placement-derived? live)))
+                ;; a machine block wraps at ITS SOURCE block's width (Sid);
+                ;; the worn text-body policy supplies the lower bound and the
+                ;; no-source fallback.
                 wrap-col (when machine?
                            (reply-wrap-col
+                            text-body-wear
                             (when src-uid
                               (some #(when (= src-uid (:id %)) (:text %))
                                     blocks))))]
             (swap! !world update-in [:blocks uid]
                    (fn [e] (merge e {:machine? machine? :local? false
-                                     :wrap-col wrap-col :source-uid src-uid}
+                                     :wrap-col wrap-col :source-uid src-uid
+                                     :placement-derived? derived?}
                                   pos)))
             ;; transform only when the position MOVED — this loop runs per
             ;; keystroke; a store swap per unmoved block is pure waste
@@ -874,7 +1137,10 @@
                      ;; birth position becomes durable (independent once
                      ;; born — moving the source later never moves it).
                      ;; Matched against ITS OWN thread's await window.
-                     (and machine? derived?
+                     (and
+                          (:positioned/persist-derived-reply-birth?
+                           positioned-wear)
+                          machine? derived?
                           (when-let [await (get awaits b-thread)]
                             (>= (:time-ms b 0) (:time-ms await 0))))
                      (conj [uid pos b-thread]))))
@@ -1172,7 +1438,10 @@
                  pos     {:x (double (:x pos)) :y (double (:y pos))}]
              ;; the block exists NOW: slot from the acked birth text
              (swap! !world assoc-in [:blocks unit-id]
-                    (merge {:machine? false :local? true} pos))
+                    (merge {:machine? false
+                            :local? true
+                            :placement-derived? false}
+                           pos))
              (swap! !settle assoc-in [:acked unit-id] pos)
              (let [{:keys [state envelopes]}
                    (ge/birth-acked @!ground-edit unit-id
@@ -1253,15 +1522,17 @@
    with the whole conversation behind it (the server resumes the thread's
    CLI session); not found → the send mints a fresh attention, as before.
    Judged at send time, so dragging a block into (or out of) a column
-   before speaking counts."
+  before speaking counts."
   [fid]
-  (let [bs   (:blocks @!world)
+  (let [threaded-wear (:threaded (current-material-wears))
+        bs   (:blocks @!world)
         b    (get bs fid)
         tmap @!thread-of]
     (when (and b (:x b))
       (let [bx0   (:x b)
             bx1   (+ bx0 (:w b 0))
-            reach (* 3 (:line-h (metrics)))
+            reach (* (:threaded/column-adoption-reach-lines threaded-wear)
+                     (:line-h (metrics)))
             cols  (reduce-kv
                    (fn [m uid e]
                      (let [tid (or (get tmap uid)
@@ -1324,7 +1595,11 @@
                        {:phase :streaming :activity "reaching the land"
                         :stream-text "" :error nil
                         :source-unit-id fid :turn-id turn-id
-                        :wrap-col (reply-wrap-col text)
+                        ;; Keep the pinned source measurement, not its
+                        ;; material-derived result: an active text-body
+                        ;; revision can then re-wrap the live provisional
+                        ;; without reading subsequently edited source text.
+                        :wrap-source-columns (reply-source-columns text)
                         :await-reply nil})
                 (refresh-provisional!)
                 (agent/stream-agent-run!
@@ -1760,13 +2035,19 @@
                   [_wx wy] (:world p)
                   run? (contains? (context-block-entry uid) :reply-text)
                   ;; the two header lines are the toggle targets (Task 7):
-                  ;; row 0 = thinking+tools, row 1 = reply
+                  ;; row 0 = noise header, row 1 = prose header
                   row  (max 0 (js/Math.floor (/ (- wy (:y b)) (:line-h m))))
                   fold (when (and run? (<= row 1))
                          (if (zero? row) :noise? :prose?))]
               (if fold
                 (do (swap! !folds update uid
-                           (fn [f] (update (or f fold-default) fold not)))
+                           (fn [f]
+                             (update
+                              (or f
+                                  (:foldable/defaults
+                                   (:foldable (current-material-wears))))
+                              fold
+                              not)))
                     (rebuild-block! uid))
                 (do (swap! !ground-edit ge/escape)
                     (refresh-anchor!)
@@ -1903,15 +2184,19 @@
                  (when (and (not= (get old uid) (get new uid))
                             (get-in @!world [:blocks uid]))
                    (rebuild-block! uid)))))
-  ;; P1: only a served active revision can move the worn surface. The generic
-  ;; epoch pull resets this atom after durable activation; invalid candidates
-  ;; change only the separate drill error card.
-  (when-let [!material (:!provenance-material atoms)]
-    (add-watch !material ::provenance-material
+  ;; P3: only served active revisions move worn surfaces. Every master arrives
+  ;; through one epoch pull; invalid candidates change only the drill lint.
+  ;; Reconcile before stamping the new revision: derived placements and cached
+  ;; reply wraps must be recomputed under the newly served policy, while real
+  ;; settled cells continue to win as instance truth.
+  (when-let [!material (:!facet-materials atoms)]
+    (add-watch !material ::facet-materials
                (fn [_ _ old new]
                  (when (not= (material-render-state old)
                              (material-render-state new))
-                   (rebuild-material-sites!)
+                   (if-let [ctx (:context @!world)]
+                     (reconcile! ctx)
+                     (rebuild-material-sites!))
                    (refresh-material-error!))))
     (rebuild-material-sites!)
     (refresh-material-error!))

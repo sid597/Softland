@@ -34,10 +34,11 @@
             [app.server.rama.object-container.block-distiller :as bd]
             [app.server.rama.object-container.transcript-identity :as tid]
             [app.server.rama.object-container.assembly-adapter :as assembly-adapter]
-            [app.server.rama.object-container.provenance-material :as provenance-adapter]
+            [app.server.rama.object-container.facet-master :as facet-master]
             [app.server.rama.face-arsenal :as face-arsenal]
+            [app.shared.facet-material :as facet-material]
+            [app.shared.facet-masters :as facet-masters]
             [app.shared.material-inspector :as material-inspector]
-            [app.shared.provenance-material :as provenance-material]
             ;; READ-ONLY use of the relation kernel's PUBLIC query surface (rk
             ;; CONTRACT §7 — read-relations-for-targets ONLY; never a PState path,
             ;; never an append). Machine-cut pair structure (CONTRACT §4.4/§6).
@@ -724,62 +725,89 @@
            :face-list/error :arsenal-read-failed
            :face/rendered-at-ms now})))))
 
-(defn provenance-material-projection
-  "P1 one-facet serve. Latest and active are resolved independently: the
-   material container names latest, while the explicit pointer container
-   names the worn immutable revision. A malformed latest candidate is
-   reportable under the drill scope without replacing active material."
-  [{:keys [oc-rt]} request]
-  (let [now (System/currentTimeMillis)
-        drill? (true? (get-in request [:params :drill?]))
-        floor {:facet-master/id provenance-material/master-id
-               :facet-master/found? false
-               :facet-master/valid? false
-               :facet-master/material
-               (select-keys provenance-material/code-floor [:provenance/tint])
-               :facet-master/active-revision-id
-               provenance-material/code-floor-revision-id
-               :facet-master/floor? true
-               :facet-master/errors [{:type :facet-master/unavailable}]
-               :face/rendered-at-ms now}]
+(defn- facet-master-projection
+  "Serve one registered facet through the shared P1 read path. Latest and
+   active remain independent; an invalid latest candidate is disclosed only
+   by the drill scope and never replaces the active revision."
+  [oc-rt request spec]
+  (let [drill? (true? (get-in request [:params :drill?]))
+        floor-wear (facet-material/code-floor spec)
+        floor-material
+        (dissoc floor-wear
+                :facet-master/id
+                :facet-master/facet
+                :facet-master/grammar
+                :facet-master/revision-id
+                :facet-master/floor?)
+        unavailable
+        {:facet-master/id (:facet-master/id spec)
+         :facet-master/facet (:facet-master/facet spec)
+         :facet-master/grammar (:facet-master/grammar floor-wear)
+         :facet-master/found? false
+         :facet-master/valid? false
+         :facet-master/material floor-material
+         :facet-master/active-revision-id
+         (:facet-master/revision-id floor-wear)
+         :facet-master/floor? true
+         :facet-master/errors [{:type :facet-master/unavailable}]}]
     (if (nil? oc-rt)
-      floor
-      (let [{:keys [latest-revision active-pointer active-revision]}
-            (provenance-adapter/read-master oc-rt)
-            latest-compiled (when latest-revision
-                              (provenance-material/compile-source
-                               (:content-text latest-revision)))
-            active-compiled (when active-revision
-                              (provenance-material/compile-source
-                               (:content-text active-revision)))
-            active-valid? (true? (:valid? active-compiled))
-            active-id (:revision-id active-revision)
-            latest-id (:revision-id latest-revision)
-            candidate-invalid? (and latest-revision
-                                    (not= latest-id active-id)
-                                    (false? (:valid? latest-compiled)))]
-        (cond-> {:facet-master/id provenance-material/master-id
-                 :facet-master/found? (some? latest-revision)
-                 :facet-master/valid? active-valid?
-                 :facet-master/material
-                 (if active-valid?
-                   (:material active-compiled)
-                   (select-keys provenance-material/code-floor
-                                [:provenance/tint]))
-                 :facet-master/active-revision-id
-                 (or active-id provenance-material/code-floor-revision-id)
-                 :facet-master/latest-revision-id latest-id
-                 :facet-master/pointer-revision-id (:revision-id active-pointer)
-                 :facet-master/floor? (not active-valid?)
-                 :facet-master/errors
-                 (if active-valid?
-                   []
-                   (or (:errors active-compiled)
-                       [{:type :facet-master/active-revision-missing}]))
-                 :face/rendered-at-ms now}
-          (and drill? candidate-invalid?)
-          (assoc :facet-master/candidate-revision-id latest-id
-                 :facet-master/candidate-errors (:errors latest-compiled)))))))
+      unavailable
+      (try
+        (let [{:keys [latest-revision active-pointer active-revision]}
+              (facet-master/read-master oc-rt spec)
+              latest-compiled (when latest-revision
+                                (facet-material/compile-source
+                                 spec (:content-text latest-revision)))
+              active-compiled (when active-revision
+                                (facet-material/compile-source
+                                 spec (:content-text active-revision)))
+              active-valid? (true? (:valid? active-compiled))
+              active-id (:revision-id active-revision)
+              latest-id (:revision-id latest-revision)
+              candidate-invalid? (and latest-revision
+                                      (not= latest-id active-id)
+                                      (false? (:valid? latest-compiled)))]
+          (cond->
+              {:facet-master/id (:facet-master/id spec)
+               :facet-master/facet (:facet-master/facet spec)
+               :facet-master/grammar
+               (if active-valid?
+                 (:grammar active-compiled)
+                 (:facet-master/grammar floor-wear))
+               :facet-master/found? (some? latest-revision)
+               :facet-master/valid? active-valid?
+               :facet-master/material
+               (if active-valid? (:material active-compiled) floor-material)
+               :facet-master/active-revision-id
+               (or active-id (:facet-master/revision-id floor-wear))
+               :facet-master/latest-revision-id latest-id
+               :facet-master/pointer-revision-id
+               (:revision-id active-pointer)
+               :facet-master/floor? (not active-valid?)
+               :facet-master/errors
+               (if active-valid?
+                 []
+                 (or (:errors active-compiled)
+                     [{:type :facet-master/active-revision-missing}]))}
+            (and drill? candidate-invalid?)
+            (assoc :facet-master/candidate-revision-id latest-id
+                   :facet-master/candidate-errors
+                   (:errors latest-compiled))))
+        (catch Throwable _
+          unavailable)))))
+
+(defn facet-materials-projection
+  "The single batched serve for every worn facet-master. Adding the second
+   wearer changes data in the registry, never transport or activation shape."
+  [{:keys [oc-rt]} request]
+  {:facet-materials/version 0
+   :facet-materials/by-id
+   (into (sorted-map)
+         (map (fn [spec]
+                [(:facet-master/id spec)
+                 (facet-master-projection oc-rt request spec)]))
+         facet-masters/specs)
+   :face/rendered-at-ms (System/currentTimeMillis)})
 
 ;; ===========================================================================
 ;; editable-material P2 — one server-batched, deterministic inspector read.
@@ -803,8 +831,9 @@
      :entity/target-id (:target-id unit-result)}))
 
 (defn- candidate-trail-entry
-  [revision active-id latest-id]
-  (let [compiled (provenance-material/compile-source (:content-text revision))
+  [spec revision active-id latest-id]
+  (let [compiled (facet-material/compile-source
+                  spec (:content-text revision))
         revision-id (:revision-id revision)]
     {:trail/kind :candidate
      :trail/time-ms (:created-at-ms revision)
@@ -850,16 +879,108 @@
    (:trail/revision-id entry)
    (:trail/pointer-revision-id entry)])
 
+(defn- material-inspector-facet
+  [oc-rt master-id wearer-facets]
+  (if-let [spec (facet-masters/spec master-id)]
+    (let [{:keys [latest-revision active-pointer active-revision]}
+          (facet-master/read-master oc-rt spec)
+          candidate-revisions
+          (ocr/read-revision-history
+           oc-rt (facet-master/document-id spec) ""
+           material-inspector-history-limit)
+          pointer-revisions
+          (ocr/read-revision-history
+           oc-rt (facet-master/active-pointer-container-id spec) ""
+           material-inspector-history-limit)
+          active-id (:revision-id active-revision)
+          latest-id (:revision-id latest-revision)
+          current-pointer-id (:revision-id active-pointer)
+          worn-revision-ids
+          (->> wearer-facets
+               (map :wearer/revision-id)
+               (filter string?)
+               set)
+          candidates
+          (mapv #(candidate-trail-entry spec % active-id latest-id)
+                candidate-revisions)
+          activations
+          (activation-trail pointer-revisions current-pointer-id)
+          trail (->> (concat candidates activations)
+                     (sort-by trail-sort-key)
+                     vec)
+          history-complete?
+          (and (< (count candidate-revisions)
+                  material-inspector-history-limit)
+               (< (count pointer-revisions)
+                  material-inspector-history-limit))]
+      {:material-inspector/attachment
+       {:attachment/facet (:facet-master/facet spec)
+        :attachment/master-id master-id
+        :attachment/authority :derived
+        :attachment/basis :rendered-contribution-stamps
+        :attachment/present? (boolean (seq wearer-facets))
+        :attachment/wears-active?
+        (and (string? active-id)
+             (contains? worn-revision-ids active-id))
+        :attachment/revision-ids (vec (sort worn-revision-ids))
+        :attachment/subjects
+        (->> wearer-facets (mapcat :wearer/subjects) distinct sort vec)
+        :attachment/identities
+        (->> wearer-facets
+             (mapcat :wearer/attachments)
+             distinct
+             (sort-by pr-str)
+             vec)
+        :attachment/contribution-sites
+        (->> wearer-facets
+             (mapcat :wearer/contribution-sites)
+             distinct
+             (sort-by pr-str)
+             vec)
+        :attachment/contribution-roles
+        (->> wearer-facets
+             (mapcat :wearer/contribution-roles)
+             distinct
+             (sort-by pr-str)
+             vec)
+        :attachment/contribution-slots
+        (->> wearer-facets
+             (mapcat :wearer/contribution-slots)
+             distinct
+             (sort-by pr-str)
+             vec)}
+       :material-inspector/facet-master
+       {:facet-master/id master-id
+        :facet-master/active-revision-id active-id
+        :facet-master/latest-revision-id latest-id
+        :facet-master/active-latest-distinct?
+        (and (string? active-id)
+             (string? latest-id)
+             (not= active-id latest-id))
+        :facet-master/pointer-revision-id current-pointer-id}
+       :material-inspector/revision-trail trail
+       :material-inspector/revision-trail-complete? history-complete?})
+    {:material-inspector/attachment
+     {:attachment/master-id master-id
+      :attachment/authority :derived
+      :attachment/basis :rendered-contribution-stamps
+      :attachment/present? (boolean (seq wearer-facets))}
+     :material-inspector/facet-master
+     {:facet-master/id master-id
+      :facet-master/error :unknown-master}
+     :material-inspector/revision-trail []
+     :material-inspector/revision-trail-complete? true}))
+
 (defn material-inspector-result
-  "Join one picked block, the current client scene's stamped wearers, and the
-   provenance master's durable OC state in one server projection invocation.
-   No wall clock enters the result; canonicalization makes repeated answers
-   byte-equal for the same request snapshot and Rama world."
+  "Join one picked block and every facet stamped on it to each master's
+   durable OC state in one server projection invocation. Cost is bounded by
+   the registered masters represented on that entity, never wearer count.
+   No wall clock enters the result, so equal snapshots are byte-equal."
   [oc-rt entity-id wearer-snapshot]
   (let [wearers (material-inspector/normalize-wearers wearer-snapshot)]
     (if (nil? oc-rt)
       (material-inspector/canonicalize
-       {:material-inspector/version 0
+       {:material-inspector/version 1
         :material-inspector/error :object-container-unavailable
         :material-inspector/entity
         {:entity/id entity-id :entity/found? false}
@@ -867,65 +988,26 @@
         :material-inspector/wearer-basis :current-client-scene})
       (let [unit-result (when (string? entity-id)
                           (ocr/read-unit oc-rt entity-id))
-            {:keys [latest-revision active-pointer active-revision]}
-            (provenance-adapter/read-master oc-rt)
-            candidate-revisions
-            (ocr/read-revision-history
-             oc-rt provenance-adapter/document-id ""
-             material-inspector-history-limit)
-            pointer-revisions
-            (ocr/read-revision-history
-             oc-rt provenance-adapter/active-pointer-container-id ""
-             material-inspector-history-limit)
-            active-id (:revision-id active-revision)
-            latest-id (:revision-id latest-revision)
-            current-pointer-id (:revision-id active-pointer)
             selected-wearer
             (some #(when (= entity-id (:wearer/entity-id %)) %) wearers)
-            selected-revisions (set (:wearer/revision-ids selected-wearer))
-            candidates
-            (mapv #(candidate-trail-entry % active-id latest-id)
-                  candidate-revisions)
-            activations
-            (activation-trail pointer-revisions current-pointer-id)
-            trail (->> (concat candidates activations)
-                       (sort-by trail-sort-key)
-                       vec)
-            history-complete?
-            (and (< (count candidate-revisions)
-                    material-inspector-history-limit)
-                 (< (count pointer-revisions)
-                    material-inspector-history-limit))]
+            selected-by-master
+            (group-by :wearer/master-id (:wearer/facets selected-wearer))
+            facets
+            (->> selected-by-master
+                 (map (fn [[master-id wearer-facets]]
+                        (material-inspector-facet
+                         oc-rt master-id wearer-facets)))
+                 (sort-by
+                  #(get-in % [:material-inspector/facet-master
+                              :facet-master/id]))
+                 vec)]
         (material-inspector/canonicalize
-         {:material-inspector/version 0
+         {:material-inspector/version 1
           :material-inspector/entity
           (inspector-entity entity-id unit-result)
-          :material-inspector/provenance-attachment
-          {:attachment/facet :provenance
-           :attachment/master-id provenance-material/master-id
-           :attachment/authority :derived
-           :attachment/basis :rendered-contribution-stamps
-           :attachment/present? (some? selected-wearer)
-           :attachment/wears-active?
-           (and (string? active-id)
-                (contains? selected-revisions active-id))
-           :attachment/contribution-sites
-           (vec (:wearer/contribution-sites selected-wearer))}
-          :material-inspector/facet-master
-          {:facet-master/id provenance-material/master-id
-           :facet-master/active-revision-id active-id
-           :facet-master/latest-revision-id latest-id
-           :facet-master/active-latest-distinct?
-           (and (string? active-id)
-                (string? latest-id)
-                (not= active-id latest-id))
-           :facet-master/pointer-revision-id current-pointer-id}
-          :material-inspector/contribution-sites
-          material-inspector/contribution-sites
+          :material-inspector/facets facets
           :material-inspector/current-wearers wearers
-          :material-inspector/wearer-basis :current-client-scene
-          :material-inspector/revision-trail trail
-          :material-inspector/revision-trail-complete? history-complete?})))))
+          :material-inspector/wearer-basis :current-client-scene})))))
 
 (defn material-inspector-projection
   "P2 console projection transport. The token is transport-only; the answer
@@ -943,7 +1025,7 @@
       (catch Throwable _
         (let [result
               (material-inspector/canonicalize
-               {:material-inspector/version 0
+               {:material-inspector/version 1
                 :material-inspector/error :projection-read-failed
                 :material-inspector/entity
                 {:entity/id entity-id :entity/found? false}
@@ -999,7 +1081,7 @@
   {:conversation conversation-projection
    :assembly     assembly-projection
    :face-list    face-list-projection
-   :provenance-material provenance-material-projection
+   :facet-materials facet-materials-projection
    :material-inspector material-inspector-projection
    :block-truth  block-truth-projection})
 
