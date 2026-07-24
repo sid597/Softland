@@ -342,3 +342,135 @@
   Ruling filled into PROMPTS.md §P4; Sid may veto in one line.
 - Next: Codex resumes P3 from facet 3 (resume line at PROMPTS.md bottom);
   P4 is sendable (∥ ONLY in a separate git worktree).
+
+- **2026-07-24 · Codex · P3 RESUMED FACETS 3–6 — IMPLEMENTED,
+  active-boundary re-cut proven; P3-END Fable gate requested. UNCOMMITTED.**
+- **One generic layer, six registered masters.** Foldable, positioned,
+  threaded, and text-body are four small facet specs in the same
+  `facet_masters` registry as provenance and attention. One generic OC
+  adapter owns identity/import/revision/active-pointer/rollback; one
+  `:facet-materials` FacePull serves the registry as one batch; one resolved
+  wear + contribution-stamp path reaches the land. Cluster ingest now loops
+  the registry (provenance's immutable v0→v1 migration remains explicit).
+  No resumed facet added a transport, epoch, identity, activation, totality,
+  or inspection branch.
+- **Facet 3 / foldable proof.** `fm:foldable` owns exactly the existing
+  `{:noise? false :prose? false}` defaults and the byte-pinned visible header
+  vocabulary (labels, markers, show/hide suffixes, line-count brackets).
+  `run-view`, pointer toggle defaults, and header text consume the served
+  wear; header text carries the active revision stamp in its own
+  `:block/fold-header-text` slot. The old `fold-default` and visible string
+  literals are deleted from `ground.cljs`. Live non-default activation
+  changed the marker to `x ` and defaulted prose open (180 rendered text
+  lines); rollback restored `▸ ` and collapsed prose. In both directions the
+  stamped revision matched the policy producing the header/default state.
+- **Facet 4 / positioned proof.** `fm:positioned` owns only reply gap `34.0`,
+  fallback `{x 60,y 60}`, anchor order, and the derived-reply birth-persistence
+  rule. Settle cells remain per-instance durable geometry and carry no
+  positioned-master claim. Live activation of gap `134.0` moved an unsettled
+  derived reply from y=`614.986651887634` to `714.986651887634`; a settled
+  block stayed byte-exact at x=`4085.724377120124`,
+  y=`491.2241377210033`, w=`484.16`, h=`97`. Rollback restored the derived
+  y exactly. The old `reply-gap`, fallback literal, and hard-coded anchor
+  branch are deleted.
+- **Facet 5 / threaded proof.** `fm:threaded` owns only column-adoption reach
+  `3.0` line-heights; thread ids/turn truth remain instance data and the send
+  mechanism remains code. `adoptive-thread-for` consumes current served wear
+  at send time; ordinary blocks expose the active revision at the honest
+  `:block/thread-adoption` boundary. The same real adoption function, with a
+  fresh block 40px below a 100px thread column, returned nil at activated
+  reach `0.0` and `"thread-probe"` after rollback to `3.0`. The old
+  `reach (* 3 ...)` literal is deleted.
+- **Facet 6 / text-body proof.** `fm:text-body` owns only wrap floor `32` and
+  no-source fallback `80`; raw text, source relation, wrap algorithm, and
+  glyph mechanism stay code. Settled machine bodies and provisional streams
+  consume the served policy and stamp the active revision in their own
+  content-flow slot. With prose open, activated floor `100` produced
+  wrap=`100` and bounds `1080×2230`; rollback produced wrap=`32` and
+  `473.52×4876`. The source-width measurement, not an old material-derived
+  wrap, is retained for a live provisional run, so an activation rewraps the
+  pinned send text honestly. The old floor/fallback literals are deleted
+  from the renderer. The isolated malformed drill remains latest/queryable
+  with `EOF while reading`; active remains the valid 32/80 revision and
+  served wear remains non-floor.
+- **Fresh-context blocker caught and re-cut.** The first adversarial package
+  review correctly BLOCKED: the material watch rebuilt with fresh stamps but
+  could leave cached derived coordinates/wraps from the previous revision.
+  The repair now reconciles the current context before stamping a newly
+  served material state; a live position wins only when it is not marked
+  derived; settled cells still win; live provisional runs retain raw
+  source-width columns. The non-default activation receipts above directly
+  falsify the old lie: result and stamped active revision move together,
+  while settled instance truth does not move.
+- **Lifecycle/inspection receipts.** A new shared-lifecycle regression loops
+  all four resumed specs through valid candidate save (latest moves, active
+  does not), activation, one-batch served material equality, pointer rollback,
+  and retained latest candidate. Focused facet suite: 5 tests / 158
+  assertions, green. Live durable ingest installed all six registry masters.
+  The real scene then reported 188 wearer entities / 449 facet contributions:
+  foldable 34, positioned 5, threaded 154, text-body 34 (plus prior facets).
+  `__material.inspect` returned entity found, rendered-contribution-stamps,
+  `wears-active? true`, and candidate→activation trails for every resumed
+  facet.
+- **Controlled current-value render receipt.** Baseline and final repaired
+  screenshots used the exact camera
+  `{x -3992.167609710362, y 50, zoom 1}`, 800×600 viewport, and the same seven
+  pinned blocks. Every x/y/w/h value was exactly equal. Final whole-PNG bytes
+  are exactly equal to baseline:
+  SHA-256 `c0517233c93ce27a2512eccaedc75cb90d732188858f549ba8ff1d357bf01bc9`.
+  All seven sampled pixels were exact, including the earlier AA-sensitive
+  glyph sample. Intermediate separate Chrome/WebGPU captures did alternate
+  between two antialiased edge rasters (honestly retained as a process/capture
+  variance receipt); the controlled final same-process recapture removed that
+  deviation and achieved the requested byte identity. Headed renderer:
+  Radeon RX 7900 XTX / Vulkan.
+- **Echo and package gates.** Post-repair isolated drill: `27.2ms`, `17.8ms`
+  (max `27.2ms`, below unchanged `52ms` bar), and confirmed text returned
+  exactly to `"p3 echo unchanged"`. Final full suite: **45 namespaces, 387
+  tests / 5,339 assertions / 0 failures / 0 errors**. An earlier pre-repair
+  aggregate fired the registered P12 executor-recovery timing flake once
+  (1 failure); its namespace immediately reran green (1/67), then both the
+  clean pre-repair aggregate and final post-repair aggregate were fully
+  green. Fresh standalone CLJS: 268 files, 0 warnings; live dev build: 309
+  files, 0 warnings. `git diff --check`: clean.
+- **Composition and fences.** No new collision appeared: fold-header text,
+  placement, thread adoption, and content flow occupy distinct slots, so the
+  composition vocabulary remains exactly the append/priority/conflict lint
+  demanded by provenance+attention's real decoration collision. No recipe,
+  binding/dispatch migration, new verb, extra facet, bulk extraction, Rama
+  module/PState/depot, durable attachment owner, wear index, or other Horizon
+  truth was added. The isolated echo block/drill and activation/rollback
+  candidates are retained trace; genesis was untouched. No commit was made.
+- **Fresh-context repair recheck: PASS.** The original stale-derived-state
+  blocker is closed in the real client path; the reviewer independently
+  reran the generic lifecycle suite (5 tests / 158 assertions) and
+  `git diff --check`, and found no remaining P3 stop violation. Residual
+  non-blocking risk: the post-repair echo receipt has only two samples, enough
+  for the registered per-echo `>52ms` stop but not a broad latency
+  characterization.
+- **Next:** P3-END Fable gate. Fable—not this implementation session—commits
+  at Sid's standing word.
+
+- **2026-07-25 · Fable · P3-END GATE — PASS. Package committed `13f1dac`;
+  P5 sendable.**
+- Full record: `GATE_P3.md`. Independent receipts: suite 387t red only in
+  the two known environment classes (ingest-watchers = registered IPC
+  port-conflict, standalone 2t/15a green; llm-probe = registered flake, one
+  standalone fail then two consecutive greens — protocol satisfied; Codex's
+  fresh run fully green 387t/5,339a) · cljs 268 files 0 warnings ·
+  HEAD-reading suites green post-commit · the controlled same-process
+  byte-proof accepted WITH GPU attestation (the halt's demand, delivered).
+- Falsification held: four textbook wearer specs (values pinned, closed
+  grammars, anchor-order as data); old literals grep-verified deleted; the
+  activation-boundary repair verified at all three sites (labeled derived
+  state re-derives under current wear; settled cells sovereign;
+  reconcile-before-stamp); composition vocabulary unchanged (distinct
+  slots); masters ≠ kinds held at the registry.
+- Open doubts in GATE_P3.md: reconcile-storm cost (falsifier: the echo
+  bar + narrow-invalidation board item) · free-string header vocabulary
+  (Gate 4's rollback is the immune answer) · carried P6 checks.
+- Ops note: P4 worktree (`Softland-p4`) branched at `5c0eaa2` — its gate
+  reconciles onto `13f1dac`.
+- Next: Sid sends P5 (PROMPTS.md §P5) to a fresh Codex session (main tree);
+  P4 continues in its worktree; gate-P4 and gate-P5 boot from the board
+  HANDOFF as reports land.

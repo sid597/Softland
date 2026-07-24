@@ -10,50 +10,54 @@ minutes, the board is broken — fix it.
 ## HANDOFF — next implementation session (paste this)
 
 ```
-editable-material campaign — ORCHESTRATION session (Fable). Gate P3
-and/or P4 (whichever Codex report is in; two lanes may be live — P4
-runs in a separate git worktree).
-Prereq: P2 gate PASS 07-24; Sid has sent PROMPTS.md §P3 (and §P4) to
-fresh Codex sessions and pasted the report(s).
+editable-material campaign — ORCHESTRATION session (Fable). Gate P4
+and/or gate P5 (whichever Codex report is in; two lanes may be live —
+P4 in the Softland-p4 worktree, P5 in the main tree).
+Prereq: P1/P2/P3 gates all PASS (commits 83aa5dd+b6f3d75, c6bb5d8,
+13f1dac); Sid has sent §P4 (worktree lane, flag-A ruling filled) and
+§P5 after P3's PASS.
 Boot, in order:
-1. build/editable-material/NOW.md — thread tail: P1+P2 GATE entries
-   (commits 83aa5dd, b6f3d75, c6bb5d8; adjudications; open doubts) +
-   the new Codex report(s)
-2. GATE_P1.md + GATE_P2.md + the NOW.md facet-2-halt adjudication
-   (07-24: second-wearer PASS · reasoning-cost PASS · facet 3
-   authorized · flag A RULED — :references stays the wish edge, filled
-   in PROMPTS.md §P4; render-proof deviation recorded, P3-END gate
-   re-attempts a controlled byte proof) · DIRECTION.md (§spine
-   FAIL-tells, §layer identities) · CAMPAIGN.md §P3/§P4 +
-   §Standing-stops · PROMPTS.md. P6 still requires a Fable
-   CONTRACT_P6.md before its prompt goes out (CAMPAIGN §P6; Sid's
-   division ruling 07-24).
-3. git log --oneline -8 — suite fully green at c6bb5d8 (385t/5,220a);
-   flake registry in memory/implementation-quirks.md
+1. build/editable-material/NOW.md — thread tail: the P3-END gate entry
+   (07-25, PASS, 13f1dac) + the new Codex report(s)
+2. GATE_P1/P2/P3.md (conventions + carried open doubts BIND the
+   review: cross-JVM epoch check at P6 · trail→event truth at P6 ·
+   reconcile-storm cost = first suspect on any echo complaint) ·
+   DIRECTION.md · CAMPAIGN.md §P4/§P5 + §Standing-stops · PROMPTS.md.
+   P4-gate extra: the worktree branched at 5c0eaa2 — reconcile onto
+   13f1dac (P3's facet layer) BEFORE gating; flag-A ruling was
+   pre-filled (:references stays the wish edge). P6 still requires a
+   Fable CONTRACT_P6.md before its prompt goes out (CAMPAIGN §P6).
+3. git log --oneline -8 — flake registry in
+   memory/implementation-quirks.md (llm-probe + ingest-watchers IPC
+   port-conflict class both fired at the P3-END gate, standalone-green)
 Role: fresh-context falsification + gate (work-package skill): re-run
-suites yourself, read the diff in full. P3 gate axes: byte-identical
-render at current values per extraction · old constants DELETED ·
-P1-convention reuse (the FAIL-tells) · echo bar. P4 gate axes:
-receipts are co-presence never aboutness · kernel growth = reviewed
-lines only · silver visibly machine · first-light P3 fulfilled under
-its CONTRACT. Ops: land UP (five modules RUNNING, dev app 8080);
-drains hang at depot-flush (platform OPEN; down → dirty → unwedge →
-up sanctioned). On P3 PASS: hand Sid P5. On P4 PASS: Gate 2 closes.
+suites yourself, read the diff in full. P4 gate axes: receipts are
+co-presence never aboutness · kernel growth = the two reviewed lines
+only · silver visibly machine · no promotion machinery · first-light
+P3 fulfilled under its CONTRACT · terminal-escape detector armed. P5
+gate axes: closed binding grammar (material never names code) · one
+dispatch law · frozen branch counts per migrated family · code-floor
+bindings unbreakable (malformed-bindings drill) · no side effects in
+reactive queries · echo + input latency. Ops: land UP; drains hang at
+depot-flush (platform OPEN; down → dirty → unwedge → up sanctioned).
+On P4 PASS: Gate 2 closes. On P5 PASS: author CONTRACT_P6.md (Fable)
+before handing Sid P6.
 ```
 
-**Campaign state:** **P1 + P2 CLOSED — both gates PASS 07-24**
-(`GATE_P1.md` code `83aa5dd` + repair `b6f3d75`; `GATE_P2.md` code
-`c6bb5d8` — inspector live-replayed on the recovered cluster:
-active ≠ latest live, trail 3/2/1, edn byte-equal; Sid's one headed
-line: click a block → `__material.picked()`). **P3 facet spread ∥ P4
-circulation are NEXT — Sid pastes PROMPTS.md §P3 and §P4 into fresh
-Codex sessions (P4 ∥ ONLY in a separate git worktree).** Then P5
-bindings → P6 truth loop (Gates 3+4) → P7 portal → P8
+**Campaign state:** **P1 + P2 + P3 CLOSED — all gates PASS**
+(`GATE_P1.md` `83aa5dd`+`b6f3d75` · `GATE_P2.md` `c6bb5d8` ·
+`GATE_P3.md` `13f1dac` 07-25: the worn five are served material on ONE
+generic facet-master layer, six masters registered, activation-boundary
+re-cut verified, same-process byte-proof with GPU attestation; Sid's
+one headed line still open: click a block → `__material.picked()`).
+**P4 circulation RUNNING in the Softland-p4 worktree (flag-A ruling
+filled). P5 bindings is SENDABLE — Sid pastes PROMPTS.md §P5 into a
+fresh Codex session (main tree).** Then P6 truth loop (Gates 3+4 —
+Fable CONTRACT_P6.md required first) → P7 portal → P8
 verb-from-inside — ladder, stops, Sid's touchpoints in `CAMPAIGN.md`.
 first-light P3/P4/P5 ride campaign P4/P6 under the first-light
 CONTRACT (no fork; flag discrepancies inline). Land is UP (five
-modules RUNNING, dev app 8080; host-reboot recovery 07-24 in
-GATE_P2.md §Ops).
+modules RUNNING; dev app down — Codex sessions boot it as needed).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
@@ -253,20 +257,19 @@ criterion · three loops · four gates · receipt/silver/gold ladder ·
 second-wearer falsifier · conductivity · plurality; identity table —
 master ≠ recipe ≠ attachment, the probe births a MASTER, the first
 recipe/type is named at recurrence). Execution:
-`build/editable-material/CAMPAIGN.md` — **P1 anatomy CLOSED (gate PASS
-07-24, `GATE_P1.md`; code `83aa5dd` + baseline repair `b6f3d75`)** →
-**P2 inspector CLOSED (gate PASS 07-24, `GATE_P2.md`; code `c6bb5d8`;
-live-replayed on the recovered cluster)** → P3 facet spread ∥ P4
-circulation (NEXT — PROMPTS.md §P3 + §P4 to fresh Codex sessions, P4
-in a separate worktree; Gate 2; fulfills first-light P3; P3 halts
-after facet 2 for the second-wearer + reasoning-cost verdicts) → P5
-bindings → P6 truth loop (Gates 3+4; fulfills first-light P4/P5;
-carries the P1 wound trace as first immune memory + the
-cross-JVM-epoch and trail-classification doubts from the gate records)
-→ P7 portal → P8 verb-from-inside; ~14–22 sessions, gates on banked
-frictions, Sid's touchpoints ≈ ten one-liners; the first full BREATH
-lands at his return, by design. decisions.md bullet when Gate 3
-closes.
+`build/editable-material/CAMPAIGN.md` — **P1 anatomy CLOSED (07-24,
+`GATE_P1.md`; `83aa5dd` + `b6f3d75`)** → **P2 inspector CLOSED (07-24,
+`GATE_P2.md`; `c6bb5d8`)** → **P3 facet spread CLOSED (gate PASS
+07-25, `GATE_P3.md`; `13f1dac` — facet-2 halt PASS at two wearers, six
+masters on one generic layer, worn-five extraction complete)** → P4
+circulation RUNNING ∥ (Softland-p4 worktree; Gate 2; fulfills
+first-light P3; flag A pre-ruled) · P5 bindings SENDABLE (PROMPTS.md
+§P5, main tree) → P6 truth loop (Gates 3+4; Fable CONTRACT_P6.md
+required first; fulfills first-light P4/P5; carries the P1 wound trace
+as first immune memory + the carried gate doubts) → P7 portal → P8
+verb-from-inside; ~14–22 sessions, gates on banked frictions, Sid's
+touchpoints ≈ ten one-liners; the first full BREATH lands at his
+return, by design. decisions.md bullet when Gate 3 closes.
 
 **episode-chain — BUILT 2026-07-22 at Sid's word, awaiting his wear**
 (bounded CLI sessions under every lane — the multi-turn round's verdict:
