@@ -30,6 +30,7 @@
    find-form-fn eval-form-fn font-assets & {:keys [font-manifest gpu-budget !sidebar-visible !file-load-request !preview-el !remote-sidebar-truth !remote-settings-truth !remote-agent-trail !remote-flow-session !remote-workspace-truth initial-file
                                                    !trail-request !trail-data !face-request !face-data !ingest-epoch-remote
                                                    !assembly-request !assembly-data !face-list-request !face-list-data
+                                                   !provenance-material-request !provenance-material-data
                                                    !face-wear-outbox !face-wear-result
                                                    !block-edit-outbox !block-edit-result
                                                    !block-truth-request !block-truth-data]}]
@@ -70,6 +71,8 @@
                    :!assembly-data !assembly-data
                    :!face-list-request !face-list-request
                    :!face-list-data !face-list-data
+                   :!provenance-material-request !provenance-material-request
+                   :!provenance-material-data !provenance-material-data
                    :!face-wear-outbox !face-wear-outbox
                    :!face-wear-result !face-wear-result
                    :!ingest-epoch-remote !ingest-epoch-remote})

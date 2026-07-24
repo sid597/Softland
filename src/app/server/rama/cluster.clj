@@ -22,6 +22,7 @@
             [app.server.rama.machine-cut :as machine-cut]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.block-distiller :as block-distiller]
+            [app.server.rama.object-container.provenance-material :as provenance-material]
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.object-container.transcript-identity :as tid]
             [app.server.rama.dogfood.transcript :as transcript]
@@ -317,6 +318,26 @@
                (:failed wear) "failed · faces sweep:" (:imported sweep) "of"
                (:attempted sweep))
       {:wear-bridge wear :faces-sweep sweep})))
+
+(defn provenance-material-ingest!
+  "Idempotently install the P1 provenance master and explicit active pointer in
+   the durable object-container module. This is an explicit deploy-time action,
+   never part of the cluster-backed application startup read path."
+  ([_argmap] (provenance-material-ingest!) (System/exit 0))
+  ([]
+   (let [oc-rt (object-container-runtime)]
+     (when-not oc-rt
+       (throw (ex-info "cluster unavailable — run bin/land up first" {})))
+     (let [result (provenance-material/ensure-master! oc-rt)
+           state (:state result)]
+       (println "[CLUSTER-INGEST] provenance material:"
+                {:latest-revision-id
+                 (some-> state :latest-revision :revision-id)
+                 :active-revision-id
+                 (some-> state :active-revision :revision-id)
+                 :pointer-revision-id
+                 (some-> state :active-pointer :revision-id)})
+       result))))
 
 (defn first-light-ingest!
   "Harvest + distill the default conversation into the DURABLE store, then

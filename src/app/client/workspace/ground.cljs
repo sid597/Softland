@@ -39,7 +39,8 @@
             [app.client.workspace.ground-edit :as ge]
             [app.client.workspace.rect-tree :as rt :refer [rt-node]]
             [app.client.workspace.scene-runtime :as scene-rt]
-            [app.client.workspace.scene-store :as ss]))
+            [app.client.workspace.scene-store :as ss]
+            [app.shared.provenance-material :as provenance-material]))
 
 ;; ===========================================================================
 ;; Boot decision
@@ -134,7 +135,7 @@
 (def ^:private reply-gap 34.0)
 (def ^:private settle-debounce-ms 400)
 
-(declare rebuild-block! reconcile! refresh-provisional!)
+(declare rebuild-block! reconcile! refresh-provisional! context-block-entry)
 
 ;; ===========================================================================
 ;; Camera math (screen = world·zoom + pan)
@@ -168,8 +169,13 @@
 (def ^:private dim [0.55 0.58 0.62 1.0])
 (def ^:private err-col [0.95 0.45 0.40 1.0])
 (def ^:private amber [0.92 0.75 0.35 1.0])
-(def ^:private machine-tint [0.62 0.66 0.76 0.6])
 (def ^:private attention-border [0.45 0.52 0.66 0.55])
+
+(defn- current-material-wear
+  []
+  (let [!served (get-in @!refs [:atoms :!provenance-material])]
+    (provenance-material/resolved-wear
+     (when !served @!served))))
 
 (defn- wrap-lines
   "Display-only greedy wrap at `col` chars (monospace: char count IS width —
@@ -218,8 +224,10 @@
    quiet persistent edge tint (Law 6) — two separate primitives."
   [unit-id {:keys [text caret focused? refusal selection]} machine? hover? notice
    {:keys [font-size char-advance line-h]} wrap-col headers msel boundary?
-   gsel?]
-  (let [lines   (cond-> (str/split (or text "") #"\n" -1)
+   gsel? wear]
+  (let [tint    (:provenance/tint wear)
+        stamp   #(provenance-material/contribution-stamp wear %)
+        lines   (cond-> (str/split (or text "") #"\n" -1)
                   (and machine? wrap-col) (wrap-lines wrap-col))
         nh      (count headers)
         lines   (if (pos? nh) (into (vec headers) lines) lines)
@@ -228,12 +236,14 @@
         w       (+ (* max-len char-advance) (* 2 block-pad))
         h       (+ (* n line-h) (* 2 block-pad))
         ops     (vec (map-indexed
-                      (fn [i l] (text-op l i line-h font-size
-                                         (cond
-                                           (< i nh) machine-tint
-                                           machine? dim
-                                           :else fg)
-                                         0))
+                      (fn [i l]
+                        (cond-> (text-op l i line-h font-size
+                                        (cond
+                                          (< i nh) tint
+                                          machine? dim
+                                          :else fg)
+                                        0)
+                          (< i nh) (merge (stamp :fold-header))))
                       lines))
         caret-lc (when (and focused? caret)
                    (ge/caret->line-col text caret))
@@ -277,7 +287,8 @@
                   machine?
                   (conj (rt-node :ground-mark :rect
                                  {:x (- block-pad) :y (- block-pad) :w 2.5 :h h}
-                                 :style {:bg machine-tint}))
+                                 :style {:bg tint}
+                                 :data (stamp :machine-rail)))
                   ;; interaction box (Law 10): attention only
                   (or focused? hover?)
                   (conj (rt-node :ground-box :rect
@@ -310,7 +321,8 @@
                   (conj (rt-node :ground-episode-boundary :text-run
                                  {:x 0 :y (- (* 1.6 line-h)) :w w :h line-h}
                                  :text [(text-op "— fresh session —" 0 line-h
-                                                 font-size machine-tint 0)])))]
+                                                 font-size tint 0)]
+                                 :data (stamp :episode-boundary))))]
     (rt/resolve-layout
      (rt-node :ground-block :text-run
               {:x 0 :y 0 :w (max w char-advance) :h (max h line-h)}
@@ -338,6 +350,92 @@
             :pre-resolved? true})]
       (swap! !world assoc-in [:blocks unit-id :cid] container)))
   nil)
+
+(def ^:private material-error-vi :ground-material-error)
+
+(defn- material-render-state
+  [served]
+  (select-keys served
+               [:facet-master/active-revision-id
+                :facet-master/material
+                :facet-master/candidate-revision-id
+                :facet-master/candidate-errors]))
+
+(defn- refresh-material-error!
+  "The malformed-candidate drill lands beside the worn surface as its own
+   card. It reports candidate truth only; active material remains the sole
+   input to every block render."
+  []
+  (let [!served (get-in @!refs [:atoms :!provenance-material])
+        served (when !served @!served)
+        errors (:facet-master/candidate-errors served)]
+    (if (and (drill-conversation-id) (seq errors))
+      (let [{:keys [font-size char-advance line-h]} (metrics)
+            revision (:facet-master/candidate-revision-id served)
+            lines (into [(str "provenance material rejected · " revision)]
+                        (map #(pr-str (select-keys % [:type :message :actual])))
+                        (take 4 errors))
+            pad 10.0
+            max-len (reduce max 1 (map count lines))
+            w (+ (* 2 pad) (* max-len char-advance))
+            h (+ (* 2 pad) (* (count lines) line-h))
+            ops (mapv (fn [i line]
+                        (text-op line i line-h font-size err-col pad))
+                      (range)
+                      lines)
+            [x y] (screen->world 18.0 18.0)
+            tree (rt/resolve-layout
+                  (rt-node material-error-vi :error-card
+                           {:x 0 :y 0 :w w :h h}
+                           :style {:bg [0.24 0.07 0.08 0.98]
+                                   :border-width 1.0
+                                   :border-color [0.9 0.3 0.3 1.0]
+                                   :radius 4}
+                           :text ops
+                           :data {:material/master provenance-material/master-id
+                                  :material/revision revision
+                                  :material/errors (vec errors)}))]
+        (if-let [slot (ss/slot (scene-rt/store-snapshot) material-error-vi)]
+          (do
+            (swap! scene-rt/!scene-store ss/upsert-slot material-error-vi
+                   {:tree tree :container (:container slot)
+                    :meta (:meta slot) :stratum (:stratum slot)
+                    :pre-resolved? true})
+            (scene-rt/set-transform! (:container slot) {:x x :y y}))
+          (scene-rt/register-face-instance!
+           material-error-vi tree
+           {:x x :y y :scale 1.0 :layer 6
+            :meta {:ground-material-error? true}
+            :pre-resolved? true})))
+      (scene-rt/close-instance! material-error-vi))))
+
+(defn- rebuild-material-sites!
+  []
+  (doseq [[unit-id b] (:blocks @!world)]
+    (when (or (:machine? b)
+              (:episode-boundary? (context-block-entry unit-id)))
+      (rebuild-block! unit-id))))
+
+(defn- run-material-drill!
+  []
+  (when-let [drill-id (drill-conversation-id)]
+    (-> (js/fetch "/api/material/provenance/drill"
+                  (clj->js {:method "POST"
+                            :headers {"Content-Type" "application/edn"}
+                            :body (pr-str {:drill-id drill-id})}))
+        (.then (fn [resp]
+                 (.then (.text resp)
+                        (fn [body]
+                          (if (.-ok resp)
+                            (js/console.log
+                             "[MATERIAL] malformed-candidate drill retained"
+                             body)
+                            (js/console.error
+                             "[MATERIAL] malformed-candidate drill failed"
+                             (.-status resp) body))))))
+        (.catch (fn [e]
+                  (js/console.error
+                   "[MATERIAL] malformed-candidate drill unavailable" e))))))
 
 (defn- truth-text
   "Materialized truth for a block: the narrowing overlay when present, else
@@ -444,16 +542,17 @@
           msel   (let [ms @!machine-sel] (when (and ms (= unit-id (:uid ms))) ms))
           bnd?   (boolean (:episode-boundary? (context-block-entry unit-id)))
           gsel?  (contains? @!group-sel unit-id)
+          wear   (current-material-wear)
           m      (metrics)
           ;; everything block-tree consumes (viewport excluded — unused):
           ;; equal sig ⇒ identical pixels ⇒ the build is pure waste
           sig    [view (:machine? b) hover? notice (:wrap-col b) headers msel bnd?
-                  gsel? (:font-size m) (:char-advance m) (:line-h m)]]
+                  gsel? wear (:font-size m) (:char-advance m) (:line-h m)]]
       (if (and (= sig (:render-sig b))
                (some? (ss/slot (scene-rt/store-snapshot) (block-vi unit-id))))
         (swap! !rebuild-stats update :skips inc)
         (let [tree (block-tree unit-id view (:machine? b) hover? notice
-                               m (:wrap-col b) headers msel bnd? gsel?)]
+                               m (:wrap-col b) headers msel bnd? gsel? wear)]
           (swap! !rebuild-stats update :builds inc)
           (upsert-block-slot! unit-id tree (:x b) (:y b))
           (swap! !world update-in [:blocks unit-id]
@@ -1804,6 +1903,19 @@
                  (when (and (not= (get old uid) (get new uid))
                             (get-in @!world [:blocks uid]))
                    (rebuild-block! uid)))))
+  ;; P1: only a served active revision can move the worn surface. The generic
+  ;; epoch pull resets this atom after durable activation; invalid candidates
+  ;; change only the separate drill error card.
+  (when-let [!material (:!provenance-material atoms)]
+    (add-watch !material ::provenance-material
+               (fn [_ _ old new]
+                 (when (not= (material-render-state old)
+                             (material-render-state new))
+                   (rebuild-material-sites!)
+                   (refresh-material-error!))))
+    (rebuild-material-sites!)
+    (refresh-material-error!))
+  (run-material-drill!)
   ;; dev observability (the __softland_atoms precedent): read-only state +
   ;; the narrow-echo samples — drives G4b console receipts, renders nothing
   (set! (.-__ground js/window)

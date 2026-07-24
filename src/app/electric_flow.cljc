@@ -576,6 +576,10 @@
                 !assembly-data (atom nil)
                 !face-list-request (atom nil)
                 !face-list-data (atom nil)
+                ;; editable-material P1: one constant projection request through
+                ;; the existing FacePull + ingest-epoch artery.
+                !provenance-material-request (atom nil)
+                !provenance-material-data (atom nil)
                 !face-wear-outbox (atom nil)
                 !face-wear-result (atom nil)
                 ;; block-write Lane A · the edit write seam (CONTRACT §3/§5). Lane B's
@@ -638,6 +642,9 @@
             (let [lreq (e/watch !face-list-request)]
               (when lreq
                 (reset! !face-list-data (fv/FacePull lreq))))
+            (let [mreq (e/watch !provenance-material-request)]
+              (when mreq
+                (reset! !provenance-material-data (fv/FacePull mreq))))
             ;; W2: the wear write path — outbox value in, result mirrored back;
             ;; face_wiring clears the outbox on result (depth-1 queue by design,
             ;; recorded in W2-INT). Idempotent server-side by wear-id journal.
@@ -756,6 +763,8 @@
                                                     :!assembly-data !assembly-data
                                                     :!face-list-request !face-list-request
                                                     :!face-list-data !face-list-data
+                                                    :!provenance-material-request !provenance-material-request
+                                                    :!provenance-material-data !provenance-material-data
                                                     :!face-wear-outbox !face-wear-outbox
                                                     :!face-wear-result !face-wear-result
                                                     ;; block-write Lane A · edit write seam threaded to the client
