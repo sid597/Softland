@@ -261,16 +261,24 @@ terminal-escape gauge reading for the whole run.
 
 ---
 
-## P1 resume line (fill <STAMP> from the ledger's clean-shutdown entry)
+## P1 resume line (final — ops recovery done 07-24)
 
 ```
-P1 unblocked — resume from the deploy step. Cluster recovered (five
-modules RUNNING; your forceClusterOpen did clear the drain — a fresh
-boot completed it). bin/land backup now FAILS CLOSED (cd4fcb4); a
-valid clean-shutdown backup exists at /mnt/data/rama/backups/<STAMP>
-(ledger: clean-shutdown-observed); your 20260724-021401 snapshot is
-annotated crash-consistent-only. Resume exactly where the stop fired:
-single-module update → provenance-material-ingest! → restart-restores-
-active drill → browser activation + ?drill= error-card drill → echo
-sample → full suite → code-only commit. Fences unchanged.
+P1 unblocked — resume from the deploy step. Read the 07-24 Fable ops
+entry in build/editable-material/NOW.md first: your stop-clause
+findings were all confirmed. Cluster is recovered and READY
+(conductorReady true, workers LEADER-OPEN, five modules RUNNING);
+bin/land backup now FAILS CLOSED (cd4fcb4) and has fired correctly
+live. DEVIATION, adjudicated (NOW.md): the documented clean cold-backup
+is UNAVAILABLE on this cluster — drains hang structurally at
+stop-replication ("waiting for depot appends to flush", platform issue,
+OPEN). The pre-deploy snapshot fence is satisfied by
+/mnt/data/rama/backups/20260724-quiesced (honest ledger label) plus two
+further copies. Do NOT run bin/land backup before the deploy. Proceed:
+single-module update → provenance-material-ingest! → restart drill
+(NOTE: bin/land down will end DIRTY — then run `bin/land unwedge`, then
+`bin/land up`; that is the sanctioned sequence) → browser activation +
+?drill= error-card drill → echo sample → full suite → code-only commit.
+If the module update is REFUSED, stop and report — never retry-loop.
+Fences otherwise unchanged.
 ```
