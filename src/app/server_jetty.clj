@@ -9,6 +9,7 @@
     [app.file-viewer :as fv]
     [app.server.episode :as episode]
     [app.server.rama.face-projection :as face-projection]
+    [app.server.rama.object-container.provenance-material :as provenance-material]
     [app.server.rama.cluster :as cluster]
     [app.server.review-pack :as review-pack]
     [components.adapter :as adapter]
@@ -1391,6 +1392,37 @@ information."
             (log/error e "[AGENT-TRAIL][SAVE][ERROR]")
             (json-response {:error (str "Trail save failed: " (.getMessage e))})))
         (json-response {:error "Method not allowed. Use POST."}))
+
+      ;; editable-material P1 — a deterministic malformed candidate drill. The
+      ;; import is durable; validation refuses to submit an active-pointer edit.
+      ;; The client ignores this response for rendering and waits for FacePull.
+      (= uri "/api/material/provenance/drill")
+      (if (= request-method :post)
+        (try
+          (let [oc-rt (:oc-rt (fv/face-ctx))
+                {:keys [drill-id]} (parse-edn-body ring-req)]
+            (cond
+              (nil? oc-rt)
+              (edn-response 503 {:status :error :error :land-unavailable})
+
+              (str/blank? (str drill-id))
+              (edn-response 400 {:status :error :error :bad-request})
+
+              :else
+              (let [_ (provenance-material/ensure-master! oc-rt)
+                    result (provenance-material/malformed-drill! oc-rt drill-id)]
+                (edn-response
+                 200
+                 {:status :rejected
+                  :candidate-revision-id (:candidate-revision-id result)
+                  :activation-errors (:activation-errors result)
+                  :active-revision-id
+                  (some-> result :state :active-revision :revision-id)
+                  :trace :candidate-import-retained}))))
+          (catch Exception e
+            (log/error e "[MATERIAL][DRILL-ERROR]" {:uri uri})
+            (edn-response 500 {:status :error :error (.getMessage e)})))
+        (edn-response 405 {:error "Method not allowed. Use POST."}))
 
       ;; ===== Workspace Truth Persistence (Phase 7) =====
       (= uri "/api/workspace/save-truth")

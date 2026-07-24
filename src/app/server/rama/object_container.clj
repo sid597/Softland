@@ -267,7 +267,10 @@
 (defn leading-object-key
   [s]
   (let [s (str s)]
-    (if (str/starts-with? s "chat:")
+    (if (or (str/starts-with? s "chat:")
+            ;; P1 editable-material: facet-master identities are two segments,
+            ;; exactly like chat identities for routing purposes.
+            (str/starts-with? s "fm:"))
       (let [parts (str/split s #":" 3)]
         (if (>= (count parts) 2)
           (str (first parts) ":" (second parts))
@@ -316,6 +319,14 @@
       ;; "imp:asm:" is 8 chars; the full key reads imp:asm:asm:<name>:<sha>.
       (str/starts-with? s "imp:asm:")
       (let [remainder (subs s 8)
+            idx1 (str/index-of remainder ":")
+            idx2 (when idx1 (str/index-of remainder ":" (inc idx1)))]
+        (if idx2 (subs remainder 0 idx2) remainder))
+
+      ;; P1 editable-material: imp:fm:fm:<facet>:<content-hash>. The object-key
+      ;; is two segments, so take both back before hashing the foreign read.
+      (str/starts-with? s "imp:fm:")
+      (let [remainder (subs s 7)
             idx1 (str/index-of remainder ":")
             idx2 (when idx1 (str/index-of remainder ":" (inc idx1)))]
         (if idx2 (subs remainder 0 idx2) remainder))

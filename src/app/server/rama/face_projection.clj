@@ -34,7 +34,9 @@
             [app.server.rama.object-container.block-distiller :as bd]
             [app.server.rama.object-container.transcript-identity :as tid]
             [app.server.rama.object-container.assembly-adapter :as assembly-adapter]
+            [app.server.rama.object-container.provenance-material :as provenance-adapter]
             [app.server.rama.face-arsenal :as face-arsenal]
+            [app.shared.provenance-material :as provenance-material]
             ;; READ-ONLY use of the relation kernel's PUBLIC query surface (rk
             ;; CONTRACT §7 — read-relations-for-targets ONLY; never a PState path,
             ;; never an append). Machine-cut pair structure (CONTRACT §4.4/§6).
@@ -721,6 +723,63 @@
            :face-list/error :arsenal-read-failed
            :face/rendered-at-ms now})))))
 
+(defn provenance-material-projection
+  "P1 one-facet serve. Latest and active are resolved independently: the
+   material container names latest, while the explicit pointer container
+   names the worn immutable revision. A malformed latest candidate is
+   reportable under the drill scope without replacing active material."
+  [{:keys [oc-rt]} request]
+  (let [now (System/currentTimeMillis)
+        drill? (true? (get-in request [:params :drill?]))
+        floor {:facet-master/id provenance-material/master-id
+               :facet-master/found? false
+               :facet-master/valid? false
+               :facet-master/material
+               (select-keys provenance-material/code-floor [:provenance/tint])
+               :facet-master/active-revision-id
+               provenance-material/code-floor-revision-id
+               :facet-master/floor? true
+               :facet-master/errors [{:type :facet-master/unavailable}]
+               :face/rendered-at-ms now}]
+    (if (nil? oc-rt)
+      floor
+      (let [{:keys [latest-revision active-pointer active-revision]}
+            (provenance-adapter/read-master oc-rt)
+            latest-compiled (when latest-revision
+                              (provenance-material/compile-source
+                               (:content-text latest-revision)))
+            active-compiled (when active-revision
+                              (provenance-material/compile-source
+                               (:content-text active-revision)))
+            active-valid? (true? (:valid? active-compiled))
+            active-id (:revision-id active-revision)
+            latest-id (:revision-id latest-revision)
+            candidate-invalid? (and latest-revision
+                                    (not= latest-id active-id)
+                                    (false? (:valid? latest-compiled)))]
+        (cond-> {:facet-master/id provenance-material/master-id
+                 :facet-master/found? (some? latest-revision)
+                 :facet-master/valid? active-valid?
+                 :facet-master/material
+                 (if active-valid?
+                   (:material active-compiled)
+                   (select-keys provenance-material/code-floor
+                                [:provenance/tint]))
+                 :facet-master/active-revision-id
+                 (or active-id provenance-material/code-floor-revision-id)
+                 :facet-master/latest-revision-id latest-id
+                 :facet-master/pointer-revision-id (:revision-id active-pointer)
+                 :facet-master/floor? (not active-valid?)
+                 :facet-master/errors
+                 (if active-valid?
+                   []
+                   (or (:errors active-compiled)
+                       [{:type :facet-master/active-revision-missing}]))
+                 :face/rendered-at-ms now}
+          (and drill? candidate-invalid?)
+          (assoc :facet-master/candidate-revision-id latest-id
+                 :facet-master/candidate-errors (:errors latest-compiled)))))))
+
 ;; ===========================================================================
 ;; The projection registry + server-side face dispatch (trap T8).
 ;; ===========================================================================
@@ -764,6 +823,7 @@
   {:conversation conversation-projection
    :assembly     assembly-projection
    :face-list    face-list-projection
+   :provenance-material provenance-material-projection
    :block-truth  block-truth-projection})
 
 (def face->projection-kind

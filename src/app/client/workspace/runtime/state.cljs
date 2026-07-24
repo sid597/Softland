@@ -222,6 +222,9 @@
       ;; mirrored whole by face-wiring) — the sidebar lists faces FROM RAMA
       ;; (trap T14), never the faces directory.
       :!face-list     (atom nil)
+      ;; editable-material P1: the one served provenance facet-master. This is
+      ;; confirmed projection data only; ground never writes it optimistically.
+      :!provenance-material (atom nil)
 
       ;; Agent / AI
       :!ai-provider     (atom :claude)

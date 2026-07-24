@@ -69,6 +69,11 @@
 ;; re-entry law).
 (defonce ^:private !last-compiled-source (atom ::none))
 
+(defn- drill-mode?
+  []
+  (boolean
+   (re-find #"[?&]drill=" (str (.-search js/window.location)))))
+
 (defn wear-face!
   "Wear-time entry (the §5 two-stage law, trap T3), W2 form: arm the
    :assembly-source request — the server serves the assembly FROM RAMA
@@ -137,6 +142,7 @@
   [atoms {:keys [!face-request !face-data !ingest-epoch-remote
                  !assembly-request !assembly-data
                  !face-list-request !face-list-data
+                 !provenance-material-request !provenance-material-data
                  !face-wear-outbox !face-wear-result]}]
   (let [{:keys [!face-state !ingest-epoch]} atoms
         !last-pull-epoch (atom 0)
@@ -146,6 +152,12 @@
                           (reset! !face-list-request
                                   (cond-> {:face :face-list :epoch epoch}
                                     nonce (assoc :refresh nonce)))))
+        material-request! (fn [epoch]
+                            (when !provenance-material-request
+                              (reset! !provenance-material-request
+                                      {:face :provenance-material
+                                       :params {:drill? (drill-mode?)}
+                                       :epoch epoch})))
         request! (fn []
                    (let [s @!face-state]
                      (reset! !face-request
@@ -183,6 +195,13 @@
       (add-watch !face-list-data :face-list-mirror
                  (fn [_ _ _ data]
                    (when data (reset! (:!face-list atoms) data)))))
+    ;; P1: confirmed material projection data is mirrored whole. Ground watches
+    ;; this atom; candidate writes and activation acks never touch render state.
+    (when (and !provenance-material-data (:!provenance-material atoms))
+      (add-watch !provenance-material-data :provenance-material-mirror
+                 (fn [_ _ _ data]
+                   (when data
+                     (reset! (:!provenance-material atoms) data)))))
     ;; W2: wear ack → clear the outbox + refresh the roster (the count bump is
     ;; visible without waiting for an ingest epoch; the :refresh nonce changes
     ;; the request VALUE so Electric re-pulls)
@@ -212,6 +231,7 @@
                                  (request!)
                                  ;; W2 (INV-19): re-stamp the constant pulls too
                                  (list-request! new-epoch nil)
+                                 (material-request! new-epoch)
                                  (when-let [s @!face-state]
                                    (when (and (:face s) !assembly-request)
                                      (reset! !assembly-request
@@ -221,4 +241,7 @@
                                1000))))))
     (request!)
     ;; arm the roster pull at install (the sidebar lists faces from first light)
-    (list-request! 0 nil)))
+    (list-request! 0 nil)
+    ;; arm the one material pull at install; later changes use this same epoch
+    ;; debounce and therefore cannot render ahead of durable activation.
+    (material-request! 0)))

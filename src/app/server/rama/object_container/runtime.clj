@@ -373,6 +373,12 @@
   [runtime container-id]
   (foreign-invoke-query (:read-current-revision-query runtime) container-id))
 
+(defn read-revision
+  "Foreign point read for an immutable revision. `rev:fm:...` routing is
+   covered by the P1 prefix gate in object_container/extract-object-key."
+  [runtime revision-id]
+  (foreign-one (:revisions-by-id runtime) [(keypath revision-id)]))
+
 (defn read-unit
   [runtime unit-id]
   (foreign-invoke-query (:read-unit-query runtime) unit-id))

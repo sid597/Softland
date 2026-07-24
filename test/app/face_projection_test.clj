@@ -92,8 +92,10 @@
     (is (fn? (:conversation fp/projection-registry)))
     (is (fn? (:assembly fp/projection-registry)))
     (is (fn? (:face-list fp/projection-registry)))
+    (is (fn? (:provenance-material fp/projection-registry)))
     (is (fn? (:block-truth fp/projection-registry)))
-    (is (= #{:conversation :assembly :face-list :block-truth}
+    (is (= #{:conversation :assembly :face-list :provenance-material
+             :block-truth}
            (set (keys fp/projection-registry))))))
 
 ;; ===========================================================================
