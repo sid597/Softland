@@ -7,108 +7,72 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
-## HANDOFF — P7 GATE (the portal is BUILT; boot a FRESH session with the
-## starter prompt at the bottom of this block)
+## HANDOFF — P8 SEND (P7 GATED PASS; paste the starter prompt at the bottom
+## of this block to a fresh session)
 
-**P7 BUILT 2026-07-25 (`04ae2df`)** — the material world is one
-deterministic, total, batched projection. Open from a pick and **17
-questions** answer in ONE roundtrip; the question list is carried as DATA
-with a paste-able replay call each, so "answered one by one" is a gate, not
-a claim. **Zero Rama edits** — the portal owns no truth, it JOINS five
-existing projections through the module's own `serve`. Diff purely additive
-(+261 lines / 3 new files). Suite **444t/6,225a** green (floor 428t/5,940a);
-cljs 270 files 0 warnings. **Opened LIVE on the real cluster, read-only:
-877ms, 0 errors, 0 unanswered** — it reads Sid's Gate-3
-`wrap-fallback-columns 64` back with actor `fable-p6-gate` and declared
-grounds `exp:reply-width`, plus 26 nameable historical cuts and 6 recovery
-offers. Thread entry: `build/editable-material/NOW.md` tail (the P7 BUILT
-entry carries the seven fixed defects and the four honest gaps).
+**P7 GATED PASS 2026-07-25** (`GATE_P7.md`: gate object `04ae2df` + gate fix
+`c0838c1`). Everything re-derived by the gate: suite **444t/6,225a/0/0**
+exact · **cljs COLD 311 files / 0 warnings** · live open 1,243ms / 0 errors /
+0 unanswered with **Sid's 64 read back** (full trace, named rollback path) ·
+**cross-JVM byte determinism** (same sha, two fresh JVMs) · **read-only
+BYTE-IDENTICAL** across every mode and the whole headed sitting · fixed-FIVE
+sub-serves across nine modes (the N+1 STOP cannot fire) · the floor held
+under pr-str bombs + nested hostile ILookups. The headed `__portal` sitting
+ran the documented console calls through the real artery and **found + fixed
+one real defect** (`clj->js` namespace-stripping broke the promised
+`['portal/recipe']` accesses — portal seam now converts
+namespace-preserving). Adjudications (delegated, veto live): recipe NAME
+**"block" ACCEPTED** as working scaffolding · visual face → return-wear
+headed sitting, no P7b · briefing stays FULL verbatim, **narrowing via the
+OPEN's params is REQUIRED for P8's summon** (a real sitting's briefing
+measured ~240k tokens) · `resolved-wear` floor honesty = P1-shape fix,
+queued LATER · echo bar not gated (no keystroke-path touch).
 
-**Sid's ONE open line — the recipe NAME.** The worn-five composition has
-recurred, so the portal names it **"block"** — `:working-scaffolding`,
-authority `:sid`, class `:derived-uniform` (facet attachment is derived
-today, so uniform recurrence is the CODE attaching uniformly, not the land
-choosing a type — DIRECTION's deep proof still waits for a `:lived` class).
-Accept · rename · withhold. Nothing blocks on it; the portal describes and
-never gates.
+**Sid's remaining touchpoints:** the P8 gate word (one line) · the headed
+looks — `__material.picked()` · `__portal` (open/questions/briefing/render/
+why/blast/at — console calls now replay verbatim) · ⌁/≈ marks · feel the 64
+width · the VISUAL portal face lands there too — fold into the return wear ·
+the return itself. Recipe name "block" is working scaffolding on Fable's
+delegated word — rename/withhold in one line anytime. Rollback of the 64:
+say the word.
 
-**The gate session owns:** re-run everything itself · the falsification pass
-· the COLD cljs receipt (`rm -rf .shadow-cljs/builds/dev` was
-permission-blocked for the build) · the HEADED `__portal` sitting (the
-console API is live: open/questions/briefing/render/why/blast/at) · two
-adjudications — the recipe name, and the deferred VISUAL portal face (the
-render model is built and JVM-proven; drawing it needs Sid's headed browser,
-so shipping it unverified would break the wearing law) · GATE_P7.md + the
-board flip to the P8 send.
-
-Ops: **cluster UP** (five modules RUNNING, conductor ready, cluster UI 200 —
-corrected from the P6 build session's DOWN reading); dev app down — sessions
-boot it as needed (`clj -A:dev -X dev/-main`).
-
-**Prior:** GATE 3 CLOSED 2026-07-25 on Sid's delegated word ("i want you to
-take the call" — Fable ruled **activate 64**). All four DIRECTION gates are
-CLOSED; the layer STANDS (decisions.md carries the bullet). P6 gate record:
-`build/editable-material/GATE_P6.md` (PASS; `be247c5` + `cff3a14`).
-**Sid's remaining touchpoints:** the recipe name · P7 + P8 gate words (one
-line each) · the headed looks (`__material.picked()` · `__portal` ·  ⌁/≈
-marks · feel the 64 width) — fold into his return wear or any headed
-sitting · the return itself. Rollback of the 64: say the word, any session
-runs one `:rollback` activation to the recorded revision.
+Ops: cluster UP (five modules RUNNING, booted by the gate after a machine
+reboot killed the daemons) · dev app UP on :8080 (gate session's boot —
+reuse or kill at will). **Env law (quirks memory): the Electric auth token
+lives in `.shadow-cljs/builds/dev/hyperfiddle.electric.token`; clearing the
+build cache evicts it and compiles park SILENTLY on a login deref — the
+prompt only shows in the dev-app log; Sid's one click re-auths.**
 
 ### Starter prompt — paste to a fresh session
 
 ```
-MODE: GATE · editable-material P7 (the portal proper) · repo
-/mnt/data/projects/Softland
-AUTHORITY: DIRECTION.md + CAMPAIGN.md + PROMPTS.md §P7. Read
-build/editable-material/NOW.md tail (the P7 BUILT entry) as INPUT, never as
-authority — the code is what you judge. /rama + rama-pitfalls before any
-Rama reasoning. Work-package gate protocol: re-run everything yourself.
+MODE: IMPLEMENT · one package only · repo /mnt/data/projects/Softland
+AUTHORITY: DIRECTION.md + CAMPAIGN.md. Prereq: P7 gate PASS; read
+NOW.md tail.
 
-P7 is BUILT at 04ae2df. New: src/app/shared/material_portal.cljc (pure
-half — the 17-question list as DATA, recipe, why-this-pixel, truncation
-roll-up, briefing, the code-floor render model) · src/app/server/rama/
-material_portal.clj (the join) · test/app/material_portal_test.clj
-(G1–G14). Edited additively: face_projection.clj (one registry entry +
-material-portal-projection + portal-briefing), electric_flow.cljc +
-runtime.cljs + face_wiring.cljs (the __portal console seam),
-face_projection_test.clj (the registry pin — a shared surface),
-test_runner.clj (tiering). ZERO Rama edits.
+Package P8 — the react-bits seam closes: a BANKED behavioral wish
+("reply to just this block" — vision/LOG.md 2026-07-18) travels the
+full code-lane route AS MATERIAL: the wish (already recorded) → linked
+implementation in the code lane → build/test receipts land as
+addressable material (address code by blob-sha + path anchors, never
+copy — external-code-is-a-view law) → the verb registered versioned,
+effect-class durable-via-request → a material binding row references
+it → the behavior works in the land → the whole chain queryable from
+the portal (wish → code → receipts → verb → binding → worn).
 
-1. Re-run: `clj -X:test` + a COLD cljs compile (clear
-   .shadow-cljs/builds/dev first — the build session could not).
-2. Falsify these five claims, hardest first:
-   · "answered one by one" — walk portal/questions against DIRECTION
-     yourself. Is any question answered in NAME only (present key, useless
-     value)?
-   · determinism — no clock, no *print-namespace-maps* dependence,
-     byte-equal re-open. Hunt a section that leaks a clock or hash order.
-   · batched — G3 pins the sub-serve count at FIVE regardless of page size.
-     That is the N+1 falsifier; try to break it (more wearers, more
-     masters, many deviations).
-   · the floor — G9's card-set invariance under garbage. Try a value G9
-     does not: a lazy seq that throws on realisation, a cyclic structure.
-   · read-only — G14 asserts byte-identical durable state across every
-     portal mode. Add a mode if you find one it misses.
-3. LIVE (cluster is UP): the build ran a read-only live open (receipt in
-   NOW). Still owed — the HEADED sitting: boot the dev app, click a block,
-   run `await __portal.questions()` / `.briefing()` / `.render()` /
-   `.why(...)` / `.blast('[:scope/all-unpinned]')` / `.at(...)`, and read
-   the REAL recipe composition + recurrence class off the live land.
-4. Adjudicate: (a) the recipe NAME (Sid's, delegable per precedent);
-   (b) the deferred VISUAL portal face — fold into P8 / the return wear, or
-   open a small P7b.
-5. On PASS: GATE_P7.md + the NOW entry + flip this board to the P8 send
-   (PROMPTS.md §P8). On FAIL: findings verbatim in NOW, re-run the phase.
+FENCES: implementation is REAL code with tests (no interpreted
+behavior DSL — the V4 wall stands); the binding remains closed-grammar
+data; hot reload is the dev loop, the activation event is the
+deployment record; nothing self-modifies the portal. STOPS: the wish
+demanding more than one verb + one binding (scope creep) → NOW.md +
+END. Output: the end-to-end chain replayed + queryable, and the
+terminal-escape gauge reading for the whole run.
 
-Residue handed to you, non-blocking: `facet-material/resolved-wear` reports
-`:floor? false` for a master the serve could not read at all (the
-`unavailable` shape substitutes floor material AND the floor revision id,
-then passes `valid-material?`) — P7 works around it and names the reason;
-the underlying P1 shape wants a ruling, not a P7 patch. And the real-land
-projection is 103KB, so a summoned resident's briefing is ~26k tokens —
-inherent, but rule on whether a resident gets all of it or a declared
-deterministic subset.
+P7 carry-ins that bind P8: a summoned resident's briefing MUST ride a
+NARROWED open (master-ids/scope/cut — the full briefing measured ~240k
+tokens; GATE_P7.md adjudication 3) · portal self-editing stays OFF ·
+the portal console seam converts namespace-preserving — extend, never
+fork, that convention for any new console surface.
 ```
 
 **Campaign state:** **P1–P5 CLOSED — all gates PASS; Gates 1 + 2 of the
@@ -127,15 +91,18 @@ on Sid's delegated word, the 64 activation live on the land (HANDOFF
 above).** "kinds ok" RATIFIED 07-25. Residue carried in GATE_P6.md: dead
 client weather lane (F3) · escape detector reads `:ambiguous` on the
 durable cluster until it keys per-master/causal-tip (F4) · text-body
-instance deviations serve but aren't felt in the wrap pass. **P7 BUILT
-07-25 (`04ae2df`) — the portal proper; gate is a FRESH session (HANDOFF
-above). Suite 444t/6,225a green; live open on the real cluster 877ms /
-0 errors / 0 unanswered; zero Rama edits.** Then P8 verb-from-inside
-(after P7's gate; may overlap the return) — ladder, stops, Sid's
+instance deviations serve but aren't felt in the wrap pass. **P7 GATED
+PASS 07-25** (`GATE_P7.md`: `04ae2df` + gate fix `c0838c1` — the portal
+proper; suite 444t/6,225a re-derived, cljs cold 0 warnings, cross-JVM byte
+determinism, live read-only byte-identity, the documented console calls
+proven through the real artery after the sitting's namespace-stripping
+catch; recipe "block" accepted as working scaffolding on the delegated
+word). **Then P8 verb-from-inside — SENDABLE NOW (HANDOFF above; may
+overlap the return)** — ladder, stops, Sid's
 touchpoints in `CAMPAIGN.md`. first-light P3 fulfilled; P4/P5 fulfilled by P6's
 membrane + activation machinery under the first-light CONTRACT (G6/G7/G8
 shapes proven; its own G9 waits on Sid's return wear). Land is UP (five
-modules RUNNING; dev app down — sessions boot it as needed).
+modules RUNNING; dev app UP on :8080 — the gate session's boot).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.

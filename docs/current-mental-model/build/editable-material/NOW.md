@@ -774,3 +774,36 @@
   down — sessions boot it as needed.
 - Next: FRESH session gates P7 (starter prompt in the board HANDOFF). Sid's open
   one-liner: the recipe NAME.
+
+- **2026-07-25 · Fable (fresh) · P7 GATE — PASS (`04ae2df` + gate fix
+  `c0838c1`). P8 SENDABLE.**
+- Full record: `GATE_P7.md`. Independent receipts: suite **444t/6,225a/0/0**
+  exact · portal ns 16t/284a with the 17/17 G1 list printed · **cljs COLD
+  compile 311 files / 310 compiled / 0 warnings** (dev-app watch lane over an
+  emptied cache) · live open fresh JVM 1,243ms / 0 errors / 0 unanswered /
+  six masters / **the 64 read back with full trace + named rollback path** ·
+  **cross-JVM byte determinism** (same sha, two fresh JVMs) · **read-only
+  BYTE-IDENTICAL** across all 7 modes AND the whole headed sitting ·
+  fixed-FIVE sub-serves across nine modes · floor held under pr-str bombs +
+  nested hostile ILookups · a vacuous-`standable?` falsifier probed, does
+  not fire.
+- **The sitting found ONE real defect, gate-fixed (`c0838c1`)**: plain
+  `clj->js` stripped keyword namespaces, so the DOCUMENTED console calls
+  (`['portal/recipe']`) read undefined. Portal seam now converts
+  namespace-preserving (`:keyword-fn`); earlier console wearers untouched.
+  After the fix every documented call replayed through the real artery.
+- Adjudications (delegated; Sid's veto live): recipe NAME **"block"
+  ACCEPTED** as working scaffolding · visual face deferral PASS-compatible →
+  folds into the return-wear headed sitting, no P7b · briefing stays FULL
+  verbatim; narrowing = the OPEN's declared params and is **REQUIRED for
+  P8's summon** (a real sitting's briefing measured ~240k tokens) ·
+  `resolved-wear` floor honesty ruled a P1-shape fix, queued LATER · echo
+  bar not gated (no keystroke-path touch; transport-contention watch-item).
+- **Env law (cost ~1h, now in quirks memory):** the Electric auth token
+  lives in `.shadow-cljs/builds/dev/hyperfiddle.electric.token` — clearing
+  the build cache evicts it and every compile parks SILENTLY on the login
+  deref (bare compile lane shows no prompt; only the dev-app log does).
+  Sid's one click re-auths. Machine had also rebooted pre-session: gate
+  booted cluster + dev app (both UP now).
+- Next: send PROMPTS.md **§P8** to a fresh session; then the return wear
+  (headed looks now include `__portal` + the visual face + the 64 feel).
