@@ -48,7 +48,9 @@
             ; recursively; loading the llm + space dogfood modules in one JVM
             ; overflows the default thread stack during that analysis.
             :test {:extra-paths ["test"]
-                   :jvm-opts ["-Xss16m"]}
+                   :jvm-opts ["-Xss16m"]
+                   :ns-default app.test-runner
+                   :exec-fn app.test-runner/full}
 
             :prod {:extra-paths ["src-prod"]}
 
