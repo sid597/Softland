@@ -9,6 +9,7 @@
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.util-fns :as util-fns]
             [app.shared.activation-event :as activation-event]
+            [app.shared.binding-material :as binding-material]
             [app.shared.facet-material :as facet-material]))
 
 (defn master-id
@@ -530,8 +531,8 @@
    {:keys [kind overrides deviates? pin actor time-ms grounds
            request-id activation-request-id]
     :or {kind :activate}}]
-  (let [{:keys [spec exists? pointer?]} (instance-state
-                                         runtime parent-spec subject-uid)
+  (let [{:keys [spec exists? pointer? state]} (instance-state
+                                               runtime parent-spec subject-uid)
         iid (master-id spec)
         {:keys [grammar material]} (inherited-material runtime parent-spec)
         form (facet-material/instance-form
@@ -541,20 +542,49 @@
                :overrides overrides
                :deviates? deviates?
                :pin pin})
+        ;; G10, the DURABLE half: the instance lane refuses an instance-illegal
+        ;; site at write time — not merely at client consumption. Without this,
+        ;; a `:space/ground` row lands as valid durable material whose rows
+        ;; silently vanish when derived (gate P6 finding F2).
+        illegal-sites (vec (remove binding-material/instance-site-legal?
+                                   (keys (:facet-master/bindings form))))
         compiled (facet-material/compile-form spec form)
         time-ms (long (or time-ms (core/now-ms)))]
-    (if-not (:valid? compiled)
+    (cond
+      (seq illegal-sites)
+      {:accepted? false
+       :reason :facet-master/instance-site-refused
+       :sites illegal-sites
+       :legal-sites (vec (sort-by str binding-material/instance-legal-sites))
+       :instance-master-id iid
+       :subject subject-uid}
+
+      (not (:valid? compiled))
       {:accepted? false
        :reason :facet-master/instance-form-invalid
        :errors (:errors compiled)
        :instance-master-id iid
        :subject subject-uid}
+
+      :else
       (let [source (facet-material/source-for form)
             revision-id (candidate-revision-id spec source)
             req-id (or request-id
                        (str "fm-instance-" (subject-digest subject-uid) "-"
                             (subs (oc/source-hash source) 0 16)))
-            act-id (or activation-request-id (str req-id ":activate"))
+            ;; The activation id is keyed to the TRANSITION — content PLUS the
+            ;; pointer revision it moves from — never to content alone. A
+            ;; byte-identical form re-activated later (pin → unpin → pin → the
+            ;; second unpin) would otherwise reuse the first activation's
+            ;; request-id and be replayed by the idempotency journal: the
+            ;; pointer never moves while the caller is told accepted (gate P6
+            ;; finding F1; the machine-cut A-F2/F3 stable-per-transition
+            ;; class). A true retry — same content, same pre-state — still
+            ;; replays, which is what idempotency is for.
+            pointer-tip (get-in state [:active-pointer :revision-id] "genesis")
+            act-id (or activation-request-id
+                       (str req-id ":activate:"
+                            (subs (core/sha-256 (str pointer-tip)) 0 8)))
             event (activation-event/event
                    {:revision-id revision-id
                     :kind kind
@@ -585,8 +615,15 @@
                           :idempotency/key
                           (str "facet-master/activate:" iid ":"
                                revision-id ":" act-id)}))]
-        {:accepted? (boolean (or (:accepted? imported)
-                                 (:replay? imported)))
+        ;; Non-bootstrap: the IMPORT being a replay is normal (content-keyed by
+        ;; design); what must have landed is the ACTIVATION. Reading the import
+        ;; alone is how finding F1 reported success over a pointer that never
+        ;; moved.
+        {:accepted? (boolean
+                     (and (or (:accepted? imported) (:replay? imported))
+                          (or bootstrap?
+                              (:accepted? activated)
+                              (:replay? activated))))
          :bootstrap? bootstrap?
          :instance-master-id iid
          :subject subject-uid

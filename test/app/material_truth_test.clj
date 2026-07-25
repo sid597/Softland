@@ -721,3 +721,66 @@
     (doseq [spec facet-masters/specs]
       (is (nil? (facet-masters/spec
                  (adapter/instance-master-id spec alpha)))))))
+
+;; ===========================================================================
+;; Gate P6 findings F1 + F2, pinned as regressions
+;; ===========================================================================
+
+(deftest f1-f2-transition-identity-and-durable-site-refusal
+  (let [rt (ocr/start-object-container-runtime!)]
+    (try
+      (let [rev1 (boot-attention! rt)]
+        (testing "F1 — the SECOND byte-identical transition still moves the
+                  pointer: pin → unpin → re-pin → unpin2. A content-keyed
+                  activation request-id replays the FIRST unpin's decision
+                  forever (the machine-cut stable-per-transition class); the
+                  id must be keyed to the transition — content plus the
+                  pointer revision it moves from."
+          (material-truth/pin! rt attention/spec gamma rev1
+                               {:actor sid :time-ms (now)})
+          (material-truth/unpin! rt attention/spec gamma
+                                 {:actor sid :time-ms (now)})
+          (material-truth/pin! rt attention/spec gamma rev1
+                               {:actor sid :time-ms (now)})
+          (is (true? (:facet-master/pinned? (worn rt gamma))))
+          (let [u2 (material-truth/unpin! rt attention/spec gamma
+                                          {:actor sid :time-ms (now)})]
+            (is (true? (:accepted? u2)))
+            (is (false? (:facet-master/pinned? (worn rt gamma)))
+                "the second unpin must not be an idempotency replay")))
+
+        (testing "F1 — same class on the deviation axis:
+                  deviate → release → re-deviate → release2"
+          (material-truth/deviate! rt attention/spec alpha
+                                   {:attention/hit-padding 24.0}
+                                   {:actor sid :time-ms (now)})
+          (material-truth/release-deviation! rt attention/spec alpha
+                                             {:actor sid :time-ms (now)})
+          (material-truth/deviate! rt attention/spec alpha
+                                   {:attention/hit-padding 24.0}
+                                   {:actor sid :time-ms (now)})
+          (is (= :instance (:facet-master/tier (worn rt alpha))))
+          (let [r2 (material-truth/release-deviation!
+                    rt attention/spec alpha {:actor sid :time-ms (now)})]
+            (is (true? (:accepted? r2)))
+            (is (= :shared (:facet-master/tier (worn rt alpha)))
+                "the second release must not be an idempotency replay")))
+
+        (testing "F2 — the DURABLE instance lane refuses :space/ground at
+                  WRITE time (G10), not merely at client consumption"
+          (let [row (-> attention/strict-bindings-form
+                        (get-in [:facet-master/bindings :block/user-hit-area])
+                        first)
+                d (material-truth/deviate!
+                   rt attention/spec beta
+                   {:facet-master/bindings {:space/ground [row]}}
+                   {:actor sid :time-ms (now)})]
+            (is (false? (:accepted? d)))
+            (is (= :facet-master/instance-site-refused (:reason d)))
+            (is (= [:space/ground] (:sites d)))
+            (is (nil? (get-in (face-projection/facet-materials-projection
+                               {:oc-rt rt} {:params {:subjects wearers}})
+                              [:facet-materials/instances :attention beta]))
+                "nothing durable landed")
+            (is (= :shared (:facet-master/tier (worn rt beta)))))))
+      (finally (ocr/close-object-container-runtime! rt)))))
