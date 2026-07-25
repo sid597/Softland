@@ -566,3 +566,88 @@
   browser (headless WebGPU dead on this box) — folded into the Gate-3
   preview sitting where his activation word already puts him; not a
   separate errand.
+
+- **2026-07-25 · Codex/Opus · P6 BUILT — the truth loop whole. Suite
+  427t/5,929a green, 0 fail/0 error (floor 414t/5,728a); cljs 0 warnings.
+  Gate 3 ran to the STOP; the activation word is Sid's and is not yet
+  given. Gate review = FRESH Fable session.**
+- **STOP-CLAUSE NOTE (contract conflict, R2 id shape — resolved, not
+  escalated).** CONTRACT_P6 R2 specifies the instance-master id shape
+  `fm:<facet>:i:<sha8(subject-uid)>`. That literal shape is unbuildable
+  without a routing-kernel edit, verified empirically before any code was
+  written: `object_container/extract-object-key` collapses an `fm:`-prefixed
+  key to its first TWO colon segments in every branch (`oc:block:`, `rev:`,
+  `src:`, `imp:fm:`) EXCEPT `oc:doc:`, which returns the whole remainder. A
+  shared id (`fm:attention`) is invariant under both rules — which is why
+  P1–P5 never met this edge — but a THREE-segment id is not: the document
+  container hashes to `fm:attention:i:<sha8>` while its own active-pointer,
+  revisions, source and import-completion hash to `fm:attention`. That is
+  the foreign-read mis-route class that has now fired four times in this
+  repo (imp:clj: G-F2 · imp:sense-block: F2 · imp:asm: G18 · imp:ep:
+  first-light). Resolution: keep R2's intent whole (distinct, short,
+  subject-scoped, one per (facet, subject), full uid inside the form, never
+  in `facet-masters/specs`) and change ONE separator — the marker is `~i~`
+  inside the second segment, so `fm:attention~i~abc12345` is two segments
+  and the whole id family routes to one partition. This is what let R1 hold
+  with ZERO Rama edits. Pinned as a regression test
+  (`instance-master-ids-route-to-ONE-partition`), including an assertion
+  that the three-segment shape still straddles — if that ever stops being
+  true the routing kernel changed and this decision is revisitable.
+- **R1 held all the way through: no new module, PState, depot, topology, or
+  `extract-object-key` branch.** Instance masters ride the existing
+  `imp:fm:` shape; the registry index rides the existing `imp:ep:`
+  hint-only lane beside the geometry cells, at a disjoint `fmi:` order-key.
+- Deliverables: instance deviations (mint/serve/resolve/diff-vs-inherited) ·
+  pins (material, activation-evented, malformed target → floor) · candidate
+  + preview membrane (overlay over REAL served material; a fresh object, so
+  the identity-keyed wears cache misses and EVERYTHING re-derives under the
+  candidate — reconcile-before-stamp verbatim) · scoped activation as R4
+  events + blast radius derived before the flip · announcements at three
+  scales (breath/trace-with-reversal/weather) · case reports in THREE
+  buckets (declared / ungrounded / grounds-unknown) · standable history at a
+  causal cut · the four P5 carry-overs (T10 required-args, `:space/ground`
+  instance refusal, floor-label parity, served instance tier feeding
+  `resolve-binding`).
+- **Two real bugs the R4 change introduced, both caught by the suite and
+  fixed:** `material_circulation`'s as-of and the inspector's trail both read
+  the pointer's `content-text` as a bare revision-id. Both now read through
+  `activation-event/parse`, which handles v0 bare strings and P6 event forms
+  through one door. `src/` swept — no third site.
+- **A determinism trap worth the registry:** `*print-namespace-maps*` is TRUE
+  at a REPL and FALSE in a plain program. Every activation-event key is in one
+  namespace, so `pr-str` emits `#:activation{…}` from a REPL and
+  `{:activation/…}` from the server — two byte strings for one value, and OC
+  import identity is CONTENT-HASH keyed. `source-for` pins the flag. Existing
+  facet forms dodged this only because their keys span several namespaces.
+- Grammar v2 on the three bindings masters (T10): v1's rows VERBATIM under a
+  validator that refuses a row whose SITE cannot feed its verb's declared
+  required args. v1 keeps its own declaration and is never re-read through
+  v2 — the P5 gate's `:fold/toggle-section`-at-`:block/user-hit-area` probe
+  is the regression fixture. All 20 shipped table rows still validate.
+- `default-material-policy-paths` grown from 1 to 6 files, as P4's own
+  docstring said P6 would. Kernel files (`binding_material`,
+  `verb_registry`) deliberately excluded — the floor is where they belong,
+  and including them would make the detector cry wolf on every kernel edit.
+- **Gate 3 (metabolism) — ran to the STOP, nothing activated.** Friction:
+  reply width. `fm:text-body` `wrap-fallback-columns` 80 → candidate 64.
+  Candidate durable and worn by nobody (latest ≠ active); preview proved the
+  active face byte-untouched (revision-id, bytes, pointer); blast radius =
+  all unpinned wearers incl. future ones BY REFERENCE; reversal = rollback to
+  the 80 revision; escape detector `:measured`, **0 escapes**, history
+  linear, 0 clock regressions. The magnitude 64 is the implementer's
+  proposal — the recorded number was not locatable in the corpus, only the
+  friction's NAME (CAMPAIGN §P6 / CONTRACT §Gate 3). Sid's word decides.
+- **Ops divergence:** the board said "cluster UP (five modules RUNNING)". It
+  is DOWN — `bin/land status`: conductor connection refused, no rama
+  processes. No live gate could run. G6 (echo bar with ≥1 deviant + ≥1 pin),
+  G12 (live drillAll re-run), and G3's camera-pinned byte proof are
+  therefore OPEN, and by the GATE_P4 precedent ("the deploy is the GATE
+  session's act, never the integrator's") they ride the gate session, along
+  with the v2 grammar ingest and the headed Gate-3 sitting into which Sid's
+  `picked()` + ⌁/≈ looks were folded (6096e85).
+- JVM gates green: G1 G2 G4 G5 G7 G8 G9 G10 G11 G13 G14, plus G3's membrane
+  logic and G12's malformed-drill + re-wear-from-inside halves.
+  `app.material-truth-test` — 13 tests / 193 assertions, tiered fail-closed
+  as an isolation exception.
+- Next: FRESH Fable session gates P6 (starter prompt in the board HANDOFF).
+  Sid's open one-liner: the **Gate-3 activation word**.
