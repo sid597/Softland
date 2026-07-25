@@ -35,6 +35,15 @@ Sid says is allowed to drop.
   receipt over the full REAL corpus for anything that processes the whole
   corpus; every session ends with a thread-file entry + board-line flip.
   Mechanics: `.claude/skills/work-package/SKILL.md`.
+- **Gates are sized by claim-risk, not by ritual** (Sid, 2026-07-26, after
+  the P7-gate ledger: every real catch across eight packages came from
+  driving the seam live or probing a NEW claim; suite re-runs never once
+  diverged from a build session's numbers, and receipt re-derivation burned
+  hours on environment fights). Default gate = SLIM: drive the new seam
+  through the real artery, falsify the genuinely new claims, make the
+  rulings. Full re-derivation (suite re-run, cold compile, live receipt
+  reproduction) is reserved for new-organ/kernel packages or a build report
+  that smells wrong — it is an escalation, not a default.
 - **Role split:** Fable writes contracts, runs gates, adjudicates forks — and
   implements directly whenever that's the fastest path; cheaper models run
   phases under contracts.
