@@ -14,7 +14,8 @@
    receipts are co-presence only, :felt-at/:instance-of proposals are silver,
    and a Sid-authored :references assertion is gold. In particular, this file
    does not mint a Wish kind (binding FLAG-A ruling, 2026-07-24)."
-  (:require [app.server.rama.core :as core]
+  (:require [app.shared.activation-event :as activation-event]
+            [app.server.rama.core :as core]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.facet-master :as facet-master]
             [app.server.rama.object-container.runtime :as ocr]
@@ -58,8 +59,24 @@
 
 (def default-material-policy-paths
   "The current code floor whose changes require a material activation event.
-   P6 grows this declared set when more policy moves into material masters."
-  #{"src/app/shared/provenance_material.cljc"})
+
+   P6 grows the set, as P4 said it would. By P3 the worn five had joined
+   provenance on the generic facet-master layer, and by P5 three of them
+   carried the interaction rows too — so each of these files now holds policy
+   that is SUPPOSED to move by activation. A commit that changes one without a
+   following activation event is the escape this detector exists to catch:
+   policy that changed in code and never entered the record.
+
+   Not included, deliberately: `binding_material.cljc` and `verb_registry.cljc`.
+   Those are the KERNEL — the dispatch law and the closed verb vocabulary — and
+   the code floor is where they are supposed to live. Adding them would report
+   every kernel change as an escape and teach the reader to ignore the alarm."
+  #{"src/app/shared/provenance_material.cljc"
+    "src/app/shared/attention_material.cljc"
+    "src/app/shared/foldable_material.cljc"
+    "src/app/shared/positioned_material.cljc"
+    "src/app/shared/threaded_material.cljc"
+    "src/app/shared/text_body_material.cljc"})
 
 (defn silver-edge?
   "Machine/import custody makes a semantic edge silver; relation kind does not."
@@ -771,7 +788,12 @@
         selected (last (filter #(<= (long (:created-at-ms % 0))
                                     (long time-ms))
                                rows))
-        active (:content-text selected)
+        ;; P6 · R4: the pointer's source is an activation EVENT now, not a
+        ;; bare revision-id. `worn-revision-id` reads both generations through
+        ;; one door, so a v0 row minted by P1 and a P6 event resolve to the
+        ;; same worn revision. Reading `:content-text` raw here would have made
+        ;; every post-P6 as-of answer the whole event map.
+        active (activation-event/worn-revision-id (:content-text selected))
         clock-regressions
         (:activation-history/clock-regressions analysis)
         ambiguous?

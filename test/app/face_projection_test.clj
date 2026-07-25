@@ -99,8 +99,11 @@
     (is (fn? (:material-experience fp/projection-registry)))
     (is (fn? (:interaction-table fp/projection-registry)))
     (is (fn? (:block-truth fp/projection-registry)))
+    (is (fn? (:material-truth fp/projection-registry)))
     (is (= #{:conversation :assembly :face-list :facet-materials
              :material-inspector :material-experience :interaction-table
+             ;; editable-material P6: the truth loop is a query too
+             :material-truth
              :block-truth}
            (set (keys fp/projection-registry))))))
 

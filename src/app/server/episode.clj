@@ -350,6 +350,117 @@
                    rows)
      :camera (some #(when (= :episode-camera (:entry-kind %)) (:geometry %)) rows)}))
 
+;; ===========================================================================
+;; §B3 · The instance-master REGISTRY INDEX (editable-material P6 · R2/T7)
+;;
+;; An index, never a truth owner. The TRUTH that a subject deviates is the
+;; existence of its instance-master container; this row exists only so the
+;; serve and the blast-radius projection never have to enumerate blind. T7 is
+;; the trap it is written against: `a missed upsert silently unhosts a
+;; deviation`. It cannot, because nothing resolves wear through this row —
+;; drop every row and the deviations still wear correctly, they are merely
+;; slower to find. G13 drops them and rebuilds byte-equal.
+;;
+;; Rides the SAME hint-only import lane as the geometry cells: one upsert at a
+;; deterministic order-key in a namespace (`fmi:`) disjoint from `geo:` and
+;; `ep-turn:`, under the existing `imp:ep:` shape. Zero kernel edits.
+;; ===========================================================================
+
+(def instance-registry-entry-kind :facet-instance-registry)
+
+(defn instance-registry-order-key
+  "fmi:<facet>:<sha8(subject-uid)> — ONE cell per (facet, subject), upserted in
+   place, so re-registering the same deviation is a no-op rather than a
+   duplicate."
+  [facet subject-uid]
+  (str "fmi:" (name facet) ":"
+       (subs (core/sha-256 (str subject-uid)) 0 8)))
+
+(defn instance-registry-request
+  "ONE hint-only import registering (or re-registering) instance masters.
+   `entries` are {:facet :subject :instance-master-id :parent-id}."
+  [{:keys [object-key entries time-ms]}]
+  (let [entries (vec entries)
+        digest (core/sha-256 (pr-str (mapv (juxt :facet :subject
+                                                 :instance-master-id)
+                                           entries)))
+        imp-key (str "imp:ep:" object-key ":"
+                     (core/sha-256 (str "fm-instance-registry " digest)))
+        request-id (str "req:episode-fmi:" object-key ":" (subs digest 0 32))
+        wid (world-id object-key)
+        hints (mapv
+               (fn [{:keys [facet subject instance-master-id parent-id]}]
+                 (geometry-cell-hint
+                  object-key
+                  (instance-registry-order-key facet subject)
+                  instance-registry-entry-kind
+                  {:world-id wid
+                   :facet facet
+                   :subject subject
+                   :instance-master-id instance-master-id
+                   :parent-id parent-id}
+                  digest imp-key request-id))
+               entries)
+        payload {:object-key object-key
+                 :source-artifacts []
+                 :object-containers []
+                 :revisions []
+                 :derived-units []
+                 :source-anchors []
+                 :composition-edges []
+                 :source-versions []
+                 :projection-hints hints
+                 :source-line-statuses []}
+        fingerprint (oc/import-material-fingerprint object-key imp-key payload)]
+    (assoc (core/action-request
+            {:request-id request-id
+             :request-type :object-container/import-material
+             :time-ms (long (or time-ms (core/now-ms)))
+             :actor (utterance-actor)
+             :target {:target/kind :object-container-import
+                      :target/id imp-key
+                      :target/address {:object/key object-key}}
+             :action {:action/type :object-container/import-material
+                      :action/capability :object-container/import-material
+                      :action/params {:source/format :facet-instance-registry}}
+             :routing/key [:object-container/import object-key]
+             :payload payload
+             :provenance {:source/type :episode}})
+           :partition/key object-key
+           :object/key object-key
+           :import/key imp-key
+           :idempotency/key imp-key
+           :material/fingerprint fingerprint)))
+
+(defn register-instance-masters!
+  "Upsert index rows. Best-effort by design: this is an index, and a failure
+   here must never fail the deviation that has already landed."
+  [oc-rt {:keys [conversation-id entries time-ms]}]
+  (if (empty? entries)
+    {:status :noop :entries 0}
+    (let [object-key (episode-object-key
+                      (or conversation-id genesis-conversation-id))
+          req (instance-registry-request
+               {:object-key object-key :entries entries :time-ms time-ms})]
+      (ocr/append-object-container-request! oc-rt req)
+      (let [decision (ocr/await-object-container-decision oc-rt req 20000)]
+        {:status (if (= :accepted (:status decision)) :accepted :rejected)
+         :address object-key
+         :entries (count entries)
+         :decision decision}))))
+
+(defn read-instance-registry
+  "[{:facet :subject :instance-master-id :parent-id} …], deterministically
+   ordered. An INDEX read — callers that need certainty read container
+   existence (that is the truth), and G13 proves the two agree."
+  [oc-rt object-key]
+  (->> (ocr/read-transcript-conversation-projection
+        oc-rt (tid/chat-conversation-id object-key) "" 100000)
+       (filter #(= instance-registry-entry-kind (:entry-kind %)))
+       (keep :geometry)
+       (sort-by (juxt (comp str :facet) (comp str :subject)))
+       vec))
+
 (defn turn-order-key
   "ep-turn:<%020d time>:<sha8(turn-id)> — ONE cell per turn; status updates
    overwrite it (open → complete/failed). Disjoint from every co-tenant."

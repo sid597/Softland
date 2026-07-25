@@ -51,6 +51,7 @@
     :verb/version 0
     :verb/effect-class :pure-projection
     :verb/continuations #{:invoke}
+    :verb/required-args #{}
     :verb/extracted-from
     "ground/pointer-up! :pending → non-machine block → ge/focus-block at the
      pressed line/col over truth text"
@@ -62,6 +63,7 @@
     :verb/version 0
     :verb/effect-class :pure-projection
     :verb/continuations #{:invoke}
+    :verb/required-args #{}
     :verb/extracted-from
     "ground/pointer-down! `(when (and text? (not= uid (:focus @!ground-edit)))
      …)` — Task 11: shift on an unfocused user block focuses it in the same
@@ -75,6 +77,7 @@
     :verb/version 0
     :verb/effect-class :pure-projection
     :verb/continuations #{:invoke}
+    :verb/required-args #{}
     :verb/extracted-from
     "ground/pointer-up! :pending → machine block, no fold row → ge/escape"
     :verb/doc
@@ -86,6 +89,12 @@
     :verb/version 0
     :verb/effect-class :pure-projection
     :verb/continuations #{:invoke}
+    ;; T10 (P5 gate, axis 1): the implementation reads `(:fold-key args)`. A
+    ;; VALID revision that bound this verb at `:block/user-hit-area` — a site
+    ;; whose claim carries no args — resolved to `:claimed` and then no-opped
+    ;; totally, lint-silent. Declaring the requirement is what lets
+    ;; `binding-material/valid-row?` refuse that row instead of shipping it.
+    :verb/required-args #{:fold-key}
     :verb/extracted-from
     "ground/pointer-up! :pending → machine block → `(when (and run? (<= row 1))
      (if (zero? row) :noise? :prose?))` fold toggle (Task 7)"
@@ -99,6 +108,7 @@
     :verb/version 0
     :verb/effect-class :pure-projection
     :verb/continuations #{:invoke}
+    :verb/required-args #{}
     :verb/extracted-from
     "ground/pointer-up! :pending → :ground target → ge/set-anchor (Law 1)"
     :verb/doc
@@ -110,6 +120,7 @@
     :verb/version 0
     :verb/effect-class :pure-projection
     :verb/continuations #{:begin :move :end}
+    :verb/required-args #{}
     :verb/extracted-from
     "ground/pointer-move! :pending `(:text? p)` → ge/begin-select, then the
      :selecting phase branch → ge/extend-select"
@@ -122,6 +133,7 @@
     :verb/version 0
     :verb/effect-class :pure-projection
     :verb/continuations #{:begin :move :end}
+    :verb/required-args #{}
     :verb/extracted-from
     "ground/pointer-move! :pending `(:mtext? p)` → !machine-sel, then the
      :mselecting phase branch (Task 11: copy what you see, read-only)"
@@ -134,6 +146,7 @@
     :verb/version 0
     :verb/effect-class :pure-projection
     :verb/continuations #{:begin :move :end}
+    :verb/required-args #{}
     :verb/extracted-from
     "ground/pointer-move! :pending `(and (= :ground (:target p)) (:shift? p))`
      → :marquee phase, then pointer-up! :marquee → !group-sel (Task 18)"
@@ -146,6 +159,7 @@
     :verb/version 0
     :verb/effect-class :durable-via-request
     :verb/continuations #{:begin :move :end}
+    :verb/required-args #{}
     :verb/extracted-from
     "ground/pointer-move! :pending :else → :dragging phase, the :dragging move
      branch (rigid drag-group, Task 4), and pointer-up! :dragging → arm-settle!
@@ -160,6 +174,7 @@
     :verb/version 0
     :verb/effect-class :durable-via-request
     :verb/continuations #{:begin :move :end}
+    :verb/required-args #{}
     :verb/floor-reserved? true
     :verb/extracted-from
     "ground/pointer-move! :panning branch + pointer-up! :panning → arm-settle!
@@ -173,6 +188,7 @@
     :verb/version 0
     :verb/effect-class :durable-via-request
     :verb/continuations #{:invoke}
+    :verb/required-args #{}
     :verb/floor-reserved? true
     :verb/extracted-from "ground/handle-wheel! (§9.4)"
     :verb/doc
@@ -211,6 +227,19 @@
   [verb-name]
   (:verb/effect-class (entry verb-name)))
 
+(defn required-args
+  "editable-material P6 · T10 — the claim-arg keys this verb's implementation
+   cannot work without. The P5 gate proved the gap this closes: a VALID binding
+   revision could bind an arg-requiring verb at a site whose claim carries no
+   args, and the result was `:claimed` followed by a total no-op — visible in
+   the served table, reversible, and completely silent to lint. Declaring the
+   requirement here (and the site's supply in `binding-material/site-arg-keys`)
+   turns that from a runtime nothing into a grammar refusal.
+
+   Empty for every verb that reads only the press and its subject."
+  [verb-name]
+  (set (:verb/required-args (entry verb-name) #{})))
+
 (defn serves?
   "Does this verb declare an implementation for this continuation moment?"
   [verb-name continuation]
@@ -232,6 +261,7 @@
         :verb/effect-class (:verb/effect-class e)
         :verb/continuations (vec (sort-by str (:verb/continuations e)))
         :verb/floor-reserved? (true? (:verb/floor-reserved? e))
+        :verb/required-args (vec (sort-by str (required-args verb-name)))
         :verb/bindable? (bindable? verb-name (:verb/version e))
         :verb/extracted-from
         (str/replace (str (:verb/extracted-from e)) #"\s+" " ")}))
@@ -253,6 +283,12 @@
             ;; a continuous verb serves all three moments or none of them
             (or (= #{:invoke} (:verb/continuations e))
                 (= #{:begin :move :end} (:verb/continuations e)))
+            ;; T10: the declaration must EXIST on every entry — an absent
+            ;; `:verb/required-args` and an empty one are the same value to
+            ;; `required-args`, so only this check keeps a new verb from
+            ;; silently re-opening the arg-starved class
+            (set? (:verb/required-args e))
+            (every? keyword? (:verb/required-args e))
             (string? (:verb/extracted-from e))
             (seq (:verb/extracted-from e))
             (string? (:verb/doc e)))))

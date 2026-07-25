@@ -37,7 +37,9 @@
             [app.server.rama.object-container.facet-master :as facet-master]
             [app.server.episode :as episode]
             [app.server.rama.material-circulation :as circulation]
+            [app.server.rama.material-truth :as material-truth]
             [app.server.rama.face-arsenal :as face-arsenal]
+            [app.shared.activation-event :as activation-event]
             [app.shared.binding-material :as binding-material]
             [app.shared.facet-material :as facet-material]
             [app.shared.facet-masters :as facet-masters]
@@ -899,18 +901,72 @@
         (catch Throwable _
           unavailable)))))
 
+(def ^:private served-instance-limit
+  "A serve carries every registered deviation. That is right at P6 scale (a
+   deviation is a deliberate act on ONE subject) and would be wrong at a scale
+   where deviations are routine — at which point the serve takes the served
+   page's subjects instead of the whole index. The cap exists so the wrong
+   scale becomes a NAMED truncation rather than a slow page: `:truncated?` is
+   served, never silently swallowed."
+  256)
+
+(defn- served-instance-tier
+  "P6 · R2 — the INSTANCE tier, batched into the same projection call.
+
+   Read plan (the contract's perf promise): the facet-materials read above,
+   PLUS one registry read, PLUS the instance masters for the registered deviant
+   subjects. No per-gesture and no per-block reads — dispatch and render consume
+   what is served (P5's law, and T5's requirement: resolving wear per block per
+   keystroke is what would kill the echo bar)."
+  [oc-rt request]
+  (if (nil? oc-rt)
+    {:facet-materials/instances {}
+     :facet-materials/instances-truncated? false}
+    (try
+      (let [subjects (vec (get-in request [:params :subjects]))
+            by-facet (material-truth/served-instances
+                      oc-rt {:conversation-id
+                             (get-in request [:params :conversation-id])
+                             :extra-subjects subjects})
+            total (reduce + 0 (map count (vals by-facet)))]
+        (if (<= total served-instance-limit)
+          {:facet-materials/instances by-facet
+           :facet-materials/instances-truncated? false}
+          {:facet-materials/instances
+           (into (sorted-map)
+                 (map (fn [[facet m]]
+                        [facet (into (sorted-map)
+                                     (take (quot served-instance-limit
+                                                 (max 1 (count by-facet)))
+                                           (sort-by key m)))]))
+                 by-facet)
+           :facet-materials/instances-truncated? true
+           :facet-materials/instances-total total}))
+      (catch Throwable t
+        {:facet-materials/instances {}
+         :facet-materials/instances-truncated? false
+         :facet-materials/instances-error
+         {:type :facet-materials/instance-read-failed
+          :message (.getMessage t)}}))))
+
 (defn facet-materials-projection
   "The single batched serve for every worn facet-master. Adding the second
-   wearer changes data in the registry, never transport or activation shape."
+   wearer changes data in the registry, never transport or activation shape.
+
+   P6 widens the VALUE with an instance tier and leaves the transport alone —
+   the same property, one rung further in: a subject gaining its own deviation
+   changes what this serve carries, never how it is carried."
   [{:keys [oc-rt]} request]
-  {:facet-materials/version 0
-   :facet-materials/by-id
-   (into (sorted-map)
-         (map (fn [spec]
-                [(:facet-master/id spec)
-                 (facet-master-projection oc-rt request spec)]))
-         facet-masters/specs)
-   :face/rendered-at-ms (System/currentTimeMillis)})
+  (merge
+   {:facet-materials/version 0
+    :facet-materials/by-id
+    (into (sorted-map)
+          (map (fn [spec]
+                 [(:facet-master/id spec)
+                  (facet-master-projection oc-rt request spec)]))
+          facet-masters/specs)}
+   (served-instance-tier oc-rt request)
+   {:face/rendered-at-ms (System/currentTimeMillis)}))
 
 ;; ===========================================================================
 ;; editable-material P5 — the interaction table as a projection.
@@ -941,23 +997,28 @@
                       :floor? false
                       :bindings rows}))))
               facet-masters/specs)
+        ;; G14: the floor label comes from `facet-masters/floor-master-id-by-facet`
+        ;; — the same map the client tiers read — so a row's master-id and
+        ;; revision-id are byte-identical whichever side computed them.
         floor
         (into [{:tier :floor
                 :facet binding-material/space-facet
-                :master-id "code-floor:space"
-                :revision-id nil
+                :master-id (facet-masters/floor-master-id
+                            binding-material/space-facet)
+                :revision-id (facet-masters/floor-master-id
+                              binding-material/space-facet)
                 :floor? true
                 :bindings binding-material/space-floor-bindings}]
               (keep
                (fn [spec]
                  (let [rows (:facet-master/bindings
-                             (facet-material/code-floor spec))]
+                             (facet-material/code-floor spec))
+                       label (facet-material/floor-master-id spec)]
                    (when (seq rows)
                      {:tier :floor
                       :facet (:facet-master/facet spec)
-                      :master-id (:facet-master/code-floor-revision-id spec)
-                      :revision-id
-                      (:facet-master/code-floor-revision-id spec)
+                      :master-id label
+                      :revision-id label
                       :floor? true
                       :bindings rows}))))
               facet-masters/specs)]
@@ -987,6 +1048,85 @@
      (vec (sort-by pr-str binding-material/sites))
      :interaction-table/tiers binding-material/tier-order
      :face/rendered-at-ms (System/currentTimeMillis)}))
+
+;; ===========================================================================
+;; editable-material P6 — the truth loop as ONE batched read.
+;;
+;; deviation → candidate → preview → scoped activation → announced change →
+;; reversal. Every step here is DERIVED from material and the event trail; this
+;; projection owns no truth and writes nothing.
+;; ===========================================================================
+
+(defn material-truth-projection
+  "`what is deviating, what would a flip reach, what changed, why, and what did
+   the world look like before` — answered in one deterministic read.
+
+   Params (all optional):
+     :subjects   candidate wearers, for blast radius and diffs
+     :scope      the scope to price (default :scope/all-unpinned)
+     :cut        {master-id → pointer-revision-id} for standable history
+     :master-ids restrict to these masters"
+  [{:keys [oc-rt] :as ctx} request]
+  (if (nil? oc-rt)
+    {:truth/version 0
+     :truth/available? false
+     :truth/error {:type :material-truth/unavailable}
+     :face/rendered-at-ms (System/currentTimeMillis)}
+    (let [params (:params request)
+          subjects (vec (get params :subjects))
+          scope (or (:scope params) (activation-event/all-unpinned-scope))
+          only (set (get params :master-ids))
+          specs (cond->> facet-masters/specs
+                  (seq only) (filter #(contains? only (:facet-master/id %))))
+          served (facet-materials-projection ctx request)
+          by-id (:facet-materials/by-id served)
+          instances (:facet-materials/instances served)]
+      {:truth/version 0
+       :truth/available? true
+       :truth/scope scope
+       ;; the deviations, each diffed against what the subject WOULD wear —
+       ;; a projection computed on read, never a stored copy that could drift
+       :truth/diffs
+       (into (sorted-map)
+             (keep (fn [spec]
+                     (let [facet (:facet-master/facet spec)
+                           shared (get by-id (:facet-master/id spec))
+                           m (get instances facet)]
+                       (when (seq m)
+                         [facet
+                          (into (sorted-map)
+                                (map (fn [[subject inst]]
+                                       [subject
+                                        (facet-material/deviation-diff
+                                         spec shared inst)]))
+                                m)]))))
+             specs)
+       :truth/blast
+       (into (sorted-map)
+             (map (fn [spec]
+                    [(:facet-master/id spec)
+                     (material-truth/blast-radius
+                      oc-rt spec
+                      {:scope scope
+                       :candidate-wearers subjects
+                       :conversation-id (:conversation-id params)})]))
+             specs)
+       :truth/announcements
+       (into (sorted-map)
+             (map (fn [spec]
+                    [(:facet-master/id spec)
+                     (material-truth/master-announcements
+                      oc-rt spec {:affected subjects
+                                  :limit (or (:limit params) 20)})]))
+             specs)
+       :truth/case-reports
+       (into (sorted-map)
+             (map (fn [spec]
+                    [(:facet-master/id spec)
+                     (material-truth/case-report oc-rt spec {})]))
+             specs)
+       :truth/history (material-truth/world-at oc-rt (or (:cut params) {}))
+       :face/rendered-at-ms (System/currentTimeMillis)})))
 
 ;; ===========================================================================
 ;; editable-material P2 — one server-batched, deterministic inspector read.
@@ -1024,30 +1164,80 @@
      :trail/latest? (= revision-id latest-id)}))
 
 (defn- activation-trail
+  "G8 — the trail classified from DECLARED activation event kinds.
+
+   Pre-P6 both halves of this were guesses. The pointer's source was a bare
+   revision-id, so the KIND was inferred from pointer shape (`this target was
+   seen before → :rollback`) — a heuristic that cannot tell a rollback from a
+   pin from a recovery, and that silently mislabels a re-activation nobody
+   called a rollback. R4 makes the kind a declared field, so the classification
+   reads it instead of inventing it.
+
+   v0 bare-string rows still render, and render honestly: `:activate` with
+   `:trail/v0? true` and `:trail/grounds-label :grounds/unknown`. Unknown
+   grounds and no grounds are kept distinct — the v0 row never learns a reason
+   it did not record.
+
+   `:trail/causal-index` is the parent-chain position (0 = oldest reachable),
+   and it is the ONLY trustworthy ordering: deploy-time migrations stamped
+   deterministic times (0/1/2) that sit under live wall clocks, so a
+   time-sorted trail can read backwards (T2, proven in P4). The merged display
+   list below is still time-ordered for readability; anything reasoning about
+   sequence must use this index. `:trail/on-causal-chain? false` marks a
+   pointer revision the chain cannot reach — an orphan, shown rather than
+   dropped."
   [pointer-revisions current-pointer-id]
-  (:entries
-   (reduce
-    (fn [{:keys [seen previous entries]} pointer-revision]
-      (let [target-id (:content-text pointer-revision)
-            rollback? (and (string? target-id)
-                           (not= target-id previous)
-                           (contains? seen target-id))]
-        {:seen (cond-> seen (string? target-id) (conj target-id))
-         :previous target-id
-         :entries
-         (conj entries
-               {:trail/kind (if rollback? :rollback :activation)
-                :trail/time-ms (:created-at-ms pointer-revision)
-                :trail/order-key (:order-key pointer-revision)
-                :trail/revision-id target-id
-                :trail/pointer-revision-id
-                (:revision-id pointer-revision)
-                :trail/event-id (:event-id pointer-revision)
-                :trail/current?
-                (= current-pointer-id (:revision-id pointer-revision))})}))
-    {:seen #{} :previous nil :entries []}
-    (sort-by (juxt :created-at-ms :order-key :revision-id)
-             pointer-revisions))))
+  (let [by-id (into {} (map (juxt :revision-id identity)) pointer-revisions)
+        chain (loop [id current-pointer-id seen #{} acc []]
+                (let [row (when (and id (not (contains? seen id)))
+                            (get by-id id))]
+                  (if (nil? row)
+                    acc
+                    (recur (:parent-revision-id row) (conj seen id)
+                           (conj acc row)))))
+        ordered (vec (reverse chain))
+        on-chain (set (map :revision-id ordered))
+        orphans (->> pointer-revisions
+                     (remove #(contains? on-chain (:revision-id %)))
+                     (sort-by (juxt :created-at-ms :order-key :revision-id))
+                     vec)
+        worn-before (reductions conj #{}
+                                (map #(activation-event/worn-revision-id
+                                       (:content-text %))
+                                     ordered))
+        entry
+        (fn [pointer-revision causal-index re-wear?]
+          (let [event (activation-event/parse (:content-text pointer-revision))]
+            {:trail/kind (:activation/kind event)
+             :trail/v0? (true? (:activation/v0? event))
+             :trail/grounds-label (activation-event/grounds-label event)
+             :trail/grounds (:activation/grounds event)
+             :trail/scope (:activation/scope event)
+             :trail/actor (:activation/actor event)
+             ;; the row's own clock, and the clock the ACT declared — kept
+             ;; separate so a migration-stamped row cannot pass for a live one
+             :trail/time-ms (:created-at-ms pointer-revision)
+             :trail/declared-time-ms (:activation/time-ms event)
+             :trail/order-key (:order-key pointer-revision)
+             :trail/revision-id (:activation/revision-id event)
+             :trail/pointer-revision-id (:revision-id pointer-revision)
+             :trail/parent-revision-id (:parent-revision-id pointer-revision)
+             :trail/event-id (:event-id pointer-revision)
+             :trail/causal-index causal-index
+             :trail/on-causal-chain? (some? causal-index)
+             ;; the old heuristic's INFORMATION, kept — but as a derived
+             ;; observation, never masquerading as the declared kind
+             :trail/re-wear? (true? re-wear?)
+             :trail/current?
+             (= current-pointer-id (:revision-id pointer-revision))}))]
+    (into (vec (map-indexed
+                (fn [i pr*]
+                  (entry pr* i
+                         (contains? (nth worn-before i #{})
+                                    (activation-event/worn-revision-id
+                                     (:content-text pr*)))))
+                ordered))
+          (mapv #(entry % nil false) orphans))))
 
 (defn- trail-sort-key
   [entry]
@@ -1265,6 +1455,8 @@
    :material-experience material-experience-projection
    ;; editable-material P5: reading what a gesture MEANS is a query
    :interaction-table interaction-table-projection
+   ;; editable-material P6: reading the whole truth loop is a query too
+   :material-truth material-truth-projection
    :block-truth  block-truth-projection})
 
 (def face->projection-kind
