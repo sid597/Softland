@@ -551,3 +551,6 @@
 - Next: Sid's one-liners — **"P5 ok"** · "kinds ok" (or veto) — then send
   PROMPTS.md §P6 (now legal: CONTRACT_P6.md exists) to a fresh Codex
   session.
+- **Sid: "P5 ok" (2026-07-25, gate session close). P6 GREEN-LIT** — Sid
+  starts the fresh implementer session himself (prompt = the board
+  HANDOFF). "kinds ok" still open.

@@ -7,7 +7,7 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
-## HANDOFF — next implementation session (paste this after Sid's "P5 ok")
+## HANDOFF — next implementation session (paste this; P6 is GREEN-LIT)
 
 ```
 MODE: IMPLEMENT · one package only · repo /mnt/data/projects/Softland
@@ -41,9 +41,9 @@ four DIRECTION gates are CLOSED** (`GATE_P1.md` `83aa5dd`+`b6f3d75` ·
 meaning is served material, ONE law dispatches it, floor unbreakable
 (drill PASS ×3 live), 20-row/0-conflict interaction table server=client,
 echo bar measured 0/42 over 52ms, families 1–4 clicked live).
-**CONTRACT_P6.md AUTHORED (Fable 07-25)** — P6 is sendable the moment
-Sid says "P5 ok" (HANDOFF above). Sid's open one-liners: **"P5 ok"** ·
-"kinds ok" · `__material.picked()` click · headed ⌁/≈ marks look. Then
+**CONTRACT_P6.md AUTHORED (Fable 07-25) · Sid's "P5 ok" GIVEN 07-25 —
+P6 SENDABLE NOW** (HANDOFF above; Sid boots the fresh session). Still
+open: "kinds ok" · `__material.picked()` click · headed ⌁/≈ marks look. Then
 P6 truth loop (Gates 3+4) → P7 portal → P8 verb-from-inside — ladder,
 stops, Sid's touchpoints in `CAMPAIGN.md`. first-light P3 fulfilled;
 P4/P5 ride campaign P6 under the first-light CONTRACT (no fork; flag
