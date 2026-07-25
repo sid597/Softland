@@ -673,3 +673,23 @@
 - Next: **Sid's Gate-3 one-line word** (board HANDOFF is the paste) + the
   headed sitting (picked() · ⌁/≈ · optional preview feel). On the word:
   activate on the land → Gate 3 CLOSES → P7 sendable.
+
+- **2026-07-25 · Fable (gate session, same context) · GATE 3 CLOSED on
+  Sid's delegated word. The layer STANDS — all four DIRECTION gates
+  closed. P7 SENDABLE.**
+- Sid, verbatim: *"idk what decision on me but i want you to take the call"*
+  — the delegation precedent (6096e85 "You decide but note down") exercised
+  on the constitutional touchpoint itself. Fable's call: **activate 64**
+  (inside the 45–75 readability band, meaningful cut from 80 against the
+  banked reply-width friction, floor-32 protected, fallback-only surface,
+  reversible in one line).
+- Executed on the land (ingest-lane precedent, fresh JVM): import + activate
+  `fm:text-body` wrap-fallback 80→64; event declared — actor
+  `fable-p6-gate`/`:agent` (honest: the agent's hand on Sid's word), grounds
+  `exp:reply-width` `:grounds/declared`, wall-clock time, scope
+  all-unpinned; announce classifies `:change/canonical-activation` with the
+  rollback path to the 80-revision named in the trace. decisions.md bullet
+  added (DIRECTION's close condition). Headed looks (picked() · ⌁/≈ · feel
+  the 64) fold into Sid's return wear.
+- Next: send PROMPTS.md **§P7** (portal) to a fresh Codex session; P8 after
+  P7's gate; then the return wear. Sid's rollback word stays live forever.

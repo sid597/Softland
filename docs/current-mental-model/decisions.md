@@ -70,6 +70,17 @@ which crossroads did we take."
   first-light A (one local worn arrangement repair); inheritance (B) opens
   only from a genuine second friction, never a fabricated gate example;
   first-light absorbs the minimum P3c main-face/overlay/pick seam.
+- **editable-material — the layer STANDS; all four DIRECTION gates CLOSED**
+  (Gate 3 closed 2026-07-25 on Sid's delegated word — the first real repair
+  ran the whole loop on the land: banked reply-width friction → durable
+  candidate → live preview with the active face byte-untouched → declared
+  activation event with grounds → announced change with a named rollback
+  path). Softland's components are served, revisioned, deviate-able,
+  pinnable, previewable, activatable, reversible material; the four input
+  stations dispatch through served rows over an unbreakable code floor.
+  Direction: `build/editable-material/DIRECTION.md`; gate records
+  `build/editable-material/GATE_P1..P6.md`. Remaining campaign: P7 portal →
+  P8 verb-from-inside → Sid's return wear (the true gate).
 
 ## Settled architecture — use it, don't re-derive it
 

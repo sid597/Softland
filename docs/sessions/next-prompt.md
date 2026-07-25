@@ -7,43 +7,32 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
-## HANDOFF — Sid's Gate-3 word + the headed sitting (his one line is the
-## only thing standing)
+## HANDOFF — P7 the portal (SENDABLE NOW; paste PROMPTS.md §P7 to a
+## fresh Codex session)
 
-**P6 GATED PASS 2026-07-25** — full record `build/editable-material/
-GATE_P6.md` (code `be247c5` + gate fixes `cff3a14`; suite 428t/5,940a
-green over the fixed tree; R2 id-shape ACCEPTED after independent
-empirical verification; the falsification probe caught ONE real bug —
-the second byte-identical instance transition replayed to a silent no-op
-— fixed + regression-pinned). **Gate 4 (immunity) CLOSED.** Gate 3 is AT
-THE STOP.
+**GATE 3 CLOSED 2026-07-25 on Sid's delegated word** ("i want you to take
+the call" — Fable ruled **activate 64**, grounds + receipt in the NOW
+entry). The land wears `wrap-fallback-columns 64`; the activation event is
+declared (actor `fable-p6-gate`/`:agent`, grounds `exp:reply-width`,
+wall-clock time, scope all-unpinned by reference); the announced change
+names its rollback path to the 80-revision — one activation reverses it,
+forever. **All four DIRECTION gates are CLOSED; the layer STANDS**
+(decisions.md carries the bullet). P6 gate record:
+`build/editable-material/GATE_P6.md` (PASS; `be247c5` + `cff3a14`).
 
-**Sid's one line (any of):**
-- **"activate 64"** — accept the reply-width repair as proposed
-  (`fm:text-body` `wrap-fallback-columns` 80 → 64);
-- **"activate N"** — same repair, your number (the 64 was the
-  implementer's proposal; your recorded number was not locatable);
-- **"no"** — the candidate stays durable, worn by nobody, forever
-  rewearable into nothing (latest ≠ active is the shipped law).
+**Send now:** `build/editable-material/PROMPTS.md` **§P7** (the portal
+proper — prereq "P6 gates 3+4 PASS" is met). P8 follows P7's gate PASS
+(sequential by the campaign's letter, not parallel; it may overlap Sid's
+return). After P8: Sid's return wear — the campaign's true gate.
 
-Preview receipt attached (GATE_P6.md, live cluster): candidate previewed
-against REAL served material; active face byte-identical before/during/
-after (`active-sha b0910e1af590f869`, same pointer revision); camera
-pinned; endPreview byte-restored. Honest note: the fallback width only
-touches replies with NO source width — nothing on the current genesis
-page visibly moves; the sitting will show the same.
+**Sid's remaining touchpoints:** P7 + P8 gate words (one line each) · the
+headed looks (`__material.picked()` click · ⌁/≈ marks · feel the 64 width)
+— fold into his return wear or any headed sitting, no separate errand ·
+the return itself. Rollback of the 64: say the word, any session runs one
+`:rollback` activation to the recorded revision.
 
-**The headed sitting** (cluster is UP; boot the app first):
-```
-clj -A:dev -X dev/-main    # then open http://localhost:8080
-```
-Three looks in one sitting: `__material.picked()` click (P4 carry) · the
-⌁/≈ marks · optionally `__bindings.preview('fm:text-body', <candidate
-edn>)` to feel the width before the word. The session receiving the word
-executes: mint + activate the chosen bytes on the land (the R4 event
-carries actor sid + grounds `exp:reply-width`) → announced change →
-Gate 3 CLOSES → **P7 (the portal) becomes sendable**. Rollback stays one
-line away, forever.
+Ops: cluster UP (five modules RUNNING); dev app down — sessions boot it
+as needed (`clj -A:dev -X dev/-main`).
 
 **Campaign state:** **P1–P5 CLOSED — all gates PASS; Gates 1 + 2 of the
 four DIRECTION gates are CLOSED** (`GATE_P1.md` `83aa5dd`+`b6f3d75` ·
@@ -56,17 +45,18 @@ echo bar measured 0/42 over 52ms, families 1–4 clicked live).
 v2 grammar live-ingested as a WRITE, no deploy; G6 echo 0/120 over 52ms
 with a deviant + pin in the serve; G12 drill re-run live through the
 land's own `?drill=` lane; G3 byte proof on the live cluster; the truth
-loop's reversal ran live). **Gate 4 CLOSED · Gate 3 AT THE STOP — Sid's
-word is the HANDOFF above.** "kinds ok" RATIFIED 07-25. Residue carried
-in GATE_P6.md: dead client weather lane (F3) · escape detector reads
-`:ambiguous` on the durable cluster until it keys per-master/causal-tip
-(F4) · text-body instance deviations serve but aren't felt in the wrap
-pass. Then P7 portal (sendable at the Gate-3 word) → P8 verb-from-inside
-— ladder, stops, Sid's touchpoints in `CAMPAIGN.md`. first-light P3
-fulfilled; P4/P5 fulfilled by P6's membrane + activation machinery under
-the first-light CONTRACT (G6/G7/G8 shapes proven; its own G9 waits on
-Sid's return wear). Land is UP (five modules RUNNING; dev app down —
-sessions boot it as needed).
+loop's reversal ran live). **Gates 1–4 ALL CLOSED — Gate 3 closed 07-25
+on Sid's delegated word, the 64 activation live on the land (HANDOFF
+above).** "kinds ok" RATIFIED 07-25. Residue carried in GATE_P6.md: dead
+client weather lane (F3) · escape detector reads `:ambiguous` on the
+durable cluster until it keys per-master/causal-tip (F4) · text-body
+instance deviations serve but aren't felt in the wrap pass. Now P7
+portal (SENDABLE — PROMPTS.md §P7) → P8 verb-from-inside (after P7's
+gate; may overlap the return) — ladder, stops, Sid's touchpoints in
+`CAMPAIGN.md`. first-light P3 fulfilled; P4/P5 fulfilled by P6's
+membrane + activation machinery under the first-light CONTRACT (G6/G7/G8
+shapes proven; its own G9 waits on Sid's return wear). Land is UP (five
+modules RUNNING; dev app down — sessions boot it as needed).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
