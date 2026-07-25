@@ -7,31 +7,80 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
-## HANDOFF — next implementation session (paste this; P6 is GREEN-LIT)
+## HANDOFF — the P6 GATE (paste this; P6 is BUILT)
+
+P6 built and committed 2026-07-25: code `be247c5`, docs `a6a44fb`
+(local branch, unpushed). 21 files, +1,682/−118. Suite 427t/5,929a green
+(0/0, floor 414t/5,728a; three registered flakes clean attempt 1); cljs
+0 warnings. Gate 3 ran to the STOP — nothing activated. Full record:
+`build/editable-material/NOW.md` tail.
 
 ```
-MODE: IMPLEMENT · one package only · repo /mnt/data/projects/Softland
-Package P6 — the truth loop whole (Gates 3+4). Send PROMPTS.md §P6 to
-a fresh Codex session — CONTRACT_P6.md now EXISTS and is BINDING over
-that prompt (owner condensation REFUSED: no new Rama module; instance
-deviations/pins/instance-binding rows = instance-scoped facet-masters
-via the SAME adapter; honest event times; closed activation-event
-form; 12 traps T1–T12; 14 gates G1–G14; Gate-3 STOP = Sid's one-line
-activation word, verbatim in the contract).
-Boot, in order:
-1. build/editable-material/CONTRACT_P6.md (BINDING) + PROMPTS.md §P6
-2. build/editable-material/NOW.md tail (P5 gate entry) + GATE_P5.md
-   (findings that became T10/G9, G10, G14) + GATE_P4 §Deferred
-3. DIRECTION.md · CAMPAIGN.md §P6 + §Standing-stops ·
-   memory/implementation-quirks.md (causal-history law, flake
-   registry, shutdown state machine)
-Ops: land UP, five modules RUNNING; dev app down — boot with
-`clj -A:dev -X dev/-main` as needed; /rama + rama-pitfalls BEFORE any
-Rama design (contract forbids new modules — stop clause on conflict).
-TEST LANES (gated): `clj -X:test fast` ~45s inner loop · `clj -X:test
-full` ~5min — GATES USE `full` (floor now 414t/5,728a green at
-faab5f9); fail-closed tiering for new test nss.
-On the BUILT report: fresh Fable session gates P6 (Gates 3+4 close).
+MODE: GATE · one package · repo /mnt/data/projects/Softland
+Gate object: be247c5 (code) + a6a44fb (docs), local branch, unpushed.
+Read the diff in full.
+
+AUTHORITY: build/editable-material/CONTRACT_P6.md (BINDING) +
+DIRECTION.md + CAMPAIGN.md + first-light CONTRACT §7. Boot: CONTRACT_P6
+(R1–R4, traps T1–T12, gates G1–G14, the Gate-3 verbatim stop) · NOW.md
+tail (the P6 BUILT entry — it carries a STOP-CLAUSE NOTE you must
+adjudicate) · GATE_P5.md findings · memory/implementation-quirks.md.
+
+ADJUDICATE FIRST — the one contract deviation:
+R2 specifies instance-master ids as `fm:<facet>:i:<sha8>`. The
+implementer found that shape unbuildable without a routing-kernel edit
+and changed the separator to `~i~` (two colon segments) instead,
+keeping R2's intent whole and R1's "no Rama edits" intact. The claim is
+empirical: `extract-object-key` collapses an `fm:` key to its first TWO
+colon segments in every branch EXCEPT `oc:doc:`, which returns the
+whole remainder — so a three-segment id puts the document container in
+a different Rama partition from its own pointer/revisions/import (the
+foreign-read mis-route class, four firings in this repo). VERIFY THIS
+YOURSELF before accepting it; the regression test
+`instance-master-ids-route-to-ONE-partition` also asserts the
+three-segment shape still straddles. Accept, or rule it a genuine stop.
+
+RE-DERIVE INDEPENDENTLY: `clj -X:test full` (banked 427t/5,929a, 0/0) ·
+cljs cold compile (banked 0 warnings).
+
+OPEN LIVE GATES — the cluster is DOWN (the board said UP; `bin/land
+status`: conductor refused, no rama processes). Yours per the GATE_P4
+precedent ("the deploy is the GATE session's act, never the
+integrator's"):
+  · `bin/land up`, then the v2 grammar ingest — a WRITE, not a deploy
+    (no module changed, so no deploy is needed; confirm that yourself)
+  · G6 echo bar LIVE with >=1 deviant subject + >=1 pin in the serve,
+    adapter attestation FIRST, 0 samples > 52ms
+  · G12 `__bindings.drillAll()` + the P1 malformed drill, re-run live
+  · G3's camera-pinned same-process byte proof of the preview membrane
+
+GATE 3 — the headed sitting with Sid (his `picked()` + the ⌁/≈ looks
+fold in here, per 6096e85). The loop already ran to the STOP: friction
+"reply width", fm:text-body wrap-fallback-columns 80 → candidate 64,
+active face byte-untouched, escape detector measured 0 escapes. The
+magnitude 64 is the IMPLEMENTER'S proposal — the recorded number was
+not locatable in the corpus, only the friction's name. Sid's one-line
+word decides the value and the activation. NEVER self-activate. The
+candidate is durable only on the implementer's in-process cluster; the
+gate mints it on the land.
+
+FALSIFY, don't confirm. The genuinely-new machinery is the
+instance-master serve/resolve path and the R4 pointer-source change:
+  · R4 changed what the active-pointer's content-text MEANS. Two
+    readers were caught reading it as a bare revision-id
+    (material-circulation's as-of, the inspector trail) and fixed.
+    FIND A THIRD, or prove there is none.
+  · Can a valid instance revision make a gesture disappear, or reach
+    the camera? G10 refuses `:space/ground` at both seams — test the
+    DURABLE lane, not just the console.
+  · Does the preview membrane leak? T9 forbids any derived state from
+    the previous revision surviving into it.
+  · Is the registry index ever load-bearing? T7 says container
+    existence is the truth — drop the rows, prove wear still resolves.
+  · G11: is there a fourth deterministic `time-ms` in a write path?
+
+Output: GATE_P6.md + the NOW entry + the Gate-3 transcript line. On
+PASS, Gates 3 + 4 close and P7 (the portal) becomes sendable.
 ```
 
 **Campaign state:** **P1–P5 CLOSED — all gates PASS; Gates 1 + 2 of the
