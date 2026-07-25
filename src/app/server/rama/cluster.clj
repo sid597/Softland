@@ -18,6 +18,7 @@
    face bundle both open foreign handles to the SAME modules."
   (:use [com.rpl.rama])
   (:require [app.server.ingest-watchers :as ingest-watchers]
+            [app.server.rama.core :as core]
             [app.server.rama.face-arsenal :as face-arsenal]
             [app.server.rama.git-spine :as git-spine]
             [app.server.rama.machine-cut :as machine-cut]
@@ -386,6 +387,36 @@
               foldable-material/bindings-source "foldable"]
              [positioned-material/spec
               positioned-material/bindings-source "positioned"]])
+           ;; editable-material P6 · T10 — grammar v2 on the same three masters.
+           ;; v2 = v1's rows verbatim under a validator that refuses a row whose
+           ;; SITE cannot feed its verb's required args (the P5 gate's
+           ;; arg-starved rebind). Additive: v1 keeps its own declaration and
+           ;; every durable v1 revision stays rewearable under it.
+           ;;
+           ;; R3 — the time is HONEST. P1/P3/P5 stamped 0/1/2 here, which is
+           ;; precisely what made the activation history non-monotone in clock
+           ;; terms (P4's finding; the quirks registry's causal-order law). Those
+           ;; three constants are grandfathered durable history and are never
+           ;; rewritten; G11 exists to keep a FOURTH from joining them. Import
+           ;; identity is content-hash keyed, so honesty costs no idempotency.
+           strict-bindings-migrations
+           (into
+            (sorted-map)
+            (map
+             (fn [[spec source slug]]
+               [(:facet-master/id spec)
+                (facet-master/ensure-active-source!
+                 oc-rt spec source
+                 {:request-id (str "facet-master-" slug "-v2")
+                  :activation-request-id
+                  (str "facet-master-" slug "-activate-v2")
+                  :time-ms (core/now-ms)})]))
+            [[attention-material/spec
+              attention-material/strict-bindings-source "attention"]
+             [foldable-material/spec
+              foldable-material/strict-bindings-source "foldable"]
+             [positioned-material/spec
+              positioned-material/strict-bindings-source "positioned"]])
            results
            (into
             (into
@@ -395,7 +426,7 @@
              masters)
             (map (fn [[master-id migration]]
                    [master-id (:state migration)]))
-            bindings-migrations)]
+            (merge bindings-migrations strict-bindings-migrations))]
        (println
         "[CLUSTER-INGEST] facet materials:"
         (into
@@ -414,6 +445,7 @@
         :provenance-v1 provenance-v1
         :masters masters
         :bindings-migrations bindings-migrations
+        :strict-bindings-migrations strict-bindings-migrations
         :states results}))))
 
 (defn first-light-ingest!

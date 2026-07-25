@@ -16,6 +16,11 @@
 (def code-floor-revision-id "code-floor:fm:attention:v0")
 (def bindings-grammar-version 1)
 (def bindings-code-floor-revision-id "code-floor:fm:attention:v1")
+;; P6 · T10 — v2 adds ONE refusal to the v1 grammar (a row whose site cannot
+;; feed its verb's required args). v1 keeps its own declaration below and is
+;; never re-read through v2's validator.
+(def strict-bindings-grammar-version 2)
+(def strict-bindings-code-floor-revision-id "code-floor:fm:attention:v2")
 
 (def default-form
   {:facet-master/id master-id
@@ -77,6 +82,15 @@
 
 (def bindings-source (pr-str bindings-form))
 
+(def strict-bindings-form
+  "v2 = v1's rows VERBATIM under the stricter grammar. The bytes differ from v1
+   only in the grammar version, so this migration adds a refusal and changes no
+   behavior: every row that shipped still validates."
+  (assoc bindings-form
+         :facet-master/grammar strict-bindings-grammar-version))
+
+(def strict-bindings-source (pr-str strict-bindings-form))
+
 (def ^:private v0-grammar
   {:material-keys
    #{:facet-master/merge
@@ -110,8 +124,9 @@
    :facet-master/facet :attention
    :facet-master/source-ref "softland://facet-master/attention"
    :facet-master/default-form default-form
-   :facet-master/floor-form bindings-form
-   :facet-master/code-floor-revision-id bindings-code-floor-revision-id
+   :facet-master/floor-form strict-bindings-form
+   :facet-master/code-floor-revision-id
+   strict-bindings-code-floor-revision-id
    :facet-master/grammars
    {grammar-version v0-grammar
     bindings-grammar-version
@@ -119,7 +134,17 @@
      (conj (:material-keys v0-grammar) :facet-master/bindings)
      :validators
      (assoc (:validators v0-grammar)
-            :facet-master/bindings binding-material/bindings-validator)}}})
+            :facet-master/bindings binding-material/bindings-validator)}
+    ;; v1 above stays EXACTLY as it shipped. A durable v1 revision is compiled
+    ;; under v1's declaration forever; v2 is an additional entry, never a
+    ;; rewrite of an existing one (P3's per-version grammar law).
+    strict-bindings-grammar-version
+    {:material-keys
+     (conj (:material-keys v0-grammar) :facet-master/bindings)
+     :validators
+     (assoc (:validators v0-grammar)
+            :facet-master/bindings
+            binding-material/strict-bindings-validator)}}})
 
 (defn compile-form
   [form]

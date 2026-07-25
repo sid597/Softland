@@ -687,11 +687,13 @@
 ;; ===========================================================================
 
 (deftest bindings-grammars-are-additive-and-v0-keeps-its-meaning
-  (doseq [[spec v0-form v1-form]
-          [[attention/spec attention/default-form attention/bindings-form]
-           [foldable/spec foldable/default-form foldable/bindings-form]
+  (doseq [[spec v0-form v1-form v2-form]
+          [[attention/spec attention/default-form attention/bindings-form
+            attention/strict-bindings-form]
+           [foldable/spec foldable/default-form foldable/bindings-form
+            foldable/strict-bindings-form]
            [positioned/spec positioned/default-form
-            positioned/bindings-form]]]
+            positioned/bindings-form positioned/strict-bindings-form]]]
     (let [mid (:facet-master/id spec)]
       (testing (str mid " — v0 bytes still compile under their OWN grammar")
         (let [c (facet-material/compile-form spec v0-form)]
@@ -712,10 +714,18 @@
                   (set (get-in spec [:facet-master/grammars 0
                                      :material-keys])))))))
 
-      (testing (str mid " — the FLOOR is the v1 form, so the floor has rows")
-        (is (= v1-form (:facet-master/floor-form spec)))
+      ;; P6 · T10: the floor moved to v2 — v1's rows verbatim under a grammar
+      ;; that additionally refuses a row whose SITE cannot feed its verb. v1
+      ;; keeps its own declaration and is never re-read through v2's validator.
+      (testing (str mid " — the FLOOR is the v2 form, so the floor has rows")
+        (is (= v2-form (:facet-master/floor-form spec)))
         (is (seq (:facet-master/bindings (facet-material/code-floor spec))))
-        (is (str/ends-with? (:facet-master/code-floor-revision-id spec) ":v1")))
+        (is (str/ends-with? (:facet-master/code-floor-revision-id spec) ":v2"))
+        (is (= (:facet-master/bindings v1-form)
+               (:facet-master/bindings v2-form))
+            "v2 changes the grammar version and NOTHING about the rows")
+        (is (:valid? (facet-material/compile-form spec v1-form))
+            "a durable v1 revision stays rewearable under v1 forever"))
 
       (testing (str mid " — a malformed row set is refused, not accepted")
         (is (not (:valid?

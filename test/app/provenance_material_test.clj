@@ -6,6 +6,7 @@
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.facet-master :as adapter]
             [app.server.rama.object-container.runtime :as ocr]
+            [app.shared.activation-event :as activation-event]
             [app.shared.attention-material :as attention]
             [app.shared.facet-material :as facet-material]
             [app.shared.facet-masters :as facet-masters]
@@ -358,8 +359,17 @@
               (is (:accepted? activation))
               (is (= candidate-id
                      (some-> active :active-revision :revision-id)))
+              ;; P6 · R4: the pointer's source is a declared activation
+              ;; event, not a bare revision-id. It still NAMES the same worn
+              ;; revision — read through the one door that handles both
+              ;; generations, so this assertion holds for v0 rows too.
               (is (= candidate-id
-                     (some-> active :active-pointer :content-text)))
+                     (activation-event/worn-revision-id
+                      (some-> active :active-pointer :content-text))))
+              (is (= :activate
+                     (:activation/kind
+                      (activation-event/parse
+                       (some-> active :active-pointer :content-text)))))
               (is (not= original-pointer-id
                         (some-> active :active-pointer :revision-id)))
               (is (= next-color (:attention/border-color wear)))

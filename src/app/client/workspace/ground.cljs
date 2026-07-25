@@ -220,16 +220,100 @@
    (text-body-material/resolved-wear
     (get by-id text-body-material/master-id))})
 
-(defn- current-material-wears
+(defonce ^:private !preview
+  ;; P6 · deliverable 3 — the PREVIEW MEMBRANE.
+  ;;
+  ;; {:master-id … :revision-id … :base <the real served value>
+  ;;  :overlay <the same value with ONE master replaced by the candidate>}
+  ;;
+  ;; A preview is a client-side overlay over the REAL served material (T9): the
+  ;; candidate replaces exactly one master and every other facet stays the
+  ;; genuinely-served active revision. The active face is byte-untouched —
+  ;; nothing durable moves, no pointer is edited, no request is appended.
+  ;;
+  ;; The overlay is a FRESH object, so `identical?` against the wears cache
+  ;; misses and EVERYTHING re-derives under the candidate. That is the P3
+  ;; reconcile-before-stamp law applied to the preview path verbatim, and it is
+  ;; why no derived state from the previous revision can survive into the
+  ;; preview — the cache cannot serve a stale wear it never keyed.
+  (atom nil))
+
+(defn- served-material-value
+  "The value the client resolves wear from: the real serve, or the preview
+   overlay while a candidate is being previewed. ONE door, so no render path
+   can accidentally read past the membrane."
   []
   (let [!served (get-in @!refs [:atoms :!facet-materials])
         served (when !served @!served)
+        preview @!preview]
+    (if (and preview (identical? served (:base preview)))
+      (:overlay preview)
+      ;; the serve moved underneath the preview — the preview is stale and the
+      ;; REAL material wins. A membrane that outlived its base would be showing
+      ;; a candidate against material that no longer exists.
+      served)))
+
+(defn- current-material-wears
+  "The SHARED tier: the six masters as any subject wears them absent a
+   deviation. P6 keeps this exactly as P5 left it — one resolve per served
+   identity — and adds the per-subject tier beside it in `wears-for`."
+  []
+  (let [served (served-material-value)
         cached @!wears-cache]
     (if (and cached (identical? served (:served cached)))
       (:wears cached)
       (let [wears (resolve-material-wears (:facet-materials/by-id served))]
         (reset! !wears-cache {:served served :wears wears})
         wears))))
+
+(defn- wears-for
+  "P6 · R2 — ONE subject's wears: instance revision → shared active → floor.
+
+   T5 is the reason for the shape. Reconcile rebuilds every block per served
+   context (i.e. per keystroke), so resolving instance masters per block per
+   render is precisely the storm that kills the echo bar. Two properties keep
+   it cheap:
+
+   - a subject with NO deviation gets the SHARED wears object BACK BY IDENTITY,
+     so the per-keystroke render-signature compare still short-circuits on
+     `identical?` for every ordinary block — which is all of them, almost
+     always;
+   - a deviant subject resolves ONCE per served identity and is memoized in the
+     same cache, which the served value's identity already invalidates.
+
+   `:facet-materials/instances` is `{facet → {subject → served-instance}}`, so
+   the lookup for a non-deviant subject costs one map probe per DEVIATING facet
+   — not per facet, and not per block."
+  [subject]
+  (let [shared (current-material-wears)
+        cached @!wears-cache
+        instances (:facet-materials/instances (:served cached))]
+    (if-let [hit (get-in cached [:by-subject subject])]
+      hit
+      (let [mine (persistent!
+                  (reduce-kv
+                   (fn [m facet by-subject]
+                     (if-let [i (get by-subject subject)]
+                       (assoc! m facet i)
+                       m))
+                   (transient {})
+                   instances))]
+        (if (zero? (count mine))
+          shared
+          (let [by-id (:facet-materials/by-id (:served cached))
+                w (reduce-kv
+                   (fn [acc facet inst]
+                     (if-let [spec (facet-masters/spec-for-facet facet)]
+                       (assoc acc facet
+                              (facet-material/wear-for-subject
+                               spec
+                               (get by-id (:facet-master/id spec))
+                               inst))
+                       acc))
+                   shared
+                   mine)]
+            (swap! !wears-cache assoc-in [:by-subject subject] w)
+            w))))))
 
 (defn- composition-lint-nodes
   [conflicts w h line-h font-size]
@@ -815,7 +899,8 @@
   [uid]
   (when-let [b (get-in @!world [:blocks uid])]
     (when (:machine? b)
-      (let [foldable-wear (:foldable (current-material-wears))
+      ;; P6: a block wears ITS OWN foldable revision when it has one
+      (let [foldable-wear (:foldable (wears-for uid))
             {:keys [display headers] :as rv} (run-view uid foldable-wear)
             text  (if rv display (or (truth-text uid) ""))
             lines (cond-> (str/split (or text "") #"\n" -1)
@@ -850,7 +935,10 @@
   [unit-id]
   (when-let [b (get-in @!world [:blocks unit-id])]
     (let [st    @!ground-edit
-          wears (current-material-wears)
+          ;; P6 · R2: the per-subject tier. Non-deviant blocks get the shared
+          ;; wears object back BY IDENTITY, so the per-keystroke signature
+          ;; compare still short-circuits (T5).
+          wears (wears-for unit-id)
           ;; fold-derived display + headers come from run-view (ONE assembly
           ;; shared with the machine-selection copy path)
           {:keys [display headers]}
@@ -1693,7 +1781,7 @@
    Judged at send time, so dragging a block into (or out of) a column
   before speaking counts."
   [fid]
-  (let [threaded-wear (:threaded (current-material-wears))
+  (let [threaded-wear (:threaded (wears-for fid))
         bs   (:blocks @!world)
         b    (get bs fid)
         tmap @!thread-of]
@@ -2125,6 +2213,17 @@
       (not (contains? binding-material/sites site))
       {:status :refused :error :binding/unknown-site :site site}
 
+      ;; G10 (P5 gate finding 1): rows filed at `[:space :space/ground]` DO
+      ;; resolve at the `:instance` tier and shadow pan and wheel. Unreachable
+      ;; from this seam in P5 only because a string subject never equals the
+      ;; keyword `:space` — an accident, not a fence. The space has no instance
+      ;; tier, ever, until space-as-outermost-entity is built, and both this
+      ;; seam and the durable instance lane read that refusal from ONE place.
+      (not (binding-material/instance-site-legal? site))
+      {:status :refused :error :binding/instance-site-refused
+       :site site :subject subject
+       :legal-sites (vec (sort-by str binding-material/instance-legal-sites))}
+
       (not (binding-material/valid-bindings? {site rows}))
       {:status :refused :error :facet-master/bindings-invalid
        :subject subject :site site}
@@ -2139,6 +2238,51 @@
   ([subject site]
    (swap! !instance-bindings dissoc [subject site])
    {:status :cleared :subject subject :site site}))
+
+(defn- served-instance-binding-rows
+  "P6 · deliverable 8 — the DURABLE instance tier feeding `resolve-binding`.
+
+   P5 resolved this tier but had no owner for it, so rows could only arrive
+   through the console seam and died with the page. They now come from served
+   instance masters: a subject whose instance revision carries
+   `:facet-master/bindings` claims those gestures for itself, at the innermost
+   locality tier, with a revision id behind it and a rollback available.
+
+   Derived from the wears cache, so it costs one map build per activation
+   rather than one per gesture (T5). G10 is enforced HERE too, not only at the
+   console seam — a durable revision must not be able to reach a fence that a
+   console call cannot."
+  []
+  (let [cached @!wears-cache
+        instances (:facet-materials/instances (:served cached))]
+    (persistent!
+     (reduce-kv
+      (fn [acc facet by-subject]
+        (reduce-kv
+         (fn [acc subject _inst]
+           (let [wear (get (wears-for subject) facet)]
+             (if (= :instance (:facet-master/tier wear))
+               (reduce-kv
+                (fn [acc site rows]
+                  (if (binding-material/instance-site-legal? site)
+                    (assoc! acc [subject site]
+                            (into (vec (get acc [subject site])) rows))
+                    acc))
+                acc
+                (:facet-master/bindings wear))
+               acc)))
+         acc
+         by-subject))
+      (transient {})
+      instances))))
+
+(defn- instance-binding-rows
+  "The instance tier the law sees: DURABLE served rows, then the ephemeral
+   console seam layered over them. The console stays the experiment lane —
+   it can shadow a durable row for a session, and it dies with the page, which
+   is the honest lifetime of a client value."
+  []
+  (merge (served-instance-binding-rows) @!instance-bindings))
 
 (defn- current-master-binding-rows
   "The MASTER tier: each served facet's active rows. Derived from the wears
@@ -2252,12 +2396,15 @@
   (let [wears (current-material-wears)
         master (current-master-binding-rows)]
     (-> []
+        ;; P6: the instance tier in the table is the DURABLE served rows plus
+        ;; the ephemeral console seam — the same value the dispatch law sees,
+        ;; so the table cannot disagree with what a gesture will actually do
         (into (map (fn [[[subject site] rows]]
                      {:tier :instance :facet nil
                       :master-id (str "instance:" subject)
                       :revision-id nil :floor? false
                       :bindings {site rows}}))
-              @!instance-bindings)
+              (instance-binding-rows))
         (into (comp (filter (comp seq val))
                     (map (fn [[facet rows]]
                            (let [wear (get wears facet)]
@@ -2269,12 +2416,17 @@
               master)
         (into (comp (filter (comp seq val))
                     (map (fn [[facet rows]]
-                           {:tier :floor :facet facet
-                            :master-id (if (= binding-material/space-facet facet)
-                                         "code-floor:space"
-                                         (str "code-floor:" (name facet)))
-                            :revision-id nil :floor? true
-                            :bindings rows})))
+                           ;; G14 (P5 gate finding 3): this emitted
+                           ;; `code-floor:attention` + a nil revision while the
+                           ;; server emitted `code-floor:fm:attention:v1` in
+                           ;; BOTH fields — one row, two labels. Both sides now
+                           ;; read the ONE map in facet-masters.
+                           (let [label (facet-masters/floor-master-id facet)]
+                             {:tier :floor :facet facet
+                              :master-id label
+                              :revision-id label
+                              :floor? true
+                              :bindings rows}))))
               floor-binding-rows))))
 
 (defn- recompute-binding-conflicts!
@@ -2352,7 +2504,7 @@
               (update
                (or f
                    (:foldable/defaults
-                    (:foldable (current-material-wears))))
+                    (:foldable (wears-for subject))))
                (:fold-key args)
                not)))
      (rebuild-block! subject))})
@@ -2494,7 +2646,7 @@
     :claims (claim-chain hit)
     :facet-rows (current-master-binding-rows)
     :floor-rows floor-binding-rows
-    :instance-rows @!instance-bindings}))
+    :instance-rows (instance-binding-rows)}))
 
 (defn- conflict-key
   "A tie's identity: which gesture, at which site, in which tier, at which
@@ -2714,6 +2866,146 @@
   (let [!served (get-in @!refs [:atoms :!facet-materials])]
     (:facet-materials/by-id (when !served @!served))))
 
+;; ---------------------------------------------------------------------------
+;; P6 · the PREVIEW MEMBRANE + the three scales of announcement
+;; ---------------------------------------------------------------------------
+
+(defn- re-derive-material!
+  "Everything the served-material watch does, callable directly.
+
+   The preview path MUST go through exactly this — the P3 reconcile-before-
+   stamp law applies to it verbatim (T9). Derived placements and cached reply
+   wraps recompute under the candidate; settled cells stay sovereign; the
+   interaction table's lint recomputes on the same edge. A preview that
+   re-rendered by some cheaper private route would be showing a candidate over
+   state derived from the revision it is supposed to be replacing."
+  []
+  (if-let [ctx (:context @!world)]
+    (reconcile! ctx)
+    (rebuild-material-sites!))
+  (refresh-material-error!)
+  (recompute-binding-conflicts!))
+
+(defn preview-candidate!
+  "Render a candidate against the REAL served material with the active face
+   untouched (deliverable 3 / first-light P4).
+
+   What makes this a membrane rather than a sandbox: every OTHER facet stays
+   the genuinely-served active revision, and nothing durable moves — no import,
+   no pointer edit, no request. The candidate is compiled client-side against
+   the real spec, so an invalid candidate is refused HERE and the land never
+   renders material that could not have been activated anyway.
+
+   Ending the preview restores the exact original served object by identity, so
+   the wears cache re-derives back to the truth rather than keeping a preview
+   value that no longer has a base."
+  [master-id source]
+  (let [spec (facet-masters/spec master-id)
+        !served (get-in @!refs [:atoms :!facet-materials])
+        base (when !served @!served)]
+    (cond
+      (nil? spec)
+      {:status :refused :error :facet-master/unknown-master
+       :master-id master-id}
+
+      (nil? base)
+      {:status :refused :error :facet-master/nothing-served}
+
+      :else
+      (let [compiled (facet-material/compile-source spec (str source))]
+        (if-not (:valid? compiled)
+          {:status :refused :error :facet-master/candidate-invalid
+           :master-id master-id :errors (:errors compiled)}
+          (let [active (get-in base [:facet-materials/by-id master-id])
+                revision-id (str "preview:" master-id ":"
+                                 (hash (str source)))
+                overlay
+                (assoc-in base [:facet-materials/by-id master-id]
+                          (merge active
+                                 {:facet-master/grammar (:grammar compiled)
+                                  :facet-master/material (:material compiled)
+                                  :facet-master/valid? true
+                                  :facet-master/floor? false
+                                  :facet-master/errors []
+                                  :facet-master/active-revision-id revision-id
+                                  ;; distinguishable, per G5 — a preview must
+                                  ;; never be mistakable for an activation
+                                  :facet-master/preview? true
+                                  :facet-master/preview-of
+                                  (:facet-master/active-revision-id active)}))]
+            (reset! !preview {:master-id master-id
+                              :revision-id revision-id
+                              :base base
+                              :overlay overlay})
+            (re-derive-material!)
+            {:status :previewing
+             :master-id master-id
+             :revision-id revision-id
+             :preview-of (:facet-master/active-revision-id active)
+             :material (:material compiled)}))))))
+
+(defn end-preview!
+  []
+  (if-let [p @!preview]
+    (do (reset! !preview nil)
+        (re-derive-material!)
+        {:status :ended :master-id (:master-id p)
+         :restored-to
+         (get-in (:base p) [:facet-materials/by-id (:master-id p)
+                            :facet-master/active-revision-id])})
+    {:status :no-preview}))
+
+(defn preview-state
+  []
+  (if-let [p @!preview]
+    {:previewing? true
+     :master-id (:master-id p)
+     :revision-id (:revision-id p)
+     ;; a preview whose base has moved is STALE and no longer applied — said
+     ;; out loud rather than left for the reader to discover by surprise
+     :applied? (identical?
+                (:base p)
+                (let [!s (get-in @!refs [:atoms :!facet-materials])]
+                  (when !s @!s)))}
+    {:previewing? false}))
+
+(defonce ^:private !weather (atom []))
+
+(def ^:private weather-limit 12)
+
+(defn- announce!
+  "The three scales, from ONE change (deliverable 5).
+
+   `:breath` is the local one — the affected appearances rebuild, which is the
+   land's own way of drawing a breath at the blocks that moved. `:trace` is the
+   recoverable one and always names a reversal path. `:weather` accumulates the
+   ambient RecentChanges feed. All three carry the SAME `change-kind`, which is
+   what keeps preview / deviation / scoped activation / canonical activation /
+   rollback / recovery distinguishable at every scale instead of only the one
+   the reader happens to be looking at."
+  [{:keys [change-kind subjects master-id revision-id actor reversal] :as change}]
+  (doseq [s (or subjects [])]
+    (rebuild-block! s))
+  (swap! !weather
+         (fn [rows]
+           (vec (take weather-limit
+                      (cons {:weather/change-kind change-kind
+                             :weather/master-id master-id
+                             :weather/revision-id revision-id
+                             :weather/actor-id (:actor/id actor)
+                             :weather/subject-count (count (or subjects []))
+                             :weather/at-ms (.getTime (js/Date.))}
+                            rows)))))
+  (assoc change :announced? true :reversal reversal))
+
+(defn material-weather
+  "The ambient feed — newest first, bounded. Client-side and session-scoped by
+   design: the DURABLE weather is the served `:truth/announcements` projection,
+   which is derived from the event trail and survives the page."
+  []
+  @!weather)
+
+
 (defn- rows-under-served
   "The MASTER tier as it would resolve from a HYPOTHETICAL served map, through
    the SAME `resolved-wear` path the renderer uses — including the floored-wear
@@ -2802,7 +3094,7 @@
                            (binding-material/drill-report
                             {:facet-rows (rows-under-served served)
                              :floor-rows floor-binding-rows
-                             :instance-rows @!instance-bindings})]))
+                             :instance-rows (instance-binding-rows)})]))
                    worlds)
              verbs-of #(mapv :probe/verb %)
              baseline (verbs-of (:live reports))
@@ -2846,6 +3138,29 @@
               {:status :refused :error :binding/unreadable
                :message (.-message e)}))))
        :clearInstance (fn [] (clj->js (clear-instance-bindings!)))
+       ;; ---- P6: the truth loop, from the console -----------------------
+       ;; preview a candidate against the REAL served material; the active
+       ;; face never moves and nothing durable is written
+       :preview (fn [master-id source]
+                  (clj->js (preview-candidate! (str master-id) (str source))))
+       :endPreview (fn [] (clj->js (end-preview!)))
+       :previewState (fn [] (clj->js (preview-state)))
+       ;; the served instance tier, and what each deviant subject actually wears
+       :instances
+       (fn []
+         (clj->js
+          (:facet-materials/instances (:served @!wears-cache) {})))
+       :wornBy
+       (fn [subject]
+         (clj->js
+          (into (sorted-map)
+                (map (fn [[facet wear]]
+                       [facet {:tier (:facet-master/tier wear)
+                               :pinned? (true? (:facet-master/pinned? wear))
+                               :revision-id (:facet-master/revision-id wear)
+                               :floor? (true? (:facet-master/floor? wear))}]))
+                (wears-for (str subject)))))
+       :weather (fn [] (clj->js (material-weather)))
        ;; the SERVER's own answer, through the generic FacePull artery. The
        ;; client's `table()` and this agreeing is the seam's proof; face-wiring
        ;; installs it before the ground exists, so the seam reaches for it here.
@@ -3041,8 +3356,10 @@
   ;; grammar-checked client-tier rows and nothing durable.
   (set! (.-__bindings js/window) (binding-seam))
   (js/console.log
-   "[BINDINGS] window.__bindings installed — __bindings.table() /"
-   ".verbs() / .conflicts() / .drillAll() / .instance(id, site, rows)")
+   "[BINDINGS] window.__bindings installed — .table() / .verbs() /"
+   " .conflicts() / .drillAll() / .instance(id, site, rows) /"
+   " P6: .preview(master, edn) / .endPreview() / .instances() /"
+   " .wornBy(subject) / .weather()")
   ;; exit flush — best-effort BELT; safety is the acknowledged settle write
   (js/window.addEventListener "beforeunload"
                               (fn [_] (fire-settle! :keepalive? true)))

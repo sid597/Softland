@@ -82,6 +82,42 @@
     :block/fold-header
     :space/ground})
 
+(def site-arg-keys
+  "editable-material P6 · T10 — the ONE kernel place where each site declares
+   which claim-arg keys it can feed a verb.
+
+   A claim is built at render time from what the rendered node IS, so what it
+   can supply is a property of the SITE, not of the row that lands on it. The
+   fold header's node knows its own section; a block's hit area knows only the
+   block. Pairing this with `verb-registry/required-args` is what makes the P5
+   gate's arg-starved rebind a GRAMMAR error instead of a silent no-op.
+
+   Widening a site's supply is a kernel change (the claim builder must actually
+   carry the new key) plus a grammar version — never a silent one."
+  {:block/user-hit-area #{}
+   :block/machine-hit-area #{}
+   :block/fold-header #{:section :fold-key}
+   :space/ground #{}})
+
+(def instance-legal-sites
+  "editable-material P6 · G10 — where an INSTANCE-tier row may be filed.
+
+   `:space/ground` is excluded, forever, until space-as-outermost-entity is
+   actually built. The P5 gate proved why: instance rows filed at
+   `[:space :space/ground]` DO resolve at the `:instance` tier and shadow pan
+   and wheel. Unreachable from the shipped console seam (a string subject never
+   equals the keyword `:space`) and client-ephemeral — but the registry's claim
+   that `no data revision can shadow the camera` was overstated by exactly this
+   much. The refusal is declared here so both the ephemeral console seam and
+   the durable instance-master lane read the same truth from one place."
+  #{:block/user-hit-area
+    :block/machine-hit-area
+    :block/fold-header})
+
+(defn instance-site-legal?
+  [site]
+  (contains? instance-legal-sites site))
+
 (def tier-order
   "Precedence within one containment depth."
   [:instance :master :floor])
@@ -107,9 +143,26 @@
          (verb-registry/bindable? (:verb/name x) (:verb/version x))
          (verb-registry/known? (:verb/name x) (:verb/version x)))))
 
+(defn site-can-feed?
+  "T10 — can a claim at this site supply everything the row's verb requires?
+
+   An unknown site answers false: a row filed somewhere the kernel never builds
+   a claim could not fire anyway, and saying so here is cheaper than leaving it
+   in the table looking live."
+  [site row]
+  (let [supplied (get site-arg-keys site)
+        required (verb-registry/required-args
+                  (get-in row [:binding/verb :verb/name]))]
+    (and (some? supplied)
+         (every? supplied required))))
+
 (defn valid-row?
   "One row against the closed grammar. `bindable?` true (the material path)
-   additionally refuses floor-reserved verbs; the code floor passes false."
+   additionally refuses floor-reserved verbs; the code floor passes false.
+
+   The 3-arity adds the T10 site check. `valid-bindings?` always knows the site
+   a row is filed under, so it always uses that arity — the 2-arity remains the
+   site-agnostic shape check for callers that genuinely have no site."
   ([row] (valid-row? row true))
   ([row bindable?]
    (and (map? row)
@@ -122,34 +175,61 @@
           (or (= :any m)
               (and (set? m) (every? modifier-keys m))))
         (valid-verb-ref? (:binding/verb row) bindable?)
-        (integer? (:binding/priority row)))))
+        (integer? (:binding/priority row))))
+  ([row bindable? site]
+   (and (valid-row? row bindable?)
+        (site-can-feed? site row))))
+
+(defn- bindings-ok?
+  [bindings bindable? site-check?]
+  (and (map? bindings)
+       (seq bindings)
+       (every?
+        (fn [[site rows]]
+          (and (contains? sites site)
+               (vector? rows)
+               (seq rows)
+               (every? #(if site-check?
+                          (valid-row? % bindable? site)
+                          (valid-row? % bindable?))
+                       rows)
+               ;; the same (gesture, phase, modifiers) twice in ONE facet at
+               ;; ONE site is an authoring mistake, not a cross-facet
+               ;; conflict: refuse it here rather than lint it forever
+               (apply distinct?
+                      (map (juxt :binding/gesture
+                                 :binding/phase
+                                 :binding/modifiers)
+                           rows))))
+        bindings)))
 
 (defn valid-bindings?
   "A facet's whole `:facet-master/bindings` value: site → rows. Total — never
-   throws, so a hostile candidate becomes an error card, not an exception."
+   throws, so a hostile candidate becomes an error card, not an exception.
+
+   GRAMMAR v1 semantics, frozen. P6 does NOT strengthen this function: durable
+   v1 revisions are read under the v1 declaration forever, and re-reading them
+   through a stricter validator is exactly the reinterpretation P3's per-version
+   grammar map exists to make structurally impossible. The strengthening lives
+   in `valid-bindings-strict?` under a NEW grammar version."
   ([bindings] (valid-bindings? bindings true))
-  ([bindings bindable?]
-   (and (map? bindings)
-        (seq bindings)
-        (every?
-         (fn [[site rows]]
-           (and (contains? sites site)
-                (vector? rows)
-                (seq rows)
-                (every? #(valid-row? % bindable?) rows)
-                ;; the same (gesture, phase, modifiers) twice in ONE facet at
-                ;; ONE site is an authoring mistake, not a cross-facet
-                ;; conflict: refuse it here rather than lint it forever
-                (apply distinct?
-                       (map (juxt :binding/gesture
-                                  :binding/phase
-                                  :binding/modifiers)
-                            rows))))
-         bindings))))
+  ([bindings bindable?] (bindings-ok? bindings bindable? false)))
+
+(defn valid-bindings-strict?
+  "GRAMMAR v2 (P6 · T10) = v1 plus the site-can-feed-the-verb check. Additive:
+   every row v2 accepts, v1 accepted too. The twenty shipped rows all pass —
+   the only rows this refuses are the ones that could never have worked."
+  ([bindings] (valid-bindings-strict? bindings true))
+  ([bindings bindable?] (bindings-ok? bindings bindable? true)))
 
 (def bindings-validator
-  "Drop-in `:validators` entry for any facet-master grammar that carries rows."
+  "Drop-in `:validators` entry for a grammar carrying rows — v1 semantics."
   {:valid? valid-bindings?
+   :error-type :facet-master/bindings-invalid})
+
+(def strict-bindings-validator
+  "Drop-in `:validators` entry for a v2 grammar — v1 plus the T10 site check."
+  {:valid? valid-bindings-strict?
    :error-type :facet-master/bindings-invalid})
 
 ;; ===========================================================================
@@ -315,6 +395,12 @@
    material tier — the law needs no special case, and no revision can reach
    the camera because there is no row of its to reach with."
   :space)
+
+(def space-floor-master-id
+  "The space's floor label. There is no `fm:space` spec to derive one from, so
+   it is named here once and read from here by BOTH the served projection and
+   the client tiers (G14)."
+  "code-floor:space")
 
 (def space-floor-bindings
   "The space's rows, code side, forever (per the package: camera and space

@@ -149,7 +149,12 @@
             rollback
             (adapter/activate!
              runtime provenance/spec provenance-original-id
-             {:request/id "p2-rollback" :time-ms 40})
+             ;; P6 · R4/G8: re-wearing a prior revision is a ROLLBACK because
+             ;; the act declares it, not because the trail notices the target
+             ;; was seen before. The old pointer-shape heuristic could not tell
+             ;; this from a pin or a recovery; the declared kind can.
+             {:request/id "p2-rollback" :time-ms 40
+              :activation/kind :rollback})
             wearers
             [{:wearer/entity-id "du:z"
               :wearer/facets
@@ -246,7 +251,7 @@
             (filter #(= :candidate (:trail/kind %))
                     provenance-trail)
             activations
-            (filter #(= :activation (:trail/kind %))
+            (filter #(= :activate (:trail/kind %))
                     provenance-trail)
             rollbacks
             (filter #(= :rollback (:trail/kind %))

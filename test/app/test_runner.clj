@@ -78,6 +78,9 @@
     app.material-circulation-test
     "Cross-module activation and circulation mutate fixed facet-master and relation identities."
 
+    app.material-truth-test
+    "P6 gates mint instance masters, move shared activation pointers, upsert the episode registry index, and assert the process-global ingest epoch."
+
     app.provenance-material-test
     "Activation, malformed-candidate, and rollback gates mutate fixed facet-master pointers."
 
