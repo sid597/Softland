@@ -807,3 +807,40 @@
   booted cluster + dev app (both UP now).
 - Next: send PROMPTS.md **§P8** to a fresh session; then the return wear
   (headed looks now include `__portal` + the visual face + the 64 feel).
+
+- **2026-07-26 · Codex (implementer) · P8 BUILT (`15497df` + replay fix
+  `86c4255`) — the react-bits seam closed; report ingested by the P7-gate
+  session (this entry is ROUTING, not verification: commits verified present
+  + code-only + tree clean; every other claim below is the build session's
+  own and the gate re-derives). Gate review = FRESH session.**
+- The banked wish ("reply to just this block", LOG 07-18) travels as an
+  eight-node durable release chain — wish (committed blob addr, lines
+  727–736, never copied) → implementation (seven code-lane addresses,
+  blob-sha + path + anchors) → test receipt → build receipt → verb
+  `:resident/reply-to-block@1` (`:durable-via-request`) → ONE binding row
+  (`[:key/eval :complete]` at `:block/user-hit-area`, attention-v3) →
+  activation (request `p8-attention-v3-activate-15497df`, accepted, not a
+  replay) → worn (tier `:master`, worn revision == activated v3 revision).
+  Release ref `softland://verb-release/resident-reply-to-block/v1`,
+  readback found?/complete? true, errors [].
+- Ctrl+Enter now rides the material artery (synthetic claim → binding
+  resolver → verb → ONE invoke-verb! site → durable episode request); the
+  decision subject is frozen through dispatch. **P7 adjudication 3
+  honored**: the resident briefing rides a NARROWED open — live replay
+  62,378 bytes vs P7's ~955KB un-narrowed sitting; server re-derives
+  narrowing authoritatively (client cannot widen). Durable-before-resident
+  ordering on the server. Zero LLM calls in the projection path. Zero new
+  Rama organs. `__portal.release()` extends the namespace-preserving
+  console convention.
+- Build-session receipts (gate re-runs all): suite 454t/6,274a/0/0
+  (+10t/+49a over the P7 floor; flakes clean ×1) · cljs 271 files
+  0 warnings (via the running dev server) · portal replay on a real
+  `:human-message` entity — 0 errors, 0 unanswered, release worn? true ·
+  one mid-package defect (release reader read unit REFS as bodies →
+  accepted release read incomplete) caught by the live replay, fixed,
+  regression-pinned. **Terminal-escape gauge honestly `:ambiguous`**
+  (F4's permanent provenance clock regression; the report claims
+  package-level causal ordering proven — commit 116,871ms BEFORE
+  activation — and explicitly does NOT claim zero).
+- Next: FRESH session gates P8 (starter in the board HANDOFF). On PASS the
+  campaign build-out is COMPLETE and the board flips to the RETURN.

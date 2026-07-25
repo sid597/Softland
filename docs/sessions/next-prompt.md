@@ -7,72 +7,70 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
-## HANDOFF — P8 SEND (P7 GATED PASS; paste the starter prompt at the bottom
-## of this block to a fresh session)
+## HANDOFF — P8 GATE (the seam is BUILT; boot a FRESH session with the
+## starter prompt at the bottom of this block)
 
-**P7 GATED PASS 2026-07-25** (`GATE_P7.md`: gate object `04ae2df` + gate fix
-`c0838c1`). Everything re-derived by the gate: suite **444t/6,225a/0/0**
-exact · **cljs COLD 311 files / 0 warnings** · live open 1,243ms / 0 errors /
-0 unanswered with **Sid's 64 read back** (full trace, named rollback path) ·
-**cross-JVM byte determinism** (same sha, two fresh JVMs) · **read-only
-BYTE-IDENTICAL** across every mode and the whole headed sitting · fixed-FIVE
-sub-serves across nine modes (the N+1 STOP cannot fire) · the floor held
-under pr-str bombs + nested hostile ILookups. The headed `__portal` sitting
-ran the documented console calls through the real artery and **found + fixed
-one real defect** (`clj->js` namespace-stripping broke the promised
-`['portal/recipe']` accesses — portal seam now converts
-namespace-preserving). Adjudications (delegated, veto live): recipe NAME
-**"block" ACCEPTED** as working scaffolding · visual face → return-wear
-headed sitting, no P7b · briefing stays FULL verbatim, **narrowing via the
-OPEN's params is REQUIRED for P8's summon** (a real sitting's briefing
-measured ~240k tokens) · `resolved-wear` floor honesty = P1-shape fix,
-queued LATER · echo bar not gated (no keystroke-path touch).
+**P8 BUILT 2026-07-26 (`15497df` + replay fix `86c4255`, code+tests only —
+the implementer session writes no docs; the BUILT entry in
+`build/editable-material/NOW.md` is the P7-gate session's ROUTING of its
+report, not verification).** The banked wish ("reply to just this block",
+LOG 07-18) travels an eight-node durable release chain — wish → seven
+addressed implementation blobs → test receipt → build receipt → verb
+`:resident/reply-to-block@1` → ONE attention-v3 binding row → accepted
+activation → worn row (worn revision == activated revision). Ctrl+Enter
+rides the material artery end to end; the resident briefing rides a
+NARROWED open (62KB live vs P7's ~955KB un-narrowed — adjudication 3
+honored); durable-before-resident ordering; zero new Rama organs; the
+terminal-escape gauge stays honestly `:ambiguous` (F4) with package-level
+causal ordering claimed instead. One mid-package defect (release reader
+took unit refs for bodies) caught by the live replay, fixed,
+regression-pinned. Suite claim 454t/6,274a/0/0; cljs 271 files 0 warnings.
 
-**Sid's remaining touchpoints:** the P8 gate word (one line) · the headed
-looks — `__material.picked()` · `__portal` (open/questions/briefing/render/
-why/blast/at — console calls now replay verbatim) · ⌁/≈ marks · feel the 64
-width · the VISUAL portal face lands there too — fold into the return wear ·
-the return itself. Recipe name "block" is working scaffolding on Fable's
-delegated word — rename/withhold in one line anytime. Rollback of the 64:
-say the word.
+**On this gate's PASS the campaign build-out is COMPLETE** — the board
+flips to the RETURN (Sid's first full breath is the campaign's true gate;
+headed looks: `picked()` · `__portal` · `__portal.release()` · ⌁/≈ · the
+64 feel · the visual portal face).
 
-Ops: cluster UP (five modules RUNNING, booted by the gate after a machine
-reboot killed the daemons) · dev app UP on :8080 (gate session's boot —
-reuse or kill at will). **Env law (quirks memory): the Electric auth token
-lives in `.shadow-cljs/builds/dev/hyperfiddle.electric.token`; clearing the
-build cache evicts it and compiles park SILENTLY on a login deref — the
-prompt only shows in the dev-app log; Sid's one click re-auths.**
+**Sid's touchpoints:** the P8 gate word (one line) · then the return wear.
+
+Ops: cluster UP (five modules) · dev app UP on :8080. Quirks memory holds
+the Electric-auth-in-build-cache trap and the cold-compile recipe.
 
 ### Starter prompt — paste to a fresh session
 
 ```
-MODE: IMPLEMENT · one package only · repo /mnt/data/projects/Softland
-AUTHORITY: DIRECTION.md + CAMPAIGN.md. Prereq: P7 gate PASS; read
-NOW.md tail.
+MODE: GATE · editable-material P8 (verb-from-inside) · repo
+/mnt/data/projects/Softland
+AUTHORITY: DIRECTION.md + CAMPAIGN.md + PROMPTS.md §P8 + GATE_P7.md
+carry-ins (narrowed-briefing REQUIREMENT · namespace-preserving console
+convention · portal self-editing OFF). Read build/editable-material/NOW.md
+tail (the P8 BUILT entry) as INPUT, never authority — the code is what you
+judge. /rama + rama-pitfalls before any Rama reasoning.
 
-Package P8 — the react-bits seam closes: a BANKED behavioral wish
-("reply to just this block" — vision/LOG.md 2026-07-18) travels the
-full code-lane route AS MATERIAL: the wish (already recorded) → linked
-implementation in the code lane → build/test receipts land as
-addressable material (address code by blob-sha + path anchors, never
-copy — external-code-is-a-view law) → the verb registered versioned,
-effect-class durable-via-request → a material binding row references
-it → the behavior works in the land → the whole chain queryable from
-the portal (wish → code → receipts → verb → binding → worn).
-
-FENCES: implementation is REAL code with tests (no interpreted
-behavior DSL — the V4 wall stands); the binding remains closed-grammar
-data; hot reload is the dev loop, the activation event is the
-deployment record; nothing self-modifies the portal. STOPS: the wish
-demanding more than one verb + one binding (scope creep) → NOW.md +
-END. Output: the end-to-end chain replayed + queryable, and the
-terminal-escape gauge reading for the whole run.
-
-P7 carry-ins that bind P8: a summoned resident's briefing MUST ride a
-NARROWED open (master-ids/scope/cut — the full briefing measured ~240k
-tokens; GATE_P7.md adjudication 3) · portal self-editing stays OFF ·
-the portal console seam converts namespace-preserving — extend, never
-fork, that convention for any new console surface.
+P8 is BUILT at 15497df + 86c4255. Re-run everything yourself (clj -X:test;
+cljs compile via the RUNNING dev server lane — see quirks memory before
+touching the build cache). Falsify, hardest first:
+· the narrowing law — the server re-derives entity/conversation/master-ids
+  authoritatively; TRY to widen the briefing from the client (inject a
+  second entity, foreign wearers, extra master-ids). Any widening = FAIL.
+· single-artery — prove the OLD direct keyboard→resident path is GONE
+  (a surviving parallel dispatch is DIRECTION's FAIL-tell).
+· durable-before-resident — make the summon fail; the durable turn record
+  + settled relation must exist anyway, in order.
+· the release chain — replay from a FRESH JVM; all nine addresses resolve
+  to real OC anchors; NOTHING copied (external-code-is-a-view); the worn
+  revision byte-equals the activated attention-v3 revision; exactly ONE
+  binding row.
+· the gauge — `:ambiguous` is the only honest reading (F4's clock
+  regression); a session that massages it to zero FAILS the gate.
+LIVE: drive Ctrl+Enter on a real block through the land (drill lane fine),
+read the reply-to-the-addressed-block behavior + the release via
+__portal.release(); read-only byte-proof around every portal/release read.
+STOPS unchanged from PROMPTS §P8 (one verb + one binding). Adjudicate:
+does the campaign CLOSE on this PASS (board → RETURN), and does the F4
+detector get a LATER item or stay friction-driven?
+On PASS: GATE_P8.md + NOW entry + flip this board to the RETURN. On FAIL:
+findings verbatim in NOW, re-run the phase.
 ```
 
 **Campaign state:** **P1–P5 CLOSED — all gates PASS; Gates 1 + 2 of the
@@ -97,8 +95,9 @@ proper; suite 444t/6,225a re-derived, cljs cold 0 warnings, cross-JVM byte
 determinism, live read-only byte-identity, the documented console calls
 proven through the real artery after the sitting's namespace-stripping
 catch; recipe "block" accepted as working scaffolding on the delegated
-word). **Then P8 verb-from-inside — SENDABLE NOW (HANDOFF above; may
-overlap the return)** — ladder, stops, Sid's
+word). **P8 BUILT 07-26 (`15497df` + `86c4255`) — gate is a FRESH session
+(HANDOFF above); on its PASS the build-out is COMPLETE and the board flips
+to the RETURN** — ladder, stops, Sid's
 touchpoints in `CAMPAIGN.md`. first-light P3 fulfilled; P4/P5 fulfilled by P6's
 membrane + activation machinery under the first-light CONTRACT (G6/G7/G8
 shapes proven; its own G9 waits on Sid's return wear). Land is UP (five
