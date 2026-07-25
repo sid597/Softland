@@ -41,13 +41,15 @@
             [app.client.workspace.scene-runtime :as scene-rt]
             [app.client.workspace.scene-store :as ss]
             [app.shared.attention-material :as attention-material]
+            [app.shared.binding-material :as binding-material]
             [app.shared.facet-material :as facet-material]
             [app.shared.facet-masters :as facet-masters]
             [app.shared.foldable-material :as foldable-material]
             [app.shared.positioned-material :as positioned-material]
             [app.shared.provenance-material :as provenance-material]
             [app.shared.text-body-material :as text-body-material]
-            [app.shared.threaded-material :as threaded-material]))
+            [app.shared.threaded-material :as threaded-material]
+            [app.shared.verb-registry :as verb-registry]))
 
 ;; ===========================================================================
 ;; Boot decision
@@ -175,28 +177,59 @@
 (def ^:private err-col [0.95 0.45 0.40 1.0])
 (def ^:private amber [0.92 0.75 0.35 1.0])
 
+(def ^:private fold-sections
+  "The run block's header rows, in render order — each names the section it
+   labels and the `:foldable/defaults` key it toggles. P5: this vector IS the
+   header grammar. Row 0/1 arithmetic used to live in the pointer path; now the
+   header's own node is what the pick lands on, so the index is a render fact
+   only and the kernel never computes a row again."
+  [{:section :noise :fold-key :noise? :text-key :noise-text}
+   {:section :prose :fold-key :prose? :text-key :reply-text}])
+
+
+(defonce ^:private !wears-cache
+  ;; {:served <the exact served value> :wears {facet → wear}}
+  ;; P5 note (echo bar): reconcile rebuilds EVERY block per served context —
+  ;; i.e. per keystroke — and each rebuild resolved all six wears from scratch,
+  ;; re-running every grammar validator. Adding binding rows to three grammars
+  ;; would have multiplied that. The served value is replaced wholesale by the
+  ;; face-materials watch, so `identical?` is an exact cache key: one resolve
+  ;; per revision instead of one per block. It also makes `wears` the SAME
+  ;; object in every block's render signature, so the per-keystroke sig compare
+  ;; short-circuits on identity instead of deep-walking six maps.
+  (atom nil))
+
+(defn- resolve-material-wears
+  [by-id]
+  {:provenance
+   (provenance-material/resolved-wear
+    (get by-id provenance-material/master-id))
+   :attention
+   (attention-material/resolved-wear
+    (get by-id attention-material/master-id))
+   :foldable
+   (foldable-material/resolved-wear
+    (get by-id foldable-material/master-id))
+   :positioned
+   (positioned-material/resolved-wear
+    (get by-id positioned-material/master-id))
+   :threaded
+   (threaded-material/resolved-wear
+    (get by-id threaded-material/master-id))
+   :text-body
+   (text-body-material/resolved-wear
+    (get by-id text-body-material/master-id))})
+
 (defn- current-material-wears
   []
   (let [!served (get-in @!refs [:atoms :!facet-materials])
-        by-id (:facet-materials/by-id (when !served @!served))]
-    {:provenance
-     (provenance-material/resolved-wear
-      (get by-id provenance-material/master-id))
-     :attention
-     (attention-material/resolved-wear
-      (get by-id attention-material/master-id))
-     :foldable
-     (foldable-material/resolved-wear
-      (get by-id foldable-material/master-id))
-     :positioned
-     (positioned-material/resolved-wear
-      (get by-id positioned-material/master-id))
-     :threaded
-     (threaded-material/resolved-wear
-      (get by-id threaded-material/master-id))
-     :text-body
-     (text-body-material/resolved-wear
-      (get by-id text-body-material/master-id))}))
+        served (when !served @!served)
+        cached @!wears-cache]
+    (if (and cached (identical? served (:served cached)))
+      (:wears cached)
+      (let [wears (resolve-material-wears (:facet-materials/by-id served))]
+        (reset! !wears-cache {:served served :wears wears})
+        wears))))
 
 (defn- composition-lint-nodes
   [conflicts w h line-h font-size]
@@ -411,6 +444,32 @@
         conflict-nodes
         (composition-lint-nodes
          (:conflicts decoration-composition) w h line-h font-size)
+        ;; P5 family 1 — one HIT-ONLY node per fold header row. It carries no
+        ;; :bg, no :text and no :shadow, so tree->rects/tree->text-ops/
+        ;; tree->shadows all emit nothing for it: the containment path gets a
+        ;; finer grain at exactly zero pixels. Its band is the full block width
+        ;; over its own line, which is precisely the region the deleted
+        ;; `(<= row 1)` arithmetic used to select. Appended LAST so hit-test's
+        ;; reverse child walk reaches it before the attention box.
+        fold-header-nodes
+        (when (pos? nh)
+          (mapv
+           (fn [i {:keys [section fold-key]}]
+             (rt-node (keyword (str "ground-fold-header-hit-" (name section)))
+                      :hit-area
+                      {:x 0 :y (* i line-h) :w w :h line-h}
+                      :data
+                      (merge
+                       (foldable-stamp
+                        :fold-header-hit :fold-toggle :block/hit-area)
+                       {:address unit-id
+                        :material/claim
+                        {:claim/subject unit-id
+                         :claim/site :block/fold-header
+                         :claim/facets [:foldable]
+                         :claim/args {:section section :fold-key fold-key}}})))
+           (range)
+           (take nh fold-sections)))
         extra   (cond-> (vec sel-nodes)
                   ;; Task 18: group-selection member mark (marquee wash)
                   gsel?
@@ -494,7 +553,10 @@
                         (str "≈ machine guess · " text
                              (when (> count 1)
                                (str "  +" (dec count)))))
-                      0 line-h font-size dim 0)])))]
+                      0 line-h font-size dim 0)]))
+
+                  (seq fold-header-nodes)
+                  (into fold-header-nodes))]
     (rt/resolve-layout
      (rt-node :ground-block :text-run
               {:x 0 :y 0 :w (max w char-advance) :h (max h line-h)}
@@ -504,7 +566,19 @@
                   (merge
                    {:address unit-id}
                    (attention-stamp
-                    :hit-box :hit-target :block/hit-area))
+                    :hit-box :hit-target :block/hit-area)
+                   ;; P5 families 2+3 — the block-grain claim. The SITE is
+                   ;; decided here, at build time, from what the block IS, so
+                   ;; the dispatch function needs no machine?/user? branch:
+                   ;; attention's rows say what landing attention here means,
+                   ;; positioned's say what dragging it means.
+                   {:material/claim
+                    {:claim/subject unit-id
+                     :claim/site (if machine?
+                                   :block/machine-hit-area
+                                   :block/user-hit-area)
+                     :claim/facets [:attention :positioned]
+                     :claim/args {}}})
                 placement-derived?
                 (assoc
                  :material/positioned
@@ -709,8 +783,8 @@
   [unit-id foldable-wear]
   (let [cb  (context-block-entry unit-id)
         run (when (contains? cb :reply-text) cb)
-        {:keys [noise? prose?]}
-        (get @!folds unit-id (:foldable/defaults foldable-wear))]
+        folds (get @!folds unit-id (:foldable/defaults foldable-wear))
+        {:keys [noise? prose?]} folds]
     (when run
       {:display (cond
                   ;; both on → the full raw :text, served interleaved
@@ -725,10 +799,15 @@
                                                                 #"\n" -1)))
                               r))
                   :else   "")
-       :headers [(fold-header-line
-                  foldable-wear noise? :noise (:noise-text run))
-                 (fold-header-line
-                  foldable-wear prose? :prose (:reply-text run))]})))
+       ;; the header LINES stay exactly the vector every consumer already
+       ;; expects; `fold-sections` supplies the order, the copy selector, and
+       ;; the toggle key, so nothing here names a row index
+       :headers (mapv
+                 (fn [{:keys [section fold-key text-key]}]
+                   (fold-header-line
+                    foldable-wear (get folds fold-key) section
+                    (get run text-key)))
+                 fold-sections)})))
 
 (defn- machine-visual-lines
   "The RENDERED lines of a machine block (headers + folded display + wrap) —
@@ -1892,9 +1971,53 @@
   (refresh-anchor!))
 
 ;; ===========================================================================
-;; Pointer grammar (§9.4) — one ~4 CSS px threshold splits click from
-;; pan/drag; wheel zooms at the pointer
+;; The four stations of input (DIRECTION §The architecture) — editable-material
+;; P5. Mechanism here, policy in material:
+;;
+;;   1. gesture      — normalize the raw event                     (kernel)
+;;   2. pick         — ONE pick over the containment path          (kernel)
+;;   3. claim        — innermost matching binding row              (MATERIAL)
+;;   4. verb         — the named registry entry                    (kernel)
+;;
+;; Stations 3 and 4 are `binding-material/resolve-binding`, a pure function
+;; over data. It decides; nothing here decides. The only meaning-bearing
+;; branch left in this file is the one that picks a verb's implementation out
+;; of a map, so a NEW interaction is a row plus (at most) a registry entry —
+;; never a new line in pointer-down!/move!/up!.
+;;
+;; FROZEN BRANCH COUNTS (the package's per-family freeze): pointer-down! 0,
+;; pointer-move! 3 (:idle hover · :pending threshold · :active continuation),
+;; pointer-up! 2 (:pending tap · :active end), handle-wheel! 0. Those three
+;; move!/up! branches are the kernel's phase MACHINE — "which continuation is
+;; running" — not meaning. `dispatch-mechanism-budget` below states them as
+;; data and the suite asserts it, so growing them is a visible act.
+;;
+;; The ~4 CSS px threshold (§9.4) still splits click from pan/drag, and the
+;; wheel still zooms at the pointer — but both now arrive as rows.
 ;; ===========================================================================
+
+(def dispatch-mechanism-budget
+  "The kernel's whole dispatch surface, as data. Every legal gesture the
+   normalizer can produce, every phase the pointer machine can be in, and the
+   exact branch count of each entry point.
+
+   FROZEN at what P5 migrated. New MEANINGS arrive as binding rows and never
+   touch this map; it grows only for a genuinely new input device or
+   continuation moment — a kernel change, a grammar version, and a suite edit,
+   all visible.
+
+   `:mechanism-branches` counts branches on the pointer MACHINE's own state
+   (which continuation is running) and on a verb's declared continuation shape.
+   None of them branch on a gesture, a modifier, a subject kind, or a
+   geometric row — those were the ladders, and they are gone."
+  {:gestures binding-material/legal-gestures
+   :pointer-phases #{:idle :pending :active}
+   :continuations verb-registry/continuations
+   :meaning-branches 0
+   :mechanism-branches {:pointer-down! 0
+                        :pointer-move! 3
+                        :pointer-up! 2
+                        :handle-wheel! 0}})
 
 (defn- pick-at [sx sy]
   (let [[wx wy] (screen->world sx sy)]
@@ -1916,11 +2039,10 @@
 
 (defn- marquee-rect
   "The sweep rect in world coords, press point → pointer (Task 18)."
-  [p wx wy]
-  (let [[ax ay] (:world p)]
-    {:x (min ax wx) :y (min ay wy)
-     :w (max 2.0 (js/Math.abs (- wx ax)))
-     :h (max 2.0 (js/Math.abs (- wy ay)))}))
+  [[ax ay] wx wy]
+  {:x (min ax wx) :y (min ay wy)
+   :w (max 2.0 (js/Math.abs (- wx ax)))
+   :h (max 2.0 (js/Math.abs (- wy ay)))})
 
 (defn- refresh-marquee!
   "Paint/resize the marquee slot (attention-only visual, anchor pattern)."
@@ -1966,63 +2088,541 @@
       [uid]
       (into [src] (keep (fn [[k v]] (when (= src (:source-uid v)) k)) bs)))))
 
+;; ---------------------------------------------------------------------------
+;; Station 3's inputs — the three locality tiers
+;; ---------------------------------------------------------------------------
+
+(def ^:private floor-binding-rows
+  "Every facet's CODE FLOOR rows, read from its SPEC, plus the space's table.
+   A compile-time constant: this is the tier no revision can reach, which is
+   what makes click-focus survive any data revision and the camera survive
+   even a future `fm:space` master. Facets that carry no rows contribute nil."
+  (into {binding-material/space-facet binding-material/space-floor-bindings}
+        (map (fn [spec]
+               [(:facet-master/facet spec)
+                (:facet-master/bindings (facet-material/code-floor spec))]))
+        facet-masters/specs))
+
+(defonce ^:private !instance-bindings
+  ;; [subject site] → [row …] — the INNERMOST locality tier.
+  (atom {}))
+
+(defn set-instance-bindings!
+  "Install instance-tier rows for ONE subject at ONE site (DIRECTION: instance
+   material is legal; locality tiers decide precedence). Rows pass the SAME
+   closed grammar as master rows, so an instance row can no more name arbitrary
+   code — or a floor-reserved verb — than a master row can. A malformed set is
+   refused WHOLE; the tier is never half-installed.
+
+   P5 makes the tier legal and resolves it. It does NOT mint a durable owner
+   for instance rows: durable instance-level material is P6's instance-deviation
+   work (DIRECTION §Horizon — the material-truth owner condenses at the first
+   homeless truth, after a platform-check). Until then rows arrive through this
+   seam and die with the page, which is the honest lifetime of a client value."
+  [subject site rows]
+  (let [rows (vec rows)]
+    (cond
+      (not (contains? binding-material/sites site))
+      {:status :refused :error :binding/unknown-site :site site}
+
+      (not (binding-material/valid-bindings? {site rows}))
+      {:status :refused :error :facet-master/bindings-invalid
+       :subject subject :site site}
+
+      :else
+      (do (swap! !instance-bindings assoc [subject site] rows)
+          {:status :installed :subject subject :site site
+           :rows (count rows)}))))
+
+(defn clear-instance-bindings!
+  ([] (reset! !instance-bindings {}) {:status :cleared})
+  ([subject site]
+   (swap! !instance-bindings dissoc [subject site])
+   {:status :cleared :subject subject :site site}))
+
+(defn- current-master-binding-rows
+  "The MASTER tier: each served facet's active rows. Derived from the wears
+   cache, so it costs one map build per activation, not one per gesture. A
+   facet whose active revision predates its bindings grammar contributes nil —
+   and its floor rows carry the behavior, which is why the client is correct
+   before the P5 ingest is ever deployed."
+  []
+  (let [wears (current-material-wears)]
+    (or (:master-rows @!wears-cache)
+        (let [rows (persistent!
+                    (reduce-kv
+                     (fn [m facet wear]
+                       ;; a FLOORED wear (absent or malformed revision) already
+                       ;; IS the code floor: counting its rows as a master
+                       ;; contribution would report `:master` for a decision the
+                       ;; floor actually made, and the drill's tier receipt is
+                       ;; the fence's evidence. The floor tier answers instead.
+                       (assoc! m facet
+                               (when-not (:facet-master/floor? wear)
+                                 (:facet-master/bindings wear))))
+                     (transient {})
+                     wears))]
+          (swap! !wears-cache assoc :master-rows rows)
+          rows))))
+
+(defn- claim-chain
+  "Station 2 → station 3: the containment path's claims, INNERMOST FIRST.
+   `ss/pick` already returns the root→leaf path, so the reverse walk is the
+   law's outward fallthrough — a gesture the fold header does not name reaches
+   the block, and the block's claim terminates the chain.
+
+   A pick MISS (or a hit on a slot with no live-block claim — a stale slot, the
+   provisional projection) is the SPACE, exactly as the pre-P5 `b`-is-nil test
+   made it the `:ground` target. Note the space is not yet an entity IN the
+   containment path (space-as-outermost-entity is the last rung, by design):
+   it is the unclaimed fallback, and its rows live only on the code floor."
+  [hit]
+  (let [blocks (:blocks @!world)
+        claims (when hit
+                 (into []
+                       (keep
+                        (fn [node]
+                          (when-let [c (get-in node [:data :material/claim])]
+                            (when (contains? blocks (:claim/subject c)) c))))
+                       (rseq (:path hit))))]
+    (if (seq claims) claims binding-material/space-claim)))
+
+;; ---------------------------------------------------------------------------
+;; Conflict lint — a tie is rendered, never silent
+;; ---------------------------------------------------------------------------
+
+(def ^:private binding-lint-vi :ground-binding-lint)
+(defonce ^:private !binding-conflicts (atom []))
+
+(defn- refresh-binding-lint!
+  "Same-depth, same-tier, same-priority ties render as a card in the land. The
+   winner is still deterministic and the gesture still works — a tie degrades
+   to lint, never to a dead interaction. Unlike the malformed-candidate card
+   this is NOT drill-scoped: a tie lives in ACTIVE material, so it is the
+   land's business."
+  []
+  (let [conflicts @!binding-conflicts]
+    (if (seq conflicts)
+      (let [{:keys [font-size char-advance line-h]} (metrics)
+            lines
+            (into ["binding conflict · deterministic winner shown"]
+                  (map
+                   (fn [c]
+                     (str (pr-str (:binding/gesture c))
+                          " @ " (:binding/site c)
+                          " · " (pr-str (:binding/verbs c))
+                          " → " (pr-str (:binding/winner c))
+                          " (priority " (:binding/priority c) ")")))
+                  (take 6 conflicts))
+            pad 10.0
+            max-len (reduce max 1 (map count lines))
+            w (+ (* 2 pad) (* max-len char-advance))
+            h (+ (* 2 pad) (* (count lines) line-h))
+            ops (mapv (fn [i line]
+                        (text-op line i line-h font-size amber pad))
+                      (range)
+                      lines)
+            [x y] (screen->world 18.0 120.0)
+            tree (rt/resolve-layout
+                  (rt-node binding-lint-vi :error-card
+                           {:x 0 :y 0 :w w :h h}
+                           :style {:bg [0.20 0.15 0.05 0.96]
+                                   :border-width 1.0
+                                   :border-color [0.92 0.75 0.35 1.0]
+                                   :radius 4}
+                           :text ops
+                           :data {:binding/conflicts conflicts}))]
+        (if-let [slot (ss/slot (scene-rt/store-snapshot) binding-lint-vi)]
+          (do
+            (swap! scene-rt/!scene-store ss/upsert-slot binding-lint-vi
+                   {:tree tree :container (:container slot)
+                    :meta (:meta slot) :stratum (:stratum slot)
+                    :pre-resolved? true})
+            (scene-rt/set-transform! (:container slot) {:x x :y y}))
+          (scene-rt/register-face-instance!
+           binding-lint-vi tree
+           {:x x :y y :scale 1.0 :layer 6
+            :meta {:ground-binding-lint? true}
+            :pre-resolved? true})))
+      (scene-rt/close-instance! binding-lint-vi))))
+
+(defn- binding-tables
+  "The tiers as the interaction-table shape, for lint + the console listing."
+  []
+  (let [wears (current-material-wears)
+        master (current-master-binding-rows)]
+    (-> []
+        (into (map (fn [[[subject site] rows]]
+                     {:tier :instance :facet nil
+                      :master-id (str "instance:" subject)
+                      :revision-id nil :floor? false
+                      :bindings {site rows}}))
+              @!instance-bindings)
+        (into (comp (filter (comp seq val))
+                    (map (fn [[facet rows]]
+                           (let [wear (get wears facet)]
+                             {:tier :master :facet facet
+                              :master-id (:facet-master/id wear)
+                              :revision-id (:facet-master/revision-id wear)
+                              :floor? (true? (:facet-master/floor? wear))
+                              :bindings rows}))))
+              master)
+        (into (comp (filter (comp seq val))
+                    (map (fn [[facet rows]]
+                           {:tier :floor :facet facet
+                            :master-id (if (= binding-material/space-facet facet)
+                                         "code-floor:space"
+                                         (str "code-floor:" (name facet)))
+                            :revision-id nil :floor? true
+                            :bindings rows})))
+              floor-binding-rows))))
+
+(defn- recompute-binding-conflicts!
+  "Recompute lint over the WHOLE served table, not only what a gesture happens
+   to trip. Called wherever the material changes, so a tie is visible before
+   anyone touches it."
+  []
+  (let [conflicts (binding-material/table-conflicts
+                   (binding-material/table-rows (binding-tables)))]
+    (when (not= conflicts @!binding-conflicts)
+      (reset! !binding-conflicts conflicts)
+      (refresh-binding-lint!))))
+
+;; ---------------------------------------------------------------------------
+;; Station 4 — the verb implementations
+;; ---------------------------------------------------------------------------
+
+(defonce ^:private !verb-impls
+  ;; verb-name → {continuation → (fn [ctx] …)}. The registry declares WHAT a
+  ;; verb is (name, version, effect class); this atom holds the code. A row can
+  ;; only reach a declared name, and only a declared name can be registered
+  ;; here, so material and code meet at exactly one closed vocabulary.
+  (atom {}))
+
+(defn- register-verb!
+  [verb-name impls]
+  (when-not (verb-registry/entry verb-name)
+    (throw (ex-info "verb not in the registry" {:verb verb-name})))
+  (swap! !verb-impls assoc verb-name impls))
+
+;; :focus/place-caret ← pointer-up! :pending, non-machine block
+(register-verb! :focus/place-caret
+  {:invoke
+   (fn [{:keys [subject press]}]
+     (when (get-in @!world [:blocks subject])
+       (let [old   (:focus @!ground-edit)
+             truth (or (truth-text subject) "")]
+         (swap! !ground-edit ge/focus-block subject truth
+                (:press/caret-truth press))
+         (refresh-anchor!)
+         (when (and old (not= old subject)) (rebuild-block! old))
+         (rebuild-block! subject))))})
+
+;; :focus/enter-block ← pointer-down!'s `(when (and text? (not= uid focus)) …)`
+(register-verb! :focus/enter-block
+  {:invoke
+   (fn [{:keys [subject press]}]
+     (when (and (get-in @!world [:blocks subject])
+                (not= subject (:focus @!ground-edit)))
+       (let [old   (:focus @!ground-edit)
+             truth (or (truth-text subject) "")]
+         (swap! !ground-edit ge/focus-block subject truth
+                (:press/caret-truth press))
+         (refresh-anchor!)
+         (when old (rebuild-block! old))
+         (rebuild-block! subject))))})
+
+;; :focus/release ← pointer-up! :pending, machine block with no fold row
+(register-verb! :focus/release
+  {:invoke
+   (fn [{:keys [subject]}]
+     (let [old (:focus @!ground-edit)]
+       (swap! !ground-edit ge/escape)
+       (refresh-anchor!)
+       (when old (rebuild-block! old))
+       (rebuild-block! subject)))})
+
+;; :fold/toggle-section ← pointer-up! :pending fold branch (Task 7). The
+;; section arrives from the CLAIM: the header node hit is the section.
+(register-verb! :fold/toggle-section
+  {:invoke
+   (fn [{:keys [subject args]}]
+     (swap! !folds update subject
+            (fn [f]
+              (update
+               (or f
+                   (:foldable/defaults
+                    (:foldable (current-material-wears))))
+               (:fold-key args)
+               not)))
+     (rebuild-block! subject))})
+
+;; :anchor/place ← pointer-up! :pending, :ground target (Law 1)
+(register-verb! :anchor/place
+  {:invoke
+   (fn [{:keys [press]}]
+     (let [[wx wy] (:press/world press)]
+       (swap! !ground-edit ge/set-anchor {:x wx :y wy})
+       (refresh-anchor!)
+       ;; PRESERVED AS FOUND, not as intended: `set-anchor` already cleared
+       ;; :focus, so this read is nil and the previously-focused block is NOT
+       ;; rebuilt here (its ring clears on the next reconcile). The comment it
+       ;; carried pre-P5 — "click-elsewhere leaves a focused block first" —
+       ;; describes the intent, not the behavior. A strangler migration must
+       ;; not silently change behavior, so the order is kept and the finding is
+       ;; reported instead of smuggled.
+       (when-let [old (:focus @!ground-edit)] (rebuild-block! old))))})
+
+;; :selection/text-begin ← pointer-move! :pending `(:text? p)` + :selecting
+(register-verb! :selection/text-begin
+  {:begin
+   (fn [{:keys [press]}]
+     (clear-machine-sel!)
+     (swap! !ground-edit ge/begin-select (:press/caret-confirmed press)))
+   :move
+   (fn [{:keys [subject world]}]
+     (let [b (get-in @!world [:blocks subject])
+           [wx wy] world]
+       (when b
+         (swap! !ground-edit ge/extend-select
+                (world->caret b (get-in @!ground-edit
+                                        [:queue :confirmed :text])
+                              wx wy (metrics)))
+         (rebuild-block! subject))))
+   :end (fn [_] nil)})
+
+;; :selection/machine-begin ← pointer-move! :pending `(:mtext? p)` + :mselecting
+(register-verb! :selection/machine-begin
+  {:begin
+   (fn [{:keys [subject press]}]
+     (when-let [old (:focus @!ground-edit)]
+       (swap! !ground-edit assoc :selection nil)
+       (rebuild-block! old))
+     (reset! !machine-sel {:uid subject
+                           :anchor (:press/lc press)
+                           :head (:press/lc press)}))
+   :move
+   (fn [{:keys [subject world]}]
+     (let [b (get-in @!world [:blocks subject])
+           [wx wy] world]
+       (when b
+         (swap! !machine-sel assoc :head (world->lc b wx wy (metrics)))
+         (rebuild-block! subject))))
+   :end (fn [_] nil)})
+
+;; :selection/marquee-begin ← pointer-move! :pending marquee + pointer-up!
+;; :marquee (Task 18)
+(register-verb! :selection/marquee-begin
+  {:begin
+   (fn [{:keys [press world]}]
+     (clear-machine-sel!)
+     (clear-group-sel!)
+     (let [[wx wy] world]
+       (refresh-marquee! (marquee-rect (:press/world press) wx wy))))
+   :move
+   (fn [{:keys [press world]}]
+     (let [[wx wy] world]
+       (refresh-marquee! (marquee-rect (:press/world press) wx wy))))
+   :end
+   (fn [{:keys [press world]}]
+     (let [[wx wy] world
+           hit (marquee-hits (marquee-rect (:press/world press) wx wy))]
+       (scene-rt/close-instance! :ground-marquee)
+       (js/console.log "[GROUND-SEL] marquee up" (str "hit=" (count hit)))
+       (reset! !group-sel hit)
+       (doseq [uid hit] (rebuild-block! uid))))})
+
+;; :placement/drag-group ← pointer-move! :pending :else + :dragging +
+;; pointer-up! :dragging (Task 4). Per-member grabs are frozen at press, so
+;; the group drags as a RIGID formation.
+(register-verb! :placement/drag-group
+  {:begin (fn [_] nil)
+   :move
+   (fn [{:keys [subject press world]}]
+     (let [[wx wy] world]
+       (doseq [[guid [gx gy]] (or (seq (:press/grabs press))
+                                  [[subject (:press/grab press)]])]
+         (let [pos {:x (+ wx gx) :y (+ wy gy)}]
+           (swap! !world update-in [:blocks guid] merge pos)
+           (when-let [cid (get-in @!world [:blocks guid :cid])]
+             (scene-rt/set-transform! cid pos))))))
+   :end
+   ;; gesture end ARMS the settle for EVERY dragged member — the debounce
+   ;; coalesces the group into ONE acked cells write, never per-event. This is
+   ;; why the verb's effect class is :durable-via-request.
+   (fn [{:keys [subject press]}]
+     (doseq [[guid _] (or (seq (:press/grabs press)) [[subject nil]])]
+       (when-let [gb (get-in @!world [:blocks guid])]
+         (arm-settle! :cell guid {:x (:x gb) :y (:y gb)}))))})
+
+;; :camera/pan ← pointer-move! :panning + pointer-up! :panning. Floor-reserved.
+(register-verb! :camera/pan
+  {:begin (fn [_] nil)
+   :move
+   (fn [{:keys [press screen]}]
+     (let [[sx sy] screen
+           [sx0 sy0] (:press/screen press)
+           cam0 (:press/camera press)]
+       (reset! !camera (assoc cam0
+                              :x (+ (:x cam0) (- sx sx0))
+                              :y (+ (:y cam0) (- sy sy0))))))
+   :end (fn [_] (arm-settle! :camera))})
+
+;; :camera/zoom-at-pointer ← handle-wheel! (§9.4). Floor-reserved.
+(register-verb! :camera/zoom-at-pointer
+  {:invoke
+   (fn [{:keys [wheel screen]}]
+     (let [[x y] screen
+           {:keys [zoom] :as _cam} @!camera
+           factor (js/Math.pow 1.0015 (- (:dy wheel)))
+           zoom'  (-> (* zoom factor) (max 0.1) (min 8.0))
+           [wx wy] (screen->world x y)]
+       (reset! !camera {:x (- x (* wx zoom'))
+                        :y (- y (* wy zoom'))
+                        :zoom zoom'})
+       (arm-settle! :camera)))})
+
+;; ---------------------------------------------------------------------------
+;; THE dispatch — one law, no gesture-specific branch
+;; ---------------------------------------------------------------------------
+
+(defn- decide
+  "Stations 1–3 as one pure-input call. Returns the decision; effects nothing."
+  [{:keys [kind phase modifiers hit]}]
+  (binding-material/resolve-binding
+   {:gesture (binding-material/normalize-gesture kind phase modifiers)
+    :claims (claim-chain hit)
+    :facet-rows (current-master-binding-rows)
+    :floor-rows floor-binding-rows
+    :instance-rows @!instance-bindings}))
+
+(defn- conflict-key
+  "A tie's identity: which gesture, at which site, in which tier, at which
+   priority. `resolve-binding`'s live conflict carries a subject and a depth
+   that the whole-table lint does not, so identity has to be the tie itself —
+   otherwise one tie renders twice, once per shape."
+  [c]
+  [(:binding/gesture c) (:binding/site c)
+   (:binding/tier c) (:binding/priority c)])
+
+(defn- note-conflicts!
+  [decision]
+  (when-let [cs (seq (:decision/conflicts decision))]
+    (let [known (into #{} (map conflict-key) @!binding-conflicts)
+          fresh (remove #(contains? known (conflict-key %)) cs)]
+      (when (seq fresh)
+        (swap! !binding-conflicts into fresh)
+        (refresh-binding-lint!)))))
+
+(defn- invoke-verb!
+  "Station 4. The ONE side-effecting site in the whole dispatch: everything
+   upstream is pure data, which is why `no side effects in reactive queries`
+   holds structurally — nothing above this line can effect even if a caller
+   wanted it to."
+  [decision continuation ctx]
+  (when-let [verb-name (get-in decision [:decision/verb :verb/name])]
+    (when-let [impl (get-in @!verb-impls [verb-name continuation])]
+      (impl (assoc ctx
+                   :verb verb-name
+                   :subject (:decision/subject decision)
+                   :args (:decision/args decision)
+                   :decision decision))
+      verb-name)))
+
+(defn- dispatch!
+  "Normalize → pick → resolve → invoke, for a DISCRETE gesture."
+  [{:keys [kind phase modifiers hit press screen world wheel]}]
+  (let [decision (decide {:kind kind :phase phase
+                          :modifiers modifiers :hit hit})]
+    (note-conflicts! decision)
+    (invoke-verb! decision :invoke
+                  {:press press :screen screen :world world :wheel wheel})
+    decision))
+
+;; ---------------------------------------------------------------------------
+;; The pointer machine — three phases, zero meaning
+;; ---------------------------------------------------------------------------
+
+(defn- press-record
+  "Everything a later station may need about the press, all of it GEOMETRY
+   (mechanism, frozen). The three caret derivations are computed here rather
+   than in a verb so that a threshold or tap resolves against the point that
+   was actually pressed — the pre-P5 code did exactly the same, eagerly, in
+   pointer-down!."
+  [sx sy shift? hit]
+  (let [[wx wy] (screen->world sx sy)
+        subject (let [addr (:address hit)]
+                  (when (get-in @!world [:blocks addr]) addr))
+        b       (when subject (get-in @!world [:blocks subject]))
+        m       (metrics)]
+    (cond-> {:press/screen [sx sy]
+             :press/world [wx wy]
+             :press/modifiers (if shift? #{:shift} #{})
+             :press/hit hit
+             :press/subject subject
+             :press/camera @!camera}
+      b (assoc
+         :press/grab [(- (:x b) wx) (- (:y b) wy)]
+         ;; per-member grabs frozen at press: the group drags as a RIGID
+         ;; formation (each member keeps its offset)
+         :press/grabs
+         (vec (keep (fn [guid]
+                      (when-let [gb (get-in @!world [:blocks guid])]
+                        [guid [(- (:x gb) wx) (- (:y gb) wy)]]))
+                    (drag-group subject)))
+         :press/caret-truth
+         (world->caret b (or (truth-text subject) "") wx wy m)
+         :press/caret-confirmed
+         (world->caret b (get-in @!ground-edit [:queue :confirmed :text])
+                       wx wy m)
+         :press/lc (world->lc b wx wy m)))))
+
+(defn- reread-confirmed-caret
+  "Re-read the confirmed-queue caret AFTER the press verbs have run.
+
+   This is load-bearing, not tidying: `ge/focus-block` REPLACES the confirmed
+   queue with the newly focused block's truth, and pre-P5 pointer-down! built
+   its selection-anchor caret AFTER its own focus branch — so a shift-press that
+   focused an unfocused block anchored the selection in THAT block's text.
+   Reading it before the press dispatch would anchor in the previous focus's
+   text instead. Same point, same math, correct moment."
+  [press]
+  (let [subject (:press/subject press)
+        b (when subject (get-in @!world [:blocks subject]))]
+    (if b
+      (let [[wx wy] (:press/world press)]
+        (assoc press :press/caret-confirmed
+               (world->caret
+                b (get-in @!ground-edit [:queue :confirmed :text])
+                wx wy (metrics))))
+      press)))
+
 (defn pointer-down!
   ([sx sy] (pointer-down! sx sy false))
   ([sx sy shift?]
-   (let [hit  (pick-at sx sy)
+   (let [hit   (pick-at sx sy)
          ;; deictic seam (scene-substrate P4): pointing is a click act, never
          ;; a hover side effect
-         _    (scene-rt/record-pick! (vec (screen->world sx sy)) hit)
-         uid  (:address hit)
-         b    (when uid (get-in @!world [:blocks uid]))
-         [wx wy] (screen->world sx sy)
-         ;; Task 11 (Sid's rule): SHIFT+press-drag on a block is TEXTUAL — it
-         ;; selects; a plain drag ALWAYS moves the block group. Shift on an
-         ;; unfocused user block focuses it in the same gesture; on a MACHINE
-         ;; block it selects over the RENDERED lines (read-only — copy what
-         ;; you see, no edit lane).
-         text?  (boolean (and shift? b (not (:machine? b))))
-         mtext? (boolean (and shift? b (:machine? b)))
-         _ (js/console.log "[GROUND-SEL] down"
-                           (str "shift?=" shift?)
-                           (str "uid=" (pr-str uid))
-                           (str "machine?=" (boolean (:machine? b)))
-                           (str "focus=" (pr-str (:focus @!ground-edit)))
-                           (str "text?=" text?)
-                           (str "mtext?=" mtext?))]
-     (when (and text? (not= uid (:focus @!ground-edit)))
-       (let [old   (:focus @!ground-edit)
-             truth (or (truth-text uid) "")]
-         (swap! !ground-edit ge/focus-block uid truth
-                (world->caret b truth wx wy (metrics)))
-         (refresh-anchor!)
-         (when old (rebuild-block! old))
-         (rebuild-block! uid)))
-     (reset! !pointer
-             (if b
-               (cond-> {:phase :pending :screen [sx sy] :world [wx wy]
-                        :target uid :grab [(- (:x b) wx) (- (:y b) wy)]
-                        ;; per-member grabs frozen at press: the group drags as
-                        ;; a RIGID formation (each member keeps its offset)
-                        :group (vec (keep (fn [guid]
-                                            (when-let [gb (get-in @!world [:blocks guid])]
-                                              [guid [(- (:x gb) wx) (- (:y gb) wy)]]))
-                                          (drag-group uid)))}
-                 text?
-                 (assoc :text? true
-                        :sel-caret (world->caret
-                                    b (get-in @!ground-edit
-                                              [:queue :confirmed :text])
-                                    wx wy (metrics)))
-                 mtext?
-                 (assoc :mtext? true
-                        :sel-lc (world->lc b wx wy (metrics))))
-               {:phase :pending :screen [sx sy] :world [wx wy]
-                :target :ground :cam-start @!camera :shift? shift?})))))
+         _     (scene-rt/record-pick! (vec (screen->world sx sy)) hit)
+         press (press-record sx sy shift? hit)]
+     (js/console.log "[GROUND-SEL] down"
+                     (str "shift?=" shift?)
+                     (str "subject=" (pr-str (:press/subject press)))
+                     (str "focus=" (pr-str (:focus @!ground-edit))))
+     ;; the press gesture itself is dispatchable — attention's shift-press row
+     ;; is what used to be pointer-down!'s inline focus branch
+     (dispatch! {:kind :pointer/press :phase :begin
+                 :modifiers (:press/modifiers press)
+                 :hit hit :press press :screen [sx sy]
+                 :world (:press/world press)})
+     (reset! !pointer {:phase :pending
+                       :press (reread-confirmed-caret press)}))))
 
 (defn pointer-move! [sx sy]
-  ;; hover = attention (Law 10) — ephemeral, never restored
   (let [p @!pointer]
+    ;; hover = attention (Law 10) — ephemeral, never restored. Universal: it
+    ;; runs for every idle move regardless of any claim, so it is not a branch
+    ;; of meaning.
     (when (= :idle (:phase p))
       (let [uid (:address (pick-at sx sy))
             uid (when (get-in @!world [:blocks uid]) uid)]
@@ -2032,160 +2632,246 @@
             (when old (rebuild-block! old))
             (when uid (rebuild-block! uid))))))
     (case (:phase p)
+      ;; --- threshold: the press becomes a continuous gesture ---------------
       :pending
-      (when (ge/drag? (:screen p) [sx sy] drag-threshold-px)
-        (cond
-          (:text? p)
-          (do (js/console.log "[GROUND-SEL] threshold → :selecting"
-                              (str "caret0=" (:sel-caret p)))
-              (clear-machine-sel!)
-              (swap! !ground-edit ge/begin-select (:sel-caret p))
-              (swap! !pointer assoc :phase :selecting))
-          (:mtext? p)
-          (do (js/console.log "[GROUND-SEL] threshold → :mselecting"
-                              (str "lc0=" (pr-str (:sel-lc p))))
-              (when-let [old (:focus @!ground-edit)]
-                (swap! !ground-edit assoc :selection nil)
-                (rebuild-block! old))
-              (reset! !machine-sel {:uid (:target p)
-                                    :anchor (:sel-lc p) :head (:sel-lc p)})
-              (swap! !pointer assoc :phase :mselecting))
-          ;; Task 18: shift+drag on EMPTY ground sweeps a group-selection
-          (and (= :ground (:target p)) (:shift? p))
-          (let [[wx wy] (screen->world sx sy)]
-            (js/console.log "[GROUND-SEL] threshold → :marquee")
-            (clear-machine-sel!)
-            (clear-group-sel!)
-            (swap! !pointer assoc :phase :marquee)
-            (refresh-marquee! (marquee-rect p wx wy)))
-          :else
-          (let [ph (if (= :ground (:target p)) :panning :dragging)]
-            (js/console.log "[GROUND-SEL] threshold →" (str ph)
-                            (str "target=" (pr-str (:target p))))
-            (swap! !pointer assoc :phase ph))))
-      :marquee
-      (let [[wx wy] (screen->world sx sy)]
-        (refresh-marquee! (marquee-rect p wx wy)))
-      :mselecting
-      (let [uid (:target p)
-            b   (get-in @!world [:blocks uid])
-            [wx wy] (screen->world sx sy)]
-        (when b
-          (swap! !machine-sel assoc :head (world->lc b wx wy (metrics)))
-          (rebuild-block! uid)))
-      :selecting
-      (let [fid (:target p)
-            b   (get-in @!world [:blocks fid])
-            [wx wy] (screen->world sx sy)]
-        (when b
-          (swap! !ground-edit ge/extend-select
-                 (world->caret b (get-in @!ground-edit [:queue :confirmed :text])
-                               wx wy (metrics)))
-          (rebuild-block! fid)))
-      :panning
-      (let [[sx0 sy0] (:screen p)
-            cam0 (:cam-start p)]
-        (reset! !camera (assoc cam0
-                               :x (+ (:x cam0) (- sx sx0))
-                               :y (+ (:y cam0) (- sy sy0)))))
-      :dragging
-      (let [[wx wy] (screen->world sx sy)]
-        (doseq [[guid [gx gy]] (or (seq (:group p))
-                                   [[(:target p) (:grab p)]])]
-          (let [pos {:x (+ wx gx) :y (+ wy gy)}]
-            (swap! !world update-in [:blocks guid] merge pos)
-            (when-let [cid (get-in @!world [:blocks guid :cid])]
-              (scene-rt/set-transform! cid pos)))))
+      (when (ge/drag? (:press/screen (:press p)) [sx sy] drag-threshold-px)
+        (let [press    (:press p)
+              decision (decide {:kind :pointer/press :phase :threshold
+                                :modifiers (:press/modifiers press)
+                                :hit (:press/hit press)})
+              verb     (get-in decision [:decision/verb :verb/name])
+              ctx      {:press press :screen [sx sy]
+                        :world (vec (screen->world sx sy))}]
+          (note-conflicts! decision)
+          (js/console.log "[GROUND-SEL] threshold →" (str verb)
+                          (str "subject=" (pr-str (:decision/subject decision)))
+                          (str "tier=" (pr-str (:decision/tier decision))))
+          (if (verb-registry/continuous? verb)
+            (do (invoke-verb! decision :begin ctx)
+                (reset! !pointer {:phase :active :press press
+                                  :verb verb :decision decision}))
+            ;; a discrete verb (or none) at the threshold consumes the press:
+            ;; the release is inert, exactly as crossing the threshold has
+            ;; always meant "this is no longer a tap"
+            (do (invoke-verb! decision :invoke ctx)
+                (reset! !pointer {:phase :active :press press
+                                  :verb nil :decision nil})))))
+
+      ;; --- the running gesture's continuation ------------------------------
+      :active
+      (invoke-verb! (:decision p) :move
+                    {:press (:press p) :screen [sx sy]
+                     :world (vec (screen->world sx sy))})
       nil)))
 
 (defn pointer-up! [sx sy]
   (let [p @!pointer]
     (js/console.log "[GROUND-SEL] up" (str "phase=" (:phase p))
+                    (str "verb=" (pr-str (:verb p)))
                     (str "sel=" (pr-str (ge/selection-range @!ground-edit))))
     (reset! !pointer {:phase :idle})
     (case (:phase p)
+      ;; --- the press never crossed the threshold: it is a TAP --------------
       :pending
-      (do
-        ;; a clean click anywhere dissolves the machine + group selections
+      (let [press (:press p)]
+        ;; a clean click anywhere dissolves the machine + group selections.
+        ;; Universal to the tap gesture, claim or no claim — not a branch.
         (clear-machine-sel!)
         (clear-group-sel!)
-        (if (= :ground (:target p))
-        ;; click on empty ground: caret anchor at the chosen point (Law 1);
-        ;; click-elsewhere leaves a focused block first
-        (let [[wx wy] (:world p)]
-          (swap! !ground-edit ge/set-anchor {:x wx :y wy})
-          (refresh-anchor!)
-          (when-let [old (:focus @!ground-edit)] (rebuild-block! old)))
-        ;; clean click on a block: edit caret at the clicked position.
-        ;; Machine blocks are read-only while replies render merged
-        ;; (merge-machine-turn-blocks): focusing one would route an edit
-        ;; envelope carrying the whole turn's text at a single unit.
-        (let [uid   (:target p)
-              b     (get-in @!world [:blocks uid])
-              old   (:focus @!ground-edit)]
-          (if (:machine? b)
-            (let [m (metrics)
-                  [_wx wy] (:world p)
-                  run? (contains? (context-block-entry uid) :reply-text)
-                  ;; the two header lines are the toggle targets (Task 7):
-                  ;; row 0 = noise header, row 1 = prose header
-                  row  (max 0 (js/Math.floor (/ (- wy (:y b)) (:line-h m))))
-                  fold (when (and run? (<= row 1))
-                         (if (zero? row) :noise? :prose?))]
-              (if fold
-                (do (swap! !folds update uid
-                           (fn [f]
-                             (update
-                              (or f
-                                  (:foldable/defaults
-                                   (:foldable (current-material-wears))))
-                              fold
-                              not)))
-                    (rebuild-block! uid))
-                (do (swap! !ground-edit ge/escape)
-                    (refresh-anchor!)
-                    (when old (rebuild-block! old))
-                    (rebuild-block! uid))))
-            (let [m     (metrics)
-                  [wx wy] (:world p)
-                  truth (or (truth-text uid) "")
-                  line  (js/Math.floor (/ (- wy (:y b)) (:line-h m)))
-                  col   (js/Math.round (/ (- wx (:x b)) (:char-advance m)))
-                  caret (ge/line-col->caret truth (max 0 line) (max 0 col))]
-              (swap! !ground-edit ge/focus-block uid truth caret)
-              (refresh-anchor!)
-              (when (and old (not= old uid)) (rebuild-block! old))
-              (rebuild-block! uid))))))
-      :marquee
-      (let [[wx wy] (screen->world sx sy)
-            hit (marquee-hits (marquee-rect p wx wy))]
-        (scene-rt/close-instance! :ground-marquee)
-        (js/console.log "[GROUND-SEL] marquee up" (str "hit=" (count hit)))
-        (reset! !group-sel hit)
-        (doseq [uid hit] (rebuild-block! uid)))
-      :dragging
-      ;; gesture end ARMS the settle for EVERY dragged member (positions
-      ;; settle as truth at release — the debounce coalesces the group
-      ;; into ONE acked cells write, never per-event)
-      (doseq [[guid _] (or (seq (:group p)) [[(:target p) nil]])]
-        (when-let [gb (get-in @!world [:blocks guid])]
-          (arm-settle! :cell guid {:x (:x gb) :y (:y gb)})))
-      :panning
-      (arm-settle! :camera)
+        (dispatch! {:kind :pointer/tap :phase :complete
+                    :modifiers (:press/modifiers press)
+                    :hit (:press/hit press) :press press
+                    :screen [sx sy] :world (:press/world press)}))
+
+      ;; --- the running gesture ends ---------------------------------------
+      :active
+      (invoke-verb! (:decision p) :end
+                    {:press (:press p) :screen [sx sy]
+                     :world (vec (screen->world sx sy))})
       nil)))
 
 (defn handle-wheel!
-  "Wheel zooms at the pointer — the world point under the pointer stays
-   under it (§9.4). Camera settles at burst end (debounce)."
-  [{:keys [dy x y]}]
-  (let [{:keys [zoom] :as cam} @!camera
-        factor (js/Math.pow 1.0015 (- dy))
-        zoom'  (-> (* zoom factor) (max 0.1) (min 8.0))
-        [wx wy] (screen->world x y)]
-    (reset! !camera {:x (- x (* wx zoom'))
-                     :y (- y (* wy zoom'))
-                     :zoom zoom'})
-    (arm-settle! :camera)))
+  "The wheel rides the same law: normalize → pick → resolve → verb. Its row is
+   on the space's code floor and its verb is floor-reserved, so no data
+   revision can take the zoom away (§9.4)."
+  [{:keys [x y shift?] :as wheel}]
+  (dispatch! {:kind :wheel :phase :complete
+              :modifiers (if shift? #{:shift} #{})
+              ;; the wheel zooms the SPACE: it is not a pick-addressed gesture,
+              ;; so it resolves against the space claim by construction
+              :hit nil
+              :wheel wheel
+              :screen [x y]
+              :world (vec (screen->world x y))}))
+
+;; ===========================================================================
+;; The binding seam — window.__bindings: the served interaction table, the
+;; locality-tier install point, and the malformed-bindings floor drill
+;; ===========================================================================
+
+(defn- served-facet-materials
+  []
+  (let [!served (get-in @!refs [:atoms :!facet-materials])]
+    (:facet-materials/by-id (when !served @!served))))
+
+(defn- rows-under-served
+  "The MASTER tier as it would resolve from a HYPOTHETICAL served map, through
+   the SAME `resolved-wear` path the renderer uses — including the floored-wear
+   filter `current-master-binding-rows` applies, so the drill's tier column
+   reports who ACTUALLY answered. The drill measures real totality instead of a
+   hand-made stand-in, and it writes nothing."
+  [by-id]
+  (persistent!
+   (reduce-kv (fn [m facet wear]
+                (assoc! m facet
+                        (when-not (:facet-master/floor? wear)
+                          (:facet-master/bindings wear))))
+              (transient {})
+              (resolve-material-wears by-id))))
+
+(defn- drill-served-entry
+  "One served entry, deliberately hostile."
+  [spec kind]
+  (let [master-id (:facet-master/id spec)
+        facet (:facet-master/facet spec)
+        grammar (:facet-master/grammar (facet-material/code-floor spec))
+        material-keys (get-in spec [:facet-master/grammars grammar
+                                    :material-keys])
+        floor-material (select-keys (facet-material/code-floor spec)
+                                    material-keys)]
+    (case kind
+      ;; bytes that cannot compile: `resolved-wear` must hand back the floor
+      :malformed
+      {:facet-master/id master-id
+       :facet-master/facet facet
+       :facet-master/grammar grammar
+       :facet-master/active-revision-id "rev:drill:malformed-bindings"
+       :facet-master/material {:drill/garbage true}}
+
+      ;; a VALID revision that simply drops every tap row. Nothing refuses it —
+      ;; and the floor tier underneath still answers the tap. This is the half
+      ;; a malformed-only drill cannot prove.
+      :tap-stripped
+      {:facet-master/id master-id
+       :facet-master/facet facet
+       :facet-master/grammar grammar
+       :facet-master/active-revision-id "rev:drill:tap-stripped"
+       :facet-master/material
+       (assoc floor-material
+              :facet-master/bindings
+              (into {}
+                    (keep (fn [[site rows]]
+                            (let [kept (filterv
+                                        #(not= :pointer/tap
+                                               (:binding/gesture %))
+                                        rows)]
+                              (when (seq kept) [site kept]))))
+                    (:facet-master/bindings floor-material)))})))
+
+(defn binding-floor-drill
+  "The malformed-bindings drill, client side (the fence's proof: code-floor
+   bindings unbreakable by any data revision).
+
+   Three served worlds, one probe set, no durable write anywhere:
+     :live          — what the cluster is serving now
+     :absent        — the master is not served at all
+     :malformed     — the active revision cannot compile
+     :tap-stripped  — a VALID active revision with every tap row removed
+
+   PASS means every probe's verb is identical across all four. The active
+   revision may REBIND a gesture (that is P5's whole point); it can never make
+   one disappear."
+  ([] (binding-floor-drill (:facet-master/id attention-material/spec)))
+  ([master-id]
+   (let [spec (facet-masters/spec master-id)
+         by-id (or (served-facet-materials) {})]
+     (if (nil? spec)
+       {:status :error :error :unknown-master :master-id master-id}
+       (let [worlds
+             {:live by-id
+              :absent (dissoc by-id master-id)
+              :malformed
+              (assoc by-id master-id (drill-served-entry spec :malformed))
+              :tap-stripped
+              (assoc by-id master-id
+                     (drill-served-entry spec :tap-stripped))}
+             reports
+             (into (sorted-map)
+                   (map (fn [[world served]]
+                          [world
+                           (binding-material/drill-report
+                            {:facet-rows (rows-under-served served)
+                             :floor-rows floor-binding-rows
+                             :instance-rows @!instance-bindings})]))
+                   worlds)
+             verbs-of #(mapv :probe/verb %)
+             baseline (verbs-of (:live reports))
+             deviations
+             (into (sorted-map)
+                   (keep (fn [[world report]]
+                           (when (not= baseline (verbs-of report))
+                             [world (verbs-of report)])))
+                   reports)]
+         {:status (if (seq deviations) :fail :pass)
+          :master-id master-id
+          :probes (mapv :probe/label (:live reports))
+          :verbs baseline
+          :tiers (into (sorted-map)
+                       (map (fn [[world report]]
+                              [world (mapv :probe/tier report)]))
+                       reports)
+          :deviations deviations
+          :report (:live reports)})))))
+
+(defn- binding-seam
+  []
+  #js {;; gesture × facet → verb, per-row master link (the served table's shape,
+       ;; read from the same tiers the dispatch reads)
+       :table (fn []
+                (clj->js (binding-material/table-rows (binding-tables))))
+       :verbs (fn [] (clj->js (verb-registry/declaration-rows)))
+       :conflicts (fn [] (clj->js @!binding-conflicts))
+       :tiers (fn [] (clj->js {:master (current-master-binding-rows)
+                               :floor floor-binding-rows
+                               :instance @!instance-bindings}))
+       ;; the innermost locality tier — rows for ONE subject at ONE site
+       :instance
+       (fn [subject site rows-edn]
+         (clj->js
+          (try
+            (set-instance-bindings!
+             subject (keyword (str/replace (str site) #"^:" ""))
+             (reader/read-string (str rows-edn)))
+            (catch :default e
+              {:status :refused :error :binding/unreadable
+               :message (.-message e)}))))
+       :clearInstance (fn [] (clj->js (clear-instance-bindings!)))
+       ;; the SERVER's own answer, through the generic FacePull artery. The
+       ;; client's `table()` and this agreeing is the seam's proof; face-wiring
+       ;; installs it before the ground exists, so the seam reaches for it here.
+       :served (fn []
+                 (if-let [f (.-__softland_served_bindings js/window)]
+                   (f)
+                   (js/Promise.reject
+                    (js/Error.
+                     "the served interaction table is not wired in this build"))))
+       :drill (fn [master-id]
+                (clj->js
+                 (if (string? master-id)
+                   (binding-floor-drill master-id)
+                   (binding-floor-drill))))
+       ;; every bindings-carrying master drilled in one call
+       :drillAll
+       (fn []
+         (clj->js
+          (into (sorted-map)
+                (keep (fn [spec]
+                        (let [mid (:facet-master/id spec)]
+                          (when (seq (:facet-master/bindings
+                                      (facet-material/code-floor spec)))
+                            [mid (binding-floor-drill mid)]))))
+                facet-masters/specs)))
+       :budget (fn [] (clj->js dispatch-mechanism-budget))})
 
 ;; ===========================================================================
 ;; Diagnostics — __ground.report(): ONE paste-able snapshot for lag reports
@@ -2290,9 +2976,13 @@
                    (if-let [ctx (:context @!world)]
                      (reconcile! ctx)
                      (rebuild-material-sites!))
-                   (refresh-material-error!))))
+                   (refresh-material-error!)
+                   ;; P5: an activation may change the interaction table, so
+                   ;; its lint is recomputed on the same edge as the render
+                   (recompute-binding-conflicts!))))
     (rebuild-material-sites!)
     (refresh-material-error!))
+  (recompute-binding-conflicts!)
   (run-material-drill!)
   ;; dev observability (the __softland_atoms precedent): read-only state +
   ;; the narrow-echo samples — drives G4b console receipts, renders nothing
@@ -2314,10 +3004,16 @@
                               (.catch (fn [e] (js/console.error "[CLIP] read failed" e)))))
              :echo      (fn [] (clj->js @!echo-samples))
              :camera    (fn [] (clj->js @!camera))
+             ;; :w/:h are the RENDERED bounds — a fold toggle changes :h, which
+             ;; is how a console receipt can see a pure-projection verb fire
              :blocks    (fn [] (clj->js (into {}
                                               (map (fn [[k v]]
-                                                     [k (select-keys v [:x :y :machine? :local?])]))
+                                                     [k (select-keys v [:x :y :w :h
+                                                                        :machine? :local?])]))
                                               (:blocks @!world))))
+             ;; P5: the pointer MACHINE's state — three phases and, while a
+             ;; continuous gesture runs, the verb that claimed it
+             :pointer   (fn [] (clj->js (select-keys @!pointer [:phase :verb])))
              :mode      (fn [] (name (:mode @!ground-edit)))
              :focus     (fn [] (str (:focus @!ground-edit)))
              :confirmed (fn [] (clj->js (get-in @!ground-edit [:queue :confirmed])))
@@ -2340,6 +3036,13 @@
                                 (into {}
                                       (map (fn [[uid tk]] [uid (or tk "genesis")]))
                                       @!thread-of)))})
+  ;; P5 seam — the interaction table, the locality tiers, and the
+  ;; malformed-bindings floor drill. Reads only; :instance installs
+  ;; grammar-checked client-tier rows and nothing durable.
+  (set! (.-__bindings js/window) (binding-seam))
+  (js/console.log
+   "[BINDINGS] window.__bindings installed — __bindings.table() /"
+   ".verbs() / .conflicts() / .drillAll() / .instance(id, site, rows)")
   ;; exit flush — best-effort BELT; safety is the acknowledged settle write
   (js/window.addEventListener "beforeunload"
                               (fn [_] (fire-settle! :keepalive? true)))

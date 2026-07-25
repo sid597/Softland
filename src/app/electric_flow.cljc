@@ -584,6 +584,11 @@
                 ;; through the SAME server projection registry + FacePull.
                 !material-inspector-request (atom nil)
                 !material-inspector-data (atom nil)
+                ;; editable-material P5: the interaction table (gesture × facet
+                ;; → verb) read through the SAME registry + FacePull. Another
+                ;; call site of one artery, never a new transport.
+                !interaction-table-request (atom nil)
+                !interaction-table-data (atom nil)
                 !face-wear-outbox (atom nil)
                 !face-wear-result (atom nil)
                 ;; block-write Lane A · the edit write seam (CONTRACT §3/§5). Lane B's
@@ -652,6 +657,9 @@
             (let [ireq (e/watch !material-inspector-request)]
               (when ireq
                 (reset! !material-inspector-data (fv/FacePull ireq))))
+            (let [breq (e/watch !interaction-table-request)]
+              (when breq
+                (reset! !interaction-table-data (fv/FacePull breq))))
             ;; W2: the wear write path — outbox value in, result mirrored back;
             ;; face_wiring clears the outbox on result (depth-1 queue by design,
             ;; recorded in W2-INT). Idempotent server-side by wear-id journal.
@@ -774,6 +782,8 @@
                                                     :!facet-materials-data !facet-materials-data
                                                     :!material-inspector-request !material-inspector-request
                                                     :!material-inspector-data !material-inspector-data
+                                                    :!interaction-table-request !interaction-table-request
+                                                    :!interaction-table-data !interaction-table-data
                                                     :!face-wear-outbox !face-wear-outbox
                                                     :!face-wear-result !face-wear-result
                                                     ;; block-write Lane A · edit write seam threaded to the client

@@ -209,6 +209,52 @@
       (js/console.log
        "[MATERIAL] window.__material installed — click a block, then await __material.inspect() / await __material.edn()"))))
 
+(defn- install-interaction-table-api!
+  "editable-material P5: the SERVED interaction table, on the console.
+
+   `window.__bindings.served()` resolves the server's own answer to \"what does
+   each gesture mean, and which master revision decided it\" — the projection,
+   not a client re-derivation. `window.__bindings.table()` (ground.cljs) shows
+   the client's tiers; the two agreeing is the seam's proof. Read-only: this
+   pull cannot write, because the projection layer physically cannot (G12)."
+  [!request !data]
+  (when (and !request !data)
+    (letfn [(served []
+              (js/Promise.
+               (fn [resolve reject]
+                 (let [watch-key (str "interaction-table-"
+                                      (swap! !material-inspector-nonce inc))
+                       !timeout (atom nil)
+                       cleanup! (fn []
+                                  (remove-watch !data watch-key)
+                                  (when-let [t @!timeout]
+                                    (js/clearTimeout t)))]
+                   (reset! !data nil)
+                   (add-watch
+                    !data watch-key
+                    (fn [_ _ _ response]
+                      (when response
+                        (cleanup!)
+                        (if (:conversation/error response)
+                          (reject (js/Error.
+                                   (str "Interaction table projection failed: "
+                                        (name (:conversation/error response)))))
+                          (resolve (clj->js response))))))
+                   (reset! !timeout
+                           (js/setTimeout
+                            (fn []
+                              (cleanup!)
+                              (reject
+                               (js/Error.
+                                "Interaction table projection timed out.")))
+                            10000))
+                   (reset! !request
+                           {:face :interaction-table
+                            :params {:drill? (drill-mode?)}})))))]
+      (when-let [existing (.-__bindings js/window)]
+        (set! (.-served existing) served))
+      (set! (.-__softland_served_bindings js/window) served))))
+
 (defn install-face-wiring!
   "Wire the generic face pulls + the wear write path:
    - !face-state (set by the /face command + address/scrub selection) derives
@@ -231,6 +277,7 @@
                  !face-list-request !face-list-data
                  !facet-materials-request !facet-materials-data
                  !material-inspector-request !material-inspector-data
+                 !interaction-table-request !interaction-table-data
                  !face-wear-outbox !face-wear-result]}]
   (let [{:keys [!face-state !ingest-epoch]} atoms
         !last-pull-epoch (atom 0)
@@ -295,6 +342,10 @@
     ;; registry performs the durable joins in one FacePull.
     (install-material-inspector-api!
      !material-inspector-request !material-inspector-data)
+    ;; P5: the served interaction table, same registry, same artery. Installed
+    ;; before the ground exists, so the ground's __bindings seam reaches for it.
+    (install-interaction-table-api!
+     !interaction-table-request !interaction-table-data)
     ;; W2: wear ack → clear the outbox + refresh the roster (the count bump is
     ;; visible without waiting for an ingest epoch; the :refresh nonce changes
     ;; the request VALUE so Electric re-pulls)

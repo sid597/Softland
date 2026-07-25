@@ -97,10 +97,34 @@
     (is (fn? (:facet-materials fp/projection-registry)))
     (is (fn? (:material-inspector fp/projection-registry)))
     (is (fn? (:material-experience fp/projection-registry)))
+    (is (fn? (:interaction-table fp/projection-registry)))
     (is (fn? (:block-truth fp/projection-registry)))
     (is (= #{:conversation :assembly :face-list :facet-materials
-             :material-inspector :material-experience :block-truth}
+             :material-inspector :material-experience :interaction-table
+             :block-truth}
            (set (keys fp/projection-registry))))))
+
+(deftest interaction-table-is-total-without-a-cluster
+  (testing "editable-material P5: the served interaction table answers `what
+            does this gesture do, and who decided?` — and with no oc-rt it
+            still answers, from the code floor alone (projection totality)"
+    (let [r (fp/interaction-table-projection {:oc-rt nil} {})
+          rows (:interaction-table/rows r)]
+      (is (= 0 (:interaction-table/version r)))
+      (is (seq rows))
+      (is (empty? (:interaction-table/conflicts r))
+          "the shipped table has no same-priority ties")
+      (is (every? #(and (some? (:table/master-id %))
+                        (some? (:table/verb %))
+                        (some? (:table/effect-class %)))
+                  rows)
+          "every row links to the master and revision that decided it")
+      (is (= (set (map (juxt :table/gesture :table/phase) rows))
+             (set (:interaction-table/gestures r)))
+          "every gesture the kernel can produce is covered")
+      (is (= [:instance :master :floor] (:interaction-table/tiers r)))
+      (is (contains? (set (map :table/verb rows)) :camera/pan))
+      (is (contains? (set (map :table/verb rows)) :fold/toggle-section)))))
 
 (deftest material-experience-names-failed-record-sources
   (with-redefs [episode/read-receipt-records

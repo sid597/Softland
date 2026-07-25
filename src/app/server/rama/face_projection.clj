@@ -38,9 +38,11 @@
             [app.server.episode :as episode]
             [app.server.rama.material-circulation :as circulation]
             [app.server.rama.face-arsenal :as face-arsenal]
+            [app.shared.binding-material :as binding-material]
             [app.shared.facet-material :as facet-material]
             [app.shared.facet-masters :as facet-masters]
             [app.shared.material-inspector :as material-inspector]
+            [app.shared.verb-registry :as verb-registry]
             ;; READ-ONLY use of the relation kernel's PUBLIC query surface (rk
             ;; CONTRACT §7 — read-relations-for-targets ONLY; never a PState path,
             ;; never an append). Machine-cut pair structure (CONTRACT §4.4/§6).
@@ -911,6 +913,82 @@
    :face/rendered-at-ms (System/currentTimeMillis)})
 
 ;; ===========================================================================
+;; editable-material P5 — the interaction table as a projection.
+;; ===========================================================================
+
+(defn- interaction-table-tiers
+  "The served MASTER tier joined with the CODE FLOOR tier, in the shape
+   `binding-material/table-rows` consumes. The floor is derived from the specs,
+   never from served data — so the table always shows what would still work if
+   every revision vanished."
+  [by-id]
+  (let [master
+        (into []
+              (keep
+               (fn [spec]
+                 (let [wear (facet-material/resolved-wear
+                             spec (get by-id (:facet-master/id spec)))
+                       rows (:facet-master/bindings wear)]
+                   ;; a FLOORED wear already IS the floor tier below — listing
+                   ;; it twice would read as two independent sources for one
+                   ;; row, when in truth no revision is serving it at all
+                   (when (and (seq rows)
+                              (not (:facet-master/floor? wear)))
+                     {:tier :master
+                      :facet (:facet-master/facet spec)
+                      :master-id (:facet-master/id spec)
+                      :revision-id (:facet-master/revision-id wear)
+                      :floor? false
+                      :bindings rows}))))
+              facet-masters/specs)
+        floor
+        (into [{:tier :floor
+                :facet binding-material/space-facet
+                :master-id "code-floor:space"
+                :revision-id nil
+                :floor? true
+                :bindings binding-material/space-floor-bindings}]
+              (keep
+               (fn [spec]
+                 (let [rows (:facet-master/bindings
+                             (facet-material/code-floor spec))]
+                   (when (seq rows)
+                     {:tier :floor
+                      :facet (:facet-master/facet spec)
+                      :master-id (:facet-master/code-floor-revision-id spec)
+                      :revision-id
+                      (:facet-master/code-floor-revision-id spec)
+                      :floor? true
+                      :bindings rows}))))
+              facet-masters/specs)]
+    (into master floor)))
+
+(defn interaction-table-projection
+  "One deterministic read of the whole interaction grammar: gesture × site ×
+   facet → verb, every row carrying the master and revision that decided it,
+   plus the effect class its verb declares and any same-priority lint.
+
+   \"What does clicking here do, and who decided that?\" becomes a QUERY. Adding
+   a facet's rows changes data in this table, never its transport — the same
+   property P3's single batched facet-materials serve established."
+  [{:keys [oc-rt] :as ctx} request]
+  (let [by-id (if oc-rt
+                (:facet-materials/by-id
+                 (facet-materials-projection ctx request))
+                {})
+        rows (binding-material/table-rows (interaction-table-tiers by-id))]
+    {:interaction-table/version 0
+     :interaction-table/rows rows
+     :interaction-table/conflicts (binding-material/table-conflicts rows)
+     :interaction-table/verbs (verb-registry/declaration-rows)
+     :interaction-table/gestures
+     (vec (sort-by pr-str binding-material/legal-gestures))
+     :interaction-table/sites
+     (vec (sort-by pr-str binding-material/sites))
+     :interaction-table/tiers binding-material/tier-order
+     :face/rendered-at-ms (System/currentTimeMillis)}))
+
+;; ===========================================================================
 ;; editable-material P2 — one server-batched, deterministic inspector read.
 ;; ===========================================================================
 
@@ -1185,6 +1263,8 @@
    :facet-materials facet-materials-projection
    :material-inspector material-inspector-projection
    :material-experience material-experience-projection
+   ;; editable-material P5: reading what a gesture MEANS is a query
+   :interaction-table interaction-table-projection
    :block-truth  block-truth-projection})
 
 (def face->projection-kind

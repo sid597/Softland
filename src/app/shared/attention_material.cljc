@@ -1,12 +1,21 @@
 (ns app.shared.attention-material
   "Facet 2: revisioned policy for the block's hit box and attention-only
    interaction border. Hover/focus remain ephemeral mechanism; these values
-   are the shared material policy they reveal."
-  (:require [app.shared.facet-material :as facet-material]))
+   are the shared material policy they reveal.
+
+   P5 adds grammar v1: attention already owned the hit box, so it owns what
+   landing attention on that box MEANS. Its rows are filed under two sites —
+   a user block and a machine block are different hit areas, and the kernel
+   decides which one a rendered block claims at build time, so the dispatch
+   function carries no machine?/user? branch at all."
+  (:require [app.shared.binding-material :as binding-material]
+            [app.shared.facet-material :as facet-material]))
 
 (def master-id "fm:attention")
 (def grammar-version 0)
 (def code-floor-revision-id "code-floor:fm:attention:v0")
+(def bindings-grammar-version 1)
+(def bindings-code-floor-revision-id "code-floor:fm:attention:v1")
 
 (def default-form
   {:facet-master/id master-id
@@ -21,41 +30,96 @@
 
 (def default-source (pr-str default-form))
 
+(def bindings-form
+  "v1 = v0 plus the block hit-area gesture rows, each extracted verbatim from a
+   pre-P5 branch:
+
+   - user, press/:begin, shift  ← pointer-down!'s `(when (and text? (not= uid
+     focus)) …)` (Task 11: shift focuses in the same gesture)
+   - user, press/:threshold, shift  ← pointer-move! :pending `(:text? p)`
+   - user, tap  ← pointer-up! :pending non-machine branch
+   - machine, press/:threshold, shift  ← pointer-move! :pending `(:mtext? p)`
+   - machine, tap  ← pointer-up! :pending machine branch with no fold row
+
+   A machine block carries NO press/:begin row, which is exactly the pre-P5
+   silence: shift-pressing a machine block never focused it."
+  (assoc default-form
+         :facet-master/grammar bindings-grammar-version
+         :facet-master/bindings
+         {:block/user-hit-area
+          [{:binding/gesture :pointer/press
+            :binding/phase :begin
+            :binding/modifiers #{:shift}
+            :binding/verb {:verb/name :focus/enter-block :verb/version 0}
+            :binding/priority 10}
+           {:binding/gesture :pointer/press
+            :binding/phase :threshold
+            :binding/modifiers #{:shift}
+            :binding/verb {:verb/name :selection/text-begin :verb/version 0}
+            :binding/priority 10}
+           {:binding/gesture :pointer/tap
+            :binding/phase :complete
+            :binding/modifiers :any
+            :binding/verb {:verb/name :focus/place-caret :verb/version 0}
+            :binding/priority 10}]
+          :block/machine-hit-area
+          [{:binding/gesture :pointer/press
+            :binding/phase :threshold
+            :binding/modifiers #{:shift}
+            :binding/verb {:verb/name :selection/machine-begin
+                           :verb/version 0}
+            :binding/priority 10}
+           {:binding/gesture :pointer/tap
+            :binding/phase :complete
+            :binding/modifiers :any
+            :binding/verb {:verb/name :focus/release :verb/version 0}
+            :binding/priority 10}]}))
+
+(def bindings-source (pr-str bindings-form))
+
+(def ^:private v0-grammar
+  {:material-keys
+   #{:facet-master/merge
+     :facet-master/priority
+     :attention/hit-padding
+     :attention/border-width
+     :attention/border-color
+     :attention/background}
+   :validators
+   {:facet-master/merge
+    {:valid? #{:append}
+     :error-type :facet-master/merge-invalid}
+    :facet-master/priority
+    {:valid? facet-material/integer-number?
+     :error-type :facet-master/priority-invalid}
+    :attention/hit-padding
+    {:valid? facet-material/non-negative-number?
+     :error-type :attention/hit-padding-invalid}
+    :attention/border-width
+    {:valid? facet-material/non-negative-number?
+     :error-type :attention/border-width-invalid}
+    :attention/border-color
+    {:valid? facet-material/valid-rgba?
+     :error-type :attention/border-color-invalid}
+    :attention/background
+    {:valid? facet-material/valid-rgba?
+     :error-type :attention/background-invalid}}})
+
 (def spec
   {:facet-master/id master-id
    :facet-master/facet :attention
    :facet-master/source-ref "softland://facet-master/attention"
    :facet-master/default-form default-form
-   :facet-master/floor-form default-form
-   :facet-master/code-floor-revision-id code-floor-revision-id
+   :facet-master/floor-form bindings-form
+   :facet-master/code-floor-revision-id bindings-code-floor-revision-id
    :facet-master/grammars
-   {grammar-version
+   {grammar-version v0-grammar
+    bindings-grammar-version
     {:material-keys
-     #{:facet-master/merge
-       :facet-master/priority
-       :attention/hit-padding
-       :attention/border-width
-       :attention/border-color
-       :attention/background}
+     (conj (:material-keys v0-grammar) :facet-master/bindings)
      :validators
-     {:facet-master/merge
-      {:valid? #{:append}
-       :error-type :facet-master/merge-invalid}
-      :facet-master/priority
-      {:valid? facet-material/integer-number?
-       :error-type :facet-master/priority-invalid}
-      :attention/hit-padding
-      {:valid? facet-material/non-negative-number?
-       :error-type :attention/hit-padding-invalid}
-      :attention/border-width
-      {:valid? facet-material/non-negative-number?
-       :error-type :attention/border-width-invalid}
-      :attention/border-color
-      {:valid? facet-material/valid-rgba?
-       :error-type :attention/border-color-invalid}
-      :attention/background
-      {:valid? facet-material/valid-rgba?
-       :error-type :attention/background-invalid}}}}})
+     (assoc (:validators v0-grammar)
+            :facet-master/bindings binding-material/bindings-validator)}}})
 
 (defn compile-form
   [form]
