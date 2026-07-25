@@ -42,8 +42,12 @@ meaning is served material, ONE law dispatches it, floor unbreakable
 (drill PASS ×3 live), 20-row/0-conflict interaction table server=client,
 echo bar measured 0/42 over 52ms, families 1–4 clicked live).
 **CONTRACT_P6.md AUTHORED (Fable 07-25) · Sid's "P5 ok" GIVEN 07-25 —
-P6 SENDABLE NOW** (HANDOFF above; Sid boots the fresh session). Still
-open: "kinds ok" · `__material.picked()` click · headed ⌁/≈ marks look. Then
+P6 SENDABLE NOW** (HANDOFF above; Sid boots the fresh session).
+"kinds ok" RATIFIED 07-25 (Sid delegated → Fable verified the two
+registry lines against source; grounds in the NOW entry). The headed
+looks (`__material.picked()` click · ⌁/≈ marks) fold into Sid's
+Gate-3 sitting — he'll be in a headed browser for the preview +
+activation word anyway; one sitting, three looks, no separate errand. Then
 P6 truth loop (Gates 3+4) → P7 portal → P8 verb-from-inside — ladder,
 stops, Sid's touchpoints in `CAMPAIGN.md`. first-light P3 fulfilled;
 P4/P5 ride campaign P6 under the first-light CONTRACT (no fork; flag

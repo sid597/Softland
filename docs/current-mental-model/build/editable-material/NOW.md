@@ -554,3 +554,15 @@
 - **Sid: "P5 ok" (2026-07-25, gate session close). P6 GREEN-LIT** — Sid
   starts the fresh implementer session himself (prompt = the board
   HANDOFF). "kinds ok" still open.
+- **Sid: "You decide but note down" (same close) — two delegated rulings
+  (Fable):** (1) **"kinds ok" RATIFIED.** Verified against source, not
+  the P4 record: exactly two one-line adds in the relation-kernel kinds
+  registry (`relation_kernel.clj:81` `:instance-of`, `:83` `:felt-at`),
+  inheriting identity/idempotency/retraction/history; both DIRECTION's
+  own vocabulary (semantic-kind predicate · sense-line aboutness);
+  live-proven at the P4 gate (assert→retract probe); flag-A honored (no
+  Wish kind; `:references` is the wish edge). (2) **Headed looks ride
+  Gate 3**: `__material.picked()` + the ⌁/≈ marks need Sid's headed
+  browser (headless WebGPU dead on this box) — folded into the Gate-3
+  preview sitting where his activation word already puts him; not a
+  separate errand.
