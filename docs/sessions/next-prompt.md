@@ -40,6 +40,10 @@ Only then hand Sid the P6 prompt.
 Ops: land UP, five modules RUNNING at the updated relation-kernel;
 depot-flush drain hang is INTERMITTENT (07-25 clean drain observed);
 Softland-p4 worktree retired — `git worktree remove` at leisure.
+TEST LANES (0c979af, gated): `clj -X:test fast` ~45s inner loop ·
+`clj -X:test full` ~5min exhaustive with exact 397t/5,416a parity
+floor — GATES USE `full`; the runner is fail-closed (new test nss
+must be tiered in test_runner.clj; flake registry locked isolated).
 Sid one-liners still open: "kinds ok" · click a block →
 __material.picked() · headed look at the ⌁ wish / ≈ machine-guess
 marks.
