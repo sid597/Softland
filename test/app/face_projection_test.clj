@@ -100,10 +100,16 @@
     (is (fn? (:interaction-table fp/projection-registry)))
     (is (fn? (:block-truth fp/projection-registry)))
     (is (fn? (:material-truth fp/projection-registry)))
+    (is (fn? (:material-portal fp/projection-registry)))
     (is (= #{:conversation :assembly :face-list :facet-materials
              :material-inspector :material-experience :interaction-table
              ;; editable-material P6: the truth loop is a query too
              :material-truth
+             ;; editable-material P7: the whole material world around one pick,
+             ;; joined server-side. This enumeration is a SHARED SURFACE — the
+             ;; package that adds a projection updates it in the same change
+             ;; (the work-package rule; P7 tripped exactly this scan first run).
+             :material-portal
              :block-truth}
            (set (keys fp/projection-registry))))))
 

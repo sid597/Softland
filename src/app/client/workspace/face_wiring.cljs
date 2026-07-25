@@ -209,6 +209,139 @@
       (js/console.log
        "[MATERIAL] window.__material installed — click a block, then await __material.inspect() / await __material.edn()"))))
 
+;; ===========================================================================
+;; editable-material P7 — the portal, on the console.
+;;
+;; THIRD wearer of the request/data promise pattern (P2's inspector, P5's served
+;; table, now this). The second-wearer law says additive reuse or re-cut, so the
+;; pattern is factored HERE rather than copied a third time; the two earlier call
+;; sites keep their own shapes (each has a token/error convention this must not
+;; reinterpret — the P3 law about never re-reading a durable form applies to
+;; client conventions too, and re-cutting them is not P7's package).
+;;
+;; The client performs ZERO joins. One request goes out carrying the pick and the
+;; appearance snapshot; one data-context comes back carrying every answer. That
+;; is P7's stop condition satisfied by construction rather than by discipline.
+;; ===========================================================================
+
+(defn- pull-once!
+  "Arm one request, resolve with the matching response, clean up either way.
+
+   `match?` decides whether an arriving response answers THIS request — the
+   inspector's token discipline, generalised. Without it a stale response from a
+   previous call resolves the new promise with the wrong answer."
+  [!request !data request match? label]
+  (js/Promise.
+   (fn [resolve reject]
+     (let [watch-key (str label "-" (swap! !material-inspector-nonce inc))
+           !timeout (atom nil)
+           cleanup! (fn []
+                      (remove-watch !data watch-key)
+                      (when-let [t @!timeout] (js/clearTimeout t)))]
+       (reset! !data nil)
+       (add-watch
+        !data watch-key
+        (fn [_ _ _ response]
+          (when response
+            (cond
+              (match? response) (do (cleanup!) (resolve response))
+              (:conversation/error response)
+              (do (cleanup!)
+                  (reject (js/Error. (str label " projection failed: "
+                                          (name (:conversation/error response))))))
+              :else nil))))
+       (reset! !timeout
+               (js/setTimeout
+                (fn []
+                  (cleanup!)
+                  (reject (js/Error. (str label " projection timed out after 15s"))))
+                15000))
+       (reset! !request request)))))
+
+(defn- read-edn-arg
+  "Console args for the structured params (`why`, `scope`, `cut`) arrive as EDN
+   STRINGS.
+
+   Deliberate: a JS object cannot express the difference between the string
+   \"scope/all-unpinned\" and the keyword :scope/all-unpinned, and a heuristic
+   that guesses would silently mis-scope a blast radius. An EDN string is exact,
+   and the console log line below says so."
+  [x]
+  (cond
+    (nil? x) nil
+    (string? x) (try (reader/read-string x)
+                     (catch :default e
+                       (js/console.error "[PORTAL] unreadable EDN arg" x e)
+                       nil))
+    :else (js->clj x :keywordize-keys true)))
+
+(defn- install-material-portal-api!
+  [!request !data]
+  (when (and !request !data)
+    (letfn [(request! [entity-id extra]
+              (let [eid (or entity-id (picked-entity-id))]
+                (if-not (string? eid)
+                  (js/Promise.reject
+                   (js/Error.
+                    "Pick a block first, or pass its string entity id to __portal.open(id)."))
+                  (let [token (str "material-portal-"
+                                   (swap! !material-inspector-nonce inc))]
+                    (pull-once!
+                     !request !data
+                     {:face :material-portal
+                      :params (merge {:request-token token
+                                      :entity-id eid
+                                      :wearers (current-material-wearers)
+                                      :drill? (drill-mode?)}
+                                     extra)}
+                     #(= token (:portal/request-token %))
+                     "portal")))))
+            (open* [entity-id extra k]
+              (.then (request! entity-id extra)
+                     (fn [r] (let [v (get r k)]
+                               (if (string? v) v (clj->js v))))))]
+      (set! (.-__portal js/window)
+            #js {:picked (fn [] (picked-entity-id))
+                 ;; the whole projection — every question answered
+                 :open (fn [& [entity-id]] (open* entity-id nil :portal/result))
+                 ;; the canonical bytes (what the resident is briefed with)
+                 :edn (fn [& [entity-id]] (open* entity-id nil :portal/edn))
+                 ;; the briefing itself, verbatim
+                 :briefing (fn [& [entity-id]]
+                             (open* entity-id nil :portal/briefing))
+                 ;; the code-floor rendering: same cards, always
+                 :render (fn [& [entity-id]] (open* entity-id nil :portal/render))
+                 ;; the question list, answered, with replayable calls
+                 :questions (fn [& [entity-id]]
+                              (.then (request! entity-id nil)
+                                     (fn [r] (clj->js
+                                              (get-in r [:portal/result
+                                                         :portal/questions])))))
+                 :unanswered (fn [& [entity-id]]
+                               (open* entity-id nil :portal/unanswered))
+                 ;; why THIS pixel — pass a contribution stamp as EDN
+                 :why (fn [stamp & [entity-id]]
+                        (open* entity-id {:why (read-edn-arg stamp)}
+                               :portal/result))
+                 ;; blast radius before an activation — pass a scope as EDN
+                 :blast (fn [scope & [entity-id]]
+                          (open* entity-id {:scope (read-edn-arg scope)}
+                                 :portal/result))
+                 ;; stand in history — pass a cut as EDN
+                 :at (fn [cut & [entity-id]]
+                       (open* entity-id {:cut (read-edn-arg cut)}
+                              :portal/result))})
+      (js/console.log
+       (str "[PORTAL] window.__portal installed — click a block, then:\n"
+            "  await __portal.open()          the whole projection\n"
+            "  await __portal.questions()     every question + its replayable call\n"
+            "  await __portal.briefing()      what a resident summoned here reads\n"
+            "  await __portal.render()        the code-floor cards\n"
+            "  await __portal.why('{:material/master \"fm:attention\" :material/site :block/user-hit-area}')\n"
+            "  await __portal.blast('[:scope/all-unpinned]')\n"
+            "  await __portal.at('{\"fm:text-body\" \"<pointer-revision-id>\"}')\n"
+            "  (why/blast/at take EDN STRINGS — a JS object cannot say keyword)")))))
+
 (defn- install-interaction-table-api!
   "editable-material P5: the SERVED interaction table, on the console.
 
@@ -278,6 +411,7 @@
                  !facet-materials-request !facet-materials-data
                  !material-inspector-request !material-inspector-data
                  !interaction-table-request !interaction-table-data
+                 !material-portal-request !material-portal-data
                  !face-wear-outbox !face-wear-result]}]
   (let [{:keys [!face-state !ingest-epoch]} atoms
         !last-pull-epoch (atom 0)
@@ -346,6 +480,11 @@
     ;; before the ground exists, so the ground's __bindings seam reaches for it.
     (install-interaction-table-api!
      !interaction-table-request !interaction-table-data)
+    ;; P7: the portal, console-triggered like the inspector — never armed at
+    ;; install. Opening the whole material world around a pick is an ACT, and an
+    ;; act that fires on every ingest epoch is a poll.
+    (install-material-portal-api!
+     !material-portal-request !material-portal-data)
     ;; W2: wear ack → clear the outbox + refresh the roster (the count bump is
     ;; visible without waiting for an ingest epoch; the :refresh nonce changes
     ;; the request VALUE so Electric re-pulls)

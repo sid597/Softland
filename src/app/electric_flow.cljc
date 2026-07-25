@@ -589,6 +589,12 @@
                 ;; call site of one artery, never a new transport.
                 !interaction-table-request (atom nil)
                 !interaction-table-data (atom nil)
+                ;; editable-material P7: the portal — the whole material world
+                ;; around ONE pick, joined server-side and returned in ONE
+                ;; data-context. Another call site of the same artery: the client
+                ;; performs zero joins, which is the fence P7 stops on.
+                !material-portal-request (atom nil)
+                !material-portal-data (atom nil)
                 !face-wear-outbox (atom nil)
                 !face-wear-result (atom nil)
                 ;; block-write Lane A · the edit write seam (CONTRACT §3/§5). Lane B's
@@ -660,6 +666,12 @@
             (let [breq (e/watch !interaction-table-request)]
               (when breq
                 (reset! !interaction-table-data (fv/FacePull breq))))
+            ;; P7: ONE pull, every portal answer. The server projection joins
+            ;; five sub-projections behind this single request — nothing here
+            ;; iterates masters, wearers or revisions.
+            (let [preq (e/watch !material-portal-request)]
+              (when preq
+                (reset! !material-portal-data (fv/FacePull preq))))
             ;; W2: the wear write path — outbox value in, result mirrored back;
             ;; face_wiring clears the outbox on result (depth-1 queue by design,
             ;; recorded in W2-INT). Idempotent server-side by wear-id journal.
@@ -784,6 +796,8 @@
                                                     :!material-inspector-data !material-inspector-data
                                                     :!interaction-table-request !interaction-table-request
                                                     :!interaction-table-data !interaction-table-data
+                                                    :!material-portal-request !material-portal-request
+                                                    :!material-portal-data !material-portal-data
                                                     :!face-wear-outbox !face-wear-outbox
                                                     :!face-wear-result !face-wear-result
                                                     ;; block-write Lane A · edit write seam threaded to the client
