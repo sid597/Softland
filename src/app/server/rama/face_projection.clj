@@ -38,12 +38,18 @@
             [app.server.episode :as episode]
             [app.server.rama.material-circulation :as circulation]
             [app.server.rama.material-truth :as material-truth]
+            ;; P7 · the portal. One-way require: the portal namespace never
+            ;; requires this one — it takes `serve` as an argument, which is what
+            ;; keeps the cycle from existing and makes the portal read the land
+            ;; through the same artery every other consumer does.
+            [app.server.rama.material-portal :as material-portal]
             [app.server.rama.face-arsenal :as face-arsenal]
             [app.shared.activation-event :as activation-event]
             [app.shared.binding-material :as binding-material]
             [app.shared.facet-material :as facet-material]
             [app.shared.facet-masters :as facet-masters]
             [app.shared.material-inspector :as material-inspector]
+            [app.shared.material-portal :as portal]
             [app.shared.verb-registry :as verb-registry]
             ;; READ-ONLY use of the relation kernel's PUBLIC query surface (rk
             ;; CONTRACT §7 — read-relations-for-targets ONLY; never a PState path,
@@ -1439,6 +1445,58 @@
            units)
      :face/rendered-at-ms (System/currentTimeMillis)}))
 
+;; ===========================================================================
+;; editable-material P7 — the portal: one pick, every answer, ONE roundtrip.
+;;
+;; `serve` is forward-declared because the portal composes five sub-projections
+;; through it. That is not an unfortunate ordering accident — it is the fence
+;; `portal renders through the layer's own machinery` made structural: the portal
+;; has no private read path into the land, so it can never show the reader
+;; something the land itself cannot serve.
+;; ===========================================================================
+
+(declare serve)
+
+(defn material-portal-projection
+  "P7 transport. `:portal/result` is canonical and CLOCK-FREE — two equal worlds
+   produce byte-equal portals, which is what makes the determinism gate and the
+   briefing-identity gate testable at all. The token, the clock, the rendering
+   and the briefing ride the envelope.
+
+   Total by construction: the portal's own section boundaries name every failure,
+   and this outer catch exists only for a failure that precedes them (a malformed
+   request), which still has to arrive as a data-context and never a throw (L13)."
+  [ctx request]
+  (let [params (:params request)
+        token (:request-token params)]
+    (try
+      (let [result (material-portal/open ctx #(serve ctx %) params)
+            edn (portal/canonical-edn result)
+            briefing (material-portal/briefing result)]
+        {:portal/request-token token
+         :portal/result result
+         :portal/edn edn
+         :portal/render (material-portal/render result)
+         :portal/briefing briefing
+         :portal/briefing-bytes (count briefing)
+         :portal/unanswered (portal/unanswered result)
+         :face/rendered-at-ms (System/currentTimeMillis)})
+      (catch Throwable t
+        (let [result (portal/canonicalize
+                      {:portal/version portal/portal-version
+                       :portal/entity-id (:entity-id params)
+                       :portal/error {:type :portal/open-failed
+                                      :message (.getMessage t)}})]
+          {:portal/request-token token
+           :portal/result result
+           :portal/edn (portal/canonical-edn result)
+           ;; the floor still renders: card set and order come from code, so a
+           ;; total failure to open produces a full portal of named absences
+           :portal/render (material-portal/render result)
+           :portal/briefing (material-portal/briefing result)
+           :portal/unanswered (portal/unanswered result)
+           :face/rendered-at-ms (System/currentTimeMillis)})))))
+
 (def projection-registry
   "Plain value: {<projection-kw> → (fn [ctx request] → data-context)}. Wave 1
    registered ONE projection; W2 adds the two arsenal reads (:assembly wear-time
@@ -1457,6 +1515,8 @@
    :interaction-table interaction-table-projection
    ;; editable-material P6: reading the whole truth loop is a query too
    :material-truth material-truth-projection
+   ;; editable-material P7: the whole material world around one pick, batched
+   :material-portal material-portal-projection
    :block-truth  block-truth-projection})
 
 (def face->projection-kind
@@ -1593,4 +1653,40 @@
      lane-thread-id)
     (catch Throwable t
       (println "[FACE] episode-seed failed:" (.getMessage t))
+      nil)))
+
+;; ===========================================================================
+;; editable-material P7 · the resident summoned INSIDE the portal.
+;;
+;; P7, verbatim: `The resident summoned inside the portal receives EXACTLY this
+;; projection as briefing — no LLM in the projection path itself, ever.`
+;;
+;; Same shape as `episode-seed` above, and for the same reason: a resident's
+;; first prompt is prefixed with deterministic material read through the projection
+;; the human sees, never with a model's summary of it. `episode-seed` inherits a
+;; conversation; this inherits a material world.
+;;
+;; The GESTURE that summons a resident here is P8's (one verb born from inside).
+;; What P7 owns is the briefing and its one named, total entry point — so the
+;; verb, when it arrives, has nothing left to invent about what the resident
+;; knows.
+;; ===========================================================================
+
+(defn portal-briefing
+  "Driver shell (TOTAL): the briefing for a resident summoned inside the portal
+   on `entity-id`. Any failure yields nil — an unbriefed resident, never a
+   blocked summon.
+
+   The returned string carries the canonical projection VERBATIM (G7 asserts the
+   byte identity). Prefix it to the resident's prompt exactly as `episode-seed`
+   is prefixed."
+  [ctx {:keys [entity-id wearers conversation-id]}]
+  (try
+    (material-portal/briefing
+     (material-portal/open ctx #(serve ctx %)
+                           {:entity-id entity-id
+                            :wearers wearers
+                            :conversation-id conversation-id}))
+    (catch Throwable t
+      (println "[FACE] portal-briefing failed:" (.getMessage t))
       nil)))

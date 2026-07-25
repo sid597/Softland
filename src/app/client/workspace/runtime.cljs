@@ -33,6 +33,7 @@
                                                    !facet-materials-request !facet-materials-data
                                                    !material-inspector-request !material-inspector-data
                                                    !interaction-table-request !interaction-table-data
+                                                   !material-portal-request !material-portal-data
                                                    !face-wear-outbox !face-wear-result
                                                    !block-edit-outbox !block-edit-result
                                                    !block-truth-request !block-truth-data]}]
@@ -79,6 +80,8 @@
                    :!material-inspector-data !material-inspector-data
                    :!interaction-table-request !interaction-table-request
                    :!interaction-table-data !interaction-table-data
+                   :!material-portal-request !material-portal-request
+                   :!material-portal-data !material-portal-data
                    :!face-wear-outbox !face-wear-outbox
                    :!face-wear-result !face-wear-result
                    :!ingest-epoch-remote !ingest-epoch-remote})

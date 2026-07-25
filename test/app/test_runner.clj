@@ -81,6 +81,9 @@
     app.material-truth-test
     "P6 gates mint instance masters, move shared activation pointers, upsert the episode registry index, and assert the process-global ingest epoch."
 
+    app.material-portal-test
+    "P7 gates deviate, pin and activate fixed facet-master identities and run the malformed drill; the recovery gate rolls a shared activation pointer back."
+
     app.provenance-material-test
     "Activation, malformed-candidate, and rollback gates mutate fixed facet-master pointers."
 
