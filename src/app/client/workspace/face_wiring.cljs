@@ -296,10 +296,19 @@
                                      extra)}
                      #(= token (:portal/request-token %))
                      "portal")))))
+            ;; NAMESPACE-PRESERVING conversion, this seam only. Plain `clj->js`
+            ;; names keys with `name`, so :portal/recipe becomes "recipe" — and
+            ;; every documented console call reads ['portal/recipe'], which the
+            ;; P7 gate's headed sitting found returning undefined. The question
+            ;; list's :question/call-console strings are a PROMISE; the value
+            ;; they read must keep its namespaces. The earlier __material /
+            ;; __bindings wearers never made that promise and keep plain
+            ;; clj->js — their conventions are not reinterpreted here.
+            (portal->js [v]
+              (if (string? v) v (clj->js v :keyword-fn #(str (symbol %)))))
             (open* [entity-id extra k]
               (.then (request! entity-id extra)
-                     (fn [r] (let [v (get r k)]
-                               (if (string? v) v (clj->js v))))))]
+                     (fn [r] (portal->js (get r k)))))]
       (set! (.-__portal js/window)
             #js {:picked (fn [] (picked-entity-id))
                  ;; the whole projection — every question answered
@@ -314,7 +323,7 @@
                  ;; the question list, answered, with replayable calls
                  :questions (fn [& [entity-id]]
                               (.then (request! entity-id nil)
-                                     (fn [r] (clj->js
+                                     (fn [r] (portal->js
                                               (get-in r [:portal/result
                                                          :portal/questions])))))
                  :unanswered (fn [& [entity-id]]
