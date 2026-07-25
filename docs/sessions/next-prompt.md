@@ -7,81 +7,43 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
-## HANDOFF — the P6 GATE (paste this; P6 is BUILT)
+## HANDOFF — Sid's Gate-3 word + the headed sitting (his one line is the
+## only thing standing)
 
-P6 built and committed 2026-07-25: code `be247c5`, docs `a6a44fb`
-(local branch, unpushed). 21 files, +1,682/−118. Suite 427t/5,929a green
-(0/0, floor 414t/5,728a; three registered flakes clean attempt 1); cljs
-0 warnings. Gate 3 ran to the STOP — nothing activated. Full record:
-`build/editable-material/NOW.md` tail.
+**P6 GATED PASS 2026-07-25** — full record `build/editable-material/
+GATE_P6.md` (code `be247c5` + gate fixes `cff3a14`; suite 428t/5,940a
+green over the fixed tree; R2 id-shape ACCEPTED after independent
+empirical verification; the falsification probe caught ONE real bug —
+the second byte-identical instance transition replayed to a silent no-op
+— fixed + regression-pinned). **Gate 4 (immunity) CLOSED.** Gate 3 is AT
+THE STOP.
 
+**Sid's one line (any of):**
+- **"activate 64"** — accept the reply-width repair as proposed
+  (`fm:text-body` `wrap-fallback-columns` 80 → 64);
+- **"activate N"** — same repair, your number (the 64 was the
+  implementer's proposal; your recorded number was not locatable);
+- **"no"** — the candidate stays durable, worn by nobody, forever
+  rewearable into nothing (latest ≠ active is the shipped law).
+
+Preview receipt attached (GATE_P6.md, live cluster): candidate previewed
+against REAL served material; active face byte-identical before/during/
+after (`active-sha b0910e1af590f869`, same pointer revision); camera
+pinned; endPreview byte-restored. Honest note: the fallback width only
+touches replies with NO source width — nothing on the current genesis
+page visibly moves; the sitting will show the same.
+
+**The headed sitting** (cluster is UP; boot the app first):
 ```
-MODE: GATE · one package · repo /mnt/data/projects/Softland
-Gate object: be247c5 (code) + a6a44fb (docs), local branch, unpushed.
-Read the diff in full.
-
-AUTHORITY: build/editable-material/CONTRACT_P6.md (BINDING) +
-DIRECTION.md + CAMPAIGN.md + first-light CONTRACT §7. Boot: CONTRACT_P6
-(R1–R4, traps T1–T12, gates G1–G14, the Gate-3 verbatim stop) · NOW.md
-tail (the P6 BUILT entry — it carries a STOP-CLAUSE NOTE you must
-adjudicate) · GATE_P5.md findings · memory/implementation-quirks.md.
-
-ADJUDICATE FIRST — the one contract deviation:
-R2 specifies instance-master ids as `fm:<facet>:i:<sha8>`. The
-implementer found that shape unbuildable without a routing-kernel edit
-and changed the separator to `~i~` (two colon segments) instead,
-keeping R2's intent whole and R1's "no Rama edits" intact. The claim is
-empirical: `extract-object-key` collapses an `fm:` key to its first TWO
-colon segments in every branch EXCEPT `oc:doc:`, which returns the
-whole remainder — so a three-segment id puts the document container in
-a different Rama partition from its own pointer/revisions/import (the
-foreign-read mis-route class, four firings in this repo). VERIFY THIS
-YOURSELF before accepting it; the regression test
-`instance-master-ids-route-to-ONE-partition` also asserts the
-three-segment shape still straddles. Accept, or rule it a genuine stop.
-
-RE-DERIVE INDEPENDENTLY: `clj -X:test full` (banked 427t/5,929a, 0/0) ·
-cljs cold compile (banked 0 warnings).
-
-OPEN LIVE GATES — the cluster is DOWN (the board said UP; `bin/land
-status`: conductor refused, no rama processes). Yours per the GATE_P4
-precedent ("the deploy is the GATE session's act, never the
-integrator's"):
-  · `bin/land up`, then the v2 grammar ingest — a WRITE, not a deploy
-    (no module changed, so no deploy is needed; confirm that yourself)
-  · G6 echo bar LIVE with >=1 deviant subject + >=1 pin in the serve,
-    adapter attestation FIRST, 0 samples > 52ms
-  · G12 `__bindings.drillAll()` + the P1 malformed drill, re-run live
-  · G3's camera-pinned same-process byte proof of the preview membrane
-
-GATE 3 — the headed sitting with Sid (his `picked()` + the ⌁/≈ looks
-fold in here, per 6096e85). The loop already ran to the STOP: friction
-"reply width", fm:text-body wrap-fallback-columns 80 → candidate 64,
-active face byte-untouched, escape detector measured 0 escapes. The
-magnitude 64 is the IMPLEMENTER'S proposal — the recorded number was
-not locatable in the corpus, only the friction's name. Sid's one-line
-word decides the value and the activation. NEVER self-activate. The
-candidate is durable only on the implementer's in-process cluster; the
-gate mints it on the land.
-
-FALSIFY, don't confirm. The genuinely-new machinery is the
-instance-master serve/resolve path and the R4 pointer-source change:
-  · R4 changed what the active-pointer's content-text MEANS. Two
-    readers were caught reading it as a bare revision-id
-    (material-circulation's as-of, the inspector trail) and fixed.
-    FIND A THIRD, or prove there is none.
-  · Can a valid instance revision make a gesture disappear, or reach
-    the camera? G10 refuses `:space/ground` at both seams — test the
-    DURABLE lane, not just the console.
-  · Does the preview membrane leak? T9 forbids any derived state from
-    the previous revision surviving into it.
-  · Is the registry index ever load-bearing? T7 says container
-    existence is the truth — drop the rows, prove wear still resolves.
-  · G11: is there a fourth deterministic `time-ms` in a write path?
-
-Output: GATE_P6.md + the NOW entry + the Gate-3 transcript line. On
-PASS, Gates 3 + 4 close and P7 (the portal) becomes sendable.
+clj -A:dev -X dev/-main    # then open http://localhost:8080
 ```
+Three looks in one sitting: `__material.picked()` click (P4 carry) · the
+⌁/≈ marks · optionally `__bindings.preview('fm:text-body', <candidate
+edn>)` to feel the width before the word. The session receiving the word
+executes: mint + activate the chosen bytes on the land (the R4 event
+carries actor sid + grounds `exp:reply-width`) → announced change →
+Gate 3 CLOSES → **P7 (the portal) becomes sendable**. Rollback stays one
+line away, forever.
 
 **Campaign state:** **P1–P5 CLOSED — all gates PASS; Gates 1 + 2 of the
 four DIRECTION gates are CLOSED** (`GATE_P1.md` `83aa5dd`+`b6f3d75` ·
@@ -90,17 +52,20 @@ four DIRECTION gates are CLOSED** (`GATE_P1.md` `83aa5dd`+`b6f3d75` ·
 meaning is served material, ONE law dispatches it, floor unbreakable
 (drill PASS ×3 live), 20-row/0-conflict interaction table server=client,
 echo bar measured 0/42 over 52ms, families 1–4 clicked live).
-**CONTRACT_P6.md AUTHORED (Fable 07-25) · Sid's "P5 ok" GIVEN 07-25 —
-P6 SENDABLE NOW** (HANDOFF above; Sid boots the fresh session).
-"kinds ok" RATIFIED 07-25 (Sid delegated → Fable verified the two
-registry lines against source; grounds in the NOW entry). The headed
-looks (`__material.picked()` click · ⌁/≈ marks) fold into Sid's
-Gate-3 sitting — he'll be in a headed browser for the preview +
-activation word anyway; one sitting, three looks, no separate errand. Then
-P6 truth loop (Gates 3+4) → P7 portal → P8 verb-from-inside — ladder,
-stops, Sid's touchpoints in `CAMPAIGN.md`. first-light P3 fulfilled;
-P4/P5 ride campaign P6 under the first-light CONTRACT (no fork; flag
-discrepancies inline). Land is UP (five modules RUNNING; dev app down —
+**P6 GATED PASS 07-25** (`GATE_P6.md`: `be247c5` + gate fixes `cff3a14`;
+v2 grammar live-ingested as a WRITE, no deploy; G6 echo 0/120 over 52ms
+with a deviant + pin in the serve; G12 drill re-run live through the
+land's own `?drill=` lane; G3 byte proof on the live cluster; the truth
+loop's reversal ran live). **Gate 4 CLOSED · Gate 3 AT THE STOP — Sid's
+word is the HANDOFF above.** "kinds ok" RATIFIED 07-25. Residue carried
+in GATE_P6.md: dead client weather lane (F3) · escape detector reads
+`:ambiguous` on the durable cluster until it keys per-master/causal-tip
+(F4) · text-body instance deviations serve but aren't felt in the wrap
+pass. Then P7 portal (sendable at the Gate-3 word) → P8 verb-from-inside
+— ladder, stops, Sid's touchpoints in `CAMPAIGN.md`. first-light P3
+fulfilled; P4/P5 fulfilled by P6's membrane + activation machinery under
+the first-light CONTRACT (G6/G7/G8 shapes proven; its own G9 waits on
+Sid's return wear). Land is UP (five modules RUNNING; dev app down —
 sessions boot it as needed).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS

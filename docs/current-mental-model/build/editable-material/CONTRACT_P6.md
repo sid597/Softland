@@ -58,10 +58,15 @@ follows:
 - **At the FIRST durable deviation of (facet, subject)**, mint an
   instance-scoped master through the SAME adapter, spec synthesized from
   the parent facet's spec: distinct master-id (shape
-  `fm:<facet>:i:<sha8(subject-uid)>`, full subject uid carried INSIDE the
-  form — ids stay short, identity stays exact; instance-master ids are
-  subject-scoped, one per (facet, subject), and never enter
-  `facet-masters/specs`), same grammars, same floor. Everything is
+  `fm:<facet>~i~<sha8(subject-uid)>` — TWO colon segments, ruled at the
+  P6 gate: `extract-object-key` collapses an `fm:` key to its first two
+  colon segments in every branch except `oc:doc:`, so a third segment
+  puts the document container on a different partition than its own
+  pointer/revisions/source; the straddle is pinned as a regression test
+  (`instance-master-ids-route-to-ONE-partition`) — full subject uid
+  carried INSIDE the form — ids stay short, identity stays exact;
+  instance-master ids are subject-scoped, one per (facet, subject), and
+  never enter `facet-masters/specs`), same grammars, same floor. Everything is
   inherited, not rebuilt: revisions, candidates, preview, activation
   events, rollback, drill totality, latest ≠ active. This is the
   second-wearer law applied to our own machinery — additive reuse, no

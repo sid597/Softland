@@ -651,3 +651,25 @@
   as an isolation exception.
 - Next: FRESH Fable session gates P6 (starter prompt in the board HANDOFF).
   Sid's open one-liner: the **Gate-3 activation word**.
+
+- **2026-07-25 · Fable (fresh) · P6 GATE — PASS (`be247c5` + gate fixes
+  `cff3a14`). Gate 4 CLOSED; Gate 3 AT THE STOP awaiting Sid's word.**
+- Full record: `GATE_P6.md`. Independent receipts: suite 427t/5,929a on the
+  gate object AND 428t/5,940a over the fixed tree (0/0, flakes clean ×2) ·
+  cljs cold 270 files 0 warnings · R2 `~i~` id-shape ACCEPTED (straddle
+  verified empirically; CONTRACT_P6 R2 amended in place) · v2 grammar
+  live-ingested as a WRITE (no deploy — no module source in the diff) ·
+  G6 echo 0/120 over 52ms with a live deviant + pin in the serve · G12
+  drill re-ran live via the land's `?drill=` lane · G3 byte proof on the
+  live cluster · the reversal (release :rollback + unpin) ran live, land
+  as found.
+- Falsification caught one REAL bug (F1): content-keyed activation ids made
+  the second identical pin/unpin (or deviate/release) cycle a silent no-op
+  reporting success — transition-keyed now, honesty-fixed, regression-pinned.
+  F2: durable `:space/ground` rows were accepted-then-ignored; now refused at
+  write time. Residue (owners in GATE_P6.md): F3 dead client weather lane ·
+  F4 escape detector permanently `:ambiguous` on the durable cluster ·
+  text-body instance deviations not felt in the wrap pass.
+- Next: **Sid's Gate-3 one-line word** (board HANDOFF is the paste) + the
+  headed sitting (picked() · ⌁/≈ · optional preview feel). On the word:
+  activate on the land → Gate 3 CLOSES → P7 sendable.
