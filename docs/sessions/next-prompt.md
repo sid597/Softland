@@ -7,64 +7,48 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
-## HANDOFF — next implementation session (paste this)
+## HANDOFF — next implementation session (paste this after Sid's "P5 ok")
 
 ```
-editable-material campaign — ORCHESTRATION session (Fable). Gate P5 +
-author CONTRACT_P6.md. FRESH session (the prior orchestrator ran
-P1–P4 gates across 500k tokens — phase-scoped sessions law).
-Prereq: P1–P4 gates all PASS, Gates 1+2 CLOSED (commits 83aa5dd+
-b6f3d75, c6bb5d8, 13f1dac, 2642ad6); P5 (bindings) sent to an Opus 5
-implementer session in the main tree; its report is in.
+MODE: IMPLEMENT · one package only · repo /mnt/data/projects/Softland
+Package P6 — the truth loop whole (Gates 3+4). Send PROMPTS.md §P6 to
+a fresh Codex session — CONTRACT_P6.md now EXISTS and is BINDING over
+that prompt (owner condensation REFUSED: no new Rama module; instance
+deviations/pins/instance-binding rows = instance-scoped facet-masters
+via the SAME adapter; honest event times; closed activation-event
+form; 12 traps T1–T12; 14 gates G1–G14; Gate-3 STOP = Sid's one-line
+activation word, verbatim in the contract).
 Boot, in order:
-1. build/editable-material/NOW.md — thread tail: the P4 GATE entry
-   (07-25: PASS, Gate 2 closed, kinds deployed + live-proven, clean
-   cold backup 20260725-clean-predeploy-p4) + the P5 report
-2. GATE_P1..P4.md (conventions + carried doubts BIND the review; P6
-   contract inputs live in GATE_P4 §Deferred + the causal-time
-   finding) · DIRECTION.md · CAMPAIGN.md §P5/§P6 + §Standing-stops ·
-   PROMPTS.md
-3. git log --oneline -8 · flake registry in
-   memory/implementation-quirks.md
-Role: fresh-context falsification + gate on P5 (work-package skill):
-re-run suites yourself, read the diff in full. P5 axes: closed
-binding grammar (material never names code) · ONE dispatch law ·
-frozen branch counts per migrated family · code-floor bindings
-unbreakable (malformed-bindings drill receipt) · no side effects in
-reactive queries · echo + input latency unchanged. Then author
-CONTRACT_P6.md (Fable-only, CAMPAIGN §P6 law): owner-condensation
-pre-adjudicated (platform-check OC + relation kernel), honest
-activation-event times (the P4 causal-time finding), Gate-3 Sid-word
-stop verbatim, Gate-4 wound-trace landing, traps + numbered gates.
-Only then hand Sid the P6 prompt.
-Ops: land UP, five modules RUNNING at the updated relation-kernel;
-depot-flush drain hang is INTERMITTENT (07-25 clean drain observed);
-Softland-p4 worktree retired — `git worktree remove` at leisure.
-TEST LANES (0c979af, gated): `clj -X:test fast` ~45s inner loop ·
-`clj -X:test full` ~5min exhaustive with exact 397t/5,416a parity
-floor — GATES USE `full`; the runner is fail-closed (new test nss
-must be tiered in test_runner.clj; flake registry locked isolated).
-Sid one-liners still open: "kinds ok" · click a block →
-__material.picked() · headed look at the ⌁ wish / ≈ machine-guess
-marks.
+1. build/editable-material/CONTRACT_P6.md (BINDING) + PROMPTS.md §P6
+2. build/editable-material/NOW.md tail (P5 gate entry) + GATE_P5.md
+   (findings that became T10/G9, G10, G14) + GATE_P4 §Deferred
+3. DIRECTION.md · CAMPAIGN.md §P6 + §Standing-stops ·
+   memory/implementation-quirks.md (causal-history law, flake
+   registry, shutdown state machine)
+Ops: land UP, five modules RUNNING; dev app down — boot with
+`clj -A:dev -X dev/-main` as needed; /rama + rama-pitfalls BEFORE any
+Rama design (contract forbids new modules — stop clause on conflict).
+TEST LANES (gated): `clj -X:test fast` ~45s inner loop · `clj -X:test
+full` ~5min — GATES USE `full` (floor now 414t/5,728a green at
+faab5f9); fail-closed tiering for new test nss.
+On the BUILT report: fresh Fable session gates P6 (Gates 3+4 close).
 ```
 
-**Campaign state:** **P1–P4 CLOSED — all gates PASS; Gates 1 + 2 of the
+**Campaign state:** **P1–P5 CLOSED — all gates PASS; Gates 1 + 2 of the
 four DIRECTION gates are CLOSED** (`GATE_P1.md` `83aa5dd`+`b6f3d75` ·
 `GATE_P2.md` `c6bb5d8` · `GATE_P3.md` `13f1dac` · `GATE_P4.md`
-`2642ad6` 07-25: circulation live — receipts automatic, gold path
-proven on the real cluster, `:instance-of`+`:felt-at` deployed and
-live-proven, terminal-escape armed, first-light P3 fulfilled; first
-CLEAN cold backup `20260725-clean-predeploy-p4`). **P5 bindings
-RUNNING (Opus 5, main tree, green-lit post-merge). On its report: a
-FRESH Fable session gates P5 + authors CONTRACT_P6.md (HANDOFF
-above).** Sid's open one-liners: "kinds ok" · `__material.picked()`
-click · headed ⌁/≈ marks look. Then P6 truth loop (Gates 3+4 —
-Fable CONTRACT_P6.md required first) → P7 portal → P8
-verb-from-inside — ladder, stops, Sid's touchpoints in `CAMPAIGN.md`.
-first-light P3/P4/P5 ride campaign P4/P6 under the first-light
-CONTRACT (no fork; flag discrepancies inline). Land is UP (five
-modules RUNNING; dev app down — Codex sessions boot it as needed).
+`2642ad6` · `GATE_P5.md` `faab5f9` 07-25: bindings + dispatch live —
+meaning is served material, ONE law dispatches it, floor unbreakable
+(drill PASS ×3 live), 20-row/0-conflict interaction table server=client,
+echo bar measured 0/42 over 52ms, families 1–4 clicked live).
+**CONTRACT_P6.md AUTHORED (Fable 07-25)** — P6 is sendable the moment
+Sid says "P5 ok" (HANDOFF above). Sid's open one-liners: **"P5 ok"** ·
+"kinds ok" · `__material.picked()` click · headed ⌁/≈ marks look. Then
+P6 truth loop (Gates 3+4) → P7 portal → P8 verb-from-inside — ladder,
+stops, Sid's touchpoints in `CAMPAIGN.md`. first-light P3 fulfilled;
+P4/P5 ride campaign P6 under the first-light CONTRACT (no fork; flag
+discrepancies inline). Land is UP (five modules RUNNING; dev app down —
+sessions boot it as needed).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.

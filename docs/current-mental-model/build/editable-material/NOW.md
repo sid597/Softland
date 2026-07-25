@@ -526,3 +526,28 @@
 - Next: P5 runs (Opus 5, green-lit — the P4 merge landed before any P5
   base). On P5's report: FRESH Fable session — gate P5 + author
   CONTRACT_P6.md. Sid's open one-liner: "kinds ok" (or veto).
+
+- **2026-07-25 · Fable (fresh) · P5 GATE — PASS (`faab5f9`); CONTRACT_P6
+  authored. P1–P5 CLOSED.**
+- Full record: `GATE_P5.md`. Independent receipts: suite 47ns/414t/5,728a
+  green (llm-probe flake cleared per protocol) · cljs cold compile 270
+  files 0 warnings · live drillAll PASS ×3, 0 deviations · served table
+  20 rows/0 conflicts, client/server parity exact · families 1–4 clicked
+  live through the one law (tier receipts) · echo bar MEASURED: 42
+  samples, max 31.6ms, 0 over the 52ms bar (SwiftShader-attested).
+- Falsification held on all three axes; findings (all non-blocking, all
+  landed as CONTRACT_P6 traps/gates): arg-starved valid rebind ·
+  space-instance shadow (code-level only) · floor-label cosmetics ·
+  third deterministic time-ms · dead wheel-row class.
+- Session honesty: the warned empty-point failure fired in this session's
+  own first driver — forensics proved zero durable damage (camera-cell
+  origin-exact); one retained trace: ep:5c962bf4 cell restored to within
+  one double ulp (x +5.7e-14). Dev app shut down again after use.
+- `CONTRACT_P6.md`: owner condensation REFUSED (no new module — platform
+  check in R1); instance deviations/pins/instance-binding rows =
+  instance-scoped facet-masters via the SAME adapter (R2); honest event
+  times (R3); closed activation-event form (R4); 12 traps, 14 gates,
+  Gate-3 Sid-word stop verbatim.
+- Next: Sid's one-liners — **"P5 ok"** · "kinds ok" (or veto) — then send
+  PROMPTS.md §P6 (now legal: CONTRACT_P6.md exists) to a fresh Codex
+  session.
