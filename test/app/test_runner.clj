@@ -32,6 +32,7 @@
   '[app.client.workspace.block-edit-test
     app.client.workspace.ground-edit-test
     app.client.workspace.scene-store-test
+    app.binding-dispatch-test
     app.face-assembly-test
     app.face-integration-test
     app.face-primitives-test

@@ -42,8 +42,13 @@
             :attention/background [0.0 0.0 0.0 0.0]}
            (:material
             (attention/compile-source attention/default-source))))
-    (is (= (:material
-            (attention/compile-source attention/default-source))
+    ;; P5: the floor moved to the explicit v1 bindings revision (the provenance
+    ;; precedent), so the floor is the v0 policy PLUS gesture rows and nothing
+    ;; else. v0 keeps its own grammar entry and is never backfilled.
+    (is (= (assoc (:material
+                   (attention/compile-source attention/default-source))
+                  :facet-master/bindings
+                  (:facet-master/bindings attention/bindings-form))
            (dissoc attention/code-floor
                    :facet-master/id
                    :facet-master/facet
@@ -63,8 +68,10 @@
              :line-count-suffix " lines)"}}
            (:material
             (foldable/compile-source foldable/default-source))))
-    (is (= (:material
-            (foldable/compile-source foldable/default-source))
+    (is (= (assoc (:material
+                   (foldable/compile-source foldable/default-source))
+                  :facet-master/bindings
+                  (:facet-master/bindings foldable/bindings-form))
            (dissoc foldable/code-floor
                    :facet-master/id
                    :facet-master/facet
@@ -80,8 +87,10 @@
             :positioned/persist-derived-reply-birth? true}
            (:material
             (positioned/compile-source positioned/default-source))))
-    (is (= (:material
-            (positioned/compile-source positioned/default-source))
+    (is (= (assoc (:material
+                   (positioned/compile-source positioned/default-source))
+                  :facet-master/bindings
+                  (:facet-master/bindings positioned/bindings-form))
            (dissoc positioned/code-floor
                    :facet-master/id
                    :facet-master/facet

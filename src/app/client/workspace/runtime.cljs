@@ -32,6 +32,7 @@
                                                    !assembly-request !assembly-data !face-list-request !face-list-data
                                                    !facet-materials-request !facet-materials-data
                                                    !material-inspector-request !material-inspector-data
+                                                   !interaction-table-request !interaction-table-data
                                                    !face-wear-outbox !face-wear-result
                                                    !block-edit-outbox !block-edit-result
                                                    !block-truth-request !block-truth-data]}]
@@ -76,6 +77,8 @@
                    :!facet-materials-data !facet-materials-data
                    :!material-inspector-request !material-inspector-request
                    :!material-inspector-data !material-inspector-data
+                   :!interaction-table-request !interaction-table-request
+                   :!interaction-table-data !interaction-table-data
                    :!face-wear-outbox !face-wear-outbox
                    :!face-wear-result !face-wear-result
                    :!ingest-epoch-remote !ingest-epoch-remote})

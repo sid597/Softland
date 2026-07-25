@@ -31,6 +31,9 @@
             [app.server.rama.relation-kernel :as rk]
             [app.server.rama.trail-view :as trail-view]
             [app.shared.facet-masters :as facet-masters]
+            [app.shared.attention-material :as attention-material]
+            [app.shared.foldable-material :as foldable-material]
+            [app.shared.positioned-material :as positioned-material]
             [app.shared.provenance-material :as provenance-material]
             [clojure.java.io :as io]
             [clojure.string :as str]))
@@ -356,12 +359,43 @@
                 [(:facet-master/id spec)
                  (facet-master/ensure-master! oc-rt spec)])))
             facet-masters/specs)
+           ;; editable-material P5: the three bindings-carrying masters take
+           ;; their gesture-row grammar the same explicit way provenance took
+           ;; its composition grammar — new immutable bytes, one activation.
+           ;; v0 revisions keep their original meaning and stay rewearable.
+           ;;
+           ;; This ingest makes the rows MATERIAL (revisable, activatable). It
+           ;; is not what makes them work: a master still serving v0 has no
+           ;; rows, and the client's code-floor tier carries the behavior. The
+           ;; client is correct before this ever runs.
+           bindings-migrations
+           (into
+            (sorted-map)
+            (map
+             (fn [[spec source slug]]
+               [(:facet-master/id spec)
+                (facet-master/ensure-active-source!
+                 oc-rt spec source
+                 {:request-id (str "facet-master-" slug "-v1")
+                  :activation-request-id
+                  (str "facet-master-" slug "-activate-v1")
+                  :time-ms 2})]))
+            [[attention-material/spec
+              attention-material/bindings-source "attention"]
+             [foldable-material/spec
+              foldable-material/bindings-source "foldable"]
+             [positioned-material/spec
+              positioned-material/bindings-source "positioned"]])
            results
            (into
-            {provenance-material/master-id (:state provenance-v1)}
-            (map (fn [[master-id boot]]
-                   [master-id (:state boot)]))
-            masters)]
+            (into
+             {provenance-material/master-id (:state provenance-v1)}
+             (map (fn [[master-id boot]]
+                    [master-id (:state boot)]))
+             masters)
+            (map (fn [[master-id migration]]
+                   [master-id (:state migration)]))
+            bindings-migrations)]
        (println
         "[CLUSTER-INGEST] facet materials:"
         (into
@@ -379,6 +413,7 @@
        {:provenance-v0 provenance-v0
         :provenance-v1 provenance-v1
         :masters masters
+        :bindings-migrations bindings-migrations
         :states results}))))
 
 (defn first-light-ingest!

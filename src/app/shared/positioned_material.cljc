@@ -1,12 +1,21 @@
 (ns app.shared.positioned-material
   "Facet 4: revisioned shared policy for derived placement and reply birth.
    Settled geometry cells remain per-instance durable truth; this master owns
-   only the defaults used before a cell exists."
-  (:require [app.shared.facet-material :as facet-material]))
+   only the defaults used before a cell exists.
+
+   P5 adds grammar v1: positioned owns placement, so it owns the gesture that
+   moves a block. Its row sits at BOTH block hit areas and claims only the
+   press threshold — a tap falls through to attention, and a shift-press falls
+   through to attention's selection rows. That fallthrough is the containment
+   walk doing the work the old `:else` branch used to do."
+  (:require [app.shared.binding-material :as binding-material]
+            [app.shared.facet-material :as facet-material]))
 
 (def master-id "fm:positioned")
 (def grammar-version 0)
 (def code-floor-revision-id "code-floor:fm:positioned:v0")
+(def bindings-grammar-version 1)
+(def bindings-code-floor-revision-id "code-floor:fm:positioned:v1")
 
 (def default-form
   {:facet-master/id master-id
@@ -20,6 +29,25 @@
    :positioned/persist-derived-reply-birth? true})
 
 (def default-source (pr-str default-form))
+
+(def ^:private drag-row
+  {:binding/gesture :pointer/press
+   :binding/phase :threshold
+   :binding/modifiers #{}
+   :binding/verb {:verb/name :placement/drag-group :verb/version 0}
+   :binding/priority 10})
+
+(def bindings-form
+  "v1 = v0 plus the drag row, extracted verbatim from pointer-move! :pending's
+   `:else` branch (`:dragging` on a block target) and pointer-up! :dragging's
+   per-member `arm-settle! :cell`."
+  (assoc default-form
+         :facet-master/grammar bindings-grammar-version
+         :facet-master/bindings
+         {:block/user-hit-area [drag-row]
+          :block/machine-hit-area [drag-row]}))
+
+(def bindings-source (pr-str bindings-form))
 
 (def ^:private anchor-rules
   #{:same-source-tail :source :previous})
@@ -42,33 +70,41 @@
                (every? anchor-rules order)))
         (vals x))))
 
+(def ^:private v0-grammar
+  {:material-keys
+   #{:positioned/reply-gap
+     :positioned/fallback-position
+     :positioned/anchor-order
+     :positioned/persist-derived-reply-birth?}
+   :validators
+   {:positioned/reply-gap
+    {:valid? facet-material/non-negative-number?
+     :error-type :positioned/reply-gap-invalid}
+    :positioned/fallback-position
+    {:valid? valid-position?
+     :error-type :positioned/fallback-position-invalid}
+    :positioned/anchor-order
+    {:valid? valid-anchor-order?
+     :error-type :positioned/anchor-order-invalid}
+    :positioned/persist-derived-reply-birth?
+    {:valid? boolean?
+     :error-type :positioned/persist-derived-reply-birth-invalid}}})
+
 (def spec
   {:facet-master/id master-id
    :facet-master/facet :positioned
    :facet-master/source-ref "softland://facet-master/positioned"
    :facet-master/default-form default-form
-   :facet-master/floor-form default-form
-   :facet-master/code-floor-revision-id code-floor-revision-id
+   :facet-master/floor-form bindings-form
+   :facet-master/code-floor-revision-id bindings-code-floor-revision-id
    :facet-master/grammars
-   {grammar-version
+   {grammar-version v0-grammar
+    bindings-grammar-version
     {:material-keys
-     #{:positioned/reply-gap
-       :positioned/fallback-position
-       :positioned/anchor-order
-       :positioned/persist-derived-reply-birth?}
+     (conj (:material-keys v0-grammar) :facet-master/bindings)
      :validators
-     {:positioned/reply-gap
-      {:valid? facet-material/non-negative-number?
-       :error-type :positioned/reply-gap-invalid}
-      :positioned/fallback-position
-      {:valid? valid-position?
-       :error-type :positioned/fallback-position-invalid}
-      :positioned/anchor-order
-      {:valid? valid-anchor-order?
-       :error-type :positioned/anchor-order-invalid}
-      :positioned/persist-derived-reply-birth?
-      {:valid? boolean?
-       :error-type :positioned/persist-derived-reply-birth-invalid}}}}})
+     (assoc (:validators v0-grammar)
+            :facet-master/bindings binding-material/bindings-validator)}}})
 
 (defn compile-form
   [form]
