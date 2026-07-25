@@ -23,6 +23,7 @@
     [app.server.rama.util-fns :as util-fns]
     [app.server.rama.objects :as rama-objects]
     [app.server.rama.relation-kernel :as rk]
+    [app.shared.reply-to-block :as reply-to-block]
     [app.server.env :as env]
     [clj-http.client :as http]
     [cheshire.core :as json]
@@ -875,7 +876,7 @@ information."
        (write-body-to-stream [_ _response output-stream]
          (let [writer (OutputStreamWriter. output-stream "UTF-8")]
            (try
-             (let [{:keys [oc-rt rk-rt]} (fv/face-ctx)]
+             (let [{:keys [oc-rt rk-rt] :as face-ctx} (fv/face-ctx)]
                (if (or (str/blank? text) (str/blank? turn-id)
                        (str/blank? (str source-unit-id)) (nil? oc-rt))
                  (write-event! writer {:kind :run-error :event :run-error
@@ -940,7 +941,20 @@ information."
                                  :receipt gold-receipt
                                  :asserted-at-ms time-ms})
                                (catch Exception e
-                                 {:status :error :error (.getMessage e)})))]
+                                 {:status :error :error (.getMessage e)})))
+                           ;; P8: the server re-derives the narrowed open from
+                           ;; the durable target. Client-supplied master ids or
+                           ;; unrelated wearer rows can never widen it.
+                           portal-open
+                           (reply-to-block/narrowed-portal-open
+                            (assoc (or (:portal-open request-data) {})
+                                   :entity-id source-unit-id
+                                   :conversation-id
+                                   (or conv-id
+                                       episode/genesis-conversation-id)))
+                           portal-briefing
+                           (face-projection/portal-briefing
+                            face-ctx portal-open)]
                        (if (and gold-receipt
                                 (not= :materialized (:status gold)))
                          (write-event!
@@ -961,7 +975,13 @@ information."
                                              :address (:address durable)
                                              :import-key (:import-key durable)
                                              :wish-relation-id (:relation-id gold)
-                                             :wish-target-id (:target-unit-id gold)})
+                                             :wish-target-id (:target-unit-id gold)
+                                             :portal-briefing-bytes
+                                             (count (.getBytes
+                                                     (or portal-briefing "")
+                                                     "UTF-8"))
+                                             :portal-master-ids
+                                             (:master-ids portal-open)})
                        ;; No explicit gold point: let the calibrated resident
                        ;; propose one silver :felt-at edge from the mechanically
                        ;; co-present visible candidates. It is deliberately
@@ -992,7 +1012,9 @@ information."
                                      (episode/episode-object-key
                                       (or conv-id episode/genesis-conversation-id))
                                      thread-id))
-                             argv (episode/summon-argv {:prompt (str (or seed "") text)
+                             argv (episode/summon-argv {:prompt
+                                                        (reply-to-block/compose-resident-prompt
+                                                         seed portal-briefing text)
                                                         :session-id episode-id
                                                         :fresh? (:fresh? episode)})]
                          (episode/note-episode-turn! thread-id conv-id
@@ -1002,7 +1024,13 @@ information."
                                     :thread-id thread-id
                                     :episode-id episode-id
                                     :fresh? (:fresh? episode)
-                                    :seed-chars (count (or seed ""))})
+                                    :seed-chars (count (or seed ""))
+                                    :portal-briefing-bytes
+                                    (count (.getBytes
+                                            (or portal-briefing "")
+                                            "UTF-8"))
+                                    :portal-master-ids
+                                    (:master-ids portal-open)})
                          (stream-cli-process
                           argv cwd timeout-ms
                           (fn [line]

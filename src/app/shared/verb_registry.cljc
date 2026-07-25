@@ -21,10 +21,9 @@
                                      grammar must be able to SAY it before a
                                      verb needs it.
 
-   `:verb/extracted-from` is an honesty field, not documentation: P5 may only
-   name verbs extracted from behavior that already existed, so every entry
-   points at the pre-P5 branch it was lifted out of. An entry with no such
-   pointer is a new verb, and new verbs are outside this package.
+   `:verb/extracted-from` is an honesty field, not documentation: a strangler
+   migration names the exact pre-registry branch it was lifted out of. P8 adds
+   the first post-P5 extraction: Ctrl+Enter's already-durable reply path.
 
    `:verb/floor-reserved?` marks the two verbs the code floor keeps forever
    (space pan and pointer-anchored zoom). `bindable?` refuses them, so no data
@@ -193,7 +192,24 @@
     :verb/extracted-from "ground/handle-wheel! (§9.4)"
     :verb/doc
     "Zoom so the world point under the pointer stays under it; arms the camera
-     settle at burst end. Floor-reserved."}})
+     settle at burst end. Floor-reserved."}
+
+   :resident/reply-to-block
+   {:verb/name :resident/reply-to-block
+    :verb/version 1
+    :verb/effect-class :durable-via-request
+    :verb/continuations #{:invoke}
+    :verb/required-args #{}
+    :verb/release-ref
+    "softland://verb-release/resident-reply-to-block/v1"
+    :verb/extracted-from
+    "ground/ground-keys-consumer :eval → submit-turn! — Ctrl+Enter pinned the
+     focused block's confirmed revision, recorded it durably, then summoned
+     the resident"
+    :verb/doc
+    "Reply to exactly the addressed user block. The raw turn becomes durable
+     before the resident is summoned with that block's narrowed portal
+     briefing."}})
 
 (def names
   "Canonical verb order — every projection and lint listing sorts by it."
@@ -263,6 +279,7 @@
         :verb/floor-reserved? (true? (:verb/floor-reserved? e))
         :verb/required-args (vec (sort-by str (required-args verb-name)))
         :verb/bindable? (bindable? verb-name (:verb/version e))
+        :verb/release-ref (:verb/release-ref e)
         :verb/extracted-from
         (str/replace (str (:verb/extracted-from e)) #"\s+" " ")}))
    names))

@@ -328,6 +328,16 @@
                                                          :portal/questions])))))
                  :unanswered (fn [& [entity-id]]
                                (open* entity-id nil :portal/unanswered))
+                 ;; P8 release chain, through the SAME namespace-preserving
+                 ;; conversion as every other portal value.
+                 :release (fn [& [entity-id]]
+                            (.then
+                             (request! entity-id nil)
+                             (fn [r]
+                               (portal->js
+                                (get-in r [:portal/result
+                                           :portal/bindings
+                                           :bindings/releases])))))
                  ;; why THIS pixel — pass a contribution stamp as EDN
                  :why (fn [stamp & [entity-id]]
                         (open* entity-id {:why (read-edn-arg stamp)}
@@ -345,6 +355,7 @@
             "  await __portal.open()          the whole projection\n"
             "  await __portal.questions()     every question + its replayable call\n"
             "  await __portal.briefing()      what a resident summoned here reads\n"
+            "  await __portal.release()       wish → code → receipts → verb → binding → activation → worn\n"
             "  await __portal.render()        the code-floor cards\n"
             "  await __portal.why('{:material/master \"fm:attention\" :material/site :block/user-hit-area}')\n"
             "  await __portal.blast('[:scope/all-unpinned]')\n"

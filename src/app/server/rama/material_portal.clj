@@ -302,12 +302,40 @@
         verb-names (into (sorted-set) (keep :table/verb) rows)
         conflicts (filterv #(or (empty? sites)
                                 (contains? sites (:binding/site %)))
-                           (:interaction-table/conflicts table))]
+                           (:interaction-table/conflicts table))
+        releases
+        (mapv
+         (fn [release]
+           (let [binding-node
+                 (some #(when (= :binding (:release/kind %)) %)
+                       (:release/nodes release))
+                 b (:release/binding binding-node)
+                 row (:row b)
+                 worn-row
+                 (some
+                  #(when (and (= :master (:table/tier %))
+                              (= (:master-id b) (:table/master-id %))
+                              (= (:revision-id b) (:table/revision-id %))
+                              (= (:binding/gesture row) (:table/gesture %))
+                              (= (:binding/phase row) (:table/phase %))
+                              (= (get-in row [:binding/verb :verb/name])
+                                 (:table/verb %))
+                              (= (get-in row [:binding/verb :verb/version])
+                                 (:table/verb-version %)))
+                     %)
+                  all-rows)]
+             (assoc release
+                    :release/worn? (boolean worn-row)
+                    :release/worn-row worn-row
+                    :release/query-path
+                    [:portal/bindings :bindings/releases])))
+         (:interaction-table/releases table))]
     {:bindings/sites (vec (sort-by pr-str sites))
      :bindings/rows rows
      :bindings/row-count (count rows)
      :bindings/table-row-count (count all-rows)
      :bindings/conflicts conflicts
+     :bindings/releases releases
      :bindings/verbs
      (mapv (fn [n]
              {:verb/name n
@@ -633,6 +661,7 @@
      :wearers         the current appearance snapshot, one payload, sent once.
      :conversation-id the world, for placement + the instance registry.
      :master-ids      restrict the masters priced (default: those on the pick).
+     :narrowed?       make an explicitly empty master set stay empty.
      :scope           the scope to price blast radius for.
      :cut             {master-id → pointer-revision-id} — stand in history.
      :why             a contribution stamp to trace.
@@ -640,7 +669,8 @@
 
    Returns the canonical, clock-free result. The caller adds transport."
   [{:keys [oc-rt] :as _ctx} serve-fn
-   {:keys [entity-id wearers conversation-id master-ids scope cut why drill?]}]
+   {:keys [entity-id wearers conversation-id master-ids scope cut why drill?
+           narrowed?]}]
   (let [errors (atom [])
         sect (fn [id fallback f] (section errors id fallback f))
         wearers (material-inspector/normalize-wearers wearers)
@@ -649,9 +679,11 @@
         stamped-masters (into (sorted-set) (keep :wearer/master-id) wearer-facets)
         ;; T-P7-3: price what the pick wears; widen to the whole registry when it
         ;; stamps nothing, so an untyped entity still gets a world description
-        priced (vec (or (seq master-ids)
-                        (seq stamped-masters)
-                        facet-masters/master-ids))
+        priced (if narrowed?
+                 (vec (or master-ids []))
+                 (vec (or (seq master-ids)
+                          (seq stamped-masters)
+                          facet-masters/master-ids)))
         sites (into (sorted-set)
                     (mapcat :wearer/contribution-sites)
                     wearer-facets)
@@ -684,7 +716,8 @@
                                 :params {:entity-id entity-id
                                          :wearers wearers}})))
         table (sect :interaction-table
-                    {:interaction-table/rows [] :interaction-table/conflicts []}
+                    {:interaction-table/rows [] :interaction-table/conflicts []
+                     :interaction-table/releases []}
                     #(sub serve-fn
                           {:face :interaction-table
                            :params {:drill? drill?}}))
