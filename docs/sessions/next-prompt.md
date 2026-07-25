@@ -7,62 +7,36 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
-## HANDOFF — P8 SLIM GATE (Sid's ruling 2026-07-26: gates are sized by
-## claim-risk — behavior, not checksums; paste the starter below)
+## HANDOFF — THE RETURN (campaign build-out COMPLETE 2026-07-26;
+## P8 GATED PASS — Sid opens the land; the first breath is the true gate)
 
-**P8 BUILT 2026-07-26 (`15497df` + replay fix `86c4255`, code+tests only;
-BUILT entry in `build/editable-material/NOW.md` is routing, not
-verification).** The banked wish ("reply to just this block", LOG 07-18)
-travels an eight-node durable release chain; Ctrl+Enter rides the material
-artery; briefing rides a NARROWED open (62KB live); gauge honestly
-`:ambiguous`. Build receipts (suite 454t/6,274a/0/0 · cljs 0 warnings) are
-TRUSTED per the new gate-sizing rule (decisions.md) — deterministic,
-never-yet-diverged; the gate does NOT re-run them.
+**The layer stands whole.** P1–P8 all gates PASS (`GATE_P8.md`, slim gate:
+the live drive proved the whole wish — a real Ctrl+Enter on a real block,
+the narrowed briefing at the server, a real resident, **the reply block
+precipitating beneath the addressed block, durable on reload** — the 07-18
+LOG words, running). Nothing further is staged before your wear; the
+campaign's true gate is a live pressure felt → repaired → felt again
+without leaving the land (first-light A closes with it).
 
-**The slim gate runs exactly four probes** (the 20% that has caught every
-real defect so far) **+ the two rulings.** ~1 hour. On PASS the campaign
-build-out is COMPLETE → board flips to the RETURN.
+**Your wear, exact acts (one sitting, any order after the ops line):**
 
-**Sid's touchpoints:** the P8 gate word (one line) · then the return wear
-(headed looks: `picked()` · `__portal` + `.release()` · ⌁/≈ · the 64 feel ·
-the visual portal face).
+1. Ops first — simplest: wear at **http://localhost:8091** (this gate's
+   HEAD jetty, already up, serves the P8 client+server). The :8080 dev app
+   runs a PRE-P8 server (JVM pid 465548, booted before the P8 commits);
+   to restore :8080 instead: `! kill 465548` then
+   `! cd /mnt/data/projects/Softland && nohup clj -M:dev -m dev > /tmp/devapp.log 2>&1 &`
+   Cluster is UP (five modules). Do NOT clear the shadow build cache
+   (Electric auth token lives in it).
+2. Point at a block, type, **Ctrl+Enter** — feel the reply land beneath
+   your words. (Drill lanes: use a UUID-shaped `?drill=` id if you want a
+   resident there — non-UUID drill ids can't spawn the CLI.)
+3. Headed looks folded here from P6/P7: `picked()` · ⌁/≈ · the 64 wrap
+   feel · `await __portal.release()` (the whole wish→worn chain) · the
+   visual portal face.
+4. Your carried one-liner: the recipe NAME ("block" is working
+   scaffolding; accept, rename, or withhold — nothing blocks).
 
-Ops: cluster UP (five modules) · dev app UP on :8080. Quirks memory holds
-the Electric-auth-in-build-cache trap — do NOT clear the shadow build cache.
-
-### Starter prompt — paste to a fresh session
-
-```
-MODE: SLIM GATE · editable-material P8 (verb-from-inside) · repo
-/mnt/data/projects/Softland
-AUTHORITY: DIRECTION.md + CAMPAIGN.md + GATE_P7.md carry-ins + the
-gate-sizing rule (decisions.md §How we work — behavior, not checksums).
-Read build/editable-material/NOW.md tail as INPUT. Build receipts are
-trusted; do NOT re-run the suite or any compile. Do NOT clear the shadow
-build cache (quirks memory: Electric auth token lives in it).
-
-P8 is BUILT at 15497df + 86c4255. Four probes, hardest first:
-1. LIVE DRIVE — Ctrl+Enter on a real block through the land (drill lane
-   fine): the reply addresses THAT block; the release reads back via
-   __portal.release() (complete? worn? nodes); read-only byte-proof
-   around the reads.
-2. WIDENING FALSIFIER — from the client, try to widen the narrowed
-   briefing: inject a second entity, foreign wearers, extra master-ids.
-   The server must re-derive authoritatively; ANY widening = FAIL.
-3. SINGLE-ARTERY — prove the old direct keyboard→resident path is GONE
-   (source-level: no dispatch site bypasses the binding resolver; a
-   surviving parallel artery is DIRECTION's FAIL-tell).
-4. FRESH-JVM RELEASE REPLAY — all nine addresses resolve to real OC
-   anchors, nothing copied, worn revision == activated attention-v3
-   revision, exactly ONE binding row.
-Guard: the terminal-escape gauge stays honestly :ambiguous — massaging it
-to zero FAILS the gate.
-Rulings: (a) campaign CLOSES on PASS — board flips to the RETURN;
-(b) F4 detector: LATER item or friction-driven.
-On PASS: GATE_P8.md (slim — the four probe receipts + rulings, one page) +
-NOW entry + flip the board to the RETURN. On FAIL: findings verbatim in
-NOW, kick back to the implementer with the exact probe that fired.
-```
+On any friction: say it in the land — that IS the loop now.
 
 **Campaign state:** **P1–P5 CLOSED — all gates PASS; Gates 1 + 2 of the
 four DIRECTION gates are CLOSED** (`GATE_P1.md` `83aa5dd`+`b6f3d75` ·
@@ -86,13 +60,16 @@ proper; suite 444t/6,225a re-derived, cljs cold 0 warnings, cross-JVM byte
 determinism, live read-only byte-identity, the documented console calls
 proven through the real artery after the sitting's namespace-stripping
 catch; recipe "block" accepted as working scaffolding on the delegated
-word). **P8 BUILT 07-26 (`15497df` + `86c4255`) — gate is a FRESH session
-(HANDOFF above); on its PASS the build-out is COMPLETE and the board flips
-to the RETURN** — ladder, stops, Sid's
-touchpoints in `CAMPAIGN.md`. first-light P3 fulfilled; P4/P5 fulfilled by P6's
-membrane + activation machinery under the first-light CONTRACT (G6/G7/G8
-shapes proven; its own G9 waits on Sid's return wear). Land is UP (five
-modules RUNNING; dev app UP on :8080 — the gate session's boot).
+word). **P8 GATED PASS 07-26 (`GATE_P8.md`: `15497df` + `86c4255`, first
+slim gate — the live drive closed the whole wish on the land; widening
+neutralized; single artery; nine release addresses replayed fresh-JVM;
+gauge honestly `:ambiguous`, F4 ruled a LATER item: scope the linearity
+check to the measurement window). **THE CAMPAIGN BUILD-OUT IS COMPLETE —
+the RETURN is the only open act** (HANDOFF above). first-light P3
+fulfilled; P4/P5 fulfilled by P6's membrane + activation machinery under
+the first-light CONTRACT; A closes with the return breath. Land is UP
+(five modules RUNNING; HEAD jetty on :8091 — the P8 gate's boot; the
+:8080 dev app is PRE-P8 until restarted, see HANDOFF).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
@@ -175,13 +152,11 @@ Softland or still on paper? (`BETS.md` verdict log.)
    past us its already well lit" — genesis-day note in-land, Tasks 1–11
    metabolized, zones inhabited). G5c Sid-half complete with it. (P2b
    code committed 07-18 — `325439a`.)
-0c. **Campaign standing word — given 07-24** ("do all whatever they
-   are"): code commits ride it, veto any line anytime. Your ONLY
-   remaining touchpoints: `build/editable-material/CAMPAIGN.md`
-   §Sid's-touchpoints (≈ten one-liners + the return wear). Gate-3's
-   activation word is GIVEN (delegated 07-25). **Open now: the recipe
-   NAME** — P7 names the worn-five composition "block" as working
-   scaffolding; accept, rename, or withhold (nothing blocks on it).
+0c. **Campaign COMPLETE 07-26 — every gate word spent except yours.**
+   Your ONLY remaining touchpoints: **the return wear** (HANDOFF at top)
+   + the carried one-liner: **the recipe NAME** — P7 names the worn-five
+   composition "block" as working scaffolding; accept, rename, or
+   withhold (nothing blocks on it). Veto any line anytime.
 0b. **durable-ground leftovers:** (a)
    `rm -rf /mnt/data/rama/data-restore-scratch` (1.6G drill leftover; rm
    was permission-blocked for the session). (b) vault leg: rsync
@@ -296,17 +271,14 @@ master ≠ recipe ≠ attachment, the probe births a MASTER, the first
 recipe/type is named at recurrence). Execution:
 `build/editable-material/CAMPAIGN.md` — **P1 anatomy CLOSED (07-24,
 `GATE_P1.md`; `83aa5dd` + `b6f3d75`)** → **P2 inspector CLOSED (07-24,
-`GATE_P2.md`; `c6bb5d8`)** → **P3 facet spread CLOSED (gate PASS
-07-25, `GATE_P3.md`; `13f1dac` — facet-2 halt PASS at two wearers, six
-masters on one generic layer, worn-five extraction complete)** → P4
-circulation RUNNING ∥ (Softland-p4 worktree; Gate 2; fulfills
-first-light P3; flag A pre-ruled) · P5 bindings SENDABLE (PROMPTS.md
-§P5, main tree) → P6 truth loop (Gates 3+4; Fable CONTRACT_P6.md
-required first; fulfills first-light P4/P5; carries the P1 wound trace
-as first immune memory + the carried gate doubts) → P7 portal → P8
-verb-from-inside; ~14–22 sessions, gates on banked frictions, Sid's
-touchpoints ≈ ten one-liners; the first full BREATH lands at his
-return, by design. decisions.md bullet when Gate 3 closes.
+`GATE_P2.md`; `c6bb5d8`)** → **P3 CLOSED** (`GATE_P3.md`; `13f1dac`) →
+**P4 CLOSED** (`GATE_P4.md`; `2642ad6`) → **P5 CLOSED** (`GATE_P5.md`;
+`faab5f9`) → **P6 CLOSED** (`GATE_P6.md`; `be247c5`+`cff3a14`; Gates 3+4)
+→ **P7 CLOSED** (`GATE_P7.md`; `04ae2df`+`c0838c1`) → **P8 CLOSED
+(07-26, `GATE_P8.md`; `15497df`+`86c4255`) — THE CAMPAIGN BUILD-OUT IS
+COMPLETE.** The first full BREATH lands at Sid's return, by design — the
+RETURN handoff at board top is the only open act. decisions.md bullet
+current (all four DIRECTION gates + campaign complete).
 
 **episode-chain — BUILT 2026-07-22 at Sid's word, awaiting his wear**
 (bounded CLI sessions under every lane — the multi-turn round's verdict:

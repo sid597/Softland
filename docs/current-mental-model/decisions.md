@@ -87,9 +87,14 @@ which crossroads did we take."
   path). Softland's components are served, revisioned, deviate-able,
   pinnable, previewable, activatable, reversible material; the four input
   stations dispatch through served rows over an unbreakable code floor.
-  Direction: `build/editable-material/DIRECTION.md`; gate records
-  `build/editable-material/GATE_P1..P6.md`. Remaining campaign: P7 portal →
-  P8 verb-from-inside → Sid's return wear (the true gate).
+  The campaign build-out is COMPLETE (P1–P8 all gates PASS, 2026-07-26):
+  the portal projects the material world inhabitably, and a banked wish
+  travels wish → code → receipts → versioned verb → binding → worn — one
+  verb born from inside, Ctrl+Enter riding the material artery with a
+  server-narrowed resident briefing. Direction:
+  `build/editable-material/DIRECTION.md`; gate records
+  `build/editable-material/GATE_P1..P8.md`. Sid's return wear is the true
+  gate — the first full breath closes first-light A.
 
 ## Settled architecture — use it, don't re-derive it
 

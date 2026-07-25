@@ -844,3 +844,33 @@
   activation — and explicitly does NOT claim zero).
 - Next: FRESH session gates P8 (starter in the board HANDOFF). On PASS the
   campaign build-out is COMPLETE and the board flips to the RETURN.
+
+- **2026-07-26 · Fable (fresh) · P8 GATE — PASS (`15497df` + `86c4255`).
+  THE CAMPAIGN BUILD-OUT IS COMPLETE — board flips to the RETURN.**
+- Full record: `GATE_P8.md` (first slim gate under the 07-26 sizing rule;
+  build receipts trusted, seam driven live). The four probes all HOLD:
+  a REAL Ctrl+Enter on a real drill block rode the material dispatch —
+  deictic chain intact end to end, narrowed briefing 80,878 B live at the
+  server, a real claude-CLI resident replied, and **the machine reply
+  block landed beneath the subject, durable on reload**; the widening
+  attacks (second entity + foreign wearers + injected master-ids +
+  narrowed?-false, live through the endpoint) all neutralized —
+  `:portal-master-ids []`, empty stayed empty; the old keyboard→resident
+  path is GONE (zero `submit-turn!` callers, one artery, floor twin is
+  totality not a bypass); fresh-JVM release replay: nine addresses
+  recomputed and matched, wish blob lines 727–736 verbatim, nothing
+  copied (6,991 B), worn == activated == live active pointer, exactly ONE
+  binding row. Byte-identical canonical snapshots around every read
+  bracket. Gauge honestly `:ambiguous`.
+- Rulings: campaign CLOSED (P1–P8 all PASS; the first full breath is
+  Sid's return, the true gate) · F4 detector → LATER item (scope the
+  linearity check to the measurement window; the cluster then reads
+  `:measured`).
+- Findings: the :8080 dev app was running a PRE-P8 server (booted 46 min
+  before the commits) — gate booted a HEAD jetty on :8091; restart :8080
+  at HEAD before the wear, or wear at :8091. Virgin non-UUID `?drill=`
+  lanes cannot spawn the resident CLI (pre-P8; genesis + threads are
+  UUIDs — the wear is safe; use UUID drill ids).
+- Next: **THE RETURN** — Sid opens the land (headed sitting: `picked()` ·
+  ⌁/≈ · the 64 feel · `__portal` + `.release()` · the visual portal
+  face). first-light A closes with the first live breath.
