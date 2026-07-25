@@ -184,15 +184,20 @@
      :source-id (get-in request [:payload :source-artifacts 0 :source-id])}))
 
 (defn read-release
-  "Two fixed OC reads: latest source by stable release ref, then its whole
-   material bundle. No per-node client joins and no N+1 unit reads."
+  "Read latest source by stable release ref, its whole material bundle, then
+   the fixed eight unit targets named by that bundle. These joins are all
+   server-side inside the interaction-table projection: the portal still makes
+   one client roundtrip and performs zero client joins."
   [runtime]
   (if-let [source (ocr/read-latest-source-by-ref runtime release-ref)]
     (let [source-id (:source-id source)
           bundle (ocr/read-common-material-for-source runtime source-id)
-          nodes (->> (:derived-units bundle)
-                     (sort-by :block-path)
-                     (mapv (comp edn/read-string :derived-content-text)))
+          unit-refs (sort-by :order-key (:derived-units bundle))
+          nodes (mapv (fn [ref]
+                        (some-> (ocr/read-unit runtime (:target-id ref))
+                                :content-text
+                                edn/read-string))
+                      unit-refs)
           errors (release-errors nodes)]
       {:release/ref release-ref
        :release/found? true

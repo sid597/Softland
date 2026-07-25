@@ -2,6 +2,7 @@
   "P8 — one addressable resident verb, one material binding, and a release
    chain that points at committed material instead of copying it."
   (:require [app.server.rama.object-container.clojure-adapter :as clj-adapter]
+            [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.material-portal :as material-portal]
             [app.server.rama.verb-release :as release]
             [app.shared.attention-material :as attention]
@@ -123,6 +124,30 @@
     (is (= 8 (count units)) "one DerivedUnitRow per release step")
     (is (= 9 (count anchors)) "one document anchor plus eight unit anchors")
     (is (every? :source-anchor-id units))))
+
+(deftest release-replay-follows-the-bundle-unit-refs
+  (let [refs (mapv (fn [i]
+                     {:target-id (str "unit:" i)
+                      :order-key (format "%06d" i)})
+                   (range 8))
+        by-id (into {}
+                    (map-indexed
+                     (fn [i node]
+                       [(str "unit:" i) {:content-text (pr-str node)}])
+                     valid-manifest))]
+    (with-redefs [ocr/read-latest-source-by-ref
+                  (fn [_ _] {:source-id "src:release"
+                             :source-hash "hash:release"})
+                  ocr/read-common-material-for-source
+                  (fn [_ _] {:derived-units (reverse refs)
+                             :anchors []})
+                  ocr/read-unit (fn [_ unit-id] (get by-id unit-id))]
+      (let [replay (release/read-release :runtime)]
+        (is (true? (:release/found? replay)))
+        (is (true? (:release/complete? replay)))
+        (is (= release/release-kinds
+               (mapv :release/kind (:release/nodes replay))))
+        (is (empty? (:release/errors replay)))))))
 
 (deftest narrowed-portal-open-prices-only-the-addressed-masters
   (let [result
