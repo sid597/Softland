@@ -7,32 +7,109 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
-## HANDOFF — P7 the portal (SENDABLE NOW; paste PROMPTS.md §P7 to a
-## fresh Codex session)
+## HANDOFF — P7 GATE (the portal is BUILT; boot a FRESH session with the
+## starter prompt at the bottom of this block)
 
-**GATE 3 CLOSED 2026-07-25 on Sid's delegated word** ("i want you to take
-the call" — Fable ruled **activate 64**, grounds + receipt in the NOW
-entry). The land wears `wrap-fallback-columns 64`; the activation event is
-declared (actor `fable-p6-gate`/`:agent`, grounds `exp:reply-width`,
-wall-clock time, scope all-unpinned by reference); the announced change
-names its rollback path to the 80-revision — one activation reverses it,
-forever. **All four DIRECTION gates are CLOSED; the layer STANDS**
-(decisions.md carries the bullet). P6 gate record:
+**P7 BUILT 2026-07-25 (`04ae2df`)** — the material world is one
+deterministic, total, batched projection. Open from a pick and **17
+questions** answer in ONE roundtrip; the question list is carried as DATA
+with a paste-able replay call each, so "answered one by one" is a gate, not
+a claim. **Zero Rama edits** — the portal owns no truth, it JOINS five
+existing projections through the module's own `serve`. Diff purely additive
+(+261 lines / 3 new files). Suite **444t/6,225a** green (floor 428t/5,940a);
+cljs 270 files 0 warnings. **Opened LIVE on the real cluster, read-only:
+877ms, 0 errors, 0 unanswered** — it reads Sid's Gate-3
+`wrap-fallback-columns 64` back with actor `fable-p6-gate` and declared
+grounds `exp:reply-width`, plus 26 nameable historical cuts and 6 recovery
+offers. Thread entry: `build/editable-material/NOW.md` tail (the P7 BUILT
+entry carries the seven fixed defects and the four honest gaps).
+
+**Sid's ONE open line — the recipe NAME.** The worn-five composition has
+recurred, so the portal names it **"block"** — `:working-scaffolding`,
+authority `:sid`, class `:derived-uniform` (facet attachment is derived
+today, so uniform recurrence is the CODE attaching uniformly, not the land
+choosing a type — DIRECTION's deep proof still waits for a `:lived` class).
+Accept · rename · withhold. Nothing blocks on it; the portal describes and
+never gates.
+
+**The gate session owns:** re-run everything itself · the falsification pass
+· the COLD cljs receipt (`rm -rf .shadow-cljs/builds/dev` was
+permission-blocked for the build) · the HEADED `__portal` sitting (the
+console API is live: open/questions/briefing/render/why/blast/at) · two
+adjudications — the recipe name, and the deferred VISUAL portal face (the
+render model is built and JVM-proven; drawing it needs Sid's headed browser,
+so shipping it unverified would break the wearing law) · GATE_P7.md + the
+board flip to the P8 send.
+
+Ops: **cluster UP** (five modules RUNNING, conductor ready, cluster UI 200 —
+corrected from the P6 build session's DOWN reading); dev app down — sessions
+boot it as needed (`clj -A:dev -X dev/-main`).
+
+**Prior:** GATE 3 CLOSED 2026-07-25 on Sid's delegated word ("i want you to
+take the call" — Fable ruled **activate 64**). All four DIRECTION gates are
+CLOSED; the layer STANDS (decisions.md carries the bullet). P6 gate record:
 `build/editable-material/GATE_P6.md` (PASS; `be247c5` + `cff3a14`).
+**Sid's remaining touchpoints:** the recipe name · P7 + P8 gate words (one
+line each) · the headed looks (`__material.picked()` · `__portal` ·  ⌁/≈
+marks · feel the 64 width) — fold into his return wear or any headed
+sitting · the return itself. Rollback of the 64: say the word, any session
+runs one `:rollback` activation to the recorded revision.
 
-**Send now:** `build/editable-material/PROMPTS.md` **§P7** (the portal
-proper — prereq "P6 gates 3+4 PASS" is met). P8 follows P7's gate PASS
-(sequential by the campaign's letter, not parallel; it may overlap Sid's
-return). After P8: Sid's return wear — the campaign's true gate.
+### Starter prompt — paste to a fresh session
 
-**Sid's remaining touchpoints:** P7 + P8 gate words (one line each) · the
-headed looks (`__material.picked()` click · ⌁/≈ marks · feel the 64 width)
-— fold into his return wear or any headed sitting, no separate errand ·
-the return itself. Rollback of the 64: say the word, any session runs one
-`:rollback` activation to the recorded revision.
+```
+MODE: GATE · editable-material P7 (the portal proper) · repo
+/mnt/data/projects/Softland
+AUTHORITY: DIRECTION.md + CAMPAIGN.md + PROMPTS.md §P7. Read
+build/editable-material/NOW.md tail (the P7 BUILT entry) as INPUT, never as
+authority — the code is what you judge. /rama + rama-pitfalls before any
+Rama reasoning. Work-package gate protocol: re-run everything yourself.
 
-Ops: cluster UP (five modules RUNNING); dev app down — sessions boot it
-as needed (`clj -A:dev -X dev/-main`).
+P7 is BUILT at 04ae2df. New: src/app/shared/material_portal.cljc (pure
+half — the 17-question list as DATA, recipe, why-this-pixel, truncation
+roll-up, briefing, the code-floor render model) · src/app/server/rama/
+material_portal.clj (the join) · test/app/material_portal_test.clj
+(G1–G14). Edited additively: face_projection.clj (one registry entry +
+material-portal-projection + portal-briefing), electric_flow.cljc +
+runtime.cljs + face_wiring.cljs (the __portal console seam),
+face_projection_test.clj (the registry pin — a shared surface),
+test_runner.clj (tiering). ZERO Rama edits.
+
+1. Re-run: `clj -X:test` + a COLD cljs compile (clear
+   .shadow-cljs/builds/dev first — the build session could not).
+2. Falsify these five claims, hardest first:
+   · "answered one by one" — walk portal/questions against DIRECTION
+     yourself. Is any question answered in NAME only (present key, useless
+     value)?
+   · determinism — no clock, no *print-namespace-maps* dependence,
+     byte-equal re-open. Hunt a section that leaks a clock or hash order.
+   · batched — G3 pins the sub-serve count at FIVE regardless of page size.
+     That is the N+1 falsifier; try to break it (more wearers, more
+     masters, many deviations).
+   · the floor — G9's card-set invariance under garbage. Try a value G9
+     does not: a lazy seq that throws on realisation, a cyclic structure.
+   · read-only — G14 asserts byte-identical durable state across every
+     portal mode. Add a mode if you find one it misses.
+3. LIVE (cluster is UP): the build ran a read-only live open (receipt in
+   NOW). Still owed — the HEADED sitting: boot the dev app, click a block,
+   run `await __portal.questions()` / `.briefing()` / `.render()` /
+   `.why(...)` / `.blast('[:scope/all-unpinned]')` / `.at(...)`, and read
+   the REAL recipe composition + recurrence class off the live land.
+4. Adjudicate: (a) the recipe NAME (Sid's, delegable per precedent);
+   (b) the deferred VISUAL portal face — fold into P8 / the return wear, or
+   open a small P7b.
+5. On PASS: GATE_P7.md + the NOW entry + flip this board to the P8 send
+   (PROMPTS.md §P8). On FAIL: findings verbatim in NOW, re-run the phase.
+
+Residue handed to you, non-blocking: `facet-material/resolved-wear` reports
+`:floor? false` for a master the serve could not read at all (the
+`unavailable` shape substitutes floor material AND the floor revision id,
+then passes `valid-material?`) — P7 works around it and names the reason;
+the underlying P1 shape wants a ruling, not a P7 patch. And the real-land
+projection is 103KB, so a summoned resident's briefing is ~26k tokens —
+inherent, but rule on whether a resident gets all of it or a declared
+deterministic subset.
+```
 
 **Campaign state:** **P1–P5 CLOSED — all gates PASS; Gates 1 + 2 of the
 four DIRECTION gates are CLOSED** (`GATE_P1.md` `83aa5dd`+`b6f3d75` ·
@@ -50,10 +127,12 @@ on Sid's delegated word, the 64 activation live on the land (HANDOFF
 above).** "kinds ok" RATIFIED 07-25. Residue carried in GATE_P6.md: dead
 client weather lane (F3) · escape detector reads `:ambiguous` on the
 durable cluster until it keys per-master/causal-tip (F4) · text-body
-instance deviations serve but aren't felt in the wrap pass. Now P7
-portal (SENDABLE — PROMPTS.md §P7) → P8 verb-from-inside (after P7's
-gate; may overlap the return) — ladder, stops, Sid's touchpoints in
-`CAMPAIGN.md`. first-light P3 fulfilled; P4/P5 fulfilled by P6's
+instance deviations serve but aren't felt in the wrap pass. **P7 BUILT
+07-25 (`04ae2df`) — the portal proper; gate is a FRESH session (HANDOFF
+above). Suite 444t/6,225a green; live open on the real cluster 877ms /
+0 errors / 0 unanswered; zero Rama edits.** Then P8 verb-from-inside
+(after P7's gate; may overlap the return) — ladder, stops, Sid's
+touchpoints in `CAMPAIGN.md`. first-light P3 fulfilled; P4/P5 fulfilled by P6's
 membrane + activation machinery under the first-light CONTRACT (G6/G7/G8
 shapes proven; its own G9 waits on Sid's return wear). Land is UP (five
 modules RUNNING; dev app down — sessions boot it as needed).
@@ -142,8 +221,10 @@ Softland or still on paper? (`BETS.md` verdict log.)
 0c. **Campaign standing word — given 07-24** ("do all whatever they
    are"): code commits ride it, veto any line anytime. Your ONLY
    remaining touchpoints: `build/editable-material/CAMPAIGN.md`
-   §Sid's-touchpoints (≈ten one-liners + the Gate-3 activation word +
-   the return wear).
+   §Sid's-touchpoints (≈ten one-liners + the return wear). Gate-3's
+   activation word is GIVEN (delegated 07-25). **Open now: the recipe
+   NAME** — P7 names the worn-five composition "block" as working
+   scaffolding; accept, rename, or withhold (nothing blocks on it).
 0b. **durable-ground leftovers:** (a)
    `rm -rf /mnt/data/rama/data-restore-scratch` (1.6G drill leftover; rm
    was permission-blocked for the session). (b) vault leg: rsync

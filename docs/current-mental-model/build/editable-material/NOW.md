@@ -693,3 +693,84 @@
   the 64) fold into Sid's return wear.
 - Next: send PROMPTS.md **§P7** (portal) to a fresh Codex session; P8 after
   P7's gate; then the return wear. Sid's rollback word stays live forever.
+
+- **2026-07-25 · Opus 5 · P7 BUILT (`04ae2df`) — the portal proper. Suite
+  444t/6,225a green (0/0; floor 428t/5,940a); cljs 270 files 0 warnings.
+  Opened LIVE on the real cluster read-only: 877ms, 0 errors, 0 unanswered.
+  Gate review = FRESH session.**
+- **Zero Rama edits, zero new organs** (R1's precedent held one package
+  further): no module, PState, depot, topology or `extract-object-key` branch.
+  The portal owns no truth — it is a JOIN of five existing projections
+  (`:facet-materials` · `:material-inspector` · `:interaction-table` ·
+  `:material-truth` · `:material-experience`) read through THIS module's own
+  `serve`, passed in as an argument: no ns cycle, and no private read path into
+  the land (the "renders through the layer's own machinery" fence, structural).
+  Diff purely additive — 261 insertions over six files, zero deletions, three
+  new files.
+- **The question list is DATA** (`app.shared.material-portal/questions`): 17
+  questions, each with `:question/answers-at` + paste-able `:question/call-jvm`
+  and `:question/call-console`. `unanswered` walks them against a real
+  projection, so "answered one by one" is gate G1, not a claim; G1 prints the
+  list with its calls as the receipt.
+- **LIVE receipt (real cluster, read-only, fresh JVM):** one open = 877ms · all
+  six masters · `fm:text-body` serves `wrap-fallback-columns 64` — Sid's Gate-3
+  activation read back through the portal, actor `fable-p6-gate`/`:agent`,
+  grounds `exp:reply-width` `:grounds/declared` · 26 nameable historical cuts
+  across six masters · six recovery offers · `fm:provenance` + `fm:threaded`
+  show latest ≠ active (live unactivated candidates) · `fm:threaded`'s latest
+  activation classifies `:change/recovery` (the land HAS re-worn a previous
+  revision) · v0 rows honest (`:grounds/unknown`, actor unknown, time nil) ·
+  196 settled cells · lint clean · truncation complete.
+- **RECIPE — Sid's one open line.** The worn-five composition HAS recurred, so
+  the portal names it **"block"**; but `:recipe/recurrence-class
+  :derived-uniform`, because facet attachment is derived today and every
+  rendered block therefore wears the same facets. That is code attaching
+  uniformly, NOT DIRECTION's deep proof (`the first unplanned material type,
+  condensed from recurrent lived deviations, ratified by care`).
+  `:recipe/name-status :working-scaffolding`, `:recipe/name-authority :sid`
+  (§Only-Sid: names finalize by recurrence, Sid names). `:recipe/gates? false`,
+  permanently — nothing reads it to decide anything.
+- **Briefing = the projection, byte for byte** (G7): `<projection>` carries
+  `canonical-edn` verbatim and `fp/portal-briefing` (the resident's entry point,
+  shaped on `episode-seed`) yields the identical string. No model on the path —
+  in the value (`:briefing/llm-in-path? false`, `:plan/llm-calls 0`) and by
+  source scan. The summon GESTURE is P8's; the briefing and its total entry
+  point are P7's.
+- **The dull floor, drilled** (G9/G9b): card set and ORDER derive from
+  `questions`, a compile-time value, so no data revision can change them; nil,
+  a string, a number and a hostile `ILookup` all render the same 17 cards with
+  named errors. Durable malformed drill re-run because the kernel grew a portal:
+  candidate retained, activation refused, worn surface byte-identical.
+- **Seven defects the suite + falsification pass caught and fixed, all pinned:**
+  blast radius priced a set of ONE (reported "0 will move" for an activation
+  about to reach the whole page) · an unknown master was silently dropped from
+  `:portal/masters` · why-this-pixel returned `found? true` with a chain of
+  blanks for an unresolvable master · a master with NO history reported
+  truncation · the floor's own `answered?` probe sat outside the error boundary
+  (found by a hostile-`ILookup` drill) · an empty composition shared by two
+  entities read as "recurred" · one `nil` where a boolean belonged. Also: the
+  `projection-registry` key set in `face_projection_test.clj` is a SHARED
+  SURFACE — P7 tripped it and updated it in the same change (the work-package
+  rule, earned again).
+- **Neither STOP fired:** no client N+1 join (G3 pins the sub-serve count at
+  FIVE regardless of page size — add wearers or masters and it does not move),
+  and no place where determinism would have wanted a model.
+- **Honest gaps for the gate, owners named:** (a) the portal's VISUAL face is
+  NOT built — the render model is its input and is JVM-proven, but drawing needs
+  Sid's headed browser (headless WebGPU dead here) and shipping unverifiable UI
+  would break the wearing law; (b) COLD cljs receipt owed (`rm -rf
+  .shadow-cljs/builds/dev` was permission-blocked; the incremental run was
+  0-warning); (c) the real-land projection is **103KB**, so a summoned
+  resident's briefing is ~26k tokens — inherent (the briefing IS the
+  projection), but the gate should rule whether a resident gets all of it or a
+  declared deterministic subset; (d) `facet-material/resolved-wear` reports
+  `:floor? false` for a master the serve could not read at all (the
+  `unavailable` shape substitutes floor material AND the floor revision id, then
+  passes `valid-material?`) — P7 works around it by reading the serve's own
+  found?/valid? and names the reason, the underlying P1 shape wants a ruling,
+  not a P7 patch.
+- **Ops divergence corrected:** the P6 build session recorded the cluster DOWN;
+  it is **UP** (five modules RUNNING, conductor ready, cluster UI 200). Dev app
+  down — sessions boot it as needed.
+- Next: FRESH session gates P7 (starter prompt in the board HANDOFF). Sid's open
+  one-liner: the recipe NAME.
