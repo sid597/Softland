@@ -12,7 +12,7 @@
    THE ROW GRAMMAR IS CLOSED — exactly five keys, every value from an
    enumerated set or the verb registry:
 
-     {:binding/gesture   :pointer/press | :pointer/tap | :wheel
+     {:binding/gesture   :pointer/press | :pointer/tap | :wheel | :key/eval
       :binding/phase     :begin | :threshold | :complete
       :binding/modifiers #{:shift} | :any
       :binding/verb      {:verb/name … :verb/version …}
@@ -52,7 +52,7 @@
   "Every gesture the kernel normalizes. `:pointer/press` and `:pointer/tap` are
    distinct gestures, not phases of one: a press that crosses the threshold is
    never also a tap."
-  #{:pointer/press :pointer/tap :wheel})
+  #{:pointer/press :pointer/tap :wheel :key/eval})
 
 (def gesture-phases
   #{:begin :threshold :complete})
@@ -63,7 +63,8 @@
   #{[:pointer/press :begin]
     [:pointer/press :threshold]
     [:pointer/tap :complete]
-    [:wheel :complete]})
+    [:wheel :complete]
+    [:key/eval :complete]})
 
 (def modifier-keys
   "Only what the kernel actually observes today: `events/>mouse` and

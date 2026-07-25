@@ -45,8 +45,10 @@
             [app.shared.facet-material :as facet-material]
             [app.shared.facet-masters :as facet-masters]
             [app.shared.foldable-material :as foldable-material]
+            [app.shared.material-inspector :as material-inspector]
             [app.shared.positioned-material :as positioned-material]
             [app.shared.provenance-material :as provenance-material]
+            [app.shared.reply-to-block :as reply-to-block]
             [app.shared.text-body-material :as text-body-material]
             [app.shared.threaded-material :as threaded-material]
             [app.shared.verb-registry :as verb-registry]))
@@ -1812,8 +1814,8 @@
              (sort-by second)
              ffirst)))))
 
-(defn submit-turn!
-  "Ctrl+Enter from the FOCUSED block (target never ambiguous). The pinned
+(defn reply-to-block!
+  "Invoke the durable resident reply for the ADDRESSED block. The pinned
    revision = the block's confirmed text at send time — the turn record
    makes the pin durable BEFORE the agent spawns; mid-stream edits never
    rewrite what the resident answered.
@@ -1827,10 +1829,10 @@
    concurrently with every other thread. Busy is per-thread — a
    mid-turn thread refuses VISIBLY at its block; the rest of the canvas
    stays sendable. Drill pages (?drill=) keep the legacy single lane."
-  []
-  (let [st  @!ground-edit
-        fid (:focus st)]
-    (when fid
+  [subject]
+  (let [st @!ground-edit
+        fid subject]
+    (when (and fid (get-in @!world [:blocks fid]))
       (let [drill  (drill-conversation-id)
             adopted (when-not (or drill (contains? @!thread-of fid))
                       (adoptive-thread-for fid))
@@ -1846,7 +1848,21 @@
             (when-not (str/blank? (or text ""))
               (let [turn-id (str (random-uuid))
                     time-ms (js/Date.now)
-                    scene-context (pointer-context time-ms)]
+                    scene-context (pointer-context time-ms)
+                    request-body
+                    (reply-to-block/request
+                     {:subject fid
+                      :text text
+                      :position {:x (:x b) :y (:y b)}
+                      :turn-id turn-id
+                      :time-ms time-ms
+                      :scene-context scene-context
+                      :prev-turn-id (get @!last-turn-ids thread)
+                      :thread-id thread
+                      :conversation-id drill
+                      :wearers
+                      (material-inspector/wearers-from-scene-store
+                       (scene-rt/store-snapshot))})]
                 (swap! !thread-of assoc fid thread)
                 (when adopted
                   (transient-notice! fid "joined the conversation above"))
@@ -1863,21 +1879,21 @@
                 (refresh-provisional!)
                 (agent/stream-agent-run!
                  "/api/episode/utterance"
-                 (cond-> {:source-unit-id fid
-                          :content-text text
-                          :position {:x (:x b) :y (:y b)}
-                          :turn-id turn-id
-                          :time-ms time-ms
-                          :scene-context scene-context
-                          :prev-turn-id (get @!last-turn-ids thread)}
-                   thread (assoc :thread-id thread)
-                   drill  (assoc :conversation-id drill))
+                 request-body
                  (partial run-event! thread turn-id)
                  (fn [err]
                    (swap! !ground-runs update thread assoc
                           :phase :idle :activity nil
                           :error (str "send failed: " (.-message err)))
                    (refresh-provisional!)))))))))))
+
+(defn submit-turn!
+  "Compatibility entry for callers outside the material dispatch. New
+   Ctrl+Enter input resolves `:resident/reply-to-block` and calls
+   `reply-to-block!` with the decision subject."
+  []
+  (when-let [subject (:focus @!ground-edit)]
+    (reply-to-block! subject)))
 
 ;; ===========================================================================
 ;; Keys — the :ground-input focus lane (ALL ground keys route here)
@@ -2019,6 +2035,8 @@
                       (transient-notice! uid
                                          "delete failed — land unreachable"))))))))
 
+(declare dispatch-key-eval!)
+
 (defn ground-keys-consumer
   [_atoms <ground-keyboard]
   (->> <ground-keyboard
@@ -2026,7 +2044,7 @@
         (fn [_ event]
           (when event
             (case (:type event)
-              :eval (submit-turn!)
+              :eval (dispatch-key-eval!)
               :copy (copy-current!)
               (:char :backspace :delete :enter :paste
                :left :right :up :down :home :end :word-left :word-right)
@@ -2492,7 +2510,14 @@
        (swap! !ground-edit ge/escape)
        (refresh-anchor!)
        (when old (rebuild-block! old))
-       (rebuild-block! subject)))})
+     (rebuild-block! subject)))})
+
+;; :resident/reply-to-block ← Ctrl+Enter's pre-P8 `submit-turn!` path. The
+;; decision subject, not a second read of focus, is the durable target.
+(register-verb! :resident/reply-to-block
+  {:invoke
+   (fn [{:keys [subject]}]
+     (reply-to-block! subject))})
 
 ;; :fold/toggle-section ← pointer-up! :pending fold branch (Task 7). The
 ;; section arrives from the CLAIM: the header node hit is the section.
@@ -2640,10 +2665,10 @@
 
 (defn- decide
   "Stations 1–3 as one pure-input call. Returns the decision; effects nothing."
-  [{:keys [kind phase modifiers hit]}]
+  [{:keys [kind phase modifiers hit claims]}]
   (binding-material/resolve-binding
    {:gesture (binding-material/normalize-gesture kind phase modifiers)
-    :claims (claim-chain hit)
+    :claims (if (some? claims) claims (claim-chain hit))
     :facet-rows (current-master-binding-rows)
     :floor-rows floor-binding-rows
     :instance-rows (instance-binding-rows)}))
@@ -2690,6 +2715,24 @@
     (invoke-verb! decision :invoke
                   {:press press :screen screen :world world :wheel wheel})
     decision))
+
+(defn- dispatch-key-eval!
+  "Ctrl+Enter mechanism: address the focused user block, then use the SAME
+   normalized resolver and the SAME invocation site as every pointer gesture.
+   The claim contains no behavior; it only names what the key act addressed."
+  []
+  (when-let [subject (:focus @!ground-edit)]
+    (let [claim {:claim/subject subject
+                 :claim/site :block/user-hit-area
+                 :claim/facets binding-material/block-claim-facets
+                 :claim/args {}}
+          decision (decide {:kind :key/eval
+                            :phase :complete
+                            :modifiers #{}
+                            :claims [claim]})]
+      (note-conflicts! decision)
+      (invoke-verb! decision :invoke {})
+      decision)))
 
 ;; ---------------------------------------------------------------------------
 ;; The pointer machine — three phases, zero meaning

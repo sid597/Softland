@@ -149,11 +149,28 @@
                 (filter :verb/floor-reserved?)
                 (mapv :verb/name)))))
   (testing "a durable-via-request verb is exactly one that arms the settle lane"
-    (is (= #{:camera/pan :camera/zoom-at-pointer :placement/drag-group}
+    (is (= #{:camera/pan :camera/zoom-at-pointer :placement/drag-group
+             :resident/reply-to-block}
            (->> (verbs/declaration-rows)
                 (filter #(= :durable-via-request (:verb/effect-class %)))
                 (map :verb/name)
                 set)))))
+
+(deftest p8-eval-addresses-one-block-through-one-material-row
+  (let [reply-master-rows
+        (assoc master-rows
+               :attention
+               (:facet-master/bindings attention/reply-bindings-form))
+        d (resolve* :key/eval :complete #{} (block-claim :block/user-hit-area)
+                    :facet-rows reply-master-rows)]
+    (is (= :claimed (:decision/outcome d)))
+    (is (= subject (:decision/subject d))
+        "the claim's subject is the addressed block; no second target verb")
+    (is (= :resident/reply-to-block (verb-of d)))
+    (is (= 1 (get-in d [:decision/verb :verb/version])))
+    (is (= :master (:decision/tier d)))
+    (is (= :attention (:decision/facet d)))
+    (is (= attention/reply-binding-row (:decision/row d)))))
 
 ;; ===========================================================================
 ;; Family 1 — fold-header click
@@ -642,7 +659,7 @@
                             :revision-id (str "rev:" (name facet))
                             :floor? false
                             :bindings (:facet-master/bindings form)}))
-                    {:attention attention/bindings-form
+                    {:attention attention/reply-bindings-form
                      :foldable foldable/bindings-form
                      :positioned positioned/bindings-form}))]
     (testing "every row carries its master link and its verb's effect class"
@@ -669,10 +686,10 @@
                        :bindings (:facet-master/bindings
                                   foldable/bindings-form)}
                       {:tier :master :facet :attention
-                       :master-id (:facet-master/id attention/bindings-form)
+                       :master-id (:facet-master/id attention/reply-bindings-form)
                        :revision-id "rev:attention" :floor? false
                        :bindings (:facet-master/bindings
-                                  attention/bindings-form)}
+                                  attention/reply-bindings-form)}
                       {:tier :floor :facet bm/space-facet
                        :master-id "code-floor:space" :revision-id nil
                        :floor? true
@@ -717,15 +734,33 @@
       ;; P6 · T10: the floor moved to v2 — v1's rows verbatim under a grammar
       ;; that additionally refuses a row whose SITE cannot feed its verb. v1
       ;; keeps its own declaration and is never re-read through v2's validator.
-      (testing (str mid " — the FLOOR is the v2 form, so the floor has rows")
-        (is (= v2-form (:facet-master/floor-form spec)))
+      ;; P8 moves ONLY attention to v3 with exactly one additional eval row.
+      (testing (str mid " — the FLOOR has the latest additive grammar")
+        (let [p8-attention? (= attention/master-id mid)
+              expected-floor (if p8-attention?
+                               attention/reply-bindings-form
+                               v2-form)
+              expected-suffix (if p8-attention? ":v3" ":v2")]
+        (is (= expected-floor (:facet-master/floor-form spec)))
         (is (seq (:facet-master/bindings (facet-material/code-floor spec))))
-        (is (str/ends-with? (:facet-master/code-floor-revision-id spec) ":v2"))
-        (is (= (:facet-master/bindings v1-form)
-               (:facet-master/bindings v2-form))
-            "v2 changes the grammar version and NOTHING about the rows")
+        (is (str/ends-with? (:facet-master/code-floor-revision-id spec)
+                            expected-suffix))
+        (if p8-attention?
+          (is (= [attention/reply-binding-row]
+                 (vec
+                  (remove
+                   (set (get-in v2-form
+                                [:facet-master/bindings
+                                 :block/user-hit-area]))
+                   (get-in expected-floor
+                           [:facet-master/bindings
+                            :block/user-hit-area]))))
+              "v3 adds exactly the one P8 row")
+          (is (= (:facet-master/bindings v1-form)
+                 (:facet-master/bindings v2-form))
+              "v2 changes the grammar version and NOTHING about the rows"))
         (is (:valid? (facet-material/compile-form spec v1-form))
-            "a durable v1 revision stays rewearable under v1 forever"))
+            "a durable v1 revision stays rewearable under v1 forever")))
 
       (testing (str mid " — a malformed row set is refused, not accepted")
         (is (not (:valid?
@@ -759,7 +794,8 @@
     (is (= #{[:pointer/press :begin]
              [:pointer/press :threshold]
              [:pointer/tap :complete]
-             [:wheel :complete]}
+             [:wheel :complete]
+             [:key/eval :complete]}
            bm/legal-gestures)
         "growing this set is a kernel change, a grammar version, and this edit")
     (is (= #{:shift} bm/modifier-keys))
@@ -812,10 +848,11 @@
     (testing "the kernel keeps exactly three pointer phases"
       (is (str/includes? ground ":pointer-phases #{:idle :pending :active}")))
 
-    (testing "all four families reach their verbs through exactly TWO call
+    (testing "the pointer families plus P8 eval reach verbs through exactly
+              THREE call sites of the law
               sites of the law — the shared discrete dispatch (press/:begin,
-              tap, wheel) and the threshold"
-      (is (= 2 (count (re-seq #"\(decide \{" ground))))
+              tap, wheel), the threshold, and the key claim"
+      (is (= 3 (count (re-seq #"\(decide \{" ground))))
       (is (= 1 (count (re-seq #"binding-material/resolve-binding" ground)))
           "one law, one implementation")
       (is (= 1 (count (re-seq #"\(defn- invoke-verb!" ground)))

@@ -43,13 +43,12 @@
             :attention/background [0.0 0.0 0.0 0.0]}
            (:material
             (attention/compile-source attention/default-source))))
-    ;; P5: the floor moved to the explicit v1 bindings revision (the provenance
-    ;; precedent), so the floor is the v0 policy PLUS gesture rows and nothing
-    ;; else. v0 keeps its own grammar entry and is never backfilled.
+    ;; P5 established the bindings floor; P8 advances attention to v3 with its
+    ;; single reply row. Old grammar entries remain independently rewearable.
     (is (= (assoc (:material
                    (attention/compile-source attention/default-source))
                   :facet-master/bindings
-                  (:facet-master/bindings attention/bindings-form))
+                  (:facet-master/bindings attention/reply-bindings-form))
            (dissoc attention/code-floor
                    :facet-master/id
                    :facet-master/facet

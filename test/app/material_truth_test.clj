@@ -479,7 +479,8 @@
                      :revision-id binding-material/space-floor-master-id
                      :floor? true
                      :bindings binding-material/space-floor-bindings}]))]
-        (is (= 20 (count rows)))
+        (is (= 21 (count rows))
+            "P8 adds exactly one eval → reply row to the twenty shipped rows")
         (is (empty? (binding-material/table-conflicts rows)))))))
 
 ;; ===========================================================================
@@ -679,8 +680,8 @@
             :let [label (facet-material/floor-master-id spec)]]
       (is (string? label))
       (is (str/starts-with? label "code-floor:"))))
-  (testing "the v2 bump moved the three bindings floors, together"
-    (is (= "code-floor:fm:attention:v2"
+  (testing "P8 moves attention alone to v3; the other v2 floors stand"
+    (is (= "code-floor:fm:attention:v3"
            (facet-masters/floor-master-id :attention)))
     (is (= "code-floor:fm:foldable:v2"
            (facet-masters/floor-master-id :foldable)))

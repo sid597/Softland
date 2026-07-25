@@ -21,6 +21,11 @@
 ;; never re-read through v2's validator.
 (def strict-bindings-grammar-version 2)
 (def strict-bindings-code-floor-revision-id "code-floor:fm:attention:v2")
+;; P8 — v3 adds exactly ONE row: the pre-existing Ctrl+Enter reply path becomes
+;; a named durable verb at the user block hit area. No second verb or binding is
+;; needed; addressing is the claim's subject, not another material action.
+(def reply-bindings-grammar-version 3)
+(def reply-bindings-code-floor-revision-id "code-floor:fm:attention:v3")
 
 (def default-form
   {:facet-master/id master-id
@@ -91,6 +96,22 @@
 
 (def strict-bindings-source (pr-str strict-bindings-form))
 
+(def reply-binding-row
+  {:binding/gesture :key/eval
+   :binding/phase :complete
+   :binding/modifiers :any
+   :binding/verb {:verb/name :resident/reply-to-block :verb/version 1}
+   :binding/priority 10})
+
+(def reply-bindings-form
+  "v3 = v2 plus ONE binding row for the addressable resident reply verb."
+  (-> strict-bindings-form
+      (assoc :facet-master/grammar reply-bindings-grammar-version)
+      (update-in [:facet-master/bindings :block/user-hit-area]
+                 conj reply-binding-row)))
+
+(def reply-bindings-source (pr-str reply-bindings-form))
+
 (def ^:private v0-grammar
   {:material-keys
    #{:facet-master/merge
@@ -124,9 +145,9 @@
    :facet-master/facet :attention
    :facet-master/source-ref "softland://facet-master/attention"
    :facet-master/default-form default-form
-   :facet-master/floor-form strict-bindings-form
+   :facet-master/floor-form reply-bindings-form
    :facet-master/code-floor-revision-id
-   strict-bindings-code-floor-revision-id
+   reply-bindings-code-floor-revision-id
    :facet-master/grammars
    {grammar-version v0-grammar
     bindings-grammar-version
@@ -139,6 +160,14 @@
     ;; under v1's declaration forever; v2 is an additional entry, never a
     ;; rewrite of an existing one (P3's per-version grammar law).
     strict-bindings-grammar-version
+    {:material-keys
+     (conj (:material-keys v0-grammar) :facet-master/bindings)
+     :validators
+     (assoc (:validators v0-grammar)
+            :facet-master/bindings
+            binding-material/strict-bindings-validator)}
+    ;; v3 retains v2's closed grammar and adds one newly legal gesture row.
+    reply-bindings-grammar-version
     {:material-keys
      (conj (:material-keys v0-grammar) :facet-master/bindings)
      :validators

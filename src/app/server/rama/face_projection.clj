@@ -43,6 +43,7 @@
             ;; keeps the cycle from existing and makes the portal read the land
             ;; through the same artery every other consumer does.
             [app.server.rama.material-portal :as material-portal]
+            [app.server.rama.verb-release :as verb-release]
             [app.server.rama.face-arsenal :as face-arsenal]
             [app.shared.activation-event :as activation-event]
             [app.shared.binding-material :as binding-material]
@@ -1043,11 +1044,24 @@
                 (:facet-materials/by-id
                  (facet-materials-projection ctx request))
                 {})
-        rows (binding-material/table-rows (interaction-table-tiers by-id))]
+        rows (binding-material/table-rows (interaction-table-tiers by-id))
+        releases
+        (if oc-rt
+          [(try
+             (verb-release/read-release oc-rt)
+             (catch Throwable t
+               {:release/ref verb-release/release-ref
+                :release/found? false
+                :release/complete? false
+                :release/errors
+                [{:type :verb-release/read-failed
+                  :message (.getMessage t)}]}))]
+          [])]
     {:interaction-table/version 0
      :interaction-table/rows rows
      :interaction-table/conflicts (binding-material/table-conflicts rows)
      :interaction-table/verbs (verb-registry/declaration-rows)
+     :interaction-table/releases releases
      :interaction-table/gestures
      (vec (sort-by pr-str binding-material/legal-gestures))
      :interaction-table/sites
@@ -1680,13 +1694,15 @@
    The returned string carries the canonical projection VERBATIM (G7 asserts the
    byte identity). Prefix it to the resident's prompt exactly as `episode-seed`
    is prefixed."
-  [ctx {:keys [entity-id wearers conversation-id]}]
+  [ctx {:keys [entity-id wearers conversation-id master-ids narrowed?]}]
   (try
     (material-portal/briefing
      (material-portal/open ctx #(serve ctx %)
                            {:entity-id entity-id
                             :wearers wearers
-                            :conversation-id conversation-id}))
+                            :conversation-id conversation-id
+                            :master-ids master-ids
+                            :narrowed? narrowed?}))
     (catch Throwable t
       (println "[FACE] portal-briefing failed:" (.getMessage t))
       nil)))
