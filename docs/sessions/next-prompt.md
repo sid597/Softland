@@ -266,12 +266,14 @@ round → benchmark room (question bank waits on kinds).
 Width 1–2; this list IS the gauge and the limiter (>2 entries = alarm).
 Each activation note records the dark-interval lessons (drift / memory /
 proof-decay + was this line accurate).
-- **#1 multi-cascade declaration slice** — contract STAGED 2026-07-26
-  (`build/multi-cascade/CONTRACT.md` + `NOW.md`); rung 3 LANDED + CLOSED
-  2026-07-26 — the shared-file fence is lifted, build session UNBLOCKED.
-  Activation trigger: autotag rides the table behavior-identically, then
-  the first NEW row (episode-retry or first band-act) activates dark
-  capacity.
+- **#1 multi-cascade declaration slice** — **P1 BUILT + Fable gate PASS
+  2026-07-26** (`build/multi-cascade/GATE.md`; G1–G8 independently
+  re-verified, G6 re-driven live twice, G7 re-checked). Autotag rides
+  the table behavior-identically as row #1. **Code UNCOMMITTED — Sid's
+  commit decision is the next act**; then close + retro per the skill.
+  Activation trigger unchanged: the first NEW row (episode-retry or
+  first band-act) activates dark capacity and writes the dark-interval
+  lessons.
 - **#2 — held open for Sid's first lived friction after the return.**
 
 **space-as-entity — CLOSED (all three rungs) + retro'd 2026-07-26.** Rungs
@@ -280,10 +282,9 @@ G10 lift) `ecbd572` — gate PASS (`RUNG3_GATE.md`), retro recheck-corrected
 (`RUNG3_RETRO.md`), HEAD-dynamic suites green at committed HEAD; lessons
 routed to the work-package skill (diff-derived phase file lists · one-shot
 gate preconditions). Cluster base-active; the space instance master is
-durably present, released/inherit. **Next per board order: the
-multi-cascade build session** (dark-lane organ #1 — fence lifted at this
-close; contract `build/multi-cascade/CONTRACT.md` + starter in its
-`NOW.md`). Return wear stays the campaign's only open act.
+durably present, released/inherit. Multi-cascade P1 ran + gated from this
+clean tree (see the dark-lane block above). Return wear stays the
+campaign's only open act.
 
 **editable-material — SETTLED 2026-07-24, CAMPAIGN OPEN at Sid's word**
 ("build this out fully … all whatever they are no matter how many").

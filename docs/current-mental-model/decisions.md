@@ -125,6 +125,23 @@ which crossroads did we take."
   recheck-corrected — 2 substantive + 6 precision corrections applied;
   lessons routed to the work-package skill: diff-derived phase file
   lists + one-shot gate preconditions).
+- **multi-cascade R1 (dark-lane organ #1) — BUILT, Fable gate PASS
+  2026-07-26:** server acts are declared as data against named triggers —
+  `app.server.cascade` holds the enumerable table (`(cascade/rows)`) and
+  `react!`, the one dispatch point (per-row future, isolated failures,
+  declaration-order receipts); the episode-turn lane emits
+  `:episode/turn-durable` unconditionally after the durable turn, and
+  autotag rides as row #1 behavior-identically (guard moved into the
+  handler head, `:skipped` decline; idempotency bytes untouched —
+  circulation stayed read-only). Zero durable touch; loads pure; dark
+  capacity proven honest (a test-only row on a never-emitted trigger
+  stays inert). Gate record: `build/multi-cascade/GATE.md` — G6
+  re-driven live twice ([CASCADE] on the request thread after durable
+  acceptance, resident start +1ms, autotag +16.6s async; accidental
+  old-path/new-path A/B on the shared durable cluster corroborated
+  behavior-identity). Code awaits Sid's commit decision; close + retro
+  after. Dark capacity activates at the first NEW row (episode-retry or
+  first band-act) — that session writes the dark-interval lessons.
 
 ## Settled architecture — use it, don't re-derive it
 

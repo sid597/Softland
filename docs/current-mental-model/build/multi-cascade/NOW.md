@@ -83,3 +83,33 @@ lands.
     (rung-3 files, material_circulation.clj, verb_registry.cljc
     untouchable). Out of scope: durable runner, log topology,
     rows-as-material, clock pulse, any durable event change.
+
+- 2026-07-26 · Codex · **P1 IMPLEMENTED; G1–G8 GREEN.** Pre-check passed:
+  rung 3 code `ecbd572` + close `ffc3b6a` landed; clean tree at entry; §8
+  reverified line-by-line. §3 cut is the four allowed code/test paths only.
+  Focused: 1t / 49a / 0f / 0e (actual OC projection record IDs byte-compared;
+  replay `:already-recorded` + adapter false; literal old-guard false cases).
+  Full exact-tree suite: 52ns / 464t / 6,441a / 0f / 0e; registered
+  `dogfood-llm-test` stale-approval flake fired attempt 1, passed attempt 2;
+  registry unchanged. G6 real Ctrl+Enter: 54 visible candidates; durable SSE
+  444.8ms; `[CASCADE]` before resident start; autotag `:completed`, 32
+  candidates, run `llm-run-material-autotag:e07aa38f…`, relation nil.
+  G7: fenced files byte-untouched (`material_circulation` cb8f399…,
+  `verb_registry` 3e90f54…); no durable/topology edit. One fresh finder first
+  falsified guard/record-id proofs; corrections rechecked **PASS**. New-file
+  lint 0/0; diff-check clean. No commit/push. Next: Fable gate review.
+
+- 2026-07-26 · Fable · **GATE PASS** (`GATE.md`). Independent re-runs:
+  focused 1t/49a/0/0; full 52ns/464t/6,441a/0/0 (all flakes attempt-1
+  green); lint 0/0; G7 hashes + fences re-verified, one ruled runner
+  entry only. G6 re-driven twice on `:8081` (swiftshader attestation;
+  `:8080` untouched): `[CASCADE]` at +547ms on the request thread after
+  durable acceptance, `TURN-START` +1ms later, `[CIRCULATION][AUTOTAG]`
+  `:completed`/4 candidates/+16.6s async with the pre-cut field set;
+  drive-1 autotag row durable for the gate's own block, completed after
+  the browser died. Accidental A/B: Sid live on `:8080` (old path) —
+  identical durable row shape beside the through-table rows. Traps
+  T1–T7 spot-checked at diff level. Open doubts (non-blocking, GATE.md):
+  optimistic dispatch receipts (R2 falsifier) · `:lines` payload seam ·
+  dev stdout hides INFO (log4j2 default ERROR). Two gate turns left in
+  genesis, disclosed. Next: Sid's commit decision, then close + retro.
