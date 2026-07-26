@@ -20,13 +20,12 @@ without leaving the land (first-light A closes with it).
 
 **Your wear, exact acts (one sitting, any order after the ops line):**
 
-1. Ops first — simplest: wear at **http://localhost:8091** (this gate's
-   HEAD jetty, already up, serves the P8 client+server). The :8080 dev app
-   runs a PRE-P8 server (JVM pid 465548, booted before the P8 commits);
-   to restore :8080 instead: `! kill 465548` then
-   `! cd /mnt/data/projects/Softland && nohup clj -M:dev -m dev > /tmp/devapp.log 2>&1 &`
-   Cluster is UP (five modules). Do NOT clear the shadow build cache
-   (Electric auth token lives in it).
+1. Ops first — simplest: wear at **http://localhost:8080** (relaunched
+   2026-07-26 by the rung-3 gate session: `LAND_PINNED=1` pinned boot at
+   rung-3 HEAD, which includes all of P8; verified HTTP 200 at the rung-3
+   close. The P8 jetty on :8091 is DEAD — don't chase it). Cluster is UP
+   (five modules). Do NOT clear the shadow build cache (Electric auth
+   token lives in it).
 2. Point at a block, type, **Ctrl+Enter** — feel the reply land beneath
    your words. (Drill lanes: use a UUID-shaped `?drill=` id if you want a
    resident there — non-UUID drill ids can't spawn the CLI.)
@@ -68,8 +67,8 @@ check to the measurement window). **THE CAMPAIGN BUILD-OUT IS COMPLETE —
 the RETURN is the only open act** (HANDOFF above). first-light P3
 fulfilled; P4/P5 fulfilled by P6's membrane + activation machinery under
 the first-light CONTRACT; A closes with the return breath. Land is UP
-(five modules RUNNING; HEAD jetty on :8091 — the P8 gate's boot; the
-:8080 dev app is PRE-P8 until restarted, see HANDOFF).
+(five modules RUNNING; the :8080 dev app is a pinned rung-3-HEAD boot —
+includes P8; the P8 :8091 jetty is dead — see HANDOFF).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
@@ -268,26 +267,23 @@ Width 1–2; this list IS the gauge and the limiter (>2 entries = alarm).
 Each activation note records the dark-interval lessons (drift / memory /
 proof-decay + was this line accurate).
 - **#1 multi-cascade declaration slice** — contract STAGED 2026-07-26
-  (`build/multi-cascade/CONTRACT.md` + `NOW.md`); build session runs
-  AFTER rung 3 lands (shared-file fence with the in-flight rung-3 WIP).
+  (`build/multi-cascade/CONTRACT.md` + `NOW.md`); rung 3 LANDED + CLOSED
+  2026-07-26 — the shared-file fence is lifted, build session UNBLOCKED.
   Activation trigger: autotag rides the table behavior-identically, then
   the first NEW row (episode-retry or first band-act) activates dark
   capacity.
 - **#2 — held open for Sid's first lived friction after the return.**
 
-**space-as-entity (rungs 1+2) — CLOSED + retro'd 2026-07-26.** All twelve
-gates green (`build/space-as-entity/GATE.md`); code `43a57a0` + `f7945fd`;
-retro recheck-corrected (`RETRO.md`); lesson routed to the work-package
-skill (gate-partition sum-check). Cluster base-active, malformed candidate
-inactive and queryable. **Rung 3 (G10 lift) STAGED 2026-07-26** —
-`RUNG3_CONTRACT.md` + `RUNG3_NOW.md` (owner-scoped lift: `:space/ground`
-opens for the space only; fence three-lanes standing law, no fourth call
-site; claim subject stays `:space`, durable subject `"space"`, two bridge
-points; all 8 gates machine-runnable, partition sum-checked P1 = R3-G1…G8).
-**Next: fresh build session runs P1** (starter prompt in RUNG3_NOW.md).
-Then **multi-cascade** (reaction-declaration, renamed) — dark-lane organ
-#1, contract staged (block above). Return wear stays the campaign's only
-open act.
+**space-as-entity — CLOSED (all three rungs) + retro'd 2026-07-26.** Rungs
+1+2 `43a57a0`+`f7945fd` (twelve gates; `GATE.md`, `RETRO.md`); rung 3 (the
+G10 lift) `ecbd572` — gate PASS (`RUNG3_GATE.md`), retro recheck-corrected
+(`RUNG3_RETRO.md`), HEAD-dynamic suites green at committed HEAD; lessons
+routed to the work-package skill (diff-derived phase file lists · one-shot
+gate preconditions). Cluster base-active; the space instance master is
+durably present, released/inherit. **Next per board order: the
+multi-cascade build session** (dark-lane organ #1 — fence lifted at this
+close; contract `build/multi-cascade/CONTRACT.md` + starter in its
+`NOW.md`). Return wear stays the campaign's only open act.
 
 **editable-material — SETTLED 2026-07-24, CAMPAIGN OPEN at Sid's word**
 ("build this out fully … all whatever they are no matter how many").

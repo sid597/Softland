@@ -79,6 +79,22 @@ opens the space's instance tier; reaction-declaration is NOT started here.
   relaunched pinned. decisions.md updated. Next: Sid's commit word →
   HEAD-dynamic suites at committed HEAD → close + retro.
 
+- 2026-07-26 · Fable (close session) · **CLOSED + RETRO'D**; artifact:
+  `RUNG3_RETRO.md`. Code landed `ecbd572` on Sid's word (code-only, clean).
+  Adversarial recheck (fresh context): CORRECTIONS REQUIRED — 2 substantive
+  (committed harness covers the four server-read gates only; 9→13 pointer
+  attribution unauditable) + 6 precision; all applied in the retro body.
+  Recheck independently re-ran the four HEAD-dynamic suites at `ecbd572`:
+  code-atoms 9/198 · git-spine 7/167 · git-spine-gate 1/10 · focused
+  24/400, all green — close protocol's HEAD step discharged. Git clean:
+  no mixed commits, no Co-Authored-By. Lessons routed: two rules → the
+  work-package skill (diff-derived file lists; one-shot preconditions);
+  OC import asymmetry + LAND_PINNED boot → implementation-quirks;
+  decisions.md bullet flipped CLOSED. Board pruned; multi-cascade build
+  session UNBLOCKED (shared-file fence lifted). Residue in RETRO: OC
+  falsifier (next OC package) · g1 one-line fix (next harness-touching
+  commit) · consumer-2 felt payoff rides Sid's return wear.
+
 ## Starter prompt (P1) — paste-ready
 
     Space-as-entity rung 3: the G10 lift, phase P1. Boot:

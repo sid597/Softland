@@ -119,8 +119,12 @@ which crossroads did we take."
   call — the pre-existing OC bootstrap-vs-normal import-fingerprint
   asymmetry, residue with cheap falsifier; one allowlist drift finding —
   `src-dev/dev.cljc` LAND_PINNED harness guard, default path identical,
-  to surface at commit). Awaiting Sid's commit word; then HEAD-dynamic
-  suites at committed HEAD → close + retro.
+  surfaced at commit). **Rung 3 CLOSED + retro'd 2026-07-26** (code
+  `ecbd572`; HEAD-dynamic suites independently re-run green at committed
+  HEAD by the retro's adversarial recheck; `RUNG3_RETRO.md`
+  recheck-corrected — 2 substantive + 6 precision corrections applied;
+  lessons routed to the work-package skill: diff-derived phase file
+  lists + one-shot gate preconditions).
 
 ## Settled architecture — use it, don't re-derive it
 

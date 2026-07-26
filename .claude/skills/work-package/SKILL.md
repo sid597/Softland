@@ -96,6 +96,28 @@ retro body). One rule, one concrete failure:
   perform, discovered at the worst time. Same class as the
   ruling-execution-sweep rule; this extends it to gate PARTITIONS.
 
+**Amended 2026-07-26 at the space-as-entity rung-3 close**
+(`build/space-as-entity/RUNG3_RETRO.md`; adversarial recheck ran — two
+substantive + six precision corrections, applied in the retro body). Two
+rules, one concrete failure each:
+- **The phase artifact's changed-file list is diff-derived and sum-checked
+  against the contract allowlist at artifact-writing time** — `git diff
+  --name-only` (plus status for new files) at phase end, every path
+  classified allowlist / new-per-contract / DRIFT-flagged, never
+  reconstructed from memory. Grounds: rung-3 P1's artifact said "seven
+  deliverables, exactly" while the tree carried an eighth item outside
+  them (`src-dev/dev.cljc`'s LAND_PINNED guard — a legitimate harness
+  need, default path behaviorally the old code); no phase layer flagged
+  it; the gate found it only by reading the full diff, so it reached the
+  commit decision as a gate finding instead of an implementer disclosure.
+- **A gate precondition the package itself destroys is marked ONE-SHOT in
+  the contract, and its committed harness asserts the post-package
+  invariant instead.** Grounds: R3-G1's "no space instance anywhere"
+  ended forever at the package's own G3 (the durable instance master is
+  append-only; release = holds/inherit); the committed harness's
+  `:no-space-instance?` check is permanently unsatisfiable, and the gate
+  had to re-derive the strictly-harder released-instance claim by hand.
+
 ## What a work package is
 
 One bounded build (so far: a Rama kernel) run against a binding contract, by
