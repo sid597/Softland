@@ -76,6 +76,38 @@ wear remains the campaign's true gate — this stages what follows it.
   surface, public-form change. Next: P2 resumes deliverables 6–10 + 6b,
   gates G4/G5/G6/G8/G9/G11/G12, fresh context from this exact state.
 
+- 2026-07-26 · Codex · P2 (rung 2) · `P2.md` · **PASS**.
+  Landed fm:space, bindable-subset material, the one three-lane camera fence,
+  wear-sourced zoom clamp, registry/label reconcile, and escape membership.
+  R1 seam is read by compile-form + valid-material? over material projections;
+  six prior specs are no-op exact; valid/malformed instance forms inherit it.
+  G4/G11 live hostile previews refused; no preview wore; 12-probe drill passed.
+  G6 live: activated max 2.0; trusted wheel clamped 1→2; tap/marquee master,
+  camera probes floor; rollback + reload restored trusted-wheel max 8.0.
+  Malformed min 5/max 4 activation refused; served synthetic fell to floor.
+  G8 membership + G9 live server/client `code-floor:fm:space:v0` agreed.
+  Focused 6/52; affected 77/1,208; final fast 189/1,777; compile 0 warnings.
+  Fresh-context fence/T9/P1/fence-boundary falsification found no code defect.
+  verb_registry, instance-legal-sites, frozen v1/v2 untouched; diff-check clean.
+  No commit/push; base 8.0 active, malformed candidate inactive; rung 3 not begun.
+  Next: Fable gate verdict + decisions.md record only; do not start rung 3.
+
+- 2026-07-26 · Fable · GATE (rungs 1+2, G1–G12) · `GATE.md` · **PASS — G7 OPEN**.
+  Independently re-ran: fast lane 189/1,777 + five isolated affected nss
+  (54t/829a) green; G2 server receipt :green (7 masters/33 revs/28 rows, zero
+  active wheel rows). Live re-drive under FRESH gate request ids: drill
+  12-probe pass; G9 client/server identical (code-floor:fm:space:v0 both);
+  G4/G11 previews refused, no preview state; G3 wheel-over-block, saturates
+  at exactly 8.0 and 0.1; G6 full cycle — 2.0 activated → trusted wheel
+  clamps at exactly 2.0 → rollback → 8.0 restored; malformed refused fresh
+  with [:space/zoom-clamp-invalid]. Re-imports minted byte-identical
+  revision ids. Falsification: no code defect. FINDING: G7 ran in NO phase
+  (P1 + R1 gate lists both dropped it — partition must sum-check vs the
+  contract; retro item). Mechanism receipt banked: pick ≈4.5ms/event, same
+  class as the hover pick; felt 52ms-bar half = Sid's first headed zoom;
+  T6 fallback pre-approved. Cluster base-active; dev app stopped.
+  Next: Sid's headed echo-bar glance closes G7 → package CLOSE + retro.
+
 ## The cut (rungs 1+2, one package — binding terms in CONTRACT.md)
 
 1. claim-chain: `(if (seq claims) claims binding-material/space-claim)`

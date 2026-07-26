@@ -262,19 +262,19 @@ round → benchmark room (question bank waits on kinds).
 
 ## Active package blocks
 
-**space-as-entity — STAGED 2026-07-26, CONTRACT authored (fresh session
-implements).** Order ruled space-first (Sid, in-session): rungs 1+2 one
-package — claim-chain `into`-append + real wheel hit + one chain-builder ·
-fm:space (form zoom clamp + bindable-subset bindings + camera-gesture-
-reservation fence — the fence lands AT rung 2: a served master revision
-could otherwise capture naked drag/wheel by tier) → rung 3 = G10 lift
-(inherits fence) → reaction-declaration (~day; autotag = row #1; named
-future customers: episode-retry, zoom band-crossing acts). Zoom bands two
-halves per Sid's redline (acts half WILL happen: band-crossing events at
-camera settle → reaction rows). Punt table with named triggers + starter
-prompt: `build/space-as-entity/NOW.md`; binding terms: `CONTRACT.md`
-beside it. Return wear stays the campaign's only open act — this stages
-what follows.
+**space-as-entity — rungs 1+2 BUILT + GATE PASS 2026-07-26; G7 OPEN, and
+the package CLOSES on it.** ⚠ One act owed by Sid: zoom over a populated
+region in the headed browser with the echo bar visible — green closes G7
+and the package (then retro → rung 3 = G10 lift, inherits fence); red →
+T6 pick-per-burst is pre-approved, re-measure. Gate record + receipts:
+`build/space-as-entity/GATE.md` (fast lane + isolated suites re-run green;
+G2 server receipt green; G6 clamp cycle re-driven live under fresh ids —
+2.0 felt, rollback to 8.0 felt; fence/preview refusals live; zero code
+defects in two falsification passes). Code UNCOMMITTED on the shared tree
+— commit is Sid's call; docs trail committed. Cluster left base-active,
+malformed candidate inactive. After close: reaction-declaration per the
+punt table in `build/space-as-entity/NOW.md`. Return wear stays the
+campaign's only open act.
 
 **editable-material — SETTLED 2026-07-24, CAMPAIGN OPEN at Sid's word**
 ("build this out fully … all whatever they are no matter how many").
