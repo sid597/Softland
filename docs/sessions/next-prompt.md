@@ -270,10 +270,12 @@ proof-decay + was this line accurate).
   2026-07-26** (`build/multi-cascade/GATE.md`; G1–G8 independently
   re-verified, G6 re-driven live twice, G7 re-checked). Autotag rides
   the table behavior-identically as row #1. **Code UNCOMMITTED — Sid's
-  commit decision is the next act**; then close + retro per the skill.
-  Activation trigger unchanged: the first NEW row (episode-retry or
-  first band-act) activates dark capacity and writes the dark-interval
-  lessons.
+  commit decision is the next act**; then close = residue banked
+  (`GATE.md`) + board prune (retro joins the stratum batch — cadence
+  ruling 2026-07-27 in the work-package skill). Activation trigger
+  unchanged: the first NEW row (episode-retry or first band-act)
+  activates dark capacity and writes the dark-interval lessons — that
+  activation is also the stratum's first batch-retro boundary.
 - **#2 — held open for Sid's first lived friction after the return.**
 
 **space-as-entity — CLOSED (all three rungs) + retro'd 2026-07-26.** Rungs

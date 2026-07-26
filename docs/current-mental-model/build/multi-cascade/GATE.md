@@ -127,4 +127,7 @@ No blocking findings. Open doubts, non-blocking, cheap falsifiers named:
   sweep runs the same production table everywhere else by construction.
 
 Next: commit decision (Sid) — code and docs in separate commits — then
-close + retro per the work-package skill.
+close per the work-package skill (2026-07-27 cadence ruling: residue is
+banked above; post-commit HEAD-dynamic re-run + board prune close the
+package; the retro joins the dark-lane stratum batch at first
+activation).

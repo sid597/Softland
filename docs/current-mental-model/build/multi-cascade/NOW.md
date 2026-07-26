@@ -113,3 +113,12 @@ lands.
   optimistic dispatch receipts (R2 falsifier) · `:lines` payload seam ·
   dev stdout hides INFO (log4j2 default ERROR). Two gate turns left in
   genesis, disclosed. Next: Sid's commit decision, then close + retro.
+
+- 2026-07-27 · Fable (same gate session) · **CADENCE RULING landed (Sid:
+  "land it")**: gate reviews tiered slim/full; retros batched at the
+  stratum boundary — work-package skill amended + swept (gate-review +
+  closing sections), decisions.md + board updated. For THIS package:
+  close = Sid's code commit → post-commit HEAD-dynamic re-run → board
+  prune; residue already banked in `GATE.md`; retro joins the dark-lane
+  batch at first activation. CONTRACT §9's "close + retro per the skill"
+  stays literally true — the skill now defines the cadence.

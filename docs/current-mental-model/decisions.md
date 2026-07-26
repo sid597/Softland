@@ -139,9 +139,13 @@ which crossroads did we take."
   re-driven live twice ([CASCADE] on the request thread after durable
   acceptance, resident start +1ms, autotag +16.6s async; accidental
   old-path/new-path A/B on the shared durable cluster corroborated
-  behavior-identity). Code awaits Sid's commit decision; close + retro
-  after. Dark capacity activates at the first NEW row (episode-retry or
-  first band-act) — that session writes the dark-interval lessons.
+  behavior-identity). Code awaits Sid's commit decision; close is
+  residue-note + board prune (retro joins the stratum batch — cadence
+  ruling 2026-07-27, Sid: gate reviews TIERED slim/full, retros BATCHED
+  at dark-lane activation / stratum milestone / ~3–4 packages; the
+  work-package skill carries the rule; QC layers unchanged). Dark
+  capacity activates at the first NEW row (episode-retry or first
+  band-act) — that session writes the dark-interval lessons.
 
 ## Settled architecture — use it, don't re-derive it
 

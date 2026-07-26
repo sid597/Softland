@@ -118,6 +118,36 @@ rules, one concrete failure each:
   `:no-space-instance?` check is permanently unsatisfiable, and the gate
   had to re-derive the strictly-harder released-instance claim by hand.
 
+**Amended 2026-07-27 on Sid's cadence ruling** (at the multi-cascade P1
+gate: "too much process … retros … do them in batch for a few phases …
+I don't even think gates provide much value doing it for each and every
+phase"). Two CADENCE changes; the QC layers themselves are untouched —
+executable gates in-phase, the single fresh falsifier, and the wearing
+keep their kill record and stay per-package:
+- **Gate review is TIERED.** Small additive-and-dark MECHANISM slices
+  get a SLIM gate: spot-check the contract traps in the diff, re-run the
+  FOCUSED suite, verify the one contract-critical live receipt; verdict
+  + residue recorded as usual. FULL independent re-verification (fresh
+  full-suite run, independent live re-drive, fence re-hash) is reserved
+  for cutover-class or durable-touch work, or when the falsifier /
+  wearing / stop-clause flagged something. Grounds: multi-cascade P1
+  (2026-07-26) — the full ceremony found ZERO code defects; the phase's
+  one fresh falsifier had already caught all three real defects at a
+  fraction of the cost; the rung-3 slim gate was likewise confirmatory.
+  Same form-break class as the 2026-07-05 cadence amendment (the token
+  ledger priced Sid's attention at zero).
+- **Retros run in BATCH, not per package.** Per-package close = the
+  residue/open-doubts note in the gate record (already standard), the
+  mechanical post-commit HEAD-dynamic re-run, and the board prune. ONE
+  batched retro + ONE adversarial recheck at a natural boundary —
+  dark-lane activation, a stratum milestone, or ~3–4 packages,
+  whichever lands first — reading the banked NOW/GATE trails. Grounds:
+  retro yield concentrates into 1–2 rules then declines; the one
+  unambiguous recheck save (code-atom's red HEAD-dynamic suite at
+  committed HEAD) is already absorbed as the mechanical close rule;
+  two rechecks were deferred on cost (machine-cut, durable-ground)
+  with no observed damage.
+
 ## What a work package is
 
 One bounded build (so far: a Rama kernel) run against a binding contract, by
@@ -406,11 +436,16 @@ holding CONTRACT.md and every phase artifact.
 
 ## Gate review
 
+- **Tier first (2026-07-27 cadence ruling):** small additive-and-dark
+  MECHANISM slices get the SLIM gate — trap spot-checks in the diff, the
+  FOCUSED suite re-run, the one contract-critical live receipt. The full
+  protocol below is for cutover-class / durable-touch work or a flagged
+  package. Either tier records verdict + residue the same way.
 - Inputs: the green suite + the phase artifacts as prior-pass records — used
   as input, NOT authority. The code is what is judged; read it in full.
 - Steps:
   1. Independently **re-run the suite this session** (never take Phase 7's
-     word).
+     word; SLIM tier: the focused suite).
   2. Spot-check the contract-named traps in the diff, byte-level where
      relevant.
   3. Falsification Pass per the CLAUDE.md review protocol: architecture;
@@ -448,7 +483,11 @@ holding CONTRACT.md and every phase artifact.
    not green at committed HEAD when the package's own commits move HEAD —
    the code-atom close shipped a red driver suite that only the retro's
    adversarial recheck caught.
-3. **Retro**, from the full trail (NOW log + phase artifacts + source + gate):
+3. **Retro — at the BATCH boundary, not per package** (2026-07-27
+   cadence ruling): per-package close ends at step 2 plus the gate
+   record's residue note and the board prune. The batched retro (one per
+   dark-lane activation / stratum milestone / ~3–4 packages) runs from
+   the full trails (NOW logs + phase artifacts + source + gates):
    - QC-layer scorecard: what each layer caught, what it missed and the cost.
    - "What the next contract should do differently" — rules, each traceable to
      a concrete failure in THIS package (no speculative hardening dressed as a
@@ -459,10 +498,11 @@ holding CONTRACT.md and every phase artifact.
      initially dropped the importer-timestamp discipline; the recheck restored
      it).
 4. **Adversarial recheck of the retro** before it feeds any skill or binding
-   artifact: fresh session, verify every scorecard claim against the
+   artifact: fresh context, verify every scorecard claim against the
    artifacts, the baton trail in git, and a fresh suite run. Cycle 1's recheck
    caught a residue line stale within minutes, an overcounted cost, and a
    wrong causal story — retros are written by the same process they judge.
+   ONE recheck per batched retro (2026-07-27 ruling), never one per package.
 5. Route the lessons: coding gotchas → `memory/implementation-quirks.md`;
    process rules → THIS skill (amend it); evaluation notes → `decisions.md`
    D-006; then PRUNE the package's board line to a one-line done-pointer and
