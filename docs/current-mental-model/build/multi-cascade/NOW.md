@@ -45,6 +45,16 @@ lands.
   Next: fresh build session runs P1 AFTER rung 3 lands; boot from
   CONTRACT.md + this STANDING.
 
+- 2026-07-26 · Codex · P1 pre-code manifest · **STOP**.
+  Rung 3 is landed (`ecbd572`; close HEAD `ffc3b6a`) and the tree was clean.
+  Every named §8 call/guard/arity/idempotency line matches disk, but the
+  manifest omits `test/app/test_runner.clj`: its fail-closed inventory discovers
+  every `*_test.clj` and rejects an unclassified namespace. Therefore the new
+  `cascade_table_test.clj` cannot run in G8's full suite without an edit outside
+  §9's allowlist. Recommended ruling: widen §8/§9 for one isolated-namespace
+  classification entry (the tests own fresh OC/RK/LLM runtimes); then re-enter
+  P1 from the clean code tree. No source/test edit, no test run, no commit/push.
+
 ## Starter prompt (P1) — paste-ready
 
     Multi-cascade R1, single phase P1 — dark-lane organ #1. Boot:
