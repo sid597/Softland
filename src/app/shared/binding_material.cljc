@@ -118,6 +118,22 @@
   [site]
   (contains? instance-legal-sites site))
 
+(defn camera-gesture-reserved?
+  "T3/T4 — true when a MATERIAL row attempts to capture a camera gesture.
+
+   This single predicate var is the reservation set's one home. Master and
+   instance material both call it; code-floor rows deliberately do not."
+  [site row]
+  (and (= :space/ground site)
+       (contains?
+        #{[:pointer/press :threshold #{}]
+          [:pointer/press :threshold :any]
+          [:wheel :complete #{}]
+          [:wheel :complete :any]}
+        [(:binding/gesture row)
+         (:binding/phase row)
+         (:binding/modifiers row)])))
+
 (def tier-order
   "Precedence within one containment depth."
   [:instance :master :floor])
@@ -396,10 +412,10 @@
   :space)
 
 (def space-floor-master-id
-  "The space's floor label. There is no `fm:space` spec to derive one from, so
-   it is named here once and read from here by BOTH the served projection and
-   the client tiers (G14)."
-  "code-floor:space")
+  "The space floor rows' deciding revision. `fm:space` now derives the same
+   label through its registered spec; the kernel keeps the value beside the
+   special camera-inclusive floor table so every pre-spec reader moves with it."
+  "code-floor:fm:space:v0")
 
 (def space-floor-bindings
   "The space's rows, code side, forever (per the package: camera and space

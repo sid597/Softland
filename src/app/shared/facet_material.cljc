@@ -35,12 +35,34 @@
   [spec form]
   (get-in spec [:facet-master/grammars (:facet-master/grammar form)]))
 
+(defn- form-validation-errors
+  "RULING R1 · T9 — validate invariants spanning material keys.
+
+   Predicates receive only the material-keys projection. The seam is optional:
+   a declaration without `:form-validators` produces no errors, preserving every
+   frozen grammar's prior bytes and meaning."
+  [declaration material]
+  (->> (:form-validators declaration)
+       (keep (fn [{:keys [valid? error-type]}]
+               (when-not (valid? material)
+                 {:type error-type
+                  :actual material})))))
+
+(defn- valid-form-material?
+  "The wear-time half of R1/T9. Keep this beside the compile-time reader so a
+   cross-field invariant cannot accidentally reach candidates but not wears."
+  [declaration material]
+  (every? (fn [{:keys [valid?]}] (valid? material))
+          (:form-validators declaration)))
+
 (defn compile-form
   "Compile one facet form against its declared grammar without throwing.
 
    `:facet-master/grammars` maps a version to:
    - `:material-keys` — the exact keys returned to the renderer;
-   - `:validators` — key -> {:valid? fn :error-type keyword}.
+   - `:validators` — key -> {:valid? fn :error-type keyword};
+   - optional `:form-validators` — [{:valid? fn :error-type keyword}], whose
+     predicates receive the material-keys projection.
 
    Old grammar declarations remain explicit entries. Adding a grammar never
    reinterprets an already-durable form."
@@ -49,6 +71,7 @@
         facet (:facet-master/facet spec)
         declaration (when (map? form) (grammar-declaration spec form))
         material-keys (set (:material-keys declaration))
+        material (when (map? form) (select-keys form material-keys))
         allowed-keys (into common-form-keys material-keys)
         unknown (when (and (map? form) declaration)
                   (seq
@@ -62,6 +85,10 @@
                        (when-not (valid? (get form k))
                          {:type error-type
                           :actual (get form k)})))))
+        ;; T9 — independent key bounds cannot prove a relation such as min<max.
+        ;; The same declaration is read again by `valid-material?` below.
+        form-errors (when declaration
+                      (form-validation-errors declaration material))
         errors (cond-> []
                  (not (map? form))
                  (conj {:type :facet-master/not-a-map})
@@ -89,6 +116,9 @@
                  (seq validation-errors)
                  (into validation-errors)
 
+                 (seq form-errors)
+                 (into form-errors)
+
                  unknown
                  (conj {:type :facet-master/unknown-keys
                         :keys (vec unknown)}))]
@@ -97,7 +127,7 @@
       {:valid? true
        :errors []
        :grammar (:facet-master/grammar form)
-       :material (select-keys form material-keys)})))
+       :material material})))
 
 (defn compile-source
   [spec source]
@@ -136,7 +166,11 @@
            (every?
             (fn [[k {:keys [valid?]}]]
               (valid? (get material k)))
-            (:validators declaration))))))
+            (:validators declaration))
+           ;; T9 — compile-only validation would let a durable malformed
+           ;; cross-field material wear. This is the resolved-wear guard.
+           (valid-form-material?
+            declaration (select-keys material material-keys))))))
 
 (defn resolved-wear
   "Resolve only complete served active material. Anything absent, malformed,

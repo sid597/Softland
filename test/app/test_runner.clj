@@ -39,6 +39,7 @@
     app.face-transcription-test
     app.missionary-claims-test
     app.reply-to-block-test
+    app.space-material-test
     app.server.parser-test
     app.server.rama.core-guards-test
     app.server.rama.kernel-shape-test

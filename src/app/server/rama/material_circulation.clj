@@ -75,6 +75,7 @@
     "src/app/shared/attention_material.cljc"
     "src/app/shared/foldable_material.cljc"
     "src/app/shared/positioned_material.cljc"
+    "src/app/shared/space_material.cljc"
     "src/app/shared/threaded_material.cljc"
     "src/app/shared/text_body_material.cljc"})
 

@@ -27,11 +27,13 @@
 
 (def ^:private floor-rows
   "The kernel's `floor-binding-rows`, rebuilt from the same specs."
-  (into {bm/space-facet bm/space-floor-bindings}
-        (map (fn [spec]
-               [(:facet-master/facet spec)
-                (:facet-master/bindings (facet-material/code-floor spec))]))
-        facet-masters/specs))
+  (assoc
+   (into {}
+         (map (fn [spec]
+                [(:facet-master/facet spec)
+                 (:facet-master/bindings (facet-material/code-floor spec))]))
+         facet-masters/specs)
+   bm/space-facet bm/space-floor-bindings))
 
 (def ^:private master-rows
   "The MASTER tier when every facet serves its bindings revision."
@@ -298,8 +300,8 @@
 ;; Family 4 — the space and the wheel, on the code floor
 ;; ===========================================================================
 
-(deftest family-4-space-and-wheel-live-only-on-the-code-floor
-  (testing "the space's gestures resolve at the FLOOR tier, never a master"
+(deftest family-4-space-floor-survives-the-new-served-master
+  (testing "without an active fm:space revision, all four gestures use the floor"
     (doseq [[kind phase mods verb]
             [[:pointer/tap :complete #{} :anchor/place]
              [:pointer/press :threshold #{} :camera/pan]
@@ -310,10 +312,11 @@
         (is (= :floor (:decision/tier d)))
         (is (= bm/space-facet (:decision/facet d))))))
 
-  (testing "there is no served master for the space, so material cannot reach it"
+  (testing "fm:space is registered; this fixture deliberately serves no rows"
     (is (nil? (get master-rows bm/space-facet)))
-    (is (not-any? #(= bm/space-facet (:facet-master/facet %))
-                  facet-masters/specs)))
+    (is (= "fm:space"
+           (:facet-master/id
+            (facet-masters/spec-for-facet bm/space-facet)))))
 
   (testing "even a hostile `fm:space` master could not bind the camera"
     (let [hostile {bm/space-facet
@@ -689,7 +692,8 @@
 (deftest the-interaction-table-links-every-row-to-its-master
   (let [rows (bm/table-rows
               (into [{:tier :floor :facet bm/space-facet
-                      :master-id "code-floor:space" :revision-id nil
+                      :master-id bm/space-floor-master-id
+                      :revision-id bm/space-floor-master-id
                       :floor? true :bindings bm/space-floor-bindings}]
                     (map (fn [[facet form]]
                            {:tier :master :facet facet
@@ -729,7 +733,8 @@
                        :bindings (:facet-master/bindings
                                   attention/reply-bindings-form)}
                       {:tier :floor :facet bm/space-facet
-                       :master-id "code-floor:space" :revision-id nil
+                       :master-id bm/space-floor-master-id
+                       :revision-id bm/space-floor-master-id
                        :floor? true
                        :bindings bm/space-floor-bindings}]))))))
     (testing "reading the table answers `what does this gesture do, and who
@@ -1044,7 +1049,7 @@
         (is (not (fns? d)))
         (is (not (fns? (bm/table-rows
                         [{:tier :floor :facet bm/space-facet
-                          :master-id "code-floor:space"
+                          :master-id bm/space-floor-master-id
                           :bindings bm/space-floor-bindings}]))))
         (is (not (fns? master-rows))
             "binding rows are DATA — a closure in material would be

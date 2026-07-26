@@ -2,12 +2,12 @@
   "The worn facet-master registry. This is a compiler/serve registry, not a
    recipe: it names independently revisioned masters and nothing about which
    entities are legal or which combination constitutes a type."
-  (:require [app.shared.binding-material :as binding-material]
-            [app.shared.facet-material :as facet-material]
+  (:require [app.shared.facet-material :as facet-material]
             [app.shared.attention-material :as attention]
             [app.shared.foldable-material :as foldable]
             [app.shared.positioned-material :as positioned]
             [app.shared.provenance-material :as provenance]
+            [app.shared.space-material :as space]
             [app.shared.text-body-material :as text-body]
             [app.shared.threaded-material :as threaded]))
 
@@ -16,6 +16,7 @@
    attention/spec
    foldable/spec
    positioned/spec
+   space/spec
    threaded/spec
    text-body/spec])
 
@@ -48,7 +49,7 @@
    reader comparing client and server had to know which side to believe.
    Cosmetic, but the whole point of the served table is that it answers
    `who decided that?`. Both sides now read the label from here."
-  (into {binding-material/space-facet binding-material/space-floor-master-id}
+  (into {}
         (map (juxt :facet-master/facet facet-material/floor-master-id))
         specs))
 

@@ -49,6 +49,7 @@
             [app.shared.positioned-material :as positioned-material]
             [app.shared.provenance-material :as provenance-material]
             [app.shared.reply-to-block :as reply-to-block]
+            [app.shared.space-material :as space-material]
             [app.shared.text-body-material :as text-body-material]
             [app.shared.threaded-material :as threaded-material]
             [app.shared.verb-registry :as verb-registry]))
@@ -192,7 +193,7 @@
 (defonce ^:private !wears-cache
   ;; {:served <the exact served value> :wears {facet → wear}}
   ;; P5 note (echo bar): reconcile rebuilds EVERY block per served context —
-  ;; i.e. per keystroke — and each rebuild resolved all six wears from scratch,
+  ;; i.e. per keystroke — and each rebuild resolved every wear from scratch,
   ;; re-running every grammar validator. Adding binding rows to three grammars
   ;; would have multiplied that. The served value is replaced wholesale by the
   ;; face-materials watch, so `identical?` is an exact cache key: one resolve
@@ -215,6 +216,9 @@
    :positioned
    (positioned-material/resolved-wear
     (get by-id positioned-material/master-id))
+   :space
+   (space-material/resolved-wear
+    (get by-id space-material/master-id))
    :threaded
    (threaded-material/resolved-wear
     (get by-id threaded-material/master-id))
@@ -256,7 +260,7 @@
       served)))
 
 (defn- current-material-wears
-  "The SHARED tier: the six masters as any subject wears them absent a
+  "The SHARED tier: the seven masters as any subject wears them absent a
    deviation. P6 keeps this exactly as P5 left it — one resolve per served
    identity — and adds the per-subject tier beside it in `wears-for`."
   []
@@ -2203,11 +2207,15 @@
    A compile-time constant: this is the tier no revision can reach, which is
    what makes click-focus survive any data revision and the camera survive
    even a future `fm:space` master. Facets that carry no rows contribute nil."
-  (into {binding-material/space-facet binding-material/space-floor-bindings}
-        (map (fn [spec]
-               [(:facet-master/facet spec)
-                (:facet-master/bindings (facet-material/code-floor spec))]))
-        facet-masters/specs))
+  (assoc
+   (into {}
+         (map (fn [spec]
+                [(:facet-master/facet spec)
+                 (:facet-master/bindings (facet-material/code-floor spec))]))
+         facet-masters/specs)
+   ;; T2 — the space spec's material floor is zoom form only. These four rows
+   ;; are the camera-inclusive CODE floor and therefore win this association.
+   binding-material/space-facet binding-material/space-floor-bindings))
 
 (defonce ^:private !instance-bindings
   ;; [subject site] → [row …] — the INNERMOST locality tier.
@@ -2230,6 +2238,13 @@
     (cond
       (not (contains? binding-material/sites site))
       {:status :refused :error :binding/unknown-site :site site}
+
+      ;; T3/T4 — read the one reservation predicate even before rung 3 lifts
+      ;; the space instance site. Keeping the call here makes that later lift
+      ;; unable to expose a transient console-only camera capture.
+      (some #(binding-material/camera-gesture-reserved? site %) rows)
+      {:status :refused :error :binding/camera-gesture-reserved
+       :site site :subject subject}
 
       ;; G10 (P5 gate finding 1): rows filed at `[:space :space/ground]` DO
       ;; resolve at the `:instance` tier and shadow pan and wheel. Unreachable
@@ -2282,7 +2297,13 @@
              (if (= :instance (:facet-master/tier wear))
                (reduce-kv
                 (fn [acc site rows]
-                  (if (binding-material/instance-site-legal? site)
+                  (if (and
+                       (binding-material/instance-site-legal? site)
+                       ;; T3/T4 — a served instance must cross the same fence
+                       ;; as the console and fm:space master grammar.
+                       (not-any?
+                        #(binding-material/camera-gesture-reserved? site %)
+                        rows))
                     (assoc! acc [subject site]
                             (into (vec (get acc [subject site])) rows))
                     acc))
@@ -2650,8 +2671,13 @@
    (fn [{:keys [wheel screen]}]
      (let [[x y] screen
            {:keys [zoom] :as _cam} @!camera
+           ;; T5 — same already-materialized wears source as the binding tiers;
+           ;; activation identity invalidates this cache. No second state/read.
+           space-wear (:space (current-material-wears))
+           zoom-min (or (:space/zoom-min space-wear) 0.1)
+           zoom-max (or (:space/zoom-max space-wear) 8.0)
            factor (js/Math.pow 1.0015 (- (:dy wheel)))
-           zoom'  (-> (* zoom factor) (max 0.1) (min 8.0))
+           zoom'  (-> (* zoom factor) (max zoom-min) (min zoom-max))
            [wx wy] (screen->world x y)]
        (reset! !camera {:x (- x (* wx zoom'))
                         :y (- y (* wy zoom'))
@@ -3223,8 +3249,11 @@
           (into (sorted-map)
                 (keep (fn [spec]
                         (let [mid (:facet-master/id spec)]
-                          (when (seq (:facet-master/bindings
-                                      (facet-material/code-floor spec)))
+                          (when (or
+                                 (= binding-material/space-facet
+                                    (:facet-master/facet spec))
+                                 (seq (:facet-master/bindings
+                                       (facet-material/code-floor spec))))
                             [mid (binding-floor-drill mid)]))))
                 facet-masters/specs)))
        :budget (fn [] (clj->js dispatch-mechanism-budget))})
