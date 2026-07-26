@@ -2328,26 +2328,25 @@
           rows))))
 
 (defn- claim-chain
-  "Station 2 → station 3: the containment path's claims, INNERMOST FIRST.
-   `ss/pick` already returns the root→leaf path, so the reverse walk is the
-   law's outward fallthrough — a gesture the fold header does not name reaches
-   the block, and the block's claim terminates the chain.
+  "Station 2 → station 3: ONE claim builder, INNERMOST FIRST and always ending
+   at the space. `ss/pick` returns root→leaf, so the reverse walk is the law's
+   outward fallthrough — header → block → space.
 
-   A pick MISS (or a hit on a slot with no live-block claim — a stale slot, the
-   provisional projection) is the SPACE, exactly as the pre-P5 `b`-is-nil test
-   made it the `:ground` target. Note the space is not yet an entity IN the
-   containment path (space-as-outermost-entity is the last rung, by design):
-   it is the unclaimed fallback, and its rows live only on the code floor."
-  [hit]
+   `seed-claims` is the key/eval address lane. A pick MISS or stale slot yields
+   no picked claims, then receives the same outer space rung by construction."
+  [hit seed-claims]
   (let [blocks (:blocks @!world)
-        claims (when hit
-                 (into []
-                       (keep
-                        (fn [node]
-                          (when-let [c (get-in node [:data :material/claim])]
-                            (when (contains? blocks (:claim/subject c)) c))))
-                       (rseq (:path hit))))]
-    (if (seq claims) claims binding-material/space-claim)))
+        claims (or seed-claims
+                   (when hit
+                     (into []
+                           (keep
+                            (fn [node]
+                              (when-let [c (get-in node [:data :material/claim])]
+                                (when (contains? blocks (:claim/subject c)) c))))
+                           (rseq (:path hit))))
+                   [])]
+    ;; T1 — space-claim is a one-element VECTOR; conj would nest and kill it.
+    (into claims binding-material/space-claim)))
 
 ;; ---------------------------------------------------------------------------
 ;; Conflict lint — a tie is rendered, never silent
@@ -2668,7 +2667,8 @@
   [{:keys [kind phase modifiers hit claims]}]
   (binding-material/resolve-binding
    {:gesture (binding-material/normalize-gesture kind phase modifiers)
-    :claims (if (some? claims) claims (claim-chain hit))
+    ;; T7 — pointer and key/eval both cross the ONE chain builder.
+    :claims (claim-chain hit claims)
     :facet-rows (current-master-binding-rows)
     :floor-rows floor-binding-rows
     :instance-rows (instance-binding-rows)}))
@@ -2887,14 +2887,12 @@
 
 (defn handle-wheel!
   "The wheel rides the same law: normalize → pick → resolve → verb. Its row is
-   on the space's code floor and its verb is floor-reserved, so no data
-   revision can take the zoom away (§9.4)."
+  on the space's code floor and its verb is floor-reserved, so no data
+  revision can take the zoom away (§9.4)."
   [{:keys [x y shift?] :as wheel}]
   (dispatch! {:kind :wheel :phase :complete
               :modifiers (if shift? #{:shift} #{})
-              ;; the wheel zooms the SPACE: it is not a pick-addressed gesture,
-              ;; so it resolves against the space claim by construction
-              :hit nil
+              :hit (pick-at x y)
               :wheel wheel
               :screen [x y]
               :world (vec (screen->world x y))}))

@@ -75,9 +75,8 @@
   #{:shift})
 
 (def sites
-  "The claim sites P5 opens with. `:space/ground` is the pick MISS: the space is
-   not yet an entity in the containment path (space-as-outermost-entity is
-   explicitly the last rung), so its rows live only on the code floor."
+  "The claim sites P5 opened with. P1 makes `:space/ground` the outermost rung
+   of every runtime claim chain; its rows still live only on the code floor."
   #{:block/user-hit-area
     :block/machine-hit-area
     :block/fold-header
@@ -391,10 +390,9 @@
    :binding/priority priority})
 
 (def space-facet
-  "The pseudo-facet the space's floor rows are filed under. There is no served
-   `fm:space` master and P5 mints none, so the space has a FLOOR tier and no
-   material tier — the law needs no special case, and no revision can reach
-   the camera because there is no row of its to reach with."
+  "The facet the outermost space rung's floor rows are filed under. There is no
+   served `fm:space` master in rung 1, so the space has a FLOOR tier and no
+   material tier."
   :space)
 
 (def space-floor-master-id
@@ -416,7 +414,7 @@
     (floor-row :wheel :complete :any :camera/zoom-at-pointer 0)]})
 
 (def space-claim
-  "The claim chain for a pick miss: one claim, one site, floor tier only."
+  "The one-element outermost rung appended to every runtime claim chain."
   [{:claim/subject :space
     :claim/site :space/ground
     :claim/facets [space-facet]
@@ -469,28 +467,33 @@
     :probe/site :space/ground}
    {:probe/label "wheel → zoom at the pointer"
     :probe/kind :wheel :probe/phase :complete :probe/modifiers #{}
-    :probe/site :space/ground}])
+    :probe/site :space/ground}
+   {:probe/label "wheel at a block → zoom through the space rung"
+    :probe/kind :wheel :probe/phase :complete :probe/modifiers #{}
+    :probe/site :block/user-hit-area}])
 
 (defn probe-claims
-  "The claim chain a probe resolves against. `:block/fold-header` is the real
-   two-deep chain — header first, then its block — so the drill exercises the
-   outward fallthrough rather than an isolated site."
+  "The runtime-shaped claim chain a probe resolves against. Every chain ends
+   at space; `:block/fold-header` is header → block → space."
   [site subject]
-  (case site
-    :space/ground space-claim
-    :block/fold-header
-    [{:claim/subject subject
-      :claim/site :block/fold-header
-      :claim/facets [:foldable]
-      :claim/args {:section :noise :fold-key :noise?}}
-     {:claim/subject subject
-      :claim/site :block/machine-hit-area
-      :claim/facets block-claim-facets
-      :claim/args {}}]
-    [{:claim/subject subject
-      :claim/site site
-      :claim/facets block-claim-facets
-      :claim/args {}}]))
+  (let [claims
+        (case site
+          :space/ground []
+          :block/fold-header
+          [{:claim/subject subject
+            :claim/site :block/fold-header
+            :claim/facets [:foldable]
+            :claim/args {:section :noise :fold-key :noise?}}
+           {:claim/subject subject
+            :claim/site :block/machine-hit-area
+            :claim/facets block-claim-facets
+            :claim/args {}}]
+          [{:claim/subject subject
+            :claim/site site
+            :claim/facets block-claim-facets
+            :claim/args {}}])]
+    ;; T1 — keep the drill honest about the runtime's into-append shape.
+    (into claims space-claim)))
 
 (defn drill-report
   "Resolve every probe against the supplied tiers and report the verb, tier and
@@ -511,6 +514,8 @@
              :instance-rows instance-rows})]
        {:probe/label (:probe/label probe)
         :probe/site (:probe/site probe)
+        :probe/decision-site (:decision/site decision)
+        :probe/depth (:decision/depth decision)
         :probe/gesture [(:probe/kind probe)
                         (:probe/phase probe)
                         (vec (sort (:probe/modifiers probe)))]
