@@ -266,9 +266,12 @@ round → benchmark room (question bank waits on kinds).
 gates green (`build/space-as-entity/GATE.md`); code `43a57a0` + `f7945fd`;
 retro recheck-corrected (`RETRO.md`); lesson routed to the work-package
 skill (gate-partition sum-check). Cluster base-active, malformed candidate
-inactive and queryable. **Next up: rung 3 — the G10 lift — FRESH session,
-Fable stages the small contract; the fence's three lanes are standing law
-to preserve, not deliverables** (starter cut: NOW.md §The cut, item 3).
+inactive and queryable. **Rung 3 (G10 lift) STAGED 2026-07-26** —
+`RUNG3_CONTRACT.md` + `RUNG3_NOW.md` (owner-scoped lift: `:space/ground`
+opens for the space only; fence three-lanes standing law, no fourth call
+site; claim subject stays `:space`, durable subject `"space"`, two bridge
+points; all 8 gates machine-runnable, partition sum-checked P1 = R3-G1…G8).
+**Next: fresh build session runs P1** (starter prompt in RUNG3_NOW.md).
 Then reaction-declaration per the punt table. Return wear stays the
 campaign's only open act.
 
