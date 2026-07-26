@@ -122,3 +122,8 @@ lands.
   prune; residue already banked in `GATE.md`; retro joins the dark-lane
   batch at first activation. CONTRACT §9's "close + retro per the skill"
   stays literally true — the skill now defines the cadence.
+
+- 2026-07-27 · Fable (same session) · **CLOSED.** Code committed
+  `34bf7c0` on Sid's word; both HEAD-reading suites are :head-override
+  pinned so nothing re-runs (checked, not assumed); board line pruned
+  to the done-pointer. Package ends here; retro at the stratum batch.
