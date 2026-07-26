@@ -44,10 +44,16 @@
                  {:args (vec args)
                   :config config})
 
-       (shadow-server/start!)
-       (log/info "[DEV] shadow-cljs server started")
-       (shadow/watch :dev)
-       (log/info "[DEV] shadow-cljs watch started for build :dev")
+       (if (= "1" (System/getenv "LAND_PINNED"))
+         ;; Pinned wear: serve the client assets already compiled at this HEAD
+         ;; (clj -M:dev -m shadow.cljs.devtools.cli compile dev) — no watch, so
+         ;; concurrent sessions editing the tree never hot-swap this session.
+         (log/info "[DEV] LAND_PINNED=1 — no shadow watch; serving compiled client as-is")
+         (do
+           (shadow-server/start!)
+           (log/info "[DEV] shadow-cljs server started")
+           (shadow/watch :dev)
+           (log/info "[DEV] shadow-cljs watch started for build :dev")))
        (comment (shadow-server/stop!))
 
        (def server (jetty/start-server!

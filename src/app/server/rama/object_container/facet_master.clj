@@ -542,12 +542,15 @@
                :overrides overrides
                :deviates? deviates?
                :pin pin})
-        ;; G10, the DURABLE half: the instance lane refuses an instance-illegal
-        ;; site at write time — not merely at client consumption. Without this,
-        ;; a `:space/ground` row lands as valid durable material whose rows
-        ;; silently vanish when derived (gate P6 finding F2).
-        illegal-sites (vec (remove binding-material/instance-site-legal?
-                                   (keys (:facet-master/bindings form))))
+        ;; G10 / T-R3, the DURABLE half: owner-aware legality prevents a
+        ;; non-space facet from minting dead `:space/ground` rows.
+        ;; T-R4 — do NOT call the camera fence here: fm:space's inherited
+        ;; bindings validator refuses camera rows at compile-form below.
+        illegal-sites
+        (vec
+         (remove #(binding-material/instance-site-legal?
+                   % (:facet-master/facet parent-spec))
+                 (keys (:facet-master/bindings form))))
         compiled (facet-material/compile-form spec form)
         time-ms (long (or time-ms (core/now-ms)))]
     (cond

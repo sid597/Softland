@@ -268,8 +268,21 @@
         cached @!wears-cache]
     (if (and cached (identical? served (:served cached)))
       (:wears cached)
-      (let [wears (resolve-material-wears (:facet-materials/by-id served))]
-        (reset! !wears-cache {:served served :wears wears})
+      (let [wears (resolve-material-wears (:facet-materials/by-id served))
+            space-subject-instance?
+            (boolean
+             (some (fn [[_facet by-subject]]
+                     (contains? by-subject space-material/space-subject))
+                   (:facet-materials/instances served)))
+            ;; T-R2/T5 — the wheel's fixed subject must be a by-subject cache HIT
+            ;; even on the day-one no-instance path. If an instance is served,
+            ;; leave the slot cold so its first read resolves and memoizes it.
+            by-subject
+            (if space-subject-instance?
+              {}
+              {space-material/space-subject wears})]
+        (reset! !wears-cache
+                {:served served :wears wears :by-subject by-subject})
         wears))))
 
 (defn- wears-for
@@ -2239,20 +2252,15 @@
       (not (contains? binding-material/sites site))
       {:status :refused :error :binding/unknown-site :site site}
 
-      ;; T3/T4 — read the one reservation predicate even before rung 3 lifts
-      ;; the space instance site. Keeping the call here makes that later lift
-      ;; unable to expose a transient console-only camera capture.
+      ;; T-R4 — the fence stays ordered before owner-aware site legality, so the
+      ;; lifted space instance can never expose a transient camera capture.
       (some #(binding-material/camera-gesture-reserved? site %) rows)
       {:status :refused :error :binding/camera-gesture-reserved
        :site site :subject subject}
 
-      ;; G10 (P5 gate finding 1): rows filed at `[:space :space/ground]` DO
-      ;; resolve at the `:instance` tier and shadow pan and wheel. Unreachable
-      ;; from this seam in P5 only because a string subject never equals the
-      ;; keyword `:space` — an accident, not a fence. The space has no instance
-      ;; tier, ever, until space-as-outermost-entity is built, and both this
-      ;; seam and the durable instance lane read that refusal from ONE place.
-      (not (binding-material/instance-site-legal? site))
+      ;; G10 / T-R3 — legality is owner-scoped: blocks keep their old sites and
+      ;; only the space claim subject may open `:space/ground`.
+      (not (binding-material/instance-site-legal? site subject))
       {:status :refused :error :binding/instance-site-refused
        :site site :subject subject
        :legal-sites (vec (sort-by str binding-material/instance-legal-sites))}
@@ -2294,19 +2302,29 @@
         (reduce-kv
          (fn [acc subject _inst]
            (let [wear (get (wears-for subject) facet)]
+             ;; T-R5 — every deviation snapshots inherited bindings, so ANY
+             ;; active space deviation intentionally lifts tap/marquee together.
              (if (= :instance (:facet-master/tier wear))
                (reduce-kv
                 (fn [acc site rows]
-                  (if (and
-                       (binding-material/instance-site-legal? site)
-                       ;; T3/T4 — a served instance must cross the same fence
-                       ;; as the console and fm:space master grammar.
-                       (not-any?
-                        #(binding-material/camera-gesture-reserved? site %)
-                        rows))
-                    (assoc! acc [subject site]
-                            (into (vec (get acc [subject site])) rows))
-                    acc))
+                  ;; T-R1 — durable space subjects are strings, while dispatch's
+                  ;; collision-proof outer claim subject is the keyword `:space`.
+                  (let [claim-subject
+                        (if (and
+                             (= binding-material/space-facet facet)
+                             (= space-material/space-subject subject))
+                          :space
+                          subject)]
+                    (if (and
+                         (binding-material/instance-site-legal? site facet)
+                         ;; T3/T4 — a served instance must cross the same fence
+                         ;; as the console and fm:space master grammar.
+                         (not-any?
+                          #(binding-material/camera-gesture-reserved? site %)
+                          rows))
+                      (assoc! acc [claim-subject site]
+                              (into (vec (get acc [claim-subject site])) rows))
+                      acc)))
                 acc
                 (:facet-master/bindings wear))
                acc)))
@@ -2439,7 +2457,11 @@
         ;; so the table cannot disagree with what a gesture will actually do
         (into (map (fn [[[subject site] rows]]
                      {:tier :instance :facet nil
-                      :master-id (str "instance:" subject)
+                      ;; T-R6 — a keyword subject must label as `instance:space`,
+                      ;; never the stale double-colon `instance::space`.
+                      :master-id
+                      (str "instance:"
+                           (if (keyword? subject) (name subject) subject))
                       :revision-id nil :floor? false
                       :bindings {site rows}}))
               (instance-binding-rows))
@@ -2671,9 +2693,9 @@
    (fn [{:keys [wheel screen]}]
      (let [[x y] screen
            {:keys [zoom] :as _cam} @!camera
-           ;; T5 — same already-materialized wears source as the binding tiers;
-           ;; activation identity invalidates this cache. No second state/read.
-           space-wear (:space (current-material-wears))
+           ;; T-R2/T5 — read the space subject's instance-aware wear through the
+           ;; existing cache. Activation identity invalidates it; no new state/read.
+           space-wear (:space (wears-for space-material/space-subject))
            zoom-min (or (:space/zoom-min space-wear) 0.1)
            zoom-max (or (:space/zoom-max space-wear) 8.0)
            factor (js/Math.pow 1.0015 (- (:dy wheel)))
@@ -3198,9 +3220,18 @@
        (fn [subject site rows-edn]
          (clj->js
           (try
-            (set-instance-bindings!
-             subject (keyword (str/replace (str site) #"^:" ""))
-             (reader/read-string (str rows-edn)))
+            (let [site (keyword (str/replace (str site) #"^:" ""))
+                  ;; T-R1 — bridge the JS/durable spelling to the one keyword
+                  ;; subject carried by the space claim; a non-space subject
+                  ;; stays itself so owner-aware legality refuses it (R3-G2c).
+                  ;; This is bridge 2 of 2.
+                  subject
+                  (if (and (= :space/ground site)
+                           (= space-material/space-subject (str subject)))
+                    :space
+                    subject)]
+              (set-instance-bindings!
+               subject site (reader/read-string (str rows-edn))))
             (catch :default e
               {:status :refused :error :binding/unreadable
                :message (.-message e)}))))

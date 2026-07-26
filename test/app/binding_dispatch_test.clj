@@ -544,7 +544,7 @@
       (is (every? (comp some? :probe/verb) baseline))
       (is (= 12 (count baseline))))
 
-    (testing "G1: the eleven pre-cut receipts are byte-identical on their
+    (testing "R3-G1: all twelve rungs-1+2 receipts are byte-identical on their
               binding decision fields"
       (is (= [[:focus/place-caret :floor :attention :claimed]
               [:focus/enter-block :floor :attention :claimed]
@@ -556,10 +556,11 @@
               [:anchor/place :floor :space :claimed]
               [:camera/pan :floor :space :claimed]
               [:selection/marquee-begin :floor :space :claimed]
+              [:camera/zoom-at-pointer :floor :space :claimed]
               [:camera/zoom-at-pointer :floor :space :claimed]]
              (mapv (juxt :probe/verb :probe/tier
                          :probe/facet :probe/outcome)
-                   (take 11 baseline)))))
+                   baseline))))
 
     (testing "G1 probe 12: wheel at a block falls outward to the space"
       (is (= {:probe/label
@@ -901,7 +902,8 @@
       (is (= 1 (count (re-seq #"\(defn- invoke-verb!" ground)))
           "one side-effecting site"))
 
-    (testing "the space's rows are code, not material"
+    ;; T-R6 — rung 3 moves the space's INSTANCE legality, never claim-chain shape.
+    (testing "the space claim still has exactly one runtime chain builder"
       (is (= 1 (count (re-seq #"binding-material/space-claim" ground)))
           "G10g: only the one runtime chain builder names the space rung")
       (is (= 1 (count (re-seq #"\(defn- claim-chain" ground))))

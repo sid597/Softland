@@ -100,23 +100,30 @@
    :space/ground #{}})
 
 (def instance-legal-sites
-  "editable-material P6 · G10 — where an INSTANCE-tier row may be filed.
+  "editable-material P6 · G10 — the BLOCK sites where an INSTANCE-tier row may
+   be filed for any owner.
 
-   `:space/ground` is excluded, forever, until space-as-outermost-entity is
-   actually built. The P5 gate proved why: instance rows filed at
-   `[:space :space/ground]` DO resolve at the `:instance` tier and shadow pan
-   and wheel. Unreachable from the shipped console seam (a string subject never
-   equals the keyword `:space`) and client-ephemeral — but the registry's claim
-   that `no data revision can shadow the camera` was overstated by exactly this
-   much. The refusal is declared here so both the ephemeral console seam and
-   the durable instance-master lane read the same truth from one place."
+   The var remains this enumeration because refusal cards and the legacy
+   one-arity predicate describe the owner-independent block surface.
+   `:space/ground` is legal only through `instance-site-legal?`'s owner-aware
+   arity, and only for the space itself."
   #{:block/user-hit-area
     :block/machine-hit-area
     :block/fold-header})
 
 (defn instance-site-legal?
-  [site]
-  (contains? instance-legal-sites site))
+  "G10 legality, with the owner named at every lifted write/read lane.
+
+   One arity deliberately retains the old block-only meaning so an unswept
+   caller fails closed. Two arities make `:space/ground` legal only for the
+   space facet/claim owner; the shared `:space` name is intentional."
+  ([site]
+   (contains? instance-legal-sites site))
+  ([site owner]
+   ;; T-R3 — a wholesale site lift would let non-space facets mint dead rows.
+   (or (contains? instance-legal-sites site)
+       (and (= :space/ground site)
+            (= :space owner)))))
 
 (defn camera-gesture-reserved?
   "T3/T4 — true when a MATERIAL row attempts to capture a camera gesture.

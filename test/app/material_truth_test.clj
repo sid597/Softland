@@ -485,22 +485,109 @@
         (is (empty? (binding-material/table-conflicts rows)))))))
 
 ;; ===========================================================================
-;; G10 — the space has no instance tier
+;; G10 / rung 3 — the space alone gains an instance tier
 ;; ===========================================================================
 
-(deftest g10-space-instance-refusal
-  (testing "the P5 gate's shadow probe is refused by declaration"
+(deftest g10-r3-owner-aware-instance-sites
+  ;; T-R6 — the old `space has no instance tier` pin moves with the lift.
+  (testing "one arity retains the old block-only fail-closed meaning"
     (is (false? (binding-material/instance-site-legal? :space/ground)))
     (is (every? binding-material/instance-site-legal?
                 [:block/user-hit-area :block/machine-hit-area
                  :block/fold-header])))
-  (testing "the refusal set is a strict subset of the legal sites"
+  (testing "two arities open ground only for the space owner (T-R3)"
+    (is (true? (binding-material/instance-site-legal?
+                :space/ground :space)))
+    (is (false? (binding-material/instance-site-legal?
+                 :space/ground :attention)))
+    (is (false? (binding-material/instance-site-legal?
+                 :space/ground "space")))
+    (is (every? #(binding-material/instance-site-legal?
+                  % :attention)
+                [:block/user-hit-area :block/machine-hit-area
+                 :block/fold-header])))
+  (testing "the refusal-card enumeration remains the block-only set"
     (is (= #{:space/ground}
            (clojure.set/difference binding-material/sites
                                    binding-material/instance-legal-sites))))
   (testing "the camera stays floor-reserved on top of the refusal"
     (is (false? (verb-registry/bindable? :camera/pan 0)))
     (is (false? (verb-registry/bindable? :camera/zoom-at-pointer 0)))))
+
+(def r3-camera-row
+  {:binding/gesture :wheel
+   :binding/phase :complete
+   :binding/modifiers #{}
+   :binding/verb {:verb/name :camera/zoom-at-pointer :verb/version 0}
+   :binding/priority 10})
+
+(def r3-space-site-row
+  {:binding/gesture :pointer/tap
+   :binding/phase :complete
+   :binding/modifiers #{}
+   :binding/verb {:verb/name :anchor/place :verb/version 0}
+   :binding/priority 10})
+
+(defn- instance-history
+  [rt parent-spec subject]
+  (let [ispec (adapter/instance-spec parent-spec subject)]
+    {:revisions
+     (ocr/read-revision-history rt (adapter/document-id ispec) "" 100)
+     :pointers
+     (ocr/read-revision-history
+      rt (adapter/active-pointer-container-id ispec) "" 100)}))
+
+(deftest r3-g5-write-lane-refusals-append-nothing
+  (let [rt (ocr/start-object-container-runtime!)
+        camera-subject "space-g5-camera"
+        foreign-subject "attention-g5-space-site"
+        clamp-subject "space-g5-clamp"]
+    (try
+      ;; G5a's candidate must inherit grammar v1, whose material key set carries
+      ;; bindings. The v0 code floor legitimately drops a binding override before
+      ;; validation because bindings did not exist in that frozen grammar.
+      (adapter/ensure-master! rt space/spec)
+      (let [camera
+            (material-truth/deviate!
+             rt space/spec camera-subject
+             {:facet-master/bindings {:space/ground [r3-camera-row]}}
+             {:actor sid :time-ms (now)
+              :request-id (str "r3-g5a-" (random-uuid))})
+            foreign
+            (material-truth/deviate!
+             rt attention/spec foreign-subject
+             {:facet-master/bindings {:space/ground [r3-space-site-row]}}
+             {:actor sid :time-ms (now)
+              :request-id (str "r3-g5b-" (random-uuid))})
+            clamp
+            (material-truth/deviate!
+             rt space/spec clamp-subject
+             {:space/zoom-min 5.0 :space/zoom-max 4.0}
+             {:actor sid :time-ms (now)
+              :request-id (str "r3-g5c-" (random-uuid))})]
+        (testing "R3-G5a/T-R4 — the inherited fm:space grammar owns the fence"
+          (is (false? (:accepted? camera)))
+          (is (= :facet-master/instance-form-invalid (:reason camera)))
+          (is (= [:facet-master/bindings-invalid]
+                 (mapv :type (:errors camera)))))
+        (testing "R3-G5b/T-R3 — a non-space parent cannot mint dead space rows"
+          (is (false? (:accepted? foreign)))
+          (is (= :facet-master/instance-site-refused (:reason foreign)))
+          (is (= [:space/ground] (:sites foreign))))
+        (testing "R3-G5c — instance grammars inherit the whole-form seam"
+          (is (false? (:accepted? clamp)))
+          (is (= :facet-master/instance-form-invalid (:reason clamp)))
+          (is (= [:space/zoom-clamp-invalid]
+                 (mapv :type (:errors clamp)))))
+        (testing "physical OC histories prove every refusal preceded all appends"
+          (doseq [[spec subject]
+                  [[space/spec camera-subject]
+                   [attention/spec foreign-subject]
+                   [space/spec clamp-subject]]]
+            (is (= {:revisions [] :pointers []}
+                   (instance-history rt spec subject))
+                subject))))
+      (finally (ocr/close-object-container-runtime! rt)))))
 
 ;; ===========================================================================
 ;; G11 — honest times
