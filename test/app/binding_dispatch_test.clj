@@ -161,8 +161,14 @@
         (assoc master-rows
                :attention
                (:facet-master/bindings attention/reply-bindings-form))
-        d (resolve* :key/eval :complete #{} (block-claim :block/user-hit-area)
+        pre-rung-1
+        (resolve* :key/eval :complete #{} (block-claim :block/user-hit-area)
+                  :facet-rows reply-master-rows)
+        d (resolve* :key/eval :complete #{}
+                    (into (block-claim :block/user-hit-area) bm/space-claim)
                     :facet-rows reply-master-rows)]
+    (is (= pre-rung-1 d)
+        "G10g: appending the outer space rung leaves key/eval resolution exact")
     (is (= :claimed (:decision/outcome d)))
     (is (= subject (:decision/subject d))
         "the claim's subject is the addressed block; no second target verb")
@@ -533,7 +539,39 @@
     (testing "every probe resolves to a verb — no dead gesture anywhere"
       (is (every? #(= :claimed (:probe/outcome %)) baseline))
       (is (every? (comp some? :probe/verb) baseline))
-      (is (= 11 (count baseline))))
+      (is (= 12 (count baseline))))
+
+    (testing "G1: the eleven pre-cut receipts are byte-identical on their
+              binding decision fields"
+      (is (= [[:focus/place-caret :floor :attention :claimed]
+              [:focus/enter-block :floor :attention :claimed]
+              [:placement/drag-group :floor :positioned :claimed]
+              [:selection/text-begin :floor :attention :claimed]
+              [:focus/release :floor :attention :claimed]
+              [:placement/drag-group :floor :positioned :claimed]
+              [:fold/toggle-section :floor :foldable :claimed]
+              [:anchor/place :floor :space :claimed]
+              [:camera/pan :floor :space :claimed]
+              [:selection/marquee-begin :floor :space :claimed]
+              [:camera/zoom-at-pointer :floor :space :claimed]]
+             (mapv (juxt :probe/verb :probe/tier
+                         :probe/facet :probe/outcome)
+                   (take 11 baseline)))))
+
+    (testing "G1 probe 12: wheel at a block falls outward to the space"
+      (is (= {:probe/label
+              "wheel at a block → zoom through the space rung"
+              :probe/site :block/user-hit-area
+              :probe/decision-site :space/ground
+              :probe/depth 1
+              :probe/verb :camera/zoom-at-pointer
+              :probe/tier :floor
+              :probe/facet :space
+              :probe/outcome :claimed}
+             (select-keys
+              (nth baseline 11)
+              [:probe/label :probe/site :probe/decision-site :probe/depth
+               :probe/verb :probe/tier :probe/facet :probe/outcome]))))
 
     (doseq [spec bindings-specs]
       (let [mid (:facet-master/id spec)
@@ -859,7 +897,14 @@
           "one side-effecting site"))
 
     (testing "the space's rows are code, not material"
-      (is (str/includes? ground "binding-material/space-claim"))
+      (is (= 1 (count (re-seq #"binding-material/space-claim" ground)))
+          "G10g: only the one runtime chain builder names the space rung")
+      (is (= 1 (count (re-seq #"\(defn- claim-chain" ground))))
+      (is (str/includes?
+           ground
+           "(into claims binding-material/space-claim)"))
+      (is (str/includes? ground ":claims (claim-chain hit claims)")
+          "pointer and key/eval claims both cross the shared builder")
       (is (str/includes? ground "floor-binding-rows")))
 
     (testing "the verb registry is the only vocabulary the kernel registers"
