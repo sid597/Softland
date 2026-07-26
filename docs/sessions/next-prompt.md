@@ -262,19 +262,15 @@ round → benchmark room (question bank waits on kinds).
 
 ## Active package blocks
 
-**space-as-entity — ALL TWELVE GATES GREEN 2026-07-26** (G7 closed same
-day on Sid's headed receipt: echo p95 23.3 / max 40.3 vs the 52 bar
-through a sustained wheel burst; T6 never needed). Remaining to CLOSE:
-⚠ Sid's word on the code commit (one code-only commit of the P2 working
-set) → re-run HEAD-dynamic suites at committed HEAD → RETRO + adversarial
-recheck → prune this block to a done-pointer. Gate record:
-`build/space-as-entity/GATE.md` (fast lane + isolated suites re-run
-green; G2 server receipt green; G6 clamp cycle re-driven live under fresh
-ids; zero code defects in two falsification passes). Cluster base-active,
-malformed candidate inactive. After close: rung 3 = G10 lift (inherits
-fence) → reaction-declaration per the punt table in
-`build/space-as-entity/NOW.md`. Return wear stays the campaign's only
-open act.
+**space-as-entity (rungs 1+2) — CLOSED + retro'd 2026-07-26.** All twelve
+gates green (`build/space-as-entity/GATE.md`); code `43a57a0` + `f7945fd`;
+retro recheck-corrected (`RETRO.md`); lesson routed to the work-package
+skill (gate-partition sum-check). Cluster base-active, malformed candidate
+inactive and queryable. **Next up: rung 3 — the G10 lift — FRESH session,
+Fable stages the small contract; the fence's three lanes are standing law
+to preserve, not deliverables** (starter cut: NOW.md §The cut, item 3).
+Then reaction-declaration per the punt table. Return wear stays the
+campaign's only open act.
 
 **editable-material — SETTLED 2026-07-24, CAMPAIGN OPEN at Sid's word**
 ("build this out fully … all whatever they are no matter how many").

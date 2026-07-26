@@ -122,6 +122,16 @@ wear remains the campaign's true gate — this stages what follows it.
   committed HEAD → RETRO + adversarial recheck → board prune. Rung 3
   stays shut until close completes.
 
+- 2026-07-26 · Fable (same session, Sid attended) · **PACKAGE CLOSED**.
+  Code committed on Sid's word: `f7945fd` (rung 2; rung 1 was `43a57a0`).
+  HEAD-dynamic suites at committed HEAD: code-atoms 9/198 green; recheck's
+  fresh fast lane 189/1,777 green. RETRO.md written from the full trail;
+  adversarial recheck (fresh subagent) verdict: sound after three
+  factual-precision corrections, applied in place. Lesson routed: gate-
+  partition sum-check rule → work-package SKILL.md (amendment 2026-07-26).
+  Board pruned to done-pointer. Rung 3 (G10 lift) stages in a FRESH
+  session; its contract cites the fence's three lanes as standing law.
+
 ## The cut (rungs 1+2, one package — binding terms in CONTRACT.md)
 
 1. claim-chain: `(if (seq claims) claims binding-material/space-claim)`

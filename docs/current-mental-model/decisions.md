@@ -107,9 +107,10 @@ which crossroads did we take."
   with an error card, durable malformed material falls to the floor). Gate
   record: `build/space-as-entity/GATE.md` — G7 closed on Sid's headed
   receipt (echo p95 23.3 / max 40.3 vs the 52 bar through a sustained
-  wheel burst; T6 fallback never needed). Close pending: code commit
-  (Sid's call) → HEAD-dynamic suites → retro. Rung 3 (the G10 lift)
-  opens after close.
+  wheel burst; T6 fallback never needed). **CLOSED + retro'd 2026-07-26**
+  (code `43a57a0` + `f7945fd`; HEAD-dynamic suites green at committed
+  HEAD; `RETRO.md` recheck-corrected). Next rung: 3 — the G10 lift,
+  fresh session, fence lanes cited as standing law.
 
 ## Settled architecture — use it, don't re-derive it
 

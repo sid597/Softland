@@ -82,6 +82,20 @@ concrete failure that day:
   contract said backup snapshots are "MBs"; reality was 1.6GB quiesced/3.0GB
   live. Harmless here; a cadence decision made on it would not have been.
 
+**Amended 2026-07-26 at the space-as-entity close** (`build/space-as-entity/
+RETRO.md`; adversarial recheck ran and its corrections are applied in the
+retro body). One rule, one concrete failure:
+- **A per-phase gate partition sum-checks against the contract's full gate
+  list at the moment the partition is made** (staging, a ruling, or a phase
+  prompt), and any gate needing a specific environment or actor is assigned
+  its OWNER in the same breath. Grounds: contract gate G7 (echo bar — needs
+  Sid's headed browser on this box) appeared in NO phase's gate list (P1
+  chose G1/G2/G3/G10g; RULING R1 routed P2 to G4/G5/G6/G8/G9/G11/G12);
+  nothing summed the lists against G1–G12, and the gap surfaced only at
+  gate review — after which closing it required an act only Sid could
+  perform, discovered at the worst time. Same class as the
+  ruling-execution-sweep rule; this extends it to gate PARTITIONS.
+
 ## What a work package is
 
 One bounded build (so far: a Rama kernel) run against a binding contract, by
