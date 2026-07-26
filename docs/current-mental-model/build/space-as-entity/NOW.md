@@ -37,6 +37,18 @@ wear remains the campaign's true gate — this stages what follows it.
   CONTRACT.md authored. Next: fresh build session runs P1 (rung 1) per the
   contract; boot from CONTRACT.md + this STANDING.
 
+- 2026-07-26 · Codex · P1 (rung 1) · `P1.md` · **PASS**.
+  Manifest claims reverified against disk before code; no binding conflict.
+  Landed T1 into-append, real wheel hit, one T7 builder, probe 12, T8 sweep.
+  G1: suite 17/329 + live 3 masters × 12 probes; probe 12 depth 1, floor/space.
+  G2 final server read: 6 masters/29 revisions/22 rows; active violations 0,
+  non-active residue 0; stop clause did not fire.
+  G3: real block wheel zoomed via depth 1; empty wheel/pan/tap-anchor unchanged.
+  G10g: one builder/ref/route; key/eval decision exact.
+  T8 pin suites 26/423 + fast lane 183/1,724 green; dev compile 0 warnings.
+  Forbidden files/fence untouched; no commit/push; cluster + dev app left live.
+  Next: P2 only in a fresh context; P2 was not started here.
+
 ## The cut (rungs 1+2, one package — binding terms in CONTRACT.md)
 
 1. claim-chain: `(if (seq claims) claims binding-material/space-claim)`
