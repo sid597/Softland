@@ -230,6 +230,54 @@ which crossroads did we take."
   re-import safe by construction; a new import-key prefix registers its
   routing and ships a foreign-read gate.
 
+## How engine work lands — the build model (settled 2026-07-26)
+
+The engine builds out WHILE Sid lives in the land — never evacuate to
+renovate (North: "renovatable by its inhabitants down to bedrock"). The
+map of what the full engine is: `engine-terrain.md` (terrain, never
+route). How each piece of it reaches the land:
+
+- **Two dials.** Build-ahead is bounded by REVERSIBILITY: additive-and-dark
+  work may run as far ahead as design confidence allows — being wrong
+  costs build time, never a lived migration. Activation is bounded by
+  CONTACT: what goes live under Sid moves at the pace of his inhabitation.
+  Contact-gating is an organ property (rim machinery, taste surfaces,
+  migrations), not a global law.
+- **Two ceremonies.** POLICY merges by activation — safe because malformed
+  is refused at the gate and bad is contained (error card, floor
+  fallback, one-act rollback). MECHANISM merges by deploy-under-proof —
+  indirection seam, replay/drill proofs, revert by commit. The bridge
+  between them: **material may select machines only from a closed
+  registry with declared contracts** (verbs are the shipped proof —
+  registry, effect classes, floor-reserved entries; the wish→code artery
+  obeys it: code travels the code lane, material activates only the
+  binding). A mechanism that wants activation pays registry + containment
+  first.
+- **Boundary test, at every contract:** a change touching durables (event
+  vocabulary, cell shapes, serve contracts) is never a swap — it is
+  CUTOVER-CLASS: scheduled, rare, the land holds still (the frame
+  migration; grammar-breaking bumps). Mis-sorting policy / mechanism /
+  cutover is the named failure mode; the falsification pass checks the
+  sort.
+- **The dark lane.** At most 1–2 organs in flight. Dark-organ laws:
+  compiles clean in the live build · loads PURE (namespace load runs
+  top-level forms — a boot side effect is not dark) · routes nowhere
+  until its seam activates · suite-covered from birth · listed on the
+  board with its activation trigger. The board list IS the gauge and the
+  width limiter (>2 entries is itself the alarm) — honestly a discipline
+  with a known board-drift rate, so each activation note checks the line
+  was accurate. The dark INTERVAL (build, sit dark, activate later) is
+  untested — the first activation writes its lessons (drift? forgotten?
+  proofs still green?).
+- **Delivery menu:** dark-additive organs · behavior-identical direct
+  cuts (the space-package pattern) · strangler seams for direct-caller
+  rewrites (indirection first, then old/new under proofs) · worktree
+  spikes whose findings return as contracts, never merges · scheduled
+  cutovers.
+- **The clock** is Sid's ruling latency + activation cadence — never
+  build throughput. Package counts are sizing between organs, not a
+  schedule.
+
 ## Only Sid decides
 
 Spending money · pushing/merging the docs branch (never) · `env.clj` (never

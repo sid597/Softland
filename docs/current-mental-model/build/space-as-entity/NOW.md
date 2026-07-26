@@ -197,13 +197,19 @@ wear remains the campaign's true gate — this stages what follows it.
 | Punt | Trigger |
 |---|---|
 | Real type stratum (recipe over space-facets) | a second space instance exists |
-| Cross-container pick path + per-space camera | first embedded canvas genuinely wanted |
+| D1 cross-container pick-chain | a thing needs interior MOTION (own scroll/zoom) |
+| D2-lite one bounded nested frame (no recursion) | first scrollable interior / side-by-side pane |
+| D2-general recursive per-space cameras | worlds-as-places inhabitation |
+| D4 cross-boundary gesture verbs (drag-INTO first) | the first authored thing |
 | Zoom-band LOOKS half | felt at wear (form field, cheap) |
 | Zoom-band ACTS half | reaction table exists + first named band-act |
 | Camera verbs unreserved | probably never; own drill (unbrickable escape proven first) |
 | Durable reaction runner | the episode-retry board item |
 | Reaction rows as editable material | 2–3 real reactions exist to show the grammar |
 | Log-consuming topology | with the durable runner, via /rama + rama-pitfalls |
+
+(D-rows dissolved from the old cross-container row 2026-07-26; the full
+rim map + triggers live in `docs/current-mental-model/engine-terrain.md`.)
 
 Honesty note on the log topology: it observes events AT-LEAST-ONCE;
 truth-writes converge to exactly-once EFFECT via deterministic ids;

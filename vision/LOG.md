@@ -852,3 +852,45 @@ why does the blank screen has a cursor in it? this is the walkthrough and log an
 *(Routed same-session: order ruled space-first → `build/space-as-entity/NOW.md` + `CONTRACT.md` — rungs 1+2 cut (claim-chain into-append + real wheel hit + one chain-builder · fm:space form/bindable-subset · camera-gesture-reservation fence derived AT rung 2, master-tier capture is live the moment fm:space serves) · rung 3 = G10 lift inheriting the fence · reaction-declaration next, autotag = row #1 · punt table with named triggers · zoom bands two halves — looks = form data at derive; acts = band-crossing EVENTS at camera settle → reaction rows · board package block added · Vision line advanced.)*
 
 ---
+
+## 2026-07-26 — the monster round: concurrent build ruled in, the landing physics, "go with your understanding" (second entry; three sessions converge, verbatim)
+
+[the proposal that opened the round — build the engine beside the lived land:]
+
+> I think we can and need to build out the new engine but we can also build it out in a new branched pr???? I willl be using the softland and and and since we have made the system for using softland that is purely data independent of engine 😵‍💫😵😱😱😱 sooooooo is it not the plus?? Or am i missing smth???
+
+[the estimates doubted, and the naming — cascade, never "reaction":]
+
+> also maybe the time estimates are not that good
+
+> also my terminology is multi-cascade instead of reaction engine ... because i map reaction and reactive to electric hyperfiddle
+
+[the topology demand:]
+
+> what is the topology of the work that we need to do? and why?? what is the heuristic you are using to derive the topology ... lets go
+
+[the catch on the first synthesis — the frame held under his second push:]
+
+> did you optimise for i should feel and only then we build whereas i am saying we can build it out seperate from the current implementation so i can use it concrrently and we merge when we think major independent chunks are done so maybe do merging or smth
+
+[the sizing demand that named the monster:]
+
+> So if we want to build the full engine based on back and forth over this, the "full version" (defined as what we know the full system needs and might need at this point of time) what is it going to be think through no matter how big it gets lets first see the size of monster then we chop
+
+[the canonical-holder word, closing the three-session adjudication:]
+
+> after this we will go with your undestanding i will close the other two sessions
+
+> so i ask now again what is the final monster and the topology
+
+[the comparison asked — sameness and difference both read as signal:]
+
+> how is it different from the previous session's proposal? i mean its fine if its same or different because both are signal but i want the comparision
+
+[the landing word + the first contract:]
+
+> lets write ut our monster and commit its docs and when do we start on this what are the next steps i think we will write the first work contract in this session only wdyt?
+
+*(Routed same-session: the build model → decisions.md "How engine work lands" (two dials · two ceremonies · registry law · boundary test · dark-organ laws · delivery menu · the clock) · the monster → `docs/current-mental-model/engine-terrain.md` (TERRAIN not route; 11 organs, 5 cores + rim; CORE A unbundled; record/replay promoted; calendar dropped) · dark lane opened on the board (width 1–2, the list is the gauge; multi-cascade declaration slice = organ #1) · space punt row dissolved into D1/D2/D4 triggers · multi-cascade contract staged `build/multi-cascade/CONTRACT.md`.)*
+
+---
