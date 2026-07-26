@@ -200,6 +200,12 @@ before code — line numbers drift)
   tests G2 re-drives).
 - Threading/SSE context: the turn lane's SSE contract at
   `server_jetty.clj` :780–:798 (the act must never delay the ack).
+- Suite classification (added by RULING 2026-07-26 — the staged manifest
+  omitted the runner's fail-closed registry): `test/app/test_runner.clj`
+  :214–:247 (`test-inventory` globs every `*_test.clj`;
+  `assert-inventory!` fails closed on any namespace absent from all three
+  tier registries) · :64 `isolation-exceptions` (namespace → one-line
+  reason map).
 
 ## 9. Handoff
 
@@ -208,7 +214,13 @@ partition IS the sum-check) in a fresh context, after rung 3 lands
 (shared-tree sequencing; fence set §7/§6). Allowlist — NEW:
 `src/app/server/cascade.clj` + `test/app/cascade_table_test.clj`.
 EDITED: `server_jetty.clj` (the autotag block + call site ONLY: privacy
-flip, guard move, one-line emission). FENCED (rung-3 WIP, do not touch):
+flip, guard move, one-line emission) · `test/app/test_runner.clj`
+(RULING 2026-07-26: EXACTLY one classification entry — add
+`app.cascade-table-test` to `isolation-exceptions` with a one-line
+reason; it boots fresh OC/RK/LLM runtimes, the machine-cut/circulation
+isolation class. No runner-semantics change; no other namespace's tier
+moves; the gate diff-scans this file to that one entry). FENCED (rung-3
+WIP, do not touch):
 `binding_material.cljc` · `ground.cljs` · `facet_master.clj` ·
 `space_material.cljc` · `face_wiring.cljs` + their test files. Then: ONE
 falsification finder aimed at the genuinely-new machinery (react!

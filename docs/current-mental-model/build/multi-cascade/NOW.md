@@ -14,7 +14,10 @@ lands.
   `.claude/skills/work-package/SKILL.md`.
 - Allowlist — NEW: `src/app/server/cascade.clj` +
   `test/app/cascade_table_test.clj`. EDITED: `server_jetty.clj` (autotag
-  block + call site only). READ-ONLY: `material_circulation.clj`,
+  block + call site only) · `test_runner.clj` (RULING 2026-07-26: exactly
+  one `isolation-exceptions` entry for `app.cascade-table-test` — swept
+  here per the ruling-execution-sweep rule). READ-ONLY:
+  `material_circulation.clj`,
   `verb_registry.cljc`. FENCED (rung-3 in-flight WIP — do not touch):
   `binding_material.cljc` · `ground.cljs` · `facet_master.clj` ·
   `space_material.cljc` · `face_wiring.cljs` + their tests.
@@ -55,7 +58,20 @@ lands.
   classification entry (the tests own fresh OC/RK/LLM runtimes); then re-enter
   P1 from the clean code tree. No source/test edit, no test run, no commit/push.
 
-## Starter prompt (P1) — paste-ready
+- 2026-07-26 · Fable (ruling; the rung-3 close session) · **RULING:
+  option A.** Stop CONFIRMED genuine — the runner verified fail-closed
+  (`test_runner.clj:214–:247`) and G8's full-suite bar cannot hold beside
+  the staged §9; tier fit verified against the registry's own precedent
+  (fresh OC/RK/LLM runtimes = the machine-cut/circulation isolation
+  class). §8 + §9 amended in place: allowlist gains
+  `test/app/test_runner.clj` scoped to EXACTLY one `isolation-exceptions`
+  entry for `app.cascade-table-test`; STANDING allowlist swept with the
+  same marker; G8 text unchanged — full suite stays the bar. Option B
+  rejected: smearing the organ's suite into a foreign namespace weakens
+  exactly what the fail-closed runner protects. decisions.md open
+  question resolved + deleted (the contract is the law's home); the stop
+  round is preserved at `c4d73ea`. Next: P1 re-enters from the clean
+  tree, same starter prompt below.
 
     Multi-cascade R1, single phase P1 — dark-lane organ #1. Boot:
     docs/current-mental-model/build/multi-cascade/CONTRACT.md (binding)

@@ -301,17 +301,6 @@ architecture above).
 
 ## Open questions — undecided; say your take when you hit one
 
-- **Multi-cascade R1 P1 manifest/allowlist stop (2026-07-26).** CONTRACT §9
-  requires NEW `test/app/cascade_table_test.clj` but permits no edit to
-  `test/app/test_runner.clj`; the current runner discovers every `*_test.clj`
-  and fails closed when its namespace is absent from all three tier registries
-  (`test_runner.clj:215–247`). G8 simultaneously requires the dark-row specimen
-  to remain inert through the full suite, so hiding or focused-running the new
-  namespace cannot satisfy the contract. Options: (A, recommended) amend §8/§9
-  to allow exactly one `isolation-exceptions` entry for
-  `app.cascade-table-test` (it owns fresh OC/RK/LLM runtimes), then rerun P1
-  whole; (B) replace the named new test file with an allowed existing test
-  namespace and amend §9/G8 accordingly. No code was touched before this stop.
 - Confidence/credential algebra for the trail→code join.
 - Question-as-first-class-unit design (design track).
 - The requests-vs-walls law's final strength: Sid removed the BINDING form
