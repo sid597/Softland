@@ -19,6 +19,11 @@
     (is (= :references circulation/gold-edge-kind))
     (is (not-any? #(= "wish" (name %)) rk/relation-kinds))))
 
+(deftest space-material-joins-the-escape-detector
+  (is (contains? circulation/default-material-policy-paths
+                 "src/app/shared/space_material.cljc")
+      "G8 stops at membership; the existing detector needs no parallel harness"))
+
 (deftest receipt-is-mechanical-co-presence-only
   (let [receipt
         (circulation/receipt-from-context

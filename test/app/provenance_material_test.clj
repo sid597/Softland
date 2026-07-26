@@ -13,6 +13,7 @@
             [app.shared.foldable-material :as foldable]
             [app.shared.positioned-material :as positioned]
             [app.shared.provenance-material :as provenance]
+            [app.shared.space-material :as space]
             [app.shared.text-body-material :as text-body]
             [app.shared.threaded-material :as threaded]))
 
@@ -168,6 +169,7 @@
            [attention/spec attention/default-source]
            [foldable/spec foldable/default-source]
            [positioned/spec positioned/default-source]
+           [space/spec space/default-source]
            [threaded/spec threaded/default-source]
            [text-body/spec text-body/default-source]]]
     (let [master-id (:facet-master/id spec)

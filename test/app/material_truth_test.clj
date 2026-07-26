@@ -23,6 +23,7 @@
             [app.shared.facet-masters :as facet-masters]
             [app.shared.foldable-material :as foldable]
             [app.shared.positioned-material :as positioned]
+            [app.shared.space-material :as space]
             [app.shared.verb-registry :as verb-registry]))
 
 (def sid {:actor/id "sid" :actor/type :human})
@@ -674,7 +675,9 @@
           (:facet-master/id spec))))
   (testing "the space's floor label is named once and read from there"
     (is (= binding-material/space-floor-master-id
-           (facet-masters/floor-master-id binding-material/space-facet))))
+           (facet-masters/floor-master-id binding-material/space-facet)))
+    (is (= space/code-floor-revision-id
+           (facet-masters/floor-master-id :space))))
   (testing "every floor row's master-id and revision-id agree"
     (doseq [spec facet-masters/specs
             :let [label (facet-material/floor-master-id spec)]]
@@ -686,7 +689,9 @@
     (is (= "code-floor:fm:foldable:v2"
            (facet-masters/floor-master-id :foldable)))
     (is (= "code-floor:fm:positioned:v2"
-           (facet-masters/floor-master-id :positioned)))))
+           (facet-masters/floor-master-id :positioned)))
+    (is (= "code-floor:fm:space:v0"
+           (facet-masters/floor-master-id :space)))))
 
 ;; ===========================================================================
 ;; Routing — the id-shape finding that made R1 hold (Phase 0)
