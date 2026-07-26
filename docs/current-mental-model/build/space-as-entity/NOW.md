@@ -108,6 +108,20 @@ wear remains the campaign's true gate — this stages what follows it.
   T6 fallback pre-approved. Cluster base-active; dev app stopped.
   Next: Sid's headed echo-bar glance closes G7 → package CLOSE + retro.
 
+- 2026-07-26 · Fable (same gate session, attended) · G7 CLOSED · **ALL
+  GATES GREEN**. Sid drove the felt half in his headed browser: typing
+  through a sustained wheel burst over the dense area (canvas 191 blocks,
+  567k served chars), zoom driven to the served 0.1 floor. Receipt
+  (`__ground.report()`): echo n=378 p50=14.5 p95=23.3 p99=29.5 max=40.3
+  vs the 52 bar; slow-echo outliers []. T6 fallback never needed. Adapter
+  attestation absent from the report — accepted; the rule guards false
+  FAILs and a degraded adapter cannot fake a green. Residue (not gate
+  signal): two >100ms client stalls (144/283ms, 09:29:36/39Z), zero echo
+  outliers coincident. G1–G12 all green; GATE.md updated in place.
+  Remaining to CLOSE: Sid's code-commit word → HEAD-dynamic suites at
+  committed HEAD → RETRO + adversarial recheck → board prune. Rung 3
+  stays shut until close completes.
+
 ## The cut (rungs 1+2, one package — binding terms in CONTRACT.md)
 
 1. claim-chain: `(if (seq claims) claims binding-material/space-claim)`

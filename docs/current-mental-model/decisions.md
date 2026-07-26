@@ -95,7 +95,7 @@ which crossroads did we take."
   `build/editable-material/DIRECTION.md`; gate records
   `build/editable-material/GATE_P1..P8.md`. Sid's return wear is the true
   gate — the first full breath closes first-light A.
-- **space-as-entity — rungs 1+2 BUILT, gate-passed 2026-07-26 (G7 open):**
+- **space-as-entity — rungs 1+2 BUILT, all twelve gates GREEN 2026-07-26:**
   the space is the outermost rung of every claim chain (a pick miss lands
   on the space, never on nothing), and `fm:space` is the seventh served
   master — the zoom clamp was retuned to 2.0 and rolled back to 8.0 live
@@ -105,10 +105,11 @@ which crossroads did we take."
   by all three lanes. Cross-field form invariants now have a compiler seam
   (`:form-validators`, read at both compile and wear — candidates refuse
   with an error card, durable malformed material falls to the floor). Gate
-  record: `build/space-as-entity/GATE.md`. G7 (echo bar under
-  wheel-picking) closes at Sid's first headed zoom — T6 pick-per-burst
-  fallback pre-approved if it reddens; package CLOSE + retro after that.
-  Rung 3 (the G10 lift) opens only then.
+  record: `build/space-as-entity/GATE.md` — G7 closed on Sid's headed
+  receipt (echo p95 23.3 / max 40.3 vs the 52 bar through a sustained
+  wheel burst; T6 fallback never needed). Close pending: code commit
+  (Sid's call) → HEAD-dynamic suites → retro. Rung 3 (the G10 lift)
+  opens after close.
 
 ## Settled architecture — use it, don't re-derive it
 

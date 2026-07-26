@@ -1,9 +1,11 @@
 # space-as-entity — Fable gate verdict (rungs 1+2, contract gates G1–G12)
 
-2026-07-26 · Fable gate session · **PASS on all eleven reviewable gates;
-G7 OPEN** — the package does not CLOSE until G7's felt half lands (one
-glance at the echo bar during Sid's first headed zoom; T6's pick-per-burst
-fallback is pre-approved if it reddens; still red → stop clause).
+2026-07-26 · Fable gate session · **PASS — ALL TWELVE GATES GREEN.**
+Eleven gates re-verified independently in-session (below); G7's felt half
+closed the same day on Sid's headed-browser receipt (§G7 closure below).
+T6's pick-per-burst fallback was never needed. Remaining to CLOSE the
+package: Sid's code-commit word → HEAD-dynamic suites at committed HEAD →
+retro + adversarial recheck → board prune.
 
 Inputs used as prior-pass records, never authority: `P1.md`, `P2.md`, the
 NOW log. The code was read in full (both new files, every product diff
@@ -106,6 +108,20 @@ will hold; it is inference, not the gate's letter). The felt half needs
 Sid's headed browser: zoom over a populated region with the echo bar
 visible. Green → G7 closes and the package CLOSES. Red → T6
 pick-per-burst (pre-approved), re-measure; still red → stop clause.
+
+**G7 CLOSURE — GREEN (2026-07-26, same day, Sid's headed browser).**
+Sid typed through a sustained wheel burst over the dense area (canvas 191
+blocks / 34 machine, 566,906 served chars; zoom driven to the served 0.1
+floor — wheel-picking live throughout). `__ground.report()` receipt:
+echo (envelope→confirmed render, bar 52): n=378 p50=14.5 p95=23.3
+p99=29.5 max=40.3; slow-echo outliers (>52ms): [] — zero keystrokes ever
+crossed the bar, burst included. Environment: Sid's daily headed browser;
+adapter identity not captured in the report — accepted because the
+attestation rule guards against false FAILs (SwiftShader slows the
+measured path; it cannot fake a green). Residue, not gate signal: two
+main-thread stalls >100ms (144ms, 283ms at 09:29:36/39Z), four minutes
+before the report, zero echo outliers coincident — the stall log is the
+first place to look if a hitch is ever felt.
 
 ## D-006 evaluation notes
 

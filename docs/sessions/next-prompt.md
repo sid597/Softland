@@ -262,19 +262,19 @@ round → benchmark room (question bank waits on kinds).
 
 ## Active package blocks
 
-**space-as-entity — rungs 1+2 BUILT + GATE PASS 2026-07-26; G7 OPEN, and
-the package CLOSES on it.** ⚠ One act owed by Sid: zoom over a populated
-region in the headed browser with the echo bar visible — green closes G7
-and the package (then retro → rung 3 = G10 lift, inherits fence); red →
-T6 pick-per-burst is pre-approved, re-measure. Gate record + receipts:
-`build/space-as-entity/GATE.md` (fast lane + isolated suites re-run green;
-G2 server receipt green; G6 clamp cycle re-driven live under fresh ids —
-2.0 felt, rollback to 8.0 felt; fence/preview refusals live; zero code
-defects in two falsification passes). Code UNCOMMITTED on the shared tree
-— commit is Sid's call; docs trail committed. Cluster left base-active,
-malformed candidate inactive. After close: reaction-declaration per the
-punt table in `build/space-as-entity/NOW.md`. Return wear stays the
-campaign's only open act.
+**space-as-entity — ALL TWELVE GATES GREEN 2026-07-26** (G7 closed same
+day on Sid's headed receipt: echo p95 23.3 / max 40.3 vs the 52 bar
+through a sustained wheel burst; T6 never needed). Remaining to CLOSE:
+⚠ Sid's word on the code commit (one code-only commit of the P2 working
+set) → re-run HEAD-dynamic suites at committed HEAD → RETRO + adversarial
+recheck → prune this block to a done-pointer. Gate record:
+`build/space-as-entity/GATE.md` (fast lane + isolated suites re-run
+green; G2 server receipt green; G6 clamp cycle re-driven live under fresh
+ids; zero code defects in two falsification passes). Cluster base-active,
+malformed candidate inactive. After close: rung 3 = G10 lift (inherits
+fence) → reaction-declaration per the punt table in
+`build/space-as-entity/NOW.md`. Return wear stays the campaign's only
+open act.
 
 **editable-material — SETTLED 2026-07-24, CAMPAIGN OPEN at Sid's word**
 ("build this out fully … all whatever they are no matter how many").
