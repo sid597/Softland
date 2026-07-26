@@ -22,7 +22,8 @@
             [app.client.workspace.face-assembly :as fa]
             [app.client.workspace.face-primitives :as prims]
             [app.client.workspace.scene-runtime :as scene-rt]
-            [app.shared.material-inspector :as material-inspector]))
+            [app.shared.material-inspector :as material-inspector]
+            [app.shared.space-material :as space-material]))
 
 (defn parse-face-command
   "\"/face ...\" command text -> a face-state op, or nil when it is not a face
@@ -445,7 +446,8 @@
                             (when !facet-materials-request
                               (reset! !facet-materials-request
                                       {:face :facet-materials
-                                       :params {:drill? (drill-mode?)}
+                                       :params {:drill? (drill-mode?)
+                                                :subjects [space-material/space-subject]}
                                        :epoch epoch})))
         request! (fn []
                    (let [s @!face-state]

@@ -49,6 +49,53 @@
    :binding/verb {:verb/name :selection/marquee-begin :verb/version 0}
    :binding/priority 10})
 
+(def r3-instance-tap-row
+  {:binding/gesture :pointer/tap
+   :binding/phase :complete
+   :binding/modifiers #{}
+   :binding/verb {:verb/name :selection/marquee-begin :verb/version 0}
+   :binding/priority 10})
+
+(deftest r3-g1-g2-space-instance-drill
+  (let [served (served-from-form space/default-form "rev:space:active")
+        baseline (report-by-label (report-with-space served))
+        injected
+        (report-by-label
+         (binding-material/drill-report
+          {:facet-rows {:space (:facet-master/bindings
+                                (space/resolved-wear served))}
+           :floor-rows (floor-rows)
+           :instance-rows {[:space :space/ground] [r3-instance-tap-row]}}))
+        foreign-subject
+        (report-by-label
+         (binding-material/drill-report
+          {:facet-rows {:space (:facet-master/bindings
+                                (space/resolved-wear served))}
+           :floor-rows (floor-rows)
+           :instance-rows {["other-space" :space/ground]
+                           [r3-instance-tap-row]}}))]
+    (testing "R3-G1 — absent an instance, the twelve-probe cut is unchanged"
+      (is (= 12 (count baseline)))
+      (is (= [:anchor/place :master]
+             ((juxt :probe/verb :probe/tier)
+              (get baseline "tap empty space → caret anchor"))))
+      (is (= :floor
+             (:probe/tier
+              (get baseline "wheel at a block → zoom through the space rung")))))
+    (testing "R3-G2/T-R1/T-R5 — injected keyword-space rows fire at instance"
+      (is (= [:selection/marquee-begin :instance]
+             ((juxt :probe/verb :probe/tier)
+              (get injected "tap empty space → caret anchor")))))
+    (testing "T-R1 — another durable space subject cannot hijack THE space"
+      (is (= [:anchor/place :master]
+             ((juxt :probe/verb :probe/tier)
+              (get foreign-subject "tap empty space → caret anchor")))))
+    (testing "R3-G2 — the same instance map cannot capture either camera probe"
+      (doseq [label ["drag empty space → pan the camera"
+                     "wheel → zoom at the pointer"
+                     "wheel at a block → zoom through the space rung"]]
+        (is (= :floor (:probe/tier (get injected label))) label)))))
+
 (deftest g4-camera-gesture-fence-refuses-material-and-preserves-the-floor
   (let [candidate (assoc space/default-form
                          :facet-master/bindings
@@ -83,19 +130,47 @@
              ((juxt :probe/verb :probe/tier :probe/outcome)
               (get by-label "wheel → zoom at the pointer")))))))
 
-(deftest g5-camera-reservation-has-one-var-and-three-read-sites
+(deftest g5-r3-g6-one-place-censuses
   (let [binding-source (slurp "src/app/shared/binding_material.cljc")
         space-source (slurp "src/app/shared/space_material.cljc")
         ground-source (slurp "src/app/client/workspace/ground.cljs")
-        call-pattern #"binding-material/camera-gesture-reserved\?"]
+        facet-master-source
+        (slurp "src/app/server/rama/object_container/facet_master.clj")
+        wiring-source (slurp "src/app/client/workspace/face_wiring.cljs")
+        fence-pattern #"binding-material/camera-gesture-reserved\?"
+        legality-pattern #"binding-material/instance-site-legal\?"]
     (testing "the reservation set is defined by exactly one predicate var"
       (is (= 1 (count (re-seq #"\(defn camera-gesture-reserved\?"
                               binding-source)))))
     (testing "fm:space, console install, and served-instance consumption read it"
-      (is (= 1 (count (re-seq call-pattern space-source))))
-      (is (= 2 (count (re-seq call-pattern ground-source))))
-      (is (= 3 (+ (count (re-seq call-pattern space-source))
-                  (count (re-seq call-pattern ground-source))))))
+      (is (= 1 (count (re-seq fence-pattern space-source))))
+      (is (= 2 (count (re-seq fence-pattern ground-source))))
+      (is (= 3 (+ (count (re-seq fence-pattern space-source))
+                  (count (re-seq fence-pattern ground-source))))))
+    (testing "R3-G6 — one legality predicate, three owner-aware product lanes"
+      (is (= 1 (count (re-seq #"\(defn instance-site-legal\?"
+                              binding-source))))
+      (is (= 2 (count (re-seq legality-pattern ground-source))))
+      (is (= 1 (count (re-seq legality-pattern facet-master-source))))
+      (is (= 3 (+ (count (re-seq legality-pattern ground-source))
+                  (count (re-seq legality-pattern facet-master-source))))))
+    (testing "R3-G6/T-R1 — exactly two client bridge sites and one serve subject"
+      (is (= 2 (count (re-seq #"T-R1" ground-source))))
+      (is (str/includes?
+           ground-source
+           "(= space-material/space-subject subject)"))
+      (is (str/includes?
+           wiring-source
+           ":subjects [space-material/space-subject]")))
+    (testing "R3-G6/T-R2 — no-instance wheels hit the existing subject cache"
+      (is (str/includes?
+           ground-source
+           "(contains? by-subject space-material/space-subject)"))
+      (is (str/includes?
+           ground-source
+           "{space-material/space-subject wears}"))
+      (is (str/includes? ground-source
+                         ":served served :wears wears :by-subject by-subject")))
     (testing "the set is gesture-scoped; shift remains open"
       (is (binding-material/camera-gesture-reserved?
            :space/ground capture-row))

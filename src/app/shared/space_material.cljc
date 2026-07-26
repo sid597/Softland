@@ -9,6 +9,8 @@
             [app.shared.facet-material :as facet-material]))
 
 (def master-id "fm:space")
+;; Durable instance lanes use this string; dispatch keeps keyword :space.
+(def space-subject "space")
 (def grammar-version 0)
 (def code-floor-revision-id binding-material/space-floor-master-id)
 (def bindings-grammar-version 1)
