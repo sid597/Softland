@@ -48,6 +48,37 @@ opens the space's instance tier; reaction-declaration is NOT started here.
   contract §Gate partition + owners). Next: fresh build session runs P1
   per the contract; boot from RUNG3_CONTRACT.md + this STANDING.
 
+- 2026-07-26 · Codex (P1 implementer) · IMPLEMENTER PASS; artifact: `RUNG3_P1.md`.
+  Seven contract deliverables complete; R3-G1…R3-G8 green in context.
+  Focused: 24 tests / 400 assertions; fast: 190 / 1,795; zero failures/errors.
+  Isolated gates: 15/232, 8/61, 5/165, 16/284, 11/103; all zero failures/errors.
+  Working-tree shadow-cljs compile: 272 files, 3 compiled, 0 warnings.
+  Fresh live G3 proved deviation `[0.1 3.0]`, release, and exact worn revision.
+  Fresh live G4 proved pin `[0.1 8.0]`, unpin to shared `[0.1 2.0]`, rollback.
+  Fresh live G5 refused all three hostile writes with zero append delta.
+  Falsification finder found three bridge/cache counterexamples; all fixed; PASS.
+  Judgment flag: repeat G3 bootstrap import exposes the pre-existing normal
+  import-fingerprint conflict; fresh activation still lands the exact revision.
+  Base fm:space `[0.1 8.0]` active; instance remains released/inherit; console clear.
+  Rama cluster + UI and working-tree dev app remain live for the handoff.
+  No commit or push. Next owner: Fable independent slim gate review/verdict.
+
+- 2026-07-26 · Fable (gate session) · **GATE PASS**; artifact: `RUNG3_GATE.md`.
+  Independent re-runs: focused 24/400, fast 190/1795, isolated 15/232 · 8/61 ·
+  5/165 · 16/284 · 11/103, all zero fail/error; censuses re-derived (legality
+  1 defn/3 owner reads; fence 1 var/3 reads, no fourth; read-only zero diff).
+  Live re-drives, fresh ids: G5 refusals append nothing (4 rev/13 ptr stable);
+  G3 deviation felt at exactly 3.0, release restores; G4 pin holds 8.0 over
+  shared 2.0, unpin feels 2.0, rollback restores 8.0/0.1; G2 console cycle
+  green (fence-ordered refusal, foreign-subject refusal, label exact).
+  Judgment call CONFIRMED: repeat-import fingerprint conflict is the
+  pre-existing OC bootstrap-vs-normal asymmetry; residue + falsifier in GATE.
+  Findings (non-blocking): src-dev/dev.cljc LAND_PINNED guard is allowlist
+  drift, unflagged by P1 — surface at commit; g1 harness :no-space-instance?
+  check permanently stale post-G3; handoff dev app was dead at boot,
+  relaunched pinned. decisions.md updated. Next: Sid's commit word →
+  HEAD-dynamic suites at committed HEAD → close + retro.
+
 ## Starter prompt (P1) — paste-ready
 
     Space-as-entity rung 3: the G10 lift, phase P1. Boot:

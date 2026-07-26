@@ -109,8 +109,18 @@ which crossroads did we take."
   receipt (echo p95 23.3 / max 40.3 vs the 52 bar through a sustained
   wheel burst; T6 fallback never needed). **CLOSED + retro'd 2026-07-26**
   (code `43a57a0` + `f7945fd`; HEAD-dynamic suites green at committed
-  HEAD; `RETRO.md` recheck-corrected). Next rung: 3 — the G10 lift,
-  fresh session, fence lanes cited as standing law.
+  HEAD; `RETRO.md` recheck-corrected). **Rung 3 (the G10 lift) BUILT,
+  Fable gate PASS 2026-07-26:** the space alone gains the instance tier —
+  deviate/pin/release on THE space, served and reversible, owner-scoped
+  legality at all three G10 lanes, fence inherited at the write lane
+  (still one var, three reads); deviation felt live at exactly 3.0 while
+  shared served 8.0; pin held 8.0 over an activated shared 2.0. Gate
+  record: `build/space-as-entity/RUNG3_GATE.md` (one confirmed judgment
+  call — the pre-existing OC bootstrap-vs-normal import-fingerprint
+  asymmetry, residue with cheap falsifier; one allowlist drift finding —
+  `src-dev/dev.cljc` LAND_PINNED harness guard, default path identical,
+  to surface at commit). Awaiting Sid's commit word; then HEAD-dynamic
+  suites at committed HEAD → close + retro.
 
 ## Settled architecture — use it, don't re-derive it
 
