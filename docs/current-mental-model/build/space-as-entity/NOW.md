@@ -14,14 +14,16 @@ wear remains the campaign's true gate — this stages what follows it.
 - Allowlist — NEW: `src/app/shared/space_material.cljc` + test files (named
   per phase). EDITED: `ground.cljs`, `binding_material.cljc`,
   `facet_masters.cljc`, `material_circulation.clj` (the one set line), the
-  T8-swept test files. `verb_registry.cljc` is READ-ONLY; touching it or
+  T8-swept test files, and (RULING R1 2026-07-26, after the P2 stop)
+  `facet_material.cljc` — scope: the `:form-validators` seam only, per
+  contract T9/6b. `verb_registry.cljc` is READ-ONLY; touching it or
   `instance-legal-sites` is a stop clause.
 - Verification duties: every platform/behavior claim in the contract's
   manifest is re-checked against the on-disk file before code (memory and
   contract line numbers can drift).
-- Definition of done: contract gates G1–G11 green + live drive + the one
-  falsification finder run + Fable gate verdict recorded here and in
-  `decisions.md`.
+- Definition of done: contract gates G1–G12 green (G12 added by R1) + live
+  drive + the one falsification finder run + Fable gate verdict recorded
+  here and in `decisions.md`.
 - Stop clauses: contract §Stop clauses. Escalate per the skill; never
   improvise on binding docs.
 - Hard rules: no Co-Authored-By in commits · never read
@@ -48,6 +50,31 @@ wear remains the campaign's true gate — this stages what follows it.
   T8 pin suites 26/423 + fast lane 183/1,724 green; dev compile 0 warnings.
   Forbidden files/fence untouched; no commit/push; cluster + dev app left live.
   Next: P2 only in a fresh context; P2 was not started here.
+
+- 2026-07-26 · Codex · P2 pre-code manifest · **STOP**.
+  Deliverable 6/G6 requires cross-field `min < max` candidate refusal.
+  `facet_material/compile-form` passes validators one field value only;
+  `space_material.cljc` therefore cannot enforce the pair invariant alone.
+  The needed optional whole-form compiler seam is outside P2's frozen allowlist.
+  Independent bounds would falsely accept some `min >= max` candidates.
+  Fork + recommendation recorded in `decisions.md` Open Questions.
+  No P2 code/test edit; no gate claimed. P1 is committed at `43a57a0`.
+  Next: Sid rules allowlist seam (recommended) vs composite clamp form.
+
+- 2026-07-26 · Fable · RULING R1 · **Option A, strengthened — RESOLVED**.
+  Verified the diagnosis against the compiler myself; found the second
+  enforcement site the recommendation missed: `valid-material?` is the
+  wear-time validator `resolved-wear` floors through — compile-only would
+  WEAR a durable min≥max revision. Seam spec now contract T9 + 6b: one
+  optional `:form-validators` declaration read by BOTH `compile-form` and
+  `valid-material?`; predicates over the material-keys projection, total;
+  six existing declarations untouched (byte-identical no-op); instance
+  masters inherit via `instance-grammars` pass-through. Allowlist +
+  `facet_material.cljc` (seam only); gate G12 added (no-op + both sites);
+  DoD now G1–G12. decisions.md OQ deleted (ruling executed as a sweep).
+  Composite-clamp (B) rejected: recurring gap papered over, coarser edit
+  surface, public-form change. Next: P2 resumes deliverables 6–10 + 6b,
+  gates G4/G5/G6/G8/G9/G11/G12, fresh context from this exact state.
 
 ## The cut (rungs 1+2, one package — binding terms in CONTRACT.md)
 

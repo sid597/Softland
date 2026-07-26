@@ -48,6 +48,10 @@ proven against served truth, not assumed from code.
   `instance-legal-sites` — grammar lives with the row law (G10's one-place
   precedent). Reversal cost of all of rung 2: low — pure data + predicates;
   the seam is the single predicate var and the single spec entry.
+- (RULING R1) The `:form-validators` seam lives in `facet_material.cljc` —
+  the compiler owns validation and BOTH its validation sites live there;
+  a space-material-local check could never reach `valid-material?`.
+  Reversal cost: one consumer deep — remove the entry + the two reads.
 
 ## Traps ledger (cite trap numbers in code comments)
 
@@ -104,6 +108,22 @@ proven against served truth, not assumed from code.
   over `ground.cljs`, `binding_material`, claim-chain, the interaction
   table, and the drill; every enumeration this package moves is updated in
   the same change and LISTED in the phase artifact.
+- **T9 (RULING R1, 2026-07-26) — cross-field invariants need the whole-form
+  seam, at BOTH validation sites.** The facet compiler validates per key —
+  `(valid? (get form k))` — so a `min < max` invariant declared beside the
+  keys can never see both; independent bounds silently accept
+  `{:zoom-min 5.0 :zoom-max 4.0}` (the P2 stop). AND the compile seam alone
+  is not enough: `valid-material?` is the WEAR-time validator `resolved-wear`
+  floors through — a durable min≥max revision reaching the serve would be
+  worn if only `compile-form` checks. Ruling: one optional
+  `:form-validators` vector (`{:valid? fn :error-type kw}`) on a grammar
+  declaration, read by BOTH `compile-form` (candidate refusal → error card)
+  and `valid-material?` (wear-time refusal → floor fall). Each predicate
+  receives the MATERIAL-KEYS PROJECTION of the map under validation and
+  must be total over any map (nil-safe, extra-key-safe — instance forms
+  carry three extra keys and `instance-grammars` passes the entry through,
+  so instance masters inherit the invariant). Declarations without the
+  entry validate byte-identically — frozen grammars untouched (T4 holds).
 
 ## Deliverables
 
@@ -118,10 +138,18 @@ proven against served truth, not assumed from code.
 
 **Rung 2 (Phase P2):**
 6. `space_material.cljc`: spec on the attention pattern — form
-   `:space/zoom-min` 0.1 / `:space/zoom-max` 8.0, clamp-of-clamps validator
-   (`0.01 <= min < max <= 1000`); master bindings = the bindable subset
-   (T2); floor bindings = today's four `space-floor-bindings` rows,
-   verbatim, still sourced from/consistent with `binding_material`.
+   `:space/zoom-min` 0.1 / `:space/zoom-max` 8.0; per-key validators for
+   each bound, PLUS the cross-field clamp-of-clamps
+   (`0.01 <= min < max <= 1000`) declared via the R1 `:form-validators`
+   seam (T9); master bindings = the bindable subset (T2); floor bindings =
+   today's four `space-floor-bindings` rows, verbatim, still sourced
+   from/consistent with `binding_material`.
+6b. (RULING R1) The `:form-validators` seam in `facet_material.cljc` —
+   additive and optional, per T9's exact spec: read by both `compile-form`
+   and `valid-material?`, predicates over the material-keys projection,
+   total; the six existing declarations carry no entry and validate
+   byte-identically. `fm:space` is the first and only consumer this
+   package.
 7. The camera-gesture reservation predicate in `binding_material.cljc` (T3),
    enforced at: the fm:space spec validators (T4), the console install seam,
    and the served-instance lane.
@@ -181,6 +209,13 @@ scope)
   unchanged.
 - **G11** — New-facet totality: an arbitrary-garbage fm:space candidate
   floors the WHOLE facet with an error card; all 12 probes stay green.
+- **G12** (RULING R1) — Seam no-op + both-sites proof: (a) all six existing
+  grammar declarations carry no `:form-validators`, and a declaration
+  without the entry validates byte-identically (suite receipt); (b) a
+  min≥max fm:space CANDIDATE refuses at `compile-form` with the declared
+  error-type (error card); (c) a synthetic SERVED revision carrying min≥max
+  material falls to the floor at `resolved-wear` — the `valid-material?`
+  site — proving the wear-time half of T9.
 
 ## Read plan for the one performance promise
 
