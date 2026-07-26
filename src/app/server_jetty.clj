@@ -7,6 +7,7 @@
     [clojure.tools.logging :as log]
     [contrib.assert :refer [check]]
     [app.file-viewer :as fv]
+    [app.server.cascade :as cascade]
     [app.server.episode :as episode]
     [app.server.rama.material-circulation :as circulation]
     [app.server.rama.face-projection :as face-projection]
@@ -803,42 +804,51 @@ information."
   ;; Delay it so gold-pointed work pays zero annotation boot cost.
   (delay (llm/start-llm-runtime!)))
 
-(defn- run-ambient-autotag!
+(defn run-ambient-autotag!
   "Best-effort ambient P4 silver lane. It runs off the response thread and
    cannot delay or prevent the already-durable resident turn. Identical input
    converges through material-circulation's OC record before any proposal edge."
-  [oc-rt rk-rt object-key source-unit-id text receipt]
-  (let [candidate-ids (->> (:receipt/visible-addresses receipt)
-                           (remove #{source-unit-id})
-                           distinct
-                           vec)
-        candidates
-        (->> candidate-ids
-             (keep
-              (fn [unit-id]
-                (when-let [result (ocr/read-unit oc-rt unit-id)]
-                  {:id unit-id :text (:content-text result)})))
-             vec)]
-    (when (seq candidates)
-      (let [source-read (ocr/read-unit oc-rt source-unit-id)
-            result
-            (circulation/autotag-material!
-             {:llm-rt @ambient-autotag-runtime
-              :oc-rt oc-rt
-              :rk-rt rk-rt}
-             object-key
-             {:record-unit-id source-unit-id
-              :record-text text
-              :candidates candidates
-              :evidence-source-id (get-in source-read [:unit :source-id])
-              :timeout-ms 120000})]
-        (log/info "[CIRCULATION][AUTOTAG]"
-                  {:source-unit-id source-unit-id
-                   :candidates (count candidates)
-                   :status (:status result)
-                   :run-id (:run-id result)
-                   :relation-id (get-in result [:edge :relation-id])})
-        result))))
+  [{:keys [oc-rt rk-rt]}
+   {:keys [object-key source-unit-id text receipt gold-receipt lines]}]
+  ;; CONTRACT T6: the emission is unconditional. This handler alone owns the
+  ;; old call-site guard, so sibling rows on the trigger cannot be suppressed.
+  (if-not (and (nil? gold-receipt) rk-rt)
+    {:status :skipped}
+    (let [candidate-ids (->> (:receipt/visible-addresses receipt)
+                             (remove #{source-unit-id})
+                             distinct
+                             vec)
+          candidates
+          (->> candidate-ids
+               (keep
+                (fn [unit-id]
+                  (when-let [result (ocr/read-unit oc-rt unit-id)]
+                    {:id unit-id :text (:content-text result)})))
+               vec)]
+      (when (seq candidates)
+        (let [source-read (ocr/read-unit oc-rt source-unit-id)
+              ;; CONTRACT T1: preserve the exact material-circulation argument
+              ;; shapes; its derived durable identity bytes remain untouched.
+              result
+              (circulation/autotag-material!
+               {:llm-rt @ambient-autotag-runtime
+                :oc-rt oc-rt
+                :rk-rt rk-rt}
+               object-key
+               (cond-> {:record-unit-id source-unit-id
+                        :record-text text
+                        :candidates candidates
+                        :evidence-source-id (get-in source-read
+                                                   [:unit :source-id])
+                        :timeout-ms 120000}
+                 lines (assoc :lines lines)))]
+          (log/info "[CIRCULATION][AUTOTAG]"
+                    {:source-unit-id source-unit-id
+                     :candidates (count candidates)
+                     :status (:status result)
+                     :run-id (:run-id result)
+                     :relation-id (get-in result [:edge :relation-id])})
+          result)))))
 
 (defn run-episode-turn
   "POST /api/episode/utterance {:source-unit-id :content-text :position
@@ -982,21 +992,18 @@ information."
                                                      "UTF-8"))
                                              :portal-master-ids
                                              (:master-ids portal-open)})
-                       ;; No explicit gold point: let the calibrated resident
-                       ;; propose one silver :felt-at edge from the mechanically
-                       ;; co-present visible candidates. It is deliberately
-                       ;; asynchronous; the user's resident turn starts now.
-                       (when (and (nil? gold-receipt) rk-rt)
-                         (future
-                           (try
-                             (run-ambient-autotag!
-                              oc-rt rk-rt (:address durable)
-                              source-unit-id text (:receipt durable))
-                             (catch Throwable t
-                               (log/warn
-                                "[CIRCULATION][AUTOTAG-FAILED]"
-                                {:source-unit-id source-unit-id
-                                 :error (.getMessage t)})))))
+                       ;; Emit unconditionally after the durable turn. Autotag
+                       ;; owns its gold/runtime decline; future rows on this
+                       ;; trigger must still fire. Dispatch remains asynchronous,
+                       ;; so the user's resident turn starts now.
+                       (cascade/react!
+                        {:oc-rt oc-rt :rk-rt rk-rt}
+                        :episode/turn-durable
+                        {:object-key (:address durable)
+                         :source-unit-id source-unit-id
+                         :text text
+                         :receipt (:receipt durable)
+                         :gold-receipt gold-receipt})
                        (let [!stream-state (atom (initial-stream-state))
                              done-promise  (promise)
                              ;; D-core seed: a successor episode's first prompt

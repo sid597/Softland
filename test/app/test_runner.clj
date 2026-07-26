@@ -68,6 +68,9 @@
   '{app.client.workspace.trail-face-test
     "The live receipt pins a two-task trail-view launch and imports the trail fixture helpers."
 
+    app.cascade-table-test
+    "Boots fresh OC, relation, and LLM runtimes for the behavior-identity cut."
+
     app.face-arsenal-test
     "Mutates the process-global ingest epoch and opens a second cluster for WAL boot replay."
 
