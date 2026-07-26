@@ -826,3 +826,29 @@ why does the blank screen has a cursor in it? this is the walkthrough and log an
 *(Routed same-session: DIRECTION.md rewritten SETTLED — the criterion, three loops, four gates, receipt/silver/gold ladder, second-wearer falsifier, master ≠ recipe ≠ attachment identity table, aliveness laws, plurality, tempo ruling · CAMPAIGN.md created — P1→P8 ladder, banked-demand gates, pre-registered stops, Sid's touchpoints · board HANDOFF = campaign P1; first-light P3/P4/P5 mapped to ride campaign P4/P6 under their own contract · standing campaign word recorded on the board, veto-able · aliveness honesty kept: gates close on banked pressure, the first full breath is Sid's return.)*
 
 ---
+
+## 2026-07-26 — the space stratum and the cascade (two problems named, verbatim)
+
+[the two problems, after the campaign closed — the space as the frozen remainder:]
+
+> if spaces are not entities how can i attach or modify or create new behaviour in it? how can i create new components in it? how can i say make the default zoom from -10 to +10 and what happens on different zoom levels? I think we should be able to talk about the space as the entity .... currently its like softland code -> space -> components .... but it should be softland code -> space type -> space -> component. any block component does live in space and space has its own meaning of click drag select etc ... you can think like we can make space -> 2d canvas -> canvas components ... so now this is more world within a world can we handle this in existing engine?
+
+[the cascade, and the glue mode already entered:]
+
+> the multi cascade is like a no brainer it will definetly arrive soonish
+
+> we will first be adding glue code because it does not exist ... first live fix in some way then live and then bring up hey this is what we want then we build but that also involves removing glue code etc etc. and currently it seems we are already in the mode
+
+> just like now we have the system to run one verb one request ecs systems right??
+
+[the order ruling:]
+
+> I think we should build the space-type
+
+[the zoom-acts redline — acts, not only looks:]
+
+> i do want to keep the zoom level will make something happen that is going to happen
+
+*(Routed same-session: order ruled space-first → `build/space-as-entity/NOW.md` + `CONTRACT.md` — rungs 1+2 cut (claim-chain into-append + real wheel hit + one chain-builder · fm:space form/bindable-subset · camera-gesture-reservation fence derived AT rung 2, master-tier capture is live the moment fm:space serves) · rung 3 = G10 lift inheriting the fence · reaction-declaration next, autotag = row #1 · punt table with named triggers · zoom bands two halves — looks = form data at derive; acts = band-crossing EVENTS at camera settle → reaction rows · board package block added · Vision line advanced.)*
+
+---
