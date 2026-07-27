@@ -35,6 +35,36 @@
 
 ## NOW (newest first; ≤15 lines per entry)
 
+- **2026-07-28 · Fable · P1 slim gate PASS + commit ruling executed (Sid
+  in-session: "Its your call") — P2 opened.** Gate fresh-context vs the
+  Codex implementation, slim tier per CONTRACT §8. Independently: suite
+  re-run on the committed tree 18t/342a + compat 21t/276a green; entity pin
+  `deb12d4d…`/22,064 held in the gate JVM; here-key sentinel enumeration
+  machine-verified complete (9/9 tree-wide grep); room id re-derived from
+  raw md5 (matches); full diff read, fence exact, nothing foreign staged.
+  Cross-JVM anchor sha differs per boot — the retired claim behaving as
+  documented; in-JVM equality held here. Residue in GATE_P1.md: kondo
+  0-warnings needs the analysis cache; CLJS compile + G10 live accepted on
+  receipt; G10 headed half at wear. Commits: code `7a3127c` · docs this
+  one; board line edited on disk only (sibling write-set shares the board).
+  Next: P2 per P1.md's starter — fresh implementer context, Fable
+  orchestrating + gating; falsifier fresh; stop clause waits for Sid.
+
+- **2026-07-28 · Codex · P1 PASS — uncommitted; Sid decides.**
+  Exact PLAN §P1 code/test list only; sibling + late foreign LOG untouched.
+  G1/G2: 18 tests, 342 assertions, 0 failures/errors; all 17 answers hold.
+  Entity bytes stay pinned: `deb12d4d…`, 22,064 B, both-address equality.
+  Final gate-JVM anchor SHA `706f9d9c…`; room `a983e774…`; explicit address.
+  G10m live: n=36, p50 15.7, p95 23.6, max 35.6ms; 0 over 52ms.
+  Fresh falsifier first FAILed a mixed-master wearer/blast leak; fixed by
+  anchor-filtering once while separating omitted from supplied snapshots.
+  Same one falsifier re-probed mixed/irrelevant inputs: PASS; entity pin holds.
+  Compatibility 21t/276a green; lint 0/0; diff-check clean; CLJS 0 warnings.
+  Non-green signals: unsupported `-n` harness form + test-fixture paren,
+  neither executed a failing behavior test; substantive falsifier preserved.
+  No stage/commit/push; full suite not attempted (contract slim tier).
+  Receipt + P2 starter: `P1.md`; do not start P2 before Sid's commit ruling.
+
 - **2026-07-27 · Fable · PLAN VALIDATED — P1 may open source (fresh
   session).** Same staging session, after Sid's "carry on here" (docs
   only; zero source touched). PLAN.md authored → R1 FAIL (18 findings,
