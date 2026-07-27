@@ -82,6 +82,41 @@
         (is (empty? (get-in st' [:queue :inflight])))
         (is (= :edit/stale (:refusal (ge/block-view st' "du:u1" nil))))))))
 
+(deftest optimistic-echo-mode
+  "The typing-lag patch. Same queue, same envelopes, same rebase — only the
+   END of the queue that gets painted moves. Every assertion here is the
+   :confirmed law's mirror image, so the two modes stay visibly paired."
+  (let [st (ge/focus-block (fresh) "du:u1" "hello" 5)
+        {:keys [state envelopes]} (type! st "ab")]
+    (testing "typed text paints IMMEDIATELY — no ack waited on"
+      (is (= "helloab" (:text (ge/block-view state "du:u1" nil :optimistic))))
+      (is (= 7 (:caret (ge/block-view state "du:u1" nil :optimistic)))))
+    (testing "the envelopes are byte-identical to the committed-echo path"
+      (is (= ["helloa" "helloab"]
+             (mapv #(get-in % [:payload :content-text]) envelopes))))
+    (testing "an ack changes NOTHING on screen — the head already showed it"
+      (let [st' (ge/on-decision state (:request-id (first envelopes))
+                                {:status :accepted})]
+        (is (= "helloab" (:text (ge/block-view st' "du:u1" nil :optimistic)))
+            "no repaint on ack: the render sig is unchanged")))
+    (testing "a rejection VISIBLY rewinds to the last acknowledged revision"
+      (let [st' (ge/on-decision state (:request-id (first envelopes))
+                                {:status :rejected :reason :edit/stale})]
+        (is (= "hello" (:text (ge/block-view st' "du:u1" nil :optimistic))))
+        (is (= :edit/stale (:refusal (ge/block-view st' "du:u1" nil :optimistic))))))
+    (testing "an unfocused block still renders served truth, both modes"
+      (is (= "served" (:text (ge/block-view state "du:other" "served" :optimistic))))))
+  (testing "a caret key MID-FLIGHT moves the head, so the next envelope and the
+            painted caret agree (this was dropped on both sides before)"
+    (let [{:keys [state]} (type! (ge/focus-block (fresh) "du:u1" "" 0) "abc")
+          r    (ge/input state {:type :left} bi ok)
+          st'  (:state r)
+          r2   (ge/input st' {:type :char :char "X"} bi ok)]
+      (is (nil? (:envelope r)) "caret keys never mint")
+      (is (= 2 (:caret (ge/block-view st' "du:u1" nil :optimistic))))
+      (is (= "abXc" (get-in (:envelope r2) [:payload :content-text]))
+          "the insert lands at the MOVED caret, not the stale head caret"))))
+
 (deftest caret-and-truth
   (testing "caret keys move INSIDE confirmed — one value, no envelope"
     (let [st (ge/focus-block (fresh) "du:u1" "ab\ncd" 5)
