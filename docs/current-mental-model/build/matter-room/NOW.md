@@ -35,6 +35,21 @@
 
 ## NOW (newest first; ≤15 lines per entry)
 
+- **2026-07-27 · Fable · PLAN VALIDATED — P1 may open source (fresh
+  session).** Same staging session, after Sid's "carry on here" (docs
+  only; zero source touched). PLAN.md authored → R1 FAIL (18 findings,
+  5 HIGH) → contract amended (11 sections) + plan reworked → R2 FAIL
+  (13/18 confirmed; 12 new, 2 HIGH — both in R1 fixes: the gauge repin
+  would have killed the §8 detector; resident birth missed the `role`
+  slot machine classification reads) → all 12 fixed → R2.5 resolution
+  check minor-fail (4 one-line sweeps) → applied per the minor-fail
+  law, validation not re-run. Records: PLAN_VALIDATION_{R1,R2,}.md
+  (final = round history + verdict VALIDATED). Judgment calls for the
+  next reviewer: gauge v0 provenance-scoped (per-master = L7 re-cut
+  LATER) · no release chains for extraction verbs (§5 amended) · room
+  entry rides the drill-URL MVP. Next: fresh implementation session
+  per phase — P1 starter in the session close + board block.
+
 - **2026-07-27 · Fable · package STAGED.** Contract authored in the direction
   session that settled the shape (register flipped to build at Sid's word:
   "Cant you do it here since all the context is here????"). Ground truth

@@ -74,9 +74,11 @@ artery anywhere is a second-wearer FAIL tell (DIRECTION §settled spine).
 - **L3 The room is a space.** A master's room is a REAL conversation
   container: residents are ordinary durable blocks — the projection lands as
   machine material (idempotent import), Sid's blocks land as his blocks.
-  Consequences, which are the point: every first-light verb works in the room
-  UNCHANGED (tap/drag/fold/pan/zoom/marquee/edit ride the ordinary artery);
-  threads anchor to residents durably; camera + positions settle as truth.
+  Consequences, which are the point: every first-light verb A RESIDENT'S
+  BLOCK CLASS carries works in the room UNCHANGED (machine residents carry
+  the machine-block verb set; Sid's room blocks the user set — R2 finding
+  10's honesty scope); threads anchor to residents durably; camera +
+  positions settle as truth.
   The room's container id is DETERMINISTIC and UUID-SHAPED, derived from the
   master id, with a discoverable mapping (T6). Opening twice duplicates
   nothing (T2).
@@ -85,13 +87,23 @@ artery anywhere is a second-wearer FAIL tell (DIRECTION §settled spine).
   narrowing law P8 built for blocks (`reply-to-block/narrowed-portal-open`):
   a forged or stale client anchor cannot widen the server-side briefing.
   Human and resident read the same projection, byte for byte.
-- **L5 Ceremony.** ALL matter edits ride the EXISTING truth loop. The four
-  acts — deviate, preview, activate (scoped), rollback (activate previous) —
-  become registry verbs (`:durable-via-request`, release-ref'd, the
-  `:resident/reply-to-block` pattern) dispatching into P6's
-  request→decision→event artery. No new write path, no new edit machinery.
-  The portal briefing's "read-only" sentence updates to name the verbs and
-  their effect classes — permission stays with the artery, never the prose.
+- **L5 Ceremony.** ALL matter edits ride the EXISTING truth loop. THREE
+  durable acts — deviate, activate (scoped), rollback (activate previous) —
+  become registry verbs (`:durable-via-request`) dispatching into P6's
+  request→decision→event machinery (`material_truth.clj` instance acts;
+  `facet_master.clj` `import-candidate!`/`activate!`). **Preview is
+  `:pure-projection`** — the server never mints a preview by P6's own law
+  ("a preview is by definition something that did not happen",
+  `material_truth.clj:236-240`); the preview verb names the existing
+  client preview lane and is proven to write NOTHING. *(Amended
+  2026-07-27, R1 finding 2.)* The four verbs are registry-declared but
+  GRAMMAR-UNBINDABLE by construction (required-args no site supplies);
+  their invocation lane is the named act lane (jetty endpoints + console),
+  disclosed in the registry docstrings — the registry entry is the
+  effect-class home, not a gesture claim. *(R1 finding 11.)* No new write
+  path, no new edit machinery. The portal briefing's "read-only" sentence
+  updates to name the verbs and their effect classes — permission stays
+  with the artery, never the prose.
 - **L6 Record.** "Show me everything people have experienced around this
   type" is the room's standing answer: `experience-around-many` fed the
   master-id (and the room's residents) — ONE batched relation read, per its
@@ -102,7 +114,19 @@ artery anywhere is a second-wearer FAIL tell (DIRECTION §settled spine).
   the room: status, count, candidates. The F4 residue (`:ambiguous` on the
   durable cluster until per-master/causal-tip keying; ruled LATER at P8)
   renders HONESTLY as ambiguous — this package surfaces the gauge and does
-  not re-key it. Descents are detected, never declared.
+  not re-key it. Descents are detected, never declared. **The gauge is
+  ON-DEMAND, never inline:** `read-commits` spawns a git subprocess with
+  unbounded output and no timeout (`git_spine.clj:75-88`), so the gauge
+  face is an explicitly on-demand serve (timeout-wrapped AT THE FACE,
+  poisoned-total on expiry — no `git_spine.clj` edit) whose LAST computed
+  report is held in the room's gauge resident; the standard portal open
+  path never runs git. *(Amended 2026-07-27, R1 finding 9.)* **Leak
+  bound stated (R2 finding 9):** a face-level timeout abandons, not
+  interrupts — the blocked thread + git process run to natural
+  completion; bounded by SINGLE-FLIGHT (at most one gauge computation in
+  flight; concurrent and post-expiry asks get the cached last report).
+  The scoped `git_spine.clj` `.waitFor(timeout)` + `destroyForcibly`
+  edit is the named LATER escalation if the leak is ever felt.
 
 ## §4 Non-goals — each a named extension point, not a void
 
@@ -135,12 +159,18 @@ artery anywhere is a second-wearer FAIL tell (DIRECTION §settled spine).
 - **Room containers** ride the existing conversation/object-container
   machinery — no new Rama module, no new PState, no sixth deploy. The room
   is CONTENT, not schema. Reversal: rooms are containers like any other;
-  abandoning the pattern strands no truth.
-- **Matter verbs** in `src/app/shared/verb_registry.cljc` (+ release refs via
-  the existing verb-release lane) and a new pure seam namespace
-  (`src/app/shared/matter_room.cljc`, name-scaffolding) modeled on
-  `reply_to_block.cljc`. Reversal: registry entries are data; the seam is one
-  file.
+  abandoning the pattern strands no truth. *(Plan-staging ruling
+  2026-07-27: resident birth uses the episode import path — no new import
+  family, no `extract-object-key` branch; see §6 P2 + G5.)*
+- **Matter verbs** in `src/app/shared/verb_registry.cljc` and a new pure
+  seam namespace (`src/app/shared/matter_room.cljc`, name-scaffolding)
+  modeled on `reply_to_block.cljc`. NO release chains (amended
+  2026-07-27, R2 finding 11): release chains are birth certificates for
+  NEW capability born from a wish; these verbs are EXTRACTIONS of
+  built-and-gated P6 machinery, and `:verb/extracted-from` is the
+  registry's honesty field for exactly that — the P8 chain shape stays
+  reserved for genuinely new capability. Reversal: registry entries are
+  data; the seam is one file.
 - **NOT the dark lane.** This is rim/policy work merging by ACTIVATION
   (contact-gated), not a dark organ: no new module, no dark interval. The
   dark lane's #2 slot stays held; the board notes this package as the
@@ -160,31 +190,44 @@ lists diff-derived at artifact time.
   `:master-id` (with `:entity-id` absent), master-identity section (spec
   facet, floor id, revisions, active/latest), all seventeen questions
   answered at the anchor, experience fed `[master-id]`+basis ids, unknown
-  master drill, cross-JVM byte determinism, console + JVM calls documented in
-  the card face. Deliverables: projection widening + suite + drill receipt.
-  Gates: G1, G2.
+  master drill, determinism in the shipped in-JVM form (G1 as amended —
+  §6 swept per R2 finding 12), console + JVM calls documented in the card
+  face. Deliverables: projection widening + suite + drill receipt.
+  Gates: G1, G2, G10 machine half.
 - **P2 — the room.** Deterministic UUID-shaped room container per master
-  (T6) + idempotent projection-import of the room's residents (new import
-  prefix, NAMED: routing branch + foreign-read gate per the skill's standing
-  rule) + entry (URL param + one row in the portal card face linking the
-  room) + the floor drill run over room residents. Deliverables: room mint +
-  import family + client entry + suite. Gates: G3, G4, G5, G10.
+  (T6) + idempotent birth of the room's machine residents **through the
+  EXISTING episode import path** (the birth-import law, `episode.clj`
+  :628-633: unit + birth-position, one acked import; machine
+  classification rides the §11 render chain — the `role` slot, NOT the
+  distilled-reply lane, whose actor resolves via `resolve-actor` in the
+  river and does not transfer here) + entry (the portal face gains a room
+  row; navigation rides the existing UUID conversation lane) + the floor
+  drill run over room residents. *(Amended 2026-07-27 at plan staging: the
+  originally pre-registered NEW import prefix is NOT needed — a new family
+  would be a parallel import artery, the exact second-wearer FAIL tell; G5
+  re-cut accordingly.)* Deliverables: room mint + resident birth + client
+  entry + suite. Gates: G3, G4, G5, G10 machine half.
 - **P3 — hands and mouth.** The four matter verbs registered
   (`:matter/deviate`, `:matter/preview`, `:matter/activate`,
-  `:matter/rollback` — scaffolding names) with release refs, dispatching
-  into the EXISTING P6 artery (exact call sites pinned at plan time from
-  `activation_event.cljc` + circulation; a new write path = FAIL);
-  Ctrl+Enter in the room = master-anchored narrowed briefing (L4) via a
-  `matter_room.cljc` seam modeled on `reply_to_block.cljc`; briefing
-  read-only sentence updated (L5). Gates: G6, G7.
+  `:matter/rollback` — scaffolding names; NO release chains, §5 as
+  amended per R2 finding 11 — `:verb/extracted-from` is the honesty
+  field for extractions of built machinery), the three durable ones
+  dispatching into the EXISTING P6 machinery, preview riding the client
+  lane (L5 as amended; a new write path = FAIL); Ctrl+Enter in the room
+  = master-anchored narrowed briefing (L4) via a `matter_room.cljc` seam
+  modeled on `reply_to_block.cljc`; briefing read-only sentence updated
+  (L5). Gates: G6, G7, G10 machine half.
 - **P4 — citizens and gauges.** Cascade rows served read-only
   (`:code-owned :in-process` label, source-swap note); terminal-escape
-  gauge served with honest status; truncation entries for every new
-  section. Gates: G8, G9.
+  gauge served ON-DEMAND with honest status (L7/G9 as amended — never
+  inline in the portal open); truncation entries for every new
+  section. Gates: G8, G9, G10 machine half.
 
-**Gate partition sum-check (rule of 2026-07-26):** P1{G1,G2} ∪ P2{G3,G4,G5,
-G10} ∪ P3{G6,G7} ∪ P4{G8,G9} = {G1..G10} ✓ — no gate unassigned; owners
-named per gate below.
+**Gate partition sum-check (rule of 2026-07-26; restated per R2 finding
+12):** P1{G1,G2,G10m} ∪ P2{G3,G4,G5,G10m} ∪ P3{G6,G7,G10m} ∪
+P4{G8,G9,G10m} = {G1..G10} ✓ — no gate unassigned; G10's machine half
+rides every serve-widening phase by §8's own carve-out, Sid's headed
+half completes at wear; owners named per gate below.
 
 ## §7 Traps ledger — cite by number in code comments
 
@@ -218,9 +261,15 @@ named per gate below.
   `"room:fm:attention"`. Failure: non-UUID ids cannot spawn the resident CLI
   (board-recorded drill-lane constraint; verify against `episode.clj`'s
   minted-uuid law at plan time). Ruling: deterministic UUID-SHAPED id
-  derived from the master id (name-based digest rendered in UUID form) + a
-  durable, discoverable master→room mapping row; the derivation is pinned in
-  the phase artifact and byte-stable across JVMs.
+  derived from the master id — `java.util.UUID/nameUUIDFromBytes`
+  (JDK-specified MD5 v3, byte-stable across JVMs), pinned in the phase
+  artifact. **Discoverability substitute (amended 2026-07-27, R1 finding
+  12):** the master→room mapping is an IN-CODE reverse table derived over
+  `facet-masters/master-ids` (finite, seven today) + the served
+  `:portal/room` section — no durable mapping row; zero durable state
+  where a derivation suffices. The UUID-shape law's validator is EXTERNAL
+  (the CLI: `summon-argv --session-id`, the jsonl filename) — recorded
+  per §9's stop clause; no in-code check exists to cite.
 - **T7 briefing widening knob.** Naive: accept client-supplied master/wearer
   sets into the room briefing. Failure: P8's exact defense exists because a
   forged `:entity-id` widened nothing — the narrowing law runs both sides.
@@ -247,40 +296,119 @@ Tier per the 2026-07-27 cadence ruling: SLIM default (this is
 additive-and-dark-free rim work; no durable-touch cutover). Every gate names
 its owner; machine gates are executable as IPC tests unless marked live.
 
-- **G1 (P1, machine).** Master-anchored open: `unanswered` = `[]` at a
-  master anchor; unknown master-id projects total (drill); canonical bytes
-  identical across two JVMs for the same anchor.
-- **G2 (P1, machine).** Basis honesty: every section touched by the anchor
-  states basis + truncation; experience at the anchor reports
-  `:relation-roundtrips 1`, `:batched? true`.
+- **G1 (P1, machine — re-cut 2026-07-27, R1 findings 7 + 16).**
+  Master-anchored open with TEETH (`unanswered` = `[]` alone is a
+  tautology — every section is fallback-total): at a registered master
+  anchor, `:portal/errors` = `[]`, `:portal/identity` `:entity/found?`
+  true AND `:entity/id` = the master-id, `:portal/masters` contains
+  exactly the anchored master; at an unknown master-id, still total,
+  `found?` false, every question answered. Determinism in the SHIPPED
+  form: in-JVM double-open byte identity + the `*print-namespace-maps*`
+  re-check, with the canonical sha pinned in the phase artifact (a
+  two-JVM harness does not exist and is not owed).
+- **G2 (P1, machine — re-cut 2026-07-27, R1 findings 4 + 13 + 14).** Basis
+  honesty, named per section: BLAST at an anchor open with no wearer
+  snapshot declares `:blast/basis :no-wearer-snapshot-at-anchor` and
+  `:blast/counted-over nil` — NEVER a confident zero; WEARERS names the
+  same absence in its basis; every `*-here*` key (`:master/pinned-here?`,
+  `:deviations/here`, tier-here …) carries the explicit
+  `:not-applicable-at-anchor` sentinel — "nothing deviates here" is not
+  the same answer as "there is no here"; experience at the anchor reports
+  `:relation-roundtrips 1`, `:batched? true`, and carries an EXPLICIT
+  `:conversation-address` (the room's, once derivable) — never the
+  master-id fed through `extract-object-key`; from P2 on,
+  `:material-ids` includes the room's resident unit-ids beside the
+  master-id (L6's second half — R2 resolution of R1 finding 14).
+  **Rendered-surface clauses (R2 findings 3 + 8):** the sentinel is
+  truthiness-proof — the anchor's rendered cards contain NO "PINNED"
+  minted from a sentinel (`card-rows` reads become `true?`-guarded in
+  P1); blast's override lands ON each per-master map
+  (`:blast/counted-over nil` + basis inside `:blast/by-master`), and the
+  rendered blast card carries the basis row — asserted on the CARD, not
+  only the data.
 - **G3 (P2, machine + one-shot live).** Deterministic idempotent room: in
   suite (IPC), N opens → one container, stable resident ids, zero
   duplicates asserted via PState-level read. LIVE: the FIRST open on the
   durable cluster is ONE-SHOT (the no-room pre-state dies with it) — the
   committed harness asserts the post-package invariant (re-open
   convergence), never the dead pre-state.
-- **G4 (P2, machine + Sid's felt half at wear).** Carried verbs: the floor
-  drill resolves over room residents identically to ground blocks
-  (tap/drag/fold/pan/zoom/marquee); camera reservation holds in the room
-  (`camera-gesture-reserved?` untouched). Sid's felt half completes at his
-  wear, non-blocking, recorded.
-- **G5 (P2, machine).** New import prefix: routing branch named +
-  foreign-read gate green (the two-package bug class: `imp:clj:`,
-  `imp:sense-block:` both fell to `:else`).
-- **G6 (P3, machine).** Referent law: master-anchored briefing byte-identical
-  human/resident; forged client anchor cannot widen (both-sides test, the
-  P8 shape).
-- **G7 (P3, machine).** The four verbs end in accepted events through the
-  EXISTING artery — the falsifier greps the diff for any new write path;
-  malformed candidate → error card, worn surface unharmed; effect classes
-  declared; floor rows untouched; T9's sentence updated in the same commit.
-- **G8 (P4, machine).** Cascade citizenship: rows served read-only with the
-  `:code-owned :in-process` label; `git diff --name-only` shows zero
-  changes under `src/app/server/cascade.clj`; a dark row (test-only,
-  never-emitted trigger) present in the projection and inert.
-- **G9 (P4, machine).** The gauge serves: measured status on IPC fixtures;
-  `:ambiguous` rendered honestly on ambiguous history; policy-paths listed;
-  no filesystem inference in the serve path.
+- **G4 (P2, machine + Sid's felt half at wear — re-cut 2026-07-27, R2
+  finding 10).** Carried verbs, SITE-MATCHED: the floor drill resolves
+  over room residents identically to ground MACHINE blocks (machine
+  hit-area verbs: tap→release, drag, fold, machine selection) and over
+  Sid's own room blocks identically to ground user blocks; camera
+  reservation holds in the room (`camera-gesture-reserved?` untouched).
+  "Identically to ground blocks" unqualified was false by construction —
+  user and machine sites carry different verb sets. Sid's felt half
+  completes at his wear, non-blocking, recorded.
+- **G5 (P2, machine — amended 2026-07-27 at plan staging).** NO new import
+  family: residents ride the existing episode import path with a machine
+  actor and deterministic ids. Executable form: the phase diff contains
+  ZERO changes to `extract-object-key` and ZERO new adapter namespaces;
+  the fresh falsifier hunts a parallel import artery; the original
+  foreign-read concern (the `imp:clj:`/`imp:sense-block:` `:else` class)
+  is therefore structurally absent — recorded here so the refusal has a
+  name. **Executable form extended (2026-07-27, R1 finding 1):** the grep
+  also hunts NEW request builders targeting
+  `:object-container/import-material` outside the parameterized episode
+  builders — a bespoke import composer in `matter_room.cljc` would be a
+  second artery in substance while passing the narrower grep. **And the
+  classification proof (R2 finding 2):** the served turn's `:speaker` for
+  a room resident is the room actor, never `"sid"` — asserted, since
+  actor-envelope fields alone do not reach the render path.
+- **G6 (P3, machine — strengthened 2026-07-27, R1 finding 3).** Referent
+  law: master-anchored briefing byte-identical human/resident AND a
+  POSITIVE content assertion — the briefing bytes at a room turn contain
+  the anchor's master-identity section (byte-equality alone is blind: two
+  identically-degraded entity-mode briefings would pass it); forged client
+  anchor cannot widen — the room conversation-id is the server-side
+  authority (both-sides test, the P8 shape).
+- **G7 (P3, machine — re-cut 2026-07-27, R1 findings 2 + 6 + 11).** The
+  THREE durable verbs end in accepted events through the EXISTING
+  machinery (`deviate!`/`import-candidate!`/`activate!`); PREVIEW is
+  proven to write nothing — served material byte-identical
+  before/during/after (the GATE_P6 G3 shape); the falsifier greps the
+  diff for any new WRITE path AND discloses every new act/invocation
+  endpoint (a new lane is legal only named); the served active bindings
+  contain NO row naming a matter verb, and the refusal's honest scope is
+  stated: v2+ strict grammars refuse arg-starved matter rows
+  structurally, v1 grammars accept-then-no-op (absolute refusal would
+  need a v2 entry on `fm:space` — outside this package, recorded
+  residue); malformed candidate → error card, worn surface unharmed;
+  effect classes declared; floor rows untouched; T9's sentence updated in
+  the same commit. **Declaration honesty (R2 finding 11):**
+  `:matter/deviate` declares `#{:master-id :subject-uid}` (what
+  `deviate!` cannot run without), the others `#{:master-id}`;
+  `declaration-rows` will publish `:verb/bindable? true` for all four —
+  true in grammar terms and unfeedable in site terms — and the served
+  declaration carries `required-args`, which is what makes the
+  unbindability legible to a reader; the `binding_dispatch_test.clj`
+  exact-set pin on `:durable-via-request` verbs updates in the same
+  commit with its label re-cut to name BOTH durable lanes (settle lane ·
+  act lane).
+- **G8 (P4, machine — re-cut 2026-07-27, R1 finding 10).** Cascade
+  citizenship: rows served read-only with the `:code-owned :in-process`
+  label; `git diff --name-only` shows zero changes under
+  `src/app/server/cascade.clj`; the `:cascade-rows` face takes its row
+  source as an INJECTABLE argument defaulting to `cascade/rows`, and the
+  dark-row inertness proof runs on a FIXTURE-INJECTED row in the test —
+  never a row present in the real serve (the two original clauses were
+  contradictory: the real table has no injection seam and may not gain
+  one here).
+- **G9 (P4, machine — re-cut 2026-07-27, R1 findings 9 + 18).** The gauge
+  serves ON-DEMAND (L7): measured status on IPC fixtures; `:ambiguous`
+  rendered honestly on ambiguous history; policy-paths listed; no
+  filesystem/mtime inference; the face's git call is timeout-wrapped and
+  poisoned-total on expiry (single-flight, R2 finding 9); the
+  activation-event read is PINNED to the ONE shipped precedent —
+  `read-revision-history` over `(active-pointer-container-id
+  provenance-material/spec)` (cluster.clj:533-539), the SINGLE provenance
+  master — because `analyze-activation-history` demands exactly one tip
+  and a multi-master concatenation is `:ambiguous` FOREVER on clean data,
+  which would kill the §8 falsifier's detector (R2 finding 1; gauge v0 is
+  honestly provenance-scoped — per-master gauges are the F4-residue LATER
+  item, a re-cut of L7, never a pin); the standard portal open path runs
+  no git (asserted by the suite).
 - **G10 (P2 + every serve-widening phase, machine half + Sid's headed
   half).** The echo bar: block echo p95 under the standing 52ms bar with the
   room's serves live — machine half via the existing receipt harness
@@ -341,18 +469,60 @@ this package's own allowlist)
   (`all-unpinned-scope` used at portal `open`).
 - `src/app/server/episode.clj` — the minted-uuid law (T6 verification
   duty at plan time).
+- `src/app/server/rama/face_projection.clj` — the portal serve face
+  (params → `material-portal/open` verbatim, :1484), `portal-briefing`
+  driver (:1689), `material-experience-projection` (:697, address =
+  material-id).
+- `src/app/server_jetty.clj` — the P8 Ctrl+Enter path
+  (`narrowed-portal-open` → `portal-briefing` → prompt compose,
+  :958-1040).
+- `src/app/server/rama/object_container/facet_master.clj` — the
+  master-tier loop: `candidate-import-request` (:154),
+  `import-candidate!` (:213), `read-master` (:227), `activate!` (:252),
+  `ensure-master!` (:344).
+- `src/app/server/rama/material_truth.clj` — the instance-tier acts:
+  `deviate!` (:51), `release-deviation!` (:58), `pin!` (:64), `unpin!`
+  (:71), `blast-radius` (:178), `world-at` (:398).
+- `src/app/server/rama/git_spine.clj` — `read-commits` (:140; rows carry
+  `:files` via name-status parse).
+- `src/app/server/episode.clj` — the birth-import law (:628-633), the
+  minted-uuid law (:808, :838), `episode-object-key` (:72).
 - `build/editable-material/DIRECTION.md` — the settled spine; GATE_P6/P7/P8
   residue lists (F4 verbatim).
+*(Manifest amended 2026-07-27 at plan staging — recon locators above
+machine-verified by grep in the staging session.)*
 
 ## §11 Allowlist (code edits; docs under `build/matter-room/` free)
 
 `src/app/shared/material_portal.cljc` · `src/app/server/rama/
 material_portal.clj` · `src/app/shared/verb_registry.cljc` · NEW
-`src/app/shared/matter_room.cljc` · client entry + room face files (named
-per-phase from the plan, diff-derived at artifact time) · test tree.
-NEVER: `app/server/cascade.clj`, `binding_material.cljc`'s enums,
-`env.clj` (never read). A file edited here gets every pinned-enumeration
-scan in the test tree grepped for its path before suite selection is done.
+`src/app/shared/matter_room.cljc` · `src/app/server/rama/
+face_projection.clj` (serve faces + portal face additions) ·
+`src/app/server_jetty.clj` (act endpoints + the P8 room branch) ·
+`src/app/server/episode.clj` (P2 ONLY, scoped: actor/unit-kind
+parameterization of the utterance import builders — all FOUR involved:
+`utterance-import-request` (threads the actor in), `utterance-rows`,
+`utterance-actor` (GAINS an arity; existing 0-arity callers untouched),
+AND `utterance-projection-hint`, whose `role` slot is
+the ONE field the render's machine classification actually reads
+(`ground.cljs:1337` `machine? (not= speaker "sid")` ←
+`face_projection.clj:127` ← `block_distiller.clj:1385` ←
+`episode.clj:207`) — the R1-finding-1 + R2-finding-2 ruling; defaults
+byte-preserve current behavior; the `episode_test.clj` role pin updates
+with it; any edit disclosed in the phase artifact) ·
+`src/app/client/workspace/ground.cljs` (P2 room entry; P3 preview-lane
+touch if needed — disclosed) · client entry + room face files (named
+per-phase from the plan, diff-derived at artifact time) · test tree. *(Allowlist amended 2026-07-27 at plan
+staging: jetty + face_projection were provably required — the P8 briefing
+path lives at `server_jetty.clj:958-1040`, the portal face at
+`face_projection.clj:1484` — and their absence was a scheduled false
+stop.)* CONDITIONAL, disclose-in-artifact: `material_truth.clj` /
+`object_container/facet_master.clj` — edited ONLY if a P3-pinned call
+site demands a seam; any edit is disclosed in the phase artifact, never
+silent. NEVER: `app/server/cascade.clj`, `binding_material.cljc`'s
+enums, `env.clj` (never read). A file edited here gets every
+pinned-enumeration scan in the test tree grepped for its path before
+suite selection is done.
 
 ## §12 Handoff
 
