@@ -31,6 +31,104 @@
 (def portal-version 0)
 
 ;; ===========================================================================
+;; matter-room P1 — pure master-anchor laws
+;; ===========================================================================
+
+(def not-applicable-at-anchor
+  "The explicit answer for values whose question presupposes an entity pick.
+
+   This is deliberately truthy. Renderers must test real booleans with `true?`
+   rather than treating this sentinel as one (matter-room T-R2-3)."
+  :not-applicable-at-anchor)
+
+(def master-here-keys
+  "Every master value whose meaning presupposes an entity at `here`."
+  [:master/pinned-here?
+   :master/tier-here
+   :master/worn-here-revision-id
+   :master/floored-here?
+   :master/holds-here])
+
+(def deviation-here-keys
+  "Every deviation value whose meaning presupposes an entity at `here`."
+  [:deviations/here
+   :deviations/here-count
+   :deviations/pins-here])
+
+(def wearer-here-keys
+  "Every wearer value whose meaning presupposes an entity at `here`."
+  [:wearers/here])
+
+(defn master-anchor?
+  "A master anchor is selected only when `:master-id` is present and the entity
+   address is absent. Supplying both preserves the established entity mode."
+  [{:keys [entity-id master-id]}]
+  (and (some? master-id) (nil? entity-id)))
+
+(defn master-anchor-identity
+  "The identity section for one facet-master address.
+
+   `spec` and `floor-master-id` are passed in so this pure/client-safe namespace
+   does not acquire a server or registry dependency. Registry presence, not an
+   ObjectContainer lookup, decides `found?`."
+  [master-id spec floor-master-id]
+  {:entity/id master-id
+   :entity/found? (some? spec)
+   :entity/kind :facet-master
+   :entity/facet (:facet-master/facet spec)
+   :entity/master-id master-id
+   :entity/floor-master-id floor-master-id
+   :entity/document-container-id nil
+   :entity/source-id (:facet-master/source-ref spec)
+   :entity/target-kind :facet-master
+   :entity/target-id master-id
+   :entity/addressable? (boolean (and (string? master-id)
+                                      (seq master-id)))})
+
+(defn- sentinel-values
+  [m ks]
+  (reduce #(assoc %1 %2 not-applicable-at-anchor) (or m {}) ks))
+
+(defn masters-at-anchor
+  "Replace every entity-relative `here` fact in each per-master map."
+  [masters]
+  (into (sorted-map)
+        (map (fn [[master-id m]]
+               [master-id (sentinel-values m master-here-keys)]))
+        masters))
+
+(defn deviations-at-anchor
+  "Replace every entity-relative deviation fact without erasing world totals."
+  [deviations]
+  (sentinel-values deviations deviation-here-keys))
+
+(defn wearers-at-anchor
+  "Declare both the absent `here` and the absent wearer-snapshot basis."
+  [wearers]
+  (-> (sentinel-values wearers wearer-here-keys)
+      (assoc :wearers/basis :no-wearer-snapshot-at-anchor)))
+
+(defn blast-at-anchor
+  "Remove confident-zero claims from an anchor opened without wearer evidence.
+
+   The override is repeated on every per-master value because that is the map
+   the rendered card reads; a section-only basis would leave those rows lying."
+  [blast]
+  (-> (or blast {})
+      (assoc :blast/basis :no-wearer-snapshot-at-anchor
+             :blast/counted-over nil)
+      (update :blast/by-master
+              (fn [by-master]
+                (into (sorted-map)
+                      (map (fn [[master-id m]]
+                             [master-id
+                              (assoc m
+                                     :blast/basis
+                                     :no-wearer-snapshot-at-anchor
+                                     :blast/counted-over nil)]))
+                      (or by-master {}))))))
+
+;; ===========================================================================
 ;; The question list — DIRECTION's portal questions, as data
 ;;
 ;; DIRECTION never numbered these; it stated them as capabilities across
@@ -593,7 +691,8 @@
                         (str "active " (get v :master/active-revision-id)
                              " · latest " (get v :master/latest-revision-id)
                              (when (get v :master/candidate?) " · CANDIDATE")
-                             (when (get v :master/pinned-here?) " · PINNED")))))
+                             (when (true? (get v :master/pinned-here?))
+                               " · PINNED")))))
             m))
 
     :bindings
@@ -651,7 +750,9 @@
 
     :blast
     (let [m (get result :portal/blast)]
-      (into [(row "scope" (get m :blast/scope))]
+      (into (cond-> [(row "scope" (get m :blast/scope))]
+              (contains? m :blast/basis)
+              (conj (row "basis" (get m :blast/basis))))
             (map (fn [[mid v]]
                    (row (str mid)
                         (str (count (get v :blast/will-move)) " will move · "
@@ -803,3 +904,21 @@
                  (not= ::missing
                        (safe-get-in result (:question/answers-at q)))))
         questions))
+
+(defn master-question-rows
+  "The same seventeen questions with replay calls addressed to a facet-master.
+
+   The global `questions` value remains entity-addressed so established entity
+   projections retain byte-identical question rows."
+  [result master-id]
+  (let [jvm-call (str "(portal/open rt {:master-id " (pr-str master-id) "})")
+        escaped (str/replace (str master-id) "'" "\\'")
+        console-call (str "await __portal.openMaster('" escaped "')")]
+    (mapv (fn [q]
+            (assoc q
+                   :question/answered?
+                   (not= ::missing
+                         (safe-get-in result (:question/answers-at q)))
+                   :question/call-jvm jvm-call
+                   :question/call-console console-call))
+          questions)))

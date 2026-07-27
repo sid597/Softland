@@ -63,6 +63,7 @@
             [app.shared.binding-material :as binding-material]
             [app.shared.facet-material :as facet-material]
             [app.shared.facet-masters :as facet-masters]
+            [app.shared.matter-room :as matter-room]
             [app.shared.material-inspector :as material-inspector]
             [app.shared.material-portal :as portal]
             [app.shared.verb-registry :as verb-registry]))
@@ -293,60 +294,77 @@
    THIS do` is a different question, and answering it with 20 rows about sites
    this entity has none of would be a dump rather than an answer. Sites come
    from the pick's own contribution stamps — evidence, not assumption."
-  [table sites]
-  (let [sites (set sites)
-        all-rows (vec (:interaction-table/rows table))
-        rows (if (seq sites)
-               (filterv #(contains? sites (:table/site %)) all-rows)
-               all-rows)
-        verb-names (into (sorted-set) (keep :table/verb) rows)
-        conflicts (filterv #(or (empty? sites)
-                                (contains? sites (:binding/site %)))
-                           (:interaction-table/conflicts table))
-        releases
-        (mapv
-         (fn [release]
-           (let [binding-node
-                 (some #(when (= :binding (:release/kind %)) %)
-                       (:release/nodes release))
-                 b (:release/binding binding-node)
-                 row (:row b)
-                 worn-row
-                 (some
-                  #(when (and (= :master (:table/tier %))
-                              (= (:master-id b) (:table/master-id %))
-                              (= (:revision-id b) (:table/revision-id %))
-                              (= (:binding/gesture row) (:table/gesture %))
-                              (= (:binding/phase row) (:table/phase %))
-                              (= (get-in row [:binding/verb :verb/name])
-                                 (:table/verb %))
-                              (= (get-in row [:binding/verb :verb/version])
-                                 (:table/verb-version %)))
-                     %)
-                  all-rows)]
-             (assoc release
-                    :release/worn? (boolean worn-row)
-                    :release/worn-row worn-row
-                    :release/query-path
-                    [:portal/bindings :bindings/releases])))
-         (:interaction-table/releases table))]
-    {:bindings/sites (vec (sort-by pr-str sites))
-     :bindings/rows rows
-     :bindings/row-count (count rows)
-     :bindings/table-row-count (count all-rows)
-     :bindings/conflicts conflicts
-     :bindings/releases releases
-     :bindings/verbs
-     (mapv (fn [n]
-             {:verb/name n
-              :verb/effect-class (verb-registry/effect-class n)
-              :verb/required-args (vec (sort-by pr-str
-                                                (verb-registry/required-args n)))
-              :verb/floor-reserved? (verb-registry/floor-reserved? n)})
-           verb-names)
-     ;; the pick miss is part of the grammar and belongs in the answer: a
-     ;; gesture that claims nothing falls through to the space's floor rows
-     :bindings/unclaimed-falls-to binding-material/space-floor-master-id}))
+  ([table sites]
+   (bindings-of table sites nil))
+  ([table sites anchor-master-id]
+   (let [sites (set sites)
+         source-rows (vec (:interaction-table/rows table))
+         master-rows (if anchor-master-id
+                       (filterv #(= anchor-master-id (:table/master-id %))
+                                source-rows)
+                       source-rows)
+         rows (if (seq sites)
+                (filterv #(contains? sites (:table/site %)) master-rows)
+                master-rows)
+         verb-names (into (sorted-set) (keep :table/verb) rows)
+         conflicts (if anchor-master-id
+                     (binding-material/table-conflicts rows)
+                     (filterv #(or (empty? sites)
+                                   (contains? sites (:binding/site %)))
+                              (:interaction-table/conflicts table)))
+         releases
+         (->> (:interaction-table/releases table)
+              (keep
+               (fn [release]
+                 (let [binding-node
+                       (some #(when (= :binding (:release/kind %)) %)
+                             (:release/nodes release))
+                       b (:release/binding binding-node)
+                       row (:row b)]
+                   (when (or (nil? anchor-master-id)
+                             (= anchor-master-id (:master-id b)))
+                     (let [worn-row
+                           (some
+                            #(when (and (= :master (:table/tier %))
+                                        (= (:master-id b)
+                                           (:table/master-id %))
+                                        (= (:revision-id b)
+                                           (:table/revision-id %))
+                                        (= (:binding/gesture row)
+                                           (:table/gesture %))
+                                        (= (:binding/phase row)
+                                           (:table/phase %))
+                                        (= (get-in row
+                                                   [:binding/verb :verb/name])
+                                           (:table/verb %))
+                                        (= (get-in row
+                                                   [:binding/verb :verb/version])
+                                           (:table/verb-version %)))
+                               %)
+                            master-rows)]
+                       (assoc release
+                              :release/worn? (boolean worn-row)
+                              :release/worn-row worn-row
+                              :release/query-path
+                              [:portal/bindings :bindings/releases]))))))
+              vec)]
+     {:bindings/sites (vec (sort-by pr-str sites))
+      :bindings/rows rows
+      :bindings/row-count (count rows)
+      :bindings/table-row-count (count master-rows)
+      :bindings/conflicts conflicts
+      :bindings/releases releases
+      :bindings/verbs
+      (mapv (fn [n]
+              {:verb/name n
+               :verb/effect-class (verb-registry/effect-class n)
+               :verb/required-args
+               (vec (sort-by pr-str (verb-registry/required-args n)))
+               :verb/floor-reserved? (verb-registry/floor-reserved? n)})
+            verb-names)
+      ;; the pick miss is part of the grammar and belongs in the answer: a
+      ;; gesture that claims nothing falls through to the space's floor rows
+      :bindings/unclaimed-falls-to binding-material/space-floor-master-id})))
 
 ;; ===========================================================================
 ;; Deviations, activation history, recovery
@@ -658,6 +676,8 @@
 
      :entity-id       the pick (a durable unit id). Absent/unknown still
                       projects — describe, never gate.
+     :master-id       a facet-master anchor. It selects anchor mode only when
+                      :entity-id is absent.
      :wearers         the current appearance snapshot, one payload, sent once.
      :conversation-id the world, for placement + the instance registry.
      :master-ids      restrict the masters priced (default: those on the pick).
@@ -669,21 +689,40 @@
 
    Returns the canonical, clock-free result. The caller adds transport."
   [{:keys [oc-rt] :as _ctx} serve-fn
-   {:keys [entity-id wearers conversation-id master-ids scope cut why drill?
-           narrowed?]}]
+   {:keys [entity-id master-id wearers conversation-id master-ids scope cut why
+           drill? narrowed?] :as params}]
   (let [errors (atom [])
         sect (fn [id fallback f] (section errors id fallback f))
+        anchor? (portal/master-anchor? params)
+        anchor-spec (when anchor? (facet-masters/spec master-id))
+        room-id (when anchor? (matter-room/room-id master-id))
+        experience-conversation-address
+        (if anchor?
+          (episode/episode-object-key room-id)
+          (when conversation-id
+            (episode/episode-object-key conversation-id)))
+        wearer-snapshot? (some? wearers)
         wearers (material-inspector/normalize-wearers wearers)
+        wearers
+        (if anchor?
+          (filterv
+           (fn [w]
+             (some #(= master-id (:wearer/master-id %))
+                   (:wearer/facets w)))
+           wearers)
+          wearers)
         here (some #(when (= entity-id (:wearer/entity-id %)) %) wearers)
         wearer-facets (vec (:wearer/facets here))
         stamped-masters (into (sorted-set) (keep :wearer/master-id) wearer-facets)
         ;; T-P7-3: price what the pick wears; widen to the whole registry when it
         ;; stamps nothing, so an untyped entity still gets a world description
-        priced (if narrowed?
-                 (vec (or master-ids []))
-                 (vec (or (seq master-ids)
-                          (seq stamped-masters)
-                          facet-masters/master-ids)))
+        priced (if anchor?
+                 [master-id]
+                 (if narrowed?
+                   (vec (or master-ids []))
+                   (vec (or (seq master-ids)
+                            (seq stamped-masters)
+                            facet-masters/master-ids))))
         sites (into (sorted-set)
                     (mapcat :wearer/contribution-sites)
                     wearer-facets)
@@ -742,37 +781,54 @@
                            :machine-records 0 :machine-failures 0}}
                          #(sub serve-fn
                                {:face :material-experience
-                                :address entity-id
-                                :params {:material-ids [entity-id]
+                                :address (if anchor? master-id entity-id)
+                                :params {:material-ids
+                                         [(if anchor? master-id entity-id)]
                                          :conversation-address
-                                         (when conversation-id
-                                           (episode/episode-object-key
-                                            conversation-id))}}))
+                                         experience-conversation-address}}))
 
         ;; ---- derived sections ----
         identity* (sect :identity {:entity/id entity-id :entity/found? false}
-                        #(identity-of oc-rt entity-id))
+                        #(if anchor?
+                           (portal/master-anchor-identity
+                            master-id
+                            anchor-spec
+                            (when anchor-spec
+                              (facet-material/floor-master-id anchor-spec)))
+                           (identity-of oc-rt entity-id)))
         placement (sect :placement {:placement/found? false}
-                        #(placement-of oc-rt entity-id conversation-id))
+                        #(if anchor?
+                           {:placement/applicable? false
+                            :placement/anchor :facet-master}
+                           (placement-of oc-rt entity-id conversation-id)))
         recipe (sect :recipe {:recipe/id "recipe:none"}
-                     #(portal/recipe
-                       {:entity-id entity-id
-                        :wearers wearers
-                        :master->facet
-                        (into {} (map (juxt :facet-master/id
-                                            :facet-master/facet))
-                              facet-masters/specs)}))
+                     #(cond->
+                       (portal/recipe
+                        {:entity-id entity-id
+                         :wearers wearers
+                         :master->facet
+                         (into {} (map (juxt :facet-master/id
+                                             :facet-master/facet))
+                               facet-masters/specs)})
+                        anchor?
+                        (assoc :recipe/anchor-master-id master-id)))
         attachments (sect :attachments []
                           #(->> (:material-inspector/facets inspector)
                                 (mapv :material-inspector/attachment)))
         ;; ONE trail read per priced master, shared by masters/recovery/history
         trails (sect :activation-trails {} #(trails-of oc-rt priced))
         masters (sect :masters {}
-                      #(masters-of served instances entity-id priced trails))
+                      #(cond->
+                        (masters-of served instances entity-id priced trails)
+                         anchor? portal/masters-at-anchor))
         bindings (sect :bindings {:bindings/rows [] :bindings/conflicts []}
-                       #(bindings-of table sites))
+                       #(if anchor?
+                          (bindings-of table #{} master-id)
+                          (bindings-of table sites)))
         deviations (sect :deviations {:deviations/here {}}
-                         #(deviations-of truth instances entity-id))
+                         #(cond->
+                           (deviations-of truth instances entity-id)
+                            anchor? portal/deviations-at-anchor))
         activation-history (sect :activation-history
                                  {:activation-history/by-master {}}
                                  #(activation-history-of truth inspector priced))
@@ -783,15 +839,19 @@
         chrome (sect :chrome {:chrome/self-editing? false}
                      #(chrome-of served entity-id))
         blast (sect :blast {:blast/by-master {}}
-                    #(-> {:blast/scope scope
-                          :blast/candidate-wearers
-                          (mapv :wearer/entity-id wearers)
-                          :blast/by-master
-                          (into (sorted-map)
-                                (filter (fn [[k _]] (contains? (set priced) k)))
-                                (:truth/blast truth))}
-                         (assoc :blast/pre-activation? true
-                                :blast/writes-nothing? true)))
+                    #(cond->
+                      (-> {:blast/scope scope
+                           :blast/candidate-wearers
+                           (mapv :wearer/entity-id wearers)
+                           :blast/by-master
+                           (into (sorted-map)
+                                 (filter (fn [[k _]]
+                                           (contains? (set priced) k)))
+                                 (:truth/blast truth))}
+                          (assoc :blast/pre-activation? true
+                                 :blast/writes-nothing? true))
+                       (and anchor? (not wearer-snapshot?))
+                       portal/blast-at-anchor))
         history (sect :history {:history/masters {}}
                       #(let [h (:truth/history truth)
                              ;; T-P7-4: a cut you cannot name is not standable
@@ -840,15 +900,17 @@
                                           (:wearer/contribution-sites f)))
                                    wearer-facets))}))
         wearers-section
-        {:wearers/count (count wearers)
-         :wearers/appearance-count
-         (reduce + 0 (map #(count (:wearer/view-instances %)) wearers))
-         :wearers/here here
-         :wearers/entities (mapv :wearer/entity-id wearers)
-         :wearers/by-entity wearers
-         ;; the honest basis: current-scene evidence, never a durable
-         ;; attachment table (P2's ruling, unchanged)
-         :wearers/basis :current-client-scene}
+        (cond->
+         {:wearers/count (count wearers)
+          :wearers/appearance-count
+          (reduce + 0 (map #(count (:wearer/view-instances %)) wearers))
+          :wearers/here here
+          :wearers/entities (mapv :wearer/entity-id wearers)
+          :wearers/by-entity wearers
+          ;; the honest basis: current-scene evidence, never a durable
+          ;; attachment table (P2's ruling, unchanged)
+          :wearers/basis :current-client-scene}
+          (and anchor? (not wearer-snapshot?)) portal/wearers-at-anchor)
         truncation
         (portal/truncation
          [(portal/truncation-entry
@@ -883,19 +945,8 @@
            {:truncated? false
             :returned (count wearers)
             :note "appearance snapshot is the open page, not the world"})])
-        base
-        {:portal/version portal/portal-version
-         :portal/entity-id entity-id
-         :portal/identity identity*
-         :portal/placement placement
-         :portal/recipe recipe
-         :portal/attachments attachments
-         :portal/masters masters
-         :portal/bindings bindings
-         :portal/wearers wearers-section
-         :portal/deviations deviations
-         :portal/activation-history activation-history
-         :portal/experience
+        experience-section
+        (cond->
          (merge (select-keys experience
                              [:experience/items
                               :experience/composition
@@ -907,36 +958,60 @@
                  :experience/origin-link-count
                  (reduce + 0 (map #(count (:experience/reverse-links %))
                                   (:experience/items experience)))})
-         :portal/lint lint
-         :portal/truncation truncation
-         :portal/why why*
-         :portal/blast blast
-         :portal/history history
-         :portal/recovery recovery
-         :portal/chrome chrome
-         :portal/briefing-of (portal/briefing-of)
-         :portal/errors @errors
-         :portal/query-plan
-         {:plan/client-roundtrips 1
-          :plan/sub-projections
-          [:facet-materials :material-inspector :interaction-table
-           :material-truth :material-experience]
-          :plan/masters-priced (count priced)
-          :plan/masters-in-registry (count facet-masters/master-ids)
-          :plan/joins-server-side? true
-          :plan/client-joins 0
-          :plan/llm-calls 0
-          ;; declared rather than discovered: `:material-truth` re-reads the
-          ;; served facet materials internally (P6's own shape). Narrowing to
-          ;; the priced masters is what keeps that from multiplying.
-          :plan/known-duplicate-reads [:facet-materials-inside-material-truth]
-          :plan/object-container-available? (boolean oc-rt)}}]
+          anchor?
+          (assoc :experience/material-ids [master-id]
+                 :experience/conversation-address
+                 experience-conversation-address))
+        base
+        (cond->
+         {:portal/version portal/portal-version
+          :portal/entity-id (if anchor? master-id entity-id)
+          :portal/identity identity*
+          :portal/placement placement
+          :portal/recipe recipe
+          :portal/attachments attachments
+          :portal/masters masters
+          :portal/bindings bindings
+          :portal/wearers wearers-section
+          :portal/deviations deviations
+          :portal/activation-history activation-history
+          :portal/experience experience-section
+          :portal/lint lint
+          :portal/truncation truncation
+          :portal/why why*
+          :portal/blast blast
+          :portal/history history
+          :portal/recovery recovery
+          :portal/chrome chrome
+          :portal/briefing-of (portal/briefing-of)
+          :portal/errors @errors
+          :portal/query-plan
+          {:plan/client-roundtrips 1
+           :plan/sub-projections
+           [:facet-materials :material-inspector :interaction-table
+            :material-truth :material-experience]
+           :plan/masters-priced (count priced)
+           :plan/masters-in-registry (count facet-masters/master-ids)
+           :plan/joins-server-side? true
+           :plan/client-joins 0
+           :plan/llm-calls 0
+           ;; declared rather than discovered: `:material-truth` re-reads the
+           ;; served facet materials internally (P6's own shape). Narrowing to
+           ;; the priced masters is what keeps that from multiplying.
+           :plan/known-duplicate-reads [:facet-materials-inside-material-truth]
+           :plan/object-container-available? (boolean oc-rt)}}
+          anchor?
+          (assoc :portal/master-id master-id
+                 :portal/room (sorted-map room-id master-id)))]
     ;; the question list is annotated LAST, against the assembled projection, so
     ;; `:question/answered?` is a measurement of this very value and not a claim
     ;; copied forward from the code. No question answers at `:portal/questions`,
     ;; so this assoc cannot make itself true.
     (portal/canonicalize
-     (assoc base :portal/questions (portal/question-rows base)))))
+     (assoc base :portal/questions
+            (if anchor?
+              (portal/master-question-rows base master-id)
+              (portal/question-rows base))))))
 
 (defn render
   "The portal's CODE-FLOOR rendering of one result.

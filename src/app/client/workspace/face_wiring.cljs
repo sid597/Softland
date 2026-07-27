@@ -297,6 +297,21 @@
                                      extra)}
                      #(= token (:portal/request-token %))
                      "portal")))))
+            (request-master! [master-id]
+              (if-not (string? master-id)
+                (js/Promise.reject
+                 (js/Error.
+                  "Pass a facet-master id to __portal.openMaster(masterId)."))
+                (let [token (str "material-portal-"
+                                 (swap! !material-inspector-nonce inc))]
+                  (pull-once!
+                   !request !data
+                   {:face :material-portal
+                    :params {:request-token token
+                             :master-id master-id
+                             :drill? (drill-mode?)}}
+                   #(= token (:portal/request-token %))
+                   "master portal"))))
             ;; NAMESPACE-PRESERVING conversion, this seam only. Plain `clj->js`
             ;; names keys with `name`, so :portal/recipe becomes "recipe" — and
             ;; every documented console call reads ['portal/recipe'], which the
@@ -314,6 +329,12 @@
             #js {:picked (fn [] (picked-entity-id))
                  ;; the whole projection — every question answered
                  :open (fn [& [entity-id]] (open* entity-id nil :portal/result))
+                 ;; Type-addressed opening carries no entity or wearer snapshot.
+                 :openMaster (fn [master-id]
+                               (.then (request-master! master-id)
+                                      (fn [r]
+                                        (portal->js
+                                         (get r :portal/result)))))
                  ;; the canonical bytes (what the resident is briefed with)
                  :edn (fn [& [entity-id]] (open* entity-id nil :portal/edn))
                  ;; the briefing itself, verbatim
@@ -354,6 +375,7 @@
       (js/console.log
        (str "[PORTAL] window.__portal installed — click a block, then:\n"
             "  await __portal.open()          the whole projection\n"
+            "  await __portal.openMaster('fm:attention')  one type anchor\n"
             "  await __portal.questions()     every question + its replayable call\n"
             "  await __portal.briefing()      what a resident summoned here reads\n"
             "  await __portal.release()       wish → code → receipts → verb → binding → activation → worn\n"

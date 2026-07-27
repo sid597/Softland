@@ -13,15 +13,20 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
+            [app.server.episode :as episode]
+            [app.server.rama.core :as core]
             [app.server.rama.face-projection :as fp]
             [app.server.rama.material-portal :as mp]
             [app.server.rama.material-truth :as material-truth]
             [app.server.rama.object-container.facet-master :as adapter]
             [app.server.rama.object-container.runtime :as ocr]
+            [app.server.rama.relation-kernel :as rk]
             [app.shared.activation-event :as activation-event]
             [app.shared.attention-material :as attention]
+            [app.shared.facet-material :as facet-material]
             [app.shared.facet-masters :as facet-masters]
             [app.shared.foldable-material :as foldable]
+            [app.shared.matter-room :as matter-room]
             [app.shared.material-portal :as portal]
             [app.shared.text-body-material :as text-body]))
 
@@ -73,6 +78,14 @@
   ([rt params] (open! rt (fn [req] (fp/serve {:oc-rt rt :rk-rt nil} req)) params))
   ([rt serve-fn params]
    (mp/open {:oc-rt rt :rk-rt nil} serve-fn params)))
+
+(defn- open-with-context!
+  [ctx params]
+  (mp/open ctx (fn [req] (fp/serve ctx req)) params))
+
+(def entity-mode-regression-sha
+  "Captured from HEAD 7756b760 before matter-room P1 opened source."
+  "deb12d4d70383c0d55321225eb555797fe7203a4c18fef5c51b4f6d1e81db858")
 
 ;; ===========================================================================
 ;; G1 — the portal question list, answered one by one with replayable calls
@@ -156,6 +169,205 @@
            {:actor sid :time-ms (now)})
           (is (not= a (p)) "a deviation the portal cannot see is a blind portal")))
       (finally (ocr/close-object-container-runtime! rt)))))
+
+;; ===========================================================================
+;; matter-room P1 · G1/G2 — the type address, with honest anchor bases
+;; ===========================================================================
+
+(deftest matter-room-p1-entity-mode-bytes-stay-fixed
+  (let [ctx {:oc-rt nil :rk-rt nil}
+        serve-fn (constantly {})
+        params {:entity-id "du:block:entity-mode-regression" :wearers []}
+        result (mp/open ctx serve-fn params)
+        result-with-ignored-master
+        (mp/open ctx serve-fn (assoc params :master-id attention/master-id))
+        bytes (portal/canonical-edn result)]
+    (is (= entity-mode-regression-sha (core/sha-256 bytes))
+        "adding :master-id mode must not drift one byte of entity mode")
+    (is (= 22064 (count (.getBytes bytes "UTF-8"))))
+    (is (= bytes (portal/canonical-edn result-with-ignored-master))
+        "entity-id wins if both addresses are supplied")))
+
+(deftest matter-room-p1-master-anchor-is-total-honest-and-deterministic
+  (let [oc-rt (ocr/start-object-container-runtime!)
+        rk-rt (rk/start-relation-runtime! {:tasks 4 :threads 2})
+        ctx {:oc-rt oc-rt :rk-rt rk-rt}]
+    (try
+      (let [revs (boot! oc-rt)
+            attention-only
+            (wearer "du:block:attention-only"
+                    [[attention/master-id (:attention revs)
+                      :block/user-hit-area :attention/hit-padding]])
+            foldable-only
+            (wearer "du:block:foldable-only"
+                    [[foldable/master-id (:foldable revs)
+                      :block/fold-toggle :foldable/folded?]])
+            master-id attention/master-id
+            derived-room-id (matter-room/room-id master-id)
+            params {:master-id master-id}
+            registered (open-with-context! ctx params)
+            repeated (open-with-context! ctx params)
+            unknown (open-with-context! ctx {:master-id "fm:not-registered"})
+            mixed-snapshot
+            (open-with-context!
+             ctx
+             {:master-id master-id
+              :wearers [attention-only foldable-only]})
+            irrelevant-snapshot
+            (open-with-context!
+             ctx
+             {:master-id master-id
+              :wearers [foldable-only]})
+            rendered (mp/render registered)
+            masters-card (some #(when (= :masters (:card/id %)) %)
+                               (:render/cards rendered))
+            blast-card (some #(when (= :blast (:card/id %)) %)
+                             (:render/cards rendered))
+            canonical (portal/canonical-edn registered)]
+
+        (testing "G1 has teeth at a registered master"
+          (is (= [] (:portal/errors registered)))
+          (is (true? (get-in registered
+                             [:portal/identity :entity/found?])))
+          (is (= master-id
+                 (get-in registered [:portal/identity :entity/id])))
+          (is (= :facet-master
+                 (get-in registered [:portal/identity :entity/kind])))
+          (is (= :attention
+                 (get-in registered [:portal/identity :entity/facet])))
+          (is (= (facet-material/floor-master-id attention/spec)
+                 (get-in registered
+                         [:portal/identity :entity/floor-master-id])))
+          (is (= [master-id] (vec (keys (:portal/masters registered)))))
+          (is (= {:placement/applicable? false
+                  :placement/anchor :facet-master}
+                 (:portal/placement registered)))
+          (is (= {derived-room-id master-id} (:portal/room registered)))
+          (is (= master-id
+                 (matter-room/master-id-for-room derived-room-id)))
+          (is (re-matches
+               #"[0-9a-f]{8}-[0-9a-f]{4}-3[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
+               derived-room-id))
+          (is (= (count facet-masters/master-ids)
+                 (count matter-room/master-id-by-room)))
+          (is (= 17 (count (:portal/questions registered))))
+          (is (= [] (portal/unanswered registered))))
+
+        (testing "anchor wearer and blast answers use only this master"
+          (is (= ["du:block:attention-only"]
+                 (get-in mixed-snapshot
+                         [:portal/wearers :wearers/entities])))
+          (is (= ["du:block:attention-only"]
+                 (get-in mixed-snapshot
+                         [:portal/blast :blast/candidate-wearers])))
+          (is (= ["du:block:attention-only"]
+                 (get-in mixed-snapshot
+                         [:portal/blast :blast/by-master master-id
+                          :blast/will-move])))
+          (is (= :current-client-scene
+                 (get-in irrelevant-snapshot
+                         [:portal/wearers :wearers/basis])))
+          (is (= []
+                 (get-in irrelevant-snapshot
+                         [:portal/wearers :wearers/entities])))
+          (is (= []
+                 (get-in irrelevant-snapshot
+                         [:portal/blast :blast/by-master master-id
+                          :blast/will-move])))
+          (is (= 0
+                 (get-in irrelevant-snapshot
+                         [:portal/blast :blast/by-master master-id
+                          :blast/counted-over]))))
+
+        (testing "anchor-priced recipe and bindings name their basis"
+          (is (= master-id
+                 (get-in registered
+                         [:portal/recipe :recipe/anchor-master-id])))
+          (is (= :rendered-contribution-stamps
+                 (get-in registered [:portal/recipe :recipe/basis])))
+          (is (every? #(= master-id (:table/master-id %))
+                      (get-in registered [:portal/bindings :bindings/rows])))
+          (is (every? #(= "await __portal.openMaster('fm:attention')"
+                          (:question/call-console %))
+                      (:portal/questions registered)))
+          (is (str/includes?
+               (slurp "src/app/client/workspace/face_wiring.cljs")
+               ":openMaster (fn [master-id]")))
+
+        (testing "an unknown master still answers every question"
+          (is (= [] (:portal/errors unknown)))
+          (is (false? (get-in unknown
+                              [:portal/identity :entity/found?])))
+          (is (= "fm:not-registered"
+                 (get-in unknown [:portal/identity :entity/id])))
+          (is (= ["fm:not-registered"]
+                 (vec (keys (:portal/masters unknown)))))
+          (is (= [] (portal/unanswered unknown)))
+          (is (every? :question/answered? (:portal/questions unknown))))
+
+        (testing "G2: no wearer evidence is never rendered as a confident zero"
+          (is (= :no-wearer-snapshot-at-anchor
+                 (get-in registered [:portal/blast :blast/basis])))
+          (is (nil? (get-in registered
+                            [:portal/blast :blast/counted-over])))
+          (is (= :no-wearer-snapshot-at-anchor
+                 (get-in registered [:portal/wearers :wearers/basis])))
+          (is (seq (get-in registered [:portal/blast :blast/by-master])))
+          (doseq [[_ per-master]
+                  (get-in registered [:portal/blast :blast/by-master])]
+            (is (= :no-wearer-snapshot-at-anchor
+                   (:blast/basis per-master)))
+            (is (nil? (:blast/counted-over per-master))))
+          (is (some #(and (= "basis" (:row/label %))
+                          (= ":no-wearer-snapshot-at-anchor"
+                             (:row/value %)))
+                    (:card/rows blast-card))
+              "basis honesty must reach the rendered blast card"))
+
+        (testing "every entity-relative here-value carries the sentinel"
+          (doseq [k portal/master-here-keys]
+            (is (= portal/not-applicable-at-anchor
+                   (get-in registered [:portal/masters master-id k]))
+                (str k)))
+          (doseq [k portal/deviation-here-keys]
+            (is (= portal/not-applicable-at-anchor
+                   (get-in registered [:portal/deviations k]))
+                (str k)))
+          (doseq [k portal/wearer-here-keys]
+            (is (= portal/not-applicable-at-anchor
+                   (get-in registered [:portal/wearers k]))
+                (str k)))
+          (is (not (str/includes? (pr-str masters-card) "PINNED"))
+              "the truthy sentinel must not mint a rendered PINNED claim"))
+
+        (testing "experience reads once at the explicit room conversation"
+          (is (= [master-id]
+                 (get-in registered
+                         [:portal/experience :experience/material-ids])))
+          (is (= (episode/episode-object-key derived-room-id)
+                 (get-in registered
+                         [:portal/experience
+                          :experience/conversation-address])))
+          (is (= 1
+                 (get-in registered
+                         [:portal/experience :experience/query-plan
+                          :relation-roundtrips])))
+          (is (true?
+               (get-in registered
+                       [:portal/experience :experience/query-plan :batched?]))))
+
+        (testing "the shipped in-JVM form is deterministic"
+          (is (= canonical (portal/canonical-edn repeated)))
+          (is (= canonical
+                 (binding [*print-namespace-maps* true]
+                   (portal/canonical-edn
+                    (open-with-context! ctx params)))))
+          (println "MATTER_ROOM_P1_CANONICAL_SHA"
+                   (core/sha-256 canonical))
+          (println "MATTER_ROOM_P1_ROOM_ID" derived-room-id)))
+      (finally
+        (rk/close-relation-runtime! rk-rt)
+        (ocr/close-object-container-runtime! oc-rt)))))
 
 ;; ===========================================================================
 ;; G3 — batched: one roundtrip, and a sub-serve count that does NOT grow
