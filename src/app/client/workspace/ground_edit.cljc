@@ -10,6 +10,16 @@
    text source. Block-write's painted-pending (block_edit.cljc :buffer
    rendering inside the focused block) is the pattern this REPLACES.
 
+   TYPING-LAG PATCH (deliberate, reversible, NOT the settled answer): the
+   law above made every glyph wait for a durable ack, so typing rendered at
+   round-trip latency and — because the outbox conflates — in jumps.
+   block-view now takes an `echo-mode`: :confirmed keeps the law verbatim
+   (still the default, still tested), :optimistic renders the queue HEAD
+   instead of its tail. The queue, the envelopes, the seq law and the
+   rebase-on-refusal are all unchanged; only the choice of which end of the
+   ONE value is painted moves. ground.cljs passes :optimistic. The real fix
+   is a local-first edit model, not a render-source keyword.
+
    Birth lifecycle (moment 1): :rest → :anchor (click / type-without-click;
    ephemeral, Escape leaves NOTHING) → :birthing (the FIRST content act
    posts the durable mint; keys during flight queue as intent) → :editing
@@ -163,11 +173,23 @@
 ;; Typing (the invisible intent queue — receipt P2B.md §b)
 ;; ============================================================================
 
-(defn- projection
+(defn projection
   "The queue's head text/caret — what the NEXT envelope must be built on
-   (envelopes carry whole content-text). NEVER rendered."
+   (envelopes carry whole content-text).
+
+   Under the committed-echo law this is NEVER rendered. Under the
+   :optimistic echo mode (block-view's 4-arity, the ground's typing-lag
+   patch) it IS the render source: one value carrying BOTH text and caret,
+   so the caret law (no second signal to glitch against) still holds —
+   the value is simply the head of the queue instead of its tail."
   [{:keys [queue]}]
   (or (peek (:inflight queue)) (:confirmed queue)))
+
+(defn- displayed-text
+  "The text the eye and the clipboard read: the projection's. Identical to
+   confirmed whenever nothing is in flight, which is every at-rest moment."
+  [st]
+  (or (:text (projection st)) ""))
 
 (defn input
   "One keystroke on the focused block. Content keys mint ONE envelope built
@@ -181,13 +203,28 @@
       (if-let [r (apply-ground-keydown {:text (:text proj) :caret (:caret proj)} keydown)]
         (case (:op r)
           :caret
-          {:state (-> st
-                      (assoc :selection nil)
-                      (update-in [:queue :confirmed]
-                                 (fn [{:keys [text] :as c}]
-                                   (assoc c :caret (max 0 (min (long (:new-caret r))
-                                                               (count text)))))))
-           :envelope nil}
+          (let [move (fn [{:keys [text] :as e}]
+                       (assoc e :caret (max 0 (min (long (:new-caret r))
+                                                   (count (or text ""))))))]
+            {:state (-> st
+                        (assoc :selection nil)
+                        (update :queue
+                                (fn [q]
+                                  ;; The caret moves on BOTH ends of the queue.
+                                  ;; confirmed: the committed-echo render source.
+                                  ;; in-flight HEAD: the base the next envelope is
+                                  ;; built on AND the :optimistic render source —
+                                  ;; without this an arrow key pressed mid-flight
+                                  ;; was dropped twice over (the next envelope
+                                  ;; inserted at the stale caret, and on-decision
+                                  ;; overwrote confirmed's caret with the entry's
+                                  ;; on every ack). Each entry keeps its own
+                                  ;; (text, caret) coherent — no tear either way.
+                                  (cond-> (update q :confirmed move)
+                                    (seq (:inflight q))
+                                    (update-in [:inflight (dec (count (:inflight q)))]
+                                               move)))))
+             :envelope nil})
           :edit
           (let [seq' (:next-seq st)
                 env  (be/mint-envelope {:block          block-info
@@ -260,7 +297,7 @@
    the eye and the clipboard may read."
   [st caret]
   (if (= :editing (:mode st))
-    (let [n (count (get-in st [:queue :confirmed :text] ""))
+    (let [n (count (displayed-text st))
           c (max 0 (min (long (or caret 0)) n))]
       (assoc st :selection {:anchor c :head c}))
     st))
@@ -269,46 +306,68 @@
   "Drag moves the selection head (the anchor stays)."
   [st caret]
   (if (and (= :editing (:mode st)) (:selection st))
-    (let [n (count (get-in st [:queue :confirmed :text] ""))
+    (let [n (count (displayed-text st))
           c (max 0 (min (long (or caret 0)) n))]
       (assoc-in st [:selection :head] c))
     st))
 
 (defn selection-range
-  "Normalized [start end] over confirmed text, or nil when collapsed/absent
-   (clamped — adopt-truth may shrink confirmed under a live selection)."
+  "Normalized [start end] over the DISPLAYED text, or nil when
+   collapsed/absent (clamped — adopt-truth may shrink the text under a live
+   selection). Displayed = confirmed at rest, the projection while in flight,
+   so the highlight always spans the string actually on screen."
   [st]
   (when-let [{:keys [anchor head]} (and (= :editing (:mode st)) (:selection st))]
-    (let [n (count (get-in st [:queue :confirmed :text] ""))
+    (let [n (count (displayed-text st))
           s (min (min anchor head) n)
           e (min (max anchor head) n)]
       (when (< s e) [s e]))))
 
 (defn selection-text
-  "The selected substring of CONFIRMED text, or nil."
+  "The selected substring of the DISPLAYED text, or nil — what the eye sees is
+   what the clipboard gets."
   [st]
   (when-let [[s e] (selection-range st)]
-    (subs (get-in st [:queue :confirmed :text] "") s e)))
+    (subs (displayed-text st) s e)))
 
 ;; ============================================================================
 ;; Render derivation (ONE value — no tear)
 ;; ============================================================================
 
 (defn block-view
-  "Render source for ONE block: the focused block renders confirmed (text +
-   caret from one value — the committed echo); every other block renders
-   `truth-text`, caret nil. The refusal rides along when addressed here."
-  [st unit-id truth-text]
-  (let [focused? (and (= :editing (:mode st)) (= unit-id (:focus st)) (:queue st))]
-    (cond-> (if focused?
-              {:unit-id unit-id
-               :text  (get-in st [:queue :confirmed :text])
-               :caret (get-in st [:queue :confirmed :caret])
-               :selection (selection-range st)
-               :focused? true}
-              {:unit-id unit-id :text (or truth-text "") :caret nil :focused? false})
-      (= unit-id (:unit-id (:refusal st)))
-      (assoc :refusal (:reason (:refusal st))))))
+  "Render source for ONE block: the focused block renders ONE queue value
+   (text + caret together — no second signal, no tear); every other block
+   renders `truth-text`, caret nil. The refusal rides along when addressed
+   here.
+
+   `echo-mode` picks WHICH end of the queue that one value comes from:
+   - :confirmed (default) — the committed-echo law: the last acknowledged
+     revision. Nothing typed is visible until the durable decision lands.
+   - :optimistic — the projection (queue head). Keystrokes paint on the
+     spot; the queue behind them still sequences envelopes exactly as
+     before, and a REJECTION drops the in-flight queue, so the block
+     visibly rewinds to the last acknowledged revision with the refusal
+     showing. That visible rewind is the whole price of the mode: the
+     committed-echo law bought its absence with the typing latency.
+
+   The 3-arity keeps the law intact for every existing caller and for the
+   committed-echo-render-law test; ground.cljs opts into :optimistic at its
+   one call site, so the flip is one keyword to reverse."
+  ([st unit-id truth-text] (block-view st unit-id truth-text :confirmed))
+  ([st unit-id truth-text echo-mode]
+   (let [focused? (and (= :editing (:mode st)) (= unit-id (:focus st)) (:queue st))
+         src      (if (= :optimistic echo-mode)
+                    (projection st)
+                    (get-in st [:queue :confirmed]))]
+     (cond-> (if focused?
+               {:unit-id unit-id
+                :text  (:text src)
+                :caret (:caret src)
+                :selection (selection-range st)
+                :focused? true}
+               {:unit-id unit-id :text (or truth-text "") :caret nil :focused? false})
+       (= unit-id (:unit-id (:refusal st)))
+       (assoc :refusal (:reason (:refusal st)))))))
 
 ;; ============================================================================
 ;; Geometry helpers (pure)

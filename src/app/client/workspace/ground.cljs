@@ -962,7 +962,11 @@
           ;; shared with the machine-selection copy path)
           {:keys [display headers]}
           (when (:machine? b) (run-view unit-id (:foldable wears)))
-          view (ge/block-view st unit-id (truth-text unit-id))
+          ;; typing-lag patch: :optimistic paints the queue HEAD, so a
+          ;; keystroke lands this frame instead of after the durable ack
+          ;; (ge's ns note). Flip this keyword to :confirmed to restore the
+          ;; committed-echo law exactly.
+          view (ge/block-view st unit-id (truth-text unit-id) :optimistic)
           view (if display (assoc view :text display) view)
           n      @!notice
           notice (when (= unit-id (:unit-id n)) (:text n))
