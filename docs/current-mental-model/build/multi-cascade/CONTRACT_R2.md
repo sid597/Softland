@@ -202,11 +202,14 @@ Emission site #1 (`:episode/turn-durable`) is byte-untouched.
   handler `app.server.episode/repair-stranded-lane!`.
 - Idempotency string (the full story, per 3a): "run-id derived from
   (turn-id, terminal-status); the repair is a pure upsert — the defunct
-  cell's import identity and every value byte derive from the emission
-  payload, so replays and concurrent duplicate executions converge on one
-  durable cell; the runtime rollback is compare-and-remove on this JVM's
-  own lane atom; a NEW run is minted only by a new (turn, terminal-status)
-  emission."
+  cell's import identity is TRANSITION-scoped, derived from
+  (episode-id, turn-id, terminal-status), and every value byte derives
+  from the emission payload, so replays and concurrent duplicate
+  executions of one transition converge byte-identically on one durable
+  cell, while a LATER eligible failure of the same episode-id mints a NEW
+  import that advances the same projected cell (T7); the runtime rollback
+  is compare-and-remove on this JVM's own lane atom; a NEW run is minted
+  only by a new (turn, terminal-status) emission."
 - Handler head DECLINE (`:skipped` receipt, emission stays unconditional —
   R1's T6 law): declines unless `terminal-status ∈ #{:failed :timeout}`
   AND `fresh?` AND NOT `jsonl-exists?`.
@@ -221,9 +224,13 @@ Emission site #1 (`:episode/turn-durable`) is byte-untouched.
      `ep-chain:<sha8(episode-id)>`, entry-kind `:episode-chain-defunct`,
      value `{:world-id :lane-id :episode-id :marked-at-ms}` where
      `:marked-at-ms` is the TURN's `:time-ms` from the payload — never
-     wall clock (T4: every value byte replay-stable). Import identity:
-     imp-key `sha("episode-defunct " episode-id)` — its OWN identity,
-     never the turn cell's `(turn-id, status)` identity (T7). The
+     wall clock (T4: every value byte replay-stable). Import identity
+     (P0 ruling 2026-07-27): imp-key
+     `sha("episode-defunct " episode-id " " turn-id " " (name terminal-status))`
+     — its OWN, transition-scoped identity, never the turn cell's imp-key
+     (T7); one stable order-key cell, overwritten in place by each new
+     eligible-failure import (the turn-cell precedent,
+     `episode.clj:464-489`). The
      request's actor is a `:system` actor named
      `"system:episode-retry/v1"` — the map must not lie: this is a
      machine act, never Sid's hand.
@@ -234,9 +241,13 @@ Emission site #1 (`:episode/turn-durable`) is byte-untouched.
   durable fallback read filters turn cells whose `:episode-id` is
   defunct-marked with `cell.time-ms ≤ marked-at-ms` before taking `last`.
   A LATER turn (time-ms > marked-at-ms) re-validates its episode-id — a
-  re-minted lane-id episode is adoptable again. `decide-episode` stays
-  PURE and unedited; filtering is read-layer only, and a chain-cell read
-  failure degrades to today's exact behavior (total).
+  re-minted lane-id episode is adoptable again — and if THAT re-minted
+  episode later fails eligibly, its repair's new transition-scoped import
+  advances the same `ep-chain:` cell to the later `:marked-at-ms`:
+  same-id revalidation stays repairable, never single-use (P0 ruling
+  2026-07-27, T7 carries the monotonicity argument). `decide-episode`
+  stays PURE and unedited; filtering is read-layer only, and a chain-cell
+  read failure degrades to today's exact behavior (total).
 
 ### 3g. Payload hygiene
 
@@ -281,11 +292,31 @@ assert in test builds (G8).
   observation → completed run re-pended → sweep re-executes forever.
   Ruling: upsert-if-not-terminal in the topology; first terminal wins; G3
   asserts a replayed obligation after completion stays terminal.
-- **T7 — the defunct fact gets its OWN import identity.** Naive: ride the
-  turn cell's `(turn-id, status)` imp-key with an extra key in the value.
-  Failure: same imp-key + different payload = fingerprint-conflict
-  rejection; the turn cell's own overwrite semantics break. Ruling: own
-  order-key namespace (`ep-chain:`), own imp-key; the turn cell is
+- **T7 — the defunct fact gets its OWN, TRANSITION-SCOPED import
+  identity.** Naive #1: ride the turn cell's `(turn-id, status)` imp-key
+  with an extra key in the value. Failure: same imp-key + different
+  payload = fingerprint-conflict rejection; the turn cell's own overwrite
+  semantics break. Naive #2 (the P0 fork, ruled 2026-07-27): pin ONE
+  imp-key per episode-id, `sha("episode-defunct " episode-id)`. Failure:
+  the adoption law deliberately lets a later turn revalidate that
+  episode-id; if the re-minted fresh episode fails eligibly again, the
+  same imp-key now carries a later `:marked-at-ms` → fingerprint-conflict
+  → the second failure is unhealable — the R2 defect reborn, and worse:
+  the strand is permanent (the resume attempt that follows is
+  `fresh? false`, so the handler declines forever). Ruling: own order-key
+  namespace (`ep-chain:`, ONE stable cell per episode) + imp-key
+  `sha("episode-defunct " episode-id " " turn-id " " (name terminal-status))`
+  — the turn-cell pattern (`episode.clj:486`): the same transition
+  replays byte-identically (accepted once, then fingerprint-identical
+  journaled no-op); a NEW eligible failure mints a new imp-key whose
+  import overwrites the one cell, advancing `:marked-at-ms`. Advancement
+  is causally monotone, not last-write-lucky: a same-id fresh re-mint
+  exists ONLY because the prior marker was already durably visible to
+  adoption (that visibility is what made the predecessor unusable), so a
+  later transition's repair always appends after the earlier marker
+  landed; T6 forbids re-execution after terminal and a duplicate import
+  is a journaled no-op, never a projection rewrite — every
+  replay-reordering route to regression is closed. The turn cell is
   byte-untouched by the repair.
 - **T8 — emission before the status overwrite.** Naive: emit after the
   cell write "so the payload matches durable truth". Failure: JVM death
@@ -345,7 +376,10 @@ stdout swallows INFO) and are SERVER-READ receipts (durable-ground rule).
   empty (T6); duplicate observations → first terminal wins. (repair half)
   Same `:episode/turn-closed` emission dispatched twice → one defunct
   cell, fingerprint-identical import (journaled no-op, T4), atom
-  untouched on the second pass. Owner: implementer (P1 module / P2 repair).
+  untouched on the second pass; a SECOND eligible failure of the same
+  episode-id (a new turn's transition) → a NEW import accepted and the
+  ONE `ep-chain:` cell advances to the later `:marked-at-ms` (T7).
+  Owner: implementer (P1 module / P2 repair).
 - **G4 — crash-recovery drill (suite).** Obligation landed with NO handler
   execution (simulated JVM death at the T3 boundary); a fresh runtime +
   `resume-obligated!` → handler executes once, observation lands, run
@@ -356,7 +390,11 @@ stdout swallows INFO) and are SERVER-READ receipts (durable-ground rule).
   removed → next `current-episode!` (both warm-atom-cleared and
   empty-atom/JVM-restart paths) mints FRESH, never `--resume`s the dead
   uuid → a LATER successful turn's episode-id re-validates (adoption law's
-  time scope). Both decline branches: healthy close → `:skipped`; file
+  time scope) → the re-minted SAME-ID fresh episode fails eligibly AGAIN
+  (no file) → repair advances the marker to the later `:marked-at-ms` →
+  adoption filters the second death's cells too and the lane mints fresh
+  once more (the ruled T7 semantics: revalidation is repairable, never
+  single-use). Both decline branches: healthy close → `:skipped`; file
   present at execution → `:skipped` (T5). Owner: implementer (P2).
 - **G6 — the honest customer, LIVE (dev cluster).** On a drill lane
   (`?drill=` conversation, never genesis): force a fresh-spawn death
@@ -458,7 +496,8 @@ before code — line numbers drift; verified 2026-07-27 at staging)
   `--resume`) · `:239-:268` geometry-cell-hint + upsert-in-place +
   fingerprint-conflict semantics (the pattern the defunct cell rides) ·
   `:464-:469` `turn-order-key` · `:472-:561` `turn-record-request`
-  (imp-key per (turn-id, status) — why T7 exists) · `:563-:577`
+  (imp-key per (turn-id, status) — the transition-scoped overwrite
+  pattern T7 adopts, and why the defunct fact must not ride ITS key) · `:563-:577`
   `record-turn!` · `:579-:588` `read-turn-records`.
 - `src/app/server_jetty.clj` — `:801-:851` autotag runtime delay + handler
   (guard-in-head, T6-of-R1) · `:853-:1114` `run-episode-turn`: `:903-:914`

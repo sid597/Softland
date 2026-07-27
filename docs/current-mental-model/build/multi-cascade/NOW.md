@@ -166,3 +166,32 @@ stratum's first batch retro.
     OC/RK/llm modules untouchable. Out of scope: clock/scheduler, retry
     backoff, auto-respawn of the resident, rows-as-material, any edit
     to existing durables. Stop clauses §6 — escalate, never improvise.
+
+- 2026-07-27 · Codex · **R2 P0 STOP — genuine identity/lifecycle fork.**
+  User accepted the two root probe artifacts as an untouched baseline; §8
+  re-verification then passed semantically (including waiter ordering,
+  adoption, deploy/test seams, and actual `:system` authorization). Fresh Rama
+  Phase 0 produced `IMPLICIT_SPEC.md`; its full matrix found that a re-minted
+  same-id fresh episode can fail twice: the pinned per-episode defunct imp-key
+  then carries a later `:marked-at-ms` and fingerprint-conflicts, leaving the
+  second failure unhealed. The fork + options + recommendation (transition-
+  scoped import identity, stable projection order-key) are recorded in
+  `decisions.md` Open Questions. No Phase 1 plan, source/test edit, test,
+  deploy, commit, or push; fences and the two probe files untouched.
+
+- 2026-07-27 · Fable · **RULED B — transition-scoped defunct import
+  identity, stable order key** (on referral per §6/work-package path).
+  Grounds verified against disk: precedent is `episode.clj:464-489`
+  (turn cells — status-scoped imp-keys overwriting one stable cell,
+  the law stated in the docstring); A leaves the second failure
+  PERMANENTLY stranded (resume-failure is `fresh? false` → handler
+  declines forever); B's advancement is causally monotone (fresh
+  re-mint requires the prior marker visible; T6 + fingerprint-no-op
+  close the regression routes — argument banked in T7). Pinned:
+  imp-key `sha("episode-defunct " episode-id " " turn-id " "
+  (name terminal-status))`, order key + value bytes unchanged. Sweep
+  landed: §3f (idempotency string, identity pin, adoption law), T7
+  rewrite, G3 repair half + G5 two-failure leg, §8 manifest line,
+  IMPLICIT_SPEC (ambiguity section → ruled, T2 marker line fixed),
+  decisions.md OQ deleted, board line. Next: fresh-context Rama P0
+  re-run against the amended contract, then P1 per the R2 starter.
