@@ -894,3 +894,35 @@ why does the blank screen has a cursor in it? this is the walkthrough and log an
 *(Routed same-session: the build model → decisions.md "How engine work lands" (two dials · two ceremonies · registry law · boundary test · dark-organ laws · delivery menu · the clock) · the monster → `docs/current-mental-model/engine-terrain.md` (TERRAIN not route; 11 organs, 5 cores + rim; CORE A unbundled; record/replay promoted; calendar dropped) · dark lane opened on the board (width 1–2, the list is the gauge; multi-cascade declaration slice = organ #1) · space punt row dissolved into D1/D2/D4 triggers · multi-cascade contract staged `build/multi-cascade/CONTRACT.md`.)*
 
 ---
+
+## 2026-07-27 — the matter sitting: first-light named as a layer, the entity zoom level, "expose the engine" (verbatim)
+
+[what the first-light layer is for, and its limit — the friction that became the package:]
+
+> This is very very good for capturing … capturing thoughts anywhere just point and go … both ends might have same feeling "get it out of my head" … in one way it represents the zoomed out end of understanding of me the human which shows some things that are crisp in the mind, the confusing, the assumptions, all the stuff that goes in mind of under development r&d project
+
+> Its not good for talkign about the entities themselves.
+
+[the naming hierarchy, offered for joint thinking — each layer runs in the layer below it:]
+
+> Naming hierarchy (need you to think with me on the naming as well), each layer runs in the layer below it — first-light primitives / entities / engine
+
+[the method claim and the question that opened the room:]
+
+> So to think through what those design primitives can be we need to use the same philosophy that we did during the first light phase. So the goal is to live asap in the design zoom level … we pulled out this layer from the old system and now have a engine that runs thisr (in ecs way) so I think the system that i need to expose for the design layer to be built out is the engine and based on that the primitives for that layer will be gathered ????
+
+[the ratification + the blocker named + the split (exposure designed, primitives gathered):]
+
+> Hellyyyy yeaaahhhh letsss build it man this is what is stopping me right now ON THIS layer i can work on the meta layer with the current softland
+
+> "the system to expose is the engine's ontology as material in the portal-room" — i agree on the first part and that is the initial design needed
+
+[the strange-loop question, banked for the next floor:]
+
+> Also do you think we can build it out on next layer when we get to it like the engine primitive exposed … for later thinking but seeing how strange loopy can it all get
+
+[the register flip — contract authored in-session:]
+
+> Cant you do it here since all the context is here????
+
+*(Routed same-session: the friction + the exposure design → `build/matter-room/CONTRACT.md` STAGED (type-anchored portal opening · the room as a real container · matter verbs over the existing P6 artery · cascade-row citizenship read-only · the built terminal-escape gauge surfaced — DIRECTION's own laws completed, no new machinery) · naming: land/matter/engine = candidate vocabulary, UNRATIFIED, names finalize by recurrence, Sid names · the strange-loop question answered in-chat (there is always one inviolate level; the engine-room's spec accretes from this room's recorded descents — held as CONTRACT §4 non-goal, next floor) · board Vision line + package block · dark lane untouched (rim/policy work, contact-activated).*
