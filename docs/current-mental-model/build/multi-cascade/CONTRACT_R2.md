@@ -129,8 +129,15 @@ grammar; enforced by a suite scan while rows are code, G10).
     `:status :obligated` + add to `$$cascade-pending` ONLY when the run is
     absent or still `:obligated` (T6). Observation branch: overwrite status
     to the terminal value + remove from `$$cascade-pending` in the same
-    event; first terminal wins — a conflicting later terminal is logged
-    into the run row's `:late-observations` count, never a status regress.
+    event; first terminal wins — a conflicting later terminal is recorded by
+    OVERWRITING the run row's `:late-conflict` value (nil until a conflict;
+    then the LAST conflicting observation's
+    `{:status :receipt :observed-at-ms}`), never a status regress.
+    (P1-stop ruling 2026-07-27: a VALUE that converges under at-least-once
+    replay, never a counter — an increment is not replay-idempotent
+    without unbounded seen-identity state, which the bounded-row pin and
+    the two-PState shape both forbid; conflict PRESENCE plus the latest
+    evidence is the diagnostic truth R2 consumes.)
   - NO side effects in topology code, ever. Handlers run JVM-side (the
     back-arrow shape). Stream (not microbatch): at-least-once processing
     converging by deterministic keys is the house law (settled ground);
@@ -352,9 +359,13 @@ assert in test builds (G8).
 
 ## 5. Acceptance gates — FULL tier
 
-Partition sum-check at staging (space-as-entity rule): G1–G12 assigned
-below; P1 = {G2, G3 module half, G4, G9 module half, G12}; P2 = {G1, G3
-repair half, G5, G6, G7, G8, G9 purity half, G10, G11}; Fable gate
+Partition sum-check (re-partitioned by the P1-stop ruling 2026-07-27 —
+the staged partition assigned G2/G4 whole to P1 while §9 reserves their
+react!/runner machinery for P2): P1 = {G2 module half, G3 module half,
+G4 module half, G9 module half, G12}; P2 = {G1, G2 emitter half, G3
+repair half, G4 sweep half, G5, G6, G7, G8, G9 purity half, G10, G11}.
+Sum-check: G1✓ G2(m+e)✓ G3(m+r)✓ G4(m+s)✓ G5✓ G6✓ G7✓ G8✓ G9(m+p)✓
+G10✓ G11✓ G12✓ — all twelve covered, every half owned. Fable gate
 re-verifies independently (full-suite re-run, G6 re-drive, G7 re-check).
 Every gate names its owner. Live receipts run with
 `-Dorg.apache.logging.log4j.level=INFO` (R1 `GATE.md` doubt 3: default dev
@@ -365,25 +376,38 @@ stdout swallows INFO) and are SERVER-READ receipts (durable-ground rule).
   the `:best-effort` dispatch path byte-compare to R1's semantics (same
   receipts shape, same `[CASCADE]`/`[CASCADE][FAILED]` facts). Owner:
   implementer.
-- **G2 — durable dispatch record (suite).** For a durable row: react!
-  returns receipts carrying `:emission/id` + `:run/id` only after the run
-  row is readable `:obligated` in `$$cascade-runs`; emission-id/run-id
-  byte-compare across two independent clusters on identical input (R1's G1
-  pattern). Owner: implementer (P1).
+- **G2 — durable dispatch record (suite).** (module half) An obligation
+  appended through the IPC constructors + `foreign-append!` with `:ack` →
+  the run row is readable `:obligated` in `$$cascade-runs` with its
+  `$$cascade-pending` entry; emission-id/run-id constructors byte-compare
+  across two independent clusters on identical input (R1's G1 pattern).
+  (emitter half) For a durable row: react! returns receipts carrying
+  `:emission/id` + `:run/id` only after the run row is readable
+  `:obligated` (P1-stop ruling 2026-07-27: react!'s durable branch is
+  §9-P2 machinery — the module half proves the log, the emitter half
+  proves the barrier). Owner: implementer (P1 module / P2 emitter).
 - **G3 — replay + reorder convergence (suite).** (module half) Same
   obligation appended twice → one run row; obligation replayed AFTER the
   terminal observation → status stays terminal, `$$cascade-pending` stays
-  empty (T6); duplicate observations → first terminal wins. (repair half)
+  empty (T6); duplicate observations → first terminal wins, and a
+  conflicting later terminal lands in `:late-conflict` with re-processing
+  of the same observation records converging to the same value (a VALUE,
+  never a counter — the ruled §3b law). (repair half)
   Same `:episode/turn-closed` emission dispatched twice → one defunct
   cell, fingerprint-identical import (journaled no-op, T4), atom
   untouched on the second pass; a SECOND eligible failure of the same
   episode-id (a new turn's transition) → a NEW import accepted and the
   ONE `ep-chain:` cell advances to the later `:marked-at-ms` (T7).
   Owner: implementer (P1 module / P2 repair).
-- **G4 — crash-recovery drill (suite).** Obligation landed with NO handler
-  execution (simulated JVM death at the T3 boundary); a fresh runtime +
-  `resume-obligated!` → handler executes once, observation lands, run
-  terminal, pending empty. Owner: implementer (P1).
+- **G4 — crash-recovery drill (suite).** (module half) Obligation landed
+  with NO observation; a fresh runtime reads it in `$$cascade-pending`
+  past the grace window, and an observation append terminalizes it +
+  empties pending — the recovery substrate the sweep drives. (sweep half)
+  Obligation landed with NO handler execution (simulated JVM death at the
+  T3 boundary); a fresh runtime + `resume-obligated!` → handler executes
+  once, observation lands, run terminal, pending empty (P1-stop ruling
+  2026-07-27: the sweep resolves handlers through the runner path —
+  §9-P2 machinery). Owner: implementer (P1 module / P2 sweep).
 - **G5 — stranded-lane kill (suite).** Full chain sim: fresh episode
   minted → spawn death (no file) → `:episode/turn-closed` `:failed` →
   repair → defunct cell durable with the SYSTEM actor + runtime entry
@@ -551,11 +575,15 @@ phase mechanics):
   artifacts in this directory; the plan re-runs the `rama-pitfalls`
   protocol against the concrete topology code shape).
 - **P1 — the module** (implement `cascade_log.clj` + IPC constructors;
-  gates G2, G3-module, G4, G9-module, G12; deploy lands here so P2's live
-  gate has a module to hit).
+  gates G2-module, G3-module, G4-module, G9-module, G12; deploy lands
+  here so P2's live gate has a module to hit. P1 touches NO file outside
+  the module + its test + `test_runner.clj` classification + `bin/land` +
+  the runtime-plumbing lines — the P1-stop ruling 2026-07-27 preserved
+  this fence and moved the react!/sweep gate halves to P2 instead).
 - **P2 — seams + activation** (runner branch in `cascade.clj`, emission
   site #2, repair handler + adoption law in `episode.clj`, boot sweep
-  wiring; gates G1, G3-repair, G5, G6, G7, G8, G9-purity, G10, G11).
+  wiring; gates G1, G2-emitter, G3-repair, G4-sweep, G5, G6, G7, G8,
+  G9-purity, G10, G11).
 
 Allowlist — NEW: `src/app/server/rama/cascade_log.clj` ·
 `test/app/cascade_log_test.clj` · `test/app/episode_retry_test.clj`.

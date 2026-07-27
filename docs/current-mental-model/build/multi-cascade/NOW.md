@@ -195,3 +195,45 @@ stratum's first batch retro.
   IMPLICIT_SPEC (ambiguity section → ruled, T2 marker line fixed),
   decisions.md OQ deleted, board line. Next: fresh-context Rama P0
   re-run against the amended contract, then P1 per the R2 starter.
+
+- 2026-07-27 · Codex · **R2 P0 FRESH; P1 PLAN STOP.**
+  Clean-entry/HEAD `1d3e137` + every §8 seam reverified; probes accepted as
+  untouched baseline. Fresh `IMPLICIT_SPEC.md` now covers 17 operations, five
+  full matrices, and RULED-B's second-failure + late-replay lifecycle.
+  Fresh Phase 1 created NO `PLAN.md`: §5 assigns G2/G4 to P1, but their
+  `react!`/resume execution is reserved to P2 by §9 + the starter—two
+  physically buildable phase readings. Separately, the pinned at-least-once
+  observation record has no identity: an exact non-saturating late counter
+  cannot be both retry-idempotent and bounded under the exactly-two-PState law.
+  Both forks + options + recommendations are in `decisions.md` Open Questions.
+  No source/test edit, test, deploy, commit, or push; fenced files + probe hashes
+  unchanged. Next: Fable/Sid ruling + full ruling sweep, then fresh Rama P0.
+
+- 2026-07-27 · Fable · **RULED B + B (P1 stop, both forks; on referral).**
+  Fork 1: module-only P1 preserved; G2/G4 SPLIT into halves on the
+  contract's own G3/G9 pattern — G2-module/G4-module in P1 (log +
+  recovery substrate via IPC), G2-emitter/G4-sweep in P2 (react! barrier,
+  resume-obligated!); §5 re-partitioned + sum-checked (all twelve, every
+  half owned), §9 amended. Grounds: §3c/§3d verified — react!'s durable
+  branch and the sweep's handler resolution are cascade.clj/boot-wiring
+  machinery, P2 by §9; widening P1 would prove react! against a scaffold
+  row only to re-prove it in P2. Fork 2: `:late-observations` count
+  REPLACED by `:late-conflict` — nil | LAST conflicting observation's
+  `{:status :receipt :observed-at-ms}`, overwrite-in-place: a VALUE
+  converging under replay (§3b's own house law), bounded, and more
+  diagnostic than a bare 0/1 at identical cost (late :completed after a
+  :failed winner is exactly the evidence an operator needs). Sweep: §3b,
+  §5 partition, G2/G3/G4, §9, IMPLICIT_SPEC (3 spots), decisions.md OQs
+  deleted, board. Next starter (fresh context):
+
+    Multi-cascade R2 — resume after the P1-stop ruling (B+B; contract
+    amended in place). Boot: CONTRACT_R2.md (binding; §5 partition +
+    G2/G4 halves + §3b :late-conflict are the ruled text) + NOW.md
+    STANDING-R2 + this entry. Load /rama + /rama-pitfalls BEFORE any
+    topology work. PRE: clean tree; probe-block-anatomy.* untracked,
+    untouched. Re-run Rama P0 FRESH against the amended contract (the
+    committed IMPLICIT_SPEC is prior-round input, not authority) → P1
+    plan + validation → P1 the module (cascade_log.clj + IPC
+    constructors ONLY; gates G2m/G3m/G4m/G9m/G12) → P2 (seams +
+    episode-retry row; G1/G2e/G3r/G4s/G5/G6/G7/G8/G9p/G10/G11), fresh
+    context per phase. Stop clauses §6 — escalate, never improvise.

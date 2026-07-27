@@ -279,7 +279,11 @@ proof-decay + was this line accurate).
   `build/multi-cascade/GATE.md`, residue there, retro at the batch.
   R2 P0 stop (same-id second-failure identity fork) RULED B 2026-07-27:
   transition-scoped defunct import identity, stable `ep-chain:` cell —
-  contract §3f/T7/G3/G5 amended in place; P0 re-runs fresh next.
+  contract §3f/T7/G3/G5 amended in place. Fresh P0 done; P1 stop (gate
+  partition vs §9 scope · late-observation counter not retry-safe)
+  RULED B+B 2026-07-27: G2/G4 split into module/P1 + emitter-sweep/P2
+  halves; `:late-conflict` value replaces the count (§3b/§5/§9 amended).
+  Next: fresh Rama P0 re-run, then P1 per the NOW starter.
 - **#2 — held open for Sid's first lived friction after the return.**
 
 **space-as-entity — CLOSED (all three rungs) + retro'd 2026-07-26.** Rungs

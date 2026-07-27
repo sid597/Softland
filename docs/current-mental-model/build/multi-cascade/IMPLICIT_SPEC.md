@@ -2,591 +2,771 @@
 
 <!-- Phase 0. Fill in before starting Phase 1 (Plan). After completing this, fill in PLAN.md. -->
 
-Before designing any Rama-specific implementation, write out the implicit assumptions and expectations that a senior engineer would bring to this system based on the requirements and the domain.
+This is a fresh Phase 0 derivation from the amended
+`CONTRACT_R2.md` (including the 2026-07-27 §3f/T7/G3/G5 ruling). The
+contract and `decisions.md` are authoritative; this artifact only expands
+their required behavior, state, ordering, scale, concurrency, and failure
+semantics. The superseded prior-round `IMPLICIT_SPEC.md` was input for
+falsification, not authority.
 
-This artifact derives requirements from `CONTRACT_R2.md`. The contract and
-`decisions.md` govern if this derivation drifts. It deliberately specifies
-observable behavior, state, ordering, scale, and failure semantics only. It
-does not choose storage structures, event-processing structure, partitioning
-machinery, implementation functions, or tests.
+This phase does not choose or revise depots, PStates, topologies,
+partitioners, runtime plumbing, implementation functions, or tests. Names
+below such as “run truth” and “pending truth” identify contract-visible
+facts, not a new storage design.
 
 ## Domain boundaries and terms
 
-- A **declaration** is in-process code data. R2 adds a runner classification;
-  it does not make declarations durable or editable.
-- An **emission** is the occurrence of one named trigger with a bounded data
-  payload and a globally scoped deterministic `:emission/id`.
-- A **run** is the one durable obligation/outcome identity for one
-  `(cascade-id, emission-id)` pair. There is exactly one durable run identity
-  forever for that pair.
-- **Durable obligation/run truth** is authoritative across process death. An
-  acknowledged obligation exists before its handler is allowed to start.
-  Terminal outcome truth converges under duplicate and reordered delivery.
-- **Handler effects are not part of the atomic run-truth transition.** For
-  episode-retry they are (a) an acknowledged durable request that establishes
-  the defunct marker and (b) a compare-and-remove against one JVM's runtime
-  lane entry. Either can have happened even if the outcome observation has not
-  yet become durable. Re-execution must therefore be safe.
-- A **terminal run** is `:completed` or `:failed`. Terminality is permanent.
-  A handler return, including a deliberate `:skipped` receipt, is completed;
-  a handler throw is failed.
-- A **defunct marker** is episode truth in the affected conversation
-  container. It invalidates adoption of the marked episode only for turn cells
-  at or before the marker's recorded turn time.
-- The **runtime lane entry** is per-JVM, non-durable convenience state. It is
-  neither the authoritative record of a run nor the authoritative record of a
-  defunct episode.
+- A **declaration** is inert in-process code data. R2 classifies a row as
+  best-effort or durable; it does not make the declaration table durable,
+  editable, or material-selectable.
+- An **emission** is one occurrence of a declared trigger with a bounded
+  data payload. The episode-retry customer consumes
+  `:episode/turn-closed`.
+- An **obligation** is the durable, acknowledged instruction to execute one
+  durable row for one emission. It must exist before that row's handler may
+  start.
+- A **run** is the one globally scoped durable identity for a
+  `(cascade-id, emission-id)` pair. It is absent, obligated, completed, or
+  failed. One run id is never re-minted for a status transition.
+- An **observation** reports a handler attempt's terminal outcome back to
+  run truth. A normal handler return, including `:skipped`, is completed; a
+  throw is failed.
+- **Terminality** means completed or failed. The first terminal observation
+  permanently wins. A terminal run is never made pending again.
+- A **defunct transition** is one eligible fresh-episode failure identified
+  by `(episode-id, turn-id, terminal-status)`. Each distinct eligible
+  transition has its own import identity.
+- A **defunct marker** is the one stable projected
+  `:episode-chain-defunct` cell for an episode id. Later eligible
+  transitions update that same cell to a later `:marked-at-ms`; they do not
+  create a second visible marker cell.
+- A **defunct import journal entry** and the **projected marker cell** have
+  different cardinalities: the journal grows by distinct eligible
+  transitions, while the visible projection remains one stable
+  `ep-chain:` cell per episode id.
+- The **runtime lane entry** is per-JVM, non-durable convenience state. It
+  is neither run truth nor the durable defunct fact.
+- **Adoption** is `current-episode!` choosing a warm runtime episode or,
+  when that hint is absent, a durable turn cell. R2 changes only the
+  fallback read's filtering; `decide-episode` remains pure and semantically
+  unchanged.
+- A **recovery sweep** is an explicitly invoked enumeration and
+  re-execution of old obligated runs. It is not a timer, scheduler, retry
+  policy, or namespace-load effect.
 
-The following global requirements apply to every operation:
+## Global requirements and identities
 
-- At-least-once observation and duplicate execution are normal conditions,
-  including two server JVMs sharing one durable cluster.
-- All identities that name durable facts are deterministic and byte-stable:
+- Run observations are at-least-once. Duplicate and reordered delivery are
+  normal, including concurrent handler execution by two server JVMs sharing
+  one durable cluster.
+- Externally visible handler effects are not atomic with run truth. Safety
+  therefore comes from recorded-before-call ordering plus the handler's own
+  duplicate-execution law.
+- Durable identities are globally scoped, deterministic, and byte-stable:
   - episode-turn-closed emission:
     `"casc-em:episode-turn-closed:" + sha256(turn-id NUL terminal-status)`;
-  - run: `"casc-run:" + sha256(cascade-id NUL emission-id)`;
-  - defunct import: `sha("episode-defunct " episode-id)`;
-  - defunct order key: `ep-chain:<sha8(episode-id)>`.
-- The same `(turn-id, terminal-status)` is the same emission. A different
-  terminal status for the same turn is a different emission and therefore a
-  different run. No later transition of one run mints another run id.
-- Durable payloads and receipts are bounded EDN scalar/map data. They contain
-  no functions, runtime handles, open resources, or canned-stream `:lines`.
-- Namespace loading performs no work. Recovery is invoked explicitly after
-  runtimes are bound; there is no timer, scheduler, load-time sweep, or
-  self-firing retry loop.
-- Best-effort autotag behavior remains exactly the R1 behavior: absent runner
-  means best-effort, its declaration bytes do not change, its receipt remains
-  optimistic, and it does not enter durable run truth.
-- No cascade failure may fail the episode turn lane. A successful durable
-  dispatch necessarily includes the obligation acknowledgement barrier before
-  its receipt and before handler start; the handler itself is never on that
-  calling path. Failure to establish the obligation is logged and produces no
-  durable success receipt.
-- A failed run is terminal, queryable, and never selected by recovery.
-- No operation in R2 auto-respawns an agent or automatically retries a failed
-  run. The next user act starts the next episode attempt.
-- Existing durable vocabularies and cell shapes remain unchanged. The only new
-  episode projection kind is `:episode-chain-defunct`; it is invisible to
-  readers that did not ask for it.
+  - run:
+    `"casc-run:" + sha256(cascade-id NUL emission-id)`;
+  - defunct transition discriminator:
+    `sha("episode-defunct " episode-id " " turn-id " "
+    (name terminal-status))`, riding the existing `imp:ep:` import lane;
+  - projected defunct order key:
+    `ep-chain:<sha8(episode-id)>`.
+- Replaying the same `(turn-id, terminal-status)` re-derives the same
+  emission and run. A different terminal status for the same turn is a new
+  emission and run. A different eligible failure transition for the same
+  episode id is also a new defunct import, but it updates the same projected
+  marker cell.
+- Every durable value byte needed for replay comes from the emission
+  payload. In particular, `:marked-at-ms` is the turn's payload
+  `:time-ms`, never handler wall clock or sweep wall clock.
+- Durable payloads and receipts are bounded EDN scalar/map data. They
+  contain no functions, runtime handles, open resources, transcript
+  contents, or canned-stream `:lines`.
+- A successful durable dispatch has a hard ordering barrier:
+  acknowledged/readable obligation first, then handler start. The durable
+  success receipt is minted only after that barrier.
+- A failure to establish the obligation performs no handler effect, emits
+  no durable success receipt, logs `[CASCADE][EMIT-FAILED]`, and cannot
+  fail the caller. The contract does not pin an alternate failure-receipt
+  shape; it pins the absence of the specified success claim.
+- Once the obligation exists, handler duration and outcome-observation
+  latency are off the caller's path.
+- Best-effort autotag remains byte-behavior-identical to R1. An absent
+  `:cascade/runner` means best-effort; row #1's map, guard truth semantics,
+  optimistic receipt, logging, threading, and failure isolation do not
+  enter the durable runner.
+- Namespace loading starts no runtime and runs no sweep. Any lazy runtime
+  used on the turn path is poisoned-but-total on failure, never a cached
+  throw.
+- No run, obligation context, failure record, or defunct import is deleted
+  by R2. Terminalization removes only pending membership.
+- Existing relation, OC/RK/LLM module, serve, and cell vocabularies remain
+  unchanged. The only new episode projection kind is
+  `:episode-chain-defunct`, and existing readers do not see it unless they
+  ask for it.
+- No operation in R2 auto-respawns an agent, retries a failed run, applies
+  backoff, installs a clock, or crosses an episode boundary with
+  `--resume`.
 
 ## Operations
 
 ### 1. Enumerate and validate cascade declarations
 
-- **Latency**: This is an in-process metadata read and should be effectively
-  immediate (single-digit milliseconds). It must not depend on durable runtime
+- **Latency**: An in-process metadata read should be effectively immediate,
+  in the single-digit-millisecond class, and independent of cluster
   availability.
-- **Throughput**: Calls scale with console inspection, dispatch, and boot-time
-  validation, not with durable history. The table has two rows in R2 and is
-  expected to remain small.
+- **Throughput**: Calls scale with dispatch, boot validation, tests, and
+  operator inspection. The R2 table has two rows and is expected to remain
+  small.
 - **Consistency/correctness invariants**:
-  - Both rows are returned in declaration order.
-  - Row #1 remains byte-identical and is interpreted as best-effort when
-    `:cascade/runner` is absent.
-  - Row #2 has the exact trigger, durable runner, effect class, system actor,
-    handler identity, and full idempotency story required by contract §3f.
-  - Any durable declaration with an absent or blank idempotency story is
-    refused. The story must name scope, transition law, and duplicate-execution
-    tolerance; a label such as “idempotent” is insufficient.
-- **Data growth and scale**: No runtime data grows here. Adding declarations is
-  a code change and remains outside R2's runtime operations.
-- **Concurrency behavior**: All callers observe the same immutable declaration
-  set for a loaded code version. There is no runtime table mutation race.
+  - Both rows are returned in declaration order with unique cascade ids.
+  - Row #1 remains byte-identical and defaults to best-effort because its
+    runner field is absent.
+  - Row #2 has exactly the episode-turn-closed trigger, durable runner,
+    durable-via-request effect class, system actor, repair handler, and
+    full idempotency story pinned by contract §3f.
+  - Every durable declaration has a nonblank idempotency string naming its
+    scope, transition law, and duplicate-execution tolerance.
+  - Enumeration is inert and printable as data.
+- **Data growth and scale**: Runtime history does not accumulate in the
+  table. Adding a row remains a code change outside R2's runtime protocol.
+- **Concurrency behavior**: Every caller in one loaded code version sees
+  the same immutable declaration set.
 - **Edge cases**:
-  - Unknown runner values are invalid rather than silently treated as
-    best-effort.
-  - A non-durable row may omit the runner field and retains R1 behavior.
-  - A durable row with whitespace-only idempotency text is invalid.
-  - Empty trigger matches return no dispatch receipts and create no run truth.
+  - An unknown runner value is invalid, not silently best-effort.
+  - A durable row with absent, empty, or whitespace-only idempotency text is
+    refused.
+  - A best-effort row may omit the runner key.
+  - A trigger with no matching rows returns no dispatch receipts and
+    creates no work.
 
 ### 2. Dispatch matching best-effort rows
 
-- **Latency**: The call returns R1's immediate optimistic receipts; handler
-  execution remains asynchronous and must not add durable-runtime latency.
-- **Throughput**: Work is one asynchronous dispatch per matching best-effort
-  row per emission. R2 does not increase autotag volume.
+- **Latency**: Returns R1's immediate optimistic receipts. No cluster write
+  or durable-runtime latency is introduced.
+- **Throughput**: One asynchronous handler attempt per matching
+  best-effort row and emission. R2 does not increase autotag volume.
 - **Consistency/correctness invariants**:
-  - Matching, declaration order, receipt shape, log facts, guard truth
-    semantics, and failure isolation are R1-identical.
-  - No durable obligation, pending entry, or run record is created.
-  - A handler failure is logged and cannot fail the emitter.
-- **Data growth and scale**: R2 adds no durable growth to this path.
+  - Matching, declaration order, receipt shape, log facts, handler
+    resolution, and future-per-row isolation are R1-identical.
+  - The handler continues to own the literal old head guard:
+    `(and (nil? gold-receipt) rk-rt)`.
+  - No durable run, obligation, pending fact, or observation is created.
+  - A resolution failure or handler throw is logged
+    `[CASCADE][FAILED]` and cannot fail a sibling row or the emitter.
+- **Data growth and scale**: R2 creates no new durable data on this path.
 - **Concurrency behavior**: Concurrent best-effort emissions retain R1's
-  behavior. R2 must not serialize them behind durable work.
-- **Edge cases**: Literal false/nil guard behavior, handler resolution failure,
-  and handler throw retain their R1 results. R2 must not “unify” these cases
-  through the durable path.
-
-### 3. Dispatch matching durable rows
-
-- **Latency**: The obligation acknowledgement is on the durable dispatch path
-  and must complete before a durable receipt can be returned. Low stream-style
-  latency is expected; hundreds of milliseconds may be survivable at turn end,
-  but handler duration is not part of dispatch latency. An unavailable or
-  poisoned runtime must fail total rather than block the lane indefinitely.
-- **Throughput**: Volume is
-  `matching durable rows × emissions`. R2's honest customer contributes at
-  most one run identity per `(turn-id, terminal-status)`, although duplicate
-  dispatch attempts may repeat the same obligation.
-- **Consistency/correctness invariants**:
-  - Expansion is one obligation per matching `(row, emission)`.
-  - Identity is computed before the write and is stable across JVMs and
-    replays.
-  - The obligation envelope contains exactly the run id, cascade id, trigger,
-    emission id, bounded payload, and obligation time required by the contract.
-  - The payload is bounded, serializable data only.
-  - Obligation acknowledgement and readable `:obligated` truth precede handler
-    start (“converge before call”).
-  - The durable receipt is minted only after that acknowledgement and contains
-    cascade id, dispatched true, durable true, emission id, and run id.
-  - Successful row dispatch is logged as `[CASCADE]` with its run identity.
-  - Handler execution is asynchronous. A normal return leads to a completed
-    observation carrying a bounded receipt; a throw leads to a failed
-    observation carrying bounded failure information.
-  - Failure before obligation acknowledgement creates neither a durable
-    success receipt nor an unrecorded handler effect. It logs
-    `[CASCADE][EMIT-FAILED]` and the caller continues.
-  - Failure after obligation acknowledgement but before a terminal observation
-    leaves an obligated run recoverable by an explicit later sweep.
-- **Data growth and scale**: Unique runs grow without deletion, one per unique
-  `(cascade-id, emission-id)`. A duplicate does not add another run identity.
-  Payload and receipt size are bounded independently of transcript length.
-- **Concurrency behavior**:
-  - Concurrent duplicate dispatches may execute the handler more than once.
-  - They converge on one run identity and one durable episode marker.
-  - The system does not rely on one JVM or on in-memory mutual exclusion.
-  - Concurrent dispatch and recovery of the same run are legal.
+  independent futures and are not serialized behind episode-retry work.
 - **Edge cases**:
-  - No matching row creates no obligation.
-  - Missing trigger discriminators are invalid because deterministic identity
-    cannot be derived.
-  - A different terminal status is not a duplicate; it creates another
-    emission/run and relies on the handler effect's separate idempotency.
-  - Failure to start the handler after acknowledgement leaves the run
-    obligated; it does not erase the obligation.
-  - Failure to record the terminal observation after a handler effect leaves
-    the run obligated; recovery may repeat that effect.
+  - `gold-receipt=false`, `rk-rt=false`, and nil retain their exact R1
+    truth behavior.
+  - A missing handler var or thrown handler still leaves the already-minted
+    optimistic R1 receipt unchanged.
+  - R2 must not route this operation through durable machinery in pursuit
+    of code reuse.
+
+### 3. Dispatch a matching durable row
+
+- **Latency**: The obligation acknowledgement is on the dispatch path.
+  Stream-style low latency is expected; hundreds of milliseconds may be
+  survivable at turn close, but handler duration is never part of dispatch
+  latency. Runtime failure must return total rather than block indefinitely.
+- **Throughput**: Work scales as matching durable rows times emissions.
+  Episode-retry produces one run identity per distinct
+  `(turn-id, terminal-status)` for its one row, even when dispatch is
+  attempted repeatedly.
+- **Consistency/correctness invariants**:
+  - JVM-side declaration matching expands exactly one obligation for each
+    matching `(row, emission)`.
+  - The emitter derives emission and run identities before the durable
+    write.
+  - The obligation contains run id, cascade id, trigger, emission id,
+    bounded payload, and obligation time.
+  - Acknowledged/readable obligated truth precedes both handler start and
+    the durable success receipt.
+  - The durable success receipt is exactly
+    `{:cascade/id … :dispatched? true :durable? true
+    :emission/id … :run/id …}`.
+  - The durable row's `[CASCADE]` log identifies the row and run.
+  - Handler return produces a completed observation with a bounded receipt;
+    handler throw produces a failed observation with bounded failure data.
+  - Failure before acknowledgement produces no handler call and no durable
+    success receipt.
+  - Failure after acknowledgement but before a terminal observation leaves
+    an obligated run for recovery.
+- **Data growth and scale**: Unique run history grows once per unique
+  `(cascade-id, emission-id)`. Duplicate dispatch does not create a second
+  run identity. Payload and receipt size never scale with jsonl or
+  transcript length.
+- **Concurrency behavior**:
+  - Two JVMs may append the same obligation and run the same handler.
+  - Normal execution and a recovery execution may overlap.
+  - Correctness cannot depend on an in-memory lock, one server process, or
+    one handler attempt.
+- **Edge cases**:
+  - No match creates no obligation.
+  - Missing identity discriminators make the emission malformed; no
+    nondeterministic substitute may be minted.
+  - Different terminal statuses for one turn are separate emissions/runs.
+  - A start failure after acknowledgement leaves the run obligated.
+  - A handler effect followed by observation-write failure leaves the run
+    obligated and permits duplicate effect execution on recovery.
+  - A durable-append/runtime exception is contained by the total wrapper;
+    the existing turn-close path continues.
 
 ### 4. Record or replay a durable obligation
 
-- **Latency**: Materialized obligated truth is required before acknowledgement
-  to the dispatching caller. It is a low-latency write/read-after-ack contract.
-- **Throughput**: One attempted write per durable row/emission dispatch,
-  including at-least-once repeats.
+- **Latency**: Materialized obligated truth is required before the
+  acknowledgement consumed by durable dispatch. This is a low-latency
+  write/read-after-ack requirement.
+- **Throughput**: One attempted write per durable row dispatch, including
+  at-least-once and HTTP replays.
 - **Consistency/correctness invariants**:
-  - An absent run becomes obligated and recoverable.
-  - Replaying an obligation while the run is still obligated keeps exactly one
-    run and exactly one pending identity.
-  - Replaying an obligation after either terminal outcome cannot change status,
-    replace the winning receipt, or make the run pending again.
-  - The run retains the bounded obligation data required to re-execute the
-    handler after process death.
-  - Pending membership and obligated run truth agree after the acknowledged
+  - An absent run becomes obligated, retains all data needed for later
+    handler resolution, and becomes pending.
+  - Replaying an identical obligation while still obligated preserves one
+    run and one pending identity.
+  - The first acknowledged obligation time remains the recovery-age anchor;
+    duplicate delivery cannot postpone recovery indefinitely by refreshing
+    its age.
+  - Replaying an obligation after either terminal outcome cannot change the
+    winning status/receipt, restore pending membership, or refresh a sweep
+    age.
+  - Obligated run truth and pending membership change as one observable
+    transition.
+  - No handler or external request is executed by this truth-write
     operation.
-- **Data growth and scale**: Unique-run history is unbounded; duplicate
-  obligation writes are constant-space updates. Pending size is proportional
-  to acknowledged obligations without a durable terminal outcome, not total
-  historical runs.
+- **Data growth and scale**: Unique-run history is unbounded. Replays are
+  constant-cardinality convergence. Pending cardinality is unresolved
+  obligations, not all historical runs.
 - **Concurrency behavior**: Concurrent identical obligations converge.
-  Obligation/terminal reordering is resolved in favor of terminality.
+  Obligation replay reordered after a terminal observation loses to
+  terminality.
 - **Edge cases**:
-  - A replay with the same run id but identity-bearing fields inconsistent with
-    that id is malformed and must fail closed; it must not silently retarget a
-    run.
-  - A replay may not refresh a terminal run's recovery age.
-  - An empty or missing run id is invalid.
+  - Missing/blank run id is invalid.
+  - A record whose cascade/emission identity-bearing fields disagree with
+    its run id is malformed and cannot retarget existing truth.
+  - A duplicate run id with materially different retained payload is not a
+    license for last-write-wins mutation; it must fail closed or preserve
+    the already-authoritative obligation.
+  - Replaying an old obligation after completion/failed is a state no-op.
 
 ### 5. Record a terminal observation
 
-- **Latency**: Outcome visibility should be low-latency after handler return or
-  throw. The handler future may wait for this write without delaying the
-  original turn caller.
-- **Throughput**: Normally one observation per execution attempt. Duplicate
-  execution and retry can produce multiple observations for one run.
+- **Latency**: Outcome visibility should be low-latency after handler
+  return/throw, but it does not delay the original turn caller.
+- **Throughput**: Normally one observation per handler attempt. Duplicate
+  execution and retry may create many attempted observations for one run.
 - **Consistency/correctness invariants**:
-  - Only `:completed` and `:failed` are accepted terminal statuses.
-  - The observation envelope contains the run id, terminal status, bounded
-    receipt, and observation time required by the contract.
-  - The first terminal observation fixes the run's terminal status and winning
-    receipt and removes pending membership as one observable transition.
-  - Later observations never regress a terminal run or restore pending.
-  - A later conflicting terminal increments `:late-observations` while
-    preserving the first terminal outcome.
-  - An exact same-outcome duplicate is convergent: it does not replace the
-    winning outcome or increment the conflicting-late count.
-  - An observation cannot be used to invent an obligation. Under the exposed
-    protocol this is guaranteed by acknowledge-before-call; an orphan
-    observation is malformed and fails closed without fabricating pending work.
-- **Data growth and scale**: Outcome updates remain bounded in the one run row.
-  Late observation detail is represented by a count, not an unbounded list.
-- **Concurrency behavior**: Simultaneous completed/failed observations race
-  legitimately; whichever terminal transition becomes durable first wins, and
-  the loser is counted as late. No caller may assume local execution order
-  determines the winner across JVMs.
+  - Only `:completed` and `:failed` are accepted statuses.
+  - The observation carries run id, terminal status, bounded receipt, and
+    observed-at time.
+  - The first terminal observation fixes status, receipt, and first
+    observation time and removes pending membership as one observable
+    transition.
+  - No later observation changes the winning status/receipt or restores
+    pending.
+  - An exact duplicate observation is convergent (ruled 2026-07-27: the
+    conflict record is a VALUE, never a counter, so record replay cannot
+    inflate anything).
+  - A later conflicting terminal observation overwrites the run row's
+    `:late-conflict` value with its `{:status :receipt :observed-at-ms}`;
+    history is not accumulated, and re-processing the same observation
+    records converges to the same value.
+  - An observation does not invent an obligation. The public protocol makes
+    an orphan impossible by recorded-before-call ordering; a malformed
+    orphan cannot fabricate runnable work.
+- **Data growth and scale**: The terminal update and the single
+  `:late-conflict` value remain bounded in one run record.
+- **Concurrency behavior**: Simultaneous completed and failed observations
+  legitimately race. The first durable terminal transition wins regardless
+  of JVM-local completion order.
 - **Edge cases**:
-  - Missing receipt fields may be represented only within the bounded receipt
-    contract; runtime values and unbounded exception data are forbidden.
-  - Unknown status, missing run id, or structurally invalid receipt is refused.
-  - Removing an already-absent pending membership is harmless.
+  - Unknown status, missing run id, runtime objects, or unbounded exception
+    data are refused.
+  - Removing already-absent pending membership is harmless.
+  - A completed `:skipped` receipt is not a failed run.
+  - A late failed observation does not make a first-completed run appear in
+    failed enumeration.
 
-### 6. Read one run by globally scoped run id
+### 6. Read one run
 
-- **Latency**: This is a point read and should be single-digit milliseconds in
-  normal cluster conditions, plus one client/server round trip.
-- **Throughput**: Driven by dispatch confirmation, console inspection, live
-  receipts, and diagnosis. It scales with user/operator queries, not history
-  scans.
+- **Latency**: A globally keyed point read should be single-digit
+  milliseconds under normal cluster conditions plus one network round
+  trip; cost must not scale with run history.
+- **Throughput**: Driven by post-dispatch confirmation, console inspection,
+  live proof, and diagnosis.
 - **Consistency/correctness invariants**:
-  - Missing id returns not-found rather than a fabricated state.
-  - An acknowledged obligation is immediately readable as obligated.
-  - A terminal read exposes the first terminal outcome and any conflicting-late
-    count.
-  - Run identity and retained obligation data remain available after
-    terminality; terminalization is not deletion.
-- **Data growth and scale**: Point-read cost must not grow with total run count.
-- **Concurrency behavior**: A read concurrent with a transition may see the
-  complete state before or after that transition, never a terminal row still
-  advertised as pending.
-- **Edge cases**: Empty/unknown ids return not-found or input error according to
-  the existing console convention; they never trigger a scan.
+  - Missing id returns not-found, not fabricated state.
+  - Acknowledged obligations are readable as obligated before their handler
+    starts.
+  - Terminal reads expose the first terminal outcome, retained obligation
+    context, and the `:late-conflict` value (nil when no conflicting
+    terminal was ever observed).
+  - Terminalization never deletes the run.
+- **Data growth and scale**: Point lookup remains independent of total
+  historical cardinality.
+- **Concurrency behavior**: A read racing a state transition may see the
+  complete before-state or after-state, never a terminal run still
+  advertised as pending in the same observation.
+- **Edge cases**: Blank/unknown run ids do not trigger a scan. Corrupt run
+  truth is surfaced rather than silently normalized into a valid status.
 
 ### 7. Enumerate pending runs
 
-- **Latency**: Intended for recovery and operator inspection, not a render-loop
-  interaction. Cost may scale with the current pending set and cluster width,
-  but not with all historical terminal runs.
-- **Throughput**: Normally invoked once per server boot plus occasional
-  explicit operator calls.
+- **Latency**: This is a recovery/operator operation, not a render-loop
+  query. It may scale with current pending cardinality and cluster width,
+  but not with all terminal history.
+- **Throughput**: Normally once per server boot plus occasional explicit
+  operator calls.
 - **Consistency/correctness invariants**:
   - Returns every and only currently obligated run, at most once per run id.
-  - Each result includes the obligation time needed for grace filtering and
-    enough retained obligation data to resolve the handler.
+  - Each result exposes obligation time and retained obligation context
+    sufficient to resolve the row's handler.
   - Completed and failed runs are absent.
-- **Data growth and scale**: Pending is expected to stay operationally small
-  because handlers normally terminate, but it is not assumed to have a fixed
-  hard maximum. Enumeration must remain correct for an empty or unusually
-  large backlog.
-- **Concurrency behavior**: A concurrent terminal transition may cause a sweep
-  candidate to disappear. Recovery must re-check/run safely rather than rely on
-  enumeration as a lock.
-- **Edge cases**: Empty pending returns an empty collection. Ordering is not a
-  correctness guarantee. Duplicate underlying delivery must not yield duplicate
-  run identities.
+- **Data growth and scale**: Pending should be operationally small because
+  handlers normally terminate, but there is no hard maximum. Empty and
+  backlog cases must both be correct.
+- **Concurrency behavior**: A candidate can terminalize after enumeration.
+  Enumeration is not a lock; duplicate execution and terminal convergence
+  carry correctness.
+- **Edge cases**:
+  - Empty pending returns an empty collection.
+  - Ordering is not a correctness promise.
+  - A missing run for a pending identity is corrupt truth, not an excuse to
+    invent payload or call a handler.
 
 ### 8. Enumerate failed runs
 
-- **Latency**: This is a console/diagnostic history query; interactive
-  single-digit latency is not promised. Seconds may become acceptable as
-  history grows, but the operation must remain finite for the current data set.
-- **Throughput**: Low operator-driven volume.
+- **Latency**: This is a console/diagnostic history query. Single-digit
+  milliseconds are not promised; seconds may be acceptable as history
+  grows, but each invocation must terminate for the current finite data.
+- **Throughput**: Low, operator-driven volume.
 - **Consistency/correctness invariants**:
-  - Returns every and only terminal failed run visible at the query boundary.
-  - A run whose first terminal was completed is not failed even if a later
-    conflicting failed observation arrived.
-  - Failed results retain identity, failure receipt, and obligation context
-    needed for diagnosis.
-  - Enumeration does not retry or mutate failures.
-- **Data growth and scale**: Failed history is unbounded because runs are never
-  deleted. The no-argument R2 surface implies full enumeration; consumers must
-  not assume a stable ordering.
-- **Concurrency behavior**: A run failing concurrently may appear or not in
-  that invocation; subsequent reads must include it. Enumeration never sees
-  half-terminal state.
-- **Edge cases**: No failures returns empty. Late conflicting observations do
-  not cause one run to appear in both completed and failed interpretations.
+  - Returns every and only run whose first terminal outcome is failed.
+  - A first-completed run remains absent even if it has a late failed
+    observation.
+  - Results retain failure receipt and obligation context for diagnosis.
+  - Enumeration performs no retry, state transition, or cleanup.
+- **Data growth and scale**: Failed history is unbounded and R2 defines no
+  pagination or stable ordering. Consumers cannot treat this as a
+  high-volume render surface.
+- **Concurrency behavior**: A concurrently failing run may appear in this
+  invocation or the next, but a query never returns a half-terminal row.
+- **Edge cases**: No failed runs returns empty. Duplicate failed
+  observations do not duplicate a run in the result.
 
-### 9. Resume old obligated runs explicitly
+### 9. Explicitly resume old obligated runs
 
-- **Latency**: This is boot/recovery work, not a user-interaction operation.
-  Enumeration and dispatch time may scale with pending backlog. Handler
-  completion remains asynchronous through the same runner behavior as original
-  execution.
-- **Throughput**: Invoked once at each server boot after runtimes bind and may
-  also be invoked explicitly. Work scales with pending entries older than the
-  grace threshold.
+- **Latency**: Boot/recovery latency may scale with the current pending
+  backlog. Handler completion remains asynchronous through the same runner
+  path.
+- **Throughput**: Once per boot after runtime binding, plus explicit
+  operator invocation. Work scales with pending entries strictly older than
+  the grace threshold.
 - **Consistency/correctness invariants**:
+  - Default grace is 60,000 ms.
   - Only obligated runs strictly older than the grace window are resumed.
-  - Young obligated runs remain pending and are not executed.
-  - Completed and failed runs are never re-executed.
-  - Re-execution uses the same handler/outcome path as original execution.
-  - The sweep does not create a new emission id or run id.
-  - One summary log line reports resumed, pending, and failed-terminal counts.
-  - No timer/backoff loop is installed.
-- **Data growth and scale**: Read volume is proportional to current pending
-  entries. Repeated sweeps do not add one run per attempt.
+  - Young obligated, completed, and failed runs are not executed.
+  - Recovery reuses the original run id, emission id, retained payload,
+    handler, and observation path.
+  - Starting recovery does not mint a run or change obligated status by
+    itself.
+  - One `[CASCADE][SWEEP]` line reports resumed count, pending count, and
+    failed-terminal count.
+  - No timer, repeated loop, or backoff policy is installed.
+- **Data growth and scale**: Enumeration cost tracks pending, not total run
+  history. Repeated sweeps create no attempt-history entity in R2.
 - **Concurrency behavior**:
-  - Multiple server JVMs may sweep the same run concurrently.
-  - A normal handler and a sweep may overlap.
-  - Duplicate execution is tolerated by the handler; the run outcome still
-    obeys first-terminal-wins.
+  - Two JVM boots may resume the same run.
+  - A sweep may overlap the original handler or another sweep.
+  - First-terminal-wins and handler idempotency, not claiming/locking,
+    preserve correctness.
 - **Edge cases**:
-  - Empty pending produces zero resumed and a valid summary.
-  - At exactly `age == grace-ms`, “older than” means not yet eligible.
-  - `grace-ms = 0` admits only entries whose obligation time is strictly
-    earlier than the sweep's comparison instant.
-  - Negative, non-numeric, or overflowed grace values are invalid input rather
-    than a request to sweep everything.
-  - Missing retained obligation data is corrupt run truth: log/refuse that
-    candidate without inventing a handler call.
+  - Empty pending yields zero resumed and a valid summary.
+  - At `age == grace-ms`, the run is not yet eligible.
+  - With zero grace, only obligations strictly earlier than the comparison
+    instant are eligible.
+  - Negative, nonnumeric, or overflowed grace is invalid input, not “resume
+    everything.”
+  - Missing retained data or an unresolvable handler cannot be replaced with
+    guessed work.
+  - A poisoned failed fixture remains unexecuted because failed is terminal.
 
-### 10. Emit episode-turn-closed before the terminal turn-cell write
+### 10. Emit `:episode/turn-closed`
 
-- **Latency**: This occurs in the turn-end waiter, before the existing terminal
-  status write. It may pay the durable obligation acknowledgement latency but
-  not handler latency. Cascade unavailability is total and cannot strand the
-  turn-end path.
-- **Throughput**: One emission attempt per terminal close observation. Volume
-  scales with episode turns, not transcript lines.
+- **Latency**: Runs on the turn-end waiter before the existing terminal
+  turn-cell write. It may pay bounded obligation-ack latency, never handler
+  latency. Cascade unavailability remains total so terminal turn handling
+  can continue.
+- **Throughput**: One emission attempt per terminal close observation,
+  scaling with turns rather than stream lines.
 - **Consistency/correctness invariants**:
-  - Emission occurs before the `:open` to terminal cell write.
-  - The payload contains exactly the bounded close-time facts:
-    `turn-id`, `terminal-status`, `exit-code`, `duration-ms`, `episode-id`,
-    `fresh?`, `seed?`, `thread-id`, `conversation-id`, `cwd`, `time-ms`, and
-    close-time `jsonl-exists?`.
-  - It never contains `:lines`.
-  - Emission is unconditional with respect to episode-retry eligibility. The
-    handler, not the emitter, declines.
-  - If the process dies after obligation acknowledgement but before the turn
-    cell write, recovery remains correct using the emission payload.
-  - Failure to emit degrades to today's turn-closing behavior and is logged; it
-    does not suppress the terminal cell write.
-- **Data growth and scale**: One bounded emission/run identity per distinct
-  `(turn-id, terminal-status)` and matching durable row.
-- **Concurrency behavior**: Replayed close handling for the same terminal
-  result re-derives the same identity. A conflicting terminal result is a
-  separate emission and may execute concurrently.
+  - The emission occurs before the `:open -> terminal` turn-cell overwrite.
+  - Its bounded payload is exactly:
+    `{:turn-id :terminal-status :exit-code :duration-ms :episode-id
+    :fresh? :seed? :thread-id :conversation-id :cwd :time-ms
+    :jsonl-exists?}`.
+  - `:jsonl-exists?` is observed at close time through
+    `episode-jsonl-file`.
+  - The payload contains no `:lines`.
+  - Emission is unconditional with respect to episode-retry eligibility.
+    Eligibility belongs to the handler head.
+  - A replay of the same close derives the same emission/run.
+  - If the JVM dies after obligation acknowledgement and before the turn
+    status write, recovery remains valid from the payload.
+  - If emission fails, the failure is logged and the existing terminal
+    cell write still proceeds.
+- **Data growth and scale**: One bounded run identity per matching durable
+  row and distinct `(turn-id, terminal-status)`.
+- **Concurrency behavior**: Replayed close processing converges. Different
+  terminal statuses are separate emissions that may execute concurrently.
 - **Edge cases**:
-  - The file may appear after the close-time observation; the handler must
-    re-check.
-  - The terminal cell write may never happen after a successful emission; the
-    repair is still valid.
-  - The terminal cell may already be visible because of replay; terminal run
-    convergence is unaffected.
+  - The jsonl file may appear after close-time observation; execution must
+    re-check it.
+  - The terminal cell write may never land after a successful obligation;
+    the repair remains valid.
+  - An already-visible terminal cell does not change emission identity.
+  - `:complete` is a healthy close and is expected to be declined by the
+    repair handler.
 
 ### 11. Execute the episode-retry handler
 
-- **Latency**: Asynchronous relative to turn closure. The durable request it
-  issues must be acknowledged before runtime cleanup; seconds are tolerable,
-  but no unbounded payload work or transcript scan belongs here.
-- **Throughput**: Executions scale with failed/timeout fresh turns without a
-  jsonl file, plus duplicate/recovery attempts. Healthy turn closures still
-  invoke the handler but decline cheaply.
+- **Latency**: Asynchronous relative to turn closure. The durable repair
+  request is acknowledged before runtime cleanup. Seconds may be tolerable,
+  but transcript/jsonl content scanning is not.
+- **Throughput**: One invocation per run execution attempt, including cheap
+  declines, duplicates, and recovery re-execution.
 - **Consistency/correctness invariants**:
-  - The handler declines with a bounded `:skipped` receipt unless status is
-    failed or timeout, the episode was fresh, and no jsonl existed at close.
-  - Immediately before repair it resolves the file from execution-time
-    `(cwd, episode-id)` and declines if it now exists.
-  - Durable defunct truth is requested and acknowledged before runtime lane
-    cleanup.
-  - All durable value bytes derive from the emission payload; `:marked-at-ms`
-    is the turn's `:time-ms`, never replay-time wall clock.
-  - The actor is the system actor, never the user actor.
-  - The marker has its own import identity and never overwrites or reuses the
-    turn cell's identity.
-  - Only after durable repair acceptance does the handler compare-and-remove
-    this JVM's lane entry, and only if it still names the dead episode id.
-  - A normal `:skipped` return is a completed run with a skipped receipt; a
-    thrown/failed repair is a failed run.
-- **Data growth and scale**: At most one durable defunct fact per episode id;
-  replays are journaled no-ops. No transcript or jsonl contents are stored in
-  the run or marker.
+  - Head-decline unless terminal status is failed or timeout, `fresh?` is
+    truthy, and close-time `jsonl-exists?` is false.
+  - A head decline returns bounded `:skipped` and performs no marker or
+    runtime write.
+  - An initially eligible execution re-resolves the jsonl file from payload
+    `(cwd, episode-id)` immediately before repair.
+  - File-present at execution returns `:skipped`.
+  - File still absent triggers the system-authored durable marker request.
+  - Durable request acceptance/journaled convergence precedes runtime
+    compare-and-remove.
+  - The marker's identity and every value byte derive from the emission
+    payload.
+  - Runtime cleanup is limited to this JVM and conditional on the current
+    entry naming the dead episode id.
+  - Normal return, including skip or a harmless compare no-op, is completed.
+    A thrown/rejected repair is failed.
+- **Data growth and scale**: Eligible distinct failures append one import
+  identity each; duplicate execution of the same transition is a journaled
+  no-op. No file contents enter run or marker truth.
 - **Concurrency behavior**:
-  - Duplicate handlers in one or several JVMs may issue the same durable
-    request; identical bytes converge.
-  - Each JVM may clean only its own runtime atom.
-  - A JVM whose atom already moved to a newer episode does not remove it.
+  - Duplicate handlers may issue the same durable request.
+  - Later eligible failure of the same episode id issues a different
+    transition-scoped request and advances the one marker.
+  - Each JVM can mutate only its own runtime atom.
+  - A different current episode id is never removed by an old repair.
 - **Edge cases**:
-  - `:completed`, cancellation-like statuses outside failed/timeout,
-    non-fresh, or file-present-at-close cases decline.
-  - File absent at close but present at execution declines.
-  - File existence check failure must be total and conservative: it cannot
-    establish a defunct marker on an unverified assumption of absence.
-  - A fingerprint conflict is not a successful repair; runtime cleanup cannot
-    proceed as though the durable marker converged.
-  - Process death after durable marker acceptance but before runtime cleanup is
-    safe because adoption consults durable truth.
-  - Process death after both handler effects but before outcome observation is
-    safe because a later execution converges and re-observes an outcome.
+  - Healthy, non-fresh, present-at-close, or present-at-execution cases
+    complete skipped.
+  - File-check failure cannot be treated as proven absence; it must not
+    establish a defunct marker from an unverified assumption.
+  - Fingerprint conflict is not successful convergence; runtime cleanup
+    cannot proceed as though durable repair landed.
+  - Process death after marker acceptance but before cleanup is safe because
+    durable fallback filtering survives JVM death.
+  - Process death after both effects but before the completed observation is
+    safe because re-execution converges and can observe completion again.
 
-### 12. Upsert the durable episode-chain-defunct marker
+### 12. Upsert the durable defunct transition and marker
 
-- **Latency**: This is an acknowledged durable request in the handler path.
-  It is not on the original turn's response path.
-- **Throughput**: One attempted request per eligible execution, with duplicates
-  converging on the same import identity.
+- **Latency**: An acknowledged durable request on the handler path, not the
+  original turn-response path.
+- **Throughput**: One attempted request per eligible execution. Unique
+  accepted writes scale with eligible failure transitions, not duplicate
+  attempts.
 - **Consistency/correctness invariants**:
-  - The marker value is exactly `world-id`, `lane-id`, `episode-id`, and
-    payload-derived `marked-at-ms`.
-  - Identical identity and bytes are accepted as a journaled no-op.
-  - Same identity with different bytes is a fingerprint conflict, never an
-    overwrite.
+  - The actor is exactly the `:system` actor
+    `"system:episode-retry/v1"`.
+  - The request rides the existing hint-only `imp:ep:` import lane; no
+    kernel vocabulary changes.
+  - The import identity is transition-scoped from episode id, turn id, and
+    terminal status.
+  - The projected order key is stable per episode id.
+  - The projected kind is `:episode-chain-defunct`.
+  - The value is exactly
+    `{:world-id :lane-id :episode-id :marked-at-ms}`, with marked time from
+    the turn payload.
+  - Replaying one transition is fingerprint-identical and journaled as a
+    no-op.
+  - A later eligible transition for the same episode id has a new import
+    identity and advances the same projected cell.
+  - A replay of an earlier, already-journaled transition after that advance
+    is still a journal no-op and cannot regress the projected marker.
+  - Different eligible terminal statuses for the same turn have distinct
+    import identities but equal marker value bytes/time; either arrival
+    order has the same visible marker.
   - Existing turn cells are byte-untouched.
-  - Unasked projection readers do not surface the new entry kind.
-- **Data growth and scale**: One marker identity per episode id. The number of
-  markers grows with distinct defunct episodes and is not deleted by R2.
-- **Concurrency behavior**: Concurrent identical requests converge. A
-  conflicting writer loses via existing fingerprint rules rather than
-  last-write-wins.
-- **Edge cases**: Missing world/lane/episode/time values make the request
-  invalid. Reusing a lane id later does not erase the historical marker; the
-  time-scoped adoption rule prevents that marker from poisoning newer turns.
-  A later eligible failure of a revalidated same-id episode is the unresolved
-  contract fork recorded below.
+  - Readers not asking for the new entry kind remain unchanged.
+- **Data growth and scale**: One visible marker cell per episode id; one
+  journal identity per distinct eligible failure transition. Journal growth
+  is unbounded over time and no R2 cleanup exists.
+- **Concurrency behavior**:
+  - Same-transition requests converge exactly.
+  - A causally later same-id transition advances the one marker.
+  - The later transition is lawful only after the prior marker was visible
+    enough for adoption to mint/revalidate a new fresh attempt; therefore
+    its advancement is causally ordered, not last-write luck.
+- **Edge cases**:
+  - Missing world, lane, episode, turn, terminal status, or marked time makes
+    the request invalid.
+  - Same transition identity with different bytes is a durable fingerprint
+    conflict and does not overwrite.
+  - A later turn with time greater than the marker is deliberately not
+    poisoned by the old marker.
+  - A second eligible failure of the same episode id must not reuse the
+    first failure's import identity.
 
 ### 13. Compare-and-remove the runtime lane entry
 
-- **Latency**: In-memory and immediate after durable marker acknowledgement.
-- **Throughput**: At most one compare-and-remove attempt per eligible handler
-  execution in that JVM.
+- **Latency**: An immediate in-memory operation after durable marker
+  acknowledgement.
+- **Throughput**: At most one attempt per eligible handler execution in that
+  JVM.
 - **Consistency/correctness invariants**:
-  - Remove only when the current lane entry still names the payload's dead
-    episode id.
+  - Removal occurs only when the current lane entry's episode id equals the
+    failed payload episode id.
   - Missing entry is a successful no-op.
-  - A different/newer episode entry is preserved.
-  - The operation cannot affect another JVM's atom.
-- **Data growth and scale**: No durable growth; removal reduces or preserves
-  bounded runtime state.
-- **Concurrency behavior**: The compare and removal are one conditional
-  runtime transition. Competing local updates cannot be erased merely because
-  the lane key matches.
-- **Edge cases**: A swept duplicate in a fresh JVM sees an empty atom and does
-  nothing. A local lane that advanced between durable repair and cleanup keeps
-  the advanced entry.
-
-### 14. Resolve the current episode through the adoption read
-
-- **Latency**: This is on the next-turn decision path. It should preserve the
-  existing interactive behavior; additional marker filtering must not turn a
-  bounded lane read into an unbounded history scan.
-- **Throughput**: One resolution per episode turn attempt.
-- **Consistency/correctness invariants**:
-  - Runtime warm state remains a hint, not a replacement for durable adoption
-    truth.
-  - Durable fallback excludes a turn cell when its episode id has a defunct
-    marker and `cell.time-ms <= marked-at-ms`.
-  - A later cell for the same episode id with
-    `cell.time-ms > marked-at-ms` is adoptable again.
-  - Filtering happens only at the read layer; pure episode-decision semantics
-    do not change.
-  - Marker-read failure degrades to today's exact adoption behavior rather
-    than failing the turn path.
-- **Data growth and scale**: The dominant access remains the lane's relevant
-  turn/marker history. The read must not scan unrelated conversations.
-- **Concurrency behavior**: A read racing marker creation may see pre-marker
-  behavior once; after marker visibility, old cells are excluded. Runtime
-  cleanup racing this read is safe because durable marker truth is decisive on
-  the fallback path.
+  - An entry naming a different episode id is preserved.
+  - No other JVM's atom is visible or mutated.
+  - The compare and removal are one conditional transition.
+- **Data growth and scale**: No durable growth. The per-JVM lane map remains
+  bounded by active lanes.
+- **Concurrency behavior**:
+  - A concurrent local stamp with a different episode id wins preservation.
+  - A newer re-minted entry with the same episode id is indistinguishable by
+    the contract's compare key and may be removed; its already-durable later
+    turn cell remains adoptable because its time is beyond the old marker.
+  - Duplicate cleanup after a prior removal is harmless.
 - **Edge cases**:
-  - With no marker, behavior is unchanged.
-  - With all candidate cells filtered, resolution behaves as no adoptable
-    episode and the next turn mints fresh.
-  - A later valid turn re-establishes adoption without deleting the marker.
-  - Marker-read failure must not be misreported as proof that no marker exists;
-    it is a deliberate total fallback.
+  - A fresh JVM sees an empty atom.
+  - Process death makes the atom disappear without changing durable repair.
+  - Runtime cleanup must not run after a rejected marker request.
 
-### 15. Invoke recovery during server boot
+### 14. Resolve the current episode through durable adoption
 
-- **Latency**: Invocation occurs after all required runtimes bind. It must not
-  be a namespace-load side effect or a permanent boot poison.
-- **Throughput**: Exactly one explicit invocation per server boot. Multiple
-  server JVMs each legitimately invoke their own sweep against shared truth.
+- **Latency**: This is on the next-turn decision path and must preserve
+  interactive latency. Marker filtering cannot become an unbounded scan
+  across unrelated conversations.
+- **Throughput**: One resolution per turn attempt.
 - **Consistency/correctness invariants**:
-  - Classload alone starts no runtime and performs no sweep.
-  - A lazily booted runtime handle is total even after boot failure; dereference
-    cannot cache and rethrow a permanent exception on every turn.
-  - Boot invocation uses the same grace and recovery semantics as an explicit
-    sweep.
-- **Data growth and scale**: Boot does not create new run identities merely by
-  enumerating them.
-- **Concurrency behavior**: Simultaneous boots may duplicate handler
-  execution, which the durable row contract already tolerates.
-- **Edge cases**: Runtime-unavailable boot logs failure and leaves obligations
-  pending for a future explicit/boot sweep; it does not run handlers before
-  their context exists.
+  - Existing warm runtime entry precedence remains unchanged.
+  - When warm state is absent, durable turn candidates are restricted to
+    the current lane/thread before choosing the newest.
+  - A candidate turn cell is excluded when its episode id matches a defunct
+    marker and `cell.time-ms <= marker.marked-at-ms`.
+  - A later cell for that episode id with
+    `cell.time-ms > marker.marked-at-ms` is eligible again.
+  - Filtering occurs before taking `last`.
+  - If all candidates are filtered, the pure decision receives no adoptable
+    turn and mints fresh under existing rules.
+  - The read layer changes; `decide-episode` does not.
+  - Marker-read failure degrades to today's exact adoption behavior rather
+    than failing the turn.
+- **Data growth and scale**: The dominant scope is one conversation/lane's
+  turn and marker rows. Unrelated containers are never scanned.
+- **Concurrency behavior**:
+  - A read racing first marker visibility may observe old behavior once.
+  - After visibility, old/equal-time cells are excluded.
+  - A marker advancing from `t1` to `t2` widens filtering only through
+    `t2`; it does not poison cells after `t2`.
+  - Runtime cleanup racing fallback is harmless because fallback uses
+    durable truth.
+- **Edge cases**:
+  - No marker means exact existing behavior.
+  - No remaining turn means fresh creation.
+  - A later same-id cell revalidates that id without deleting the marker.
+  - A marker-read failure is an explicit total fallback, not evidence that
+    no marker exists.
 
-## State transitions and crash windows
+### 15. Stamp the runtime lane at spawn
+
+- **Latency**: Immediate and in-memory; it occurs before invoking the CLI
+  process.
+- **Throughput**: Once per spawned turn.
+- **Consistency/correctness invariants**:
+  - The lane key maps to the selected episode id and current turn time.
+  - The stamp occurs before spawn, preserving the existing strand mechanism
+    that R2 repairs rather than rewriting.
+  - It creates no durable episode or run truth.
+- **Data growth and scale**: One bounded runtime cell per active lane.
+- **Concurrency behavior**: A later local stamp may replace an older cell.
+  Repair cleanup may remove it only under the episode-id comparison
+  described above.
+- **Edge cases**:
+  - Spawn may fail after the stamp, leaving the dead warm hint until repair.
+  - The same episode id may be re-minted after durable filtering; the new
+    stamp uses the later turn time.
+
+### 16. Invoke recovery during server boot
+
+- **Latency**: Invocation occurs after required runtimes bind. It must not be
+  a load-time effect or a permanent boot poison.
+- **Throughput**: Once explicitly per server boot; multiple server JVMs each
+  legitimately invoke against shared truth.
+- **Consistency/correctness invariants**:
+  - Fresh classload starts no runtime and performs no sweep.
+  - Boot uses the same explicit recovery operation and grace semantics.
+  - Runtime construction is total-with-retry; a failed attempt is not cached
+    as a throwing delay.
+  - Runtime unavailability leaves obligations pending for a later boot or
+    explicit invocation.
+- **Data growth and scale**: Boot enumeration alone creates no run or
+  attempt-history entity.
+- **Concurrency behavior**: Simultaneous boots may execute the same
+  obligation, which is already part of the durable row contract.
+- **Edge cases**:
+  - Sweep never runs before handler context is available.
+  - Boot failure is logged/contained and cannot make every later turn
+    rethrow a cached exception.
+
+### 17. Deploy, redeploy, and restart the cascade-log organ
+
+- **Latency**: Deployment is an operator/ops operation measured in settle
+  time, not an interactive request. Status must be observed to terminal
+  RUNNING rather than inferred from CLI process exit.
+- **Throughput**: Rare package/deploy operations. This is the sixth module,
+  not a per-turn action.
+- **Consistency/correctness invariants**:
+  - First deployment is additive: the five existing modules remain RUNNING.
+  - The first-deploy “module absent” precondition is one-shot and is not a
+    valid permanent harness invariant.
+  - The post-package invariant is module present, RUNNING, and cleanly
+    redeployable.
+  - Worker restart preserves obligations, run state, pending state, and
+    consumed offsets; it resumes native durable state rather than rebuilding
+    it by replaying all depot history.
+  - Deployment/classload itself runs no handler or sweep.
+- **Data growth and scale**: Module lifecycle changes do not duplicate
+  durable run identity or erase history.
+- **Concurrency behavior**: Server JVMs may remain connected while a worker
+  restarts; callers must observe total unavailability rather than corrupt
+  fallback state.
+- **Edge cases**:
+  - Real-cluster deploy failure or license/node-count uncertainty is a
+    package stop, not an alternate implementation path.
+  - Existing-module status regression is a failed deploy gate.
+
+## Required state transitions
 
 ### Durable run lifecycle
 
-1. No run exists.
-2. A matching durable dispatch writes an obligation.
-3. Only after the obligation is acknowledged and readable does the run become
-   externally dispatchable and the handler start.
-4. While no terminal observation is durable, the run remains obligated and
-   appears pending.
-5. Handler return records completed; handler throw records failed.
-6. The first terminal outcome permanently removes pending membership.
-7. Replayed obligations cannot leave terminality. Later conflicting outcomes
-   only increase the late-observation count.
+1. No run exists for `(cascade-id, emission-id)`.
+2. A matching durable dispatch appends the bounded obligation.
+3. Acknowledgement means the run is readable as obligated and pending.
+4. Only after step 3 may the handler start and the durable dispatch receipt
+   exist.
+5. Until a terminal observation lands, the run remains obligated and may
+   be recovered after grace.
+6. Handler return records completed; handler throw records failed.
+7. The first terminal observation permanently removes pending membership.
+8. Later identical observations converge; later conflicting observations
+   increment only the late count.
+9. Replayed obligations after step 7 cannot resurrect the run.
 
-Crash/failure placement has the following required outcomes:
+### Episode-retry eligibility lifecycle
 
-- **Before obligation acknowledgement**: no handler effect, no durable receipt;
-  caller continues after a total logged failure.
-- **After obligation acknowledgement, before handler start**: obligated and
-  pending; eligible for recovery after grace.
-- **During handler before durable marker acceptance**: obligated until an
-  outcome is observed; a throw may make it terminal failed.
-- **After marker acceptance, before runtime cleanup**: durable adoption is
-  already healed; re-execution converges the marker and retries harmless local
-  cleanup.
-- **After runtime cleanup, before completed observation**: run is still
-  obligated; re-execution converges the marker and no-ops the local cleanup.
-- **After first terminal, before an obligation replay**: replay is ignored for
-  state purposes; terminal status and empty pending membership remain.
+1. Every turn close emits regardless of eligibility.
+2. Healthy status, non-fresh episode, or file-present-at-close returns
+   completed/skipped.
+3. Failed/timeout + fresh + file-absent-at-close reaches execution-time
+   re-verification.
+4. File-present-at-execution returns completed/skipped.
+5. File still absent issues the transition-scoped durable defunct request.
+6. Accepted/journaled durable repair precedes local runtime cleanup.
+7. Normal cleanup/no-op return completes the run.
+8. On later adoption, turn cells at or before the marker are filtered.
 
-### Episode-retry lifecycle
+### Ruled-B second-eligible-failure lifecycle
 
-1. Every turn closure emits unconditionally.
-2. Healthy/non-fresh/file-present cases complete with a skipped receipt and
-   perform no repair.
-3. Failed/timeout + fresh + absent-at-close proceeds to execution-time file
-   verification.
-4. File now present completes skipped.
-5. File still absent requests the deterministic defunct marker.
-6. Marker acceptance precedes compare-and-remove of the matching local runtime
-   lane entry.
-7. Successful handler return completes the run.
-8. On the next episode resolution, old/equal-time cells for that episode are
-   filtered; no adoptable cell means fresh episode creation.
-9. A later successful turn cell with a greater time makes that episode id
-   adoptable again.
+1. A fresh episode id `E` fails on turn `T1` with terminal status `S1`, no
+   jsonl file, and turn time `t1`.
+2. Emission `EM1` and run `R1` are derived from `(T1, S1)`.
+3. Repair imports transition identity
+   `I1 = sha("episode-defunct " E " " T1 " " (name S1))` and writes the
+   one marker cell `ep-chain:<sha8(E)>` with `marked-at-ms=t1`.
+4. Replays of `R1/I1` are fingerprint-identical no-ops.
+5. Adoption filters all `E` turn cells at or before `t1`. With no other
+   adoptable turn, existing pure rules mint a fresh attempt; in the lane-id
+   case this may intentionally re-mint the same episode id `E`.
+6. The new turn `T2` has `t2 > t1`. Its durable turn cell revalidates `E`
+   because the marker is time-scoped, not episode-id-forever.
+7. If that fresh same-id attempt fails eligibly with terminal status `S2`
+   and still has no jsonl, it derives a new emission `EM2`, new run `R2`,
+   and new transition import
+   `I2 = sha("episode-defunct " E " " T2 " " (name S2))`.
+8. `I2` is accepted as a new import and overwrites the same `ep-chain:`
+   projection cell with `marked-at-ms=t2`.
+9. A late replay of `I1` is already journaled and therefore cannot regress
+   the cell to `t1`.
+10. Adoption now filters `E` cells through `t2`; the lane can mint fresh
+    again. The repair is therefore reusable across eligible lifecycle
+    transitions, never single-use.
 
-### Required refusals preserved
+### Required crash/failure outcomes
 
-- No clock pulse, timer, scheduler, retry backoff, or automatic resweep of
-  failed runs.
+- **Before obligation acknowledgement**: no handler effect and no durable
+  success receipt; caller continues after a logged total failure.
+- **After obligation acknowledgement, before handler start**: run remains
+  obligated/pending and is recoverable after grace.
+- **After handler start, before marker acceptance**: no durable repair is
+  assumed; throw may terminalize failed.
+- **After marker acceptance, before local cleanup**: durable fallback is
+  healed; duplicate execution journals a no-op and retries harmless cleanup.
+- **After cleanup, before completed observation**: run is still obligated;
+  recovery repeats only idempotent/conditional effects.
+- **After close emission acknowledgement, before terminal turn-cell
+  overwrite**: run/repair may complete while the turn cell remains open.
+- **After first terminal, before obligation replay**: terminal status and
+  empty pending membership remain unchanged.
+- **File appears between close and handler execution**: execution-time
+  re-verification completes skipped and writes no marker.
+- **Two JVMs execute one run**: durable requests converge, local cleanup is
+  JVM-scoped, and first terminal wins.
+
+## Required refusals
+
+- No clock pulse, scheduler, timer, automatic sweep loop, or retry backoff.
 - No automatic resident respawn.
+- No retry of terminal failed runs.
 - No migration of autotag to durable execution.
 - No durable/editable declaration table and no rows-as-material.
-- No cross-boundary resume.
-- No new relation kind and no change to existing organ-owned durable
-  vocabulary, serve contracts, or cell shapes.
-- No external handler effect in the durable run-truth write path.
-- No change to pure episode-decision behavior.
+- No cross-boundary `--resume`.
+- No changes to relation kinds, existing module/depot/PState/serve
+  contracts, or existing durable cell shapes.
+- No handler side effect before acknowledged obligation truth.
+- No topology/truth-write path that calls a handler.
+- No runtime handle or `:lines` in durable payloads.
+- No semantic change to `decide-episode`.
 
 ## Entity State × Write Matrix
 
-All related reads are listed in every matrix row. “Run read” means the single
-run query; “pending read” means pending enumeration; “failed read” means failed
-enumeration; “sweep read” means eligibility in explicit recovery.
+Every related read is listed for every row. “Run read” means the one-run
+query; “pending read” means pending enumeration; “failed read” means failed
+enumeration; “sweep read” means recovery eligibility.
 
-### Entity: durable cascade run aggregate
+### Entity A: durable cascade run aggregate
 
-This entity includes the one run row and its pending-membership truth because
-the contract requires them to change as one observable transition. The matrix
-therefore covers writes to both, not merely the status field.
+The aggregate is the one run's retained obligation/outcome plus its pending
+membership, because those facts must change as one observable transition.
 
 States:
 
-- **R0 absent**: no acknowledged obligation exists.
-- **R1 obligated-young**: acknowledged and non-terminal, but not older than
-  the grace window.
-- **R2 obligated-old**: acknowledged, non-terminal, and strictly older than
-  the grace window.
-- **R3 completed**: completed was the first terminal outcome.
-- **R4 failed**: failed was the first terminal outcome.
+- **R0 absent**: no acknowledged obligation.
+- **R1 obligated-young**: acknowledged/nonterminal and not strictly older
+  than grace.
+- **R2 obligated-old**: acknowledged/nonterminal and strictly older than
+  grace.
+- **R3 completed**: completed won first terminal.
+- **R4 failed**: failed won first terminal.
 
 Write operations:
 
@@ -596,329 +776,477 @@ Write operations:
 
 #### R0 absent × W1 obligation
 
-- **Run read**: one obligated run with retained obligation data.
-- **Pending read**: contains the run once.
-- **Failed read**: does not contain the run.
-- **Sweep read**: ineligible until its stored obligation time becomes older
-  than grace.
+- **Run read**: one obligated run with retained obligation data and the
+  first obligation time.
+- **Pending read**: contains the run exactly once.
+- **Failed read**: absent.
+- **Sweep read**: ineligible until strictly older than grace.
 
 #### R0 absent × W2 completed observation
 
-- **Run read**: remains not-found; an orphan observation is malformed because
-  the public protocol requires acknowledged obligation before handler call.
+- **Run read**: remains not-found; orphan observation is malformed and does
+  not invent an obligation.
 - **Pending read**: absent.
 - **Failed read**: absent.
 - **Sweep read**: absent.
 
 #### R0 absent × W3 failed observation
 
-- **Run read**: remains not-found for the same fail-closed orphan rule.
+- **Run read**: remains not-found under the same orphan rule.
 - **Pending read**: absent.
-- **Failed read**: absent; failure history cannot be fabricated without the
-  obligation identity/context.
+- **Failed read**: absent; failure history is not fabricated without its
+  obligation context.
 - **Sweep read**: absent.
 
 #### R1 obligated-young × W1 obligation
 
-- **Run read**: still one obligated run; duplicate delivery cannot create a
-  second identity or terminalize it.
-- **Pending read**: still contains the run exactly once.
+- **Run read**: remains one obligated run with its first authoritative
+  obligation context/time.
+- **Pending read**: contains the run exactly once.
 - **Failed read**: absent.
-- **Sweep read**: eligibility is computed from the one stored obligation time;
-  no duplicate pending entry exists.
+- **Sweep read**: remains based on the first obligation time; replay does
+  not postpone age.
 
 #### R1 obligated-young × W2 completed observation
 
-- **Run read**: completed with this first terminal receipt.
+- **Run read**: completed with this first terminal receipt/time.
 - **Pending read**: absent.
 - **Failed read**: absent.
 - **Sweep read**: absent permanently.
 
 #### R1 obligated-young × W3 failed observation
 
-- **Run read**: failed with this first terminal receipt.
+- **Run read**: failed with this first terminal receipt/time.
 - **Pending read**: absent.
 - **Failed read**: contains the run once.
-- **Sweep read**: absent permanently; failed is never retried.
+- **Sweep read**: absent permanently.
 
 #### R2 obligated-old × W1 obligation
 
-- **Run read**: still one obligated run; replay cannot duplicate it.
-- **Pending read**: still contains the run exactly once.
+- **Run read**: remains the one obligated run; identity/context do not
+  duplicate.
+- **Pending read**: contains the run exactly once.
 - **Failed read**: absent.
-- **Sweep read**: remains governed by the single current stored obligation
-  time; concurrent handler execution is allowed, but duplicate pending
-  identities are not.
+- **Sweep read**: remains eligible from the original age; replay does not
+  make it young.
 
 #### R2 obligated-old × W2 completed observation
 
-- **Run read**: completed with this first terminal receipt.
+- **Run read**: completed with this first terminal receipt/time.
 - **Pending read**: absent.
 - **Failed read**: absent.
-- **Sweep read**: absent; a sweep that enumerated it earlier may finish a
-  duplicate handler, whose later observation cannot change the winner.
+- **Sweep read**: absent; an already-started duplicate may finish, but its
+  observation cannot change the winner.
 
 #### R2 obligated-old × W3 failed observation
 
-- **Run read**: failed with this first terminal receipt.
+- **Run read**: failed with this first terminal receipt/time.
 - **Pending read**: absent.
 - **Failed read**: contains the run once.
-- **Sweep read**: absent; no subsequent sweep retries it.
+- **Sweep read**: absent; no later sweep retries failed.
 
 #### R3 completed × W1 obligation
 
-- **Run read**: unchanged completed outcome and receipt.
-- **Pending read**: absent; the run is not resurrected.
+- **Run read**: unchanged first completed outcome and retained obligation.
+- **Pending read**: absent; terminal is not resurrected.
 - **Failed read**: absent.
 - **Sweep read**: absent.
 
 #### R3 completed × W2 completed observation
 
-- **Run read**: unchanged first completed outcome; exact duplicate cannot
-  replace its receipt.
+- **Run read**: exact duplicate leaves the row/count unchanged; a
+  non-identical later completed observation preserves the first receipt and
+  is late.
 - **Pending read**: absent.
 - **Failed read**: absent.
 - **Sweep read**: absent.
 
 #### R3 completed × W3 failed observation
 
-- **Run read**: remains completed; conflicting-late count increases and the
-  first completed receipt remains authoritative.
+- **Run read**: remains completed with first receipt; late count increases.
 - **Pending read**: absent.
-- **Failed read**: absent because failed did not win terminality.
+- **Failed read**: absent because failure did not win.
 - **Sweep read**: absent.
 
 #### R4 failed × W1 obligation
 
-- **Run read**: unchanged failed outcome and receipt.
-- **Pending read**: absent; the run is not resurrected.
-- **Failed read**: still contains the run once.
+- **Run read**: unchanged first failed outcome and retained obligation.
+- **Pending read**: absent; terminal is not resurrected.
+- **Failed read**: contains the run once.
 - **Sweep read**: absent permanently.
 
 #### R4 failed × W2 completed observation
 
-- **Run read**: remains failed; conflicting-late count increases and the first
-  failed receipt remains authoritative.
-- **Pending read**: absent.
-- **Failed read**: still contains the run once.
-- **Sweep read**: absent.
-
-#### R4 failed × W3 failed observation
-
-- **Run read**: unchanged first failed outcome; exact duplicate cannot replace
-  its receipt.
+- **Run read**: remains failed with first receipt; late count increases.
 - **Pending read**: absent.
 - **Failed read**: contains the run once.
 - **Sweep read**: absent.
 
-### Entity: durable episode-chain-defunct marker aggregate
+#### R4 failed × W3 failed observation
 
-This entity includes the deterministic import/journal identity and the
-projected marker cell produced by the acknowledged request. The matrix covers
-both the request result and all related reads.
+- **Run read**: exact duplicate leaves the row/count unchanged; a
+  non-identical later failed observation preserves the first receipt and is
+  late.
+- **Pending read**: absent.
+- **Failed read**: contains the run once.
+- **Sweep read**: absent.
 
-States:
+### Entity B: defunct transition journal plus stable marker
 
-- **M0 absent**: no marker/import identity exists for the episode.
-- **M1 identical-present**: the deterministic identity exists with identical
-  marker bytes.
-- **M2 conflicting-present**: the deterministic identity exists with different
-  bytes, which is a fingerprint conflict.
+This aggregate includes transition-scoped import decisions and the one
+projected marker cell. They deliberately have different identity scopes.
 
-Write operation:
+States relative to the candidate **D1 defunct upsert**:
 
-- **D1 defunct upsert**: issue the system-authored durable request for the
-  payload-derived marker.
+- **M0 absent**: no marker and candidate transition not journaled.
+- **M1 same-current**: the candidate transition is already journaled with
+  identical bytes and is the current marker.
+- **M2 same-older**: the candidate transition is already journaled, but a
+  causally later transition has since advanced the current marker.
+- **M3 predecessor-current/new-later**: an earlier marker is current and the
+  candidate is a new, later eligible failure transition.
+- **M4 same-turn-new-status**: a marker for this turn time exists, but the
+  candidate has a different eligible terminal status and therefore a new
+  import identity with equal visible marker bytes.
+- **M5 fingerprint-conflict**: the candidate import identity exists with
+  different bytes.
 
 Related reads:
 
-- **Marker read**: the projection read that asks for defunct markers.
-- **Adoption read**: current-episode durable fallback.
-- **Unasked projection read**: any existing reader whose entry-kind filter does
-  not request the new kind.
-- **Run read**: the handler's durable run outcome after the request result is
-  observed.
+- **Import decision read**: accepted, identical journaled no-op, or rejected
+  conflict.
+- **Marker read**: projection read asking for the defunct kind.
+- **Adoption read**: durable fallback used by `current-episode!`.
+- **Unasked projection read**: existing reader not requesting the new kind.
+- **Run read**: the handler's run after the import result and remaining
+  local step are observed.
 
 #### M0 absent × D1 defunct upsert
 
-- **Marker read**: returns exactly one marker with system provenance and the
-  payload-derived value.
-- **Adoption read**: excludes matching episode turn cells at or before
-  `marked-at-ms`; later cells remain adoptable.
-- **Unasked projection read**: unchanged; the new marker is invisible.
-- **Run read**: may complete only after the request is accepted and local
-  compare-and-remove returns; if a later handler step throws, the durable marker
-  can exist beside a failed run.
+- **Import decision read**: accepted under the candidate's
+  transition-scoped identity.
+- **Marker read**: one system-authored marker at the candidate time.
+- **Adoption read**: excludes matching episode cells at or before that time
+  and permits later cells.
+- **Unasked projection read**: unchanged; marker remains invisible.
+- **Run read**: may complete after local cleanup/no-op; can remain obligated
+  across a crash or fail if a later handler step throws.
 
-#### M1 identical-present × D1 defunct upsert
+#### M1 same-current × D1 defunct upsert
 
-- **Marker read**: still returns the same one marker, byte-identical.
-- **Adoption read**: same time-scoped filtering as before; no widening.
+- **Import decision read**: fingerprint-identical journaled no-op.
+- **Marker read**: same one marker, byte-identical.
+- **Adoption read**: same filtering boundary; no widening or regression.
 - **Unasked projection read**: unchanged.
-- **Run read**: the replay may complete as a journaled no-op; no duplicate
-  marker or new run identity is created.
+- **Run read**: replay may complete after harmless cleanup; no new run or
+  import identity is created.
 
-#### M2 conflicting-present × D1 defunct upsert
+#### M2 same-older × D1 defunct upsert
 
-- **Marker read**: returns the pre-existing bytes; they are not overwritten.
-- **Adoption read**: follows the pre-existing durable marker, not the rejected
-  candidate.
+- **Import decision read**: fingerprint-identical journaled no-op for the
+  older transition.
+- **Marker read**: remains at the later transition's time; replay cannot
+  overwrite it backward.
+- **Adoption read**: retains the later filtering boundary.
 - **Unasked projection read**: unchanged.
-- **Run read**: the repair cannot claim a successful completed effect; the
-  conflict is surfaced as handler failure, and runtime cleanup does not proceed
-  as if convergence occurred.
+- **Run read**: the older run remains whatever terminal outcome first won;
+  the replay cannot create a new run or undo the later repair.
 
-### Entity: per-JVM runtime lane entry
+#### M3 predecessor-current/new-later × D1 defunct upsert
 
-States:
+- **Import decision read**: accepted as a new transition identity.
+- **Marker read**: still one cell, advanced to the later payload time.
+- **Adoption read**: now excludes matching cells through the later time and
+  permits cells after it.
+- **Unasked projection read**: unchanged.
+- **Run read**: the new run may complete after cleanup/no-op; the predecessor
+  run remains independently terminal.
 
-- **L0 absent**: this JVM has no entry for the lane.
-- **L1 dead-match**: this JVM's entry names the dead episode from the payload.
-- **L2 different-current**: this JVM's entry names another/newer episode.
+#### M4 same-turn-new-status × D1 defunct upsert
 
-Write operation:
+- **Import decision read**: accepted under the distinct terminal-status
+  transition identity.
+- **Marker read**: one cell with the same visible value/time bytes.
+- **Adoption read**: unchanged boundary because both eligible outcomes name
+  the same turn time.
+- **Unasked projection read**: unchanged.
+- **Run read**: the distinct run may complete independently; neither run
+  changes the other's first-terminal outcome.
 
-- **L-W1 compare-and-remove** with expected dead episode id.
+#### M5 fingerprint-conflict × D1 defunct upsert
+
+- **Import decision read**: rejected as fingerprint conflict.
+- **Marker read**: pre-existing marker bytes remain authoritative.
+- **Adoption read**: follows the pre-existing marker, not rejected bytes.
+- **Unasked projection read**: unchanged.
+- **Run read**: handler cannot report successful repair; runtime cleanup
+  does not proceed and a throw/failure observation can terminalize failed.
+
+### Entity C: per-JVM runtime lane entry
+
+States relative to the failed payload episode id:
+
+- **L0 absent**: no entry in this JVM.
+- **L1 dead-match**: entry names the failed episode and is the stranded
+  warm hint.
+- **L2 same-id-newer**: a later fresh turn has re-minted/stamped the same
+  episode id with a later turn time.
+- **L3 different-current**: entry names a different episode id.
+
+Write operations:
+
+- **L-W1 stamp**: existing spawn-time write of selected episode id/time.
+- **L-W2 compare-remove**: repair cleanup using the failed episode id.
 
 Related reads:
 
-- **Runtime entry read**: direct in-JVM lane lookup.
-- **Current-episode read**: the next episode resolution path.
-- **Durable marker read**: defunct projection truth.
-- **Run read**: durable outcome after handler completion/failure.
+- **Runtime read**: direct per-JVM lane lookup.
+- **Current-episode read**: warm-first episode resolution.
+- **Marker read**: durable defunct marker projection.
+- **Run read**: durable outcome of the repair handler.
 
-#### L0 absent × L-W1 compare-and-remove
+#### L0 absent × L-W1 stamp
 
-- **Runtime entry read**: remains absent.
-- **Current-episode read**: falls through to durable adoption; the defunct
-  marker filters the old episode and permits fresh creation.
-- **Durable marker read**: unchanged and present before this operation.
-- **Run read**: cleanup is a successful no-op; the handler may complete.
+- **Runtime read**: returns the newly selected episode/time.
+- **Current-episode read**: may use this warm hint under existing rules.
+- **Marker read**: unchanged.
+- **Run read**: unchanged; stamping is not a cascade outcome.
 
-#### L1 dead-match × L-W1 compare-and-remove
+#### L1 dead-match × L-W1 stamp
 
-- **Runtime entry read**: becomes absent.
-- **Current-episode read**: cannot resume from the removed warm hint; durable
-  fallback also filters the old episode, so the next attempt is fresh.
-- **Durable marker read**: unchanged and present.
-- **Run read**: handler may complete after successful conditional removal.
+- **Runtime read**: returns the newly stamped episode/time.
+- **Current-episode read**: uses the new warm value; if the id is re-minted
+  same-id, its later durable turn cell remains the restart fallback.
+- **Marker read**: unchanged and time-scoped.
+- **Run read**: unchanged.
 
-#### L2 different-current × L-W1 compare-and-remove
+#### L2 same-id-newer × L-W1 stamp
 
-- **Runtime entry read**: retains the different/newer episode.
-- **Current-episode read**: may use or validate that newer entry under existing
-  rules; the repair cannot roll it back.
-- **Durable marker read**: unchanged and scoped to the dead episode/time.
-- **Run read**: compare failure is a harmless no-op, not evidence that repair
-  failed.
+- **Runtime read**: returns the latest local stamp.
+- **Current-episode read**: follows that warm value.
+- **Marker read**: unchanged; later turn time remains beyond the older
+  marker.
+- **Run read**: unchanged.
 
-### Entity: episode turn cell at close
+#### L3 different-current × L-W1 stamp
 
-R2 does not alter the cell schema or the existing terminal-write semantics, but
-it adds a required write-order dependency, so the states are included.
+- **Runtime read**: returns the newly selected stamp according to the
+  existing last-spawn runtime behavior.
+- **Current-episode read**: follows that current warm entry.
+- **Marker read**: unchanged and scoped to the failed episode.
+- **Run read**: unchanged.
+
+#### L0 absent × L-W2 compare-remove
+
+- **Runtime read**: remains absent.
+- **Current-episode read**: falls through to durable adoption, where the
+  marker filters the dead cells.
+- **Marker read**: unchanged and already durable.
+- **Run read**: cleanup is a successful no-op; handler may complete.
+
+#### L1 dead-match × L-W2 compare-remove
+
+- **Runtime read**: becomes absent.
+- **Current-episode read**: cannot resume the dead warm hint; fallback
+  filters old/equal-time cells and can mint fresh.
+- **Marker read**: unchanged.
+- **Run read**: handler may complete after conditional removal.
+
+#### L2 same-id-newer × L-W2 compare-remove
+
+- **Runtime read**: becomes absent because the contract compares episode id,
+  not transition/time.
+- **Current-episode read**: falls back to durable cells; the newer cell's
+  time is greater than the old marker, so the same episode id remains
+  adoptable.
+- **Marker read**: unchanged; a later eligible failure advances it through a
+  new durable transition, not this runtime operation.
+- **Run read**: old repair cleanup is still a harmless local effect; it does
+  not erase the newer durable turn.
+
+#### L3 different-current × L-W2 compare-remove
+
+- **Runtime read**: preserves the different episode entry.
+- **Current-episode read**: may use/validate that different current episode
+  under existing rules.
+- **Marker read**: unchanged and scoped to the failed episode/time.
+- **Run read**: compare mismatch is a harmless no-op, not failed durable
+  repair.
+
+### Entity D: episode turn cell at close
+
+R2 does not alter the existing cell shape or import-key law. It adds a
+required ordering dependency to the terminal write.
 
 States:
 
-- **T0 open**: the turn has its durable pre-agent open cell.
-- **T1 same-terminal-present**: replay observes the already-written same
-  terminal result.
-- **T2 different-terminal-present**: another terminal result is already
-  represented for the turn under the existing turn-record identity law.
+- **T0 open**: the durable pre-agent turn cell exists.
+- **T1 same-terminal-present**: the same terminal result is already
+  represented.
+- **T2 different-terminal-present**: a different terminal result is already
+  represented under the existing status-scoped import law.
 
 Write operation:
 
-- **T-W1 terminal close write**, preceded by the unconditional close emission.
+- **T-W1 terminal close**: existing terminal cell write, now preceded by the
+  unconditional close emission.
 
 Related reads:
 
-- **Turn-record read**: existing turn history.
-- **Adoption read**: current-episode fallback over turn cells.
-- **Run read**: the cascade run derived from this close result.
-- **Defunct marker read**: episode-retry repair truth.
+- **Turn read**: existing turn-record history.
+- **Adoption read**: durable fallback over lane turn cells.
+- **Run read**: run derived from this close's terminal status.
+- **Marker read**: episode-retry repair projection.
 
-#### T0 open × T-W1 terminal close write
+#### T0 open × T-W1 terminal close
 
-- **Turn-record read**: sees the existing terminal representation if the write
-  lands; if the JVM dies after emission and before this write, it may still see
-  open while the run/repair proceeds.
-- **Adoption read**: uses terminal history subject to defunct-marker filtering.
-- **Run read**: the obligation is already acknowledged before this cell write
-  is attempted, or the total emission failure was logged with no durable
-  receipt.
-- **Defunct marker read**: may become present asynchronously for an eligible
-  failed/timeout close.
+- **Turn read**: sees terminal if the write lands; may still see open if the
+  JVM dies after emission and before this write.
+- **Adoption read**: reads the resulting turn subject to marker filtering.
+- **Run read**: obligation is already acknowledged before the terminal
+  write attempt, or total emission failure was logged with no durable
+  success receipt.
+- **Marker read**: may appear asynchronously only for an eligible close.
 
-#### T1 same-terminal-present × T-W1 terminal close write
+#### T1 same-terminal-present × T-W1 terminal close
 
-- **Turn-record read**: remains semantically the same under the existing
-  idempotency law.
-- **Adoption read**: unchanged except for any separately durable defunct marker.
-- **Run read**: same `(turn-id, terminal-status)` resolves to the same run and
-  converges.
-- **Defunct marker read**: identical repair execution resolves to the same
-  marker identity.
+- **Turn read**: remains semantically the same under existing idempotency.
+- **Adoption read**: unchanged except for separately durable marker truth.
+- **Run read**: same `(turn-id, terminal-status)` converges on the same run.
+- **Marker read**: same eligible repair transition journals a no-op; an
+  ineligible status writes no marker.
 
-#### T2 different-terminal-present × T-W1 terminal close write
+#### T2 different-terminal-present × T-W1 terminal close
 
-- **Turn-record read**: preserves the existing turn-record identity semantics;
-  R2 does not collapse different terminal statuses into one identity.
-- **Adoption read**: evaluates the resulting turn history and marker time scope
-  without changing pure decision rules.
-- **Run read**: the different terminal status produces a different emission
-  and run.
-- **Defunct marker read**: both runs may target the same episode marker cell;
-  each carries its own transition-scoped import identity (ruled 2026-07-27),
-  and their value bytes for the same turn are identical, so either order
-  converges on the same visible marker.
+- **Turn read**: preserves the existing status-scoped turn-record semantics;
+  R2 does not collapse terminal statuses.
+- **Adoption read**: evaluates whatever existing turn projection is visible,
+  then applies marker time filtering.
+- **Run read**: different status produces a different emission and run.
+- **Marker read**: if both statuses are eligible failed/timeout outcomes,
+  they have distinct defunct transition identities but the same marker
+  time/value; if one is healthy, its handler completes skipped and writes no
+  marker.
 
-## Contract ambiguity — RULED 2026-07-27 (option 2, transition-scoped)
+### Entity E: cascade-log deployed organ and its durable truth
 
-Phase 0 stopped here on a genuine fork: the contract pinned the defunct
-import identity per episode-id while its value bytes carried the failing
-turn's `:time-ms`, and the adoption law deliberately permits same-id
-revalidation — so a second eligible failure of a revalidated episode was a
-fingerprint-conflict rejection, leaving the lane stranded again.
+States:
 
-**Ruling (Fable, on referral per §6 / the work-package escalation path):
-option 2.** The import identity is transition-scoped —
-`sha("episode-defunct " episode-id " " turn-id " " (name terminal-status))`
-— over the unchanged stable order key `ep-chain:<sha8(episode-id)>` and
-unchanged value bytes. Same transition replays byte-identically; a later
-eligible failure mints a new import that advances the one visible marker.
-Advancement is causally monotone (a same-id fresh re-mint requires the
-prior marker already visible to adoption; T6 + fingerprint-identical
-no-op close the replay-reordering routes). This is the existing turn-cell
-pattern (`episode.clj:464-489`). Contract §3f, T7, G3, G5 carry the ruled
-text; this artifact is superseded by the fresh Phase 0 re-run the ruling
-mandates.
+- **D0 absent**: module not yet deployed (valid only before the one-shot
+  first deployment).
+- **D1 running**: module present/RUNNING with zero or more durable runs.
+- **D2 worker-restarting**: module durable state exists but worker is
+  temporarily unavailable.
+- **D3 present-not-running**: deploy/redeploy failed to reach RUNNING.
+
+Write/operational transitions:
+
+- **D-W1 deploy/redeploy**: launch/update the module and wait for server-read
+  RUNNING.
+- **D-W2 worker restart**: restart processing while retaining native durable
+  state and offsets.
+
+Related reads:
+
+- **Module-status read**: server-read module lifecycle.
+- **Existing-module status read**: the five pre-existing modules.
+- **Run read**: one run by id.
+- **Pending read**: unresolved obligations.
+
+#### D0 absent × D-W1 deploy/redeploy
+
+- **Module-status read**: becomes present/RUNNING on success.
+- **Existing-module status read**: all five remain RUNNING.
+- **Run read**: no historical run exists before first use.
+- **Pending read**: empty before first obligation.
+
+#### D1 running × D-W1 deploy/redeploy
+
+- **Module-status read**: returns RUNNING after the settle barrier.
+- **Existing-module status read**: remains RUNNING.
+- **Run read**: existing durable rows remain readable.
+- **Pending read**: existing unresolved obligations remain present.
+
+#### D2 worker-restarting × D-W1 deploy/redeploy
+
+- **Module-status read**: must reach RUNNING; CLI exit alone is insufficient.
+- **Existing-module status read**: remains RUNNING.
+- **Run read**: may be temporarily unavailable but is not reconstructed or
+  erased.
+- **Pending read**: returns the same durable pending truth after recovery.
+
+#### D3 present-not-running × D-W1 deploy/redeploy
+
+- **Module-status read**: must become RUNNING to pass; otherwise the package
+  stops.
+- **Existing-module status read**: any regression is a failed gate.
+- **Run read**: no claim of availability or loss is made from CLI exit.
+- **Pending read**: preserved durable truth must be verified after recovery.
+
+#### D0 absent × D-W2 worker restart
+
+- **Module-status read**: remains absent; restart is invalid without a
+  deployed module.
+- **Existing-module status read**: unchanged.
+- **Run read**: not available.
+- **Pending read**: not available.
+
+#### D1 running × D-W2 worker restart
+
+- **Module-status read**: transitions through restart and returns RUNNING.
+- **Existing-module status read**: remains RUNNING.
+- **Run read**: pre-restart obligations/outcomes remain readable.
+- **Pending read**: pre-restart unresolved obligations remain and processing
+  resumes from durable offsets, not full-history replay.
+
+#### D2 worker-restarting × D-W2 worker restart
+
+- **Module-status read**: eventually RUNNING or the drill fails.
+- **Existing-module status read**: remains RUNNING.
+- **Run read**: temporarily unavailable is allowed; data loss is not.
+- **Pending read**: same pending identities after recovery.
+
+#### D3 present-not-running × D-W2 worker restart
+
+- **Module-status read**: must reach RUNNING for recovery to count.
+- **Existing-module status read**: remains RUNNING.
+- **Run read**: existing truth must reappear unchanged.
+- **Pending read**: existing unresolved work must reappear unchanged.
 
 ## Data-retention and scale summary
 
-- Run history, failed-run history, and defunct markers are append/update-only
-  for R2 and therefore unbounded over the life of the land. No implicit cleanup
-  is permitted.
-- Pending truth is bounded by unresolved obligations operationally, not by a
-  contract maximum. All-empty and backlog cases remain correct.
-- Point lookup by run id must remain independent of total history.
-- Pending enumeration scales with pending, not all terminal history.
-- Failed enumeration is explicitly a low-volume console surface and may scale
-  with failed history; R2 defines neither pagination nor a stable sort order.
-- Every write's size is bounded by a single row/emission and never by an
-  unbounded external collection.
+- Run history and failed-run history are unbounded and never deleted in R2.
+- Defunct import-journal history grows once per distinct eligible failure
+  transition. The visible projection remains one stable marker cell per
+  episode id.
+- Pending cardinality is unresolved obligations, not total historical runs.
+- One-run reads remain independent of history size.
+- Pending enumeration scales with pending and cluster width, not terminal
+  history.
+- Failed enumeration is a low-volume full diagnostic surface; R2 provides
+  neither pagination nor ordering.
+- Every individual write is bounded by one row/emission/transition and never
+  by transcript or jsonl size.
 
 ## Correctness summary
 
-- **Recorded first**: no episode-retry handler effect before acknowledged
+- **Recorded before call**: no durable handler effect precedes acknowledged
   obligation truth.
-- **First terminal wins**: terminal status/receipt never regress; conflicting
-  late results are counted.
-- **Recovery-safe effects**: marker upsert is deterministic and runtime cleanup
-  is conditional/local.
+- **First terminal wins**: status/receipt never regress, and terminal runs
+  never re-enter pending.
+- **Recovery-safe effects**: each defunct transition has deterministic import
+  identity; the marker has stable projected identity; runtime cleanup is
+  conditional and JVM-local.
+- **Reusable same-id repair**: the second eligible failure mints a new import
+  and advances the one marker; replay of the first transition cannot move it
+  backward.
 - **Time-scoped adoption**: defunct means “this episode as evidenced at or
-  before this failed turn,” not “this episode id forever.”
-- **Truth separation**: run truth records obligation/outcome; the defunct
-  marker records episode repair; the runtime atom is disposable local state.
-- **Totality**: cascade/runtime/marker-read failures cannot make the turn lane
-  unavailable, though a failed durable repair remains truthfully enumerable.
-- **No hidden activation**: load does nothing; boot invokes one explicit sweep;
-  no clock or background retry policy is introduced.
+  before this failure time,” not “this episode id forever.”
+- **Truth separation**: run truth records obligation/outcome, journal truth
+  records accepted repair transitions, the marker records current durable
+  invalidation, and the runtime atom is disposable.
+- **Totality**: cascade/runtime/marker-read failures cannot make the episode
+  turn lane unavailable, while failed durable repairs remain truthfully
+  terminal and enumerable.
+- **No hidden activation**: classload does nothing; boot invokes one explicit
+  sweep; no clock or automatic retry policy is introduced.
