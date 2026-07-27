@@ -283,7 +283,11 @@ proof-decay + was this line accurate).
   partition vs §9 scope · late-observation counter not retry-safe)
   RULED B+B 2026-07-27: G2/G4 split into module/P1 + emitter-sweep/P2
   halves; `:late-conflict` value replaces the count (§3b/§5/§9 amended).
-  Next: fresh Rama P0 re-run, then P1 per the NOW starter.
+  Second P0 stop (manifest "47 lines" vs 46 on disk) RULED 2026-07-27 at
+  the class: §6/§8 amended — manifests bind on SUBSTANCE, line hints
+  re-locate + log, never stop; whole manifest machine-verified; rule
+  routed to the work-package skill. Next: fresh Rama P0 re-run, then P1
+  per the NOW starter.
 - **#2 — held open for Sid's first lived friction after the return.**
 
 **space-as-entity — CLOSED (all three rungs) + retro'd 2026-07-26.** Rungs

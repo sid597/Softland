@@ -471,8 +471,14 @@ stdout swallows INFO) and are SERVER-READ receipts (durable-ground rule).
 
 ## 6. Stop clauses (escalate per the work-package skill; never improvise)
 
-- Any §8 manifest line mismatches disk (call shapes, guard forms, adoption
-  read, waiter ordering, `bin/land` deploy mechanics, runner registry).
+- A §8 manifest line's SUBSTANCE mismatches disk — a named symbol or form
+  absent, or its call shape, guard form, adoption read, waiter ordering,
+  `bin/land` deploy mechanics, or runner-registry semantics differing from
+  what the line describes. Locator drift alone (line numbers or counts
+  moved while the substance holds — including drift from this package's
+  own earlier allowlisted phases) is NOT a stop: re-locate, log the drift
+  in the phase artifact, continue (P0-stop ruling 2026-07-27; §8 states
+  the binding rule).
 - Any edit needed to an EXISTING module, depot, PState, serve contract, or
   durable cell shape — that reclassifies work cutover-side; stop, never
   absorb.
@@ -505,11 +511,21 @@ cadence ruling: one batched retro + one adversarial recheck reading the
 banked NOW/GATE trails of R1 + R2). Per-package close stays slim-mechanics:
 Sid's commit decision → post-commit HEAD-dynamic re-run → board prune.
 
-## 8. Input manifest (implementer re-verifies EVERY line against disk
-before code — line numbers drift; verified 2026-07-27 at staging)
+## 8. Input manifest — BINDING = SUBSTANCE (P0-stop ruling 2026-07-27)
 
-- `src/app/server/cascade.clj` (whole file, 47 lines): `declared-rows`,
-  `rows`, `react!` — the R1 shape the durable branch extends.
+Each line binds on its named symbols, forms, and semantics; line numbers
+and counts are NAVIGATION HINTS, never binding — they drift under any
+edit, including this package's own phases (P1 edits `bin/land` +
+`test_runner.clj`; P2 edits `cascade.clj`; a count pinned on those is a
+scheduled false stop). The implementer re-verifies every line's SUBSTANCE
+against disk before code; hint drift with substance intact → re-locate +
+log in the phase artifact, never stop; substance mismatch → §6's first
+stop clause. Hints machine-verified (grep/wc, never hand-counted)
+2026-07-27 at the ruling.
+
+- `src/app/server/cascade.clj` (whole file — small; read all of it):
+  `declared-rows`, `rows`, `react!` — the R1 shape the durable branch
+  extends.
 - `src/app/server/episode.clj` — `:753-:757` `episode-idle-ms` ·
   `:759-:763` `!episode-chains` runtime atom · `:765-:785`
   `decide-episode` (PURE — unedited) · `:787-:812` `current-episode!`
@@ -519,7 +535,7 @@ before code — line numbers drift; verified 2026-07-27 at staging)
   `episode-jsonl-file` · `:836-:849` `summon-argv` (`--session-id` vs
   `--resume`) · `:239-:268` geometry-cell-hint + upsert-in-place +
   fingerprint-conflict semantics (the pattern the defunct cell rides) ·
-  `:464-:469` `turn-order-key` · `:472-:561` `turn-record-request`
+  `:464-:469` `turn-order-key` · `:471-:561` `turn-record-request`
   (imp-key per (turn-id, status) — the transition-scoped overwrite
   pattern T7 adopts, and why the defunct fact must not ride ITS key) · `:563-:577`
   `record-turn!` · `:579-:588` `read-turn-records`.

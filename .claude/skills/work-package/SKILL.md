@@ -148,6 +148,31 @@ keep their kill record and stay per-package:
   two rechecks were deferred on cost (machine-cut, durable-ground)
   with no observed damage.
 
+**Amended 2026-07-27 at the multi-cascade R2 manifest stop (Sid: "fix it
+once and for all" — fix the class, not the instance).** Input-manifest
+hygiene, three rules from one concrete failure: CONTRACT_R2 §8 pinned
+`cascade.clj` as "whole file, 47 lines" (hand-counted wrong at staging;
+disk said 46) while §6 stopped on ANY manifest-line mismatch — a fresh P0
+stopped pre-code on a typo, and the same literal reading had two MORE
+false stops already scheduled, because §9's allowlist orders the package
+itself to edit manifest-pinned files (P1: `bin/land`, `test_runner.clj`;
+P2: `cascade.clj`). Second contract-authoring-defect stop of the package
+(the P1 partition/§9 conflict was the first) — the stop clause works;
+the letter/intent gap is the recurring cost:
+- **Manifests bind on SUBSTANCE; locators are hints.** A manifest line's
+  binding content is its named symbols, forms, and semantics; line
+  numbers and counts are navigation hints. Hint drift with substance
+  intact → re-locate + log in the phase artifact, never stop; the
+  manifest-mismatch stop clause says SUBSTANCE in its own sentence (the
+  block-kernel F1/G12 letter-vs-intent reconciliation, extended from
+  gate one-liners to manifest lines).
+- **Machine-verify every stated locator and count at staging** (`grep
+  -n`, `wc -l`) — never hand-counted; the hand is where 47-for-46 came
+  from.
+- **Never pin a fact the package's own phases will invalidate** — a line
+  count of an allowlist-edited file is a scheduled false stop (same
+  class as the ONE-SHOT gate-precondition rule, applied to manifests).
+
 ## What a work package is
 
 One bounded build (so far: a Rama kernel) run against a binding contract, by
@@ -296,7 +321,11 @@ Two rules that hold across all layers:
   cluster. (Identical class, two packages: code-atom G-F2 `imp:clj:` →
   `:else`; block-kernel F2 `imp:sense-block:` → `:else`.)
 - **Input manifest**: the exact files/lines any model would need to reproduce
-  the contract (feeds the D-006 counterfactual probe).
+  the contract (feeds the D-006 counterfactual probe). Binding = SUBSTANCE
+  (named symbols/forms/semantics); line numbers and counts are navigation
+  hints — machine-verified at staging, never hand-counted, and never a
+  fact the package's own allowlisted edits will invalidate (2026-07-27
+  manifest amendment above).
 - Handoff section: implementer, reviewer gate definition, what comes after
   green.
 

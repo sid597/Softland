@@ -237,3 +237,42 @@ stratum's first batch retro.
     constructors ONLY; gates G2m/G3m/G4m/G9m/G12) → P2 (seams +
     episode-retry row; G1/G2e/G3r/G4s/G5/G6/G7/G8/G9p/G10/G11), fresh
     context per phase. Stop clauses §6 — escalate, never improvise.
+
+- 2026-07-27 · Codex · **R2 P0 PRE-CODE STOP — §8 manifest count mismatch.**
+  Fresh Phase 0 made no artifact: `CONTRACT_R2.md:511` says the whole
+  `src/app/server/cascade.clj` is 47 lines; working tree + committed
+  `HEAD 14fb406` are both 46. The named `declared-rows` / `rows` / `react!`
+  shape matches, but §6 stops on ANY §8 manifest-line mismatch. Open
+  Question records A contract count 47→46 (recommended), B inert code churn,
+  C weaken the stop semantics, plus re-entry scope. No IMPLICIT_SPEC, plan,
+  source/test edit, test, deploy, commit, or push. The probe hashes remain
+  `3000c9f2…` / `e652d923…`; both ground source edits and the newly-visible
+  foreign `ground_edit_test.clj` edit remain untouched. Next: Sid/Fable
+  ruling + full ruling sweep, then fresh Rama P0.
+
+- 2026-07-27 · Fable · **RULED — manifests bind on SUBSTANCE; class
+  fixed, not the instance** (Sid: "fix it once and for all"). The count
+  was a typo, but the stop's real cause is contract self-contradiction:
+  §8's preamble said "line numbers drift" while §6 stopped on ANY
+  manifest-line mismatch — and §9's allowlist orders edits to
+  manifest-pinned files (P1: bin/land, test_runner.clj; P2: cascade.clj),
+  so the literal reading had two MORE false stops scheduled. Sweep: §6
+  clause 1 → SUBSTANCE mismatch only (hint drift re-locates + logs); §8
+  preamble states the law; the 47-line pin DELETED (no count replaces
+  it — P2 edits the file); EVERY §8 line machine-verified (grep/wc):
+  all substance ✓, one more hint fixed (turn-record-request :472→:471).
+  Class routed to the work-package skill (manifest-hygiene amendment).
+  decisions.md OQ deleted; board updated. Next: fresh Rama P0, starter:
+
+    Multi-cascade R2 — resume after the manifest ruling (§6/§8 amended
+    in place; whole manifest machine-verified 2026-07-27). Boot:
+    CONTRACT_R2.md (binding; §8 binds on SUBSTANCE — named
+    symbols/forms/semantics; line hints re-locate + log, never stop) +
+    NOW.md STANDING-R2 + this entry. Load /rama + /rama-pitfalls BEFORE
+    any topology work. PRE: clean tree; probe-block-anatomy.* untracked,
+    untouched. Re-run Rama P0 FRESH against the amended contract (the
+    committed IMPLICIT_SPEC is prior-round input, not authority) → P1
+    plan + validation → P1 the module (cascade_log.clj + IPC
+    constructors ONLY; gates G2m/G3m/G4m/G9m/G12) → P2 (seams +
+    episode-retry row; G1/G2e/G3r/G4s/G5/G6/G7/G8/G9p/G10/G11), fresh
+    context per phase. Stop clauses §6 — escalate, never improvise.
