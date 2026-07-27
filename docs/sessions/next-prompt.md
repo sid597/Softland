@@ -266,12 +266,17 @@ round → benchmark room (question bank waits on kinds).
 Width 1–2; this list IS the gauge and the limiter (>2 entries = alarm).
 Each activation note records the dark-interval lessons (drift / memory /
 proof-decay + was this line accurate).
-- **#1 multi-cascade declaration slice — DONE 2026-07-27** (code
-  `34bf7c0`; gate PASS `build/multi-cascade/GATE.md`, residue there;
-  retro joins the stratum batch). DARK: autotag rides as row #1; the
-  first NEW row (episode-retry or first band-act) activates dark
-  capacity — that session writes the dark-interval lessons and is the
-  stratum's first batch-retro boundary.
+- **#1 multi-cascade R2 (durable runner + log-consuming topology) —
+  STAGED 2026-07-27** (`build/multi-cascade/CONTRACT_R2.md` + NOW.md
+  STANDING-R2 + starter prompt; FULL gate tier — durable-touch: new
+  cascade-log module, sixth deploy). First honest customer =
+  **episode-retry**, the banked stranded-lane defect (episode-chain
+  block below). ACTIVATION TRIGGER: episode-retry is the table's first
+  NEW row — its landing activates dark capacity, writes the
+  dark-interval lessons (drift/memory/proof-decay/board-line accuracy),
+  and opens the stratum's first batch retro (covers R1+R2). R1
+  (declaration slice) DONE 2026-07-27: code `34bf7c0`, gate PASS
+  `build/multi-cascade/GATE.md`, residue there, retro at the batch.
 - **#2 — held open for Sid's first lived friction after the return.**
 
 **space-as-entity — CLOSED (all three rungs) + retro'd 2026-07-26.** Rungs
@@ -311,7 +316,9 @@ bound every CLI session"); code `a7c40e6` + window-listener guard
 their lane + "fresh session" marker; suites 17t/96a (episode, incl. the
 chain serve probe) + 33t/225a (face regressions) green; cljs 0 warnings.
 Wear = Sid's move 0a. Known edge: a fresh spawn dying before its file
-exists strands the lane until the next boundary (retry-rollback queued).
+exists strands the lane until the next boundary — now the first honest
+customer of multi-cascade R2 (dark-lane #1, staged 2026-07-27:
+`build/multi-cascade/CONTRACT_R2.md` §3f, the episode-retry row).
 Deferred next, in order: the rerender fix (cause-tagged ingest epoch →
 narrow pulls; serve off the ack lane — the typing-stall root, diagnosed
 2026-07-22) · persistent stdin CLI process per episode (probe-proven:

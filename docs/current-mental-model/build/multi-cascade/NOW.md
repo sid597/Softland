@@ -1,37 +1,44 @@
 # multi-cascade — thread file
 
-STAGED 2026-07-26 (the monster-round session; dark-lane organ #1). R1
-declaration slice only — table + `react!` + autotag as row #1,
-behavior-identical. Build session runs AFTER space-as-entity rung 3
-lands.
+R1 (declaration slice) CLOSED 2026-07-27, code `34bf7c0` — trail in the
+NOW log below. **R2 (durable runner + log-consuming topology) STAGED
+2026-07-27**: `CONTRACT_R2.md` beside this file; first honest customer =
+episode-retry (the banked stranded-lane defect). R2's activation of the
+first NEW row fires the dark-interval lesson clause and opens the
+stratum's first batch retro.
 
-## STANDING (frozen at open — do not edit while the package is active)
+## STANDING — R2 (re-frozen at R2 open, 2026-07-27; R1's STANDING is in
+## git — do not edit while the package is active)
 
-- Binding docs: `CONTRACT.md` (beside this file) + `decisions.md`
+- Binding docs: `CONTRACT_R2.md` (beside this file; `CONTRACT.md` remains
+  the R1 record and governs the grammar R2 extends) + `decisions.md`
   (including "How engine work lands"). **This file is a baton, not a
-  source of truth; if it contradicts CONTRACT.md or decisions.md, those
-  win — flag the discrepancy in NOW.** Phases and QC per
-  `.claude/skills/work-package/SKILL.md`.
-- Allowlist — NEW: `src/app/server/cascade.clj` +
-  `test/app/cascade_table_test.clj`. EDITED: `server_jetty.clj` (autotag
-  block + call site only) · `test_runner.clj` (RULING 2026-07-26: exactly
-  one `isolation-exceptions` entry for `app.cascade-table-test` — swept
-  here per the ruling-execution-sweep rule). READ-ONLY:
-  `material_circulation.clj`,
-  `verb_registry.cljc`. FENCED (rung-3 in-flight WIP — do not touch):
-  `binding_material.cljc` · `ground.cljs` · `facet_master.clj` ·
-  `space_material.cljc` · `face_wiring.cljs` + their tests.
-- Verification duties: every manifest line in CONTRACT §8 re-checked
-  against disk before code (line numbers drift; the threading wrapper
-  and guard shape are load-bearing).
-- Definition of done: G1–G8 green (partition sum-checked in CONTRACT §5)
-  + one falsification finder + Fable gate verdict recorded here and in
-  `decisions.md` + board dark-lane line updated.
-- Dark-organ laws apply (decisions.md): loads pure · routes nowhere
-  beyond row #1 · suite-covered from birth · board-listed. The
-  dark-interval lesson clause (CONTRACT §7) fires at the first NEW row.
-- Stop clauses: CONTRACT §6. Escalate per the skill; never improvise on
-  binding docs.
+  source of truth; if it contradicts the contracts or decisions.md, those
+  win — flag the discrepancy in NOW.** Package shell per
+  `.claude/skills/work-package/SKILL.md`; module phase mechanics per the
+  `/rama` skill; `/rama` + `/rama-pitfalls` load BEFORE any topology work.
+- **Durable-touch ⇒ FULL gate tier** (2026-07-27 cadence ruling).
+- Allowlist — NEW: `src/app/server/rama/cascade_log.clj` ·
+  `test/app/cascade_log_test.clj` · `test/app/episode_retry_test.clj`.
+  EDITED: `cascade.clj` · `episode.clj` · `server_jetty.clj` (emission
+  site #2 + boot sweep wiring only) · `cluster.clj` (cascade runtime
+  accessors only) · `file_viewer.cljc` (runtime plumbing only, if IPC
+  boot needs it) · `bin/land` (one MODULE_VARS line) · `test_runner.clj`
+  (classification entries for the two new test namespaces only).
+  READ-ONLY: `material_circulation.clj` · `verb_registry.cljc` · all
+  OC/RK/llm module files. No live fence set; clean tree at entry.
+- Verification duties: every CONTRACT_R2 §8 manifest line re-checked
+  against disk before code (line numbers drift; the waiter ordering,
+  adoption read, and `:system`-actor authorization seam are load-bearing).
+- Definition of done: G1–G12 green (partition sum-checked in CONTRACT_R2
+  §5) + one falsification finder + FULL Fable gate verdict recorded here
+  and in `decisions.md` + board dark-lane line updated + the §7
+  activation duties (dark-interval lessons; stratum batch retro opened).
+- Dark-organ laws apply until activation (decisions.md): loads pure ·
+  the sweep fires only from explicit boot wiring · suite-covered from
+  birth · board-listed with the activation trigger.
+- Stop clauses: CONTRACT_R2 §6. Escalate per the skill; never improvise
+  on binding docs.
 - Hard rules: no Co-Authored-By in commits · never read
   `src/app/server/env.clj` · code and docs never mixed in one commit ·
   docs only on the local docs branch, never pushed.
@@ -127,3 +134,35 @@ lands.
   `34bf7c0` on Sid's word; both HEAD-reading suites are :head-override
   pinned so nothing re-runs (checked, not assumed); board line pruned
   to the done-pointer. Package ends here; retro at the stratum batch.
+
+- 2026-07-27 · Fable (R2 staging session) · **R2 STAGED**:
+  `CONTRACT_R2.md` authored against disk (stranded-lane mechanism traced:
+  `note-episode-turn!` stamps before spawn, adoption reads the newest
+  turn cell's `:episode-id`, the file belt covers only the lane-id case;
+  waiter ordering read at `server_jetty.clj:1048–:1083`; autotag
+  idempotency class verified at `material_circulation.clj:481–:605`;
+  deploy seam at `bin/land:21–:31`). /rama + /rama-pitfalls loaded before
+  design; staging-level pitfalls walk clean (back-arrow shape, hash-by
+  :run/id colocation, no topology side effects, deterministic ids; the
+  obligation-replay-after-terminal hazard found at staging → T6 + G3).
+  R1 GATE doubts folded: 1→G2/§3c, 2→G8/§3g, 3→§5 INFO rule. Honesty
+  note carried verbatim (§1). FULL tier declared. STANDING re-frozen for
+  R2. Next: fresh build session runs P0 (rama design phases) per the
+  starter below.
+
+    Multi-cascade R2 — durable runner + log-consuming topology, first
+    honest customer episode-retry. FULL gate tier (durable-touch). Boot:
+    docs/current-mental-model/build/multi-cascade/CONTRACT_R2.md
+    (binding) + NOW.md STANDING-R2 + decisions.md "How engine work
+    lands". Load /rama + /rama-pitfalls BEFORE any topology work. PRE:
+    clean tree (git status; foreign changes → flag, don't absorb).
+    Re-verify CONTRACT_R2 §8 against disk, then run P0 (/rama phases
+    0–2, artifacts beside the contract; re-run the rama-pitfalls
+    protocol at plan level) → P1 (cascade_log module + G2/G3m/G4/G9m/
+    G12) → P2 (seams + episode-retry row + G1/G3r/G5/G6/G7/G8/G9p/G10/
+    G11), fresh context per phase (subagents fine). Bank every receipt;
+    live receipts server-read with log4j INFO. Fences: CONTRACT_R2 §9
+    allowlist; material_circulation.clj + verb_registry.cljc + all
+    OC/RK/llm modules untouchable. Out of scope: clock/scheduler, retry
+    backoff, auto-respawn of the resident, rows-as-material, any edit
+    to existing durables. Stop clauses §6 — escalate, never improvise.
