@@ -35,6 +35,49 @@
 
 ## NOW (newest first; ≤15 lines per entry)
 
+- **2026-07-28 · Fable · P3 COMMIT RULING EXECUTED (Sid: commit both).**
+  Code commit `620c021` = exactly the amended PLAN §P3 seven-source-plus-
+  two-test set, staged path-exact on base `20aeca8`; diffstat re-matched
+  GATE_P3 (9 files, +798/−21); every `ground.cljs` hunk re-read and
+  recognized (the four inert registrations only) before staging. Docs
+  commit = P3.md + GATE_P3.md + this file, separate per the never-mix
+  law. HEAD-dynamic suites re-run at the new code HEAD before this
+  entry: git-spine + code-atoms, 16t/365a, 0 failures 0 errors (docs
+  commit touches no source byte). Foreign multi-cascade/decisions/
+  board/LOG/probe write-set untouched; board block updated on disk
+  only (shared file, stays uncommitted). Gate findings 1–3 remain
+  non-blocking residue for the next contract. Next: P4 (citizens and
+  gauges) per PLAN §P4 — fresh implementer context, G8/G9/G10-machine;
+  halo contract session unblocked (its bank line opens it AT the P3
+  gate, which has now passed).
+
+- **2026-07-28 · Fable · P3 SLIM GATE PASS** — `GATE_P3.md`. Fence exact
+  (amended 7+2 set; four inert ground registrations only; P6 owners +
+  forbidden zero-diff; foreign set untouched; env.clj never read; empty
+  index). Suite re-run 103t/1,600a; CLJS 272/0 warnings. G6/G7 suite +
+  full-diff trap checks green; live re-driven: preview immobility (23,826
+  bytes before==during==after a worn client preview), durable cycle
+  accepted end-to-end on a bootstrapped isolated runtime, forged rollback
+  refused. G10m attested first (headless Chrome 150, swiftshader/CPU —
+  conservative): n=43, p95=18.0ms < 52. Findings, non-blocking with fixes
+  named in the gate record: decision-path rejections serve a MUTE error
+  card; unseeded-master wedge reachable via the new lane on dev boots
+  (machinery pre-existing); one vacuous T9 test negative. Shared cluster
+  never touched; rig torn down. Next: Sid's commit ruling (code + docs
+  separate). P4 stays closed until a fresh context opens it.
+
+- **2026-07-28 · Codex · P3 IMPLEMENTER COMPLETE — P3-F2 accepted.**
+  Resumed at docs-only ruling HEAD `20aeca8`; source/test bytes were untouched.
+  PLAN now permits exactly four inert `{:invoke (fn [_] nil)}` registrations
+  in `ground.cljs`; durable/preview logic remains prohibited there.
+  P3-F2 replay list EMPTY: G6/G7 durable+preview+live receipts stand;
+  G10-machine 43/43, p95=16.3ms; fresh new-write/endpoint falsifier PASS;
+  post-falsifier 103t/1,600a and CLJS 0 warnings stand on the legalized tree.
+  Seven source + two test paths remain parked; P6 owners and foreign set
+  untouched. Receipt `P3.md` is complete; nothing staged, committed, or pushed.
+  Next: fresh independent G6/G7/G10-machine under §8, then Sid's commit ruling.
+  P4 remains closed.
+
 - **2026-07-28 · Fable · P3-F2 RULED — ground scope amended; replay list
   EMPTY; P3 may declare complete.** Verified on disk before ruling: the
   closed-vocabulary test (binding_dispatch_test "the verb registry is the
