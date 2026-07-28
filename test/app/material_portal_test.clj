@@ -795,6 +795,211 @@
       (is (= (:idempotency/key sid-request) (:import/key sid-request))))))
 
 ;; ===========================================================================
+;; matter-room P3 · G6/G7 — master-anchored mouth, existing-P6 hands
+;; ===========================================================================
+
+(deftest matter-room-p3-briefing-is-master-anchored-and-server-authoritative
+  (let [rt (ocr/start-object-container-runtime!)
+        ctx {:oc-rt rt :rk-rt nil}]
+    (try
+      (boot! rt)
+      (let [master-id attention/master-id
+            room-id (matter-room/room-id master-id)
+            forged {:portal-open
+                    {:master-id foldable/master-id
+                     :master-ids [foldable/master-id text-body/master-id]
+                     :entity-id alpha
+                     :wearers [(wearer alpha [])]}}
+            authoritative
+            (matter-room/narrowed-portal-open
+             (merge (:portal-open forged) {:conversation-id room-id}))
+            resident-open (sj/resident-portal-open forged alpha room-id)
+            human (fp/portal-briefing ctx authoritative)
+            resident (fp/portal-briefing ctx resident-open)]
+
+        (testing "the room id derives exactly one master-side anchor"
+          (is (= {:master-id master-id
+                  :conversation-id room-id
+                  :narrowed? true}
+                 authoritative))
+          (is (= authoritative resident-open)
+              "client-supplied master/entity/wearer coordinates cannot widen"))
+
+        (testing "the human and Ctrl+Enter resident receive identical bytes"
+          (is (= human resident))
+          (is (str/includes? resident "<projection>"))
+          (is (str/includes? resident (str ":entity/id " (pr-str master-id)))
+              "the equality must contain the requested master's identity"))
+
+        (testing "non-room conversations retain P8 block narrowing"
+          (let [fallback (sj/resident-portal-open
+                          forged alpha "conversation:not-a-matter-room")]
+            (is (= alpha (:entity-id fallback)))
+            (is (= "conversation:not-a-matter-room"
+                   (:conversation-id fallback)))
+            (is (= [] (:master-ids fallback))
+                "P8 derives the set from surviving wearer stamps; it never
+                 accepts the forged client master set"))))
+      (finally
+        (ocr/close-object-container-runtime! rt)))))
+
+(deftest matter-room-p3-durable-acts-end-in-existing-p6-truth
+  (let [rt (ocr/start-object-container-runtime!)
+        ctx {:oc-rt rt :rk-rt nil}]
+    (try
+      (let [revs (boot! rt)
+            master-id attention/master-id
+            original-active (:attention revs)
+            valid-source
+            (pr-str (assoc (:facet-master/default-form attention/spec)
+                           :attention/hit-padding 13.0))
+            candidate
+            (sj/matter-room-deviate!
+             ctx {:master-id master-id
+                  :source valid-source
+                  :request-id "matter-room-p3-candidate"
+                  :time-ms (now)
+                  :actor sid})
+            candidate-revision (:revision-id candidate)]
+
+        (testing "master deviation is the existing retained-candidate import"
+          (is (:accepted? candidate) (pr-str candidate))
+          (is (= :master-candidate (:branch candidate)))
+          (is (= candidate-revision
+                 (get-in (adapter/read-master rt attention/spec)
+                         [:latest-revision :revision-id])))
+          (is (= original-active
+                 (get-in (adapter/read-master rt attention/spec)
+                         [:active-revision :revision-id]))
+              "candidate import must not smuggle a pointer edit"))
+
+        (testing "activate is the existing grammar-checked pointer act"
+          (let [activated
+                (sj/matter-room-activate!
+                 ctx {:master-id master-id
+                      :revision-id candidate-revision
+                      :request-id "matter-room-p3-activate"
+                      :time-ms (now)
+                      :actor sid})]
+            (is (:accepted? activated) (pr-str activated))
+            (is (= :accepted (:decision-status activated)))
+            (is (= :activate
+                   (get-in activated [:event :activation/kind])))
+            (is (= candidate-revision
+                   (get-in (adapter/read-master rt attention/spec)
+                           [:active-revision :revision-id])))))
+
+        (testing "instance deviation is material-truth/deviate!, not a new lane"
+          (let [deviation
+                (sj/matter-room-deviate!
+                 ctx {:master-id master-id
+                      :subject-uid alpha
+                      :overrides {:attention/hit-padding 24.0}
+                      :request-id "matter-room-p3-instance"
+                      :time-ms (now)
+                      :actor sid})
+                instance (adapter/instance-state rt attention/spec alpha)]
+            (is (:accepted? deviation) (pr-str deviation))
+            (is (= :instance (:branch deviation)))
+            (is (true? (:deviates? instance)))
+            (is (= 24.0 (get-in instance
+                                [:material :attention/hit-padding])))))
+
+        (testing "rollback executes only the currently served recovery offer"
+          (let [rolled-back
+                (sj/matter-room-rollback!
+                 ctx {:master-id master-id
+                      :revision-id original-active
+                      :request-id "matter-room-p3-rollback"
+                      :time-ms (now)
+                      :actor sid})]
+            (is (:accepted? rolled-back) (pr-str rolled-back))
+            (is (= :recovery-offer (:branch rolled-back)))
+            (is (= :rollback
+                   (get-in rolled-back [:event :activation/kind])))
+            (is (= original-active
+                   (get-in (adapter/read-master rt attention/spec)
+                           [:active-revision :revision-id]))))
+          (let [before (adapter/read-master rt attention/spec)
+                forged
+                (sj/matter-room-rollback!
+                 ctx {:master-id master-id
+                      :revision-id "rev:forged"
+                      :request-id "matter-room-p3-forged-rollback"
+                      :time-ms (now)
+                      :actor sid})]
+            (is (false? (:accepted? forged)))
+            (is (= :matter/recovery-offer-not-found (:error forged)))
+            (is (= :error (get-in forged [:card :card/status])))
+            (is (= before (adapter/read-master rt attention/spec))
+                "a forged non-offer target cannot move durable truth")))
+
+        (testing "a malformed candidate cards and leaves the worn revision"
+          (let [malformed
+                (sj/matter-room-deviate!
+                 ctx {:master-id master-id
+                      :source (str "{:facet-master/id " (pr-str master-id)
+                                   " :drill/id \"matter-room-p3\"")
+                      :request-id "matter-room-p3-malformed-import"
+                      :time-ms (now)
+                      :actor sid})
+                before-active
+                (get-in (adapter/read-master rt attention/spec)
+                        [:active-revision :revision-id])
+                refused
+                (sj/matter-room-activate!
+                 ctx {:master-id master-id
+                      :revision-id (:revision-id malformed)
+                      :request-id "matter-room-p3-malformed-activate"
+                      :time-ms (now)
+                      :actor sid})]
+            (is (:accepted? malformed) (pr-str malformed))
+            (is (= :rejected (:status refused)))
+            (is (= :facet-master/activation-rejected (:error refused)))
+            (is (= :error (get-in refused [:card :card/status])))
+            (is (seq (get-in refused [:card :card/errors])))
+            (is (= before-active
+                   (get-in (adapter/read-master rt attention/spec)
+                           [:active-revision :revision-id])))))
+
+        (testing "the active floor remains matter-verb-free"
+          (let [served (open-with-context! ctx {:master-id master-id})
+                matter-verbs #{:matter/deviate :matter/preview
+                               :matter/activate :matter/rollback}]
+            (is (empty?
+                 (filter #(contains? matter-verbs (:table/verb %))
+                         (get-in served [:portal/bindings :bindings/rows])))))))
+      (finally
+        (ocr/close-object-container-runtime! rt)))))
+
+(deftest matter-room-p3-invocation-and-read-only-disclosures-are-exact
+  (let [server-src (slurp (io/resource "app/server_jetty.clj"))
+        client-src (slurp (io/resource "app/client/workspace/face_wiring.cljs"))
+        briefing-src (slurp (io/resource "app/shared/material_portal.cljc"))
+        endpoint-names
+        (set (map second
+                  (re-seq
+                   #"\"/api/matter-room/(deviate|activate|rollback|preview)\""
+                   server-src)))]
+    (testing "all and only the three durable endpoints are disclosed"
+      (is (= #{"deviate" "activate" "rollback"} endpoint-names))
+      (is (not (str/includes? server-src "\"/api/matter-room/preview\""))))
+
+    (testing "preview stays on the existing client projection lane"
+      (is (str/includes? client-src "(.-__bindings"))
+      (is (str/includes? client-src "(.preview bindings"))
+      (is (str/includes? client-src "(.endPreview bindings")))
+
+    (testing "T9 names all four verbs and both honest effect classes"
+      (doseq [token [":matter/deviate" ":matter/preview"
+                     ":matter/activate" ":matter/rollback"
+                     ":durable-via-request" ":pure-projection"]]
+        (is (str/includes? briefing-src token) token))
+      (is (not (str/includes?
+                briefing-src
+                "The portal is read-only: it does not execute writes"))))))
+
+;; ===========================================================================
 ;; G3 — batched: one roundtrip, and a sub-serve count that does NOT grow
 ;; ===========================================================================
 

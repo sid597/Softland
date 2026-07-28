@@ -1770,13 +1770,14 @@
 
 (defn portal-briefing
   "Driver shell (TOTAL): the briefing for a resident summoned inside the portal
-   on `entity-id`. Any failure yields nil — an unbriefed resident, never a
-   blocked summon.
+   on an entity or inside a master-anchored matter room. Any failure yields nil
+   — an unbriefed resident, never a blocked summon.
 
    The returned string carries the canonical projection VERBATIM (G7 asserts the
    byte identity). Prefix it to the resident's prompt exactly as `episode-seed`
    is prefixed."
-  [ctx {:keys [entity-id wearers conversation-id master-ids narrowed?]}]
+  [ctx {:keys [entity-id wearers conversation-id master-ids master-id
+               narrowed?]}]
   (try
     (material-portal/briefing
      (material-portal/open ctx #(serve ctx %)
@@ -1784,6 +1785,7 @@
                             :wearers wearers
                             :conversation-id conversation-id
                             :master-ids master-ids
+                            :master-id master-id
                             :narrowed? narrowed?}))
     (catch Throwable t
       (println "[FACE] portal-briefing failed:" (.getMessage t))

@@ -337,6 +337,35 @@
                     (.then (fn [res] (.text res)))
                     (.then (fn [text]
                              (portal->js (reader/read-string text)))))))
+            ;; matter-room P3 — the disclosed ACT lane. These three endpoints
+            ;; invoke existing P6 durable owners; the body carries a client-
+            ;; minted request/time so an HTTP retry is the same act.
+            (matter-act-body [body]
+              (merge {:request-id (str (random-uuid))
+                      :time-ms (js/Date.now)
+                      :actor {:actor/id "sid" :actor/type :human}}
+                     body))
+            (post-matter-act! [act body]
+              (-> (js/fetch (str "/api/matter-room/" act)
+                            #js {:method "POST"
+                                 :headers #js {"Content-Type" "application/edn"}
+                                 :body (pr-str (matter-act-body body))})
+                  (.then (fn [res] (.text res)))
+                  (.then (fn [text]
+                           (portal->js (reader/read-string text))))))
+            ;; Preview has NO server endpoint. The registry's
+            ;; :pure-projection declaration points at this existing P6 client
+            ;; membrane, and endPreview restores the served object by identity.
+            (preview-matter! [master-id source]
+              (if-let [bindings (.-__bindings js/window)]
+                (.preview bindings (str master-id) (str source))
+                (throw (js/Error.
+                        "The ground preview lane is not installed."))))
+            (end-matter-preview! []
+              (if-let [bindings (.-__bindings js/window)]
+                (.endPreview bindings)
+                (throw (js/Error.
+                        "The ground preview lane is not installed."))))
             (open* [entity-id extra k]
               (.then (request! entity-id extra)
                      (fn [r] (portal->js (get r k)))))]
@@ -400,13 +429,50 @@
                                          (when (string? entry)
                                            (set! (.-search js/window.location)
                                                  entry))
-                                         r))))})
+                                         r))))
+                 ;; matter-room P3 — four named verbs. `deviate` accepts either
+                 ;; master source bytes (no subject) or an EDN overrides map for
+                 ;; one subject. Activate/rollback accept optional EDN metadata
+                 ;; (scope/grounds/actor) while the addressed master/revision
+                 ;; arguments always win.
+                 :deviate
+                 (fn [master-id change & [subject-uid]]
+                   (post-matter-act!
+                    "deviate"
+                    (if (string? subject-uid)
+                      {:master-id (str master-id)
+                       :subject-uid subject-uid
+                       :overrides (read-edn-arg change)}
+                      {:master-id (str master-id)
+                       :source (str change)})))
+                 :preview (fn [master-id source]
+                            (portal->js (preview-matter! master-id source)))
+                 :endPreview (fn [] (portal->js (end-matter-preview!)))
+                 :activate
+                 (fn [master-id revision-id & [opts-edn]]
+                   (post-matter-act!
+                    "activate"
+                    (merge (or (read-edn-arg opts-edn) {})
+                           {:master-id (str master-id)
+                            :revision-id (str revision-id)})))
+                 :rollback
+                 (fn [master-id to-revision-id & [opts-edn]]
+                   (post-matter-act!
+                    "rollback"
+                    (merge (or (read-edn-arg opts-edn) {})
+                           {:master-id (str master-id)
+                            :revision-id (str to-revision-id)})))})
       (js/console.log
        (str "[PORTAL] window.__portal installed — click a block, then:\n"
             "  await __portal.open()          the whole projection\n"
             "  await __portal.openMaster('fm:attention')  one type anchor\n"
             "  await __portal.room('fm:attention')        materialize its room\n"
             "  await __portal.enterRoom('fm:attention')   …and stand in it\n"
+            "  await __portal.deviate('fm:attention', sourceEdn)  retain master candidate\n"
+            "  await __portal.deviate('fm:attention', overridesEdn, subjectUid)  instance deviation\n"
+            "  __portal.preview('fm:attention', sourceEdn) / __portal.endPreview()  client-only\n"
+            "  await __portal.activate('fm:attention', revisionId, optsEdn)\n"
+            "  await __portal.rollback('fm:attention', offeredRevisionId, optsEdn)\n"
             "  await __portal.questions()     every question + its replayable call\n"
             "  await __portal.briefing()      what a resident summoned here reads\n"
             "  await __portal.release()       wish → code → receipts → verb → binding → activation → worn\n"

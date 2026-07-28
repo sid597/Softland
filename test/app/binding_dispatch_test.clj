@@ -150,13 +150,51 @@
            (->> (verbs/declaration-rows)
                 (filter :verb/floor-reserved?)
                 (mapv :verb/name)))))
-  (testing "a durable-via-request verb is exactly one that arms the settle lane"
+  (testing "a durable-via-request verb arms exactly the settle or named act lane"
     (is (= #{:camera/pan :camera/zoom-at-pointer :placement/drag-group
-             :resident/reply-to-block}
+             :resident/reply-to-block
+             :matter/deviate :matter/activate :matter/rollback}
            (->> (verbs/declaration-rows)
                 (filter #(= :durable-via-request (:verb/effect-class %)))
                 (map :verb/name)
                 set)))))
+
+(deftest matter-verbs-declare-the-honest-unbindable-surface
+  (let [rows (into {} (map (juxt :verb/name identity))
+                   (verbs/declaration-rows))
+        matter-names #{:matter/deviate :matter/preview
+                       :matter/activate :matter/rollback}
+        row-for (fn [verb]
+                  {:binding/gesture :pointer/tap
+                   :binding/phase :complete
+                   :binding/modifiers :any
+                   :binding/verb {:verb/name verb :verb/version 0}
+                   :binding/priority 1})]
+    (testing "declarations name their effects, required args, and act lanes"
+      (is (= matter-names
+             (set (filter #(= "matter" (namespace %)) (keys rows)))))
+      (is (= #{:master-id :subject-uid}
+             (set (:verb/required-args (get rows :matter/deviate)))))
+      (doseq [verb [:matter/preview :matter/activate :matter/rollback]]
+        (is (= #{:master-id}
+               (set (:verb/required-args (get rows verb))))))
+      (is (= :pure-projection
+             (:verb/effect-class (get rows :matter/preview))))
+      (doseq [verb [:matter/deviate :matter/activate :matter/rollback]]
+        (is (= :durable-via-request
+               (:verb/effect-class (get rows verb)))))
+      (is (every? :verb/bindable? (map rows matter-names))
+          "bindable? means registered/non-floor; required args make the
+           current sites structurally unable to feed these verbs"))
+
+    (testing "the refusal's honest scope: v2+ refuses, frozen v1 accepts"
+      (doseq [verb matter-names
+              :let [bindings {:block/user-hit-area [(row-for verb)]}]]
+        (is (bm/valid-bindings? bindings)
+            (str verb " remains readable under frozen grammar v1"))
+        (is (not (bm/valid-bindings-strict? bindings))
+            (str verb " is refused by strict v2+ because no site supplies"
+                 " its matter args"))))))
 
 (deftest p8-eval-addresses-one-block-through-one-material-row
   (let [reply-master-rows
