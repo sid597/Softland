@@ -276,3 +276,18 @@ stratum's first batch retro.
     constructors ONLY; gates G2m/G3m/G4m/G9m/G12) → P2 (seams +
     episode-retry row; G1/G2e/G3r/G4s/G5/G6/G7/G8/G9p/G10/G11), fresh
     context per phase. Stop clauses §6 — escalate, never improvise.
+
+- 2026-07-27 · Codex · **R2 P0 COMPLETE; P1 PLAN VALIDATION FAIL — §6 STOP.**
+  Fresh artifacts: `IMPLICIT_SPEC.md`, `PLAN.md`, `PLAN_VALIDATION.md`;
+  validator terminus is exactly `PHASE_VALIDATION:fail`.
+  - Exact durable identity violation: plan uses `name` and discards keyword namespaces.
+  - Genuine §6 fork: Long-only pending cannot carry resume data under the fixed one-scan read.
+  - §6 manifest stop: `bin/land deploy` launches five existing modules before the sixth.
+  - G12 names no supported Rama 1.6.0 consumed-offset/checkpoint read or worker procedure.
+  - Receipt normalization erases handler `{:status :skipped}`; PState variants are mistyped.
+  - Pending enumeration has a terminalization race; failed enumeration is unbounded/unpaged.
+  - Grace boundary/nonnegative validation and P2 O1/O2/O9–O13 mechanisms are absent.
+  Three ruling questions, options, recommendations, and re-run scopes are in
+  `decisions.md` Open Questions. No source/test edit, test, deploy, commit, or push.
+  Probes untouched (`3000c9f2…` / `e652d923…`). Next: Sid/Fable ruling, full
+  ruling sweep, then fresh Rama P0; never implement from this failed plan.

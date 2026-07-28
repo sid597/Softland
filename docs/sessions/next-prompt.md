@@ -267,7 +267,7 @@ Width 1–2; this list IS the gauge and the limiter (>2 entries = alarm).
 Each activation note records the dark-interval lessons (drift / memory /
 proof-decay + was this line accurate).
 - **#1 multi-cascade R2 (durable runner + log-consuming topology) —
-  STAGED 2026-07-27** (`build/multi-cascade/CONTRACT_R2.md` + NOW.md
+  P1 PLAN VALIDATION FAIL / §6 STOP 2026-07-27** (`build/multi-cascade/CONTRACT_R2.md` + NOW.md
   STANDING-R2 + starter prompt; FULL gate tier — durable-touch: new
   cascade-log module, sixth deploy). First honest customer =
   **episode-retry**, the banked stranded-lane defect (episode-chain
@@ -286,8 +286,12 @@ proof-decay + was this line accurate).
   Second P0 stop (manifest "47 lines" vs 46 on disk) RULED 2026-07-27 at
   the class: §6/§8 amended — manifests bind on SUBSTANCE, line hints
   re-locate + log, never stop; whole manifest machine-verified; rule
-  routed to the work-package skill. Next: fresh Rama P0 re-run, then P1
-  per the NOW starter.
+  routed to the work-package skill. Fresh Rama P0 + plan completed after that
+  ruling; fresh validation failed before source on the pending read/schema
+  contradiction, non-executable sixth-module deploy path, and unavailable G12
+  offset/checkpoint proof (plus plan-fixable findings). Three exact ruling
+  questions live in decisions.md Open Questions. Next: Sid/Fable ruling +
+  full ruling sweep, then fresh Rama P0; no implementation from the failed plan.
 - **#2 — held open for Sid's first lived friction after the return.**
 
 **space-as-entity — CLOSED (all three rungs) + retro'd 2026-07-26.** Rungs

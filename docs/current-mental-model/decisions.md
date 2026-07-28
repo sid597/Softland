@@ -322,6 +322,71 @@ architecture above).
 
 ## Open questions — undecided; say your take when you hit one
 
+- **Multi-cascade R2 — what may `cascade/pending-runs` read?** The binding
+  contract fixes `$$cascade-pending` as
+  `"{String run-id → Long obligated-at-ms}"` (`CONTRACT_R2.md:124-127`) and
+  fixes pending enumeration to `"one seek + sequential iteration per
+  partition"` (`:156-160`), while the recovery sweep must `"re-execute the
+  obligation's handler"` (`:180-186`). The fresh plan can recover the bounded
+  payload only by adding one `$$cascade-runs` point read per pending key
+  (`PLAN.md:51-66`): P+K seeks, with K unbounded during an outage. Both
+  readings physically build, but not together.
+  - **A — recommended:** amend the pending value to a typed, bounded resume
+    capsule containing `:obligated-at-ms` plus the obligation data needed by
+    the runner. Keep exactly two PStates and the one-seek-plus-sequential
+    per-partition enumeration; define interval consistency and a last
+    status/timestamp check before execution. Cost: bounded duplication while a
+    run is pending. Gain: the pinned read cost remains true under outage.
+  - **B:** retain the Long value and amend the read law to P+K point reads,
+    with a status-and-timestamp recheck and an explicit outage-scale cost.
+    Simpler schema; unbounded random-read amplification when pending grows.
+  - Under either ruling: sweep §3b/§3d, T3/T6/T11, G2/G4/G10, every P0
+    operation/matrix/read-cost claim, then re-run Rama P0 → plan → fresh
+    validation. P1 source remains unopened until validation passes.
+- **Multi-cascade R2 — how does the sixth module deploy without relaunching
+  the five?** G12 says "`bin/land deploy` of the sixth module" while the five
+  stay RUNNING (`CONTRACT_R2.md:461-470`), and P1 permits only `"one
+  MODULE_VARS line"` in `bin/land` (`:604-615`). Disk is materially different
+  from that executable claim: `bin/land:136-153` loops all entries under
+  `set -e` and invokes `deploy --action launch` for each; the five entries at
+  `:24-30` are already deployed, so the command cannot cleanly reach the new
+  sixth entry.
+  - **A — recommended:** widen only the `bin/land` deploy seam to accept one
+    validated module target and an explicit first-launch/update action, then
+    make G12 target cascade-log alone. Keep the all-module clean-cluster path,
+    fail closed on an unknown target/action, and settle via server-read module
+    status. This makes first deploy and later redeploy executable from the one
+    owned ops surface.
+  - **B:** amend G12 to use exact direct Rama `launch` then `update` commands
+    for cascade-log and leave `bin/land deploy` clean-cluster-only. Smaller
+    diff, but splits the deployed-module procedure across the contract and its
+    owning script.
+  - Under either ruling: sweep §2, G12, §8's `bin/land` manifest, §9's P1
+    fence, PLAN deployment commands, and the board; re-run Rama P0 → plan →
+    fresh validation before P1.
+- **Multi-cascade R2 — what executable evidence replaces G12's unavailable
+  consumed-offset receipt?** G12 requires a worker restart to preserve
+  `"obligations + offsets (no depot-history replay — native resume)"`
+  (`CONTRACT_R2.md:461-469`). The plan supplies only unnamed
+  `"server-readable consumed positions/checkpoint"` evidence
+  (`PLAN.md:525-534`). Pinned Rama 1.6.0 exposes public module status and
+  placement/status commands, but no identified supported API/CLI read for a
+  topology's consumed offsets; the internal streaming-state PState is not a
+  supported schema the package can safely invent.
+  - **A — recommended:** amend G12 to the strongest supported black-box proof:
+    server-read cascade-log RUNNING and exact worker placement; persist an
+    obligated row; kill only that identified worker; observe replacement and
+    RUNNING; server-read the same run/pending truth; append a new observation
+    after replacement and verify terminal state plus pending removal. Claim
+    native state survival and resumed processing, not directly observed
+    offsets or proof that no history was replayed.
+  - **B:** provide and bind a supported Rama 1.6.0 offset/checkpoint
+    API/command (including schema, worker targeting, and replacement
+    predicate), then retain the stronger offset/no-replay claim. Undocumented
+    internal PStates do not qualify without that ruling.
+  - Under either ruling: sweep G12, P0 deployment semantics, PLAN's exact
+    commands/APIs, and the gate receipt vocabulary; then re-run Rama P0 →
+    plan → fresh validation before any live cluster mutation.
 - Confidence/credential algebra for the trail→code join.
 - Question-as-first-class-unit design (design track).
 - The requests-vs-walls law's final strength: Sid removed the BINDING form
