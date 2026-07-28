@@ -13,6 +13,9 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
+            [com.rpl.rama :refer [foreign-select foreign-select-one]]
+            [com.rpl.rama.path :refer [keypath MAP-VALS]]
+            [app.server-jetty :as sj]
             [app.server.episode :as episode]
             [app.server.rama.core :as core]
             [app.server.rama.face-projection :as fp]
@@ -20,9 +23,11 @@
             [app.server.rama.material-truth :as material-truth]
             [app.server.rama.object-container.facet-master :as adapter]
             [app.server.rama.object-container.runtime :as ocr]
+            [app.server.rama.object-container.transcript-identity :as tid]
             [app.server.rama.relation-kernel :as rk]
             [app.shared.activation-event :as activation-event]
             [app.shared.attention-material :as attention]
+            [app.shared.binding-material :as bm]
             [app.shared.facet-material :as facet-material]
             [app.shared.facet-masters :as facet-masters]
             [app.shared.foldable-material :as foldable]
@@ -368,6 +373,426 @@
       (finally
         (rk/close-relation-runtime! rk-rt)
         (ocr/close-object-container-runtime! oc-rt)))))
+
+;; ===========================================================================
+;; matter-room P2 · G3/G4/G5 — the room: birth once, refresh, carried verbs
+;; ===========================================================================
+
+(defn- room-projection-rows
+  "PHYSICAL PState read of one room's native rows — never the product query
+   surface. A negative invariant (`zero duplicate residents`) needs a reader
+   that can actually SEE a duplicate; the served projection dedups by
+   construction and would mask exactly the bug this asserts against."
+  [oc-rt object-key]
+  (vec (foreign-select [(keypath (tid/chat-conversation-id object-key)) MAP-VALS]
+                       (:transcript-conversation-projection oc-rt))))
+
+(defn- unit-physical
+  [oc-rt unit-id]
+  (foreign-select-one [(keypath unit-id)] (:derived-units-by-id oc-rt)))
+
+(def ^:private drill-floor-rows
+  "The kernel's floor tier, rebuilt from the same specs (the binding-dispatch
+   suite's fixture shape)."
+  (assoc (into {}
+               (map (fn [spec]
+                      [(:facet-master/facet spec)
+                       (:facet-master/bindings (facet-material/code-floor spec))]))
+               facet-masters/specs)
+         bm/space-facet bm/space-floor-bindings))
+
+(defn- drill-at
+  [subject instance-rows]
+  (bm/drill-report {:facet-rows {}
+                    :floor-rows drill-floor-rows
+                    :instance-rows (or instance-rows {})
+                    :subject subject}))
+
+(deftest matter-room-p2-room-is-real-idempotent-and-machine-classified
+  (let [oc-rt (ocr/start-object-container-runtime!)
+        rk-rt (rk/start-relation-runtime! {:tasks 4 :threads 2})
+        ctx {:oc-rt oc-rt :rk-rt rk-rt}]
+    (try
+      (let [_ (boot! oc-rt)
+            master-id attention/master-id
+            room-id (matter-room/room-id master-id)
+            object-key (episode/episode-object-key room-id)
+            open1 (sj/open-matter-room! ctx {:master-id master-id})
+            open2 (sj/open-matter-room! ctx {:master-id master-id})
+            unit-ids-1 (mapv :unit-id (:residents open1))
+            unit-ids-2 (mapv :unit-id (:residents open2))
+            rows (room-projection-rows oc-rt object-key)
+            native (filterv #(= :episode-utterance (:entry-kind %)) rows)]
+
+        (testing "G3 · the room is addressed deterministically and opens once"
+          (is (= :ok (:status open1)))
+          (is (= room-id (:room-id open1)))
+          (is (= object-key (:object-key open1)))
+          (is (= (str "?drill=" room-id) (:entry open1)))
+          (is (= [] (:portal-errors open1)))
+          (is (seq (:residents open1)))
+          (is (every? #(= :accepted (:status %)) (:residents open1)))
+          (is (every? #(= :birth (:act %)) (:residents open1))))
+
+        (testing "G3 · a second open converges — no second row set (T2)"
+          (is (= unit-ids-1 unit-ids-2) "resident ids are identity-only")
+          (is (every? #(= :unchanged (:act %)) (:residents open2)))
+          (is (= (count unit-ids-1) (count native))
+              "one native row per resident, physically read")
+          (is (= (count (distinct (map :import-key native)))
+                 (count native))
+              "no duplicate import minted a second row")
+          (is (every? #(some? (unit-physical oc-rt %)) unit-ids-1)))
+
+        (testing "G5 · birth carries the MACHINE actor all the way to render"
+          (is (every? #(= matter-room/resident-actor-id (:role %)) native)
+              "the role slot is what machine classification reads")
+          (let [dc (fp/serve ctx {:face :conversation
+                                  :address object-key
+                                  :params {}})
+                speakers (mapv :speaker (:turns dc))
+                kinds (vec (mapcat #(map :kind (:blocks %)) (:turns dc)))]
+            (is (= (count unit-ids-1) (count (:turns dc))))
+            (is (= [matter-room/resident-actor-id] (distinct speakers))
+                "a served room turn is NEVER spoken by sid")
+            (is (not (contains? (set speakers) "sid")))
+            (is (= [:material-part] (distinct kinds))
+                "the whole-block :material cut, one unit per resident")))
+
+        (testing "G5 · the room rides the ONE import path, with no new family"
+          (is (every? #(str/starts-with? (str (:import-key %)) "imp:ep:")
+                      (:residents open1))
+              "the existing episode import prefix — no new import family")
+          (let [seam (slurp "src/app/shared/matter_room.cljc")]
+            ;; the seam composes CONTENT; it mints no request, no import key
+            ;; and no envelope — that is what keeps it from becoming a second
+            ;; import artery while passing a narrower grep (G5, R1 finding 1).
+            (doseq [composer ["action-request" "utterance-import-request"
+                              ":request-type" "imp:" ":payload"]]
+              (is (not (str/includes? seam composer))
+                  (str "the room seam must not compose imports: " composer))))
+          ;; the package-wide form of G5: no NEW import-request builder joined
+          ;; the tree, inside the room seam or anywhere else.
+          (let [owners (->> (file-seq (io/file "src"))
+                            (filter #(.isFile ^java.io.File %))
+                            (filter #(re-find #"\.clj[cs]?$" (.getName ^java.io.File %)))
+                            (remove #(str/ends-with? (str %) "env.clj"))
+                            (keep (fn [f]
+                                    (when (str/includes?
+                                           (slurp f)
+                                           ":request-type :object-container/import-material")
+                                      (str/replace (str f) "\\" "/"))))
+                            set)]
+            (is (= #{"src/app/server/episode.clj"
+                     "src/app/server/rama/material_circulation.clj"
+                     "src/app/server/rama/object_container/assembly_adapter.clj"
+                     "src/app/server/rama/object_container/block_distiller.clj"
+                     "src/app/server/rama/object_container/clojure_adapter.clj"
+                     "src/app/server/rama/object_container/facet_master.clj"
+                     "src/app/server/rama/object_container/markdown_adapter.clj"
+                     "src/app/server/rama/object_container/transcript_adapter.clj"}
+                   owners)
+                "matter-room adds NO import-request builder anywhere (G5)")))
+
+        (testing "G2/L6 · experience widens to the room's residents, batched"
+          (let [anchored (:portal/result
+                          (fp/serve ctx {:face :material-portal
+                                         :params {:master-id master-id}}))
+                exp (:portal/experience anchored)]
+            (is (= (into [master-id] (sort unit-ids-1))
+                   (:experience/material-ids exp)))
+            (is (= (count unit-ids-1) (:experience/room-resident-count exp)))
+            (is (= object-key (:experience/conversation-address exp)))
+            (is (= 1 (get-in exp [:experience/query-plan :relation-roundtrips]))
+                "T3 — one batched relation read, never a scan")
+            (is (true? (get-in exp [:experience/query-plan :batched?])))))
+
+        (testing "L6 · a mark on a resident surfaces in the master's experience"
+          (let [resident (first unit-ids-1)
+                mark "du:block:room-mark"
+                request (rk/assert-request
+                         {:kind :felt-at
+                          :from (rk/->target-ref :derived-unit mark)
+                          :to (rk/->target-ref :derived-unit resident)
+                          :asserter-actor-id "sid"
+                          :asserter-type :human
+                          :actor {:actor/id "sid" :actor/type :human}
+                          :asserted-at-ms (now)
+                          :sent-at-ms (now)
+                          :request-id "matter-room-p2-mark"
+                          :idempotency-key "matter-room-p2-mark"})
+                _ (rk/append-relation-request! rk-rt request)
+                anchored (:portal/result
+                          (fp/serve ctx {:face :material-portal
+                                         :params {:master-id master-id}}))
+                exp (:portal/experience anchored)]
+            (is (pos? (:experience/count exp)))
+            (is (contains? (set (map :experience/origin-unit-id
+                                     (:experience/items exp)))
+                           resident)
+                "the room resident's record is the type's record")))
+
+        (testing "the rendered floor gains a room row, inside an existing card"
+          (let [served (fp/serve ctx {:face :material-portal
+                                      :params {:master-id master-id}})
+                rendered (:portal/render served)
+                cards (:render/cards rendered)
+                identity-card (some #(when (= :identity (:card/id %)) %) cards)]
+            (is (= (count portal/questions) (count cards))
+                "the card SET is still the compile-time question list")
+            (is (some #(and (= "room" (:row/label %))
+                            (str/includes? (str (:row/value %)) room-id))
+                      (:card/rows identity-card))))))
+      (finally
+        (rk/close-relation-runtime! rk-rt)
+        (ocr/close-object-container-runtime! oc-rt)))))
+
+(deftest matter-room-p2-refresh-rides-the-edit-lane-monotonically
+  (let [oc-rt (ocr/start-object-container-runtime!)
+        ctx {:oc-rt oc-rt :rk-rt nil}]
+    (try
+      (let [_ (boot! oc-rt)
+            master-id attention/master-id
+            open1 (sj/open-matter-room! ctx {:master-id master-id})
+            object-key (:object-key open1)
+            head-unit (:unit-id (first (filter #(= :head (:section %))
+                                               (:residents open1))))
+            trail-1 (filterv #(= :trail (:section %)) (:residents open1))
+            candidate (adapter/import-candidate!
+                       oc-rt attention/spec
+                       (pr-str (assoc (:facet-master/default-form attention/spec)
+                                      :attention/hit-padding 11.0))
+                       {:request/id "matter-room-p2-candidate"})
+            activation (adapter/activate!
+                        oc-rt attention/spec (:revision-id candidate)
+                        {:kind :activate :actor sid :time-ms (now)
+                         :request/id "matter-room-p2-activate"})
+            open2 (sj/open-matter-room! ctx {:master-id master-id})
+            trail-2 (filterv #(= :trail (:section %)) (:residents open2))
+            heads-2 (filterv #(= :head (:section %)) (:residents open2))
+            native (filterv #(= :episode-utterance (:entry-kind %))
+                            (room-projection-rows oc-rt object-key))]
+
+        (testing "a new activation refreshes the head and APPENDS one resident"
+          (is (= :accepted (get-in activation [:decision :status])))
+          (is (= 1 (count heads-2)) "exactly one head resident, ever")
+          (is (= :refresh (:act (first heads-2)))
+              "changed content rides the edit lane — never a re-import")
+          (is (= head-unit (:unit-id (first heads-2)))
+              "the head keeps its unit id across the refresh")
+          (is (= (inc (count trail-1)) (count trail-2))
+              "exactly ONE new trail resident per activation")
+          (is (= (mapv :unit-id trail-1)
+                 (vec (take (count trail-1) (mapv :unit-id trail-2))))
+              "append-only: the standing trail residents keep their ids")
+          (is (every? #(= :unchanged (:act %))
+                      (take (count trail-1) trail-2))
+              "an existing trail resident is NEVER edited")
+          (is (= (count (:residents open2)) (count native))
+              "the refresh minted no extra row"))
+
+        (testing "the edit seq is durable-read monotone, never a content hash"
+          (let [a "ZZZZ later-in-hash-order"
+                b "AAAA earlier-in-hash-order"
+                _ (is (not= (compare (core/sha-256 a) (core/sha-256 b))
+                            (compare 1 2))
+                      "the fixtures invert content-hash order on purpose")
+                seq-before (sj/matter-room-next-edit-seq oc-rt head-unit)
+                e1 (sj/matter-room-refresh!
+                    oc-rt object-key head-unit
+                    (ocr/read-unit oc-rt head-unit) {:resident/text a})
+                e2 (sj/matter-room-refresh!
+                    oc-rt object-key head-unit
+                    (ocr/read-unit oc-rt head-unit) {:resident/text b})]
+            (is (= :accepted (:status e1)))
+            (is (= :accepted (:status e2))
+                "both refreshes land — a hash-derived seq would drop this one")
+            (is (= seq-before (:edit-seq e1)))
+            (is (= (inc (:edit-seq e1)) (:edit-seq e2)))
+            (is (= b (:content-text (ocr/read-unit oc-rt head-unit)))
+                "last write wins, in write order")
+            (is (thrown-with-msg?
+                 clojure.lang.ExceptionInfo
+                 #"seq-read unavailable"
+                 (with-redefs
+                   [ocr/foreign-one
+                    (fn [& _]
+                      (throw
+                       (ex-info "seq-read unavailable" {:type :test/outage})))]
+                   (sj/matter-room-next-edit-seq oc-rt head-unit)))
+                "a durable seq-read outage fails closed; it must never reset to 1")))
+
+        (testing "a same-content re-open writes nothing at all"
+          (let [next-seq (sj/matter-room-next-edit-seq oc-rt head-unit)
+                open3 (sj/open-matter-room! ctx {:master-id master-id})
+                head3 (first (filter #(= :head (:section %)) (:residents open3)))]
+            ;; the head text was clobbered by the seq fixtures above, so this
+            ;; open refreshes ONCE more and then converges
+            (is (= :refresh (:act head3)))
+            (is (= next-seq (:edit-seq head3))
+                "the driver takes the seq the durable read hands it")
+            (let [open4 (sj/open-matter-room! ctx {:master-id master-id})]
+              (is (every? #(= :unchanged (:act %)) (:residents open4))
+                  "converged: no revision noise from an unchanged room")))))
+      (finally
+        (ocr/close-object-container-runtime! oc-rt)))))
+
+(deftest matter-room-p2-carried-verbs-are-site-matched
+  (let [resident "du:chat:room:episode-native-v0:ep:abcd1234:000000"
+        ground-block "du:block-1"
+        by-label (fn [report] (into {} (map (juxt :probe/label identity)) report))
+        resident-report (by-label (drill-at resident nil))
+        ground-report (by-label (drill-at ground-block nil))
+        outcome (fn [report label]
+                  ((juxt :probe/verb :probe/tier :probe/facet :probe/outcome)
+                   (get report label)))]
+
+    (testing "G4 · a room resident resolves EXACTLY like a ground block"
+      (is (= (drill-at ground-block nil) (drill-at resident nil))
+          "the floor decides on site + gesture, never on who the subject is"))
+
+    (testing "G4 · the MACHINE hit-area verbs a machine resident carries"
+      (doseq [label ["tap a machine block → release focus"
+                     "drag a machine block"
+                     "tap a fold header → toggle its section"]]
+        (is (= (outcome ground-report label) (outcome resident-report label))
+            label)
+        (is (= :claimed (:probe/outcome (get resident-report label))))))
+
+    (testing "G4 · Sid's OWN room block carries the USER set, unchanged"
+      (doseq [label ["tap a user block → focus"
+                     "drag a user block"
+                     "shift-drag a user block → text selection"]]
+        (is (= (outcome ground-report label) (outcome resident-report label))
+            label)
+        (is (= :claimed (:probe/outcome (get resident-report label))))))
+
+    (testing "G4 · an instance row on a resident behaves like one on a block"
+      (let [row {:binding/gesture :pointer/tap
+                 :binding/phase :complete
+                 :binding/modifiers :any
+                 :binding/verb {:verb/name :focus/release :verb/version 0}
+                 :binding/priority 9999}
+            at-resident (by-label
+                         (drill-at resident
+                                   {[resident :block/user-hit-area] [row]}))
+            at-block (by-label
+                      (drill-at ground-block
+                                {[ground-block :block/user-hit-area] [row]}))
+            label "tap a user block → focus"]
+        (is (= :instance (:probe/tier (get at-resident label))))
+        (is (= (outcome at-block label) (outcome at-resident label)))))
+
+    (testing "G4 · camera reservation is untouched inside the room"
+      (is (true? (bm/camera-gesture-reserved?
+                  :space/ground
+                  {:binding/gesture :wheel
+                   :binding/phase :complete
+                   :binding/modifiers :any})))
+      (doseq [label ["drag empty space → pan the camera"
+                     "wheel → zoom at the pointer"
+                     "wheel at a block → zoom through the space rung"]]
+        (is (= :space (:probe/facet (get resident-report label))) label)
+        (is (= :claimed (:probe/outcome (get resident-report label))) label)))))
+
+(deftest matter-room-p2-resident-composition-is-pure-and-total
+  (testing "composition is total over garbage and over an entity-mode result"
+    (is (= [] (matter-room/residents nil)))
+    (is (= [] (matter-room/residents {:portal/identity "not a map"})))
+    (is (= [] (matter-room/residents {:portal/master-id 42}))))
+
+  (testing "ids are identity-only — content never enters a birth id"
+    (let [base {:portal/master-id "fm:attention"
+                :portal/identity {:entity/facet :attention}
+                :portal/masters {"fm:attention" {:master/active-revision-id "r1"}}
+                :portal/bindings {:bindings/rows [] :bindings/verbs []}
+                :portal/room {"room-uuid" "fm:attention"}
+                :portal/history {:history/available-cuts
+                                 {"fm:attention" ["p2" "p1"]}}}
+          moved (assoc-in base [:portal/masters "fm:attention"
+                                :master/active-revision-id] "r2")
+          ids (mapv :resident/turn-id (matter-room/residents base))]
+      (is (= ["mr:fm:attention:head"
+              "mr:fm:attention:bindings"
+              "mr:fm:attention:trail:p1"
+              "mr:fm:attention:trail:p2"]
+             ids)
+          "head · bindings · trail OLDEST first (a new activation appends)")
+      (is (= ids (mapv :resident/turn-id (matter-room/residents moved)))
+          "changed content must NOT move an id (T2 / the fingerprint law)")
+      (is (not= (mapv :resident/text (matter-room/residents base))
+                (mapv :resident/text (matter-room/residents moved)))
+          "…while the content itself does change, which is why refresh exists")
+      (is (= [0 1 2 3] (mapv :resident/time-ms (matter-room/residents base)))
+          "the order key is the composition ordinal, not a clock (T10)")
+      (is (= [true true false false]
+             (mapv :resident/refreshable? (matter-room/residents base)))
+          "trail residents are append-only")))
+
+  (testing "a trail resident carries no fact about the PRESENT chain"
+    (let [with-pointer {:portal/master-id "fm:attention"
+                        :portal/masters {"fm:attention"
+                                         {:master/pointer-revision-id "p2"}}
+                        :portal/history {:history/available-cuts
+                                         {"fm:attention" ["p2" "p1"]}}}
+          moved (assoc-in with-pointer [:portal/masters "fm:attention"
+                                        :master/pointer-revision-id] "p3")
+          trail-of #(->> (matter-room/residents %)
+                         (filter (comp #{:trail} :resident/section))
+                         (mapv :resident/text))]
+      (is (= (trail-of with-pointer) (trail-of moved))
+          "a moved pointer must not rewrite a standing trail resident"))))
+
+(deftest matter-room-p2-episode-parameterization-preserves-sids-lane
+  (let [args {:object-key "chat:room" :turn-id "t1" :text "hello"
+              :time-ms 1234567 :prev-turn-id nil}
+        sid-request (episode/utterance-import-request args)
+        machine-request (episode/utterance-import-request
+                         (assoc args
+                                :actor matter-room/resident-actor
+                                :actor-id matter-room/resident-actor-id
+                                :actor-role matter-room/resident-actor-role
+                                :part-type matter-room/resident-part-type))
+        hint-of #(first (get-in % [:payload :projection-hints]))]
+
+    (testing "the default path is Sid's lane, unchanged"
+      (is (= (episode/utterance-actor) (episode/utterance-actor nil)))
+      (is (= {:actor/id "sid" :actor/type :human
+              :actor/capabilities #{:object-container/import-material}}
+             (episode/utterance-actor)))
+      (is (= "sid" (:role (hint-of sid-request))))
+      (is (= "sid" (get-in sid-request [:actor :actor/id])))
+      (is (= :human-message
+             (:unit-kind (first (get-in sid-request [:payload :derived-units])))))
+      (is (= "user" (get-in sid-request [:payload :source-artifacts 0
+                                         :production-event
+                                         :production/actor-role]))))
+
+    (testing "the machine path differs ONLY where machine-ness lives"
+      (is (= matter-room/resident-actor-id (:role (hint-of machine-request)))
+          "the role slot is the one field render classification reads")
+      (is (= matter-room/resident-actor
+             (:actor machine-request)))
+      (is (= :agent (get-in machine-request [:actor :actor/type]))
+          "core/actor-types has no :machine — :agent is the honest legal value")
+      (is (contains? (get-in machine-request [:actor :actor/capabilities])
+                     :object-container/import-material)
+          "not :system, so authorized-request? genuinely checks this")
+      (is (= :material-part
+             (:unit-kind (first (get-in machine-request
+                                        [:payload :derived-units]))))
+          "the whole-block cut, one unit per resident")
+      (is (= 1 (count (get-in machine-request [:payload :derived-units]))))
+      (is (= (:import/key sid-request) (:import/key machine-request))
+          "identity is the turn-id: the actor never enters the import key")
+      (is (not= (:material/fingerprint sid-request)
+                (:material/fingerprint machine-request))
+          "…but the payload differs, so the fingerprint must too"))
+
+    (testing "birth identity is replay-stable"
+      (is (= (episode/utterance-import-request args)
+             sid-request))
+      (is (= (:idempotency/key sid-request) (:import/key sid-request))))))
 
 ;; ===========================================================================
 ;; G3 — batched: one roundtrip, and a sub-serve count that does NOT grow

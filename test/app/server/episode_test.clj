@@ -136,7 +136,35 @@
           [hint] (get-in req [:payload :projection-hints])]
       (is (= :episode-utterance (:entry-kind hint)))
       (is (clojure.string/starts-with? (str (:order-key hint)) "ep:"))
-      (is (= "sid" (:role hint))))))
+      (is (= "sid" (:role hint)))))
+  ;; matter-room P2: the same lane, parameterized. The pin above is the DEFAULT
+  ;; path and is deliberately unchanged; this is the machine path beside it.
+  ;; The `role` slot is the ONE field the render's machine classification reads
+  ;; (ground.cljs `machine? (not= speaker "sid")`), so a parameterized actor
+  ;; that missed this slot would land a machine block that renders as Sid.
+  (testing "a caller-supplied actor threads through actor, role and cut"
+    (let [machine (ep/utterance-import-request
+                   (assoc args
+                          :actor {:actor/id "softland:matter-room"
+                                  :actor/type :agent
+                                  :actor/capabilities
+                                  #{:object-container/import-material}}
+                          :actor-id "softland:matter-room"
+                          :actor-role "assistant"
+                          :part-type :material))
+          [hint] (get-in machine [:payload :projection-hints])
+          units (get-in machine [:payload :derived-units])]
+      (is (= "softland:matter-room" (:role hint)))
+      (is (= "softland:matter-room" (get-in machine [:actor :actor/id])))
+      (is (= :agent (get-in machine [:actor :actor/type])))
+      (is (= "softland:matter-room"
+             (get-in machine [:payload :source-artifacts 0 :created-by])))
+      (is (= "assistant"
+             (get-in machine [:payload :source-artifacts 0 :production-event
+                              :production/actor-role])))
+      (is (= [:material-part] (mapv :unit-kind units))
+          "the :material whole-block cut, one unit per resident")
+      (is (empty? (oc/import-request-validation-errors machine))))))
 
 ;; ===========================================================================
 ;; Flag D · the skip predicate (native-turn-event?)
