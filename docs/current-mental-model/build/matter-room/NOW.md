@@ -35,6 +35,22 @@
 
 ## NOW (newest first; ≤15 lines per entry)
 
+- **2026-07-28 · Fable · P4 COMMIT RULING EXECUTED (Sid: "commit") — the
+  package's PHASES ARE COMPLETE (P1–P4 all landed + gated).** Code commit
+  `88e1baf` = exactly PLAN §P4's five files (+578/−23), landed by
+  exact-diff application from worktree `codex/matter-room-p4` (base
+  `620c021`; byte-identity verified, md5 `be5041ef` both sides; worktree
+  left in place for Sid to delete). Slim gate PASS rode `GATE_P4.md`
+  (fresh context; suite selection independently re-derived, 62t/1,171a
+  exact match; warm G10 p95 20.4ms attested swiftshader). Docs commit =
+  P4.md (receipt transcribed from the implementer handoff — it wrote no
+  docs) + GATE_P4.md + this file. HEAD-dynamic suites re-run at the new
+  code HEAD: git-spine + code-atoms 16t/365a 0/0. Foreign set untouched;
+  board pruned on disk only. Residue banked: GATE_P3×3 + GATE_P4×5
+  findings → next contract intake; Sid's headed G10 at wear; the §8
+  package falsifier stands watch; batch retro at the boundary. Next:
+  the halo contract session (banked on the board, unblocked).
+
 - **2026-07-28 · Fable · P3 COMMIT RULING EXECUTED (Sid: commit both).**
   Code commit `620c021` = exactly the amended PLAN §P3 seven-source-plus-
   two-test set, staged path-exact on base `20aeca8`; diffstat re-matched
