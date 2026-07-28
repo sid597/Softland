@@ -123,11 +123,19 @@
 
 (defn utterance-actor
   "asserted-by: sid — an honest :human actor CARRYING the import capability
-   (authorized-request? checks capabilities for non-:system actors)."
-  []
-  {:actor/id utterance-actor-id
-   :actor/type :human
-   :actor/capabilities #{:object-container/import-material}})
+   (authorized-request? checks capabilities for non-:system actors).
+
+   matter-room P2 (CONTRACT §11, scoped parameterization): the 1-arity threads
+   a CALLER-SUPPLIED actor through the SAME lane, so machine material (the
+   room's residents) is born by the ONE existing import path instead of a
+   second import family (T1/G5). `nil` — and every existing 0-arity call —
+   yields the identical sid actor map, byte for byte."
+  ([] (utterance-actor nil))
+  ([actor]
+   (or actor
+       {:actor/id utterance-actor-id
+        :actor/type :human
+        :actor/capabilities #{:object-container/import-material}})))
 
 ;; ===========================================================================
 ;; §B · The utterance import (pure rows → one action-request)
@@ -138,19 +146,33 @@
    distilled human turns (bd/free-cut-part :human-message — whole-message
    block + proper structural silver subs), so the unit grammar never forks
    by lane (T1). created-by = sid (G3's provenance read lands here);
-   :production-event is the delegation home (the F2-option-A extra key)."
-  [{:keys [object-key turn-id text time-ms prev-turn-id receipt]}]
-  (let [source-id  (utterance-source-id object-key turn-id)
+   :production-event is the delegation home (the F2-option-A extra key).
+
+   matter-room P2 (CONTRACT §11, scoped): `:actor-id`, `:actor-role` and
+   `:part-type` are OPTIONAL parameters whose defaults reproduce Sid's lane
+   byte for byte. A room resident passes the machine actor and part-type
+   `:material` — `free-cut-part`'s WHOLE-BLOCK cut (`:material-part`), never
+   `:text`, which would fan one resident into N markdown blocks and break the
+   one-unit edit lane. Known consequence, INTENDED: `:material-part` is in
+   `face-projection/seed-noise-kinds`, so residents are elided from episode
+   seeds — the resident's context rides the portal briefing (L4), never the
+   conversational seed."
+  [{:keys [object-key turn-id text time-ms prev-turn-id receipt
+           actor-id actor-role part-type]}]
+  (let [actor-id   (or actor-id utterance-actor-id)
+        actor-role (or actor-role "user")
+        part-type  (or part-type :human-message)
+        source-id  (utterance-source-id object-key turn-id)
         source-ref (str "ep-utterance:" turn-id)
         text       (str text)
         text-hash  (oc/source-hash text)
         event-id   (str "evt:" object-key ":" (core/sha-256 (str "episode " turn-id)))
         doc-id     (tid/chat-message-id object-key (core/sha-256 (str turn-id)))
-        blocks     (vec (map-indexed vector (bd/free-cut-part {:part-type :human-message :text text})))
+        blocks     (vec (map-indexed vector (bd/free-cut-part {:part-type part-type :text text})))
         production {:production/class         :river
                     :production/classifier-id episode-distiller-id
-                    :production/actor         utterance-actor-id
-                    :production/actor-role    "user"
+                    :production/actor         actor-id
+                    :production/actor-role    actor-role
                     :context/parents          (when prev-turn-id [prev-turn-id])
                     :context/degenerate?      true
                     :production/time-ms       (long time-ms)}
@@ -158,7 +180,7 @@
                            source-id source-ref text-hash :episode-utterance text
                            doc-id
                            (long (count (.getBytes text "UTF-8")))
-                           (long time-ms) utterance-actor-id event-id)
+                           (long time-ms) actor-id event-id)
                           :production-event production
                           :receipt receipt)
         units      (mapv (fn [[i b]]
@@ -193,8 +215,15 @@
    :episode-utterance, ep:-namespaced order-key, source-id set (the merge
    read walks source→units exactly like river-page's message rows), role =
    the ACTOR id (sid — this lane's rows carry actor identity, not a
-   transport role; documented divergence from the :message rows)."
-  [{:keys [object-key turn-id time-ms text receipt origin-unit-ids]}
+   transport role; documented divergence from the :message rows).
+
+   matter-room P2: the `role` slot is the ONE field the render's machine
+   classification actually reads (`ground.cljs` `machine? (not= speaker
+   \"sid\")` ← `face_projection.clj` turn `:speaker` ← `block_distiller.clj`
+   `:actor (:role row)` ← here). Parameterizing the actor WITHOUT this slot
+   would land a machine resident that renders as Sid — R2 finding 2. Default
+   (`nil`) is `utterance-actor-id`, byte-identical to the pre-P2 row."
+  [{:keys [object-key turn-id time-ms text receipt origin-unit-ids actor-id]}
    imp-key request-id source-id event-id]
   (assoc
    (oc/->TranscriptConversationProjectionRow
@@ -204,7 +233,7 @@
     :episode-utterance
     nil nil nil source-id nil nil
     event-id request-id imp-key
-    (str turn-id) utterance-actor-id
+    (str turn-id) (or actor-id utterance-actor-id)
     (subs (str text) 0 (min 120 (count (str text))))
     nil)
    :receipt receipt
@@ -630,8 +659,14 @@
    P2b: `turn-id` is the BIRTH id — the client-minted block id whose first
    content act mints this unit; `:position` (optional) adds the block's
    birth-position geometry cell to the SAME payload, so birth + placement
-   land in one acked import (birth-position at mint, §9.3)."
-  [{:keys [object-key turn-id time-ms position scene-context] :as args}]
+   land in one acked import (birth-position at mint, §9.3).
+
+   matter-room P2: `:actor` (a full actor map), `:actor-id`, `:actor-role`
+   and `:part-type` are OPTIONAL and thread through `utterance-rows` +
+   `utterance-projection-hint` unchanged. Omitting them reproduces Sid's
+   request byte for byte — this is the ONE import path, parameterized, never
+   a second import family (G5)."
+  [{:keys [object-key turn-id time-ms position scene-context actor] :as args}]
   (let [receipt      (circulation/receipt-from-context
                       {:created-during
                        {:conversation/address object-key
@@ -673,7 +708,7 @@
             {:request-id   request-id
              :request-type :object-container/import-material
              :time-ms      (long time-ms)
-             :actor        (utterance-actor)
+             :actor        (utterance-actor actor)
              :target       {:target/kind :object-container-import
                             :target/id imp-key
                             :target/address {:object/key object-key}}

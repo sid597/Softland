@@ -322,6 +322,21 @@
             ;; clj->js — their conventions are not reinterpreted here.
             (portal->js [v]
               (if (string? v) v (clj->js v :keyword-fn #(str (symbol %)))))
+            ;; matter-room P2 — the room ENTRY act (a write: it births the
+            ;; room's residents once, idempotently). Deliberately NOT a face
+            ;; pull: face pulls are reads.
+            (open-room! [master-id]
+              (if-not (string? master-id)
+                (js/Promise.reject
+                 (js/Error.
+                  "Pass a facet-master id to __portal.room(masterId)."))
+                (-> (js/fetch "/api/matter-room/open"
+                              #js {:method "POST"
+                                   :headers #js {"Content-Type" "application/edn"}
+                                   :body (pr-str {:master-id master-id})})
+                    (.then (fn [res] (.text res)))
+                    (.then (fn [text]
+                             (portal->js (reader/read-string text)))))))
             (open* [entity-id extra k]
               (.then (request! entity-id extra)
                      (fn [r] (portal->js (get r k)))))]
@@ -371,11 +386,27 @@
                  ;; stand in history — pass a cut as EDN
                  :at (fn [cut & [entity-id]]
                        (open* entity-id {:cut (read-edn-arg cut)}
-                              :portal/result))})
+                              :portal/result))
+                 ;; matter-room P2 — open the master's ROOM (materialize its
+                 ;; residents) and hand back the address. `enter` follows with
+                 ;; the URL change: the room rides the EXISTING `?drill=` UUID
+                 ;; conversation lane, so no new navigation machinery exists
+                 ;; (the deliberate MVP; an in-land gesture is recorded residue).
+                 :room (fn [master-id] (open-room! master-id))
+                 :enterRoom (fn [master-id]
+                              (.then (open-room! master-id)
+                                     (fn [r]
+                                       (let [entry (aget r "entry")]
+                                         (when (string? entry)
+                                           (set! (.-search js/window.location)
+                                                 entry))
+                                         r))))})
       (js/console.log
        (str "[PORTAL] window.__portal installed — click a block, then:\n"
             "  await __portal.open()          the whole projection\n"
             "  await __portal.openMaster('fm:attention')  one type anchor\n"
+            "  await __portal.room('fm:attention')        materialize its room\n"
+            "  await __portal.enterRoom('fm:attention')   …and stand in it\n"
             "  await __portal.questions()     every question + its replayable call\n"
             "  await __portal.briefing()      what a resident summoned here reads\n"
             "  await __portal.release()       wish → code → receipts → verb → binding → activation → worn\n"

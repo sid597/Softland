@@ -49,6 +49,7 @@
             [app.shared.binding-material :as binding-material]
             [app.shared.facet-material :as facet-material]
             [app.shared.facet-masters :as facet-masters]
+            [app.shared.matter-room :as matter-room]
             [app.shared.material-inspector :as material-inspector]
             [app.shared.material-portal :as portal]
             [app.shared.verb-registry :as verb-registry]
@@ -694,6 +695,27 @@
                                              machine-cut-actor-v0)]
         (merge dc structure)))))
 
+(defn- room-resident-unit-ids
+  "matter-room P2 · the durable units standing in the deterministic room
+   conversation for `master-id`, in stable order.
+
+   This is MEMBERSHIP, not a second experience query: the record itself still
+   comes from the one `experience-around-many` call below (CONTRACT T3). The
+   read goes through the existing episode projection API, never a raw PState
+   path or a source-specific import adapter."
+  [oc-rt master-id object-key]
+  (let [room-object-key
+        (when (contains? facet-masters/by-id master-id)
+          (episode/episode-object-key (matter-room/room-id master-id)))]
+    (if (and oc-rt (= object-key room-object-key))
+      (->> (episode/read-utterance-rows oc-rt object-key)
+           (mapcat :origin-unit-ids)
+           (filter rk/present-string?)
+           distinct
+           sort
+           vec)
+      [])))
+
 (defn material-experience-projection
   "Direct standing query: everything experienced around one or more material
    ids. The relation kernel is invoked once for the whole target vector;
@@ -702,11 +724,17 @@
    {:face :material-experience :address <material-id>
     :params {:material-ids [...] :conversation-address <optional>}}."
   [{:keys [oc-rt rk-rt]} {:keys [address params]}]
-  (let [ids (vec (distinct
-                  (filter rk/present-string?
-                          (or (seq (:material-ids params)) [address]))))
+  (let [base-ids (vec (distinct
+                       (filter rk/present-string?
+                               (or (seq (:material-ids params)) [address]))))
         object-key (or (:conversation-address params)
-                       (some-> (first ids) oc/extract-object-key))
+                       (some-> (first base-ids) oc/extract-object-key))
+        room-read
+        (circulation-record-read
+         :room-residents
+         #(room-resident-unit-ids oc-rt address object-key))
+        room-unit-ids (:records room-read)
+        ids (into base-ids (remove (set base-ids)) room-unit-ids)
         receipt-read
         (circulation-record-read
          :receipt
@@ -726,13 +754,18 @@
              (circulation/read-circulation-records oc-rt object-key))
             []))
         records (into (:records receipt-read) (:records machine-read))
-        errors (vec (keep :error [receipt-read machine-read]))]
+        errors (vec (keep :error [room-read receipt-read machine-read]))]
     (cond->
      (assoc
       (update
        (circulation/experience-around-many rk-rt ids records)
        :experience/query-plan assoc
-       :object-container-runtime-available? (boolean oc-rt))
+       :object-container-runtime-available? (boolean oc-rt)
+       ;; `material-portal/open` intentionally keeps a fixed subset of the
+       ;; experience sub-serve. The outer portal face reads these plan facts
+       ;; back into the served section without a second membership/query read.
+       :experience/material-ids ids
+       :experience/room-resident-count (count room-unit-ids))
       :experience/conversation-address object-key
       :face/rendered-at-ms (System/currentTimeMillis))
       (seq errors) (assoc :experience/source-errors errors))))
@@ -1471,6 +1504,52 @@
 
 (declare serve)
 
+(defn- with-room-experience
+  "matter-room P2 · carry the widened experience sub-serve through the portal's
+   fixed section selector.
+
+   The ids/count were produced by the SAME sub-serve that performed the one
+   `experience-around-many` call. This is projection shaping only: no read,
+   join, or query occurs here."
+  [result]
+  (let [master-id (:portal/master-id result)
+        plan (get-in result [:portal/experience :experience/query-plan])
+        material-ids (:experience/material-ids plan)
+        resident-count (:experience/room-resident-count plan)]
+    (if (and (string? master-id)
+             (vector? material-ids)
+             (integer? resident-count))
+      (-> result
+          (assoc-in [:portal/experience :experience/material-ids] material-ids)
+          (assoc-in [:portal/experience :experience/room-resident-count]
+                    resident-count))
+      result)))
+
+(defn- with-room-entry-row
+  "matter-room P2 · add the served room address to the existing identity card.
+
+   The seventeen-card floor remains closed: this is one row inside an existing
+   card, anchor-only because entity projections carry no `:portal/room` map.
+   Navigation uses the already-shipped `?drill=<uuid>` conversation lane."
+  [render result]
+  (let [room-id (some-> (get result :portal/room) keys first)]
+    (if-not (string? room-id)
+      render
+      (update render :render/cards
+              (fn [cards]
+                (mapv
+                 (fn [card]
+                   (if (= :identity (:card/id card))
+                     (update card :card/rows
+                             (fn [rows]
+                               (conj
+                                (vec (remove #(= "room" (:row/label %)) rows))
+                                {:row/label "room"
+                                 :row/value
+                                 (str room-id " · enter: ?drill=" room-id)})))
+                     card))
+                 cards))))))
+
 (defn material-portal-projection
   "P7 transport. `:portal/result` is canonical and CLOCK-FREE — two equal worlds
    produce byte-equal portals, which is what makes the determinism gate and the
@@ -1484,13 +1563,16 @@
   (let [params (:params request)
         token (:request-token params)]
     (try
-      (let [result (material-portal/open ctx #(serve ctx %) params)
+      (let [result (-> (material-portal/open ctx #(serve ctx %) params)
+                       with-room-experience
+                       portal/canonicalize)
             edn (portal/canonical-edn result)
-            briefing (material-portal/briefing result)]
+            briefing (material-portal/briefing result)
+            render (with-room-entry-row (material-portal/render result) result)]
         {:portal/request-token token
          :portal/result result
          :portal/edn edn
-         :portal/render (material-portal/render result)
+         :portal/render render
          :portal/briefing briefing
          :portal/briefing-bytes (count briefing)
          :portal/unanswered (portal/unanswered result)

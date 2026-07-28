@@ -5,7 +5,9 @@
     [clojure.java.io :as io]
     [clojure.string :as str]
     [clojure.tools.logging :as log]
+    [com.rpl.rama.path :refer [keypath]]
     [contrib.assert :refer [check]]
+    [app.electric-flow :as electric-flow]
     [app.file-viewer :as fv]
     [app.server.cascade :as cascade]
     [app.server.episode :as episode]
@@ -16,6 +18,7 @@
     [app.server.rama.dogfood.llm :as llm]
     [app.server.rama.cluster :as cluster]
     [app.shared.facet-masters :as facet-masters]
+    [app.shared.matter-room :as matter-room]
     [app.server.review-pack :as review-pack]
     [components.adapter :as adapter]
     [components.compiler :as compiler]
@@ -1114,6 +1117,143 @@ information."
                (try (.close writer) (catch Exception _ nil)))))))}))
 
 ;; =====================================================================
+;; matter-room P2 — the room: birth once, refresh through the edit lane.
+;;
+;; A master's room is a REAL conversation container (CONTRACT L3): its machine
+;; residents are ordinary durable blocks, born through the EXISTING episode
+;; import path with the machine actor (G5 — no new import family, no adapter
+;; namespace, no bespoke import composer) and refreshed through the EXISTING
+;; `:object/edit` lane (`electric-flow/submit-block-edit!`, the ONE server edit
+;; entry point — a second write path here would be the T1 second-wearer tell).
+;;
+;; Birth is NOT part of the portal open: opening a master must stay a read.
+;; This driver is the room ENTRY act, and it is idempotent by construction —
+;; N opens converge on one row set (T2, G3).
+;; =====================================================================
+
+(defn matter-room-next-edit-seq
+  "The next STRICTLY MONOTONE edit seq for one resident, from a DURABLE read
+   of that unit's own edit-order row (never a content hash: `stale-edit?`
+   rejects `(<= seq last-seq)` inside `edit-effects`, OUTSIDE
+   `edit-request-validation-errors`, so a hash-derived seq would silently drop
+   about half of all refreshes). Lineage key = the unit-id, constant per
+   resident; client id = the room's own, so the only seq this competes with is
+   the room's. Fallback 0 → first refresh 1."
+  [oc-rt unit-id]
+  (let [row (ocr/foreign-one (:edit-order-by-target oc-rt)
+                             [(keypath unit-id)
+                              (keypath matter-room/resident-edit-client-id)])]
+    (inc (long (or (:edit-seq row) 0)))))
+
+(defn matter-room-birth!
+  "Land ONE resident through the parameterized episode import path: unit +
+   birth-position in one acked import, machine actor, machine role."
+  [oc-rt object-key resident]
+  (let [request (episode/utterance-import-request
+                 {:object-key object-key
+                  :turn-id (:resident/turn-id resident)
+                  :text (:resident/text resident)
+                  :time-ms (long (:resident/time-ms resident))
+                  :position (:resident/position resident)
+                  :actor matter-room/resident-actor
+                  :actor-id matter-room/resident-actor-id
+                  :actor-role matter-room/resident-actor-role
+                  :part-type matter-room/resident-part-type})]
+    (ocr/append-object-container-request! oc-rt request)
+    (let [decision (ocr/await-object-container-decision oc-rt request 20000)]
+      {:act :birth
+       :status (if (= :accepted (:status decision)) :accepted :rejected)
+       :import-key (:import/key request)
+       :reason (:reason decision)})))
+
+(defn matter-room-refresh!
+  "Land ONE resident's changed content as an EDIT on the same unit — the
+   append-only trail residents never take this path (`:resident/refreshable?`
+   false), because a new revision births a NEW resident instead."
+  [oc-rt object-key unit-id unit resident]
+  (let [seq* (matter-room-next-edit-seq oc-rt unit-id)
+        request-id (str "req:matter-room:edit:" unit-id ":" seq*)
+        result (electric-flow/submit-block-edit!
+                oc-rt
+                {:request-id request-id
+                 :edit-client-id matter-room/resident-edit-client-id
+                 :edit-seq seq*
+                 :actor matter-room/resident-actor
+                 :time-ms (System/currentTimeMillis)
+                 :target {:target/kind :derived-unit :target/id unit-id}
+                 :payload {:document-container-id
+                           (get-in unit [:unit :document-container-id])
+                           :object-key object-key
+                           :content-text (:resident/text resident)}})]
+    {:act :refresh
+     :status (if (:accepted? result) :accepted :rejected)
+     :edit-seq seq*
+     :replay? (:replay? result)
+     :reason (:reason result)}))
+
+(defn open-matter-room!
+  "Open (and materialize) one master's room. Returns a plain map:
+   {:status :ok/:error :master-id :room-id :object-key :entry :residents [...]}.
+
+   Every resident is composed PURELY from the master-anchored portal
+   projection, then reconciled against durable truth:
+     absent            → birth once (episode import path)
+     present, same     → nothing (no write, no revision noise)
+     present, changed  → edit lane (refreshable residents only)
+   A changed resident is NEVER re-imported: the kernel's import fingerprint is
+   strict, so a re-import of changed content under the same import key is a
+   durable conflict (PLAN §P2 F5)."
+  [{:keys [oc-rt] :as face-ctx} {:keys [master-id]}]
+  (if (or (nil? oc-rt) (not (string? master-id)) (str/blank? master-id))
+    {:status :error
+     :error (if (nil? oc-rt) :land-unavailable :bad-request)
+     :master-id master-id}
+    (let [room-id (matter-room/room-id master-id)
+          object-key (episode/episode-object-key room-id)
+          portal (face-projection/serve
+                  face-ctx
+                  {:face :material-portal
+                   :params {:master-id master-id}})
+          result (:portal/result portal)
+          residents (matter-room/residents result)
+          acts (mapv
+                (fn [resident]
+                  (let [turn-id (:resident/turn-id resident)
+                        unit-id (episode/utterance-unit-id object-key turn-id 0)
+                        unit (ocr/read-unit oc-rt unit-id)
+                        base {:section (:resident/section resident)
+                              :turn-id turn-id
+                              :unit-id unit-id}]
+                    (merge
+                     base
+                     (cond
+                       (nil? unit)
+                       (matter-room-birth! oc-rt object-key resident)
+
+                       (= (str (:content-text unit)) (:resident/text resident))
+                       {:act :unchanged :status :accepted}
+
+                       (true? (:resident/refreshable? resident))
+                       (matter-room-refresh! oc-rt object-key unit-id unit
+                                             resident)
+
+                       :else
+                       {:act :append-only :status :accepted}))))
+                residents)]
+      {:status :ok
+       :master-id master-id
+       :room-id room-id
+       :object-key object-key
+       :entry (str "?drill=" room-id)
+       ;; both honesty channels: the portal's per-section errors AND the
+       ;; whole-open failure shape (`material-portal-projection`'s outer
+       ;; catch swaps :portal/errors for :portal/error, and an empty room
+       ;; must never look like a healthy one)
+       :portal-errors (vec (:portal/errors result))
+       :portal-error (:portal/error result)
+       :residents acts})))
+
+;; =====================================================================
 ;; Relation /assert write shim — git-spine WP2 component W (CONTRACT §3.E).
 ;;
 ;; POST /api/relation/assert is the land's first write affordance (D-008): a CLI
@@ -1530,6 +1670,25 @@ information."
       ;; editable-material — one deterministic malformed-candidate drill for
       ;; any registered master. Validation closes before active-pointer edit;
       ;; rendering still waits for the one batched FacePull.
+      ;; ===== matter-room P2 · room entry (open = materialize + address) =====
+      ;; The DELIBERATE MVP (PLAN §P2 F15): entry is this act followed by a URL
+      ;; change to the returned `?drill=<room-uuid>` lane — the existing UUID
+      ;; conversation lane, not a new one, and not yet an in-land gesture.
+      (= uri "/api/matter-room/open")
+      (if (= request-method :post)
+        (try
+          (let [{:keys [master-id]} (parse-edn-body ring-req)
+                result (open-matter-room! (fv/face-ctx) {:master-id master-id})]
+            (edn-response (case (:error result)
+                            nil 200
+                            :land-unavailable 503
+                            400)
+                          result))
+          (catch Exception e
+            (log/error e "[MATTER-ROOM][OPEN-ERROR]" {:uri uri})
+            (edn-response 500 {:status :error :error (.getMessage e)})))
+        (edn-response 405 {:status :error :error :method-not-allowed}))
+
       (= uri "/api/material/facet-master/drill")
       (if (= request-method :post)
         (try
