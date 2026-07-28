@@ -35,6 +35,22 @@
 
 ## NOW (newest first; ≤15 lines per entry)
 
+- **2026-07-28 · Fable · P2 slim gate PASS + commit ruling executed (Sid
+  in-session: commit both) — P3 may open.**
+  Adopted interrupted Opus WIP after full-diff read; restored both off-PLAN
+  portal paths, then finished within PLAN §P2's seven code/test paths.
+  Room residents: deterministic birth through the existing episode artery,
+  monotone edit refresh, append-only trail, served entry, one-batch widened
+  experience. G3/G4/G5 green; G10m n=43, p95=21.8ms (<52).
+  One fresh falsifier found a real fail-open seq-read fallback: an old accepted
+  edit replayed while new bytes were lost. Catch removed; exact attack now
+  throws; concurrent-open + fingerprint attacks re-run PASS.
+  Post-falsifier slim suite 82t/1,201a green; CLJS 0 warnings; diff-check clean.
+  Durable-cluster one-shot accepted on inherited pre-shutdown receipt; current
+  product path independently re-proved on isolated :8092; shared land untouched.
+  No stage/commit/push; root probes removed. Receipts: P2.md + GATE_P2.md.
+  Next: fresh P3 context per P2.md's starter.
+
 - **2026-07-28 · Fable · P1 slim gate PASS + commit ruling executed (Sid
   in-session: "Its your call") — P2 opened.** Gate fresh-context vs the
   Codex implementation, slim tier per CONTRACT §8. Independently: suite
