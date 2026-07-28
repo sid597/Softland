@@ -225,7 +225,10 @@ request builders + the master-anchored narrowing law) ·
 `face_projection.clj` (`portal-briefing` gains `:master-id` plumbing —
 the explicit five-key map is where the anchor currently dies [F3]) ·
 `face_wiring.cljs` (console verbs) · `ground.cljs` (preview-lane touch
-only if needed — disclosed) · test tree.
+only if needed — disclosed) · `shared/material_portal.cljc` (the
+CONTRACT L5/T9 briefing "read-only" sentence ONLY — it physically lives
+there (:874) and T9 demands same-phase/same-commit; §11 already
+allowlists the file; ruling P3-F1, 2026-07-28) · test tree.
 
 **Behavior:**
 - Registry: `:matter/deviate` `:matter/activate` `:matter/rollback` =

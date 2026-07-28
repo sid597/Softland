@@ -35,6 +35,21 @@
 
 ## NOW (newest first; ≤15 lines per entry)
 
+- **2026-07-28 · Fable · P3-F1 RULED — PLAN §P3 fence amended; P3 resumes.**
+  Implementer stopped pre-edit under CONTRACT §9: PLAN §P3's Files list
+  omitted `shared/material_portal.cljc`, yet L5, §6-P3, T9, and G7 all
+  compel the briefing's "read-only" sentence to change in P3 — T9/G7 say
+  same phase, SAME COMMIT — and the sentence physically lives in that
+  file (:874). §11 already allowlists it package-wide. Every cited
+  clause re-verified on disk this session before ruling. Ruling: add the
+  file to PLAN §P3 scoped SOLELY to the L5/T9 sentence + its tests;
+  every other fence line unchanged. Same class as the 2026-07-27
+  multi-cascade manifest ruling: fences bind on substance; a locator
+  omission the contract contradicts four times is amended, never obeyed
+  into a lying portal. decisions.md escalation entry deliberately
+  skipped (parked foreign write-set); this entry is the record.
+  Next: implementer resumes P3 under the amended fence, no re-orientation.
+
 - **2026-07-28 · Fable · P2 slim gate PASS + commit ruling executed (Sid
   in-session: commit both) — P3 may open.**
   Adopted interrupted Opus WIP after full-diff read; restored both off-PLAN
