@@ -29,6 +29,8 @@
      real river page ⇒ `:until-ms` cuts are prefix-consistent (G11)."
   (:require [clojure.string :as str]
             [clojure.edn :as edn]
+            [app.server.cascade :as cascade]
+            [app.server.rama.git-spine :as git-spine]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.object-container.block-distiller :as bd]
@@ -52,6 +54,7 @@
             [app.shared.matter-room :as matter-room]
             [app.shared.material-inspector :as material-inspector]
             [app.shared.material-portal :as portal]
+            [app.shared.provenance-material :as provenance-material]
             [app.shared.verb-registry :as verb-registry]
             ;; READ-ONLY use of the relation kernel's PUBLIC query surface (rk
             ;; CONTRACT §7 — read-relations-for-targets ONLY; never a PState path,
@@ -1460,6 +1463,214 @@
            (material-inspector/canonical-edn result)})))))
 
 ;; ===========================================================================
+;; matter-room P4 · citizens and gauges.
+;;
+;; Both are serves, never writers. Cascade declarations stay code-owned,
+;; in-process data (T5); the escape detector stays explicitly on-demand because
+;; its git source is an unbounded subprocess (T8). The standard portal links
+;; these faces but invokes only the cheap cascade enumeration.
+;; ===========================================================================
+
+(defn- cascade-rows-envelope
+  [row-source source labels ownership]
+  (let [rows (vec (row-source))]
+    {:cascade/version 0
+     :cascade/rows rows
+     :cascade/row-count (count rows)
+     :cascade/read-only? true
+     :cascade/labels labels
+     :cascade/ownership ownership
+     :cascade/lifetime :in-process
+     :cascade/source source
+     :cascade/source-swap-note
+     "When a durable cascade table lands, this face swaps its source and labels; the portal contract does not change."}))
+
+(defn cascade-rows-projection
+  "Serve the inert cascade declaration table as a citizen.
+
+   The three-arity form injects a fixture row source so G8 can prove a dark row
+   without changing `app.server.cascade`; it is labeled fixture-injected rather
+   than claiming code ownership. Production defaults to `cascade/rows` and is
+   labeled `:code-owned :in-process`. Merely enumerating a handler symbol never
+   resolves or invokes it, and source plus labels must change together when a
+   later durable source lands."
+  ([ctx request]
+   (cascade-rows-envelope
+    cascade/rows
+    'app.server.cascade/rows
+    [:code-owned :in-process]
+    :code-owned))
+  ([row-source _ctx _request]
+   (cascade-rows-envelope
+    row-source
+    :fixture-injected
+    [:fixture-injected :in-process]
+    :fixture-injected)))
+
+(def ^:private default-escape-gauge-timeout-ms 5000)
+
+(defn- poisoned-escape-report
+  [error-type message]
+  {:terminal-escape/status :poisoned
+   :terminal-escape/count nil
+   :terminal-escape/escapes nil
+   :terminal-escape/candidates []
+   :terminal-escape/ambiguous? false
+   :terminal-escape/policy-paths
+   (vec (sort circulation/default-material-policy-paths))
+   :terminal-escape/policy-commits-scanned 0
+   :terminal-escape/commits-scanned 0
+   :terminal-escape/activation-events-scanned 0
+   :terminal-escape/latest-activation-ms 0
+   :terminal-escape/latest-activation-revision-id nil
+   :terminal-escape/activation-history-linear? false
+   :terminal-escape/activation-clock-regressions []
+   :terminal-escape/error
+   {:type error-type
+    :message message}})
+
+(defonce ^:private escape-gauge-state
+  (atom {:last-report
+         (poisoned-escape-report
+          :terminal-escape/not-measured
+          "The on-demand escape gauge has not been measured in this process.")
+         :in-flight nil}))
+
+(defn- escape-gauge-timeout-ms
+  [request]
+  (let [candidate (get-in request [:params :timeout-ms])]
+    (if (and (number? candidate) (pos? candidate))
+      (long candidate)
+      default-escape-gauge-timeout-ms)))
+
+(defn- compute-escape-gauge-report
+  [{:keys [read-commits read-revision-history]} {:keys [oc-rt]}]
+  (if-not oc-rt
+    (poisoned-escape-report
+     :terminal-escape/object-container-unavailable
+     "The provenance activation history is unavailable.")
+    (try
+      ;; G9 / PLAN R2-1: this is the SINGLE shipped provenance-master read.
+      ;; `analyze-activation-history` demands exactly one causal tip; joining
+      ;; every master here would make clean data permanently ambiguous.
+      (let [repo-root (System/getProperty "user.dir")
+            commits (vec (read-commits repo-root))
+            activation-events
+            (vec
+             (read-revision-history
+              oc-rt
+              (facet-master/active-pointer-container-id
+               provenance-material/spec)
+              ""
+              100000))]
+        (circulation/terminal-escape-report
+         commits
+         activation-events
+         circulation/default-material-policy-paths))
+      (catch Throwable t
+        (poisoned-escape-report
+         :terminal-escape/read-failed
+         (or (.getMessage t) "The on-demand escape gauge read failed."))))))
+
+(defn- start-escape-gauge-flight!
+  [state deps ctx]
+  (loop []
+    (let [{:keys [in-flight last-report] :as before} @state]
+      (if in-flight
+        {:owner? false
+         :flight in-flight
+         :last-report last-report}
+        (let [flight (promise)
+              armed (assoc before :in-flight flight)]
+          (if (compare-and-set! state before armed)
+            (do
+              ;; The timeout lives at this FACE, not in git-spine (L7). On
+              ;; expiry the caller abandons this worker; it and its git process
+              ;; run to natural completion. The atom admits no second worker,
+              ;; which bounds the leak to one computation.
+              (future
+                (let [report (compute-escape-gauge-report deps ctx)]
+                  (swap! state
+                         (fn [current]
+                           (if (identical? flight (:in-flight current))
+                             (assoc current
+                                    :last-report report
+                                    :in-flight nil)
+                             current)))
+                  (deliver flight report)))
+              {:owner? true
+               :flight flight
+               :last-report last-report})
+            (recur)))))))
+
+(defn- escape-gauge-envelope
+  [master-id report cached? in-flight?]
+  (cond->
+   {:escape-gauge/version 0
+    :escape-gauge/on-demand? true
+    :escape-gauge/single-flight? true
+    :escape-gauge/cached? (boolean cached?)
+    :escape-gauge/in-flight? (boolean in-flight?)
+    :escape-gauge/report report
+    :escape-gauge/source
+    {:commits :git-log-all
+     :activation-master-id provenance-material/master-id
+     :active-pointer-container-id
+     (facet-master/active-pointer-container-id provenance-material/spec)
+     :policy-paths :default-material-policy-paths}}
+    (string? master-id)
+    (assoc :escape-gauge/master-id master-id
+           :escape-gauge/resident
+           (matter-room/gauge-resident master-id report))))
+
+(defn escape-gauge-projection
+  "Compute the terminal-escape report on demand, never during standard portal
+   open.
+
+   Production uses the process-wide single-flight state and the pinned git/OC
+   readers. The three-arity form injects those dependencies for deterministic
+   timeout, ambiguity, and clean-history fixtures. A timed-out owner receives a
+   poisoned-but-total report; concurrent and post-expiry callers receive the
+   cached last report while the one abandoned computation finishes naturally."
+  ([ctx request]
+   (escape-gauge-projection
+    {:state escape-gauge-state
+     :read-commits git-spine/read-commits
+     :read-revision-history ocr/read-revision-history}
+    ctx
+    request))
+  ([{:keys [state read-commits read-revision-history] :as deps} ctx request]
+   (let [state (or state escape-gauge-state)
+         deps (assoc deps
+                     :read-commits (or read-commits git-spine/read-commits)
+                     :read-revision-history
+                     (or read-revision-history ocr/read-revision-history))
+         master-id (get-in request [:params :master-id])
+         {:keys [owner? flight last-report]}
+         (start-escape-gauge-flight! state deps ctx)]
+     (if-not owner?
+       (escape-gauge-envelope
+        master-id
+        (or last-report
+            (poisoned-escape-report
+             :terminal-escape/not-measured
+             "The first on-demand measurement is still in flight."))
+        true
+        true)
+       (let [report (deref flight
+                           (escape-gauge-timeout-ms request)
+                           ::timeout)]
+         (if (= ::timeout report)
+           (escape-gauge-envelope
+            master-id
+            (poisoned-escape-report
+             :terminal-escape/timeout
+             "The git-backed escape gauge exceeded its face timeout.")
+            false
+            true)
+           (escape-gauge-envelope master-id report false false)))))))
+
+;; ===========================================================================
 ;; The projection registry + server-side face dispatch (trap T8).
 ;; ===========================================================================
 
@@ -1607,6 +1818,10 @@
    :facet-materials facet-materials-projection
    :material-inspector material-inspector-projection
    :material-experience material-experience-projection
+   ;; matter-room P4: declarations are cheap; the git-backed gauge is explicit
+   ;; on-demand and is never invoked by :material-portal.
+   :cascade-rows cascade-rows-projection
+   :escape-gauge escape-gauge-projection
    ;; editable-material P5: reading what a gesture MEANS is a query
    :interaction-table interaction-table-projection
    ;; editable-material P6: reading the whole truth loop is a query too

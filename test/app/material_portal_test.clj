@@ -15,10 +15,13 @@
             [clojure.test :refer [deftest is testing]]
             [com.rpl.rama :refer [foreign-select foreign-select-one]]
             [com.rpl.rama.path :refer [keypath MAP-VALS]]
+            [app.server.cascade :as cascade]
             [app.server-jetty :as sj]
             [app.server.episode :as episode]
             [app.server.rama.core :as core]
             [app.server.rama.face-projection :as fp]
+            [app.server.rama.git-spine :as git-spine]
+            [app.server.rama.material-circulation :as circulation]
             [app.server.rama.material-portal :as mp]
             [app.server.rama.material-truth :as material-truth]
             [app.server.rama.object-container.facet-master :as adapter]
@@ -33,6 +36,7 @@
             [app.shared.foldable-material :as foldable]
             [app.shared.matter-room :as matter-room]
             [app.shared.material-portal :as portal]
+            [app.shared.provenance-material :as provenance]
             [app.shared.text-body-material :as text-body]))
 
 (def sid {:actor/id "sid" :actor/type :human})
@@ -998,6 +1002,253 @@
       (is (not (str/includes?
                 briefing-src
                 "The portal is read-only: it does not execute writes"))))))
+
+;; ===========================================================================
+;; matter-room P4 · G8/G9 — citizens and the on-demand terminal-escape gauge
+;; ===========================================================================
+
+(deftest matter-room-p4-cascade-citizen-is-labeled-read-only-and-dark-in-fixture
+  (let [dark-called? (atom false)
+        dark-handler (fn [& _] (reset! dark-called? true))
+        dark-row {:cascade/id :cascade/test-dark
+                  :cascade/trigger :test/never-emitted
+                  :cascade/handler dark-handler
+                  :cascade/effect-class :pure-projection}
+        injected
+        (fp/cascade-rows-projection
+         (constantly [dark-row])
+         {}
+         {:face :cascade-rows})
+        production
+        (fp/cascade-rows-projection {} {:face :cascade-rows})]
+    (testing "G8 · the row source is injectable and serving never invokes it"
+      (is (= [dark-row] (:cascade/rows injected)))
+      (is (false? @dark-called?)
+          "the fixture-only never-emitted row stays inert during projection")
+      (is (= :fixture-injected (:cascade/source injected)))
+      (is (= [:fixture-injected :in-process]
+             (:cascade/labels injected)))
+      (is (= :fixture-injected (:cascade/ownership injected)))
+      (is (not= :code-owned (:cascade/ownership injected))
+          "the injection seam cannot launder an arbitrary source as code-owned"))
+    (testing "the real citizen states its current non-durable ownership"
+      (is (= (cascade/rows) (:cascade/rows production)))
+      (is (= 'app.server.cascade/rows (:cascade/source production)))
+      (is (= [:code-owned :in-process] (:cascade/labels production)))
+      (is (= :code-owned (:cascade/ownership production)))
+      (is (= :in-process (:cascade/lifetime production)))
+      (is (true? (:cascade/read-only? production)))
+      (is (str/includes? (:cascade/source-swap-note production)
+                         "durable cascade table")))))
+
+(deftest matter-room-p4-portal-links-citizens-but-standard-open-runs-no-git
+  (let [rt (ocr/start-object-container-runtime!)
+        git-calls (atom 0)]
+    (try
+      (boot! rt)
+      (with-redefs [git-spine/read-commits
+                    (fn [_]
+                      (swap! git-calls inc)
+                      (throw (ex-info "git must not run in portal open" {})))]
+        (let [result (open! rt {:master-id attention/master-id})
+              cascade-section (:portal/cascade result)
+              truncation-sections
+              (set (map :truncation/section
+                        (get-in result
+                                [:portal/truncation
+                                 :truncation/sections])))]
+          (is (zero? @git-calls)
+              "the standard portal open invokes no git-backed face")
+          (is (= (cascade/rows) (:cascade/rows cascade-section)))
+          (is (= [:code-owned :in-process]
+                 (:cascade/labels cascade-section)))
+          (is (= {:face :escape-gauge
+                  :params {:master-id attention/master-id}
+                  :on-demand? true
+                  :embedded? false}
+                 (:cascade/escape-gauge cascade-section)))
+          (is (not (contains? result :portal/escape-gauge))
+              "the report itself is never embedded")
+          (is (contains? truncation-sections :cascade))
+          (is (contains? truncation-sections :escape-gauge))
+          (is (= 17 (count portal/questions))
+              "P4 does not widen the seventeen-question card floor")
+          (is (= (mapv :question/id portal/questions)
+                 (mapv :card/id
+                       (:render/cards (mp/render result)))))))
+      (finally
+        (ocr/close-object-container-runtime! rt)))))
+
+(deftest matter-room-p4-gauge-is-provenance-pinned-and-refreshes-existing-resident
+  (let [rt (ocr/start-object-container-runtime!)]
+    (try
+      (boot! rt)
+      (adapter/ensure-master! rt provenance/spec)
+      (let [state (atom {})
+            git-roots (atom [])
+            history-calls (atom [])
+            read-history
+            (fn [runtime container-id cursor limit]
+              (swap! history-calls conj
+                     [runtime container-id cursor limit])
+              (ocr/read-revision-history
+               runtime container-id cursor limit))
+            deps {:state state
+                  :read-commits
+                  (fn [repo-root]
+                    (swap! git-roots conj repo-root)
+                    [{:sha "fixture-clean"
+                      :committed-at-ms 0
+                      :subject "fixture"
+                      :files []}])
+                  :read-revision-history read-history}
+            ctx {:oc-rt rt :rk-rt nil}
+            room-open (sj/open-matter-room!
+                       ctx {:master-id attention/master-id})
+            gauge-act
+            (first (filter #(= :gauge (:section %))
+                           (:residents room-open)))
+            gauge-before (ocr/read-unit rt (:unit-id gauge-act))
+            served
+            (fp/escape-gauge-projection
+             deps
+             ctx
+             {:face :escape-gauge
+              :params {:master-id attention/master-id
+                       :timeout-ms 5000}})
+            report (:escape-gauge/report served)
+            resident (:escape-gauge/resident served)
+            refresh
+            (sj/matter-room-refresh!
+             rt
+             (:object-key room-open)
+             (:unit-id gauge-act)
+             gauge-before
+             resident)
+            gauge-after (ocr/read-unit rt (:unit-id gauge-act))
+            reopened (sj/open-matter-room!
+                      ctx {:master-id attention/master-id})
+            reopened-gauge
+            (first (filter #(= :gauge (:section %))
+                           (:residents reopened)))]
+        (testing "G9 · clean IPC history is measured from the single provenance master"
+          (is (= :measured (:terminal-escape/status report)))
+          (is (= 0 (:terminal-escape/count report)))
+          (is (= (vec (sort circulation/default-material-policy-paths))
+                 (:terminal-escape/policy-paths report)))
+          (is (= [(System/getProperty "user.dir")] @git-roots))
+          (is (= [[rt
+                   (adapter/active-pointer-container-id provenance/spec)
+                   ""
+                   100000]]
+                 @history-calls)))
+        (testing "the gauge resident holds the verbatim report through P2's edit lane"
+          (is (= :gauge (:resident/section resident)))
+          (is (= report (:resident/report resident)))
+          (is (true? (:resident/refreshable? resident)))
+          (is (= :refresh (:act refresh)))
+          (is (= (:resident/text resident)
+                 (:content-text gauge-after)))
+          (is (= (:unit-id gauge-act) (:unit-id reopened-gauge)))
+          (is (= :append-only (:act reopened-gauge))
+              "a standard open never downgrades the last computed report")))
+      (finally
+        (ocr/close-object-container-runtime! rt)))))
+
+(deftest matter-room-p4-gauge-renders-ambiguity-without-inference
+  (let [deps {:state (atom {})
+              :read-commits (constantly [])
+              :read-revision-history
+              (fn [& _]
+                [{:revision-id "tip-a"
+                  :parent-revision-id nil
+                  :created-at-ms 1}
+                 {:revision-id "tip-b"
+                  :parent-revision-id nil
+                  :created-at-ms 2}])}
+        served
+        (fp/escape-gauge-projection
+         deps
+         {:oc-rt :fixture}
+         {:face :escape-gauge
+          :params {:master-id attention/master-id
+                   :timeout-ms 5000}})
+        report (:escape-gauge/report served)
+        resident (:escape-gauge/resident served)]
+    (is (= :ambiguous-activation-history
+           (:terminal-escape/status report)))
+    (is (true? (:terminal-escape/ambiguous? report)))
+    (is (nil? (:terminal-escape/count report)))
+    (is (nil? (:terminal-escape/escapes report)))
+    (is (= report (:resident/report resident)))
+    (is (str/includes? (:resident/text resident)
+                       ":ambiguous-activation-history"))
+    (is (not (str/includes? (:resident/text resident)
+                            ":terminal-escape/count 0"))
+        "the resident does not infer a clean zero from an ambiguous history")))
+
+(deftest matter-room-p4-gauge-timeout-is-poisoned-total-and-single-flight
+  (let [release-git (promise)
+        calls (atom 0)
+        previous
+        {:terminal-escape/status :measured
+         :terminal-escape/count 7
+         :terminal-escape/escapes []
+         :terminal-escape/candidates []
+         :terminal-escape/ambiguous? false
+         :terminal-escape/policy-paths
+         (vec (sort circulation/default-material-policy-paths))}
+        state (atom {:last-report previous :in-flight nil})
+        deps {:state state
+              :read-commits
+              (fn [_]
+                (swap! calls inc)
+                @release-git
+                [])
+              :read-revision-history
+              (fn [& _]
+                [{:revision-id "only-tip"
+                  :parent-revision-id nil
+                  :created-at-ms 1}])}
+        request {:face :escape-gauge
+                 :params {:master-id attention/master-id
+                          :timeout-ms 1}}
+        expired
+        (fp/escape-gauge-projection deps {:oc-rt :fixture} request)
+        flight (:in-flight @state)
+        concurrent
+        (fp/escape-gauge-projection deps {:oc-rt :fixture} request)]
+    (testing "expiry is total and does not launch a second git process"
+      (is (= :poisoned
+             (get-in expired
+                     [:escape-gauge/report
+                      :terminal-escape/status])))
+      (is (= :terminal-escape/timeout
+             (get-in expired
+                     [:escape-gauge/report
+                      :terminal-escape/error
+                      :type])))
+      (doseq [k [:terminal-escape/status
+                 :terminal-escape/count
+                 :terminal-escape/escapes
+                 :terminal-escape/candidates
+                 :terminal-escape/policy-paths
+                 :terminal-escape/activation-history-linear?]]
+        (is (contains? (:escape-gauge/report expired) k) (str k)))
+      (is (= 1 @calls))
+      (is (true? (:escape-gauge/in-flight? expired))))
+    (testing "concurrent and post-expiry asks receive the cached last report"
+      (is (= previous (:escape-gauge/report concurrent)))
+      (is (true? (:escape-gauge/cached? concurrent)))
+      (is (true? (:escape-gauge/in-flight? concurrent)))
+      (is (= 1 @calls)))
+    (deliver release-git true)
+    (is (not= ::timeout (deref flight 5000 ::timeout))
+        "the abandoned worker finishes naturally")
+    (is (nil? (:in-flight @state)))
+    (is (= :measured
+           (get-in @state
+                   [:last-report :terminal-escape/status])))))
 
 ;; ===========================================================================
 ;; G3 — batched: one roundtrip, and a sub-serve count that does NOT grow
