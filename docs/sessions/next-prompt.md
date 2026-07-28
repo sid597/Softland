@@ -352,10 +352,18 @@ room-only). **ONE phase by Sid's phases-low ruling** (recorded:
 decisions.md role-split + work-package skill; no PLAN.md — the
 contract carries plan grade). C1/C2 sharpened into BETS.md same
 session (D-015 intake discharged); all eight matter-room gate findings
-re-banked (CONTRACT §10). Next act: ONE fresh default-fail validation
-round over CONTRACT.md (§11 V1–V5), then the fresh implementer
-(5.6sol-xhigh lane) builds P1 whole; slim gate G1–G4; Sid's headed
-half is NOT a gate (C2's instrument).
+re-banked (CONTRACT §10). **VALIDATION PASS 2026-07-29** (fresh
+default-fail round: first pass substantive FAIL, seven contract gaps
+amended in place — actor/custody seam · say-vs-wish projection honesty
+via a new generic `bank-reference!` · the real full-screen shared
+canvas + `ground-active?` contextmenu boundary · universal reservation
+riding valid-row? AND all three camera lanes · one shared client/server
+floor augmentation · wear census = `wears-for`, never claim-facets ·
+target-bearing composite say-id retry identity — full V1–V5 rerun PASS;
+record `build/halo/VALIDATION.md`; amendments spot-verified on disk +
+accepted by the orchestrating Fable session). Next act: the fresh
+implementer (5.6sol-xhigh lane) builds P1 whole under §6; slim gate
+G1–G4; Sid's headed half is NOT a gate (C2's instrument).
 **space-as-entity — CLOSED (all three rungs) + retro'd 2026-07-26.** Rungs
 1+2 `43a57a0`+`f7945fd` (twelve gates; `GATE.md`, `RETRO.md`); rung 3 (the
 G10 lift) `ecbd572` — gate PASS (`RUNG3_GATE.md`), retro recheck-corrected

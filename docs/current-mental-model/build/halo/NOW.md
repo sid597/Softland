@@ -37,6 +37,21 @@
 
 ## NOW (newest first; ≤15 lines per entry)
 
+- **2026-07-29 · Codex · VALIDATION PASS — package OPEN for P1.**
+  Default-fail V1–V5 began at `f84e250` with only the two foreign probe
+  artifacts untracked. The first pass substantively failed; CONTRACT was
+  amended for actor/custody, honest say-vs-wish projection, the actual
+  shared-canvas contextmenu boundary/order, universal meta reservation,
+  one client/server floor augmentation, the real wear census, and
+  target-bearing composite retry identity. The whole round was restarted;
+  its final rerun PASSes V1–V5 and laws↔traps↔gates↔manifest coherence.
+  All §11 locators were re-found; Jetty's drift is recorded at its actual
+  `src/app/server_jetty.clj` path. The current exact pins are enumerated in
+  `VALIDATION.md`; source/test diff is empty and no gate/runtime was run.
+  Next: ONE fresh 5.6sol-xhigh implementer context builds P1 whole under
+  §6; Fable orchestrates, runs the independent slim gate, and returns the
+  package to Sid for the commit ruling.
+
 - **2026-07-29 · Fable · CONTRACT CUT — package OPEN.** The halo-form
   proposal (2026-07-28 exploration session) was verified against code and
   presented in-session; Sid approved all five redlines: right-click

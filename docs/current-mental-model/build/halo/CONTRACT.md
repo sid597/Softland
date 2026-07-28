@@ -16,6 +16,15 @@ separate PLAN.md. Cadence: contract → ONE fresh default-fail validation
 round over this document → one fresh implementer context builds P1 whole →
 one fresh falsifier in-phase → one fresh slim gate → Sid's commit ruling.
 
+**Amended by the required default-fail validation round, 2026-07-29
+(`f84e250`).** V1–V5 found and closed seven substantive composition gaps:
+the import actor/custody seam, the existing `:references` mark's wish-only
+projection label, the actual full-screen canvas/contextmenu ordering, the
+universal reservation lanes, the client/server floor-table join, the
+claim-facets-versus-wear-census distinction, and the composite
+say-id/target retry identity. The amended contract below is the whole
+ruling; the rerun verdict is recorded in `VALIDATION.md`.
+
 ## §1 Purpose
 
 Matter-room built the skeleton: rooms, matter verbs, the briefing, the
@@ -43,44 +52,73 @@ into component code.
 
 ## §3 The laws this package builds (H1–H8)
 
-- **H1 — THE GESTURE.** The DOM `contextmenu` event over the land's canvas
-  normalizes to a NEW kernel gesture kind `:pointer/meta`, phase
-  `:complete` (a discrete gesture; no right-drag continuation in v0).
+- **H1 — THE GESTURE.** The actual DOM surface is the full-screen
+  `#webgpu-canvas` (`electric_flow.cljc:745-751`); sidebar, panels, editor,
+  and the open ground are GPU projections on that ONE node. A node-only
+  `preventDefault` test would therefore suppress the native menu outside
+  the land and is forbidden. A `contextmenu` observer on that node
+  synchronously checks `ground/ground-active?`: only while the open ground
+  owns the pointer grammar does it call `preventDefault` and emit the NEW
+  kernel gesture kind `:pointer/meta`, phase `:complete`. Everywhere else
+  on the canvas — and on DOM overlays/dev surfaces outside it — the event
+  is not consumed and the native menu survives.
   This rides the grammar's own pre-registered widening procedure
   ("a kernel change plus a grammar version — never a silent one",
   `binding_material.cljc:74`): `gesture-kinds` gains `:pointer/meta`;
-  `legal-gestures` gains `[:pointer/meta :complete]`. `preventDefault`
-  fires ONLY on the land's canvas node — the native browser menu survives
-  everywhere outside it (sidebar, panels, dev surfaces). Inside the canvas
-  the meaning is uniform, focused text blocks included (the sliver never
-  branches; Ctrl+C/V keyboard paths are untouched). Cost accepted by Sid
-  in-session: the native context menu inside focused blocks dies.
+  `legal-gestures` gains `[:pointer/meta :complete]`. Secondary-button
+  `mousedown`/`mouseup` fire around `contextmenu` in the existing `>mouse`
+  source, so button 2 MUST be filtered there before either event reaches
+  `pointer-down!`/`pointer-up!`; right-click never moves the caret, changes
+  focus, or starts/finishes a drag. Focused blocks are canvas-rendered
+  pixels, not DOM textareas (keyboard input is the existing `window`
+  listener), so the same hit path covers them without a focus branch and
+  leaves Ctrl+C/V untouched. The keyboard Context Menu key is NOT a v0
+  freebie: no promise is made unless a later accessibility contract gives
+  the canvas a focus target and coordinates. Cost accepted by Sid
+  in-session: the native context menu on the active open ground, focused
+  blocks included, dies.
 - **H2 — THE INVIOLATE SLIVER**, enforced structurally three ways:
   (a) `:halo/condense` is the ONLY verb the gesture reaches, filed as
   FLOOR rows on all four sites (`:block/user-hit-area`,
   `:block/machine-hit-area`, `:block/fold-header`, `:space/ground`;
-  the fold-header claim's subject is the block, so header condensation
-  lands on the same citizen — `binding_material.cljc` `probe-claims`).
+  respectively under the existing `:attention`, `:attention`, `:foldable`,
+  and `:space` floor identities). One shared
+  `binding_material.cljc` floor-table augmenter supplies those four rows to
+  BOTH `ground.cljs`'s dispatch/table tiers and
+  `face_projection.clj`'s served `interaction-table-tiers`; client and
+  server may not invent parallel row sets. The fold-header claim's subject
+  is the block, so header condensation lands on the same citizen —
+  `binding_material.cljc` `probe-claims`.
   (b) `:halo/condense` is `:verb/floor-reserved? true` — material may
   never name it (the `:camera/pan` mechanism, `verb_registry.cljc:307`
   `bindable?`).
   (c) a new `meta-gesture-reserved?` predicate in `binding_material.cljc`
   refuses ANY material row (master or instance tier, ANY site) whose
   `:binding/gesture` is `:pointer/meta` — the `camera-gesture-reserved?`
-  pattern (`:128`) widened to every site. One predicate var; read at the
-  same validation lanes camera reservation rides (V3 pins them).
+  pattern (`:128`) widened to every site. The ONE predicate var is read
+  from material `valid-row?` (the universal master/frozen-grammar gate)
+  AND from all three validation lanes camera reservation rides (V3 pins
+  them). Thus frozen v1/v2 material still rejects the newly-known gesture
+  exactly as it did when the kind was unknown, while code-floor rows pass
+  with `bindable? false`.
   Floor rows use modifiers `:any` — shift-right-click condenses too.
   The served interaction table and the floor drill show the meta rows
   honestly (`floor-drill-probes` gains meta probes; `table-rows` carries
   them like any row).
 - **H3 — CONDENSATION IS DERIVED, NEVER INFERRED.** The halo renders from
   data the client already holds or the server already serves: the subject
-  uid from the pick claim; worn facets from the claim's `:claim/facets` →
-  masters via `facet-masters/by-facet`; per-master wear tier + revision
-  from the client wears cache (`ground.cljs:262 current-material-wears`),
-  labelled honestly — worn revision id, or `:code-owned`/floored where
-  only the floor answers (P4's citizenship vocabulary). Handle labels and
-  effect classes come from the verb registry's declarations
+  uid from the picked claim (or `:space` on a miss); per-subject wear from
+  `ground.cljs:288 wears-for`, so an instance deviation cannot disappear
+  behind the shared cache; and master identity through
+  `facet-masters/by-facet`. `:claim/facets` is ONLY the interaction claim
+  set (`[:attention :positioned]` on a block) and MUST NOT be mistaken for
+  the wear census. In v0 a block's census is the six actual block wears in
+  `wears-for` (all keys except `:space`); the space census is exactly its
+  `:space` wear. This is one block/space kernel rule, never dispatch into a
+  component. Every listed master is labelled with its worn revision id and
+  tier, or `:code-owned`/floored where only the floor answers (P4's
+  citizenship vocabulary). Handle labels and effect classes come from the
+  verb registry's declarations
   (`:matter/preview`, `:matter/say`) — zero new inference paths, zero
   per-component dispatch, NO new server serve face in v0.
 - **H4 — THE FOUR HANDLES, exactly.**
@@ -102,28 +140,62 @@ into component code.
 - **H5 — SAY.** One line of the wearer's text lands durably in the picked
   master's room conversation, marked to the picked subject.
   - Route: `POST /api/matter-room/say` — the act lane's FOURTH disclosed
-    endpoint (and the only widening; H6). Parameters normalized by a pure
-    `matter_room.cljc` builder (the P3 pattern: nonblank text, registered
-    master via `room-id-by-master`, actor defaulted to `matter-actor`
-    `{:actor/id "sid" :actor/type :human}` only when omitted).
+    endpoint (and the only widening; H6). Request body:
+    `{:master-id :subject-uid :text :say-id :time-ms :actor?}`. The pure
+    `matter_room.cljc/say-request` builder requires a registered master via
+    `room-id-by-master`, nonblank subject/say ids and text, integer time, a
+    valid actor, and text containing no CR/LF (ONE line, enforced at the
+    server boundary rather than trusted to the input control). Actor
+    defaults to `matter-actor`
+    `{:actor/id "sid" :actor/type :human}` only when omitted.
   - The utterance rides the EXISTING episode utterance-import artery
-    (`episode.clj:654 utterance-import-request` — the P2 resident-birth
-    artery, parameterized actor). Identity: the CLIENT mints one say-id
-    (uuid) per act; the op-id derives from it, so a replayed request
-    converges on the same block and a new say is a new block (the
-    at-least-once law; identity-only ids, never content hashes — the P2
-    lifecycle law). A replayed-say test ships in-phase.
-  - The mark is an EXISTING relation-kernel edge (say-block → subject-uid,
-    `material_circulation.clj` request path, asserted-by sid — custody
-    makes it gold by the existing law `:83-91`), surfacing through the
-    existing experience machinery (`face_projection.clj:657
-    experience-around-many`). V1 rules whether an existing relation kind
-    fits or the closed enum grows by ONE reviewed line (pre-approved as
-    in-scope if no existing kind fits — the settled enum-growth law).
+    (`episode.clj:654 utterance-import-request`, one map arity). Jetty
+    derives the room object-key from the registered room id, supplies
+    `turn-id = say-id`, `part-type = :human-message`, `actor-id` and the
+    honest user/assistant role, and supplies the server-authoritative
+    `scene-context` receipt
+    `{:receipt/picked-at {:address subject-uid}}`. That target therefore
+    enters the existing import payload fingerprint before any relation
+    write. Jetty adds
+    `:object-container/import-material` to the envelope actor's capability
+    set without mutating `matter-actor` or the actor recorded in
+    provenance. It calls the pure request builder, then the existing
+    `ocr/append-object-container-request!` + await barrier directly. It
+    MUST NOT call `run-episode-turn`, `record-turn!`, `current-episode!`,
+    `summon-argv`, `note-episode-turn!`, or `cascade/react!`: those are the
+    spawn law, and say is a non-spawning room import. A one-line
+    `:human-message` always yields the whole-message root derived unit;
+    that root alone is the mark's source. Any structural subunits produced
+    by the existing utterance cutter retain its present semantics and are
+    neither duplicate roots nor relation sources.
+  - The existing kind **`:references` fits**: from = say unit, to = picked
+    subject, actor/custody = the normalized actor. There is NO
+    relation-enum edit. A public
+    `material_circulation.clj/bank-reference!` wrapper is the exact call
+    site; it reuses the existing private `append-asserted-edge!` request
+    composer and await barrier with a deterministic
+    `"circulation:halo-say:"` prefix and note
+    `{:mark/type :halo/say :mark/say-id ... :mark/master-id ...}`.
+    `bank-gold!` keeps its wish semantics. The generic gold-mark projection
+    gains `:source-unit-id` + `:mark/type` (retaining legacy
+    `:wish-unit-id` for wish rows), so a Halo say renders as `say`, NEVER
+    as `wish`. Human custody is gold by the existing law `:87-92`; a
+    supplied nonhuman actor remains honestly non-gold. The mark surfaces
+    through the existing `experience-around-many` machinery.
+  - Order and retry law: preflight both OC and relation runtimes; append +
+    await the room unit; only if accepted, append + await the relation;
+    report success only after BOTH are queryable. Identity: the CLIENT
+    mints one say-id (uuid), time, and immutable body per act; the import
+    op-id and relation identity derive from that say-id and root unit. A
+    lost response or a failure between the two writes is repaired by
+    replaying the SAME say-id with the SAME body. Text, time, actor, and
+    the receipt-carried target participate in the existing import payload
+    fingerprint; divergent reuse of a say-id in the same room is rejected
+    as an import conflict BEFORE any relation write. Same act replay → one
+    root block + one edge; new id → a new root block + edge. Replayed,
+    divergent-reuse, and partial-say tests ship in-phase.
   - NO new import family, adapter, depot, topology, PState, or write
-    artery. The say import must NOT spawn a resident turn or open an
-    episode (V1 pins the non-spawning import shape against
-    `episode.clj`'s spawn law).
+    artery. The eight-owner import census is unchanged.
 - **H6 — HEAVY VERBS STAY IN THE ROOM.** No halo handle invokes
   `:matter/activate`, `:matter/rollback`, or deviate (instance or
   master). The disclosed act-endpoint set widens by exactly
@@ -171,44 +243,62 @@ into component code.
 
 Client: gesture + reservation + condensation render + handle wiring live
 in the kernel files that own their stations today (`events.cljs`,
-`ground.cljs`, `binding_material.cljc`, `verb_registry.cljc`,
-`face_wiring.cljs`). Server: ONE pure builder in `matter_room.cljc` + ONE
-route in `server_jetty.clj`; the say import and mark ride existing owners
-(`episode.clj`, circulation's relation request path) — zero-diff on those
-owners is the default; a compelled touch is a stop (§9), not an
-improvisation. No new namespace unless the halo render genuinely warrants
-one client file (implementer's call, disclosed in the receipt).
+`runtime.cljs`, `ground.cljs`, `binding_material.cljc`,
+`space_material.cljc`, `verb_registry.cljc`, `face_wiring.cljs`). The
+served table's existing pure join in `face_projection.clj` reads the SAME
+shared floor augmentation. Server: ONE pure builder in `matter_room.cljc`
++ ONE route in `server_jetty.clj`; the say import builder in `episode.clj`
+stays zero-diff, while circulation gains only the generic reference wrapper
+and honest projection label named in H5. `material_portal.cljc` names the
+fifth matter verb in its existing briefing sentence. No new namespace
+unless the halo render genuinely warrants one client file (implementer's
+call, disclosed in the receipt).
 
 ## §6 The phase — P1, everything
 
 **Files (allowlist; substance-bound per the manifest law; docs under
 `build/halo/` free):**
 - `src/app/client/workspace/events.cljs` — `contextmenu` observation on
-  the canvas node (scoped preventDefault).
+  the full-screen canvas, ground-active scoped `preventDefault`, and
+  secondary-button exclusion from the existing mouse flow.
+- `src/app/client/workspace/runtime.cljs` — subscribe the new contextmenu
+  flow beside `>mouse` and join its ground consumer; no other runtime
+  routing change.
 - `src/app/client/workspace/ground.cljs` — normalization to
   `[:pointer/meta :complete]`, the halo condensation render, handle
-  wiring, `register-verb!` entries for `:halo/condense` (real) +
-  `:matter/say` (inert).
+  wiring, honest say/reference labels, shared floor-table augmentation,
+  `register-verb!` entries for `:halo/condense` (real) + `:matter/say`
+  (inert).
 - `src/app/shared/binding_material.cljc` — `gesture-kinds` /
-  `legal-gestures` widening + `meta-gesture-reserved?` + the four floor
-  rows + meta probes in `floor-drill-probes`.
+  `legal-gestures` widening + universal `meta-gesture-reserved?` + the
+  one shared four-row floor-table augmenter + meta probes in
+  `floor-drill-probes`.
+- `src/app/shared/space_material.cljc` — add meta reservation beside camera
+  reservation at the existing master-validation lane; nothing else.
 - `src/app/shared/verb_registry.cljc` — `:halo/condense` + `:matter/say`
   declarations.
 - `src/app/shared/matter_room.cljc` — pure `say-request` builder.
-- `src/app/server/server_jetty.clj` — `POST /api/matter-room/say`.
+- `src/app/shared/material_portal.cljc` — the existing matter-act briefing
+  sentence gains `:matter/say`; no question or serve-shape change.
+- `src/app/server_jetty.clj` — `POST /api/matter-room/say`, direct
+  import+relation composition and barriers.
+- `src/app/server/rama/material_circulation.clj` — public
+  `bank-reference!` over the existing private request path + generic honest
+  gold-mark projection fields; no module/depot/PState/topology change.
+- `src/app/server/rama/face_projection.clj` — feed the shared four-row
+  floor augmentation into the existing `interaction-table-tiers`; no new
+  read or serve face.
 - `src/app/client/workspace/face_wiring.cljs` — `__portal.say` (console
   parity with the other acts) + the halo's handle→HTTP call.
 - Tests: the focused namespaces the diff touches (binding_dispatch,
   material_portal, matter-room/episode-adjacent, face_wiring-adjacent);
   new assertions ride existing namespaces unless a new one is genuinely
   warranted (disclose in the receipt).
-- CONDITIONAL, zero-diff preferred, stop if compelled:
-  `src/app/server/episode.clj` (only if the artery lacks an arity — the
-  P2 precedent: parameterize without changing default behavior),
-  the circulation relation request path, `shared/material_portal.cljc`
-  (only if a T9-class briefing sentence must name the say route).
+- ZERO-DIFF asserted by V1: `src/app/server/episode.clj` and
+  `src/app/server/rama/relation_kernel.clj`.
 - **FORBIDDEN:** `src/app/server/cascade.clj` · `binding_material.cljc`
-  beyond the named widening · `env.clj` (NEVER read).
+  beyond the named widening · any new import composer/module/depot/PState/
+  topology · `env.clj` (NEVER read).
 
 **Behavior at close:** every H-law above is live and suite-pinned; the
 drill and served interaction table show the meta rows; the falsifier has
@@ -226,15 +316,20 @@ run; gates G1–G4 green.
   import-builder census must end at the eight pre-existing owners.
 - **T4** — a pretend handle (rendered where its requirements are not met,
   or on nothing-material without honest labels) = FAIL.
-- **T5** — say replay duplicating (two blocks from one say-id) = FAIL;
-  ship the replay test.
-- **T6** — native context menu suppressed OUTSIDE the canvas node = FAIL
-  (scope of H1).
+- **T5** — say replay duplicating either half (two root blocks or two edges
+  from one say-id), divergent same-id reuse reaching the relation write,
+  reporting success before both truths are queryable, or failing to repair
+  an import-without-mark partial on replay = FAIL; ship the replay,
+  divergent-reuse, and partial tests.
+- **T6** — native context menu suppressed whenever the open ground is not
+  active, or right-button down/up mutating focus/caret/drag before
+  condensation = FAIL (scope/order of H1; the physical canvas alone is not
+  the boundary).
 - **T7** — any heavy verb reachable from the halo = FAIL (H6).
 - **T8** — the gesture inert anywhere on the canvas (no condensation, no
   honest answer) = FAIL (H7 universality; the space answers a miss).
 - **T9** — the drill / served table missing or mislabelling the meta rows
-  = FAIL (legibility is the point).
+  or a Halo say as a wish = FAIL (legibility is the point).
 - **T10** — the grammar widened silently: the kind must enter through the
   documented kernel-change-plus-grammar-version procedure with a visible
   record (docstring + version note in `binding_material.cljc`), and v1/v2
@@ -244,24 +339,34 @@ run; gates G1–G4 green.
 
 - **G1 — suite + compile.** Focused namespaces green (selection
   diff-derived per the machine-cut rule); the closed-vocabulary equality
-  holds with both new registrations; the `:durable-via-request` exact-set
-  pin re-cut and green; CLJS full compile 0 warnings.
+  holds with both new registrations; floor-reserved, matter-name,
+  `:durable-via-request`, endpoint, briefing, and eight import-owner
+  exact-set pins re-cut and green; same say-id produces exactly one root
+  room block + one `:references` edge, a new id produces a second root
+  pair, divergent same-id reuse is refused before relation append, and an
+  import-without-mark partial is repaired by same-id/same-body replay;
+  CLJS full compile 0 warnings.
 - **G2 — live drive on an isolated current-tree server** (the P3/P4 rig
-  pattern; the shared land untouched): right-click a real block →
-  condensation with honest identity and plural masters; ask unfolds the
-  17-question card in place; enter opens the room through the shipped
-  lane; preview wears + `endPreview` restores with server bytes immobile
-  (the P3 measurement); **say lands durably in the room conversation and
-  its mark surfaces in the master's experience** (re-open the room and
-  read it back); right-click empty ground condenses the space; a
+  pattern; the shared land untouched): with a user block focused,
+  right-click it without changing focus/caret or starting a drag →
+  condensation with honest identity and ALL six plural block masters;
+  ask unfolds the 17-question card in place; enter opens the room through
+  the shipped lane; preview wears + `endPreview` restores with server
+  bytes immobile (the P3 measurement); **say lands durably in the room
+  conversation and its `say` mark (never `wish`) surfaces in the master's
+  experience** (re-open the room and read it back); right-click empty
+  ground condenses exactly the space master; leave the ground and prove
+  the native context menu still opens on the same physical canvas; a
   console-injected material row naming `:pointer/meta` is REFUSED with an
   error card, live.
 - **G3 — G10-machine.** Environment attested first (adapter identity);
   real ground edit echo p95 < 52ms WITH a halo open during sampling; warm
   pass is the receipt, cold transients honestly recorded.
 - **G4 — one fresh falsifier**, in-phase, aimed at exactly: reservation
-  bypass (T1) · say widening / undisclosed endpoints (T3, H6) · handle
-  honesty (T4, T8). First-FAIL → smallest in-fence repair → exact
+  bypass across grammar/tier/site (T1) · contextmenu scope/order (T6) · say
+  partial/replay, import census, and undisclosed endpoints (T3/T5, H6) ·
+  handle and citizenship honesty (T4/T8/T9). First-FAIL → smallest in-fence
+  repair → exact
   counterexample re-run, counterexamples become fixtures (standing
   falsifier law).
 - **Sid's headed half is NOT a gate.** His first unscaffolded open is
@@ -302,37 +407,63 @@ their cheap falsifiers in the gate records.
 - `verb_registry.cljc` — `effect-classes :34` · floor-reserved mechanism
   `:29-31, :303-313` · the P3 matter-verb declaration pattern `:215-285`
   · `well-formed-registry? :360`.
+- `electric_flow.cljc` — the actual full-screen `#webgpu-canvas`
+  `:745-751`; GPU sidebar ruling `:745`.
+- `runtime.cljs` — all canvas event sources share `node :393-400`; ground
+  consumers join at `:439-450`.
 - `events.cljs` — `>mouse :55-74` (no button field, no contextmenu
-  listener exists — the gesture is virgin).
-- `ground.cljs` — wears cache `:193, :262` · `claim-chain :2373` ·
+  listener exists — the gesture is virgin) · window keyboard `:135-145`.
+- `ground.cljs` — wears cache `:193, :262` · per-subject `wears-for :288`
+  · `claim-chain :2373` ·
   `instance-binding-rows :2340` · `register-verb! :2518` · the
   `__bindings` seam `:2970`.
+- `space_material.cljc` — master binding validation reads camera
+  reservation `:63-69`.
 - `matter_room.cljc` — `registered-master-ids :57` · `room-id-by-master
   :74` · `matter-actor :100` · the P3 pure-builder pattern `:159-250`.
 - `facet_masters.cljc` — seven specs `:14-21` · `by-facet :29`.
-- `episode.clj` — `utterance-import-request :654` (used `:747`).
+- `episode.clj` — `utterance-actor :124` · `utterance-rows :144` ·
+  `utterance-import-request :654` (one map arity) · non-spawning
+  append/await `:731-761` · spawn boundary `server_jetty.clj:873-1060`.
 - `material_circulation.clj` (server/rama/) — custody/gold law `:83-91` ·
-  relation request path `:182-199`.
+  relation request path `:179-203` · wish-only wrapper `:205-238` · generic
+  experience shaping `:959-1015`.
 - `face_projection.clj` (server/rama/) — `experience-around-many` call
-  `:657`.
+  `:657` · served `interaction-table-tiers :1018-1068`.
 - `material_portal.cljc` — seventeen questions `:153, :912`.
 - `face_wiring.cljs` — `__portal` install `:372` · `:enterRoom :425`.
-- `binding_dispatch_test.clj` — the closed-vocabulary equality test.
+- `server_jetty.clj` (actual path; the cut's
+  `src/app/server/server_jetty.clj` locator drifted) — non-spawning
+  resident import precedent `:1162-1181` · room object key `:1225-1226` ·
+  existing act routes `:1861-1903`.
+- Test pins: `binding_dispatch_test.clj:148-160,162-195,955-959`;
+  `material_truth_test.clj:455-459`;
+  `material_portal_test.clj:466-499,969-1004`.
 - Verification duties BEFORE code (the validation round's checklist):
-  - **V1** — pin the say composition on disk: the import-request arity +
-    actor threading; the non-spawning import shape vs `episode.clj`'s
-    spawn law; the relation kind (existing, or one reviewed enum line);
-    the exact circulation call site for the mark.
+  - **V1** — pin the say composition on disk: one-map
+    `utterance-import-request`; explicit actor capability + actor-id/role
+    threading; direct append/await without the enumerated spawn calls;
+    existing `:references`; new public `bank-reference!` over
+    `append-asserted-edge!`; target-bearing receipt/fingerprint;
+    import-first/mark-second barriers, divergent-reuse refusal, and partial
+    replay repair. `episode.clj` + `relation_kernel.clj` stay zero-diff.
   - **V2** — `contextmenu` behavior on the actual canvas node: ordering
-    vs mousedown, focused-textarea interaction (where must the listener
-    sit so H1 holds inside focused blocks), keyboard menu-key freebie.
+    vs secondary mousedown/up; synchronous `ground-active?` scoping on the
+    full-screen GPU canvas; focused canvas-block behavior (there is no
+    textarea in the client path); keyboard Menu key explicitly unclaimed.
   - **V3** — the exact validation lanes that read
     `camera-gesture-reserved?` today (the "one var, three reads" space
-    fence) — `meta-gesture-reserved?` must ride ALL of them; enumerate
-    and pin each.
-  - **V4** — every test pinning `verb-registry/names`, the
-    `:durable-via-request` exact set, or endpoint disclosure — enumerate;
-    each re-cuts in-phase, same commit.
+    fence): `space_material.cljc:68` master validation;
+    `ground.cljs:2261` console instance validation;
+    `ground.cljs:2327` served instance wear. `meta-gesture-reserved?`
+    rides ALL three AND material `valid-row?` for universal master/frozen
+    grammar coverage.
+  - **V4** — re-cut every affected exact pin, same commit:
+    `binding_dispatch_test` floor-reserved set, durable set, matter-name/
+    args/effects set, and registry↔ground equality; `material_truth_test`
+    all-name required args; `material_portal_test` matter-free active
+    floor, four durable endpoints + absent preview, five-verb briefing,
+    and unchanged eight-owner import census.
   - **V5** — standing duty: every memory-derived platform claim checked
     against on-disk references.
 
