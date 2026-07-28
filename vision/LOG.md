@@ -926,3 +926,11 @@ why does the blank screen has a cursor in it? this is the walkthrough and log an
 > Cant you do it here since all the context is here????
 
 *(Routed same-session: the friction + the exposure design → `build/matter-room/CONTRACT.md` STAGED (type-anchored portal opening · the room as a real container · matter verbs over the existing P6 artery · cascade-row citizenship read-only · the built terminal-escape gauge surfaced — DIRECTION's own laws completed, no new machinery) · naming: land/matter/engine = candidate vocabulary, UNRATIFIED, names finalize by recurrence, Sid names · the strange-loop question answered in-chat (there is always one inviolate level; the engine-room's spec accretes from this room's recorded descents — held as CONTRACT §4 non-goal, next floor) · board Vision line + package block · dark lane untouched (rim/policy work, contact-activated).*
+
+## 2026-07-28 — the halo recognition (verbatim)
+
+[on being shown Self/Morphic halos — in-place meta on any live object — during the matter-room staging session:]
+
+> brooooooooo have i not been saying this same thing that i need this why is it missing then????????? should we start a new session to write this in contract???????? I thought this is what we are also building like this would be possible after this what omggg
+
+*(Routed same-session: recognition CONFIRMED against the record — this is C2's direct-manipulation half, banked verbatim since LOG 2026-07-11 ("directly manipulate/edit them in place, figma-like"); his "possible after this" reading affirmed — matter-room builds the halo's skeleton (portal-on-pick · why-this-pixel · instance-tier deviate/pin · the named matter verbs · the room to jump to), the halo package is the SKIN: one meta-gesture entering the closed grammar (the pre-registered kernel-change extension point) + handles served as material. Sequenced: halo contract session opens at matter-room stage-3 gate — earlier would pin symbols not yet on disk, the scheduled-false-stop class. Starter banked on the board; the "fork living should answer" narrows to the halo's FORM, not its existence.)*

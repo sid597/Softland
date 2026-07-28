@@ -46,7 +46,10 @@ Sid says is allowed to drop.
   that smells wrong — it is an escalation, not a default.
 - **Role split:** Fable writes contracts, runs gates, adjudicates forks — and
   implements directly whenever that's the fastest path; cheaper models run
-  phases under contracts.
+  phases under contracts. Phases are FEW and LARGE (Sid, 2026-07-29): one
+  phase is the default when the risky surface is narrow — the contract
+  carries plan-grade specificity instead of a phase ladder; mechanics in
+  the work-package skill.
 
 ## What we're building NOW
 

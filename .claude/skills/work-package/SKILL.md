@@ -148,6 +148,28 @@ keep their kill record and stay per-package:
   two rechecks were deferred on cost (machine-cut, durable-ground)
   with no observed damage.
 
+**Amended 2026-07-29 on Sid's phase-count ruling** (at the halo contract
+cut: "I want to keep the implementation phases low it always blows up and
+i am not sure its that helpful … the implementer 5.6sol-xhigh is a great
+great implementer and then fable is the best for defining the major work
+covering all angles with best decision at the point"):
+- **Phases are FEW and LARGE — one phase is the default for a package
+  whose risky surface is narrow.** Size phases to the implementer lane's
+  actual strength, not to reviewer comfort: the current lane takes a
+  whole well-fenced package in one fresh context. The per-phase ladder
+  (contract → plan → per-phase implementer/gate/commit ×N) multiplies
+  stop-rulings, receipts, and commit ceremonies — matter-room's four
+  phases produced two mid-phase §9 stops that were contract-authoring
+  gaps, not code risk. What compensates for fewer phases: the CONTRACT
+  carries plan-grade specificity (exact files, call-site pins,
+  verification duties — Fable's job, all angles at cut time), a separate
+  PLAN.md is dropped for one-phase packages (ONE fresh default-fail
+  validation round runs over the contract itself), and the falsifier +
+  slim gate keep their kill record unchanged. Grounds: every real defect
+  across the matter-room phases was caught by the in-phase falsifier or
+  the live-drive, never by the phase boundary itself. First package cut
+  under this rule: halo (`build/halo/CONTRACT.md`).
+
 **Amended 2026-07-27 at the multi-cascade R2 manifest stop (Sid: "fix it
 once and for all" — fix the class, not the instance).** Input-manifest
 hygiene, three rules from one concrete failure: CONTRACT_R2 §8 pinned

@@ -156,23 +156,43 @@ and its dependencies — then files it here. Rules:
   sitting — this section is an inbox, not a graveyard.
 
 - **C1 — the design loop closes in-land, then compounds** (filed 2026-07-12
-  from `vision/LOG.md` 2026-07-10, verbatim source there; routed per D-015).
+  from `vision/LOG.md` 2026-07-10, verbatim source there; routed per D-015;
+  **SHARPENED 2026-07-29** in the halo contract session, Sid-approved).
   Raw claim: once faces born from design conversations are accepted into the
   arsenal, Softland becomes its own design orchestrator — the next chat can
   wear any accepted face ("live conversation rendered in 6 different places"),
   and eventually components are built, deployed, shared, and reused entirely
-  in-land ("no-code on steroids... anyone else can use them too"). D-012's
-  self-hosting test is this claim's first rung, already law; C1 is the
-  compounding tail beyond it. **Sharpening pending** (falsifiable statement +
-  kill/confirm) — next Fable intake sitting.
+  in-land ("no-code on steroids... anyone else can use them too").
+  **Falsifiable form:** with matter-room + halo standing, material-policy
+  changes complete in-land (deviate → preview → activate through room/halo)
+  and the loop compounds — accepted changes become substrate for the next.
+  **KILL:** across the first ~10 real material-policy changes after Sid's
+  return wear, half or more escape to the code lane — the terminal-escape
+  gauge is the pre-registered detector (the armed matter-room §8 package
+  falsifier is C1's first instrument). **CONFIRM:** the gauge shows in-land
+  routing as the norm, and at least one component is built, worn, and
+  reused entirely in-land. Depends on: matter-room (landed 2026-07-28) ·
+  halo (`build/halo/CONTRACT.md`, cut 2026-07-29) · the escape gauge
+  (landed, matter-room P4).
 - **C2 — designer edit-mode over live faces** (filed 2026-07-12 from
-  `vision/LOG.md` 2026-07-11, verbatim source there; routed per D-015).
-  Raw claim: a designer can enter an edit mode, see the components implemented
-  in Softland, and directly manipulate/edit them in place, figma-like — 80%
-  of the value soon, 90–95% reachable. Rides the framework lane
-  (faces-as-assemblies makes arrangement editable DATA — the D-011 shape is
-  what makes this plausible). Subject to D-016 citizenship + D-001 pacing.
-  **Sharpening pending** — next Fable intake sitting.
+  `vision/LOG.md` 2026-07-11, verbatim source there; routed per D-015;
+  **SHARPENED 2026-07-29** in the halo contract session, Sid-approved; the
+  2026-07-28 halo recognition confirmed this candidate's
+  direct-manipulation half — LOG entry verbatim there).
+  Raw claim: a designer can enter an edit mode, see the components
+  implemented in Softland, and directly manipulate/edit them in place,
+  figma-like — 80% of the value soon, 90–95% reachable. Rides
+  faces-as-assemblies (arrangement is editable DATA).
+  **Falsifiable form:** the halo becomes Sid's default entry to any live
+  object's meta — opened fresh, at his own hand, unscaffolded (his own
+  definition, Vision line 2026-07-28). **KILL:** two weeks of wear after
+  the halo lands and meta still starts at console calls or the code lane
+  (Sid's report + the gauge), or halos open only when a session scaffolds
+  him there. **CONFIRM:** unprompted halo opens are routine and say-marks
+  accumulate in room conversations from lived pointing. The clock arms at
+  Sid's first wear session with the halo live — deliberately NOT a build
+  gate (`build/halo/CONTRACT.md` §8: scaffolding the open would poison the
+  measurement). Depends on: halo (this package).
 
 *(Intake also draws from the wall and the dated pre-reads in
 `docs/current-mental-model/intake/`; first pre-read:
