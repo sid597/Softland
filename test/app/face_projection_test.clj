@@ -97,12 +97,16 @@
     (is (fn? (:facet-materials fp/projection-registry)))
     (is (fn? (:material-inspector fp/projection-registry)))
     (is (fn? (:material-experience fp/projection-registry)))
+    (is (fn? (:cascade-rows fp/projection-registry)))
+    (is (fn? (:escape-gauge fp/projection-registry)))
     (is (fn? (:interaction-table fp/projection-registry)))
     (is (fn? (:block-truth fp/projection-registry)))
     (is (fn? (:material-truth fp/projection-registry)))
     (is (fn? (:material-portal fp/projection-registry)))
     (is (= #{:conversation :assembly :face-list :facet-materials
-             :material-inspector :material-experience :interaction-table
+             :material-inspector :material-experience
+             :cascade-rows :escape-gauge
+             :interaction-table
              ;; editable-material P6: the truth loop is a query too
              :material-truth
              ;; editable-material P7: the whole material world around one pick,

@@ -1,5 +1,5 @@
 (ns app.shared.matter-room
-  "matter-room P1/P2/P3 — deterministic addresses, resident composition, and
+  "matter-room P1/P2/P3/P4 — deterministic addresses, resident composition, and
    pure act/briefing parameters for
    facet-master rooms.
 
@@ -22,6 +22,12 @@
    parameters to the existing P6 functions; preview remains the client
    membrane.
 
+   P4: the gauge is another ordinary room resident. Standard room opening
+   births its stable identity with an unmeasured placeholder but never
+   overwrites a later report. The explicitly on-demand face composes the SAME
+   identity with the verbatim last computed report and marks it refreshable;
+   the existing P2 `:object/edit` lane is the only driver that may land it.
+
    THE LIFECYCLE, pinned (PLAN §P2, F5):
    - BIRTH ONCE per resident, at an identity-only turn-id
      `mr:<master-id>:<section>[:<revision-id>]` — NEVER a content hash in the
@@ -35,7 +41,7 @@
 
    TIME (T10 + PLAN F5): no clock enters a resident. `:resident/time-ms` is
    the COMPOSITION ORDINAL — the room's order-key encodes composition order
-   (head · bindings · trail oldest→newest), not a moment. This is a ruling,
+   (head · bindings · gauge · trail oldest→newest), not a moment. This is a ruling,
    not an oversight: the birth payload is FINGERPRINTED, so a serve-time
    clock would make an honest replay a durable
    `import-material-fingerprint-conflict-error`, and the anchor projection
@@ -280,6 +286,7 @@
 
 (def resident-column-x 0.0)
 (def resident-row-height 260.0)
+(def gauge-resident-index 2)
 
 (defn resident-turn-id
   "The identity-only birth id. No content hash: content changes ride the edit
@@ -337,6 +344,46 @@
                        (when (true? (get v :verb/floor-reserved?))
                          " · FLOOR-RESERVED"))))
            verbs))))
+
+(defn- gauge-text
+  [master-id report]
+  (section-text
+   (str "# " master-id " — terminal escape gauge")
+   [(if (map? report)
+      (str "LAST COMPUTED REPORT (verbatim EDN): "
+           (pr-str (into (sorted-map) report)))
+      "LAST COMPUTED REPORT: not measured — open the linked :escape-gauge face on demand.")
+    ""
+    (str "This resident is refreshed through the existing P2 block edit lane."
+         " Standard portal open links the gauge but never runs git and never"
+         " embeds or overwrites a computed report.")]))
+
+(defn- place-resident
+  [index resident]
+  (assoc resident
+         :resident/index index
+         ;; the ordinal IS the order key input (ns docstring)
+         :resident/time-ms (long index)
+         :resident/position
+         {:x resident-column-x
+          :y (* (double index) resident-row-height)}))
+
+(defn gauge-resident
+  "The stable resident identity for one room's LAST on-demand escape report.
+
+   With no report, this is the birth-only placeholder and deliberately NOT
+   refreshable: a later standard room open must never downgrade computed bytes
+   back to `not measured`. With a report, the on-demand face marks the same
+   resident refreshable so the existing P2 edit lane can land the new bytes."
+  [master-id report]
+  (when (string? master-id)
+    (place-resident
+     gauge-resident-index
+     {:resident/section :gauge
+      :resident/turn-id (resident-turn-id master-id :gauge)
+      :resident/text (gauge-text master-id report)
+      :resident/report report
+      :resident/refreshable? (map? report)})))
 
 (defn- trail-text
   "ONLY facts intrinsic to this pointer revision.
@@ -410,16 +457,24 @@
             bindings (get portal-result :portal/bindings)
             room (get portal-result :portal/room)
             room-address (first (keys (when (map? room) room)))
+            gauge-linked?
+            (= :escape-gauge
+               (get-in portal-result
+                       [:portal/cascade :cascade/escape-gauge :face]))
             entries (trail-entry-by-pointer portal-result master-id)
-            stable [{:resident/section :head
-                     :resident/turn-id (resident-turn-id master-id :head)
-                     :resident/text (head-text master-id identity* master
-                                               room-address)
-                     :resident/refreshable? true}
-                    {:resident/section :bindings
-                     :resident/turn-id (resident-turn-id master-id :bindings)
-                     :resident/text (bindings-text master-id bindings)
-                     :resident/refreshable? true}]
+            stable
+            (cond->
+             [{:resident/section :head
+               :resident/turn-id (resident-turn-id master-id :head)
+               :resident/text (head-text master-id identity* master
+                                         room-address)
+               :resident/refreshable? true}
+              {:resident/section :bindings
+               :resident/turn-id (resident-turn-id master-id :bindings)
+               :resident/text (bindings-text master-id bindings)
+               :resident/refreshable? true}]
+              gauge-linked?
+              (conj (gauge-resident master-id nil)))
             trail (mapv (fn [pid]
                           {:resident/section :trail
                            :resident/turn-id
@@ -430,11 +485,5 @@
                         (pointer-revision-ids portal-result master-id))]
         (vec (map-indexed
               (fn [i r]
-                (assoc r
-                       :resident/index i
-                       ;; the ordinal IS the order key input (ns docstring)
-                       :resident/time-ms (long i)
-                       :resident/position
-                       {:x resident-column-x
-                        :y (* (double i) resident-row-height)}))
+                (place-resident i r))
               (into stable trail)))))))

@@ -786,6 +786,26 @@
                                          [(if anchor? master-id entity-id)]
                                          :conversation-address
                                          experience-conversation-address}}))
+        cascade-link
+        (when anchor?
+          {:face :escape-gauge
+           :params {:master-id master-id}
+           :on-demand? true
+           :embedded? false})
+        cascade-section
+        (when anchor?
+          (sect :cascade
+                {:cascade/version 0
+                 :cascade/rows []
+                 :cascade/row-count 0
+                 :cascade/read-only? true
+                 :cascade/labels [:code-owned :in-process]
+                 :cascade/ownership :code-owned
+                 :cascade/lifetime :in-process
+                 :cascade/escape-gauge cascade-link}
+                #(assoc
+                  (sub serve-fn {:face :cascade-rows :params {}})
+                  :cascade/escape-gauge cascade-link)))
 
         ;; ---- derived sections ----
         identity* (sect :identity {:entity/id entity-id :entity/found? false}
@@ -944,7 +964,21 @@
            :wearers
            {:truncated? false
             :returned (count wearers)
-            :note "appearance snapshot is the open page, not the world"})])
+            :note "appearance snapshot is the open page, not the world"})
+          (when anchor?
+            (portal/truncation-entry
+             :cascade
+             {:truncated? false
+              :returned (:cascade/row-count cascade-section)
+              :total (:cascade/row-count cascade-section)
+              :note "complete code-owned in-process declaration table"}))
+          (when anchor?
+            (portal/truncation-entry
+             :escape-gauge
+             {:truncated? false
+              :returned 1
+              :total 1
+              :note "complete on-demand link; zero git-backed reports embedded"}))])
         experience-section
         (cond->
          (merge (select-keys experience
@@ -988,8 +1022,9 @@
           :portal/query-plan
           {:plan/client-roundtrips 1
            :plan/sub-projections
-           [:facet-materials :material-inspector :interaction-table
-            :material-truth :material-experience]
+           (cond-> [:facet-materials :material-inspector :interaction-table
+                    :material-truth :material-experience]
+             anchor? (conj :cascade-rows))
            :plan/masters-priced (count priced)
            :plan/masters-in-registry (count facet-masters/master-ids)
            :plan/joins-server-side? true
@@ -1002,7 +1037,8 @@
            :plan/object-container-available? (boolean oc-rt)}}
           anchor?
           (assoc :portal/master-id master-id
-                 :portal/room (sorted-map room-id master-id)))]
+                 :portal/room (sorted-map room-id master-id)
+                 :portal/cascade cascade-section))]
     ;; the question list is annotated LAST, against the assembled projection, so
     ;; `:question/answered?` is a measurement of this very value and not a claim
     ;; copied forward from the code. No question answers at `:portal/questions`,
