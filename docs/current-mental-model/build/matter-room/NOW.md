@@ -35,6 +35,35 @@
 
 ## NOW (newest first; ≤15 lines per entry)
 
+- **2026-07-28 · Fable · P3-F2 RULED — ground scope amended; replay list
+  EMPTY; P3 may declare complete.** Verified on disk before ruling: the
+  closed-vocabulary test (binding_dispatch_test "the verb registry is the
+  only vocabulary the kernel registers") requires ground's register-verb!
+  set == verb-registry/names EXACTLY; the parked hunk is four literal
+  `{:invoke (fn [_] nil)}` no-ops naming the real lanes in its comment;
+  PLAN's own Behavior text + G7 compel frozen-v1 accept-then-no-op.
+  Ruling: PLAN §P3 ground scope now permits exactly those four inert
+  registrations; durable/preview logic stays prohibited there; the
+  equality invariant is NOT weakened — a declared verb without a kernel
+  implementation is a lying registry, T9's honesty family. Receipts were
+  captured on the exact tree this ruling legalizes → nothing re-runs.
+  Next: implementer finalizes P3.md complete; fresh independent slim
+  gate; then Sid's commit ruling. Substance-over-letter class, as F1.
+
+- **2026-07-28 · Codex · P3-F2 STOP under CONTRACT §9 — Sid/Fable rules.**
+  Behavior is green: G6/G7; G10m 43 echoes, p95=16.3ms; live durable acts;
+  one fresh falsifier PASS; post-falsifier 103t/1,600a; CLJS 0 warnings.
+  Final fence audit found a binding conflict: PLAN scopes `ground.cljs` to
+  preview-lane touch only, while the existing closed-vocabulary test requires
+  every new registry verb to have a literal `register-verb!` implementation.
+  The four inert registrations make v1 accept-then-no-op and v2+ refuse as
+  PLAN requires, but three registrations name durable verbs and exceed the
+  literal preview-only parenthetical. Green hunk remains parked, unstaged.
+  Recommend amend scope to exactly four inert registrations; do not weaken the
+  registry/implementation equality invariant. Conditional P6 owners zero-diff;
+  foreign write-set untouched; empty index; no commit/push. Receipt: `P3.md`.
+  Do not gate or open P4 until P3-F2 ruling supplies the replay list.
+
 - **2026-07-28 · Fable · P3-F1 RULED — PLAN §P3 fence amended; P3 resumes.**
   Implementer stopped pre-edit under CONTRACT §9: PLAN §P3's Files list
   omitted `shared/material_portal.cljc`, yet L5, §6-P3, T9, and G7 all
