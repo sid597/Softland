@@ -14,7 +14,8 @@
    - `:pure-projection`            — moves appearance/attention only. Nothing
                                      durable, nothing leaves the client.
    - `:durable-via-request`        — ends in an acked request→decision→event
-                                     (the settle lane). Durable truth may move.
+                                     (the settle or named matter-act lane).
+                                     Durable truth may move.
    - `:external-via-derived-worker` — reaches outside the land through a
                                      derived worker. No verb wears this class
                                      yet; the class exists because the closed
@@ -209,7 +210,79 @@
     :verb/doc
     "Reply to exactly the addressed user block. The raw turn becomes durable
      before the resident is summoned with that block's narrowed portal
-     briefing."}})
+     briefing."}
+
+   ;; matter-room P3 · L5/G7. These are declarations of EXISTING P6 acts, not
+   ;; gesture claims and not release births. No site supplies `:master-id` (or
+   ;; `:subject-uid`), so strict v2+ material refuses an arg-starved row. The
+   ;; named act lane is deliberately separate: three disclosed Jetty endpoints
+   ;; plus console verbs. V1 material can accept such a row and then no-op; that
+   ;; historical grammar scope is stated in every declaration instead of
+   ;; pretending the refusal is absolute.
+   :matter/deviate
+   {:verb/name :matter/deviate
+    :verb/version 0
+    :verb/effect-class :durable-via-request
+    :verb/continuations #{:invoke}
+    :verb/required-args #{:master-id :subject-uid}
+    :verb/extracted-from
+    "material-truth/deviate! for a subject instance, or
+     facet-master/import-candidate! for a master candidate; invoked through
+     POST /api/matter-room/deviate and window.__portal.deviate"
+    :verb/doc
+    "REGISTRY-DECLARED, GRAMMAR-UNBINDABLE at current sites. Deviate through
+     the named act lane: subject + overrides uses the existing P6 instance
+     deviation; source bytes use the existing facet-master candidate import.
+     Strict v2+ material refuses missing master-id/subject-uid; v1 can
+     accept-then-no-op."}
+
+   :matter/preview
+   {:verb/name :matter/preview
+    :verb/version 0
+    :verb/effect-class :pure-projection
+    :verb/continuations #{:invoke}
+    :verb/required-args #{:master-id}
+    :verb/extracted-from
+    "ground/preview-candidate! and ground/end-preview! through
+     window.__bindings.preview/endPreview; invoked by
+     window.__portal.preview/endPreview with no server endpoint"
+    :verb/doc
+    "REGISTRY-DECLARED, GRAMMAR-UNBINDABLE at current sites. Preview is the
+     existing client membrane over real served material: pure projection,
+     no request, no import, no pointer edit. Strict v2+ material refuses the
+     arg-starved row; v1 can accept-then-no-op."}
+
+   :matter/activate
+   {:verb/name :matter/activate
+    :verb/version 0
+    :verb/effect-class :durable-via-request
+    :verb/continuations #{:invoke}
+    :verb/required-args #{:master-id}
+    :verb/extracted-from
+    "facet-master/activate! after activation-event grammar validation;
+     invoked through POST /api/matter-room/activate and
+     window.__portal.activate"
+    :verb/doc
+    "REGISTRY-DECLARED, GRAMMAR-UNBINDABLE at current sites. Activate one
+     retained candidate through the named matter-act lane and the existing
+     P6 request-decision-event machinery. Strict v2+ material refuses the
+     arg-starved row; v1 can accept-then-no-op."}
+
+   :matter/rollback
+   {:verb/name :matter/rollback
+    :verb/version 0
+    :verb/effect-class :durable-via-request
+    :verb/continuations #{:invoke}
+    :verb/required-args #{:master-id}
+    :verb/extracted-from
+    "facet-master/activate! with :activation/kind :rollback at a currently
+     served :portal/recovery offer; invoked through
+     POST /api/matter-room/rollback and window.__portal.rollback"
+    :verb/doc
+    "REGISTRY-DECLARED, GRAMMAR-UNBINDABLE at current sites. Rollback
+     re-wears a currently offered previous revision through the named act
+     lane; it never deletes or rewrites history. Strict v2+ material refuses
+     the arg-starved row; v1 can accept-then-no-op."}})
 
 (def names
   "Canonical verb order — every projection and lint listing sorts by it."

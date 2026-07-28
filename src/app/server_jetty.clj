@@ -13,6 +13,7 @@
     [app.server.episode :as episode]
     [app.server.rama.material-circulation :as circulation]
     [app.server.rama.face-projection :as face-projection]
+    [app.server.rama.material-truth :as material-truth]
     [app.server.rama.object-container.facet-master :as facet-master]
     [app.server.rama.object-container.runtime :as ocr]
     [app.server.rama.dogfood.llm :as llm]
@@ -853,6 +854,22 @@ information."
                      :relation-id (get-in result [:edge :relation-id])})
           result)))))
 
+(defn resident-portal-open
+  "The actual Ctrl+Enter briefing authority.
+
+   A registered matter-room conversation always wins over client-supplied
+   portal coordinates and narrows to exactly its server-derived master. Every
+   other conversation keeps P8's addressed-block narrowing unchanged."
+  [request-data source-unit-id conversation-id]
+  (or
+   (matter-room/narrowed-portal-open
+    {:conversation-id conversation-id})
+   (reply-to-block/narrowed-portal-open
+    (assoc (or (:portal-open request-data) {})
+           :entity-id source-unit-id
+           :conversation-id
+           (or conversation-id episode/genesis-conversation-id)))))
+
 (defn run-episode-turn
   "POST /api/episode/utterance {:source-unit-id :content-text :position
    :turn-id :time-ms :prev-turn-id} → SSE. turn-id + time-ms are CLIENT-minted
@@ -955,16 +972,13 @@ information."
                                  :asserted-at-ms time-ms})
                                (catch Exception e
                                  {:status :error :error (.getMessage e)})))
-                           ;; P8: the server re-derives the narrowed open from
-                           ;; the durable target. Client-supplied master ids or
-                           ;; unrelated wearer rows can never widen it.
+                           ;; P8 + matter-room P3: the server re-derives the
+                           ;; narrowed open from durable/address authority.
+                           ;; A room id names exactly one master; otherwise the
+                           ;; durable target names exactly one addressed block.
                            portal-open
-                           (reply-to-block/narrowed-portal-open
-                            (assoc (or (:portal-open request-data) {})
-                                   :entity-id source-unit-id
-                                   :conversation-id
-                                   (or conv-id
-                                       episode/genesis-conversation-id)))
+                           (resident-portal-open request-data source-unit-id
+                                                 conv-id)
                            portal-briefing
                            (face-projection/portal-briefing
                             face-ctx portal-open)]
@@ -1252,6 +1266,161 @@ information."
        :portal-errors (vec (:portal/errors result))
        :portal-error (:portal/error result)
        :residents acts})))
+
+;; =====================================================================
+;; matter-room P3 — the named ACT lane over existing P6 machinery.
+;;
+;; This namespace composes invocation only. The three durable functions below
+;; call the existing owners verbatim; they build no ActionRequest and append no
+;; depot directly. Preview intentionally has NO function or route here — it
+;; remains `ground/preview-candidate!` on the client (L5/G7).
+;; =====================================================================
+
+(defn- prepare-matter-act
+  [request]
+  (let [request (or request {})]
+    (assoc request
+           :request-id (or (:request-id request)
+                           (:request/id request)
+                           (str (java.util.UUID/randomUUID)))
+           :time-ms (or (:time-ms request) (System/currentTimeMillis))
+           :actor (or (:actor request) matter-room/matter-actor))))
+
+(defn- matter-error-card
+  [verb error errors]
+  {:card/kind :matter-act
+   :card/status :error
+   :card/verb verb
+   :card/error error
+   :card/errors (vec errors)})
+
+(defn- invalid-matter-act
+  ([verb error] (invalid-matter-act verb error []))
+  ([verb error errors]
+   {:status :error
+    :verb verb
+    :accepted? false
+    :error error
+    :errors (vec errors)
+    :card (matter-error-card verb error errors)}))
+
+(defn- completed-matter-act
+  [verb branch result]
+  (let [accepted? (true? (:accepted? result))
+        errors (vec (:errors result))
+        error (or (:reason result)
+                  (when (seq errors) :matter/act-rejected))]
+    (cond-> {:status (if accepted? :accepted :rejected)
+             :verb verb
+             :branch branch
+             :accepted? accepted?
+             :replay? (true? (:replay? result))
+             :revision-id (:revision-id result)
+             :decision-status (get-in result [:decision :status])
+             :event (:event result)
+             :errors errors}
+      (not accepted?)
+      (assoc :error error
+             :card (matter-error-card verb error errors)))))
+
+(defn matter-room-deviate!
+  "Invoke `:matter/deviate` through one of its two existing P6 owners:
+   instance deviation (`material-truth/deviate!`) or master candidate import
+   (`facet-master/import-candidate!`)."
+  [{:keys [oc-rt]} request]
+  (let [act (matter-room/deviate-request (prepare-matter-act request))
+        verb :matter/deviate
+        spec (facet-masters/spec (:act/master-id act))]
+    (cond
+      (nil? oc-rt)
+      (invalid-matter-act verb :land-unavailable)
+
+      (not (:act/valid? act))
+      (invalid-matter-act verb (:act/error act) (:act/errors act))
+
+      (nil? spec)
+      (invalid-matter-act verb :facet-master/unknown-master)
+
+      (= :instance (:act/branch act))
+      (completed-matter-act
+       verb :instance
+       (material-truth/deviate!
+        oc-rt spec (:act/subject-uid act) (:act/overrides act)
+        (:act/options act)))
+
+      :else
+      (completed-matter-act
+       verb :master-candidate
+       (facet-master/import-candidate!
+        oc-rt spec (:act/source act) (:act/options act))))))
+
+(defn matter-room-activate!
+  "Activate one retained candidate through the existing P6 pointer act.
+   `matter-room/activation-request` validates the closed event form before the
+   owner receives it, so malformed act metadata cannot touch the pointer."
+  [{:keys [oc-rt]} request]
+  (let [act (matter-room/activation-request
+             :activate (prepare-matter-act request))
+        verb :matter/activate
+        spec (facet-masters/spec (:act/master-id act))]
+    (cond
+      (nil? oc-rt)
+      (invalid-matter-act verb :land-unavailable)
+
+      (not (:act/valid? act))
+      (invalid-matter-act verb (:act/error act) (:act/errors act))
+
+      (nil? spec)
+      (invalid-matter-act verb :facet-master/unknown-master)
+
+      :else
+      (completed-matter-act
+       verb :master
+       (facet-master/activate!
+        oc-rt spec (:act/revision-id act) (:act/options act))))))
+
+(defn matter-room-rollback!
+  "Re-wear exactly one revision currently offered by the room's served
+   `:portal/recovery` section. A stale/forged target fails before the existing
+   P6 activation owner is invoked."
+  [{:keys [oc-rt] :as face-ctx} request]
+  (let [act (matter-room/activation-request
+             :rollback (prepare-matter-act request))
+        verb :matter/rollback
+        spec (facet-masters/spec (:act/master-id act))]
+    (cond
+      (nil? oc-rt)
+      (invalid-matter-act verb :land-unavailable)
+
+      (not (:act/valid? act))
+      (invalid-matter-act verb (:act/error act) (:act/errors act))
+
+      (nil? spec)
+      (invalid-matter-act verb :facet-master/unknown-master)
+
+      :else
+      (let [portal (:portal/result
+                    (face-projection/serve
+                     face-ctx
+                     {:face :material-portal
+                      :params {:master-id (:act/master-id act)}}))
+            offer (matter-room/recovery-offer
+                   portal (:act/master-id act) (:act/revision-id act))]
+        (if-not offer
+          (invalid-matter-act verb :matter/recovery-offer-not-found)
+          (assoc
+           (completed-matter-act
+            verb :recovery-offer
+            (facet-master/activate!
+             oc-rt spec (:act/revision-id act) (:act/options act)))
+           :recovery-offer offer))))))
+
+(defn- matter-act-http-status
+  [result]
+  (case (:error result)
+    :land-unavailable 503
+    nil (if (= :rejected (:status result)) 422 200)
+    400))
 
 ;; =====================================================================
 ;; Relation /assert write shim — git-spine WP2 component W (CONTRACT §3.E).
@@ -1687,6 +1856,49 @@ information."
           (catch Exception e
             (log/error e "[MATTER-ROOM][OPEN-ERROR]" {:uri uri})
             (edn-response 500 {:status :error :error (.getMessage e)})))
+        (edn-response 405 {:status :error :error :method-not-allowed}))
+
+      ;; ===== matter-room P3 · named durable ACT endpoints (L5/G7) =====
+      ;; These are the complete server invocation surface. Preview is absent
+      ;; by law: window.__portal.preview delegates to the existing client
+      ;; membrane and never reaches Jetty.
+      (= uri "/api/matter-room/deviate")
+      (if (= request-method :post)
+        (try
+          (let [result (matter-room-deviate!
+                        (fv/face-ctx) (parse-edn-body ring-req))]
+            (edn-response (matter-act-http-status result) result))
+          (catch Exception e
+            (log/error e "[MATTER-ROOM][DEVIATE-ERROR]" {:uri uri})
+            (edn-response
+             500 (invalid-matter-act :matter/deviate :matter/server-error
+                                     [{:message (.getMessage e)}]))))
+        (edn-response 405 {:status :error :error :method-not-allowed}))
+
+      (= uri "/api/matter-room/activate")
+      (if (= request-method :post)
+        (try
+          (let [result (matter-room-activate!
+                        (fv/face-ctx) (parse-edn-body ring-req))]
+            (edn-response (matter-act-http-status result) result))
+          (catch Exception e
+            (log/error e "[MATTER-ROOM][ACTIVATE-ERROR]" {:uri uri})
+            (edn-response
+             500 (invalid-matter-act :matter/activate :matter/server-error
+                                     [{:message (.getMessage e)}]))))
+        (edn-response 405 {:status :error :error :method-not-allowed}))
+
+      (= uri "/api/matter-room/rollback")
+      (if (= request-method :post)
+        (try
+          (let [result (matter-room-rollback!
+                        (fv/face-ctx) (parse-edn-body ring-req))]
+            (edn-response (matter-act-http-status result) result))
+          (catch Exception e
+            (log/error e "[MATTER-ROOM][ROLLBACK-ERROR]" {:uri uri})
+            (edn-response
+             500 (invalid-matter-act :matter/rollback :matter/server-error
+                                     [{:message (.getMessage e)}]))))
         (edn-response 405 {:status :error :error :method-not-allowed}))
 
       (= uri "/api/material/facet-master/drill")

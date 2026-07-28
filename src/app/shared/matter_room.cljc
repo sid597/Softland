@@ -1,5 +1,6 @@
 (ns app.shared.matter-room
-  "matter-room P1/P2 — deterministic addresses and resident composition for
+  "matter-room P1/P2/P3 — deterministic addresses, resident composition, and
+   pure act/briefing parameters for
    facet-master rooms.
 
    P1: the JVM derives room ids. CLJS consumes the served `:portal/room`
@@ -13,6 +14,13 @@
    (`server_jetty/open-matter-room!`) rides the EXISTING episode import path
    for birth (G5 — no new import family, no bespoke import composer) and the
    EXISTING `:object/edit` lane for refresh (T1 — no second write artery).
+
+   P3: this remains a PURE seam. It normalizes parameters for the named matter
+   act lane and derives the master-anchored room briefing from the
+   server-authoritative reverse table. It does NOT build an ActionRequest,
+   append anything, or expose preview over HTTP. Jetty hands the normalized
+   parameters to the existing P6 functions; preview remains the client
+   membrane.
 
    THE LIFECYCLE, pinned (PLAN §P2, F5):
    - BIRTH ONCE per resident, at an identity-only turn-id
@@ -33,7 +41,8 @@
    `import-material-fingerprint-conflict-error`, and the anchor projection
    carries no claimed birth time for a composed resident. Claimed times from
    durable truth ride the resident TEXT, where they are labelled as claimed."
-  (:require [app.shared.facet-masters :as facet-masters]
+  (:require [app.shared.activation-event :as activation-event]
+            [app.shared.facet-masters :as facet-masters]
             [clojure.string :as str])
   #?(:clj
      (:import [java.nio.charset StandardCharsets]
@@ -77,6 +86,158 @@
 (defn master-id-for-room
   [room-id]
   (get master-id-by-room (str room-id)))
+
+;; ===========================================================================
+;; P3 · the room's hands and mouth — pure authority + act parameter builders
+;; ===========================================================================
+
+(def matter-actor
+  "The default actor for an act invoked from Sid's local matter-room console.
+   Jetty supplies it only when the caller omitted an actor; tests and future
+   authenticated callers can pass another valid declared actor."
+  {:actor/id "sid" :actor/type :human})
+
+(defn narrowed-portal-open
+  "The ONLY master-anchored portal-open shape a room turn may use.
+
+   The conversation id is the authority. Any caller-supplied master, entity,
+   wearer, or master set is deliberately ignored; a registered room resolves
+   through the server's finite reverse table and can name exactly one master.
+   Unknown/non-room conversations return nil so the existing P8 block-narrowing
+   path remains in force."
+  [{:keys [conversation-id]}]
+  (when-let [master-id (master-id-for-room conversation-id)]
+    {:master-id master-id
+     :conversation-id (str conversation-id)
+     :narrowed? true}))
+
+(defn- nonblank-string?
+  [x]
+  (and (string? x) (not (str/blank? x))))
+
+(defn- act-error
+  ([verb error]
+   (act-error verb error []))
+  ([verb error errors]
+   {:act/verb verb
+    :act/valid? false
+    :act/error error
+    :act/errors (vec errors)}))
+
+(defn- common-act-error
+  [verb {:keys [master-id request-id time-ms actor]}]
+  (cond
+    (not (nonblank-string? master-id))
+    (act-error verb :matter/master-id-required)
+
+    (not (nonblank-string? request-id))
+    (act-error verb :matter/request-id-required)
+
+    (not (integer? time-ms))
+    (act-error verb :matter/time-ms-required)
+
+    (not (activation-event/valid-actor? actor))
+    (act-error verb :matter/actor-invalid)
+
+    :else nil))
+
+(defn- act-options
+  [{:keys [request-id time-ms actor conversation-id scope grounds]}]
+  (cond-> {:request/id request-id
+           :time-ms (long time-ms)
+           :actor actor}
+    (some? conversation-id) (assoc :conversation-id conversation-id)
+    (some? scope) (assoc :activation/scope scope)
+    (some? grounds) (assoc :activation/grounds grounds)))
+
+(defn deviate-request
+  "Normalize one `:matter/deviate` invocation without performing it.
+
+   Exactly one existing P6 branch is selected:
+   - `subject-uid` + an overrides map → `material-truth/deviate!`
+   - source bytes, with no subject      → `facet-master/import-candidate!`
+
+   Supplying both is refused rather than guessing which durable truth the
+   inhabitant intended to move."
+  [{:keys [master-id subject-uid overrides source] :as request}]
+  (or
+   (common-act-error :matter/deviate request)
+   (cond
+     (and (nonblank-string? subject-uid) (nonblank-string? source))
+     (act-error :matter/deviate :matter/deviation-branch-ambiguous)
+
+     (nonblank-string? subject-uid)
+     (if (map? overrides)
+       {:act/verb :matter/deviate
+        :act/valid? true
+        :act/branch :instance
+        :act/master-id master-id
+        :act/subject-uid subject-uid
+        :act/overrides overrides
+        :act/options (act-options request)}
+       (act-error :matter/deviate :matter/overrides-map-required))
+
+     (nonblank-string? source)
+     {:act/verb :matter/deviate
+      :act/valid? true
+      :act/branch :master-candidate
+      :act/master-id master-id
+      :act/source source
+      :act/options (act-options request)}
+
+     :else
+     (act-error :matter/deviate :matter/deviation-content-required))))
+
+(defn activation-request
+  "Normalize and grammar-check an activate/rollback invocation.
+
+   The returned `:act/event` is the exact closed activation form the existing
+   `facet-master/activate!` call must reproduce from `:act/options`. Invalid
+   scope/actor/grounds become a total error card before any pointer write."
+  [kind {:keys [master-id revision-id actor time-ms scope grounds] :as request}]
+  (let [verb (case kind
+               :activate :matter/activate
+               :rollback :matter/rollback
+               nil)]
+    (cond
+      (nil? verb)
+      (act-error :matter/activate :matter/activation-kind-invalid)
+
+      :else
+      (or
+       (common-act-error verb request)
+       (when-not (nonblank-string? revision-id)
+         (act-error verb :matter/revision-id-required))
+       (let [event (activation-event/event
+                    {:revision-id revision-id
+                     :kind kind
+                     :scope scope
+                     :actor actor
+                     :time-ms time-ms
+                     :grounds grounds})
+             errors (activation-event/event-errors event)]
+         (if (seq errors)
+           (act-error verb :matter/activation-event-invalid errors)
+           {:act/verb verb
+            :act/valid? true
+            :act/master-id master-id
+            :act/revision-id revision-id
+            :act/event event
+            :act/options
+            (assoc (act-options request)
+                   :activation/kind kind
+                   :activation/scope (:activation/scope event)
+                   :activation/grounds (:activation/grounds event))}))))))
+
+(defn recovery-offer
+  "Find the exact currently-served rollback offer the act lane may execute."
+  [portal-result master-id to-revision-id]
+  (first
+   (filter
+    #(and (= master-id (:recovery/master-id %))
+          (= to-revision-id (:recovery/to-revision-id %))
+          (= :rollback (:recovery/kind %)))
+    (get-in portal-result [:portal/recovery :recovery/offers]))))
 
 ;; ===========================================================================
 ;; P2 · the room's machine residents — identity, content, act (all pure)

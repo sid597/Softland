@@ -871,8 +871,11 @@
          " Read the key, do not infer.\n"
          "  · Truncation is declared. Check :portal/truncation before claiming"
          " coverage.\n"
-         "  · This portal is read-only. Editing the portal from inside it is"
-         " not available.\n"
+         "  · Matter acts are named and effect-classed:"
+         " :matter/deviate, :matter/activate, and :matter/rollback are"
+         " :durable-via-request through the existing P6 act artery;"
+         " :matter/preview is :pure-projection on the client and writes"
+         " nothing.\n"
          "\n<projection>"
          edn
          "</projection>\n"

@@ -2710,6 +2710,23 @@
                         :zoom zoom'})
        (arm-settle! :camera)))})
 
+;; matter-room P3 — these four names complete the kernel's closed registry,
+;; but no current site can feed their required master/subject arguments.
+;; Therefore a frozen-v1 row honestly reaches a no-op while v2+ refuses it
+;; structurally. Real invocation is the separately named console/HTTP act lane;
+;; preview remains the existing `__bindings.preview` client lane below.
+(register-verb! :matter/deviate
+  {:invoke (fn [_] nil)})
+
+(register-verb! :matter/preview
+  {:invoke (fn [_] nil)})
+
+(register-verb! :matter/activate
+  {:invoke (fn [_] nil)})
+
+(register-verb! :matter/rollback
+  {:invoke (fn [_] nil)})
+
 ;; ---------------------------------------------------------------------------
 ;; THE dispatch — one law, no gesture-specific branch
 ;; ---------------------------------------------------------------------------
