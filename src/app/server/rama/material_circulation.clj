@@ -24,6 +24,7 @@
             [app.server.rama.util-fns :as util-fns]
             [app.shared.facet-masters :as facet-masters]
             [clojure.data.json :as json]
+            [clojure.edn :as edn]
             [clojure.string :as str]))
 
 ;; ===========================================================================
@@ -236,6 +237,49 @@
                  :mark/receipt-version (:receipt/version receipt)
                  :mark/src-path (get-in receipt [:receipt/picked-at :src-path])})
          :request-prefix "circulation:gold:"})))))
+
+(defn bank-reference!
+  "Halo P1 · H5 — bank the durable whole-message → picked-subject reference.
+
+   This is deliberately a public wrapper over the existing asserted-edge
+   artery. It declares no new relation kind or Rama owner and reports
+   `:materialized` only after the ordinary relation query can read the edge."
+  [rk-rt {:keys [source-unit-id target-unit-id actor asserted-at-ms
+                 evidence-source-id evidence-anchor-id say-id master-id]}]
+  (cond
+    (nil? rk-rt)
+    {:status :runtime-unavailable
+     :source-unit-id source-unit-id
+     :target-unit-id target-unit-id}
+
+    (or (not (rk/present-string? source-unit-id))
+        (not (rk/present-string? target-unit-id))
+        (= source-unit-id target-unit-id)
+        (not (activation-event/valid-actor? actor)))
+    {:status :invalid-reference
+     :source-unit-id source-unit-id
+     :target-unit-id target-unit-id}
+
+    :else
+    (merge
+     {:stratum (if (= :human (:actor/type actor)) :gold :asserted)
+      :source-unit-id source-unit-id
+      :target-unit-id target-unit-id}
+     (append-asserted-edge!
+      rk-rt
+      {:kind gold-edge-kind
+       :from (rk/->target-ref :derived-unit source-unit-id)
+       :to (rk/->target-ref :derived-unit target-unit-id)
+       :actor-id (:actor/id actor)
+       :actor-type (:actor/type actor)
+       :asserted-at-ms asserted-at-ms
+       :evidence-source-id evidence-source-id
+       :evidence-anchor-id evidence-anchor-id
+       :note (pr-str
+              {:mark/type :halo/say
+               :mark/say-id say-id
+               :mark/master-id master-id})
+       :request-prefix "circulation:halo-say:"}))))
 
 ;; ===========================================================================
 ;; OC records for the calibrated machine mouth
@@ -885,7 +929,14 @@
    Edges are visible in both directions because the relation query indexes both
    endpoints. Items retain exact origin reverse-links."
   [material-ids relation-map records]
-  (let [ids (set material-ids)
+  (let [read-mark-note
+        (fn [note]
+          (when (string? note)
+            (try
+              (let [x (edn/read-string note)]
+                (when (map? x) x))
+              (catch Exception _ nil))))
+        ids (set material-ids)
         records-by-origin
         (group-by :origin-unit-id records)
         rows (->> material-ids
@@ -964,10 +1015,21 @@
               (fn [m target rows]
                 (assoc m target
                        (mapv (fn [row]
-                               {:wish-unit-id (get-in row [:from :target-id])
-                                :relation-id (:relation-id row)
-                                :asserted-at-ms (:first-asserted-at-ms row)
-                                :asserter-actor-id (:asserter-actor-id row)})
+                               (let [source-id
+                                     (get-in row [:from :target-id])
+                                     note (read-mark-note (:note row))
+                                     mark-type
+                                     (or (:mark/type note) :wish)]
+                                 (cond->
+                                  {:source-unit-id source-id
+                                   :mark/type mark-type
+                                   :relation-id (:relation-id row)
+                                   :asserted-at-ms
+                                   (:first-asserted-at-ms row)
+                                   :asserter-actor-id
+                                   (:asserter-actor-id row)}
+                                   (= :wish mark-type)
+                                   (assoc :wish-unit-id source-id))))
                              (sort-by :relation-id rows))))
               {}))
         silver-marks-by-target

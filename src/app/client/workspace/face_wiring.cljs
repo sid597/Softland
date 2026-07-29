@@ -73,6 +73,44 @@
 (defonce ^:private !last-compiled-source (atom ::none))
 
 (defonce ^:private !material-inspector-nonce (atom 0))
+(defonce ^:private !halo-preview-master (atom nil))
+
+(defn invoke-halo-handle!
+  "Invoke one of Halo's four honest handles through the already-installed
+   portal surface. Ask reads, enter navigates, preview stays in the client
+   membrane, and say calls the one disclosed durable endpoint."
+  [{:halo/keys [handle subject master-id]}]
+  (if-let [portal (.-__portal js/window)]
+    (case handle
+      :ask
+      (.questions portal (str subject))
+
+      :enter
+      (.enterRoom portal (str master-id))
+
+      :preview
+      (if (= (str master-id) @!halo-preview-master)
+        (do
+          (reset! !halo-preview-master nil)
+          (.endPreview portal))
+        (when-let [source (js/prompt
+                           (str "Preview source for " master-id)
+                           "")]
+          (when (seq (string/trim source))
+            (reset! !halo-preview-master (str master-id))
+            (.preview portal (str master-id) source))))
+
+      :say
+      (when-let [text (js/prompt
+                       (str "Say one line in " master-id)
+                       "")]
+        (when (seq (string/trim text))
+          (.say portal (str master-id) (str subject) text)))
+
+      (js/Promise.reject
+       (js/Error. (str "Unknown Halo handle: " handle))))
+    (js/Promise.reject
+     (js/Error. "The material portal lane is not installed."))))
 
 (defn- drill-mode?
   []
@@ -353,6 +391,19 @@
                   (.then (fn [res] (.text res)))
                   (.then (fn [text]
                            (portal->js (reader/read-string text))))))
+            ;; Halo P1 — unlike the older matter acts, say's identity and time
+            ;; are part of its fingerprinted body. Mint the complete immutable
+            ;; body once, before fetch; optional EDN lets the console replay
+            ;; those exact bytes after a lost response.
+            (post-halo-say! [body]
+              (-> (js/fetch "/api/matter-room/say"
+                            #js {:method "POST"
+                                 :headers
+                                 #js {"Content-Type" "application/edn"}
+                                 :body (pr-str body)})
+                  (.then (fn [res] (.text res)))
+                  (.then (fn [text]
+                           (portal->js (reader/read-string text))))))
             ;; Preview has NO server endpoint. The registry's
             ;; :pure-projection declaration points at this existing P6 client
             ;; membrane, and endPreview restores the served object by identity.
@@ -448,6 +499,20 @@
                  :preview (fn [master-id source]
                             (portal->js (preview-matter! master-id source)))
                  :endPreview (fn [] (portal->js (end-matter-preview!)))
+                 :say
+                 (fn [master-id subject-uid text & [opts-edn]]
+                   (let [opts (or (read-edn-arg opts-edn) {})
+                         body
+                         (merge
+                          {:master-id (str master-id)
+                           :subject-uid (str subject-uid)
+                           :text (str text)
+                           :say-id (str (random-uuid))
+                           :time-ms (js/Date.now)}
+                          (select-keys opts [:say-id :time-ms :actor]))]
+                     (js/console.log "[PORTAL][SAY] immutable body"
+                                     (pr-str body))
+                     (post-halo-say! body)))
                  :activate
                  (fn [master-id revision-id & [opts-edn]]
                    (post-matter-act!
@@ -471,6 +536,7 @@
             "  await __portal.deviate('fm:attention', sourceEdn)  retain master candidate\n"
             "  await __portal.deviate('fm:attention', overridesEdn, subjectUid)  instance deviation\n"
             "  __portal.preview('fm:attention', sourceEdn) / __portal.endPreview()  client-only\n"
+            "  await __portal.say('fm:attention', subjectUid, 'one line', optsEdn)\n"
             "  await __portal.activate('fm:attention', revisionId, optsEdn)\n"
             "  await __portal.rollback('fm:attention', offeredRevisionId, optsEdn)\n"
             "  await __portal.questions()     every question + its replayable call\n"

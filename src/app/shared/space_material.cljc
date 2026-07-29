@@ -65,7 +65,10 @@
   (and (binding-material/valid-bindings-strict? bindings)
        (every?
         (fn [[site rows]]
-          (not-any? #(binding-material/camera-gesture-reserved? site %) rows))
+          (not-any?
+           #(or (binding-material/camera-gesture-reserved? site %)
+                (binding-material/meta-gesture-reserved? site %))
+           rows))
         bindings)))
 
 (def ^:private zoom-grammar

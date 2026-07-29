@@ -1040,31 +1040,39 @@
                       :floor? false
                       :bindings rows}))))
               facet-masters/specs)
-        ;; G14: the floor label comes from `facet-masters/floor-master-id-by-facet`
-        ;; — the same map the client tiers read — so a row's master-id and
-        ;; revision-id are byte-identical whichever side computed them.
+        base-floor-by-facet
+        (reduce
+         (fn [m spec]
+           (let [facet (:facet-master/facet spec)
+                 rows (:facet-master/bindings
+                       (facet-material/code-floor spec))]
+             (if (seq rows)
+               (update m facet
+                       (fn [current]
+                         (merge-with into (or current {}) rows)))
+               m)))
+         {binding-material/space-facet
+          binding-material/space-floor-bindings}
+         facet-masters/specs)
+        ;; Halo H2: runtime dispatch and this served table call the SAME
+        ;; augmenter. There is no second literal copy of the four meta rows.
+        floor-by-facet
+        (binding-material/with-halo-floor-bindings base-floor-by-facet)
+        ;; G14: the floor label comes from
+        ;; `facet-masters/floor-master-id-by-facet` — the same map the client
+        ;; tiers read — so a row's master-id and revision-id are byte-identical
+        ;; whichever side computed them.
         floor
-        (into [{:tier :floor
-                :facet binding-material/space-facet
-                :master-id (facet-masters/floor-master-id
-                            binding-material/space-facet)
-                :revision-id (facet-masters/floor-master-id
-                              binding-material/space-facet)
-                :floor? true
-                :bindings binding-material/space-floor-bindings}]
-              (keep
-               (fn [spec]
-                 (let [rows (:facet-master/bindings
-                             (facet-material/code-floor spec))
-                       label (facet-material/floor-master-id spec)]
-                   (when (seq rows)
-                     {:tier :floor
-                      :facet (:facet-master/facet spec)
-                      :master-id label
-                      :revision-id label
-                      :floor? true
-                      :bindings rows}))))
-              facet-masters/specs)]
+        (mapv
+         (fn [[facet rows]]
+           (let [label (facet-masters/floor-master-id facet)]
+             {:tier :floor
+              :facet facet
+              :master-id label
+              :revision-id label
+              :floor? true
+              :bindings rows}))
+         (sort-by (comp str key) floor-by-facet))]
     (into master floor)))
 
 (defn interaction-table-projection

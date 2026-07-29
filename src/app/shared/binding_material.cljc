@@ -12,7 +12,8 @@
    THE ROW GRAMMAR IS CLOSED — exactly five keys, every value from an
    enumerated set or the verb registry:
 
-     {:binding/gesture   :pointer/press | :pointer/tap | :wheel | :key/eval
+     {:binding/gesture   :pointer/press | :pointer/tap | :pointer/meta |
+                         :wheel | :key/eval
       :binding/phase     :begin | :threshold | :complete
       :binding/modifiers #{:shift} | :any
       :binding/verb      {:verb/name … :verb/version …}
@@ -52,7 +53,7 @@
   "Every gesture the kernel normalizes. `:pointer/press` and `:pointer/tap` are
    distinct gestures, not phases of one: a press that crosses the threshold is
    never also a tap."
-  #{:pointer/press :pointer/tap :wheel :key/eval})
+  #{:pointer/press :pointer/tap :pointer/meta :wheel :key/eval})
 
 (def gesture-phases
   #{:begin :threshold :complete})
@@ -60,9 +61,14 @@
 (def legal-gestures
   "The enumerated (kind, phase) pairs. A row declaring a pair the kernel cannot
    produce is refused rather than accepted and never fired."
+  ;; GRAMMAR VERSION NOTE · Halo P1 · 2026-07-29: `:pointer/meta :complete`
+  ;; is the one additive kernel widening. Every pre-existing pair and its v1/v2
+  ;; material meaning is byte-frozen; universal reservation below means old
+  ;; material rejects the newly-known pair just as it did while unknown.
   #{[:pointer/press :begin]
     [:pointer/press :threshold]
     [:pointer/tap :complete]
+    [:pointer/meta :complete]
     [:wheel :complete]
     [:key/eval :complete]})
 
@@ -141,6 +147,19 @@
          (:binding/phase row)
          (:binding/modifiers row)])))
 
+(defn meta-gesture-reserved?
+  "Halo P1 · H2 — true when a MATERIAL row attempts to capture the
+   context-menu/meta gesture.
+
+   Unlike camera reservation this is universal: every site and every material
+   tier is barred. The site argument is retained so every reservation lane has
+   the same call shape and callers cannot accidentally omit where the row was
+   filed. Code-floor validation passes `bindable?` false and remains the only
+   place this gesture can be declared."
+  [_site row]
+  (= [:pointer/meta :complete]
+     [(:binding/gesture row) (:binding/phase row)]))
+
 (def tier-order
   "Precedence within one containment depth."
   [:instance :master :floor])
@@ -198,6 +217,8 @@
           (or (= :any m)
               (and (set? m) (every? modifier-keys m))))
         (valid-verb-ref? (:binding/verb row) bindable?)
+        (or (not bindable?)
+            (not (meta-gesture-reserved? nil row)))
         (integer? (:binding/priority row))))
   ([row bindable? site]
    (and (valid-row? row bindable?)
@@ -412,6 +433,41 @@
    :binding/verb {:verb/name verb-name :verb/version 0}
    :binding/priority priority})
 
+(def halo-floor-bindings
+  "Halo P1 · H2 — the complete, exact code-floor ownership of
+   `:pointer/meta`. There is one row at each named interaction site and no
+   material tier may shadow it."
+  {:attention
+   {:block/user-hit-area
+    [(floor-row :pointer/meta :complete :any :halo/condense 0)]
+    :block/machine-hit-area
+    [(floor-row :pointer/meta :complete :any :halo/condense 0)]}
+   :foldable
+   {:block/fold-header
+    [(floor-row :pointer/meta :complete :any :halo/condense 0)]}
+   :space
+   {:space/ground
+    [(floor-row :pointer/meta :complete :any :halo/condense 0)]}})
+
+(defn with-halo-floor-bindings
+  "Add Halo's four reserved rows to a facet → site → rows floor table.
+
+   This is the one augmenter used by both runtime dispatch and the served
+   interaction table. It is idempotent so a caller cannot duplicate a
+   reserved row by composing already-augmented tables."
+  [floor-bindings]
+  (reduce-kv
+   (fn [by-facet facet by-site]
+     (reduce-kv
+      (fn [by-facet* site rows]
+        (update-in by-facet* [facet site]
+                   (fn [existing]
+                     (vec (distinct (concat (or existing []) rows))))))
+      by-facet
+      by-site))
+   (or floor-bindings {})
+   halo-floor-bindings))
+
 (def space-facet
   "The facet the outermost space rung's floor rows are filed under. There is no
    served `fm:space` master in rung 1, so the space has a FLOOR tier and no
@@ -493,7 +549,19 @@
     :probe/site :space/ground}
    {:probe/label "wheel at a block → zoom through the space rung"
     :probe/kind :wheel :probe/phase :complete :probe/modifiers #{}
-    :probe/site :block/user-hit-area}])
+    :probe/site :block/user-hit-area}
+   {:probe/label "meta a user block → condense"
+    :probe/kind :pointer/meta :probe/phase :complete :probe/modifiers #{}
+    :probe/site :block/user-hit-area}
+   {:probe/label "meta a machine block → condense"
+    :probe/kind :pointer/meta :probe/phase :complete :probe/modifiers #{}
+    :probe/site :block/machine-hit-area}
+   {:probe/label "meta a fold header → condense"
+    :probe/kind :pointer/meta :probe/phase :complete :probe/modifiers #{}
+    :probe/site :block/fold-header}
+   {:probe/label "meta empty space → condense"
+    :probe/kind :pointer/meta :probe/phase :complete :probe/modifiers #{}
+    :probe/site :space/ground}])
 
 (defn probe-claims
   "The runtime-shaped claim chain a probe resolves against. Every chain ends

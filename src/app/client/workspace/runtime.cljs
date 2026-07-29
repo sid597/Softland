@@ -397,6 +397,7 @@
         >resize         (events/>canvas-resize node)
         >wheel-events   (events/>wheel node)
         >mouse-events   (events/>mouse node)
+        >meta-events    (events/>contextmenu node ground/ground-active?)
         >keyboard-events (events/>keyboard js/window)
 
         ;; ── Focus-based routing ─────────────────────────────────────
@@ -439,6 +440,7 @@
       ;; Consumers from modules
       (scroll/scroll-consumer atoms >wheel-events)
       (mouse/mouse-consumer atoms layout deps io >mouse-events)
+      (ground/meta-consumer >meta-events)
       (kbd/global-keys-consumer atoms <global-keys)
       (kbd/file-load-consumer atoms)
       (kbd/editor-keys-consumer atoms layout deps <editor-keyboard)

@@ -137,7 +137,17 @@
           "every gesture the kernel can produce is covered")
       (is (= [:instance :master :floor] (:interaction-table/tiers r)))
       (is (contains? (set (map :table/verb rows)) :camera/pan))
-      (is (contains? (set (map :table/verb rows)) :fold/toggle-section)))))
+      (is (contains? (set (map :table/verb rows)) :fold/toggle-section))
+      (let [meta-rows
+            (filter #(= :pointer/meta (:table/gesture %)) rows)]
+        (is (= 4 (count meta-rows)))
+        (is (= #{[:attention :block/user-hit-area]
+                 [:attention :block/machine-hit-area]
+                 [:foldable :block/fold-header]
+                 [:space :space/ground]}
+               (set (map (juxt :table/facet :table/site) meta-rows))))
+        (is (every? #(= :halo/condense (:table/verb %)) meta-rows))
+        (is (every? #(= :floor (:table/tier %)) meta-rows))))))
 
 (deftest material-experience-names-failed-record-sources
   (with-redefs [episode/read-receipt-records
