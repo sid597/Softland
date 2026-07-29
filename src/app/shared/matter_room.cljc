@@ -245,6 +245,51 @@
           (= :rollback (:recovery/kind %)))
     (get-in portal-result [:portal/recovery :recovery/offers]))))
 
+(defn say-request
+  "Halo P1 · H5 — validate and normalize one immutable `:matter/say` body.
+
+   The returned room id comes only from the finite registered table. `actor`
+   defaults to `matter-actor` only when the caller omitted the key; an
+   explicitly supplied nil or malformed actor is refused. No durable request
+   is built and no clock is read here."
+  [{:keys [master-id subject-uid text say-id time-ms actor] :as request}]
+  (let [actor* (if (contains? request :actor) actor matter-actor)]
+    (cond
+      (not (nonblank-string? master-id))
+      (act-error :matter/say :matter/master-id-required)
+
+      (nil? (get room-id-by-master master-id))
+      (act-error :matter/say :matter/master-unregistered)
+
+      (not (nonblank-string? subject-uid))
+      (act-error :matter/say :matter/subject-uid-required)
+
+      (not (nonblank-string? say-id))
+      (act-error :matter/say :matter/say-id-required)
+
+      (not (nonblank-string? text))
+      (act-error :matter/say :matter/text-required)
+
+      (re-find #"[\r\n]" text)
+      (act-error :matter/say :matter/text-multiline)
+
+      (not (integer? time-ms))
+      (act-error :matter/say :matter/time-ms-required)
+
+      (not (activation-event/valid-actor? actor*))
+      (act-error :matter/say :matter/actor-invalid)
+
+      :else
+      {:act/verb :matter/say
+       :act/valid? true
+       :act/master-id master-id
+       :act/room-id (get room-id-by-master master-id)
+       :act/subject-uid subject-uid
+       :act/text text
+       :act/say-id say-id
+       :act/time-ms (long time-ms)
+       :act/actor actor*})))
+
 ;; ===========================================================================
 ;; P2 · the room's machine residents — identity, content, act (all pure)
 ;; ===========================================================================

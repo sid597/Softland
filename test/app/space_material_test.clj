@@ -11,13 +11,14 @@
 
 (defn- floor-rows
   []
-  (assoc
-   (into {}
-         (map (fn [spec]
-                [(:facet-master/facet spec)
-                 (:facet-master/bindings (facet-material/code-floor spec))]))
-         facet-masters/specs)
-   binding-material/space-facet binding-material/space-floor-bindings))
+  (binding-material/with-halo-floor-bindings
+   (assoc
+    (into {}
+          (map (fn [spec]
+                 [(:facet-master/facet spec)
+                  (:facet-master/bindings (facet-material/code-floor spec))]))
+          facet-masters/specs)
+    binding-material/space-facet binding-material/space-floor-bindings)))
 
 (defn- served-from-form
   [form revision-id]
@@ -74,8 +75,8 @@
            :floor-rows (floor-rows)
            :instance-rows {["other-space" :space/ground]
                            [r3-instance-tap-row]}}))]
-    (testing "R3-G1 — absent an instance, the twelve-probe cut is unchanged"
-      (is (= 12 (count baseline)))
+    (testing "R3-G1 — the old twelve probes plus Halo's four floor probes answer"
+      (is (= 16 (count baseline)))
       (is (= [:anchor/place :master]
              ((juxt :probe/verb :probe/tier)
               (get baseline "tap empty space → caret anchor"))))
@@ -138,6 +139,7 @@
         (slurp "src/app/server/rama/object_container/facet_master.clj")
         wiring-source (slurp "src/app/client/workspace/face_wiring.cljs")
         fence-pattern #"binding-material/camera-gesture-reserved\?"
+        meta-fence-pattern #"binding-material/meta-gesture-reserved\?"
         legality-pattern #"binding-material/instance-site-legal\?"]
     (testing "the reservation set is defined by exactly one predicate var"
       (is (= 1 (count (re-seq #"\(defn camera-gesture-reserved\?"
@@ -147,6 +149,13 @@
       (is (= 2 (count (re-seq fence-pattern ground-source))))
       (is (= 3 (+ (count (re-seq fence-pattern space-source))
                   (count (re-seq fence-pattern ground-source))))))
+    (testing "Halo meta reservation has one owner and the same three consumers"
+      (is (= 1 (count (re-seq #"\(defn meta-gesture-reserved\?"
+                              binding-source))))
+      (is (= 1 (count (re-seq meta-fence-pattern space-source))))
+      (is (= 2 (count (re-seq meta-fence-pattern ground-source))))
+      (is (= 3 (+ (count (re-seq meta-fence-pattern space-source))
+                  (count (re-seq meta-fence-pattern ground-source))))))
     (testing "R3-G6 — one legality predicate, three owner-aware product lanes"
       (is (= 1 (count (re-seq #"\(defn instance-site-legal\?"
                               binding-source))))
@@ -224,7 +233,7 @@
     (is (= #{:space/zoom-min :space/zoom-max}
            (set (keys (select-keys wear
                                   [:space/zoom-min :space/zoom-max])))))
-    (is (= 12 (count report)))
+    (is (= 16 (count report)))
     (is (every? #(= :claimed (:probe/outcome %)) report))
     (is (every? #(= :floor (:probe/tier %)) report))))
 

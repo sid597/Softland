@@ -27,13 +27,14 @@
 
 (def ^:private floor-rows
   "The kernel's `floor-binding-rows`, rebuilt from the same specs."
-  (assoc
-   (into {}
-         (map (fn [spec]
-                [(:facet-master/facet spec)
-                 (:facet-master/bindings (facet-material/code-floor spec))]))
-         facet-masters/specs)
-   bm/space-facet bm/space-floor-bindings))
+  (bm/with-halo-floor-bindings
+   (assoc
+    (into {}
+          (map (fn [spec]
+                 [(:facet-master/facet spec)
+                  (:facet-master/bindings (facet-material/code-floor spec))]))
+          facet-masters/specs)
+    bm/space-facet bm/space-floor-bindings)))
 
 (def ^:private master-rows
   "The MASTER tier when every facet serves its bindings revision."
@@ -145,15 +146,15 @@
            (set (map :verb/effect-class (verbs/declaration-rows))))
         "P5 extracts no external-via-derived-worker verb; the class exists so
          the grammar can SAY it before a verb needs it"))
-  (testing "the two camera verbs are the reserved floor, and only those"
-    (is (= [:camera/pan :camera/zoom-at-pointer]
+  (testing "the two camera verbs plus Halo condense are the reserved floor"
+    (is (= [:camera/pan :camera/zoom-at-pointer :halo/condense]
            (->> (verbs/declaration-rows)
                 (filter :verb/floor-reserved?)
                 (mapv :verb/name)))))
   (testing "a durable-via-request verb arms exactly the settle or named act lane"
     (is (= #{:camera/pan :camera/zoom-at-pointer :placement/drag-group
              :resident/reply-to-block
-             :matter/deviate :matter/activate :matter/rollback}
+             :matter/deviate :matter/activate :matter/rollback :matter/say}
            (->> (verbs/declaration-rows)
                 (filter #(= :durable-via-request (:verb/effect-class %)))
                 (map :verb/name)
@@ -162,7 +163,7 @@
 (deftest matter-verbs-declare-the-honest-unbindable-surface
   (let [rows (into {} (map (juxt :verb/name identity))
                    (verbs/declaration-rows))
-        matter-names #{:matter/deviate :matter/preview
+        matter-names #{:matter/deviate :matter/preview :matter/say
                        :matter/activate :matter/rollback}
         row-for (fn [verb]
                   {:binding/gesture :pointer/tap
@@ -175,12 +176,15 @@
              (set (filter #(= "matter" (namespace %)) (keys rows)))))
       (is (= #{:master-id :subject-uid}
              (set (:verb/required-args (get rows :matter/deviate)))))
+      (is (= #{:master-id :subject-uid}
+             (set (:verb/required-args (get rows :matter/say)))))
       (doseq [verb [:matter/preview :matter/activate :matter/rollback]]
         (is (= #{:master-id}
                (set (:verb/required-args (get rows verb))))))
       (is (= :pure-projection
              (:verb/effect-class (get rows :matter/preview))))
-      (doseq [verb [:matter/deviate :matter/activate :matter/rollback]]
+      (doseq [verb [:matter/deviate :matter/say
+                    :matter/activate :matter/rollback]]
         (is (= :durable-via-request
                (:verb/effect-class (get rows verb)))))
       (is (every? :verb/bindable? (map rows matter-names))
@@ -195,6 +199,53 @@
         (is (not (bm/valid-bindings-strict? bindings))
             (str verb " is refused by strict v2+ because no site supplies"
                  " its matter args"))))))
+
+(deftest halo-meta-is-universally-reserved-and-floored-at-four-sites
+  (let [material-row
+        {:binding/gesture :pointer/meta
+         :binding/phase :complete
+         :binding/modifiers :any
+         :binding/verb {:verb/name :focus/release :verb/version 0}
+         :binding/priority 1}
+        meta-floor-rows
+        (for [[facet by-site] floor-rows
+              [site rows] by-site
+              row rows
+              :when (= :pointer/meta (:binding/gesture row))]
+          {:facet facet :site site :row row})]
+    (testing "the one predicate rejects every material site under both frozen
+              and strict validators, while code-floor validation stays legal"
+      (doseq [site bm/sites]
+        (is (bm/meta-gesture-reserved? site material-row))
+        (is (not (bm/valid-row? material-row true site)))
+        (is (bm/valid-row? material-row false site))
+        (is (not (bm/valid-bindings? {site [material-row]})))
+        (is (not (bm/valid-bindings-strict? {site [material-row]})))))
+
+    (testing "the shared augmenter owns exactly four rows and is idempotent"
+      (is (= 4 (count meta-floor-rows)))
+      (is (= #{[:attention :block/user-hit-area]
+               [:attention :block/machine-hit-area]
+               [:foldable :block/fold-header]
+               [:space :space/ground]}
+             (set (map (juxt :facet :site) meta-floor-rows))))
+      (is (= floor-rows (bm/with-halo-floor-bindings floor-rows)))
+      (is (every? #(= :halo/condense
+                      (get-in % [:row :binding/verb :verb/name]))
+                  meta-floor-rows))
+      (is (every? #(= :any (get-in % [:row :binding/modifiers]))
+                  meta-floor-rows)))
+
+    (testing "each claim site, including shift-meta, resolves to the one floor verb"
+      (doseq [[claims]
+              [[(into (block-claim :block/user-hit-area) bm/space-claim)]
+               [(into (block-claim :block/machine-hit-area) bm/space-claim)]
+               [(into (header-claim :noise?) bm/space-claim)]
+               [bm/space-claim]]
+              modifiers [#{} #{:shift}]]
+        (let [decision (resolve* :pointer/meta :complete modifiers claims)]
+          (is (= :halo/condense (verb-of decision)))
+          (is (= :floor (:decision/tier decision))))))))
 
 (deftest p8-eval-addresses-one-block-through-one-material-row
   (let [reply-master-rows
@@ -339,12 +390,13 @@
 ;; ===========================================================================
 
 (deftest family-4-space-floor-survives-the-new-served-master
-  (testing "without an active fm:space revision, all four gestures use the floor"
+  (testing "without an active fm:space revision, all five gestures use the floor"
     (doseq [[kind phase mods verb]
             [[:pointer/tap :complete #{} :anchor/place]
              [:pointer/press :threshold #{} :camera/pan]
              [:pointer/press :threshold #{:shift} :selection/marquee-begin]
-             [:wheel :complete #{} :camera/zoom-at-pointer]]]
+             [:wheel :complete #{} :camera/zoom-at-pointer]
+             [:pointer/meta :complete #{} :halo/condense]]]
       (let [d (resolve* kind phase mods bm/space-claim)]
         (is (= verb (verb-of d)))
         (is (= :floor (:decision/tier d)))
@@ -580,10 +632,10 @@
     (testing "every probe resolves to a verb — no dead gesture anywhere"
       (is (every? #(= :claimed (:probe/outcome %)) baseline))
       (is (every? (comp some? :probe/verb) baseline))
-      (is (= 12 (count baseline))))
+      (is (= 16 (count baseline))))
 
-    (testing "R3-G1: all twelve rungs-1+2 receipts are byte-identical on their
-              binding decision fields"
+    (testing "R3-G1: the twelve frozen receipts stay byte-identical and Halo's
+              four additive receipts all land on the code floor"
       (is (= [[:focus/place-caret :floor :attention :claimed]
               [:focus/enter-block :floor :attention :claimed]
               [:placement/drag-group :floor :positioned :claimed]
@@ -595,7 +647,11 @@
               [:camera/pan :floor :space :claimed]
               [:selection/marquee-begin :floor :space :claimed]
               [:camera/zoom-at-pointer :floor :space :claimed]
-              [:camera/zoom-at-pointer :floor :space :claimed]]
+              [:camera/zoom-at-pointer :floor :space :claimed]
+              [:halo/condense :floor :attention :claimed]
+              [:halo/condense :floor :attention :claimed]
+              [:halo/condense :floor :foldable :claimed]
+              [:halo/condense :floor :space :claimed]]
              (mapv (juxt :probe/verb :probe/tier
                          :probe/facet :probe/outcome)
                    baseline))))
@@ -729,20 +785,25 @@
 ;; ===========================================================================
 
 (deftest the-interaction-table-links-every-row-to-its-master
-  (let [rows (bm/table-rows
-              (into [{:tier :floor :facet bm/space-facet
-                      :master-id bm/space-floor-master-id
-                      :revision-id bm/space-floor-master-id
-                      :floor? true :bindings bm/space-floor-bindings}]
-                    (map (fn [[facet form]]
-                           {:tier :master :facet facet
-                            :master-id (:facet-master/id form)
-                            :revision-id (str "rev:" (name facet))
-                            :floor? false
-                            :bindings (:facet-master/bindings form)}))
-                    {:attention attention/reply-bindings-form
-                     :foldable foldable/bindings-form
-                     :positioned positioned/bindings-form}))]
+  (let [floor-tables
+        (mapv (fn [[facet bindings]]
+                {:tier :floor :facet facet
+                 :master-id (facet-masters/floor-master-id facet)
+                 :revision-id (facet-masters/floor-master-id facet)
+                 :floor? true :bindings bindings})
+              floor-rows)
+        master-tables
+        (mapv (fn [[facet form]]
+                {:tier :master :facet facet
+                 :master-id (:facet-master/id form)
+                 :revision-id (str "rev:" (name facet))
+                 :floor? false
+                 :bindings (:facet-master/bindings form)})
+              {:attention attention/reply-bindings-form
+               :foldable foldable/bindings-form
+               :positioned positioned/bindings-form})
+        tables (into floor-tables master-tables)
+        rows (bm/table-rows tables)]
     (testing "every row carries its master link and its verb's effect class"
       (is (seq rows))
       (is (every? #(and (some? (:table/master-id %))
@@ -755,27 +816,7 @@
     (testing "the table is deterministic — same input, same bytes"
       (is (= (pr-str rows)
              (pr-str
-              (bm/table-rows
-               (into [{:tier :master :facet :positioned
-                       :master-id (:facet-master/id positioned/bindings-form)
-                       :revision-id "rev:positioned" :floor? false
-                       :bindings (:facet-master/bindings
-                                  positioned/bindings-form)}]
-                     [{:tier :master :facet :foldable
-                       :master-id (:facet-master/id foldable/bindings-form)
-                       :revision-id "rev:foldable" :floor? false
-                       :bindings (:facet-master/bindings
-                                  foldable/bindings-form)}
-                      {:tier :master :facet :attention
-                       :master-id (:facet-master/id attention/reply-bindings-form)
-                       :revision-id "rev:attention" :floor? false
-                       :bindings (:facet-master/bindings
-                                  attention/reply-bindings-form)}
-                      {:tier :floor :facet bm/space-facet
-                       :master-id bm/space-floor-master-id
-                       :revision-id bm/space-floor-master-id
-                       :floor? true
-                       :bindings bm/space-floor-bindings}]))))))
+              (bm/table-rows (vec (reverse tables)))))))
     (testing "reading the table answers `what does this gesture do, and who
               decided?` for every gesture the kernel can produce"
       (is (= bm/legal-gestures
@@ -876,6 +917,7 @@
     (is (= #{[:pointer/press :begin]
              [:pointer/press :threshold]
              [:pointer/tap :complete]
+             [:pointer/meta :complete]
              [:wheel :complete]
              [:key/eval :complete]}
            bm/legal-gestures)

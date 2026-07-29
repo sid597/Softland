@@ -5,15 +5,18 @@
     [clojure.java.io :as io]
     [clojure.string :as str]
     [clojure.tools.logging :as log]
+    [clojure.walk :as walk]
     [com.rpl.rama.path :refer [keypath]]
     [contrib.assert :refer [check]]
     [app.electric-flow :as electric-flow]
     [app.file-viewer :as fv]
     [app.server.cascade :as cascade]
     [app.server.episode :as episode]
+    [app.server.rama.core :as rama-core]
     [app.server.rama.material-circulation :as circulation]
     [app.server.rama.face-projection :as face-projection]
     [app.server.rama.material-truth :as material-truth]
+    [app.server.rama.object-container :as oc]
     [app.server.rama.object-container.facet-master :as facet-master]
     [app.server.rama.object-container.runtime :as ocr]
     [app.server.rama.dogfood.llm :as llm]
@@ -1270,7 +1273,7 @@ information."
 ;; =====================================================================
 ;; matter-room P3 — the named ACT lane over existing P6 machinery.
 ;;
-;; This namespace composes invocation only. The three durable functions below
+;; This namespace composes invocation only. The four durable functions below
 ;; call the existing owners verbatim; they build no ActionRequest and append no
 ;; depot directly. Preview intentionally has NO function or route here — it
 ;; remains `ground/preview-candidate!` on the client (L5/G7).
@@ -1415,12 +1418,179 @@ information."
              oc-rt spec (:act/revision-id act) (:act/options act)))
            :recovery-offer offer))))))
 
+(defn matter-room-say!
+  "Halo P1 · H5 — import one immutable whole message, then assert its picked
+   subject reference.
+
+   Both existing runtimes are preflighted before the first append. The OC
+   import is append+await+query first; only then may the relation wrapper append
+   and await. Thus a lost response replays to one unit and one edge, an import
+   fingerprint conflict cannot leak a relation, and an import-only partial
+   attempt repairs on exact replay."
+  [{:keys [oc-rt rk-rt]} request]
+  (let [act (matter-room/say-request (or request {}))
+        verb :matter/say]
+    (cond
+      (or (nil? oc-rt) (nil? rk-rt))
+      (assoc (invalid-matter-act verb :land-unavailable)
+             :runtime {:object-container (boolean oc-rt)
+                       :relation-kernel (boolean rk-rt)})
+
+      (not (:act/valid? act))
+      (invalid-matter-act verb (:act/error act) (:act/errors act))
+
+      :else
+      (let [actor (:act/actor act)
+            envelope-actor
+            (update actor :actor/capabilities
+                    (fn [capabilities]
+                      (conj (set capabilities)
+                            :object-container/import-material)))
+            object-key (episode/episode-object-key (:act/room-id act))
+            episode-request
+            (episode/utterance-import-request
+             {:object-key object-key
+              :turn-id (:act/say-id act)
+              :text (:act/text act)
+              :time-ms (:act/time-ms act)
+              :actor envelope-actor
+              :actor-id (:actor/id actor)
+              :actor-role (if (= :human (:actor/type actor))
+                            "user"
+                            "assistant")
+              :part-type :human-message
+              :scene-context
+              {:receipt/picked-at
+               {:address (:act/subject-uid act)}}})
+            ;; The shared OC import fingerprint deliberately excludes
+            ;; projection hints, while Halo's picked target lives in the
+            ;; existing receipt hint. Strengthen only this composed request's
+            ;; fingerprint with the immutable act body so target divergence is
+            ;; an import conflict without changing episode.clj or creating a
+            ;; second request builder.
+            import-request
+            (assoc
+             episode-request
+             :material/fingerprint
+             (rama-core/sha-256
+              (pr-str
+               {:halo/say-version 0
+                :episode/fingerprint
+                (:material/fingerprint episode-request)
+                :master-id (:act/master-id act)
+                :subject-uid (:act/subject-uid act)
+                :text (:act/text act)
+                :say-id (:act/say-id act)
+                :time-ms (:act/time-ms act)
+                :actor actor})))
+            ;; T5 falsifier: a depot-level duplicate request may hand back the
+            ;; prior decision before the topology evaluates the incoming
+            ;; fingerprint. Read that durable decision first and apply the
+            ;; owner's existing conflict predicate; divergent reuse must not
+            ;; reach either append.
+            prior-decision (ocr/read-decision oc-rt import-request)]
+        (if (oc/material-fingerprint-conflict?
+             import-request prior-decision)
+          {:status :rejected
+           :verb verb
+           :accepted? false
+           :error :idempotency/material-fingerprint-conflict
+           :errors [(oc/material-fingerprint-conflict-error
+                     import-request prior-decision)]
+           :decision prior-decision
+           :relation-appended? false
+           :card
+           (matter-error-card
+            verb :idempotency/material-fingerprint-conflict
+            [(oc/material-fingerprint-conflict-error
+              import-request prior-decision)])}
+          (do
+            (ocr/append-object-container-request! oc-rt import-request)
+            (let [decision
+                  (ocr/await-object-container-decision
+                   oc-rt import-request 20000)]
+              (if-not (= :accepted (:status decision))
+            {:status :rejected
+             :verb verb
+             :accepted? false
+             :error (or (:reason decision) :matter/say-import-rejected)
+             :decision decision
+             :relation-appended? false
+             :card
+             (matter-error-card
+              verb
+              (or (:reason decision) :matter/say-import-rejected)
+              [])}
+            (let [root
+                  (first (get-in import-request
+                                 [:payload :derived-units]))
+                  root-id (:unit-id root)
+                  durable-root (ocr/read-unit oc-rt root-id)]
+              (if-not durable-root
+                {:status :incomplete
+                 :verb verb
+                 :accepted? false
+                 :error :matter/say-unit-not-queryable
+                 :decision decision
+                 :unit-id root-id
+                 :relation-appended? false
+                 :card
+                 (matter-error-card
+                  verb :matter/say-unit-not-queryable [])}
+                (let [reference
+                      (circulation/bank-reference!
+                       rk-rt
+                       {:source-unit-id root-id
+                        :target-unit-id (:act/subject-uid act)
+                        :actor actor
+                        :asserted-at-ms (:act/time-ms act)
+                        :evidence-source-id
+                        (or (:source-id root)
+                            (:source-artifact-id root)
+                            root-id)
+                        :evidence-anchor-id (:act/subject-uid act)
+                        :say-id (:act/say-id act)
+                        :master-id (:act/master-id act)})
+                      completed? (= :materialized (:status reference))]
+                  (cond-> {:status (if completed?
+                                    :accepted
+                                    :incomplete)
+                           :verb verb
+                           :accepted? completed?
+                           :replay? (true? (:replay? decision))
+                           :object-key object-key
+                           :room-id (:act/room-id act)
+                           :unit-id root-id
+                           :import-key (:import/key import-request)
+                           :decision decision
+                           :relation reference
+                           :relation-appended? true}
+                    (not completed?)
+                    (assoc
+                     :error :matter/say-reference-not-queryable
+                     :card
+                     (matter-error-card
+                      verb :matter/say-reference-not-queryable
+                      []))))))))))))))
+
 (defn- matter-act-http-status
   [result]
   (case (:error result)
     :land-unavailable 503
     nil (if (= :rejected (:status result)) 422 200)
     400))
+
+(defn- record-free-edn
+  "Make a composed result readable by the browser's data-only EDN reader.
+
+   Rama decisions may contain internal records such as ActorRow. Those records
+   are useful on the JVM but their tagged print form is not part of the HTTP
+   protocol. Preserve every field while erasing only the record constructor."
+  [value]
+  (walk/postwalk
+   (fn [x]
+     (if (record? x) (into {} x) x))
+   value))
 
 ;; =====================================================================
 ;; Relation /assert write shim — git-spine WP2 component W (CONTRACT §3.E).
@@ -1898,6 +2068,20 @@ information."
             (log/error e "[MATTER-ROOM][ROLLBACK-ERROR]" {:uri uri})
             (edn-response
              500 (invalid-matter-act :matter/rollback :matter/server-error
+                                     [{:message (.getMessage e)}]))))
+        (edn-response 405 {:status :error :error :method-not-allowed}))
+
+      (= uri "/api/matter-room/say")
+      (if (= request-method :post)
+        (try
+          (let [result (matter-room-say!
+                        (fv/face-ctx) (parse-edn-body ring-req))]
+            (edn-response (matter-act-http-status result)
+                          (record-free-edn result)))
+          (catch Exception e
+            (log/error e "[MATTER-ROOM][SAY-ERROR]" {:uri uri})
+            (edn-response
+             500 (invalid-matter-act :matter/say :matter/server-error
                                      [{:message (.getMessage e)}]))))
         (edn-response 405 {:status :error :error :method-not-allowed}))
 

@@ -10,7 +10,8 @@
    question list is a VALUE, and this gate walks it, printing the replayable call
    beside each answered question. A question the portal only claims to answer
    fails here."
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [com.rpl.rama :refer [foreign-select foreign-select-one]]
@@ -398,12 +399,14 @@
 (def ^:private drill-floor-rows
   "The kernel's floor tier, rebuilt from the same specs (the binding-dispatch
    suite's fixture shape)."
-  (assoc (into {}
-               (map (fn [spec]
-                      [(:facet-master/facet spec)
-                       (:facet-master/bindings (facet-material/code-floor spec))]))
-               facet-masters/specs)
-         bm/space-facet bm/space-floor-bindings))
+  (bm/with-halo-floor-bindings
+   (assoc (into {}
+                (map (fn [spec]
+                       [(:facet-master/facet spec)
+                        (:facet-master/bindings
+                         (facet-material/code-floor spec))]))
+                facet-masters/specs)
+          bm/space-facet bm/space-floor-bindings)))
 
 (defn- drill-at
   [subject instance-rows]
@@ -798,6 +801,147 @@
              sid-request))
       (is (= (:idempotency/key sid-request) (:import/key sid-request))))))
 
+(deftest halo-say-request-is-pure-registered-one-line-and-actor-honest
+  (let [base {:master-id attention/master-id
+              :subject-uid alpha
+              :text "one durable line"
+              :say-id "say-pure-1"
+              :time-ms 101}
+        valid (matter-room/say-request base)]
+    (is (:act/valid? valid))
+    (is (= (get matter-room/room-id-by-master attention/master-id)
+           (:act/room-id valid)))
+    (is (= matter-room/matter-actor (:act/actor valid))
+        "only an omitted actor receives the local human default")
+    (is (= :matter/master-unregistered
+           (:act/error
+            (matter-room/say-request
+             (assoc base :master-id "fm:not-registered")))))
+    (doseq [bad ["two\nlines" "two\rlines"]]
+      (is (= :matter/text-multiline
+             (:act/error
+              (matter-room/say-request (assoc base :text bad))))))
+    (is (= :matter/actor-invalid
+           (:act/error
+            (matter-room/say-request (assoc base :actor nil))))
+        "explicit nil is not omission")
+    (is (= {:actor/id "assistant:halo" :actor/type :agent}
+           (:act/actor
+            (matter-room/say-request
+             (assoc base
+                    :actor {:actor/id "assistant:halo"
+                            :actor/type :agent})))))
+    (doseq [[k error] [[:subject-uid :matter/subject-uid-required]
+                       [:say-id :matter/say-id-required]
+                       [:text :matter/text-required]
+                       [:time-ms :matter/time-ms-required]]]
+      (is (= error
+             (:act/error
+              (matter-room/say-request (dissoc base k))))
+          (name k)))))
+
+(deftest halo-say-replay-divergence-and-partial-repair-are-one-composition
+  (let [oc-rt (ocr/start-object-container-runtime!)
+        rk-rt (rk/start-relation-runtime! {:tasks 4 :threads 2})
+        ctx {:oc-rt oc-rt :rk-rt rk-rt}
+        body {:master-id attention/master-id
+              :subject-uid alpha
+              :text "halo says this once"
+              :say-id "halo-say-replay-1"
+              :time-ms 1700000000100}
+        refs-to
+        (fn [target]
+          (get (rk/read-relations-for-targets
+                rk-rt [target] [:references] false)
+               target []))]
+    (try
+      (let [first-result (sj/matter-room-say! ctx body)
+            replay-result (sj/matter-room-say! ctx body)
+            object-key (:object-key first-result)
+            root-id (:unit-id first-result)
+            roots
+            (fn []
+              (->> (episode/read-utterance-rows oc-rt object-key)
+                   (mapcat :origin-unit-ids)
+                   distinct
+                   vec))]
+        (testing "same immutable body converges to one queryable root and edge"
+          (is (:accepted? first-result) (pr-str first-result))
+          (is (:accepted? replay-result) (pr-str replay-result))
+          (is (= :accepted
+                 (:status
+                  (edn/read-string
+                   (pr-str (#'sj/record-free-edn first-result)))))
+              "the say HTTP body contains no JVM-only record tags")
+          (is (= root-id (:unit-id replay-result)))
+          (is (= [root-id] (roots)))
+          (is (some? (ocr/read-unit oc-rt root-id)))
+          (is (= 1 (count (refs-to alpha))))
+          (is (= root-id
+                 (get-in (first (refs-to alpha)) [:from :target-id]))))
+
+        (testing "a new say id mints exactly one new root+edge pair"
+          (let [new-result
+                (sj/matter-room-say!
+                 ctx
+                 (assoc body
+                        :say-id "halo-say-replay-2"
+                        :time-ms 1700000000200))]
+            (is (:accepted? new-result) (pr-str new-result))
+            (is (= 2 (count (roots))))
+            (is (= 2 (count (refs-to alpha))))))
+
+        (testing "divergent target reuse conflicts before relation append"
+          (let [other-target "du:halo:divergent-target"
+                rejected
+                (sj/matter-room-say!
+                 ctx (assoc body :subject-uid other-target))]
+            (is (= :rejected (:status rejected)) (pr-str rejected))
+            (is (false? (:relation-appended? rejected)))
+            (is (empty? (refs-to other-target)))
+            (is (= 2 (count (roots))))))
+
+        (testing "an import-without-mark partial repairs on exact replay"
+          (let [partial-target "du:halo:partial-target"
+                partial-body
+                (assoc body
+                       :subject-uid partial-target
+                       :say-id "halo-say-partial-1"
+                       :text "repair this exact partial"
+                       :time-ms 1700000000300)
+                partial
+                (with-redefs
+                  [circulation/bank-reference!
+                   (fn [_ _] {:status :unmaterialized})]
+                  (sj/matter-room-say! ctx partial-body))]
+            (is (= :incomplete (:status partial)))
+            (is (some? (ocr/read-unit oc-rt (:unit-id partial))))
+            (is (empty? (refs-to partial-target)))
+            (let [repaired (sj/matter-room-say! ctx partial-body)]
+              (is (:accepted? repaired) (pr-str repaired))
+              (is (= (:unit-id partial) (:unit-id repaired)))
+              (is (= 1 (count (refs-to partial-target))))
+              (is (= 3 (count (roots)))))))
+
+        (testing "the master's standing experience labels say, never wish"
+          (let [anchored
+                (:portal/result
+                 (fp/serve ctx
+                           {:face :material-portal
+                            :params {:master-id attention/master-id}}))
+                marks
+                (get-in anchored
+                        [:portal/experience
+                         :experience/gold-marks-by-target alpha])]
+            (is (some #(and (= :halo/say (:mark/type %))
+                            (= root-id (:source-unit-id %))
+                            (not (contains? % :wish-unit-id)))
+                      marks)
+                (pr-str marks)))))
+      (finally
+        (rk/close-relation-runtime! rk-rt)
+        (ocr/close-object-container-runtime! oc-rt)))))
+
 ;; ===========================================================================
 ;; matter-room P3 · G6/G7 — master-anchored mouth, existing-P6 hands
 ;; ===========================================================================
@@ -968,7 +1112,7 @@
 
         (testing "the active floor remains matter-verb-free"
           (let [served (open-with-context! ctx {:master-id master-id})
-                matter-verbs #{:matter/deviate :matter/preview
+                matter-verbs #{:matter/deviate :matter/preview :matter/say
                                :matter/activate :matter/rollback}]
             (is (empty?
                  (filter #(contains? matter-verbs (:table/verb %))
@@ -983,10 +1127,10 @@
         endpoint-names
         (set (map second
                   (re-seq
-                   #"\"/api/matter-room/(deviate|activate|rollback|preview)\""
+                   #"\"/api/matter-room/(deviate|activate|rollback|say|preview)\""
                    server-src)))]
-    (testing "all and only the three durable endpoints are disclosed"
-      (is (= #{"deviate" "activate" "rollback"} endpoint-names))
+    (testing "all and only the four durable endpoints are disclosed"
+      (is (= #{"deviate" "activate" "rollback" "say"} endpoint-names))
       (is (not (str/includes? server-src "\"/api/matter-room/preview\""))))
 
     (testing "preview stays on the existing client projection lane"
@@ -994,14 +1138,74 @@
       (is (str/includes? client-src "(.preview bindings"))
       (is (str/includes? client-src "(.endPreview bindings")))
 
-    (testing "T9 names all four verbs and both honest effect classes"
+    (testing "T9 names all five verbs and both honest effect classes"
       (doseq [token [":matter/deviate" ":matter/preview"
-                     ":matter/activate" ":matter/rollback"
+                     ":matter/activate" ":matter/rollback" ":matter/say"
                      ":durable-via-request" ":pure-projection"]]
         (is (str/includes? briefing-src token) token))
       (is (not (str/includes?
                 briefing-src
                 "The portal is read-only: it does not execute writes"))))))
+
+(deftest halo-kernel-scope-handle-and-zero-diff-pins-are-exact
+  (let [events-src (slurp (io/resource
+                           "app/client/workspace/events.cljs"))
+        runtime-src (slurp (io/resource
+                            "app/client/workspace/runtime.cljs"))
+        ground-src (slurp (io/resource
+                           "app/client/workspace/ground.cljs"))
+        wiring-src (slurp (io/resource
+                           "app/client/workspace/face_wiring.cljs"))
+        active-pos (str/index-of events-src "(when (active?)")
+        prevent-pos (str/index-of events-src "(.preventDefault e)"
+                                  active-pos)]
+    (testing "contextmenu prevention is ground-active scoped and button 2
+              cannot enter ordinary pointer down/up first"
+      (is (some? active-pos))
+      (is (some? prevent-pos))
+      (is (< active-pos prevent-pos))
+      (is (= 2
+             (count (re-seq #"\(not= 2 \(\.-button e\)\)"
+                            events-src))))
+      (is (str/includes? runtime-src
+                         "(events/>contextmenu node ground/ground-active?)"))
+      (is (str/includes? ground-src ":kind :pointer/meta"))
+      (is (str/includes? ground-src ":phase :complete")))
+
+    (testing "only the four honest handle kinds are rendered and heavy verbs
+              have no Halo descriptor"
+      (doseq [handle [":halo/handle :ask"
+                      "(action :enter)"
+                      "(action :preview)"
+                      "(action :say)"]]
+        (is (str/includes? ground-src handle) handle))
+      (doseq [heavy [":halo/handle :deviate"
+                     ":halo/handle :activate"
+                     ":halo/handle :rollback"]]
+        (is (not (str/includes? ground-src heavy))))
+      (is (str/includes? wiring-src "(.-__portal js/window)")
+          "handles reuse the existing read/room/client surfaces"))
+
+    (testing "citizenship is derived from the real wear census, including the
+              universal space answer and the honest floor label"
+      (is (str/includes?
+           ground-src
+           "[:provenance :attention :foldable :positioned :threaded :text-body]"))
+      (is (str/includes? ground-src
+                         "(if space? [:space] block-wear-census)"))
+      (is (str/includes? ground-src
+                         "(get facet-masters/by-facet facet)"))
+      (is (str/includes? ground-src "\"code-owned · floored\""))
+      (is (not (str/includes? ground-src
+                              "[:attention :foldable :positioned :threaded :text-body :space]"))
+          "space is an outermost subject, never laundered into the block census"))
+
+    (testing "the two zero-diff composition pins remain byte exact"
+      (is (= "e1f1836f6c092bda250930ccf544b47b15e1b9894635e7170eaf024f44af4179"
+             (core/sha-256 (slurp "src/app/server/episode.clj"))))
+      (is (= "ab283b47ae273aa9a0a42b2e14a690a3804c054a7370ef3fb06ee910a2772ca2"
+             (core/sha-256
+              (slurp "src/app/server/rama/relation_kernel.clj")))))))
 
 ;; ===========================================================================
 ;; matter-room P4 · G8/G9 — citizens and the on-demand terminal-escape gauge

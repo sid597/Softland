@@ -62,8 +62,14 @@
                             :y (- (.-clientY e) (.-top rect))
                             ;; Task 11: shift splits textual from spatial drag
                             :shift? (.-shiftKey e)}))
-            down-h (fn [e] (! [:mousedown (get-coords e)]))
-            up-h   (fn [e] (! [:mouseup (get-coords e)]))
+            ;; Halo H1: button 2 belongs exclusively to `>contextmenu`. It
+            ;; must never enter the ordinary down/up pointer machine first.
+            down-h (fn [e]
+                     (when (not= 2 (.-button e))
+                       (! [:mousedown (get-coords e)])))
+            up-h   (fn [e]
+                     (when (not= 2 (.-button e))
+                       (! [:mouseup (get-coords e)])))
             move-h (fn [e] (! [:mousemove (get-coords e)]))]
         (.addEventListener node "mousedown" down-h)
         (.addEventListener js/window "mouseup" up-h)
@@ -72,6 +78,29 @@
           (.removeEventListener node "mousedown" down-h)
           (.removeEventListener js/window "mouseup" up-h)
           (.removeEventListener js/window "mousemove" move-h))))))
+
+(defn >contextmenu
+  "Halo P1 · H1 — active-canvas contextmenu → one semantic meta sample.
+
+   The active predicate is called synchronously inside the DOM handler.
+   Inactive canvases retain the browser's native context menu and emit
+   nothing; only the full-screen ground consumes and prevents default."
+  [node active?]
+  (m/observe
+   (fn [!]
+     (let [get-coords
+           (fn [e]
+             (let [rect (.getBoundingClientRect node)]
+               {:x (- (.-clientX e) (.-left rect))
+                :y (- (.-clientY e) (.-top rect))
+                :shift? (.-shiftKey e)}))
+           handler
+           (fn [e]
+             (when (active?)
+               (.preventDefault e)
+               (! (get-coords e))))]
+       (.addEventListener node "contextmenu" handler)
+       #(.removeEventListener node "contextmenu" handler)))))
 
 (defn snap-to-dpr [v dpr]
   (let [scale (or dpr 1)]

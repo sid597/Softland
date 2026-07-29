@@ -115,6 +115,73 @@
       (finally
         (rk/close-relation-runtime! rt)))))
 
+(deftest halo-reference-bank-is-idempotent-and-custody-honest
+  (let [rt (rk/start-relation-runtime! {:tasks 4 :threads 2})
+        base {:source-unit-id "du:halo:say"
+              :target-unit-id "du:halo:target"
+              :actor {:actor/id "sid" :actor/type :human}
+              :asserted-at-ms 301
+              :say-id "say-301"
+              :master-id "fm:attention"}]
+    (try
+      (let [a (circulation/bank-reference! rt base)
+            replay (circulation/bank-reference! rt base)
+            row (first
+                 (get
+                  (rk/read-relations-for-targets
+                   rt [(:target-unit-id base)] [:references] false)
+                  (:target-unit-id base)))]
+        (is (= :materialized (:status a)))
+        (is (= (:relation-id a) (:relation-id replay)))
+        (is (= 1
+               (count
+                (get
+                 (rk/read-relations-for-targets
+                  rt [(:target-unit-id base)] [:references] false)
+                 (:target-unit-id base)))))
+        (is (circulation/gold-edge? row))
+        (is (= {:mark/type :halo/say
+                :mark/say-id "say-301"
+                :mark/master-id "fm:attention"}
+               (read-string (:note row)))))
+      (let [machine
+            (circulation/bank-reference!
+             rt
+             (assoc base
+                    :source-unit-id "du:halo:machine-say"
+                    :actor {:actor/id "assistant:1" :actor/type :agent}
+                    :say-id "say-machine"))
+            row (get-in
+                 (rk/read-relation-detail rt (:relation-id machine))
+                 [:row])]
+        (is (= :materialized (:status machine)))
+        (is (not (circulation/gold-edge? row))
+            "nonhuman custody remains asserted but never painted gold"))
+      (finally
+        (rk/close-relation-runtime! rt)))))
+
+(deftest halo-say-gold-mark-keeps-generic-source-and-never-wish-labels
+  (let [target "du:halo:target"
+        source "du:halo:say"
+        row {:relation-id "rel-halo"
+             :relation-kind :references
+             :from (rk/->target-ref :derived-unit source)
+             :to (rk/->target-ref :derived-unit target)
+             :relation-status :asserted
+             :asserter-actor-id "sid"
+             :asserter-type :human
+             :first-asserted-at-ms 9
+             :note (pr-str {:mark/type :halo/say
+                            :mark/say-id "say-9"
+                            :mark/master-id "fm:attention"})}
+        mark (get-in
+              (circulation/compose-experience
+               [target] {target [row]} [])
+              [:experience/gold-marks-by-target target 0])]
+    (is (= source (:source-unit-id mark)))
+    (is (= :halo/say (:mark/type mark)))
+    (is (not (contains? mark :wish-unit-id)))))
+
 (deftest standing-query-exposes-receipt-silver-gold-composition
   (let [target "du:chat:q:target"
         wish "du:chat:q:wish"

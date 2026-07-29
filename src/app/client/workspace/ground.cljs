@@ -124,6 +124,7 @@
   (atom {:dirty {} :camera? false :timer nil :acked {}}))
 
 (defonce ^:private !notice (atom nil))  ; {:unit-id :text} transient (busy etc.)
+(defonce ^:private !halo (atom nil))
 ;; per merged run block: which sections show (Task 7, Sid) — two independent
 ;; header toggles, :noise? (thinking + tool calls) and :prose? (the reply).
 ;; attention state like hover: ephemeral, never settled, never restored
@@ -333,6 +334,202 @@
                    mine)]
             (swap! !wears-cache assoc-in [:by-subject subject] w)
             w))))))
+
+;; ===========================================================================
+;; Halo P1 — subject condensation as a GPU scene citizen
+;; ===========================================================================
+
+(def ^:private halo-vi :ground-halo)
+
+(def ^:private block-wear-census
+  "The six real block wears. Interaction claim facets are intentionally not
+   consulted: a claim says where a gesture landed, not what the citizen wears."
+  [:provenance :attention :foldable :positioned :threaded :text-body])
+
+(defn- halo-effect-label
+  [verb-name]
+  (some-> (verb-registry/effect-class verb-name) name))
+
+(defn- halo-master-census
+  [subject]
+  (let [space? (= :space subject)
+        subject-id (if space?
+                     space-material/space-subject
+                     (str subject))
+        wears (wears-for subject-id)
+        facets (if space? [:space] block-wear-census)]
+    {:subject subject
+     :subject-id subject-id
+     :masters
+     (->> facets
+          (keep
+           (fn [facet]
+             (when-let [spec (get facet-masters/by-facet facet)]
+               (when-let [wear (get wears facet)]
+                 {:facet facet
+                  :master-id (:facet-master/id spec)
+                  :revision-id (:facet-master/revision-id wear)
+                  :floor? (true? (:facet-master/floor? wear))
+                  :tier (or (:facet-master/tier wear)
+                            (if (:facet-master/floor? wear)
+                              :floor
+                              :shared))}))))
+          vec)}))
+
+(defn- halo-master-label
+  [{:keys [facet master-id revision-id floor? tier]}]
+  (str (name facet) " · " master-id " · "
+       (if floor?
+         "code-owned · floored"
+         (str revision-id " · " (name tier)))))
+
+(defn- halo-rows
+  [{:keys [subject-id masters questions status]}]
+  (let [preview-effect (halo-effect-label :matter/preview)
+        say-effect (halo-effect-label :matter/say)
+        base
+        (into
+         [{:text (str "halo · " subject-id)}
+          {:text "ask · pure-projection"
+           :action {:action :halo/handle
+                    :halo/handle :ask
+                    :halo/subject subject-id}}]
+         (mapcat
+          (fn [master]
+            (let [master-id (:master-id master)
+                  action (fn [handle]
+                           {:action :halo/handle
+                            :halo/handle handle
+                            :halo/subject subject-id
+                            :halo/master-id master-id})]
+              [{:text (halo-master-label master)}
+               {:text "  enter · navigation"
+                :action (action :enter)}
+               {:text (str "  preview · " preview-effect)
+                :action (action :preview)}
+               {:text (str "  say · " say-effect)
+                :action (action :say)}]))
+          masters))
+        with-status
+        (cond-> (vec base)
+          (seq status) (conj {:text (str "status · " status)}))]
+    (into
+     with-status
+     (map (fn [question]
+            {:text (str "? " question)}))
+     questions)))
+
+(defn- halo-claim
+  [subject-id]
+  (when-let [block (get-in @!world [:blocks subject-id])]
+    {:claim/subject subject-id
+     :claim/site (if (:machine? block)
+                   :block/machine-hit-area
+                   :block/user-hit-area)
+     :claim/facets binding-material/block-claim-facets
+     :claim/args {}}))
+
+(defn- render-halo!
+  []
+  (if-let [{:keys [x y subject-id] :as halo} @!halo]
+    (let [{:keys [font-size char-advance line-h]} (metrics)
+          rows (halo-rows halo)
+          pad 10.0
+          max-len (reduce max 1 (map (comp count :text) rows))
+          w (+ (* 2 pad) (* max-len char-advance))
+          h (+ (* 2 pad) (* (count rows) line-h))
+          claim (halo-claim subject-id)
+          ops
+          (mapv (fn [i {:keys [text action]}]
+                  (text-op text i line-h font-size
+                           (if action amber fg)
+                           pad))
+                (range)
+                rows)
+          handles
+          (->> rows
+               (map-indexed vector)
+               (keep
+                (fn [[i {:keys [action]}]]
+                  (when action
+                    (rt-node
+                     (keyword (str "halo-handle-" i))
+                     :hit-area
+                     {:x 0 :y (* i line-h) :w w :h line-h}
+                     :data
+                     (cond-> {:address subject-id
+                              :actions action}
+                       claim (assoc :material/claim claim))))))
+               vec)
+          tree
+          (rt/resolve-layout
+           (rt-node
+            halo-vi :error-card
+            {:x 0 :y 0 :w w :h h}
+            :style {:bg [0.07 0.08 0.10 0.97]
+                    :border-width 1.0
+                    :border-color [0.92 0.75 0.35 0.9]
+                    :radius 5}
+            :text ops
+            :data {:address subject-id}
+            :children handles))]
+      (if-let [slot (ss/slot (scene-rt/store-snapshot) halo-vi)]
+        (do
+          (swap! scene-rt/!scene-store ss/upsert-slot halo-vi
+                 {:tree tree :container (:container slot)
+                  :meta (:meta slot) :stratum (:stratum slot)
+                  :pre-resolved? true})
+          (scene-rt/set-transform! (:container slot) {:x x :y y}))
+        (scene-rt/register-face-instance!
+         halo-vi tree
+         {:x x :y y :scale 1.0 :layer 7
+          :meta {:ground-halo? true :subject subject-id}
+          :pre-resolved? true})))
+    (scene-rt/close-instance! halo-vi)))
+
+(defn- open-halo!
+  [subject world]
+  (let [[wx wy] world
+        {:keys [zoom]} @!camera
+        offset (/ 10.0 zoom)]
+    (reset! !halo
+            (merge
+             (halo-master-census subject)
+             {:x (+ wx offset)
+              :y (+ wy offset)
+              :questions []
+              :status nil}))
+    (render-halo!)))
+
+(defn- halo-action!
+  [descriptor _ctx]
+  (let [result (face-wiring/invoke-halo-handle! descriptor)]
+    (-> (js/Promise.resolve result)
+        (.then
+         (fn [value]
+           (if (= :ask (:halo/handle descriptor))
+             (let [questions
+                   (if (js/Array.isArray value)
+                     (->> (array-seq value)
+                          (keep #(aget % "question/ask"))
+                          vec)
+                     [])]
+               (swap! !halo assoc
+                      :questions questions
+                      :status (str (count questions) " questions")))
+             (swap! !halo assoc
+                    :status
+                    (if (nil? value)
+                      "cancelled"
+                      (str (name (:halo/handle descriptor)) " complete"))))
+           (render-halo!)))
+        (.catch
+         (fn [error]
+           (swap! !halo assoc :status (str "error · " (.-message error)))
+           (render-halo!)))))
+  true)
+
+(scene-rt/register-action! :halo/handle halo-action!)
 
 (defn- composition-lint-nodes
   [conflicts w h line-h font-size]
@@ -620,9 +817,9 @@
                   (seq conflict-nodes)
                   (into conflict-nodes)
 
-                  ;; editable-material P4 gold projection: the durable wish
-                  ;; remains its own OC block; this target-side line is only a
-                  ;; projection coupled by the :references edge.
+                  ;; editable-material P4 / Halo P1 gold projection: durable
+                  ;; source units remain their own OC blocks; this target-side
+                  ;; line is only a projection coupled by :references.
                   (seq gold-marks)
                   (conj (rt-node :ground-wish-mark :text-run
                                  {:x 0 :y (- (* (if boundary? 2.8 1.4) line-h))
@@ -631,7 +828,7 @@
                                  :text
                                  [(text-op
                                    (let [{:keys [text count]} (first gold-marks)]
-                                     (str "⌁ wish · " text
+                                     (str "⌁ " text
                                           (when (> count 1)
                                             (str "  +" (dec count)))))
                                    0 line-h font-size amber 0)]))
@@ -980,11 +1177,20 @@
                    :experience/gold-marks-by-target unit-id])
           gold-marks
           (when (seq gold-specs)
-            (let [texts (->> gold-specs
-                             (keep (comp mark-preview :wish-unit-id))
-                             vec)]
+            (let [texts
+                  (->> gold-specs
+                       (keep
+                        (fn [mark]
+                          (when-let [text
+                                     (mark-preview
+                                      (:source-unit-id mark))]
+                            (str (if (= :halo/say (:mark/type mark))
+                                   "say"
+                                   "wish")
+                                 " · " text))))
+                       vec)]
               (when (seq texts)
-                [{:text (first texts) :count (count texts)}])))
+                [{:text (str/join " | " texts) :count 1}])))
           silver-specs
           (get-in @!world
                   [:context :conversation/experience
@@ -2090,6 +2296,8 @@
   []
   (clear-machine-sel!)
   (clear-group-sel!)
+  (reset! !halo nil)
+  (render-halo!)
   (swap! !ground-edit (fn [st]
                         (let [fid (:focus st)
                               st' (ge/escape st)]
@@ -2224,15 +2432,16 @@
    A compile-time constant: this is the tier no revision can reach, which is
    what makes click-focus survive any data revision and the camera survive
    even a future `fm:space` master. Facets that carry no rows contribute nil."
-  (assoc
-   (into {}
-         (map (fn [spec]
-                [(:facet-master/facet spec)
-                 (:facet-master/bindings (facet-material/code-floor spec))]))
-         facet-masters/specs)
-   ;; T2 — the space spec's material floor is zoom form only. These four rows
-   ;; are the camera-inclusive CODE floor and therefore win this association.
-   binding-material/space-facet binding-material/space-floor-bindings))
+  (binding-material/with-halo-floor-bindings
+   (assoc
+    (into {}
+          (map (fn [spec]
+                 [(:facet-master/facet spec)
+                  (:facet-master/bindings (facet-material/code-floor spec))]))
+          facet-masters/specs)
+    ;; T2 — the space spec's material floor is zoom form only. These four rows
+    ;; are the camera-inclusive CODE floor and therefore win this association.
+    binding-material/space-facet binding-material/space-floor-bindings)))
 
 (defonce ^:private !instance-bindings
   ;; [subject site] → [row …] — the INNERMOST locality tier.
@@ -2260,6 +2469,10 @@
       ;; lifted space instance can never expose a transient camera capture.
       (some #(binding-material/camera-gesture-reserved? site %) rows)
       {:status :refused :error :binding/camera-gesture-reserved
+       :site site :subject subject}
+
+      (some #(binding-material/meta-gesture-reserved? site %) rows)
+      {:status :refused :error :binding/meta-gesture-reserved
        :site site :subject subject}
 
       ;; G10 / T-R3 — legality is owner-scoped: blocks keep their old sites and
@@ -2324,7 +2537,9 @@
                          ;; T3/T4 — a served instance must cross the same fence
                          ;; as the console and fm:space master grammar.
                          (not-any?
-                          #(binding-material/camera-gesture-reserved? site %)
+                          #(or
+                            (binding-material/camera-gesture-reserved? site %)
+                            (binding-material/meta-gesture-reserved? site %))
                           rows))
                       (assoc! acc [claim-subject site]
                               (into (vec (get acc [claim-subject site])) rows))
@@ -2710,7 +2925,15 @@
                         :zoom zoom'})
        (arm-settle! :camera)))})
 
-;; matter-room P3 — these four names complete the kernel's closed registry,
+;; Halo P1 — meta is an ordinary discrete dispatch decision. The decision's
+;; subject is authoritative; the effect never re-reads mutable focus.
+(register-verb! :halo/condense
+  {:invoke
+   (fn [{:keys [subject world]}]
+     (open-halo! subject world))})
+
+;; matter-room P3 / Halo P1 — these names complete the kernel's closed
+;; registry,
 ;; but no current site can feed their required master/subject arguments.
 ;; Therefore a frozen-v1 row honestly reaches a no-op while v2+ refuses it
 ;; structurally. Real invocation is the separately named console/HTTP act lane;
@@ -2719,6 +2942,9 @@
   {:invoke (fn [_] nil)})
 
 (register-verb! :matter/preview
+  {:invoke (fn [_] nil)})
+
+(register-verb! :matter/say
   {:invoke (fn [_] nil)})
 
 (register-verb! :matter/activate
@@ -2942,6 +3168,11 @@
         ;; Universal to the tap gesture, claim or no claim — not a branch.
         (clear-machine-sel!)
         (clear-group-sel!)
+        ;; Scene descriptors are a generic consumer edge, not a new pointer
+        ;; meaning branch. An absent/unregistered descriptor is a total no-op.
+        (scene-rt/dispatch-action
+         (:actions (:press/hit press))
+         {:hit (:press/hit press)})
         (dispatch! {:kind :pointer/tap :phase :complete
                     :modifiers (:press/modifiers press)
                     :hit (:press/hit press) :press press
@@ -2965,6 +3196,30 @@
               :wheel wheel
               :screen [x y]
               :world (vec (screen->world x y))}))
+
+(defn handle-meta!
+  "Halo P1 · H1/H2 — one contextmenu sample through the existing four
+   stations. There is exactly one pick; miss still resolves against the
+   outermost space claim."
+  [{:keys [x y shift?]}]
+  (let [hit (pick-at x y)
+        world (vec (screen->world x y))]
+    (scene-rt/record-pick! world hit)
+    (dispatch! {:kind :pointer/meta
+                :phase :complete
+                :modifiers (if shift? #{:shift} #{})
+                :hit hit
+                :screen [x y]
+                :world world})))
+
+(defn meta-consumer
+  [>meta-events]
+  (->> >meta-events
+       (m/reduce
+        (fn [_ sample]
+          (when sample (handle-meta! sample))
+          nil)
+        nil)))
 
 ;; ===========================================================================
 ;; The binding seam — window.__bindings: the served interaction table, the
@@ -3453,6 +3708,11 @@
              :pointer   (fn [] (clj->js (select-keys @!pointer [:phase :verb])))
              :mode      (fn [] (name (:mode @!ground-edit)))
              :focus     (fn [] (str (:focus @!ground-edit)))
+             :halo      (fn []
+                          (clj->js
+                           (select-keys @!halo
+                                        [:subject :subject-id :masters
+                                         :questions :status])))
              :confirmed (fn [] (clj->js (get-in @!ground-edit [:queue :confirmed])))
              ;; :run keeps the G4b receipt shape as the AGGREGATE phase;
              ;; :runs/:threads expose the per-thread truth

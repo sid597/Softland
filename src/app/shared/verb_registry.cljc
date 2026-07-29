@@ -212,6 +212,21 @@
      before the resident is summoned with that block's narrowed portal
      briefing."}
 
+   :halo/condense
+   {:verb/name :halo/condense
+    :verb/version 0
+    :verb/effect-class :pure-projection
+    :verb/continuations #{:invoke}
+    :verb/required-args #{}
+    :verb/floor-reserved? true
+    :verb/extracted-from
+    "Halo P1 contextmenu on the active full-screen ground, normalized as
+     :pointer/meta :complete and resolved through the ordinary claim chain"
+    :verb/doc
+    "Open the subject-scoped Halo identity and verb card at the picked point.
+     Pure projection and floor-reserved: material can neither capture nor
+     rebind the meta gesture."}
+
    ;; matter-room P3 · L5/G7. These are declarations of EXISTING P6 acts, not
    ;; gesture claims and not release births. No site supplies `:master-id` (or
    ;; `:subject-uid`), so strict v2+ material refuses an arg-starved row. The
@@ -251,6 +266,21 @@
      existing client membrane over real served material: pure projection,
      no request, no import, no pointer edit. Strict v2+ material refuses the
      arg-starved row; v1 can accept-then-no-op."}
+
+   :matter/say
+   {:verb/name :matter/say
+    :verb/version 0
+    :verb/effect-class :durable-via-request
+    :verb/continuations #{:invoke}
+    :verb/required-args #{:master-id :subject-uid}
+    :verb/extracted-from
+    "Halo P1 POST /api/matter-room/say and the matching window.__portal.say
+     client hand, composed from the existing episode utterance import and
+     material-circulation asserted-relation lanes"
+    :verb/doc
+    "Speak one human or assistant whole-message unit into the registered
+     master's room, then bank a :references edge from that durable unit to the
+     picked subject. Success is reported only after both truths are queryable."}
 
    :matter/activate
    {:verb/name :matter/activate
