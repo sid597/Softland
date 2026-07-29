@@ -37,6 +37,43 @@
 
 ## NOW (newest first; ≤15 lines per entry)
 
+- **2026-07-29 · Fable · INDEPENDENT GATE PASS (`GATE_P1.md`) — Sid's
+  commit ruling pending.** Slim tier per CONTRACT §8. Fence re-hashed
+  (HEAD `785841d`, 17 exact §6 paths, pins byte-exact, index empty); full
+  diff read; suite selection re-derived and re-run as a superset —
+  138 tests / 2,113 assertions / 0 failures/errors (incl. the six adjacent
+  pin-carriers); CLJS 272 files / 0 warnings (warm-cache revalidation,
+  noted). Own isolated `:8098` rig drove the durable say lifecycle at the
+  HTTP boundary: both-truths-before-success, exact-replay convergence,
+  divergent same-id refusal pre-relation, fresh-id second pair, 405,
+  data-only-EDN responses. All traps spot-checked in the diff; V3 lanes
+  re-verified. Five non-blocking findings with cheap falsifiers in the
+  gate record (top: the two SHA-256 zero-diff pins are now standing suite
+  assertions — the next episode/relation-kernel-touching package re-cuts
+  them). **Commit ruling executed (Sid: "commit"):** code `db8e21d`
+  (17 §6 paths, exact-path staging, HEAD-guarded); HEAD-dynamic suites
+  re-run at committed HEAD — git-spine 1t/10a + code-atoms 9t/198a, 0/0.
+  Docs ride the separate sibling commit. Package phases COMPLETE; open by
+  design: Sid's headed unscaffolded first open (C2's clock arms at his
+  first wear); residue = the five GATE_P1 findings; retro joins the
+  stratum batch.
+
+- **2026-07-29 · Codex · P1 IMPLEMENTER COMPLETE — G1–G4 GREEN,
+  FABLE GATE PENDING.** One context built all H1–H8 under the exact §6
+  fence at unchanged HEAD `785841d`; the two foreign probe artifacts remain
+  untouched. G1: 114 tests / 1,626 assertions / 0 failures/errors; full
+  CLJS compile 272 files / 0 warnings. G2 isolated live drive proved the
+  six-master block Halo, 17-question in-place ask, shipped room entry,
+  byte-immobile preview/endPreview, durable say + honest `:halo/say` mark
+  served back from the room, one-master space answer, live meta-row refusal,
+  and native contextmenu survival off-ground on the same canvas. G3 warm
+  Halo-open echo: n=62, p95=29.8ms (<52ms), one 94.8ms outlier retained.
+  G4: first FAIL found divergent-target retry; smallest in-fence repair,
+  then 8 tests / 155 assertions green. Live also found/repaired tagged-record
+  response EDN. Episode/relation-kernel hashes remain exact; diff check clean;
+  index empty; no commit/push. Full receipts: `P1.md`. Next: fresh independent
+  Fable slim gate; Sid's headed open remains deliberately outside the gate.
+
 - **2026-07-29 · Codex · VALIDATION PASS — package OPEN for P1.**
   Default-fail V1–V5 began at `f84e250` with only the two foreign probe
   artifacts untracked. The first pass substantively failed; CONTRACT was

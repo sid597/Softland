@@ -341,29 +341,12 @@ boundary. Implementer worktree `codex/matter-room-p4`
 (/mnt/data/projects/Softland-matter-room-p4) redundant post-landing —
 Sid deletes at his word.
 
-**halo — CONTRACT CUT 2026-07-29, package OPEN**
-(`build/halo/{CONTRACT,NOW}.md` — the matter-room's skin: right-click =
-`:pointer/meta`, kernel-inviolate via floor rows + floor-reserved
-`:halo/condense` + `meta-gesture-reserved?`; condensation derived from
-served data + registry declarations; handles ask/enter/say/preview;
-say = the one new write path, `POST /api/matter-room/say` over the
-existing utterance-import artery + a relation-kernel mark; heavy verbs
-room-only). **ONE phase by Sid's phases-low ruling** (recorded:
-decisions.md role-split + work-package skill; no PLAN.md — the
-contract carries plan grade). C1/C2 sharpened into BETS.md same
-session (D-015 intake discharged); all eight matter-room gate findings
-re-banked (CONTRACT §10). **VALIDATION PASS 2026-07-29** (fresh
-default-fail round: first pass substantive FAIL, seven contract gaps
-amended in place — actor/custody seam · say-vs-wish projection honesty
-via a new generic `bank-reference!` · the real full-screen shared
-canvas + `ground-active?` contextmenu boundary · universal reservation
-riding valid-row? AND all three camera lanes · one shared client/server
-floor augmentation · wear census = `wears-for`, never claim-facets ·
-target-bearing composite say-id retry identity — full V1–V5 rerun PASS;
-record `build/halo/VALIDATION.md`; amendments spot-verified on disk +
-accepted by the orchestrating Fable session). Next act: the fresh
-implementer (5.6sol-xhigh lane) builds P1 whole under §6; slim gate
-G1–G4; Sid's headed half is NOT a gate (C2's instrument).
+**halo — COMPLETE 2026-07-29** (code `db8e21d`, gate PASS
+`build/halo/GATE_P1.md`, trail in `build/halo/`; HEAD-dynamic suites
+green at committed HEAD). Open by design: Sid's headed unscaffolded
+first open — C2's instrument, clock arms at his first wear; residue =
+the five GATE_P1 findings (top: the two SHA-256 zero-diff pins are now
+standing suite assertions). Retro joins the stratum batch.
 **space-as-entity — CLOSED (all three rungs) + retro'd 2026-07-26.** Rungs
 1+2 `43a57a0`+`f7945fd` (twelve gates; `GATE.md`, `RETRO.md`); rung 3 (the
 G10 lift) `ecbd572` — gate PASS (`RUNG3_GATE.md`), retro recheck-corrected
