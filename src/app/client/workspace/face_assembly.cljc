@@ -392,6 +392,44 @@
 
 (declare expand-slot)
 
+(def ^:private sibling-rank-key
+  "Ephemeral marker used only between `expand-slot` and its parent build.
+
+   An `:each` item may carry the generic, optional
+   `:assembly/sibling-rank` number. Ranked siblings are reordered only within
+   the positions already occupied by ranked siblings; unranked siblings keep
+   their exact slots. The marker is removed before a primitive sees children,
+   so it can never leak into the rendered tree."
+  ::sibling-rank)
+
+(defn- order-ranked-siblings
+  [nodes]
+  (let [ranked
+        (->> nodes
+             (map-indexed
+              (fn [position node]
+                (when (number? (get node sibling-rank-key))
+                  {:position position
+                   :rank (get node sibling-rank-key)
+                   :node node})))
+             (remove nil?)
+             (sort-by (juxt :rank :position))
+             (mapv :node))]
+    (if (seq ranked)
+      (loop [remaining (vec nodes)
+             ordered ranked
+             out []]
+        (if-let [node (first remaining)]
+          (if (contains? node sibling-rank-key)
+            (recur (subvec remaining 1)
+                   (subvec ordered 1)
+                   (conj out (dissoc (first ordered) sibling-rank-key)))
+            (recur (subvec remaining 1)
+                   ordered
+                   (conj out node)))
+          out))
+      (vec nodes))))
+
 (defn- stamp-src-path
   "Provenance post-pass (designer edit-mode): record the plan node's TEMPLATE
    path on `built` and any builder-internal descendants that lack one, under
@@ -453,7 +491,7 @@
                        (assoc-in ctx-base [:geom :content-w]
                                  (max 1 (- cw (:child-inset props))))
                        :else ctx-base))
-          {:keys [nodes report]}
+          child-result
           (reduce
            (fn [acc cplan]
              (let [child-base (conj id* (:seg cplan))
@@ -462,6 +500,8 @@
                 :report (merge-reports (:report acc) (:report r))}))
            {:nodes [] :report zero-report}
            (:children plan))
+          nodes (order-ranked-siblings (:nodes child-result))
+          report (:report child-result)
           ctx   {:id id* :prim (:prim plan)
                  :view-instance (:view-instance ctx-base)
                  :address (:address ctx-base) :geom (:geom ctx-base)}
@@ -491,8 +531,14 @@
          (fn [acc [i item]]
            (let [has-id? (and (map? item) (contains? item :id))
                  seg     (if has-id? (:id item) i)
-                 r       (expand-slot (:template plan) item ctx-base (conj base-id seg))]
-             {:nodes  (into (:nodes acc) (:nodes r))
+                 rank    (when (map? item)
+                           (:assembly/sibling-rank item))
+                 r       (expand-slot (:template plan) item ctx-base
+                                      (conj base-id seg))
+                 nodes   (if (number? rank)
+                           (mapv #(assoc % sibling-rank-key rank) (:nodes r))
+                           (:nodes r))]
+             {:nodes  (into (:nodes acc) nodes)
               :report (merge-reports (:report acc)
                                      (cond-> (:report r)
                                        (not has-id?) (update :items-without-id inc)))}))

@@ -29,7 +29,8 @@
            [java.nio.file.attribute FileAttribute]))
 
 (def pure-namespaces
-  '[app.client.workspace.block-edit-test
+  '[app.anatomy-test
+    app.client.workspace.block-edit-test
     app.client.workspace.ground-edit-test
     app.client.workspace.scene-store-test
     app.binding-dispatch-test

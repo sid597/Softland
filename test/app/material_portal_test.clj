@@ -94,8 +94,9 @@
   (mp/open ctx (fn [req] (fp/serve ctx req)) params))
 
 (def entity-mode-regression-sha
-  "Captured from HEAD 7756b760 before matter-room P1 opened source."
-  "deb12d4d70383c0d55321225eb555797fe7203a4c18fef5c51b4f6d1e81db858")
+  "Re-cut by smalltalk-ui-vm P1 when fm:anatomy joined the generic master
+   inventory; entity mode itself remains byte-pinned."
+  "7003fe90812c02646db57fba5775f65bb8d26a20073c66395340214c4f728132")
 
 ;; ===========================================================================
 ;; G1 — the portal question list, answered one by one with replayable calls
@@ -194,7 +195,7 @@
         bytes (portal/canonical-edn result)]
     (is (= entity-mode-regression-sha (core/sha-256 bytes))
         "adding :master-id mode must not drift one byte of entity mode")
-    (is (= 22064 (count (.getBytes bytes "UTF-8"))))
+    (is (= 23104 (count (.getBytes bytes "UTF-8"))))
     (is (= bytes (portal/canonical-edn result-with-ignored-master))
         "entity-id wins if both addresses are supplied")))
 
@@ -1190,7 +1191,7 @@
               universal space answer and the honest floor label"
       (is (str/includes?
            ground-src
-           "[:provenance :attention :foldable :positioned :threaded :text-body]"))
+           "[:provenance :attention :foldable :positioned :threaded :text-body :anatomy]"))
       (is (str/includes? ground-src
                          "(if space? [:space] block-wear-census)"))
       (is (str/includes? ground-src

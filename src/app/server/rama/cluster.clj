@@ -36,6 +36,7 @@
             [app.shared.foldable-material :as foldable-material]
             [app.shared.positioned-material :as positioned-material]
             [app.shared.provenance-material :as provenance-material]
+            [app.shared.threaded-material :as threaded-material]
             [clojure.java.io :as io]
             [clojure.string :as str]))
 
@@ -417,6 +418,26 @@
               foldable-material/strict-bindings-source "foldable"]
              [positioned-material/spec
               positioned-material/strict-bindings-source "positioned"]])
+           ;; smalltalk-ui-vm P1 · W7 — the threaded master's SECOND grammar
+           ;; is an explicit immutable-source migration. T7: the new rail and
+           ;; indent policy is material, never a hardcoded block branch. The
+           ;; anatomy master itself joins through the generic `specs` sweep
+           ;; above; no source-specific bootstrap path is needed.
+           threaded-migrations
+           (into
+            (sorted-map)
+            (map
+             (fn [[spec source slug]]
+               [(:facet-master/id spec)
+                (facet-master/ensure-active-source!
+                 oc-rt spec source
+                 {:request-id (str "facet-master-" slug "-v1")
+                  :activation-request-id
+                  (str "facet-master-" slug "-activate-v1")
+                  :time-ms (core/now-ms)})]))
+            [[threaded-material/spec
+              threaded-material/thread-edge-source
+              "threaded"]])
            results
            (into
             (into
@@ -426,7 +447,9 @@
              masters)
             (map (fn [[master-id migration]]
                    [master-id (:state migration)]))
-            (merge bindings-migrations strict-bindings-migrations))]
+            (merge bindings-migrations
+                   strict-bindings-migrations
+                   threaded-migrations))]
        (println
         "[CLUSTER-INGEST] facet materials:"
         (into
@@ -446,6 +469,7 @@
         :masters masters
         :bindings-migrations bindings-migrations
         :strict-bindings-migrations strict-bindings-migrations
+        :threaded-migrations threaded-migrations
         :states results}))))
 
 (defn first-light-ingest!
