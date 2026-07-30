@@ -35,11 +35,14 @@
             [missionary.core :as m]
             [app.client.workspace.agent :as agent]
             [app.client.workspace.block-edit-wiring :as bew]
+            [app.client.workspace.face-assembly :as face-assembly]
+            [app.client.workspace.face-primitives :as face-primitives]
             [app.client.workspace.face-wiring :as face-wiring]
             [app.client.workspace.ground-edit :as ge]
             [app.client.workspace.rect-tree :as rt :refer [rt-node]]
             [app.client.workspace.scene-runtime :as scene-rt]
             [app.client.workspace.scene-store :as ss]
+            [app.shared.anatomy-material :as anatomy-material]
             [app.shared.attention-material :as attention-material]
             [app.shared.binding-material :as binding-material]
             [app.shared.facet-material :as facet-material]
@@ -116,6 +119,7 @@
 (defonce ^:private !provisional-open (atom #{}))  ; thread-keys with live slots
 
 (defonce ^:private !pointer (atom {:phase :idle}))
+(defonce ^:private !pending-material-rederive? (atom false))
 (defonce ^:private !hover (atom nil))
 
 (defonce ^:private !settle
@@ -146,7 +150,8 @@
 (def ^:private drag-threshold-px 4.0)
 (def ^:private settle-debounce-ms 400)
 
-(declare rebuild-block! reconcile! refresh-provisional! context-block-entry)
+(declare rebuild-block! reconcile! refresh-provisional! context-block-entry
+         re-derive-material!)
 
 ;; ===========================================================================
 ;; Camera math (screen = world·zoom + pan)
@@ -168,13 +173,6 @@
      :char-advance (* fs cw)
      :line-h (js/Math.round (* fs 1.4))
      :viewport @!viewport}))
-
-(defn- text-op
-  ;; :y is the glyph BASELINE (renderer convention).
-  [text i line-h fs [r g b a] x]
-  {:text text :type :text :from 0 :to (count text)
-   :x x :y (+ (* i line-h) fs) :size fs
-   :r r :g g :b b :a a})
 
 (def ^:private fg [0.92 0.92 0.94 1.0])
 (def ^:private dim [0.55 0.58 0.62 1.0])
@@ -203,9 +201,17 @@
   ;; short-circuits on identity instead of deep-walking six maps.
   (atom nil))
 
+(defonce ^:private !anatomy-compile-cache
+  ;; T11 — compilation keys on the slow-changing durable wear identity, never
+  ;; on text/caret/hover. Preview revisions naturally occupy their own key.
+  (atom {}))
+
 (defn- resolve-material-wears
   [by-id]
-  {:provenance
+  {:anatomy
+   (anatomy-material/resolved-wear
+    (get by-id anatomy-material/master-id))
+   :provenance
    (provenance-material/resolved-wear
     (get by-id provenance-material/master-id))
    :attention
@@ -342,9 +348,9 @@
 (def ^:private halo-vi :ground-halo)
 
 (def ^:private block-wear-census
-  "The six real block wears. Interaction claim facets are intentionally not
+  "The seven real block wears. Interaction claim facets are intentionally not
    consulted: a claim says where a gesture landed, not what the citizen wears."
-  [:provenance :attention :foldable :positioned :threaded :text-body])
+  [:provenance :attention :foldable :positioned :threaded :text-body :anatomy])
 
 (defn- halo-effect-label
   [verb-name]
@@ -441,9 +447,8 @@
           claim (halo-claim subject-id)
           ops
           (mapv (fn [i {:keys [text action]}]
-                  (text-op text i line-h font-size
-                           (if action amber fg)
-                           pad))
+                  (face-primitives/text-op
+                   text i line-h font-size (if action amber fg) pad))
                 (range)
                 rows)
           handles
@@ -531,55 +536,6 @@
 
 (scene-rt/register-action! :halo/handle halo-action!)
 
-(defn- composition-lint-nodes
-  [conflicts w h line-h font-size]
-  (mapv
-   (fn [i conflict]
-     (rt-node (keyword (str "ground-material-conflict-" i))
-              :error-card
-              {:x 0
-               :y (+ h (* i line-h))
-               :w w
-               :h line-h}
-              :style {:bg [0.24 0.07 0.08 0.98]
-                      :border-width 1.0
-                      :border-color [0.9 0.3 0.3 1.0]}
-              :text [(text-op
-                      (str "material conflict · "
-                           (name (:type conflict)))
-                      0 line-h font-size err-col 0)]
-              :data conflict))
-   (range)
-   conflicts))
-
-(defn- wrap-lines
-  "Display-only greedy wrap at `col` chars (monospace: char count IS width —
-   see metrics). The raw text is never touched; machine blocks only. A word
-   longer than col hard-breaks."
-  [lines col]
-  (vec (mapcat
-        (fn [l]
-          (if (<= (count l) col)
-            [l]
-            (loop [s l, out []]
-              (if (<= (count s) col)
-                (conj out s)
-                (let [head (subs s 0 (inc col))
-                      i    (str/last-index-of head " ")
-                      cut  (if (and i (pos? i)) i col)]
-                  (recur (str/triml (subs s cut))
-                         (conj out (subs s 0 cut))))))))
-        lines)))
-
-(defn- lines-offset
-  "Visual {:line :col} over rendered lines → flat offset into their
-   newline-join, clamped."
-  [lines {:keys [line col]}]
-  (let [n    (count lines)
-        line (max 0 (min (long (or line 0)) (dec (max 1 n))))
-        col  (max 0 (min (long (or col 0)) (count (nth lines line ""))))]
-    (+ (reduce + 0 (map #(inc (count %)) (take line lines))) col)))
-
 (defn- reply-source-columns
   [src-txt]
   (when src-txt
@@ -595,305 +551,6 @@
     (max (:text-body/wrap-floor-columns text-body-wear)
          source-columns)
     (:text-body/wrap-fallback-columns text-body-wear)))
-
-(defn- block-tree
-  "One block's container-LOCAL resolved tree (root at 0,0; the container
-   transform places it in the world). No wrap, no clip — width grows with
-   the longest line (Law/WALKTHROUGH 14). Root carries [:data :address] so
-   picks resolve to the unit (T7). At rest the land reads as material: the
-   interaction box shows only on attention (Law 10); machine provenance is a
-   quiet persistent edge tint (Law 6) — two separate primitives."
-  [unit-id {:keys [text caret focused? refusal selection]} machine? hover? notice
-   {:keys [font-size char-advance line-h]} wrap-col headers msel boundary?
-   gsel? placement-derived? wears gold-marks silver-marks]
-  (let [provenance-wear (:provenance wears)
-        attention-wear (:attention wears)
-        foldable-wear (:foldable wears)
-        positioned-wear (:positioned wears)
-        threaded-wear (:threaded wears)
-        text-body-wear (:text-body wears)
-        tint    (:provenance/tint provenance-wear)
-        pad     (:attention/hit-padding attention-wear)
-        provenance-stamp
-        #(facet-material/contribution-stamp
-          provenance-wear unit-id %1 %2 %3)
-        attention-stamp
-        #(facet-material/contribution-stamp
-          attention-wear unit-id %1 %2 %3)
-        foldable-stamp
-        #(facet-material/contribution-stamp
-          foldable-wear unit-id %1 %2 %3)
-        positioned-stamp
-        #(facet-material/contribution-stamp
-          positioned-wear unit-id %1 %2 %3)
-        threaded-stamp
-        #(facet-material/contribution-stamp
-          threaded-wear unit-id %1 %2 %3)
-        text-body-stamp
-        #(facet-material/contribution-stamp
-          text-body-wear unit-id %1 %2 %3)
-        lines   (cond-> (str/split (or text "") #"\n" -1)
-                  (and machine? wrap-col) (wrap-lines wrap-col))
-        nh      (count headers)
-        lines   (if (pos? nh) (into (vec headers) lines) lines)
-        n       (count lines)
-        max-len (reduce max 1 (map count lines))
-        w       (+ (* max-len char-advance) (* 2 pad))
-        h       (+ (* n line-h) (* 2 pad))
-        ops     (vec (map-indexed
-                      (fn [i l]
-                        (let [header? (< i nh)
-                              body? (and machine? (not header?))
-                              p-stamp
-                              (when header?
-                                (provenance-stamp
-                                 :fold-header :text-color :block/content))
-                              f-stamp
-                              (when header?
-                                (foldable-stamp
-                                 (if (zero? i)
-                                   :noise-header
-                                   :prose-header)
-                                 :header-copy
-                                 :block/fold-header-text))
-                              body-stamp
-                              (when body?
-                                (text-body-stamp
-                                 :wrapped-body
-                                 :wrap-policy
-                                 :block/content-flow))]
-                          (cond->
-                              (text-op l i line-h font-size
-                                       (cond
-                                         header? tint
-                                         machine? dim
-                                         :else fg)
-                                       0)
-                            header? (merge p-stamp)
-                            body? (merge body-stamp)
-                            header?
-                            (assoc :material/contributions
-                                   [p-stamp f-stamp]))))
-                      lines))
-        caret-lc (when (and focused? caret)
-                   (ge/caret->line-col text caret))
-        ;; Task 11: the selection wash — one translucent rect per selected
-        ;; line span (glyphs stay readable through the alpha). msel is the
-        ;; machine-block selection in visual {:line :col} space.
-        msel-range (when msel
-                     (let [a (lines-offset lines (:anchor msel))
-                           h (lines-offset lines (:head msel))]
-                       (when (not= a h) [(min a h) (max a h)])))
-        sel-nodes (when-let [[sel-s sel-e] (or (and focused? selection)
-                                               msel-range)]
-                    (loop [i 0, start 0, out []]
-                      (if (>= i n)
-                        out
-                        (let [l    (nth lines i)
-                              lend (+ start (count l))
-                              s'   (max sel-s start)
-                              e'   (min sel-e lend)]
-                          (recur (inc i) (inc lend)
-                                 (if (< s' e')
-                                   (conj out
-                                         (rt-node (keyword (str "ground-sel-" i))
-                                                  :rect
-                                                  {:x (* (- s' start) char-advance)
-                                                   :y (* i line-h)
-                                                   :w (max 2.0 (* (- e' s') char-advance))
-                                                   :h line-h}
-                                                  :style {:bg [0.35 0.5 0.8 0.3]}))
-                                   out))))))
-        decoration-composition
-        (facet-material/compose
-         [(when machine?
-            {:wear provenance-wear
-             :stamp
-             (provenance-stamp
-              :machine-rail :provenance-marker :block/decorations)
-             :value
-             (rt-node :ground-mark :rect
-                      {:x (- pad) :y (- pad) :w 2.5 :h h}
-                      :style {:bg tint}
-                      :data
-                      (provenance-stamp
-                       :machine-rail
-                       :provenance-marker
-                       :block/decorations))})
-          (when (or focused? hover?)
-            {:wear attention-wear
-             :stamp
-             (attention-stamp
-              :attention-box :attention-border :block/decorations)
-             :value
-             (rt-node :ground-box :rect
-                      {:x (- pad) :y (- pad) :w w :h h}
-                      :style
-                      {:border-width
-                       (:attention/border-width attention-wear)
-                       :border-color
-                       (:attention/border-color attention-wear)
-                       :bg (:attention/background attention-wear)}
-                      :data
-                      (attention-stamp
-                       :attention-box
-                       :attention-border
-                       :block/decorations))})])
-        decoration-nodes
-        (mapv :value (:contributions decoration-composition))
-        conflict-nodes
-        (composition-lint-nodes
-         (:conflicts decoration-composition) w h line-h font-size)
-        ;; P5 family 1 — one HIT-ONLY node per fold header row. It carries no
-        ;; :bg, no :text and no :shadow, so tree->rects/tree->text-ops/
-        ;; tree->shadows all emit nothing for it: the containment path gets a
-        ;; finer grain at exactly zero pixels. Its band is the full block width
-        ;; over its own line, which is precisely the region the deleted
-        ;; `(<= row 1)` arithmetic used to select. Appended LAST so hit-test's
-        ;; reverse child walk reaches it before the attention box.
-        fold-header-nodes
-        (when (pos? nh)
-          (mapv
-           (fn [i {:keys [section fold-key]}]
-             (rt-node (keyword (str "ground-fold-header-hit-" (name section)))
-                      :hit-area
-                      {:x 0 :y (* i line-h) :w w :h line-h}
-                      :data
-                      (merge
-                       (foldable-stamp
-                        :fold-header-hit :fold-toggle :block/hit-area)
-                       {:address unit-id
-                        :material/claim
-                        {:claim/subject unit-id
-                         :claim/site :block/fold-header
-                         :claim/facets [:foldable]
-                         :claim/args {:section section :fold-key fold-key}}})))
-           (range)
-           (take nh fold-sections)))
-        extra   (cond-> (vec sel-nodes)
-                  ;; Task 18: group-selection member mark (marquee wash)
-                  gsel?
-                  (conj (rt-node :ground-gsel :rect
-                                 {:x (- pad) :y (- pad) :w w :h h}
-                                 :style {:border-width 1.5
-                                         :border-color [0.55 0.65 0.9 0.8]
-                                         :bg [0.35 0.5 0.8 0.10]}))
-
-                  (seq decoration-nodes)
-                  (into decoration-nodes)
-
-                  (and focused? caret-lc)
-                  (conj (rt-node :ground-caret :rect
-                                 {:x (* (:col caret-lc) char-advance)
-                                  :y (* (:line caret-lc) line-h)
-                                  :w 2 :h line-h}
-                                 :style {:bg [0.95 0.95 0.95 1.0]}))
-                  (some? refusal)
-                  (conj (rt-node :ground-refusal :text-run
-                                 {:x 0 :y (* n line-h) :w w :h line-h}
-                                 :text [(text-op (str "⟂ edit refused: "
-                                                      (if (keyword? refusal)
-                                                        (name refusal) (str refusal)))
-                                                 0 line-h font-size err-col 0)]))
-                  (some? notice)
-                  (conj (rt-node :ground-notice :text-run
-                                 {:x 0 :y (* (+ n (if refusal 1 0)) line-h)
-                                  :w w :h line-h}
-                                 :text [(text-op (str notice) 0 line-h font-size
-                                                 amber 0)]))
-                  ;; D-core boundary (Sid): a fresh CLI session opened here —
-                  ;; a quiet line above the episode's first served block
-                  boundary?
-                  (conj (rt-node :ground-episode-boundary :text-run
-                                 {:x 0 :y (- (* 1.6 line-h)) :w w :h line-h}
-                                 :text [(text-op "— fresh session —" 0 line-h
-                                                 font-size tint 0)]
-                                 :data
-                                 (provenance-stamp
-                                  :episode-boundary
-                                  :boundary-label
-                                  :block/prelude)))
-
-                  (seq conflict-nodes)
-                  (into conflict-nodes)
-
-                  ;; editable-material P4 / Halo P1 gold projection: durable
-                  ;; source units remain their own OC blocks; this target-side
-                  ;; line is only a projection coupled by :references.
-                  (seq gold-marks)
-                  (conj (rt-node :ground-wish-mark :text-run
-                                 {:x 0 :y (- (* (if boundary? 2.8 1.4) line-h))
-                                  :w (max w (* 42 char-advance))
-                                  :h line-h}
-                                 :text
-                                 [(text-op
-                                   (let [{:keys [text count]} (first gold-marks)]
-                                     (str "⌁ " text
-                                          (when (> count 1)
-                                            (str "  +" (dec count)))))
-                                   0 line-h font-size amber 0)]))
-
-                  ;; Silver stays visibly machine and explicitly tentative.
-                  ;; Like gold, this is a target-side projection; the source
-                  ;; record remains separately addressable.
-                  (seq silver-marks)
-                  (conj
-                   (rt-node
-                    :ground-silver-mark :text-run
-                    {:x 0
-                     :y (- (* (+ (if boundary? 1.4 0.0)
-                                 (if (seq gold-marks) 1.4 0.0)
-                                 1.4)
-                              line-h))
-                     :w (max w (* 48 char-advance))
-                     :h line-h}
-                    :text
-                    [(text-op
-                      (let [{:keys [text count]} (first silver-marks)]
-                        (str "≈ machine guess · " text
-                             (when (> count 1)
-                               (str "  +" (dec count)))))
-                      0 line-h font-size dim 0)]))
-
-                  (seq fold-header-nodes)
-                  (into fold-header-nodes))]
-    (rt/resolve-layout
-     (rt-node :ground-block :text-run
-              {:x 0 :y 0 :w (max w char-advance) :h (max h line-h)}
-              :text ops
-              :data
-              (cond->
-                  (merge
-                   {:address unit-id}
-                   (attention-stamp
-                    :hit-box :hit-target :block/hit-area)
-                   ;; P5 families 2+3 — the block-grain claim. The SITE is
-                   ;; decided here, at build time, from what the block IS, so
-                   ;; the dispatch function needs no machine?/user? branch:
-                   ;; attention's rows say what landing attention here means,
-                   ;; positioned's say what dragging it means.
-                   {:material/claim
-                    {:claim/subject unit-id
-                     :claim/site (if machine?
-                                   :block/machine-hit-area
-                                   :block/user-hit-area)
-                     :claim/facets [:attention :positioned]
-                     :claim/args {}}})
-                placement-derived?
-                (assoc
-                 :material/positioned
-                 (positioned-stamp
-                  :derived-placement
-                  :placement-default
-                  :block/placement))
-                (not machine?)
-                (assoc
-                 :material/threaded
-                 (threaded-stamp
-                  :send-adoption
-                  :column-adoption-policy
-                  :block/thread-adoption)))
-              :children extra))))
 
 ;; ===========================================================================
 ;; Slot lifecycle
@@ -976,7 +633,8 @@
             w (+ (* 2 pad) (* max-len char-advance))
             h (+ (* 2 pad) (* (count lines) line-h))
             ops (mapv (fn [i line]
-                        (text-op line i line-h font-size err-col pad))
+                        (face-primitives/text-op
+                         line i line-h font-size err-col pad))
                       (range)
                       lines)
             [x y] (screen->world 18.0 18.0)
@@ -1120,7 +778,7 @@
             {:keys [display headers] :as rv} (run-view uid foldable-wear)
             text  (if rv display (or (truth-text uid) ""))
             lines (cond-> (str/split (or text "") #"\n" -1)
-                    (:wrap-col b) (wrap-lines (:wrap-col b)))]
+                    (:wrap-col b) (face-primitives/wrap-lines (:wrap-col b)))]
         (if rv (into (vec headers) lines) (vec lines))))))
 
 (defn- machine-sel-text
@@ -1128,8 +786,8 @@
   []
   (when-let [{:keys [uid anchor head]} @!machine-sel]
     (when-let [lines (machine-visual-lines uid)]
-      (let [a (lines-offset lines anchor)
-            h (lines-offset lines head)
+      (let [a (face-primitives/lines-offset lines anchor)
+            h (face-primitives/lines-offset lines head)
             sel-s (min a h) sel-e (max a h)]
         (when (< sel-s sel-e)
           (subs (str/join "\n" lines) sel-s sel-e))))))
@@ -1139,38 +797,153 @@
     (reset! !machine-sel nil)
     (rebuild-block! uid)))
 
-(defn rebuild-block!
-  "Rebuild ONE block slot from the current edit state + truth (the
-   keystroke-echo hot path — one small tree, same-frame paint). A merged
-   run block (marked by :reply-text) folds into two sections, each behind
-   its own material-supplied header-line toggle (Tasks 6+7, Sid).
-   Task 5: the build SKIPS when the render inputs equal the last built
-   signature — reconcile calls this for every block on every context
-   emission (i.e. per keystroke), and layout+upsert over unchanged blocks
-   was the typing lag."
+(defn- block-anatomy-view-model
+  "Derive the closed material view vocabulary from the legacy render census.
+   T2: this is instance data only; structural order and primitive choice remain
+   in the worn anatomy rows."
+  [{:keys [text caret focused? refusal selection]}
+   machine? hover? notice
+   {:keys [font-size char-advance line-h]}
+   wrap-col headers msel boundary? gsel? placement-derived?
+   wears gold-marks silver-marks]
+  (let [headers (vec (or headers []))
+        lines (face-primitives/block-render-lines
+               text machine? wrap-col headers)
+        n (count lines)
+        max-len (reduce max 1 (map count lines))
+        pad (get-in wears [:attention :attention/hit-padding])
+        w (+ (* max-len char-advance) (* 2 pad))
+        h (+ (* n line-h) (* 2 pad))
+        caret-lc (when (and focused? caret)
+                   (ge/caret->line-col text caret))
+        msel-range
+        (when msel
+          (let [a (face-primitives/lines-offset lines (:anchor msel))
+                h (face-primitives/lines-offset lines (:head msel))]
+            (when (not= a h)
+              [(min a h) (max a h)])))
+        selection-range (or (and focused? selection) msel-range)
+        sel-spans
+        (when-let [[sel-s sel-e] selection-range]
+          (loop [i 0, start 0, out []]
+            (if (>= i n)
+              out
+              (let [line (nth lines i)
+                    line-end (+ start (count line))
+                    selected-start (max sel-s start)
+                    selected-end (min sel-e line-end)]
+                (recur
+                 (inc i)
+                 (inc line-end)
+                 (if (< selected-start selected-end)
+                   (conj
+                    out
+                    {:id i
+                     :line i
+                     :col-start (- selected-start start)
+                     :col-len (- selected-end selected-start)})
+                   out))))))
+        fold-headers
+        (mapv
+         (fn [i {:keys [section fold-key]}]
+           {:id section
+            :i i
+            :section section
+            :fold-key fold-key})
+         (range)
+         (take (count headers) fold-sections))
+        gold (first gold-marks)
+        silver (first silver-marks)]
+    {:text (or text "")
+     :wrap-col wrap-col
+     :headers headers
+     :header-count (count headers)
+     :machine? (boolean machine?)
+     :user? (not machine?)
+     :hover? (boolean hover?)
+     :focused? (boolean focused?)
+     :caret-line (:line caret-lc)
+     :caret-col (:col caret-lc)
+     :notice notice
+     :refusal refusal
+     :boundary? (boolean boundary?)
+     :gsel? (boolean gsel?)
+     :sel-spans (vec sel-spans)
+     :fold-headers fold-headers
+     :gold-mark-text (:text gold)
+     :gold-mark-count (if gold (:count gold) 0)
+     :silver-mark-text (:text silver)
+     :silver-mark-count (if silver (:count silver) 0)
+     :line-count n
+     :max-len max-len
+     :block-w w
+     :block-h h
+     :font-size font-size
+     :char-advance char-advance
+     :line-h line-h
+     :placement-derived? (boolean placement-derived?)}))
+
+(defn- compiled-block-anatomy
+  [anatomy-wear]
+  (let [cache-key (anatomy-material/compile-cache-key anatomy-wear)]
+    (or (get @!anatomy-compile-cache cache-key)
+        (let [parts (anatomy-material/expand-parts
+                     (:anatomy/parts anatomy-wear)
+                     (:anatomy/defs anatomy-wear))
+              entry
+              {:parts parts
+               :compiled
+               (face-assembly/compile-assembly
+                face-primitives/registry
+                (anatomy-material/assembly-for anatomy-wear))}]
+          ;; A handful is enough for active + preview + recent rollback. T11:
+          ;; eviction changes only compile cost, never the selected revision.
+          (when (>= (count @!anatomy-compile-cache) 8)
+            (reset! !anatomy-compile-cache {}))
+          (swap! !anatomy-compile-cache assoc cache-key entry)
+          entry))))
+
+(defn- anatomy-render-tree
+  [unit-id view-model metrics wears]
+  (let [anatomy-wear (:anatomy wears)
+        {:keys [parts compiled]} (compiled-block-anatomy anatomy-wear)
+        viewport (:viewport metrics)
+        data (anatomy-material/apply-data
+              parts wears view-model unit-id)]
+    (face-assembly/apply-assembly
+     compiled
+     data
+     {:view-instance (block-vi unit-id)
+      :address unit-id
+      :geom
+      {:viewport-w (:w viewport)
+       :viewport-h (:h viewport)
+       :content-w (:block-w view-model)
+       :font-size (:font-size metrics)
+       :char-advance (:char-advance metrics)
+       :line-height (:line-h metrics)}})))
+
+(defn- current-block-render-inputs
+  "The complete legacy render argument census, derived once for both normal
+   rebuilds and P1's one-shot live-corpus comparison."
   [unit-id]
-  (when-let [b (get-in @!world [:blocks unit-id])]
-    (let [st    @!ground-edit
-          ;; P6 · R2: the per-subject tier. Non-deviant blocks get the shared
-          ;; wears object back BY IDENTITY, so the per-keystroke signature
-          ;; compare still short-circuits (T5).
+  (when-let [block (get-in @!world [:blocks unit-id])]
+    (let [st @!ground-edit
           wears (wears-for unit-id)
-          ;; fold-derived display + headers come from run-view (ONE assembly
-          ;; shared with the machine-selection copy path)
           {:keys [display headers]}
-          (when (:machine? b) (run-view unit-id (:foldable wears)))
-          ;; typing-lag patch: :optimistic paints the queue HEAD, so a
-          ;; keystroke lands this frame instead of after the durable ack
-          ;; (ge's ns note). Flip this keyword to :confirmed to restore the
-          ;; committed-echo law exactly.
+          (when (:machine? block)
+            (run-view unit-id (:foldable wears)))
           view (ge/block-view st unit-id (truth-text unit-id) :optimistic)
           view (if display (assoc view :text display) view)
-          n      @!notice
+          n @!notice
           notice (when (= unit-id (:unit-id n)) (:text n))
           hover? (= unit-id @!hover)
-          msel   (let [ms @!machine-sel] (when (and ms (= unit-id (:uid ms))) ms))
-          bnd?   (boolean (:episode-boundary? (context-block-entry unit-id)))
-          gsel?  (contains? @!group-sel unit-id)
+          msel (let [selection @!machine-sel]
+                 (when (and selection (= unit-id (:uid selection)))
+                   selection))
+          boundary?
+          (boolean (:episode-boundary? (context-block-entry unit-id)))
+          gsel? (contains? @!group-sel unit-id)
           gold-specs
           (get-in @!world
                   [:context :conversation/experience
@@ -1202,24 +975,58 @@
                              vec)]
               (when (seq texts)
                 [{:text (first texts) :count (count texts)}])))
-          m      (metrics)
-          ;; everything block-tree consumes (viewport excluded — unused):
-          ;; equal sig ⇒ identical pixels ⇒ the build is pure waste
-          sig    [view (:machine? b) hover? notice (:wrap-col b) headers msel bnd?
-                  gsel? (:placement-derived? b) wears gold-marks silver-marks
-                  (:font-size m) (:char-advance m) (:line-h m)]]
-      (if (and (= sig (:render-sig b))
+          metrics (metrics)
+          anatomy-view
+          (block-anatomy-view-model
+           view (:machine? block) hover? notice metrics (:wrap-col block)
+           headers msel boundary? gsel? (:placement-derived? block) wears
+           gold-marks silver-marks)
+          sig
+          [view (:machine? block) hover? notice (:wrap-col block) headers msel
+           boundary? gsel? (:placement-derived? block) wears gold-marks
+           silver-marks (:font-size metrics) (:char-advance metrics)
+           (:line-h metrics)]]
+      {:block block
+       :view view
+       :machine? (:machine? block)
+       :hover? hover?
+       :notice notice
+       :metrics metrics
+       :wrap-col (:wrap-col block)
+       :headers headers
+       :msel msel
+       :boundary? boundary?
+       :gsel? gsel?
+       :placement-derived? (:placement-derived? block)
+       :wears wears
+       :gold-marks gold-marks
+       :silver-marks silver-marks
+       :anatomy-view anatomy-view
+       :sig sig})))
+
+(defn rebuild-block!
+  "Rebuild ONE block slot from the current edit state + truth (the
+   keystroke-echo hot path — one small tree, same-frame paint). A merged
+   run block (marked by :reply-text) folds into two sections, each behind
+   its own material-supplied header-line toggle (Tasks 6+7, Sid).
+   Task 5: the build SKIPS when the render inputs equal the last built
+   signature — reconcile calls this for every block on every context
+   emission (i.e. per keystroke), and layout+upsert over unchanged blocks
+  was the typing lag."
+  [unit-id]
+  (when-let [{:keys [block wears metrics anatomy-view sig]}
+             (current-block-render-inputs unit-id)]
+    (if (and (= sig (:render-sig block))
                (some? (ss/slot (scene-rt/store-snapshot) (block-vi unit-id))))
-        (swap! !rebuild-stats update :skips inc)
-        (let [tree (block-tree unit-id view (:machine? b) hover? notice
-                               m (:wrap-col b) headers msel bnd? gsel?
-                               (:placement-derived? b) wears
-                               gold-marks silver-marks)]
-          (swap! !rebuild-stats update :builds inc)
-          (upsert-block-slot! unit-id tree (:x b) (:y b))
-          (swap! !world update-in [:blocks unit-id]
-                 assoc :w (get-in tree [:bounds :w]) :h (get-in tree [:bounds :h])
-                 :render-sig sig))))))
+      (swap! !rebuild-stats update :skips inc)
+      (let [tree (anatomy-render-tree unit-id anatomy-view metrics wears)]
+        (swap! !rebuild-stats update :builds inc)
+        (upsert-block-slot! unit-id tree (:x block) (:y block))
+        (swap! !world update-in [:blocks unit-id]
+               assoc
+               :w (get-in tree [:bounds :w])
+               :h (get-in tree [:bounds :h])
+               :render-sig sig)))))
 
 (defn- clear-group-sel! []
   (let [uids @!group-sel]
@@ -1283,27 +1090,34 @@
                   text-body-wear
                   (truth-text source-unit-id)))
         slines (when (seq (str stream-text))
-                 (wrap-lines (str/split-lines (str stream-text)) wcol))
+                 (face-primitives/wrap-lines
+                  (str/split-lines (str stream-text)) wcol))
         kids   (cond-> []
                  open?
                  (conj (rt-node :ground-activity :text-run
                                 {:x 0 :y 0 :w 600 :h line-h}
-                                :text [(text-op (str "· " (or activity "the resident is working"))
-                                                0 line-h font-size dim 0)]))
+                                :text [(face-primitives/text-op
+                                        (str "· " (or activity "the resident is working"))
+                                        0 line-h font-size dim 0)]))
                  (seq slines)
                  (conj (rt-node :ground-stream :text-run
                                 {:x 0 :y line-h
                                  :w (+ (* (reduce max 1 (map count slines))
                                           char-advance) 16)
                                  :h (* (count slines) line-h)}
-                                :text (vec (map-indexed
-                                            (fn [i l] (text-op l i line-h font-size dim 0))
-                                            slines))))
+                                :text
+                                (vec
+                                 (map-indexed
+                                  (fn [i line]
+                                    (face-primitives/text-op
+                                     line i line-h font-size dim 0))
+                                  slines))))
                  (some? error)
                  (conj (rt-node :ground-turn-error :text-run
                                 {:x 0 :y 0 :w 600 :h line-h}
-                                :text [(text-op (str "⟂ " error " — retry is a new turn")
-                                                0 line-h font-size err-col 0)])))
+                                :text [(face-primitives/text-op
+                                        (str "⟂ " error " — retry is a new turn")
+                                        0 line-h font-size err-col 0)])))
         tree (rt/resolve-layout
               (rt-node :ground-provisional :stack
                        {:x 0 :y 0 :w 600 :h 0}
@@ -2638,7 +2452,8 @@
             w (+ (* 2 pad) (* max-len char-advance))
             h (+ (* 2 pad) (* (count lines) line-h))
             ops (mapv (fn [i line]
-                        (text-op line i line-h font-size amber pad))
+                        (face-primitives/text-op
+                         line i line-h font-size amber pad))
                       (range)
                       lines)
             [x y] (screen->world 18.0 120.0)
@@ -3154,6 +2969,12 @@
                      :world (vec (screen->world sx sy))})
       nil)))
 
+(defn- flush-deferred-material-rederive!
+  []
+  (when @!pending-material-rederive?
+    (reset! !pending-material-rederive? false)
+    (re-derive-material!)))
+
 (defn pointer-up! [sx sy]
   (let [p @!pointer]
     (js/console.log "[GROUND-SEL] up" (str "phase=" (:phase p))
@@ -3183,7 +3004,10 @@
       (invoke-verb! (:decision p) :end
                     {:press (:press p) :screen [sx sy]
                      :world (vec (screen->world sx sy))})
-      nil)))
+      nil)
+    ;; W8/T6 — the gesture completes against the revision it began with.
+    ;; Activation becomes visible only after its terminal :end.
+    (flush-deferred-material-rederive!)))
 
 (defn handle-wheel!
   "The wheel rides the same law: normalize → pick → resolve → verb. Its row is
@@ -3663,15 +3487,40 @@
   (when-let [!material (:!facet-materials atoms)]
     (add-watch !material ::facet-materials
                (fn [_ _ old new]
-                 (when (not= (material-render-state old)
-                             (material-render-state new))
-                   (if-let [ctx (:context @!world)]
-                     (reconcile! ctx)
-                     (rebuild-material-sites!))
-                   (refresh-material-error!)
-                   ;; P5: an activation may change the interaction table, so
-                   ;; its lint is recomputed on the same edge as the render
-                   (recompute-binding-conflicts!))))
+                 (let [old-render (material-render-state old)
+                       new-render (material-render-state new)]
+                   ;; W8/T6 — Electric may re-emit a value-equal material serve
+                   ;; when an unrelated episode edit advances the face epoch.
+                   ;; Rebase the membrane across that identity-only refresh so
+                   ;; typing can continue under a preview. A substantive serve
+                   ;; move still ends the stale preview before it can render.
+                   (when-let [preview @!preview]
+                     (if (= (material-render-state (:base preview))
+                            new-render)
+                       (let [master-id (:master-id preview)
+                             candidate
+                             (get-in (:overlay preview)
+                                     [:facet-materials/by-id master-id])]
+                         (reset! !preview
+                                 (assoc preview
+                                        :base new
+                                        :overlay
+                                        (assoc-in
+                                         new
+                                         [:facet-materials/by-id master-id]
+                                         candidate))))
+                       (do
+                         (reset! !preview nil)
+                         (js/console.info
+                          "[MATERIAL] preview ended: served base changed"
+                          (:master-id preview)
+                          (:revision-id preview)))))
+                   (when (not= old-render new-render)
+                     (if (= :idle (:phase @!pointer))
+                       (re-derive-material!)
+                       ;; The material atom owns this single deferred edge. No
+                       ;; derived state is copied into another atom.
+                       (reset! !pending-material-rederive? true))))))
     (rebuild-material-sites!)
     (refresh-material-error!))
   (recompute-binding-conflicts!)

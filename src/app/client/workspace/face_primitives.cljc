@@ -542,6 +542,324 @@
              :children (into [rail] children))))
 
 ;; ===========================================================================
+;; smalltalk-ui-vm P1 — block anatomy leaves
+;; ===========================================================================
+
+(def block-fg [0.92 0.92 0.94 1.0])
+(def block-dim [0.55 0.58 0.62 1.0])
+(def block-error [0.95 0.45 0.40 1.0])
+(def block-amber [0.92 0.75 0.35 1.0])
+
+(defn text-op
+  "The ground renderer's positioned monospace text op. Kept in this shared
+   vocabulary so the interpreted block, copy path, and provisional composers
+   use one byte-identical helper."
+  [text i line-h fs [r g b a] x]
+  {:text text :type :text :from 0 :to (count text)
+   :x x :y (+ (* i line-h) fs) :size fs
+   :r r :g g :b b :a a})
+
+(defn wrap-lines
+  "The block's original greedy character-column wrapping algorithm.
+   This is intentionally not `rect-tree/wrap-line`, whose word-boundary
+   behavior differs."
+  [lines col]
+  (vec
+   (mapcat
+    (fn [line]
+      (if (<= (count line) col)
+        [line]
+        (loop [remaining line, out []]
+          (if (<= (count remaining) col)
+            (conj out remaining)
+            (let [head (subs remaining 0 (inc col))
+                  i (str/last-index-of head " ")
+                  cut (if (and i (pos? i)) i col)]
+              (recur (str/triml (subs remaining cut))
+                     (conj out (subs remaining 0 cut))))))))
+    lines)))
+
+(defn lines-offset
+  "Visual {:line :col} over rendered lines -> flat newline-joined offset."
+  [lines {:keys [line col]}]
+  (let [n (count lines)
+        line (max 0 (min (long (or line 0)) (dec (max 1 n))))
+        col (max 0 (min (long (or col 0)) (count (nth lines line ""))))]
+    (+ (reduce + 0 (map #(inc (count %)) (take line lines))) col)))
+
+(defn block-render-lines
+  "The one split/wrap/header operation shared by view derivation and the root
+   primitive. T1: moving this helper is what lets the handwritten composer die
+   without leaving a private wrapping truth behind."
+  [text machine? wrap-col headers]
+  (let [body (cond-> (str/split (or text "") #"\n" -1)
+               (and machine? wrap-col) (wrap-lines wrap-col))]
+    (if (seq headers)
+      (into (vec headers) body)
+      (vec body))))
+
+(defn block-root-prim
+  "The root part is the character grid. T2: all instance variation arrives in
+   props; this builder has no component-identity dispatch."
+  [ctx {:keys [text machine? wrap-col headers font-size char-advance line-h
+               tint pad placement-derived? stamps]
+        :or {headers []
+             font-size 14
+             char-advance 8
+             line-h 20
+             tint block-dim
+             pad 0
+             stamps {}}}
+   children]
+  (let [lines (block-render-lines text machine? wrap-col headers)
+        nh (count headers)
+        n (count lines)
+        max-len (reduce max 1 (map count lines))
+        w (+ (* max-len char-advance) (* 2 pad))
+        h (+ (* n line-h) (* 2 pad))
+        ops
+        (vec
+         (map-indexed
+          (fn [i line]
+            (let [header? (< i nh)
+                  body? (and machine? (not header?))
+                  p-stamp (when header? (:header-provenance stamps))
+                  f-stamp (when header?
+                            (if (zero? i)
+                              (:noise-header stamps)
+                              (:prose-header stamps)))
+                  body-stamp (when body? (:body stamps))]
+              (cond->
+                  (text-op line i line-h font-size
+                           (cond
+                             header? tint
+                             machine? block-dim
+                             :else block-fg)
+                           0)
+                header? (merge p-stamp)
+                body? (merge body-stamp)
+                header?
+                (assoc :material/contributions [p-stamp f-stamp]))))
+          lines))
+        address (:address ctx)
+        data
+        (cond->
+            (merge
+             {:address address}
+             (:hit stamps)
+             {:material/claim
+              {:claim/subject address
+               :claim/site (if machine?
+                             :block/machine-hit-area
+                             :block/user-hit-area)
+               :claim/facets [:attention :positioned]
+               :claim/args {}}})
+          placement-derived?
+          (assoc :material/positioned (:positioned stamps))
+
+          (not machine?)
+          (assoc :material/threaded (:threaded stamps)))]
+    (rt-node :ground-block :text-run
+             {:x 0 :y 0
+              :w (max w char-advance)
+              :h (max h line-h)}
+             :text ops
+             :data data
+             :children (vec children))))
+
+(defn block-selection-wash-prim
+  [_ctx {:keys [line col-start col-len char-advance line-h]
+         :or {line 0 col-start 0 col-len 0 char-advance 8 line-h 20}}
+   _children]
+  (rt-node (keyword (str "ground-sel-" line))
+           :rect
+           {:x (* col-start char-advance)
+            :y (* line line-h)
+            :w (max 2.0 (* col-len char-advance))
+            :h line-h}
+           :style {:bg [0.35 0.5 0.8 0.3]}))
+
+(defn block-group-selection-prim
+  [_ctx {:keys [w h pad] :or {w 0 h 0 pad 0}} _children]
+  (rt-node :ground-gsel :rect
+           {:x (- pad) :y (- pad) :w w :h h}
+           :style {:border-width 1.5
+                   :border-color [0.55 0.65 0.9 0.8]
+                   :bg [0.35 0.5 0.8 0.10]}))
+
+(defn block-provenance-rail-prim
+  [_ctx {:keys [h pad tint stamp]
+         :or {h 0 pad 0 tint [0 0 0 0]}}
+   _children]
+  (rt-node :ground-mark :rect
+           {:x (- pad) :y (- pad) :w 2.5 :h h}
+           :style {:bg tint}
+           :data stamp))
+
+(defn block-attention-box-prim
+  [_ctx {:keys [w h pad border-width border-color bg stamp]
+         :or {w 0
+              h 0
+              pad 0
+              border-width 0
+              border-color [0 0 0 0]
+              bg [0 0 0 0]}}
+   _children]
+  (rt-node :ground-box :rect
+           {:x (- pad) :y (- pad) :w w :h h}
+           :style {:border-width border-width
+                   :border-color border-color
+                   :bg bg}
+           :data stamp))
+
+(defn block-caret-prim
+  [_ctx {:keys [line col char-advance line-h]
+         :or {line 0 col 0 char-advance 8 line-h 20}}
+   _children]
+  (rt-node :ground-caret :rect
+           {:x (* col char-advance)
+            :y (* line line-h)
+            :w 2
+            :h line-h}
+           :style {:bg [0.95 0.95 0.95 1.0]}))
+
+(defn block-refusal-prim
+  [_ctx {:keys [refusal line-count w line-h font-size]
+         :or {line-count 0 w 0 line-h 20 font-size 14}}
+   _children]
+  (rt-node :ground-refusal :text-run
+           {:x 0 :y (* line-count line-h) :w w :h line-h}
+           :text
+           [(text-op
+             (str "⟂ edit refused: "
+                  (if (keyword? refusal) (name refusal) (str refusal)))
+             0 line-h font-size block-error 0)]))
+
+(defn block-notice-prim
+  [_ctx {:keys [notice refusal line-count w line-h font-size]
+         :or {line-count 0 w 0 line-h 20 font-size 14}}
+   _children]
+  (rt-node :ground-notice :text-run
+           {:x 0
+            :y (* (+ line-count (if refusal 1 0)) line-h)
+            :w w
+            :h line-h}
+           :text [(text-op (str notice) 0 line-h font-size block-amber 0)]))
+
+(defn block-boundary-prim
+  [_ctx {:keys [w line-h font-size tint stamp]
+         :or {w 0 line-h 20 font-size 14 tint block-dim}}
+   _children]
+  (rt-node :ground-episode-boundary :text-run
+           {:x 0 :y (- (* 1.6 line-h)) :w w :h line-h}
+           :text [(text-op "— fresh session —" 0 line-h font-size tint 0)]
+           :data stamp))
+
+(defn block-conflict-lint-prim
+  [_ctx {:keys [i conflict w h line-h font-size]
+         :or {i 0
+              conflict {:type :unknown}
+              w 0
+              h 0
+              line-h 20
+              font-size 14}}
+   _children]
+  (rt-node (keyword (str "ground-material-conflict-" i))
+           :error-card
+           {:x 0
+            :y (+ h (* i line-h))
+            :w w
+            :h line-h}
+           :style {:bg [0.24 0.07 0.08 0.98]
+                   :border-width 1.0
+                   :border-color [0.9 0.3 0.3 1.0]}
+           :text
+           [(text-op
+             (str "material conflict · " (name (:type conflict)))
+             0 line-h font-size block-error 0)]
+           :data conflict))
+
+(defn block-gold-mark-prim
+  [_ctx {:keys [text count boundary? w char-advance line-h font-size]
+         :or {count 0 w 0 char-advance 8 line-h 20 font-size 14}}
+   _children]
+  (rt-node :ground-wish-mark :text-run
+           {:x 0
+            :y (- (* (if boundary? 2.8 1.4) line-h))
+            :w (max w (* 42 char-advance))
+            :h line-h}
+           :text
+           [(text-op
+             (str "⌁ " text
+                  (when (> count 1)
+                    (str "  +" (dec count))))
+             0 line-h font-size block-amber 0)]))
+
+(defn block-silver-mark-prim
+  [_ctx {:keys [text count boundary? gold? w char-advance line-h font-size]
+         :or {count 0 w 0 char-advance 8 line-h 20 font-size 14}}
+   _children]
+  (rt-node :ground-silver-mark :text-run
+           {:x 0
+            :y (- (* (+ (if boundary? 1.4 0.0)
+                        (if (pos? (or gold? 0)) 1.4 0.0)
+                        1.4)
+                     line-h))
+            :w (max w (* 48 char-advance))
+            :h line-h}
+           :text
+           [(text-op
+             (str "≈ machine guess · " text
+                  (when (> count 1)
+                    (str "  +" (dec count))))
+             0 line-h font-size block-dim 0)]))
+
+(defn block-fold-header-hit-prim
+  [ctx {:keys [i section fold-key w line-h stamp]
+        :or {i 0 section :unknown w 0 line-h 20}}
+   _children]
+  (let [address (:address ctx)]
+    (rt-node (keyword (str "ground-fold-header-hit-" (name section)))
+             :hit-area
+             {:x 0 :y (* i line-h) :w w :h line-h}
+             :data
+             (merge
+              stamp
+              {:address address
+               :material/claim
+               {:claim/subject address
+                :claim/site :block/fold-header
+                :claim/facets [:foldable]
+                :claim/args {:section section :fold-key fold-key}}}))))
+
+(defn thread-edge-rail-prim
+  [_ctx {:keys [h pad indent width color stamp]
+         :or {h 0 pad 0 indent 0 width 0 color [0 0 0 0]}}
+   _children]
+  (rt-node :ground-thread-edge-rail :rect
+           {:x (- indent) :y (- pad) :w width :h h}
+           :style {:bg color}
+           :data stamp))
+
+(defn thread-indent-prim
+  [_ctx {:keys [indent width color stamp]
+         :or {indent 0 width 0 color [0 0 0 0]}}
+   _children]
+  (rt-node :ground-thread-indent :rect
+           {:x (- indent) :y 0 :w indent :h width}
+           :style {:bg color}
+           :data stamp))
+
+(defn sub-anatomy-prim
+  "A total backstop for the compile-time-only keyword. Valid anatomy expands
+   this before assembly compilation."
+  [ctx _props _children]
+  (rt-node (:id ctx) :error-card
+           {:x 0 :y 0 :w 240 :h 24}
+           :style {:bg [0.35 0.10 0.10 1.0]}
+           :text [(text-op "unexpanded sub-anatomy" 0 20 14 block-error 4)]))
+
+;; ===========================================================================
 ;; W2 lane-E GAP-FILL primitives (CONTRACT §16/§19 G22-G23) — minted for the
 ;; two design-round transcriptions (1e Boxes · 1f Minimap+Reader, Sid's picks
 ;; 2026-07-11). Extraction-and-gap-fill, not invention (§6): each primitive
@@ -956,4 +1274,22 @@
    :box           box-prim
    :header-band   header-band-prim
    :text-clip     text-clip-prim
-   :sliver        sliver-prim})
+   :sliver        sliver-prim
+   ;; smalltalk-ui-vm P1 block vocabulary. T3: anatomy material names only
+   ;; these keywords; function values never cross the material boundary.
+   :block-root              block-root-prim
+   :block-selection-wash    block-selection-wash-prim
+   :block-group-selection   block-group-selection-prim
+   :block-provenance-rail   block-provenance-rail-prim
+   :block-attention-box     block-attention-box-prim
+   :block-caret             block-caret-prim
+   :block-refusal           block-refusal-prim
+   :block-notice            block-notice-prim
+   :block-boundary          block-boundary-prim
+   :block-conflict-lint     block-conflict-lint-prim
+   :block-gold-mark         block-gold-mark-prim
+   :block-silver-mark       block-silver-mark-prim
+   :block-fold-header-hit   block-fold-header-hit-prim
+   :thread-edge-rail        thread-edge-rail-prim
+   :thread-indent           thread-indent-prim
+   :sub-anatomy             sub-anatomy-prim})

@@ -98,12 +98,12 @@
                    :facet-master/grammar
                    :facet-master/revision-id
                    :facet-master/floor?))))
-  (testing "threaded owns only the column-adoption reach"
+  (testing "threaded preserves v0 while the second grammar owns thread edges"
     (is (= {:threaded/column-adoption-reach-lines 3.0}
            (:material
             (threaded/compile-source threaded/default-source))))
     (is (= (:material
-            (threaded/compile-source threaded/default-source))
+            (threaded/compile-source threaded/thread-edge-source))
            (dissoc threaded/code-floor
                    :facet-master/id
                    :facet-master/facet

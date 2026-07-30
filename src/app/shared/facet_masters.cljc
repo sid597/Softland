@@ -3,6 +3,7 @@
    recipe: it names independently revisioned masters and nothing about which
    entities are legal or which combination constitutes a type."
   (:require [app.shared.facet-material :as facet-material]
+            [app.shared.anatomy-material :as anatomy]
             [app.shared.attention-material :as attention]
             [app.shared.foldable-material :as foldable]
             [app.shared.positioned-material :as positioned]
@@ -18,7 +19,10 @@
    positioned/spec
    space/spec
    threaded/spec
-   text-body/spec])
+   text-body/spec
+   ;; Order-bearing registry: append the Workshop master so the historical
+   ;; drill fallback remains provenance (T11 / CONTRACT §0).
+   anatomy/spec])
 
 (def by-id
   (into {} (map (juxt :facet-master/id identity)) specs))

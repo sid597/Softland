@@ -242,7 +242,8 @@
     (let [existing-specs
           (remove #(= space/master-id (:facet-master/id %))
                   facet-masters/specs)]
-      (is (= 6 (count existing-specs)))
+      (is (= 7 (count existing-specs))
+          "smalltalk-ui-vm adds anatomy without changing the form-validator seam")
       (doseq [spec existing-specs
               [_ declaration] (:facet-master/grammars spec)]
         (is (not (contains? declaration :form-validators))

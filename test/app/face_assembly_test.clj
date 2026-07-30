@@ -402,3 +402,45 @@
       (is (some? card) "a non-sequential :each renders an error card (trap T4)")
       (is (= [:root :children 0] (get-in card [:data :assembly/src-path]))
           "the card names the :each node whose data path failed"))))
+
+;; ===========================================================================
+;; G8 — optional apply-time sibling rank
+;; ===========================================================================
+
+(deftest g8-ranked-each-siblings-keep-unranked-slots-stable
+  (let [assembly
+        {:assembly/name "ranked-siblings"
+         :assembly/grammar 0
+         :root
+         {:prim :stack
+          :props {}
+          :children
+          [{:each [:first]
+            :template
+            {:prim :text-run
+             :props {:value {:bind [:label]}}}}
+           {:prim :text-run
+            :props {:value "fixed"}}
+           {:each [:second]
+            :template
+            {:prim :text-run
+             :props {:value {:bind [:label]}}}}]}}
+        data
+        {:first [{:id :first
+                  :label "first"
+                  :assembly/sibling-rank 20}]
+         :second [{:id :second
+                   :label "second"
+                   :assembly/sibling-rank 10}]}
+        tree
+        (fa/apply-assembly
+         (fa/compile-assembly stub-registry assembly)
+         data
+         view-ctx)
+        labels
+        (mapv #(get-in % [:text 0 :text]) (:children tree))]
+    (is (= ["second" "fixed" "first"] labels)
+        "ranked siblings reorder only across their occupied positions")
+    (is (every? #(not (contains? % ::fa/sibling-rank))
+                (:children tree))
+        "the interpreter-only rank marker never reaches primitive output")))
