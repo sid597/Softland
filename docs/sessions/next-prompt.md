@@ -81,7 +81,21 @@ includes P8; the P8 :8091 jetty is dead — see HANDOFF).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-07-28** (the halo recognition:
+**Vision:** LOG routed through **2026-07-30** (the workshop realization:
+"the halo and matter room are smaller organs inside the thing i am
+missing … the thing i am missing is a general workshop" — the type is
+not an object: policy surface material, STRUCTURE only code
+(`block-tree`, ground.cljs:599), adjectives material / the noun still
+compiled; Sid's six-arrow Workshop loop = the acceptance spine; THREE
+STRATA ruled (Sid's correction) — material / Softland code / host floor,
+"the code editor is Softland at zoom 100", still-code ≠ outside-the-land;
+sequencing ratified: material zoom first, zoom-100 inside when the need
+arises — "we will build all the strange loopy loops"; package NAMED by
+Sid: **smalltalk-ui-vm**. Routed → `build/smalltalk-ui-vm/DIRECTION.md`
+SETTLED + package block below + probes tracked; editable-material horizon
+clause (recipes-at-recurrence) DISCHARGED; escape-gauge stratum-split
+proposed as C1-instrument refinement (BETS untouched, next evidence
+review); CONTRACT authoring opened in-session). Prior: **2026-07-28** (the halo recognition:
 Self/Morphic halos shown → Sid: "have i not been saying this same thing…
 why is it missing" — CONFIRMED against the record as **C2's
 direct-manipulation half**, banked verbatim since LOG 07-11; halo =
@@ -106,7 +120,7 @@ Routed → `build/matter-room/CONTRACT.md` STAGED + package block below;
 land/matter/engine = candidate names, UNRATIFIED, Sid names at recurrence).
 Prior: **2026-07-26, second entry** (the monster round: the concurrent-build ruling — "build it out seperate … use concurrently … merge when chunks done" → the two-dial / two-ceremony build model settled into decisions.md "How engine work lands"; **multi-cascade** named (reaction/reactive = Electric's words); the final monster (11 organs, 5 cores + rim) landed as `docs/current-mental-model/engine-terrain.md` (TERRAIN not route); dark lane opened — multi-cascade declaration slice = organ #1, contract staged; space punt row dissolved into D1/D2/D4 triggers). Prior: **2026-07-26, first entry** (the space-stratum + cascade sitting: the strata sentence "softland code → space type → space → component" + world-within-world + the glue-mode observation + the order ruling "build the space-type" + the zoom-acts redline "zoom level will make something happen — that is going to happen". Routed → `build/space-as-entity/NOW.md` + `CONTRACT.md` + the package block below; camera-gesture-reservation fence derived at rung 2 in-session — master-tier capture is live the moment fm:space serves, so the fence is part of rung 2, never a rung-3 add-on). Prior: **2026-07-24** (the final adjudication + the build order: two independent reviews (second Fable session · Codex) fused and gated here — VERDICT: SETTLE WITH AMENDMENTS; the criterion + three loops + four gates + receipt/silver/gold ladder + second-wearer falsifier + plurality settled into DIRECTION.md; Sid: "i want to build this out fully and only then i will go back to using softland … i want to do all whatever they are no matter how many they are" → full campaign staged, usage resumes at return. Routed: DIRECTION.md SETTLED + CAMPAIGN.md + HANDOFF + first-light absorption mapping + LOG). Prior: **2026-07-23** (the editable-material sitting: components-in-softland → the layer — type-objects with arrangement + binding strata · records as edge-queries, never containers · portals deterministic + the strange loop ("the portal is an instance of the softland space") · describe-never-gate, masters ≠ kinds · facets + bindings, mechanism-in-code/policy-in-material · schema-first as seed, kernel-shrink as the self-hosting metric · "Then lets go???" → probe adopted. Routed: `build/editable-material/DIRECTION.md` + probe HANDOFF at board top + first-light genesis flipped lit with A's gate kept open + LOG). Prior: **2026-07-21** (the third-surface refusal + the quote-mechanic: direction work outside Softland is guilt but a fresh drill room is worse — a third surface; the bullet bitten for the bootstrap sitting whose yield ends its own necessity; the quote-mechanic — a single thread becomes multi-threaded by gathering quoted blocks, the human IS the briefing organ v0, the divergence/convergence fractal, "store raw AND cut into blocks" retro-justified as the gather's alphabet; verdicts: lane = attention not identity · briefing over merging · a-land-where-attentions-run = yes, now · block-rooted thread stays pure mechanism for a while. Routed: settled-ground bullet **"One canvas, many conversations"** + the concurrent-chat build pulled into NOW in-session at Sid's word). Prior: **2026-07-18** (the moment-0 correction: arrival is symmetric NOTHING — no pre-placed caret, the click breaks it; blocks land where you point in a pannable/zoomable space; replies as border-tinted blocks; the ambient-reader ladder named. Routed: WALKTHROUGH + CONTRACT carry it (P2b + G4b) · HANDOFF staged at board top). Prior: **2026-07-17** (the genesis sitting lands: **first-light RATIFIED** + **durability reaffirmed verbatim** + the lineage harvest + the walkthrough drills; strands in the LOG 07-17 entry, routing recorded there) · **2026-07-14, two entries** (latest: **naming + care + instance→type** — Softland is the counter-position to Dynamicland, "build the dream of dynamicland in softland"; **care as the human feature** — caretaker guides doer, humans drive, never autopilot; UI evolution mechanic = repair an instance → promotes to the type, "starting from a point of: I can chat with softland". Earlier same day: **the abiogenesis question** → decisions.md Open questions. Direction exploration ran same session — landing routes at close). Earlier: **the drawn views are references, not targets** (07-13 — REFERENCE examples for "we need a way to design in softland itself"; no view content is settled anywhere; C1/C2 reworded) · notebook pages 07-12 (verbatim + images `vision/images/2026-07-12-notebook-{1,2,3}.png`; FOREST carries the five-unlock ordering) + the base-layer commission (→ decisions.md base ruling + `build/scene-substrate/`). Open pulls (prune as absorbed):
 - LOG 07-14 **care as the human feature / caretaker-guides-doer** + **Softland = build Dynamicland's dream in software** (the naming rationale) → North candidates, next vision sitting (Sid's hand only); the 07-15/17 sitting adds the joining frame **care-amplification** — intelligence became cheap, care is the scarce input the medium should compound (Fable frame, Sid-engaged; LOG 07-17)
-- LOG 07-10/11/12+13 **the design unlock = the LOOP, not the drawn views** — "a tool to build the tool: design, deploy and use it all at once all from softland" (Sid ranks it #1) + figma-style direct edit as a capability ask. BETS Candidates C1/C2 carry these; **all claude.ai renders + existing example faces = reference scrap with zero authority (Sid, 07-13)** — what views should represent is an open question only Sid answers, ideally from inside the land once the loop exists. Substrate prerequisite already landed (`c788188`: every rendered rt-node carries its template's `:assembly/src-path`). **editable-material DIRECTION (07-23) is this pull's first landed form — probe staged.**
+- LOG 07-10/11/12+13 **the design unlock = the LOOP, not the drawn views** — "a tool to build the tool: design, deploy and use it all at once all from softland" (Sid ranks it #1) + figma-style direct edit as a capability ask. BETS Candidates C1/C2 carry these; **all claude.ai renders + existing example faces = reference scrap with zero authority (Sid, 07-13)** — what views should represent is an open question only Sid answers, ideally from inside the land once the loop exists. Substrate prerequisite already landed (`c788188`: every rendered rt-node carries its template's `:assembly/src-path`). **editable-material DIRECTION (07-23) is this pull's first landed form — probe staged.** **smalltalk-ui-vm (07-30) is its second landed form — the type/anatomy layer + the Workshop loop (DIRECTION settled).**
 - LOG 07-11 **"optimized on every dimension while maintaining explorable explanations + lineage, live and composable"** → North-grade sentence, Sid's hand only — next vision sitting
 - LOG 07-11 **branch-from-base** (two worlds built out of one base, code-diff-like) → input to the spatial contracts (SPACE lane)
 
@@ -325,6 +339,22 @@ proof-decay + was this line accurate).
   questions live in decisions.md Open Questions. Next: Sid/Fable ruling +
   full ruling sweep, then fresh Rama P0; no implementation from the failed plan.
 - **#2 — held open for Sid's first lived friction after the return.**
+
+**smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
+(this session).** The Workshop: component types become living material.
+Blocker checked: the block type's policy surface is material; its
+STRUCTURE exists only as `block-tree` (ground.cljs:599) — matter room and
+halo inspect/act on INSTANCES, nothing IS the type. Sid's six-arrow loop
+is the acceptance spine: anatomy-as-material → open → see composition →
+edit parts/nesting/bindings/defaults → candidate through the REAL
+interpreter → activate/reverse (none exist; organs reused, loop new).
+Three strata settled (material / Softland code / host floor); the package
+moves ONE row — structure 2→1; pre-named remaining walls ride the
+contract. The three living pressures = the acceptance triple (paste-clamp
+policy birth · fm:invocation master birth · threaded first-pixels part
+birth). Trail: `build/smalltalk-ui-vm/{DIRECTION,NOW}.md` + `probes/`.
+Next act: CONTRACT.md (Fable, this session) → ONE fresh default-fail
+validation round → fresh implementer builds whole (phases-low ruling).
 
 **matter-room — PHASES COMPLETE 2026-07-28 (P1–P4 all landed + gated,
 slim tier).** The engine's ontology serves as inhabitable material: P1

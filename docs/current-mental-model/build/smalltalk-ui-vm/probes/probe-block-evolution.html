@@ -1,0 +1,188 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>data drives the block — see it, grow it</title>
+<style>
+  html,body { margin:0; background:#0f0f0f; }
+  body { font-family: ui-monospace, 'JetBrains Mono', Menlo, monospace; color:rgb(235,235,240); }
+  .canvas { width:1500px; margin:0 auto; padding:24px 40px 20px; box-sizing:border-box; }
+  .title { font-size:13px; color:#6a6f6a; }
+  .legend { float:right; font-size:12px; line-height:20px; text-align:right; }
+  .chip { display:inline-block; width:10px; height:10px; border-radius:2px; margin:0 6px 0 14px; vertical-align:-1px; }
+  .g { color:#8fd08f; } .o { color:#e59a7d; } .b { color:#7db8e8; } .m { color:#e57d7d; }
+  .dim { color:rgb(140,148,158); } .tint { color:rgba(158,168,194,0.85); } .faint { color:#6a6f6a; }
+
+  /* ---- loop strip ---- */
+  .loop { margin:26px 0 0; display:flex; align-items:center; gap:0; }
+  .loop2 { margin:10px 0 8px 120px; display:flex; align-items:center; gap:0; }
+  .lbox { border:1px solid #333; border-radius:4px; padding:8px 12px; font-size:13px; line-height:18px;
+          background:#141414; white-space:nowrap; }
+  .lbox small { display:block; font-size:11px; color:#8a8f8a; }
+  .lbox.green { border-color:rgba(126,192,126,0.55); }
+  .lbox.miss  { border:1.5px dashed rgba(229,125,125,0.75); background:#191212; }
+  .arr { padding:0 10px; color:#6a6f6a; font-size:15px; }
+  .loopback { font-size:12px; color:#8a8f8a; margin:6px 0 0 4px; }
+
+  /* ---- main row ---- */
+  .main { display:flex; gap:28px; margin-top:26px; }
+  .panel { border:1px solid #262626; border-radius:6px; padding:16px 18px; box-sizing:border-box; background:#111; }
+  .panel h2 { margin:0 0 12px; font-size:13px; font-weight:normal; color:#9aa09a; }
+  .p-today { width:470px; }
+  .p-ask   { width:922px; }
+
+  /* map card */
+  .map { font-size:13.5px; line-height:23px; white-space:pre; }
+  .map .k { color:#8fd08f; }
+  .map .kb { color:#7db8e8; }
+  .map .v { color:rgb(210,212,218); }
+  .note { font-size:11.5px; color:#8a8f8a; margin-top:10px; line-height:17px; }
+
+  /* evolved block mock */
+  .mock { position:relative; width:880px; height:330px; margin:4px 0 14px; }
+  .blk { position:absolute; font-size:15px; line-height:22px; white-space:pre; }
+  .metarow { position:absolute; font-size:12px; color:#8a90a8; border-bottom:1px solid rgba(125,184,232,0.45); padding-bottom:2px; }
+  .attn { position:absolute; border:1px solid rgba(115,133,168,0.5); }
+  .foldhdr { color:rgba(158,168,194,0.9); }
+  .clampline { position:absolute; border-top:1.5px dashed rgba(125,184,232,0.6); }
+  .rail { position:absolute; background:rgba(158,168,194,0.6); }
+  .tag { position:absolute; font-size:11.5px; line-height:15px; padding:3px 7px; border-radius:3px;
+         background:rgba(18,20,22,0.94); white-space:nowrap; }
+  .tag small { display:block; color:#8a8f8a; font-size:10.5px; }
+  .tag.new { color:#7db8e8; border:1px solid rgba(125,184,232,0.5); }
+  .tag.mat { color:#8fd08f; border:1px solid rgba(126,192,126,0.45); }
+  .lead { position:absolute; height:1px; background:rgba(160,160,160,0.3); }
+
+  /* bottom cards */
+  .cards { display:flex; gap:28px; margin-top:26px; }
+  .card { flex:1; border:1px solid #262626; border-radius:6px; padding:14px 16px; background:#111;
+          font-size:12.5px; line-height:20px; }
+  .card h3 { margin:0 0 8px; font-size:12.5px; font-weight:normal; color:#9aa09a; }
+  .ok { color:#8fd08f; } .no { color:#e57d7d; }
+  .code1 { display:inline-block; background:#181818; border:1px solid #2a2a2a; border-radius:3px;
+           padding:1px 6px; font-size:12px; color:#c9cbd2; }
+  .measure-line { margin-top:8px; color:#c9cbd2; }
+
+  .foot { margin-top:22px; font-size:11.5px; color:#6a6f6a; line-height:18px; }
+</style>
+</head>
+<body>
+<div class="canvas">
+
+  <div class="legend">
+    <span class="chip" style="background:#7ec07e"></span><span class="g">data — editable now, live feedback</span>
+    <span class="chip" style="background:#e0785a"></span><span class="o">code today</span>
+    <span class="chip" style="background:#5b93c4"></span><span class="b">proposed new data</span>
+    <span class="chip" style="background:transparent;border:1.5px dashed rgba(229,125,125,0.75)"></span><span class="m">missing affordance</span>
+  </div>
+  <div class="title">data drives the block — the whole loop, then the growth (left: live · right: sketch)</div>
+
+  <!-- ============ THE LOOP ============ -->
+  <div class="loop">
+    <div class="lbox green">worn map<small>Rama · revisioned · per-block override</small></div>
+    <div class="arr">&#8594;</div>
+    <div class="lbox">wears-for<small>this block: override &#8594; shared &#8594; default</small></div>
+    <div class="arr">&#8594;</div>
+    <div class="lbox">block-tree<small>map &#8594; pixels · every pixel stamped by its key</small></div>
+    <div class="arr">&#8594;</div>
+    <div class="lbox">screen<small>you look</small></div>
+    <div class="arr">&#8600;</div>
+  </div>
+  <div class="loop2">
+    <div class="lbox green">pick<small>right-click halo &#10003; built</small></div>
+    <div class="arr">&#8594;</div>
+    <div class="lbox miss">edit<small>THE missing widget</small></div>
+    <div class="arr">&#8594;</div>
+    <div class="lbox green">see live<small>preview membrane &#10003; built</small></div>
+    <div class="arr">&#8594;</div>
+    <div class="lbox green">keep / undo<small>activate · rollback &#10003; built, no UI</small></div>
+    <div class="arr">&#8594;</div>
+    <div class="lbox green" style="border-style:dotted">worn map &#8634;<small>the loop closes</small></div>
+  </div>
+  <div class="loopback">one loop. edit writes the map &#8594; serve re-renders &#8594; you look. nothing else to hold in mind.</div>
+
+  <div class="main">
+
+    <!-- ============ TODAY ============ -->
+    <div class="panel p-today">
+      <h2>TODAY — the block IS this map (live worn values)</h2>
+      <div class="map"><span class="k">fm:text-body</span>   <span class="v">wrap 64</span>
+<span class="k">fm:positioned</span>  <span class="v">reply-gap 34px</span>
+<span class="k">fm:threaded</span>    <span class="v">adoption 3.0 lines</span>  <span class="faint">(no pixels!)</span>
+<span class="k">fm:provenance</span>  <span class="v">rail tint &#9642;</span>
+<span class="k">fm:attention</span>   <span class="v">hit-pad 8 · border &#9642;</span>
+<span class="k">fm:foldable</span>    <span class="v">header copy · &#9656;&#9662;</span>
+<span class="k">bindings</span>       <span class="v">gesture&#8594;verb rows</span>  <span class="faint">(data since P5)</span></div>
+      <div class="note"><span class="o">still code:</span> colors · char-grid shape · <b>which rows exist &amp; how they nest</b>
+— the tree composes in code; the map only feeds it values.
+<span class="o">turn a knob = data.</span> <span class="o">add a part = code.</span> that is the wall you hit.</div>
+    </div>
+
+    <!-- ============ THE ASK ============ -->
+    <div class="panel p-ask">
+      <h2>THE ASK — your three features are ~10 new map entries (sketch — redline anything)</h2>
+      <div class="mock">
+
+        <!-- human block + settings meta-row -->
+        <div class="attn" style="left:8px; top:6px; width:400px; height:32px;"></div>
+        <div class="blk" style="left:16px; top:11px;">compare cache modes for the render loop</div>
+        <div class="metarow" style="left:16px; top:44px;">sonnet &#183; effort low &#183; ctx thread+2</div>
+        <div class="lead" style="left:252px; top:50px; width:64px;"></div>
+        <div class="tag new" style="left:320px; top:38px;">visible defaults &#183; fm:invocation &#8592; NEW MASTER
+          <small>what Ctrl+Enter will do &#183; sticky = per-block override (already durable)</small></div>
+
+        <!-- pasted section -->
+        <div class="blk" style="left:16px; top:84px;"><span class="foldhdr">&#9662; pasted &#183; from web &#183; 212 lines — showing 8</span>
+<span class="dim">Cache invalidation strategies fall into three</span>
+<span class="dim">broad familes: write-through, write-back, and</span>
+<span class="dim">TTL-based expiry. Each trades consistency ...</span></div>
+        <div class="clampline" style="left:16px; top:178px; width:430px;"></div>
+        <div class="lead" style="left:450px; top:100px; width:60px;"></div>
+        <div class="tag new" style="left:512px; top:88px;">born folded &#183; clamp 0.5 &#183; source-mark
+          <small>foldable + provenance compose — paste is an import</small></div>
+
+        <!-- thread rail + reply -->
+        <div class="rail" style="left:8px; top:196px; width:2.5px; height:110px;"></div>
+        <div class="rail" style="left:8px; top:250px; width:22px; height:2px;"></div>
+        <div class="attn" style="left:30px; top:238px; width:420px; height:60px; border-color:rgba(158,168,194,0.35);"></div>
+        <div class="blk" style="left:38px; top:244px;"><span class="dim">Write-back fits: your echo path already</span>
+<span class="dim">confirms durably before paint ...</span></div>
+        <div class="lead" style="left:454px; top:262px; width:56px;"></div>
+        <div class="tag new" style="left:512px; top:236px;">thread edge + indent &#8592; threaded's FIRST pixels
+          <small>today: same-x + 34px gap, nothing drawn</small></div>
+        <div class="tag mat" style="left:512px; top:296px;">gap 34px stays a green knob &#183; fm:positioned</div>
+      </div>
+
+      <div class="map"><span class="kb">fm:invocation</span>  <span class="v">{model sonnet &#183; effort low &#183; precontext thread+2}</span>   <span class="b">&#8592; new master</span>
+<span class="kb">fm:foldable</span>    <span class="v">+ {paste-clamp 0.5 &#183; paste-header "pasted &#183; from web"}</span> <span class="b">&#8592; new keys</span>
+<span class="kb">fm:threaded</span>    <span class="v">+ {edge rail &#183; indent 2ch}</span>                             <span class="b">&#8592; first pixels</span></div>
+      <div class="note"><span class="b">blue is born ONCE in code</span> (one package each), then it is <span class="g">green forever</span> — a knob anyone turns with live feedback.</div>
+    </div>
+  </div>
+
+  <!-- ============ WHO TURNS THE KNOBS ============ -->
+  <div class="cards">
+    <div class="card">
+      <h3>your hand</h3>
+      pick <span class="ok">&#10003;</span> &#8594; edit <span class="no">&#10007;</span> &#8594; see live <span class="ok">&#10003;</span> &#8594; keep/undo <span class="ok">&#10003;</span>
+      <div class="measure-line">the whole Figma-widget story is <span class="m">ONE missing piece</span>: the edit affordance between halo-pick and preview.</div>
+    </div>
+    <div class="card">
+      <h3>the agent</h3>
+      turn a knob = <span class="code1">deviate(fm:invocation {model haiku} this-block)</span> — one line, <span class="g">free for a small model</span>.<br>
+      birth <span class="b">blue vocabulary</span> = a code package — <span class="o">big model, once</span>.
+      <div class="measure-line">easiness measure: <b>size of the smallest correct edit</b>.</div>
+    </div>
+    <div class="card">
+      <h3>the road</h3>
+      bindings already jumped code&#8594;data (gesture&#8594;verb rows: served, revisioned, previewable).<br>
+      <span class="b">the pixel row-set hasn't.</span> the day it does, "add a selector" = add a data row —
+      components-in-components, all data, <span class="g">small-model free</span>.
+    </div>
+  </div>
+
+  <div class="foot">left panel: live worn values, checked against source &#183; right panel + blue: proposal only — nothing settled, nothing on disk but this probe &#183;
+loop strip: pick/preview/keep machinery verified built; edit widget verified absent (deviate is console-only today).</div>
+</div>
+</body>
+</html>

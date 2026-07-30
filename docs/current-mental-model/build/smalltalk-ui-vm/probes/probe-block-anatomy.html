@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>what a block is made of — right now</title>
+<style>
+  html,body { margin:0; background:#0f0f0f; }
+  body { font-family: ui-monospace, 'JetBrains Mono', Menlo, monospace; }
+  .canvas { position:relative; width:1500px; height:700px; margin:0 auto; }
+  .block { position:absolute; font-size:19px; line-height:27px; white-space:pre; }
+  .fg  { color:rgb(235,235,240); }
+  .dim { color:rgb(140,148,158); }
+  .tint{ color:rgba(158,168,194,0.85); }
+  .attn-box { position:absolute; border:1px solid rgba(115,133,168,0.55); background:rgba(0,0,0,0); }
+  .rail { position:absolute; width:2.5px; background:rgba(158,168,194,0.6); }
+  .selwash { position:absolute; height:27px; background:rgba(89,128,204,0.3); }
+  .wrap-ruler { position:absolute; width:0; border-left:1px dashed rgba(158,168,194,0.35); }
+  .adopt-zone { position:absolute; border:1px dashed rgba(126,192,126,0.45); }
+  .tag { position:absolute; font-size:12px; line-height:16px; padding:4px 8px;
+         border-radius:3px; background:rgba(20,22,20,0.92); white-space:nowrap; }
+  .tag.mat  { color:#8fd08f; border:1px solid rgba(126,192,126,0.5); }
+  .tag.code { color:#e59a7d; border:1px solid rgba(224,120,90,0.5); }
+  .tag small { display:block; color:#8a8f8a; font-size:11px; }
+  .lead { position:absolute; height:1px; background:rgba(160,160,160,0.35); }
+  .vlead { position:absolute; width:1px; background:rgba(160,160,160,0.35); }
+  .measure { position:absolute; width:1px; background:rgba(126,192,126,0.7); }
+  .measure:before, .measure:after { content:''; position:absolute; left:-3px; width:7px; height:1px; background:rgba(126,192,126,0.7); }
+  .measure:before { top:0; } .measure:after { bottom:0; }
+  .mlabel { position:absolute; font-size:12px; color:#8fd08f; }
+  .legend { position:absolute; top:24px; right:40px; font-size:13px; line-height:22px; }
+  .chip { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; }
+  .title { position:absolute; top:24px; left:40px; font-size:13px; color:#6a6f6a; }
+  .foot { position:absolute; left:40px; bottom:16px; font-size:12px; color:#6a6f6a; line-height:19px; }
+  .swatch { display:inline-block; width:11px; height:11px; border-radius:2px; vertical-align:-1px; margin:0 3px; }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="title">what a block is made of — right now (all values live, none invented)</div>
+  <div class="legend">
+    <span class="chip" style="background:#7ec07e"></span><span style="color:#8fd08f">material — editable today, revisioned, rollbackable</span><br>
+    <span class="chip" style="background:#e0785a"></span><span style="color:#e59a7d">constant — baked into ground.cljs, code change to touch</span>
+  </div>
+
+  <!-- HUMAN BLOCK, attention state -->
+  <div class="attn-box" style="left:112px; top:112px; width:625px; height:70px;"></div>
+  <div class="block fg" style="left:120px; top:120px;">show me the current editable material for block types
+i think its time to evolve it</div>
+  <div class="measure" style="left:114px; top:113px; height:8px;"></div>
+
+  <!-- reply gap -->
+  <div class="measure" style="left:420px; top:183px; height:33px;"></div>
+  <div class="mlabel"  style="left:432px; top:191px;">34px</div>
+  <div class="tag mat" style="left:470px; top:186px;">reply-gap · 34px · fm:positioned</div>
+
+  <!-- MACHINE BLOCK -->
+  <div class="rail" style="left:112px; top:216px; height:178px;"></div>
+  <div class="block" style="left:120px; top:224px;"><span class="tint">&#9656; thinking+tools — click to show (+128 lines)</span>
+<span class="tint">&#9662; reply — click to hide</span>
+<span class="dim">The editable material for blocks lives in seven</span>
+<span class="dim">masters — attention, provenance, foldable, text-body,</span>
+<span class="dim">positioned, threaded, space. Everything else you can</span>
+<span class="dim">see here is still a constant baked into the renderer.</span></div>
+  <div class="selwash" style="left:234px; top:305px; width:274px;"></div>
+  <div class="wrap-ruler" style="left:850px; top:216px; height:178px;"></div>
+
+  <!-- ADOPTION ZONE -->
+  <div class="adopt-zone" style="left:112px; top:398px; width:625px; height:81px;"></div>
+  <div class="tag mat" style="left:240px; top:424px;">column-adoption reach · 3.0 lines · fm:threaded
+    <small>a block born inside this zone adopts the conversation column</small></div>
+
+  <!-- LEFT tags: hit padding above, rail tags below the zone -->
+  <div class="tag mat" style="left:60px; top:70px;">hit-padding · 8px · fm:attention</div>
+  <div class="vlead" style="left:115px; top:100px; height:12px;"></div>
+
+  <div class="vlead" style="left:113px; top:394px; height:116px;"></div>
+  <div class="tag mat" style="left:64px; top:510px;">machine rail tint · <span class="swatch" style="background:rgba(158,168,194,0.6)"></span>[0.62 0.66 0.76 0.6] · fm:provenance</div>
+  <div class="tag code" style="left:64px; top:546px;">rail width 2.5px · ground.cljs (literal)</div>
+
+  <!-- RIGHT tag column -->
+  <div class="lead" style="left:737px; top:117px; width:143px;"></div>
+  <div class="tag mat" style="left:880px; top:104px;">attention border · 1px · <span class="swatch" style="background:rgba(115,133,168,0.55)"></span>[0.45 0.52 0.66 0.55] · fm:attention
+    <small>shows only on hover/focus · background transparent — all four editable</small></div>
+
+  <div class="lead" style="left:670px; top:157px; width:210px;"></div>
+  <div class="tag code" style="left:880px; top:149px;">text color <span class="swatch" style="background:rgb(235,235,240)"></span>fg · ground.cljs:178
+    <small>private def — not material, not even themed</small></div>
+
+  <div class="lead" style="left:640px; top:237px; width:240px;"></div>
+  <div class="tag mat" style="left:880px; top:214px;">fold header copy + markers · fm:foldable
+    <small>"thinking+tools", "reply", &#9656; &#9662;, suffixes — every string editable</small></div>
+  <div class="tag code" style="left:880px; top:260px;">header text color = provenance tint
+    <small>wiring is baked: a header MUST use the tint</small></div>
+
+  <div class="lead" style="left:730px; top:312px; width:150px;"></div>
+  <div class="tag code" style="left:880px; top:304px;">dim text <span class="swatch" style="background:rgb(140,148,158)"></span> · ground.cljs:179
+    <small>machine body color — baked</small></div>
+
+  <div class="lead" style="left:508px; top:318px; width:372px;"></div>
+  <div class="tag code" style="left:880px; top:344px;">selection wash <span class="swatch" style="background:rgba(89,128,204,0.5)"></span> rgba(0.35 0.5 0.8 0.3) · baked</div>
+
+  <div class="tag code" style="left:880px; top:384px;">type: 19px mono · 27px line · char-grid
+    <small>block = rectangle of characters; w,h from longest line — the SHAPE itself is baked</small></div>
+
+  <div class="vlead" style="left:850px; top:394px; height:48px;"></div>
+  <div class="tag mat" style="left:880px; top:436px;">wrap column · worn 64 · fm:text-body
+    <small>code default says 80 — the worn revision already evolved past code<br>activated by fable-p6-gate, grounded in exp:reply-width</small></div>
+
+  <div class="foot">
+    also material (no pixels to point at): gesture&#8594;verb bindings on 4 sites · anchor order (same-source-tail &#8594; source &#8594; previous) ·
+    fallback position (60,60) · zoom bounds 0.1–8 · fold defaults (both sections start expanded)<br>
+    everything orange is the ceiling of the current design space — material can tune every green thing today, and cannot add a single new part.
+  </div>
+</div>
+</body>
+</html>
