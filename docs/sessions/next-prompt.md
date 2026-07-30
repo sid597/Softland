@@ -352,9 +352,16 @@ Three strata settled (material / Softland code / host floor); the package
 moves ONE row — structure 2→1; pre-named remaining walls ride the
 contract. The three living pressures = the acceptance triple (paste-clamp
 policy birth · fm:invocation master birth · threaded first-pixels part
-birth). Trail: `build/smalltalk-ui-vm/{DIRECTION,NOW}.md` + `probes/`.
-Next act: CONTRACT.md (Fable, this session) → ONE fresh default-fail
-validation round → fresh implementer builds whole (phases-low ruling).
+birth). Trail: `build/smalltalk-ui-vm/{DIRECTION,CONTRACT,NOW}.md` + `probes/`.
+**CONTRACT CUT 2026-07-30** (same session, after four machine-verified
+terrain sweeps): TWO phases — P1 engine cutover (fm:anatomy + the
+assembly machinery as interpreter + byte-identity + block-tree dies +
+threaded pixels console-lane, FULL gate tier) · P2 Workshop (composition
+projection + edit-to-candidate + paste-clamp + fm:invocation + boundary
+strata + agent-edit receipt, slim tier). Zero new endpoints, zero new
+verbs, no new module. Next act: **fresh default-fail validation round
+over CONTRACT.md (V1–V6 + coherence)** → then fresh implementer builds
+P1 whole; Fable orchestrates + gates.
 
 **matter-room — PHASES COMPLETE 2026-07-28 (P1–P4 all landed + gated,
 slim tier).** The engine's ontology serves as inhabitable material: P1

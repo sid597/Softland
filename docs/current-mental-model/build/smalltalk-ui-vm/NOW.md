@@ -1,17 +1,31 @@
 # smalltalk-ui-vm — thread
 
-**STANDING (2026-07-30):** DIRECTION SETTLED in the workshop-realization
-sitting (Sid's word: "lets write down what all we discussed … goooo write
-out"). The blocker checked against source: the type is not an object —
-policy surface material, structure only `block-tree` (ground.cljs:599).
-Sid's six-arrow Workshop loop = the acceptance spine; three strata ruled
-(material / Softland code / host floor); the three living pressures = the
-acceptance triple. Probes tracked in `probes/` (the boundary map's
-hand-made prototype).
+## STANDING (frozen at package open, 2026-07-30)
 
-**NEXT ACT:** CONTRACT.md — Fable-authored in the same session, then one
-fresh default-fail validation round (phases-low ruling, halo precedent),
-then a fresh implementer builds under the contract.
+Binding docs: `CONTRACT.md` (this directory) + `DIRECTION.md` (settled
+2026-07-30) + `decisions.md`. This file is a baton, not a source of
+truth; if it contradicts CONTRACT.md or decisions.md, those win — flag
+the discrepancy here, do not pause. Two phases (P1 engine cutover FULL
+tier · P2 Workshop slim tier), each: fresh implementer context builds
+whole → fresh in-phase falsifier → fresh gate → Sid's commit ruling.
+Before P1: ONE fresh default-fail validation round over CONTRACT.md
+(V1–V6 + coherence). Allowlists per CONTRACT §6; stop clauses §9 —
+never improvise policy; manifest binds on SUBSTANCE. Hard rules: commit
+decisions are Sid's · code/docs separate commits · docs branch never
+pushed · never Co-Authored-By · `env.clj` NEVER read. Does not start
+without Sid: nothing (standing 07-24 word covers campaign-class code
+commits; veto anytime).
 
-Trail: DIRECTION.md (settled) · `vision/LOG.md` 2026-07-30 (verbatim) ·
-board block in `docs/sessions/next-prompt.md`.
+## NOW (newest first; ~15-line budget per entry)
+
+**2026-07-30 · Fable (orchestrating session) · contract cut.**
+DIRECTION settled + committed `25ce803` earlier this session; CONTRACT
+authored after four fresh terrain sweeps (render path · material
+machinery · write lanes/halo · test surface), all pins machine-verified
+at HEAD `25ce803`. Terrain rulings banked in CONTRACT §0: the assembly
+machinery (compile/apply/registry) IS the interpreter — the block
+becomes its next wearer; anatomy rides OC as `fm:anatomy` (no new
+module); the loop needs ZERO new endpoints and ZERO new verbs; the
+halo's enter is the Workshop door; type-preview = master-candidate
+preview on the membrane. Next act: fresh default-fail validation round
+over CONTRACT.md (V1–V6). Starter prompt banked on the board.
