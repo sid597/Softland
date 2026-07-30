@@ -370,9 +370,19 @@ expected delta, normalized); the non-generic facet surfaces are FOUR
 enumeration surface named (`__ground.blocks()` post-merge); V6 receipt —
 the installed CLI carries BOTH `--model` and `--effort` (stop-clause (c)
 resolves positively). Full walk + receipts:
-`build/smalltalk-ui-vm/VALIDATION.md`. Next act: **fresh implementer
-context builds P1 whole under CONTRACT §6** (starter prompt banked at
-the tail of VALIDATION.md); Fable orchestrates + gates (FULL tier).
+`build/smalltalk-ui-vm/VALIDATION.md`. **P1 COMPLETE 2026-07-30: built
+whole (Codex, one context, receipt `P1.md`), falsified + repaired in
+phase (generic `:assembly/sibling-rank`, counterexample banked), gated
+PASS by the independent FULL gate (`GATE_P1.md` — fence re-hashed, G1
+re-run, own isolated rig re-drove the whole loop, all four judgment
+calls ratified, zero code defects), Sid's commit ruling executed — code
++ docs commits separate.** Every block renders through the assembly
+interpreter wearing revisioned `fm:anatomy`; `block-tree` is dead;
+threaded rail/indent pixels drove console-lane
+deviate → preview → activate → rollback live. Next act: **fresh
+implementer context builds P2 whole under CONTRACT §6-P2** (Workshop
+surface + paste-clamp + fm:invocation; slim gate; P2 owns the episode
+SHA re-cut and will re-cut the entity-mode pin).
 
 **matter-room — PHASES COMPLETE 2026-07-28 (P1–P4 all landed + gated,
 slim tier).** The engine's ontology serves as inhabitable material: P1
