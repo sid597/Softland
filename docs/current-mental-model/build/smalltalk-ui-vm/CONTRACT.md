@@ -30,9 +30,13 @@ this document (V1–V6, §11).
   missing primitives — never a second parallel interpreter.
 - **Anatomy has a home; no new module.** The OC facet-master adapter
   (`object_container/facet_master.clj`) is generic over the spec; the
-  only non-generic surfaces are `facet_masters.cljc:14` (specs),
-  `ground.cljs:206` (`resolve-material-wears`, hand-written), and
-  `cluster.clj:330` (bootstrap). The parked material-kernel platform
+  only non-generic surfaces are FOUR (validation F3):
+  `facet_masters.cljc:14` (specs), `ground.cljs:206`
+  (`resolve-material-wears`, hand-written), `cluster.clj:330`
+  (bootstrap), and `ground.cljs:347` (`block-wear-census`, the halo's
+  hardcoded six-facet vector — gains `:anatomy`; its pinned test
+  literal `material_portal_test.clj:1191-1193` re-cut in the same
+  change). The parked material-kernel platform
   check is answered by the P6 precedent (CONTRACT_P6.md:39-52 — every
   homeless-truth candidate resolved to OC; the horizon stays open).
 - **The loop needs ZERO new HTTP endpoints and ZERO new verbs.** Edit =
@@ -93,15 +97,27 @@ code change — the boundary map shows honestly what remains code.
   closed vocabularies: each part = `{:part/id kw, :part/prim kw (a
   face_primitives registry keyword), :part/when kw (closed presence
   vocab: :always :machine :user :header :focused :hover :has-selection
-  :has-refusal …), :part/props {slot → literal | [:wear facet key]},
+  :has-refusal :has-notice :boundary :has-group-sel :has-gold-marks
+  :has-silver-marks :has-conflicts — the full census is block-tree's
+  own, enumerated in VALIDATION.md; evaluated at APPLY time, since
+  presence is instance data and compile stays per (master, revision)),
+  :part/props {slot → literal | [:wear facet key] | [:view key]},
   :part/order n, :part/stamp {facet site role slot}}` plus
   `:anatomy/defs {name → [part…]}` for named sub-compositions and parts
   of prim `:sub-anatomy` referencing a def by name (one level of
   reference; a def may not reference itself or another def — depth is
   bounded by construction). DATA-RESOLUTION is fixed in the same
-  breath: `[:wear facet key]` resolves against the subject's
-  `wears-for` at apply time — never a static code map beside the
-  schema. The grammar validator lives in a new
+  breath, for BOTH bind forms (validation F1): `[:wear facet key]`
+  resolves against the subject's `wears-for` at apply time; `[:view
+  key]` resolves against the block's derived view-model (the
+  rebuild-block! census: text/lines · caret · selection · msel ·
+  machine? · hover? · notice · refusal · headers · wrap-col · boundary?
+  · gsel? · gold/silver marks · metrics) at apply time, with the CLOSED
+  view-key vocabulary owned by `anatomy_material.cljc` beside the
+  grammar — never a static code map beside the schema, and never an
+  open bind path (the assembly grammar's `{:bind [path]}` stays an
+  engine internal the anatomy compiler targets; anatomy rows carry only
+  the two closed forms). The grammar validator lives in a new
   `shared/anatomy_material.cljc` following `facet_material.cljc`
   compile-form conventions (accumulated namespaced errors, offending
   value + legal vocabulary in every refusal — refusals TEACH). No new
@@ -128,16 +144,31 @@ code change — the boundary map shows honestly what remains code.
   corpus (every block the live land renders, plus the committed fixture
   set) and RENDERS-AND-COMPARES each: resolved tree from the
   interpreter == resolved tree from `block-tree`, structurally exact
-  (ops, bounds, styles, data, stamps). Then `block-tree` and its
-  private helpers ARE DELETED in the same phase — no flag, no fallback,
-  no second truth. ONE-SHOT law: the both-paths-exist precondition dies
+  (ops, bounds, styles, node ids, claims, stamps, and every
+  block-tree-authored data key). The EQUALITY RELATION is named
+  (validation F2): the assembly engine stamps its OWN provenance onto
+  every tree it applies — `:assembly/src-path` per node; the root's
+  `:view-instance` `:address` `:assembly/content-h`
+  `:assembly/apply-report` (`face_assembly.cljc:395-412,511-524`) —
+  that exact key set is the EXPECTED delta, normalized out by the
+  comparator (and asserted present separately); everything else is
+  exact, and primitives emit block-tree's exact node ids (builders
+  choose their own ids — the standing convention). Removing those
+  stamps to make a naive compare pass is a T2 fail, never a fix. Then
+  `block-tree` and its private helpers ARE DELETED in the same phase —
+  no flag, no fallback, no second truth (deletion scope: the executable
+  criterion is the grep-negative below; helpers with other callers —
+  `wrap-lines`, `text-op`, `run-view`, `lines-offset` — survive where
+  still used, and the body primitive's wrap truth is block-tree's OWN
+  `wrap-lines` moved to `.cljc`, shared with the copy path — never
+  `rt/wrap-line`, a different algorithm). ONE-SHOT law: the both-paths-exist precondition dies
   at the package's own close, so the COMMITTED harness asserts the
   post-invariant — interpreter output vs committed golden trees
   (fixtures generated from `block-tree` before deletion, banked in the
   phase receipt) — while the live-corpus comparison receipt is banked
   at phase time. KEYING (named source): the worn anatomy identity rides
-  `wears` into the existing 15-element `:render-sig`
-  (`ground.cljs:1205-1211`) — activation flips the served master, the
+  `wears` into the existing 16-element `:render-sig`
+  (`ground.cljs:1208-1210`) — activation flips the served master, the
   epoch push refreshes `!facet-materials`, the existing watcher
   rebuilds; the compile cache keys on (master-id, revision-id), a
   slow-changing identity minted only by activation. No new trigger
@@ -146,8 +177,10 @@ code change — the boundary map shows honestly what remains code.
   branch) · membrane preview · activate · rollback — the four existing
   endpoints, unchanged; zero new registry verbs; zero new gesture rows;
   zero new interaction-table rows. The halo lists `:anatomy` like any
-  worn master (census = wears-for keys); **enter** is the Workshop
-  door. Grammar, kernel, and dispatch stay byte-frozen at their pinned
+  worn master (census = the hardcoded `block-wear-census` vector,
+  `ground.cljs:347`, which gains `:anatomy` — validation F3; the wear
+  itself then resolves per subject through `wears-for`); **enter** is
+  the Workshop door. Grammar, kernel, and dispatch stay byte-frozen at their pinned
   surfaces.
 - **W5 — THE COMPOSITION PROJECTION (see-composition).** A new portal
   SECTION on the anatomy room riding the existing `open`/sections
@@ -203,7 +236,10 @@ code change — the boundary map shows honestly what remains code.
     mechanism is VERIFIED against the installed CLI before wiring
     (V6); if the CLI carries no effort control, the value stays
     material + visible and the gap is disclosed in the receipt, never
-    faked. Touching `episode.clj` re-cuts its standing SHA-256
+    faked. (Validation receipt 2026-07-30: `claude` 2.1.220 on this
+    box carries BOTH `--model <model>` and `--effort <level>` — `low,
+    medium, high, xhigh, max` — so the honest subset is model + effort,
+    both wireable; re-verify at wiring time, the duty stands.) Touching `episode.clj` re-cuts its standing SHA-256
     zero-diff pin in the same change
     (`material_portal_test.clj:1203-1208` — the pin is a standing
     suite assertion, re-cut when legitimately touched, per its own
@@ -290,9 +326,10 @@ carries candidates).
   (compile-form conventions), the seed form, the floor constant.
 - `src/app/shared/facet_masters.cljc` — the `fm:anatomy` spec entry;
   nothing else.
-- `src/app/shared/threaded_material.cljc` — grammar-v2 keys for the
-  thread-edge parts (rail style/width, indent) + validator widening;
-  the existing keys byte-stable.
+- `src/app/shared/threaded_material.cljc` — the SECOND grammar version
+  (the next key after the existing `0` — "v2" names the count, not the
+  key) carrying the thread-edge part keys (rail style/width, indent) +
+  validator widening; the existing keys byte-stable.
 - `src/app/client/workspace/face_primitives.cljc` — the block's new
   primitives, cut from `block-tree`'s own code; registry entries only —
   no changes to existing primitives' semantics.
@@ -300,8 +337,11 @@ carries candidates).
   context genuinely compels a widening (e.g. apply-context census);
   additive, disclosed; core compile/apply semantics byte-stable.
 - `src/app/client/workspace/ground.cljs` — `resolve-material-wears`
-  gains `:anatomy`; `rebuild-block!` renders via compile/apply + the
-  compile cache; `block-tree` and its private helpers DELETED;
+  gains `:anatomy`; `block-wear-census` (`:347`) gains `:anatomy`
+  (validation F3 — the fourth non-generic surface; the pinned test
+  literal re-cut below); `rebuild-block!` renders via compile/apply +
+  the compile cache; `block-tree` and its private helpers DELETED
+  (scope per W3 — sole caller `rebuild-block!:1214`);
   continuity rules (W8) at the rebuild/activation seam; no dispatch,
   grammar, or verb-registration changes.
 - `src/app/server/rama/cluster.clj` — bootstrap entry for `fm:anatomy`
@@ -346,7 +386,13 @@ restored, live; echo holds; G1–G5 green.
   as pressures demand (visible-defaults parts land as a candidate
   REVISION, not a seed edit, wherever the live lane suffices).
 - `src/app/shared/material_portal.cljc` — the pure composition-section
-  rows + stratum labels; the 17 questions untouched.
+  rows + stratum labels; the 17 questions untouched. The `worn-five`
+  recipe set (`:397-403`) is DISTURBED by anatomy joining block
+  compositions (validation F6 — anatomy-stamped contributions widen
+  the observed composition, so the named "block" recipe stops
+  matching): rule its widening explicitly in the section work (the
+  named recipe follows the worn composition), disclosed in the
+  receipt.
 - `src/app/server/rama/material_portal.clj` — the composition section
   in `open`; read-only laws hold (the no-write-verb scan
   `material_portal_test.clj:2147-2162` stays green).
@@ -438,10 +484,20 @@ G6–G10 green.
   disturbed pin re-cut; CLJS `clj -M:dev -m shadow.cljs.devtools.cli
   compile dev` → 0 warnings.
 - **G2 — byte-identity + deletion.** The enumerated live corpus +
-  committed fixtures render-and-compare exact (verb named, counts
-  asserted); the receipt banked in the phase artifact; `block-tree`
+  committed fixtures render-and-compare exact per W3's named equality
+  relation (interpreter-provenance keys normalized; everything else
+  exact). The live-corpus ENUMERATION SURFACE is named (validation
+  F5): `(:blocks @!world)` after reconcile — the POST-MERGE rendered
+  set — read on the rig as `window.__ground.blocks()`
+  (`ground.cljs:3701-3705`), count asserted; verb =
+  render-and-compare each in one browser context while both paths
+  exist. Golden fixtures = committed EDN generated from `block-tree`
+  BEFORE deletion (view + wears + metrics + headers + marks as data);
+  the receipt banked in the phase artifact; `block-tree`
   grep-negative in `src/`; the committed harness asserts the
-  post-invariant against golden fixtures.
+  post-invariant against golden fixtures JVM-side (the interpreter is
+  `.cljc`; `assembly_adapter.clj:145` is the standing server-side
+  proof).
 - **G3 — the loop's durable half, live** (isolated rig, the worktree
   convention — separate worktree, `LAND_CLUSTER=0 LAND_PINNED=1`, own
   port per the :8093–:8098 ladder, `env.clj` symlinked blind and
@@ -623,9 +679,10 @@ is DIRECTION's proposal for the next evidence review.
     ONE-SHOT law's committed-harness form.
   - **V3 — wear generality:** confirm on disk that `wears-for` /
     `resolve-material-wears` / `:render-sig` / the halo census carry
-    a new facet with only the three named touches; enumerate every
-    site that hardcodes the six-wear assumption (the halo census
-    vector pin included).
+    a new facet with only the FOUR named touches (§0; validation F3
+    added `block-wear-census`); enumerate every site that hardcodes
+    the six-wear assumption (the halo census vector pin included —
+    census executed, VALIDATION.md §V3).
   - **V4 — re-cut every affected exact pin, same commit** — the full
     list above, per phase; P2 explicitly owns the episode SHA re-cut.
   - **V5 — standing:** every memory-derived platform claim checked

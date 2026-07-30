@@ -359,34 +359,20 @@ assembly machinery as interpreter + byte-identity + block-tree dies +
 threaded pixels console-lane, FULL gate tier) · P2 Workshop (composition
 projection + edit-to-candidate + paste-clamp + fm:invocation + boundary
 strata + agent-edit receipt, slim tier). Zero new endpoints, zero new
-verbs, no new module. Next act: **fresh default-fail validation round
-over CONTRACT.md (V1–V6 + coherence)** → then fresh implementer builds
-P1 whole; Fable orchestrates + gates.
-**Starter for the validation session (paste verbatim):**
-> Read `.claude/skills/work-package/SKILL.md`, then run the ONE fresh
-> default-FAIL validation round for the **smalltalk-ui-vm** package.
-> Artifact: `docs/current-mental-model/build/smalltalk-ui-vm/CONTRACT.md`
-> (§11 V1–V6 are your duties); direction beside it; format exemplar
-> `build/halo/{CONTRACT,VALIDATION}.md`. PASS only after scenario
-> tracing with file:line citations against source — never trust a pin,
-> re-derive it. V1 is the heavy one: read `ground.cljs` `block-tree`
-> (~:599-899) + `face_assembly.cljc` + `face_primitives.cljc` IN FULL
-> and walk every block-tree behavior against the compile/apply/registry
-> conventions — a convention that cannot hold the block is BLOCKING,
-> with the specimen. V2: the byte-identity corpus enumeration must be
-> executable (name the concrete read surface or fail the gate). V3:
-> grep every site hardcoding the facet/master set beyond the contract's
-> three named touches. V4: the exact-pin sweep per phase. V5: every
-> §0/§3 claim vs disk. V6: verify `summon-argv`; never fabricate CLI
-> capabilities. Coherence: laws vs fences · gate partition sums to
-> G1–G10 · the specimen-in-room render path must be executable. Write
-> `build/smalltalk-ui-vm/VALIDATION.md`: verdict (PASS / MINOR-FAIL
-> with one-line fixes / FAIL with F1..Fn — severity, claim, disk
-> evidence, smallest amendment) + receipts (files read in full, greps,
-> claims taken on faith). Minor-fail law: fixes land in CONTRACT.md,
-> no re-run; substantive FAIL: amend in place, round re-runs fresh.
-> Never touch `src/`; NEVER read `src/app/server/env.clj`. Docs-only
-> commit on the local docs branch; never push; never Co-Authored-By.
+verbs, no new module. **VALIDATION ROUND RUN 2026-07-30 (fresh session,
+default-fail): MINOR-FAIL → eight fixes F1–F8 applied to CONTRACT.md in
+place per the minor-fail law, no re-run** — headline: W1 gains the
+`[:view key]` instance-data bind form (the schema had no route for
+text/caret/selection to reach primitives); G2's byte-identity names its
+equality relation (the assembly engine's own provenance stamps are the
+expected delta, normalized); the non-generic facet surfaces are FOUR
+(`block-wear-census` ground.cljs:347 joins the census); the corpus
+enumeration surface named (`__ground.blocks()` post-merge); V6 receipt —
+the installed CLI carries BOTH `--model` and `--effort` (stop-clause (c)
+resolves positively). Full walk + receipts:
+`build/smalltalk-ui-vm/VALIDATION.md`. Next act: **fresh implementer
+context builds P1 whole under CONTRACT §6** (starter prompt banked at
+the tail of VALIDATION.md); Fable orchestrates + gates (FULL tier).
 
 **matter-room — PHASES COMPLETE 2026-07-28 (P1–P4 all landed + gated,
 slim tier).** The engine's ontology serves as inhabitable material: P1
