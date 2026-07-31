@@ -39,3 +39,14 @@
   escalation includes canonical durable-owner touch; x-ray pins are scoped
   symbol/golden receipts beside whole-file protected hashes. Round not re-run.
   Next: fresh default-fail validation of the recut; only PASS opens P0.
+- 2026-07-31 · Codex · fresh whole-contract validation round 2: **MINOR-FAIL,
+  REPAIRED IN PLACE**; artifact `VALIDATION_R2.md`; boot SHA `5dee17bd…`,
+  repaired SHA `f16ed4d0…`; no re-run, no P0 probes, no product code.
+  **R2-F1 — MINOR: S1 carried a stale scalar-only code premise.** Current
+  instance specs admit anatomy structure; P0 must prove its actual full route.
+  **R2-F2 — MINOR: canonical guard applicability was under-specified.** S1 now
+  requires a non-caller-asserted durable Studio-gate discriminator; T3/G6 prove
+  report bypass refusal AND unchanged existing activation/rollback.
+  **R2-F3 — MINOR: P0 contradicted the literal every-phase gate law.** P0 is
+  now explicit as the pre-build spike, not a law-11 delivery phase; P1 retains
+  receipt + lived gates. **P0 OPEN — next act is fresh-context P0 per §9.**

@@ -106,9 +106,10 @@ proves.
   both candidates: birth identity → edit target → candidate container →
   preview scope → durable validation report → canonical guarded activation →
   target default pointer → exact reverse. Storage candidates remain (a)
-  per-instance STRUCTURE tier (the
-  substrate today carries instance-tier VALUES; structure lives at master
-  candidate level — verify) vs (b) draft-master-per-draft: every draft
+  per-instance STRUCTURE tier (current instance specs admit the parent's whole
+  material key set, including anatomy structure; P0 verifies the actual durable
+  write/serve/preview/promotion path rather than assuming scalar-only storage)
+  vs (b) draft-master-per-draft: every draft
   silently minted as its own master at first stroke, with a draft/real
   distinction in the master registry; trails durable by construction.
   For (a), name how an instance revision becomes a candidate of the shared
@@ -118,8 +119,12 @@ proves.
   read/query, candidate+instance-set binding, same-id replay, conflicting-id
   refusal, and encoding into the closed activation-ground vocabulary. The
   canonical guard must defeat a direct `facet-master/activate!`-class bypass;
-  a Studio UI check is not evidence. P0 costs both against the code, recommends
-  one. The brief's laws
+  a Studio UI check is not evidence. P0 must also pin the NON-CALLER-ASSERTED
+  durable discriminator by which that owner recognizes a Studio promotion that
+  requires a matching report while existing bootstrap, migration, rollback,
+  and x-ray activation paths stay behavior-identical; actor, provenance, or
+  grounds supplied by the caller alone are not a discriminator. Absence is a
+  STOP. P0 costs both against the code, recommends one. The brief's laws
   constrain: drafts real + functional + durable; trails persist; candidates
   coexist with one default. STOP if both draft routes are cutover-class OR if
   the report/guard needs a new depot, PState, import-key family, protected
@@ -221,7 +226,9 @@ DRIFT.
   canonical owner; the adversary calls the lowest existing activation hand
   directly with no report, a FAIL report, a different candidate, a different
   instance set, and conflicting reuse of one report id. Before the guarded
-  flip, no instance outside preview scope ever renders the candidate.
+  flip, no instance outside preview scope ever renders the candidate. The same
+  attack proves the guard is scoped by S1's durable discriminator, not blanket
+  activation: one existing non-Studio activation and rollback replay unchanged.
 - **T4** Reverse restores the prior default byte-exactly (served revision
   compare) via the existing recovery lanes.
 - **T5** Gesture→grammar parity: every structural edit from the drawing
@@ -244,12 +251,14 @@ DRIFT.
 | G3 | Fence verification per §6 (diff-derived) | P1 implementer + gate session re-check |
 | G4 | T1–T8 green (JVM + probe mix; T8 with attestation) | P1 implementer |
 | G5 | The wearing: full §3 loop driven headed on an isolated rig (blind-symlink pattern, own port), receipts banked | P1 implementer (headed) |
-| G6 | Fresh falsifier, ONE finder, default-fail, aimed at the genuinely-new machinery: the gesture→grammar compiler + the test-gated accept path | Fresh context after P1 |
+| G6 | Fresh falsifier, ONE finder, default-fail, aimed at the genuinely-new machinery: the gesture→grammar compiler + the test-gated accept path, including required-vs-exempt activation classification | Fresh context after P1 |
 | G7 | **LIVED GATE — ONE-SHOT.** Sid, cold, no reading, on the real land (not a rig): draw a rectangle with text → make it do something (S5 verb) → duplicate the block as a draft, change one visible thing → accept through the test gate → put it back. PASS = completed without reading anything + he can narrate each step + the anatomy room never opened. His verbatim reaction lands in the gate record (the arc's instrument). The cold-open precondition is destroyed by its own running: afterwards the committed harness asserts only the mechanical half (steps executable end-to-end); cold-ness is never re-claimable. A G7 FAIL is the arc gate speaking — route to a direction session; never patch (law 6 spirit). | **Sid**, LAST, after the slim gate |
 | G8 | Agent-rider demonstration: one word-driven edit through the existing lane, receipt banked (ungated demo, law 10) | P1 implementer |
 
-Sum-check: G1–G8 all assigned (P0 owns no gates — it produces the S1–S6
-receipts). Order: P1 greens G1–G6-inputs + G8 → independent gate session
+Sum-check: G1–G8 all assigned to the one DELIVERY phase, P1. P0 is the
+pre-build spike rather than a product delivery phase under brief law 11: it
+produces the S1–S6 receipts, and there is no lived surface yet to gate. Order:
+P1 greens G1–G6-inputs + G8 → independent gate session
 (SLIM tier by default — surface package on existing lanes; ESCALATES to
 FULL if S1 requires source changes at any durable draft/promotion/report owner
 or at canonical activation. SLIM survives only if P0 proves the whole S1 chain
@@ -259,7 +268,8 @@ last, so the surface Sid cold-opens is the gated one → Sid's commit ruling
 
 ## §9 Phases
 
-- **P0 — the spike** (fresh context; no product code; probes allowed).
+- **P0 — the pre-build spike** (fresh context; not a delivery phase under
+  brief law 11; no product code; probes allowed).
   Deliverable `P0.md`: S1–S6 answered with machine-verified citations
   (`grep -n` receipts), the §6 protected-file hashes pinned, the §10
   manifest locators pinned, x-ray symbol-span/golden pins, gate-tier

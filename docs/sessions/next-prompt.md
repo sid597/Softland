@@ -396,9 +396,16 @@ verified by the canonical activation owner · the x-ray protection unit
 is not machine-definable by whole-file hash — shared host files force
 P0-pinned symbol spans + projection/golden receipts; verdict + traces:
 `build/studio/VALIDATION.md`; recut CONTRACT.md SHA `5dee17bd…`, laws
-untouched). Next act: fresh session — ANOTHER default-fail validation
-round over the recut CONTRACT.md, whole-contract, cold; only a PASS or
-a repaired minor-fail opens P0 → P1. Starter: brief §Next session.
+untouched). **VALIDATION ROUND 2 (2026-07-31): MINOR-FAIL REPAIRED IN
+PLACE — P0 OPEN** (`build/studio/VALIDATION_R2.md`; boot SHA `5dee17bd…`,
+repaired SHA `f16ed4d0…`; no re-run): code settled that instance specs
+admit anatomy structure, leaving P0 to prove the real route; S1 now
+requires a non-caller-asserted durable discriminator so the canonical guard blocks Studio
+report bypass without blanket-breaking bootstrap/migration/x-ray/
+rollback; T3/G6 prove both sides. P0 is explicitly the pre-build spike,
+not a product delivery phase under the every-phase receipt+lived law;
+P1 retains G1–G8. Next act: **fresh-context P0 per CONTRACT §9** — S1–S6
+machine receipts into `P0.md`; no product code. Starter: CONTRACT §9.
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.
