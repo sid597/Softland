@@ -874,11 +874,15 @@
    a warm episode resumes WITHIN its boundary (--resume appends to the SAME
    jsonl — docs-verified — so the offset-cursor harvest stays sound; no
    cross-boundary resume exists). Subscription CLI, zero keys (hard rule)."
-  [{:keys [prompt session-id fresh?]}]
+  [{:keys [prompt session-id fresh? model effort]}]
   (vec (concat ["claude"]
                (if fresh?
                  ["--session-id" (str session-id)]
                  ["--resume" (str session-id)])
+               (when (and (string? model) (seq model))
+                 ["--model" model])
+               (when (and (some? effort) (seq (name effort)))
+                 ["--effort" (name effort)])
                ["-p" (str prompt)
                 "--output-format" "stream-json"
                 "--include-partial-messages"])))

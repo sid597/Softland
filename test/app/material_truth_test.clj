@@ -773,7 +773,7 @@
   (testing "P8 moves attention alone to v3; the other v2 floors stand"
     (is (= "code-floor:fm:attention:v3"
            (facet-masters/floor-master-id :attention)))
-    (is (= "code-floor:fm:foldable:v2"
+    (is (= "code-floor:fm:foldable:v3"
            (facet-masters/floor-master-id :foldable)))
     (is (= "code-floor:fm:positioned:v2"
            (facet-masters/floor-master-id :positioned)))

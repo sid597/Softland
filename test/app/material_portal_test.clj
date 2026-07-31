@@ -30,11 +30,13 @@
             [app.server.rama.object-container.transcript-identity :as tid]
             [app.server.rama.relation-kernel :as rk]
             [app.shared.activation-event :as activation-event]
+            [app.shared.anatomy-material :as anatomy]
             [app.shared.attention-material :as attention]
             [app.shared.binding-material :as bm]
             [app.shared.facet-material :as facet-material]
             [app.shared.facet-masters :as facet-masters]
             [app.shared.foldable-material :as foldable]
+            [app.shared.invocation-material :as invocation]
             [app.shared.matter-room :as matter-room]
             [app.shared.material-portal :as portal]
             [app.shared.provenance-material :as provenance]
@@ -94,9 +96,9 @@
   (mp/open ctx (fn [req] (fp/serve ctx req)) params))
 
 (def entity-mode-regression-sha
-  "Re-cut by smalltalk-ui-vm P1 when fm:anatomy joined the generic master
+  "Re-cut by smalltalk-ui-vm P2 when fm:invocation joined the generic master
    inventory; entity mode itself remains byte-pinned."
-  "7003fe90812c02646db57fba5775f65bb8d26a20073c66395340214c4f728132")
+  "ab468646f6ee5cf50accc5f45a2df6d133641db594239dafe52de64a0250b5f7")
 
 ;; ===========================================================================
 ;; G1 — the portal question list, answered one by one with replayable calls
@@ -195,7 +197,7 @@
         bytes (portal/canonical-edn result)]
     (is (= entity-mode-regression-sha (core/sha-256 bytes))
         "adding :master-id mode must not drift one byte of entity mode")
-    (is (= 23104 (count (.getBytes bytes "UTF-8"))))
+    (is (= 24281 (count (.getBytes bytes "UTF-8"))))
     (is (= bytes (portal/canonical-edn result-with-ignored-master))
         "entity-id wins if both addresses are supplied")))
 
@@ -379,6 +381,67 @@
       (finally
         (rk/close-relation-runtime! rk-rt)
         (ocr/close-object-container-runtime! oc-rt)))))
+
+(deftest smalltalk-ui-vm-p2-anatomy-anchor-gains-a-composition-section-only
+  (let [rt (ocr/start-object-container-runtime!)]
+    (try
+      (let [result (open! rt {:master-id anatomy/master-id})
+            section (:portal/composition result)]
+        (is (= anatomy/master-id (:composition/master-id section)))
+        (is (= (count anatomy/seed-parts)
+               (:composition/row-count section)))
+        (is (= [:green :amber :red]
+               (mapv :stratum/color
+                     (get-in section [:composition/rows 0 :part/strata]))))
+        (is (= 17 (count (:portal/questions result)))
+            "Workshop is a section; the constitutional card floor is untouched")
+        (is (nil? (:portal/composition
+                   (open! rt {:master-id attention/master-id})))
+            "rooms stay generic; only the anatomy portal owner adds its section"))
+      (finally
+        (ocr/close-object-container-runtime! rt)))))
+
+(deftest smalltalk-ui-vm-p2-send-consult-wears-the-source-instance
+  (let [subject "du:block:invocation-source"
+        instance-id "fm:invocation~i~fixture"
+        ispec (facet-material/instance-spec
+               invocation/spec instance-id subject)
+        form (facet-material/instance-form
+              invocation/spec instance-id subject
+              {:grammar invocation/grammar-version
+               :material (:material
+                          (invocation/compile-form invocation/default-form))
+               :deviates? true
+               :overrides {:invocation/model "haiku"
+                           :invocation/effort "high"}})
+        compiled (facet-material/compile-form ispec form)
+        shared {:valid? true
+                :grammar invocation/grammar-version
+                :material (:material
+                           (invocation/compile-form invocation/default-form))
+                :revision-id "rev:invocation-shared"}
+        instance {:facet-master/id instance-id
+                  :facet-master/subject subject
+                  :facet-master/grammar (:grammar compiled)
+                  :facet-master/material (:material compiled)
+                  :facet-master/active-revision-id "rev:invocation-instance"}]
+    (with-redefs [adapter/compiled-active
+                  (fn [_ spec]
+                    (is (= invocation/master-id
+                           (:facet-master/id spec)))
+                    shared)
+                  material-truth/served-instance
+                  (fn [_ spec actual-subject]
+                    (is (= invocation/master-id
+                           (:facet-master/id spec)))
+                    (is (= subject actual-subject))
+                    instance)]
+      (let [wear (sj/invocation-wear-for-source :runtime subject)]
+        (is (= "haiku" (:invocation/model wear)))
+        (is (= "high" (:invocation/effort wear)))
+        (is (= "thread+2" (:invocation/precontext wear)))
+        (is (= :instance (:facet-master/tier wear)))
+        (is (= subject (:facet-master/subject wear)))))))
 
 ;; ===========================================================================
 ;; matter-room P2 · G3/G4/G5 — the room: birth once, refresh, carried verbs
@@ -1191,7 +1254,7 @@
               universal space answer and the honest floor label"
       (is (str/includes?
            ground-src
-           "[:provenance :attention :foldable :positioned :threaded :text-body :anatomy]"))
+           "[:provenance :attention :foldable :positioned :threaded :text-body :anatomy :invocation]"))
       (is (str/includes? ground-src
                          "(if space? [:space] block-wear-census)"))
       (is (str/includes? ground-src
@@ -1201,8 +1264,9 @@
                               "[:attention :foldable :positioned :threaded :text-body :space]"))
           "space is an outermost subject, never laundered into the block census"))
 
-    (testing "the two zero-diff composition pins remain byte exact"
-      (is (= "e1f1836f6c092bda250930ccf544b47b15e1b9894635e7170eaf024f44af4179"
+    (testing "the standing composition pins remain byte exact"
+      ;; P2's first legitimate episode.clj touch threads worn invocation flags.
+      (is (= "7fce46b21976a981cb85f71bb51eb7285fc841ac318687f0341e4cf41096a5bc"
              (core/sha-256 (slurp "src/app/server/episode.clj"))))
       (is (= "ab283b47ae273aa9a0a42b2e14a690a3804c054a7370ef3fb06ee910a2772ca2"
              (core/sha-256
@@ -2023,11 +2087,11 @@
   (let [rt (ocr/start-object-container-runtime!)]
     (try
       (let [revs (boot! rt)
-            ;; the worn five on this suite's three booted masters is not the
-            ;; whole five, so the composition is built explicitly here — the
+            ;; the worn block on this suite's three booted masters is not the
+            ;; whole composition, so it is built explicitly here — the
             ;; recipe is derived from STAMPS, which is exactly what lets a test
             ;; describe a composition the suite has not booted
-            five (fn [eid]
+            block (fn [eid]
                    (wearer eid
                            [[attention/master-id (:attention revs)
                              :block/user-hit-area :border]
@@ -2038,10 +2102,14 @@
                             ["fm:positioned" "rev:positioned"
                              :block/user-hit-area :position]
                             ["fm:threaded" "rev:threaded"
-                             :block/user-hit-area :column]]))]
+                             :block/user-hit-area :column]
+                            [anatomy/master-id "rev:anatomy"
+                             :block/user-hit-area :anatomy]
+                            [invocation/master-id "rev:invocation"
+                             :block/user-hit-area :invocation]]))]
 
         (testing "one wearer only: nothing has recurred, nothing is named"
-          (let [r (open! rt {:entity-id alpha :wearers [(five alpha)]})
+          (let [r (open! rt {:entity-id alpha :wearers [(block alpha)]})
                 rec (:portal/recipe r)]
             (is (false? (:recipe/recurred? rec)))
             (is (= :single (:recipe/recurrence-class rec)))
@@ -2050,7 +2118,7 @@
 
         (testing "two distinct entities, one composition: recurred, and NAMED"
           (let [r (open! rt {:entity-id alpha
-                             :wearers [(five alpha) (five beta)]})
+                             :wearers [(block alpha) (block beta)]})
                 rec (:portal/recipe r)]
             (is (true? (:recipe/recurred? rec)))
             (is (= "block" (:recipe/name rec)))
@@ -2066,7 +2134,7 @@
 
         (testing "two DIFFERENT compositions: the class becomes :lived"
           (let [r (open! rt {:entity-id alpha
-                             :wearers [(five alpha) (five beta)
+                             :wearers [(block alpha) (block beta)
                                        (wearer gamma
                                                [[attention/master-id
                                                  (:attention revs)
@@ -2084,7 +2152,7 @@
            rt attention/spec beta {:attention/hit-padding 30.0}
            {:actor sid :time-ms (now)})
           (let [r (open! rt {:entity-id alpha
-                             :wearers [(five alpha) (five beta)]})]
+                             :wearers [(block alpha) (block beta)]})]
             (is (= 2 (get-in r [:portal/recipe :recipe/distribution
                                 :distribution/distinct-entities]))
                 "a deviation is a variation of a type, not a different type"))))

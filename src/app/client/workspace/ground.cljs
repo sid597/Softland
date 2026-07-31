@@ -48,7 +48,9 @@
             [app.shared.facet-material :as facet-material]
             [app.shared.facet-masters :as facet-masters]
             [app.shared.foldable-material :as foldable-material]
+            [app.shared.invocation-material :as invocation-material]
             [app.shared.material-inspector :as material-inspector]
+            [app.shared.material-portal :as material-portal]
             [app.shared.positioned-material :as positioned-material]
             [app.shared.provenance-material :as provenance-material]
             [app.shared.reply-to-block :as reply-to-block]
@@ -129,6 +131,10 @@
 
 (defonce ^:private !notice (atom nil))  ; {:unit-id :text} transient (busy etc.)
 (defonce ^:private !halo (atom nil))
+(defonce ^:private !workshop
+  ;; Read projection + validated local candidate only. Durable state remains in
+  ;; the existing deviate/activate/rollback owners.
+  (atom nil))
 ;; per merged run block: which sections show (Task 7, Sid) — two independent
 ;; header toggles, :noise? (thinking + tool calls) and :prose? (the reply).
 ;; attention state like hover: ephemeral, never settled, never restored
@@ -151,7 +157,8 @@
 (def ^:private settle-debounce-ms 400)
 
 (declare rebuild-block! reconcile! refresh-provisional! context-block-entry
-         re-derive-material!)
+         re-derive-material! block-anatomy-view-model anatomy-render-tree
+         render-workshop!)
 
 ;; ===========================================================================
 ;; Camera math (screen = world·zoom + pan)
@@ -178,6 +185,8 @@
 (def ^:private dim [0.55 0.58 0.62 1.0])
 (def ^:private err-col [0.95 0.45 0.40 1.0])
 (def ^:private amber [0.92 0.75 0.35 1.0])
+(def ^:private green [0.45 0.86 0.56 1.0])
+(def ^:private red [0.95 0.45 0.40 1.0])
 
 (def ^:private fold-sections
   "The run block's header rows, in render order — each names the section it
@@ -220,6 +229,9 @@
    :foldable
    (foldable-material/resolved-wear
     (get by-id foldable-material/master-id))
+   :invocation
+   (invocation-material/resolved-wear
+    (get by-id invocation-material/master-id))
    :positioned
    (positioned-material/resolved-wear
     (get by-id positioned-material/master-id))
@@ -348,9 +360,9 @@
 (def ^:private halo-vi :ground-halo)
 
 (def ^:private block-wear-census
-  "The seven real block wears. Interaction claim facets are intentionally not
+  "The eight real block wears. Interaction claim facets are intentionally not
    consulted: a claim says where a gesture landed, not what the citizen wears."
-  [:provenance :attention :foldable :positioned :threaded :text-body :anatomy])
+  [:provenance :attention :foldable :positioned :threaded :text-body :anatomy :invocation])
 
 (defn- halo-effect-label
   [verb-name]
@@ -535,6 +547,443 @@
   true)
 
 (scene-rt/register-action! :halo/handle halo-action!)
+
+;; ===========================================================================
+;; smalltalk-ui-vm P2 — the Workshop (projection + the existing act lanes)
+;; ===========================================================================
+
+(def ^:private workshop-vi :ground-workshop)
+(def ^:private workshop-specimen-vi :ground-workshop-specimen)
+
+(defn- room-master-id
+  []
+  (some-> (second
+           (re-find #"[?&]master=([^&]+)"
+                    (str (.-search js/window.location))))
+          js/decodeURIComponent))
+
+(defn- namespace-js->clj
+  [value]
+  (js->clj value :keywordize-keys true))
+
+(defn- portal-api
+  []
+  (.-__portal js/window))
+
+(defn- workshop-current-source
+  []
+  (or (get-in @!workshop [:candidate :source])
+      (get-in @!workshop
+              [:portal :portal/composition :composition/source])
+      (pr-str
+       (anatomy-material/form-for-wear
+        (:anatomy (current-material-wears))))))
+
+(defn- workshop-result!
+  [result]
+  (swap! !workshop assoc
+         :candidate result
+         :status
+         (if (= :candidate (:status result))
+           "candidate · valid before append"
+           (str "refused · " (pr-str (first (:errors result))))))
+  (render-workshop!)
+  result)
+
+(defn- workshop-compose!
+  [edit]
+  (let [edit (cond
+               (string? edit)
+               (try (reader/read-string edit)
+                    (catch :default e
+                      {:edit/op :unreadable
+                       :edit/source edit
+                       :edit/error (.-message e)}))
+               :else (js->clj edit :keywordize-keys true))]
+    (workshop-result!
+     (anatomy-material/compose-edit (workshop-current-source) edit))))
+
+(defn- workshop-invocation-candidate!
+  []
+  (let [source (workshop-current-source)
+        compiled (anatomy-material/compile-source source)]
+    (if-not (:valid? compiled)
+      (workshop-result!
+       {:status :refused :source nil :form nil :errors (:errors compiled)})
+      (let [form (reader/read-string source)
+            candidate (anatomy-material/invocation-candidate-form form)
+            candidate-compiled (anatomy-material/compile-form candidate)]
+        (workshop-result!
+         (if (:valid? candidate-compiled)
+           {:status :candidate
+            :source (pr-str candidate)
+            :form candidate
+            :errors []}
+           {:status :refused
+            :source nil
+            :form nil
+            :errors (:errors candidate-compiled)}))))))
+
+(defn- workshop-preview!
+  []
+  (let [candidate (:candidate @!workshop)
+        source (:source candidate)]
+    (if (and (= :candidate (:status candidate)) (string? source))
+      (try
+        (.preview (portal-api) anatomy-material/master-id source)
+        (swap! !workshop assoc :status "preview · live ground wears candidate")
+        (render-workshop!)
+        candidate
+        (catch :default e
+          (swap! !workshop assoc
+                 :status (str "preview error · " (.-message e)))
+          (render-workshop!)
+          nil))
+      (workshop-result!
+       {:status :refused :source nil :form nil
+        :errors [{:type :anatomy/no-valid-candidate
+                  :actual candidate
+                  :legal "compose a valid candidate before preview"}]}))))
+
+(defn- workshop-retain!
+  []
+  (let [candidate (:candidate @!workshop)
+        source (:source candidate)]
+    (if-not (and (= :candidate (:status candidate)) (string? source))
+      (js/Promise.resolve
+       (clj->js
+        (workshop-result!
+         {:status :refused :source nil :form nil
+          :errors [{:type :anatomy/no-valid-candidate
+                    :actual candidate
+                    :legal "compose a valid candidate before deviate"}]})))
+      (-> (.deviate (portal-api) anatomy-material/master-id source)
+          (.then
+           (fn [value]
+             (let [result (namespace-js->clj value)]
+               (swap! !workshop assoc
+                      :revision-id (:revision-id result)
+                      :status
+                      (str "deviate · " (some-> (:status result) name)
+                           " · " (:revision-id result)))
+               (render-workshop!)
+               value)))
+          (.catch
+           (fn [e]
+             (swap! !workshop assoc
+                    :status (str "deviate error · " (.-message e)))
+             (render-workshop!)
+             (throw e)))))))
+
+(defn- workshop-refresh-portal!
+  "Re-open the one read-only room projection after a pointer move. Recovery
+   offers and composition source must name the newly served active revision,
+   never the projection captured before activation."
+  [status]
+  (-> (.openMaster (portal-api) anatomy-material/master-id)
+      (.then
+       (fn [value]
+         (let [projection (namespace-js->clj value)]
+           (swap! !workshop
+                  (fn [state]
+                    (-> state
+                        (assoc :portal projection
+                               :source
+                               (get-in projection
+                                       [:portal/composition
+                                        :composition/source])
+                               :candidate nil
+                               :revision-id nil
+                               :status status))))
+           (render-workshop!)
+           value)))))
+
+(defn- workshop-activate!
+  []
+  (if-let [revision-id (:revision-id @!workshop)]
+    (do
+      ;; T5/W8: the membrane ends before the pointer flip it previewed.
+      (.endPreview (portal-api))
+      (-> (.activate (portal-api) anatomy-material/master-id revision-id)
+          (.then
+           (fn [value]
+             (let [result (namespace-js->clj value)
+                   status
+                   (str "activate · " (some-> (:status result) name)
+                        " · " revision-id)]
+               (-> (workshop-refresh-portal! status)
+                   (.then (fn [_] value))))))
+          (.catch
+           (fn [e]
+             (swap! !workshop assoc
+                    :status (str "activate error · " (.-message e)))
+             (render-workshop!)
+             (throw e)))))
+    (js/Promise.resolve
+     (clj->js
+      (workshop-result!
+       {:status :refused :source nil :form nil
+        :errors [{:type :anatomy/candidate-not-retained
+                  :actual nil
+                  :legal "retain the candidate before activation"}]})))))
+
+(defn- workshop-reverse!
+  []
+  ;; Recovery is authority-bearing served data. Refresh before selecting the
+  ;; offer so a just-activated revision cannot reverse through a stale target.
+  (-> (workshop-refresh-portal! "reverse · reading served recovery offer")
+      (.then
+       (fn [_]
+         (let [offer
+               (first
+                (filter
+                 #(= anatomy-material/master-id
+                     (:recovery/master-id %))
+                 (get-in @!workshop
+                         [:portal :portal/recovery :recovery/offers])))
+               target (:recovery/to-revision-id offer)]
+           (if-not (string? target)
+             (clj->js
+              (workshop-result!
+               {:status :refused :source nil :form nil
+                :errors [{:type :anatomy/recovery-offer-missing
+                          :actual offer
+                          :legal
+                          "a served previous-revision recovery offer"}]}))
+             (do
+               (.endPreview (portal-api))
+               (-> (.rollback
+                    (portal-api) anatomy-material/master-id target)
+                   (.then
+                    (fn [value]
+                      (let [result (namespace-js->clj value)
+                            status
+                            (str "reverse · "
+                                 (some-> (:status result) name)
+                                 " · " target)]
+                        (-> (workshop-refresh-portal! status)
+                            (.then (fn [_] value))))))))))))
+      (.catch
+       (fn [e]
+         (swap! !workshop assoc
+                :status (str "reverse error · " (.-message e)))
+         (render-workshop!)
+         (throw e)))))
+
+(defn- workshop-open!
+  []
+  (if-let [portal (portal-api)]
+    (-> (.openMaster portal anatomy-material/master-id)
+        (.then
+         (fn [value]
+           (let [projection (namespace-js->clj value)
+                 section (:portal/composition projection)]
+             (reset! !workshop
+                     {:portal projection
+                      :source (:composition/source section)
+                      :selected-part
+                      (get-in section [:composition/rows 0 :part/id])
+                      :status "Workshop · live composition"})
+             (render-workshop!)
+             value)))
+        (.catch
+         (fn [e]
+           (reset! !workshop
+                   {:status (str "Workshop open error · " (.-message e))})
+           (render-workshop!)
+           (throw e))))
+    (js/Promise.reject
+     (js/Error. "The material portal is not installed."))))
+
+(defn- clip-text
+  [text n]
+  (let [text (str text)]
+    (if (<= (count text) n)
+      text
+      (str (subs text 0 n) "…"))))
+
+(defn- workshop-display-rows
+  [section selected status]
+  (let [part-rows
+        (into []
+              (mapcat
+               (fn [row]
+                 (let [part-id (:part/id row)
+                       strata (:part/strata row)
+                       material (first strata)
+                       code (second strata)
+                       floor (nth strata 2)
+                       action {:action :workshop/part
+                               :workshop/op :part
+                               :workshop/part-id part-id}
+                       prefix (if (= selected part-id) "◆ " "  ")]
+                   [{:text
+                     (str prefix "green · " part-id
+                          " · row " (clip-text (:material/row material) 92)
+                          " · props " (clip-text (:material/props material) 92)
+                          " · worn "
+                          (clip-text (:material/worn-values material) 92))
+                     :color green :action action}
+                    {:text
+                     (str "  amber · " (:code/primitive code)
+                          " · " (:code/src-path code))
+                     :color amber :action action}
+                    {:text
+                     (str "  red · " (:stratum/label floor)
+                          " · " (:floor/revision-id floor))
+                     :color red :action action}]))
+               (:composition/rows section)))
+        controls
+        [{:text "Workshop hands · existing lanes only" :color fg}
+         {:text "  add invocation pressure candidate" :color amber
+          :action {:action :workshop/part :workshop/op :invocation-candidate}}
+         {:text "  edit one row (EDN operation)" :color amber
+          :action {:action :workshop/part :workshop/op :edit}}
+         {:text "  preview candidate" :color amber
+          :action {:action :workshop/part :workshop/op :preview}}
+         {:text "  deviate · retain candidate" :color amber
+          :action {:action :workshop/part :workshop/op :retain}}
+         {:text "  activate · scoped pointer event" :color amber
+          :action {:action :workshop/part :workshop/op :activate}}
+         {:text "  reverse · served recovery offer" :color amber
+          :action {:action :workshop/part :workshop/op :reverse}}
+         {:text (str "status · " (or status "idle")) :color fg}]]
+    (into [{:text "WORKSHOP · composition projection" :color fg}]
+          (concat part-rows controls))))
+
+(defn- annotate-workshop-specimen
+  [tree path->part selected]
+  (let [path (get-in tree [:data :assembly/src-path])
+        part-id (get path->part path)
+        descriptor (when part-id
+                     {:action :workshop/part
+                      :workshop/op :part
+                      :workshop/part-id part-id})]
+    (cond->
+        (update tree :children
+                #(mapv (fn [child]
+                         (annotate-workshop-specimen
+                          child path->part selected))
+                       %))
+      descriptor
+      (update :data #(assoc (or % {}) :actions descriptor))
+
+      (= selected part-id)
+      (update :style merge
+              {:bg [0.92 0.75 0.35 0.08]
+               :border-width 2.0
+               :border-color amber}))))
+
+(defn- upsert-workshop-slot!
+  [vi tree x y layer meta]
+  (if-let [slot (ss/slot (scene-rt/store-snapshot) vi)]
+    (do
+      (swap! scene-rt/!scene-store ss/upsert-slot vi
+             {:tree tree :container (:container slot)
+              :meta (:meta slot) :stratum (:stratum slot)
+              :pre-resolved? true})
+      (scene-rt/set-transform! (:container slot) {:x x :y y}))
+    (scene-rt/register-face-instance!
+     vi tree {:x x :y y :scale 1.0 :layer layer
+              :meta meta :pre-resolved? true})))
+
+(defn- render-workshop!
+  []
+  (if-let [{:keys [portal selected-part status]} @!workshop]
+    (let [wears (current-material-wears)
+          ;; The room's server section establishes the read boundary; the
+          ;; shared pure projection is re-run over the membrane's CURRENT wear
+          ;; so preview rows and specimen pixels change as one value.
+          section
+          (material-portal/composition-section
+           {:anatomy-wear (:anatomy wears)
+            :wears wears})
+          {:keys [font-size char-advance line-h] :as metrics} (metrics)
+          rows (workshop-display-rows section selected-part status)
+          pad 12.0
+          w 920.0
+          h (+ (* 2 pad) (* line-h (count rows)))
+          ops (mapv
+               (fn [i {:keys [text color]}]
+                 (face-primitives/text-op
+                  text i line-h font-size color pad))
+               (range) rows)
+          handles
+          (into []
+                (keep-indexed
+                 (fn [i {:keys [action]}]
+                   (when action
+                     (rt-node
+                      (keyword (str "workshop-row-" i))
+                      :hit-area
+                      {:x 0 :y (* i line-h) :w w :h line-h}
+                      :data {:address anatomy-material/master-id
+                             :actions action}))))
+                rows)
+          projection-tree
+          (rt/resolve-layout
+           (rt-node workshop-vi :error-card
+                    {:x 0 :y 0 :w w :h h}
+                    :style {:bg [0.04 0.05 0.07 0.98]
+                            :border-width 1.0
+                            :border-color amber
+                            :radius 5}
+                    :data {:address anatomy-material/master-id}
+                    :text ops
+                    :children handles))
+          specimen-view
+          (block-anatomy-view-model
+           {:text "Workshop specimen · the real interpreter"
+            :caret nil :focused? false :selection nil :refusal nil}
+           false false nil metrics nil [] fold-sections nil false false false
+           wears nil nil)
+          specimen
+          (anatomy-render-tree
+           "workshop:specimen" specimen-view metrics wears)
+          path->part
+          (into {}
+                (map (juxt :part/source-path :part/id))
+                (:composition/rows section))
+          specimen
+          (annotate-workshop-specimen
+           specimen path->part selected-part)]
+      (upsert-workshop-slot!
+       workshop-vi projection-tree 40 40 8 {:ground-workshop? true})
+      (upsert-workshop-slot!
+       workshop-specimen-vi specimen 1000 80 9
+       {:ground-workshop-specimen? true}))
+    (do
+      (scene-rt/close-instance! workshop-vi)
+      (scene-rt/close-instance! workshop-specimen-vi))))
+
+(defn- workshop-action!
+  [descriptor _event]
+  (case (:workshop/op descriptor)
+    :part
+    (do
+      (swap! !workshop assoc
+             :selected-part (:workshop/part-id descriptor)
+             :status (str "selected · " (:workshop/part-id descriptor)))
+      (render-workshop!))
+
+    :invocation-candidate
+    (workshop-invocation-candidate!)
+
+    :edit
+    (when-let [edit
+               (js/prompt
+                "One anatomy edit as EDN"
+                "{:edit/op :retune-props :part/id :root :part/props {:wrap-col [:view :wrap-col]}}")]
+      (workshop-compose! edit))
+
+    :preview (workshop-preview!)
+    :retain (workshop-retain!)
+    :activate (workshop-activate!)
+    :reverse (workshop-reverse!)
+    nil)
+  true)
+
+(scene-rt/register-action! :workshop/part workshop-action!)
 
 (defn- reply-source-columns
   [src-txt]
@@ -804,13 +1253,36 @@
   [{:keys [text caret focused? refusal selection]}
    machine? hover? notice
    {:keys [font-size char-advance line-h]}
-   wrap-col headers msel boundary? gsel? placement-derived?
+   wrap-col headers header-sections msel boundary? gsel? placement-derived?
    wears gold-marks silver-marks]
   (let [headers (vec (or headers []))
+        anatomy-part-ids
+        (into #{}
+              (keep :part/id)
+              (get-in wears [:anatomy :anatomy/parts]))
+        invocation-visible?
+        (every? anatomy-part-ids
+                (map :part/id anatomy-material/invocation-visible-parts))
+        base-lines (face-primitives/block-render-lines
+                    text machine? wrap-col headers)
+        base-line-count (count base-lines)
+        invocation-lines
+        (when invocation-visible?
+          ["Ctrl+Enter · model / effort / precontext"
+           (str (get-in wears [:invocation :invocation/model]))
+           (str (get-in wears [:invocation :invocation/effort]))
+           (str (get-in wears [:invocation :invocation/precontext]))])
+        ;; The candidate's notice parts paint into four trailing blank rows. The
+        ;; root still comes from the same interpreter and therefore measures the
+        ;; extra pixels; no second block composer or private height law appears.
+        render-text (if invocation-visible?
+                      (str (or text "") (apply str (repeat 4 "\n")))
+                      (or text ""))
         lines (face-primitives/block-render-lines
-               text machine? wrap-col headers)
+               render-text machine? wrap-col headers)
         n (count lines)
-        max-len (reduce max 1 (map count lines))
+        max-len (reduce max 1
+                        (map count (into (vec lines) invocation-lines)))
         pad (get-in wears [:attention :attention/hit-padding])
         w (+ (* max-len char-advance) (* 2 pad))
         h (+ (* n line-h) (* 2 pad))
@@ -851,10 +1323,10 @@
             :section section
             :fold-key fold-key})
          (range)
-         (take (count headers) fold-sections))
+         (take (count headers) (or header-sections fold-sections)))
         gold (first gold-marks)
         silver (first silver-marks)]
-    {:text (or text "")
+    {:text render-text
      :wrap-col wrap-col
      :headers headers
      :header-count (count headers)
@@ -875,6 +1347,10 @@
      :silver-mark-text (:text silver)
      :silver-mark-count (if silver (:count silver) 0)
      :line-count n
+     :invocation-line-heading base-line-count
+     :invocation-line-model (inc base-line-count)
+     :invocation-line-effort (+ 2 base-line-count)
+     :invocation-line-precontext (+ 3 base-line-count)
      :max-len max-len
      :block-w w
      :block-h h
@@ -935,6 +1411,17 @@
             (run-view unit-id (:foldable wears)))
           view (ge/block-view st unit-id (truth-text unit-id) :optimistic)
           view (if display (assoc view :text display) view)
+          paste
+          (when-not (:machine? block)
+            (ge/paste-projection
+             (:text view)
+             (true? (get-in @!folds [unit-id :paste?]))))
+          view (if paste (assoc view :text (:paste/body paste)) view)
+          headers (if paste [(:paste/header paste)] headers)
+          header-sections
+          (if paste
+            [{:section :paste :fold-key :paste?}]
+            fold-sections)
           n @!notice
           notice (when (= unit-id (:unit-id n)) (:text n))
           hover? (= unit-id @!hover)
@@ -979,10 +1466,12 @@
           anatomy-view
           (block-anatomy-view-model
            view (:machine? block) hover? notice metrics (:wrap-col block)
-           headers msel boundary? gsel? (:placement-derived? block) wears
+           headers header-sections msel boundary? gsel?
+           (:placement-derived? block) wears
            gold-marks silver-marks)
           sig
-          [view (:machine? block) hover? notice (:wrap-col block) headers msel
+          [view (:machine? block) hover? notice (:wrap-col block)
+           headers header-sections msel
            boundary? gsel? (:placement-derived? block) wears gold-marks
            silver-marks (:font-size metrics) (:char-advance metrics)
            (:line-h metrics)]]
@@ -1943,7 +2432,18 @@
 (defn- handle-content-key!
   "Route one content/caret key by the edit machine's mode."
   [event]
-  (let [st @!ground-edit]
+  (let [st @!ground-edit
+        event
+        (if (= :paste (:type event))
+          (let [subject (:focus st)
+                wears (if (string? subject)
+                        (wears-for subject)
+                        (current-material-wears))]
+            (assoc event
+                   :paste-policy
+                   (get-in wears [:foldable :foldable/paste-clamp])
+                   :paste/source-mark :clipboard))
+          event)]
     (case (:mode st)
       :editing
       (let [fid (:focus st)
@@ -3520,7 +4020,9 @@
                        (re-derive-material!)
                        ;; The material atom owns this single deferred edge. No
                        ;; derived state is copied into another atom.
-                       (reset! !pending-material-rederive? true))))))
+                       (reset! !pending-material-rederive? true)))
+                   (when @!workshop
+                     (render-workshop!)))))
     (rebuild-material-sites!)
     (refresh-material-error!))
   (recompute-binding-conflicts!)
@@ -3562,6 +4064,10 @@
                            (select-keys @!halo
                                         [:subject :subject-id :masters
                                          :questions :status])))
+             :workshop  (fn []
+                          (clj->js
+                           (select-keys @!workshop
+                                        [:selected-part :revision-id :status])))
              :confirmed (fn [] (clj->js (get-in @!ground-edit [:queue :confirmed])))
              ;; :run keeps the G4b receipt shape as the AGGREGATE phase;
              ;; :runs/:threads expose the per-thread truth
@@ -3591,6 +4097,34 @@
    " .conflicts() / .drillAll() / .instance(id, site, rows) /"
    " P6: .preview(master, edn) / .endPreview() / .instances() /"
    " .wornBy(subject) / .weather()")
+  ;; W6/G8 — human and agent hands are the same controller. Every durable act
+  ;; delegates to `__portal`'s existing preview/deviate/activate/rollback lanes.
+  (set! (.-__workshop js/window)
+        #js {:open workshop-open!
+             :compose
+             (fn [edit]
+               (clj->js (workshop-compose! edit)
+                        :keyword-fn #(str (symbol %))))
+             :invocationCandidate
+             (fn []
+               (clj->js (workshop-invocation-candidate!)
+                        :keyword-fn #(str (symbol %))))
+             :preview
+             (fn []
+               (clj->js (workshop-preview!)
+                        :keyword-fn #(str (symbol %))))
+             :retain workshop-retain!
+             :activate workshop-activate!
+             :reverse workshop-reverse!
+             :source workshop-current-source
+             :state
+             (fn []
+               (clj->js @!workshop
+                        :keyword-fn #(str (symbol %))))})
+  (js/console.log
+   "[WORKSHOP] window.__workshop installed — open/compose/preview/retain/activate/reverse")
+  (when (= anatomy-material/master-id (room-master-id))
+    (js/setTimeout workshop-open! 0))
   ;; exit flush — best-effort BELT; safety is the acknowledged settle write
   (js/window.addEventListener "beforeunload"
                               (fn [_] (fire-settle! :keepalive? true)))

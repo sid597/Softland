@@ -19,6 +19,10 @@
 ;; never re-read through v2's validator.
 (def strict-bindings-grammar-version 2)
 (def strict-bindings-code-floor-revision-id "code-floor:fm:foldable:v2")
+;; smalltalk-ui-vm P2 · W7/T7 — paste policy is born once as grammar v3.
+;; Clamp fraction, threshold, and header copy are material from this point on.
+(def paste-clamp-grammar-version 3)
+(def paste-clamp-code-floor-revision-id "code-floor:fm:foldable:v3")
 
 (def default-form
   {:facet-master/id master-id
@@ -64,6 +68,18 @@
 
 (def strict-bindings-source (pr-str strict-bindings-form))
 
+(def paste-clamp-form
+  "v3 = v2 plus the one outside-paste policy. Full pasted bytes remain durable;
+   this policy decides only when and how much the collapsed projection shows."
+  (assoc strict-bindings-form
+         :facet-master/grammar paste-clamp-grammar-version
+         :foldable/paste-clamp
+         {:threshold-chars 1200
+          :max-share 0.5
+          :header-copy "pasted"}))
+
+(def paste-clamp-source (pr-str paste-clamp-form))
+
 (defn- exact-map?
   [x ks value-valid?]
   (and (map? x)
@@ -88,6 +104,18 @@
      :line-count-suffix}
    string?))
 
+(defn- valid-paste-clamp?
+  [x]
+  (and (map? x)
+       (= #{:threshold-chars :max-share :header-copy} (set (keys x)))
+       (facet-material/integer-number? (:threshold-chars x))
+       (pos? (:threshold-chars x))
+       (number? (:max-share x))
+       (pos? (:max-share x))
+       (<= (:max-share x) 1)
+       (string? (:header-copy x))
+       (seq (:header-copy x))))
+
 (def ^:private v0-grammar
   {:material-keys
    #{:foldable/defaults
@@ -108,11 +136,11 @@
    ;; already durable on the cluster. v1 arrives as an explicit migration
    ;; (ensure-active-source!), never as a reinterpretation of v0.
    :facet-master/default-form default-form
-   ;; the FLOOR carries the rows, so a malformed or absent revision still
-   ;; folds headers — that is the unbreakable half of the binding fence
-   :facet-master/floor-form strict-bindings-form
+   ;; The FLOOR carries rows + paste policy, so malformed or absent revisions
+   ;; retain both the interaction fence and outside-paste pressure.
+   :facet-master/floor-form paste-clamp-form
    :facet-master/code-floor-revision-id
-   strict-bindings-code-floor-revision-id
+   paste-clamp-code-floor-revision-id
    :facet-master/grammars
    {grammar-version v0-grammar
     bindings-grammar-version
@@ -130,7 +158,18 @@
      :validators
      (assoc (:validators v0-grammar)
             :facet-master/bindings
-            binding-material/strict-bindings-validator)}}})
+            binding-material/strict-bindings-validator)}
+    paste-clamp-grammar-version
+    {:material-keys
+     (into (:material-keys v0-grammar)
+           #{:facet-master/bindings :foldable/paste-clamp})
+     :validators
+     (assoc (:validators v0-grammar)
+            :facet-master/bindings
+            binding-material/strict-bindings-validator
+            :foldable/paste-clamp
+            {:valid? valid-paste-clamp?
+             :error-type :foldable/paste-clamp-invalid})}}})
 
 (defn compile-form
   [form]

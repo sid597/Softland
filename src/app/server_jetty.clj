@@ -21,7 +21,9 @@
     [app.server.rama.object-container.runtime :as ocr]
     [app.server.rama.dogfood.llm :as llm]
     [app.server.rama.cluster :as cluster]
+    [app.shared.facet-material :as facet-material]
     [app.shared.facet-masters :as facet-masters]
+    [app.shared.invocation-material :as invocation-material]
     [app.shared.matter-room :as matter-room]
     [app.server.review-pack :as review-pack]
     [components.adapter :as adapter]
@@ -857,21 +859,49 @@ information."
                      :relation-id (get-in result [:edge :relation-id])})
           result)))))
 
+(defn invocation-wear-for-source
+  "Read the source block's actual invocation wear at the send seam.
+
+   Shared active and source instance state retain their existing owners; this
+   function only composes those reads through the one `wear-for-subject` law.
+   Any read failure fails closed to the invocation code floor."
+  [oc-rt source-unit-id]
+  (try
+    (let [compiled (facet-master/compiled-active
+                    oc-rt invocation-material/spec)
+          shared {:facet-master/id invocation-material/master-id
+                  :facet-master/facet :invocation
+                  :facet-master/grammar (:grammar compiled)
+                  :facet-master/material (:material compiled)
+                  :facet-master/active-revision-id (:revision-id compiled)}
+          instance (material-truth/served-instance
+                    oc-rt invocation-material/spec source-unit-id)]
+      (facet-material/wear-for-subject
+       invocation-material/spec shared instance))
+    (catch Exception e
+      (log/warn e "[INVOCATION] source wear read failed; using code floor"
+                {:source-unit-id source-unit-id})
+      invocation-material/code-floor)))
+
 (defn resident-portal-open
   "The actual Ctrl+Enter briefing authority.
 
    A registered matter-room conversation always wins over client-supplied
    portal coordinates and narrows to exactly its server-derived master. Every
    other conversation keeps P8's addressed-block narrowing unchanged."
-  [request-data source-unit-id conversation-id]
-  (or
-   (matter-room/narrowed-portal-open
-    {:conversation-id conversation-id})
-   (reply-to-block/narrowed-portal-open
-    (assoc (or (:portal-open request-data) {})
-           :entity-id source-unit-id
-           :conversation-id
-           (or conversation-id episode/genesis-conversation-id)))))
+  ([request-data source-unit-id conversation-id]
+   (resident-portal-open
+    request-data source-unit-id conversation-id invocation-material/code-floor))
+  ([request-data source-unit-id conversation-id invocation-wear]
+   (or
+    (matter-room/narrowed-portal-open
+     {:conversation-id conversation-id})
+    (reply-to-block/narrowed-portal-open
+     (assoc (or (:portal-open request-data) {})
+            :entity-id source-unit-id
+            :precontext (:invocation/precontext invocation-wear)
+            :conversation-id
+            (or conversation-id episode/genesis-conversation-id))))))
 
 (defn run-episode-turn
   "POST /api/episode/utterance {:source-unit-id :content-text :position
@@ -979,9 +1009,11 @@ information."
                            ;; narrowed open from durable/address authority.
                            ;; A room id names exactly one master; otherwise the
                            ;; durable target names exactly one addressed block.
+                           invocation-wear
+                           (invocation-wear-for-source oc-rt source-unit-id)
                            portal-open
                            (resident-portal-open request-data source-unit-id
-                                                 conv-id)
+                                                 conv-id invocation-wear)
                            portal-briefing
                            (face-projection/portal-briefing
                             face-ctx portal-open)]
@@ -1041,23 +1073,46 @@ information."
                                      thread-id))
                              argv (episode/summon-argv {:prompt
                                                         (reply-to-block/compose-resident-prompt
-                                                         seed portal-briefing text)
+                                                         seed portal-briefing text
+                                                         (:invocation/precontext
+                                                          invocation-wear))
                                                         :session-id episode-id
-                                                        :fresh? (:fresh? episode)})]
+                                                        :fresh? (:fresh? episode)
+                                                        :model
+                                                        (:invocation/model
+                                                         invocation-wear)
+                                                        :effort
+                                                        (:invocation/effort
+                                                         invocation-wear)})]
                          (episode/note-episode-turn! thread-id conv-id
                                                      episode-id time-ms)
-                         (log/info "[EPISODE][TURN-START]"
-                                   {:turn-id turn-id :cwd cwd
-                                    :thread-id thread-id
-                                    :episode-id episode-id
-                                    :fresh? (:fresh? episode)
-                                    :seed-chars (count (or seed ""))
-                                    :portal-briefing-bytes
-                                    (count (.getBytes
-                                            (or portal-briefing "")
-                                            "UTF-8"))
-                                    :portal-master-ids
-                                    (:master-ids portal-open)})
+                         ;; The dev classpath's SLF4J/logback versions can bind
+                         ;; tools.logging to a silent provider.  G7 requires the
+                         ;; argv receipt from the actual spawn seam, so keep the
+                         ;; receipt on the process's observable stdout.
+                         (println
+                          "[EPISODE][TURN-START]"
+                          (pr-str
+                           {:turn-id turn-id :cwd cwd
+                            :thread-id thread-id
+                            :episode-id episode-id
+                            :fresh? (:fresh? episode)
+                            :invocation/revision-id
+                            (:facet-master/revision-id invocation-wear)
+                            :spawn/argv-options
+                            ["--model"
+                             (:invocation/model invocation-wear)
+                             "--effort"
+                             (:invocation/effort invocation-wear)]
+                            :invocation/precontext
+                            (:invocation/precontext invocation-wear)
+                            :seed-chars (count (or seed ""))
+                            :portal-briefing-bytes
+                            (count (.getBytes
+                                    (or portal-briefing "")
+                                    "UTF-8"))
+                            :portal-master-ids
+                            (:master-ids portal-open)}))
                          (stream-cli-process
                           argv cwd timeout-ms
                           (fn [line]

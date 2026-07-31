@@ -34,6 +34,7 @@
             [app.shared.facet-masters :as facet-masters]
             [app.shared.attention-material :as attention-material]
             [app.shared.foldable-material :as foldable-material]
+            [app.shared.invocation-material :as invocation-material]
             [app.shared.positioned-material :as positioned-material]
             [app.shared.provenance-material :as provenance-material]
             [app.shared.threaded-material :as threaded-material]
@@ -438,6 +439,18 @@
             [[threaded-material/spec
               threaded-material/thread-edge-source
               "threaded"]])
+           ;; smalltalk-ui-vm P2 · W7 — invocation joins the generic registry
+           ;; sweep above (one existing bootstrap artery). Foldable v3 is the
+           ;; explicit immutable grammar migration that births paste policy.
+           paste-clamp-migrations
+           {foldable-material/master-id
+            (facet-master/ensure-active-source!
+             oc-rt
+             foldable-material/spec
+             foldable-material/paste-clamp-source
+             {:request-id "facet-master-foldable-v3"
+              :activation-request-id "facet-master-foldable-activate-v3"
+              :time-ms (core/now-ms)})}
            results
            (into
             (into
@@ -449,7 +462,8 @@
                    [master-id (:state migration)]))
             (merge bindings-migrations
                    strict-bindings-migrations
-                   threaded-migrations))]
+                   threaded-migrations
+                   paste-clamp-migrations))]
        (println
         "[CLUSTER-INGEST] facet materials:"
         (into
@@ -470,6 +484,9 @@
         :bindings-migrations bindings-migrations
         :strict-bindings-migrations strict-bindings-migrations
         :threaded-migrations threaded-migrations
+        :invocation-bootstrap
+        (get masters invocation-material/master-id)
+        :paste-clamp-migrations paste-clamp-migrations
         :states results}))))
 
 (defn first-light-ingest!

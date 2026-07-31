@@ -72,7 +72,9 @@
     (is (= (assoc (:material
                    (foldable/compile-source foldable/default-source))
                   :facet-master/bindings
-                  (:facet-master/bindings foldable/bindings-form))
+                  (:facet-master/bindings foldable/bindings-form)
+                  :foldable/paste-clamp
+                  (:foldable/paste-clamp foldable/paste-clamp-form))
            (dissoc foldable/code-floor
                    :facet-master/id
                    :facet-master/facet

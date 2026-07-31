@@ -858,17 +858,28 @@
       ;; that additionally refuses a row whose SITE cannot feed its verb. v1
       ;; keeps its own declaration and is never re-read through v2's validator.
       ;; P8 moves ONLY attention to v3 with exactly one additional eval row.
+      ;; smalltalk-ui-vm P2 moves ONLY foldable to v3 with one paste-policy
+      ;; value; its binding rows remain byte-equivalent to v2.
       (testing (str mid " — the FLOOR has the latest additive grammar")
         (let [p8-attention? (= attention/master-id mid)
-              expected-floor (if p8-attention?
+              p2-foldable? (= foldable/master-id mid)
+              expected-floor (cond
+                               p8-attention?
                                attention/reply-bindings-form
-                               v2-form)
-              expected-suffix (if p8-attention? ":v3" ":v2")]
+
+                               p2-foldable?
+                               foldable/paste-clamp-form
+
+                               :else v2-form)
+              expected-suffix (if (or p8-attention? p2-foldable?)
+                                ":v3"
+                                ":v2")]
         (is (= expected-floor (:facet-master/floor-form spec)))
         (is (seq (:facet-master/bindings (facet-material/code-floor spec))))
         (is (str/ends-with? (:facet-master/code-floor-revision-id spec)
                             expected-suffix))
-        (if p8-attention?
+        (cond
+          p8-attention?
           (is (= [attention/reply-binding-row]
                  (vec
                   (remove
@@ -879,6 +890,19 @@
                            [:facet-master/bindings
                             :block/user-hit-area]))))
               "v3 adds exactly the one P8 row")
+
+          p2-foldable?
+          (do
+            (is (= (:facet-master/bindings v2-form)
+                   (:facet-master/bindings expected-floor))
+                "foldable v3 leaves the strict binding rows byte-equivalent")
+            (is (= #{:foldable/paste-clamp}
+                   (set/difference
+                    (set (keys expected-floor))
+                    (set (keys v2-form))))
+                "foldable v3 adds exactly the material paste policy"))
+
+          :else
           (is (= (:facet-master/bindings v1-form)
                  (:facet-master/bindings v2-form))
               "v2 changes the grammar version and NOTHING about the rows"))
