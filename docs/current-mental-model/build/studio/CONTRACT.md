@@ -3,6 +3,8 @@
 Cut 2026-07-31 in the origin direction session at Sid's word ("write the
 contract here and now"). Authority: `BRIEF.md` — its eleven laws are binding
 and are NOT restated as negotiable here; this contract implements them.
+Re-cut once after the fresh default-fail round recorded in `VALIDATION.md`;
+that round was not re-run and does not authorize P0 in the same context.
 The brief's spike-before-contract sequencing is honored structurally: P0 IS
 the spike, and its receipts bind this contract's named slots S1–S6 before
 P1 opens. Locators in this contract are deliberately FILE-level substance;
@@ -77,11 +79,18 @@ proves.
   candidate in preview scope to at least THREE real block instances of
   distinct shape (empty · wrapped multi-line · marks/machine-bearing),
   exercises real flows (focus, type, the bound gestures), asserts render +
-  interaction invariants, and produces a breakage report. Only a PASSING
-  report flips the default, and the flip event carries the report's id
+  interaction invariants, and produces a breakage report. The report is a
+  durable, queryable fact bound to the exact candidate revision, tested
+  instance ids/shapes, checks, result, actor, and honest time; S1 pins its
+  closed shape and existing write/read lane. The canonical activation owner —
+  never a UI-only wrapper — reads that fact and refuses absent, non-passing,
+  mismatched, or conflicting reports before pointer edit. Only then may the
+  flip event carry the report id as an HONEST declared ground; P0 must prove
+  the existing closed ground vocabulary can name it without pretending.
+  Direct calls to the existing lower activation hand are the bypass adversary
   (TRAP-2). Preview lifecycle laws inherited from the substrate hold
   (endPreview-before-activate; served-recovery-refresh before rollback).
-  Fail-closed: no report, no flip.
+  Fail-closed: no queryable matching PASS, no flip.
 - **g — Agent rider (ungated).** The same §3c/§3d ops driven by words
   through the existing agent lane on the same canvas, demonstrated once
   with a receipt. Not a gate; a demonstration (law 10).
@@ -93,14 +102,28 @@ proves.
 
 ## §4 Named open slots — bound by P0 receipts before P1 opens
 
-- **S1 — draft-structure route.** (a) per-instance STRUCTURE tier (the
+- **S1 — draft + promotion truth route.** Cost the COMPLETE transition for
+  both candidates: birth identity → edit target → candidate container →
+  preview scope → durable validation report → canonical guarded activation →
+  target default pointer → exact reverse. Storage candidates remain (a)
+  per-instance STRUCTURE tier (the
   substrate today carries instance-tier VALUES; structure lives at master
   candidate level — verify) vs (b) draft-master-per-draft: every draft
   silently minted as its own master at first stroke, with a draft/real
   distinction in the master registry; trails durable by construction.
-  P0 costs both against the code, recommends one. The brief's laws
+  For (a), name how an instance revision becomes a candidate of the shared
+  target without cross-container sleight of hand. For (b), name the runtime
+  master registry/read path and exactly which default becomes permanent.
+  Also pin the report's closed schema, first physical durable request, product
+  read/query, candidate+instance-set binding, same-id replay, conflicting-id
+  refusal, and encoding into the closed activation-ground vocabulary. The
+  canonical guard must defeat a direct `facet-master/activate!`-class bypass;
+  a Studio UI check is not evidence. P0 costs both against the code, recommends
+  one. The brief's laws
   constrain: drafts real + functional + durable; trails persist; candidates
-  coexist with one default. STOP if both routes are cutover-class.
+  coexist with one default. STOP if both draft routes are cutover-class OR if
+  the report/guard needs a new depot, PState, import-key family, protected
+  kernel change, or other cutover-class ownership.
 - **S2 — drawing primitives.** Inventory the registered primitive
   vocabulary; commission the missing pieces for rect + text-run drafts
   (amber additions to the primitives registry, the P1-block-cutover
@@ -128,7 +151,9 @@ proves.
 - **TRAP-2 broadcast-on-accept.** Naive: activate flips the default and
   every live instance re-renders instantly. Concrete failure: brief law 4
   exists because one bad accept kills trust in the whole studio. Ruling:
-  §3f pass mandatory; flip carries report id; fail-closed.
+  §3f matching durable PASS mandatory at the canonical activation owner; flip
+  carries its honestly-declared report id; a direct lower-hand call without it
+  is refused; fail-closed.
 - **TRAP-3 phantom drafts.** Naive: draft = client-side overlay (render
   state, not material). Concrete failure: dies on restart, can't carry a
   binding → violates law 2 ("not dummies — real and functional"). Ruling:
@@ -149,11 +174,13 @@ proves.
   Ruling: all structural edits ride the existing controller's candidate
   lanes; G-T5 asserts op-receipt parity between gestures and grammar ops.
 - **TRAP-7 draft identity and transitions.** Scope + transition, named:
-  a NEW draft mints a NEW draft identity at first stroke (scope per S1
-  route: registry entry (b) or instance-structure key (a)). Subsequent
-  edits mint new CANDIDATE revisions on the SAME draft identity (rebase on
-  current candidate, the controller's existing law). Accept mints NOTHING —
-  it flips the default pointer after §3f. Naming waits for P2.
+  a NEW draft mints a NEW draft identity at first stroke (scope per the
+  S1-bound route). Subsequent edits mint new CANDIDATE revisions on the SAME
+  draft identity (rebase on current candidate, the controller's existing law).
+  S1 names any promotion from that identity/container to the target master's
+  candidate; no cross-container revision is relabeled. Accept mints no
+  component material — after the matching §3f report is already queryable, it
+  flips the S1-named default pointer. Naming waits for P2.
 - **TRAP-8 unattested perf numbers.** Concrete failure: scene-substrate's
   91ms "FAIL" was SwiftShader; P2's 35.4ms echo is swiftshader-attested to
   this day. Ruling: every latency receipt's FIRST field is the
@@ -168,12 +195,20 @@ Allowed, disclosed in the P1 artifact: new registered primitives (S2) ·
 new scene actions via the existing `register-action!` seam · new client
 studio namespaces (placement per the source-structure rules: shared `.cljc`
 only if both sides consume) · the S1-route's minimal server surface IF the
-spike proves it rides existing master/instance machinery — any durable-tier
-or cutover-class need is a STOP, never an improvisation. Zero-diff
+spike proves draft birth, promotion, durable report, canonical guard, and
+reverse all ride existing ObjectContainer/revision machinery. A canonical
+activation/report guard is allowed only if S1 proves it needs no new depot,
+PState, import-key family, or protected-kernel change; otherwise STOP. Any
+other durable-tier or cutover-class need is a STOP, never an improvisation.
+Zero-diff
 protected (P0 pins hashes): `env.clj` (never read) · `relation_kernel.clj`
 · `episode.clj` · `cascade.clj` · `verb_registry.cljc` ·
-`matter_room.cljc`; the anatomy-room surfaces byte-identical except a
-disclosed S6 repair. Changed-file list is `git diff --name-only` + status
+`matter_room.cljc`. The anatomy-room's visible projection and controller stay
+behavior-identical except a disclosed S6 repair: P0 pins exact x-ray symbol
+spans plus the existing projection/golden receipts. Shared host files such as
+`ground.cljs` are NOT falsely whole-file-protected because they also own the
+ordinary canvas; any diff inside a pinned x-ray span is S6-only. Changed-file
+list is `git diff --name-only` + status
 at artifact-writing time, every path classified allowlist / new-disclosed /
 DRIFT.
 
@@ -182,8 +217,11 @@ DRIFT.
 - **T1** A drawn draft is real: durable, restart-surviving, structure +
   binding-bearing, enumerable via the corpus surface P0 names.
 - **T2** Draft-ness is visible exactly while provisional; gone at accept.
-- **T3** Accept without a passing §3f report is refused; before the flip,
-  no instance outside preview scope ever renders the candidate.
+- **T3** Accept without a queryable, matching §3f PASS is refused by the
+  canonical owner; the adversary calls the lowest existing activation hand
+  directly with no report, a FAIL report, a different candidate, a different
+  instance set, and conflicting reuse of one report id. Before the guarded
+  flip, no instance outside preview scope ever renders the candidate.
 - **T4** Reverse restores the prior default byte-exactly (served revision
   compare) via the existing recovery lanes.
 - **T5** Gesture→grammar parity: every structural edit from the drawing
@@ -213,7 +251,9 @@ DRIFT.
 Sum-check: G1–G8 all assigned (P0 owns no gates — it produces the S1–S6
 receipts). Order: P1 greens G1–G6-inputs + G8 → independent gate session
 (SLIM tier by default — surface package on existing lanes; ESCALATES to
-FULL if S1 lands durable-touch, decided and recorded at P0 close) → G7
+FULL if S1 requires source changes at any durable draft/promotion/report owner
+or at canonical activation. SLIM survives only if P0 proves the whole S1 chain
+already exists and P1 merely calls it, decided and recorded at P0 close) → G7
 last, so the surface Sid cold-opens is the gated one → Sid's commit ruling
 → HEAD-dynamic suites re-run at committed HEAD (close rule).
 
@@ -222,9 +262,11 @@ last, so the surface Sid cold-opens is the gated one → Sid's commit ruling
 - **P0 — the spike** (fresh context; no product code; probes allowed).
   Deliverable `P0.md`: S1–S6 answered with machine-verified citations
   (`grep -n` receipts), the §6 protected-file hashes pinned, the §10
-  manifest locators pinned, gate-tier recommendation. Stop conditions:
+  manifest locators pinned, x-ray symbol-span/golden pins, gate-tier
+  recommendation. Stop conditions:
   S1 both-routes-cutover-class · S2 vocabulary cannot express rect/text
-  without renderer-core change · any law conflict — escalate per the
+  without renderer-core change · no existing authoritative durable
+  report+guard route · any law conflict — escalate per the
   work-package stop clause (options + recommendation into decisions.md
   Open Questions; Sid or Fable rules).
 - **P1 — the build** (ONE fresh context, whole package; /rama skill loaded
@@ -248,13 +290,18 @@ the verb registry read surface (`verb_registry.cljc`, zero-diff) · the
 scene store + `register-action!` seam · the camera reservation predicate
 (space-as-entity package) · the corpus/census surfaces in `ground.cljs` ·
 the instance/revision persistence tier (`object_container.clj`, zero-diff
-expected — S1 verifies). On any conflict between this list and disk, disk
-wins and the P0 artifact records the correction.
+expected — S1 verifies) · the synthesized instance/shared activation adapter
+(`object_container/facet_master.clj`) · the closed activation event and ground
+grammar (`activation_event.cljc`) · the existing product read/query that can
+prove a validation report before pointer mutation (S1 must name it; absence is
+a STOP, not an invented source family). On any conflict between this list and
+disk, disk wins and the P0 artifact records the correction.
 
 ## §11 Handoff
 
-Next session: ONE fresh default-fail validation round over this contract →
-minor-fail fixes in place → P0 → P1 per §9. Thread file:
+The first fresh round is banked `FAIL` in `VALIDATION.md`; this is its recut and
+was not re-run. Next session: ONE fresh default-fail validation round over this
+re-cut contract → minor-fail fixes in place → P0 → P1 per §9. Thread file:
 `build/studio/NOW.md` (STANDING frozen at open; NOW entries ≤15 lines).
 Board line: the studio block on `docs/sessions/next-prompt.md`. Nothing
 starts without Sid: G7, commit rulings, any spend. The brief's eleven laws

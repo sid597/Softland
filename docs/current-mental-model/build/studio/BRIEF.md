@@ -143,13 +143,18 @@ outside component end-to-end as the demo gate).
 
 ## Next session (build register) — starter
 
-**The contract is CUT** (`CONTRACT.md`, same directory — 2026-07-31,
-in-session at Sid's word; the spike rides inside it as P0, whose receipts
-bind the contract's named slots S1–S6 before P1 opens). Boot: CONTRACT.md
+**The contract is CUT and RECUT** (`CONTRACT.md`, same directory — cut
+2026-07-31 at Sid's word; validation round 1, same day, returned a
+substantive FAIL and the contract was recut in place from its three
+findings — verdict + traces in `VALIDATION.md`, recut SHA `5dee17bd…`,
+none of the eleven laws reopened; the spike rides inside it as P0, whose
+receipts bind the named slots S1–S6 before P1 opens). Boot: CONTRACT.md
 + this brief (the laws) + `build/smalltalk-ui-vm/{P2,GATE_P2}.md` for
-substrate truth — code over docs on any conflict. Act: run the ONE fresh
-default-fail validation round over CONTRACT.md (few-and-large rule; no
-separate PLAN.md); minor-fail fixes land in place; then P0 per §9. The
-phase-1 soul (settled, in §3): the pencil is real + it does something +
-one full trust loop on one real component. The lived gate G7 is Sid's,
-cold, ONE-SHOT, and runs last.
+substrate truth — code over docs on any conflict. Act: run a FRESH
+default-fail validation round over the recut CONTRACT.md — whole
+contract, cold (few-and-large rule; no separate PLAN.md; `VALIDATION.md`
+is round-1 history and custody, never a narrowing input — do not limit
+the round to auditing the repairs); only a PASS or a repaired minor-fail
+from this new round opens P0 per §9. The phase-1 soul (settled, in §3):
+the pencil is real + it does something + one full trust loop on one real
+component. The lived gate G7 is Sid's, cold, ONE-SHOT, and runs last.

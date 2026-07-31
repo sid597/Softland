@@ -385,9 +385,20 @@ transitions · unattested perf); claims T1–T8; gates G1–G8 sum-checked
 with owners — G7 = the first-ever LIVED gate (decisions.md law), Sid,
 cold, ONE-SHOT, runs LAST after the slim gate so the surface he
 cold-opens is the gated one; his verbatim reaction lands in the gate
-record (the arc's instrument). Thread: `build/studio/NOW.md`. Next act:
-fresh session — ONE default-fail validation round over CONTRACT.md →
-P0 → P1. Starter: brief §Next session.
+record (the arc's instrument). Thread: `build/studio/NOW.md`.
+**VALIDATION ROUND 1 (2026-07-31): substantive FAIL — P0 did not open;
+contract RECUT in place per the fail→recut branch** (three findings:
+draft-identity/promotion under-bound — neither storage route had an
+executable promotion to the master whose default flips · no-report-no-
+flip had no authoritative truth path — a Studio-side check is bypassable
+through the lower activation hand, so the durable PASS report is now
+verified by the canonical activation owner · the x-ray protection unit
+is not machine-definable by whole-file hash — shared host files force
+P0-pinned symbol spans + projection/golden receipts; verdict + traces:
+`build/studio/VALIDATION.md`; recut CONTRACT.md SHA `5dee17bd…`, laws
+untouched). Next act: fresh session — ANOTHER default-fail validation
+round over the recut CONTRACT.md, whole-contract, cold; only a PASS or
+a repaired minor-fail opens P0 → P1. Starter: brief §Next session.
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.

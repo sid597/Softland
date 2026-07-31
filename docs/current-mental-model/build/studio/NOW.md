@@ -29,3 +29,13 @@
   (G7 = first-ever lived gate, Sid-owned, ONE-SHOT, runs LAST). Locators
   deliberately file-level; P0 machine-pins them. Next: fresh default-fail
   validation round over CONTRACT.md, then P0.
+- 2026-07-31 · Codex · fresh default-fail contract round: **FAIL**; artifact
+  `VALIDATION.md`, subject SHA `c7084a33…`; no P0 and no product code.
+  **F1 — FAIL: draft identity and promotion ownership are under-bound.**
+  **F2 — FAIL: “no report, no flip” has no authoritative truth path.**
+  **F3 — FAIL: the x-ray protection unit is not machine-defined.**
+  CONTRACT recut from F1–F3: S1 now traces birth→promotion→durable report→
+  canonical guarded flip→reverse; T3 attacks the lower activation hand; FULL
+  escalation includes canonical durable-owner touch; x-ray pins are scoped
+  symbol/golden receipts beside whole-file protected hashes. Round not re-run.
+  Next: fresh default-fail validation of the recut; only PASS opens P0.
