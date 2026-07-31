@@ -81,7 +81,25 @@ includes P8; the P8 :8091 jetty is dead — see HANDOFF).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-07-30** (the workshop realization:
+**Vision:** LOG routed through **2026-07-31** (the studio settlement:
+Sid's first unscaffolded Workshop open read exactly as the halo — "what
+is this what do i do about it????" — the C2 instrument's first reading;
+the disconnect named: the projection is true and semantically useless —
+it answers "how are you made?", his question is "what can I do with
+you?"; generator diagnosed — every gate proves truth-to-substrate, none
+measured use-to-human, so faces ship as inspectors; the two user goals
+verbatim (design iteration directly in Softland — the paper page as
+canonical script; AI transforming outside components into living
+material); ELEVEN rulings settled → `build/studio/BRIEF.md` (working
+name, Sid redlines): world-not-room · drafts are real · draw freely,
+mint deliberately · test-gated promotion, never broadcast · behavior
+in-arc via existing verbs (new-verb minting fenced) · x-ray never
+required · margin thinking required · ink punted, door open forever
+(human-only modality) · Sid-words on the surface · Sid's hand is the
+gate, agent ungated from day one · two gates every phase (receipt +
+lived — the lived-gate law → decisions.md). Next act = fresh build
+session: substrate spike → phase-1 contract, starter in the brief).
+Prior: **2026-07-30** (the workshop realization:
 "the halo and matter room are smaller organs inside the thing i am
 missing … the thing i am missing is a general workshop" — the type is
 not an object: policy surface material, STRUCTURE only code
@@ -340,6 +358,29 @@ proof-decay + was this line accurate).
   full ruling sweep, then fresh Rama P0; no implementation from the failed plan.
 - **#2 — held open for Sid's first lived friction after the return.**
 
+**studio — ARC OPENED + BRIEF SETTLED 2026-07-31 (working name, Sid
+redlines).** The surface above smalltalk-ui-vm's substrate: the world
+with the pencil out — design development + iteration directly in-land,
+by Sid's hand and by agents through the same lanes. Born from the C2
+instrument firing (the Workshop read as the halo did — true and
+semantically useless; generator: gates prove truth-to-substrate, none
+measured use-to-human). Brief + eleven rulings + the canonical paper
+script: `build/studio/BRIEF.md`; Sid verbatim in LOG 2026-07-31. Two
+goals: design iteration in Softland (the paper page) · AI transforms
+outside components into living material (depends on goal 1; agent-eyes
+parallelizable). Laws headline: world-not-room · drafts real ·
+draw-freely-mint-deliberately · test-gated promotion · behavior in-arc
+(existing verbs only; new-verb minting = next arc) · x-ray never
+required · margin thinking required · ink punted door-open (human-only)
+· Sid-words on the surface · hand-is-gate with agent ungated rider ·
+receipt + lived gates every phase (lived-gate law → decisions.md; arc
+gate = one real design task done in Softland instead of paper, and
+preferred). Next act: fresh build session — substrate spike (brief
+§Open: variant-field enabler · draft-structure route · drawing-primitive
+inventory · verb-wire cost · stroke latency · annotation substrate ·
+red-banner triage) → phase-1 contract (work-package skill, brief as
+authority). Starter: brief §Next session.
+
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.
 Blocker checked: the block type's policy surface is material; its
@@ -394,10 +435,15 @@ branch, then do the docs commit"): code commit `685f2fc` on
 `codex/smalltalk-ui-vm-p2` merged into docs-local at `58d7517`
 (src/test byte-identity verified post-merge), docs ride separately,
 nothing pushed; HEAD-dynamic suites re-run at that HEAD —
-git-spine-gate + code-atoms 10t/208a 0/0. Both phases COMPLETE. Next:
-Sid's first unscaffolded Workshop open + first real structural change
-routed in-land stay the C1/C2 instruments — deliberately never gates;
-retro joins the stratum batch.
+git-spine-gate + code-atoms 10t/208a 0/0. Both phases COMPLETE. **The C2
+instrument FIRED 2026-07-31 — Sid's first unscaffolded Workshop open
+read exactly as the halo ("what is this what do i do about it????");
+reading: the substrate is right, the surface is missing — the
+projection answers "how are you made?" where his question is "what can
+I do with you?". The reaction birthed the studio arc (block above;
+brief + rulings + LOG same-day).** First real structural change routed
+in-land stays the C1 instrument — deliberately never a gate; retro
+joins the stratum batch.
 
 **matter-room — PHASES COMPLETE 2026-07-28 (P1–P4 all landed + gated,
 slim tier).** The engine's ontology serves as inhabitable material: P1

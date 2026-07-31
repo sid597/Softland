@@ -988,3 +988,68 @@ why does the blank screen has a cursor in it? this is the walkthrough and log an
 > lets write down what all we discussed, the understanding and then you can after that start the work related to building it all goooo write out
 
 *(Routed same-session: the blocker + the six-arrow Workshop loop + the three-strata frame + sequencing + gauges → `build/smalltalk-ui-vm/DIRECTION.md`, SETTLED as direction (name is Sid's, with his naming law) · the editable-material horizon clause "recipes (named at recurrence)" DISCHARGED by this friction — clause honored, parent file untouched · bet-shaped strands ride C1 unchanged; the escape-gauge stratum-split is proposed in DIRECTION as a C1-instrument refinement for the next evidence review, BETS untouched today · the two probes tracked into `build/smalltalk-ui-vm/probes/` — the boundary map's hand-made prototype · board: package block added, Vision line advanced · CONTRACT authoring opened same-session.)*
+
+---
+
+## 2026-07-31 — the studio: the Workshop reads as the halo did; the two user goals; the rulings (verbatim)
+
+[first unscaffolded Workshop open — the armed C2 instrument fires; the same reaction, twice now:]
+
+> and you know my reaction is the same .... what is this what do i do about it???? how is this halo any useful what am i supposed to do with it? how do i interact what is this all information ?? how do i edit the typee in place?
+
+[the disconnect named:]
+
+> my major worry here you see it that there is a disconnect. The view that I currently see might be the true one, but its useless to me the human, semantically this makes 0 sense. I am a user when I open something foreign I should know what I am seeing, what can i do, you could very well show me the rama module implementation that is honest truth but will not make any sense because I am not looking at that level of abstraction.
+
+[what the workshop is FOR — the loops:]
+
+> The goal of the workshop is to help me optimise following loops:
+> - create new UI components -> add functionality to them -> test out the functionality in closed loop in the context -> modify the ui/behaviour/functionality of the component I drew. Example: designing a button using figma
+> - compose new components from existing ones -> see the existing ui components available -> drag the existing component to the new one -> play around with placement/ui desing -> confirm -> test if this feels right
+> - make it quite intuitive to get started with both of the flows above without getting context overwhelmed or bombarded with information that does not make sense. Not using naming that is foreign to the user and expect them to know it e.g fm:space, provenance etc.
+
+[User Goal 1 — the paper page, three iterations photographed into the session:]
+
+> User Goal 1: Do the design development and iteration directly on softland … Since this was on physical world, i had a pen, a paper, i could put my pen on paper the ink flowed and gave birth to a line which then combined formed the closed rectangle … and then i wrote down text in it thus conveying to me in my head that this is a block that i can type in. Then i commented about the objected directly on the right side, and then re drew the same component in different style .... now to do the same in softland (not the exact steps don't get into the trap of 1-1 mapping see the forest from trees what the user wants to acheive not doing) the affordances might be different but should be there (they are not). Also note that this a tiny tiny example of the flow in reality its going to me more rich and chaos filled. We have the affordances on the architecture side but not on the ui yet.
+
+[User Goal 2 — clone the feel of outside components, AI drawing in-land:]
+
+> User Goal 2: Build on top of existing UI by transforming them to softland equivalent: I point to a ui element from existing component libraries say https://developer.apple.com/design/human-interface-guidelines/labels and what I expect my AI to do is start from here and then directly start drawing in softland the equivalent component, what we are looking to copy is the feel, design of these components and how to render them in softland via our webgpu and other infra … i think there is a dependency of acheiving user goal 2 on goal 1 because goal 1 will give us the basic tools to draw and reason about and also solidify primitive that both human and ai can use … anything that is build in softland is interactive and modifiable.
+
+[the rulings, over the session's laid table — world-not-room got "I agreeeee"; drafts:]
+
+> Yes I think mint as in it becomes a permanent component happens after accepting BUT it does not mean the in progress components are dummy no they are real and functional as well
+
+[candidates, trails, and the promote:]
+
+> Yes diff candidates for same master there is just a default one i think even if they dont accepted these are versioned drafts to see how we got here and maybe some intermediate version is useful to future usecase …. No dont send to each live instance … we build test than automated tests (basically ai getting different instances and passing real flow through it to see if thw new breaja anything)
+
+[ink — all the modalities, door open, development punted:]
+
+> Figma won but there is also tldraw and we want all the modalities i have been thinking of buying a writing interface for quite some time and then there is ipad (but tbh we can punt the development to later but not close the door to it forever types)
+
+[margin thinking required:]
+
+> Definitely need this even if we not doing ink we do need marginal thinking like the resident marks them automatically but we do need this
+
+[ink is human-only:]
+
+> Yes yes ink is only for humans not agent that breaks the same affordance continuity
+
+[the judge-contact axis, lived:]
+
+> Hmm and i think this will happen and in the beat possible way in softland itself thats why i keep pushing build out because the week i used softalnd until i hit the block was genuenly pleasurable to interact and soo much pumped for future
+
+[the x-ray crutch outlawed:]
+
+> Yes never ever do a plug a quick fit a patch never never never
+
+[behavior — in-arc, non-negotiable:]
+
+> No no no not for later the behavior is a very very key part never later without it its not useful in any way we have the whole infra already
+
+[the settlement word — context is gold, land it:]
+
+> any cotract or writing we do based on how much context is left in this chat because thia is gold or we will do a big handover summary and then do in a new contract
+
+*(Routed same-session: the generator diagnosis (every gate proves truth-to-substrate, none measured use-to-human — the Halo→Workshop repeat; the substrate is right, the surface is missing) + the two goals + the eleven rulings → `build/studio/BRIEF.md` (working name, Sid redlines; laws, canonical paper script, spike questions, ladder sketch, next-session starter) · the lived-gate law → decisions.md "How we work" · board: smalltalk-ui-vm block advanced (the C2 instrument FIRED — reading recorded; C1 stays armed), studio package block opened, Vision line → 2026-07-31 · BETS deliberately untouched — the instrument reading rides board/LOG/brief until the next evidence review · next act = fresh build session: substrate spike → phase-1 contract.)*

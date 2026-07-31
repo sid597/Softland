@@ -44,6 +44,18 @@ Sid says is allowed to drop.
   rulings. Full re-derivation (suite re-run, cold compile, live receipt
   reproduction) is reserved for new-organ/kernel packages or a build report
   that smells wrong — it is an escalation, not a default.
+- **Human surfaces carry a second gate kind — the lived gate** (Sid,
+  2026-07-31, after the Workshop landed truthful-but-meaningless: the
+  same "what is this, what do i do" as the halo. Receipts prove
+  truth-to-substrate; nothing measured use-to-human, so faces shipped as
+  inspectors of the machinery). Any phase whose deliverable is a face
+  carries BOTH kinds: the receipt gates unchanged, plus a cold task
+  script performed on the real surface — pass requires the task done
+  without reading anything, and the wearer able to narrate what they see.
+  Phase grain = the smallest honestly-judgeable loop; the deferral
+  criterion is judgment-relevance, never cheapness. The first-open
+  reaction is a nonrenewable instrument — size phases so each deserves
+  one.
 - **Role split:** Fable writes contracts, runs gates, adjudicates forks — and
   implements directly whenever that's the fastest path; cheaper models run
   phases under contracts. Phases are FEW and LARGE (Sid, 2026-07-29): one
@@ -149,6 +161,15 @@ which crossroads did we take."
   work-package skill carries the rule; QC layers unchanged). Dark
   capacity activates at the first NEW row (episode-retry or first
   band-act) — that session writes the dark-interval lessons.
+- **the studio (working name) — ARC OPENED 2026-07-31:** the surface
+  above smalltalk-ui-vm's substrate — the world with the pencil out.
+  Design iteration directly in-land: drafts are real functional material
+  born by drawing, minted deliberately at accept, promoted through
+  test-gated validation (never broadcast); behavior wired from existing
+  verbs in-arc; the x-ray (anatomy room) never required by any lived
+  script; agents ride the same hand from day one. Brief + the eleven
+  rulings + spike questions: `build/studio/BRIEF.md`; Sid verbatim in
+  `vision/LOG.md` 2026-07-31.
 
 ## Settled architecture — use it, don't re-derive it
 
