@@ -6,6 +6,7 @@
             [app.shared.anatomy-material :as anatomy]
             [app.shared.attention-material :as attention]
             [app.shared.foldable-material :as foldable]
+            [app.shared.invocation-material :as invocation]
             [app.shared.positioned-material :as positioned]
             [app.shared.provenance-material :as provenance]
             [app.shared.space-material :as space]
@@ -20,9 +21,10 @@
    space/spec
    threaded/spec
    text-body/spec
-   ;; Order-bearing registry: append the Workshop master so the historical
+   ;; Order-bearing registry: append Workshop masters so the historical
    ;; drill fallback remains provenance (T11 / CONTRACT §0).
-   anatomy/spec])
+   anatomy/spec
+   invocation/spec])
 
 (def by-id
   (into {} (map (juxt :facet-master/id identity)) specs))

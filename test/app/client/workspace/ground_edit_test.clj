@@ -4,7 +4,8 @@
    The committed-echo law under test: the rendered (text, caret) pair comes
    from ONE confirmed value; the intent queue is invisible; refusal rebases;
    birth mints nothing before the first content act."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is testing]]
             [app.client.workspace.ground-edit :as ge]))
 
 (def ^:private bi {:id "du:u1" :document-container-id "doc-1"})
@@ -54,6 +55,39 @@
     (let [st (-> (fresh) (ge/set-anchor {:x 0 :y 0}))
           {:keys [post]} (ge/begin-birth st {:type :paste :text "pasted"} "b2")]
       (is (= "pasted" (:text post))))))
+
+(deftest p2-outside-paste-clamp-is-material-and-expandable
+  (let [policy {:threshold-chars 4
+                :max-share 0.5
+                :header-copy "pasted"}
+        small (ge/paste-decision "abcd" policy :clipboard)
+        clamped (ge/paste-decision "abcdefghij" policy :clipboard)
+        source (:insert-text clamped)
+        collapsed (ge/paste-projection source false)
+        expanded (ge/paste-projection source true)]
+    (testing "the threshold and fraction come entirely from the worn policy"
+      (is (= "abcd" (:insert-text small)))
+      (is (false? (:paste/clamped? small)))
+      (is (true? (:paste/clamped? clamped)))
+      (is (= 10 (:paste/total-chars clamped)))
+      (is (= 5 (:paste/shown-chars clamped))))
+    (testing "the durable source carries the source mark and every pasted byte"
+      (is (str/includes? source "pasted · clipboard"))
+      (is (str/ends-with? source "abcdefghij"))
+      (is (= "abcde" (:paste/body collapsed)))
+      (is (= "abcdefghij" (:paste/body expanded)))
+      (is (str/starts-with? (:paste/header collapsed) "▸"))
+      (is (str/starts-with? (:paste/header expanded) "▾")))
+    (testing "the ordinary edit result retains the complete envelope"
+      (let [result (ge/apply-ground-keydown
+                    {:text "before:" :caret 7}
+                    {:type :paste
+                     :text "abcdefghij"
+                     :paste-policy policy
+                     :paste/source-mark :clipboard})]
+        (is (:paste/clamped? result))
+        (is (str/ends-with? (:new-text result) "abcdefghij"))
+        (is (= (count (:new-text result)) (:new-caret result)))))))
 
 (deftest committed-echo-render-law
   (let [st (ge/focus-block (fresh) "du:u1" "hello" 5)

@@ -60,6 +60,7 @@
             [app.server.rama.object-container.facet-master :as facet-master]
             [app.server.rama.object-container.runtime :as ocr]
             [app.shared.activation-event :as activation-event]
+            [app.shared.anatomy-material :as anatomy-material]
             [app.shared.binding-material :as binding-material]
             [app.shared.facet-material :as facet-material]
             [app.shared.facet-masters :as facet-masters]
@@ -743,10 +744,37 @@
                      {:facet-materials/by-id {} :facet-materials/instances {}}
                      #(sub serve-fn
                            {:face :facet-materials
-                            :params {:subjects subjects
+                           :params {:subjects subjects
                                      :conversation-id conversation-id
                                      :drill? drill?}}))
         instances (:facet-materials/instances served)
+        shared-wears
+        (when (and anchor?
+                   (= anatomy-material/master-id master-id))
+          (into {}
+                (map
+                 (fn [spec]
+                   [(:facet-master/facet spec)
+                    (facet-material/resolved-wear
+                     spec
+                     (get-in served
+                             [:facet-materials/by-id
+                              (:facet-master/id spec)]))]))
+                facet-masters/specs))
+        composition-section
+        (when shared-wears
+          (sect
+           :composition
+           {:composition/version 0
+            :composition/master-id anatomy-material/master-id
+            :composition/row-count 0
+            :composition/rows []
+            :composition/specimen
+            {:specimen/interpreter :face-assembly
+             :specimen/live? false}}
+           #(portal/composition-section
+             {:anatomy-wear (:anatomy shared-wears)
+              :wears shared-wears})))
         inspector (sect :material-inspector
                         {:material-inspector/facets []}
                         #(:material-inspector/result
@@ -1038,7 +1066,10 @@
           anchor?
           (assoc :portal/master-id master-id
                  :portal/room (sorted-map room-id master-id)
-                 :portal/cascade cascade-section))]
+                 :portal/cascade cascade-section)
+
+          composition-section
+          (assoc :portal/composition composition-section))]
     ;; the question list is annotated LAST, against the assembled projection, so
     ;; `:question/answered?` is a measurement of this very value and not a claim
     ;; copied forward from the code. No question answers at `:portal/questions`,
