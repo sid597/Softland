@@ -66,6 +66,12 @@
     :char-advance
     :line-h
     :placement-derived?
+    ;; Candidate-only visible invocation rows use the block's derived line
+    ;; positions while their displayed values bind directly to worn material.
+    :invocation-line-heading
+    :invocation-line-model
+    :invocation-line-effort
+    :invocation-line-precontext
     ;; closed per-item fields
     :line
     :col-start
@@ -531,6 +537,175 @@
    :anatomy/defs {}})
 
 (def default-source (pr-str default-form))
+
+(declare compile-form)
+
+(def invocation-visible-parts
+  "The P2 pressure revision, deliberately NOT part of `seed-parts` or
+   `default-form`. It is retained/previewed/activated through the normal master
+   candidate lane. Values bind directly to the source block's invocation wear;
+   line placement remains derived instance geometry."
+  [{:part/id :invocation-heading
+    :part/prim :block-notice
+    :part/when :always
+    :part/order 130
+    :part/props
+    {:notice "Ctrl+Enter · model / effort / precontext"
+     :refusal nil
+     :line-count [:view :invocation-line-heading]
+     :w [:view :block-w]
+     :line-h [:view :line-h]
+     :font-size [:view :font-size]}}
+   {:part/id :invocation-model
+    :part/prim :block-notice
+    :part/when :always
+    :part/order 131
+    :part/props
+    {:notice [:wear :invocation :invocation/model]
+     :refusal nil
+     :line-count [:view :invocation-line-model]
+     :w [:view :block-w]
+     :line-h [:view :line-h]
+     :font-size [:view :font-size]}}
+   {:part/id :invocation-effort
+    :part/prim :block-notice
+    :part/when :always
+    :part/order 132
+    :part/props
+    {:notice [:wear :invocation :invocation/effort]
+     :refusal nil
+     :line-count [:view :invocation-line-effort]
+     :w [:view :block-w]
+     :line-h [:view :line-h]
+     :font-size [:view :font-size]}}
+   {:part/id :invocation-precontext
+    :part/prim :block-notice
+    :part/when :always
+    :part/order 133
+    :part/props
+    {:notice [:wear :invocation :invocation/precontext]
+     :refusal nil
+     :line-count [:view :invocation-line-precontext]
+     :w [:view :block-w]
+     :line-h [:view :line-h]
+     :font-size [:view :font-size]}}])
+
+(defn form-for-wear
+  "Recover the candidate envelope from one resolved anatomy wear. Serving
+   metadata is excluded; only the immutable master form is emitted."
+  [wear]
+  {:facet-master/id master-id
+   :facet-master/grammar (:facet-master/grammar wear)
+   :facet-master/facet :anatomy
+   :anatomy/parts (:anatomy/parts wear)
+   :anatomy/defs (:anatomy/defs wear)})
+
+(defn invocation-candidate-form
+  "The first pressure candidate over any valid current form. Idempotent so a
+   replayed agent composition does not duplicate rows."
+  [form]
+  (let [ids (into #{} (keep :part/id) (:anatomy/parts form))]
+    (update form :anatomy/parts
+            into
+            (remove #(contains? ids (:part/id %))
+                    invocation-visible-parts))))
+
+(def edit-ops
+  #{:add :remove :reorder :retune-props :rebind-slot
+    :attach-def :detach-def})
+
+(defn- edit-refusal
+  [type path actual legal]
+  {:status :refused
+   :form nil
+   :source nil
+   :errors [{:type type :path path :actual actual :legal legal}]})
+
+(defn- part-index
+  [form part-id]
+  (first
+   (keep-indexed
+    (fn [i row] (when (= part-id (:part/id row)) i))
+    (:anatomy/parts form))))
+
+(defn edit-candidate
+  "Compose one row-level Workshop edit and validate the WHOLE candidate before
+   any append. Human widgets and `__portal.workshop.compose` both call this
+   function; there is no parallel agent grammar."
+  [form edit]
+  (let [op (:edit/op edit)
+        part-id (:part/id edit)
+        i (part-index form part-id)]
+    (cond
+      (not (contains? edit-ops op))
+      (edit-refusal :anatomy/edit-op-invalid [:edit/op] op edit-ops)
+
+      (and (contains? #{:remove :reorder :retune-props :rebind-slot} op)
+           (nil? i))
+      (edit-refusal :anatomy/edit-part-missing [:part/id] part-id
+                    (into #{} (keep :part/id) (:anatomy/parts form)))
+
+      :else
+      (let [candidate
+            (case op
+              :add
+              (update form :anatomy/parts conj (:part edit))
+
+              :remove
+              (update form :anatomy/parts
+                      #(into [] (remove (fn [row]
+                                          (= part-id (:part/id row)))) %))
+
+              :reorder
+              (assoc-in form [:anatomy/parts i :part/order]
+                        (:part/order edit))
+
+              :retune-props
+              (update-in form [:anatomy/parts i :part/props]
+                         merge (:part/props edit))
+
+              :rebind-slot
+              (assoc-in form
+                        [:anatomy/parts i :part/props (:prop/key edit)]
+                        (:prop/value edit))
+
+              :attach-def
+              (assoc-in form [:anatomy/defs (:def/name edit)]
+                        (:def/rows edit))
+
+              :detach-def
+              (update form :anatomy/defs dissoc (:def/name edit)))
+            compiled (compile-form candidate)]
+        (if (:valid? compiled)
+          {:status :candidate
+           :form candidate
+           :source (pr-str candidate)
+           :errors []}
+          {:status :refused
+           :form nil
+           :source nil
+           :errors (:errors compiled)})))))
+
+(defn compose-edit
+  "Parse current source, apply one edit, and return a teaching refusal rather
+   than throwing. This is the complete agent-edit boundary."
+  [source edit]
+  (try
+    (let [form (edn/read-string (str source))
+          compiled (compile-form form)]
+      (if (:valid? compiled)
+        (edit-candidate form edit)
+        {:status :refused :form nil :source nil :errors (:errors compiled)}))
+    (catch #?(:clj Throwable :cljs :default) t
+      {:status :refused
+       :form nil
+       :source nil
+       :errors [{:type :anatomy/parse-error
+                 :path []
+                 :actual (str source)
+                 :legal "EDN anatomy form"
+                 :message #?(:clj (.getMessage t)
+                             :cljs (.-message t))}]})))
 
 (defn- valid-parts?
   [parts]

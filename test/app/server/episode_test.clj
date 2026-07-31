@@ -392,7 +392,20 @@
   (testing "a warm episode resumes WITHIN its boundary (append-only, same file)"
     (is (= ["claude" "--resume" "ep-1" "-p" "hi"]
            (subvec (ep/summon-argv {:prompt "hi" :session-id "ep-1" :fresh? false})
-                   0 5)))))
+                   0 5))))
+  (testing "the worn model and verified effort are threaded as real CLI flags"
+    (let [argv (ep/summon-argv
+                {:prompt "hi" :session-id "ep-1" :fresh? true
+                 :model "haiku" :effort "high"})]
+      (is (= ["claude" "--session-id" "ep-1"
+              "--model" "haiku" "--effort" "high" "-p" "hi"]
+             (subvec argv 0 9)))
+      (is (= 1 (count (filter #{"--model"} argv))))
+      (is (= 1 (count (filter #{"--effort"} argv))))))
+  (testing "no code literal invents flags when material is absent"
+    (let [argv (ep/summon-argv
+                {:prompt "hi" :session-id "ep-1" :fresh? true})]
+      (is (not-any? #{"--model" "--effort"} argv)))))
 
 (deftest turn-record-carries-its-episode
   (let [args {:object-key (ep/genesis-object-key)

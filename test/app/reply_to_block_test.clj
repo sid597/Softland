@@ -6,6 +6,7 @@
             [app.server.rama.material-portal :as material-portal]
             [app.server.rama.verb-release :as release]
             [app.shared.attention-material :as attention]
+            [app.shared.invocation-material :as invocation]
             [app.shared.reply-to-block :as reply]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]))
@@ -94,6 +95,41 @@
   (is (= "SEED\nPORTAL\nUSER"
          (reply/compose-resident-prompt "SEED\n" "PORTAL\n" "USER")))
   (is (= "USER" (reply/compose-resident-prompt nil nil "USER"))))
+
+(deftest p2-precontext-is-bounded-material-widening
+  (let [wearer (fn [id master]
+                 {:wearer/entity-id id
+                  :wearer/facets [{:wearer/master-id master}]})
+        too-old (wearer "du:old" "fm:provenance")
+        context-a (wearer "du:c1" "fm:foldable")
+        context-b (wearer "du:c2" "fm:threaded")
+        addressed (wearer "du:a" "fm:attention")
+        after (wearer "du:after" "fm:text-body")
+        open (reply/narrowed-portal-open
+              {:entity-id "du:a"
+               :conversation-id "conv:1"
+               :precontext "thread+2"
+               :wearers [too-old context-a context-b addressed after]})]
+    (is (= ["du:c1" "du:c2" "du:a"]
+           (mapv :wearer/entity-id (:wearers open))))
+    (is (= ["fm:attention" "fm:foldable" "fm:threaded"]
+           (:master-ids open)))
+    (is (= "thread+2" (:precontext open)))
+    (is (not-any? #{"du:old" "du:after"}
+                  (map :wearer/entity-id (:wearers open))))
+    (is (= (str "[invocation precontext · thread+2]\n"
+                "PORTAL\nUSER")
+           (reply/compose-resident-prompt
+            nil "PORTAL\n" "USER" "thread+2"))))
+  (testing "malformed material can never widen the addressed open"
+    (let [rows [{:wearer/entity-id "du:other" :wearer/facets []}
+                {:wearer/entity-id "du:a" :wearer/facets []}]
+          open (reply/narrowed-portal-open
+                {:entity-id "du:a"
+                 :precontext "whole-world"
+                 :wearers rows})]
+      (is (= ["du:a"] (mapv :wearer/entity-id (:wearers open))))
+      (is (= 0 (invocation/precontext-depth "whole-world"))))))
 
 (deftest release-is-eight-addressable-nodes-with-one-verb-and-one-binding
   (is (empty? (release/release-errors valid-manifest)))
@@ -216,6 +252,10 @@
                        "reply-to-block/compose-resident-prompt"))
     (is (str/includes? server
                        "reply-to-block/narrowed-portal-open"))
+    (is (str/includes? server
+                       "invocation-wear-for-source"))
+    (is (str/includes? server
+                       ":invocation/precontext"))
     (is (str/includes? portal ":release (fn"))
     (is (str/includes? portal "portal->js")
         "release extends the namespace-preserving P7 console convention")))

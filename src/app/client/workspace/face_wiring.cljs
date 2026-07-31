@@ -417,6 +417,10 @@
                 (.endPreview bindings)
                 (throw (js/Error.
                         "The ground preview lane is not installed."))))
+            (workshop-ground []
+              (or (.-__workshop js/window)
+                  (throw (js/Error.
+                          "The ground Workshop controller is not installed."))))
             (open* [entity-id extra k]
               (.then (request! entity-id extra)
                      (fn [r] (portal->js (get r k)))))]
@@ -479,7 +483,10 @@
                                        (let [entry (aget r "entry")]
                                          (when (string? entry)
                                            (set! (.-search js/window.location)
-                                                 entry))
+                                                 (str entry
+                                                      "&master="
+                                                      (js/encodeURIComponent
+                                                       (str master-id)))))
                                          r))))
                  ;; matter-room P3 — four named verbs. `deviate` accepts either
                  ;; master source bytes (no subject) or an EDN overrides map for
@@ -526,7 +533,31 @@
                     "rollback"
                     (merge (or (read-edn-arg opts-edn) {})
                            {:master-id (str master-id)
-                            :revision-id (str to-revision-id)})))})
+                            :revision-id (str to-revision-id)})))
+                 ;; smalltalk-ui-vm P2 · W6 — one controller, exposed beneath
+                 ;; the existing portal namespace for agent parity. Durable
+                 ;; calls still pass through the exact acts above.
+                 :workshop
+                 #js {:open (fn [] (js-invoke (workshop-ground) "open"))
+                      :compose
+                      (fn [edit]
+                        (js-invoke (workshop-ground) "compose" edit))
+                      :invocationCandidate
+                      (fn []
+                        (js-invoke
+                         (workshop-ground) "invocationCandidate"))
+                      :preview
+                      (fn [] (js-invoke (workshop-ground) "preview"))
+                      :retain
+                      (fn [] (js-invoke (workshop-ground) "retain"))
+                      :activate
+                      (fn [] (js-invoke (workshop-ground) "activate"))
+                      :reverse
+                      (fn [] (js-invoke (workshop-ground) "reverse"))
+                      :source
+                      (fn [] (js-invoke (workshop-ground) "source"))
+                      :state
+                      (fn [] (js-invoke (workshop-ground) "state"))}})
       (js/console.log
        (str "[PORTAL] window.__portal installed — click a block, then:\n"
             "  await __portal.open()          the whole projection\n"
@@ -539,6 +570,9 @@
             "  await __portal.say('fm:attention', subjectUid, 'one line', optsEdn)\n"
             "  await __portal.activate('fm:attention', revisionId, optsEdn)\n"
             "  await __portal.rollback('fm:attention', offeredRevisionId, optsEdn)\n"
+            "  await __portal.workshop.open(); __portal.workshop.compose(editEdn)\n"
+            "  __portal.workshop.preview(); await __portal.workshop.retain();"
+            " await __portal.workshop.activate(); await __portal.workshop.reverse()\n"
             "  await __portal.questions()     every question + its replayable call\n"
             "  await __portal.briefing()      what a resident summoned here reads\n"
             "  await __portal.release()       wish → code → receipts → verb → binding → activation → worn\n"

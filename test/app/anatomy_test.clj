@@ -10,7 +10,9 @@
             [clojure.walk :as walk]
             [app.client.workspace.face-assembly :as face-assembly]
             [app.client.workspace.face-primitives :as face-primitives]
-            [app.shared.anatomy-material :as anatomy]))
+            [app.shared.anatomy-material :as anatomy]
+            [app.shared.invocation-material :as invocation]
+            [app.shared.material-portal :as portal]))
 
 (def ^:private fixture-dir
   (io/file "test/app/fixtures/anatomy"))
@@ -171,6 +173,121 @@
                       (:errors (anatomy/compile-form form)))]
       (is (= [:missing] (:actual error)))
       (is (= #{} (:legal error))))))
+
+(deftest p2-invocation-master-and-agent-candidate-teach
+  (testing "the installed CLI subset is a closed, visible material vocabulary"
+    (is (:valid? (invocation/compile-form invocation/default-form)))
+    (doseq [[k bad legal]
+            [[:invocation/effort "ultra" invocation/effort-vocabulary]
+             [:invocation/precontext "whole-world"
+              invocation/precontext-vocabulary]]]
+      (let [result (invocation/compile-form
+                    (assoc invocation/default-form k bad))
+            error (first (:errors result))]
+        (is (false? (:valid? result)))
+        (is (= [k] (:path error)))
+        (is (= bad (:actual error)))
+        (is (= legal (:legal error))))))
+  (testing "visible defaults are a candidate revision, never a seed mutation"
+    (let [candidate
+          (anatomy/invocation-candidate-form anatomy/default-form)
+          compiled (anatomy/compile-form candidate)
+          seed-ids (set (map :part/id anatomy/seed-parts))
+          candidate-ids (set (map :part/id (:anatomy/parts candidate)))]
+      (is (:valid? compiled))
+      (is (empty?
+           (set/intersection
+            seed-ids
+            (set (map :part/id anatomy/invocation-visible-parts)))))
+      (is (set/subset?
+           (set (map :part/id anatomy/invocation-visible-parts))
+           candidate-ids))
+      (doseq [k [:invocation/model
+                 :invocation/effort
+                 :invocation/precontext]]
+        (is (some
+             (fn [part]
+               (= [:wear :invocation k]
+                  (get-in part [:part/props :notice])))
+             anatomy/invocation-visible-parts))))))
+
+(deftest p2-edit-to-candidate-is-one-teaching-boundary
+  (let [valid
+        (anatomy/edit-candidate
+         anatomy/default-form
+         {:edit/op :retune-props
+          :part/id :root
+          :part/props {:wrap-col [:view :wrap-col]}})
+        bad-op
+        (anatomy/edit-candidate
+         anatomy/default-form
+         {:edit/op :execute-code :part/id :root})
+        bad-primitive
+        (anatomy/edit-candidate
+         anatomy/default-form
+         {:edit/op :add
+          :part {:part/id :bad
+                 :part/prim :call-arbitrary-function
+                 :part/when :always
+                 :part/order 130
+                 :part/props {}}})]
+    (is (= :candidate (:status valid)))
+    (is (string? (:source valid)))
+    (is (:valid? (anatomy/compile-source (:source valid))))
+    (is (= :anatomy/edit-op-invalid
+           (get-in bad-op [:errors 0 :type])))
+    (is (= anatomy/edit-ops
+           (get-in bad-op [:errors 0 :legal])))
+    (is (= :anatomy/part-prim-invalid
+           (get-in bad-primitive [:errors 0 :type])))
+    (is (= :call-arbitrary-function
+           (get-in bad-primitive [:errors 0 :actual])))
+    (is (= anatomy/part-prim-vocabulary
+           (get-in bad-primitive [:errors 0 :legal])))))
+
+(deftest p2-composition-section-carries-all-three-strata-and-inverse-paths
+  (let [candidate-form
+        (anatomy/invocation-candidate-form anatomy/default-form)
+        compiled (anatomy/compile-form candidate-form)
+        wear (merge (:material compiled)
+                    {:facet-master/id anatomy/master-id
+                     :facet-master/facet :anatomy
+                     :facet-master/grammar (:grammar compiled)
+                     :facet-master/revision-id "rev:anatomy"
+                     :facet-master/floor? false})
+        wears {:anatomy wear
+               :invocation invocation/code-floor}
+        section (portal/composition-section
+                 {:anatomy-wear wear :wears wears})]
+    (is (= (count (:anatomy/parts candidate-form))
+           (:composition/row-count section)))
+    (is (= anatomy/master-id (:composition/master-id section)))
+    (is (:valid?
+         (anatomy/compile-source
+          (:composition/invocation-candidate-source section))))
+    (doseq [[i row] (map-indexed vector (:composition/rows section))]
+      (is (= [:material :softland-code :floor]
+             (mapv :stratum/id (:part/strata row))))
+      (is (= [:green :amber :red]
+             (mapv :stratum/color (:part/strata row))))
+      (is (= (if (zero? i)
+               [:root]
+               [:root :children (dec i) :template])
+             (:part/source-path row)))
+      (is (= portal/primitive-source-path
+             (get-in row [:part/strata 1 :code/src-path]))))
+    (let [model-row
+          (first
+           (filter #(= :invocation-model (:part/id %))
+                   (:composition/rows section)))]
+      (is (= "sonnet"
+             (get-in model-row
+                     [:part/strata 0 :material/worn-values
+                      :notice :wear/value])))
+      (is (= [:wear :invocation :invocation/model]
+             (get-in model-row
+                     [:part/strata 0 :material/worn-values
+                      :notice :wear/ref]))))))
 
 (deftest one-level-sub-anatomy-expands-through-the-same-interpreter
   (let [child {:part/id :nested-notice

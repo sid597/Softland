@@ -56,6 +56,108 @@
 
 (declare caret->line-col line-col->caret)
 
+(def ^:private paste-marker-prefix "⟦softland-paste:v0:")
+(def ^:private paste-marker-suffix "⟧")
+
+(defn- string-index-of
+  [s needle from]
+  #?(:clj (.indexOf ^String s ^String needle (int from))
+     :cljs (.indexOf s needle from)))
+
+(defn- string-last-index-of
+  [s needle from]
+  #?(:clj (.lastIndexOf ^String s ^String needle (int from))
+     :cljs (.lastIndexOf s needle from)))
+
+(defn- parse-long-total
+  [s]
+  (try
+    #?(:clj (Long/parseLong s)
+       :cljs (js/parseInt s 10))
+    (catch #?(:clj Throwable :cljs :default) _ nil)))
+
+(defn paste-decision
+  "The paste path's ONE material consult. Outside text over the worn threshold
+   keeps every byte in the durable edit, but gains a source-marked fold header
+   and a marker carrying the material-decided collapsed extent. There are no
+   clamp constants here: missing/malformed policy means verbatim paste."
+  [text {:keys [threshold-chars max-share header-copy]} source-mark]
+  (let [text (str text)
+        n (count text)
+        valid? (and (number? threshold-chars)
+                    (pos? threshold-chars)
+                    (number? max-share)
+                    (pos? max-share)
+                    (<= max-share 1)
+                    (string? header-copy)
+                    (seq header-copy))]
+    (if (and valid? (> n threshold-chars))
+      (let [shown (max 1
+                       (min n
+                            (long #?(:clj (Math/floor (* n max-share))
+                                     :cljs (js/Math.floor (* n max-share))))))
+            copy (str/replace header-copy #"\s+" " ")
+            source (str/replace
+                    (if (keyword? source-mark)
+                      (name source-mark)
+                      (str (or source-mark "outside")))
+                    #"\s+" "-")
+            header (str "▸ " copy " · " source " · " n
+                        " chars — showing " shown)
+            marker (str paste-marker-prefix n ":" shown paste-marker-suffix)]
+        {:insert-text (str header " " marker "\n" text)
+         :paste/clamped? true
+         :paste/source-mark source
+         :paste/total-chars n
+         :paste/shown-chars shown})
+      {:insert-text text
+       :paste/clamped? false
+       :paste/source-mark (if (keyword? source-mark)
+                            (name source-mark)
+                            (str (or source-mark "outside")))
+       :paste/total-chars n
+       :paste/shown-chars n})))
+
+(defn paste-projection
+  "Project the first durable paste envelope in `text`. The complete body stays
+   in source; collapsed display substitutes only the material-decided prefix.
+   `nil` means ordinary text. The existing fold verb supplies `expanded?`."
+  [text expanded?]
+  (let [text (str text)
+        marker-at (string-index-of text paste-marker-prefix 0)]
+    (when (not (neg? marker-at))
+      (let [marker-end (string-index-of text paste-marker-suffix marker-at)
+            line-end (when (not (neg? marker-end))
+                       (string-index-of text "\n" marker-end))
+            line-start (inc (string-last-index-of text "\n" marker-at))
+            payload (when (and marker-end (not (neg? marker-end)))
+                      (subs text
+                            (+ marker-at (count paste-marker-prefix))
+                            marker-end))
+            [total-s shown-s] (str/split (or payload "") #":" 2)
+            total (parse-long-total total-s)
+            shown (parse-long-total shown-s)]
+        (when (and line-end (not (neg? line-end))
+                   (number? total) (number? shown)
+                   (<= 0 shown total)
+                   (<= (+ (inc line-end) total) (count text)))
+          (let [header (str/trim
+                        (subs text line-start marker-at))
+                body-start (inc line-end)
+                body-end (+ body-start total)
+                body (subs text body-start body-end)
+                visible (if expanded? body (subs body 0 shown))
+                header (str (if expanded? "▾" "▸")
+                            (subs header (min 1 (count header))))]
+            {:paste/header header
+             :paste/body
+             (str (subs text 0 line-start)
+                  visible
+                  (subs text body-end))
+             :paste/expanded? (boolean expanded?)
+             :paste/total-chars total
+             :paste/shown-chars shown}))))))
+
 (defn apply-ground-keydown
   "block-write's apply-keydown extended with the ground's grain: :paste
    (insert at caret; a content act) and :up/:down (caret line moves over
@@ -64,11 +166,17 @@
   (let [text  (or text "")
         caret (max 0 (min (long (or caret 0)) (count text)))]
     (case type
-      :paste (let [t (str (:text ev))]
+      :paste (let [decision (paste-decision
+                             (:text ev)
+                             (:paste-policy ev)
+                             (:paste/source-mark ev))
+                   t (:insert-text decision)]
                (when (seq t)
-                 {:op :edit
-                  :new-text (str (subs text 0 caret) t (subs text caret))
-                  :new-caret (+ caret (count t))}))
+                 (merge
+                  decision
+                  {:op :edit
+                   :new-text (str (subs text 0 caret) t (subs text caret))
+                   :new-caret (+ caret (count t))})))
       (:up :down)
       (let [{:keys [line col]} (caret->line-col text caret)
             line' (if (= type :up) (dec line) (inc line))]
