@@ -404,8 +404,23 @@ requires a non-caller-asserted durable discriminator so the canonical guard bloc
 report bypass without blanket-breaking bootstrap/migration/x-ray/
 rollback; T3/G6 prove both sides. P0 is explicitly the pre-build spike,
 not a product delivery phase under the every-phase receipt+lived law;
-P1 retains G1–G8. Next act: **fresh-context P0 per CONTRACT §9** — S1–S6
-machine receipts into `P0.md`; no product code. Starter: CONTRACT §9.
+P1 retains G1–G8. **P0 EXECUTED (2026-07-31, fresh context): PASS to P1
+on route (a), FULL gate tier** (`build/studio/P0.md`): the draft is an
+ordinary durable block wearing the synthesized `fm:anatomy~i~<digest>`
+instance master; route (b) master-per-draft rejected cutover-class (the
+master registry is static source); promotion mints a NEW shared-master
+candidate explicitly — no revision relabeled across containers; the
+Studio gate discriminator is a deterministic companion marker container
+derived and read by the canonical activation owner itself,
+marker-imported BEFORE the candidate — no caller-asserted field
+bypasses; the report lane was exercised on a real isolated
+ObjectContainer (exact replay links, conflicting reuse refused); zero
+primitives or verbs minted; both red banners = experiment residue, no
+x-ray repair; §6 hashes + x-ray span/golden pins banked. FULL tier
+because P1 must touch the durable promotion/report owner and
+`facet-master/activate!`. Next act: **P1 — ONE fresh context, whole
+package, FULL tier, per CONTRACT §9**; then slim gate → G7 (Sid, cold,
+ONE-SHOT, LAST) → commit ruling. Starter banked in BRIEF §Next session.
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.

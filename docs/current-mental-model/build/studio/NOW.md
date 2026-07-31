@@ -50,3 +50,18 @@
   **R2-F3 — MINOR: P0 contradicted the literal every-phase gate law.** P0 is
   now explicit as the pre-build spike, not a law-11 delivery phase; P1 retains
   receipt + lived gates. **P0 OPEN — next act is fresh-context P0 per §9.**
+- 2026-07-31 · Fable · fresh-context P0 per §9 executed: **PASS to P1 on
+  route (a), FULL tier**; artifact `P0.md`; contract SHA `f16ed4d0…`
+  re-verified; code truth `685f2fc` clean; no product code; no STOP fired.
+  S1: draft = ordinary durable block wearing `fm:anatomy~i~<digest>`; route
+  (b) rejected cutover-class (masters are a static source registry);
+  promotion mints a shared-master candidate explicitly, nothing relabeled;
+  Studio discriminator = deterministic companion marker container derived
+  and read by `facet-master/activate!` itself, marker-before-candidate —
+  no caller-asserted field bypasses; report lane exercised on a real
+  isolated ObjectContainer (replay links; conflicting reuse refused);
+  ground stays `:experience` + report id. S2 zero primitives minted · S3
+  draft-handle threshold-drag, ground gestures intact · S4 52ms bar +
+  attested receipt shape · S5 `:focus/place-caret` v0 · S6 banners =
+  experiment residue, no x-ray repair. §6 + span/golden pins banked;
+  env.clj absence pinned. Next: **P1 — ONE fresh context, FULL tier, §9**.

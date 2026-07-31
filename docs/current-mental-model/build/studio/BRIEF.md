@@ -143,18 +143,20 @@ outside component end-to-end as the demo gate).
 
 ## Next session (build register) — starter
 
-**The contract is CUT and RECUT** (`CONTRACT.md`, same directory — cut
-2026-07-31 at Sid's word; validation round 1, same day, returned a
-substantive FAIL and the contract was recut in place from its three
-findings — verdict + traces in `VALIDATION.md`, recut SHA `5dee17bd…`,
-none of the eleven laws reopened; the spike rides inside it as P0, whose
-receipts bind the named slots S1–S6 before P1 opens). Boot: CONTRACT.md
-+ this brief (the laws) + `build/smalltalk-ui-vm/{P2,GATE_P2}.md` for
-substrate truth — code over docs on any conflict. Act: run a FRESH
-default-fail validation round over the recut CONTRACT.md — whole
-contract, cold (few-and-large rule; no separate PLAN.md; `VALIDATION.md`
-is round-1 history and custody, never a narrowing input — do not limit
-the round to auditing the repairs); only a PASS or a repaired minor-fail
-from this new round opens P0 per §9. The phase-1 soul (settled, in §3):
-the pencil is real + it does something + one full trust loop on one real
-component. The lived gate G7 is Sid's, cold, ONE-SHOT, and runs last.
+**P0 is DONE — the package is at P1.** The contract survived two
+default-fail validation rounds (round 1 FAIL → recut; round 2
+MINOR-FAIL → repaired in place; authoritative SHA `f16ed4d0…`; none of
+the eleven laws reopened) and the fresh-context P0 spike banked S1–S6
+machine receipts with verdict **PASS to P1 on route (a), FULL gate
+tier** (`P0.md`, same directory — bound slots, §6 hashes, x-ray
+span/golden pins, §10 locators, fence forecast). Boot: CONTRACT.md
+(authority) + this brief (the laws) + P0.md + `build/smalltalk-ui-vm/
+{P2,GATE_P2}.md` for substrate truth — code over docs on any conflict.
+Act: execute **P1 per CONTRACT §9 — ONE fresh context, the whole
+package, few-and-large**; /rama loaded before any Rama-adjacent code;
+electric-docs for client reactivity; every memory-derived platform
+claim checked against disk. Deliverable `P1.md`: receipts for G1–G5 +
+G8, diff-derived file list per §6, judgment calls disclosed. Then: slim
+gate (fresh context) → G7 (Sid, cold, ONE-SHOT, runs LAST) → Sid's
+commit ruling. The phase-1 soul (settled, in §3): the pencil is real +
+it does something + one full trust loop on one real component.
