@@ -379,10 +379,25 @@ calls ratified, zero code defects), Sid's commit ruling executed — code
 + docs commits separate.** Every block renders through the assembly
 interpreter wearing revisioned `fm:anatomy`; `block-tree` is dead;
 threaded rail/indent pixels drove console-lane
-deviate → preview → activate → rollback live. Next act: **fresh
-implementer context builds P2 whole under CONTRACT §6-P2** (Workshop
-surface + paste-clamp + fm:invocation; slim gate; P2 owns the episode
-SHA re-cut and will re-cut the entity-mode pin).
+deviate → preview → activate → rollback live. **P2 COMPLETE 2026-07-31:
+built whole (Codex, one context, receipt `P2.md` — Workshop composition
+projection + same-interpreter specimen with row↔pixel inverse + seven-op
+teaching edit grammar through the existing hands + paste-clamp on
+foldable v3 + `fm:invocation` with a live spawn receipt `--model haiku
+--effort medium`), falsified in phase (G10: one harness false positive,
+zero product counterexamples), slim-gated PASS (`GATE_P2.md` — fence +
+pins recomputed, fast + portal-bank suites re-run receipt-exact, four
+judgment calls ratified; one open doubt: the CLJS compile leg stays
+implementer-attested behind the Electric activation wall, falsifier
+free).** **COMMIT RULING EXECUTED 2026-07-31** (Sid: "merge the codex
+branch, then do the docs commit"): code commit `685f2fc` on
+`codex/smalltalk-ui-vm-p2` merged into docs-local at `58d7517`
+(src/test byte-identity verified post-merge), docs ride separately,
+nothing pushed; HEAD-dynamic suites re-run at that HEAD —
+git-spine-gate + code-atoms 10t/208a 0/0. Both phases COMPLETE. Next:
+Sid's first unscaffolded Workshop open + first real structural change
+routed in-land stay the C1/C2 instruments — deliberately never gates;
+retro joins the stratum batch.
 
 **matter-room — PHASES COMPLETE 2026-07-28 (P1–P4 all landed + gated,
 slim tier).** The engine's ontology serves as inhabitable material: P1

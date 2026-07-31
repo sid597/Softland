@@ -18,6 +18,48 @@ commits; veto anytime).
 
 ## NOW (newest first; ~15-line budget per entry)
 
+**2026-07-31 · Fable (fresh independent P2 slim gate) · GATE_P2 VERDICT:
+PASS — zero code defects; artifact `GATE_P2.md`.** Fence recomputed at HEAD
+9250e13: changed set == §6-P2 allowlist exactly; 12 protected files
+byte-identical (the eight + cascade/face_assembly/face_primitives/
+facet_material); episode SHA `7fce46b2…` + relation-kernel `ab283b47…`
+recomputed; entity-mode 24,281/`ab468646…`, census-8, 9/8 inventory, four
+acts, 17 questions all pinned green. Re-run this session: fast 205t/2,153a
+0/0 + portal bank 56t/1,034a 0/0 — receipt-exact. Full diff read against
+W5–W7/T5–T10 (endPreview-before-activate and served-recovery refresh proven
+in code; T7 independently re-scanned; V6 re-verified at gate time: CLI
+2.1.220 `--model` + `--effort`). Four judgment calls RATIFIED (F6
+seven-facet widening · foldable floor→v3 · stdout spawn receipt · G10
+detector narrowing = harness bug, product clean). ONE open doubt: the CLJS
+275/0 compile leg stays implementer-attested — the gate's re-run hit the
+Electric compiler's interactive activation wall; falsifier free (Sid's
+first compile). Residue banked with falsifiers in the artifact. Worktree
+restored to the exact unstaged state. Sid's ruling 2026-07-31 ("merge the
+codex branch, then do the docs commit") executed same session: code commit
+`685f2fc` on `codex/smalltalk-ui-vm-p2`, merged into docs-local at
+`58d7517` (src/test byte-identity between trees verified post-merge),
+docs ride separately, nothing pushed. His unscaffolded Workshop wear
+stays a non-gate instrument.
+
+**2026-07-31 · Codex (fresh P2 implementer) · whole Workshop phase built,
+falsified, and handed to the independent slim gate — implementer G6–G10
+PASS; full receipt `P2.md`.** The anatomy room now carries 13 stratum-colored
+composition rows + a same-interpreter live specimen with part↔pixel inverse;
+the shared human/agent controller composes teaching part edits through
+preview → deviate → activate → fresh recovery reverse. P2 births foldable
+grammar-3 paste policy (one paste consult; 1,300 durable / 650 collapsed /
+real-click expandable) and `fm:invocation` (visible model/effort/precontext,
+sticky instance wear, source-server consult); installed CLI 2.1.220 re-verified
+and live spawn argv was `--model haiku --effort medium`, precontext
+`thread+1`. F6 is explicitly widened to the seven-facet named block
+composition; rooms stay generic; 17 questions, four acts, registry, modules,
+and protected Rama files stay fixed. Final receipts: fast 205t/2,153a 0/0;
+portal bank 56t/1,034a 0/0; CLJS 275/0; p95 35.4ms. Fresh G10's first raw
+FAIL was its `1200` substring falsely matching timeout `120000`; token-boundary
+repair replayed all T5–T10 attacks green, no product counterexample. No
+commit/push; independent slim gate + Sid ruling pending; Sid's unscaffolded
+Workshop wear remains explicitly not a gate.
+
 **2026-07-30 · Fable (independent FULL gate, two fresh contexts) ·
 GATE_P1 VERDICT: PASS — zero code defects; artifact `GATE_P1.md`.** Gate
 session A (fresh, no implementer context) re-verified the fence (HEAD
