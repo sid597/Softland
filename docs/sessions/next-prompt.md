@@ -375,11 +375,19 @@ required · margin thinking required · ink punted door-open (human-only)
 · Sid-words on the surface · hand-is-gate with agent ungated rider ·
 receipt + lived gates every phase (lived-gate law → decisions.md; arc
 gate = one real design task done in Softland instead of paper, and
-preferred). Next act: fresh build session — substrate spike (brief
-§Open: variant-field enabler · draft-structure route · drawing-primitive
-inventory · verb-wire cost · stroke latency · annotation substrate ·
-red-banner triage) → phase-1 contract (work-package skill, brief as
-authority). Starter: brief §Next session.
+preferred). **CONTRACT CUT 2026-07-31 same
+session at Sid's word** (`build/studio/CONTRACT.md`): P0 spike (slots
+S1–S6 = the brief's §Open, machine-pinned receipts, no product code) +
+P1 build (one fresh context, whole package, few-and-large); traps
+TRAP-1..8 (camera reservation · broadcast-on-accept · phantom drafts ·
+x-ray crutch · vocabulary leak · grammar bypass · draft identity/
+transitions · unattested perf); claims T1–T8; gates G1–G8 sum-checked
+with owners — G7 = the first-ever LIVED gate (decisions.md law), Sid,
+cold, ONE-SHOT, runs LAST after the slim gate so the surface he
+cold-opens is the gated one; his verbatim reaction lands in the gate
+record (the arc's instrument). Thread: `build/studio/NOW.md`. Next act:
+fresh session — ONE default-fail validation round over CONTRACT.md →
+P0 → P1. Starter: brief §Next session.
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.

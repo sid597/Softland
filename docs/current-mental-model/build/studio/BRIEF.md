@@ -143,12 +143,13 @@ outside component end-to-end as the demo gate).
 
 ## Next session (build register) — starter
 
-Boot: this brief (the arc's authority) + `build/smalltalk-ui-vm/{P2,GATE_P2}.md`
-for the substrate's current truth — code over docs on any conflict.
-Act 1: run the spike (§Open above) — code-reading + small probes, no
-product code. Act 2: cut the phase-1 contract via the work-package skill
-with this brief as authority. Phase-1 soul (settled): the pencil is real
-(draw rect + text on the canvas — a real functional draft) + it does
-something (wire one existing verb) + one full trust loop on one real
-component (duplicate as draft → edit at the pixels → test-gated accept →
-reverse). Gates per law 11 — the lived script is the paper page, cold.
+**The contract is CUT** (`CONTRACT.md`, same directory — 2026-07-31,
+in-session at Sid's word; the spike rides inside it as P0, whose receipts
+bind the contract's named slots S1–S6 before P1 opens). Boot: CONTRACT.md
++ this brief (the laws) + `build/smalltalk-ui-vm/{P2,GATE_P2}.md` for
+substrate truth — code over docs on any conflict. Act: run the ONE fresh
+default-fail validation round over CONTRACT.md (few-and-large rule; no
+separate PLAN.md); minor-fail fixes land in place; then P0 per §9. The
+phase-1 soul (settled, in §3): the pencil is real + it does something +
+one full trust loop on one real component. The lived gate G7 is Sid's,
+cold, ONE-SHOT, and runs last.
