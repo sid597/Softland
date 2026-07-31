@@ -143,20 +143,21 @@ outside component end-to-end as the demo gate).
 
 ## Next session (build register) — starter
 
-**P0 is DONE — the package is at P1.** The contract survived two
-default-fail validation rounds (round 1 FAIL → recut; round 2
-MINOR-FAIL → repaired in place; authoritative SHA `f16ed4d0…`; none of
-the eleven laws reopened) and the fresh-context P0 spike banked S1–S6
-machine receipts with verdict **PASS to P1 on route (a), FULL gate
-tier** (`P0.md`, same directory — bound slots, §6 hashes, x-ray
-span/golden pins, §10 locators, fence forecast). Boot: CONTRACT.md
-(authority) + this brief (the laws) + P0.md + `build/smalltalk-ui-vm/
-{P2,GATE_P2}.md` for substrate truth — code over docs on any conflict.
-Act: execute **P1 per CONTRACT §9 — ONE fresh context, the whole
-package, few-and-large**; /rama loaded before any Rama-adjacent code;
-electric-docs for client reactivity; every memory-derived platform
-claim checked against disk. Deliverable `P1.md`: receipts for G1–G5 +
-G8, diff-derived file list per §6, judgment calls disclosed. Then: slim
-gate (fresh context) → G7 (Sid, cold, ONE-SHOT, runs LAST) → Sid's
-commit ruling. The phase-1 soul (settled, in §3): the pencil is real +
-it does something + one full trust loop on one real component.
+**P1 AND the independent gate are DONE — the package is at G7.** The
+gate record is `GATE.md` (verdict: **PASS to G7 with residues**; the G6
+falsifier round is banked verbatim in `G6.md`; its one confirmed HIGH —
+FAIL-report laundering via instance-set re-mark — was repaired in place
+and re-verified at the final bytes; the caller-elected-gating finding
+was reclassified literal-vs-intent per the contract's own S1/T3 scope).
+Code is UNCOMMITTED pending Sid's ruling. What remains needs Sid, in
+order: (1) **G7 — the lived gate: cold, ONE-SHOT, on the real land,
+LAST.** The task, in his hands, no reading first: draw a rectangle with
+text → make it do something → duplicate the block as a draft and change
+one visible thing → accept through the test gate → put it back. PASS =
+completed without reading anything + narratable + the anatomy room never
+opened. His verbatim reaction lands in GATE.md; a G7 FAIL routes to a
+direction session, never a patch. (Logistics-only note, GATE.md §8: the
+draw handle is a world-space slot near the origin.) (2) The commit
+ruling — code and docs commits separate, on
+`docs/current-mental-model-local`, never pushed; then re-run the
+HEAD-dynamic suites at the committed HEAD (close rule).

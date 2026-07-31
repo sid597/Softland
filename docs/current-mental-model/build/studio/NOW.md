@@ -65,3 +65,19 @@
   attested receipt shape · S5 `:focus/place-caret` v0 · S6 banners =
   experiment residue, no x-ray repair. §6 + span/golden pins banked;
   env.clj absence pinned. Next: **P1 — ONE fresh context, FULL tier, §9**.
+- 2026-08-01 · Fable (fresh gate context) · independent gate over P1, FULL
+  tier per P0's recorded escalation; artifacts `GATE.md` + `G6.md` (round
+  banked verbatim). Gate's own runs first, all green: FULL suite, compile,
+  fence re-hash vs P0's pins, x-ray span check, T6 scan, live dispatch
+  probe of the untested `server_jetty` studio layer on a real isolated
+  runtime. G6 falsifier (fresh, ONE finder, default-fail): **FAIL — 2 HIGH**.
+  **H1 — "REQUIRED/EXEMPT classification is caller-elected: the unmarked
+  ordinary lane flips the default with no report"** — reproduced;
+  reclassified literal-vs-intent (S1/T3 pre-bless that lane); banked.
+  **H2 — "a durable FAIL report is laundered to PASS by re-marking the
+  same revision with a different instance set"** — reproduced, CONFIRMED;
+  repaired in place by a fresh implementer (R1a pre-append gate guard ·
+  R1b owner history terminality · R2/R3 preview lifecycle). Re-verified at
+  final bytes: banks 30t/510a · FULL 507t/7,269a 0-fail · compile 0-warn ·
+  laundering refused · happy path green. **PASS to G7 with residues.**
+  Code UNCOMMITTED. Next: G7 (Sid, cold, ONE-SHOT, LAST) → commit ruling.

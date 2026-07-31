@@ -418,9 +418,26 @@ ObjectContainer (exact replay links, conflicting reuse refused); zero
 primitives or verbs minted; both red banners = experiment residue, no
 x-ray repair; §6 hashes + x-ray span/golden pins banked. FULL tier
 because P1 must touch the durable promotion/report owner and
-`facet-master/activate!`. Next act: **P1 — ONE fresh context, whole
-package, FULL tier, per CONTRACT §9**; then slim gate → G7 (Sid, cold,
-ONE-SHOT, LAST) → commit ruling. Starter banked in BRIEF §Next session.
+`facet-master/activate!`. **P1 EXECUTED + INDEPENDENT GATE RAN
+(2026-07-31→08-01, FULL tier): PASS to G7 with residues** (`P1.md`,
+`GATE.md`; G6 round banked `G6.md`): the whole §3 loop built on route
+(a), G1–G5+G8 implementer-green; the gate re-verified independently
+(FULL suite · fence vs P0's pins · x-ray spans · live dispatch probe of
+the studio server layer on a real isolated runtime). The G6 falsifier
+found the package's one confirmed HIGH — a durable FAIL report laundered
+to PASS by re-marking the same candidate under a different instance set
+— repaired in place (pre-append gate guard + canonical-owner history
+terminality + preview lifecycle) and re-verified at the final bytes
+(FULL 507t/7,269a 0-fail; the laundering repro now refuses). The second
+HIGH (the unmarked ordinary lane can move the default) reclassified
+literal-vs-intent — the contract itself keeps the engineer's lane open —
+and banked with its demonstration: law 4 currently guards against
+accident, not a deliberate actor on the engineer's lane. Code
+UNCOMMITTED. Next act: **G7 — Sid, cold, ONE-SHOT, on the real land,
+LAST** (logistics note GATE.md §8: the draw handle is a world-space slot
+near the origin) → his verbatim reaction into GATE.md → commit ruling
+(code and docs separate, docs-local, never pushed) → HEAD-dynamic
+re-run at committed HEAD.
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.
