@@ -81,7 +81,17 @@ includes P8; the P8 :8091 jetty is dead — see HANDOFF).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-07-31** (the studio settlement:
+**Vision:** LOG routed through **2026-08-01** (G7 + the playground turn:
+the first-ever lived gate FAILED direction-class — "This is not my idea
+of a workshop … I keep coming back to Figma, Figma, Figma"; the want
+precised after the two-atom inventory to "conceptualize first, fill in
+details later"; direction resettled A×B drafting-place + bench-material
+/ C summon-capture / D agent-second-hand; tiers current/tldraw/figma
+banked; playground cut 1 built same day and drew Sid's FIRST positive
+lived reaction — "much much useful … good iterative job"; margin
+thinking lived in-land. Routed → `build/studio/{G7,PLAYGROUND}.md` +
+LOG 08-01; next = cut 2 structure pencil, cheap lane). Prior:
+**2026-07-31** (the studio settlement:
 Sid's first unscaffolded Workshop open read exactly as the halo — "what
 is this what do i do about it????" — the C2 instrument's first reading;
 the disconnect named: the projection is true and semantically useless —
@@ -433,11 +443,16 @@ HIGH (the unmarked ordinary lane can move the default) reclassified
 literal-vs-intent — the contract itself keeps the engineer's lane open —
 and banked with its demonstration: law 4 currently guards against
 accident, not a deliberate actor on the engineer's lane. Code
-UNCOMMITTED. Next act: **G7 — Sid, cold, ONE-SHOT, on the real land,
-LAST** (logistics note GATE.md §8: the draw handle is a world-space slot
-near the origin) → his verbatim reaction into GATE.md → commit ruling
-(code and docs separate, docs-local, never pushed) → HEAD-dynamic
-re-run at committed HEAD.
+UNCOMMITTED. **G7 RAN 2026-08-01: FAIL, direction-class** — routed to
+the origin session per the contract's own law (never a patch); record +
+verbatim `G7.md`. Direction RESETTLED same day (A×B place +
+bench-material · C capture · D second hand · the two-atom inventory ·
+tiers I/II/III) and the contract lane replaced by the **playground
+stream** — cut 1 built and drew Sid's first positive lived reaction;
+round record + cut-2 starter in `PLAYGROUND.md`. Code uncommitted in
+TWO layers (studio P1 + playground cut 1); archiving vs survivorship
+rulings deferred to a fresh session. Next: cut 2 (the structure pencil,
+cheap lane).
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.

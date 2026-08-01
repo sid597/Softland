@@ -1053,3 +1053,47 @@ why does the blank screen has a cursor in it? this is the walkthrough and log an
 > any cotract or writing we do based on how much context is left in this chat because thia is gold or we will do a big handover summary and then do in a new contract
 
 *(Routed same-session: the generator diagnosis (every gate proves truth-to-substrate, none measured use-to-human — the Halo→Workshop repeat; the substrate is right, the surface is missing) + the two goals + the eleven rulings → `build/studio/BRIEF.md` (working name, Sid redlines; laws, canonical paper script, spike questions, ladder sketch, next-session starter) · the lived-gate law → decisions.md "How we work" · board: smalltalk-ui-vm block advanced (the C2 instrument FIRED — reading recorded; C1 stays armed), studio package block opened, Vision line → 2026-07-31 · BETS deliberately untouched — the instrument reading rides board/LOG/brief until the next evidence review · next act = fresh build session: substrate spike → phase-1 contract.)*
+
+## 2026-08-01 — G7 fails, the Figma want named, the first playground lands (verbatim)
+
+[the lived gate — cold, one-shot, on the real land; the reaction:]
+
+> I opened up Softland, and I saw a box in which it has written draw a component. I drew a component and then this is what I saw. This is not my idea of a workshop.
+
+> I saw this draw a component on the space where I take my normal notes … draw component kind of thing has to be a workshop thing. So maybe to get to the workshop, we have a button … and I click and go to the workshop, and there only I can draw a few components and talk about them.
+
+> why would I even do that with an empty block that is just a rectangle. Why are these options given to me? what I expect is to maybe build it out like Figma. I just keep coming back to Figma, Figma, Figma, and whatever you give me back is not something that I expect. I'm not sure why is this getting so hard.
+
+> I went through three or four different agents and all of them approved it … really is that how a human user would use it or like what was the real use case for it?
+
+[the session as orchestrator; the trap named:]
+
+> this is a max session and should be orchestrator of things something another session can look and ask for directions from … your last contract and our chat pointed and felt like yeah this is going to create somethign that would be what i want and need … i don't want to get in same trap … if you propose new processes i need to be very sure this would produce results and not the feeling of overpromise underdeliver
+
+[the direction lean:]
+
+> I lean towards AxB as well C as capture D as the second hand
+
+[the process ruling — the playground stream:]
+
+> I think it is fine to overpromise but I think we can also deliver some middle work that keeps me genuenly busy and in softland so maybe like build broad version and this is what it unlocks go play while i build more and it is totally fine if by building more you are breaking the previous playground because it was just a slapped example
+
+[the Figma want, precised after the two-atom inventory:]
+
+> well not be able to build figma is genuenly disappointing I want to understand why is not
+
+> now i am realizing that maybe what i assumed and wanted was "general-purpose vector authoring tool — the pen tool, bezier editing, boolean ops, full typography engine a decade of polish" and i was thinking since this is now done i can make the rects and then minutely fix them … also decade of polish means its right there to copy paste from is my point we are not reinventing the wheel learning and building on top … what i thought webgpu means that we would have the authoring tools but its turning out not to be the case at all
+
+> Is it just not possible to maybe make the whole Figma right now? … Don't we have the small talk UI VM that can host the Figma equivalent kind of thing? And then using that, I can build more.
+
+[playground cut 1 in his hands — the arc's first positive lived reading; the wall precisely located:]
+
+> ok btw this is much much useful to the previous halo and then last workshop example and smalltalk ui vm examples that were there good iterative job
+
+> now i don't know what to do next this is exhausted … maybe showing that now we can go to workshop create a existing component, modifying its shape and nature … making forks to work off of, talking about each instance seperately … what is not possible is to build on top i will give you the same example again of figma or for that matter drawing out outlines with pen-paper or tldraw like atleast conceptualizing whats in mind as first step and then filling in the details later on
+
+[from inside the room — margin thinking lived; a design ask born in a note:]
+
+> so the current affordance is click on note to take a note about it hmmm — where is the equivalent for the workspace?? i mean we should be able to take and say stuff about the workspace itself correct?? like the solution to this problem might entail having one for the workspace as well
+
+*(Routed same-day: the gate record + verbatim + line-by-line + process finding → `build/studio/G7.md` · direction A×B/C/D + the boundary sentence + the two-atom inventory + tiers current/tldraw/figma + playground round 1 + the cut-2 starter + the process rulings (playground stream · fake-over-delay · design-before-contract · cheap-lane builders) → `build/studio/PLAYGROUND.md` · the workspace-note ask banked there as a design contribution · board studio block + Vision line advanced · builder-model lesson → memory working-agreements.)*

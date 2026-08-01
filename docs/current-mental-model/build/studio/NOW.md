@@ -81,3 +81,36 @@
   final bytes: banks 30t/510a · FULL 507t/7,269a 0-fail · compile 0-warn ·
   laundering refused · happy path green. **PASS to G7 with residues.**
   Code UNCOMMITTED. Next: G7 (Sid, cold, ONE-SHOT, LAST) → commit ruling.
+- 2026-08-01 · Fable (origin session, raw-context pre-G7 review at Sid's
+  word: "another chance … totally fine to improve") · whole surface read
+  against the raw goals/rulings only this context holds + ONE cold-eyes
+  fresh agent (surface code only, no docs). Verdict: faithful — Sid-words
+  verified, happy path flows, gesture→grammar parity honest. THREE
+  post-gate repairs, all client-surface, no new lanes: (1) the gate's
+  pre-G7 logistics note closed — entry handle placed FROM the live camera
+  (boot + restore hook, zoom-cancelled scale; :camera :screen rejected —
+  pick inverse-transforms container+world only and would mis-hit); (2)
+  refusals carrying a human :reason render it on canvas (the three-shape
+  accept precondition no longer strands wordlessly in console); (3) the
+  handle teaches its gesture ("press and drag from here" — its dead tap
+  was the cold-eyes top stumble). Re-verified at these bytes: banks
+  30t/510a 0/0 · compile 277 files 0 warnings. Residues banked P2-class:
+  electing an EXISTING block into drafting (absent; G7 script unaffected —
+  a draw IS a block-component variant) · draft selection console-only ·
+  put-back strands after reload · "Show details" → console · pre-first-
+  draft birth refusals render nowhere. Next: G7 → commit ruling.
+- 2026-08-01 · Fable (origin session → standing orchestrator) · **G7
+  RUN: FAIL, direction-class** — "This is not my idea of a workshop";
+  contamination of the notes space · verbs-before-meaning · invisible
+  subject; deeper loop untested-not-rejected; verbatim + line-by-line +
+  process finding: `G7.md`. Audit demoted the session's own synthesis
+  to hypotheses; eight external corrections absorbed. Direction
+  RESETTLED (Sid): A×B place+bench-material · C capture · D second
+  hand; boundary "physics at host floor; interaction machinery
+  code-owned initially; visible surfaces increasingly material"; TWO
+  renderable atoms pinned (SDF rect + MSDF glyph); tiers I/II/III →
+  `PLAYGROUND.md`. Playground cut 1 BUILT (subagent; 279 files/0 warn ·
+  banks 30t/510a · 2 additive ground.cljs lines): Sid's FIRST positive
+  lived reaction ("much much useful … good iterative job"); wall =
+  structure verbs. Code UNCOMMITTED (P1 + playground; rulings
+  deferred). Next: cut 2 structure pencil, cheap lane, PLAYGROUND.md.
