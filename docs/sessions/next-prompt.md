@@ -532,7 +532,26 @@ Blender-style 3D scene-composition floor → coexistence (the seam demo
 front = W0-A (durable verifier) + W0-B (E0 Q1–Q8, roads-never-scope)
 + W0-C (paper: chrome audit · corpus sweep → envelope paragraph ·
 frame-runtime contract · D2 prep); W1–W5 committed downstream, not
-pending reauthorization.** Reserved to Sid: studio custody at the
+pending reauthorization.** **W0 EXECUTED 2026-08-02.** W0-A installed
+the permanent real-WebGPU verifier and a 21-image SDF/MSDF/Slug bank
+across floor-default + legal-envelope zoom regimes; replay command =
+`npm run verify:render-engine`. Determinism is 21/21, bank comparison
+21/21, and the explicit current-product bounds-pick divergence sentinel
+7/7. The replay intentionally exits RED only on candidate parity:
+SDF + Slug pass all regimes; MSDF repeats 47 decisive
+atlas/isocontour-vs-outline mismatches per regime. That machine rung is
+HALTED for W1 geometry-contract repair; the campaign is not halted.
+Durable verifier code and fixtures remain uncommitted pending Sid's
+code-commit ruling. W0-B's Q1–Q8 receipt is appended in `ENGINE.md`
+§12; Q5/Q6 halt for geometry repair, Q2 forces precision/backend regime
+boundaries, and Q8 lands transport WITH affine. Instrument deviation is
+explicit: Sonnet was pre-registered, Codex GPT-5.6 executed, no Sonnet
+replication. W0-C landed `build/render-engine/W0-C.md` as a nonbinding
+chrome/corpus/envelope/frame-runtime/D2 packet: vector networks REOPENED;
+glass/noise/texture + moving media remain visible pressures. **Execution
+front is now W1 contracts with those failed receipts as repair input;
+this is a dependency move, never reauthorization or scope change.**
+Reserved to Sid: studio custody at the
 CAPABILITY level (the durable artery gates Package-2 felt
 activations; the failed face archives separately) · the envelope
 paragraph (+ legal-zoom rider [0.01, 1000] · Blender-scope =

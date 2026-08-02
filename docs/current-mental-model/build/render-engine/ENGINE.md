@@ -211,9 +211,37 @@ confirmation (scene-composition floor + PBR ladder; NOT
 sculpting/procedural/path-tracing unless he says so) · D2's
 ink-material truth call.
 
-**Execution front NOW: W0-A + W0-B + W0-C** (parallelizable, cheap
-lane). W1–W5 remain committed downstream, not pending
-reauthorization.
+**W0 EXECUTED 2026-08-02 — three lanes, campaign unchanged.** W0-A's
+permanent verifier and 21-image production golden bank now cover SDF
+rich rect, MSDF, and Slug at zoom `0.01 / 0.1 / 1 / 8 / 10 / 100 /
+1000`, with environment/source fingerprints and one replay command
+(`npm run verify:render-engine`). Determinism is 21/21 and the explicit
+current-product bounds-pick divergence sentinel is 7/7. The replay is
+deliberately **RED** on candidate pick parity: SDF and Slug pass all
+seven regimes; MSDF has 47 decisive atlas/isocontour-vs-outline
+mismatches in each screen-constant regime, so the machine rung is
+HALTED for W1 geometry-contract repair. The bank records deterministic
+production pixels; updating it cannot bless that geometry disagreement
+(`test/app/fixtures/render_engine/gpu-goldens/manifest.json`). Durable
+verifier code remains uncommitted pending Sid's code-commit ruling.
+
+W0-B's durable Q1–Q8 receipt is §12 below: the pre-registered builder
+was Sonnet but the actual instrument was Codex GPT-5.6 (no Sonnet
+replication); Q5/Q6 are halted for geometry-contract repair; Q2 requires
+declared precision/backend regimes; Q8 requires transport to migrate
+WITH affine. W0-C's nonbinding paper packet is `W0-C.md`: amended chrome
+provider demands, the envelope paragraph reserved to Sid, the data+loop
+frame-runtime contract, and D2 preparation. Branching vector networks
+are REOPENED, not decided; glass/noise/texture and moving media remain
+visible ratification pressures.
+
+**Execution front NOW: W1 contracts, with the failed parity receipts as
+their repair input.** ONE pick/paint order, unconditional per-atom
+geometry truth (mathematical interior / visual AA / hit slop / boundary
+ties), material citizenship, text layout-result shape, and color/alpha
+convention can proceed. Sid's envelope and D2 material calls remain
+reserved decisions, not build authorization. W1–W5 remain committed
+downstream; no W0 result narrows scope or reopens the campaign.
 
 ## 1. The promise, reinterpreted
 
@@ -652,6 +680,247 @@ the paper page redrawn) and the deliberately-dissimilar second atom
 carry G-rhythm's rate evidence. And E0 is NOT a scope gate (§0 law
 2): its rules choose roads and tiers for capabilities already
 committed; no E0 outcome cancels a floor.
+
+### W0-B execution receipt — 2026-08-02 (Q1–Q8)
+
+**Instrument truth + custody.** **PROTOCOL/INSTRUMENT DEVIATION,
+EXPLICIT:** §12 pre-registered `Sonnet` as builder; the actual executing
+instrument was **OpenAI Codex GPT-5.6**. No Sonnet-builder replication
+was run. The machine measurements stand under the recorded harness,
+source locks, and environment below; model-dependent implementation
+choices are NOT cross-model-confirmed. Execution ran at
+`2026-08-02T10:13:06.025Z..2026-08-02T10:13:16.936Z`, branch
+`docs/current-mental-model-local`, HEAD
+`bd1914068f57ca19c5b85d993339c8dfe37fdb3d`. The experimental harness
+was throwaway under `/tmp/softland-e0-w0b-20260802/`; no product
+surface, product server, or code commit was used. The durable receipt
+is this section. The transient raw JSON was
+`/tmp/softland-e0-w0b-20260802/raw-receipt.json`, 71,568 bytes,
+SHA-256
+`ad91a987ed9f4550191ede9e7d8ac558d89b4e948d9c1022be3f26c63e037a52`;
+it was deleted after transcription because only receipts, not E0's
+experimental implementations, are permanent. Historical execution
+command (not a replay promise after that deletion):
+`node /tmp/softland-e0-w0b-20260802/run.js`. The durable verifier's one
+replay command belongs to W0-A.
+
+**Environment fingerprint.** Linux `6.17.0-35-generic` x64 · AMD Ryzen
+9 9900X (24 logical CPUs) · 62.45 GiB memory · Node `v20.20.2` · Google
+Chrome `150.0.7871.46` headless · secure synthetic
+`https://softland-e0.invalid/` delivered by Puppeteer interception (no
+HTTP server) · WebGPU adapter vendor `google`, architecture
+`swiftshader`; corroborating renderer `ANGLE (Google, Vulkan 1.3.0
+(SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)`.
+Measured device limits: uniform binding 65,536 B · storage binding
+134,217,728 B · buffer 268,435,456 B · texture dimension 8,192 · four
+bind groups. These are SwiftShader receipts, NOT hardware-GPU timing
+claims.
+
+**Method pins.** Deterministic seed `0x0E0B2026`; hand comparisons use
+8.333333ms (120Hz host-event budget) and the §7 16ms pointer→pixel
+budget; settle comparison uses 52ms; fp16 visible-risk boundary is
+0.5 screen pixel (the live Slug shader's half-pixel dilation is the
+code-side anchor). Q1 samples: 20×60, 50×60 (the registered ~50-curve
+decision point), 200×50, 2,000×25 after eight warmups each. Q2: 257
+coordinates × 4 extents × 2 normalizations × 6 zooms. Q3: 40 writes
+per extent. Q4: 30 workloads per extent. Q5: 16,384 pixel centers +
+50×10,000 CPU picks. Q6: every one of 378 boundary pixels. Q7: one
+1,981-frame growth sweep. Q8: 30 composition/storage-upload samples +
+15 paged-upload samples at each extent.
+
+**Source locks (SHA-256, production facts vs prototypes kept
+separate):** `renderer.cljs`
+`1baa7b103f39c23950736e1c37e31ce5aef15bd0b991d05b722706676d47c0cc`
+· `buffer_pool.cljs`
+`217b6759d1a14477aa2c724f166dc5444805923dbf8f9ab6cf58b1484c812c3b`
+· `containers.cljc`
+`0e5138b42dbfd43350cf61ed687ebacfdf3428263f4649a0dfc260e4bb8d0332`
+· `scene_store.cljc`
+`608606ffd6023ad273fe997fb182da64970227ea2dd6abc0f410bbbd24548e59`
+· `island_probe.cljs`
+`e3ccddd8ed49f4d1b58fa82195babb6e1e7a4eba4aabe6e6b233162ffc4133cf`.
+Q1/Q4/Q5/Q6/Q7 and Q8's affine roads are explicitly experimental road
+prototypes. Q3 exercises the production formats and API shape but adds
+probe-only `COPY_SRC` readback. Q2 is exact IEEE binary16 error
+propagation. Q8 source-locks the live 16B×1,024 uniform/hard-throw/four
+consumer fact and prices a proposed 32B affine entry.
+
+#### Q1 — dynamic contour encode + upload [MEASURED; road prototype]
+
+The prototype packs the live Slug shader's two-texel quadratic layout
+(`p1,p2` then `p3.xy`) and header/index band shape, then performs real
+`rgba16float` + `rg16uint` `writeTexture` calls. Production has NO
+runtime contour encoder, so this prices a candidate road, not a live
+path. Values are p95 encode + upload-enqueue + queue-completion wall
+time.
+
+| extent | normalization | zoom | backend | regime | samples | bytes | p95 | verdict |
+|---|---|---|---|---|---:|---:|---:|---|
+| 20-point closed contour | bbox `[0,1]` | N/A upload | Chrome WebGPU / SwiftShader, Slug-layout prototype | hand · settle | 60 | 1,280 | 0.1ms | prototype holds 120Hz host budget |
+| **50-point** closed contour | bbox `[0,1]` | N/A upload | same | hand · settle | 60 | 2,048 | **0.1ms** | registered demotion trigger does **not** fire on this prototype |
+| 200-point closed contour | bbox `[0,1]` | N/A upload | same | hand · settle | 50 | 5,632 | 0.1ms | prototype holds 120Hz host budget |
+| 2,000-point closed contour | bbox `[0,1]` | N/A upload | same | hand · settle | 25 | 64,768 | 0.5ms | prototype holds 120Hz host budget |
+
+Rule application: the ~50-curve band-encode prototype does not miss
+hand-rate, so E0 does **not** demote Slug from this result. Because the
+encoder and rendered fragment cost are not production measurements,
+it also does not confirm Slug as the live tier. Road scope remains only
+the measured extents/backend/regimes.
+
+#### Q2 — fp16 quantization × extent × legal zoom [MEASURED]
+
+Exact binary16 roundtrip over deterministic normalized coordinates;
+screen error = normalized error × denormalized extent × zoom. Every row
+below is backend `Slug rgba16float / IEEE binary16`, regime hand ·
+settle · scene; `default max` is max error over zoom `[0.1,8]`, `legal
+max` over the legally wearable `[0.01,1000]`. `first visible zoom` is
+the first registered sample exceeding 0.5px (sample set
+`0.01,0.1,1,8,100,1000`).
+
+| extent | normalization | zoom regimes | default max px | legal max px | first visible zoom | verdict |
+|---|---|---|---:|---:|---:|---|
+| 1 world unit | bbox `[-1,1]` | default + legal | 0.000962 | 0.120240 | — | confirmed only over this extent/domain |
+| 1 world unit | bbox `[0,1]` | default + legal | 0.001914 | 0.239199 | — | confirmed only over this extent/domain |
+| 256 world units | bbox `[-1,1]` | default + legal | 0.246252 | 30.781481 | 100 | legal-domain precision boundary REQUIRED |
+| 256 world units | bbox `[0,1]` | default + legal | 0.489879 | 61.234856 | 100 | legal-domain precision boundary REQUIRED |
+| 4,096 world units | bbox `[-1,1]` | default + legal | 3.940030 | 492.503695 | 8 | default + legal precision boundary REQUIRED |
+| 4,096 world units | bbox `[0,1]` | default + legal | 7.838062 | 979.757703 | 1 | default + legal precision boundary REQUIRED |
+| 65,536 world units | bbox `[-1,1]` | default + legal | 63.040473 | 7,880.059120 | 0.1 | default + legal precision boundary REQUIRED |
+| 65,536 world units | bbox `[0,1]` | default + legal | 125.408986 | 15,676.123252 | 0.1 | default + legal precision boundary REQUIRED |
+
+Rule application: centered normalization halves screen error but does
+not close the legal domain. Visible loss occurs inside legal material
+at 256-unit extent and inside the DEFAULT clamp at 4,096+ units. A
+declared precision/backend boundary is therefore mandatory for those
+regions; the alternative validator narrowing remains Sid's envelope
+paragraph. No untagged “fp16 is fine” verdict survives.
+
+#### Q3 — runtime curve/band `writeTexture` [MEASURED; live formats]
+
+| extent | normalization | zoom | backend | regime | n | enqueue p95 | completion p95 | readback | verdict |
+|---|---|---|---|---|---:|---:|---:|---|---|
+| 20 points | bbox `[0,1]` | N/A update | Chrome WebGPU / SwiftShader; `rgba16float` + `rg16uint` | hand · settle | 40 | <0.1ms | 0.1ms | curves `4d2c3715`, bands `12e0c572` | byte-exact WORKS |
+| 200 points | bbox `[0,1]` | N/A update | same | hand · settle | 40 | <0.1ms | 0.1ms | curves `48f21734`, bands `26919993` | byte-exact WORKS |
+| 2,000 points | bbox `[0,1]` | N/A update | same | hand · settle | 40 | <0.1ms | 0.1ms | curves `766bc10d`, bands `bd725002` | byte-exact WORKS |
+
+The production `renderer.cljs:create-slug-texture` uses these formats,
+`COPY_DST`, and `queue.writeTexture`; only `COPY_SRC` and readback were
+probe additions. The update mechanism works on this backend. This says
+nothing yet about dynamic atlas allocation or production encode cost.
+
+#### Q4 — slots→ranges allocator sketch [MEASURED; road prototype]
+
+First-fit + coalesce + compact preserved the no-overlap/no-gap
+partition invariant in all workloads, but eager coalescing on every
+free is the wrong scene-scale road.
+
+| extent | normalization | zoom | backend | regime | n | alloc p95 | free-every-third p95 | compact p95 | verdict |
+|---|---|---|---|---|---:|---:|---:|---:|---|
+| 1,024 variable ranges | N/A | N/A | CPU first-fit/coalescing prototype over `buffer_pool` patterns | settle · scene | 30 | 0.2ms | 2.0ms | 0.2ms | correct; within 52ms settle budget; hand NOT tested |
+| 4,096 variable ranges | N/A | N/A | same | settle · scene | 30 | 0.4ms | 21.2ms | 0.3ms | correct; exceeds a 16ms-equivalent batch but remains within 52ms settle; hand NOT tested |
+| 16,384 variable ranges | N/A | N/A | same | settle · scene | 30 | 1.3ms | **314.0ms** | 1.1ms | correct, exceeds 52ms settle budget |
+
+Road price: the shape is viable; this eager-free implementation is
+not. A scene road needs indexed/bin allocation or deferred/batched
+coalescing. No production `buffer_pool` claim changed; it remains
+fixed-slot.
+
+#### Q5 — one-pipeline rotation + inverse pick [FAILED receipt; rung halted/repriced]
+
+Tags: extent `128×128` target / `54×30` local quad · normalization
+centered local coordinates · zoom `1` · backend Chrome WebGPU /
+SwiftShader triangle raster + CPU inverse · regime hand. Rotation at
+0.637 rad rendered and the inverse transform round-tripped 10,000
+points with recorded max error `0`; 50×10,000 CPU picks cost 0.4ms
+p95. But 2/16,384 pixel centers disagreed at raster boundaries:
+`(61,43)` and `(66,84)` were CPU-inside/GPU-alpha-0.
+
+Rule application: **FAIL, Q5 road halted for geometry-contract
+repair.** The two raster-boundary disagreements trigger that repair;
+they do NOT by themselves trigger frame-kind repricing. Separately,
+the already-known full rotation touch-set — bounds, clip, cull,
+nesting, reuse, mixed-atom containers, and the four transform-consuming
+pipeline copies — exceeds this one-pipeline session. THAT is what
+applies the registered rule: rotation re-prices as **frame-kind**, not
+cross-cutting-cheap.
+
+#### Q6 — CPU point-in-path vs GPU boundary coverage [FAILED receipt; road halted]
+
+Tags: extent 14-vertex concave star / 378 boundary pixels ·
+normalization shared 128×128 pixel-space polygon · zoom `1` · backend
+CPU even-odd point-in-path + Chrome WebGPU / SwiftShader 4×4 coverage
+prototype · regime hand. The predeclared comparison was CPU center
+inside iff GPU coverage `>= 0.5`. Result: **10/378 mismatches**;
+coverage RMSE against the same CPU 4×4 samples was 0.001083, max delta
+0.001961. Every mismatch was a mathematical 8/16 tie written through
+`rgba8unorm` as `128/255 = 0.501961`, with the CPU center outside.
+
+Rule application: **FAIL, Q6 road halted. NO road proceeds through
+this receipt until W1's unconditional geometry source-of-truth
+contract explicitly owns mathematical interior, visual coverage,
+hit-slop, AND half-coverage/tie semantics.** This is candidate-contract
+evidence only: production pick is still `rect_tree.cljc/hit-test` over
+axis-aligned bounds through `scene_store.cljc/pick`; production has no
+CPU point-in-path. W0-A's permanent pick-parity probe must carry the
+repair rather than threshold this counterexample away.
+
+#### Q7 — per-frame-growing ink outline [MEASURED; H3 unresolved]
+
+One 1,981-frame growth sweep compared full Slug-layout outline
+re-encode + `writeTexture` enqueue against incremental two-triangle
+append + `writeBuffer`; one queue drain after the sweep cost 2.2ms.
+
+| extent | normalization | zoom | backend | regime | frames | band host p95 | incremental host p95 | >8.33ms / >16ms | verdict |
+|---|---|---|---|---|---:|---:|---:|---|---|
+| 20..200 centerline points (outline doubles vertices) | bbox `[0,1]` stroke | N/A update | Slug-layout full rewrite vs triangle append, Chrome WebGPU / SwiftShader | hand | 181 | 0.1ms | <0.1ms | 0/0 both roads | both prototypes inside host hand budget |
+| 201..2,000 centerline points | bbox `[0,1]` stroke | N/A update | same | hand | 1,800 | 0.4ms | <0.1ms | 0/0 both roads | both prototypes inside host hand budget |
+
+The hostile sweep does not trigger H3's hand-rate demotion on this
+prototype, and incremental triangulation is still materially cheaper.
+Because neither road included production drawing/fragment cost and GPU
+completion was drained once, **H3 remains UNRESOLVED**; no tier is
+confirmed from Q7.
+
+#### Q8 — affine transform transport at practice weight [MEASURED]
+
+Prototype entry: 32B `[2×2, translation, flags, pad]`. Backend in every
+row: CPU affine-chain compose/pack + Chrome WebGPU / SwiftShader
+uniform/storage/paged probes; regimes hand · settle · scene;
+normalization is that 32B entry; zoom N/A transport.
+
+| extent | bytes | compose p95 | storage upload+completion p95 | single uniform | single storage | uniform pages / p95 | sparse-ID amplification | verdict |
+|---|---:|---:|---:|---|---|---|---:|---|
+| 1,024 live nodes | 32,768 | 0.2ms | 0.1ms | PASS | PASS | 1 / 0.1ms | 15.098× | single affine uniform fits measured adapter |
+| 4,096 live nodes | 131,072 | 0.3ms | 0.4ms | **FAIL: 131,072 > 65,536** | PASS | 2 / 0.1ms | 15.108× | transport MUST migrate with affine |
+| 16,384 live nodes | 524,288 | 1.0ms | 0.1ms | **FAIL: 524,288 > 65,536** | PASS | 8 / 0.2ms | 15.110× | transport MUST migrate with affine |
+
+The sparse probe used IDs at stride 17: current max-ID-contiguous
+packing would consume 556,576 / 2,227,744 / 8,912,416 B vs compact
+affine data + a `u32` index at 36,864 / 147,456 / 589,824 B. The live
+overflow remains a hard throw at cid≥1,024; paging requires explicit
+page routing; storage requires compact slots or indirection. The
+repository island probe is the storage precedent, never production
+proof.
+
+Rule application: 4,096 and 16,384 exceed this adapter's 65,536B
+single-uniform limit and the retained cap has no lawful material-level
+overflow. **Transport therefore lands WITH affine in W2-A; there is no
+second transform-table migration after atom multiplication.** This
+receipt proves storage binding and paged-uniform upload mechanically on
+SwiftShader; it does not yet choose between them across hardware and
+integration costs.
+
+**Repair ledger + campaign status.** The first Q8 harness attempt
+stopped only Q8 on `GPUQueue.writeBuffer: Number of bytes to write is
+too large`; the cause was a typed-array offset/size-unit mistake in the
+paged probe. It was repaired by passing per-page typed subarrays and
+the full Q1–Q8 suite replayed. A later classification-instrument edit
+produced `ReferenceError: freeTimes is not defined` before a receipt;
+the misplaced line was repaired and the full suite replayed again.
+Neither failure changed scope. Final state: Q5/Q6 are halted for their
+geometry-contract repair; Q1/Q3/Q4/Q7/Q8 and Q2's domain boundaries
+stand only under the explicit tags above. The FULL-BREADTH CAMPAIGN
+continues unchanged (§0 laws 2–3).
 
 ## 13. Walkthrough ledger (initial, in-thought 08-02; re-run as
 receipts when rooms exist)
