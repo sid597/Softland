@@ -81,7 +81,17 @@ includes P8; the P8 :8091 jetty is dead — see HANDOFF).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-08-01** (G7 + the playground turn:
+**Vision:** LOG routed through **2026-08-02** (the engine turn: cut 2
+landed flat — "rectangles within rectangles … is this all goineg
+somewhere???" — and the ask went to the floor: "guide me through the
+rendering engine … tldraw stuff, figma stuff and blender type of stuff
+… never the missing render"; a multi-round self-falsifying inquiry
+ended at Sid's stop-word — "strongest discovery artifact we have now" —
+and settled the working map: four-layer promise + the Smalltalk
+sentence, six coverage modes (three live), coexistence named the novel
+promise, motion caught as pure omission, E0 falsifier chosen. Routed →
+`build/render-engine/ENGINE.md` + LOG 08-02). Prior: **2026-08-01**
+(G7 + the playground turn:
 the first-ever lived gate FAILED direction-class — "This is not my idea
 of a workshop … I keep coming back to Figma, Figma, Figma"; the want
 precised after the two-atom inventory to "conceptualize first, fill in
@@ -451,8 +461,22 @@ tiers I/II/III) and the contract lane replaced by the **playground
 stream** — cut 1 built and drew Sid's first positive lived reaction;
 round record + cut-2 starter in `PLAYGROUND.md`. Code uncommitted in
 TWO layers (studio P1 + playground cut 1); archiving vs survivorship
-rulings deferred to a fresh session. Next: cut 2 (the structure pencil,
-cheap lane).
+rulings deferred to a fresh session. **CUT 2 RAN + THE ENGINE TURN
+(2026-08-02): the render-engine stream opened.** Cut 2 (structure
+pencil, Codex) landed flat — "rectangles within rectangles … is this
+all goineg somewhere???" — the Tier-I ceiling felt, where the tier
+table predicted it. Sid's ask went beneath the workshops (the engine
+for tldraw/figma/blender-stuff, "never the missing render"); the
+multi-round self-falsifying inquiry settled into
+`build/render-engine/ENGINE.md` — the working map: four-layer promise ·
+four guarantees · coverage×paint (three of six modes live) · mechanical
+verdicts · three regimes · renderer-never-defines-material ·
+coexistence as the novel promise · thread router · E0 spec with
+pre-registered decision rules. The playground stream continues on
+ENGINE RUNGS: E0 falsifier (machine, cheap lane) → E1 ink room (felt
+gate = Sid's paper page redrawn) → image as the dissimilar second atom;
+D2 shape-contract design round parallel. Code still uncommitted in two
+layers; archive/survivorship rulings still deferred.
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.

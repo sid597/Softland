@@ -114,3 +114,18 @@
   lived reaction ("much much useful … good iterative job"); wall =
   structure verbs. Code UNCOMMITTED (P1 + playground; rulings
   deferred). Next: cut 2 structure pencil, cheap lane, PLAYGROUND.md.
+- 2026-08-02 · Fable (standing orchestrator) · **ENGINE INQUIRY SETTLED →
+  RENDER-ENGINE STREAM OPENED** — cut 2 landed flat ("rectangles within
+  rectangles … is this all goineg somewhere???" — Tier-I ceiling FELT);
+  the ask went beneath the workshops: the engine for tldraw/figma/
+  blender-stuff, "never the missing render". Multi-round self-falsifying
+  inquiry ended at Sid's stop-word ("strongest discovery artifact we have
+  now"); working map → `build/render-engine/ENGINE.md`: four-layer
+  promise + Smalltalk sentence · blocked four-graded (grade 4 killed G7)
+  · four guarantees · coverage×paint, THREE of six modes live (Slug = a
+  shipping GPU bezier evaluator) · fp16/no-rotation/uniform-container
+  verdicts · three regimes · renderer-never-defines-material ·
+  coexistence = the novel promise · motion caught as pure omission · H3
+  + killers · router; unproven marked [HYP]/[SID], never canon. Next
+  CHOSEN: E0 falsifier (machine, cheap lane, receipts durable); D2
+  shape-contract round parallel; E1 felt gate = paper page redrawn.

@@ -1097,3 +1097,33 @@ why does the blank screen has a cursor in it? this is the walkthrough and log an
 > so the current affordance is click on note to take a note about it hmmm — where is the equivalent for the workspace?? i mean we should be able to take and say stuff about the workspace itself correct?? like the solution to this problem might entail having one for the workspace as well
 
 *(Routed same-day: the gate record + verbatim + line-by-line + process finding → `build/studio/G7.md` · direction A×B/C/D + the boundary sentence + the two-atom inventory + tiers current/tldraw/figma + playground round 1 + the cut-2 starter + the process rulings (playground stream · fake-over-delay · design-before-contract · cheap-lane builders) → `build/studio/PLAYGROUND.md` · the workspace-note ask banked there as a design contribution · board studio block + Vision line advanced · builder-model lesson → memory working-agreements.)*
+
+## 2026-08-02 — the engine turn: cut 2 lands flat, the ask goes to the floor, the inquiry settles (verbatim)
+
+[cut 2 (the structure pencil) in his hands:]
+
+> ok i did run it but not sure this is what i want like yeah now i can draw rectangles within rectangles and they are all bounded to the block and move as one not sure what else apart from it .... like is this all goineg somewhere???
+
+[the ask beneath the workshops:]
+
+> OH MY LORD SAVIOUR FABLE-MAX CLAUDE CODE PLEASE PLEASE HELP ME I THINK THE ROOT CAUSE OF ALL PROBLEMS IS TRYING TO BUILD OUT stuff for which this is not made.
+
+> please guide me through the rendering engine that is need to provide meaning, a engine in which i can do both tldraw stuff, figma stuff and blender type of stuff as well so that what remains is composition on top and never the missing render please don't try to talk out of this we need this once we have them we will move on to make different workshops for tldraw environment and figma environment and blender/3d box type environment and then build stuff from there ....
+
+[the altitude he set:]
+
+> ok so my question is at level "What must ultimately exist before Softland can honestly promise that no tldraw-, Figma-, or Blender-class workshop will ever be blocked by a missing rendering class?" and then I think find next playable engine slice ....
+
+[the inquiry discipline he imposed, round after round:]
+
+> Before settling the seven-class map or deriving E1 from it, can you examine what exact promise the architecture is making?
+
+> Let the present map dissolve if the inquiry requires it, and report the tensions and unknowns before proposing what should be built.
+
+[the close — the stop-word and the settlement instruction:]
+
+> very awesome soo coolll this is strongest discovery artifact we have now .... excellent job.
+
+> so lets Stop the inquiry loop. Preserve what this inquiry genuinely discovered, mark the unproven claims as provisional rather than canonical, and use the result to form the working engine map and choose the next evidence-producing step.
+
+*(Routed same-session: the inquiry distilled → `build/render-engine/ENGINE.md` — the working map (four-layer promise + the Smalltalk sentence · blocked four-graded · four guarantees · declared envelope with provenance-marked exclusions, motion caught as pure omission · coverage×paint with three of six modes live · mechanical verdicts [CODE] · three regimes · renderer-never-defines-material · coexistence as the novel promise · hypotheses with named killers · thread router · E0 spec with pre-registered decision rules) · board studio block + Vision line advanced to 08-02 · next act = E0 falsifier spike; D2 shape-contract round parallel; E1 felt gate = the paper page redrawn in the ink room.)*
