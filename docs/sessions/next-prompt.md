@@ -572,10 +572,22 @@ exclusions (sculpting · procedural/node authoring · volumes · offline
 rendering) CAMPAIGN-SCOPED, never forever — sculpting + node
 authoring an expected future ask. D2 RULED A: centerline + pressure
 is authoritative ink material, the outline a deterministic versioned
-derivation (`W0-C.md` §4/§6 · `ENGINE.md` §0/§3).** **Execution
-front is now W1 contracts with the failed parity receipts as repair
-input and both rulings as contract input; this is a dependency move,
-never reauthorization or scope change.**
+derivation (`W0-C.md` §4/§6 · `ENGINE.md` §0/§3).** **W1 SETTLED
+2026-08-02 (`build/render-engine/W1.md`, commit `2343a06`; adjudicated
+by the standing session — commit docs-only, SHA + byte citations
+verified): contracts O/G/M/T/C — one ordered scene truth, paint
+forward / pick reverse · unconditional per-atom geometry truth with
+Q6's byte-128 half-tie adjudicated and Q5 + MSDF held as W2-A repair
+obligations, never thresholded away · material citizenship with D2=A
+ink through all twelve falsifiers · one text layout-result seam with
+the T0/T1 fence · straight → linear-premultiplied → present
+color/alpha; the mandatory verifier replay stayed correctly RED.**
+**Execution front is now W2-A (affine/nesting generality + Q8
+transport, ONE migration) + T0 (metrics consolidation behind the
+layout seam, zero-diff, machine-gated), then W2-B at the migration
+tail; dependency moves, never reauthorization or scope change.
+Slug-direct MSDF retirement stays a separate pre-registered road
+receipt.**
 Reserved to Sid — ONE decision remains: studio custody at the
 CAPABILITY level (the durable artery gates Package-2 felt
 activations; the failed face archives separately).
