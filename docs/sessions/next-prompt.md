@@ -81,7 +81,16 @@ includes P8; the P8 :8091 jetty is dead — see HANDOFF).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-08-02, third entry** (the
+**Vision:** LOG routed through **2026-08-02, fourth entry** (the
+decision sitting: envelope RATIFIED full — "decision 1 all yes":
+vector networks + glass/noise/texture + moving media IN Figma-core,
+legal zoom [0.01, 1000] kept and priced, Blender exclusions
+CAMPAIGN-SCOPED never forever ("i will soon ask for sculpting and
+node authoring") · D2 ink truth RULED — "Decision 2: yes A":
+centerline + pressure authoritative, outline derived/versioned.
+Routed → `W0-C.md` §4/§6 + `ENGINE.md` §0/§3 + `DISCOVERIES.md` §8;
+execution front = W1 contracts; only studio custody stays reserved).
+Prior same day, third entry (the
 campaign ruling: the order round ran — derivation → source
 adjudication → Codex gate READY-TO-SETTLE — and Sid caught the
 package's REGISTER: "this should not and never be an mvp-shaped
@@ -546,17 +555,23 @@ code-commit ruling. W0-B's Q1–Q8 receipt is appended in `ENGINE.md`
 §12; Q5/Q6 halt for geometry repair, Q2 forces precision/backend regime
 boundaries, and Q8 lands transport WITH affine. Instrument deviation is
 explicit: Sonnet was pre-registered, Codex GPT-5.6 executed, no Sonnet
-replication. W0-C landed `build/render-engine/W0-C.md` as a nonbinding
-chrome/corpus/envelope/frame-runtime/D2 packet: vector networks REOPENED;
-glass/noise/texture + moving media remain visible pressures. **Execution
-front is now W1 contracts with those failed receipts as repair input;
-this is a dependency move, never reauthorization or scope change.**
-Reserved to Sid: studio custody at the
+replication. W0-C landed `build/render-engine/W0-C.md` as a
+chrome/corpus/envelope/frame-runtime/D2 packet. **THE DECISION SITTING
+RAN 2026-08-02 (fourth LOG entry): envelope RATIFIED full — vector
+networks + glass/noise/texture + moving media IN Figma-core; legal
+zoom [0.01, 1000] kept and priced (validator intact); Blender
+exclusions (sculpting · procedural/node authoring · volumes · offline
+rendering) CAMPAIGN-SCOPED, never forever — sculpting + node
+authoring an expected future ask. D2 RULED A: centerline + pressure
+is authoritative ink material, the outline a deterministic versioned
+derivation (`W0-C.md` §4/§6 · `ENGINE.md` §0/§3).** **Execution
+front is now W1 contracts with the failed parity receipts as repair
+input and both rulings as contract input; this is a dependency move,
+never reauthorization or scope change.**
+Reserved to Sid — ONE decision remains: studio custody at the
 CAPABILITY level (the durable artery gates Package-2 felt
-activations; the failed face archives separately) · the envelope
-paragraph (+ legal-zoom rider [0.01, 1000] · Blender-scope =
-scene-composition floor unless he says more) · D2's ink-material
-call. Code still uncommitted in two layers; archive/survivorship
+activations; the failed face archives separately).
+Code still uncommitted in two layers; archive/survivorship
 rulings still deferred, unchanged by this settlement (the studio
 layer carries the durable authoring loop the law demands).
 

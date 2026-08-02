@@ -1172,10 +1172,14 @@ builder explicit, experimental code throwaway, receipts + verifier
 durable) · W0-C paper lane (chrome audit · corpus sweep → the
 envelope paragraph for Sid, carrying the legal-zoom rider (D-25) and
 Blender-scope confirmation · frame-graph/scheduler contract · D2
-prep). W1–W5 remain committed downstream. Reserved to Sid, unchanged:
-studio custody at the CAPABILITY level (the durable artery gates
-Package-2 felt activations) · the envelope paragraph · D2's material
-call.
+prep). W1–W5 remain committed downstream. Reserved to Sid — amended by
+the 08-02 decision sitting (fourth LOG entry): studio custody at the
+CAPABILITY level (the durable artery gates Package-2 felt activations)
+REMAINS · the envelope paragraph is RATIFIED full (three corpus
+reopeners IN · legal zoom kept and priced · exclusions campaign-scoped,
+never forever — `W0-C.md` §4 / `ENGINE.md` §3) · D2's material call is
+RULED A — centerline + pressure authoritative, outline
+derived/versioned (`W0-C.md` §6.2). Execution front: W1 contracts.
 
 **Custody:** board studio/engine block + Vision line advanced (08-02
 second entry) · `build/studio/NOW.md` entry appended · LOG carries the

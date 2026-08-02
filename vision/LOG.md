@@ -1155,3 +1155,17 @@ why does the blank screen has a cursor in it? this is the walkthrough and log an
 > i asked codex same thing and it says yes it took the mvp lens, i also asked product level mapping so it makes sense to me this is its idea. You take charge you have best divergent deep thinking apply them and just fix up man
 
 *(Routed same-session: the FULL-BREADTH CAMPAIGN LAW + the settled order in product language (shared-canvas foundation → tldraw-class drawing floor → Figma-core design/composition floor → Blender-style 3D scene-composition floor → coexistence/seam demo) + three packages few-and-large → `build/render-engine/ENGINE.md` §0 + §12 amendments (E0 Q2 legal-zoom-domain · Q8 transform transport · W0-A/B/C custody split · W2-B batch-registration seam) · the round record → `DISCOVERIES.md` R12–R15, D-25–D-28, C-16–C-18, M-12, §8 current truth (order SETTLED · campaign ACTIVE · execution front W0-A/B/C) · board engine block + Vision line advanced. The register lesson banked: execution grammar is not scope-neutral (D-28) — a breadth ruling spoken in MVP grammar reads as optionality to exactly the person who ruled it.)*
+
+## 2026-08-02 — the envelope + ink rulings: all yes; the exclusions are for-now, never never; ink truth = the gesture (fourth entry; verbatim)
+
+[the W0→W1 decision sitting: the two decisions W0-C prepared — the envelope ratification paragraph (§4) and D2's freehand-ink material truth (§6) — presented in product terms with recommendations and strongest counterexamples; the rulings:]
+
+> So decision 1 all yes but for atays out youb mean tbey can stsy out for now but not like cant wver be build because i will soon ask for sculpting and node authoring maybe fine for current work to exclude
+
+> Decision 2: yes A
+
+[the reflection read back — envelope ratified FULL (vector networks · glass/noise/texture · moving sampled media all IN Figma-core; legal zoom [0.01, 1000] kept and priced, validator intact; Blender = scene-composition floor through interactive PBR with sculpting/procedural/volumes/offline rendering excluded CAMPAIGN-SCOPED, not forever — sculpting + node authoring expected as a near-future ask) · freehand ink truth = centerline + pressure, the outline a deterministic versioned derivation, never a second coequal truth; the settlement word:]
+
+> Settle it
+
+*(Routed same-session: envelope RATIFIED + D2 = A → `build/render-engine/W0-C.md` §4 flips DRAFT→RATIFIED carrying the campaign-scoped-exclusion rider, §6.2 records choice A · `ENGINE.md` §3 header ratified with the three pressures moved IN, §0 Reserved-to-Sid shrinks to studio custody alone, execution front confirmed W1 contracts with D2=A as contract input · `DISCOVERIES.md` §8 reserved-list amended · board engine block + Vision line advanced to this entry.)*

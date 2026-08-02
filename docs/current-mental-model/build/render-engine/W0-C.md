@@ -338,9 +338,10 @@ The scene-composition corpus supports the current proposed boundary:
 This is a scope-description draft, not a new ruling. Only Sid can ratify
 or expand it.
 
-## 4. Envelope ratification paragraph for Sid
+## 4. Envelope ratification paragraph — RATIFIED 2026-08-02 (Sid)
 
-> **DRAFT — NONBINDING; reserved to Sid.** Ratify the rendering
+> **RATIFIED 2026-08-02 (Sid) — as drafted, all clauses, with one
+> rider recorded below.** Ratify the rendering
 > envelope as **tldraw-full**, **Figma-core at practice weight**, and a
 > **Blender-style scene-composition floor**. Figma-core includes the
 > artifact and authoring requirements needed for real interface,
@@ -366,11 +367,22 @@ or expand it.
 > those regimes, but default-clamp success never waives legal material.
 > This draft keeps the legal validator intact rather than narrowing it.
 
-**Ratification note:** the last sentence chooses one of D-25's two
-lawful closures — price the legal domain rather than narrow the
-validator. It is a proposal, not settled law, until Sid adopts or edits
-the paragraph. The paragraph also makes the current corpus reopeners
-visible so ratification cannot accidentally exclude them by silence.
+**Ratification record (2026-08-02, Sid — verbatim in `vision/LOG.md`
+fourth 08-02 entry):** "decision 1 all yes." Every clause adopted as
+drafted: tldraw-full · Figma-core with the three corpus reopeners —
+branching vector networks, glass/noise/texture, moving sampled media —
+explicitly IN · Blender scene-composition floor through interactive
+PBR · legal zoom `[0.01, 1000]` KEPT and priced per regime (D-25's
+price-the-domain closure; the validator stays intact).
+
+**The one rider (Sid's edit):** the exclusions — sculpting, procedural
+geometry/shader authoring, volumes, offline photorealism, path
+tracing — are **campaign-scoped, not forever**: "tbey can stsy out for
+now but not like cant wver be build because i will soon ask for
+sculpting and node authoring." Nothing in this campaign may treat them
+as architecturally impossible; adding any of them later is one new Sid
+word, and sculpting + node authoring are an expected near-future ask,
+not a hypothetical.
 
 ## 5. Frame-graph + scheduler contract
 
@@ -592,9 +604,11 @@ Rules:
 
 ## 6. D2 round preparation — material truth stays Sid's
 
-**Status:** DRAFT QUESTION SET. D2 decides ink's material truth. E0 can
-price render roads but cannot answer this question. The renderer never
-defines the material.
+**Status:** RULED 2026-08-02 — choice A (§6.2). The question set below
+stands as the decision record and as W1/D2 contract input: the
+falsifier set (§6.4) and common fields (§6.3) now bind the
+centerline-truth representation. The renderer never defines the
+material.
 
 ### 6.1 Settled before the round
 
@@ -613,7 +627,14 @@ corpus-reopened branching-vector-network question is adjacent but
 separate: D2 must not accidentally preclude it, and Sid's envelope word
 decides whether it joins the day-one contract.
 
-### 6.2 Decision reserved to Sid
+### 6.2 Decision — RULED 2026-08-02 (Sid): **A**
+
+**"Decision 2: yes A"** (verbatim in `vision/LOG.md`, fourth 08-02
+entry). For freehand ink, centerline + pressure is authoritative
+material; the outline is a deterministic, versioned derivation — it
+may be retained as a cache or receipt, never a second coequal truth.
+The forbidden non-answer below stays law. The question as it was put,
+with both options preserved as the decision record:
 
 For freehand ink, which fact is authoritative material?
 
@@ -715,10 +736,12 @@ This lane delivers, without settling Sid's decisions:
 - a D2 round packet preserving open paths, closed contours, and holes
   while reserving centerline+pressure vs outline truth to Sid.
 
-**Reserved decisions:** envelope paragraph; D2 ink-material truth;
-studio capability custody. **Newly reopened by corpus, not decided:**
-branching vector networks. **Registered ratification pressure, not
-silently excluded:** glass/noise/texture and moving sampled media.
+**Reserved decisions — status after the 2026-08-02 sitting:** envelope
+paragraph RATIFIED (§4, with the campaign-scoped-exclusion rider) ·
+D2 ink-material truth RULED — choice A (§6.2) · studio capability
+custody REMAINS Sid's. The corpus reopeners are resolved by the
+ratification: branching vector networks, glass/noise/texture, and
+moving sampled media are IN Figma-core.
 
 Nothing in this document authorizes a capability cut, code commit,
 server/product surface, or change to foreign Studio/Playground custody.

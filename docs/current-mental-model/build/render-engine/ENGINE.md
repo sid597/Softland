@@ -200,16 +200,17 @@ path atom · W2-B before any new atom pipeline · T1 before connector
 labels · the durable artery before any Package-2 felt activation ·
 W4 before regions.
 
-**Reserved to Sid (unchanged by three rounds):** studio-layer custody
-at the CAPABILITY level — preserve/extract the minimal durable artery
-(draft · settle · provenance · promotion/reversal · accretion);
-archiving the direction-failed face is a separate act; dark mechanism
-work may proceed meanwhile · the envelope paragraph — now carrying
-two riders: the legal zoom domain [0.01, 1000] vs the promised
-envelope (price it or narrow the validator — D-25) and Blender-scope
-confirmation (scene-composition floor + PBR ladder; NOT
-sculpting/procedural/path-tracing unless he says so) · D2's
-ink-material truth call.
+**Reserved to Sid — after the 08-02 decision sitting, ONE remains:**
+studio-layer custody at the CAPABILITY level — preserve/extract the
+minimal durable artery (draft · settle · provenance ·
+promotion/reversal · accretion); archiving the direction-failed face
+is a separate act; dark mechanism work may proceed meanwhile.
+SETTLED same day (fourth 08-02 LOG entry): the envelope paragraph —
+RATIFIED full (W0-C §4: three corpus reopeners IN · legal zoom
+[0.01, 1000] kept and priced · exclusions campaign-scoped, never
+forever; sculpting + node authoring an expected future ask) · D2's
+ink-material truth — RULED A: centerline + pressure is authoritative,
+the outline a deterministic versioned derivation (W0-C §6.2).
 
 **W0 EXECUTED 2026-08-02 — three lanes, campaign unchanged.** W0-A's
 permanent verifier and 21-image production golden bank now cover SDF
@@ -229,19 +230,23 @@ W0-B's durable Q1–Q8 receipt is §12 below: the pre-registered builder
 was Sonnet but the actual instrument was Codex GPT-5.6 (no Sonnet
 replication); Q5/Q6 are halted for geometry-contract repair; Q2 requires
 declared precision/backend regimes; Q8 requires transport to migrate
-WITH affine. W0-C's nonbinding paper packet is `W0-C.md`: amended chrome
-provider demands, the envelope paragraph reserved to Sid, the data+loop
-frame-runtime contract, and D2 preparation. Branching vector networks
-are REOPENED, not decided; glass/noise/texture and moving media remain
-visible ratification pressures.
+WITH affine. W0-C's paper packet is `W0-C.md`: amended chrome provider
+demands, the envelope paragraph, the data+loop frame-runtime contract,
+and D2 preparation. **The decision sitting RAN 2026-08-02 (fourth LOG
+entry): the envelope is RATIFIED full — vector networks,
+glass/noise/texture, and moving media IN; legal zoom kept and priced;
+exclusions campaign-scoped, never forever — and D2 is RULED A
+(centerline + pressure truth, outline derived/versioned).**
 
 **Execution front NOW: W1 contracts, with the failed parity receipts as
-their repair input.** ONE pick/paint order, unconditional per-atom
-geometry truth (mathematical interior / visual AA / hit slop / boundary
-ties), material citizenship, text layout-result shape, and color/alpha
-convention can proceed. Sid's envelope and D2 material calls remain
-reserved decisions, not build authorization. W1–W5 remain committed
-downstream; no W0 result narrows scope or reopens the campaign.
+their repair input and both 08-02 rulings as contract input.** ONE
+pick/paint order, unconditional per-atom geometry truth (mathematical
+interior / visual AA / hit slop / boundary ties), material citizenship
+(the ink template binds to D2=A: centerline + pressure authoritative,
+outline a versioned derivation), text layout-result shape, and
+color/alpha convention. The only decision still reserved is studio
+custody at the capability level. W1–W5 remain committed downstream; no
+W0 result narrows scope or reopens the campaign.
 
 ## 1. The promise, reinterpreted
 
@@ -295,15 +300,27 @@ rendering capability" — reread from practices, not products:
   standing machine probes for the machine-checkable half; short-cadence
   lived contact for the felt half.
 
-## 3. Declared envelope [SID — proposed, provisional until ratified]
+## 3. Declared envelope [SID — RATIFIED 2026-08-02; `W0-C.md` §4 is the ratified form]
+
+**Ratified 2026-08-02 (Sid, "decision 1 all yes" — verbatim in
+`vision/LOG.md`, fourth 08-02 entry):** the W0-C §4 paragraph adopted
+as drafted, all clauses. The corpus reopeners are IN; the legal zoom
+domain `[0.01, 1000]` is KEPT and priced per regime (validator
+intact); the exclusions are CAMPAIGN-SCOPED, not forever — sculpting
+and node authoring are an expected near-future ask ("i will soon ask
+for sculpting and node authoring"), so nothing built now may make them
+architecturally impossible.
 
 **IN:** tldraw-full · Figma-core — shapes, booleans, images, masks,
 blends, shadows, blur, and text AT PRACTICE WEIGHT (typography is core
-to interface design, not a garnish; today: one monospace font [CODE]) ·
+to interface design, not a garnish; today: one monospace font [CODE])
+· **branching vector networks** (corpus-reopened, ratified IN 08-02) ·
+**glass/noise/texture effect stacks** (ratified IN 08-02) · **moving
+sampled media — video/GIF** (ratified IN 08-02) ·
 Blender-as-scene-composition (grey-box → lights → PBR ladder · gizmos ·
 grease-pencil-equivalent = our strokes in 3D).
 
-**OUT, named, with provenance:**
+**OUT for this campaign — never forever (the 08-02 rider):**
 - path-tracing / photorealism — intent-discovered (live worlds, not
   offline renders);
 - multiplayer — intent (the agent-hand is a DIFFERENT capability, not
@@ -313,8 +330,9 @@ grease-pencil-equivalent = our strokes in 3D).
 - volumes — MIXED provenance: plausibly outside the practice AND
   conveniently expensive; = the marched mode (§5); redrawable by one
   Sid sentence ("I want to sketch a foggy scene" breaks it);
-- vector networks — introduced by the orchestrator; tripwire: the
-  icon-drawing practice deepening reopens it.
+- sculpting · procedural geometry/shader-node authoring — excluded as
+  full practices THIS campaign; expected future ask, one Sid word
+  reopens.
 
 **FLAGGED IN by carried lean [SID]: motion** — previously excluded by
 PURE OMISSION (caught 08-02; neither intent-discovered nor decided).
