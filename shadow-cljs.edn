@@ -13,4 +13,18 @@
          :output-dir "resources/public/js"
          :asset-path "/js"
          :module-hash-names true
-         :modules {:main {:entries [prod] :init-fn prod/start!}}}}}
+         :modules {:main {:entries [prod] :init-fn prod/start!}}}
+
+  ;; Permanent W0-A render-engine verifier. The Puppeteer runner serves this
+  ;; release build from a synthetic secure origin and drives the REAL renderer
+  ;; pipelines; no product server or product surface participates.
+  :render-verifier
+  {:target :browser
+   :output-dir "target/render-verifier/js"
+   :asset-path "/js"
+   ;; The verifier is infrastructure, not a shipped bundle. Simple mode keeps
+   ;; the exported asynchronous entrypoint explicit for browser automation and
+   ;; avoids advanced-DCE turning that callback into `void 0`.
+   :compiler-options {:optimizations :simple}
+   :modules {:main {:entries [app.client.substrate.webgpu.verifier]
+                    :init-fn app.client.substrate.webgpu.verifier/start!}}}}}

@@ -4,7 +4,8 @@
   "description": "``` $ clj -M:dev -m dev",
   "main": "index.js",
   "scripts": {
-    "build": "clj -M:dev -m dev"
+    "build": "clj -M:dev -m dev",
+    "verify:render-engine": "clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs"
   },
   "author": "",
   "license": "ISC",

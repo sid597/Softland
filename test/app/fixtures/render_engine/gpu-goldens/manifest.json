@@ -1,0 +1,3392 @@
+{
+  "schemaVersion": 1,
+  "verifier": "softland-render-engine-w0-a",
+  "captureAuthority": "actual WebGPU render through production pipelines; SwiftShader is software GPU, not hardware",
+  "productPickAuthority": "candidate CPU point-in-path contract only; current product pick remains axis-aligned bounds",
+  "shaderDigests": {
+    "rectVertex": "c1915ed597ad30e5bad27f993faecd3adff96b756ca182ac078fb8bbdbe94508",
+    "rectFragment": "b6a5261db6b7eacd3850f257a693f574b3021f271ca0c45f2044d0b2668f28bf",
+    "msdfVertex": "218b8dca2bb5bcc7f48d8b84451d8c81530ad627bc3cad7b225cb9b369da6719",
+    "msdfFragment": "5ba56821b0f388e8bf9cb44a71c013154744b505ed5bd0274d40e708fd1d8a57",
+    "slugVertex": "1f2962038e48e28012f225356c98f005a6d210301d026925dd350e7910dfaa7e",
+    "slugFragment": "90ed4a2cdfda9de24b4c328b5d3b1f2053a73abb18d6042a5c4ca37fa0a3312e"
+  },
+  "productionInputs": {
+    "rendererSource": {
+      "path": "src/app/client/substrate/webgpu/renderer.cljs",
+      "bytes": 100270,
+      "sha256": "1baa7b103f39c23950736e1c37e31ce5aef15bd0b991d05b722706676d47c0cc"
+    },
+    "msdfAtlas": {
+      "path": "resources/public/fonts/dejavu_sans_mono_atlas.png",
+      "bytes": 666252,
+      "sha256": "7c52452ada8c236fcd87dc45f0bac5de899ba145859614422917871162803bf8"
+    },
+    "msdfMetrics": {
+      "path": "resources/public/fonts/dejavu_sans_mono_atlas.json",
+      "bytes": 123646,
+      "sha256": "89bf671df46a3dae8c86c2ca7898867d12b86a17b1fd9c440da1ed37ed72faaa"
+    },
+    "slugMeta": {
+      "path": "resources/public/fonts/dejavu_sans_mono_slug_meta.json",
+      "bytes": 255881,
+      "sha256": "0921ce0cfaa2ed51a09a65f5ebfb955e1c0ce8c24d05c70fc6aa8b37d7996631"
+    },
+    "slugCurves": {
+      "path": "resources/public/fonts/dejavu_sans_mono_slug_curve.bin",
+      "bytes": 163840,
+      "sha256": "41e7c3e6876573b7aee5937d92cf3058e9c73d5733b55aa9511f3383f7ad91e6"
+    },
+    "slugBands": {
+      "path": "resources/public/fonts/dejavu_sans_mono_slug_band.bin",
+      "bytes": 147456,
+      "sha256": "160766bdaacb175c69e961b52929223a6efaa73df280cc456eb877189dc792e7"
+    },
+    "fontManifest": {
+      "path": "resources/public/fonts/manifest.json",
+      "bytes": 2596,
+      "sha256": "30bf0ae1809c6a0a9b6c7dbb347005b9632163fc339d03d3d6d2d5f12418caba"
+    }
+  },
+  "images": [
+    {
+      "caseId": "legal-min-z0p01",
+      "zoom": 0.01,
+      "regime": "legal-envelope-sentinel",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 8000,
+      "mode": "sdf-rich-rect",
+      "file": "gpu-sdf-rich-rect-legal-min-z0p01.png",
+      "rawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+      "pngSha256": "1c40f0a5d43a4edc696627249cdb52152620b3b9e5611648fd8f6e22a97e27fe"
+    },
+    {
+      "caseId": "legal-min-z0p01",
+      "zoom": 0.01,
+      "regime": "legal-envelope-sentinel",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 8000,
+      "mode": "msdf",
+      "file": "gpu-msdf-legal-min-z0p01.png",
+      "rawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+      "pngSha256": "0b4c472431168be024826481fc7e779e6e2d0fcf7e96f872e2f838fa81c862cc"
+    },
+    {
+      "caseId": "legal-min-z0p01",
+      "zoom": 0.01,
+      "regime": "legal-envelope-sentinel",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 8000,
+      "mode": "slug",
+      "file": "gpu-slug-legal-min-z0p01.png",
+      "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+      "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
+    },
+    {
+      "caseId": "default-min-z0p1",
+      "zoom": 0.1,
+      "regime": "floor-default-clamp",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 800,
+      "mode": "sdf-rich-rect",
+      "file": "gpu-sdf-rich-rect-default-min-z0p1.png",
+      "rawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+      "pngSha256": "1c40f0a5d43a4edc696627249cdb52152620b3b9e5611648fd8f6e22a97e27fe"
+    },
+    {
+      "caseId": "default-min-z0p1",
+      "zoom": 0.1,
+      "regime": "floor-default-clamp",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 800,
+      "mode": "msdf",
+      "file": "gpu-msdf-default-min-z0p1.png",
+      "rawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+      "pngSha256": "0b4c472431168be024826481fc7e779e6e2d0fcf7e96f872e2f838fa81c862cc"
+    },
+    {
+      "caseId": "default-min-z0p1",
+      "zoom": 0.1,
+      "regime": "floor-default-clamp",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 800,
+      "mode": "slug",
+      "file": "gpu-slug-default-min-z0p1.png",
+      "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+      "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
+    },
+    {
+      "caseId": "default-unit-z1",
+      "zoom": 1,
+      "regime": "floor-default-clamp",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 80,
+      "mode": "sdf-rich-rect",
+      "file": "gpu-sdf-rich-rect-default-unit-z1.png",
+      "rawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+      "pngSha256": "1c40f0a5d43a4edc696627249cdb52152620b3b9e5611648fd8f6e22a97e27fe"
+    },
+    {
+      "caseId": "default-unit-z1",
+      "zoom": 1,
+      "regime": "floor-default-clamp",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 80,
+      "mode": "msdf",
+      "file": "gpu-msdf-default-unit-z1.png",
+      "rawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+      "pngSha256": "0b4c472431168be024826481fc7e779e6e2d0fcf7e96f872e2f838fa81c862cc"
+    },
+    {
+      "caseId": "default-unit-z1",
+      "zoom": 1,
+      "regime": "floor-default-clamp",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 80,
+      "mode": "slug",
+      "file": "gpu-slug-default-unit-z1.png",
+      "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+      "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
+    },
+    {
+      "caseId": "default-max-z8",
+      "zoom": 8,
+      "regime": "floor-default-clamp",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 10,
+      "mode": "sdf-rich-rect",
+      "file": "gpu-sdf-rich-rect-default-max-z8.png",
+      "rawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+      "pngSha256": "1c40f0a5d43a4edc696627249cdb52152620b3b9e5611648fd8f6e22a97e27fe"
+    },
+    {
+      "caseId": "default-max-z8",
+      "zoom": 8,
+      "regime": "floor-default-clamp",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 10,
+      "mode": "msdf",
+      "file": "gpu-msdf-default-max-z8.png",
+      "rawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+      "pngSha256": "0b4c472431168be024826481fc7e779e6e2d0fcf7e96f872e2f838fa81c862cc"
+    },
+    {
+      "caseId": "default-max-z8",
+      "zoom": 8,
+      "regime": "floor-default-clamp",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 10,
+      "mode": "slug",
+      "file": "gpu-slug-default-max-z8.png",
+      "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+      "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
+    },
+    {
+      "caseId": "legal-log-z10",
+      "zoom": 10,
+      "regime": "legal-envelope-sentinel",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 8,
+      "mode": "sdf-rich-rect",
+      "file": "gpu-sdf-rich-rect-legal-log-z10.png",
+      "rawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+      "pngSha256": "1c40f0a5d43a4edc696627249cdb52152620b3b9e5611648fd8f6e22a97e27fe"
+    },
+    {
+      "caseId": "legal-log-z10",
+      "zoom": 10,
+      "regime": "legal-envelope-sentinel",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 8,
+      "mode": "msdf",
+      "file": "gpu-msdf-legal-log-z10.png",
+      "rawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+      "pngSha256": "0b4c472431168be024826481fc7e779e6e2d0fcf7e96f872e2f838fa81c862cc"
+    },
+    {
+      "caseId": "legal-log-z10",
+      "zoom": 10,
+      "regime": "legal-envelope-sentinel",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 8,
+      "mode": "slug",
+      "file": "gpu-slug-legal-log-z10.png",
+      "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+      "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
+    },
+    {
+      "caseId": "legal-log-z100",
+      "zoom": 100,
+      "regime": "legal-envelope-sentinel",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 0.8,
+      "mode": "sdf-rich-rect",
+      "file": "gpu-sdf-rich-rect-legal-log-z100.png",
+      "rawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+      "pngSha256": "1c40f0a5d43a4edc696627249cdb52152620b3b9e5611648fd8f6e22a97e27fe"
+    },
+    {
+      "caseId": "legal-log-z100",
+      "zoom": 100,
+      "regime": "legal-envelope-sentinel",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 0.8,
+      "mode": "msdf",
+      "file": "gpu-msdf-legal-log-z100.png",
+      "rawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+      "pngSha256": "0b4c472431168be024826481fc7e779e6e2d0fcf7e96f872e2f838fa81c862cc"
+    },
+    {
+      "caseId": "legal-log-z100",
+      "zoom": 100,
+      "regime": "legal-envelope-sentinel",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 0.8,
+      "mode": "slug",
+      "file": "gpu-slug-legal-log-z100.png",
+      "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+      "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
+    },
+    {
+      "caseId": "legal-max-z1000",
+      "zoom": 1000,
+      "regime": "legal-envelope-sentinel",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 0.08,
+      "mode": "sdf-rich-rect",
+      "file": "gpu-sdf-rich-rect-legal-max-z1000.png",
+      "rawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+      "pngSha256": "1c40f0a5d43a4edc696627249cdb52152620b3b9e5611648fd8f6e22a97e27fe"
+    },
+    {
+      "caseId": "legal-max-z1000",
+      "zoom": 1000,
+      "regime": "legal-envelope-sentinel",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 0.08,
+      "mode": "msdf",
+      "file": "gpu-msdf-legal-max-z1000.png",
+      "rawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+      "pngSha256": "0b4c472431168be024826481fc7e779e6e2d0fcf7e96f872e2f838fa81c862cc"
+    },
+    {
+      "caseId": "legal-max-z1000",
+      "zoom": 1000,
+      "regime": "legal-envelope-sentinel",
+      "normalization": "screen-constant",
+      "shapeExtentWorld": 0.08,
+      "mode": "slug",
+      "file": "gpu-slug-legal-max-z1000.png",
+      "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+      "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
+    }
+  ],
+  "replayCommand": "npm run verify:render-engine",
+  "environmentFingerprintSha256": "e79490f8882cd785f32b5bb82cadd425dc90f2d7616cc9f0debf8a0f1c476282",
+  "baselineReceipts": {
+    "determinism": {
+      "pass": true,
+      "rows": [
+        {
+          "caseId": "legal-min-z0p01",
+          "zoom": 0.01,
+          "regime": "legal-envelope-sentinel",
+          "mode": "sdf-rich-rect",
+          "firstRawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+          "secondRawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "legal-min-z0p01",
+          "zoom": 0.01,
+          "regime": "legal-envelope-sentinel",
+          "mode": "msdf",
+          "firstRawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+          "secondRawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "legal-min-z0p01",
+          "zoom": 0.01,
+          "regime": "legal-envelope-sentinel",
+          "mode": "slug",
+          "firstRawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+          "secondRawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "default-min-z0p1",
+          "zoom": 0.1,
+          "regime": "floor-default-clamp",
+          "mode": "sdf-rich-rect",
+          "firstRawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+          "secondRawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "default-min-z0p1",
+          "zoom": 0.1,
+          "regime": "floor-default-clamp",
+          "mode": "msdf",
+          "firstRawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+          "secondRawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "default-min-z0p1",
+          "zoom": 0.1,
+          "regime": "floor-default-clamp",
+          "mode": "slug",
+          "firstRawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+          "secondRawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "default-unit-z1",
+          "zoom": 1,
+          "regime": "floor-default-clamp",
+          "mode": "sdf-rich-rect",
+          "firstRawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+          "secondRawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "default-unit-z1",
+          "zoom": 1,
+          "regime": "floor-default-clamp",
+          "mode": "msdf",
+          "firstRawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+          "secondRawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "default-unit-z1",
+          "zoom": 1,
+          "regime": "floor-default-clamp",
+          "mode": "slug",
+          "firstRawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+          "secondRawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "default-max-z8",
+          "zoom": 8,
+          "regime": "floor-default-clamp",
+          "mode": "sdf-rich-rect",
+          "firstRawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+          "secondRawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "default-max-z8",
+          "zoom": 8,
+          "regime": "floor-default-clamp",
+          "mode": "msdf",
+          "firstRawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+          "secondRawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "default-max-z8",
+          "zoom": 8,
+          "regime": "floor-default-clamp",
+          "mode": "slug",
+          "firstRawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+          "secondRawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "legal-log-z10",
+          "zoom": 10,
+          "regime": "legal-envelope-sentinel",
+          "mode": "sdf-rich-rect",
+          "firstRawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+          "secondRawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "legal-log-z10",
+          "zoom": 10,
+          "regime": "legal-envelope-sentinel",
+          "mode": "msdf",
+          "firstRawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+          "secondRawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "legal-log-z10",
+          "zoom": 10,
+          "regime": "legal-envelope-sentinel",
+          "mode": "slug",
+          "firstRawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+          "secondRawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "legal-log-z100",
+          "zoom": 100,
+          "regime": "legal-envelope-sentinel",
+          "mode": "sdf-rich-rect",
+          "firstRawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+          "secondRawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "legal-log-z100",
+          "zoom": 100,
+          "regime": "legal-envelope-sentinel",
+          "mode": "msdf",
+          "firstRawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+          "secondRawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "legal-log-z100",
+          "zoom": 100,
+          "regime": "legal-envelope-sentinel",
+          "mode": "slug",
+          "firstRawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+          "secondRawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "legal-max-z1000",
+          "zoom": 1000,
+          "regime": "legal-envelope-sentinel",
+          "mode": "sdf-rich-rect",
+          "firstRawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+          "secondRawSha256": "16a765d2dfb1d42d3c9f5e53922b5804f9e3d69a43c39247055dee0ac2d31d27",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "legal-max-z1000",
+          "zoom": 1000,
+          "regime": "legal-envelope-sentinel",
+          "mode": "msdf",
+          "firstRawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+          "secondRawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
+          "byteIdentical": true
+        },
+        {
+          "caseId": "legal-max-z1000",
+          "zoom": 1000,
+          "regime": "legal-envelope-sentinel",
+          "mode": "slug",
+          "firstRawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+          "secondRawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
+          "byteIdentical": true
+        }
+      ]
+    },
+    "candidatePickParity": {
+      "pass": false,
+      "boundaryTieSemantics": "rgba8unorm byte 128 is recorded as an indeterminate boundary tie, never silently coerced to inside or outside",
+      "currentProductPick": false,
+      "rows": [
+        {
+          "caseId": "legal-min-z0p01",
+          "zoom": 0.01,
+          "regime": "legal-envelope-sentinel",
+          "mismatchCount": 0,
+          "firstBoundaryTies": [],
+          "firstMismatches": [],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "sdf-rounded-path",
+          "boundaryPixelCount": 102,
+          "decisiveCount": 102,
+          "verdict": "decisive-parity",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-rich-rect-analytic-boundary",
+            "mapping": "screen-pixel-center->rounded-rect-SDF"
+          },
+          "pass": true,
+          "boundaryTieCount": 0,
+          "matchCount": 102
+        },
+        {
+          "caseId": "legal-min-z0p01",
+          "zoom": 0.01,
+          "regime": "legal-envelope-sentinel",
+          "mismatchCount": 47,
+          "firstBoundaryTies": [
+            {
+              "pixel": [
+                39,
+                70
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            },
+            {
+              "pixel": [
+                63,
+                96
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            }
+          ],
+          "firstMismatches": [
+            {
+              "pixel": [
+                53,
+                51
+              ],
+              "gpuCoverageByte": 104,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                62,
+                51
+              ],
+              "gpuCoverageByte": 100,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                72,
+                58
+              ],
+              "gpuCoverageByte": 209,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                42,
+                59
+              ],
+              "gpuCoverageByte": 126,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                64,
+                59
+              ],
+              "gpuCoverageByte": 118,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                73,
+                59
+              ],
+              "gpuCoverageByte": 144,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                65,
+                60
+              ],
+              "gpuCoverageByte": 111,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                74,
+                61
+              ],
+              "gpuCoverageByte": 141,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                74,
+                62
+              ],
+              "gpuCoverageByte": 220,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                48,
+                63
+              ],
+              "gpuCoverageByte": 168,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                40,
+                64
+              ],
+              "gpuCoverageByte": 127,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                75,
+                64
+              ],
+              "gpuCoverageByte": 152,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                75,
+                65
+              ],
+              "gpuCoverageByte": 207,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                47,
+                66
+              ],
+              "gpuCoverageByte": 179,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                47,
+                67
+              ],
+              "gpuCoverageByte": 132,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                68,
+                67
+              ],
+              "gpuCoverageByte": 106,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                39,
+                68
+              ],
+              "gpuCoverageByte": 91,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                39,
+                69
+              ],
+              "gpuCoverageByte": 114,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                69
+              ],
+              "gpuCoverageByte": 141,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                70
+              ],
+              "gpuCoverageByte": 154,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                71
+              ],
+              "gpuCoverageByte": 168,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                72
+              ],
+              "gpuCoverageByte": 182,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                73
+              ],
+              "gpuCoverageByte": 187,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                74
+              ],
+              "gpuCoverageByte": 187,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            }
+          ],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "msdf-dejavu-o-path",
+          "boundaryPixelCount": 249,
+          "decisiveCount": 247,
+          "verdict": "decisive-mismatch",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-msdf-planeBounds",
+            "shapedRectWorld": [
+              2933.203125,
+              4037.5,
+              5750,
+              6750
+            ],
+            "glyphBounds": {
+              "left": -0.058349609375,
+              "bottom": -0.1484375,
+              "right": 0.660400390625,
+              "top": 0.6953125
+            },
+            "zoom": 0.01,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass": false,
+          "boundaryTieCount": 2,
+          "matchCount": 200
+        },
+        {
+          "caseId": "legal-min-z0p01",
+          "zoom": 0.01,
+          "regime": "legal-envelope-sentinel",
+          "mismatchCount": 0,
+          "firstBoundaryTies": [
+            {
+              "pixel": [
+                50,
+                60
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            },
+            {
+              "pixel": [
+                46,
+                74
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            }
+          ],
+          "firstMismatches": [],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "slug-dejavu-o-path",
+          "boundaryPixelCount": 192,
+          "decisiveCount": 190,
+          "verdict": "decisive-parity-with-declared-boundary-ties",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-slug-sampleBounds",
+            "shapedRectWorld": [
+              3900,
+              5100,
+              3750,
+              4625
+            ],
+            "glyphBounds": {
+              "left": 0.0625,
+              "right": 0.53125,
+              "top": 0.5625,
+              "bottom": -0.015625
+            },
+            "zoom": 0.01,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass": true,
+          "boundaryTieCount": 2,
+          "matchCount": 190
+        },
+        {
+          "caseId": "default-min-z0p1",
+          "zoom": 0.1,
+          "regime": "floor-default-clamp",
+          "mismatchCount": 0,
+          "firstBoundaryTies": [],
+          "firstMismatches": [],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "sdf-rounded-path",
+          "boundaryPixelCount": 102,
+          "decisiveCount": 102,
+          "verdict": "decisive-parity",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-rich-rect-analytic-boundary",
+            "mapping": "screen-pixel-center->rounded-rect-SDF"
+          },
+          "pass": true,
+          "boundaryTieCount": 0,
+          "matchCount": 102
+        },
+        {
+          "caseId": "default-min-z0p1",
+          "zoom": 0.1,
+          "regime": "floor-default-clamp",
+          "mismatchCount": 47,
+          "firstBoundaryTies": [
+            {
+              "pixel": [
+                39,
+                70
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            },
+            {
+              "pixel": [
+                63,
+                96
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            }
+          ],
+          "firstMismatches": [
+            {
+              "pixel": [
+                53,
+                51
+              ],
+              "gpuCoverageByte": 104,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                62,
+                51
+              ],
+              "gpuCoverageByte": 100,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                72,
+                58
+              ],
+              "gpuCoverageByte": 209,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                42,
+                59
+              ],
+              "gpuCoverageByte": 126,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                64,
+                59
+              ],
+              "gpuCoverageByte": 118,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                73,
+                59
+              ],
+              "gpuCoverageByte": 144,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                65,
+                60
+              ],
+              "gpuCoverageByte": 111,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                74,
+                61
+              ],
+              "gpuCoverageByte": 141,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                74,
+                62
+              ],
+              "gpuCoverageByte": 220,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                48,
+                63
+              ],
+              "gpuCoverageByte": 168,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                40,
+                64
+              ],
+              "gpuCoverageByte": 127,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                75,
+                64
+              ],
+              "gpuCoverageByte": 152,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                75,
+                65
+              ],
+              "gpuCoverageByte": 207,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                47,
+                66
+              ],
+              "gpuCoverageByte": 179,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                47,
+                67
+              ],
+              "gpuCoverageByte": 132,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                68,
+                67
+              ],
+              "gpuCoverageByte": 106,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                39,
+                68
+              ],
+              "gpuCoverageByte": 91,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                39,
+                69
+              ],
+              "gpuCoverageByte": 114,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                69
+              ],
+              "gpuCoverageByte": 141,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                70
+              ],
+              "gpuCoverageByte": 154,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                71
+              ],
+              "gpuCoverageByte": 168,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                72
+              ],
+              "gpuCoverageByte": 182,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                73
+              ],
+              "gpuCoverageByte": 187,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                74
+              ],
+              "gpuCoverageByte": 187,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            }
+          ],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "msdf-dejavu-o-path",
+          "boundaryPixelCount": 249,
+          "decisiveCount": 247,
+          "verdict": "decisive-mismatch",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-msdf-planeBounds",
+            "shapedRectWorld": [
+              293.3203125,
+              403.75,
+              575,
+              675
+            ],
+            "glyphBounds": {
+              "left": -0.058349609375,
+              "bottom": -0.1484375,
+              "right": 0.660400390625,
+              "top": 0.6953125
+            },
+            "zoom": 0.1,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass": false,
+          "boundaryTieCount": 2,
+          "matchCount": 200
+        },
+        {
+          "caseId": "default-min-z0p1",
+          "zoom": 0.1,
+          "regime": "floor-default-clamp",
+          "mismatchCount": 0,
+          "firstBoundaryTies": [
+            {
+              "pixel": [
+                50,
+                60
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            },
+            {
+              "pixel": [
+                46,
+                74
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            }
+          ],
+          "firstMismatches": [],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "slug-dejavu-o-path",
+          "boundaryPixelCount": 192,
+          "decisiveCount": 190,
+          "verdict": "decisive-parity-with-declared-boundary-ties",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-slug-sampleBounds",
+            "shapedRectWorld": [
+              390,
+              510,
+              375,
+              462.5
+            ],
+            "glyphBounds": {
+              "left": 0.0625,
+              "right": 0.53125,
+              "top": 0.5625,
+              "bottom": -0.015625
+            },
+            "zoom": 0.1,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass": true,
+          "boundaryTieCount": 2,
+          "matchCount": 190
+        },
+        {
+          "caseId": "default-unit-z1",
+          "zoom": 1,
+          "regime": "floor-default-clamp",
+          "mismatchCount": 0,
+          "firstBoundaryTies": [],
+          "firstMismatches": [],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "sdf-rounded-path",
+          "boundaryPixelCount": 102,
+          "decisiveCount": 102,
+          "verdict": "decisive-parity",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-rich-rect-analytic-boundary",
+            "mapping": "screen-pixel-center->rounded-rect-SDF"
+          },
+          "pass": true,
+          "boundaryTieCount": 0,
+          "matchCount": 102
+        },
+        {
+          "caseId": "default-unit-z1",
+          "zoom": 1,
+          "regime": "floor-default-clamp",
+          "mismatchCount": 47,
+          "firstBoundaryTies": [
+            {
+              "pixel": [
+                39,
+                70
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            },
+            {
+              "pixel": [
+                63,
+                96
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            }
+          ],
+          "firstMismatches": [
+            {
+              "pixel": [
+                53,
+                51
+              ],
+              "gpuCoverageByte": 104,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                62,
+                51
+              ],
+              "gpuCoverageByte": 100,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                72,
+                58
+              ],
+              "gpuCoverageByte": 209,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                42,
+                59
+              ],
+              "gpuCoverageByte": 126,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                64,
+                59
+              ],
+              "gpuCoverageByte": 118,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                73,
+                59
+              ],
+              "gpuCoverageByte": 144,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                65,
+                60
+              ],
+              "gpuCoverageByte": 111,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                74,
+                61
+              ],
+              "gpuCoverageByte": 141,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                74,
+                62
+              ],
+              "gpuCoverageByte": 220,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                48,
+                63
+              ],
+              "gpuCoverageByte": 168,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                40,
+                64
+              ],
+              "gpuCoverageByte": 127,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                75,
+                64
+              ],
+              "gpuCoverageByte": 152,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                75,
+                65
+              ],
+              "gpuCoverageByte": 207,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                47,
+                66
+              ],
+              "gpuCoverageByte": 179,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                47,
+                67
+              ],
+              "gpuCoverageByte": 132,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                68,
+                67
+              ],
+              "gpuCoverageByte": 106,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                39,
+                68
+              ],
+              "gpuCoverageByte": 91,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                39,
+                69
+              ],
+              "gpuCoverageByte": 114,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                69
+              ],
+              "gpuCoverageByte": 141,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                70
+              ],
+              "gpuCoverageByte": 154,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                71
+              ],
+              "gpuCoverageByte": 168,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                72
+              ],
+              "gpuCoverageByte": 182,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                73
+              ],
+              "gpuCoverageByte": 187,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                74
+              ],
+              "gpuCoverageByte": 187,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            }
+          ],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "msdf-dejavu-o-path",
+          "boundaryPixelCount": 249,
+          "decisiveCount": 247,
+          "verdict": "decisive-mismatch",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-msdf-planeBounds",
+            "shapedRectWorld": [
+              29.33203125,
+              40.375,
+              57.5,
+              67.5
+            ],
+            "glyphBounds": {
+              "left": -0.058349609375,
+              "bottom": -0.1484375,
+              "right": 0.660400390625,
+              "top": 0.6953125
+            },
+            "zoom": 1,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass": false,
+          "boundaryTieCount": 2,
+          "matchCount": 200
+        },
+        {
+          "caseId": "default-unit-z1",
+          "zoom": 1,
+          "regime": "floor-default-clamp",
+          "mismatchCount": 0,
+          "firstBoundaryTies": [
+            {
+              "pixel": [
+                50,
+                60
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            },
+            {
+              "pixel": [
+                46,
+                74
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            }
+          ],
+          "firstMismatches": [],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "slug-dejavu-o-path",
+          "boundaryPixelCount": 192,
+          "decisiveCount": 190,
+          "verdict": "decisive-parity-with-declared-boundary-ties",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-slug-sampleBounds",
+            "shapedRectWorld": [
+              39,
+              51,
+              37.5,
+              46.25
+            ],
+            "glyphBounds": {
+              "left": 0.0625,
+              "right": 0.53125,
+              "top": 0.5625,
+              "bottom": -0.015625
+            },
+            "zoom": 1,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass": true,
+          "boundaryTieCount": 2,
+          "matchCount": 190
+        },
+        {
+          "caseId": "default-max-z8",
+          "zoom": 8,
+          "regime": "floor-default-clamp",
+          "mismatchCount": 0,
+          "firstBoundaryTies": [],
+          "firstMismatches": [],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "sdf-rounded-path",
+          "boundaryPixelCount": 102,
+          "decisiveCount": 102,
+          "verdict": "decisive-parity",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-rich-rect-analytic-boundary",
+            "mapping": "screen-pixel-center->rounded-rect-SDF"
+          },
+          "pass": true,
+          "boundaryTieCount": 0,
+          "matchCount": 102
+        },
+        {
+          "caseId": "default-max-z8",
+          "zoom": 8,
+          "regime": "floor-default-clamp",
+          "mismatchCount": 47,
+          "firstBoundaryTies": [
+            {
+              "pixel": [
+                39,
+                70
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            },
+            {
+              "pixel": [
+                63,
+                96
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            }
+          ],
+          "firstMismatches": [
+            {
+              "pixel": [
+                53,
+                51
+              ],
+              "gpuCoverageByte": 104,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                62,
+                51
+              ],
+              "gpuCoverageByte": 100,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                72,
+                58
+              ],
+              "gpuCoverageByte": 209,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                42,
+                59
+              ],
+              "gpuCoverageByte": 126,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                64,
+                59
+              ],
+              "gpuCoverageByte": 118,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                73,
+                59
+              ],
+              "gpuCoverageByte": 144,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                65,
+                60
+              ],
+              "gpuCoverageByte": 111,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                74,
+                61
+              ],
+              "gpuCoverageByte": 141,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                74,
+                62
+              ],
+              "gpuCoverageByte": 220,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                48,
+                63
+              ],
+              "gpuCoverageByte": 168,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                40,
+                64
+              ],
+              "gpuCoverageByte": 127,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                75,
+                64
+              ],
+              "gpuCoverageByte": 152,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                75,
+                65
+              ],
+              "gpuCoverageByte": 207,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                47,
+                66
+              ],
+              "gpuCoverageByte": 179,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                47,
+                67
+              ],
+              "gpuCoverageByte": 132,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                68,
+                67
+              ],
+              "gpuCoverageByte": 106,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                39,
+                68
+              ],
+              "gpuCoverageByte": 91,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                39,
+                69
+              ],
+              "gpuCoverageByte": 114,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                69
+              ],
+              "gpuCoverageByte": 141,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                70
+              ],
+              "gpuCoverageByte": 154,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                71
+              ],
+              "gpuCoverageByte": 168,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                72
+              ],
+              "gpuCoverageByte": 182,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                73
+              ],
+              "gpuCoverageByte": 187,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                74
+              ],
+              "gpuCoverageByte": 187,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            }
+          ],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "msdf-dejavu-o-path",
+          "boundaryPixelCount": 249,
+          "decisiveCount": 247,
+          "verdict": "decisive-mismatch",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-msdf-planeBounds",
+            "shapedRectWorld": [
+              3.66650390625,
+              5.046875,
+              7.1875,
+              8.4375
+            ],
+            "glyphBounds": {
+              "left": -0.058349609375,
+              "bottom": -0.1484375,
+              "right": 0.660400390625,
+              "top": 0.6953125
+            },
+            "zoom": 8,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass": false,
+          "boundaryTieCount": 2,
+          "matchCount": 200
+        },
+        {
+          "caseId": "default-max-z8",
+          "zoom": 8,
+          "regime": "floor-default-clamp",
+          "mismatchCount": 0,
+          "firstBoundaryTies": [
+            {
+              "pixel": [
+                50,
+                60
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            },
+            {
+              "pixel": [
+                46,
+                74
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            }
+          ],
+          "firstMismatches": [],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "slug-dejavu-o-path",
+          "boundaryPixelCount": 192,
+          "decisiveCount": 190,
+          "verdict": "decisive-parity-with-declared-boundary-ties",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-slug-sampleBounds",
+            "shapedRectWorld": [
+              4.875,
+              6.375,
+              4.6875,
+              5.78125
+            ],
+            "glyphBounds": {
+              "left": 0.0625,
+              "right": 0.53125,
+              "top": 0.5625,
+              "bottom": -0.015625
+            },
+            "zoom": 8,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass": true,
+          "boundaryTieCount": 2,
+          "matchCount": 190
+        },
+        {
+          "caseId": "legal-log-z10",
+          "zoom": 10,
+          "regime": "legal-envelope-sentinel",
+          "mismatchCount": 0,
+          "firstBoundaryTies": [],
+          "firstMismatches": [],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "sdf-rounded-path",
+          "boundaryPixelCount": 102,
+          "decisiveCount": 102,
+          "verdict": "decisive-parity",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-rich-rect-analytic-boundary",
+            "mapping": "screen-pixel-center->rounded-rect-SDF"
+          },
+          "pass": true,
+          "boundaryTieCount": 0,
+          "matchCount": 102
+        },
+        {
+          "caseId": "legal-log-z10",
+          "zoom": 10,
+          "regime": "legal-envelope-sentinel",
+          "mismatchCount": 47,
+          "firstBoundaryTies": [
+            {
+              "pixel": [
+                39,
+                70
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            },
+            {
+              "pixel": [
+                63,
+                96
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            }
+          ],
+          "firstMismatches": [
+            {
+              "pixel": [
+                53,
+                51
+              ],
+              "gpuCoverageByte": 104,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                62,
+                51
+              ],
+              "gpuCoverageByte": 100,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                72,
+                58
+              ],
+              "gpuCoverageByte": 209,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                42,
+                59
+              ],
+              "gpuCoverageByte": 126,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                64,
+                59
+              ],
+              "gpuCoverageByte": 118,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                73,
+                59
+              ],
+              "gpuCoverageByte": 144,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                65,
+                60
+              ],
+              "gpuCoverageByte": 111,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                74,
+                61
+              ],
+              "gpuCoverageByte": 141,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                74,
+                62
+              ],
+              "gpuCoverageByte": 220,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                48,
+                63
+              ],
+              "gpuCoverageByte": 168,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                40,
+                64
+              ],
+              "gpuCoverageByte": 127,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                75,
+                64
+              ],
+              "gpuCoverageByte": 152,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                75,
+                65
+              ],
+              "gpuCoverageByte": 207,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                47,
+                66
+              ],
+              "gpuCoverageByte": 179,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                47,
+                67
+              ],
+              "gpuCoverageByte": 132,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                68,
+                67
+              ],
+              "gpuCoverageByte": 106,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                39,
+                68
+              ],
+              "gpuCoverageByte": 91,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                39,
+                69
+              ],
+              "gpuCoverageByte": 114,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                69
+              ],
+              "gpuCoverageByte": 141,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                70
+              ],
+              "gpuCoverageByte": 154,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                71
+              ],
+              "gpuCoverageByte": 168,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                72
+              ],
+              "gpuCoverageByte": 182,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                73
+              ],
+              "gpuCoverageByte": 187,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                74
+              ],
+              "gpuCoverageByte": 187,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            }
+          ],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "msdf-dejavu-o-path",
+          "boundaryPixelCount": 249,
+          "decisiveCount": 247,
+          "verdict": "decisive-mismatch",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-msdf-planeBounds",
+            "shapedRectWorld": [
+              2.933203125,
+              4.0375,
+              5.75,
+              6.75
+            ],
+            "glyphBounds": {
+              "left": -0.058349609375,
+              "bottom": -0.1484375,
+              "right": 0.660400390625,
+              "top": 0.6953125
+            },
+            "zoom": 10,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass": false,
+          "boundaryTieCount": 2,
+          "matchCount": 200
+        },
+        {
+          "caseId": "legal-log-z10",
+          "zoom": 10,
+          "regime": "legal-envelope-sentinel",
+          "mismatchCount": 0,
+          "firstBoundaryTies": [
+            {
+              "pixel": [
+                50,
+                60
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            },
+            {
+              "pixel": [
+                46,
+                74
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            }
+          ],
+          "firstMismatches": [],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "slug-dejavu-o-path",
+          "boundaryPixelCount": 192,
+          "decisiveCount": 190,
+          "verdict": "decisive-parity-with-declared-boundary-ties",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-slug-sampleBounds",
+            "shapedRectWorld": [
+              3.9,
+              5.1,
+              3.7500000000000004,
+              4.625
+            ],
+            "glyphBounds": {
+              "left": 0.0625,
+              "right": 0.53125,
+              "top": 0.5625,
+              "bottom": -0.015625
+            },
+            "zoom": 10,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass": true,
+          "boundaryTieCount": 2,
+          "matchCount": 190
+        },
+        {
+          "caseId": "legal-log-z100",
+          "zoom": 100,
+          "regime": "legal-envelope-sentinel",
+          "mismatchCount": 0,
+          "firstBoundaryTies": [],
+          "firstMismatches": [],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "sdf-rounded-path",
+          "boundaryPixelCount": 102,
+          "decisiveCount": 102,
+          "verdict": "decisive-parity",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-rich-rect-analytic-boundary",
+            "mapping": "screen-pixel-center->rounded-rect-SDF"
+          },
+          "pass": true,
+          "boundaryTieCount": 0,
+          "matchCount": 102
+        },
+        {
+          "caseId": "legal-log-z100",
+          "zoom": 100,
+          "regime": "legal-envelope-sentinel",
+          "mismatchCount": 47,
+          "firstBoundaryTies": [
+            {
+              "pixel": [
+                39,
+                70
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            },
+            {
+              "pixel": [
+                63,
+                96
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            }
+          ],
+          "firstMismatches": [
+            {
+              "pixel": [
+                53,
+                51
+              ],
+              "gpuCoverageByte": 104,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                62,
+                51
+              ],
+              "gpuCoverageByte": 100,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                72,
+                58
+              ],
+              "gpuCoverageByte": 209,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                42,
+                59
+              ],
+              "gpuCoverageByte": 126,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                64,
+                59
+              ],
+              "gpuCoverageByte": 118,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                73,
+                59
+              ],
+              "gpuCoverageByte": 144,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                65,
+                60
+              ],
+              "gpuCoverageByte": 111,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                74,
+                61
+              ],
+              "gpuCoverageByte": 141,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                74,
+                62
+              ],
+              "gpuCoverageByte": 220,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                48,
+                63
+              ],
+              "gpuCoverageByte": 168,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                40,
+                64
+              ],
+              "gpuCoverageByte": 127,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                75,
+                64
+              ],
+              "gpuCoverageByte": 152,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                75,
+                65
+              ],
+              "gpuCoverageByte": 207,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                47,
+                66
+              ],
+              "gpuCoverageByte": 179,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                47,
+                67
+              ],
+              "gpuCoverageByte": 132,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                68,
+                67
+              ],
+              "gpuCoverageByte": 106,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                39,
+                68
+              ],
+              "gpuCoverageByte": 91,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                39,
+                69
+              ],
+              "gpuCoverageByte": 114,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                69
+              ],
+              "gpuCoverageByte": 141,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                70
+              ],
+              "gpuCoverageByte": 154,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                71
+              ],
+              "gpuCoverageByte": 168,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                72
+              ],
+              "gpuCoverageByte": 182,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                73
+              ],
+              "gpuCoverageByte": 187,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                74
+              ],
+              "gpuCoverageByte": 187,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            }
+          ],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "msdf-dejavu-o-path",
+          "boundaryPixelCount": 249,
+          "decisiveCount": 247,
+          "verdict": "decisive-mismatch",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-msdf-planeBounds",
+            "shapedRectWorld": [
+              0.2933203125,
+              0.40374999999999994,
+              0.5750000000000001,
+              0.6749999999999999
+            ],
+            "glyphBounds": {
+              "left": -0.058349609375,
+              "bottom": -0.1484375,
+              "right": 0.660400390625,
+              "top": 0.6953125
+            },
+            "zoom": 100,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass": false,
+          "boundaryTieCount": 2,
+          "matchCount": 200
+        },
+        {
+          "caseId": "legal-log-z100",
+          "zoom": 100,
+          "regime": "legal-envelope-sentinel",
+          "mismatchCount": 0,
+          "firstBoundaryTies": [
+            {
+              "pixel": [
+                50,
+                60
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            },
+            {
+              "pixel": [
+                46,
+                74
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            }
+          ],
+          "firstMismatches": [],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "slug-dejavu-o-path",
+          "boundaryPixelCount": 192,
+          "decisiveCount": 190,
+          "verdict": "decisive-parity-with-declared-boundary-ties",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-slug-sampleBounds",
+            "shapedRectWorld": [
+              0.39,
+              0.51,
+              0.3750000000000001,
+              0.4624999999999999
+            ],
+            "glyphBounds": {
+              "left": 0.0625,
+              "right": 0.53125,
+              "top": 0.5625,
+              "bottom": -0.015625
+            },
+            "zoom": 100,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass": true,
+          "boundaryTieCount": 2,
+          "matchCount": 190
+        },
+        {
+          "caseId": "legal-max-z1000",
+          "zoom": 1000,
+          "regime": "legal-envelope-sentinel",
+          "mismatchCount": 0,
+          "firstBoundaryTies": [],
+          "firstMismatches": [],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "sdf-rounded-path",
+          "boundaryPixelCount": 102,
+          "decisiveCount": 102,
+          "verdict": "decisive-parity",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-rich-rect-analytic-boundary",
+            "mapping": "screen-pixel-center->rounded-rect-SDF"
+          },
+          "pass": true,
+          "boundaryTieCount": 0,
+          "matchCount": 102
+        },
+        {
+          "caseId": "legal-max-z1000",
+          "zoom": 1000,
+          "regime": "legal-envelope-sentinel",
+          "mismatchCount": 47,
+          "firstBoundaryTies": [
+            {
+              "pixel": [
+                39,
+                70
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            },
+            {
+              "pixel": [
+                63,
+                96
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            }
+          ],
+          "firstMismatches": [
+            {
+              "pixel": [
+                53,
+                51
+              ],
+              "gpuCoverageByte": 104,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                62,
+                51
+              ],
+              "gpuCoverageByte": 100,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                72,
+                58
+              ],
+              "gpuCoverageByte": 209,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                42,
+                59
+              ],
+              "gpuCoverageByte": 126,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                64,
+                59
+              ],
+              "gpuCoverageByte": 118,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                73,
+                59
+              ],
+              "gpuCoverageByte": 144,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                65,
+                60
+              ],
+              "gpuCoverageByte": 111,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                74,
+                61
+              ],
+              "gpuCoverageByte": 141,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                74,
+                62
+              ],
+              "gpuCoverageByte": 220,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                48,
+                63
+              ],
+              "gpuCoverageByte": 168,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                40,
+                64
+              ],
+              "gpuCoverageByte": 127,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                75,
+                64
+              ],
+              "gpuCoverageByte": 152,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                75,
+                65
+              ],
+              "gpuCoverageByte": 207,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                47,
+                66
+              ],
+              "gpuCoverageByte": 179,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                47,
+                67
+              ],
+              "gpuCoverageByte": 132,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                68,
+                67
+              ],
+              "gpuCoverageByte": 106,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                39,
+                68
+              ],
+              "gpuCoverageByte": 91,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                39,
+                69
+              ],
+              "gpuCoverageByte": 114,
+              "cpuInside": true,
+              "gpuClass": "outside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                69
+              ],
+              "gpuCoverageByte": 141,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                70
+              ],
+              "gpuCoverageByte": 154,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                71
+              ],
+              "gpuCoverageByte": 168,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                72
+              ],
+              "gpuCoverageByte": 182,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                73
+              ],
+              "gpuCoverageByte": 187,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            },
+            {
+              "pixel": [
+                76,
+                74
+              ],
+              "gpuCoverageByte": 187,
+              "cpuInside": false,
+              "gpuClass": "inside",
+              "decisive": true,
+              "match": false
+            }
+          ],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "msdf-dejavu-o-path",
+          "boundaryPixelCount": 249,
+          "decisiveCount": 247,
+          "verdict": "decisive-mismatch",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-msdf-planeBounds",
+            "shapedRectWorld": [
+              0.02933203125,
+              0.040375,
+              0.057499999999999996,
+              0.0675
+            ],
+            "glyphBounds": {
+              "left": -0.058349609375,
+              "bottom": -0.1484375,
+              "right": 0.660400390625,
+              "top": 0.6953125
+            },
+            "zoom": 1000,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass": false,
+          "boundaryTieCount": 2,
+          "matchCount": 200
+        },
+        {
+          "caseId": "legal-max-z1000",
+          "zoom": 1000,
+          "regime": "legal-envelope-sentinel",
+          "mismatchCount": 0,
+          "firstBoundaryTies": [
+            {
+              "pixel": [
+                50,
+                60
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            },
+            {
+              "pixel": [
+                46,
+                74
+              ],
+              "gpuCoverageByte": 128,
+              "cpuInside": true,
+              "gpuClass": "boundary-tie",
+              "decisive": false,
+              "match": null
+            }
+          ],
+          "firstMismatches": [],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "slug-dejavu-o-path",
+          "boundaryPixelCount": 192,
+          "decisiveCount": 190,
+          "verdict": "decisive-parity-with-declared-boundary-ties",
+          "currentProductPick": false,
+          "cpuInverse": {
+            "source": "production-slug-sampleBounds",
+            "shapedRectWorld": [
+              0.039,
+              0.051000000000000004,
+              0.03750000000000001,
+              0.04625
+            ],
+            "glyphBounds": {
+              "left": 0.0625,
+              "right": 0.53125,
+              "top": 0.5625,
+              "bottom": -0.015625
+            },
+            "zoom": 1000,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass": true,
+          "boundaryTieCount": 2,
+          "matchCount": 190
+        }
+      ]
+    },
+    "currentProductBoundsPickDivergence": {
+      "pass": true,
+      "rows": [
+        {
+          "caseId": "legal-min-z0p01",
+          "zoom": 0.01,
+          "regime": "legal-envelope-sentinel",
+          "kind": "axis-aligned-bounds-vs-rounded-visible-coverage",
+          "pixel": [
+            24,
+            24
+          ],
+          "productBoundsPick": true,
+          "candidateCpuPointInPath": false,
+          "gpuCoverageByte": 0,
+          "expectedDivergence": true
+        },
+        {
+          "caseId": "default-min-z0p1",
+          "zoom": 0.1,
+          "regime": "floor-default-clamp",
+          "kind": "axis-aligned-bounds-vs-rounded-visible-coverage",
+          "pixel": [
+            24,
+            24
+          ],
+          "productBoundsPick": true,
+          "candidateCpuPointInPath": false,
+          "gpuCoverageByte": 0,
+          "expectedDivergence": true
+        },
+        {
+          "caseId": "default-unit-z1",
+          "zoom": 1,
+          "regime": "floor-default-clamp",
+          "kind": "axis-aligned-bounds-vs-rounded-visible-coverage",
+          "pixel": [
+            24,
+            24
+          ],
+          "productBoundsPick": true,
+          "candidateCpuPointInPath": false,
+          "gpuCoverageByte": 0,
+          "expectedDivergence": true
+        },
+        {
+          "caseId": "default-max-z8",
+          "zoom": 8,
+          "regime": "floor-default-clamp",
+          "kind": "axis-aligned-bounds-vs-rounded-visible-coverage",
+          "pixel": [
+            24,
+            24
+          ],
+          "productBoundsPick": true,
+          "candidateCpuPointInPath": false,
+          "gpuCoverageByte": 0,
+          "expectedDivergence": true
+        },
+        {
+          "caseId": "legal-log-z10",
+          "zoom": 10,
+          "regime": "legal-envelope-sentinel",
+          "kind": "axis-aligned-bounds-vs-rounded-visible-coverage",
+          "pixel": [
+            24,
+            24
+          ],
+          "productBoundsPick": true,
+          "candidateCpuPointInPath": false,
+          "gpuCoverageByte": 0,
+          "expectedDivergence": true
+        },
+        {
+          "caseId": "legal-log-z100",
+          "zoom": 100,
+          "regime": "legal-envelope-sentinel",
+          "kind": "axis-aligned-bounds-vs-rounded-visible-coverage",
+          "pixel": [
+            24,
+            24
+          ],
+          "productBoundsPick": true,
+          "candidateCpuPointInPath": false,
+          "gpuCoverageByte": 0,
+          "expectedDivergence": true
+        },
+        {
+          "caseId": "legal-max-z1000",
+          "zoom": 1000,
+          "regime": "legal-envelope-sentinel",
+          "kind": "axis-aligned-bounds-vs-rounded-visible-coverage",
+          "pixel": [
+            24,
+            24
+          ],
+          "productBoundsPick": true,
+          "candidateCpuPointInPath": false,
+          "gpuCoverageByte": 0,
+          "expectedDivergence": true
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "os": {
+    "platform": "linux",
+    "architecture": "x64",
+    "kernelRelease": "6.17.0-35-generic"
+  },
+  "runtime": {
+    "node": "v20.20.2",
+    "puppeteer": "15.2.0",
+    "chromeExecutable": "/usr/bin/google-chrome",
+    "chromeVersion": "Google Chrome 150.0.7871.46",
+    "launchArgs": [
+      "--no-sandbox",
+      "--enable-unsafe-webgpu",
+      "--use-angle=swiftshader",
+      "--enable-features=WebGPU,UnsafeWebGPU"
+    ]
+  },
+  "browser": {
+    "secureContext": true,
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+    "adapter": {
+      "vendor": "google",
+      "architecture": "swiftshader",
+      "device": "",
+      "description": "",
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "core-features-and-limits",
+        "chromium-experimental-timestamp-query-inside-passes",
+        "float32-filterable",
+        "indirect-first-instance",
+        "texture-compression-astc-sliced-3d",
+        "float32-blendable",
+        "subgroup-size-control",
+        "texture-compression-astc",
+        "texture-compression-etc2",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "clip-distances",
+        "texture-component-swizzle",
+        "subgroups"
+      ],
+      "limits": {
+        "maxBufferSize": 1073741824,
+        "maxUniformBufferBindingSize": 65536,
+        "maxStorageBufferBindingSize": 1073741824,
+        "maxTextureDimension2d": 8192,
+        "maxBindGroups": 4,
+        "maxVertexBuffers": 8
+      }
+    },
+    "deviceLimits": {
+      "maxBufferSize": 268435456,
+      "maxUniformBufferBindingSize": 65536,
+      "maxStorageBufferBindingSize": 134217728,
+      "maxTextureDimension2d": 8192,
+      "maxBindGroups": 4,
+      "maxVertexBuffers": 8
+    },
+    "canvas": {
+      "width": 128,
+      "height": 128,
+      "devicePixelRatio": 1,
+      "colorFormat": "rgba8unorm"
+    }
+  },
+  "fingerprintSha256": "e79490f8882cd785f32b5bb82cadd425dc90f2d7616cc9f0debf8a0f1c476282"
+}
