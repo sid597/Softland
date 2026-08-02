@@ -49,9 +49,8 @@
 
 ;; Face containers start just above the P2 probe's range (probe uses cids 1..16)
 ;; so the two dev tools never fight over cids in the shared containers buffer.
-;; write-containers! writes the contiguous [1..max-cid] range, so a low base
-;; keeps that upload small: base 32 → ~15 identity fillers before the first face
-;; cid, vs the old base-100's ~85 (wave-2 finding #3 — whole-range write).
+;; W2-A decoupled these semantic ids from the compact affine transport slots;
+;; this base now prevents dev-tool identity collisions only.
 (def ^:private face-cid-base 32)
 (defonce ^:private !next-cid (atom face-cid-base))
 
@@ -139,18 +138,25 @@
    address-stamped, container-LOCAL rt-tree (root at 0,0 — the container
    transform places it; :world camera so it pans/zooms with the scene). Returns
    {:vi :container}."
-  [vi tree {:keys [x y scale layer meta pre-resolved?]
+  [vi tree {:keys [x y scale layer sibling-rank meta pre-resolved?]
             :or   {x 0.0 y 0.0 scale 1.0 layer 1}}]
   (let [cid (alloc-cid!)]
     (swap! !containers-registry ctn/add-container cid
-           {:x x :y y :scale scale :camera :world :layer layer})
+           {:x x :y y :scale scale :camera :world :layer layer
+            ;; Existing instance creation order is the material/instance
+            ;; sibling order.  W2-B records it in W2-A's nested path instead
+            ;; of recovering order from family registration or map iteration.
+            :sibling-rank (or sibling-rank layer)})
     (assert-container-registered! cid)
-    (let [container-slot (ctn/transport-slot @!containers-registry cid)]
+    (let [container-slot (ctn/transport-slot @!containers-registry cid)
+          stack-path (:stack-path (get (ctn/effective @!containers-registry) cid))]
       (swap! !scene-store ss/upsert-slot vi
              {:tree tree :container cid :container-slot container-slot
+              :stack-path stack-path
               :meta (or meta {})
               :pre-resolved? pre-resolved?})
-      {:vi vi :container cid :container-slot container-slot})))
+      {:vi vi :container cid :container-slot container-slot
+       :stack-path stack-path})))
 
 (defn close-instance!
   "Despawn (P3b Rung 1 — the lifecycle half P3a lacked): drop the slot, its
@@ -375,29 +381,37 @@
 ;; ---------------------------------------------------------------------------
 
 (defn <store-frame
-  "ONE m/latest over !scene-store → the store's GPU contribution. Rects/shadows
-   MERGE into flat seqs (they ride the shared editor pools; the :container-idx
-   baked at upsert places each op through its container transform). Text is
-   exposed PER-SLOT under :text-by-vi (P3b Rung 2 / G8 isolation) so each instance
-   drives its OWN text geo — an unchanged slot's text vector stays identical?
-   across a sibling's edit (ops stamped+stable at upsert, trap T5), so its geo is
-   skipped. ONE flow co-deriving all three op kinds — no diamond off the store
-   (T3). Recomputes ONLY when the store changes (identical? on unrelated frames)."
+  "ONE m/latest over !scene-store → the compiled Contract-O tape and its GPU
+   contribution.  Rects, shadows, and per-slot text all project from the same
+   forward slot order; pick compiles the same entries and walks exact reverse.
+   W2-A paths were stamped when the container registered, so an affine-only
+   gesture still changes only the transport upload—not these instance arrays."
   []
   (m/latest
     (fn [store]
-      (let [slots (:slots store)
-            ;; first-light P1: deterministic paint order — the main face draws
-            ;; FIRST (under every spawned copy), copies then by vi. Pre-flip the
-            ;; legacy path appended store rects AFTER the singleton's, so copies
-            ;; always painted over the main face; hash order would break that.
-            ordered (sort-by (fn [s] [(if (= main-face-vi (:vi s)) 0 1)
-                                      (pr-str (:vi s))])
-                             (vals slots))]
+      (let [tape (ss/scene-tape store)
+            ordered (mapv :runtime/slot (:entries tape))
+            ordered-vis (mapv :vi ordered)]
         {:rects      (into [] (mapcat (comp :rects :ops)) ordered)
          :shadows    (into [] (mapcat (comp :shadows :ops)) ordered)
-         :text-by-vi (reduce-kv (fn [m vi slot] (assoc m vi (get-in slot [:ops :text])))
-                                {} slots)}))
+         :text-by-vi (reduce (fn [m slot]
+                               (assoc m (:vi slot) (get-in slot [:ops :text])))
+                             {} ordered)
+         :ordered-vis ordered-vis
+         :ops-count-by-vi
+         (into {}
+               (map (fn [slot]
+                      [(:vi slot)
+                       {:rects (count (get-in slot [:ops :rects]))
+                        :shadows (count (get-in slot [:ops :shadows]))
+                        :text-lines (count (get-in slot [:ops :text]))}]))
+               ordered)
+         :order-by-vi (into {}
+                            (map (fn [entry]
+                                   [(get-in entry [:runtime/slot :vi])
+                                    (:order entry)]))
+                            (:entries tape))
+         :scene-tape tape}))
     (m/watch !scene-store)))
 
 (defn <effective

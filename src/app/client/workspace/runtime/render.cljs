@@ -360,6 +360,7 @@
                                     phys-w phys-h
                                     (:format (:pipelines geometry))
                                     :tracker gpu-tracker
+                                    :scene-color (:scene-color (:pipelines geometry))
                                     :previous prev-rt)
                                   prev-rt))
 
@@ -635,7 +636,10 @@
               (set! (.-height canvas) target-h))
             (try
               (editor/draw-frame! device ctx
-                                    new-content-geo (pool/pool-draw-info !editor-pool) new-cmd-sys
+                                    new-content-geo
+                                    (assoc (pool/pool-draw-info !editor-pool)
+                                           :draw-count (count editor-rects))
+                                    new-cmd-sys
                                     (:camera-floats (:pipelines geometry))
                                     (:pass-descriptor (:pipelines geometry))
                                     ;; first-light P2b: the ground drives the
@@ -656,14 +660,29 @@
                                     :diagnostics-visible show-diagnostics?
                                     :diagnostics-line-index diagnostics-line-index
                                     :agent-visible agent-visible
-                                    :editor-shadow-pool-info (pool/pool-draw-info !editor-shadow-pool)
+                                    :editor-shadow-pool-info
+                                    (assoc (pool/pool-draw-info !editor-shadow-pool)
+                                           :draw-count (count (or editor-shadows [])))
                                     :sidebar-shadow-pool-info (pool/pool-draw-info !sidebar-shadow-pool)
                                     :sidebar-pool-info (pool/pool-draw-info !sidebar-pool)
+                                    :store-frame store-frame
+                                    :editor-rect-count (count editor-rects)
+                                    :editor-shadow-count (count (or editor-shadows []))
                                     :dirty-rect dirty-rect
                                     :render-target render-target
                                     :clear-quad (:clear-quad (:pipelines geometry))
-                                    ;; scene-substrate P3b Rung 2: per-slot geos
-                                    :extra-text-geos (mapv :geo (vals slot-text-geos)))
+                                    ;; W2-B consumes the store tape's canonical
+                                    ;; W2-A stack order; map iteration is never
+                                    ;; a second text-family order truth.
+                                    :extra-text-geos
+                                    (into []
+                                          (keep (fn [vi]
+                                                  (when-let [slot-geo (get slot-text-geos vi)]
+                                                    {:vi vi
+                                                     :geo (:geo slot-geo)
+                                                     :order (get-in store-frame
+                                                                    [:order-by-vi vi])})))
+                                          (:ordered-vis store-frame)))
               (catch :default err
                 (js/console.error "[RENDER/DRAW-FAIL]"
                                   err
@@ -727,7 +746,8 @@
                                 (Math/floor (* (:width vp) d))
                                 (Math/floor (* (:height vp) d))
                                 (:format (:pipelines geometry))
-                                :tracker tracker)))]
+                                :tracker tracker
+                                :scene-color (:scene-color (:pipelines geometry)))))]
         (render-debug! "[RENDER/INIT]"
                        {:viewport @!viewport
                         :font-id (:id @!font-assets)

@@ -176,7 +176,7 @@
       (is (= [6.0 0.0 0.0 6.0 120.0 10.0] (:affine (get eff 2))))
       (is (= [24.0 0.0 0.0 24.0 126.0 16.0] (:affine (get eff 3)))))
     (testing "nested order and compact transport are carried beside geometry"
-      (is (= [[1 0] [2 0] [3 0]] (:stack-path (get eff 3))))
+      (is (= [[1 0 0] [2 0 0] [3 0 0]] (:stack-path (get eff 3))))
       (is (= [0 1 2 3] (mapv #(get-in eff [% :transport-slot]) [0 1 2 3]))))
     (testing "cid 0 stays identity/world"
       (is (= ctn/identity-affine (:affine (get eff 0))))
