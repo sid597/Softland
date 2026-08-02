@@ -5,7 +5,10 @@ session, standing orchestrator). It settles a multi-round falsification:
 seven-class map → two guarantees → four guarantees → coverage×paint →
 the practice re-read. The derivation lived in-session; this doc is the
 distillation. Evidence prices everything downstream — nothing here is
-canon unless marked so.
+canon unless marked so. **Derivation record: `DISCOVERIES.md`** (same
+dir) — the full reasoning chain, discovery catalog, corrections ledger,
+superseded-beliefs table, and method register; start there before
+challenging or extending this map.
 
 **Epistemic marks (load-bearing):**
 - **[CODE]** — verified by reading source this arc (file:line where it
