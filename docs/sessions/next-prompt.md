@@ -95,9 +95,14 @@ Q6 byte-128 half-tie adjudicated and Q5/MSDF left as repair obligations ·
 material citizenship with D2=A ink through all twelve falsifiers · one text
 layout-result seam · tagged straight → linear-premultiplied → present color/
 alpha. Mandatory verifier replay remained correctly RED (MSDF 47 decisive
-mismatches per regime; SDF/Slug pass; ties separated). Execution front =
-W2-A + T0, then W2-B at the migration tail; Slug-direct retirement remains a
-separate pre-registered road candidate; only studio custody stays reserved).
+mismatches per regime; SDF/Slug pass; ties separated). W2-A + T0 then LANDED
+in code commit `7651c8d`: affine/nesting plus the one Q8 transport cross
+registration/bounds/clip/cull/paint/pick; Q5 is repaired; one executable-fenced
+legacy layout result owns all text readers; all 21 prior goldens remain
+byte-identical and the MSDF counterexample remains RED. Execution front =
+W2-B; T1 follows. Receipt: `build/render-engine/W2-A-T0.md`. Slug-direct
+retirement remains a separate pre-registered road candidate; only studio
+custody stays reserved).
 Prior same day, third entry (the
 campaign ruling: the order round ran — derivation → source
 adjudication → Codex gate READY-TO-SETTLE — and Sid caught the
@@ -582,12 +587,16 @@ obligations, never thresholded away · material citizenship with D2=A
 ink through all twelve falsifiers · one text layout-result seam with
 the T0/T1 fence · straight → linear-premultiplied → present
 color/alpha; the mandatory verifier replay stayed correctly RED.**
-**Execution front is now W2-A (affine/nesting generality + Q8
-transport, ONE migration) + T0 (metrics consolidation behind the
-layout seam, zero-diff, machine-gated), then W2-B at the migration
-tail; dependency moves, never reauthorization or scope change.
-Slug-direct MSDF retirement stays a separate pre-registered road
-receipt.**
+**W2-A + T0 LANDED 2026-08-02** in code commit `7651c8d`; full receipt:
+`build/render-engine/W2-A-T0.md`. Q5, Q8, the no-private-metrics fence,
+and all 21 prior golden comparisons pass; SDF/Slug remain exact and the
+MSDF 47-mismatch counterexample remains intentionally RED. **Execution
+front is now W2-B:** consume the affine transport and nested stack path,
+then make registration, one forward-paint/reverse-pick ordered tape,
+unconditional geometry declarations, and linear-premultiplied scene color
+code-real for every existing family before admitting a new atom. T1 follows
+W2-B. Dependency moves never reauthorize or narrow scope. Slug-direct MSDF
+retirement stays a separate pre-registered road receipt.**
 Reserved to Sid — ONE decision remains: studio custody at the
 CAPABILITY level (the durable artery gates Package-2 felt
 activations; the failed face archives separately).

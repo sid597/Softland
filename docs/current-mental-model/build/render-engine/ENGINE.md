@@ -252,16 +252,24 @@ is a byte-128 tie, never an inside vote. Q5's two inside/alpha-zero pixels and
 MSDF's 47 decisive mismatches per regime remain repair obligations; the RED
 verifier and MSDF case are untouched.
 
-**Execution front NOW: W2-A + T0.** W2-A migrates affine/nesting and Q8
-transport once, including the Q5 repair; T0 consolidates measure/wrap/caret/
-selection/clip/hit owners behind W1's layout result in the parallel CPU lane.
-W2-B follows at the same migration window's tail and makes registration,
-ordered tape, geometry, and color/alpha code-real for the existing families
-before image or path exists. MSDF retirement for Slug-direct remains a separate
-pre-registered road receipt (real-hardware dense-small-text fragment cost ·
-tiny-text quality · implementation provenance); T1 still shapes positioned
-glyphs. The only decision still reserved is studio custody at the capability
-level. W2–W5 remain committed; no receipt narrows scope or reopens the campaign.
+**W2-A + T0 LANDED 2026-08-02** (`7651c8d`; `W2-A-T0.md`). Affine/nesting
+and Q8 transport migrated once across registration, bounds, clip, cull, paint,
+and pick; Q5's exact rotated-raster pixels are repaired without changing the
+settled AA rule. The one legacy-compatible text layout result now owns every
+measure/wrap/paint/caret/selection/clip/hit reader behind an executable
+no-private-metrics fence. SDF and Slug remain byte-identical; the MSDF
+counterexample remains deliberately RED.
+
+**Execution front NOW: W2-B.** It consumes W2-A's canonical affine slots and
+nested stack paths, then makes registration, Contract O's one ordered tape,
+geometry declarations, and linear-premultiplied color citizenship code-real
+for every existing family before image or path exists. T1 then shapes
+positioned glyphs behind the already-live T0 seam. MSDF retirement for
+Slug-direct remains a separate pre-registered road receipt (real-hardware
+dense-small-text fragment cost · tiny-text quality · implementation
+provenance). The only decision still reserved is studio custody at the
+capability level. W2–W5 remain committed; no receipt narrows scope or reopens
+the campaign.
 
 ## 1. The promise, reinterpreted
 
