@@ -225,7 +225,9 @@ mismatches in each screen-constant regime, so the machine rung is
 HALTED for W1 geometry-contract repair. The bank records deterministic
 production pixels; updating it cannot bless that geometry disagreement
 (`test/app/fixtures/render_engine/gpu-goldens/manifest.json`). Durable
-verifier code remains uncommitted pending Sid's code-commit ruling.
+verifier code LANDED as code commit `c894d69` (Sid's ruling,
+2026-08-02): verifier.cljs · run_verifier.mjs · the 21-image bank +
+manifest/environment · the npm script + :render-verifier build target.
 
 W0-B's durable Q1–Q8 receipt is §12 below: the pre-registered builder
 was Sonnet but the actual instrument was Codex GPT-5.6 (no Sonnet

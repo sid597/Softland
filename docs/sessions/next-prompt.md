@@ -558,8 +558,8 @@ across floor-default + legal-envelope zoom regimes; replay command =
 SDF + Slug pass all regimes; MSDF repeats 47 decisive
 atlas/isocontour-vs-outline mismatches per regime. That machine rung is
 HALTED for W1 geometry-contract repair; the campaign is not halted.
-Durable verifier code and fixtures remain uncommitted pending Sid's
-code-commit ruling. W0-B's Q1–Q8 receipt is appended in `ENGINE.md`
+Durable verifier code and fixtures LANDED as code commit `c894d69`
+(Sid's ruling, 2026-08-02; hunk-level custody verified). W0-B's Q1–Q8 receipt is appended in `ENGINE.md`
 §12; Q5/Q6 halt for geometry repair, Q2 forces precision/backend regime
 boundaries, and Q8 lands transport WITH affine. Instrument deviation is
 explicit: Sonnet was pre-registered, Codex GPT-5.6 executed, no Sonnet
