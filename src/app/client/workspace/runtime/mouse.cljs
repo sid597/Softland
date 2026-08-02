@@ -4,6 +4,7 @@
             [missionary.core :as m]
             [app.client.workspace.events :refer [maybe-snap]]
             [app.client.workspace.rect-tree :refer [resolve-layout hit-test]]
+            [app.client.workspace.text-layout :as tl]
             [app.client.workspace.sidebar :refer [sidebar-w cmd-panel-h status-bar-h]]
             [app.client.workspace.shell :refer [build-file-layout]]
             [app.client.workspace.cmd-panel :refer [cmd-panel-apply-event cmd-text-start-x]]
@@ -282,11 +283,17 @@
         dpr (:dpr @!viewport)
         snap? (:snap-to-pixel? @!settings)
         char-width (:char-width @!active-font)
-        char-w (maybe-snap (* font-size char-width) dpr snap?)
+        char-advance (tl/legacy-char-advance font-size char-width dpr snap?)
         sb-w (if sb-vis? sidebar-w 0)
         text-x (+ (cmd-text-start-x @(get atoms :!ai-provider) font-size char-width dpr snap?) sb-w)
         text (:text cmd-panel)
-        col (-> (/ (- x text-x) char-w) (Math/round) (max 0) (min (count text)))]
+        layout-result (tl/layout {:text text
+                                  :source-lines [text]
+                                  :font-size font-size
+                                  :char-advance char-advance
+                                  :line-height font-size
+                                  :origin [text-x 0]})
+        col (:col (tl/hit-test-result layout-result [x 0]))]
     (reset! !focus :command-panel)
     (swap! !cmd-panel assoc :cursor col)
     (reset! !caret-visible true)))
@@ -302,17 +309,25 @@
         font-size (:font-size @!settings)
         char-width (:char-width @!active-font)
         line-h (maybe-snap (* font-size (:line-height @!settings)) dpr snap?)
-        char-w (maybe-snap (* font-size char-width) dpr snap?)
+        char-advance (tl/legacy-char-advance font-size char-width dpr snap?)
         elx (maybe-snap (- layout-x (or @!scroll-x 0)) dpr snap?)
         ely (maybe-snap layout-y dpr snap?)
         gutter-x (- elx gutter-w)
-        gutter-right (+ gutter-x gutter-w)]
+        gutter-right (+ gutter-x gutter-w)
+        text-result @!text-geo
+        line-mapping (or (:line-mapping text-result) [])
+        source-lines (:lines @!editor-doc)
+        layout-result (tl/layout {:text (str/join "\n" source-lines)
+                                  :source-lines source-lines
+                                  :font-size font-size
+                                  :char-advance char-advance
+                                  :line-height line-h
+                                  :origin [elx ely]
+                                  :line-map line-mapping})
+        hit (tl/hit-test-result layout-result [local-x adj-y])]
     (if (and (>= local-x gutter-x) (< local-x gutter-right))
       ;; Gutter click — toggle fold
-      (let [text-result @!text-geo
-            line-mapping (or (:line-mapping text-result) [])
-            visual-line (max 0 (Math/floor (/ (- adj-y ely) line-h)))
-            logical-line (get line-mapping visual-line visual-line)
+      (let [logical-line (:line hit)
             regions (detect-folds-fn (:lines @!editor-doc) (mapv count (:lines @!editor-doc)))
             fold-region (first (filter #(= (:start-line %) logical-line) (or regions [])))]
         (when fold-region
@@ -322,14 +337,8 @@
                      (disj folded logical-line) (conj folded logical-line)))))
         (reset! !focus :editor))
       ;; Body click — place cursor
-      (let [text-result @!text-geo
-            line-mapping (or (:line-mapping text-result) [])
-            lengths (mapv count (:lines @!editor-doc))
-            visual-line (max 0 (Math/floor (/ (- adj-y ely) line-h)))
-            logical-line (get line-mapping visual-line (min visual-line (dec (count lengths))))
-            line-len (get lengths logical-line 0)
-            col (-> (/ (- local-x elx) char-w) (Math/round) (max 0) (min line-len))
-            pos {:line logical-line :col col}]
+      (let [col (:col hit)
+            pos {:line (:line hit) :col col}]
         (when-not @!drag-start
           (swap! !editor-doc assoc :cursor pos :selection nil :desired-col col)
           (reset! !caret-visible true)

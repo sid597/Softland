@@ -4,6 +4,7 @@
             [missionary.core :as m]
             [app.client.workspace.events :refer [maybe-snap]]
             [app.client.workspace.rect-tree :refer [rt-node wrap-line tree->rects tree->text-ops tree->shadows resolve-layout]]
+            [app.client.workspace.text-layout :as tl]
             [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.ui-primitives :as ui :refer [dt]]
             [app.client.workspace.sidebar :as sidebar :refer [sidebar-w]]
@@ -12,6 +13,27 @@
             [app.client.workspace.cmd-panel :refer [cmd-prompt-text cmd-text-start-x]]
             [app.client.workspace.ground :as ground]
             [app.client.workspace.themes :as themes]))
+
+(defn- clip-editor-text-op
+  "Contract-T clip reader for the file-workspace and vertical editor clips.
+   The caller supplies style/font inputs; substring bounds come only from the
+   layout result's clip plan."
+  [op {:keys [left right top bottom font-size char-width char-advance dpr snap?
+              range-mode]
+       :or {range-mode :left-right}}]
+  (let [fs (or (:size op) font-size)
+        advance (if (== fs font-size)
+                  char-advance
+                  (tl/legacy-char-advance fs char-width dpr snap?))
+        layout-result
+        (tl/layout {:text (:text op "")
+                    :source-lines [(:text op "")]
+                    :font-size fs
+                    :char-advance advance
+                    :line-height fs
+                    :origin [(:x op 0) (:y op 0)]
+                    :clip {:left left :right right :top top :bottom bottom}})]
+    (:op (tl/clip-result layout-result op :range-mode range-mode))))
 
 (def ^:private empty-content-ops
   "first-light P1 (trap T6): face mode's content-text contribution — a SHARED
@@ -395,27 +417,10 @@
                       header-h 36
                       clip-top (+ scroll-y header-h)
                       clip-sub (fn [sub]
-                                 (let [x (or (:x sub) 0)
-                                       y (or (:y sub) 0)
-                                       fs (or (:size sub) font-size)
-                                       cw (if (== fs font-size)
-                                            char-advance
-                                            (maybe-snap (* fs char-width) dpr snap?))
-                                       txt (or (:text sub) "")
-                                       text-end (+ x (* (count txt) cw))]
-                                   (when (and (< x code-w) (> text-end clip-left) (>= y clip-top))
-                                     (let [skip (if (< x clip-left) (min (count txt) (int (Math/ceil (/ (- clip-left x) cw)))) 0)
-                                           adj-x (+ x (* skip cw))
-                                           adj-txt (if (pos? skip) (subs txt skip) txt)
-                                           max-chars (if (pos? cw)
-                                                       (max 0 (int (/ (- code-w adj-x) cw)))
-                                                       1000)
-                                           final-txt (if (> (count adj-txt) max-chars)
-                                                       (subs adj-txt 0 max-chars)
-                                                       adj-txt)]
-                                       (when (seq final-txt)
-                                         (assoc sub :text final-txt :x adj-x
-                                                :from skip :to (+ skip (count final-txt))))))))
+                                 (clip-editor-text-op
+                                  sub {:left clip-left :right code-w :top clip-top
+                                       :font-size font-size :char-width char-width
+                                       :char-advance char-advance :dpr dpr :snap? snap?}))
                       clip-op (fn [op]
                                 (if (vector? op)
                                   (let [clipped (into [] (keep clip-sub) op)]
@@ -440,9 +445,20 @@
                                        right-text-ops)]
                   (let [clip-ln (fn [op]
                                   (if (vector? op)
-                                    (let [f (filterv #(>= (or (:y %) 0) clip-top) op)]
+                                    (let [f (into []
+                                                  (keep #(clip-editor-text-op
+                                                          % {:top clip-top
+                                                             :font-size font-size
+                                                             :char-width char-width
+                                                             :char-advance char-advance
+                                                             :dpr dpr :snap? snap?}))
+                                                  op)]
                                       (when (seq f) f))
-                                    (when (>= (or (:y op) 0) clip-top) op)))
+                                    (clip-editor-text-op
+                                     op {:top clip-top :font-size font-size
+                                         :char-width char-width
+                                         :char-advance char-advance
+                                         :dpr dpr :snap? snap?})))
                         clipped-ln (into [] (keep clip-ln) line-num-ops)]
                     [(into (vec clipped) pinned-ops) final-line-mapping clipped-ln]))
                 [editor-ops final-line-mapping line-num-ops])
@@ -453,9 +469,22 @@
                             (into []
                               (keep (fn [op]
                                       (if (vector? op)
-                                        (let [clipped (filterv #(< (or (:y %) 0) bottom-clip-y) op)]
+                                        (let [clipped
+                                              (into []
+                                                    (keep #(clip-editor-text-op
+                                                            % {:bottom bottom-clip-y
+                                                               :font-size font-size
+                                                               :char-width char-width
+                                                               :char-advance char-advance
+                                                               :dpr dpr :snap? snap?}))
+                                                    op)]
                                           (when (seq clipped) clipped))
-                                        (when (< (or (:y op) 0) bottom-clip-y) op))))
+                                        (clip-editor-text-op
+                                         op {:bottom bottom-clip-y
+                                             :font-size font-size
+                                             :char-width char-width
+                                             :char-advance char-advance
+                                             :dpr dpr :snap? snap?}))))
                               ops))
 
               offset-editor-ops (offset-text-ops* (clip-bottom editor-ops) sb-w)

@@ -322,16 +322,31 @@ const main = async () => {
   const determinismPass = deterministic.every((row) => row.byteIdentical);
   const parityPass = parity.every((row) => row.pass);
   const divergencePass = divergences.every((row) => row.expectedDivergence);
+  const q8TransportPass = Boolean(
+    result.q8Transport?.pass &&
+      result.q8Transport.rows?.length === 3 &&
+      result.q8Transport.rows.every((row) => row.pass),
+  );
+  const q5AffineBoundaryPass = Boolean(
+    result.q5AffineBoundary?.pass &&
+      result.q5AffineBoundary.rows?.length === 2 &&
+      result.q5AffineBoundary.rows.every(
+        (row) => row.pass && row.cpuClass === "inside" && row.gpuCoverageByte > 0,
+      ),
+  );
   // Pixel-bank custody and geometry-contract parity are independent receipts.
   // A deterministic production image remains worth banking when candidate
   // point-in-path parity is red; the replay must still exit red below and must
   // never turn that disagreement into an accepted geometry baseline.
-  const updateAuthorized = determinismPass && divergencePass;
+  const updateAuthorized =
+    determinismPass && divergencePass && q8TransportPass && q5AffineBoundaryPass;
 
   Object.assign(currentManifest, {
     replayCommand: "npm run verify:render-engine",
     environmentFingerprintSha256: environment.fingerprintSha256,
     baselineReceipts: {
+      q8AffineTransport: result.q8Transport,
+      q5AffineRasterBoundary: result.q5AffineBoundary,
       determinism: {
         pass: determinismPass,
         rows: deterministic,
@@ -419,6 +434,9 @@ const main = async () => {
 
   let classification = "pass";
   if (!determinismPass) classification = "determinism-failure";
+  else if (!q8TransportPass) classification = "q8-affine-transport-failure";
+  else if (!q5AffineBoundaryPass)
+    classification = "q5-affine-raster-boundary-failure";
   else if (!parityPass) classification = "candidate-pick-parity-failure";
   else if (!divergencePass)
     classification = "current-product-pick-sentinel-failure";
@@ -449,6 +467,8 @@ const main = async () => {
       pass: determinismPass,
       rows: deterministic,
     },
+    q8AffineTransport: result.q8Transport,
+    q5AffineRasterBoundary: result.q5AffineBoundary,
     candidatePickParity: {
       pass: parityPass,
       currentProductPick: false,
@@ -476,6 +496,8 @@ const main = async () => {
         receipt: path.relative(repoRoot, receiptFile),
         images: currentManifest.images.length,
         deterministic: `${deterministic.filter((row) => row.byteIdentical).length}/${deterministic.length}`,
+        q8AffineTransport: q8TransportPass,
+        q5AffineRasterBoundary: q5AffineBoundaryPass,
         candidateParity: `${parity.filter((row) => row.pass).length}/${parity.length}`,
         productBoundsDivergenceSentinels: `${divergences.filter((row) => row.expectedDivergence).length}/${divergences.length}`,
         updateRequested: updateGoldens,

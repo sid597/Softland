@@ -145,10 +145,12 @@
     (swap! !containers-registry ctn/add-container cid
            {:x x :y y :scale scale :camera :world :layer layer})
     (assert-container-registered! cid)
-    (swap! !scene-store ss/upsert-slot vi
-           {:tree tree :container cid :meta (or meta {})
-            :pre-resolved? pre-resolved?})
-    {:vi vi :container cid}))
+    (let [container-slot (ctn/transport-slot @!containers-registry cid)]
+      (swap! !scene-store ss/upsert-slot vi
+             {:tree tree :container cid :container-slot container-slot
+              :meta (or meta {})
+              :pre-resolved? pre-resolved?})
+      {:vi vi :container cid :container-slot container-slot})))
 
 (defn close-instance!
   "Despawn (P3b Rung 1 — the lifecycle half P3a lacked): drop the slot, its
@@ -218,6 +220,7 @@
                                       (ss/build-face-tree (:compiled vf) projection view-ctx uids))]
                         (ss/upsert-slot st vi {:tree      tree
                                                :container (:container slot)
+                                               :container-slot (:container-slot slot)
                                                :meta      (:meta slot)
                                                :stratum   (:stratum slot)}))
                       st))
@@ -251,6 +254,7 @@
     (swap! !scene-store ss/upsert-slot main-face-vi
            {:tree          tree
             :container     (:container slot)
+            :container-slot (:container-slot slot)
             :meta          (:meta slot)
             :stratum       (:stratum slot)
             ;; build-face-tree output is already resolved (apply-assembly

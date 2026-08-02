@@ -172,24 +172,68 @@
                 (ctn/add-container 3 {:parent 2 :x 1 :y 1 :scale 4}))
         eff (ctn/effective reg)]
     (testing "eff-scale multiplies down the chain; eff-offset composes with parent scale"
-      (is (= {:x 100.0 :y 0.0  :scale 2.0  :flags 0 :layer 0} (get eff 1)))
-      (is (= {:x 120.0 :y 10.0 :scale 6.0  :flags 0 :layer 0} (get eff 2)))
-      (is (= {:x 126.0 :y 16.0 :scale 24.0 :flags 0 :layer 0} (get eff 3))))
+      (is (= [2.0 0.0 0.0 2.0 100.0 0.0] (:affine (get eff 1))))
+      (is (= [6.0 0.0 0.0 6.0 120.0 10.0] (:affine (get eff 2))))
+      (is (= [24.0 0.0 0.0 24.0 126.0 16.0] (:affine (get eff 3)))))
+    (testing "nested order and compact transport are carried beside geometry"
+      (is (= [[1 0] [2 0] [3 0]] (:stack-path (get eff 3))))
+      (is (= [0 1 2 3] (mapv #(get-in eff [% :transport-slot]) [0 1 2 3]))))
     (testing "cid 0 stays identity/world"
-      (is (= {:x 0.0 :y 0.0 :scale 1.0 :flags 0 :layer 0} (get eff 0))))))
+      (is (= ctn/identity-affine (:affine (get eff 0))))
+      (is (= 0 (:flags (get eff 0)))))))
 
 (deftest containers-inverse-point-roundtrip
   (let [reg   (-> (ctn/empty-registry)
                   (ctn/add-container 1 {:x 100 :y 0 :scale 2})
                   (ctn/add-container 2 {:parent 1 :x 10 :y 5 :scale 3})
                   (ctn/add-container 3 {:parent 2 :x 1 :y 1 :scale 4}))
-        e3    (get (ctn/effective reg) 3)          ; {x126 y16 s24}
+        e3    (get (ctn/effective reg) 3)
         local [2 3]
-        ;; forward: world = eff-offset + local * eff-scale
-        world [(+ (:x e3) (* (first local)  (:scale e3)))
-               (+ (:y e3) (* (second local) (:scale e3)))]]
+        world (ctn/forward-point e3 local)]
     (is (= [174.0 88.0] world) "forward transform")
     (is (= [2.0 3.0] (ctn/inverse-point e3 world)) "inverse recovers local")))
+
+(deftest containers-general-affine-nesting-bounds-and-q5-points
+  (let [theta 0.637
+        ct (Math/cos theta)
+        st (Math/sin theta)
+        parent [ct st (- st) ct 64.0 64.0]
+        child [2.0 0.25 0.5 0.75 3.0 -4.0]
+        reg (-> (ctn/empty-registry)
+                (ctn/add-container 17000 {:affine parent :layer 4})
+                (ctn/add-container :nested {:parent 17000 :affine child :layer 2}))
+        effs (ctn/effective reg)
+        ep (get effs 17000)
+        ec (get effs :nested)
+        local [7.25 -3.5]
+        world (ctn/forward-point ec local)
+        bounds (ctn/transform-bounds ep {:x -27.0 :y -15.0 :w 54.0 :h 30.0})]
+    (testing "full 2x2 + translation composition is exact and invertible"
+      (is (= (ctn/compose-affines parent child) (:affine ec)))
+      (is (every? #(< (Math/abs %) 1.0e-10)
+                  (map - local (ctn/inverse-point ec world)))))
+    (testing "rotation bounds use all four corners rather than scale-only extents"
+      (is (> (:w bounds) 54.0))
+      (is (> (:h bounds) 30.0)))
+    (testing "the two pinned Q5 raster centers remain mathematically inside"
+      (doseq [point [[61.5 43.5] [66.5 84.5]]]
+        (let [[x y] (ctn/inverse-point ep point)]
+          (is (< (Math/abs x) 27.0))
+          (is (< (Math/abs y) 15.0)))))
+    (testing "sparse semantic ids still occupy compact Q8 transport slots"
+      (is (= 1 (:transport-slot ep)))
+      (is (= 2 (:transport-slot ec))))))
+
+(deftest containers-transport-slot-lifecycle
+  (let [reg (-> (ctn/empty-registry)
+                (ctn/add-container 999999 {:x 1})
+                (ctn/add-container :other {:x 2}))
+        reg' (ctn/remove-container reg 999999)
+        reg'' (ctn/add-container reg' "sparse/material/id" {:x 3})]
+    (is (= 1 (ctn/transport-slot reg 999999)))
+    (is (= 2 (ctn/transport-slot reg :other)))
+    (is (= 1 (ctn/transport-slot reg'' "sparse/material/id"))
+        "a released compact slot is reused without coupling it to semantic cid")))
 
 (deftest containers-screen-camera-inheritance
   (let [reg (-> (ctn/empty-registry)
@@ -218,9 +262,8 @@
     (testing "set-transform does PARTIAL updates; effective reflects them"
       (let [reg' (ctn/set-transform reg 1 {:x 50})
             e1   (get (ctn/effective reg') 1)]
-        (is (= 50.0 (:x e1)) "x updated")
-        (is (= 0.0  (:y e1)) "y untouched (default)")
-        (is (= 1.0  (:scale e1)) "scale untouched (default)")))))
+        (is (= [1.0 0.0 0.0 1.0 50.0 0.0] (:affine e1))
+            "translation updates without changing the matrix")))))
 
 (deftest containers-parent-cycle-throws
   ;; Cycles cannot form through add-container/set-transform (no re-parenting),

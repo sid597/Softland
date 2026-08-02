@@ -1,15 +1,18 @@
 (ns app.client.substrate.webgpu.renderer
-  (:require [app.client.substrate.webgpu.gpu-budget :as gpu-budget]))
+  (:require [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
+            [app.client.workspace.text-layout :as tl]))
 
 ;; --- 1. SHADERS ---
 ;; Rich quads: 28 floats/rect, SDF-based rounded corners, borders, gradients
 (def rect-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
   @group(0) @binding(0) var<uniform> camera: Camera;
-  // scene-substrate P2: per-container transforms. data[i] = (offset.xy, scale, screen-flag).
-  // Container 0 is the identity world container (trap T6).
-  struct Containers { data: array<vec4<f32>, 1024>, };
-  @group(0) @binding(1) var<uniform> containers: Containers;
+  // W2-A/Q8: compact 32-byte affine entries in read-only storage.
+  struct ContainerTransform {
+    axis_x: vec2<f32>, axis_y: vec2<f32>, translation: vec2<f32>,
+    flags: u32, padding: u32,
+  };
+  @group(0) @binding(1) var<storage, read> containers: array<ContainerTransform>;
   struct InstanceInput {
     @location(0) rect_geometry: vec4<f32>,
     @location(1) color: vec4<f32>,
@@ -41,21 +44,27 @@
           case 2u: { pos = vec2<f32>(0.0, 1.0); } case 3u: { pos = vec2<f32>(1.0, 0.0); }
           case 4u: { pos = vec2<f32>(1.0, 1.0); } default: { pos = vec2<f32>(0.0, 1.0); }
       }
-      let world_pos = vec2<f32>(instance.rect_geometry.x + (pos.x * instance.rect_geometry.z),
-                                instance.rect_geometry.y + (pos.y * instance.rect_geometry.w));
-      let c = containers.data[instance.container_idx];
-      let is_screen = c.w != 0.0;
+      let c = containers[instance.container_idx];
+      let is_screen = (c.flags & 1u) != 0u;
       let zm = select(camera.zoom, 1.0, is_screen);
       let pn = select(camera.pan, vec2<f32>(0.0, 0.0), is_screen);
-      let panned = ((c.xy + world_pos * c.z) * zm) + pn;
+      let axis_scale = max(vec2<f32>(length(c.axis_x), length(c.axis_y)) * zm,
+                           vec2<f32>(0.0001, 0.0001));
+      let sign = pos * 2.0 - vec2<f32>(1.0, 1.0);
+      // A half-screen-pixel conservative raster hull prevents an analytically
+      // inside sample from being lost to triangle top-left ownership (Q5).
+      let local_delta = sign * vec2<f32>(0.5, 0.5) / axis_scale;
+      let local_pos = instance.rect_geometry.xy
+                    + pos * instance.rect_geometry.zw + local_delta;
+      let world_pos = c.translation + c.axis_x * local_pos.x + c.axis_y * local_pos.y;
+      let panned = world_pos * zm + pn;
       let ndc = (panned / camera.screen_dimensions * 2.0) - vec2<f32>(1.0, 1.0);
       output.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
       output.color = instance.color;
-      // Pass local UV (0..size in pixels) and rect size for SDF evaluation.
-      // Effective on-screen scale = container scale * camera zoom.
-      let eff = c.z * zm;
-      output.local_pos = pos * instance.rect_geometry.zw * eff;
-      output.rect_size = instance.rect_geometry.zw * eff;
+      // Preserve existing screen-metric corner/border behavior while carrying
+      // independent affine axis scales. Identity/uniform cases are byte-stable.
+      output.local_pos = (pos * instance.rect_geometry.zw + local_delta) * axis_scale;
+      output.rect_size = instance.rect_geometry.zw * axis_scale;
       output.corner_radii = instance.corner_radii;
       output.border_widths = instance.border_widths;
       output.border_color = instance.border_color;
@@ -102,7 +111,8 @@
 
       let dist = sd_rounded_box(p, half_size, radii);
 
-      // Anti-aliased edge (1px smoothstep)
+      // Preserve the settled rich-rect raster law exactly. W2-A changes the
+      // transport and geometry, not the fragment coverage convention.
       let aa = clamp(0.5 - dist, 0.0, 1.0);
 
       // --- Fill color (with optional gradient) ---
@@ -141,9 +151,11 @@
 (def shadow-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
   @group(0) @binding(0) var<uniform> camera: Camera;
-  // scene-substrate P2: per-container transforms (trap T6: container 0 = identity).
-  struct Containers { data: array<vec4<f32>, 1024>, };
-  @group(0) @binding(1) var<uniform> containers: Containers;
+  struct ContainerTransform {
+    axis_x: vec2<f32>, axis_y: vec2<f32>, translation: vec2<f32>,
+    flags: u32, padding: u32,
+  };
+  @group(0) @binding(1) var<storage, read> containers: array<ContainerTransform>;
   struct InstanceInput {
     @location(0) expanded_rect: vec4<f32>,
     @location(1) shadow_color: vec4<f32>,
@@ -171,25 +183,25 @@
           case 2u: { pos = vec2<f32>(0.0, 1.0); } case 3u: { pos = vec2<f32>(1.0, 0.0); }
           case 4u: { pos = vec2<f32>(1.0, 1.0); } default: { pos = vec2<f32>(0.0, 1.0); }
       }
-      let world_pos = vec2<f32>(instance.expanded_rect.x + (pos.x * instance.expanded_rect.z),
-                                instance.expanded_rect.y + (pos.y * instance.expanded_rect.w));
-      let c = containers.data[instance.container_idx];
-      let is_screen = c.w != 0.0;
+      let local_pos = instance.expanded_rect.xy + pos * instance.expanded_rect.zw;
+      let c = containers[instance.container_idx];
+      let is_screen = (c.flags & 1u) != 0u;
       let zm = select(camera.zoom, 1.0, is_screen);
       let pn = select(camera.pan, vec2<f32>(0.0, 0.0), is_screen);
-      let eff = c.z * zm;
-      let panned = ((c.xy + world_pos * c.z) * zm) + pn;
+      let axis_scale = max(vec2<f32>(length(c.axis_x), length(c.axis_y)) * zm,
+                           vec2<f32>(0.0001, 0.0001));
+      let world_pos = c.translation + c.axis_x * local_pos.x + c.axis_y * local_pos.y;
+      let panned = world_pos * zm + pn;
       let ndc = (panned / camera.screen_dimensions * 2.0) - vec2<f32>(1.0, 1.0);
       output.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
       output.shadow_color = instance.shadow_color;
-      output.local_pos = pos * instance.expanded_rect.zw * eff;
-      output.rect_size = instance.expanded_rect.zw * eff;
+      output.local_pos = pos * instance.expanded_rect.zw * axis_scale;
+      output.rect_size = instance.expanded_rect.zw * axis_scale;
       output.corner_radii = instance.corner_radii;
       output.blur_params = instance.blur_params;
       // Scale inner_rect to match the effective-scaled local_pos
-      output.inner_rect = vec4<f32>(
-          instance.inner_rect.xy * eff,
-          instance.inner_rect.zw * eff);
+      output.inner_rect = vec4<f32>(instance.inner_rect.xy * axis_scale,
+                                    instance.inner_rect.zw * axis_scale);
       return output;
   }")
 
@@ -253,9 +265,11 @@
 (def text-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
   @group(0) @binding(2) var<uniform> camera: Camera;
-  // scene-substrate P2: per-container transforms (trap T6: container 0 = identity).
-  struct Containers { data: array<vec4<f32>, 1024>, };
-  @group(0) @binding(4) var<uniform> containers: Containers;
+  struct ContainerTransform {
+    axis_x: vec2<f32>, axis_y: vec2<f32>, translation: vec2<f32>,
+    flags: u32, padding: u32,
+  };
+  @group(0) @binding(4) var<storage, read> containers: array<ContainerTransform>;
   // Per-instance: rect (vec4), uv_bounds (vec4), color (vec4), container_idx (u32) = 13 words
   struct InstanceInput { @location(0) rect: vec4<f32>, @location(1) uv_bounds: vec4<f32>, @location(2) color: vec4<f32>, @location(3) container_idx: u32, };
   struct VertexOutput { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, @location(1) v_visual_size: f32, @location(2) color: vec4<f32>, };
@@ -273,15 +287,18 @@
                                 instance.rect.y + (pos.y * instance.rect.w));
       let u = mix(instance.uv_bounds.x, instance.uv_bounds.z, pos.x);
       let v = mix(instance.uv_bounds.y, instance.uv_bounds.w, pos.y);
-      let c = containers.data[instance.container_idx];
-      let is_screen = c.w != 0.0;
+      let c = containers[instance.container_idx];
+      let is_screen = (c.flags & 1u) != 0u;
       let zm = select(camera.zoom, 1.0, is_screen);
       let pn = select(camera.pan, vec2<f32>(0.0, 0.0), is_screen);
-      let panned = ((c.xy + world_pos * c.z) * zm) + pn;
+      let transformed = c.translation + c.axis_x * world_pos.x + c.axis_y * world_pos.y;
+      let panned = transformed * zm + pn;
       let ndc = (panned / camera.screen_dimensions * 2.0) - vec2<f32>(1.0, 1.0);
       output.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
       output.uv = vec2<f32>(u, v);
-      output.v_visual_size = max(instance.rect.z, instance.rect.w) * c.z * zm;
+      let axis_scale = vec2<f32>(length(c.axis_x), length(c.axis_y)) * zm;
+      output.v_visual_size = max(instance.rect.z * axis_scale.x,
+                                 instance.rect.w * axis_scale.y);
       output.color = instance.color;
       return output;
   }")
@@ -309,9 +326,11 @@
 (def slug-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
   @group(0) @binding(2) var<uniform> camera: Camera;
-  // scene-substrate P2: per-container transforms (trap T6: container 0 = identity).
-  struct Containers { data: array<vec4<f32>, 1024>, };
-  @group(0) @binding(4) var<uniform> containers: Containers;
+  struct ContainerTransform {
+    axis_x: vec2<f32>, axis_y: vec2<f32>, translation: vec2<f32>,
+    flags: u32, padding: u32,
+  };
+  @group(0) @binding(4) var<storage, read> containers: array<ContainerTransform>;
 
   struct InstanceInput {
     @location(0) rect: vec4<f32>,
@@ -348,15 +367,18 @@
 
     let world_pos = vec2<f32>(instance.rect.x + (pos.x * instance.rect.z),
                               instance.rect.y + (pos.y * instance.rect.w));
-    let c = containers.data[instance.container_idx];
-    let is_screen = c.w != 0.0;
+    let c = containers[instance.container_idx];
+    let is_screen = (c.flags & 1u) != 0u;
     let zm = select(camera.zoom, 1.0, is_screen);
     let pn = select(camera.pan, vec2<f32>(0.0, 0.0), is_screen);
-    // Half-pixel dilation in SCREEN space: divide by the effective scale so
-    // delta stays half a screen pixel in glyph-local units.
-    let dilation = 0.5 / max(c.z * zm, 0.0001);
-    let delta = sign * dilation;
-    let panned = ((c.xy + (world_pos + delta) * c.z) * zm) + pn;
+    // Half-pixel conservative dilation follows both affine axes. inv_jac then
+    // carries the same local delta into Slug sample space.
+    let axis_scale = max(vec2<f32>(length(c.axis_x), length(c.axis_y)) * zm,
+                         vec2<f32>(0.0001, 0.0001));
+    let delta = sign * vec2<f32>(0.5, 0.5) / axis_scale;
+    let local_pos = world_pos + delta;
+    let transformed = c.translation + c.axis_x * local_pos.x + c.axis_y * local_pos.y;
+    let panned = transformed * zm + pn;
     let ndc = (panned / camera.screen_dimensions * 2.0) - vec2<f32>(1.0, 1.0);
 
     let sample_x = mix(instance.sample_bounds.x, instance.sample_bounds.z, pos.x);
@@ -516,33 +538,34 @@
 ;; Calculate bracket highlight rectangles
 (defn calculate-bracket-rects [bracket-match font-size start-x start-y line-h]
   (when bracket-match
-    (let [char-w (* font-size 0.56)
-          {:keys [open close]} bracket-match
+    (let [{:keys [open close]} bracket-match
+          max-line (max (:line open) (:line close))
+          max-col (max (:col open) (:col close))
+          source-lines (assoc (vec (repeat (inc max-line) "")) max-line
+                              (apply str (repeat (inc max-col) " ")))
+          layout-result (tl/layout {:text (apply str (interpose "\n" source-lines))
+                                    :source-lines source-lines
+                                    :font-size font-size
+                                    :char-advance (tl/legacy-char-advance font-size 0.56)
+                                    :line-height line-h
+                                    :origin [start-x start-y]})
           make-rect (fn [{:keys [line col]}]
-                      {:x (+ start-x (* col char-w))
-                       :y (+ start-y (* line line-h))
-                       :w char-w
-                       :h line-h
-                       ;; Golden/yellow highlight for matching brackets
-                       :r 0.8 :g 0.6 :b 0.2 :a 0.4})]
+                      (merge (:rect (tl/selection-result layout-result line col (inc col)))
+                             ;; Golden/yellow highlight for matching brackets
+                             {:r 0.8 :g 0.6 :b 0.2 :a 0.4}))]
       [(make-rect open) (make-rect close)])))
 
 ;; Updated hit-test: clamps column to actual line length
 (defn hit-test [x y font-size start-x start-y line-h line-lengths]
-  (let [char-w     (* font-size 0.56)
-        rel-x      (- x start-x)
-        rel-y      (- y start-y)
-        line-idx   (max 0 (Math/floor (/ rel-y line-h)))
-        ;; Clamp line index to valid range
-        line-idx   (min line-idx (max 0 (dec (count line-lengths))))
-        ;; Get actual line length, default to 0 for empty lines
-        line-len   (get line-lengths line-idx 0)
-        ;; Clamp column to [0, line-length]
-        col-idx    (-> (/ rel-x char-w)
-                       (Math/round)
-                       (max 0)
-                       (min line-len))]
-    {:line line-idx :col col-idx}))
+  (let [source-lines (mapv #(apply str (repeat % " ")) line-lengths)
+        layout-result (tl/layout {:text (apply str (interpose "\n" source-lines))
+                                  :source-lines source-lines
+                                  :font-size font-size
+                                  :char-advance (tl/legacy-char-advance font-size 0.56)
+                                  :line-height line-h
+                                  :origin [start-x start-y]})
+        hit (tl/hit-test-result layout-result [x y])]
+    (select-keys hit [:line :col])))
 
 ;; --- 2. INITIALIZATION ---
 
@@ -550,52 +573,76 @@
 (def msdf-text-instance-stride 52)  ;; 12 floats + container u32
 (def slug-text-instance-stride 100) ;; 24 words + container u32
 
-;; --- scene-substrate P2: shared per-container transform buffer -------------
-;; One uniform array of vec4 per container: (offset.x, offset.y, scale, flags)
-;; where flags != 0.0 means screen-camera (chrome) — the world camera's
-;; pan/zoom become identity for that container. Container 0 is RESERVED as
-;; the identity world container (trap T6): every packer defaults instances
-;; to it, which keeps the pre-P2 render byte-identical until a producer
-;; assigns real containers.
-(def max-containers 1024)
+;; --- W2-A/Q8: shared compact affine transport ------------------------------
+;; One 32-byte storage entry per LIVE transform slot:
+;; [axis-x.xy, axis-y.xy, translation.xy, flags:u32, pad:u32]. Semantic cids do
+;; not index this table; containers/effective assigns compact stable slots.
+;; Q8 priced 1,024 / 4,096 / 16,384 entries, and the largest measured tier is
+;; the production allocation. Growing later rebinds the same storage scheme; it
+;; is not another representation migration after atom multiplication.
+(def affine-entry-bytes 32)
+(def max-transform-nodes 16384)
 
 (defn create-containers-buffer
-  "Create the shared container-transform uniform buffer and write the
-   identity container 0. Shared across all four pipelines like the camera."
+  "Create the shared Q8 affine storage buffer and write identity slot 0.
+   Shared across all four transform-consuming pipelines like the camera."
   [^js/GPUDevice device tracker]
-  (let [size (* max-containers 16)
+  (let [size (* max-transform-nodes affine-entry-bytes)
         buffer (.createBuffer device (clj->js {:size size
-                                               :usage (bit-or js/GPUBufferUsage.UNIFORM
+                                               :usage (bit-or js/GPUBufferUsage.STORAGE
                                                               js/GPUBufferUsage.COPY_DST)}))
-        identity0 (js/Float32Array. #js [0.0 0.0 1.0 0.0])]
-    (gpu-budget/register-buffer! tracker buffer "containers/shared" size :active-bytes size)
+        identity0 (js/Float32Array. #js [1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0])]
+    (gpu-budget/register-buffer! tracker buffer "containers/affine-storage" size
+                                 :active-bytes affine-entry-bytes)
     (.writeBuffer (.-queue device) buffer 0 identity0)
     buffer))
 
 (defn write-containers!
-  "Upload effective container transforms. `effective` is {cid {:x :y :scale
-   :flags (0|1) or :screen? bool}} — containers/effective output is accepted
-   as-is. cid 0 (the reserved identity, trap T6) is skipped: it was written at
-   buffer creation and the registry refuses to mutate it. Writes one
-   contiguous range [1 .. max cid]; unlisted cids in the range default to
-   identity, not zero-scale."
+  "Upload containers/effective through compact :transport-slot values. Sparse
+   semantic cids never allocate holes. Returns a machine receipt used by the
+   1,024/4,096/16,384 Q8 verifier."
   [^js/GPUDevice device ^js containers-buffer effective]
-  (let [effective (dissoc effective 0)]
-    (when (seq effective)
-      (let [max-cid (apply max (keys effective))
-            _ (when (>= max-cid max-containers)
-                (throw (ex-info "Container id out of range" {:cid max-cid :max max-containers})))
-            floats (js/Float32Array. (* 4 max-cid))] ;; cids 1..max-cid
-        (loop [cid 1]
-          (when (<= cid max-cid)
-            (let [base (* 4 (dec cid))
-                  {:keys [x y scale flags screen?] :or {x 0.0 y 0.0 scale 1.0}} (get effective cid)]
-              (aset floats (+ base 0) x)
-              (aset floats (+ base 1) y)
-              (aset floats (+ base 2) scale)
-              (aset floats (+ base 3) (cond (number? flags) flags screen? 1.0 :else 0.0)))
-            (recur (inc cid))))
-        (.writeBuffer (.-queue device) containers-buffer 16 floats)))))
+  (let [entries (vals effective)
+        slots (map :transport-slot entries)
+        _ (when (some nil? slots)
+            (throw (ex-info "Affine transport entry lacks :transport-slot"
+                            {:missing (count (filter nil? slots))})))
+        _ (when-not (= (count slots) (count (set slots)))
+            (throw (ex-info "Affine transport slots must be unique"
+                            {:slots slots})))
+        max-slot (if (seq slots) (apply max slots) 0)
+        entry-count (inc max-slot)
+        _ (when (> entry-count max-transform-nodes)
+            (throw (ex-info "Live affine transport exceeds the Q8 capacity"
+                            {:entries entry-count :max max-transform-nodes})))
+        raw (js/ArrayBuffer. (* entry-count affine-entry-bytes))
+        floats (js/Float32Array. raw)
+        uints (js/Uint32Array. raw)]
+    ;; Holes can only occur in a hand-built effective map; make them identity,
+    ;; never a singular zero matrix. Normal registries allocate densely.
+    (dotimes [slot entry-count]
+      (let [base (* slot 8)]
+        (aset floats (+ base 0) 1.0)
+        (aset floats (+ base 3) 1.0)))
+    (doseq [{:keys [affine flags transport-slot]} entries]
+      (let [[a b c d tx ty] affine
+            base (* transport-slot 8)]
+        (when-not (= 6 (count affine))
+          (throw (ex-info "Affine transport requires [a b c d tx ty]"
+                          {:affine affine :transport-slot transport-slot})))
+        (aset floats (+ base 0) a)
+        (aset floats (+ base 1) b)
+        (aset floats (+ base 2) c)
+        (aset floats (+ base 3) d)
+        (aset floats (+ base 4) tx)
+        (aset floats (+ base 5) ty)
+        (aset uints (+ base 6) (or flags 0))
+        (aset uints (+ base 7) 0)))
+    (.writeBuffer (.-queue device) containers-buffer 0 (js/Uint8Array. raw))
+    {:entries entry-count
+     :bytes (* entry-count affine-entry-bytes)
+     :max-slot max-slot
+     :capacity max-transform-nodes}))
 
 (defn init-rect-system
   [^js/GPUDevice device fformat camera-buffer
@@ -609,7 +656,7 @@
         instance-buffer (.createBuffer device (clj->js {:size buf-size :usage (bit-or js/GPUBufferUsage.VERTEX js/GPUBufferUsage.COPY_DST)}))
         _ (gpu-budget/register-buffer! tracker instance-buffer label buf-size :active-bytes 0)
         bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility (bit-or js/GPUShaderStage.VERTEX js/GPUShaderStage.FRAGMENT) :buffer {:type "uniform"}}
-                                                                     {:binding 1 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}]}))
+                                                                     {:binding 1 :visibility js/GPUShaderStage.VERTEX :buffer {:type "read-only-storage"}}]}))
         pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
         pipeline (.createRenderPipeline device
                    (clj->js {:layout pipeline-layout
@@ -796,7 +843,7 @@
                                                                      {:binding 1 :visibility js/GPUShaderStage.FRAGMENT :texture {:sampleType "float"}}
                                                                      {:binding 2 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}
                                                                      {:binding 3 :visibility js/GPUShaderStage.FRAGMENT :buffer {:type "uniform"}}
-                                                                     {:binding 4 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}]}))
+                                                                     {:binding 4 :visibility js/GPUShaderStage.VERTEX :buffer {:type "read-only-storage"}}]}))
         pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
         pipeline (.createRenderPipeline device
                    (clj->js {:layout pipeline-layout
@@ -855,7 +902,7 @@
                                                                      {:binding 1 :visibility js/GPUShaderStage.FRAGMENT :texture {:sampleType "uint"}}
                                                                      {:binding 2 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}
                                                                      {:binding 3 :visibility js/GPUShaderStage.FRAGMENT :buffer {:type "uniform"}}
-                                                                     {:binding 4 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}]}))
+                                                                     {:binding 4 :visibility js/GPUShaderStage.VERTEX :buffer {:type "read-only-storage"}}]}))
         pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
         pipeline (.createRenderPipeline device
                    (clj->js {:layout pipeline-layout
@@ -1031,7 +1078,7 @@
         instance-buffer (.createBuffer device (clj->js {:size buf-size :usage (bit-or js/GPUBufferUsage.VERTEX js/GPUBufferUsage.COPY_DST)}))
         _ (gpu-budget/register-buffer! tracker instance-buffer label buf-size :active-bytes 0)
         bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility (bit-or js/GPUShaderStage.VERTEX js/GPUShaderStage.FRAGMENT) :buffer {:type "uniform"}}
-                                                                     {:binding 1 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}]}))
+                                                                     {:binding 1 :visibility js/GPUShaderStage.VERTEX :buffer {:type "read-only-storage"}}]}))
         pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
         pipeline (.createRenderPipeline device
                    (clj->js {:layout pipeline-layout
@@ -1228,7 +1275,8 @@
                      :font-id (:id font-assets)
                      :font-backend (:backend font-assets)
                      :camera-buffer-bytes 24
-                     :containers-buffer-bytes (* max-containers 16)})
+                     :containers-buffer-bytes (* max-transform-nodes affine-entry-bytes)
+                     :containers-transport :compact-affine-storage})
 
     {:text-sys text-sys
      :rect-sys rect-sys
@@ -1246,10 +1294,6 @@
 
 (defn- token-color [{:keys [r g b a]}]
   [(or r 1.0) (or g 1.0) (or b 1.0) (or a 1.0)])
-
-(defn- advance-width [fsize char-width snap]
-  (let [v (* fsize char-width)]
-    (if snap (snap v) v)))
 
 ;; first-light P1 (G1 drill finding): glyph-map is rebuilt PER LINE by
 ;; shape-msdf-line/shape-slug-line — a whole-conversation reshape rebuilt the
@@ -1284,29 +1328,29 @@
             snap (make-snapper snap-step)
             start-x (if snap (snap x) x)
             start-y (if snap (snap y) y)
-            advance (advance-width fsize char-width snap)
-            !x (atom start-x)
-            !y (atom start-y)]
-        (doseq [ch (seq text)]
-          (let [code (.charCodeAt ch 0)]
-            (cond
-              (= ch \newline) (do (reset! !x start-x) (reset! !y (+ @!y (* fsize line-h))))
-              (= ch \space) (swap! !x + advance)
-              :else
+            advance (tl/legacy-char-advance-step fsize char-width snap-step)
+            layout-result (tl/layout {:text text
+                                      :font-size fsize
+                                      :char-advance advance
+                                      :line-height (* fsize line-h)
+                                      :origin [start-x start-y]})]
+        (doseq [{:keys [glyph-id character position]}
+                (:glyphs (tl/paint-result layout-result))]
+          (when-not (= character " ")
+            (let [code glyph-id]
               ;; V3-5: a missing glyph must still ADVANCE (never the old
               ;; zero-advance skip that desynced column math) and draws the
               ;; atlas fallback U+FFFD when present. Defense-in-depth behind
               ;; the cljc sanitizer, which substitutes upstream.
               (let [g (or (get glyphs code) (get glyphs 0xFFFD))
-                    x0 @!x]
-                (swap! !x + advance)
+                    [x0 baseline-y] position]
                 (when g
                   (let [pb (:planeBounds g)
                         ab (:atlasBounds g)
                         sl (+ x0 (* fsize (or (:left pb) 0)))
                         sr (+ x0 (* fsize (or (:right pb) 0)))
-                        st (- @!y (* fsize (or (:top pb) 0)))
-                        sb (- @!y (* fsize (or (:bottom pb) 0)))
+                        st (- baseline-y (* fsize (or (:top pb) 0)))
+                        sb (- baseline-y (* fsize (or (:bottom pb) 0)))
                         ul (/ (:left ab) atlas-w)
                         ur (/ (:right ab) atlas-w)
                         vt (- 1.0 (/ (:top ab) atlas-h))
@@ -1329,21 +1373,21 @@
             snap (make-snapper snap-step)
             start-x (if snap (snap x) x)
             start-y (if snap (snap y) y)
-            advance (advance-width fsize char-width snap)
+            advance (tl/legacy-char-advance-step fsize char-width snap-step)
             inv-size (if (pos? fsize) (/ 1.0 fsize) 0.0)
-            !x (atom start-x)
-            !y (atom start-y)]
-        (doseq [ch (seq text)]
-          (let [code (.charCodeAt ch 0)]
-            (cond
-              (= ch \newline) (do (reset! !x start-x) (reset! !y (+ @!y (* fsize line-h))))
-              (= ch \space) (swap! !x + advance)
-              :else
+            layout-result (tl/layout {:text text
+                                      :font-size fsize
+                                      :char-advance advance
+                                      :line-height (* fsize line-h)
+                                      :origin [start-x start-y]})]
+        (doseq [{:keys [glyph-id character position]}
+                (:glyphs (tl/paint-result layout-result))]
+          (when-not (= character " ")
+            (let [code glyph-id]
               ;; V3-5: always advance; draw the fallback glyph when missing
               ;; (slug meta today has no U+FFFD -> honest gap WITH advance).
               (let [g (or (get glyphs code) (get glyphs 0xFFFD))
-                    x0 @!x
-                    _ (swap! !x + advance)]
+                    [x0 baseline-y] position]
                 (when g
                   (let [sample-bounds (or (:sampleBounds g) (:planeBounds g))
                       slug (:slug g)
@@ -1353,8 +1397,8 @@
                       bottom (or (:bottom sample-bounds) 0.0)
                       world-left (+ x0 (* fsize left))
                       world-right (+ x0 (* fsize right))
-                      world-top (- @!y (* fsize top))
-                      world-bottom (- @!y (* fsize bottom))]
+                      world-top (- baseline-y (* fsize top))
+                      world-bottom (- baseline-y (* fsize bottom))]
                   (swap! res conj {:rect [world-left world-top (- world-right world-left) (- world-bottom world-top)]
                                    :sample-bounds [left top right bottom]
                                    :inv-jac [inv-size 0.0 0.0 (- inv-size)]
