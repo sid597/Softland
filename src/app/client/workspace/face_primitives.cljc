@@ -35,6 +35,7 @@
    the runtime map below binds keyword->fn at load."
   (:require [clojure.string :as str]
             [app.client.workspace.rect-tree :as rt :refer [rt-node wrap-line]]
+            [app.client.workspace.text-layout :as tl]
             [components.design-tokens :as design-tokens]))
 
 ;; ===========================================================================
@@ -475,17 +476,9 @@
 
 (defn text-run-prim
   "`:text-run` — prose block (§6 measure rule; PROBE Finding 1; trap T7).
-   Wraps ONCE via `wrap-line` and emits its OWN positioned text ops — the
-   `build-empty-state` pattern (ui_primitives.cljs:189-242) — then sets its own
-   :h = wrapped-line-count * line-height (the measure rule made flesh).
-
-   It MUST NOT ride `:text-layout` / `resolve-text-layout` (the G8 carve-out):
-   PROBE Finding 1 — `:text-layout` is not an rt-node constructor param
-   (rect_tree.cljc:45), nothing shipped attaches it, and riding it DOUBLES wrap
-   cost (~2x) because the primitive must wrap anyway to measure. Width defaults
-   to (:content-w geom); max-chars derives from width / (:char-advance geom) —
-   never a second constant (the codebase 0.56 advance is the only fallback when
-   a bare geom omits :char-advance, per CLAUDE.md Text/Cursor Alignment)."
+   Contract T0 computes wrap, measure, and positioned paint ops from one legacy
+   layout result. Width defaults to (:content-w geom); the 0.56 ratio remains
+   only a provider input when a bare test geom omits :char-advance."
   [ctx props children]
   (let [geom (:geom ctx)
         w    (content-w props geom)
@@ -495,22 +488,25 @@
         pad  (or (:padding props) 0)
         [pt pr pb pl] (rt/normalize-padding pad)
         avail (max 1 (- w pl pr))
-        max-chars (max 1 (int (/ avail ca)))
         value (str (:value props (:text props "")))
-        raw   (str/split-lines value)
-        lines (vec (mapcat (fn [ln] (wrap-line ln max-chars)) raw))
-        n     (max 1 (count lines))
+        layout-result (tl/layout {:text value
+                                  :font-size fs
+                                  :char-advance ca
+                                  :line-height lh
+                                  :origin [pl pt]
+                                  :baseline-offset 0
+                                  :inline-size avail
+                                  :wrap-policy :word
+                                  :source-id (:id ctx)})
         color (or (:color props) (get-in dt [:colors :fg]))
-        ops   (vec (map-indexed
-                     (fn [i line]
-                       {:text line :type (or (:text-type props) :text)
-                        :from 0 :to (count line)
-                        :x pl :y (+ pt (* i lh))
-                        :size fs
-                        :r (nth color 0) :g (nth color 1)
-                        :b (nth color 2) :a (nth color 3)})
-                     lines))
-        h     (+ pt pb (* n lh))]
+        ops   (tl/line-paint-ops
+               layout-result
+               {:type (or (:text-type props) :text)
+                :size fs
+                :r (nth color 0) :g (nth color 1)
+                :b (nth color 2) :a (nth color 3)})
+        h     (+ pt pb (second (get-in (tl/measure-result layout-result)
+                                       [:metrics :advance])))]
     (rt-node (:id ctx) :text-run
              {:x 0 :y 0 :w w :h h}
              :text ops
@@ -560,24 +556,9 @@
    :r r :g g :b b :a a})
 
 (defn wrap-lines
-  "The block's original greedy character-column wrapping algorithm.
-   This is intentionally not `rect-tree/wrap-line`, whose word-boundary
-   behavior differs."
+  "Compatibility name for Contract-T's ground-block wrapper."
   [lines col]
-  (vec
-   (mapcat
-    (fn [line]
-      (if (<= (count line) col)
-        [line]
-        (loop [remaining line, out []]
-          (if (<= (count remaining) col)
-            (conj out remaining)
-            (let [head (subs remaining 0 (inc col))
-                  i (str/last-index-of head " ")
-                  cut (if (and i (pos? i)) i col)]
-              (recur (str/triml (subs remaining cut))
-                     (conj out (subs remaining 0 cut))))))))
-    lines)))
+  (tl/block-wrap-lines lines col))
 
 (defn lines-offset
   "Visual {:line :col} over rendered lines -> flat newline-joined offset."
@@ -589,14 +570,49 @@
 
 (defn block-render-lines
   "The one split/wrap/header operation shared by view derivation and the root
-   primitive. T1: moving this helper is what lets the handwritten composer die
-   without leaving a private wrapping truth behind."
+   primitive. Contract T0 keeps this compatibility reader over the one layout
+   provider; it owns no wrapping truth."
   [text machine? wrap-col headers]
-  (let [body (cond-> (str/split (or text "") #"\n" -1)
-               (and machine? wrap-col) (wrap-lines wrap-col))]
-    (if (seq headers)
-      (into (vec headers) body)
-      (vec body))))
+  (:lines
+   (tl/wrap-result
+    (tl/layout {:text (or text "")
+                :font-size 1
+                :char-advance 1
+                :line-height 1
+                :max-chars (when machine? wrap-col)
+                :wrap-policy :block-greedy
+                :headers headers}))))
+
+(defn- ground-block-layout
+  "Build the one result shared by the interpreted block's root, selection, and
+   caret readers. The data context makes their semantic input identical without
+   changing the settled persisted anatomy grammar."
+  [ctx props required-line required-col]
+  (let [view (get-in ctx [:data-context :view])
+        actual? (or (contains? props :text) (contains? view :text))
+        text (or (:text props) (:text view) "")
+        machine? (boolean (or (:machine? props) (:machine? view)))
+        wrap-col (or (:wrap-col props) (:wrap-col view))
+        headers (or (:headers props) (:headers view) [])
+        fs (or (:font-size props) (:font-size view) 14)
+        ca (or (:char-advance props) (:char-advance view) 8)
+        lh (or (:line-h props) (:line-h view) 20)
+        fallback-lines
+        (when-not actual?
+          (let [line-count (max 1 (inc (long (or required-line 0))))
+                chars (apply str (repeat (max 0 (long (or required-col 0))) " "))]
+            (assoc (vec (repeat line-count "")) (dec line-count) chars)))]
+    (tl/layout (cond-> {:text text
+                        :font-size fs
+                        :char-advance ca
+                        :line-height lh
+                        :baseline-offset fs
+                        :max-chars (when machine? wrap-col)
+                        :wrap-policy :block-greedy
+                        :headers headers
+                        :source-id (:address ctx)}
+                 fallback-lines (assoc :source-lines fallback-lines
+                                       :headers [])))))
 
 (defn block-root-prim
   "The root part is the character grid. T2: all instance variation arrives in
@@ -611,12 +627,23 @@
              pad 0
              stamps {}}}
    children]
-  (let [lines (block-render-lines text machine? wrap-col headers)
+  (let [layout-result (ground-block-layout ctx
+                                           {:text text :machine? machine?
+                                            :wrap-col wrap-col :headers headers
+                                            :font-size font-size
+                                            :char-advance char-advance
+                                            :line-h line-h}
+                                           0 0)
+        lines (:lines (tl/wrap-result layout-result))
+        layout-lines (:lines layout-result)
         nh (count headers)
         n (count lines)
-        max-len (reduce max 1 (map count lines))
-        w (+ (* max-len char-advance) (* 2 pad))
-        h (+ (* n line-h) (* 2 pad))
+        logical-w (first (get-in (tl/measure-result layout-result)
+                                 [:metrics :advance]))
+        logical-h (second (get-in (tl/measure-result layout-result)
+                                  [:metrics :advance]))
+        w (+ (max char-advance logical-w) (* 2 pad))
+        h (+ logical-h (* 2 pad))
         ops
         (vec
          (map-indexed
@@ -629,17 +656,20 @@
                               (:noise-header stamps)
                               (:prose-header stamps)))
                   body-stamp (when body? (:body stamps))]
-              (cond->
-                  (text-op line i line-h font-size
-                           (cond
-                             header? tint
-                             machine? block-dim
-                             :else block-fg)
-                           0)
+              (let [[x y] (:baseline (nth layout-lines i))
+                    [r g b a] (cond
+                                header? tint
+                                machine? block-dim
+                                :else block-fg)]
+                (cond->
+                    {:text line :type :text :from 0
+                     :to (tl/code-unit-count line)
+                     :x x :y y :size font-size
+                     :r r :g g :b b :a a}
                 header? (merge p-stamp)
                 body? (merge body-stamp)
                 header?
-                (assoc :material/contributions [p-stamp f-stamp]))))
+                (assoc :material/contributions [p-stamp f-stamp])))))
           lines))
         address (:address ctx)
         data
@@ -668,16 +698,16 @@
              :children (vec children))))
 
 (defn block-selection-wash-prim
-  [_ctx {:keys [line col-start col-len char-advance line-h]
+  [ctx {:keys [line col-start col-len char-advance line-h] :as props
          :or {line 0 col-start 0 col-len 0 char-advance 8 line-h 20}}
    _children]
-  (rt-node (keyword (str "ground-sel-" line))
-           :rect
-           {:x (* col-start char-advance)
-            :y (* line line-h)
-            :w (max 2.0 (* col-len char-advance))
-            :h line-h}
-           :style {:bg [0.35 0.5 0.8 0.3]}))
+  (let [layout-result (ground-block-layout ctx props line (+ col-start col-len))
+        rect (:rect (tl/selection-result layout-result line col-start
+                                         (+ col-start col-len)
+                                         :min-width 2.0))]
+    (rt-node (keyword (str "ground-sel-" line))
+             :rect rect
+             :style {:bg [0.35 0.5 0.8 0.3]})))
 
 (defn block-group-selection-prim
   [_ctx {:keys [w h pad] :or {w 0 h 0 pad 0}} _children]
@@ -713,15 +743,13 @@
            :data stamp))
 
 (defn block-caret-prim
-  [_ctx {:keys [line col char-advance line-h]
+  [ctx {:keys [line col char-advance line-h] :as props
          :or {line 0 col 0 char-advance 8 line-h 20}}
    _children]
-  (rt-node :ground-caret :rect
-           {:x (* col char-advance)
-            :y (* line line-h)
-            :w 2
-            :h line-h}
-           :style {:bg [0.95 0.95 0.95 1.0]}))
+  (let [layout-result (ground-block-layout ctx props line col)]
+    (rt-node :ground-caret :rect
+             (:rect (tl/caret-result layout-result line col))
+             :style {:bg [0.95 0.95 0.95 1.0]})))
 
 (defn block-refusal-prim
   [_ctx {:keys [refusal line-count w line-h font-size]

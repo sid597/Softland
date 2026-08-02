@@ -51,19 +51,19 @@
    :shadows (rt/tree->shadows tree)})
 
 (defn- stamp-ops-container
-  "Bake the slot's container index onto every flattened op so the GPU places each
+  "Bake the slot's compact transform-table index onto every flattened op so the GPU places each
    glyph/rect/shadow through its container transform (P2 plumbing: pack-rect,
    pack-shadow, shape-* all read :container-idx). Done HERE at upsert (P3b Rung 2),
    not per-frame, so a slot's ops stay identity-stable across a SIBLING slot's
    change — the per-slot text geo's identical?-skip (G8) depends on it (trap T5).
-   :container is a stable int for a slot's whole life (move/scale change the
-   registry transform, not the cid). Text ops are nested [[op..]..] (lines);
+   :container-slot is stable for a slot's whole life (move/affine changes the
+   registry transform, not the slot). Text ops are nested [[op..]..] (lines);
    rects and shadows are flat."
-  [ops container]
-  (let [cid (or container 0)]
-    {:text    (mapv (fn [line] (mapv #(assoc % :container-idx cid) line)) (:text ops))
-     :rects   (mapv #(assoc % :container-idx cid) (:rects ops))
-     :shadows (mapv #(assoc % :container-idx cid) (:shadows ops))}))
+  [ops container-slot]
+  (let [slot (or container-slot 0)]
+    {:text    (mapv (fn [line] (mapv #(assoc % :container-idx slot) line)) (:text ops))
+     :rects   (mapv #(assoc % :container-idx slot) (:rects ops))
+     :shadows (mapv #(assoc % :container-idx slot) (:shadows ops))}))
 
 (defn- build-slot
   "Resolve → flatten → stamp container-idx → index a tree into a slot value. The
@@ -76,12 +76,14 @@
    the skip changes nothing semantically; it removes a full-tree pass from the
    per-keystroke main-face rebuild. Opt-in only — mutated trees
    (update-nodes-by-address) still resolve."
-  [vi {:keys [tree container meta stratum pre-resolved?]}]
+  [vi {:keys [tree container container-slot meta stratum pre-resolved?]}]
   (let [resolved (if pre-resolved? tree (rt/resolve-layout tree))]
     {:vi        vi
      :container container
+     :container-slot (or container-slot container 0)
      :tree      resolved
-     :ops       (stamp-ops-container (flatten-ops resolved) container)
+     :ops       (stamp-ops-container (flatten-ops resolved)
+                                     (or container-slot container 0))
      :addresses (collect-addresses resolved)
      :meta      (or meta {})
      :stratum   (or stratum :world)}))
@@ -127,7 +129,8 @@
   (get-in store [:index address] #{}))
 
 (defn upsert-slot
-  "Insert or replace vi's slot from opts {:tree :container :meta :stratum},
+  "Insert or replace vi's slot from opts
+   {:tree :container :container-slot :meta :stratum},
    resolving + flattening + indexing the tree (build-slot), and updating the
    fan-out :index incrementally: drop the OLD slot's addresses, add the new ones
    (CONTRACT §5 — never rebuilt by scan). Untouched slots keep their identical?
@@ -177,6 +180,7 @@
                          paths)]
        (upsert-slot st vi {:tree      tree'
                            :container (:container s)
+                           :container-slot (:container-slot s)
                            :meta      (:meta s)
                            :stratum   (:stratum s)})))
    store
@@ -309,7 +313,7 @@
    set is never silent (CONTRACT §5)."
   32)
 
-(def ^:private identity-camera {:x 0.0 :y 0.0 :scale 1.0})
+(def ^:private identity-camera {:x 0.0 :y 0.0 :zoom 1.0})
 
 (defn- addressed-rects
   "Walk a RESOLVED tree; for every node carrying [:data :address], return
@@ -334,22 +338,12 @@
 (defn- rect-screen-area
   "Clipped on-screen area of a container-LOCAL rect. local →(container eff)→
    world →(camera)→ screen, then clip to the viewport [0,0,vw,vh]. Camera maps
-   world→screen: screen = (world − [cx cy]) · cs. A fully off-screen rect → 0.0.
+   exactly like the shader: screen = world·zoom + pan. A fully off-screen rect → 0.0.
    Uniform camera zoom is a global factor, so ranking by this area matches
    ranking by any consistent zoom (CONTRACT §5)."
-  [{:keys [x y w h]} eff camera vw vh]
-  (let [es (:scale eff)
-        ;; container-local → world
-        wx (+ (:x eff) (* x es))
-        wy (+ (:y eff) (* y es))
-        ww (* w es)
-        wh (* h es)
-        ;; world → screen
-        cs (:scale camera 1.0)
-        sx (* (- wx (:x camera 0.0)) cs)
-        sy (* (- wy (:y camera 0.0)) cs)
-        sw (* ww cs)
-        sh (* wh cs)
+  [bounds eff camera vw vh]
+  (let [{sx :x sy :y sw :w sh :h}
+        (containers/screen-bounds eff bounds camera)
         ;; clip to viewport
         x0 (max 0.0 sx)
         y0 (max 0.0 sy)

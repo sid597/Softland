@@ -2,40 +2,12 @@
   "Scene graph for nested UI.
    Everything is a rect. The tree replaces scattered compute-*-rects fns with
    one generic walk that produces flat GPU-compatible vectors."
-  (:require [clojure.string :as str]))
+  (:require [app.client.workspace.text-layout :as tl]))
 
 (defn wrap-line
-  "Wrap a single string into lines of at most max-chars, breaking at word
-   boundaries (spaces). Falls back to hard char-split when a single word
-   exceeds max-chars."
+  "Compatibility name for Contract-T's legacy word wrapper."
   [line max-chars]
-  (if (or (<= (count line) max-chars) (< max-chars 1))
-    [line]
-    (let [words (str/split line #" ")]
-      (loop [ws words cur "" result []]
-        (if (empty? ws)
-          (if (seq cur)
-            (conj result cur)
-            result)
-          (let [w (first ws)
-                candidate (if (seq cur) (str cur " " w) w)]
-            (cond
-              ;; Fits on current line
-              (<= (count candidate) max-chars)
-              (recur (rest ws) candidate result)
-              ;; Current line has content — flush it, retry word on new line
-              (seq cur)
-              (recur ws "" (conj result cur))
-              ;; Single word longer than max-chars — hard-split it
-              :else
-              (let [chunks (loop [rem w acc []]
-                             (if (<= (count rem) max-chars)
-                               (conj acc rem)
-                               (recur (subs rem max-chars)
-                                      (conj acc (subs rem 0 max-chars)))))]
-                (recur (rest ws)
-                       (peek chunks)
-                       (into result (pop chunks)))))))))))
+  (tl/wrap-line line max-chars))
 
 (defn rt-node
   "Create a rect tree node.  Bounds are in parent-relative coordinates.
@@ -174,20 +146,20 @@
                        (let [spec  (first specs)
                              txt   (:text spec "")
                              size  (:size spec 14)
-                             ;; Split by newlines first, then wrap each line
-                             raw-lines  (str/split-lines txt)
-                             lines      (if max-chars
-                                          (vec (mapcat #(wrap-line % max-chars) raw-lines))
-                                          raw-lines)
-                             line-ops   (mapv (fn [i line-text]
-                                               (assoc spec
-                                                      :text line-text
-                                                      :from 0
-                                                      :to   (count line-text)
-                                                      :x    pl
-                                                      :y    (+ y (* i (or line-height size)))))
-                                             (range) lines)
-                             next-y     (+ y (* (count lines) (or line-height size)))]
+                             lh    (or line-height size)
+                             layout-result
+                             (tl/layout {:text txt
+                                         :font-size size
+                                         :char-advance (tl/legacy-char-advance size 0.56)
+                                         :line-height lh
+                                         :origin [pl y]
+                                         :baseline-offset 0
+                                         :max-chars max-chars
+                                         :wrap-policy :word})
+                             lines (:lines (tl/wrap-result layout-result))
+                             line-ops (tl/line-paint-ops layout-result spec)
+                             next-y (+ y (get-in (tl/measure-result layout-result)
+                                                 [:metrics :stack-advance]))]
                          (recur (rest specs) next-y (into acc line-ops)))))]
             (assoc node :text ops)))))))
 
@@ -303,26 +275,25 @@
                            (> (+ abs-y h) cy)))
                     true)]
      (when visible?
-       (let [;; Clip bounds: right + vertical (top/bottom) for text op filtering
+       (let [;; Clip bounds: one Contract-T clip plan for horizontal substring
+             ;; and vertical baseline visibility.
              clip-right (when clip-bounds (+ (:x clip-bounds) (:w clip-bounds)))
              clip-top (when clip-bounds (:y clip-bounds))
              clip-bottom (when clip-bounds (+ (:y clip-bounds) (:h clip-bounds)))
-             truncate-op (fn [op]
-                           (if (and clip-right (:text op))
-                             (let [ox (:x op 0)
-                                   fs (:size op 14)
-                                   cw (* fs 0.56)
-                                   avail (- clip-right ox)
-                                   max-chars (if (pos? cw) (max 0 (int (/ avail cw))) 1000)
-                                   txt (:text op)]
-                               (if (> (count txt) max-chars)
-                                 (assoc op :text (subs txt 0 max-chars) :to max-chars)
-                                 op))
-                             op))
-             in-clip? (fn [shifted]
-                        (and (or (nil? clip-right) (< (:x shifted) clip-right))
-                             (or (nil? clip-top) (>= (:y shifted) clip-top))
-                             (or (nil? clip-bottom) (< (:y shifted) clip-bottom))))
+             clip-op (fn [op]
+                       (let [fs (:size op 14)
+                             layout-result
+                             (tl/layout {:text (:text op "")
+                                         :source-lines [(:text op "")]
+                                         :font-size fs
+                                         :char-advance (tl/legacy-char-advance fs 0.56)
+                                         :line-height fs
+                                         :origin [(:x op 0) (:y op 0)]
+                                         :clip {:right clip-right
+                                                :top clip-top
+                                                :bottom clip-bottom}})]
+                         (:op (tl/clip-result layout-result op
+                                             :range-mode :right-only))))
              ;; Offset this node's text ops to absolute space + clip truncation
              own-ops (when (seq text)
                        (mapv (fn [op]
@@ -332,15 +303,14 @@
                                                   (let [shifted (-> sub
                                                                     (update :x + abs-x)
                                                                     (update :y + abs-y))]
-                                                    (when (in-clip? shifted)
-                                                      (truncate-op shifted)))))
+                                                    (clip-op shifted))))
                                        op)
                                  ;; Single text-op map
                                  (let [shifted (-> op
                                                    (update :x + abs-x)
                                                    (update :y + abs-y))]
-                                   (when (in-clip? shifted)
-                                     [(truncate-op shifted)]))))
+                                   (when-let [clipped (clip-op shifted)]
+                                     [clipped]))))
                              text))
              child-clip (if clip?
                           (intersect-clip abs-x abs-y w h clip-bounds)

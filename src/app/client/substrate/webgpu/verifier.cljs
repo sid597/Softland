@@ -8,8 +8,9 @@
 
    The CPU point-in-path probe is NOT today's product picking path. Product
    picking remains axis-aligned rect-tree bounds; the receipt carries an
-   explicit rounded-corner divergence sentinel so those truths cannot collapse."
+  explicit rounded-corner divergence sentinel so those truths cannot collapse."
   (:require [app.client.substrate.webgpu.renderer :as renderer]
+            [app.client.workspace.containers :as containers]
             [app.client.workspace.runtime.fonts :as fonts]))
 
 (def ^:private canvas-size 128)
@@ -21,6 +22,8 @@
 (def ^:private glyph-screen-baseline 96.0)
 (def ^:private glyph-screen-size 80.0)
 (def ^:private rounded-radii [24.0 14.0 30.0 6.0])
+(def ^:private q5-angle 0.637)
+(def ^:private q5-pinned-pixels [[61 43] [66 84]])
 
 (def ^:private zoom-cases
   [{:case-id "legal-min-z0p01" :zoom 0.01 :regime "legal-envelope-sentinel"}
@@ -140,6 +143,88 @@
 
 (defn- pixel-red [^js rgba x y]
   (aget rgba (* 4 (+ x (* y canvas-size)))))
+
+(defn- q8-effective [entry-count]
+  ;; Semantic ids deliberately stride by 17, reproducing the Q8 sparse-id
+  ;; pressure while transport slots remain dense 0..N-1.
+  (into {}
+        (map (fn [slot]
+               [(* slot 17)
+                {:affine containers/identity-affine
+                 :flags 0
+                 :layer 0
+                 :stack-path [[(* slot 17) 0]]
+                 :transport-slot slot}]))
+        (range entry-count)))
+
+(defn- run-q8-transport! [device containers-buffer]
+  (let [rows
+        (mapv (fn [entry-count]
+                (let [effective (q8-effective entry-count)
+                      receipt (renderer/write-containers! device containers-buffer effective)
+                      expected-bytes (* entry-count renderer/affine-entry-bytes)]
+                  (assoc receipt
+                         :semantic-max-id (* 17 (dec entry-count))
+                         :expected-bytes expected-bytes
+                         :pass? (and (= entry-count (:entries receipt))
+                                     (= expected-bytes (:bytes receipt))
+                                     (= (dec entry-count) (:max-slot receipt))))))
+              [1024 4096 16384])]
+    {:entry-bytes renderer/affine-entry-bytes
+     :transport "compact-read-only-storage"
+     :rows rows
+     :pass? (every? :pass? rows)}))
+
+(defn- q5-transform []
+  (let [ct (js/Math.cos q5-angle)
+        st (js/Math.sin q5-angle)]
+    {:affine [ct st (- st) ct 64.0 64.0]
+     :flags 0
+     :layer 1
+     :stack-path [[17 1]]
+     :transport-slot 1}))
+
+(defn- run-q5-affine-boundary! [device q5-system q5-effective]
+  (-> (render-system-bytes! device q5-system 1.0)
+      (.then
+       (fn [bytes]
+         (let [covered
+               (for [y (range canvas-size)
+                     x (range canvas-size)
+                     :let [coverage (pixel-red bytes x y)]
+                     :when (pos? coverage)]
+                 [x y coverage])
+               xs (map first covered)
+               ys (map second covered)
+               rows
+               (mapv (fn [[x y :as pixel]]
+                       (let [sample [(+ x 0.5) (+ y 0.5)]
+                             [lx ly] (containers/inverse-point q5-effective sample)
+                             cpu-class (if (and (< (js/Math.abs lx) 27.0)
+                                                (< (js/Math.abs ly) 15.0))
+                                         "inside"
+                                         "outside")
+                             coverage (pixel-red bytes x y)]
+                         {:pixel pixel
+                          :sample-center sample
+                          :local-point [lx ly]
+                          :cpu-class cpu-class
+                          :gpu-coverage-byte coverage
+                          :pass? (and (= "inside" cpu-class) (pos? coverage))}))
+                     q5-pinned-pixels)]
+           {:extent "128x128-target/54x30-local-quad"
+            :normalization "centered-local-coordinates"
+            :zoom 1.0
+            :backend "production-rich-rect-affine-storage"
+            :regime "hand"
+            :rotation-radians q5-angle
+            :boundary-rule "canonical-inside-must-not-emit-zero"
+            :coverage-bounds (when (seq covered)
+                               [(apply min xs) (apply min ys)
+                                (apply max xs) (apply max ys)])
+            :covered-pixel-count (count covered)
+            :rows rows
+            :pass? (every? :pass? rows)})))))
 
 (defn- boundary-pixels [^js rgba]
   (persistent!
@@ -525,6 +610,7 @@
                                 (let [msdf-assets (assoc slug-assets :backend :msdf)
                                       camera-buffer (renderer/create-camera-buffer device nil)
                                       containers-buffer (renderer/create-containers-buffer device nil)
+                                      q8-transport (run-q8-transport! device containers-buffer)
                                       _ (js/console.log "[W0-A] init-shared-buffers")
                                       rect-system (do
                                                     (js/console.log "[W0-A] init-rect-pipeline-start")
@@ -539,6 +625,26 @@
                                                       ;; its bind group. Carry the same production buffer
                                                       ;; as verifier metadata so capture can update it.
                                                       (assoc system :camera-uniform-buffer camera-buffer)))
+                                      q5-camera-buffer (renderer/create-camera-buffer device nil)
+                                      q5-buffer (renderer/create-containers-buffer device nil)
+                                      q5-effective (q5-transform)
+                                      _ (renderer/write-containers!
+                                         device q5-buffer
+                                         {0 {:affine containers/identity-affine
+                                             :flags 0 :layer 0 :stack-path [[0 0]]
+                                             :transport-slot 0}
+                                          17 q5-effective})
+                                      q5-base (-> (renderer/init-rect-system
+                                                   device color-format q5-camera-buffer
+                                                   :initial-capacity 1
+                                                   :containers-buffer q5-buffer)
+                                                  (assoc :camera-uniform-buffer q5-camera-buffer))
+                                      q5-system (renderer/update-rects
+                                                 device q5-base
+                                                 [{:x -27.0 :y -15.0 :w 54.0 :h 30.0
+                                                   :r 1.0 :g 1.0 :b 1.0 :a 1.0
+                                                   :corner-radii [0.0 0.0 0.0 0.0]
+                                                   :container-idx 1}])
                                       msdf-system (do
                                                     (js/console.log "[W0-A] init-msdf-pipeline-start")
                                                     (let [system
@@ -572,10 +678,11 @@
                                                :curves curves}]
                                   (-> (js/Promise.all
                                        #js [(promise-mapv (partial run-case! harness) zoom-cases)
-                                            (shader-digests)])
+                                            (shader-digests)
+                                            (run-q5-affine-boundary! device q5-system q5-effective)])
                                       (.then
                                        (fn [values]
-                                         {:schema-version 1
+                                         {:schema-version 2
                                           :verifier "softland-render-engine-w0-a"
                                           :production-renderer? true
                                           :product-server-used? false
@@ -593,6 +700,8 @@
                                                  :slug (:slug font-config)}
                                           :decoded-slug-curve-count (count curves)
                                           :shader-digests (aget values 1)
+                                          :q8-transport q8-transport
+                                          :q5-affine-boundary (aget values 2)
                                           :cases (aget values 0)}))))))))))))))))))
 
 (defn ^:export start! []

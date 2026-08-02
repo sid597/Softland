@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "clj -M:dev -m dev",
-    "verify:render-engine": "clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs"
+    "verify:render-engine": "node test/render_engine/verify_text_layout_fence.mjs && clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs"
   },
   "author": "",
   "license": "ISC",

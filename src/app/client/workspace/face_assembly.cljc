@@ -504,7 +504,11 @@
           report (:report child-result)
           ctx   {:id id* :prim (:prim plan)
                  :view-instance (:view-instance ctx-base)
-                 :address (:address ctx-base) :geom (:geom ctx-base)}
+                 :address (:address ctx-base) :geom (:geom ctx-base)
+                 ;; Contract T0: sibling text/caret/selection readers receive
+                 ;; the same immutable source inputs without widening their
+                 ;; persisted assembly props.
+                 :data-context (:data-context ctx-base)}
           built (invoke-builder (:builder plan) ctx props nodes)]
       {:node   (stamp-src-path built (:src-path plan))
        :report (merge-reports report {:binds-missing binds-missing})})))
@@ -588,7 +592,8 @@
   (let [vi       (:view-instance view-ctx)
         addr     (:address view-ctx)
         geom     (:geom view-ctx)
-        ctx-base {:view-instance vi :address addr :geom geom}
+        ctx-base {:view-instance vi :address addr :geom geom
+                  :data-context data-context}
         root-id  [vi (::name compiled)]]
     (if (= :error (::status compiled))
       (-> (error-card-node root-id (::name compiled) (::grammar compiled) addr (::errors compiled) geom)
