@@ -1143,3 +1143,15 @@ why does the blank screen has a cursor in it? this is the walkthrough and log an
 > Rendering breadth is necessary, not sufficient. Do not confuse representational capability with a meaningful authoring loop. Felt gates must test real use rather than merely the presence of atoms.
 
 *(Routed same-session: the ruling + the incorporated law → `build/render-engine/ENGINE.md` header + §6 rule · the post-settlement rounds (R8 blind re-derivation · R9 cross-stream reading · R10 adjudication · R11 the ruling) + D-18–D-24 + C-9–C-12 + M-9–M-11 + §8 CURRENT TRUTH → `build/render-engine/DISCOVERIES.md`, repaired at Sid's word — history kept, historical-vs-current distinguished · board studio/engine block + Vision line advanced (08-02 second entry) · `build/studio/NOW.md` entry appended · next act = the order-derivation round: the dependency order, what each rung proves, why that order avoids expensive rework.)*
+
+## 2026-08-02 — the campaign ruling: full breadth, never MVP; the product lenses; "take charge and fix up" (third entry; verbatim)
+
+[the order round had run — derivation, source adjudication, Codex gate (READY TO SETTLE) — and the settled package came back to him; the catch:]
+
+> I think this should not and never be an mvp-shaped instict this should be full breadth build and from that lens we build the decision WE NEED FULL ENGINE I think you have have fallen for codex's mvp buildout plans
+
+[Codex, asked the same, self-diagnosed its MVP lens and produced the product-level mapping (tldraw / Figma-core / Blender-style / coexistence floors) that read true to him; the handoff:]
+
+> i asked codex same thing and it says yes it took the mvp lens, i also asked product level mapping so it makes sense to me this is its idea. You take charge you have best divergent deep thinking apply them and just fix up man
+
+*(Routed same-session: the FULL-BREADTH CAMPAIGN LAW + the settled order in product language (shared-canvas foundation → tldraw-class drawing floor → Figma-core design/composition floor → Blender-style 3D scene-composition floor → coexistence/seam demo) + three packages few-and-large → `build/render-engine/ENGINE.md` §0 + §12 amendments (E0 Q2 legal-zoom-domain · Q8 transform transport · W0-A/B/C custody split · W2-B batch-registration seam) · the round record → `DISCOVERIES.md` R12–R15, D-25–D-28, C-16–C-18, M-12, §8 current truth (order SETTLED · campaign ACTIVE · execution front W0-A/B/C) · board engine block + Vision line advanced. The register lesson banked: execution grammar is not scope-neutral (D-28) — a breadth ruling spoken in MVP grammar reads as optionality to exactly the person who ruled it.)*

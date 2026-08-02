@@ -37,8 +37,10 @@ Consequences: §12's E0 is no longer the chosen next act (its questions
 and decision rules survive as a candidate rung's spec) · §11's `when`
 column is historical · X0 (the sibling's accretion-first conjunction
 test) is rejected as route with findings incorporated (`DISCOVERIES.md`
-D-21–D-23) · the NEXT ACT is the order-derivation round
-(`DISCOVERIES.md` §8).
+D-21–D-23) · the order-derivation round RAN and SETTLED same day
+(THIRD RULING — full breadth, never MVP): the settled order + the
+FULL-BREADTH CAMPAIGN LAW are **§0 below** — the campaign is ACTIVE,
+execution front W0-A/B/C (`DISCOVERIES.md` §8 + R12–R15).
 
 **Epistemic marks (load-bearing):**
 - **[CODE]** — verified by reading source this arc (file:line where it
@@ -59,6 +61,159 @@ in-memory surface where nothing persisted or referenced anything) both
 fit the record; `DISCOVERIES.md` C-9/D-21. The route was ruled on the
 breadth bet with the necessary-not-sufficient law incorporated — header
 ruling above.)*
+
+## 0. THE CAMPAIGN — settled order + the full-breadth law (2026-08-02, third ruling)
+
+The order-derivation round ran in full — derivation (rework model) →
+source adjudication (spine re-verified at the bytes) → external gate
+(READY TO SETTLE, 9/10) + ingest — and Sid caught the residual defect
+in the package's REGISTER, then settled it (`DISCOVERIES.md` R12–R15,
+D-25–D-28, C-16–C-18):
+
+> I think this should not and never be an mvp-shaped instict this
+> should be full breadth build and from that lens we build the
+> decision WE NEED FULL ENGINE.
+
+**THE FULL-BREADTH CAMPAIGN LAW [SID] — binds all execution grammar:**
+1. ONE committed campaign through the seam demo. Packages/waves are
+   dependency and migration boundaries, NEVER product-scope gates;
+   nothing downstream awaits reauthorization.
+2. Instruments choose ROADS, never scope: E0 and every receipt decide
+   HOW a committed capability is built — never WHETHER.
+3. Failures repair, never shrink: a failed machine receipt halts its
+   rung for repair; a failed felt gate sends the rung's design back
+   for re-derivation; only a new Sid ruling changes scope.
+4. The seam demo is the COMPLETION GATE, not a stretch goal.
+5. "Minimal"/"thin"/"early" describe seams on the way, never the
+   capability obligation — the obligation is always the full floor.
+6. The incorporated law stands beside this one: breadth is necessary,
+   not sufficient; felt gates keep testing real use (one live
+   variable) — their verdicts feed design, never scope.
+
+**The campaign speaks PRODUCT language (W-numbers are internal
+dependency bookkeeping, never how we talk):**
+
+> Build Softland's shared canvas foundation once; complete its
+> tldraw-class drawing floor; complete its Figma-core design and
+> composition floor; complete its Blender-style 3D scene-composition
+> floor; then prove that text, ink, live components, and 3D coexist
+> durably in one world.
+
+Done condition [SID-endorsed via the 08-02 product mapping]: *I can
+draw like tldraw, design precisely like Figma, compose and inspect a
+3D scene like Blender, and freely connect those acts without leaving
+Softland or losing identity, provenance, editability, or history.*
+
+### Package 1 — THE FOUNDATION (make the shared canvas trustworthy)
+
+Reinforce the shared floor ONCE so no later floor rebuilds it.
+Visible outcome: rotate a real frame holding text and nested content —
+everything stays correct, pickable, editable; the first felt dividend
+(T1) lands mid-package.
+
+- **W0-A · durable verifier** (G-verify made real, PERMANENT):
+  golden-image bank over the three live coverage modes · pick-parity
+  probe · determinism receipt · environment fingerprints · replay
+  command. Only E0's experimental roads are throwaway — this is not.
+- **W0-B · E0 road-pricing spike** (§12 as amended: Q1–Q8,
+  pre-registered rules; cheap lane, builder model explicit).
+- **W0-C · paper lane:** chrome audit · corpus sweep → the envelope
+  ratification paragraph (Sid's) · frame-graph + scheduler contract ·
+  D2 round prep.
+- **W1 · contracts** (before any new atom exists): ONE draw-order
+  truth for pick AND paint (today pick=:layer, scene_store.cljc:205;
+  paint = hand sequence) · per-atom geometry source-of-truth,
+  UNCONDITIONAL (visual AA / mathematical interior / hit slop declare
+  their relationship) · material-citizenship template (grammar · pick
+  · provenance · versioning + receipt set — G-cover's other three
+  quarters) · D2 shape contract (material call = Sid's) · text
+  layout-result shape · color/alpha convention.
+- **W2-A · affine/nested transform generality + TRANSPORT:** the
+  shared chain migrates ONCE — at four transform-consuming pipeline
+  copies (of five total), before atom multiplication — with capacity
+  decided per E0 Q8 (the 1024 cap is a hard throw today,
+  renderer.cljs:586). Bounds · clip intersection · culling · pick ·
+  nesting · instance reuse (C-14's full list); Slug inv_jac
+  ready-shaped.
+- **W2-B · the frame graph made CODE-REAL** at the same migration
+  window's tail: a graph executor (ordered plan + registered draw
+  batches — data and a loop, not a framework) · scene-color resource
+  abstraction (direct-present today — the persistent target is
+  default-OFF, runtime/render.cljs:18 — intermediate when enabled,
+  group targets later) · the existing five families migrate through
+  the seam · zero visual change, receipted against W0-A. Gate
+  sentence: adding image or path REGISTERS pipelines/batches through
+  the seam — it never adds a hand-positioned branch to the central
+  frame body.
+- **T0 (parallel, CPU lane) · metrics consolidation:** every
+  independent measure/wrap/caret/selection/clip/hit-test OWNER (the
+  0.56 coupling — inventory by owner, never literal count; C-16)
+  routes through one layout-result seam + an EXECUTABLE
+  no-independent-metrics fence. Behavior-identical, machine-gated
+  only — no felt gate on a zero-diff migration (C-17).
+- **T1 · shaping + proportional metrics** through the same seam —
+  **THE FIRST FELT DIVIDEND**: Sid works his real land in a
+  proportional font; wrap, caret, selection, clip, hit-test move
+  together; one live variable.
+
+### Package 2 — THE 2D BREADTH FLOORS (tldraw-class + Figma-core + time)
+
+- **Image atom** + resource/paint infrastructure (decode · upload ·
+  color management · mipmaps · atlas/bind-group strategy) — brings
+  the HIG reference corpus into the world.
+- **Tessellated/path atom** on D2's contract, roads per E0 verdicts
+  (live tier / settle tier per the three regimes §7) — ink and shapes
+  as material.
+- **Reference/connector slice:** durable reference edges on the
+  relation kernel (D-23's costing) + angled segments + labels
+  (post-T1) + routing/arrowheads/attachment.
+- **Selection/manipulation · snapping · guides · drawing chrome**
+  (the chrome audit's demand classes land as material or code per its
+  findings).
+- **W4 · ONE frame-runtime package** (single ownership, serial
+  internal cuts — never two hands on the frame loop): the graph grows
+  offscreen groups · masks · group opacity · backdrop blur · per-node
+  scissor/stencil (retires the CPU clip degradations) · export seeds;
+  THEN the animation clock / frame scheduling (draw-on-world-change
+  generalizes to a frame policy; clocked regions become schedulable).
+- **T2 · input floor completion:** Unicode-safe editing · IME
+  composition · paste semantics · source-index mapping.
+- Visible outcomes: think by drawing (the tldraw floor) · design
+  Softland's own interface inside Softland (the Figma-core floor) ·
+  live components transition and stay alive (time).
+- Atom felt gates here REQUIRE the durable authoring artery ambient
+  first (studio custody ruling) — one live variable per gate.
+
+### Package 3 — COEXISTENCE (the novel promise; the completion gate)
+
+3D regions (own camera + depth per region; the island probe is the
+working ancestor — becomes a compositor pass under the scheduler) ·
+meshes · materials/lighting ladder toward PBR · 3D picking + gizmos ·
+2D text/ink placed in 3D · cross-region anchoring · **THE SEAM DEMO:
+text + ink + live component + 3D region under one picking, annotation,
+provenance, persistence, and authoring model** — the done condition,
+demonstrable.
+
+**Hard joins (dependency, never authorization):** envelope
+ratification before breadth priorities harden · D2 + E0 before the
+path atom · W2-B before any new atom pipeline · T1 before connector
+labels · the durable artery before any Package-2 felt activation ·
+W4 before regions.
+
+**Reserved to Sid (unchanged by three rounds):** studio-layer custody
+at the CAPABILITY level — preserve/extract the minimal durable artery
+(draft · settle · provenance · promotion/reversal · accretion);
+archiving the direction-failed face is a separate act; dark mechanism
+work may proceed meanwhile · the envelope paragraph — now carrying
+two riders: the legal zoom domain [0.01, 1000] vs the promised
+envelope (price it or narrow the validator — D-25) and Blender-scope
+confirmation (scene-composition floor + PBR ladder; NOT
+sculpting/procedural/path-tracing unless he says so) · D2's
+ink-material truth call.
+
+**Execution front NOW: W0-A + W0-B + W0-C** (parallelizable, cheap
+lane). W1–W5 remain committed downstream, not pending
+reauthorization.
 
 ## 1. The promise, reinterpreted
 
@@ -193,7 +348,11 @@ both pending uncommitted code layers):
 - A persistent offscreen render target with `RENDER_ATTACHMENT |
   COPY_SRC` sits in the standard frame ("Phase 6E") — render-to-texture
   and readback seeds exist (eyedropper, raster export, thumbnails are
-  one copy away).
+  one copy away). *(Amended 08-02, order-round adjudication:
+  MACHINERY EXISTS, DEFAULT OFF — `use-persistent-render-target?` is
+  `false` (runtime/render.cljs:18); production presents
+  direct-to-swap; the copy runs only when the target is enabled
+  (renderer.cljs:1894). Machinery-exists ≠ machinery-live — D-26.)*
 - Scale provisioning: boot sizes 1,000,000 text + 50,000 rect
   instances — the scene regime is already in the engine's assumptions.
 - Zoom clamp [0.1, 8.0] (fm:space resolved wear, P0 S6) — an ~80×
@@ -235,6 +394,31 @@ both pending uncommitted code layers):
   structural, not free. Quads/text need per-instance rotation
   in-shader either way (Slug's inv_jac is ready-shaped —
   renderer.cljs:319,364).
+
+**Order-round adjudication additions (08-02, third pass over the
+bytes — `DISCOVERIES.md` R13):**
+- **Container overflow is a runtime THROW** at the 1024 cap
+  (write-containers!, renderer.cljs:586) — capacity has no
+  material-level story; E0 Q8 prices transport, decided WITH the
+  affine migration (§0 W2-A; D-27).
+- **The zoom clamp is MATERIAL, not a constant:** [0.1, 8.0] is the
+  floor DEFAULT; the validator legally admits bounds in [0.01, 1000]
+  (space_material.cljc:22-23,47-50) and spaces wear the clamp
+  (ground.cljs:3832). Renderer precision claims must price what
+  material may legally say — or the envelope ratification narrows the
+  validator (D-25).
+- **The 0.56 coupling is wider than D-18 recorded** — ~17 files by
+  literal (tests carry their own copies; some hits are colors) — AND
+  its cure half-exists: ONE named advance constant
+  (face_primitives.cljc:404-409), a namespace-family no-literal fence
+  (trail_face/cards.cljc S3, docstring convention — not executable
+  yet), per-font :charWidth threaded (fonts.cljs · runtime/state.cljs
+  · electric_flow.cljc). Inventory by metric-OWNER, never literal
+  count (C-16).
+- **The transform chain is consumed by FOUR of the five pipelines**
+  (rect · MSDF · Slug · shadow; the clear/present family carries no
+  Containers binding — the buffer's own docstring says "all four,"
+  renderer.cljs:564). "Every pipeline" claims are wrong by one.
 
 ## 5. The basis: coverage × paint × composition [GK, hunt-tested; factorization repaired by the 08-02 review, C-13 — the original two-axis form is preserved in DISCOVERIES D-05]
 
@@ -405,17 +589,24 @@ round, `DISCOVERIES.md` §8.)*
 | Compositor frame-graph | design-early | paper design | at the second atom |
 | D3 container rotation · D4 glyph⊂path · D7 binary-assets-as-material · vector networks | parked | tripwires named above | on demand |
 
-## 12. E0 — the falsifier spike (chosen 2026-08-02; SUPERSEDED as next act same day — header ruling. The questions and decision rules below survive intact as a candidate rung's spec for the order round)
+## 12. E0 — the road-pricing spike (chosen 2026-08-02; superseded as next act same day; RE-FILED by the campaign settlement as W0-B of the execution front — §0. AMENDED same day: Q2 legal-domain, Q8 transport, custody split. Campaign law: E0 chooses ROADS for committed capabilities, never WHETHER they get built)
 
-Throwaway code · durable receipts (appended here) · one session ·
-cheap lane (builder model EXPLICIT — Sonnet) · no product surface · no
-server · no code commits. Pre-registered questions, every verdict
-regime-tagged:
+Custody split (R14): the DURABLE VERIFIER (W0-A — fixtures, capture,
+comparison, environment fingerprint, probes, replay command) is
+permanent engine infrastructure built beside this spike, NOT
+throwaway; E0's EXPERIMENTAL implementations are throwaway; receipts
+durable (appended here). One session · cheap lane (builder model
+EXPLICIT — Sonnet) · no product surface · no server · no code
+commits. Pre-registered questions, every verdict regime-tagged:
 
 1. dynamic contour encode+upload cost @ 20 / 200 / 2000 points —
    hand-rate vs settle-rate;
-2. fp16 quantization visibility: shape-local normalization, shape
-   sizes × the real zoom clamp [0.1, 8.0];
+2. fp16 quantization visibility under shape-local normalization,
+   across representative shape extents × the LEGALLY WEARABLE zoom
+   domain [0.01, 1000] (the clamp is material — D-25), the
+   floor-default [0.1, 8.0] reported as its own ordinary regime;
+   error recorded in screen pixels; verdicts tagged by extent ·
+   normalization · zoom · backend;
 3. the runtime curve/band `writeTexture` update path — works? costs?;
 4. range-allocation sketch over buffer_pool patterns (slots→ranges:
    alloc/free/compact);
@@ -424,25 +615,43 @@ regime-tagged:
    one geometry truth, two readers;
 7. ink stress: a per-frame-growing outline polygon (H3's sharpest
    test — hostile to band re-encode, friendly to incremental
-   triangulation).
+   triangulation);
+8. transform transport at practice weight (D-27): the container chain
+   under the proposed affine entry at 1,024 / 4,096 / 16,384 live
+   nodes — portable uniform-binding limits · CPU composition + upload
+   cost · the storage-buffer precedent (D-19) · paging/chunking ·
+   sparse IDs · overflow semantics (today a hard THROW,
+   renderer.cljs:586 — not a material-level story).
 
 **Decision rules, registered BEFORE results:**
 - band-encode can't hold hand-rate for a ~50-curve shape → Slug demotes
   to bake-on-settle inside H3; the live tier is triangulated.
-- triangulated fills show no visible loss across the shipped zoom
-  clamp → the live tier is confirmed cheap; Slug's value narrows to
-  settle-tier quality — or retires to text-only if fp16 quantizes
-  visibly with no cheap 32-bit road.
+- a road is confirmed only over the clamp × shape-extent domain it
+  proves. Triangulated fills clean across the DEFAULT clamp → the
+  live tier is confirmed cheap there; Slug's value narrows to
+  settle-tier quality — or to text-only if fp16 quantizes visibly
+  with no cheap 32-bit road. Visible loss anywhere inside the
+  LEGALLY WEARABLE domain requires a declared precision/backend
+  boundary for that region — a regime tag records a limit, never
+  waives legal material; the other lawful closure (narrowing the
+  validator) belongs to the envelope paragraph (Sid).
 - pick-parity failure → NO road proceeds until the geometry
   source-of-truth contract exists.
 - the rotation touch-set exceeds one session on one pipeline →
   rotation re-prices as frame-kind, not cross-cutting-cheap.
+- the declared scene envelope can exceed portable affine-uniform
+  capacity, OR the retained cap has no acceptable material-level
+  overflow behavior → the transport migration lands WITH affine
+  (W2-A); no second transform-table migration is deferred until
+  after atom multiplication.
 
 **What E0 is NOT:** the center of gravity. It prices one road of one
 atom on one layer. E1 (the ink room, shaped by E0's data; felt gate =
 the paper page redrawn) and the deliberately-dissimilar second atom
 (image — which also brings Goal 2's HIG references into the world)
-carry G-rhythm's rate evidence.
+carry G-rhythm's rate evidence. And E0 is NOT a scope gate (§0 law
+2): its rules choose roads and tiers for capabilities already
+committed; no E0 outcome cancels a floor.
 
 ## 13. Walkthrough ledger (initial, in-thought 08-02; re-run as
 receipts when rooms exist)

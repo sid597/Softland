@@ -81,7 +81,19 @@ includes P8; the P8 :8091 jetty is dead — see HANDOFF).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-08-02, second entry** (the
+**Vision:** LOG routed through **2026-08-02, third entry** (the
+campaign ruling: the order round ran — derivation → source
+adjudication → Codex gate READY-TO-SETTLE — and Sid caught the
+package's REGISTER: "this should not and never be an mvp-shaped
+instict this should be full breadth build … WE NEED FULL ENGINE … you
+have have fallen for codex's mvp buildout plans" → "You take charge …
+just fix up man". Incorporated: the FULL-BREADTH CAMPAIGN LAW + the
+settled order in product language (shared-canvas foundation →
+tldraw-class floor → Figma-core floor → 3D scene-composition floor →
+coexistence/seam demo) + three packages few-and-large. Routed →
+`build/render-engine/ENGINE.md` §0 + §12 amendments +
+`DISCOVERIES.md` R12–R15 / D-25–D-28 / C-16–C-18 / M-12 / §8 current
+truth; execution front = W0-A/B/C). Prior same day, second entry (the
 breadth ruling: after a blind re-derivation corroborated the engine map
 and a sibling cross-reading of G7+cut-2 proposed X0 — the
 accretion-first conjunction test — Sid ruled: "build the whole
@@ -496,13 +508,38 @@ the adjudication corrected X0 (connector premise; hidden second
 variable). Sid ruled: build the complete rendering and scene substrate
 IN BREADTH; X0 dead on arrival as route; v2's findings incorporated as
 LAW (breadth necessary-not-sufficient · felt gates test real use, one
-live variable). E0 re-files as a candidate rung, spec intact. NEXT ACT
-= the ORDER-DERIVATION ROUND: the dependency order, what each rung
-proves, why that order avoids expensive rework — inputs + current
-truth in `build/render-engine/DISCOVERIES.md` §8 (record repaired,
-history kept). Code still uncommitted in two layers;
-archive/survivorship rulings still deferred — now ORDER-ROUND INPUTS
-(the studio layer carries the durable authoring loop the law demands).
+live variable). E0 re-files as a candidate rung, spec intact.
+**THE ORDER SETTLED + CAMPAIGN ACTIVE (2026-08-02, third ruling).**
+The order round ran in full — derivation (rework model → one
+GPU-structural spine + two parallel lanes; the affine hinge: the
+shared chain migrates ONCE, before atom multiplication) → source
+adjudication (spine re-verified at the bytes: clamp-is-MATERIAL,
+legal domain [0.01, 1000] · persistent target default-OFF · the 0.56
+cure half-built · four-of-five pipelines) → Codex gate
+READY-TO-SETTLE 9/10 + ingest (W2-B batch-registration seam · E0 Q8
+transport · W0-A/B/C custody split · T0/T1/T2 with the felt dividend
+on T1 · capability-level studio custody) → Sid's register catch: the
+package spoke MVP — "this should not and never be an mvp-shaped
+instict … WE NEED FULL ENGINE". Incorporated as the FULL-BREADTH
+CAMPAIGN LAW (`ENGINE.md` §0): one committed campaign through the
+seam demo · waves = dependency boundaries, never scope gates ·
+instruments choose roads, never scope · failures repair, never
+shrink · "minimal" describes seams, never the obligation. The
+campaign speaks PRODUCT language: shared-canvas foundation →
+tldraw-class drawing floor → Figma-core design/composition floor →
+Blender-style 3D scene-composition floor → coexistence (the seam demo
+= completion gate). **CAMPAIGN ACTIVE THROUGH THE SEAM; execution
+front = W0-A (durable verifier) + W0-B (E0 Q1–Q8, roads-never-scope)
++ W0-C (paper: chrome audit · corpus sweep → envelope paragraph ·
+frame-runtime contract · D2 prep); W1–W5 committed downstream, not
+pending reauthorization.** Reserved to Sid: studio custody at the
+CAPABILITY level (the durable artery gates Package-2 felt
+activations; the failed face archives separately) · the envelope
+paragraph (+ legal-zoom rider [0.01, 1000] · Blender-scope =
+scene-composition floor unless he says more) · D2's ink-material
+call. Code still uncommitted in two layers; archive/survivorship
+rulings still deferred, unchanged by this settlement (the studio
+layer carries the durable authoring loop the law demands).
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.

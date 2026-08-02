@@ -330,6 +330,90 @@ history kept, §8 added.
 open."
 **Evidence:** Sid's words, verbatim (§6; LOG 08-02 second entry).
 
+### R12 — the order derivation (the round §8 called)
+**Pressure:** fourteen deliberately unordered candidate rungs; the
+ruling's question — order, what each rung proves, why that order
+avoids expensive rework.
+**Move:** derive a REWORK MODEL from the bytes (five rework sources:
+per-instance layout × pipeline count · pass-structure re-plumbs ·
+contract retrofits · the accreting 0.56 coupling · migrations without
+receipts), then let it factor the rungs.
+**Born:** the topology — ONE serial GPU-structural spine + two
+non-contending lanes (CPU text lane · paper lane); the hinge (the
+shared container chain migrates ONCE, before atom multiplication —
+the only rung whose cost is multiplied by every atom landed before
+it); the one-live-variable law read as an ORDERING constraint
+(durability ambient before any atom's felt gate); waves W0–W5 with
+all fourteen rungs placed.
+**Died:** nothing yet — the round produced the candidate order.
+**Evidence:** the rework model's sources trace to file:line (ENGINE
+§4 additions; D-25–D-27).
+
+### R13 — the source adjudication (third instrument over the bytes)
+**Pressure:** the candidate order's factual spine one instrument old;
+the record's own verification claims untrusted by rule.
+**Move:** re-verify every load-bearing claim at source before the
+order goes to ruling; stress the sequence against its own rework
+model.
+**Born:** rung completeness confirmed (all fourteen §8 candidates
+placed); three finds the record understated — the clamp is MATERIAL
+(D-25) · the persistent target is default-OFF machinery (D-26) · the
+0.56 coupling ~17 files WITH its cure half-built; the
+paper-compositor seam risk named (atoms written against an unbuilt
+pass interface) → the W2-B skeleton amendment; "every pipeline"
+corrected to four-of-five.
+**Died:** the adjudication's own overclaim ("the ENTIRE stage-1
+pattern proven") — caught next round (C-16).
+**Evidence:** file:line receipts in ENGINE §4 additions.
+
+### R14 — the external gate + ingest (Codex round; two reframes held)
+**Pressure:** the package needed an adversarial gate before Sid.
+**Move:** Codex gate (READY TO SETTLE, 9/10; no wave reordered) →
+ingest under classify/preserve/repair with source verification of
+every new claim (all four verified true at the bytes).
+**Born:** the batch-registration seam (W2-B is an ordered draw-plan
+seam, not two named wrappers — atoms register, never edit the frame
+body) · E0 Q8 + the transport rule (no second chain migration —
+D-27) · the W0-A/W0-B custody split (a standing verifier cannot be
+throwaway code) · T0/T1/T2 restaging with the felt dividend on T1
+(C-17) · studio custody reframed to the CAPABILITY level (G7 failed
+the surface, not the artery) · unconditional per-atom geometry truth
+· W4 as ONE frame-runtime package (never two hands on the frame
+loop). Two reframes held against the reviewer: the legal-zoom
+obligation can also close by NARROWING the validator (envelope
+paragraph, Sid's) · the graph executor is data + a loop, never a
+framework.
+**Died:** the two-node-wrapper W2-B spec · the golden-bank/E0 custody
+bundling · "compositor ∥ clock" as parallel work.
+**Evidence:** the gate text + ingest disposition (chat, 08-02);
+render.cljs:18 · renderer.cljs:586,1894 · tests' own 0.56 ·
+face_primitives.cljc:476 all re-verified.
+
+### R15 — the register catch: MVP grammar out, the campaign law in (Sid)
+**Pressure:** the settled package still SPOKE in cuts, gates,
+acceptance tests, "minimal" — incremental-authorization grammar over
+an already-ruled breadth route. Sid: "this should not and never be an
+mvp-shaped instict … WE NEED FULL ENGINE … you have have fallen for
+codex's mvp buildout plans." Codex, asked directly, confirmed its MVP
+lens; its product-level mapping (tldraw / Figma-core / Blender-style
+/ coexistence floors) read true to him.
+**Move:** Sid handed the repair to the orchestrator ("You take charge
+… just fix up man"): incorporate the full-breadth campaign law, make
+product-floor language the PRIMARY register, package the rungs few
+and large, land the write-set.
+**Born:** the FULL-BREADTH CAMPAIGN LAW (ENGINE §0) — one committed
+campaign; waves are dependency boundaries never scope gates;
+instruments choose roads never scope; failures repair never shrink;
+the seam demo is the completion gate; "minimal" describes seams,
+never the obligation. Three packages (foundation · 2D breadth floors
+· coexistence). The done condition in product language. D-28 names
+the failure mode; C-18 banks both instruments' share of it.
+**Died:** W-language as the primary register · fourteen rungs as
+fourteen mini-phases · any reading of E0/felt gates as continue/kill
+switches on scope.
+**Evidence:** Sid verbatim (LOG 08-02 third entry); Codex's
+self-diagnosis + product mapping (chat).
+
 ---
 
 ## 2. The discovery catalog (arguments in full)
@@ -681,6 +765,57 @@ community corpus is enumerable — "Figma-core" is derivable from what
 real files actually contain. Motion (C-7) would have been caught by a
 corpus sweep in minutes. Landed as one line in ENGINE.md §3.
 
+**D-25 · The zoom clamp is material law, not a constant (R13).** The
+floor default is [0.1, 8.0], but the clamp is a per-space WEARABLE
+facet whose validator admits any bounds inside [0.01, 1000]
+(space_material.cljc:22-23,47-50; worn bounds drive the live camera,
+ground.cljs:3832-3833). Consequence: renderer numeric-precision
+verdicts (fp16 quantization, LOD choices) priced at the default clamp
+are valid ONLY for the default clamp — a space legally wearing
+zoom-max 100 falsifies an unscoped "no visible loss" receipt. Two
+lawful closures: price the legal domain (E0 Q2 as amended) or narrow
+the validator at envelope ratification (Sid's paragraph). The general
+form: where a renderer constraint meets a MATERIAL degree of freedom,
+the promise is priced against what material may legally say —
+renderer-never-defines-material cuts both ways.
+
+**D-26 · Machinery-exists ≠ machinery-live (R13).** The persistent
+offscreen target, dirty-rect partial redraw, and copy-to-swap are all
+real, working code — and ALL dormant behind
+`use-persistent-render-target? false` (runtime/render.cljs:18; the
+copy runs only when enabled, renderer.cljs:1894). Two instruments
+read the "Phase 6E: always render to persistent target" comment and
+banked it as current truth; only reading the CALLER exposed the
+default. Evidence-spine discipline: record which branch RUNS, not
+which code exists — the same trap-shape as D-25 (the constant that is
+actually a default) and C-3's original unscoped storage-buffer claim.
+
+**D-27 · Transform capacity/transport must ride the affine migration
+(R14; the double-migration hazard).** The container chain is 16B ×
+1024 hard-capped uniform, transcribed into FOUR shader sources, with
+overflow a runtime THROW (renderer.cljs:11,145,257,313 · 560 · 586).
+Affine grows the per-entry size; practice-weight scenes question the
+count. Migrating layout for affine while deferring capacity/transport
+would re-migrate the same four-plus-new-pipeline copies a second
+time — the exact rework the hinge exists to avoid. So E0 Q8 prices
+transport (uniform limits · storage precedent D-19 · paging · sparse
+IDs · overflow semantics) and the pre-registered rule lands the
+transport decision WITH W2-A. Overflow gains a material-level story
+either way; a throw is not one.
+
+**D-28 · Execution grammar is not scope-neutral (R15; Sid's catch).**
+Gate/cut/phase/acceptance-test vocabulary imports
+incremental-authorization semantics from its home context (product
+MVPs, review pipelines) even when the route is already ruled in
+breadth. Three instruments carried it: the derivation's "first
+executable cut" framing, the adjudication ratifying gate grammar
+un-checked, Codex's self-admitted MVP lens. The route never changed —
+the LANGUAGE quietly reintroduced optionality the ruling had closed,
+and the product-scope reader felt it immediately. Fix-shape: a
+campaign law pinning commitment semantics (ENGINE §0) + few-large
+packages + product-language primary. Generalizes C-15 (imported
+CLAIMS via universal quantifiers) to imported GRAMMAR — see M-12.
+
 ---
 
 ## 3. The corrections ledger (self-catches, with mechanism)
@@ -792,6 +927,35 @@ corpus sweep in minutes. Landed as one line in ENGINE.md §3.
   CAN move legibility. Mechanism: hunt universal quantifiers
   ("never", "trivial", "exactly one", "cheap", "free") in settled
   prose — the cheapest standing falsifier for a map.
+- **C-16 · "The entire stage-1 pattern proven" (adjudication
+  overclaim, caught R14).** The truth: a proven LOCAL pattern (one
+  named advance constant, face_primitives.cljc:404-409; one
+  namespace-family fence, trail_face/cards.cljc S3) plus a scalar
+  :charWidth beachhead. NOT proven: a repository-wide EXECUTABLE
+  fence (S3 is a docstring convention) · shaped layout (:charWidth is
+  one scalar — no clusters/ligatures/bidi) · the tests (they carry
+  their own 0.56 math). The ~17-file count also mixes in color
+  literals (0.561) — inventory by metric-OWNER. Mechanism: the word
+  "entire" — C-15's quantifier hunt, applied to my own sentence one
+  round late.
+- **C-17 · The felt dividend misplaced on a zero-diff migration
+  (caught R14).** Naming T0 (behavior-identical metrics
+  consolidation) a felt gate would have spent Sid's scarcest
+  instrument on a change with NO live variable — violating the law,
+  not merely wasting the gate. The felt dividend belongs to T1
+  (proportional/shaped metrics: one live variable). Mechanism: M-9
+  (gate design IS experiment design) applied against pacing pressure.
+- **C-18 · The MVP register (both instruments; caught by Sid, R15).**
+  The order-derivation + gate rounds produced a correct dependency
+  order wrapped in incremental-authorization grammar ("first cut" ·
+  wave-gate texture · acceptance tests · "minimal" as
+  obligation-shaped). Codex confirmed its MVP lens on direct ask; the
+  orchestrator ratified that grammar in the ingest round without
+  register-checking it. Sid's catch, verbatim: "i think you have have
+  fallen for codex's mvp buildout plans." Repair: the campaign law +
+  packaging + product register (D-28, ENGINE §0). Mechanism:
+  register-colonization by review vocabulary — the settled CONTENT
+  was breadth; the settled VOICE was MVP.
 
 ---
 
@@ -818,6 +982,10 @@ corpus sweep in minutes. Landed as one line in ENGINE.md §3.
 | rotation is uniformly cross-cutting (one price) | provisional data-baking for ISOLATED tessellated geometry only; full affine structural (bounds · clip · pick · nesting · reuse) — D-20 as amended by C-14; quads/text need in-shader rotation (Slug inv_jac ready-shaped) | R8 / D-20; downgraded C-14 | a mesh-atom rung finds otherwise |
 | six coverage modes incl. composited; new paints uniformly cheap | FIVE coverage modes (three live); composition = its own pass-structure axis; paint costs ranged | C-13 (08-02 review sweep) | a form needing a sixth coverage evaluation appears |
 | "no storage buffers exist" (unscoped) | scoped: none in the production renderer; the island probe is the in-repo precedent | C-3/D-10 scope notes, D-19 | — (code fact) |
+| The order question is open (fourteen unordered rungs) | SETTLED (third ruling): foundation → 2D breadth floors → coexistence; the W-graph is internal bookkeeping (ENGINE §0) | R12–R15; Sid's ruling + campaign law | Sid re-sequences |
+| E0/felt gates could gate whether capabilities land | instruments choose roads and repair rungs; scope moves ONLY by Sid ruling (campaign law) | R15 / D-28 | Sid rules a scope change |
+| "no visible loss across the shipped zoom clamp" closes Q2 | the clamp is material — legal domain [0.01, 1000]; price it or narrow the validator | R13 / D-25 | the envelope paragraph narrows the validator |
+| the persistent offscreen target = the standard frame | machinery exists, DEFAULT OFF (`use-persistent-render-target?` false, runtime/render.cljs:18) | R13 / D-26 | the flag flips on |
 
 ---
 
@@ -883,6 +1051,15 @@ corpus sweep in minutes. Landed as one line in ENGINE.md §3.
   records for a day while every session read maps of them. The
   primary-sources law covers FAILURE RECORDS and lived-gate records,
   not only code.
+- **M-12 · Register-audit settled prose.** C-15 hunted imported
+  CLAIMS (universal quantifiers); R15 shows imported GRAMMAR is a
+  second contamination channel — gate/cut/phase vocabulary carries
+  authorization semantics that can invert a ruling's register while
+  every sentence stays technically true. After settling content, read
+  the artifact once asking only: whose home grammar is this, and what
+  does that grammar assume about commitment? A breadth ruling spoken
+  in MVP grammar reads as optionality to exactly the person who ruled
+  it.
 
 ---
 
@@ -965,34 +1142,40 @@ spine.
 pre-registered decision rules survive intact as a candidate rung's
 spec) · the E0 → E1-ink → image sequencing · ENGINE §11's `when`
 column · X0 as route (D-23; findings preserved) · cut-2's single-cause
-reading (C-9; both readings live, route ruled regardless).
+reading (C-9; both readings live, route ruled regardless) · the order
+question as OPEN (settled by the third ruling, below) · W-language as
+the primary register (the campaign speaks product floors — ENGINE §0;
+D-28/C-18).
 
-**Next act — the order-derivation round:** derive the dependency order
-of the breadth build. Deliverable: the ordered rungs, what each rung
-PROVES when it lands, and why that order avoids expensive rework.
-Inputs: `ENGINE.md` (the map + §12's question set + §13's walkthroughs)
-· D-18 (the monospace coupling — the hidden migration every
-text-touching rung must sequence around) · D-19 (the composited-region
-receipt) · D-20 (rotation splits per atom-kind) · the incorporated law
-above (every rung's felt gate: one live variable, real use, never
-atom-presence). Known candidate rungs going in — non-exhaustive,
-deliberately UNORDERED; the round's whole job is the order and its
-why: E0's road-pricing spike · D2 the shape material contract · the
-tessellated/path atom · the image atom + resource/color
-infrastructure (decode · upload · color management · atlas/bind-group
-strategy) · affine/nested transform generality (D-20's structural
-remainder: bounds · clip · pick · nesting · reuse) · frame
-scheduling/time (the animation clock; clocked regions — D-15/D-18) ·
-text shaping + IME + Unicode + proportional metrics (the D-18 input
-floor; the monospace-coupling migration) · clipping/masks/composition
-(the compositor frame-graph; group opacity; backdrop effects) ·
-pick/paint ordering coherence (D-18) · material citizenship for new
-atoms (the contract kind: grammar · pick · provenance · versioning
-per atom — G-cover's other three quarters) · verification instruments
-(G-verify's standing probes + golden receipts) · the
-reference/connector slice (D-23's costing; C-15's non-trivial
-rendering) · the chrome audit · region/3D + cross-region picking
-(D-19's receipt).
+**The order-derivation round RAN and SETTLED same day (third ruling —
+R12–R15):** derivation (R12: rework model → one GPU-structural spine
++ two parallel lanes; the affine hinge) → source adjudication (R13:
+spine re-verified at the bytes; D-25/D-26; four-of-five) → external
+gate + ingest (R14: READY TO SETTLE 9/10; batch-registration seam ·
+Q8 transport · custody split · T0/T1/T2 · capability-level studio
+custody) → Sid's register catch (R15: "this should not and never be
+an mvp-shaped instict … WE NEED FULL ENGINE"). The settled order, the
+FULL-BREADTH CAMPAIGN LAW, the three packages (foundation · 2D
+breadth floors · coexistence), the product-language register, and the
+amended E0 live in **ENGINE.md §0 + §12** — §0 is the campaign's
+execution truth. The R11 candidate-rung list is absorbed into the
+packages, every rung placed, none dropped. Waves/packages are
+dependency boundaries, never scope gates; instruments choose roads,
+never scope; failures repair the rung, never shrink the campaign; the
+seam demo is the completion gate.
+
+**Next act — the execution front (not a reauthorization gate):**
+W0-A durable verifier (permanent: golden bank over the three live
+coverage modes · pick-parity probe · determinism receipt · replay) ·
+W0-B the E0 spike, Q1–Q8 under the pre-registered rules (cheap lane,
+builder explicit, experimental code throwaway, receipts + verifier
+durable) · W0-C paper lane (chrome audit · corpus sweep → the
+envelope paragraph for Sid, carrying the legal-zoom rider (D-25) and
+Blender-scope confirmation · frame-graph/scheduler contract · D2
+prep). W1–W5 remain committed downstream. Reserved to Sid, unchanged:
+studio custody at the CAPABILITY level (the durable artery gates
+Package-2 felt activations) · the envelope paragraph · D2's material
+call.
 
 **Custody:** board studio/engine block + Vision line advanced (08-02
 second entry) · `build/studio/NOW.md` entry appended · LOG carries the
