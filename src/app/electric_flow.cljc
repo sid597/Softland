@@ -3,6 +3,7 @@
             [hyperfiddle.electric3 :as e]
             [hyperfiddle.electric-dom3 :as dom]
             [app.client.workspace.themes :as themes]
+            [app.client.workspace.text-layout :as tl]
             [app.file-viewer :as fv]
             ;; block-write Lane A · server-only edit entry point deps (the write
             ;; layer, never on the client). face_projection.clj stays READ-ONLY
@@ -391,47 +392,84 @@
                     (<= line-idx end-line)))             ;; Line is within the fold
              fold-regions)))
 
+(defn- tokens->source-line
+  "Compatibility reconstruction for legacy callers that do not supply the
+   source line. This recovers source text only; it never clips or positions."
+  [tokens]
+  (let [n (reduce max 0 (map :to tokens))]
+    (reduce (fn [line {:keys [text from to]}]
+              (str (subs line 0 from) text (subs line to)))
+            (apply str (repeat n " "))
+            tokens)))
+
 (defn layout-tokens
   "Layout tokens with optional folding support and theme.
    Returns {:render-ops [...] :line-mapping [...]} where line-mapping maps visual->logical line."
   ([lines-of-tokens start-x start-y font-size]
    ;; No folding - all lines visible, default theme
-   (layout-tokens lines-of-tokens start-x start-y font-size [] #{} nil nil default-theme-id))
+   (layout-tokens lines-of-tokens start-x start-y font-size [] #{} nil nil
+                  default-theme-id nil nil))
   ([lines-of-tokens start-x start-y font-size fold-regions folded-lines]
-   (layout-tokens lines-of-tokens start-x start-y font-size fold-regions folded-lines nil nil default-theme-id))
+   (layout-tokens lines-of-tokens start-x start-y font-size fold-regions folded-lines
+                  nil nil default-theme-id nil nil))
   ([lines-of-tokens start-x start-y font-size fold-regions folded-lines char-advance line-h]
-   (layout-tokens lines-of-tokens start-x start-y font-size fold-regions folded-lines char-advance line-h default-theme-id))
+   (layout-tokens lines-of-tokens start-x start-y font-size fold-regions folded-lines
+                  char-advance line-h default-theme-id nil nil))
   ([lines-of-tokens start-x start-y font-size fold-regions folded-lines char-advance line-h theme-id]
-   (let [char-width (or char-advance (* font-size 0.56))
+   (layout-tokens lines-of-tokens start-x start-y font-size fold-regions folded-lines
+                  char-advance line-h theme-id nil nil))
+  ([lines-of-tokens start-x start-y font-size fold-regions folded-lines
+    char-advance line-h theme-id provider source-lines]
+   (let [char-advance (or char-advance (* font-size 0.56))
          line-h (or line-h (* font-size 1.2))
-         active-theme-id (or theme-id default-theme-id)]
-     (loop [logical-idx 0
-            visual-y (+ start-y font-size)
-            render-ops []
-            line-mapping []]  ;; Maps visual line index -> logical line index
-       (if (>= logical-idx (count lines-of-tokens))
-         {:render-ops render-ops
-          :line-mapping line-mapping}
-         (let [tokens (nth lines-of-tokens logical-idx)
-               visible? (line-visible? logical-idx fold-regions folded-lines)]
-           (if visible?
-             ;; Render this line at current visual-y, using the active theme
-             (let [line-ops (mapv (fn [token]
-                                     (let [color (get-color (:type token) active-theme-id)]
-                                       (merge token color
-                                             {:x (+ start-x (* (or (:from token) 0) char-width))
-                                              :y visual-y
-                                              :size font-size})))
-                                  tokens)]
-               (recur (inc logical-idx)
-                      (+ visual-y line-h)
-                      (conj render-ops line-ops)
-                      (conj line-mapping logical-idx)))
-             ;; Skip this line (it's folded)
-             (recur (inc logical-idx)
-                    visual-y  ;; Don't advance visual-y
-                    render-ops
-                    line-mapping))))))))
+         active-theme-id (or theme-id default-theme-id)
+         source-lines (vec (or source-lines
+                               (map tokens->source-line lines-of-tokens)))
+         visible-indices (filterv #(line-visible? % fold-regions folded-lines)
+                                  (range (count lines-of-tokens)))
+         visible-lines (mapv #(get source-lines % "") visible-indices)
+         layout-result (tl/layout {:text (str/join "\n" visible-lines)
+                                   :source-lines visible-lines
+                                   :provider provider
+                                   :font-size font-size
+                                   :char-advance char-advance
+                                   :line-height line-h
+                                   :origin [start-x start-y]
+                                   :baseline-offset font-size
+                                   :line-map visible-indices
+                                   :source-id :editor/document
+                                   :source-revision (hash [source-lines folded-lines])})
+         shaped? (not= :legacy/code-unit-grid
+                       (get-in layout-result [:shaping :shaper-id]))
+         render-ops
+         (mapv
+           (fn [visual-idx logical-idx]
+             (let [tokens (nth lines-of-tokens logical-idx)
+                   line (nth (:lines layout-result) visual-idx)
+                   line-start (get-in line [:source-range 0 :offset] 0)
+                   baseline (:baseline line)]
+               (mapv
+                 (fn [token]
+                   (let [color (get-color (:type token) active-theme-id)
+                         caret (tl/caret-result layout-result visual-idx
+                                                (or (:from token) 0))
+                         x (first (:position caret))
+                         start (update (first (:source-range line)) :offset
+                                       (constantly (+ line-start (or (:from token) 0))))
+                         end (update (second (:source-range line)) :offset
+                                     (constantly (+ line-start (or (:to token) 0))))]
+                     (cond-> (merge token color
+                                    {:x x :y (second baseline) :size font-size})
+                       shaped?
+                       (assoc :layout-result layout-result
+                              :layout-line-id (:line/id line)
+                              :layout-anchor [x (second baseline)]
+                              :paint-source-range [start end]))))
+                 tokens)))
+           (range) visible-indices)]
+     {:render-ops render-ops
+      :line-mapping visible-indices
+      :layout-result layout-result})))
 
 #?(:cljs
    (do

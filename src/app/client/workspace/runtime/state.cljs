@@ -91,7 +91,8 @@
       :!font-manifest (atom manifest)
       :!active-font   (atom {:id (:id default-font)
                               :char-width (or (:charWidth default-font) 0.56)
-                              :name (:name default-font)})
+                              :name (:name default-font)
+                              :layout-provider (:layout-provider font-assets)})
       :!font-assets   (atom (or font-assets {:backend :msdf :atlas nil :bitmap nil :id "dejavu-sans-mono"}))
 
       ;; GPU state (terminals update these)

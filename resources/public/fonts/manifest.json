@@ -1,12 +1,46 @@
 {
   "fonts": [
     {
+      "name": "Ubuntu Sans Variable",
+      "id": "ubuntu-sans-variable",
+      "font": "ubuntu_sans_variable.ttf",
+      "faceRevision": "ubuntu-sans-variable-0.869-wght400-wdth100",
+      "fallbacks": [
+        {
+          "id": "noto-sans-regular",
+          "font": "noto_sans_regular.ttf",
+          "faceRevision": "noto-sans-regular-2.011"
+        }
+      ],
+      "atlasFaces": ["ubuntu-sans-variable", "noto-sans-regular"],
+      "atlas": "ubuntu_sans_variable_atlas.png",
+      "metrics": "ubuntu_sans_variable_atlas.json",
+      "preferredBackend": "msdf",
+      "slug": {
+        "meta": "ubuntu_sans_variable_slug_meta.json",
+        "curve": "ubuntu_sans_variable_slug_curve.bin",
+        "band": "ubuntu_sans_variable_slug_band.bin"
+      },
+      "charWidth": 0.52,
+      "variations": {"wght": 400, "wdth": 100},
+      "features": ["kern", "liga", "clig", "calt"],
+      "tabColumns": 4,
+      "default": true,
+      "defaults": {
+        "fontSize": 19,
+        "lineHeight": 1.2,
+        "pxRange": 16,
+        "sharpness": 0.05,
+        "snapToPixel": true,
+        "showDiagnostics": false
+      }
+    },
+    {
       "name": "Ubuntu Sans Mono (merged, trail-view)",
       "id": "ubuntu-dejavu-merged",
       "atlas": "ubuntu_dejavu_merged_atlas.png",
       "metrics": "ubuntu_dejavu_merged_atlas.json",
       "charWidth": 0.56,
-      "default": true,
       "defaults": {
         "fontSize": 19,
         "lineHeight": 1.2,

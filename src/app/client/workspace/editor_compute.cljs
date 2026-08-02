@@ -6,6 +6,7 @@
             [app.client.workspace.rect-tree :refer [rt-node resolve-layout tree->rects tree->shadows]]
             [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.themes :as themes]
+            [app.client.workspace.text-layout :as tl]
             [app.client.workspace.text-input :as text-input]
             [app.client.workspace.ui-primitives :refer [dt]]
             [app.client.workspace.sidebar :as sidebar :refer [sidebar-w cmd-panel-h status-bar-h build-sidebar-tree derive-effective-sidebar]]
@@ -199,20 +200,30 @@
    No longer calls detect-folds-fn or find-bracket-fn directly — those are cached in separate flows."
   [doc fold-state bracket-match eval-result caret-visible focus
    layout-x layout-y line-h gutter-w char-advance viewport-w
-   & {:keys [gutter-lx]}]
+   & {:keys [gutter-lx font-size text-provider]}]
   (let [cursor (:cursor doc)
         selection (:selection doc)
 
         ;; Use pre-computed fold state (cached, only changes on doc/fold change)
         {:keys [lengths regions folded line-mapping logical->visual]} fold-state
 
+        visual-source-lines (mapv #(get (:lines doc) % "") line-mapping)
+        editor-layout (tl/layout {:text (str/join "\n" visual-source-lines)
+                                  :source-lines visual-source-lines
+                                  :provider text-provider
+                                  :font-size (or font-size 14)
+                                  :char-advance char-advance
+                                  :line-height line-h
+                                  :origin [layout-x layout-y]
+                                  :line-map line-mapping
+                                  :source-id :editor/document
+                                  :source-revision (hash [(:lines doc) folded])})
+
         ;; Helper to get visual y for logical line
         logical->visual-y (fn [logical-line]
                             (when-let [visual-idx (get logical->visual logical-line)]
                               (+ layout-y (* visual-idx line-h))))
 
-        ;; Use the passed char advance (reactive based on active font)
-        char-w char-advance
         ;; Gutter uses unscrolled x so fold indicators stay fixed
         gutter-x (- (or gutter-lx layout-x) gutter-w)
 
@@ -222,7 +233,7 @@
                             (let [is-folded? (contains? folded start-line)
                                   indicator-size 8
                                   x (+ gutter-x 2)
-                                  y (+ visual-y (/ (- line-h indicator-size) 2))]
+                                  y (+ visual-y (* 0.5 (- line-h indicator-size)))]
                               {:id [:fold start-line] :z 1
                                :x x :y y :w indicator-size :h indicator-size
                                :r (if is-folded? 0.3 0.7)
@@ -234,24 +245,19 @@
         ;; Bracket match rects (pre-computed, cached in <bracket-match flow)
         bracket-rects (when bracket-match
                         (keep (fn [[btype {:keys [line col]}]]
-                                (when-let [visual-y (logical->visual-y line)]
-                                  {:id [:bracket btype] :z 2
-                                   :x (+ layout-x (* col char-w))
-                                   :y visual-y
-                                   :w char-w
-                                   :h line-h
-                                   :r 0.8 :g 0.6 :b 0.2 :a 0.4}))
+                                (when-let [visual-idx (get logical->visual line)]
+                                  (merge (:rect (tl/selection-result
+                                                  editor-layout visual-idx col (inc col)))
+                                         {:id [:bracket btype] :z 2
+                                          :r 0.8 :g 0.6 :b 0.2 :a 0.4})))
                               [[:open (:open bracket-match)] [:close (:close bracket-match)]]))
 
         ;; Caret rect (only when editor is focused and no selection)
         caret-rect (when (and cursor caret-visible (= focus :editor) (not selection))
-                     (when-let [visual-y (logical->visual-y (:line cursor))]
-                       {:id :caret :z 4
-                        :x (+ layout-x (* (:col cursor) char-w))
-                        :y visual-y
-                        :w 2
-                        :h line-h
-                        :r 0.9 :g 0.9 :b 0.9 :a 1.0}))
+                     (when-let [visual-idx (get logical->visual (:line cursor))]
+                       (merge (:rect (tl/caret-result editor-layout visual-idx (:col cursor)))
+                              {:id :caret :z 4
+                               :r 0.9 :g 0.9 :b 0.9 :a 1.0})))
 
         ;; Selection rects
         selection-rects (when selection
@@ -261,22 +267,25 @@
                                                    (> (:col start) (:col end))))
                                         [end start]
                                         [start end])]
-                            (keep (fn [logical-line]
-                                    (when-let [visual-y (logical->visual-y logical-line)]
-                                      (let [line-len (get lengths logical-line 0)
-                                            col-start (if (= logical-line (:line s)) (:col s) 0)
-                                            col-end (if (= logical-line (:line e)) (:col e) line-len)
-                                            width-chars (- col-end col-start)
-                                            x (+ layout-x (* col-start char-w))
-                                            raw-w (* width-chars char-w)
-                                            ;; Clamp to editor pane boundary
-                                            clamped-w (min raw-w (max 0 (- viewport-w x)))]
-                                        (when (> clamped-w 0)
-                                          {:id [:selection logical-line] :z 3
-                                           :x x :y visual-y
-                                           :w clamped-w :h line-h
-                                           :r 0.2 :g 0.4 :b 0.9 :a 0.5}))))
-                                  (range (:line s) (inc (:line e))))))
+                            (mapcat
+                              (fn [logical-line]
+                                (when-let [visual-idx (get logical->visual logical-line)]
+                                  (let [line-len (get lengths logical-line 0)
+                                        col-start (if (= logical-line (:line s)) (:col s) 0)
+                                        col-end (if (= logical-line (:line e)) (:col e) line-len)
+                                        regions (:rects (tl/selection-result
+                                                          editor-layout visual-idx
+                                                          col-start col-end))]
+                                    (keep-indexed
+                                      (fn [region-idx {:keys [x w] :as rect}]
+                                        (let [clamped-w (min w (max 0 (- viewport-w x)))]
+                                          (when (pos? clamped-w)
+                                            (merge rect
+                                                   {:id [:selection logical-line region-idx]
+                                                    :z 3 :w clamped-w
+                                                    :r 0.2 :g 0.4 :b 0.9 :a 0.5}))))
+                                      regions))))
+                              (range (:line s) (inc (:line e))))))
 
         ;; Current-line highlight (subtle background on cursor's line)
         current-line-rect (when (and cursor (= focus :editor) (not selection))
@@ -291,8 +300,26 @@
                       (when (< now (:expires-at eval-result))
                         (when-let [visual-y (logical->visual-y (:line eval-result))]
                           (let [line-len (get lengths (:line eval-result) 0)
-                                result-x (+ layout-x (* (+ line-len 2) char-w))
-                                result-w (* (count (:text eval-result)) char-w)]
+                                visual-idx (get logical->visual (:line eval-result))
+                                line-end-x (first (:position (tl/caret-result
+                                                              editor-layout visual-idx line-len)))
+                                gap-layout (tl/layout {:text "  "
+                                                      :provider text-provider
+                                                      :font-size (or font-size 14)
+                                                      :char-advance char-advance
+                                                      :line-height line-h
+                                                      :origin [line-end-x visual-y]})
+                                result-x (+ line-end-x
+                                            (first (get-in (tl/measure-result gap-layout)
+                                                           [:metrics :advance])))
+                                result-layout (tl/layout {:text (:text eval-result)
+                                                         :provider text-provider
+                                                         :font-size (or font-size 14)
+                                                         :char-advance char-advance
+                                                         :line-height line-h
+                                                         :origin [result-x visual-y]})
+                                result-w (first (get-in (tl/measure-result result-layout)
+                                                        [:metrics :advance]))]
                             {:id :eval-result :z 5
                              :x result-x
                              :y visual-y
@@ -340,7 +367,7 @@
         (when @!last-slotted
           (reset! !last-slotted nil)
           (scene-rt/close-main-face!)))
-    (let [{:keys [viewport font-size char-advance face-mode?]} layout
+    (let [{:keys [viewport font-size char-advance text-provider face-mode?]} layout
           geom {:viewport-w   (:width viewport)
                 :viewport-h   (:height viewport)
                 ;; text-runs wrap at content-w; the root assembly's padding
@@ -350,6 +377,7 @@
                 :line-height  (js/Math.round (* font-size 1.4))
                 :font-size    font-size
                 :char-advance char-advance
+                :text-provider text-provider
                 ;; honest server stamp, never the wall clock (§5)
                 :now-ms       (or (:face/rendered-at-ms face-context) 0)}
           ;; block-write INT: the focused block's pending-input (buffer
@@ -421,6 +449,7 @@
                   sb-vis? (boolean (and sidebar-visible? (not trail-face?)))]
               {:viewport viewport :settings settings :dpr dpr :snap? snap?
                :font-size font-size :char-advance char-advance
+               :text-provider (:layout-provider active-font)
                ;; first-light P1: the face flow gates its emission on the mode
                ;; through THIS derived map — one source, no second
                ;; local-world watch beside <layout (L8: no diamond).
@@ -640,7 +669,8 @@
                scroll-y scroll-x
                agent-output shimmer-phase trail-collapsed
                active-pane chat-scroll-y chat-input]
-            (let [{:keys [viewport settings dpr snap? font-size char-advance sb-w]} layout
+            (let [{:keys [viewport settings dpr snap? font-size char-advance
+                          text-provider sb-w]} layout
                   content-w (- (:width viewport) sb-w)]
               (cond
                 ;; Extract preview
@@ -672,7 +702,9 @@
                       editor-rects (compute-editor-rects doc fold-state bracket-match eval-result
                                                          caret-visible focus lx ly line-h gutter-w
                                                          char-advance code-w
-                                                         :gutter-lx ulx)
+                                                         :gutter-lx ulx
+                                                         :font-size font-size
+                                                         :text-provider text-provider)
                       shimmer-alpha (if shimmer-phase 0.9 0.4)
                       right-tree (resolve-layout
                                    (build-file-layout content-w content-h current-file agent-output font-size
@@ -694,7 +726,9 @@
                       ly (maybe-snap layout-y dpr snap?)]
                   {:rects (compute-editor-rects doc fold-state bracket-match eval-result caret-visible focus
                                                 lx ly line-h gutter-w char-advance content-w
-                                                :gutter-lx ulx)
+                                                :gutter-lx ulx
+                                                :font-size font-size
+                                                :text-provider text-provider)
                    :shadows []}))))
           <layout (m/watch !effective-local-world) (m/watch !current-file) (m/watch !extract-preview)
           (m/watch !editor-doc) <fold-data <bracket-data (m/watch !eval-result)
