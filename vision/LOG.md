@@ -1127,3 +1127,19 @@ why does the blank screen has a cursor in it? this is the walkthrough and log an
 > so lets Stop the inquiry loop. Preserve what this inquiry genuinely discovered, mark the unproven claims as provisional rather than canonical, and use the result to form the working engine map and choose the next evidence-producing step.
 
 *(Routed same-session: the inquiry distilled → `build/render-engine/ENGINE.md` — the working map (four-layer promise + the Smalltalk sentence · blocked four-graded · four guarantees · declared envelope with provenance-marked exclusions, motion caught as pure omission · coverage×paint with three of six modes live · mechanical verdicts [CODE] · three regimes · renderer-never-defines-material · coexistence as the novel promise · hypotheses with named killers · thread router · E0 spec with pre-registered decision rules) · board studio block + Vision line advanced to 08-02 · next act = E0 falsifier spike; D2 shape-contract round parallel; E1 felt gate = the paper page redrawn in the ink room.)*
+
+## 2026-08-02 — the breadth ruling: build the engine in breadth; X0 dead on arrival; v2 true but not that route (second entry; verbatim)
+
+[after the blind re-derivation corroborated the map, a sibling session's cross-reading of G7 + cut-2 proposed X0 — the accretion-first conjunction test — and the adjudication corrected it; the ruling:]
+
+> My decision is  want to challange hypothesis and more what i want is to build the whole rendering engine in breadth the question to discuss on is how what is the order and why ... x0 is dead on arrival imo what v2 says is true but no not that route also now the whole discoveris are missing and should be written down imo not to spiral out later on
+
+[the decision, in his dictated form:]
+
+> Build the complete rendering and scene substrate in breadth so future workshops are not stopped by missing representational capability. The discussion now is the dependency order, what each rung proves, and why that order avoids expensive rework.
+
+[v2's findings, incorporated in his dictated form:]
+
+> Rendering breadth is necessary, not sufficient. Do not confuse representational capability with a meaningful authoring loop. Felt gates must test real use rather than merely the presence of atoms.
+
+*(Routed same-session: the ruling + the incorporated law → `build/render-engine/ENGINE.md` header + §6 rule · the post-settlement rounds (R8 blind re-derivation · R9 cross-stream reading · R10 adjudication · R11 the ruling) + D-18–D-24 + C-9–C-12 + M-9–M-11 + §8 CURRENT TRUTH → `build/render-engine/DISCOVERIES.md`, repaired at Sid's word — history kept, historical-vs-current distinguished · board studio/engine block + Vision line advanced (08-02 second entry) · `build/studio/NOW.md` entry appended · next act = the order-derivation round: the dependency order, what each rung proves, why that order avoids expensive rework.)*

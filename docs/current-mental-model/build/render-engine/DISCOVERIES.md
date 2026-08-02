@@ -1,22 +1,30 @@
 # RENDER-ENGINE — DISCOVERIES (the derivation record)
 
-**What this is:** the full record of the 2026-08-02 engine inquiry — the
-reasoning chain, each discovery with the argument that produced it, the
-self-corrections with their mechanisms, the beliefs that died and why,
-and the portable methods. `ENGINE.md` (same dir) is the operational map:
-what to act on. THIS doc is why the map says what it says. A future
-session that wants to challenge, extend, or re-derive the map starts
-here; a future session that wants to act starts there.
+**What this is:** the full record of the 2026-08-02 engine inquiry AND
+its same-day post-settlement continuation — the reasoning chain, each
+discovery with the argument that produced it, the self-corrections with
+their mechanisms, the beliefs that died and why, and the portable
+methods. `ENGINE.md` (same dir) is the operational map: what to act on.
+THIS doc is why the map says what it says. A future session that wants
+to challenge, extend, or re-derive the map starts here; a future
+session that wants to act starts there — and reads **§8 (current
+truth) FIRST**, because rounds R8–R11 superseded parts of what R1–R7
+settled.
 
-**How to read from a cold POV:** §1 is the spine — seven rounds, each
-recorded as *pressure → move → what died → what was born → evidence*.
-§2 holds each discovery's full argument (the spine references them as
-D-nn). §3 is the corrections ledger — where the inquiry caught itself,
-with the catch-mechanism named, because the catches are as reusable as
-the finds. §4 is the superseded-beliefs table. §5 is the method
-register. Sid's verbatim words that steered the turns live in
-`vision/LOG.md` (2026-08-01 and 2026-08-02 entries); load-bearing
-fragments are quoted inline where they turned the derivation.
+**How to read from a cold POV:** §1 is the spine — eleven rounds
+(R1–R7 the inquiry; R8–R11 post-settlement: a blind re-derivation, the
+cross-stream reading of the failure records, the adjudication, Sid's
+breadth ruling), each recorded as *pressure → move → what died → what
+was born → evidence*. §2 holds each discovery's full argument (the
+spine references them as D-nn). §3 is the corrections ledger — where
+the inquiry caught itself, with the catch-mechanism named, because the
+catches are as reusable as the finds. §4 is the superseded-beliefs
+table. §5 is the method register. §7 is the frontier as it stood at
+inquiry close (historical). **§8 separates current truth from
+historical conclusions** — where they conflict, §8 governs. Sid's
+verbatim words that steered the turns live in `vision/LOG.md`
+(2026-08-01 and 2026-08-02 entries); load-bearing fragments are quoted
+inline where they turned the derivation.
 
 ---
 
@@ -51,7 +59,7 @@ fragments are quoted inline where they turned the derivation.
 
 ---
 
-## 1. The derivation chain — seven rounds
+## 1. The derivation chain — eleven rounds (R1–R7 the inquiry · R8–R11 post-settlement)
 
 ### R1 — the ask and the first map
 **Pressure:** the ask above, plus "don't talk out of this."
@@ -206,6 +214,104 @@ the next evidence-producing step."*
 ([CODE]/[GK]/[HYP]/[SID]); advance custody (NOW.md · board · LOG);
 choose E0. Commit f787a9b.
 **Born:** the working map; this record.
+
+### R8 — the blind re-derivation (second instrument)
+**Pressure:** R7's own closing caveat — conclusions should be checked
+for stability across independent derivations — plus the standing memory
+law: primary sources over any session's compression.
+**Move:** a deliberately BLIND fresh pass: no ENGINE.md, no
+transcripts, no prior recommendation — only source code and stable
+vision ground, every claim carrying file:line.
+**Born:** the strongest corroboration the map can get short of
+measurements — independent convergence on the center (citizenship /
+material-law as the novel promise; regions-of-one-world; missing atoms
+ordinary, not architectural). Plus floor facts all seven rounds missed
+(D-18: the monospace coupling; the input floor — no IME, BMP-only,
+plain-text paste; no animation clock; pick/paint order divergence;
+CPU-clip degradations; the image atom FULLY absent; the 36-primitive
+registry), the 3D/compositor evidence already in the repo (D-19 —
+correcting D-14's "nothing 3D in code"), and rotation-as-data (D-20).
+One shared failure, load-bearing for R9: the blind instrument
+independently chose the paper page as its felt gate AND bundled
+atoms+accretion into it — the same bundle E1 carried (→ D-22's
+evidence). The instrument spent itself at round end (M-10).
+**Died:** "nothing 3D exists in code" · "the R1–R4 floor inventory is
+complete."
+**Evidence:** renderer.cljs · rect_tree.cljc · scene_store.cljc ·
+containers.cljc · runtime/render.cljs · ground.cljs · text_input.cljs
+· runtime/{keyboard,mouse}.cljs · face_primitives.cljc ·
+workshop_playground.cljc/.cljs · shared/studio.cljc ·
+probes/island_probe.cljs · build/box3d-spike/REPORT.md.
+
+### R9 — the cross-stream reading (the sibling session's move)
+**Pressure:** "put the map down, go back under it to the primary
+records" — the primary-sources law applied to the FAILURE RECORDS,
+which no round had done.
+**Move:** read G7 and cut-2 side by side as records, not map nodes;
+read the paper page as an artifact.
+**Born:** the two-body complement (D-21): G7 = the true body without
+the visible body; cut-2 = the visible body without the true body —
+each stream shipped one body and was diagnosed only inside its own
+stream. The paper page re-read: poor in finish, rich in ONE atom
+(freehand contour), and STRUCTURED — never edit v1 · draw v2 beside it
+· the note carries why · the arrow carries the reference — the studio
+loop performed by hand. Consequence: cut-2's settled single-cause
+reading ("meaning-per-stroke capped by the atom vocabulary") was an
+UNCONTROLLED attribution (C-9) — accretion absence fits the record
+equally ("is this going somewhere" was mechanically true on an
+in-memory surface). E1's felt gate exposed as a two-variable
+experiment (D-22); X0 proposed as the discriminating conjunction test
+(D-23); corpus evidence named as an envelope instrument (D-24).
+**Died:** cut-2's single-cause reading AS SETTLED (it survives as one
+of two live readings) · E1's felt gate as specced.
+**Evidence:** build/studio/G7.md · the cut-2 verbatim · the paper-page
+photographs (LOG 07-31) · the playground's own ns docstring
+("in-memory, no durability, no server writes").
+
+### R10 — the adjudication (blind map × cross-reading)
+**Pressure:** Sid laid the sibling's discovery beside the blind
+instrument's map.
+**Move:** claim-by-claim against the blind evidence base — endorse,
+correct, or complicate; no deference to whoever spoke last.
+**Born:** substrate corroboration of D-21 (the two bodies literally
+live in separate namespaces; the ground is already accretion-native
+for its text half — Sid's alive week ran there). Two corrections: the
+connector premise (C-11 — no segment coverage exists in production;
+X0's real cost is a durable reference-edge slice on the relation
+kernel, atom-free but not free) and the hidden second variable (C-12 —
+X0 changes accretion AND real-subject vs cut-2, so only its alive-arm
+kill is clean; the cut-1-vs-cut-2 datum shows single-variable stories
+about cut-2 are underdetermined). Design findings: promotion is NOT in
+the paper practice (minimum machinery = birth gesture + durable boxes
++ text + reference slice); the survivorship ruling splits the two
+uncommitted layers (studio layer on the path; playground only its pure
+cljc math); where-such-a-session-runs is a live tension (notes space
+vs Sid's workshop-thing ruling).
+**Died:** X0's zero-cost premise · the symmetric reading of X0's kill
+conditions.
+**Evidence:** the R8 code map · workshop_playground.cljc:216-230 ·
+relation-kernel settled ground · LOG 08-01 (cut-1 positive vs cut-2
+flat).
+
+### R11 — the breadth ruling (Sid; settlement of the route)
+**Pressure:** the full stack in front of him — map, blind
+corroboration, cross-reading, adjudication, X0 with pre-registered
+outcomes.
+**Move:** rule the route; dictate the incorporation; order this record
+repaired ("the whole discoveris are missing and should be written down
+imo not to spiral out later on").
+**Born:** the DECISION and the incorporated LAW, verbatim in §6/§8:
+build the complete rendering and scene substrate in breadth; the next
+discussion is dependency order, what each rung proves, and why that
+order avoids expensive rework. X0 ruled dead on arrival AS ROUTE with
+its findings preserved ("what v2 says is true but no not that route");
+breadth declared necessary-not-sufficient; felt gates must test real
+use rather than the presence of atoms. E0 dethroned from
+chosen-next-act to candidate rung, spec intact. This record repaired —
+history kept, §8 added.
+**Died:** E0-as-chosen-next-act · X0-as-route · "the route question is
+open."
+**Evidence:** Sid's words, verbatim (§6; LOG 08-02 second entry).
 
 ---
 
@@ -400,6 +506,117 @@ the way: export-to-vector is a PROJECTION of material — material-first
 architecture makes SVG/PDF export cheap, a place the thesis pays for
 itself unexpectedly.
 
+**D-18 · The floor facts the inquiry missed (blind pass, R8).** All
+[CODE], all in the working tree at 2026-08-02:
+- **The monospace coupling** — the largest hidden migration in the
+  breadth build. Every character advances a fixed 0.56 em regardless
+  of backend (renderer.cljs:1274,1332); char-count wrapping
+  (rect_tree.cljc:7-38), clip truncation (rect_tree.cljc:314-321), and
+  editor hit-testing (renderer.cljs:531-545) all assume it. Typography
+  at practice weight (envelope IN) is therefore not a renderer feature
+  but a metrics-plumbing migration through every consumer.
+- **The input floor.** Glyph lookup is `charCodeAt`-based — UTF-16
+  code units, no surrogate pairs (no emoji/astral chars); there is NO
+  IME composition path anywhere; paste reads `text/plain` only
+  (runtime/mouse.cljs). Platform text parity is a whole capability
+  class, invisible until the first non-ASCII moment.
+- **No animation clock.** Frames draw only when the world value
+  changes (runtime/render.cljs:221-223); the island probe had to force
+  redraws to get continuous frames. Time is a policy the frame loop
+  does not yet have — D-15 (motion) and any clocked region land on
+  this fact.
+- **Pick/paint order divergence.** Pick orders containers by :layer
+  topmost-first (scene_store.cljc:205); paint is the hardcoded pass
+  sequence plus buffer insertion order (renderer.cljs:1759-1889).
+  Coherence holds by producer discipline only.
+- **Clipping is CPU data-level.** Rects clamp to the clip box with
+  radii degrading at clamped corners (rect_tree.cljc:248-260, accepted
+  by contract); text clips at whole-character granularity. No per-node
+  GPU scissor/stencil — precision practice will feel this.
+- **Sampled mode is glyph-only.** No content-image path exists
+  anywhere in the client (grep-verified) — the image atom is FULLY
+  absent, not partially present via the atlas.
+- Dirty-present machinery exists but is disabled
+  (runtime/render.cljs:18); the primitive registry is exactly 36
+  builders (face_primitives.cljc:1252-1295) — the code surface
+  material can name.
+
+**D-19 · The 3D/compositor evidence already in the repo (R8).**
+`probes/island_probe.cljs` is a complete working ancestor of the
+region pattern (D-14): an offscreen 3D pass (perspective + look-at,
+depth24plus, back-face culling, storage-buffer instancing, Lambert
+lighting) composited onto the land as a quad, input routed by quad
+containment with capture-phase pre-emption, sleep/half-rate frame
+decoupling priced, MSDF-in-perspective proven. Beside it,
+`build/box3d-spike/REPORT.md`: deterministic rigid-body 3D physics
+(native↔wasm byte-identical traces), a shipped record/scrub/replay
+subsystem, and a settle→commit writer seam that maps exactly onto the
+land's settle-write law. Production contains none of this — but
+"nothing 3D in code" (D-14) was wrong as stated, and the
+composited-region road has an in-repo receipt.
+
+**D-20 · Rotation is data for meshes, shader only for instanced quads
+(R8).** The container chain (offset + uniform scale, composed
+in-shader) never needs rotation for tessellated/mesh atoms: vertices
+arrive pre-rotated in container-local space, so rotation becomes a
+property of the geometry data. Only instanced-quad pipelines — rects
+and glyphs — need shader-level rotation (a per-instance 2×2), and Slug
+already carries a per-instance inverse Jacobian shaped for exactly
+that (renderer.cljs:319,364). Consequence for the breadth build: E0's
+rotation question and its "rotation re-prices as frame-kind" decision
+rule split per atom-kind — free by construction on the tessellated
+road, real only for quads/text.
+
+**D-21 · The two-body complement (R9, sibling; adjudicated R10).** G7
+and cut-2 are complements under the project's oldest law: G7 delivered
+the TRUE body without the visible body (durable, versioned, promotable
+— and Sid couldn't see what he was acting on); cut-2 delivered the
+VISIBLE body without the true body (manipulable — and nothing
+persisted, nothing referenced anything; "is this going somewhere" was
+mechanically true). Each failure was diagnosed inside its own stream;
+the cross-read came a day late. Substrate corroboration (R10): the two
+bodies were built in separate namespaces — the playground
+self-declares "in-memory, no durability, no server writes" while
+shared/studio.cljc carries the durable loop. The paper page, re-read
+as an artifact, is the two bodies joined by hand: immutable
+iterations, adjacency, provenance notes, reference arrows — the studio
+loop performed manually. Status: incorporated 08-02 as the
+necessary-not-sufficient law (§8), explicitly NOT as a route.
+
+**D-22 · Felt gates are experiments (R9; evidence completed R8/R10).**
+E1's felt gate as specced — "Sid's paper page redrawn in the ink room"
+— bundles two causal variables: new atoms AND accretion (the page
+cannot be redrawn in ANY renderer without durable coexisting
+iterations, adjacency, references, notes). Whatever it returned,
+attribution would fail. The discipline: ONE live variable per felt
+gate; gate design IS experiment design; Sid's cold contact is the
+scarcest instrument (G7's lesson generalized). Evidence the bundle is
+an attractor, not one session's slip: the blind instrument (R8),
+deriving independently, chose the same gate with the same bundle.
+Canonical form is now Sid's dictated law (§8).
+
+**D-23 · X0 — proposed, corrected, rejected as route (R9→R11).** The
+design: one full paper-page cycle inside Softland at CURRENT atoms on
+the durable studio layer — draw v1 in boxes+text, settle it, draw v2
+beside, reference back, margin-note the why — with a real design
+question as subject; the 2×2 (atoms × accretion) it completes;
+pre-registered outcomes (alive kills vocabulary-as-necessary; dead
+kills conjunction-suffices). Corrections acquired (R10): the connector
+premise was wrong (C-11 — the real cost is a durable reference-edge
+slice on the relation kernel, atom-free but not free); X0 changes TWO
+variables vs cut-2 (C-12 — only the alive-arm kill is clean). RULED
+(R11): dead on arrival as route — the project builds breadth instead.
+Preserved: the 2×2 as a diagnostic frame; the kill-condition asymmetry
+as gate-design method; the reference-slice costing (any future
+connector/reference rung wants it — connectors-as-edges was already
+D-17's convergence).
+
+**D-24 · Corpus evidence as envelope instrument (R9).** The envelope
+can be MEASURED, not only declared: tldraw is open source; Figma's
+community corpus is enumerable — "Figma-core" is derivable from what
+real files actually contain. Motion (C-7) would have been caught by a
+corpus sweep in minutes. Landed as one line in ENGINE.md §3.
+
 ---
 
 ## 3. The corrections ledger (self-catches, with mechanism)
@@ -439,6 +656,37 @@ itself unexpectedly.
   only :w/:h — the symptom was invisible selection + a transient
   gesture ghost. Kept here as the standing exemplar: ship the symptom
   to builders, never an unverified diagnosis.
+- **C-9 · Cut-2's single-cause reading (post-settlement catch).** §0
+  banked "meaning-per-stroke is capped by the atom vocabulary" as
+  priced evidence; the alternative reading — accretion absence on an
+  in-memory surface — fits the same record and was never tested. The
+  engine stream's founding attribution was uncontrolled. Caught by:
+  putting the map down and reading the two failure records side by
+  side (R9) — the primary-sources law applied to RECORDS, not only
+  code. Disposition: Sid ruled the route on the breadth bet regardless
+  (R11); the catch survives as the necessary-not-sufficient law and as
+  felt-gate discipline, not as a route change.
+- **C-10 · "Nothing 3D exists in code."** Carried inside D-14; killed
+  by the blind instrument's whole-repo sweep (island probe + Box3D
+  receipt, D-19). Mechanism: the inquiry's reads were
+  renderer.cljs-centric; probes live elsewhere. M-2 must sweep the
+  repo, not the file.
+- **C-11 · X0's connector premise.** "The reference arrow is SDF
+  segments — a coverage mode live in production" overstated the floor:
+  no segment coverage exists at any angle (no rotation at any level
+  [CODE]); the playground's connectors are two axis-aligned thin
+  rects, in-memory (workshop_playground.cljc:216-230). Caught by:
+  checking the sibling's claim against the blind code map before
+  acting — grep-before-claim applied to a PEER's claim, not only one's
+  own.
+- **C-12 · X0's hidden second variable.** The design's own G7-derived
+  choice (a real design question as subject) made X0 a two-variable
+  change vs cut-2 — accretion AND real-subject — so only the alive-arm
+  kill was clean; and the cut-1-vs-cut-2 datum (same surface, same
+  specimen-subject, opposite lived readings) shows single-variable
+  stories about cut-2 were underdetermined from the start. Caught by:
+  running the experiment-design critique on the critique's own
+  proposal.
 
 ---
 
@@ -457,6 +705,12 @@ itself unexpectedly.
 | Per-room workshops frame the demand | one world; coexistence is the novel promise | R6 (the per-room frame hid it) | Sid rules coexistence out (unlikely — it's the differentiator) |
 | E0 is the center of gravity | first machine act; prices one road of one atom | R6 demotion | — |
 | Blocked = capability absent | four grades, four verifiers | G7+cut-2 evidence read honestly | — |
+| cut-2 proves the vocabulary ceiling | one of two live readings (vocabulary · accretion); attribution uncontrolled | R9 / C-9 | a de-confounded felt gate attributes cut-2-class flatness |
+| "nothing 3D exists in code" (inside D-14) | island probe + Box3D receipt exist; production has none | R8 / C-10, D-19 | — (code fact) |
+| E0 is the chosen next act | breadth build ruled; next = the order-derivation round; E0 re-files as a candidate rung (spec intact, ENGINE §12) | R11 (Sid) | Sid re-sequences |
+| E1's felt gate = the paper page as specced | confounded (atoms+accretion); every felt gate now one-live-variable + real-use | R9 / D-22; law R11 | — (design law) |
+| X0 is the next act (proposed R9/R10) | dead on arrival as route; findings incorporated as law + method + diagnostic frame | R11 (Sid: "what v2 says is true but no not that route") | Sid reopens the conjunction question |
+| rotation is uniformly cross-cutting (one price) | data-for-meshes · shader-only-for-quads (Slug inv_jac ready-shaped) | R8 / D-20 | a mesh-atom rung finds otherwise |
 
 ---
 
@@ -495,6 +749,25 @@ itself unexpectedly.
   judge touches.** This inquiry's whole cadence — Sid's interrogation
   prompts between every round — is that law applied to thinking
   instead of building.
+- **M-9 · One live variable per felt gate.** A felt gate is an
+  experiment; Sid's cold contact is the scarcest instrument in the
+  project. Bundling two causal variables into one gate spends that
+  contact without buying attribution. Design gates the way experiments
+  are designed: pre-registered outcomes, one thing moving, real use as
+  the task (never a scripted demo, never mere atom-presence).
+- **M-10 · The blind instrument.** A deliberately blind re-derivation
+  over primary sources tests a settled map's stability for one
+  session's cost: convergence is corroboration (still not measurement
+  — M-3 holds), divergence is signal either way, and the blind pass
+  finds floor facts the settled frame stopped looking for
+  (D-18/D-19/D-20). The instrument spends itself on first use — once
+  it reads the map it cannot be blind again. Schedule it BEFORE
+  settlement hardens.
+- **M-11 · Go back under the map.** Compressions rot even when
+  correct. The two-failure cross-reading (D-21) sat in the primary
+  records for a day while every session read maps of them. The
+  primary-sources law covers FAILURE RECORDS and lived-gate records,
+  not only code.
 
 ---
 
@@ -510,9 +783,17 @@ present map dissolve if the inquiry requires it") · the stop-word
 ("strongest discovery artifact we have now … mark the unproven claims
 as provisional rather than canonical").
 
+Post-settlement (same day, second LOG entry): the breadth ruling — *"I
+want to challange hypothesis and more what i want is to build the
+whole rendering engine in breadth the question to discuss on is how
+what is the order and why ... x0 is dead on arrival imo what v2 says
+is true but no not that route also now the whole discoveris are
+missing and should be written down imo not to spiral out later on"* —
+with the two dictated forms held verbatim in §8.
+
 ---
 
-## 7. The frontier at close
+## 7. The frontier at close (HISTORICAL — as it stood at R7; superseded by §8)
 
 Three live threads, one per instrument-kind — the balance itself a
 health sign: **D1** (Slug role · fp16 · storage road · H3) → machine,
@@ -523,3 +804,61 @@ page redrawn in the ink room. Plus one paragraph only Sid can write
 (the envelope ratification) and the chrome walkthrough (the weakest
 plank). Everything else: settled, parked with tripwires, or waiting on
 evidence. The operational state, always: `ENGINE.md`.
+
+---
+
+## 8. CURRENT TRUTH (post-settlement, 2026-08-02 second ruling)
+
+Everything above this section is the record of how we got here; where
+it conflicts with this section, THIS section governs.
+
+**The decision (Sid, dictated form):**
+
+> Build the complete rendering and scene substrate in breadth so
+> future workshops are not stopped by missing representational
+> capability. The discussion now is the dependency order, what each
+> rung proves, and why that order avoids expensive rework.
+
+**The incorporated law (v2's findings, Sid's dictated form — governs
+every engine rung's gates):**
+
+> Rendering breadth is necessary, not sufficient. Do not confuse
+> representational capability with a meaningful authoring loop. Felt
+> gates must test real use rather than merely the presence of atoms.
+
+**Stands (unchanged by the ruling):** the working map (`ENGINE.md`
+§§1–10, 13) — four-layer promise · four guarantees · declared envelope
+(ratification paragraph still Sid's) · coverage×paint ·
+addition-kinds · renderer-never-defines-material · three regimes ·
+coexistence · chrome-as-weakest-plank · H3 with E0's questions as its
+killer. The R8 floor facts (D-18/D-19/D-20) extend the evidence spine.
+
+**Superseded:** E0 as the chosen next act (its seven questions and
+pre-registered decision rules survive intact as a candidate rung's
+spec) · the E0 → E1-ink → image sequencing · ENGINE §11's `when`
+column · X0 as route (D-23; findings preserved) · cut-2's single-cause
+reading (C-9; both readings live, route ruled regardless).
+
+**Next act — the order-derivation round:** derive the dependency order
+of the breadth build. Deliverable: the ordered rungs, what each rung
+PROVES when it lands, and why that order avoids expensive rework.
+Inputs: `ENGINE.md` (the map + §12's question set + §13's walkthroughs)
+· D-18 (the monospace coupling — the hidden migration every
+text-touching rung must sequence around) · D-19 (the composited-region
+receipt) · D-20 (rotation splits per atom-kind) · the incorporated law
+above (every rung's felt gate: one live variable, real use, never
+atom-presence). Known candidate rungs going in — non-exhaustive,
+deliberately UNORDERED; the round's whole job is the order and its
+why: E0's road-pricing spike · D2 the shape material contract · the
+tessellated/path atom · the image atom · the compositor design ·
+proportional-metrics plumbing · the reference/connector slice (D-23's
+costing) · the chrome audit · region/3D.
+
+**Custody:** board studio/engine block + Vision line advanced (08-02
+second entry) · `build/studio/NOW.md` entry appended · LOG carries the
+ruling verbatim · this record repaired at Sid's word ("not to spiral
+out later on") — history kept, current truth separated. The two
+uncommitted code layers and the archive/survivorship ruling remain
+OPEN and are now order-round inputs (the studio layer carries the
+durable authoring loop the law demands; the playground layer's pure
+cljc math is reusable; the ruling stays Sid's).

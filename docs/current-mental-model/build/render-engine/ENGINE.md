@@ -10,6 +10,28 @@ dir) — the full reasoning chain, discovery catalog, corrections ledger,
 superseded-beliefs table, and method register; start there before
 challenging or extending this map.
 
+**POST-SETTLEMENT RULING (2026-08-02, later same day) — supersedes this
+map's SEQUENCING, not its content.** After a blind re-derivation
+corroborated the map and a cross-stream reading of the failure records
+challenged its founding attribution (`DISCOVERIES.md` R8–R11; read its
+§8 before acting on anything here), Sid ruled the route:
+
+> Build the complete rendering and scene substrate in breadth so future
+> workshops are not stopped by missing representational capability. The
+> discussion now is the dependency order, what each rung proves, and
+> why that order avoids expensive rework.
+
+> Rendering breadth is necessary, not sufficient. Do not confuse
+> representational capability with a meaningful authoring loop. Felt
+> gates must test real use rather than merely the presence of atoms.
+
+Consequences: §12's E0 is no longer the chosen next act (its questions
+and decision rules survive as a candidate rung's spec) · §11's `when`
+column is historical · X0 (the sibling's accretion-first conjunction
+test) is rejected as route with findings incorporated (`DISCOVERIES.md`
+D-21–D-23) · the NEXT ACT is the order-derivation round
+(`DISCOVERIES.md` §8).
+
 **Epistemic marks (load-bearing):**
 - **[CODE]** — verified by reading source this arc (file:line where it
   matters; re-verify after any renderer change).
@@ -23,6 +45,12 @@ challenging or extending this map.
 somewhere???" — the Tier-I ceiling, felt. G7's killer was grade-4
 illegibility (§1). The engine answers the vocabulary wall; it does not
 answer the meaning wall — both are real, only one lives in this doc.
+*(Correction 08-02, post-settlement: cut-2's attribution is
+UNCONTROLLED — the vocabulary ceiling and accretion absence (an
+in-memory surface where nothing persisted or referenced anything) both
+fit the record; `DISCOVERIES.md` C-9/D-21. The route was ruled on the
+breadth bet with the necessary-not-sufficient law incorporated — header
+ruling above.)*
 
 ## 1. The promise, reinterpreted
 
@@ -105,6 +133,12 @@ interaction fluency with Softland-native document semantics (mimic the
 trained hands; diverge on draft/settle, provenance, liveness — the
 soul).
 
+**Envelope instrument (added 08-02, D-24):** the envelope is also
+MEASURABLE, not only declarable — tldraw's source and Figma's community
+corpus enumerate what real practice actually contains; a corpus sweep
+would have caught motion in minutes. Run it when the envelope is next
+touched.
+
 ## 4. Evidence spine [CODE]
 
 What the renderer IS (renderer.cljs, verified 2026-08-02; untouched by
@@ -147,6 +181,38 @@ both pending uncommitted code layers):
 - Zoom clamp [0.1, 8.0] (fm:space resolved wear, P0 S6) — an ~80×
   range. "Infinite zoom" is NOT current truth; deeper zoom is an
   envelope parameter, never an assumption.
+
+**Blind re-derivation additions (08-02, second instrument —
+`DISCOVERIES.md` R8, D-18–D-20):**
+- **The monospace coupling:** fixed 0.56 em advance is load-bearing
+  through shaping (renderer.cljs:1274,1332), char-count wrap
+  (rect_tree.cljc:7-38), clip truncation (rect_tree.cljc:314-321), and
+  editor hit-test (renderer.cljs:531-545). Typography at practice
+  weight is a metrics-plumbing MIGRATION through every consumer, not a
+  renderer feature — the largest hidden migration in the breadth build.
+- **The input floor:** `charCodeAt` glyph lookup (UTF-16 units — no
+  surrogate pairs/emoji) · no IME composition path anywhere · paste is
+  `text/plain` only.
+- **No animation clock:** frames draw only on world-value change
+  (runtime/render.cljs:221-223); motion (§3) and any clocked region
+  land on this fact.
+- **Pick/paint divergence:** pick orders by container :layer
+  (scene_store.cljc:205); paint is the hardcoded pass sequence +
+  insertion order — coherent by producer discipline only.
+- **CPU clipping:** rect clamp with radii degradation at clip corners;
+  character-granular text clip; no per-node scissor/stencil.
+- **The image atom is FULLY absent** — sampled mode serves glyphs
+  only; no content-image path exists in the client.
+- **3D evidence exists in-repo:** probes/island_probe.cljs — offscreen
+  3D pass (depth24plus, storage-buffer instancing) composited as a
+  quad, routed input, sleep decoupling, MSDF-in-perspective — plus the
+  Box3D determinism receipt (record/scrub/replay; settle→commit maps
+  onto the settle law). Production has none; the region road has a
+  working ancestor.
+- **Rotation splits per atom-kind:** data-for-meshes (vertices bake
+  it; the container chain needs nothing) · shader-only-for-quads/text
+  (a per-instance 2×2; Slug's inv_jac is ready-shaped —
+  renderer.cljs:319,364).
 
 ## 5. The basis: coverage × paint [GK, hunt-tested]
 
@@ -200,6 +266,11 @@ events.
   screen-width, marching selection, gizmos, pickers, guides. The
   screen-flag seam suggests coverage; UNAUDITED as a class [HYP — the
   map's weakest plank].
+- **Breadth is necessary, not sufficient** [SID, ruled 08-02]:
+  representational capability is never confused with a meaningful
+  authoring loop; every rung's felt gate tests REAL USE — one live
+  variable, never the mere presence of atoms (`DISCOVERIES.md`
+  D-21/D-22, §8).
 
 ## 7. Three regimes — verdicts must be regime-tagged
 
@@ -226,7 +297,9 @@ space-as-entity already anticipates the seam (spaces as identities,
 membership as material) — the architecture was pointing here before
 this inquiry. Open unknown: one identity across space kinds (a
 component placed in the flat world AND staged in a 3D room) —
-likely-yes via instances [HYP; nothing 3D exists in code]. The **seam
+likely-yes via instances [HYP; production has no 3D — but a working
+ancestor exists: probes/island_probe.cljs, an offscreen 3D pass
+composited as a routed-input quad (D-19)]. The **seam
 demo** — one scene: text + ink + live component + 3D region under one
 picking and annotation model — is the true "broad enough" bar for
 Softland's version of the promise. Unpriced, unprecedented.
@@ -268,6 +341,10 @@ Softland's version of the promise. Unpriced, unprecedented.
 
 ## 11. The thread router
 
+*(`When` column HISTORICAL as of the 08-02 second ruling — threads
+remain live as candidate rungs; their order comes from the
+order-derivation round, `DISCOVERIES.md` §8.)*
+
 | Thread | Status | Instrument | When |
 |---|---|---|---|
 | Direction: atoms not architecture | settled | — | — |
@@ -279,7 +356,7 @@ Softland's version of the promise. Unpriced, unprecedented.
 | Compositor frame-graph | design-early | paper design | at the second atom |
 | D3 container rotation · D4 glyph⊂path · D7 binary-assets-as-material · vector networks | parked | tripwires named above | on demand |
 
-## 12. E0 — the falsifier spike (next machine act; chosen 2026-08-02)
+## 12. E0 — the falsifier spike (chosen 2026-08-02; SUPERSEDED as next act same day — header ruling. The questions and decision rules below survive intact as a candidate rung's spec for the order round)
 
 Throwaway code · durable receipts (appended here) · one session ·
 cheap lane (builder model EXPLICIT — Sonnet) · no product surface · no

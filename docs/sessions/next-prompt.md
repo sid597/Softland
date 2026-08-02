@@ -81,7 +81,17 @@ includes P8; the P8 :8091 jetty is dead — see HANDOFF).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-08-02** (the engine turn: cut 2
+**Vision:** LOG routed through **2026-08-02, second entry** (the
+breadth ruling: after a blind re-derivation corroborated the engine map
+and a sibling cross-reading of G7+cut-2 proposed X0 — the
+accretion-first conjunction test — Sid ruled: "build the whole
+rendering engine in breadth the question to discuss on is how what is
+the order and why ... x0 is dead on arrival imo what v2 says is true
+but no not that route"; v2's findings incorporated as LAW — breadth
+necessary-not-sufficient, felt gates test real use, one live variable.
+Routed → `build/render-engine/ENGINE.md` header/§6 +
+`DISCOVERIES.md` R8–R11 + §8 current truth; next act = the
+order-derivation round). Prior same day (the engine turn: cut 2
 landed flat — "rectangles within rectangles … is this all goineg
 somewhere???" — and the ask went to the floor: "guide me through the
 rendering engine … tldraw stuff, figma stuff and blender type of stuff
@@ -89,7 +99,8 @@ rendering engine … tldraw stuff, figma stuff and blender type of stuff
 ended at Sid's stop-word — "strongest discovery artifact we have now" —
 and settled the working map: four-layer promise + the Smalltalk
 sentence, six coverage modes (three live), coexistence named the novel
-promise, motion caught as pure omission, E0 falsifier chosen. Routed →
+promise, motion caught as pure omission, E0 falsifier chosen — E0
+since SUPERSEDED by the second entry above. Routed →
 `build/render-engine/ENGINE.md` + LOG 08-02). Prior: **2026-08-01**
 (G7 + the playground turn:
 the first-ever lived gate FAILED direction-class — "This is not my idea
@@ -472,11 +483,26 @@ multi-round self-falsifying inquiry settled into
 four guarantees · coverage×paint (three of six modes live) · mechanical
 verdicts · three regimes · renderer-never-defines-material ·
 coexistence as the novel promise · thread router · E0 spec with
-pre-registered decision rules. The playground stream continues on
-ENGINE RUNGS: E0 falsifier (machine, cheap lane) → E1 ink room (felt
-gate = Sid's paper page redrawn) → image as the dissimilar second atom;
-D2 shape-contract design round parallel. Code still uncommitted in two
-layers; archive/survivorship rulings still deferred.
+pre-registered decision rules. **THE BREADTH RULING
+(2026-08-02, second entry): the E0→E1 sequencing is SUPERSEDED.** A
+blind re-derivation (fresh instrument, code+vision only) corroborated
+the map and added floor facts (monospace coupling · no-IME input floor
+· no animation clock · image atom fully absent · rotation splits per
+atom-kind · the island-probe 3D receipt); a sibling cross-reading of
+G7+cut-2 found the two-body complement (G7 = durable-invisible, cut-2
+= visible-undurable; cut-2's vocabulary-ceiling attribution
+UNCONTROLLED) and proposed X0, the accretion-first conjunction test;
+the adjudication corrected X0 (connector premise; hidden second
+variable). Sid ruled: build the complete rendering and scene substrate
+IN BREADTH; X0 dead on arrival as route; v2's findings incorporated as
+LAW (breadth necessary-not-sufficient · felt gates test real use, one
+live variable). E0 re-files as a candidate rung, spec intact. NEXT ACT
+= the ORDER-DERIVATION ROUND: the dependency order, what each rung
+proves, why that order avoids expensive rework — inputs + current
+truth in `build/render-engine/DISCOVERIES.md` §8 (record repaired,
+history kept). Code still uncommitted in two layers;
+archive/survivorship rulings still deferred — now ORDER-ROUND INPUTS
+(the studio layer carries the durable authoring loop the law demands).
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.

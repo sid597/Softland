@@ -129,3 +129,17 @@
   + killers · router; unproven marked [HYP]/[SID], never canon. Next
   CHOSEN: E0 falsifier (machine, cheap lane, receipts durable); D2
   shape-contract round parallel; E1 felt gate = paper page redrawn.
+- 2026-08-02 · Fable (standing orchestrator) · **THE BREADTH RULING —
+  E0→E1 sequencing SUPERSEDED.** Blind re-derivation corroborated the
+  map + added floor facts (monospace coupling · no-IME · no clock ·
+  image atom absent · rotation per atom-kind · island-probe 3D
+  receipt); sibling cross-read found the two-body complement (G7
+  durable-invisible / cut-2 visible-undurable; cut-2 attribution
+  UNCONTROLLED) and proposed X0; adjudication corrected it (connector
+  premise · hidden second variable). Sid RULED: build the engine IN
+  BREADTH; "x0 is dead on arrival … what v2 says is true but no not
+  that route"; law incorporated (breadth necessary-not-sufficient ·
+  felt gates test real use, one live variable). E0 → candidate rung.
+  NEXT: the order-derivation round — order · what each rung proves ·
+  why that order avoids rework. `render-engine/DISCOVERIES.md` R8–R11
+  + §8 (repaired, history kept); ENGINE.md header carries the ruling.
