@@ -120,7 +120,8 @@ everything stays correct, pickable, editable; the first felt dividend
 - **W0-C · paper lane:** chrome audit · corpus sweep → the envelope
   ratification paragraph (Sid's) · frame-graph + scheduler contract ·
   D2 round prep.
-- **W1 · contracts** (before any new atom exists): ONE draw-order
+- **W1 · contracts — SETTLED 2026-08-02** (`W1.md`; before any new atom
+  exists): ONE draw-order
   truth for pick AND paint (today pick=:layer, scene_store.cljc:205;
   paint = hand sequence) · per-atom geometry source-of-truth,
   UNCONDITIONAL (visual AA / mathematical interior / hit slop declare
@@ -238,15 +239,27 @@ glass/noise/texture, and moving media IN; legal zoom kept and priced;
 exclusions campaign-scoped, never forever — and D2 is RULED A
 (centerline + pressure truth, outline derived/versioned).**
 
-**Execution front NOW: W1 contracts, with the failed parity receipts as
-their repair input and both 08-02 rulings as contract input.** ONE
-pick/paint order, unconditional per-atom geometry truth (mathematical
-interior / visual AA / hit slop / boundary ties), material citizenship
-(the ink template binds to D2=A: centerline + pressure authoritative,
-outline a versioned derivation), text layout-result shape, and
-color/alpha convention. The only decision still reserved is studio
-custody at the capability level. W1–W5 remain committed downstream; no
-W0 result narrows scope or reopens the campaign.
+**W1 CONTRACTS SETTLED 2026-08-02** (`W1.md`): one ordered scene truth
+projects into paint and reverse pick; every atom unconditionally declares
+mathematical classification, AA coverage, half/boundary semantics, hit slop,
+and precision/backend regimes; the citizenship template binds ink to D2=A
+and all twelve §6.4 falsifiers; every text consumer routes through one
+layout result; color is tagged straight material → linear-premultiplied scene
+→ one declared presentation transfer. Q6's exact 8/16 through `rgba8unorm`
+is a byte-128 tie, never an inside vote. Q5's two inside/alpha-zero pixels and
+MSDF's 47 decisive mismatches per regime remain repair obligations; the RED
+verifier and MSDF case are untouched.
+
+**Execution front NOW: W2-A + T0.** W2-A migrates affine/nesting and Q8
+transport once, including the Q5 repair; T0 consolidates measure/wrap/caret/
+selection/clip/hit owners behind W1's layout result in the parallel CPU lane.
+W2-B follows at the same migration window's tail and makes registration,
+ordered tape, geometry, and color/alpha code-real for the existing families
+before image or path exists. MSDF retirement for Slug-direct remains a separate
+pre-registered road receipt (real-hardware dense-small-text fragment cost ·
+tiny-text quality · implementation provenance); T1 still shapes positioned
+glyphs. The only decision still reserved is studio custody at the capability
+level. W2–W5 remain committed; no receipt narrows scope or reopens the campaign.
 
 ## 1. The promise, reinterpreted
 

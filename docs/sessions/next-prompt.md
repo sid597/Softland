@@ -89,7 +89,15 @@ CAMPAIGN-SCOPED never forever ("i will soon ask for sculpting and
 node authoring") · D2 ink truth RULED — "Decision 2: yes A":
 centerline + pressure authoritative, outline derived/versioned.
 Routed → `W0-C.md` §4/§6 + `ENGINE.md` §0/§3 + `DISCOVERIES.md` §8;
-execution front = W1 contracts; only studio custody stays reserved).
+W1 contracts SETTLED in `build/render-engine/W1.md`: one ordered scene
+truth for paint/reverse-pick · unconditional per-atom geometry truth with
+Q6 byte-128 half-tie adjudicated and Q5/MSDF left as repair obligations ·
+material citizenship with D2=A ink through all twelve falsifiers · one text
+layout-result seam · tagged straight → linear-premultiplied → present color/
+alpha. Mandatory verifier replay remained correctly RED (MSDF 47 decisive
+mismatches per regime; SDF/Slug pass; ties separated). Execution front =
+W2-A + T0, then W2-B at the migration tail; Slug-direct retirement remains a
+separate pre-registered road candidate; only studio custody stays reserved).
 Prior same day, third entry (the
 campaign ruling: the order round ran — derivation → source
 adjudication → Codex gate READY-TO-SETTLE — and Sid caught the
