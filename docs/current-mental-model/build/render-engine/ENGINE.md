@@ -8,10 +8,18 @@ distillation. Evidence prices everything downstream — nothing here is
 canon unless marked so. **Derivation record: `DISCOVERIES.md`** (same
 dir) — the full reasoning chain, discovery catalog, corrections ledger,
 superseded-beliefs table, and method register; start there before
-challenging or extending this map.
+challenging or extending this map. That entrance is for ordinary
+continuation/audit (inherited context allowed); an INDEPENDENT BLIND
+DERIVATION must instead freeze and deliver its own map BEFORE reading
+this file, DISCOVERIES.md, or any sibling analysis (DISCOVERIES
+M-10 — contact spends the instrument).
 
 **POST-SETTLEMENT RULING (2026-08-02, later same day) — supersedes this
-map's SEQUENCING, not its content.** After a blind re-derivation
+map's SEQUENCING.** The promise / guarantee / law level stands; a set
+of implementation-level claims carry marked inline amendments
+(post-settlement C-9–C-12 · the 08-02 review sweep C-13–C-15 ·
+D-18–D-20-as-amended) — the precise stands/amended split is
+`DISCOVERIES.md` §8. After a blind re-derivation
 corroborated the map and a cross-stream reading of the failure records
 challenged its founding attribution (`DISCOVERIES.md` R8–R11; read its
 §8 before acting on anything here), Sid ruled the route:
@@ -71,10 +79,13 @@ rendering capability" — reread from practices, not products:
   guarantee-kind:
   1. **atom floor — closes** (finite evaluation modes, §5);
   2. **tool-math — adoptable-unbounded** (shaping, booleans,
-     tessellation: never architectural, never "done");
+     tessellation: kernels adoptable, never "done"; INTEGRATION can
+     be architectural — shaping forces the D-18 metrics migration
+     [amended C-15]);
   3. **composition/practice — open-ended** (meaning lives here;
-     G7-class failures stay possible forever; no engine work addresses
-     them);
+     G7-class failures stay possible forever; engine work cannot
+     CREATE meaning — though render/affordance quality can move
+     legibility, grade-4 note below [amended C-15]);
   4. **the seams — novel** (coexistence, §8: no product ever promised
      one world; nothing anywhere to copy).
   Every earlier map let the closable bottom carry the emotional weight
@@ -82,7 +93,9 @@ rendering capability" — reread from practices, not products:
 - **"Blocked" is four-graded**, each grade with its own verifier:
   **absent** (existence proofs) · **degraded** (golden receipts) ·
   **slow** (regime benchmarks, §7) · **illegible** (lived contact —
-  the grade that killed G7; engine work never touches it).
+  the grade that killed G7; engine work cannot create meaning, though
+  render/affordance quality can move legibility [amended C-15] —
+  lived contact stays the only verifier).
 
 ## 2. The four guarantees
 
@@ -123,9 +136,12 @@ grease-pencil-equivalent = our strokes in 3D).
 **FLAGGED IN by carried lean [SID]: motion** — previously excluded by
 PURE OMISSION (caught 08-02; neither intent-discovered nor decided).
 Live components make motion MORE native here than in Figma — states
-actually transition instead of being prototyped. Render-cheap [GK];
-grammar cost (a transition as material, a spring as a claim, time in
-the grammar) unknown [HYP]. Staged late, declared in.
+actually transition instead of being prototyped. Interpolation-cheap
+[GK] — but production has NO animation clock (frames draw only on
+world-change, D-18), so clocked-region scheduling is a structural
+frame-kind addition, unpriced [amended 08-02 review]; grammar cost (a
+transition as material, a spring as a claim, time in the grammar)
+unknown [HYP]. Staged late, declared in.
 
 **Carried leans awaiting Sid's word [SID]:** coexistence promised
 STRUCTURALLY now, demoed late (§8) · character = product-grade
@@ -164,8 +180,10 @@ both pending uncommitted code layers):
   is `rgba16float` — half-float control points. Glyphs survive in
   em-space; arbitrary shapes need shape-local normalization and may
   visibly quantize (~1/2048 relative) at zoom → E0.
-- Containers: a UNIFORM buffer (no storage buffers exist in the file),
-  1024 × 16B `[x y scale flag]`, hard-capped throw; the screen flag is
+- Containers: a UNIFORM buffer (no storage buffers in the PRODUCTION
+  renderer [scoped 08-02 review] — the island probe carries an
+  in-repo storage-buffer instancing precedent, D-19), 1024 × 16B
+  `[x y scale flag]`, hard-capped throw; the screen flag is
   the chrome seam; **no rotation at the byte level** — the touch-set
   for adding it is exactly enumerable (formats + WGSL structs +
   write-containers! + CPU inverse picks).
@@ -209,34 +227,53 @@ both pending uncommitted code layers):
   Box3D determinism receipt (record/scrub/replay; settle→commit maps
   onto the settle law). Production has none; the region road has a
   working ancestor.
-- **Rotation splits per atom-kind:** data-for-meshes (vertices bake
-  it; the container chain needs nothing) · shader-only-for-quads/text
-  (a per-instance 2×2; Slug's inv_jac is ready-shaped —
+- **Rotation [downgraded 08-02 review, C-14]:** pre-baked vertex
+  rotation is a PROVISIONAL road for isolated, settled tessellated
+  geometry only; full affine (interactive rotate, groups, instance
+  reuse, mixed-atom containers) touches bounds, the axis-aligned clip
+  intersection, point-in-rect picking, and container nesting —
+  structural, not free. Quads/text need per-instance rotation
+  in-shader either way (Slug's inv_jac is ready-shaped —
   renderer.cljs:319,364).
 
-## 5. The basis: coverage × paint [GK, hunt-tested]
+## 5. The basis: coverage × paint × composition [GK, hunt-tested; factorization repaired by the 08-02 review, C-13 — the original two-axis form is preserved in DISCOVERIES D-05]
 
-An atom answers two independent questions: what math decides a pixel's
-COVERAGE, and what math decides its PAINT. Six coverage modes span
-shipped raster graphics: **implicit-analytic** (SDF) ·
-**boundary-analytic** (curve-solving) · **tessellated** · **sampled** ·
-**marched** · **composited**. Paint is the orthogonal axis (solid ·
-gradients · image · procedural · lit). New paints are
-fragment-shader-local (cheap); new coverage modes are the structural
-events.
+An atom answers independent questions on SEPARATE axes (the original
+cut filed compositing under coverage — repaired):
 
-- THREE modes run today [CODE]: implicit (rects), boundary (Slug),
-  sampled (MSDF). Missing the MUNDANE: tessellated (Figma's workhorse)
-  and composited. Marched = the named exclusion. The engine skipped
-  ordinary and built advanced.
+- **COVERAGE** — what math decides a pixel's coverage from geometry.
+  FIVE modes span shipped raster graphics: **implicit-analytic**
+  (SDF) · **boundary-analytic** (curve-solving) · **tessellated** ·
+  **sampled** · **marched**.
+- **PAINT** — what decides the covered pixel's color (solid ·
+  gradients · image · procedural · lit). NOT uniformly cheap (C-13):
+  solid/gradient variants are fragment-local; image paint carries
+  resource infrastructure (decode · upload · color management ·
+  mipmaps · bind-group/atlas strategy); procedural may need aux
+  textures; lit needs normals + light state.
+- **COMPOSITION / pass structure** — how draws combine: group
+  opacity, masks, backdrop effects, render-to-texture. Where the
+  frame kind (§5 additions, D-03) lives. Production floor [CODE]: one
+  pass, painter's order, dirty-present machinery disabled, one
+  persistent offscreen target with COPY_SRC as the seed.
+- **Frame-wide policies** — AA philosophy (analytic, no MSAA
+  [CODE]) · color space · present policy.
+
+- THREE of the five coverage modes run today [CODE]: implicit (rects),
+  boundary (Slug), sampled (MSDF). Missing the MUNDANE: tessellated
+  (Figma's workhorse). Marched = the named exclusion; the composition
+  axis sits at its floor (above). The engine skipped ordinary and
+  built advanced.
 - Deliberate counterexample hunt (08-02): NO in-envelope form found
-  needing a seventh mode. Strains, named: backdrop blur (samples what
-  lies BEHIND — hardest everyday composited case) · selection
-  silhouettes (edge-detect or geometric offset) · caret parity in
-  shaped text (the two-body law extended to text) · export-to-vector —
-  a PROJECTION of material, cheap precisely because Softland is
-  material-first (a place the thesis pays a free dividend) ·
-  eyedropper (readback; seed exists [CODE]).
+  needing a SIXTH coverage mode. Strains, named: backdrop blur
+  (samples what lies BEHIND — the composition axis's hardest everyday
+  case) · selection silhouettes (edge-detect or geometric offset) ·
+  caret parity in shaped text (the two-body law extended to text) ·
+  export-to-vector — a PROJECTION of material: structurally CLEANER
+  because Softland is material-first (no scene-graph
+  reverse-engineering), though the exporters themselves (SVG/PDF
+  semantics, font embedding/outlining, color) remain real work
+  [amended C-15] · eyedropper (readback; seed exists [CODE]).
 - Additions come in three KINDS, not classes: **atom kind** (new
   instanced pipeline in the existing pass — stroke, path-fill,
   image-quad; cheap-by-precedent) · **frame kind** (render-graph
@@ -313,12 +350,15 @@ Softland's version of the promise. Unpriced, unprecedented.
   laser/ink, Figma's drag-preview/place, Blender's modal
   grab/confirm — a decade of convergence onto Softland's own
   draft/settle mechanic.
-- **Six-modes-suffice** for the declared envelope. Killer: one
-  in-envelope counterexample (deliberate hunt survived, 08-02).
+- **Five-coverage-modes + the declared composition axis suffice** for
+  the envelope [restated per C-13]. Killer: one in-envelope
+  counterexample (deliberate hunt survived, 08-02).
 - **Region/seam model serves coexistence.** Killer: the seam demo.
 - **Chrome covered by screen-flag + overlay patterns.** Killer: a
   chrome walkthrough finding a form with no provider.
-- **Motion is render-cheap, grammar-heavy.** Unexplored.
+- **Motion: interpolation cheap; the CLOCK is frame-kind (no
+  animation clock exists in production — D-18); the grammar heavy.**
+  Unexplored.
 - Retired as commitments: H1 Slug-primary · H2 tessellation-primary —
   both demoted to roads that E0 prices inside H3's frame.
 
@@ -331,19 +371,28 @@ Softland's version of the promise. Unpriced, unprecedented.
   Figma converged on Softland's structure; Softland's version is LIVE
   (a focused state is feelable, not pictured).
 - Connectors-as-edges: the arrow that survives movement is an edge
-  with identity between identities — discourse-graph shaped; rendering
-  trivial, binding is document-model.
+  with identity between identities — discourse-graph shaped; the
+  BINDING is document-model-shaped; rendering NOT trivial [amended
+  C-15]: no angled-segment coverage exists today (C-11), and routing,
+  arrowheads, and cross-container attachment are real work.
 - Divergences that STAY divergent: occlusion-by-order (2D) vs
   occlusion-by-distance (3D) — two picture ontologies; shared atoms,
   never one space model · precision cultures (exact / loose / numeric)
-  — rooms share atoms, not tool-feel · typography deep in exactly one
-  practice · time deep in one and now declared in (§3).
+  — rooms share atoms, not tool-feel · PRECISION typography deep in
+  exactly one practice, while baseline shaping/Unicode/IME is a
+  cross-practice floor (D-18) [amended C-15] · time deep in one and
+  now declared in (§3).
 
-## 11. The thread router
+## 11. The thread router (R7 HISTORICAL SNAPSHOT — kept verbatim)
 
-*(`When` column HISTORICAL as of the 08-02 second ruling — threads
-remain live as candidate rungs; their order comes from the
-order-derivation round, `DISCOVERIES.md` §8.)*
+*(Marked 08-02 review: this table is the router AS IT STOOD at R7
+settlement, kept verbatim as history — including its first row,
+"Direction: atoms not architecture — settled", which is SUPERSEDED.
+Current truth: no wholesale renderer replacement is established, but
+the breadth build contains atom-kind, frame/scene-architecture-kind,
+AND contract-kind work — and the order is UNRESOLVED. Threads remain
+live as candidate rungs; their order comes from the order-derivation
+round, `DISCOVERIES.md` §8.)*
 
 | Thread | Status | Instrument | When |
 |---|---|---|---|

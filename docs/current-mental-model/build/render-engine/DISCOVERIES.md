@@ -5,11 +5,15 @@ its same-day post-settlement continuation — the reasoning chain, each
 discovery with the argument that produced it, the self-corrections with
 their mechanisms, the beliefs that died and why, and the portable
 methods. `ENGINE.md` (same dir) is the operational map: what to act on.
-THIS doc is why the map says what it says. A future session that wants
-to challenge, extend, or re-derive the map starts here; a future
-session that wants to act starts there — and reads **§8 (current
-truth) FIRST**, because rounds R8–R11 superseded parts of what R1–R7
-settled.
+THIS doc is why the map says what it says. **Two entrances, not
+one:** a future session that wants to CHALLENGE, EXTEND, or AUDIT the
+map — an ordinary continuation, inherited context allowed — starts
+here; a future session that wants to act starts in ENGINE.md — and
+either way reads **§8 (current truth) FIRST**, because rounds R8–R11
+superseded parts of what R1–R7 settled. An INDEPENDENT BLIND
+DERIVATION is a different act: it must freeze and deliver its own map
+BEFORE opening this file, ENGINE.md, or any sibling analysis (the
+M-10 protocol) — reading first spends the instrument.
 
 **How to read from a cold POV:** §1 is the spine — eleven rounds
 (R1–R7 the inquiry; R8–R11 post-settlement: a blind re-derivation, the
@@ -49,7 +53,11 @@ inline where they turned the derivation.
   apart from it .... like is this all goineg somewhere???"* — the
   priced evidence that Tier-I fluency (structure verbs over two atoms)
   bottoms out in minutes. Meaning-per-stroke is capped by the atom
-  vocabulary.
+  vocabulary. *(Marked 08-02 review: this was the inquiry's INITIAL
+  INTERPRETATION — the reading the stream opened on — not established
+  evidence. C-9 later found the attribution uncontrolled: accretion
+  absence fits the same record, and both readings remain live. Kept
+  verbatim as history.)*
 - **The ask** that opened the inquiry: *"I THINK THE ROOT CAUSE OF ALL
   PROBLEMS IS TRYING TO BUILD OUT stuff for which this is not made …
   guide me through the rendering engine that is need to provide
@@ -71,7 +79,8 @@ substrate + ~six atom families + cross-cutting upgrades + an
 adopt-vs-build graft rule + a felt-landing ladder (E1 ink&shape → E2
 image → E3 vector kit → E4 mesh). Reading of cut-2: the boredom is the
 vocabulary ceiling, so the engine completes the design rather than
-pivoting it.
+pivoting it. *(The stream's founding reading — later found
+uncontrolled, C-9.)*
 **Died:** "two atoms is the whole inventory."
 **Evidence:** renderer.cljs read — pipelines at 606/787/846/1028/1146;
 slug shader 375–514; no depth; no MSAA; analytic AA throughout.
@@ -131,7 +140,9 @@ rgba16float — half-float control points; glyphs survive in em-space,
 arbitrary shapes may visibly quantize), `buffer_pool.cljs` found (a
 slot-based differential pool — instance-tier heap exists; range
 allocation does not), the storage-buffer hypothesis KILLED (C-3: no
-storage buffers exist; containers ride a 1024-cap uniform of
+storage buffers exist [scoped 08-02 review: in the PRODUCTION
+renderer — the island probe is the in-repo precedent, D-19];
+containers ride a 1024-cap uniform of
 [x y scale flag] — rotation absent at the byte level), a persistent
 offscreen render target with COPY_SRC found (composited-mode seed), no
 depth attachment confirmed, the 29-word rect instance = the real paint
@@ -221,7 +232,11 @@ for stability across independent derivations — plus the standing memory
 law: primary sources over any session's compression.
 **Move:** a deliberately BLIND fresh pass: no ENGINE.md, no
 transcripts, no prior recommendation — only source code and stable
-vision ground, every claim carrying file:line.
+vision ground, every claim carrying file:line. Protocol, load-bearing
+(M-10): the pass FROZE its full map — delivered in writing, with an
+explicit ambient-leakage declaration (boot-context commit-message
+compressions) — BEFORE reading ENGINE.md, DISCOVERIES.md, or the
+sibling's text; the contact that followed spent the instrument.
 **Born:** the strongest corroboration the map can get short of
 measurements — independent convergence on the center (citizenship /
 material-law as the novel promise; regions-of-one-world; missing atoms
@@ -248,7 +263,9 @@ probes/island_probe.cljs · build/box3d-spike/REPORT.md.
 records" — the primary-sources law applied to the FAILURE RECORDS,
 which no round had done.
 **Move:** read G7 and cut-2 side by side as records, not map nodes;
-read the paper page as an artifact.
+read the paper page as an artifact. *(An ordinary MAP-LOADED
+continuation — generative, NOT a blind instrument: its authority is
+the primary-records argument, never independence; M-3/M-10.)*
 **Born:** the two-body complement (D-21): G7 = the true body without
 the visible body; cut-2 = the visible body without the true body —
 each stream shipped one body and was diagnosed only inside its own
@@ -373,7 +390,18 @@ boundary, sampled) — what's missing is the MUNDANE (tessellated,
 composited), not the exotic. The deliberate counterexample hunt found
 no in-envelope form needing a seventh mode; the strains it did find
 (backdrop blur, silhouettes, caret parity, export, eyedropper) all land
-in composited-mode or in layers above the atoms.
+in composited-mode or in layers above the atoms. *(Amended 08-02
+review, C-13: "composited" is not a coverage mode — compositing
+decides nothing about a pixel's coverage from geometry; it is PASS
+STRUCTURE, its own axis, where D-03's frame kind lives. The coverage
+list is FIVE modes, three live. And "new paints are fragment-local
+and cheap" overclaims: solid/gradient variants are fragment-local;
+image paint carries resource infrastructure (decode · upload · color
+management · mipmaps · bind-group/atlas strategy); procedural may
+need aux textures; lit needs normals + light state. The hunt's
+conclusion survives restated: no in-envelope form needs a SIXTH
+coverage evaluation; the strains land on the composition axis or
+above the atoms. Operational form: ENGINE §5, repaired in place.)*
 
 **D-06 · The four guarantees.** G-cover (envelope spanned as MATERIAL:
 rendered + pickable + grammar-editable + versioned — rendering alone is
@@ -430,7 +458,10 @@ fills); one hypothesis died cleanly (no storage buffers anywhere —
 containers are a 1024-cap uniform, [x y scale flag], no rotation at the
 byte level); two assets appeared (buffer_pool's slot-differential heap;
 the persistent offscreen target with COPY_SRC — render-to-texture and
-readback are seeds, not fantasies).
+readback are seeds, not fantasies). *(Scope, 08-02 review: "no
+storage buffers anywhere" = the PRODUCTION renderer (renderer.cljs);
+probes/island_probe.cljs runs storage-buffer instancing — the in-repo
+precedent, D-19/C-10.)*
 
 **D-11 · Practices, not products — and the fourth practice.** The
 promise's referents are practices (thinking-by-drawing · interface
@@ -448,7 +479,10 @@ shadows on three walls.
 benchmarks) · illegible (lived contact — the grade that killed G7:
 everything rendered, nothing could be understood or aimed). A promise
 meaning only grade 1 while saying "never blocked" is the overpromise
-shape wearing rigor.
+shape wearing rigor. *(Precision, 08-02 review, C-15: engine work
+cannot CREATE meaning — but render and affordance quality can move
+LEGIBILITY, so "no engine work touches grade 4" is too absolute;
+lived contact remains the grade's only verifier.)*
 
 **D-13 · The four-layer promise.** Atom floor — closes (six modes) ·
 tool-math — adoptable-unbounded (shaping, booleans, tessellation:
@@ -456,7 +490,10 @@ never architectural, never "done") · composition/practice — open-ended
 (meaning lives here; G7-class failure stays possible forever) · seams —
 novel (D-14). Layer confusion was the root of every earlier
 overpromise: the closable bottom kept borrowing the whole sentence's
-emotional weight.
+emotional weight. *(Narrowed 08-02 review, C-15: layer 2's "never
+architectural" overclaims — KERNELS are adoptable; INTEGRATION can be
+architectural. Shaping is the proof: adopting HarfBuzz-class math
+forces the D-18 metrics migration through wrap/clip/caret/hit-test.)*
 
 **D-14 · Coexistence — the novel promise.** In the products the three
 practices never share a canvas; in Softland there is one world —
@@ -468,7 +505,9 @@ iframe punt) · cross-anchoring (3D point → 2D label; 2D gesture → ray)
 convergence). space-as-entity anticipated the seam before this inquiry
 existed — spaces as identities, membership as material. Surviving
 unknown: one identity across space kinds (likely-yes via instances;
-nothing 3D in code). The seam demo — text + ink + live component + 3D
+nothing 3D in code *[annotated 08-02 review: PRODUCTION has none —
+the island probe and the Box3D receipt exist in-repo, D-19/C-10]*).
+The seam demo — text + ink + live component + 3D
 region under one picking model — is the true "broad enough" bar, and
 no per-room success implies it.
 
@@ -479,7 +518,12 @@ make motion MORE native than Figma's prototype fiction — states
 actually transition. Render cost small (parameter interpolation over an
 already-per-frame loop); the real cost is material-model: a transition
 as material, a spring as a claim, time in the grammar. Declared into
-the envelope by carried lean [SID], staged late.
+the envelope by carried lean [SID], staged late. *(Amended 08-02
+review via D-18: "an already-per-frame loop" is FALSE in production —
+frames draw only on world-value change; no animation clock exists.
+Interpolation itself stays cheap [GK]; the CLOCK — clocked-region
+scheduling — is a structural frame-kind addition, unpriced. Real cost
+= material-model AND frame scheduling.)*
 
 **D-16 · Chrome — the unaudited class.** Hairlines at constant
 screen-width across all zooms, marching selection, gizmos, pickers,
@@ -504,7 +548,17 @@ rooms share atoms, not tool-feel · typography deep in exactly one
 practice · time deep in one (now declared in). Bonus dividend found on
 the way: export-to-vector is a PROJECTION of material — material-first
 architecture makes SVG/PDF export cheap, a place the thesis pays for
-itself unexpectedly.
+itself unexpectedly. *(Narrowed 08-02 review, C-15: connector
+RENDERING is not trivial — no angled-segment coverage exists today
+(C-11), and routing, arrowheads, curved edges, cross-container
+attachment, and label placement are real work; what stays true is
+that the BINDING is document-model-shaped. "Typography deep in
+exactly one practice" holds only at precision/finish weight —
+baseline shaping, Unicode, and IME are a cross-practice floor (D-18).
+And export: material-first makes export STRUCTURALLY CLEANER (no
+scene-graph reverse-engineering), not automatically cheap — the
+exporters themselves (SVG/PDF semantics, font embedding/outlining,
+color) remain real work.)*
 
 **D-18 · The floor facts the inquiry missed (blind pass, R8).** All
 [CODE], all in the working tree at 2026-08-02:
@@ -565,7 +619,17 @@ already carries a per-instance inverse Jacobian shaped for exactly
 that (renderer.cljs:319,364). Consequence for the breadth build: E0's
 rotation question and its "rotation re-prices as frame-kind" decision
 rule split per atom-kind — free by construction on the tessellated
-road, real only for quads/text.
+road, real only for quads/text. *(Downgraded 08-02 review, C-14:
+"free by construction" overclaims. Pre-baked vertex rotation is a
+PROVISIONAL road for isolated, settled tessellated geometry only.
+Full affine remains structural: rotated bounds break the axis-aligned
+clip intersection and AABB culling (rect_tree), point-in-rect
+hit-testing, and container NESTING (a rotated group must carry the
+transform in the chain — children cannot each bake it); instance
+REUSE cannot share differently-rotated baked vertices; and mixed-atom
+containers (text inside a rotated frame) need shader-level quad
+rotation regardless. E0's rotation decision rule stands; the "free"
+arm does not.)*
 
 **D-21 · The two-body complement (R9, sibling; adjudicated R10).** G7
 and cut-2 are complements under the project's oldest law: G7 delivered
@@ -634,7 +698,10 @@ corpus sweep in minutes. Landed as one line in ENGINE.md §3.
   against banked code truth (P0 S6).
 - **C-3 · Storage-buffer precedent.** Hypothesized as existing;
   killed — no storage buffers anywhere in the renderer. Caught by:
-  grep before claim.
+  grep before claim. *(Scope, 08-02 review: "the renderer" =
+  production renderer.cljs; probes/island_probe.cljs uses
+  storage-buffer instancing — the in-repo precedent, D-19. C-10
+  carries the general lesson: sweep the repo, not the file.)*
 - **C-4 · The closure sentence.** "Blocked-below becomes impossible"
   asserted inventory-comfort (A) on extensibility grounds (B). Caught
   by: Sid's equivalence question.
@@ -687,6 +754,44 @@ corpus sweep in minutes. Landed as one line in ENGINE.md §3.
   stories about cut-2 were underdetermined from the start. Caught by:
   running the experiment-design critique on the critique's own
   proposal.
+- **C-13 · Compositing filed under coverage; paints priced uniformly
+  cheap (external review catch, 08-02).** D-05's six-mode list put
+  "composited" beside coverage evaluations, but compositing decides
+  nothing about a pixel's coverage from geometry — it is PASS
+  STRUCTURE (offscreen groups, masks, backdrop reads), the axis where
+  D-03's frame kind lives. And "new paints are fragment-local and
+  cheap" collapses paint families that differ by an order: image
+  paint carries decode/upload/color/mipmap/bind-group infrastructure;
+  procedural may need aux textures; lit needs normals + light state.
+  Repaired: FIVE coverage modes (three live) · composition its own
+  axis with its own [CODE] floor · paint costs ranged (note at D-05;
+  ENGINE §5 repaired in place — it is the operational map). Caught
+  by: adversarial external review — M-7's immune system run by a
+  second instrument.
+- **C-14 · Rotation-as-data overclaimed (external review catch,
+  08-02).** D-20's "free by construction on the tessellated road"
+  holds only for isolated, settled geometry. Full affine touches
+  bounds computation, the axis-aligned clip intersection,
+  point-in-rect picking, container nesting (a rotated GROUP must
+  carry the transform in the chain), instance reuse
+  (differently-rotated instances cannot share baked vertices), and
+  mixed-atom containers. Downgraded at D-20 and ENGINE §4; E0's
+  rotation decision rule unaffected. Mechanism: the tell was the word
+  "free" attached to a structural axis.
+- **C-15 · The universal-claim sweep (external review catch,
+  08-02).** Five claims stated stronger than their evidence, each
+  narrowed in place: tool-math "never architectural" → kernels
+  adoptable, INTEGRATION can be architectural (shaping ⇒ the D-18
+  metrics migration) · connector rendering "trivial" → not trivial
+  (no angled-segment coverage exists — C-11; routing / arrowheads /
+  attachment are real work) · "typography deep in exactly one
+  practice" → precision typography only; baseline shaping/Unicode/IME
+  is a cross-practice floor (D-18) · export "cheap" because
+  material-first → structurally CLEANER; the exporters remain real
+  work · "engine work never touches" grade-4 → cannot create meaning,
+  CAN move legibility. Mechanism: hunt universal quantifiers
+  ("never", "trivial", "exactly one", "cheap", "free") in settled
+  prose — the cheapest standing falsifier for a map.
 
 ---
 
@@ -694,23 +799,25 @@ corpus sweep in minutes. Landed as one line in ENGINE.md §3.
 
 | Was believed | Is now | Why it changed | Reopens if |
 |---|---|---|---|
-| Two atoms are the whole inventory | Five pipelines; three of six coverage modes live | R1 code read (Slug find) | — (code fact) |
-| Seven classes = the complete basis | coverage×paint modes + three addition-kinds | classes mixed kinds; form-lists never close | a seventh in-envelope mode appears |
+| Two atoms are the whole inventory | Five pipelines; three of FIVE coverage modes live (composition is a separate axis — C-13) | R1 code read (Slug find); recount C-13 | — (code fact) |
+| Seven classes = the complete basis | coverage × paint/resources × composition/pass-structure + frame-wide policies, with three addition-kinds | classes mixed kinds; form-lists never close; factorization repaired C-13 | a form needing a sixth coverage evaluation appears |
 | Closure is provable by enumeration | A-within-declared-envelope + B-beyond, B tiered | the volumes tell; C-4 | — (structural) |
 | Slug is the committed fill road | H1/H2 retired as commitments; H3 leads, E0 prices | C-1, C-2, ink-is-a-fill-problem, fp16 | E0 results |
 | "Infinite zoom" justifies analytic | zoom clamp [0.1, 8.0] is current truth | C-2 | Sid declares deeper zoom into the envelope |
-| Storage-buffer precedent exists | none in file; containers = 1024-cap uniform | C-3 grep | — (code fact) |
+| Storage-buffer precedent exists | none in the PRODUCTION renderer (containers = 1024-cap uniform); island-probe precedent in-repo (D-19) | C-3 grep; scoped 08-02 review | — (code fact) |
 | Slug is the live default text path | selectable; boot default MSDF | manifest + fonts.cljs read | manifest default changes |
 | Engine closure = the promise | necessary fragment; four-layer promise above it | R6; C-6 | — (structural) |
 | Per-room workshops frame the demand | one world; coexistence is the novel promise | R6 (the per-room frame hid it) | Sid rules coexistence out (unlikely — it's the differentiator) |
-| E0 is the center of gravity | first machine act; prices one road of one atom | R6 demotion | — |
+| E0 is the center of gravity | a candidate machine rung, timing UNRESOLVED (the order round rules it); prices one road of one atom | R6 demotion; R11 re-filed it | — |
 | Blocked = capability absent | four grades, four verifiers | G7+cut-2 evidence read honestly | — |
 | cut-2 proves the vocabulary ceiling | one of two live readings (vocabulary · accretion); attribution uncontrolled | R9 / C-9 | a de-confounded felt gate attributes cut-2-class flatness |
 | "nothing 3D exists in code" (inside D-14) | island probe + Box3D receipt exist; production has none | R8 / C-10, D-19 | — (code fact) |
 | E0 is the chosen next act | breadth build ruled; next = the order-derivation round; E0 re-files as a candidate rung (spec intact, ENGINE §12) | R11 (Sid) | Sid re-sequences |
 | E1's felt gate = the paper page as specced | confounded (atoms+accretion); every felt gate now one-live-variable + real-use | R9 / D-22; law R11 | — (design law) |
 | X0 is the next act (proposed R9/R10) | dead on arrival as route; findings incorporated as law + method + diagnostic frame | R11 (Sid: "what v2 says is true but no not that route") | Sid reopens the conjunction question |
-| rotation is uniformly cross-cutting (one price) | data-for-meshes · shader-only-for-quads (Slug inv_jac ready-shaped) | R8 / D-20 | a mesh-atom rung finds otherwise |
+| rotation is uniformly cross-cutting (one price) | provisional data-baking for ISOLATED tessellated geometry only; full affine structural (bounds · clip · pick · nesting · reuse) — D-20 as amended by C-14; quads/text need in-shader rotation (Slug inv_jac ready-shaped) | R8 / D-20; downgraded C-14 | a mesh-atom rung finds otherwise |
+| six coverage modes incl. composited; new paints uniformly cheap | FIVE coverage modes (three live); composition = its own pass-structure axis; paint costs ranged | C-13 (08-02 review sweep) | a form needing a sixth coverage evaluation appears |
+| "no storage buffers exist" (unscoped) | scoped: none in the production renderer; the island probe is the in-repo precedent | C-3/D-10 scope notes, D-19 | — (code fact) |
 
 ---
 
@@ -762,7 +869,15 @@ corpus sweep in minutes. Landed as one line in ENGINE.md §3.
   finds floor facts the settled frame stopped looking for
   (D-18/D-19/D-20). The instrument spends itself on first use — once
   it reads the map it cannot be blind again. Schedule it BEFORE
-  settlement hardens.
+  settlement hardens. Protocol, precise (08-02 review): the
+  derivation must FREEZE its own map — written and delivered in
+  full — BEFORE reading ENGINE.md, DISCOVERIES.md, or any
+  challenger's text; only freeze-before-contact makes it an
+  instrument, and ambient leakage (boot-context compressions) must be
+  declared inside the frozen map itself. A challenge or continuation
+  by a map-loaded session (R9's move) can be generative but is NOT
+  blind derivation and never counts as independent corroboration
+  (M-3).
 - **M-11 · Go back under the map.** Compressions rot even when
   correct. The two-failure cross-reading (D-21) sat in the primary
   records for a day while every session read maps of them. The
@@ -826,12 +941,25 @@ every engine rung's gates):**
 > representational capability with a meaningful authoring loop. Felt
 > gates must test real use rather than merely the presence of atoms.
 
-**Stands (unchanged by the ruling):** the working map (`ENGINE.md`
-§§1–10, 13) — four-layer promise · four guarantees · declared envelope
-(ratification paragraph still Sid's) · coverage×paint ·
-addition-kinds · renderer-never-defines-material · three regimes ·
-coexistence · chrome-as-weakest-plank · H3 with E0's questions as its
-killer. The R8 floor facts (D-18/D-19/D-20) extend the evidence spine.
+**Stands — at the promise / guarantee / law level:** the four-layer
+promise + the Smalltalk sentence · blocked four-graded · the four
+guarantees · the declared envelope (ratification paragraph still
+Sid's) · renderer-never-defines-material · the three regimes ·
+coexistence as the novel center · chrome-as-weakest-plank · H3 with
+E0's questions as its killer · the breadth ruling + the incorporated
+law above.
+
+**Amended — implementation-level claims (not "unchanged"):** cut-2's
+attribution (C-9) · the basis factorization — FIVE coverage modes +
+composition as its own pass-structure axis, paint costs ranged
+(C-13) · motion re-priced against the missing animation clock (D-15
+as amended by D-18) · rotation downgraded to a provisional road for
+isolated tessellated geometry (C-14) · storage-buffer claims scoped
+to the production renderer with the probe precedent cross-referenced
+(C-3/D-10/D-19) · the universal-claim narrowings (C-15: tool-math
+integration · connectors · typography · export · legibility). The R8
+floor facts (D-18 · D-19 · D-20-as-amended) extend the evidence
+spine.
 
 **Superseded:** E0 as the chosen next act (its seven questions and
 pre-registered decision rules survive intact as a candidate rung's
@@ -850,9 +978,21 @@ above (every rung's felt gate: one live variable, real use, never
 atom-presence). Known candidate rungs going in — non-exhaustive,
 deliberately UNORDERED; the round's whole job is the order and its
 why: E0's road-pricing spike · D2 the shape material contract · the
-tessellated/path atom · the image atom · the compositor design ·
-proportional-metrics plumbing · the reference/connector slice (D-23's
-costing) · the chrome audit · region/3D.
+tessellated/path atom · the image atom + resource/color
+infrastructure (decode · upload · color management · atlas/bind-group
+strategy) · affine/nested transform generality (D-20's structural
+remainder: bounds · clip · pick · nesting · reuse) · frame
+scheduling/time (the animation clock; clocked regions — D-15/D-18) ·
+text shaping + IME + Unicode + proportional metrics (the D-18 input
+floor; the monospace-coupling migration) · clipping/masks/composition
+(the compositor frame-graph; group opacity; backdrop effects) ·
+pick/paint ordering coherence (D-18) · material citizenship for new
+atoms (the contract kind: grammar · pick · provenance · versioning
+per atom — G-cover's other three quarters) · verification instruments
+(G-verify's standing probes + golden receipts) · the
+reference/connector slice (D-23's costing; C-15's non-trivial
+rendering) · the chrome audit · region/3D + cross-region picking
+(D-19's receipt).
 
 **Custody:** board studio/engine block + Vision line advanced (08-02
 second entry) · `build/studio/NOW.md` entry appended · LOG carries the
@@ -862,3 +1002,12 @@ uncommitted code layers and the archive/survivorship ruling remain
 OPEN and are now order-round inputs (the studio layer carries the
 durable authoring loop the law demands; the playground layer's pure
 cljc math is reusable; the ruling stays Sid's).
+
+**Commit-state annotation (08-02 — conflict RESOLVED same day, Sid's
+ruling):** an external review invoked AGENTS.md:125 ("NEVER commit
+.md files") to hold this sweep uncommitted; the conflict with
+CLAUDE.md's settle-then-commit docs flow was flagged to Sid, who
+ruled: docs ARE committed — CLAUDE.md governs; AGENTS.md is old and
+out of date (it now carries a deprecation banner). The existing local
+doc commits (f787a9b · eca6516) stand; this sweep commits normally on
+the local docs branch, never pushed.
