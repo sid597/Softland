@@ -1,6 +1,40 @@
 (ns app.client.substrate.webgpu.renderer
-  (:require [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
+  (:require [clojure.string :as str]
+            [app.client.substrate.scene-tape :as scene-tape]
+            [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.workspace.text-layout :as tl]))
+
+(def ^:private scene-color-mode-declaration
+  "const kSceneColorLinearPremultiplied: bool = false;")
+
+(def ^:private scene-color-wgsl
+  (str scene-color-mode-declaration "\n"
+       "fn srgb_channel_to_linear(v: f32) -> f32 {\n"
+       "  if (v <= 0.04045) { return v / 12.92; }\n"
+       "  return pow((v + 0.055) / 1.055, 2.4);\n"
+       "}\n"
+       "fn scene_color(straight: vec4<f32>, coverage: f32) -> vec4<f32> {\n"
+       "  if (!kSceneColorLinearPremultiplied) {\n"
+       "    return vec4<f32>(straight.rgb, straight.a * coverage);\n"
+       "  }\n"
+       "  let alpha = clamp(straight.a * coverage, 0.0, 1.0);\n"
+       "  let linear = vec3<f32>(srgb_channel_to_linear(straight.r),\n"
+       "                         srgb_channel_to_linear(straight.g),\n"
+       "                         srgb_channel_to_linear(straight.b));\n"
+       "  return vec4<f32>(linear * alpha, alpha);\n"
+       "}\n"))
+
+(defn- configure-scene-color-shader [shader color]
+  (if (:enabled? color)
+    (str/replace shader scene-color-mode-declaration
+                 "const kSceneColorLinearPremultiplied: bool = true;")
+    shader))
+
+(defn- scene-color-blend [color]
+  (let [{[color-src color-dst] :color
+         [alpha-src alpha-dst] :alpha} (:blend color)]
+    {:color {:srcFactor (name color-src) :dstFactor (name color-dst)}
+     :alpha {:srcFactor (name alpha-src) :dstFactor (name alpha-dst)}}))
 
 ;; --- 1. SHADERS ---
 ;; Rich quads: 28 floats/rect, SDF-based rounded corners, borders, gradients
@@ -73,7 +107,7 @@
       return output;
   }")
 
-(def rect-fragment-shader "
+(def rect-fragment-shader (str scene-color-wgsl "
   // Inigo Quilez SDF rounded box with per-corner radii
   fn sd_rounded_box(p: vec2<f32>, half_size: vec2<f32>, radii: vec4<f32>) -> f32 {
       // radii: tl, tr, br, bl → select based on quadrant
@@ -140,11 +174,11 @@
           let inner_aa = clamp(0.5 - inner_dist, 0.0, 1.0);
           // Composite: border color in the ring, fill inside
           let result = mix(border_color, fill, inner_aa);
-          return vec4<f32>(result.rgb, result.a * aa);
+          return scene_color(result, aa);
       }
 
-      return vec4<f32>(fill.rgb, fill.a * aa);
-  }")
+      return scene_color(fill, aa);
+  }"))
 
 ;; --- Shadow shaders ---
 ;; 20 floats/shadow (80 bytes): expanded_rect, shadow_color, corner_radii, blur_params, inner_rect
@@ -205,7 +239,7 @@
       return output;
   }")
 
-(def shadow-fragment-shader "
+(def shadow-fragment-shader (str scene-color-wgsl "
   // Approximate erf for Gaussian CDF shadow falloff
   fn erf_approx(x: f32) -> f32 {
       let a = abs(x);
@@ -259,8 +293,8 @@
       let sigma = max(blur * 0.5, 0.001);
       let alpha = 0.5 - 0.5 * erf_approx(dist / (sigma * 1.4142135));
 
-      return vec4<f32>(shadow_color.rgb, shadow_color.a * alpha);
-  }")
+      return scene_color(shadow_color, alpha);
+  }"))
 
 (def text-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
@@ -303,7 +337,7 @@
       return output;
   }")
 
-(def text-fragment-shader "
+(def text-fragment-shader (str scene-color-wgsl "
   @group(0) @binding(0) var sampler0: sampler;
   @group(0) @binding(1) var texture0: texture_2d<f32>;
   // Sizing uniform: pxRange, atlasEmSize, sharpness (color now per-instance)
@@ -320,8 +354,8 @@
        let dist = sd - 0.5 + params.sharpness;
        let opacity = clamp(dist * screenPxRange + 0.5, 0.0, 1.0);
        // Use per-instance color instead of uniform color
-       return vec4<f32>(color.rgb, opacity * color.a);
-  }")
+       return scene_color(color, opacity);
+  }"))
 
 (def slug-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
@@ -394,7 +428,7 @@
     return output;
   }")
 
-(def slug-fragment-shader "
+(def slug-fragment-shader (str scene-color-wgsl "
   const kLogBandTextureWidth: u32 = 12u;
   const kMinDerivative: f32 = 1.0 / 65536.0;
 
@@ -532,8 +566,8 @@
           @location(2) banding: vec4<f32>,
           @location(3) @interpolate(flat) glyph: vec4<u32>) -> @location(0) vec4<f32> {
     let coverage = slug_render(texcoord, banding, glyph);
-    return vec4<f32>(color.rgb, saturate(coverage + params.sharpness) * color.a);
-  }")
+    return scene_color(color, saturate(coverage + params.sharpness));
+  }"))
 
 ;; Calculate bracket highlight rectangles
 (defn calculate-bracket-rects [bracket-match font-size start-x start-y line-h]
@@ -646,12 +680,15 @@
 
 (defn init-rect-system
   [^js/GPUDevice device fformat camera-buffer
-   & {:keys [initial-capacity tracker label containers-buffer]
+   & {:keys [initial-capacity tracker label containers-buffer scene-color]
       :or {initial-capacity 1000
-           label "rect/shared-system"}}]
+           label "rect/shared-system"
+           scene-color scene-tape/legacy-direct-color}}]
   (assert containers-buffer "init-rect-system requires :containers-buffer (scene-substrate P2)")
   (let [v-module (.createShaderModule device (clj->js {:code rect-vertex-shader}))
-        f-module (.createShaderModule device (clj->js {:code rect-fragment-shader}))
+        f-module (.createShaderModule device
+                                     (clj->js {:code (configure-scene-color-shader
+                                                      rect-fragment-shader scene-color)}))
         buf-size (* initial-capacity rect-stride)
         instance-buffer (.createBuffer device (clj->js {:size buf-size :usage (bit-or js/GPUBufferUsage.VERTEX js/GPUBufferUsage.COPY_DST)}))
         _ (gpu-budget/register-buffer! tracker instance-buffer label buf-size :active-bytes 0)
@@ -671,8 +708,8 @@
                                                                {:shaderLocation 6 :offset 96 :format "float32x4"}   ;; gradient_color2
                                                                {:shaderLocation 7 :offset 112 :format "uint32"}]}]}  ;; container_idx
                               :fragment {:module f-module :entryPoint "main"
-                                         :targets [{:format fformat :blend {:color {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}
-                                                                            :alpha {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}}}]}
+                                         :targets [{:format fformat
+                                                    :blend (scene-color-blend scene-color)}]}
                               :primitive {:topology "triangle-list"}}))
         bind-group (.createBindGroup device (clj->js {:layout bg-layout :entries [{:binding 0 :resource {:buffer camera-buffer}}
                                                                                   {:binding 1 :resource {:buffer containers-buffer}}]}))]
@@ -681,6 +718,8 @@
      :instance-buffer instance-buffer
      :capacity initial-capacity
      :num-instances 0
+     :family/id :render.family/rect
+     :scene-color scene-color
      :gpu-tracker tracker
      :gpu-label label}))
 
@@ -826,13 +865,16 @@
 
 (defn- init-msdf-text-system
   [^js/GPUDevice device fformat camera-buffer font-assets
-   & {:keys [initial-capacity tracker label containers-buffer]
+   & {:keys [initial-capacity tracker label containers-buffer scene-color]
       :or {initial-capacity 10000
-           label "text/content"}}]
+           label "text/content"
+           scene-color scene-tape/legacy-direct-color}}]
   (assert containers-buffer "init-msdf-text-system requires :containers-buffer (scene-substrate P2)")
   (let [font-bitmap (:bitmap font-assets)
         vertex-module (.createShaderModule device (clj->js {:code text-vertex-shader}))
-        fragment-module (.createShaderModule device (clj->js {:code text-fragment-shader}))
+        fragment-module (.createShaderModule device
+                                             (clj->js {:code (configure-scene-color-shader
+                                                              text-fragment-shader scene-color)}))
         font-resources (create-msdf-font-resources device tracker font-bitmap "text/atlas")
         instance-buffer (create-instance-buffer device tracker label initial-capacity msdf-text-instance-stride)
         sizes-buffer (.createBuffer device (clj->js {:size 16
@@ -858,8 +900,7 @@
                              :fragment {:module fragment-module
                                         :entryPoint "main"
                                         :targets [{:format fformat
-                                                   :blend {:color {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}
-                                                           :alpha {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}}}]}
+                                                   :blend (scene-color-blend scene-color)}]}
                              :primitive {:topology "triangle-list"}}))
         bind-group (create-msdf-bind-group device bg-layout (:font-sampler font-resources) (:font-texture-view font-resources) camera-buffer sizes-buffer containers-buffer)]
     (js/console.log "[RENDERER] Init text system"
@@ -870,6 +911,8 @@
                      :atlas-size [(.-width font-bitmap) (.-height font-bitmap)]})
     (merge font-resources
            {:backend :msdf
+            :family/id :render.family/msdf
+            :scene-color scene-color
             :pipeline pipeline
             :bind-group bind-group
             :bind-group-layout bg-layout
@@ -886,12 +929,15 @@
 
 (defn- init-slug-text-system
   [^js/GPUDevice device fformat camera-buffer font-assets
-   & {:keys [initial-capacity tracker label containers-buffer]
+   & {:keys [initial-capacity tracker label containers-buffer scene-color]
       :or {initial-capacity 10000
-           label "text/content"}}]
+           label "text/content"
+           scene-color scene-tape/legacy-direct-color}}]
   (assert containers-buffer "init-slug-text-system requires :containers-buffer (scene-substrate P2)")
   (let [vertex-module (.createShaderModule device (clj->js {:code slug-vertex-shader}))
-        fragment-module (.createShaderModule device (clj->js {:code slug-fragment-shader}))
+        fragment-module (.createShaderModule device
+                                             (clj->js {:code (configure-scene-color-shader
+                                                              slug-fragment-shader scene-color)}))
         font-resources (create-slug-font-resources device tracker (:slug font-assets))
         instance-buffer (create-instance-buffer device tracker label initial-capacity slug-text-instance-stride)
         sizes-buffer (.createBuffer device (clj->js {:size 16
@@ -920,8 +966,7 @@
                              :fragment {:module fragment-module
                                         :entryPoint "main"
                                         :targets [{:format fformat
-                                                   :blend {:color {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}
-                                                           :alpha {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}}}]}
+                                                   :blend (scene-color-blend scene-color)}]}
                              :primitive {:topology "triangle-list"}}))
         bind-group (create-slug-bind-group device bg-layout (:curve-texture-view font-resources) (:band-texture-view font-resources) camera-buffer sizes-buffer containers-buffer)]
     (js/console.log "[RENDERER] Init text system"
@@ -931,6 +976,8 @@
                      :instance-stride slug-text-instance-stride})
     (merge font-resources
            {:backend :slug
+            :family/id :render.family/slug
+            :scene-color scene-color
             :pipeline pipeline
             :bind-group bind-group
             :bind-group-layout bg-layout
@@ -1034,7 +1081,8 @@
         label (:gpu-label old-text-sys)
         tracker (:gpu-tracker old-text-sys)
         camera-buffer (:camera-uniform-buffer old-text-sys)
-        containers-buffer (:containers-uniform-buffer old-text-sys)]
+        containers-buffer (:containers-uniform-buffer old-text-sys)
+        scene-color (:scene-color old-text-sys scene-tape/legacy-direct-color)]
     (js/console.log "[RENDERER] Recreate text system"
                     {:old-backend (:backend old-text-sys)
                      :new-backend (:backend font-assets)
@@ -1046,7 +1094,8 @@
                       :initial-capacity capacity
                       :tracker tracker
                       :label label
-                      :containers-buffer containers-buffer)))
+                      :containers-buffer containers-buffer
+                      :scene-color scene-color)))
 
 (defn clone-text-system
   "Create a lightweight text system clone sharing pipeline, bind-group, camera,
@@ -1068,12 +1117,15 @@
 
 (defn init-shadow-system
   [^js/GPUDevice device fformat camera-buffer
-   & {:keys [initial-capacity tracker label containers-buffer]
+   & {:keys [initial-capacity tracker label containers-buffer scene-color]
       :or {initial-capacity 256
-           label "shadow/shared-system"}}]
+           label "shadow/shared-system"
+           scene-color scene-tape/legacy-direct-color}}]
   (assert containers-buffer "init-shadow-system requires :containers-buffer (scene-substrate P2)")
   (let [v-module (.createShaderModule device (clj->js {:code shadow-vertex-shader}))
-        f-module (.createShaderModule device (clj->js {:code shadow-fragment-shader}))
+        f-module (.createShaderModule device
+                                     (clj->js {:code (configure-scene-color-shader
+                                                      shadow-fragment-shader scene-color)}))
         buf-size (* initial-capacity shadow-stride)
         instance-buffer (.createBuffer device (clj->js {:size buf-size :usage (bit-or js/GPUBufferUsage.VERTEX js/GPUBufferUsage.COPY_DST)}))
         _ (gpu-budget/register-buffer! tracker instance-buffer label buf-size :active-bytes 0)
@@ -1091,8 +1143,8 @@
                                                                {:shaderLocation 4 :offset 64 :format "float32x4"}   ;; inner_rect
                                                                {:shaderLocation 5 :offset 80 :format "uint32"}]}]}  ;; container_idx
                               :fragment {:module f-module :entryPoint "main"
-                                         :targets [{:format fformat :blend {:color {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}
-                                                                            :alpha {:srcFactor "src-alpha" :dstFactor "one-minus-src-alpha"}}}]}
+                                         :targets [{:format fformat
+                                                    :blend (scene-color-blend scene-color)}]}
                               :primitive {:topology "triangle-list"}}))
         bind-group (.createBindGroup device (clj->js {:layout bg-layout :entries [{:binding 0 :resource {:buffer camera-buffer}}
                                                                                   {:binding 1 :resource {:buffer containers-buffer}}]}))]
@@ -1101,6 +1153,8 @@
      :instance-buffer instance-buffer
      :capacity initial-capacity
      :num-instances 0
+     :family/id :render.family/shadow
+     :scene-color scene-color
      :gpu-tracker tracker
      :gpu-label label}))
 
@@ -1189,8 +1243,22 @@
       return vec4<f32>(0.0, 0.0, 0.0, 1.0);
   }")
 
-(defn init-clear-quad [^js/GPUDevice device fformat]
-  (let [module (.createShaderModule device (clj->js {:code clear-quad-shader}))
+(defn- configure-clear-quad-shader [color]
+  (let [[r g b a] (:clear color)]
+    (str/replace clear-quad-shader
+                 "return vec4<f32>(0.0, 0.0, 0.0, 1.0);"
+                 (str "return vec4<f32>(" r ", " g ", " b ", " a ");"))))
+
+(defn- clear-value [color]
+  (let [[r g b a] (:clear color)]
+    {:r r :g g :b b :a a}))
+
+(defn init-clear-quad
+  [^js/GPUDevice device fformat & {:keys [scene-color]
+                                   :or {scene-color scene-tape/legacy-direct-color}}]
+  (let [module (.createShaderModule device
+                                   (clj->js {:code (configure-clear-quad-shader
+                                                    scene-color)}))
         layout (.createPipelineLayout device (clj->js {:bindGroupLayouts []}))
         pipeline (.createRenderPipeline device
                    (clj->js {:layout layout
@@ -1199,13 +1267,16 @@
                                         :targets [{:format fformat
                                                    :writeMask 0xF}]}
                              :primitive {:topology "triangle-list"}}))]
-    {:pipeline pipeline}))
+    {:pipeline pipeline
+     :family/id :render.family/clip
+     :scene-color scene-color}))
 
 ;; --- Persistent render target (Phase 6E: survives swap chain double-buffering) ---
 
 (defn create-render-target
-  [^js device width height fformat & {:keys [tracker label previous]
-                                      :or {label "render-target/persistent"}}]
+  [^js device width height fformat & {:keys [tracker label previous scene-color]
+                                      :or {label "render-target/persistent"
+                                           scene-color scene-tape/legacy-direct-color}}]
   (let [safe-width (max 1 width)
         safe-height (max 1 height)
         tex (.createTexture device
@@ -1236,6 +1307,8 @@
      :view (.createView tex)
      :width safe-width
      :height safe-height
+     :resource/id :scene-color/main
+     :scene-color scene-color
      :gpu-tracker tracker
      :gpu-label label}))
 
@@ -1244,25 +1317,43 @@
     (gpu-budget/destroy-resource! gpu-tracker texture :reason :render-target-destroy)
     (.destroy texture)))
 
-(defn create-editor-state [{:keys [device format font-assets gpu-budget]}]
-  (let [camera-buffer (create-camera-buffer device gpu-budget)
+(defn- scene-color-resource
+  "Resolve the one frame scene-color resource.  With no persistent target this
+   is the direct-present swap view; when the existing default-off target is
+   enabled it becomes the intermediate view.  Future group targets extend this
+   resource shape instead of creating another frame path."
+  [swap-view render-target color]
+  {:resource/id :scene-color/main
+   :resource/mode (if render-target :intermediate :direct-present)
+   :view (if render-target (:view render-target) swap-view)
+   :format (:format render-target)
+   :color color})
+
+(defn create-editor-state
+  [{:keys [device format font-assets gpu-budget scene-color-enabled?]
+    :or {scene-color-enabled? false}}]
+  (let [scene-color (scene-tape/scene-color scene-color-enabled?)
+        camera-buffer (create-camera-buffer device gpu-budget)
         containers-buffer (create-containers-buffer device gpu-budget)
         text-sys (init-text-system device format camera-buffer font-assets
                                    :initial-capacity 1000000
                                    :tracker gpu-budget
                                    :label "text/content"
-                                   :containers-buffer containers-buffer)
+                                   :containers-buffer containers-buffer
+                                   :scene-color scene-color)
         rect-sys (init-rect-system device format (:camera-uniform-buffer text-sys)
                                    :initial-capacity 50000
                                    :tracker gpu-budget
                                    :label "rect/shared-system"
-                                   :containers-buffer containers-buffer)
+                                   :containers-buffer containers-buffer
+                                   :scene-color scene-color)
         shadow-sys (init-shadow-system device format (:camera-uniform-buffer text-sys)
                                        :initial-capacity 256
                                        :tracker gpu-budget
                                        :label "shadow/shared-system"
-                                       :containers-buffer containers-buffer)
-        clear-quad (init-clear-quad device format)
+                                       :containers-buffer containers-buffer
+                                       :scene-color scene-color)
+        clear-quad (init-clear-quad device format :scene-color scene-color)
 
         camera-floats (js/Float32Array. 6)
 
@@ -1276,7 +1367,9 @@
                      :font-backend (:backend font-assets)
                      :camera-buffer-bytes 24
                      :containers-buffer-bytes (* max-transform-nodes affine-entry-bytes)
-                     :containers-transport :compact-affine-storage})
+                     :containers-transport :compact-affine-storage
+                     :scene-color (:scene-color/id scene-color)
+                     :scene-color-enabled? (:enabled? scene-color)})
 
     {:text-sys text-sys
      :rect-sys rect-sys
@@ -1285,6 +1378,8 @@
      :format format
      :camera-floats camera-floats
      :containers-buffer containers-buffer
+     :family-registry scene-tape/default-family-registry
+     :scene-color scene-color
      :pass-descriptor pass-descriptor}))
 
 ;; --- 3. UPDATES (CPU -> GPU) ---
@@ -1732,20 +1827,324 @@
       (.end pass)
       (.submit (.-queue device) #js [(.finish encoder)]))))
 
+(defn- frame-order
+  ([stratum rank stable-tie]
+   (frame-order stratum rank stable-tie nil 0))
+  ([stratum rank stable-tie nested-stack-path]
+   (frame-order stratum rank stable-tie nested-stack-path 0))
+  ([stratum rank stable-tie nested-stack-path part-rank]
+   {:stratum stratum
+    :pass-class :direct
+    :stack-path (into [[:frame/root rank rank]] (or nested-stack-path []))
+    :part-rank part-rank
+    :stable-tie stable-tie}))
+
+(defn- frame-entry
+  ([entry-id family-id order paint]
+   (frame-entry entry-id family-id order paint :none))
+  ([entry-id family-id order paint pick]
+   {:entry/id entry-id
+    :material/id entry-id
+    :material/revision 0
+    :instance/id entry-id
+    :family/id family-id
+    :order order
+    :paint paint
+    :pick pick
+    :visibility {:visible? true :clip :frame-shared}}))
+
+(defn- gpu-paint [pipeline bind-group buffer instance-count first-instance]
+  {:pipeline pipeline
+   :bind-group bind-group
+   :buffer buffer
+   :vertex-count 6
+   :instance-count instance-count
+   :first-vertex 0
+   :first-instance (or first-instance 0)})
+
+(defn- pool-entry [entry-id family-id order pool-info]
+  (when (and pool-info (pos? (:draw-count pool-info)))
+    (frame-entry entry-id family-id order
+                 (gpu-paint (:pipeline pool-info)
+                            (:bind-group pool-info)
+                            (:buffer pool-info)
+                            (:draw-count pool-info)
+                            0))))
+
+(defn- store-pool-entries
+  [store-frame pool-info count-key family-id part-rank pickable? base-offset]
+  (loop [vis (:ordered-vis store-frame)
+         offset (or base-offset 0)
+         entries []]
+    (if-let [vi (first vis)]
+      (let [instance-count (get-in store-frame [:ops-count-by-vi vi count-key] 0)
+            source-order (get-in store-frame [:order-by-vi vi])
+            entry-id [:frame/store vi count-key]
+            order (frame-order (or (:stratum source-order) :world)
+                               25 entry-id (:stack-path source-order) part-rank)
+            entries (cond-> entries
+                      (and pool-info (pos? instance-count))
+                      (conj (frame-entry
+                             entry-id family-id order
+                             (gpu-paint (:pipeline pool-info)
+                                        (:bind-group pool-info)
+                                        (:buffer pool-info)
+                                        instance-count offset)
+                             (if pickable?
+                               {:geometry :rect-tree-bounds :owner vi}
+                               :none))))]
+        (recur (next vis) (+ offset instance-count) entries))
+      entries)))
+
+(defn- system-entry
+  ([entry-id family-id order system]
+   (system-entry entry-id family-id order system (:num-instances system) 0))
+  ([entry-id family-id order system instance-count first-instance]
+   (system-entry entry-id family-id order system instance-count first-instance :none))
+  ([entry-id family-id order system instance-count first-instance pick]
+   (when (and system (pos? (or instance-count 0)))
+     (frame-entry entry-id family-id order
+                  (gpu-paint (:pipeline system)
+                             (:bind-group system)
+                             (:instance-buffer system)
+                             instance-count
+                             first-instance)
+                  pick))))
+
+(defn- clip-entries [{:keys [partial? clear-quad dirty-rect]}]
+  (cond-> []
+    (and partial? clear-quad)
+    (conj (let [{:keys [x y w h]} dirty-rect]
+            (frame-entry :frame/partial-clear
+                         :render.family/clip
+                         {:stratum :world
+                          :pass-class :frame-policy
+                          :stack-path [[:frame/root -1 -1]]
+                          :part-rank 0
+                          :stable-tie :frame/partial-clear}
+                         {:pipeline (:pipeline clear-quad)
+                          :scissor [(int x) (int y)
+                                    (int (max 1 w)) (int (max 1 h))]
+                          :vertex-count 3
+                          :instance-count 1
+                          :first-vertex 0
+                          :first-instance 0})))))
+
+(defn- shadow-entries
+  [{:keys [editor-shadow-pool-info sidebar-shadow-pool-info store-frame
+           editor-shadow-count]}]
+  (into
+   (store-pool-entries store-frame editor-shadow-pool-info :shadows
+                       :render.family/shadow 0 false editor-shadow-count)
+        (keep identity)
+        [(pool-entry :frame/editor-shadows :render.family/shadow
+                     (frame-order :world 0 :frame/editor-shadows)
+                     editor-shadow-pool-info)
+         (pool-entry :frame/sidebar-shadows :render.family/shadow
+                     (frame-order :world 1 :frame/sidebar-shadows)
+                     sidebar-shadow-pool-info)]))
+
+(defn- rect-entries
+  [{:keys [sidebar-pool-info editor-pool-info cmd-rect-sys
+           cmd-panel-visible settings-visible settings-rect-sys agent-visible
+           chrome-text-sys store-frame editor-rect-count]}]
+  (let [chrome-ready? (and chrome-text-sys
+                           (pos? (:num-instances chrome-text-sys)))]
+    (into (store-pool-entries store-frame editor-pool-info :rects
+                              :render.family/rect 1 true editor-rect-count)
+        (keep identity)
+        [(pool-entry :frame/sidebar-rects :render.family/rect
+                     (frame-order :world 10 :frame/sidebar-rects)
+                     sidebar-pool-info)
+         (pool-entry :frame/editor-rects :render.family/rect
+                     (frame-order :world 20 :frame/editor-rects)
+                     editor-pool-info)
+         (when (and agent-visible cmd-rect-sys
+                    (>= (:num-instances cmd-rect-sys) 1))
+           (system-entry :frame/agent-background :render.family/rect
+                         (frame-order :overlay 0 :frame/agent-background)
+                         cmd-rect-sys 1 0))
+         (when (and cmd-panel-visible chrome-ready? cmd-rect-sys
+                    (>= (:num-instances cmd-rect-sys) 2))
+           (system-entry :frame/command-background :render.family/rect
+                         (frame-order :overlay 10 :frame/command-background)
+                         cmd-rect-sys 1 1))
+         (when (and cmd-panel-visible chrome-ready? cmd-rect-sys
+                    (>= (:num-instances cmd-rect-sys) 3))
+           (system-entry :frame/command-caret :render.family/rect
+                         (frame-order :overlay 30 :frame/command-caret)
+                         cmd-rect-sys 1 2))
+         (when (and cmd-rect-sys (>= (:num-instances cmd-rect-sys) 4))
+           (system-entry :frame/status-background :render.family/rect
+                         (frame-order :overlay 40 :frame/status-background)
+                         cmd-rect-sys 1 3))
+         (when (and settings-visible settings-rect-sys
+                    (pos? (:num-instances settings-rect-sys)))
+           (system-entry :frame/settings-rects :render.family/rect
+                         (frame-order :overlay 50 :frame/settings-rects)
+                         settings-rect-sys))])))
+
+(defn- text-system-family [system]
+  (or (:family/id system)
+      (scene-tape/text-family-id (:backend system))))
+
+(defn- text-entries-for-family
+  [family-id
+   {:keys [text-sys extra-text-geos chrome-text-sys chrome-base-line-count
+           settings-line-count settings-visible diagnostics-visible
+           diagnostics-line-index cmd-panel-visible]}]
+  (let [content-family (when text-sys (text-system-family text-sys))
+        chrome-family (when chrome-text-sys (text-system-family chrome-text-sys))
+        chrome-ready? (and (= family-id chrome-family)
+                           (pos? (:num-instances chrome-text-sys)))
+        chrome-offsets (:line-offsets chrome-text-sys)
+        chrome-lines (when chrome-offsets (count chrome-offsets))
+        chrome-base chrome-base-line-count
+        content-entry (when (= family-id content-family)
+                        (system-entry :frame/content-text family-id
+                                      (frame-order :world 30 :frame/content-text)
+                                      text-sys))
+        extra-entries
+        (keep-indexed
+         (fn [index item]
+           (let [geo (or (:geo item) item)
+                 vi (or (:vi item) index)
+                 source-order (:order item)]
+             (when (and geo (= family-id (text-system-family geo)))
+               (system-entry [:frame/slot-text vi] family-id
+                             (frame-order (or (:stratum source-order) :world)
+                                          25 [:frame/slot-text vi]
+                                          (:stack-path source-order) 2)
+                             geo (:num-instances geo) 0
+                             {:geometry :layout-cluster :owner vi}))))
+         extra-text-geos)
+        chrome-base-entry
+        (when chrome-ready?
+          (let [base-end (if (and chrome-offsets (< chrome-base chrome-lines))
+                           (nth chrome-offsets chrome-base)
+                           (:num-instances chrome-text-sys))]
+            (system-entry :frame/chrome-base-text family-id
+                          (frame-order :overlay 20 :frame/chrome-base-text)
+                          chrome-text-sys base-end 0)))
+        settings-entry
+        (when (and settings-visible chrome-ready? (pos? settings-line-count)
+                   chrome-offsets)
+          (let [settings-start-line chrome-base
+                settings-end-line (+ settings-start-line settings-line-count)
+                settings-start-inst (if (< settings-start-line chrome-lines)
+                                      (nth chrome-offsets settings-start-line)
+                                      (:num-instances chrome-text-sys))
+                settings-end-inst (if (< settings-end-line chrome-lines)
+                                    (nth chrome-offsets settings-end-line)
+                                    (:num-instances chrome-text-sys))]
+            (system-entry :frame/settings-text family-id
+                          (frame-order :overlay 60 :frame/settings-text)
+                          chrome-text-sys
+                          (- settings-end-inst settings-start-inst)
+                          settings-start-inst)))
+        diagnostics-entry
+        (when (and diagnostics-visible (not cmd-panel-visible)
+                   (not settings-visible) diagnostics-line-index
+                   chrome-ready? chrome-offsets
+                   (< diagnostics-line-index chrome-lines))
+          (let [start-inst (nth chrome-offsets diagnostics-line-index)
+                next-line (inc diagnostics-line-index)
+                end-inst (if (< next-line chrome-lines)
+                           (nth chrome-offsets next-line)
+                           (:num-instances chrome-text-sys))]
+            (system-entry :frame/diagnostics-text family-id
+                          (frame-order :overlay 70 :frame/diagnostics-text)
+                          chrome-text-sys (- end-inst start-inst) start-inst)))]
+    (into []
+          (keep identity)
+          (concat [content-entry]
+                  extra-entries
+                  [chrome-base-entry settings-entry diagnostics-entry]))))
+
+(defn- execute-gpu-batch! [^js pass entry]
+  (let [{:keys [pipeline bind-group buffer vertex-count instance-count
+                first-vertex first-instance scissor]} (:paint entry)]
+    (when scissor
+      (.setScissorRect pass
+                       (nth scissor 0) (nth scissor 1)
+                       (nth scissor 2) (nth scissor 3)))
+    (.setPipeline pass pipeline)
+    (when bind-group (.setBindGroup pass 0 bind-group))
+    (when buffer (.setVertexBuffer pass 0 buffer))
+    (.draw pass vertex-count instance-count first-vertex first-instance)
+    (:entry/id entry)))
+
+(def ^:private frame-family-registry
+  (let [family (fn [family-id produce]
+                 {:contract (get scene-tape/default-family-registry family-id)
+                  :produce produce
+                  :execute! execute-gpu-batch!})]
+    {:render.family/rect
+     (family :render.family/rect rect-entries)
+
+     :render.family/shadow
+     (family :render.family/shadow shadow-entries)
+
+     :render.family/msdf
+     (family :render.family/msdf
+             #(text-entries-for-family :render.family/msdf %))
+
+     :render.family/slug
+     (family :render.family/slug
+             #(text-entries-for-family :render.family/slug %))
+
+     :render.family/clip
+     (family :render.family/clip clip-entries)}))
+
+(def ^:private frame-contract-registry
+  (let [executor-families (set (keys frame-family-registry))
+        admitted-families (set scene-tape/family-ids)]
+    (when-not (= admitted-families executor-families)
+      (throw (ex-info "Frame executor registrations must exactly cover admitted families"
+                      {:admitted admitted-families
+                       :executors executor-families})))
+    (into {}
+          (map (fn [[family-id registration]]
+                 [family-id (:contract registration)]))
+          frame-family-registry)))
+
+(defn- compile-frame-tape [frame]
+  (let [entries (into []
+                      (mapcat (fn [[_family-id registration]]
+                                ((:produce registration) frame)))
+                      frame-family-registry)]
+    (scene-tape/compile-tape frame-contract-registry
+                             [:frame (:frame-idx frame)]
+                             entries)))
+
+(defn- execute-scene-tape! [pass tape]
+  (scene-tape/paint-forward
+   tape
+   (fn [entry]
+     (let [family-id (:family/id entry)
+           registration (get frame-family-registry family-id)
+           execute! (:execute! registration)]
+       (when-not (and registration execute!)
+         (throw (ex-info "Scene tape entry has no declared executor"
+                         {:entry/id (:entry/id entry) :family/id family-id})))
+       (execute! pass entry)))))
+
 
 (defn draw-frame! [^js device ^js context text-sys editor-pool-info cmd-rect-sys camera-floats _ignored_pass_descriptor pan-x pan-y w h
-                   & {:keys [cmd-panel-visible cmd-panel-h chrome-text-sys chrome-base-line-count
+                   & {:keys [cmd-panel-visible chrome-text-sys chrome-base-line-count
                              settings-line-count settings-visible settings-rect-sys
                              diagnostics-visible diagnostics-line-index agent-visible
                              editor-shadow-pool-info sidebar-shadow-pool-info sidebar-pool-info
                              dirty-rect render-target clear-quad frame-idx zoom
-                             extra-text-geos]
-                      :or {cmd-panel-visible false cmd-panel-h 40 chrome-text-sys nil chrome-base-line-count 0
+                             extra-text-geos store-frame editor-rect-count
+                             editor-shadow-count]
+                      :or {cmd-panel-visible false chrome-text-sys nil chrome-base-line-count 0
                            settings-line-count 0 settings-visible false
                            settings-rect-sys nil agent-visible false
                            editor-shadow-pool-info nil sidebar-shadow-pool-info nil sidebar-pool-info nil
                            dirty-rect nil render-target nil clear-quad nil frame-idx 0
-                           zoom 1.0 extra-text-geos nil}}]
+                           zoom 1.0 extra-text-geos nil store-frame nil
+                           editor-rect-count 0 editor-shadow-count 0}}]
   ;; scene-substrate P2: the world camera zoom wakes — callers may drive it;
   ;; default 1.0 keeps every existing call byte-identical.
   (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y zoom w h)
@@ -1760,13 +2159,18 @@
           ;; dirty-rect non-nil → loadOp "load" + scissor + clear-quad (partial redraw)
           ;; dirty-rect nil → loadOp "clear" (first frame, resize, text/font change)
           use-rt? (some? render-target)
-          target-view (if use-rt? (:view render-target) swap-view)
+          scene-color (or (:scene-color render-target)
+                          (:scene-color text-sys)
+                          scene-tape/legacy-direct-color)
+          scene-color-resource (scene-color-resource swap-view render-target
+                                                     scene-color)
+          target-view (:view scene-color-resource)
           partial? (and use-rt? dirty-rect)
           load-op (if partial? "load" "clear")
 
           pass-descriptor (clj->js
                             {:colorAttachments [{:view target-view
-                                                 :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 1.0}
+                                                 :clearValue (clear-value scene-color)
                                                  :loadOp load-op
                                                  :storeOp "store"}]})
 
@@ -1786,151 +2190,40 @@
                                ",\"swapWidth\":" (or (some-> swap-texture .-width) -1)
                                ",\"swapHeight\":" (or (some-> swap-texture .-height) -1)
                                ",\"useRenderTarget\":" (if use-rt? "true" "false")
+                               ",\"sceneColor\":\"" (name (:scene-color/id scene-color)) "\""
                                ",\"contentInstances\":" (:num-instances text-sys)
                                ",\"chromeInstances\":" (or (:num-instances chrome-text-sys) 0)
                                "}"))))
 
-      ;; Phase 6E: scissor + clear-quad for partial redraw
-      (when (and partial? clear-quad)
-        (let [{:keys [x y]} dirty-rect
-              dw (:w dirty-rect)
-              dh (:h dirty-rect)]
-          (.setScissorRect pass (int x) (int y) (int (max 1 dw)) (int (max 1 dh)))
-          (.setPipeline pass (:pipeline clear-quad))
-          (.draw pass 3)))
-
-      ;; Draw shadows FIRST (behind everything) — per-source pools (Phase 6C)
-      (when (and editor-shadow-pool-info (> (:draw-count editor-shadow-pool-info) 0))
-        (.setPipeline pass (:pipeline editor-shadow-pool-info))
-        (.setBindGroup pass 0 (:bind-group editor-shadow-pool-info))
-        (.setVertexBuffer pass 0 (:buffer editor-shadow-pool-info))
-        (.draw pass 6 (:draw-count editor-shadow-pool-info)))
-      (when (and sidebar-shadow-pool-info (> (:draw-count sidebar-shadow-pool-info) 0))
-        (.setPipeline pass (:pipeline sidebar-shadow-pool-info))
-        (.setBindGroup pass 0 (:bind-group sidebar-shadow-pool-info))
-        (.setVertexBuffer pass 0 (:buffer sidebar-shadow-pool-info))
-        (.draw pass 6 (:draw-count sidebar-shadow-pool-info)))
-
-      ;; Draw sidebar pool (behind editor content, uses differential buffer)
-      (when (and sidebar-pool-info (> (:draw-count sidebar-pool-info) 0))
-        (.setPipeline pass (:pipeline sidebar-pool-info))
-        (.setBindGroup pass 0 (:bind-group sidebar-pool-info))
-        (.setVertexBuffer pass 0 (:buffer sidebar-pool-info))
-        (.draw pass 6 (:draw-count sidebar-pool-info)))
-
-      ;; Draw editor rects (differential pool — selection, brackets, fold indicators, caret, eval)
-      (when (and editor-pool-info (> (:draw-count editor-pool-info) 0))
-        (.setPipeline pass (:pipeline editor-pool-info))
-        (.setBindGroup pass 0 (:bind-group editor-pool-info))
-        (.setVertexBuffer pass 0 (:buffer editor-pool-info))
-        (.draw pass 6 (:draw-count editor-pool-info)))
-
-      ;; Draw content text (editor + sidebar — all instances, viewport culled at data level)
-      (when (and text-sys (> (:num-instances text-sys) 0))
-        (.setPipeline pass (:pipeline text-sys))
-        (.setBindGroup pass 0 (:bind-group text-sys))
-        (.setVertexBuffer pass 0 (:instance-buffer text-sys))
-        (.draw pass 6 (:num-instances text-sys) 0 0))
-
-      ;; scene-substrate P3b Rung 2: per-slot isolated text geos (drawn AFTER
-      ;; content, before chrome). Each is a clone of the content text system
-      ;; (shared pipeline/bind-group/camera/containers-buffer), so its OWN
-      ;; instance buffer draws at its container's transform — msdf AND slug both
-      ;; work because a clone inherits the parent's backend pipeline (T12: no
-      ;; second text path). G8 isolation: a slot edit reshapes only its own geo.
-      (doseq [geo extra-text-geos]
-        (when (and geo (> (:num-instances geo) 0))
-          (.setPipeline pass (:pipeline geo))
-          (.setBindGroup pass 0 (:bind-group geo))
-          (.setVertexBuffer pass 0 (:instance-buffer geo))
-          (.draw pass 6 (:num-instances geo) 0 0)))
-
-      (let [chrome-ready? (and chrome-text-sys (> (:num-instances chrome-text-sys) 0))
-            chrome-offsets (:line-offsets chrome-text-sys)
-            chrome-lines (when chrome-offsets (count chrome-offsets))
-            chrome-base chrome-base-line-count]
-
-          ;; Agent output background (instance 0) — draw behind chrome text
-          (when (and agent-visible cmd-rect-sys (>= (:num-instances cmd-rect-sys) 1))
-            (.setPipeline pass (:pipeline cmd-rect-sys))
-            (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
-            (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
-            (.draw pass 6 1 0 0))
-
-          ;; Command panel background (instance 1)
-          (when (and cmd-panel-visible chrome-ready?
-                     cmd-rect-sys (>= (:num-instances cmd-rect-sys) 2))
-            (.setPipeline pass (:pipeline cmd-rect-sys))
-            (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
-            (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
-            (.draw pass 6 1 0 1))
-
-          ;; Chrome base text (cmd + agent + status — before settings bg)
-          (when chrome-ready?
-            (let [base-end (if (and chrome-offsets (< chrome-base chrome-lines))
-                             (nth chrome-offsets chrome-base)
-                             (:num-instances chrome-text-sys))]
-              (when (> base-end 0)
-                (.setPipeline pass (:pipeline chrome-text-sys))
-                (.setBindGroup pass 0 (:bind-group chrome-text-sys))
-                (.setVertexBuffer pass 0 (:instance-buffer chrome-text-sys))
-                (.draw pass 6 base-end 0 0))))
-
-          ;; Caret (instance 2)
-          (when (and cmd-panel-visible chrome-ready?
-                     cmd-rect-sys (>= (:num-instances cmd-rect-sys) 3))
-            (.setPipeline pass (:pipeline cmd-rect-sys))
-            (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
-            (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
-            (.draw pass 6 1 0 2))
-
-          ;; Status bar background (instance 3) — always visible
-          (when (and cmd-rect-sys (>= (:num-instances cmd-rect-sys) 4))
-            (.setPipeline pass (:pipeline cmd-rect-sys))
-            (.setBindGroup pass 0 (:bind-group cmd-rect-sys))
-            (.setVertexBuffer pass 0 (:instance-buffer cmd-rect-sys))
-            (.draw pass 6 1 0 3))
-
-          ;; Settings panel: draw on top of everything when visible
-          (when settings-visible
-            (when (and settings-rect-sys (> (:num-instances settings-rect-sys) 0))
-              (.setPipeline pass (:pipeline settings-rect-sys))
-              (.setBindGroup pass 0 (:bind-group settings-rect-sys))
-              (.setVertexBuffer pass 0 (:instance-buffer settings-rect-sys))
-              (.draw pass 6 (:num-instances settings-rect-sys)))
-
-            ;; Settings text (from chrome buffer, after base chrome lines)
-            (when (and chrome-ready? (pos? settings-line-count) chrome-offsets)
-              (let [settings-start-line chrome-base
-                    settings-end-line (+ settings-start-line settings-line-count)
-                    settings-start-inst (if (< settings-start-line chrome-lines)
-                                          (nth chrome-offsets settings-start-line)
-                                          (:num-instances chrome-text-sys))
-                    settings-end-inst (if (< settings-end-line chrome-lines)
-                                        (nth chrome-offsets settings-end-line)
-                                        (:num-instances chrome-text-sys))
-                    settings-draw-count (- settings-end-inst settings-start-inst)]
-                (when (> settings-draw-count 0)
-                  (.setPipeline pass (:pipeline chrome-text-sys))
-                  (.setBindGroup pass 0 (:bind-group chrome-text-sys))
-                  (.setVertexBuffer pass 0 (:instance-buffer chrome-text-sys))
-                  (.draw pass 6 settings-draw-count 0 settings-start-inst)))))
-
-          ;; Diagnostics overlay
-          (when (and diagnostics-visible (not cmd-panel-visible) (not settings-visible)
-                     diagnostics-line-index chrome-ready? chrome-offsets)
-            (when (< diagnostics-line-index chrome-lines)
-              (let [start-inst (nth chrome-offsets diagnostics-line-index)
-                    next-line (inc diagnostics-line-index)
-                    end-inst (if (< next-line chrome-lines)
-                               (nth chrome-offsets next-line)
-                               (:num-instances chrome-text-sys))
-                    draw-count (- end-inst start-inst)]
-                (when (> draw-count 0)
-                  (.setPipeline pass (:pipeline chrome-text-sys))
-                  (.setBindGroup pass 0 (:bind-group chrome-text-sys))
-                  (.setVertexBuffer pass 0 (:instance-buffer chrome-text-sys))
-                  (.draw pass 6 draw-count 0 start-inst))))))
+      ;; W2-B: family producers register data; the central frame owns only one
+      ;; compilation and one forward loop.  No family or surface can inject a
+      ;; hand-positioned draw branch here.
+      (execute-scene-tape!
+       pass
+       (compile-frame-tape
+        {:frame-idx frame-idx
+         :partial? partial?
+         :dirty-rect dirty-rect
+         :clear-quad clear-quad
+         :text-sys text-sys
+         :editor-pool-info editor-pool-info
+         :cmd-rect-sys cmd-rect-sys
+         :cmd-panel-visible cmd-panel-visible
+         :chrome-text-sys chrome-text-sys
+         :chrome-base-line-count chrome-base-line-count
+         :settings-line-count settings-line-count
+         :settings-visible settings-visible
+         :settings-rect-sys settings-rect-sys
+         :diagnostics-visible diagnostics-visible
+         :diagnostics-line-index diagnostics-line-index
+         :agent-visible agent-visible
+         :editor-shadow-pool-info editor-shadow-pool-info
+         :sidebar-shadow-pool-info sidebar-shadow-pool-info
+         :sidebar-pool-info sidebar-pool-info
+         :store-frame store-frame
+         :editor-rect-count editor-rect-count
+         :editor-shadow-count editor-shadow-count
+         :extra-text-geos extra-text-geos}))
 
     (.end pass)
 

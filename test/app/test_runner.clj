@@ -30,6 +30,7 @@
 
 (def pure-namespaces
   '[app.anatomy-test
+    app.client.substrate.scene-tape-test
     app.client.workspace.block-edit-test
     app.client.workspace.ground-edit-test
     app.client.workspace.scene-store-test

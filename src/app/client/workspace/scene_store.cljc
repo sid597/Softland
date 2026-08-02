@@ -16,7 +16,8 @@
    The :index fan-out is maintained incrementally by upsert/remove, NEVER
    recomputed by scanning slots at read time. Resolution route:
    address → :index → vis → slot :addresses → index-paths → nodes."
-  (:require [app.client.workspace.rect-tree :as rt]
+  (:require [app.client.substrate.scene-tape :as scene-tape]
+            [app.client.workspace.rect-tree :as rt]
             [app.client.workspace.containers :as containers]
             [app.client.workspace.face-assembly :as fa]
             [app.shared.material-inspector :as material-inspector]))
@@ -76,11 +77,14 @@
    the skip changes nothing semantically; it removes a full-tree pass from the
    per-keystroke main-face rebuild. Opt-in only — mutated trees
    (update-nodes-by-address) still resolve."
-  [vi {:keys [tree container container-slot meta stratum pre-resolved?]}]
+  [vi {:keys [tree container container-slot stack-path meta stratum pre-resolved?]}]
   (let [resolved (if pre-resolved? tree (rt/resolve-layout tree))]
     {:vi        vi
      :container container
      :container-slot (or container-slot container 0)
+     ;; W2-B order projection of W2-A's canonical nested path.  It is stamped
+     ;; beside the compact transport slot, never encoded into that transport.
+     :stack-path (or stack-path [])
      :tree      resolved
      :ops       (stamp-ops-container (flatten-ops resolved)
                                      (or container-slot container 0))
@@ -137,6 +141,15 @@
    ops (trap T5 / G3)."
   [store vi opts]
   (let [old   (get-in store [:slots vi])
+        ;; Existing callers that rebuild only tree content must not lose the
+        ;; compact W2-A slot or the W2-B order path.  Both are stable for the
+        ;; live container lifetime and are inherited when omitted.
+        opts  (cond-> opts
+                (and old (not (contains? opts :container-slot)))
+                (assoc :container-slot (:container-slot old))
+
+                (and old (not (contains? opts :stack-path)))
+                (assoc :stack-path (:stack-path old)))
         slot' (build-slot vi opts)
         index (-> (:index store)
                   (cond-> old (index-disj vi (:addresses old)))
@@ -187,7 +200,7 @@
    (slots-for-address store address)))
 
 ;; ============================================================================
-;; Pick — the address/context seam (CONTRACT §5, trap T8)
+;; Ordered scene tape + pick — Contract O / address-context seam
 ;; ============================================================================
 
 (defn- deepest-addressed
@@ -197,37 +210,80 @@
   [path]
   (some (fn [n] (when (get-in n [:data :address]) n)) (rseq path)))
 
+(defn- slot-entry [slot effective-transforms]
+  (let [vi (:vi slot)
+        cid (:container slot)
+        effective (get effective-transforms cid)
+        stack-path (or (:stack-path effective)
+                       (:stack-path slot)
+                       ;; Hand-built legacy fixtures without a registry retain
+                       ;; deterministic root placement; runtime registrations
+                       ;; always carry W2-A's full path.
+                       [[cid 0 0]])]
+    {:entry/id [:scene-slot vi]
+     :material/id (or (get-in slot [:meta :material/id]) vi)
+     :material/revision (or (get-in slot [:meta :material/revision]) 0)
+     :instance/id vi
+     ;; Current product picking is rect-tree bounds (the W0-A divergence
+     ;; sentinel says so explicitly); text roads remain paint derivations.
+     :family/id :render.family/rect
+     :order {:stratum (or (:stratum slot) :world)
+             :pass-class :direct
+             :stack-path stack-path
+             :part-rank 0
+             :stable-tie vi}
+     :paint {:batch/id [:scene-slot vi]}
+     :pick {:geometry :rect-tree-bounds :owner vi}
+     :visibility {:visible? true :clip :shared-tree-clip}
+     :runtime/slot slot}))
+
+(defn scene-tape
+  "Compile the store's ONE immutable ordered tape.  The one-argument form is
+   the paint projection over paths stamped at registration.  The two-argument
+   form refreshes those same paths from the current W2-A effective map and is
+   used by pick; neither form sorts by family, map iteration, or registration."
+  ([store]
+   (scene-tape store {}))
+  ([store effective-transforms]
+   (let [entries (mapv #(slot-entry % effective-transforms)
+                       (vals (:slots store)))
+         revision (mapv (fn [entry]
+                          [(:entry/id entry)
+                           (:material/revision entry)
+                           (get-in entry [:order :stack-path])])
+                        entries)]
+     (scene-tape/compile-tape [:scene-store revision] entries))))
+
+(defn ordered-slots
+  "The paint projection's slots in exact forward tape order."
+  ([store]
+   (ordered-slots store {}))
+  ([store effective-transforms]
+   (mapv :runtime/slot
+         (:entries (scene-tape store effective-transforms)))))
+
 (defn pick
-  "Resolve a world/screen point to an address through the container transforms.
-   `effective-transforms` = containers/effective output {cid → eff}. Containers
-   are tried topmost-first (:layer descending); the point is inverse-transformed
-   into each container's LOCAL space BEFORE hit-test (trap T8); slots in that
-   container are hit-tested in a deterministic order (vis sorted by pr-str). The
-   first slot hit whose path contains an addressed node wins, returning
-   {:vi :path :address :src-path :actions :point-local}. Miss everywhere → nil."
+  "Resolve a world/screen point through the exact reverse of the paint tape.
+   Every entry consumes W2-A's effective affine and nested stack path.  The
+   point is inverse-transformed into container-local space before rect-tree
+   classification; there is no layer/family/map-iteration re-sort."
   [store effective-transforms point]
-  (let [cids (sort-by (juxt #(- (:layer (get effective-transforms %)))
-                            #(pr-str %))
-                      (keys effective-transforms))]
-    (some
-     (fn [cid]
-       (let [eff       (get effective-transforms cid)
-             [lx ly]   (containers/inverse-point eff point)
-             cid-slots (->> (vals (:slots store))
-                            (filter #(= cid (:container %)))
-                            (sort-by (comp pr-str :vi)))]
-         (some
-          (fn [s]
-            (when-let [path (rt/hit-test (:tree s) lx ly)]
-              (when-let [node (deepest-addressed path)]
-                {:vi          (:vi s)
-                 :path        path
-                 :address     (get-in node [:data :address])
-                 :src-path    (get-in node [:data :assembly/src-path])
-                 :actions     (get-in node [:data :actions])
-                 :point-local [lx ly]})))
-          cid-slots)))
-     cids)))
+  (some->
+   (scene-tape/pick-reverse
+    (scene-tape store effective-transforms)
+    (fn [entry]
+      (let [s (:runtime/slot entry)
+            eff (get effective-transforms (:container s))
+            [lx ly] (containers/inverse-point eff point)]
+        (when-let [path (rt/hit-test (:tree s) lx ly)]
+          (when-let [node (deepest-addressed path)]
+            {:vi          (:vi s)
+             :path        path
+             :address     (get-in node [:data :address])
+             :src-path    (get-in node [:data :assembly/src-path])
+             :actions     (get-in node [:data :actions])
+             :point-local [lx ly]})))))
+   :hit))
 
 ;; ============================================================================
 ;; Producer helper (P3 face path) — stamp block addresses onto a built tree

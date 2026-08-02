@@ -66,6 +66,7 @@
    :affine identity-affine
    :camera :world
    :layer 0
+   :sibling-rank 0
    :transport-slot 0})
 
 (defn empty-registry
@@ -87,8 +88,8 @@
    :x/:y/:scale vocabulary remains behavior-identical; :rotation and
    :scale-x/:scale-y are convenience inputs.  The assigned transport slot is
    compact and independent of cid."
-  [reg cid {:keys [parent camera layer] :as spec
-            :or {parent nil camera nil layer 0}}]
+  [reg cid {:keys [parent camera layer sibling-rank] :as spec
+            :or {parent nil camera nil layer 0 sibling-rank 0}}]
   (when (= cid 0)
     (throw (ex-info "cid 0 is reserved (identity/world) and cannot be added"
                     {:cid cid})))
@@ -102,6 +103,7 @@
                :affine (spec->affine spec)
                :camera camera
                :layer layer
+               :sibling-rank sibling-rank
                :transport-slot slot})))
 
 (defn transport-slot
@@ -207,7 +209,11 @@
             eff {:affine affine
                  :camera (or (:camera c) (:camera p))
                  :layer (:layer c 0)
-                 :stack-path (conj (:stack-path p) [cid (:layer c 0)])
+                 ;; W2-B consumes W2-A's canonical nested path directly and
+                 ;; fills Contract O's third slot: semantic sibling rank.  No
+                 ;; transform/order side table is introduced.
+                 :stack-path (conj (:stack-path p)
+                                   [cid (:layer c 0) (:sibling-rank c 0)])
                  :transport-slot (or (:transport-slot c)
                                      (get fallback-slots cid))}]
         [(assoc cache cid eff) eff]))))
