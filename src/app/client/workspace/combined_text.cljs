@@ -19,20 +19,26 @@
    The caller supplies style/font inputs; substring bounds come only from the
    layout result's clip plan."
   [op {:keys [left right top bottom font-size char-width char-advance dpr snap?
-              range-mode]
+              range-mode text-provider]
        :or {range-mode :left-right}}]
   (let [fs (or (:size op) font-size)
         advance (if (== fs font-size)
                   char-advance
                   (tl/legacy-char-advance fs char-width dpr snap?))
+        clip {:left left :right right :top top :bottom bottom}
         layout-result
-        (tl/layout {:text (:text op "")
-                    :source-lines [(:text op "")]
-                    :font-size fs
-                    :char-advance advance
-                    :line-height fs
-                    :origin [(:x op 0) (:y op 0)]
-                    :clip {:left left :right right :top top :bottom bottom}})]
+        (if-let [positioned (:layout-result op)]
+          (-> positioned
+              (assoc-in [:constraints :clip] clip)
+              (assoc-in [:clip-plan :clip-geometry] clip))
+          (tl/layout {:text (:text op "")
+                      :source-lines [(:text op "")]
+                      :provider text-provider
+                      :font-size fs
+                      :char-advance advance
+                      :line-height fs
+                      :origin [(:x op 0) (:y op 0)]
+                      :clip clip}))]
     (:op (tl/clip-result layout-result op :range-mode range-mode))))
 
 (def ^:private empty-content-ops
@@ -75,6 +81,7 @@
                   sb-vis? (boolean (and sidebar-visible? (not trail-face?)))]
               {:viewport viewport :settings settings :dpr dpr :snap? snap?
                :font-size font-size :char-width char-width :char-advance char-advance
+               :text-provider (:layout-provider active-font)
                :line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
                :sb-vis? sb-vis? :sb-w (if sb-vis? sidebar-w 0)}))
           (m/watch !viewport) (m/watch !settings) (m/watch !active-font) (m/watch !sidebar-visible)
@@ -287,7 +294,7 @@
            lines fold-state scroll-y
            current-file local-world sidebar-scene trail-face-scene extract-preview agent-output
            shimmer-phase trail-collapsed active-pane scroll-x chat-scroll-y chat-input focus]
-        (let [{:keys [viewport settings dpr snap? font-size char-width char-advance line-h
+            (let [{:keys [viewport settings dpr snap? font-size char-width char-advance text-provider line-h
                        sb-vis? sb-w]} layout
               layout-x (maybe-snap layout-x dpr snap?)
               editor-lx (maybe-snap (- layout-x (or scroll-x 0)) dpr snap?)
@@ -362,7 +369,8 @@
                   (if large-file?
                     (let [adjusted-y (+ layout-y (* visible-start line-h))
                           result (layout-fn tokenized-visible editor-lx adjusted-y font-size
-                                            [] #{} char-advance line-h theme-id)
+                                            [] #{} char-advance line-h theme-id
+                                            text-provider visible-lines)
                           full-mapping (vec (range total-line-count))
                           nums (mapv (fn [i]
                                        (let [logical (+ visible-start i)
@@ -389,7 +397,8 @@
                                                 [])))
                                           lines)
                           result (layout-fn tokenized-all editor-lx layout-y font-size
-                                            regions folded char-advance line-h theme-id)
+                                            regions folded char-advance line-h theme-id
+                                            text-provider lines)
                           _ (when (seq folded)
                               (js/console.log "[TEXT-OPS] render-ops:" (count (:render-ops result))
                                               "mapping:" (count (:line-mapping result))
@@ -420,7 +429,8 @@
                                  (clip-editor-text-op
                                   sub {:left clip-left :right code-w :top clip-top
                                        :font-size font-size :char-width char-width
-                                       :char-advance char-advance :dpr dpr :snap? snap?}))
+                                       :char-advance char-advance :dpr dpr :snap? snap?
+                                       :text-provider text-provider}))
                       clip-op (fn [op]
                                 (if (vector? op)
                                   (let [clipped (into [] (keep clip-sub) op)]
@@ -451,14 +461,16 @@
                                                              :font-size font-size
                                                              :char-width char-width
                                                              :char-advance char-advance
-                                                             :dpr dpr :snap? snap?}))
+                                                             :dpr dpr :snap? snap?
+                                                             :text-provider text-provider}))
                                                   op)]
                                       (when (seq f) f))
                                     (clip-editor-text-op
                                      op {:top clip-top :font-size font-size
                                          :char-width char-width
                                          :char-advance char-advance
-                                         :dpr dpr :snap? snap?})))
+                                         :dpr dpr :snap? snap?
+                                         :text-provider text-provider})))
                         clipped-ln (into [] (keep clip-ln) line-num-ops)]
                     [(into (vec clipped) pinned-ops) final-line-mapping clipped-ln]))
                 [editor-ops final-line-mapping line-num-ops])
@@ -476,7 +488,8 @@
                                                                :font-size font-size
                                                                :char-width char-width
                                                                :char-advance char-advance
-                                                               :dpr dpr :snap? snap?}))
+                                                               :dpr dpr :snap? snap?
+                                                               :text-provider text-provider}))
                                                     op)]
                                           (when (seq clipped) clipped))
                                         (clip-editor-text-op
@@ -484,7 +497,8 @@
                                              :font-size font-size
                                              :char-width char-width
                                              :char-advance char-advance
-                                             :dpr dpr :snap? snap?}))))
+                                             :dpr dpr :snap? snap?
+                                             :text-provider text-provider}))))
                               ops))
 
               offset-editor-ops (offset-text-ops* (clip-bottom editor-ops) sb-w)

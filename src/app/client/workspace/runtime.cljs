@@ -220,7 +220,11 @@
                           (reset! (:!active-font atoms)
                                   {:id (:id font-config)
                                    :char-width (or (:charWidth font-config) 0.56)
-                                   :name (:name font-config)})
+                                   :name (:name font-config)
+                                   :layout-provider
+                                   (when (= (:id font-config)
+                                            (:id @(:!font-assets atoms)))
+                                     (:layout-provider @(:!font-assets atoms)))})
                           ;; Re-apply persisted settings to undo the font-watch default
                           ;; overwrite. The watch fires synchronously above, so this merge
                           ;; restores the user's saved slider values over the font's defaults.

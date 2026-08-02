@@ -1,5 +1,6 @@
 (ns app.client.workspace.text-layout-test
   (:require [clojure.test :refer [deftest is testing]]
+            [app.client.workspace.rect-tree :as rt]
             [app.client.workspace.text-layout :as tl]))
 
 (defn- corpus-layout []
@@ -14,6 +15,87 @@
               :clip {:left 14 :right 42 :top 20 :bottom 44}
               :source-id :t0-corpus
               :source-revision 7}))
+
+(defn- mock-clusters [text]
+  (loop [offset 0 clusters []]
+    (if (>= offset (.length ^String text))
+      clusters
+      (let [remaining (subs text offset)
+            [cluster-text width glyph-id]
+            (cond
+              (.startsWith remaining "ffi") ["ffi" 1100 900]
+              (.startsWith remaining "e\u0301") ["e\u0301" 620 901]
+              (.startsWith remaining "AV") ["A" 560 65]
+              (= \tab (.charAt ^String text offset)) ["\t" 1600 nil]
+              :else (let [s (subs text offset (inc offset))]
+                      [s (case s
+                           "i" 280 "l" 300 "W" 940 " " 360
+                           "漢" 1000 "字" 1000
+                           620)
+                       (int (.charAt ^String text offset))]))
+            end (+ offset (.length ^String cluster-text))]
+        (recur end (conj clusters {:text cluster-text :start offset :end end
+                                   :width width :glyph-id glyph-id}))))))
+
+(def shaped-provider
+  {:face-id :mock/proportional
+   :face-revision "mock-variable-v1"
+   :shaper-id :mock/harfbuzz
+   :shaper-version "8.3"
+   :upem 1000
+   :features ["kern" "liga" "clig"]
+   :variations {:wght 425 :wdth 92}
+   :axes {:wght {:min 100 :default 400 :max 800}
+          :wdth {:min 75 :default 100 :max 125}}
+   :fallback-chain [{:id :mock/cjk :revision "cjk-v1"}]
+   :metrics {:ascender 800 :descender -200 :lineGap 100}
+   :shape-line
+   (fn [text _opts]
+     (let [logical (mock-clusters text)
+           rtl? (boolean (re-find #"[\u0600-\u06ff]" text))
+           visual (if rtl? (reverse logical) logical)
+           [glyphs clusters advance]
+           (reduce
+             (fn [[glyphs clusters x] {:keys [text start end width glyph-id]}]
+               (let [direction (if rtl? :rtl :ltr)
+                     fallback? (boolean (re-find #"[漢字]" text))
+                     font-id (if fallback? :mock/cjk :mock/proportional)
+                     font-revision (if fallback? "cjk-v1" "mock-variable-v1")
+                     glyph {:glyph-id glyph-id
+                            :glyph-id-kind (if glyph-id :font-glyph-index :virtual/tab)
+                            :font-id font-id :font-revision font-revision
+                            :cluster-start start :cluster-end end
+                            :advance [width 0] :offset [0 0]
+                            :position [x 0]
+                            :ink-bounds {:xBearing 10 :yBearing 700
+                                         :width (max 0 (- width 20)) :height 800}
+                            :direction direction}
+                     cluster {:source-start start :source-end end
+                              :direction direction :font-revision font-revision
+                              :left x :right (+ x width)}]
+                 [(conj glyphs glyph) (conj clusters cluster) (+ x width)]))
+             [[] [] 0]
+             visual)
+           runs (mapv (fn [glyph]
+                        {:source-start (:cluster-start glyph)
+                         :source-end (:cluster-end glyph)
+                         :direction (:direction glyph)
+                         :font-id (:font-id glyph)
+                         :font-revision (:font-revision glyph)
+                         :upem 1000
+                         :glyphs [glyph]})
+                      glyphs)]
+       {:runs runs :glyphs glyphs :clusters clusters :advance advance
+        :base-direction (if rtl? :rtl :ltr)}))})
+
+(defn- shaped-corpus-layout []
+  (tl/layout {:text "AV office e\u0301\tسلام\n漢字"
+              :provider shaped-provider
+              :font-size 10 :line-height 14
+              :origin [20 30] :baseline-offset 10
+              :clip {:left 24 :right 90 :top 30 :bottom 60}
+              :source-id :t1-corpus :source-revision 1
+              :zoom 1}))
 
 (deftest t0-one-identity-for-seven-readers
   (let [layout-result (corpus-layout)
@@ -75,3 +157,70 @@
   (is (= ["a long" "word" "abcdefgh" "ij"]
          (vec (mapcat #(tl/wrap-line % 8)
                       ["a long word" "abcdefghij"])))))
+
+(deftest t1-shaped-corpus-moves-all-seven-readers-together
+  (let [layout-result (shaped-corpus-layout)
+        readers [(tl/measure-result layout-result)
+                 (tl/wrap-result layout-result)
+                 (tl/paint-result layout-result)
+                 (tl/caret-result layout-result 0 4)
+                 (tl/selection-result layout-result 0 3 9)
+                 (tl/clip-result layout-result
+                                 {:text "AV office e\u0301\tسلام"
+                                  :from 0 :to 19 :x 20 :y 40 :size 10})
+                 (tl/hit-test-result layout-result [42 34])]]
+    (testing "all readers retain one shaped layout identity"
+      (is (every? #{(:layout/id layout-result)} (map :layout/id readers))))
+    (testing "ligatures and combining marks remain declared clusters"
+      (is (some #(= 3 (- (get-in % [:source-range 1 :offset])
+                          (get-in % [:source-range 0 :offset])))
+                (:clusters layout-result)))
+      (is (some #(= 2 (- (get-in % [:source-range 1 :offset])
+                          (get-in % [:source-range 0 :offset])))
+                (:clusters layout-result))))
+    (testing "bidi, fallback, tabs/newlines, and variable axes survive the result"
+      (is (some #(= :rtl (:direction %)) (:runs layout-result)))
+      (is (some #(= "cjk-v1" (:font-revision %)) (:runs layout-result)))
+      (is (some #(= :virtual/tab (:glyph-id-kind %))
+                (:glyphs (tl/paint-result layout-result))))
+      (is (= 2 (count (:lines layout-result))))
+      (is (= {:wght 425 :wdth 92} (get-in layout-result [:font :variations]))))
+    (testing "proportional advances and cluster-derived carets are observable"
+      (let [advances (mapv #(get-in % [:advance 0])
+                           (:glyphs (tl/paint-result layout-result)))]
+        (is (> (count (distinct advances)) 1)))
+      (is (not= 40 (get-in (tl/caret-result layout-result 0 4) [:rect :x]))))
+    (testing "ink bounds remain in the same nonzero-origin material space"
+      (is (= 20.1 (get-in layout-result [:lines 0 :glyphs 0 :ink-bounds :x]))))))
+
+(deftest t1-wrap-and-legal-zoom-are-result-owned
+  (let [wrapped (tl/layout {:text "WW ii WW"
+                            :provider shaped-provider
+                            :font-size 10 :line-height 12
+                            :inline-size 30 :wrap-policy :word
+                            :zoom 0.01})]
+    (is (> (count (:lines wrapped)) 1))
+    (is (= [0.01 1000] (get-in wrapped [:regime :legal-zoom])))
+    (is (= 0.01 (get-in wrapped [:regime :zoom]))))
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                        #"legal material range"
+                        (tl/layout {:text "zoom"
+                                    :provider shaped-provider
+                                    :font-size 10 :line-height 12
+                                    :zoom 1000.01}))))
+
+(deftest t1-tree-translation-and-clip-reuse-the-positioned-result
+  (let [layout-result (tl/layout {:text "office"
+                                  :provider shaped-provider
+                                  :font-size 10 :line-height 14
+                                  :origin [2 3] :baseline-offset 10})
+        op (first (tl/line-paint-ops layout-result {:size 10}))
+        node (rt/rt-node :shaped :text {:x 0 :y 0 :w 80 :h 14}
+                         :text [op])
+        flattened (rt/tree->text-ops node 100 50
+                                     {:x 100 :y 50 :w 80 :h 14})
+        painted-op (ffirst flattened)]
+    (is (= (:layout/id layout-result)
+           (get-in painted-op [:layout-result :layout/id])))
+    (is (= (+ 100 (:x op)) (:x painted-op)))
+    (is (= (+ 50 (:y op)) (:y painted-op)))))

@@ -9,9 +9,12 @@
    The CPU point-in-path probe is NOT today's product picking path. Product
    picking remains axis-aligned rect-tree bounds; the receipt carries an
   explicit rounded-corner divergence sentinel so those truths cannot collapse."
-  (:require [app.client.substrate.webgpu.renderer :as renderer]
+  (:require [clojure.string :as str]
+            [app.client.substrate.webgpu.renderer :as renderer]
             [app.client.workspace.containers :as containers]
-            [app.client.workspace.runtime.fonts :as fonts]))
+            [app.client.workspace.runtime.fonts :as fonts]
+            [app.client.workspace.text-layout :as tl]
+            [app.client.workspace.text-shaper :as text-shaper]))
 
 (def ^:private canvas-size 128)
 (def ^:private color-format "rgba8unorm")
@@ -580,6 +583,69 @@
                       entries)
         (.then #(into {} %)))))
 
+(defn- load-t1-provider [font-config]
+  (let [source (fn [config]
+                 {:id (:id config)
+                  :revision (or (:faceRevision config) (:font config))
+                  :url (str "/fonts/" (:font config))
+                  :variations (or (:variations config) {})})]
+    (text-shaper/load-provider!
+      (into [(source font-config)] (map source) (:fallbacks font-config))
+      {:features (:features font-config)
+       :language "und"
+       :tab-columns (:tabColumns font-config)})))
+
+(defn- t1-layout-receipt [provider]
+  (let [text "AV office e\u0301\tسلام\nɐ"
+        result (tl/layout {:text text :provider provider
+                           :font-size 19 :line-height 24
+                           :origin [10 20] :baseline-offset 19
+                           :clip {:left 12 :right 180 :top 20 :bottom 68}
+                           :source-id :verifier/t1 :source-revision 1
+                           :zoom 1})
+        readers [(tl/measure-result result)
+                 (tl/wrap-result result)
+                 (tl/paint-result result)
+                 (tl/caret-result result 0 5)
+                 (tl/selection-result result 0 3 10)
+                 (tl/clip-result result {:text (first (str/split-lines text))
+                                         :from 0 :to 19 :x 10 :y 39 :size 19})
+                 (tl/hit-test-result result [48 24])]
+        variable-advance
+        (fn [width]
+          (first
+            (get-in
+              (tl/measure-result
+                (tl/layout {:text "variable" :provider provider
+                            :font-size 19 :line-height 24
+                            :variations {:wght 400 :wdth width}
+                            :source-id :verifier/t1-variable-axis}))
+              [:metrics :advance])))
+        narrow-advance (variable-advance 75)
+        wide-advance (variable-advance 125)
+        receipt {:layout-id (:layout/id result)
+                 :reader-layout-ids (mapv :layout/id readers)
+                 :glyph-count (count (get-in readers [2 :glyphs]))
+                 :cluster-count (count (:clusters result))
+                 :lines (count (:lines result))
+                 :rtl? (boolean (some #(= :rtl (:direction %)) (:runs result)))
+                 :fallback? (boolean (some #(= "noto-sans-regular-2.011"
+                                                (:font-revision %))
+                                           (:runs result)))
+                 :tab? (boolean (some #(= :virtual/tab (:glyph-id-kind %))
+                                      (get-in readers [2 :glyphs])))
+                 :variations (get-in result [:font :variations])
+                 :variable-axis-delta (- wide-advance narrow-advance)
+                 :regime (:regime result)}
+        pass? (and (every? #{(:layout/id result)} (:reader-layout-ids receipt))
+                   (= 2 (:lines receipt))
+                   (:rtl? receipt) (:fallback? receipt) (:tab? receipt)
+                   (not (zero? (:variable-axis-delta receipt)))
+                   (= {:wght 400 :wdth 100} (:variations receipt)))]
+    (when-not pass?
+      (throw (ex-info "T1 browser layout receipt failed." receipt)))
+    (assoc receipt :pass true)))
+
 (defn ^:export run-verifier! []
   (js/console.log "[W0-A] init-start")
   (when-not (and (.-isSecureContext js/window)
@@ -600,12 +666,18 @@
                      (fn [manifest]
                        (js/console.log "[W0-A] init-font-manifest")
                        (let [font-config (first (filter #(= "dejavu-sans-mono" (:id %))
-                                                       (:fonts manifest)))]
-                         (when-not font-config
-                           (throw (js/Error. "DejaVu verifier font is absent from manifest")))
-                         (-> (fonts/load-font-assets font-config)
+                                                       (:fonts manifest)))
+                             t1-font-config (first (filter #(= "ubuntu-sans-variable" (:id %))
+                                                          (:fonts manifest)))]
+                         (when-not (and font-config t1-font-config)
+                           (throw (js/Error. "A verifier font is absent from manifest")))
+                         (-> (js/Promise.all
+                               #js [(fonts/load-font-assets font-config)
+                                    (load-t1-provider t1-font-config)])
                              (.then
-                              (fn [slug-assets]
+                              (fn [font-values]
+                                (let [slug-assets (aget font-values 0)
+                                      t1-receipt (t1-layout-receipt (aget font-values 1))]
                                 (js/console.log "[W0-A] init-font-assets")
                                 (let [msdf-assets (assoc slug-assets :backend :msdf)
                                       camera-buffer (renderer/create-camera-buffer device nil)
@@ -701,8 +773,9 @@
                                           :decoded-slug-curve-count (count curves)
                                           :shader-digests (aget values 1)
                                           :q8-transport q8-transport
+                                          :t1-layout t1-receipt
                                           :q5-affine-boundary (aget values 2)
-                                          :cases (aget values 0)}))))))))))))))))))
+                                          :cases (aget values 0)})))))))))))))))))))
 
 (defn ^:export start! []
   (js/console.log "[W0-A] start")

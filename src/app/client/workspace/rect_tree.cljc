@@ -133,7 +133,7 @@
   (let [tl (:text-layout node)]
     (if-not tl
       node
-      (let [{:keys [line-height max-chars padding]} tl
+      (let [{:keys [line-height max-chars padding provider]} tl
             [pt _pr _pb pl] (normalize-padding padding)
             text-specs (:text node)]
         (if (empty? text-specs)
@@ -149,6 +149,7 @@
                              lh    (or line-height size)
                              layout-result
                              (tl/layout {:text txt
+                                         :provider provider
                                          :font-size size
                                          :char-advance (tl/legacy-char-advance size 0.56)
                                          :line-height lh
@@ -282,16 +283,24 @@
              clip-bottom (when clip-bounds (+ (:y clip-bounds) (:h clip-bounds)))
              clip-op (fn [op]
                        (let [fs (:size op 14)
+                             existing (:layout-result op)
                              layout-result
-                             (tl/layout {:text (:text op "")
-                                         :source-lines [(:text op "")]
-                                         :font-size fs
-                                         :char-advance (tl/legacy-char-advance fs 0.56)
-                                         :line-height fs
-                                         :origin [(:x op 0) (:y op 0)]
-                                         :clip {:right clip-right
-                                                :top clip-top
-                                                :bottom clip-bottom}})]
+                             (if existing
+                               (let [clip {:right (some-> clip-right (- abs-x))
+                                           :top (some-> clip-top (- abs-y))
+                                           :bottom (some-> clip-bottom (- abs-y))}]
+                                 (-> existing
+                                     (assoc-in [:constraints :clip] clip)
+                                     (assoc-in [:clip-plan :clip-geometry] clip)))
+                               (tl/layout {:text (:text op "")
+                                           :source-lines [(:text op "")]
+                                           :font-size fs
+                                           :char-advance (tl/legacy-char-advance fs 0.56)
+                                           :line-height fs
+                                           :origin [(:x op 0) (:y op 0)]
+                                           :clip {:right (some-> clip-right (- abs-x))
+                                                  :top (some-> clip-top (- abs-y))
+                                                  :bottom (some-> clip-bottom (- abs-y))}}))]
                          (:op (tl/clip-result layout-result op
                                              :range-mode :right-only))))
              ;; Offset this node's text ops to absolute space + clip truncation
@@ -300,17 +309,15 @@
                                (if (vector? op)
                                  ;; op is already a vec of text-op maps (nested format)
                                  (into [] (keep (fn [sub]
-                                                  (let [shifted (-> sub
-                                                                    (update :x + abs-x)
-                                                                    (update :y + abs-y))]
-                                                    (clip-op shifted))))
-                                       op)
+                                                  (some-> (clip-op sub)
+                                                          (update :x + abs-x)
+                                                          (update :y + abs-y)))
+                                                op))
                                  ;; Single text-op map
-                                 (let [shifted (-> op
-                                                   (update :x + abs-x)
-                                                   (update :y + abs-y))]
-                                   (when-let [clipped (clip-op shifted)]
-                                     [clipped]))))
+                                 (when-let [clipped (clip-op op)]
+                                   [(-> clipped
+                                        (update :x + abs-x)
+                                        (update :y + abs-y))])))
                              text))
              child-clip (if clip?
                           (intersect-clip abs-x abs-y w h clip-bounds)

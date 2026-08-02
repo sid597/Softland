@@ -490,6 +490,7 @@
         avail (max 1 (- w pl pr))
         value (str (:value props (:text props "")))
         layout-result (tl/layout {:text value
+                                  :provider (:text-provider geom)
                                   :font-size fs
                                   :char-advance ca
                                   :line-height lh

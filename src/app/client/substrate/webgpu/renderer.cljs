@@ -1397,47 +1397,127 @@
 ;; which only changes identity on a font/backend swap — cache per vector
 ;; identity (WeakMap: no leak, old fonts' entries die with their vectors).
 (defonce ^:private glyph-map-cache (js/WeakMap.))
+(defonce ^:private atlas-glyph-map-cache (js/WeakMap.))
 
 (defn- glyph-map [glyphs]
   (or (.get glyph-map-cache glyphs)
-      (let [m (reduce (fn [acc glyph] (assoc acc (:unicode glyph) glyph)) {} glyphs)]
+      (let [m (reduce (fn [acc glyph]
+                        (cond-> acc
+                          (some? (:unicode glyph))
+                          (assoc [:unicode (:unicode glyph)] glyph)
+
+                          (some? (:index glyph))
+                          (assoc [:index (:index glyph)] glyph)
+
+                          (and (:fontId glyph) (some? (:unicode glyph)))
+                          (assoc [(:fontId glyph) :unicode (:unicode glyph)] glyph)
+
+                          (and (:fontId glyph) (some? (:index glyph)))
+                          (assoc [(:fontId glyph) :index (:index glyph)] glyph)))
+                      {} glyphs)]
         (when glyphs (.set glyph-map-cache glyphs m))
         m)))
 
+(defn- atlas-glyph-map [font-assets]
+  (let [atlas (:atlas font-assets)]
+    (or (.get atlas-glyph-map-cache atlas)
+        (let [m (if-let [variants (:variants atlas)]
+                  (reduce
+                    (fn [result [font-id variant]]
+                      (reduce-kv (fn [acc [kind glyph-id] glyph]
+                                   (assoc acc [font-id kind glyph-id] glyph))
+                                 result
+                                 (glyph-map (:glyphs variant))))
+                    {}
+                    (map vector (:atlas-faces font-assets) variants))
+                  (glyph-map (:glyphs atlas)))]
+          (when atlas (.set atlas-glyph-map-cache atlas m))
+          m))))
+
+(defn- painted-glyph [glyphs {:keys [glyph-id glyph-id-kind font-id]}]
+  (let [kind (if (= glyph-id-kind :font-glyph-index) :index :unicode)]
+    (or (get glyphs [font-id kind glyph-id])
+        (get glyphs [kind glyph-id])
+        (get glyphs [font-id :unicode 0xFFFD])
+        (get glyphs [:unicode 0xFFFD])
+        (get glyphs [font-id :index 0])
+        (get glyphs [:index 0]))))
+
 (defn- font-line-height [font-assets]
   (or (get-in font-assets [:atlas :metrics :lineHeight])
+      (get-in font-assets [:atlas :variants 0 :metrics :lineHeight])
       (get-in font-assets [:slug :meta :metrics :lineHeight])
       1.2))
 
-(defn- shape-msdf-line
-  [texts global-fsize font-assets & {:keys [char-width snap-step] :or {char-width 0.56}}]
+(defn- position-text-op
+  "Resolve one text op to positioned Contract-T glyphs before a paint backend
+   is selected. Existing layout results survive clipping and tree translations;
+   otherwise the active provider creates exactly one result here."
+  [txt global-fsize font-assets char-width snap-step]
+  (let [{:keys [text x y]} txt
+        fsize (or (:size txt) global-fsize)
+        snap (make-snapper snap-step)
+        start-x (if snap (snap x) x)
+        start-y (if snap (snap y) y)
+        line-h (font-line-height font-assets)
+        existing (:layout-result txt)
+        layout-result
+        (or existing
+            (tl/layout {:text text
+                        :source-lines [text]
+                        :provider (:layout-provider font-assets)
+                        :font-size fsize
+                        :char-advance (tl/legacy-char-advance-step
+                                        fsize char-width snap-step)
+                        :line-height (* fsize line-h)
+                        :origin [start-x start-y]}))
+        line (or (first (filter #(= (:layout-line-id txt) (:line/id %))
+                                (:lines layout-result)))
+                 (first (:lines layout-result)))
+        [range-start range-end]
+        (mapv :offset (or (:paint-source-range txt) (:source-range line)))
+        [anchor-x anchor-y] (or (:layout-anchor txt) (:baseline line))
+        dx (if existing (- (:x txt anchor-x) anchor-x) 0)
+        dy (if existing (- (:y txt anchor-y) anchor-y) 0)
+        glyphs
+        (->> (:glyphs line)
+             (filter (fn [glyph]
+                       (let [[start end] (mapv :offset
+                                              (get-in glyph [:cluster :source-range]))]
+                         ;; A cluster that crosses a style boundary is painted
+                         ;; exactly once by the range that owns its first
+                         ;; source unit. Clipping expands to whole clusters.
+                         (and (<= range-start start) (< start range-end)))))
+             (mapv (fn [glyph]
+                     (update glyph :position
+                             (fn [[gx gy]] [(+ gx dx) (+ gy dy)])))))]
+    {:layout/id (:layout/id layout-result)
+     :style txt
+     :font-size fsize
+     :glyphs glyphs}))
+
+(defn- position-text
+  [texts global-fsize font-assets char-width snap-step]
+  (mapv #(position-text-op % global-fsize font-assets char-width snap-step)
+        texts))
+
+(defn- paint-msdf-line
+  [positioned font-assets]
   (let [atlas-w (or (get-in font-assets [:atlas :atlas :width]) 1)
         atlas-h (or (get-in font-assets [:atlas :atlas :height]) 1)
-        line-h (font-line-height font-assets)
-        glyphs (glyph-map (get-in font-assets [:atlas :glyphs]))
+        paint-map (atlas-glyph-map font-assets)
         res (atom [])]
-    (doseq [txt texts]
-      (let [{:keys [text x y]} txt
+    (doseq [{:keys [style font-size] :as positioned-op} positioned]
+      (let [txt style
             [cr cg cb ca] (token-color txt)
-            fsize (or (:size txt) global-fsize)
-            snap (make-snapper snap-step)
-            start-x (if snap (snap x) x)
-            start-y (if snap (snap y) y)
-            advance (tl/legacy-char-advance-step fsize char-width snap-step)
-            layout-result (tl/layout {:text text
-                                      :font-size fsize
-                                      :char-advance advance
-                                      :line-height (* fsize line-h)
-                                      :origin [start-x start-y]})]
-        (doseq [{:keys [glyph-id character position]}
-                (:glyphs (tl/paint-result layout-result))]
-          (when-not (= character " ")
-            (let [code glyph-id]
-              ;; V3-5: a missing glyph must still ADVANCE (never the old
-              ;; zero-advance skip that desynced column math) and draws the
-              ;; atlas fallback U+FFFD when present. Defense-in-depth behind
-              ;; the cljc sanitizer, which substitutes upstream.
-              (let [g (or (get glyphs code) (get glyphs 0xFFFD))
+            fsize font-size
+            positioned-glyphs (:glyphs positioned-op)]
+        (doseq [{:keys [character position glyph-id-kind] :as positioned-glyph}
+                positioned-glyphs]
+          (when-not (or (= character " ") (= glyph-id-kind :virtual/tab))
+            ;; Placement/advance came from Contract T. MSDF selects coverage
+            ;; metadata only; a missing glyph never changes placement.
+            (let [g (painted-glyph paint-map positioned-glyph)
                     [x0 baseline-y] position]
                 (when g
                   (let [pb (:planeBounds g)
@@ -1453,35 +1533,25 @@
                     (swap! res conj {:rect [sl st (- sr sl) (- sb st)]
                                      :uv [ul vt ur vb]
                                      :color [cr cg cb ca]
-                                     :container (or (:container-idx txt) 0)})))))))))
+                                     :layout/id (:layout/id positioned-op)
+                                     :container (or (:container-idx txt) 0)}))))))))
     @res))
 
-(defn- shape-slug-line
-  [texts global-fsize font-assets & {:keys [char-width snap-step] :or {char-width 0.56}}]
-  (let [line-h (font-line-height font-assets)
-        glyphs (glyph-map (get-in font-assets [:slug :meta :glyphs]))
+(defn- paint-slug-line
+  [positioned font-assets]
+  (let [paint-map (glyph-map (get-in font-assets [:slug :meta :glyphs]))
         res (atom [])]
-    (doseq [txt texts]
-      (let [{:keys [text x y]} txt
+    (doseq [{:keys [style font-size] :as positioned-op} positioned]
+      (let [txt style
             [cr cg cb ca] (token-color txt)
-            fsize (or (:size txt) global-fsize)
-            snap (make-snapper snap-step)
-            start-x (if snap (snap x) x)
-            start-y (if snap (snap y) y)
-            advance (tl/legacy-char-advance-step fsize char-width snap-step)
+            fsize font-size
             inv-size (if (pos? fsize) (/ 1.0 fsize) 0.0)
-            layout-result (tl/layout {:text text
-                                      :font-size fsize
-                                      :char-advance advance
-                                      :line-height (* fsize line-h)
-                                      :origin [start-x start-y]})]
-        (doseq [{:keys [glyph-id character position]}
-                (:glyphs (tl/paint-result layout-result))]
-          (when-not (= character " ")
-            (let [code glyph-id]
-              ;; V3-5: always advance; draw the fallback glyph when missing
-              ;; (slug meta today has no U+FFFD -> honest gap WITH advance).
-              (let [g (or (get glyphs code) (get glyphs 0xFFFD))
+            positioned-glyphs (:glyphs positioned-op)]
+        (doseq [{:keys [character position glyph-id-kind] :as positioned-glyph}
+                positioned-glyphs]
+          (when-not (or (= character " ") (= glyph-id-kind :virtual/tab))
+            ;; Slug is the other coverage consumer of the same positions.
+            (let [g (painted-glyph paint-map positioned-glyph)
                     [x0 baseline-y] position]
                 (when g
                   (let [sample-bounds (or (:sampleBounds g) (:planeBounds g))
@@ -1506,13 +1576,17 @@
                                            (or (get-in slug [:bandMax :x]) 0)
                                            (or (:packedBandMeta slug) 0)]
                                    :color [cr cg cb ca]
-                                   :container (or (:container-idx txt) 0)})))))))))
+                                   :layout/id (:layout/id positioned-op)
+                                   :container (or (:container-idx txt) 0)}))))))))
     @res))
 
 (defn shape-text [texts global-fsize font-assets & {:as opts}]
-  (if (= :slug (:backend font-assets))
-    (apply shape-slug-line texts global-fsize font-assets (mapcat identity opts))
-    (apply shape-msdf-line texts global-fsize font-assets (mapcat identity opts))))
+  (let [char-width (or (:char-width opts) 0.56)
+        snap-step (:snap-step opts)
+        positioned (position-text texts global-fsize font-assets char-width snap-step)]
+    (if (= :slug (:backend font-assets))
+      (paint-slug-line positioned font-assets)
+      (paint-msdf-line positioned font-assets))))
 
 (defn- line-offsets-for [lines]
   (loop [remaining lines

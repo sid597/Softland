@@ -105,6 +105,7 @@
      :line-height  (js/Math.round (* font-size 1.4))
      :font-size    font-size
      :char-advance (ev/maybe-snap (* font-size (:char-width active-font)) dpr snap?)
+     :text-provider (:layout-provider active-font)
      :now-ms       (or (:face/rendered-at-ms projection) 0)}))
 
 ;; ---------------------------------------------------------------------------

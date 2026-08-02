@@ -1,6 +1,7 @@
 (ns app.client.workspace.runtime.fonts
   "Font manifest helpers and runtime font asset loading."
-  (:require [app.client.workspace.settings-view :refer [font-defaults->settings]]))
+  (:require [app.client.workspace.settings-view :refer [font-defaults->settings]]
+            [app.client.workspace.text-shaper :as text-shaper]))
 
 (def ^:private base-path "/fonts/")
 (declare resolve-default-font-config)
@@ -63,6 +64,23 @@
   (-> (js/fetch url)
       (.then #(.arrayBuffer %))))
 
+(defn- shaper-source [font-config]
+  (when-let [font-file (:font font-config)]
+    {:id (:id font-config)
+     :revision (or (:faceRevision font-config) font-file)
+     :url (str base-path font-file)
+     :variations (or (:variations font-config) {})}))
+
+(defn- shaper-sources [font-config]
+  (into (cond-> []
+          (shaper-source font-config) (conj (shaper-source font-config)))
+        (map (fn [fallback]
+               {:id (:id fallback)
+                :revision (or (:faceRevision fallback) (:font fallback))
+                :url (str base-path (:font fallback))
+                :variations (or (:variations fallback) {})}))
+        (:fallbacks font-config)))
+
 (defn load-font-assets
   "Load the runtime assets for a font config. Slug-enabled fonts still load
    their MSDF bundle so the old path remains available as a fallback."
@@ -82,8 +100,19 @@
                         (conj (fetch-bytes (str base-path (:curve slug-config))))
 
                         (:band slug-config)
-                        (conj (fetch-bytes (str base-path (:band slug-config)))))]
-    (-> (js/Promise.all (clj->js (concat msdf-promises slug-promises)))
+                        (conj (fetch-bytes (str base-path (:band slug-config)))))
+        sources (shaper-sources font-config)
+        shaper-promise (if (seq sources)
+                         (text-shaper/load-provider!
+                           sources
+                           {:features (or (:features font-config)
+                                          ["kern" "liga" "clig" "calt"])
+                            :language (or (:language font-config) "und")
+                            :tab-columns (or (:tabColumns font-config) 4)})
+                         (js/Promise.resolve nil))
+        asset-promises (vec (concat msdf-promises slug-promises
+                                    [shaper-promise]))]
+    (-> (js/Promise.all (clj->js asset-promises))
         (.then
           (fn [assets]
             (let [msdf-asset-count (count msdf-promises)
@@ -98,6 +127,7 @@
                                               (count (filter some? [(:meta slug-config) (:curve slug-config)]))))
                               )
                   slug-ready? (and slug-meta slug-curve slug-band)
+                  layout-provider (aget assets (dec (count asset-promises)))
                   preferred-backend (keyword (or (:preferredBackend font-config) "msdf"))
                   active-backend (if (and (= preferred-backend :slug) slug-ready?)
                                    :slug
@@ -106,12 +136,15 @@
                               {:id (:id font-config)
                                :preferred-backend preferred-backend
                                :active-backend active-backend
+                               :shaper (some-> layout-provider :shaper-id)
                                :has-msdf? (boolean (and bitmap atlas))
                                :has-slug-config? (boolean slug-config)
                                :slug-ready? (boolean slug-ready?)})
               {:id (:id font-config)
                :name (:name font-config)
                :backend active-backend
+               :layout-provider layout-provider
+               :atlas-faces (:atlasFaces font-config)
                :bitmap bitmap
                :atlas atlas
                :msdf (when (and bitmap atlas)
@@ -157,7 +190,11 @@
                 (.then
                   (fn [assets]
                     (js/console.log "[FONT] Loaded assets for:" (:id new-val) "backend=" (name (:backend assets)))
-                    (reset! !font-assets assets)))
+                    (reset! !font-assets assets)
+                    ;; Same-id enrichment does not trigger another async load;
+                    ;; it makes the one provider visible to layout/caret/hit.
+                    (swap! !active-font assoc
+                           :layout-provider (:layout-provider assets))))
                 (.catch
                   (fn [err]
                     (js/console.error "[FONT] Failed to load:" err))))))))))

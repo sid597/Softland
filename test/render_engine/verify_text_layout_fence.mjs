@@ -17,11 +17,17 @@ const owners = [
   ["src/app/client/workspace/combined_text.cljs", "clip-editor-text-op", ["tl/layout", "tl/clip-result"]],
   ["src/app/client/workspace/runtime/mouse.cljs", "handle-cmd-click!", ["tl/layout", "tl/hit-test-result"]],
   ["src/app/client/workspace/runtime/mouse.cljs", "handle-editor-click!", ["tl/layout", "tl/hit-test-result"]],
+  ["src/app/client/workspace/editor_compute.cljs", "compute-editor-rects", ["tl/layout", "tl/measure-result", "tl/caret-result", "tl/selection-result"]],
+  ["src/app/electric_flow.cljc", "layout-tokens", ["tl/layout", "tl/caret-result", ":layout-result"]],
   ["src/app/client/substrate/webgpu/renderer.cljs", "calculate-bracket-rects", ["tl/layout", "tl/selection-result"]],
   ["src/app/client/substrate/webgpu/renderer.cljs", "hit-test", ["tl/layout", "tl/hit-test-result"]],
-  ["src/app/client/substrate/webgpu/renderer.cljs", "shape-msdf-line", ["tl/layout", "tl/paint-result"]],
-  ["src/app/client/substrate/webgpu/renderer.cljs", "shape-slug-line", ["tl/layout", "tl/paint-result"]],
+  ["src/app/client/substrate/webgpu/renderer.cljs", "position-text-op", ["tl/layout", ":layout-result", ":glyphs"]],
+  ["src/app/client/substrate/webgpu/renderer.cljs", "paint-msdf-line", ["painted-glyph"]],
+  ["src/app/client/substrate/webgpu/renderer.cljs", "paint-slug-line", ["painted-glyph"]],
 ];
+
+const paintConsumers = ["paint-msdf-line", "paint-slug-line"];
+const forbiddenPaintOwnership = ["tl/layout", "tl/legacy-char-advance", "tl/measure-result", "tl/hit-test-result"];
 
 const privateMetricPatterns = [
   ["round/ceil/floor", /Math\/(?:round|ceil|floor)/],
@@ -84,6 +90,11 @@ for (const [relative, name, required] of owners) {
   for (const failure of auditOwner(body, required)) {
     failures.push(`${relative}#${name}: ${failure}`);
   }
+  if (paintConsumers.includes(name)) {
+    for (const token of forbiddenPaintOwnership) {
+      if (body.includes(token)) failures.push(`${relative}#${name}: paint owns ${token}`);
+    }
+  }
 }
 
 const seededPrivateConsumer = `(defn seeded-private-consumer [text char-advance]
@@ -94,13 +105,14 @@ if (!seedFailures.includes("count-times-metric")) {
 }
 
 const receipt = {
-  contract: "T0-3/no-independent-metrics",
+  contract: "T1/no-independent-metrics-or-backend-placement",
   owners: owners.length,
   files: files.size,
   seededPrivateConsumerRejected: seedFailures.length > 0,
+  paintConsumers,
   productionFailures: failures,
   pass: failures.length === 0,
 };
 
-console.log(`[T0-FENCE] ${JSON.stringify(receipt)}`);
+console.log(`[T1-FENCE] ${JSON.stringify(receipt)}`);
 if (!receipt.pass) process.exit(1);

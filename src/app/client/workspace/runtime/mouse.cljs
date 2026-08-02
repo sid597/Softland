@@ -283,12 +283,14 @@
         dpr (:dpr @!viewport)
         snap? (:snap-to-pixel? @!settings)
         char-width (:char-width @!active-font)
+        text-provider (:layout-provider @!active-font)
         char-advance (tl/legacy-char-advance font-size char-width dpr snap?)
         sb-w (if sb-vis? sidebar-w 0)
         text-x (+ (cmd-text-start-x @(get atoms :!ai-provider) font-size char-width dpr snap?) sb-w)
         text (:text cmd-panel)
         layout-result (tl/layout {:text text
                                   :source-lines [text]
+                                  :provider text-provider
                                   :font-size font-size
                                   :char-advance char-advance
                                   :line-height font-size
@@ -308,6 +310,7 @@
         snap? (:snap-to-pixel? @!settings)
         font-size (:font-size @!settings)
         char-width (:char-width @!active-font)
+        text-provider (:layout-provider @!active-font)
         line-h (maybe-snap (* font-size (:line-height @!settings)) dpr snap?)
         char-advance (tl/legacy-char-advance font-size char-width dpr snap?)
         elx (maybe-snap (- layout-x (or @!scroll-x 0)) dpr snap?)
@@ -317,8 +320,12 @@
         text-result @!text-geo
         line-mapping (or (:line-mapping text-result) [])
         source-lines (:lines @!editor-doc)
-        layout-result (tl/layout {:text (str/join "\n" source-lines)
-                                  :source-lines source-lines
+        visual-source-lines (if (seq line-mapping)
+                              (mapv #(get source-lines % "") line-mapping)
+                              source-lines)
+        layout-result (tl/layout {:text (str/join "\n" visual-source-lines)
+                                  :source-lines visual-source-lines
+                                  :provider text-provider
                                   :font-size font-size
                                   :char-advance char-advance
                                   :line-height line-h

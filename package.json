@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "build": "clj -M:dev -m dev",
-    "verify:render-engine": "node test/render_engine/verify_text_layout_fence.mjs && node test/render_engine/verify_scene_tape_fence.mjs && clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs"
+    "verify:text-layout": "clj -M:test -e \"(require 'app.client.workspace.text-layout-test) (let [r (clojure.test/run-tests 'app.client.workspace.text-layout-test)] (System/exit (+ (:fail r) (:error r))))\" && node test/render_engine/verify_proportional_shaper.mjs && node test/render_engine/verify_text_layout_fence.mjs",
+    "verify:render-engine": "npm run verify:text-layout && node test/render_engine/verify_scene_tape_fence.mjs && clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs"
   },
   "author": "",
   "license": "ISC",
@@ -25,6 +26,8 @@
     "@lezer/markdown": "^1.0.2",
     "@nextjournal/lezer-clojure": "^1.0.0",
     "@radix-ui/themes": "^2.0.3",
+    "bidi-js": "1.0.3",
+    "harfbuzzjs": "0.10.3",
     "lezer-clojure": "0.1.10",
     "prop-types": "15.8.1",
     "react": "18.2.0",

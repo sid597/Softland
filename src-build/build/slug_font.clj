@@ -97,9 +97,12 @@
     (Font/createFont Font/TRUETYPE_FONT (io/file path))
     (float 1.0)))
 
-(defn- glyph-outline [^Font font codepoint]
-  (let [chars (Character/toChars (int codepoint))
-        glyph-vector (.createGlyphVector font ^FontRenderContext @frc chars)]
+(defn- glyph-outline [^Font font {:keys [index unicode]}]
+  (let [glyph-vector (if (some? index)
+                       (.createGlyphVector font ^FontRenderContext @frc
+                                           (int-array [(int index)]))
+                       (.createGlyphVector font ^FontRenderContext @frc
+                                           (Character/toChars (int unicode))))]
     (.getGlyphOutline glyph-vector 0)))
 
 (defn- flatten-curves [contours]
@@ -265,9 +268,8 @@
      :bottom (:min-y curve-bounds)}
     plane-bounds))
 
-(defn- compile-glyph [^Font font glyph]
-  (let [codepoint (:unicode glyph)
-        outline (glyph-outline font codepoint)
+(defn- compile-glyph [^Font font font-id glyph]
+  (let [outline (glyph-outline font glyph)
         contours (outline->contours outline)
         curves (flatten-curves contours)
         bounds (when (seq curves)
@@ -275,7 +277,12 @@
         sample-bounds (glyph-sample-bounds bounds (:planeBounds glyph))
         horizontal-layout (choose-band-layout curves :horizontal)
         vertical-layout (choose-band-layout curves :vertical)]
-    {:unicode codepoint
+    {:id (if font-id
+           [font-id (or (:index glyph) (:unicode glyph))]
+           (or (:index glyph) (:unicode glyph)))
+     :fontId font-id
+     :index (:index glyph)
+     :unicode (:unicode glyph)
      :advance (:advance glyph)
      :planeBounds (:planeBounds glyph)
      :sampleBounds sample-bounds
@@ -285,8 +292,8 @@
      :vertical-layout vertical-layout}))
 
 (defn- pack-glyphs [glyphs]
-  (let [curve-segments (mapv (fn [{:keys [unicode curve-texels]}]
-                               {:id unicode :entries curve-texels})
+  (let [curve-segments (mapv (fn [{:keys [id curve-texels]}]
+                               {:id id :entries curve-texels})
                              glyphs)
         curve-pack (pack-row-segments curve-segments curve-texture-width)
         curve-placement-by-id (into {}
@@ -294,8 +301,8 @@
                                     (:placements curve-pack))
         glyphs-with-band-data
         (mapv
-          (fn [{:keys [unicode curves horizontal-layout vertical-layout] :as glyph}]
-            (let [{:keys [x y]} (get curve-placement-by-id unicode)
+          (fn [{:keys [id curves horizontal-layout vertical-layout] :as glyph}]
+            (let [{:keys [x y]} (get curve-placement-by-id id)
                   curve-positions (into {}
                                         (map-indexed
                                           (fn [idx _]
@@ -306,8 +313,8 @@
                      :curve-position {:x x :y y}
                      :band-entries band-entries)))
           glyphs)
-        band-segments (mapv (fn [{:keys [unicode band-entries]}]
-                              {:id unicode :entries band-entries})
+        band-segments (mapv (fn [{:keys [id band-entries]}]
+                              {:id id :entries band-entries})
                             glyphs-with-band-data)
         band-pack (pack-row-segments band-segments band-texture-width)
         band-placement-by-id (into {}
@@ -315,23 +322,26 @@
                                    (:placements band-pack))]
     {:glyphs
      (mapv
-       (fn [{:keys [unicode advance planeBounds sampleBounds horizontal-layout vertical-layout band-entries] :as glyph}]
+       (fn [{:keys [id fontId index unicode advance planeBounds sampleBounds horizontal-layout vertical-layout band-entries] :as glyph}]
          (let [{curve-x :x curve-y :y} (:curve-position glyph)
-               {band-x :x band-y :y} (get band-placement-by-id unicode)
+               {band-x :x band-y :y} (get band-placement-by-id id)
                packed-band-max-y (bit-or (bit-and (dec (:count horizontal-layout)) 0xFFFF) 0)]
-           {:unicode unicode
-            :advance advance
-            :planeBounds planeBounds
-            :sampleBounds sampleBounds
-            :slug {:glyphLoc {:x band-x :y band-y}
-                   :curveLoc {:x curve-x :y curve-y}
-                   :banding {:scaleX (:scale vertical-layout)
-                             :scaleY (:scale horizontal-layout)
-                             :offsetX (:offset vertical-layout)
-                             :offsetY (:offset horizontal-layout)}
-                   :bandMax {:x (dec (:count vertical-layout))
-                             :y (dec (:count horizontal-layout))}
-                   :packedBandMeta packed-band-max-y}}))
+           (cond-> (array-map)
+             (some? fontId) (assoc :fontId fontId)
+             (some? index) (assoc :index index)
+             (some? unicode) (assoc :unicode unicode)
+             true (assoc :advance advance
+                         :planeBounds planeBounds
+                         :sampleBounds sampleBounds
+                         :slug {:glyphLoc {:x band-x :y band-y}
+                                :curveLoc {:x curve-x :y curve-y}
+                                :banding {:scaleX (:scale vertical-layout)
+                                          :scaleY (:scale horizontal-layout)
+                                          :offsetX (:offset vertical-layout)
+                                          :offsetY (:offset horizontal-layout)}
+                                :bandMax {:x (dec (:count vertical-layout))
+                                          :y (dec (:count horizontal-layout))}
+                                :packedBandMeta packed-band-max-y}))))
        glyphs-with-band-data)
      :curve-pack curve-pack
      :band-pack band-pack}))
@@ -401,18 +411,34 @@
    :band-out "resources/public/fonts/dejavu_sans_mono_slug_band.bin"})
 
 (defn write-font-assets!
-  [{:keys [font-path metrics-path meta-out curve-out band-out]
+  [{:keys [font-path font-paths font-ids metrics-path meta-out curve-out band-out]
     :or {font-path (:font-path (default-config))
          metrics-path (:metrics-path (default-config))
          meta-out (:meta-out (default-config))
          curve-out (:curve-out (default-config))
          band-out (:band-out (default-config))}}]
-  (let [font (load-font font-path)
-        metrics-json (read-json metrics-path)
-        glyphs (mapv (partial compile-glyph font) (:glyphs metrics-json))
+  (let [metrics-json (read-json metrics-path)
+        variants (:variants metrics-json)
+        glyphs (if (seq variants)
+                 (let [font-paths (vec font-paths)
+                       font-ids (vec font-ids)]
+                   (when-not (= (count variants) (count font-paths) (count font-ids))
+                     (throw (ex-info "Slug variant inputs must match atlas variants."
+                                     {:variants (count variants)
+                                      :font-paths (count font-paths)
+                                      :font-ids (count font-ids)})))
+                   (vec
+                     (mapcat (fn [variant path font-id]
+                               (let [font (load-font path)]
+                                 (mapv (partial compile-glyph font font-id)
+                                       (:glyphs variant))))
+                             variants font-paths font-ids)))
+                 (let [font (load-font font-path)]
+                   (mapv (partial compile-glyph font nil) (:glyphs metrics-json))))
         {:keys [glyphs curve-pack band-pack]} (pack-glyphs glyphs)
         meta {:version 1
-              :metrics (:metrics metrics-json)
+              :metrics (or (:metrics metrics-json)
+                           (get-in metrics-json [:variants 0 :metrics]))
               :curveTexture {:width curve-texture-width
                              :height (:height curve-pack)
                              :format "rgba16float"}
