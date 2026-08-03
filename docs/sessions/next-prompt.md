@@ -651,6 +651,9 @@ preview); §3 adopt ruling: the two foreign Act-2 hunks
 (`editor_compute.cljs` +10, `verify_text_layout_fence.mjs` +36) ADOPTED,
 `ground.cljs` scalpel-limited to `pick-at`. NEXT = Sid pastes the Codex
 opening prompt (below the contract); then Fable FULL gate review.
+**Coordination flag (2026-08-04): shaping-correction (package block below)
+is SEAM-STEP1-closure's contracted predecessor — SEAM lands its code as
+contracted, then shaping-correction runs, then SEAM's felt gates + close.**
 decisions.md's section now OPENS
 with the arc in Sid's words (Electric-native map: transport kept ·
 internals re-keyed · host probed · Missionary soil · Softland the
@@ -663,6 +666,26 @@ activations; the failed face archives separately).
 Code still uncommitted in two layers; archive/survivorship
 rulings still deferred, unchanged by this settlement (the studio
 layer carries the durable authoring loop the law demands).
+
+**shaping-correction — CONTRACT CUT + EVIDENCE BANKED 2026-08-04
+(predecessor to SEAM-STEP1 closure; SEAM stays frozen/unwidened).** Sid's
+profiling ruling executed: the 2026-08-03 capture banked durable
+(`build/shaping-correction/evidence/` + `FOUNDING-EVIDENCE.md` — settle
+35.678s · final frame 28.747s with text-gpu 28.725s · shaped-layout
+28.343s ⊃ union-bounds 24.390s (the O(C×G) whole-glyph filter realized
+inside it) · hover 6.0–6.1s ×2 slots vs 20.7ms control; every number
+re-derived from the raw profiles; published-hash cross-check UNRESOLVED
+(chat-resident, never on disk) and the capture's adapter attestation
+MISSING — both recorded, attestation required in all future receipts).
+`CONTRACT.md`: invariants I1–I10 · §5 ONE shaped block-greedy wrap
+authority (S1 Sid-stop if legacy column breaks are claimed as product
+identity) · §6 layout key vs paint-resource identity (zoom + origin OUT
+of the key) · gates G1–G10 with the 52ms hover bar + a 12.0s cold bar
+(author-chosen, Sid redlines) · §7 step-5 evidence gate — no
+paint-delta/residency/streaming pre-authorized · traps T1–T13. ONE
+phase, few-and-large; opens only AFTER SEAM-STEP1's code lands (shared
+files). NEXT = fresh default-fail validation round over the contract;
+baton `build/shaping-correction/NOW.md`.
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.

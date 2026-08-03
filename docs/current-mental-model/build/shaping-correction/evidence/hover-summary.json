@@ -1,0 +1,96 @@
+{
+  "capturedAt": "2026-08-03T18:30:56.233Z",
+  "viewport": [
+    800,
+    601
+  ],
+  "ordinary": {
+    "id": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3405ac6d:000000",
+    "textLength": 66,
+    "rect": {
+      "x": -14424.607599020972,
+      "y": -21.656264568423964,
+      "w": 569.2800000000001,
+      "h": 70,
+      "machine?": false,
+      "local?": false
+    }
+  },
+  "largest": {
+    "id": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3c6512e2:000000",
+    "textLength": 24891,
+    "rect": {
+      "x": -15967.225549028723,
+      "y": 8191.293336041816,
+      "w": 8670.880000000001,
+      "h": 4093,
+      "machine?": false,
+      "local?": false
+    }
+  },
+  "transitions": [
+    {
+      "label": "largest-to-ordinary-1",
+      "point": {
+        "x": 399.5032301980205,
+        "y": 300.5843824806083
+      },
+      "inputToG8Ms": 6108,
+      "inputToRafMs": 6124,
+      "reshapeCount": 2,
+      "g8": "[SCENE-FACES/G8] slot text geos reshaped: 2 | content geo reshaped this frame?: false | live slots: 177",
+      "raf": "[RAF] prep: 0.0 ms | text-gpu: 5909.0 ms | rects-gpu: 0.5 ms | draw: 16.2 ms | TOTAL: 5925.7 ms | content-same?: true chrome-same?: true dirty-rect: partial",
+      "hoverAfter": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3405ac6d:000000",
+      "reportAfter": "[ground report 2026-08-03T18:30:37.303Z]\nmode=rest focus=nil inflight=0 next-seq=0 selection=nil machine-sel=nil group-sel=#{} pointer=idle\necho ms (envelope→confirmed render, bar 52): n=0 p50=- p95=- p99=- max=-\nreconcile ms (per context emission): n=1 last=1284.7 p95=1284.7 max=1284.7\nrebuilds since boot: built=179 skipped=0\ncanvas: blocks=172 machine=36 served-chars=586927\npage: river-events=247 blocks-served=916 truncated?=false dup-blocks-dropped=0\nslow echoes (>52ms, last 8): []\nclient stalls (main thread blocked >100ms, last 8): [{:ms 1796, :at \"2026-08-03T18:14:48.705Z\"} {:ms 30051, :at \"2026-08-03T18:15:21.210Z\"} {:ms 155, :at \"2026-08-03T18:19:47.314Z\"} {:ms 5947, :at \"2026-08-03T18:28:26.607Z\"} {:ms 6114, :at \"2026-08-03T18:30:37.273Z\"}]\nruns={} zoom=0.1"
+    },
+    {
+      "label": "ordinary-to-largest",
+      "point": {
+        "x": 400,
+        "y": 469.62934254163247
+      },
+      "inputToG8Ms": 6012,
+      "inputToRafMs": 6028,
+      "reshapeCount": 2,
+      "g8": "[SCENE-FACES/G8] slot text geos reshaped: 2 | content geo reshaped this frame?: false | live slots: 177",
+      "raf": "[RAF] prep: 0.0 ms | text-gpu: 5871.4 ms | rects-gpu: 0.4 ms | draw: 15.8 ms | TOTAL: 5887.6 ms | content-same?: true chrome-same?: true dirty-rect: partial",
+      "hoverAfter": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3c6512e2:000000",
+      "reportAfter": "[ground report 2026-08-03T18:30:45.057Z]\nmode=rest focus=nil inflight=0 next-seq=0 selection=nil machine-sel=nil group-sel=#{} pointer=idle\necho ms (envelope→confirmed render, bar 52): n=0 p50=- p95=- p99=- max=-\nreconcile ms (per context emission): n=1 last=1284.7 p95=1284.7 max=1284.7\nrebuilds since boot: built=181 skipped=0\ncanvas: blocks=172 machine=36 served-chars=586927\npage: river-events=247 blocks-served=916 truncated?=false dup-blocks-dropped=0\nslow echoes (>52ms, last 8): []\nclient stalls (main thread blocked >100ms, last 8): [{:ms 1796, :at \"2026-08-03T18:14:48.705Z\"} {:ms 30051, :at \"2026-08-03T18:15:21.210Z\"} {:ms 155, :at \"2026-08-03T18:19:47.314Z\"} {:ms 5947, :at \"2026-08-03T18:28:26.607Z\"} {:ms 6114, :at \"2026-08-03T18:30:37.273Z\"} {:ms 349, :at \"2026-08-03T18:30:39.009Z\"} {:ms 5778, :at \"2026-08-03T18:30:45.037Z\"}]\nruns={} zoom=0.1"
+    },
+    {
+      "label": "largest-to-ordinary-2",
+      "point": {
+        "x": 399.5032301980205,
+        "y": 300.5843824806083
+      },
+      "inputToG8Ms": 6084,
+      "inputToRafMs": 6101,
+      "reshapeCount": 2,
+      "g8": "[SCENE-FACES/G8] slot text geos reshaped: 2 | content geo reshaped this frame?: false | live slots: 177",
+      "raf": "[RAF] prep: 0.0 ms | text-gpu: 5923.0 ms | rects-gpu: 0.4 ms | draw: 16.6 ms | TOTAL: 5940.0 ms | content-same?: true chrome-same?: true dirty-rect: partial",
+      "hoverAfter": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3405ac6d:000000",
+      "reportAfter": "[ground report 2026-08-03T18:30:53.151Z]\nmode=rest focus=nil inflight=0 next-seq=0 selection=nil machine-sel=nil group-sel=#{} pointer=idle\necho ms (envelope→confirmed render, bar 52): n=0 p50=- p95=- p99=- max=-\nreconcile ms (per context emission): n=1 last=1284.7 p95=1284.7 max=1284.7\nrebuilds since boot: built=183 skipped=0\ncanvas: blocks=172 machine=36 served-chars=586927\npage: river-events=247 blocks-served=916 truncated?=false dup-blocks-dropped=0\nslow echoes (>52ms, last 8): []\nclient stalls (main thread blocked >100ms, last 8): [{:ms 30051, :at \"2026-08-03T18:15:21.210Z\"} {:ms 155, :at \"2026-08-03T18:19:47.314Z\"} {:ms 5947, :at \"2026-08-03T18:28:26.607Z\"} {:ms 6114, :at \"2026-08-03T18:30:37.273Z\"} {:ms 349, :at \"2026-08-03T18:30:39.009Z\"} {:ms 5778, :at \"2026-08-03T18:30:45.037Z\"} {:ms 616, :at \"2026-08-03T18:30:47.026Z\"} {:ms 5851, :at \"2026-08-03T18:30:53.127Z\"}]\nruns={} zoom=0.1"
+    },
+    {
+      "label": "ordinary-to-empty",
+      "point": {
+        "x": 25,
+        "y": 25
+      },
+      "inputToG8Ms": 12,
+      "inputToRafMs": 28,
+      "reshapeCount": 1,
+      "g8": "[SCENE-FACES/G8] slot text geos reshaped: 1 | content geo reshaped this frame?: false | live slots: 177",
+      "raf": "[RAF] prep: 0.1 ms | text-gpu: 4.0 ms | rects-gpu: 0.5 ms | draw: 16.1 ms | TOTAL: 20.7 ms | content-same?: true chrome-same?: true dirty-rect: partial",
+      "hoverAfter": null,
+      "reportAfter": "[ground report 2026-08-03T18:30:53.527Z]\nmode=rest focus=nil inflight=0 next-seq=0 selection=nil machine-sel=nil group-sel=#{} pointer=idle\necho ms (envelope→confirmed render, bar 52): n=0 p50=- p95=- p99=- max=-\nreconcile ms (per context emission): n=1 last=1284.7 p95=1284.7 max=1284.7\nrebuilds since boot: built=184 skipped=0\ncanvas: blocks=172 machine=36 served-chars=586927\npage: river-events=247 blocks-served=916 truncated?=false dup-blocks-dropped=0\nslow echoes (>52ms, last 8): []\nclient stalls (main thread blocked >100ms, last 8): [{:ms 30051, :at \"2026-08-03T18:15:21.210Z\"} {:ms 155, :at \"2026-08-03T18:19:47.314Z\"} {:ms 5947, :at \"2026-08-03T18:28:26.607Z\"} {:ms 6114, :at \"2026-08-03T18:30:37.273Z\"} {:ms 349, :at \"2026-08-03T18:30:39.009Z\"} {:ms 5778, :at \"2026-08-03T18:30:45.037Z\"} {:ms 616, :at \"2026-08-03T18:30:47.026Z\"} {:ms 5851, :at \"2026-08-03T18:30:53.127Z\"}]\nruns={} zoom=0.1"
+    }
+  ],
+  "finalCamera": {
+    "x": 4.999901417689122,
+    "y": 5.00008979103327,
+    "zoom": 1.0000000833037057
+  },
+  "finalHover": null,
+  "finalReport": "[ground report 2026-08-03T18:30:56.230Z]\nmode=rest focus=nil inflight=0 next-seq=0 selection=nil machine-sel=nil group-sel=#{} pointer=idle\necho ms (envelope→confirmed render, bar 52): n=0 p50=- p95=- p99=- max=-\nreconcile ms (per context emission): n=1 last=1284.7 p95=1284.7 max=1284.7\nrebuilds since boot: built=184 skipped=0\ncanvas: blocks=172 machine=36 served-chars=586927\npage: river-events=247 blocks-served=916 truncated?=false dup-blocks-dropped=0\nslow echoes (>52ms, last 8): []\nclient stalls (main thread blocked >100ms, last 8): [{:ms 30051, :at \"2026-08-03T18:15:21.210Z\"} {:ms 155, :at \"2026-08-03T18:19:47.314Z\"} {:ms 5947, :at \"2026-08-03T18:28:26.607Z\"} {:ms 6114, :at \"2026-08-03T18:30:37.273Z\"} {:ms 349, :at \"2026-08-03T18:30:39.009Z\"} {:ms 5778, :at \"2026-08-03T18:30:45.037Z\"} {:ms 616, :at \"2026-08-03T18:30:47.026Z\"} {:ms 5851, :at \"2026-08-03T18:30:53.127Z\"}]\nruns={} zoom=1.0"
+}

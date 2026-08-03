@@ -1,0 +1,1603 @@
+{
+  "wallStart": 1785780885530,
+  "settleAt": 1785780941282,
+  "wallMs": 55752,
+  "firstReportMs": 3174,
+  "stableMs": 19068,
+  "consoleQuietMs": 15067,
+  "timedOut": false,
+  "metrics": [
+    {
+      "name": "Timestamp",
+      "value": 12211.782468
+    },
+    {
+      "name": "AudioHandlers",
+      "value": 0
+    },
+    {
+      "name": "AudioWorkletProcessors",
+      "value": 0
+    },
+    {
+      "name": "Documents",
+      "value": 1
+    },
+    {
+      "name": "Frames",
+      "value": 1
+    },
+    {
+      "name": "JSEventListeners",
+      "value": 27
+    },
+    {
+      "name": "LayoutObjects",
+      "value": 4
+    },
+    {
+      "name": "MediaKeySessions",
+      "value": 0
+    },
+    {
+      "name": "MediaKeys",
+      "value": 0
+    },
+    {
+      "name": "Nodes",
+      "value": 352
+    },
+    {
+      "name": "Resources",
+      "value": 327
+    },
+    {
+      "name": "ContextLifecycleStateObservers",
+      "value": 5
+    },
+    {
+      "name": "V8PerContextDatas",
+      "value": 2
+    },
+    {
+      "name": "WorkerGlobalScopes",
+      "value": 0
+    },
+    {
+      "name": "UACSSResources",
+      "value": 0
+    },
+    {
+      "name": "RTCPeerConnections",
+      "value": 0
+    },
+    {
+      "name": "ResourceFetchers",
+      "value": 1
+    },
+    {
+      "name": "AdSubframes",
+      "value": 0
+    },
+    {
+      "name": "DetachedScriptStates",
+      "value": 0
+    },
+    {
+      "name": "ArrayBufferContents",
+      "value": 9
+    },
+    {
+      "name": "LayoutCount",
+      "value": 7
+    },
+    {
+      "name": "RecalcStyleCount",
+      "value": 34
+    },
+    {
+      "name": "LayoutDuration",
+      "value": 0.000336
+    },
+    {
+      "name": "RecalcStyleDuration",
+      "value": 0.001131
+    },
+    {
+      "name": "DevToolsCommandDuration",
+      "value": 0.045816
+    },
+    {
+      "name": "ScriptDuration",
+      "value": 32.167285
+    },
+    {
+      "name": "V8CompileDuration",
+      "value": 0.002695
+    },
+    {
+      "name": "TaskDuration",
+      "value": 32.756029
+    },
+    {
+      "name": "TaskOtherDuration",
+      "value": 0.538766
+    },
+    {
+      "name": "ThreadTime",
+      "value": 32.511259
+    },
+    {
+      "name": "ProcessTime",
+      "value": 0
+    },
+    {
+      "name": "JSHeapUsedSize",
+      "value": 204849136
+    },
+    {
+      "name": "JSHeapTotalSize",
+      "value": 211136512
+    },
+    {
+      "name": "FirstMeaningfulPaint",
+      "value": 0
+    },
+    {
+      "name": "DomContentLoaded",
+      "value": 12156.9352
+    },
+    {
+      "name": "NavigationStart",
+      "value": 12156.527867
+    }
+  ],
+  "finalState": {
+    "report": "[ground report 2026-08-03T18:15:41.441Z]\nmode=rest focus=nil inflight=0 next-seq=0 selection=nil machine-sel=nil group-sel=#{} pointer=idle\necho ms (envelope→confirmed render, bar 52): n=0 p50=- p95=- p99=- max=-\nreconcile ms (per context emission): n=1 last=1284.7 p95=1284.7 max=1284.7\nrebuilds since boot: built=172 skipped=0\ncanvas: blocks=172 machine=36 served-chars=586927\npage: river-events=247 blocks-served=916 truncated?=false dup-blocks-dropped=0\nslow echoes (>52ms, last 8): []\nclient stalls (main thread blocked >100ms, last 8): [{:ms 1796, :at \"2026-08-03T18:14:48.705Z\"} {:ms 30051, :at \"2026-08-03T18:15:21.210Z\"}]\nruns={} zoom=1.0",
+    "blocks": {
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:f13a0748:000000": {
+        "x": 1909.9739880474804,
+        "y": -2028.4962839159173,
+        "w": 1290.5200000000002,
+        "h": 97,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:sense-block-v0:000329:00:000000": {
+        "x": 2644.852432813881,
+        "y": -1453.613986174488,
+        "w": 361.8,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:e8c4641a711585cfeb0629dae2d85ba89cae7f74f2029175c5bceb003cb6c4f6:sense-block-v0:000127:00:000000": {
+        "x": 4081.4794363625424,
+        "y": 1096.1437587425276,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:1d2e7e96:000000": {
+        "x": 2772.0701704622343,
+        "y": 233.25346618305792,
+        "w": 954.6,
+        "h": 124,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d3c9f4a0:000000": {
+        "x": 2793.1514282097855,
+        "y": -559.0476609332748,
+        "w": 826.1600000000001,
+        "h": 151,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:cde222d8:000000": {
+        "x": -2903.028984887376,
+        "y": -1338.7159841718576,
+        "w": 677.96,
+        "h": 421,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3f7b13a9:000004": {
+        "x": 6468.182014993115,
+        "y": -2784.1709273631495,
+        "w": 3187.4800000000005,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:41713c7850ec253b685caabebfa10e33ac801531c213552574c4f1b814c8a2b7:sense-block-v0:000009:00:000000": {
+        "x": 4096.765759747021,
+        "y": -99.78835020312593,
+        "w": 450.72,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:b455f1b4f6d5876acaddc35dae42d44c9760f1be4b57463a2c3ffe8e9eaa078d:sense-block-v0:000010:00:000000": {
+        "x": -7775.717726276796,
+        "y": -1798.080015431382,
+        "w": 450.72,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:7e104a43:000000": {
+        "x": -491.4985781896212,
+        "y": -1628.6632959220553,
+        "w": 776.7600000000001,
+        "h": 70,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:54ec72c7:000000": {
+        "x": 14073.415998291357,
+        "y": -8.888161030335148,
+        "w": 1438.72,
+        "h": 70,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d5756a4a:000000": {
+        "x": -2048.42856164458,
+        "y": -1251.2036205305676,
+        "w": 1063.28,
+        "h": 583,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:sense-block-v0:000065:00:000000": {
+        "x": 4940.004292973856,
+        "y": -1818.3303416712804,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:33dbfa0c:000000": {
+        "x": 5824.904954074856,
+        "y": 280.75827660766254,
+        "w": 786.6400000000001,
+        "h": 97,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:sense-block-v0:000027:00:000000": {
+        "x": 6224.814275669332,
+        "y": -1768.3538374448942,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:3bf484a0b04d46d591a127ad81f4a9f237603df44c6cc1fbd985ae70ccfc789b:sense-block-v0:000750:00:000000": {
+        "x": 7786.8573111438345,
+        "y": 3772.0921532093535,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:4470a888:000000": {
+        "x": 3826.6149885052628,
+        "y": 3835.2774001029156,
+        "w": 1537.5200000000002,
+        "h": 718,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:73c2d664:000005": {
+        "x": 12195.250309038662,
+        "y": 1009.9668881805167,
+        "w": 1448.6000000000001,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:sense-block-v0:000282:00:000000": {
+        "x": 2644.852432813881,
+        "y": -809.6139861744883,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:5a28b15a:000000": {
+        "x": -20800.55792146456,
+        "y": -14391.599322793754,
+        "w": 11447.160000000002,
+        "h": 421,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:59de1021:000000": {
+        "x": 7699.6149712777205,
+        "y": 729.0003118298227,
+        "w": 1330.0400000000002,
+        "h": 70,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9d5ac128:000000": {
+        "x": 7700.828970003643,
+        "y": 490.1862832943116,
+        "w": 1379.44,
+        "h": 70,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:sense-block-v0:000873:00:000000": {
+        "x": 4975.878849969428,
+        "y": -977.445458865393,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:sense-block-v0:000426:00:000000": {
+        "x": 2789.5521179702787,
+        "y": -12.71942990429882,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:13501551:000008": {
+        "x": -7722.326595358313,
+        "y": -5516.297668286308,
+        "w": 401.32000000000005,
+        "h": 178,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:3bf484a0b04d46d591a127ad81f4a9f237603df44c6cc1fbd985ae70ccfc789b:sense-block-v0:000689:00:000000": {
+        "x": 7699.6149712777205,
+        "y": 833.0003118298227,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:3a533c1f43bab1c7913c5649185b362ef61c8dcadd646686102280ccd0381bd4:sense-block-v0:000009:00:000000": {
+        "x": 4085.724377120124,
+        "y": 491.2241377210033,
+        "w": 450.72,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:87454fe4:000000": {
+        "x": -12713.677530920688,
+        "y": -3684.0372953559554,
+        "w": 1171.96,
+        "h": 151,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:fb80fc3e:000000": {
+        "x": 5644.132357215037,
+        "y": 3167.1231695446845,
+        "w": 1903.0800000000002,
+        "h": 1339,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:b653377e:000000": {
+        "x": 15150.24111182894,
+        "y": 463.3235991019947,
+        "w": 559.4000000000001,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:3bf484a0b04d46d591a127ad81f4a9f237603df44c6cc1fbd985ae70ccfc789b:sense-block-v0:000507:00:000000": {
+        "x": 5765.7358956057315,
+        "y": 3011.5741589450686,
+        "w": 450.72,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:a741360ac1338e41b7e6eaa23f578b341094ee89f623cf95426b6fe179f840e7:sense-block-v0:000009:00:000000": {
+        "x": 4072.823890542706,
+        "y": 2347.9867804182522,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:65639231:000000": {
+        "x": -10705.257685085282,
+        "y": -2123.2017313519013,
+        "w": 875.5600000000001,
+        "h": 259,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:c92582b4:000000": {
+        "x": -1164.3305994567497,
+        "y": -6.384104880902725,
+        "w": 25.880000000000003,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:64aa4890:000000": {
+        "x": 6224.814275669332,
+        "y": -1953.3538374448942,
+        "w": 470.48,
+        "h": 151,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3f7b13a9:000000": {
+        "x": 6475.364350459762,
+        "y": -2566.3067515415114,
+        "w": 5420.360000000001,
+        "h": 178,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:a6f09cb7:000000": {
+        "x": 13179.53697288421,
+        "y": 5194.388141269927,
+        "w": 9945.400000000001,
+        "h": 880,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:5c962bf4:000000": {
+        "x": 509.2210175129776,
+        "y": -256.3684198055912,
+        "w": 924.96,
+        "h": 1312,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:73c2d664:000010": {
+        "x": 12170.298993026161,
+        "y": 1284.7865062691985,
+        "w": 1527.64,
+        "h": 151,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:13501551:000003": {
+        "x": -7071.0198580558545,
+        "y": -4759.485191055657,
+        "w": 490.24,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d4b5dab9:000000": {
+        "x": 14054.113878123026,
+        "y": 637.4494455817064,
+        "w": 1013.8800000000001,
+        "h": 232,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:2a8cb631:000000": {
+        "x": 98053.89734582228,
+        "y": -449.6761644677308,
+        "w": 25.880000000000003,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:b15f2fc9:000000": {
+        "x": 6821.118964645025,
+        "y": -169.21752805076173,
+        "w": 1745.0000000000002,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:409568e7:000000": {
+        "x": 4072.823890542706,
+        "y": 1757.9867804182525,
+        "w": 1537.5200000000002,
+        "h": 556,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:904632ae:000000": {
+        "x": -17355.371036307733,
+        "y": -1884.5361422206631,
+        "w": 1498.0000000000002,
+        "h": 1501,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:18b0ce37:000000": {
+        "x": 14872.340839157687,
+        "y": 294.3293903571924,
+        "w": 677.96,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:13501551:000011": {
+        "x": -8903.493169786718,
+        "y": -4988.815521177566,
+        "w": 529.76,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:3bf484a0b04d46d591a127ad81f4a9f237603df44c6cc1fbd985ae70ccfc789b:sense-block-v0:000656:00:000000": {
+        "x": 7700.828970003643,
+        "y": 594.1862832943111,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:90611add:000000": {
+        "x": 4079.4295625074074,
+        "y": 660.6966038266935,
+        "w": 1092.92,
+        "h": 151,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3f0d75ff:000000": {
+        "x": -19897.36494852062,
+        "y": -8229.819128611762,
+        "w": 1853.68,
+        "h": 5200,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:a95bfd3f:000000": {
+        "x": 6924.100847111384,
+        "y": 604.1601068223085,
+        "w": 539.64,
+        "h": 124,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:be863fe0:000000": {
+        "x": 2241.712378734964,
+        "y": -1101.264260002274,
+        "w": 25.880000000000003,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9bb70d3e:000000": {
+        "x": 5824.801171174449,
+        "y": 1110.5474886840416,
+        "w": 924.96,
+        "h": 97,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:100a27cc:000000": {
+        "x": 11571.721853649664,
+        "y": 4865.287350252738,
+        "w": 717.48,
+        "h": 232,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:059aa6f8:000000": {
+        "x": -13886.238335008886,
+        "y": -407.44679109681084,
+        "w": 924.96,
+        "h": 178,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:39d369c1:000000": {
+        "x": -17658.492306802516,
+        "y": -8204.64820705003,
+        "w": 85.16000000000001,
+        "h": 97,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:eb1057e7:000000": {
+        "x": -4414.75292154343,
+        "y": 826.5300415765056,
+        "w": 885.44,
+        "h": 97,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:af0e008b:000000": {
+        "x": -17131.78620214034,
+        "y": 3574.867063734409,
+        "w": 1231.24,
+        "h": 826,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:17a8a72d:000000": {
+        "x": -10377.488669937793,
+        "y": -3358.939031619872,
+        "w": 2100.6800000000003,
+        "h": 1447,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:73c2d664:000004": {
+        "x": 12178.491526283151,
+        "y": 917.7935830252079,
+        "w": 628.5600000000001,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:7b439e22:000000": {
+        "x": -15667.49345164467,
+        "y": -460.2242572311011,
+        "w": 25.880000000000003,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:41cb175b:000000": {
+        "x": -1581.3473695724574,
+        "y": -1984.7344255533922,
+        "w": 687.84,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:13501551:000010": {
+        "x": -8889.9598522516,
+        "y": -4904.882592692358,
+        "w": 332.16,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:39790c47:000000": {
+        "x": -805.0518278507604,
+        "y": -2231.754285256423,
+        "w": 579.1600000000001,
+        "h": 70,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:f0ef85ab:000000": {
+        "x": -9929.477534333106,
+        "y": 1603.3026662261736,
+        "w": 1912.96,
+        "h": 2095,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:3bf484a0b04d46d591a127ad81f4a9f237603df44c6cc1fbd985ae70ccfc789b:sense-block-v0:000485:00:000000": {
+        "x": 4086.4970880747546,
+        "y": 1509.1538904864026,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3f7b13a9:000003": {
+        "x": 6458.605567704252,
+        "y": -2829.65905198525,
+        "w": 5420.360000000001,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:1ce7a493:000000": {
+        "x": -280.49886718494315,
+        "y": -2088.5200033805713,
+        "w": 391.44000000000005,
+        "h": 124,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:e4d54eb8:000000": {
+        "x": 7711.1572471284635,
+        "y": 201.8403238138701,
+        "w": 1438.72,
+        "h": 124,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:73c2d664:000007": {
+        "x": 12180.885638105367,
+        "y": 964.4787635584161,
+        "w": 1488.1200000000001,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:7173a868:000000": {
+        "x": -424.9835267261095,
+        "y": -1458.2872274852698,
+        "w": 608.8000000000001,
+        "h": 97,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:3bf484a0b04d46d591a127ad81f4a9f237603df44c6cc1fbd985ae70ccfc789b:sense-block-v0:000202:00:000000": {
+        "x": 5824.801171174449,
+        "y": 1241.5474886840416,
+        "w": 361.8,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:2b9ca288:000000": {
+        "x": 2644.852432813881,
+        "y": -1773.6139861744884,
+        "w": 1517.7600000000002,
+        "h": 286,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:cbad7e52:000000": {
+        "x": -1640.6534490526724,
+        "y": -2373.3960764964972,
+        "w": 25.880000000000003,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3f7b13a9:000002": {
+        "x": 6465.7879031709,
+        "y": -2870.3589529629185,
+        "w": 4244.64,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:34c91afe:000000": {
+        "x": -603.9209753631816,
+        "y": -2090.5348806751213,
+        "w": 174.08,
+        "h": 97,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3fd415e4:000000": {
+        "x": -9975.186961427413,
+        "y": -1.4158901682961869,
+        "w": 1231.24,
+        "h": 529,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:12bb1665:000000": {
+        "x": -1809.5828793295166,
+        "y": 826.563171536373,
+        "w": 25.880000000000003,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d9a1200e:000000": {
+        "x": 5800.140641713684,
+        "y": 1884.35650139621,
+        "w": 1537.5200000000002,
+        "h": 394,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:13501551:000012": {
+        "x": -9265.958755271795,
+        "y": -4815.451542556529,
+        "w": 1152.2,
+        "h": 70,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:a891aab8:000000": {
+        "x": 14168.077978708041,
+        "y": 1255.8058093690781,
+        "w": 845.9200000000001,
+        "h": 232,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:e88a124b:000000": {
+        "x": -7450.636506925171,
+        "y": 2207.0518836862593,
+        "w": 737.24,
+        "h": 4012,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:60319194:000000": {
+        "x": 426.29035857821157,
+        "y": -1550.901416155588,
+        "w": 25.880000000000003,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:sense-block-v0:000813:00:000000": {
+        "x": 2772.0701704622343,
+        "y": 391.25346618305787,
+        "w": 450.72,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:3bf484a0b04d46d591a127ad81f4a9f237603df44c6cc1fbd985ae70ccfc789b:sense-block-v0:000070:00:000000": {
+        "x": 5822.461115058937,
+        "y": 614.986651887634,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:3bf484a0b04d46d591a127ad81f4a9f237603df44c6cc1fbd985ae70ccfc789b:sense-block-v0:000019:00:000000": {
+        "x": 5824.904954074856,
+        "y": 411.75827660766254,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:eaa14328:000000": {
+        "x": 10019.352363536034,
+        "y": 2763.1474420798404,
+        "w": 1824.0400000000002,
+        "h": 1339,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:13501551:000007": {
+        "x": -8100.948953501805,
+        "y": -5184.217591229544,
+        "w": 361.8,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:0c1290f7:000000": {
+        "x": 7786.8573111438345,
+        "y": 2102.0921532093535,
+        "w": 1833.92,
+        "h": 1636,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:65751d4e:000000": {
+        "x": -68.43602232953454,
+        "y": -1898.1611051149537,
+        "w": 826.1600000000001,
+        "h": 97,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:13501551:000009": {
+        "x": -8994.215559453707,
+        "y": -5023.7087479725615,
+        "w": 371.68,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:6abcb7f9795ad053a38d54a84c324577fdaad2ad01929fb5e221ca11145e8789:sense-block-v0:000078:00:000000": {
+        "x": 14194.25838760351,
+        "y": 1890.532677005397,
+        "w": 450.72,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:f66ad40a:000000": {
+        "x": -14232.461777782095,
+        "y": -2759.5446641840676,
+        "w": 1043.52,
+        "h": 178,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:302887cc:000000": {
+        "x": -2242.481223029032,
+        "y": -1766.353614897569,
+        "w": 875.5600000000001,
+        "h": 340,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:73c2d664:000009": {
+        "x": 12190.46208539423,
+        "y": 1093.7608019580696,
+        "w": 1527.64,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:13501551:000005": {
+        "x": -7436.271589230276,
+        "y": -4420.650346923428,
+        "w": 628.5600000000001,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9917828e:000000": {
+        "x": -9932.159662977809,
+        "y": -1968.0219107277007,
+        "w": 1468.3600000000001,
+        "h": 1879,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:dcc61dd4:000000": {
+        "x": 3891.0621706875936,
+        "y": 4831.643464425142,
+        "w": 1656.0800000000002,
+        "h": 637,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:sense-block-v0:000891:00:000000": {
+        "x": 4986.232831613557,
+        "y": -1303.4423059528633,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:2924c56d:000000": {
+        "x": 2786.0465727943124,
+        "y": -157.0560029976512,
+        "w": 1122.5600000000002,
+        "h": 124,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:149d8737:000000": {
+        "x": -27752.41532371038,
+        "y": -15653.73628110539,
+        "w": 1735.1200000000001,
+        "h": 2527,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3de1200f:000000": {
+        "x": -6145.858670067657,
+        "y": -4012.211814332264,
+        "w": 3553.0400000000004,
+        "h": 583,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:13501551:000002": {
+        "x": -6992.015976271524,
+        "y": -4905.071776869575,
+        "w": 668.08,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:6abcb7f9795ad053a38d54a84c324577fdaad2ad01929fb5e221ca11145e8789:sense-block-v0:000010:00:000000": {
+        "x": 14168.077978708041,
+        "y": 1521.8058093690781,
+        "w": 450.72,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:1fc22c63:000000": {
+        "x": 5822.461115058937,
+        "y": 537.986651887634,
+        "w": 183.96,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3405ac6d:000000": {
+        "x": -14424.607599020972,
+        "y": -21.656264568423964,
+        "w": 569.2800000000001,
+        "h": 70,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:ace830f3:000000": {
+        "x": -1975.3551106182076,
+        "y": -668.6550302184021,
+        "w": 737.24,
+        "h": 340,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3f7b13a9:000001": {
+        "x": 6477.758462281978,
+        "y": -2908.6647421183716,
+        "w": 1863.5600000000002,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3c6512e2:000000": {
+        "x": -15967.225549028723,
+        "y": 8191.293336041816,
+        "w": 8670.880000000001,
+        "h": 4093,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:801a6edc:000000": {
+        "x": 4107.437256283624,
+        "y": -661.0219806230862,
+        "w": 707.6,
+        "h": 151,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:7c7b37be:000000": {
+        "x": -8981.78029468675,
+        "y": 3777.627396112504,
+        "w": 25.880000000000003,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:73c2d664:000006": {
+        "x": 12200.038532683093,
+        "y": 1133.2636470246302,
+        "w": 104.92,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:13501551:000000": {
+        "x": -7941.92813588073,
+        "y": -780.6686284603179,
+        "w": 1152.2,
+        "h": 826,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:636b2056:000000": {
+        "x": -20472.72409279365,
+        "y": -13110.974879934225,
+        "w": 1557.2800000000002,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:558d53e2:000000": {
+        "x": 4377.959003071238,
+        "y": -174.14127300544652,
+        "w": 25.880000000000003,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:55757c02:000000": {
+        "x": 4935.6442197858305,
+        "y": -1912.0111505479933,
+        "w": 776.7600000000001,
+        "h": 70,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:3bf484a0b04d46d591a127ad81f4a9f237603df44c6cc1fbd985ae70ccfc789b:sense-block-v0:000722:00:000000": {
+        "x": 5644.132357215037,
+        "y": 4540.123169544684,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:beb021bd:000000": {
+        "x": -7963.575981115573,
+        "y": 674.7519607914004,
+        "w": 1498.0000000000002,
+        "h": 1501,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:8c21330e:000000": {
+        "x": 5825.889926663143,
+        "y": 768.0997668136431,
+        "w": 855.8000000000001,
+        "h": 97,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:8a9a41648797510dd4c0a67462659ba217cb3c1adf3dc6e550723a2e688e76ff:sense-block-v0:000009:00:000000": {
+        "x": -14232.461777782095,
+        "y": -2547.5446641840676,
+        "w": 450.72,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:73c2d664:000002": {
+        "x": 12188.067973572015,
+        "y": 822.0291101365759,
+        "w": 776.7600000000001,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:ff018d87:000000": {
+        "x": 14194.25838760351,
+        "y": 1732.532677005397,
+        "w": 747.12,
+        "h": 124,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:13501551:000004": {
+        "x": -8923.325231956786,
+        "y": -5144.275652525683,
+        "w": 381.56,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:b0b650cc:000000": {
+        "x": 1889.3346199251641,
+        "y": -980.6473192227162,
+        "w": 677.96,
+        "h": 151,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:13501551:000001": {
+        "x": -7124.162481525445,
+        "y": -5172.190233961679,
+        "w": 806.4000000000001,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:4dc042b6:000000": {
+        "x": 7697.656538835708,
+        "y": 960.5386807248042,
+        "w": 1922.8400000000001,
+        "h": 988,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:13501551:000006": {
+        "x": -8568.518192554753,
+        "y": -5302.854562332532,
+        "w": 954.6,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:ae5696e6:000000": {
+        "x": -9994.450023989953,
+        "y": 564.4350830373603,
+        "w": 1418.96,
+        "h": 1015,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:0cee4f72:000000": {
+        "x": 4085.724377120124,
+        "y": 360.2241377210033,
+        "w": 1241.1200000000001,
+        "h": 97,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:sense-block-v0:000345:00:000000": {
+        "x": 2793.1514282097855,
+        "y": -374.04766093327476,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:b38f2276:000000": {
+        "x": 11660.717443305412,
+        "y": 6628.93907262749,
+        "w": 302.52000000000004,
+        "h": 151,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:972dbbc5:000000": {
+        "x": 5002.835678224748,
+        "y": -1608.4960902234036,
+        "w": 964.48,
+        "h": 124,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d218ca5b:000000": {
+        "x": -12467.597970650817,
+        "y": -1685.3601238848923,
+        "w": 1754.88,
+        "h": 6010,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:3bf484a0b04d46d591a127ad81f4a9f237603df44c6cc1fbd985ae70ccfc789b:sense-block-v0:000216:00:000000": {
+        "x": 5809.561186606911,
+        "y": 1763.4234428264124,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:3bf484a0b04d46d591a127ad81f4a9f237603df44c6cc1fbd985ae70ccfc789b:sense-block-v0:000236:00:000000": {
+        "x": 5800.140641713684,
+        "y": 2312.3565013962098,
+        "w": 361.8,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:6feafe07:000000": {
+        "x": 5765.7358956057315,
+        "y": 2529.5741589450686,
+        "w": 1527.64,
+        "h": 448,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:sense-block-v0:000160:00:000000": {
+        "x": 2644.852432813881,
+        "y": -1453.613986174488,
+        "w": 450.72,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:fa570f59:000000": {
+        "x": -12261.383981158659,
+        "y": -3241.518515465552,
+        "w": 766.8800000000001,
+        "h": 853,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:c060ce46:000000": {
+        "x": -14756.473567557865,
+        "y": 2775.4068622636305,
+        "w": 1853.68,
+        "h": 2932,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:8609c0b3:000000": {
+        "x": -4429.069053054319,
+        "y": 599.5587307488703,
+        "w": 292.64000000000004,
+        "h": 151,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9a860a21:000000": {
+        "x": 4096.765759747021,
+        "y": -284.78835020312596,
+        "w": 895.32,
+        "h": 151,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:ceff0332:000000": {
+        "x": 4081.4794363625424,
+        "y": 992.1437587425277,
+        "w": 1152.2,
+        "h": 70,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:64642424:000000": {
+        "x": -8988.779516266935,
+        "y": -11357.277771222774,
+        "w": 9629.240000000002,
+        "h": 3904,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:7f6ab4d4:000000": {
+        "x": -7770.99246924617,
+        "y": 68.45151036583329,
+        "w": 1330.0400000000002,
+        "h": 367,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:73c2d664:000003": {
+        "x": 12170.112134905396,
+        "y": 732.2499168034831,
+        "w": 1517.7600000000002,
+        "h": 70,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:40dd0d12:000000": {
+        "x": 1688.8584768262524,
+        "y": -720.800011899972,
+        "w": 895.32,
+        "h": 124,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:74ce3274:000000": {
+        "x": -2829.421819127466,
+        "y": -691.4497859949537,
+        "w": 668.08,
+        "h": 1015,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:10ef6de6:000000": {
+        "x": 14332.82571180949,
+        "y": 1084.2445067307356,
+        "w": 4867.080000000001,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:f93c1873:000000": {
+        "x": -9942.011056133184,
+        "y": 3739.251535279577,
+        "w": 1922.8400000000001,
+        "h": 610,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:c69491bc:000000": {
+        "x": -1976.4131070468904,
+        "y": -287.76678183593793,
+        "w": 964.48,
+        "h": 367,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:3bf484a0b04d46d591a127ad81f4a9f237603df44c6cc1fbd985ae70ccfc789b:sense-block-v0:000593:00:000000": {
+        "x": 7711.1572471284635,
+        "y": 359.8403238138701,
+        "w": 450.72,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:b6525a1a2878355808cd0dc984f4657e01b11ed7a5ae1020ca56b6ad74349e74:sense-block-v0:000009:00:000000": {
+        "x": -13976.833817241013,
+        "y": -1419.4470215758201,
+        "w": 450.72,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d49fba2f:000000": {
+        "x": 12439.139957778636,
+        "y": 6612.8157424865485,
+        "w": 3938.36,
+        "h": 1312,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:20a7f4b8:000000": {
+        "x": 1757,
+        "y": 275,
+        "w": 460.6,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:62584429:000000": {
+        "x": -7775.717726276796,
+        "y": -1956.080015431382,
+        "w": 727.36,
+        "h": 124,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:73c2d664:000000": {
+        "x": 12620.78018401796,
+        "y": 2113.6599493577337,
+        "w": 1527.64,
+        "h": 1987,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:d1135a3030288bf124fba7317c5199c7894135aa850d536bd0d0b05a36cb4c3c:sense-block-v0:000009:00:000000": {
+        "x": 4092.167609710362,
+        "y": 213.89639138549896,
+        "w": 450.72,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:7e4b5633:000000": {
+        "x": 4975.878849969428,
+        "y": -1162.445458865393,
+        "w": 875.5600000000001,
+        "h": 151,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:50cddf61:000000": {
+        "x": 4092.167609710362,
+        "y": 55.89639138549896,
+        "w": 1468.3600000000001,
+        "h": 124,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:sense-block-v0:000913:00:000000": {
+        "x": 4107.437256283624,
+        "y": -476.0219806230861,
+        "w": 450.72,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:5e23e99c:000000": {
+        "x": -10023.61753702322,
+        "y": 4403.425733083431,
+        "w": 1774.64,
+        "h": 448,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:73c2d664:000001": {
+        "x": 12179.688582194258,
+        "y": 654.4412825814697,
+        "w": 618.6800000000001,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:e8c4641a711585cfeb0629dae2d85ba89cae7f74f2029175c5bceb003cb6c4f6:sense-block-v0:000009:00:000000": {
+        "x": 4079.4295625074074,
+        "y": 845.6966038266935,
+        "w": 450.72,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:84159b68:000000": {
+        "x": -13976.833817241013,
+        "y": -2360.44702157582,
+        "w": 1221.3600000000001,
+        "h": 907,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:39f85850:000000": {
+        "x": 5809.561186606911,
+        "y": 1389.4234428264124,
+        "w": 1498.0000000000002,
+        "h": 340,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:11a16fe3:000000": {
+        "x": -1223.8515632339572,
+        "y": -536.6043533932129,
+        "w": 25.880000000000003,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:73c2d664:000011": {
+        "x": 12201.235588594202,
+        "y": 1169.1753243578673,
+        "w": 1527.64,
+        "h": 97,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:3bf484a0b04d46d591a127ad81f4a9f237603df44c6cc1fbd985ae70ccfc789b:sense-block-v0:000167:00:000000": {
+        "x": 5825.889926663143,
+        "y": 899.0997668136431,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:73c2d664:000008": {
+        "x": 12200.038532683093,
+        "y": 1054.2579568915087,
+        "w": 628.5600000000001,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:3bf484a0b04d46d591a127ad81f4a9f237603df44c6cc1fbd985ae70ccfc789b:sense-block-v0:000705:00:000000": {
+        "x": 7697.656538835708,
+        "y": 1982.5386807248037,
+        "w": 440.84000000000003,
+        "h": 97,
+        "machine?": true,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:17520aea:000000": {
+        "x": -309.45326218300903,
+        "y": 65.86676061421083,
+        "w": 25.880000000000003,
+        "h": 43,
+        "machine?": false,
+        "local?": false
+      },
+      "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9f7de6d7:000000": {
+        "x": 10048.880058681967,
+        "y": 574.1841248927601,
+        "w": 1527.64,
+        "h": 1825,
+        "machine?": false,
+        "local?": false
+      }
+    },
+    "camera": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    },
+    "mode": "rest",
+    "adapterInfo": {
+      "isFallbackAdapter": null,
+      "info": {
+        "vendor": "amd",
+        "architecture": "rdna-3",
+        "device": "0x744c",
+        "description": "Radeon RX 7900 XTX"
+      }
+    },
+    "navigation": {
+      "name": "http://127.0.0.1:8080/",
+      "entryType": "navigation",
+      "startTime": 0,
+      "duration": 407.5,
+      "initiatorType": "navigation",
+      "deliveryType": "",
+      "nextHopProtocol": "http/1.1",
+      "renderBlockingStatus": "non-blocking",
+      "contentType": "text/html",
+      "contentEncoding": "gzip",
+      "workerStart": 0,
+      "workerRouterEvaluationStart": 0,
+      "workerCacheLookupStart": 0,
+      "workerMatchedSourceType": "",
+      "workerFinalSourceType": "",
+      "redirectStart": 0,
+      "redirectEnd": 0,
+      "fetchStart": 0.3999999985098839,
+      "domainLookupStart": 0.3999999985098839,
+      "domainLookupEnd": 0.3999999985098839,
+      "connectStart": 0.3999999985098839,
+      "secureConnectionStart": 0,
+      "connectEnd": 0.3999999985098839,
+      "requestStart": 0.8999999985098839,
+      "responseStart": 2.199999999254942,
+      "firstInterimResponseStart": 0,
+      "finalResponseHeadersStart": 2.199999999254942,
+      "responseEnd": 2.599999999627471,
+      "transferSize": 635,
+      "encodedBodySize": 335,
+      "decodedBodySize": 553,
+      "responseStatus": 200,
+      "serverTiming": [],
+      "unloadEventStart": 0,
+      "unloadEventEnd": 0,
+      "domInteractive": 407.2999999988824,
+      "domContentLoadedEventStart": 407.3999999985099,
+      "domContentLoadedEventEnd": 407.5,
+      "domComplete": 407.5,
+      "loadEventStart": 407.5,
+      "loadEventEnd": 407.5,
+      "type": "navigate",
+      "redirectCount": 0,
+      "activationStart": 0,
+      "criticalCHRestart": 0,
+      "notRestoredReasons": null,
+      "confidence": {}
+    },
+    "performanceNow": 55415,
+    "href": "http://127.0.0.1:8080/"
+  },
+  "consoleCount": 100
+}

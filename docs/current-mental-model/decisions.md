@@ -492,6 +492,21 @@ vocabularies; renaming the arc makes it invisible to Sid.
   rescan consumers into keyed ones. Prediction, cheap to falsify at the store's first version: the
   plumbing dialects converge to two-plus-transport, because there is
   exactly one legal crossing left to write.
+- **The shaping correction — the seam's contracted predecessor.** The
+  profiling adjudication is banked and binding: the proportional land's
+  cold settle (35.678s, one 28.7s text interval) and six-second hover
+  stalls trace to per-cluster whole-glyph filtering inside shaped layout
+  (~O(C×G), plus a smaller per-run rescan) and to ground establishing
+  legacy layout/wrap geometry while emitting ops WITHOUT the result, the
+  renderer re-deriving shaped layout per op. The correction is contracted
+  in `build/shaping-correction/CONTRACT.md` (founding evidence banked
+  beside it): one material-local layout authority carried by a declared
+  layout key, construction proportional to G+C+R, a layout / paint /
+  GPU-geometry invalidation partition with distinct receipts, shaped
+  block-greedy wrapping as the one break-choosing truth. It precedes
+  SEAM-STEP1's closure; SEAM stays frozen and unwidened. Anything beyond
+  it — paint deltas, residency, streamed population — is authorized only
+  by the post-linearization profile, never presumed.
 
 ## Only Sid decides
 
