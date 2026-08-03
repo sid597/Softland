@@ -44,6 +44,17 @@ Sid says is allowed to drop.
   rulings. Full re-derivation (suite re-run, cold compile, live receipt
   reproduction) is reserved for new-organ/kernel packages or a build report
   that smells wrong — it is an escalation, not a default.
+- **Investigations are fenced like code** (Sid's ruling on the workflow
+  rethink, 2026-08-04, after the 28s-frame incident: three static analyses
+  produced three different "dominant" mechanisms; one 30-minute profile
+  settled it). Reading source may assert STRUCTURE; any magnitude or
+  attribution claim from reading is a hypothesis with a named kill-probe.
+  No attribution verdict, architecture ruling, or correction contract
+  before its receipt (profile, failing test, minimal repro, bisect,
+  runtime value); disputes escalate modality, never head-count — model
+  identity is zero evidence; a refutation meets the same taken-path
+  standard as a claim. Full law + staged prompt templates:
+  `.claude/skills/investigation-fence/SKILL.md`.
 - **Human surfaces carry a second gate kind — the lived gate** (Sid,
   2026-07-31, after the Workshop landed truthful-but-meaningless: the
   same "what is this, what do i do" as the halo. Receipts prove
@@ -61,7 +72,12 @@ Sid says is allowed to drop.
   phases under contracts. Phases are FEW and LARGE (Sid, 2026-07-29): one
   phase is the default when the risky surface is narrow — the contract
   carries plan-grade specificity instead of a phase ladder; mechanics in
-  the work-package skill.
+  the work-package skill. One carve-out (Sid, 2026-08-04, the 28s-frame
+  post-mortem): a correction package born of a measured ruling is drafted
+  by whichever lane holds the receipts; the other lane gives ONE bounded
+  review (≤3 decision-changing findings). Applies to packages opened after
+  that date; lane-capability beliefs stay hypotheses, noted in retros,
+  never adjudicating a dispute.
 
 ## What we're building NOW
 

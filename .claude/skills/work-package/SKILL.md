@@ -1,9 +1,11 @@
 ---
 name: work-package
 description: >-
-  How to run a Softland work package end to end: Fable-authored contract →
-  phased implementation by cheaper models (Codex/Opus) → fresh-context
-  validation layers → gate review → close + retro. Use when opening a work
+  How to run a Softland work package end to end: contract (direction-born →
+  Fable-authored; born of a measured ruling → the receipt-holding lane, per
+  the 2026-08-04 amendment) → phased implementation by cheaper models
+  (Codex/Opus) → fresh-context validation layers → gate review → close +
+  retro. Use when opening a work
   package, writing or amending its contract, running or validating a phase,
   handling a stop-clause escalation, running a gate review (with or without
   Fable), or closing a package with a retro. Complements /rama (which owns the
@@ -195,6 +197,38 @@ the letter/intent gap is the recurring cost:
   count of an allowlist-edited file is a scheduled false stop (same
   class as the ONE-SHOT gate-precondition rule, applied to manifests).
 
+**Amended 2026-08-04 on Sid's workflow-rethink ruling** (the 28s-frame
+incident post-mortem; Sid: "apply these"). Grounds from the incident's
+ledger: three static analyses across two lanes produced three DIFFERENT
+dominant mechanisms; a true finding (the cluster-bounds quadratic, later
+measured at 24.39s ≈ 68% of wall) was killed for a full cycle by a
+refutation that inspected the wrong file and was then inherited; the
+claimed dominant cost (HarfBuzz shaping) measured 1.2s of 28.6s; one
+30-minute read-only profile settled what three documents could not — and
+the refutation's fix direction would have closed the correction with ~24s
+of cold cost intact. Review value flipped sign at the receipt: pre-receipt
+cross-review multiplied wrong narratives; the single post-ruling bounded
+review caught two real contract holes. Three rules, applying to packages
+OPENED after this date (live packages finish under their opened process):
+- **Correction packages born of a measured ruling route authorship to the
+  receipt-holder.** The lane holding the verified evidence drafts the
+  contract — the ruling section is transcription (every load-bearing claim
+  cites its receipt or is marked assumption) — and the other lane runs ONE
+  bounded review (≤3 decision-changing findings, preserve the rest), aimed
+  at the invariants/coverage section, where author attachment could hide.
+  Direction-born packages keep Fable authorship as before. Model identity
+  is ZERO evidence in any adjudication; lane-capability beliefs are
+  hypotheses — retros note lane surprises in one line; priors move on
+  accumulation, never on one incident.
+- **No correction contract opens without its receipt.** The investigation
+  that births the package runs under the investigation-fence skill
+  (structure-vs-magnitude claim law, probe-before-verdict, modality
+  escalation, refutation-meets-claim-standard, review-timing).
+- **Correction contracts ship their tripwires as DELIVERABLES**, not
+  scaffolding: violation-triggered, owner-naming when they fire, tied to a
+  stated invariant — so the next incident's stage 0 is reading a log line,
+  not commissioning a multi-session attribution debate.
+
 ## What a work package is
 
 One bounded build (so far: a Rama kernel) run against a binding contract, by
@@ -269,7 +303,9 @@ Two rules that hold across all layers:
 
 ## Opening a package
 
-**1. The contract (Fable writes it).** Must contain:
+**1. The contract** (authorship per the 2026-08-04 amendment: direction-born
+→ Fable writes it; born of a measured ruling → the receipt-holding lane
+drafts, the other lane bounded-reviews). Must contain:
 
 - Purpose, consumers in order, explicit non-goals/refusals (each refusal an
   extension point, not a void).
