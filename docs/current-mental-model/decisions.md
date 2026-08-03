@@ -358,7 +358,10 @@ store named there is this constitution's first instrument.
   store exactly as the store is a view of events, and a rescan hiding below
   the seam is the same disease as one above it. The mechanism is free per
   layer (reactive flows, dirty sets, incremental pure functions); the
-  proportionality is not.
+  proportionality is not. Proportional means to the affected set of a
+  change, never to the population — and representation is chosen so
+  affected sets stay small (a container move is one transform value, not
+  a subtree rewrite, because transforms compose in-shader).
 - **Clocks: no execution clock is ever an ancestor of derivation.** Frame
   counters and wall clocks may drive writers (a tween writes through the
   event door like anyone else) or be read at the sink — never inside
@@ -374,16 +377,19 @@ store named there is this constitution's first instrument.
   separate and meet at the frame pull as a read-atomic mosaic, with
   revision stamps at every joint where async mixing is inherent (fonts,
   server truth, images). Heavy assets ride by id + revision; bytes never
-  enter the scene value.
+  enter the scene value. And the scene store itself is a projection,
+  never a second truth-owner for material: material truth lives in Rama
+  and arrives as served fact through the event door; only session truths
+  with no upstream (camera, in-flight gestures) originate client-side.
 - **The unit: the fenced incremental view.** Keyed diffs in, incrementally
   maintained state, and the batch computation kept alive as the oracle,
   with a fence asserting the two agree. Equality-gated memoization is its
   degenerate case; heavy stateful derivations (shaping, layout) are its
-  full case. Growth law, already obeyed once: a batch stage is never
-  deleted when its incremental sibling arrives — it is demoted to that
-  sibling's oracle (the batch scene compiler made this crossing; the
-  whole-frame walk is next in line only if profiles ever summon a
-  patch-driven executor). The fences are what keep every instrument
+  full case. Growth law: a batch stage is never deleted when its
+  incremental sibling arrives — it is demoted to that sibling's oracle.
+  The batch scene compiler makes the first crossing in render step 1;
+  the whole-frame walk is next in line only if profiles ever summon a
+  patch-driven executor. The fences are what keep every instrument
   swappable — open decisions stay genuinely open while we build at speed.
 - **The rule, enforced at review: in the render seam, no derivation
   without a contract.** Every computation that feeds frames declares five
@@ -431,7 +437,10 @@ store named there is this constitution's first instrument.
   consumer today (the render applier) and two waiting (undo, the wire) —
   which is why they want to be invertible and serializable before those
   futures arrive, and why write-site minting is the one commitment that
-  pays three ways.
+  pays three ways. A minted diff states a canonical fact in document
+  vocabulary; each destination derives its own delta behind its own
+  door — the applier's slot patches, undo's inverses, the wire's ops
+  are translations, never the minted truth.
 - **Open, each with its decider — deciding these early is the named
   failure.** The composition host (Electric generic host vs Missionary
   host): one real face built both ways, judged on container close/reopen,
@@ -453,11 +462,13 @@ store named there is this constitution's first instrument.
   instance, not the law.
 - **Where this stands.** The scene track specified the full pattern from
   checked sources; the text track independently minted the ingredients —
-  stable line keys, source-revision stamps, fence culture — currently
-  emitted and consumed by nothing. Convergence is a roadmap, not a proof:
-  the editor split carried through to keyed shaping becomes the second
-  fenced incremental view, consuming the keys the text layer already
-  emits. Prediction, cheap to falsify at the store's first version: the
+  stable line keys, source-revision stamps, fence culture (its fence is
+  a static ownership fence, a different instrument from the equivalence
+  oracle the unit needs) — consumed today only to resolve identity, and
+  by rescan at that, never for incremental maintenance. Convergence is a
+  roadmap, not a proof: the editor split carried through to keyed
+  shaping becomes the second fenced incremental view, upgrading those
+  rescan consumers into keyed ones. Prediction, cheap to falsify at the store's first version: the
   plumbing dialects converge to two-plus-transport, because there is
   exactly one legal crossing left to write.
 

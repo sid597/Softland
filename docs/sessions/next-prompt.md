@@ -625,10 +625,16 @@ the fenced incremental view as the unit + the growth law
 honesty tiers · the open register WITH deciders (host probe ·
 view-dependence home · patch-driven executor · store internals · per-key
 vs dirty-set regimes · ledger form · generation-authority partition) →
-decisions.md "The render seam". Convergence correction banked: the text
-track minted ingredients only (stable keys · revision stamps · fence
-culture — emitted, consumed by nothing yet); instance #2 = keyed shaping
-via the editor split — a roadmap, never a proof. **Staged beside the
+decisions.md "The render seam" — AMENDED 2026-08-03 after three-review
+adjudication (growth-law tense honest: the batch compiler's demotion IS
+step 1, not history · rescan-consumer truth · affected-set precision ·
+canonical-fact vs destination-delta · store-as-projection; softening
+REJECTED: the fenced unit stays law, blob/residency/ordering criteria
+stay). Convergence sharpened: the text track's keys are consumed today
+only for identity resolution, by rescan (its fence = static ownership, a
+different genus than Act 1's equivalence oracle); instance #2 = the
+editor split carried to keyed shaping, upgrading rescan consumers into
+keyed ones — a roadmap, never a proof. **Staged beside the
 image atom: render step 1** — (1) maintained ordered view + oracle fence
 in the scene store; the frame-counter ancestor and per-event pick
 recompile die · (2) editor stable-vs-ticker flow split; forked flows
