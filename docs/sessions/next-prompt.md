@@ -608,6 +608,29 @@ first,** registered through the W2-B tape (never a central branch); FELT
 activations stay joined behind the durable-artery/studio-custody ruling
 reserved to Sid. Dependency moves never reauthorize or narrow scope.
 Slug-direct MSDF retirement stays a separate pre-registered road receipt.**
+**The render-seam constitution SETTLED 2026-08-03** (the frame-regression
+inquiry driven through three passes; merged shape decided by the standing
+session at Sid's word — "you are the decision maker … drive the write set
+home"): the proportionality law (change minted once at write sites; every
+layer a view of minted values; no execution clock an ancestor of
+derivation — time-as-data legal) · the derivation contract (in the seam,
+no derivation without declared inputs/door/ownership/projections/oracle) ·
+the fenced incremental view as the unit + the growth law
+(batch-demotes-to-oracle, never deleted) · Electric = four relationships ·
+honesty tiers · the open register WITH deciders (host probe ·
+view-dependence home · patch-driven executor · store internals · per-key
+vs dirty-set regimes · ledger form · generation-authority partition) →
+decisions.md "The render seam". Convergence correction banked: the text
+track minted ingredients only (stable keys · revision stamps · fence
+culture — emitted, consumed by nothing yet); instance #2 = keyed shaping
+via the editor split — a roadmap, never a proof. **Staged beside the
+image atom: render step 1** — (1) maintained ordered view + oracle fence
+in the scene store; the frame-counter ancestor and per-event pick
+recompile die · (2) editor stable-vs-ticker flow split; forked flows
+unified at their real sharing points (begins fenced-view instance #2) ·
+(3) camera-watch quarantine, then screen-space pick. LOG capture PENDING:
+Sid's electric-differential-datalog message (verbatim needed — one paste;
+Vision line advances then).
 Reserved to Sid — ONE decision remains: studio custody at the
 CAPABILITY level (the durable artery gates Package-2 felt
 activations; the failed face archives separately).

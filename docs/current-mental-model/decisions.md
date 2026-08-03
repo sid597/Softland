@@ -337,6 +337,130 @@ route). How each piece of it reaches the land:
   build throughput. Package counts are sizing between organs, not a
   schedule.
 
+## The render seam — how frames get computed (settled 2026-08-03)
+
+Every render-path disease we have had was the read side paying to rediscover
+what the write side already knew: a compiler re-deriving order every frame
+from keyed mutations that knew their own diffs, a pick re-compiling an
+unchanged world, a caret blink re-shaping a document it never touched, a
+frame counter sitting as an ancestor of scene derivation. This section is
+the refusal to forget (Sid's push: solve it systemically, never patch). It
+governs any path that feeds frames — the workspace today, the engine floors
+as they land — and extends the one-render-substrate ruling above: the scene
+store named there is this constitution's first instrument.
+
+- **The law: recompute proportional to change, at every layer.** Change is
+  minted once, as a value, at the site that knows it — user action, server
+  applier, animation tick. Everything downstream — store, derivations, the
+  GPU sink, and eventually undo, wire, and collaborators — is a view that
+  maintains itself from those minted values, in its own vocabulary, behind
+  a door it owns. The law stops at no boundary: the sink is a view of the
+  store exactly as the store is a view of events, and a rescan hiding below
+  the seam is the same disease as one above it. The mechanism is free per
+  layer (reactive flows, dirty sets, incremental pure functions); the
+  proportionality is not.
+- **Clocks: no execution clock is ever an ancestor of derivation.** Frame
+  counters and wall clocks may drive writers (a tween writes through the
+  event door like anyone else) or be read at the sink — never inside
+  derivation. Time as data is legal: a playhead is a store value like any
+  other, and deriving from it is fine; deriving from the frame loop is the
+  named crime. Effects live only at mutation sites and the frame edge;
+  derived state is never materialized through watch-mirror atoms; a shared
+  derivation gets one signal at its sharing point — today's forked flow
+  copies are exactly those sharing points, hand-rolled.
+- **Ownership, not sampling, gives consistency.** Truths that must be seen
+  together share one generation authority — one swap is one generation.
+  Truths with independent cadences (camera, caret phase, overlays) stay
+  separate and meet at the frame pull as a read-atomic mosaic, with
+  revision stamps at every joint where async mixing is inherent (fonts,
+  server truth, images). Heavy assets ride by id + revision; bytes never
+  enter the scene value.
+- **The unit: the fenced incremental view.** Keyed diffs in, incrementally
+  maintained state, and the batch computation kept alive as the oracle,
+  with a fence asserting the two agree. Equality-gated memoization is its
+  degenerate case; heavy stateful derivations (shaping, layout) are its
+  full case. Growth law, already obeyed once: a batch stage is never
+  deleted when its incremental sibling arrives — it is demoted to that
+  sibling's oracle (the batch scene compiler made this crossing; the
+  whole-frame walk is next in line only if profiles ever summon a
+  patch-driven executor). The fences are what keep every instrument
+  swappable — open decisions stay genuinely open while we build at speed.
+- **The rule, enforced at review: in the render seam, no derivation
+  without a contract.** Every computation that feeds frames declares five
+  things: its keyed inputs (diffs minted at write sites and routed by key
+  AT the write site — a 60Hz storm on one key wakes that key's
+  subscribers, never a population); its door (event-driven, no
+  execution-clock ancestor); its ownership (which generation authority,
+  stamps at async joints); its projections (who reads it, in what shapes —
+  draw walks forward, pick walks reverse, the inspector reads by id, the
+  oracle reads the whole; each cheap to add, each fenceable); and its
+  oracle with a fence. Free-floating computation in the seam — a raw
+  watch, a per-frame derive, a read-side differ — is illegal on any
+  substrate. Scope: this is a toll at the frame door, not a permit to
+  think — playgrounds and probes stay free until they feed frames.
+  Runtime-authored faces obey the same rule by spec instead of compiler: a
+  face's declared inputs are its only feeds — self-hosting makes the
+  contract side sovereign; the face spec is Softland's compiler.
+- **What "by construction" honestly means — three tiers.** Structural: the
+  violation is unrepresentable (keyed vocabulary — no positional
+  permutation class; one swap per entangled truth — no intra-truth skew;
+  spec-fed faces — no undeclared reads). Fenced: possible but mechanically
+  caught (the oracle fences; a seam lint on raw watches and clock-typed
+  inputs). Cultural: a clock written in as data still compiles — the
+  rule's value there is that the crime now has a name and a review
+  question.
+- **The map.** Electric is four relationships, not one: transport above
+  the seam (stays, untouched) · algebra within it (the keyed two-interface
+  shape of its item machinery, adopted re-keyed) · a candidate host for
+  composition (open — probe decides) · and Missionary as the soil both
+  sides grow in, whose guarantees engage only where its constructs are
+  used — the engagement points (signals at sharing points, the single
+  sample at the frame edge) are contract items, not ambience. WebGPU is a
+  contract the applier speaks natively, never a DOM-shaped target:
+  supervision governs identity (enter/exit diffs drive alloc/free; a
+  container close frees its subtree by construction), while residency —
+  uploads, atlases, eviction, culling — is the applier's private,
+  usage-driven business; culling never writes the store. Scene derivation
+  is the sovereign middle, and every scar we have is one of two leaks
+  across its border: a neighbor's contract leaking in (the mutable-tree
+  applier lesson, proven twice), or an execution clock leaking up (the
+  frame-counter and caret-blink lessons). Borrowed algebra, never borrowed
+  appliers. Document order is row data — sort keys, identity never
+  position; any GPU batch order is a sink-side view of it, never truth.
+- **Minted diffs are values, kept in one namespace.** They have one
+  consumer today (the render applier) and two waiting (undo, the wire) —
+  which is why they want to be invertible and serializable before those
+  futures arrive, and why write-site minting is the one commitment that
+  pays three ways.
+- **Open, each with its decider — deciding these early is the named
+  failure.** The composition host (Electric generic host vs Missionary
+  host): one real face built both ways, judged on container close/reopen,
+  mid-drag teardown, served-source hot-swap; the probe may also push back
+  on the contract's shape. Where view-dependence lives (walk-time filter
+  now; maintained visible-set / spatial index / GPU cull later): the
+  walk-cost profile at scale decides. The patch-driven executor: exists
+  only if frame profiles summon it; today's walk waits as its oracle.
+  Store internals (sorted map vs spine tree): profile-decided,
+  contract-invariant. Delivery at scale (per-key flows for composition
+  populations vs dirty-set-and-pass for engine populations): the per-key
+  fleet probe finds the boundary between regimes. Ledger form (ephemeral
+  notifications vs a reified op-log): undo and multiplayer decide. How
+  many generation authorities and what co-locates: entanglement analysis
+  per domain, forced by reconciliation and data volume. Ordering on the
+  wire and under merge: the native-protocol work decides — row data
+  internally is settled. Where reactivity hands off to pure incremental
+  functions: per domain, moves with measurement — "block" is today's
+  instance, not the law.
+- **Where this stands.** The scene track specified the full pattern from
+  checked sources; the text track independently minted the ingredients —
+  stable line keys, source-revision stamps, fence culture — currently
+  emitted and consumed by nothing. Convergence is a roadmap, not a proof:
+  the editor split carried through to keyed shaping becomes the second
+  fenced incremental view, consuming the keys the text layer already
+  emits. Prediction, cheap to falsify at the store's first version: the
+  plumbing dialects converge to two-plus-transport, because there is
+  exactly one legal crossing left to write.
+
 ## Only Sid decides
 
 Spending money · pushing/merging the docs branch (never) · `env.clj` (never
