@@ -349,6 +349,27 @@ governs any path that feeds frames — the workspace today, the engine floors
 as they land — and extends the one-render-substrate ruling above: the scene
 store named there is this constitution's first instrument.
 
+**In Sid's words: this is the Electric-native arc** — the settled answer
+to "electric has the differential datalog … why not we building electric
+native and equivalent." Four dispositions, permanent, so no briefing
+loses them again: **Electric the transport** (client↔server sync) is
+kept untouched — never rewritten. **Electric the runtime internals**
+(keyed per-item flows, diffs minted at writes, the item/applier split)
+are mined: their design IS this section's store contract, re-keyed for
+our GPU target instead of the DOM. **Electric the language as face
+host** (e/defn-style composition) is the one deliberately OPEN
+question — the host probe below decides it, never a default.
+**Missionary** is the soil: it runs the frame sink today and the
+per-key flows next, engaged at named points, never ambient. **"Softland
+as target"** means the scene store + GPU applier IS the compile target,
+and the face spec (declared inputs) is Softland's own compiler —
+sovereign whichever host wins. The arc lands in three moments: render
+step 1 (the maintained tape — the landing begins) → the store-contract
+slice at composition pressure (per-key reads, write-site dispatch,
+signals — the 34-watch / nine-dialect collapse) → the host probe at the
+first real face worth building twice. Briefings of this area carry BOTH
+vocabularies; renaming the arc makes it invisible to Sid.
+
 - **The law: recompute proportional to change, at every layer.** Change is
   minted once, as a value, at the site that knows it — user action, server
   applier, animation tick. Everything downstream — store, derivations, the

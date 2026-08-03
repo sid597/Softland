@@ -639,7 +639,13 @@ image atom: render step 1** — (1) maintained ordered view + oracle fence
 in the scene store; the frame-counter ancestor and per-event pick
 recompile die · (2) editor stable-vs-ticker flow split; forked flows
 unified at their real sharing points (begins fenced-view instance #2) ·
-(3) camera-watch quarantine, then screen-space pick. LOG captured
+(3) camera-watch quarantine, then screen-space pick. NEXT SESSION =
+step 1, Fable implement-direct recommended (reactive-subtle surface;
+the fence is being built, not leaned on); starter + register:
+`build/render-engine/SEAM-STEP1.md`. decisions.md's section now OPENS
+with the arc in Sid's words (Electric-native map: transport kept ·
+internals re-keyed · host probed · Missionary soil · Softland the
+target) — briefings carry BOTH vocabularies. LOG captured
 2026-08-03, first entry (the electric-native verbatim, held in the
 standing review session's opening); Vision line advanced.
 Reserved to Sid — ONE decision remains: studio custody at the
