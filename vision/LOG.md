@@ -1169,3 +1169,21 @@ why does the blank screen has a cursor in it? this is the walkthrough and log an
 > Settle it
 
 *(Routed same-session: envelope RATIFIED + D2 = A → `build/render-engine/W0-C.md` §4 flips DRAFT→RATIFIED carrying the campaign-scoped-exclusion rider, §6.2 records choice A · `ENGINE.md` §3 header ratified with the three pressures moved IN, §0 Reserved-to-Sid shrinks to studio custody alone, execution front confirmed W1 contracts with D2=A as contract input · `DISCOVERIES.md` §8 reserved-list amended · board engine block + Vision line advanced to this entry.)*
+
+## 2026-08-03 — the electric-native seed: never patch, diffs by identity, "why not we building electric native and equivalent" (first entry; verbatim)
+
+[the render-regression sitting: the frame-rate diagnosis had landed (per-frame tape recompile · per-event pick recompile · the door's camera watch · the caret-blink reshape); his two responses to the proposed fix:]
+
+> never never ever do a patch work never if smth is wrong systematically  we solve it there not a patch work, never do caching NEVER.
+
+> electric has the differential datalog to solve the problem of fine grained reactivity and updates they have their raw implementation in incseq and i think if we have the uids list or some sort of identifier for the diff: what is on the screen, new action, what new diff do i get and load is my read but i might be wrong
+
+[after the first source-grounded pass on Electric's internals, the push that named the inquiry:]
+
+> now this raises question for me is, "if we used smth similar to eelectic machinery in render path we would not have the problem we have right now" we are missing all the value that electric provides by DAG. Maybe incseq is not the right layer directly but i think we can make our own custom ones based on what is already defined and build on top ... incseq is build for the domlike we have different doesnt mean its useless ...
+
+[his 2024 hyperfiddle-slack spine/mount test followed in full — the mutable-target applier lesson, hit personally two years before the repo's gpu-mount scar; then:]
+
+> there is only surface level things that the electric skill code search will tell you and you will build on top of it. Both the electric and missionary team is cracked they would have thought of different things not saying blindly patch up slap it on nooo. Yesterday i was looking at the frontend codebase and i got scared like why is it so big we are definetly not doing as we should be our code is not coherent ... electric works for dom .. and i think with render-engine + webgpu we would have same????? so why not we building electric native and equivalent (Note: i am spitballing or vibing but that does not give it credibility)
+
+*(Routed: these words opened the three-pass render-seam inquiry — source dissection of Electric/Missionary, the corrections rounds, the merged constitution — settled same-day as decisions.md "The render seam" (ef9bfeb): the proportionality law, the derivation contract, the fenced incremental view + growth law, Electric-as-four-relationships, the open register with deciders. Captured from the 2026-08-03 session opening, where the earlier thoughts were restated verbatim alongside the live push; board engine block updated + Vision line advanced to this entry.)*

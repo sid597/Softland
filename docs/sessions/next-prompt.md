@@ -81,7 +81,12 @@ includes P8; the P8 :8091 jetty is dead — see HANDOFF).
 **Ground:** `docs/current-mental-model/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `build/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `build/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-08-02, fourth entry** (the
+**Vision:** LOG routed through **2026-08-03, first entry** (the
+electric-native seed — "never do caching NEVER" · diffs by uid/identity ·
+"why not we building electric native and equivalent": the verbatim that
+opened the render-seam inquiry, routed same-day → decisions.md "The render
+seam" — proportionality law + derivation contract + fenced incremental
+view + open register with deciders). Prior: **2026-08-02, fourth entry** (the
 decision sitting: envelope RATIFIED full — "decision 1 all yes":
 vector networks + glass/noise/texture + moving media IN Figma-core,
 legal zoom [0.01, 1000] kept and priced, Blender exclusions
@@ -628,9 +633,9 @@ image atom: render step 1** — (1) maintained ordered view + oracle fence
 in the scene store; the frame-counter ancestor and per-event pick
 recompile die · (2) editor stable-vs-ticker flow split; forked flows
 unified at their real sharing points (begins fenced-view instance #2) ·
-(3) camera-watch quarantine, then screen-space pick. LOG capture PENDING:
-Sid's electric-differential-datalog message (verbatim needed — one paste;
-Vision line advances then).
+(3) camera-watch quarantine, then screen-space pick. LOG captured
+2026-08-03, first entry (the electric-native verbatim, held in the
+standing review session's opening); Vision line advanced.
 Reserved to Sid — ONE decision remains: studio custody at the
 CAPABILITY level (the durable artery gates Package-2 felt
 activations; the failed face archives separately).
