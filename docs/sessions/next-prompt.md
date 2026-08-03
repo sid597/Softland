@@ -99,8 +99,15 @@ mismatches per regime; SDF/Slug pass; ties separated). W2-A + T0 then LANDED
 in code commit `7651c8d`: affine/nesting plus the one Q8 transport cross
 registration/bounds/clip/cull/paint/pick; Q5 is repaired; one executable-fenced
 legacy layout result owns all text readers; all 21 prior goldens remain
-byte-identical and the MSDF counterexample remains RED. Execution front =
-W2-B; T1 follows. Receipt: `build/render-engine/W2-A-T0.md`. Slug-direct
+byte-identical and the MSDF counterexample remains RED. W2-B then LANDED in
+code commit `8ac1b04` (the one ordered forward-paint/reverse-pick tape —
+five families, zero central draw branches, linear-premultiplied seam
+default-off) and T1 LANDED in code commit `52d123f` (real proportional
+shaping — HarfBuzz + bidi + fallback + variable axes behind the T0 seam;
+goldens 21/21 byte-identical; MSDF 47 still RED; independently replayed
+2026-08-03; the felt dividend — the proportional land — open at Sid's wear).
+Execution front = Package 2, image atom first; receipts:
+`build/render-engine/{W2-A-T0,W2-B-T1}.md`. Slug-direct
 retirement remains a separate pre-registered road candidate; only studio
 custody stays reserved).
 Prior same day, third entry (the
@@ -590,13 +597,17 @@ color/alpha; the mandatory verifier replay stayed correctly RED.**
 **W2-A + T0 LANDED 2026-08-02** in code commit `7651c8d`; full receipt:
 `build/render-engine/W2-A-T0.md`. Q5, Q8, the no-private-metrics fence,
 and all 21 prior golden comparisons pass; SDF/Slug remain exact and the
-MSDF 47-mismatch counterexample remains intentionally RED. **Execution
-front is now W2-B:** consume the affine transport and nested stack path,
-then make registration, one forward-paint/reverse-pick ordered tape,
-unconditional geometry declarations, and linear-premultiplied scene color
-code-real for every existing family before admitting a new atom. T1 follows
-W2-B. Dependency moves never reauthorize or narrow scope. Slug-direct MSDF
-retirement stays a separate pre-registered road receipt.**
+MSDF 47-mismatch counterexample remains intentionally RED. **W2-B LANDED
+2026-08-02 (`8ac1b04`) + T1 LANDED 2026-08-03 (`52d123f`) — Package 1's
+committed waves are all code-real** (receipt `build/render-engine/W2-B-T1.md`;
+independent full replay by the settling session 2026-08-03: fences + corpus +
+seam suites 135t/1911a + verifier RED exactly on the preserved MSDF
+counterexample). T1's felt dividend — Sid's real land in a proportional
+font — is open at his wear. **Execution front is now Package 2, image atom
+first,** registered through the W2-B tape (never a central branch); FELT
+activations stay joined behind the durable-artery/studio-custody ruling
+reserved to Sid. Dependency moves never reauthorize or narrow scope.
+Slug-direct MSDF retirement stays a separate pre-registered road receipt.**
 Reserved to Sid — ONE decision remains: studio custody at the
 CAPABILITY level (the durable artery gates Package-2 felt
 activations; the failed face archives separately).

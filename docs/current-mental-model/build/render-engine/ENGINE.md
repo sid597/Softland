@@ -260,16 +260,35 @@ measure/wrap/paint/caret/selection/clip/hit reader behind an executable
 no-private-metrics fence. SDF and Slug remain byte-identical; the MSDF
 counterexample remains deliberately RED.
 
-**Execution front NOW: W2-B.** It consumes W2-A's canonical affine slots and
-nested stack paths, then makes registration, Contract O's one ordered tape,
-geometry declarations, and linear-premultiplied color citizenship code-real
-for every existing family before image or path exists. T1 then shapes
-positioned glyphs behind the already-live T0 seam. MSDF retirement for
-Slug-direct remains a separate pre-registered road receipt (real-hardware
-dense-small-text fragment cost · tiny-text quality · implementation
-provenance). The only decision still reserved is studio custody at the
-capability level. W2–W5 remain committed; no receipt narrows scope or reopens
-the campaign.
+**W2-B LANDED 2026-08-02** (`8ac1b04`; `W2-B-T1.md`). The one ordered scene
+tape is code-real (`scene_tape.cljc` — ordered plan + registered batches,
+data and a loop): the five existing families migrate through the seam, the
+central frame body carries zero hand-positioned draw branches, paint runs
+forward and pick in exact reverse, and the tagged linear-premultiplied
+scene-color seam landed default-OFF. Its executable fence self-tests by
+rejecting a seeded central branch.
+
+**T1 LANDED 2026-08-03** (`52d123f`; `W2-B-T1.md`). Real proportional shaping
+behind the already-live T0 seam: HarfBuzz 14 (wasm, pinned) + bidi + Noto
+fallback + variable axes applied to actual font state; Ubuntu Sans Variable
+is the live face; kerning/ligatures/combining/RTL/tabs flow through the one
+layout result; the paint consumers are lookup-and-quads only behind a
+19-owner/7-file fence; multi-face MSDF and Slug resources are complete. All
+21 goldens remain byte-identical; SDF and Slug pick parity hold; the MSDF
+47-mismatch counterexample remains deliberately RED. Independent full replay
+by the settling session 2026-08-03. The felt dividend — Sid's real land in a
+proportional font — is open at his wear.
+
+**Execution front NOW: Package 2, image atom first.** Decode · upload · color
+management · mipmaps · atlas/bind-group strategy, REGISTERED through the
+W2-B tape (the gate sentence: never a hand-positioned central branch), under
+Contract G geometry declarations and Contract C color citizenship. Package-2
+FELT activations stay joined behind the durable authoring artery — studio
+custody at the capability level, the one decision reserved to Sid. MSDF
+retirement for Slug-direct remains a separate pre-registered road receipt
+(real-hardware dense-small-text fragment cost · tiny-text quality ·
+implementation provenance). W3–W5 remain committed; no receipt narrows scope
+or reopens the campaign.
 
 ## 1. The promise, reinterpreted
 
