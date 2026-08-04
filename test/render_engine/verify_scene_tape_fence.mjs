@@ -46,6 +46,8 @@ const runtime = read("src/app/client/workspace/runtime/render.cljs");
 
 const drawFrame = findForm(renderer, "draw-frame!");
 const executor = findForm(renderer, "execute-scene-tape!");
+const twinCheck = findForm(renderer, "frame-tape-twin-check!");
+const arrangementUpdate = findForm(renderer, "update-frame-arrangement");
 const pick = findForm(store, "pick");
 const registryStart = renderer.indexOf("(def ^:private frame-family-registry");
 const registryEnd = renderer.indexOf("(defn- compile-frame-tape", registryStart);
@@ -60,6 +62,8 @@ const families = [
 ];
 
 const failures = [];
+// SEAM-STEP1 T7: ownership pins move to maintained names; no assertion or
+// seeded self-test is deleted when the live path changes.
 const requireToken = (label, source, token) => {
   if (!source.includes(token)) failures.push(`${label}: missing ${token}`);
 };
@@ -67,7 +71,7 @@ const forbid = (label, source, pattern, reason) => {
   if (pattern.test(source)) failures.push(`${label}: ${reason}`);
 };
 
-requireToken("draw-frame", drawFrame, "compile-frame-tape");
+requireToken("draw-frame", drawFrame, "frame-tape-twin-check!");
 requireToken("draw-frame", drawFrame, "execute-scene-tape!");
 forbid("draw-frame", drawFrame, /\.setPipeline\s+pass/, "hand-positioned pipeline branch");
 forbid("draw-frame", drawFrame, /\.setBindGroup\s+pass/, "hand-positioned bind-group branch");
@@ -79,8 +83,13 @@ requireToken("executor", executor, "frame-family-registry");
 requireToken("executor", executor, "(:execute! registration)");
 forbid("executor", executor, /\(case\s+/, "family case dispatch instead of registration");
 
+requireToken("twin-check", twinCheck, "compile-frame-tape");
+forbid("arrangement-update", arrangementUpdate, /frame-idx/,
+  "execution frame counter entered maintained order derivation");
+
 requireToken("pick", pick, "scene-tape/pick-reverse");
 requireToken("pick", pick, "containers/inverse-point");
+requireToken("pick", pick, "maintained-entries");
 forbid("pick", pick, /sort-by/, "independent pick sort");
 forbid("pick", pick, /#\(-\s*\(:layer/, "legacy layer-descending truth");
 
@@ -92,6 +101,9 @@ for (const family of families) {
 requireToken("color seam", contracts, ":scene-color/linear-premultiplied-srgb");
 requireToken("color seam", contracts, ":default-off? true");
 requireToken("runtime target", runtime, "use-persistent-render-target? false");
+requireToken("camera sink", runtime, "@ground/!camera");
+forbid("camera derivation", runtime, /\(m\/watch\s+ground\/!camera\)/,
+  "ground camera watch remains inside scene derivation");
 requireToken("renderer default", renderer, ":or {scene-color-enabled? false}");
 
 const seededCentralBranch = `(defn draw-frame! [pass family]
@@ -105,6 +117,9 @@ const receipt = {
   families: families.length,
   drawFrameBranches: 0,
   reversePick: pick.includes("scene-tape/pick-reverse"),
+  cameraSinkQuarantined:
+    runtime.includes("@ground/!camera") &&
+    !/\(m\/watch\s+ground\/!camera\)/.test(runtime),
   linearPremultipliedDefaultOff:
     contracts.includes(":scene-color/linear-premultiplied-srgb") &&
     contracts.includes(":default-off? true"),

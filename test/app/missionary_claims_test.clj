@@ -14,7 +14,8 @@
    Everything else is adjudicated in VERDICTS.md, not asserted here:
    compile-check / primary-source claims (5, 13, 15, 16, 20), UNVERIFIED claims
    (4, 14, 19), and the falsified / agent-error / timing-only probes kept there
-   as verbatim code blocks (7, 10, 17). (Claim 6 IS here — it asserts the loud
+   as verbatim code blocks (7, 10, 17). SEAM-STEP1 adds four local m/signal
+   lifecycle claims before the editor sharing point relies on them. (Claim 6 IS here — it asserts the loud
    ArityException, which is the platform truth that corrects the claim's wording.)
 
    NOTE the irony (per the task brief): these probes deliberately build the
@@ -253,3 +254,82 @@
     (is (thrown? ClassCastException (deref (m/watch (atom 0))))))
   (testing "an atom IS derefable"
     (is (= 0 (deref (atom 0))))))
+
+;; ---------------------------------------------------------------------------
+;; SEAM-STEP1 G4 — m/signal claims on the resolved Missionary b.46 build.
+;; These are an ordering gate: production sharing may rely on m/signal only
+;; after these exact lifecycle observations are green (trap T5).
+;; ---------------------------------------------------------------------------
+
+(deftest seam-step1-signal-shares-one-upstream-and-replays-latest
+  (let [!source (atom 0)
+        !upstream-runs (atom 0)
+        shared (m/signal
+                (m/latest (fn [value]
+                            (swap! !upstream-runs inc)
+                            value)
+                          (m/watch !source)))
+        first-sub (collect shared)]
+    (is (= [0] @(:seen first-sub)))
+    (is (= 1 @!upstream-runs) "first subscriber starts one upstream process")
+    (reset! !source 1)
+    (is (= [0 1] @(:seen first-sub)))
+    (is (= 2 @!upstream-runs) "one source change invokes upstream once")
+    (let [late-sub (collect shared)]
+      (is (= [1] @(:seen late-sub)) "late subscriber sees the latest immediately")
+      (is (= 2 @!upstream-runs) "late subscription does not restart upstream")
+      (reset! !source 2)
+      (is (= 3 @!upstream-runs)
+          "N subscribers still share one upstream invocation per change")
+      (is (= 2 (last @(:seen first-sub))))
+      (is (= 2 (last @(:seen late-sub))))
+      (cancel! late-sub))
+    (cancel! first-sub)))
+
+(deftest seam-step1-signal-zero-subscriber-stops-and-resubscribe-restarts
+  (let [!source (atom :initial)
+        !upstream-runs (atom 0)
+        shared (m/signal
+                (m/latest (fn [value]
+                            (swap! !upstream-runs inc)
+                            value)
+                          (m/watch !source)))
+        first-sub (collect shared)]
+    (is (= 1 @!upstream-runs))
+    (cancel! first-sub)
+    (reset! !source :while-idle)
+    (is (= 1 @!upstream-runs)
+        "with zero subscribers the upstream process is terminated")
+    (let [resub (collect shared)]
+      (is (= 2 @!upstream-runs)
+          "resubscription starts a fresh upstream process")
+      (is (= [:while-idle] @(:seen resub))
+          "the restarted watch publishes the source's current value")
+      (cancel! resub))))
+
+(deftest seam-step1-signal-side-effecting-combine-lifecycle-vs-raw-latest
+  (testing "raw m/latest runs a side-effecting combine once per subscription"
+    (let [!source (atom 0)
+          !effects (atom 0)
+          raw (m/latest (fn [value] (swap! !effects inc) value)
+                        (m/watch !source))
+          a (collect raw)
+          b (collect raw)]
+      (is (= 2 @!effects) "two raw subscriptions start two combines")
+      (reset! !source 1)
+      (is (= 4 @!effects) "one source mutation effects once per raw subscription")
+      (cancel! a)
+      (cancel! b)))
+  (testing "m/signal runs that combine once for the shared subscriber lifecycle"
+    (let [!source (atom 0)
+          !effects (atom 0)
+          shared (m/signal
+                  (m/latest (fn [value] (swap! !effects inc) value)
+                            (m/watch !source)))
+          a (collect shared)
+          b (collect shared)]
+      (is (= 1 @!effects) "two signal subscribers share one initial combine")
+      (reset! !source 1)
+      (is (= 2 @!effects) "one source mutation effects once under signal")
+      (cancel! a)
+      (cancel! b))))

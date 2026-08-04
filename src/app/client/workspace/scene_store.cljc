@@ -7,7 +7,8 @@
    live store, and the GPU upload, live at the reduce/consumer edge elsewhere
    (CONTRACT §5, traps T3/T4) — NOT here.
 
-   Store value: {:slots {vi → slot} :index {address → #{vi}}}. A slot is one
+   Store value: {:slots {vi → slot} :index {address → #{vi}}
+                 :ordered {[order-token entry-id] → entry}}. A slot is one
    view-instance's resolved tree + flattened ops + its address→paths subtree
    index (CONTRACT §5):
      {:vi <edn> :container <int> :tree <resolved rt-tree, container-LOCAL>
@@ -116,10 +117,14 @@
 ;; Store API
 ;; ============================================================================
 
+(declare ^:private slot-entry)
+
 (defn empty-store
   "The empty store value."
   []
-  {:slots {} :index {}})
+  {:slots {}
+   :index {}
+   :ordered (sorted-map-by scene-tape/entry-key-compare)})
 
 (defn slot
   "The slot for vi, or nil."
@@ -153,10 +158,18 @@
         slot' (build-slot vi opts)
         index (-> (:index store)
                   (cond-> old (index-disj vi (:addresses old)))
-                  (index-conj vi (:addresses slot')))]
+                  (index-conj vi (:addresses slot')))
+        ;; SEAM-STEP1 T2/T10: order truth is the stamped slot entry, and the
+        ;; entry retains the exact slot (including identical ops arrays).
+        ordered0 (cond-> (:ordered store)
+                   old (scene-tape/ordered-remove (slot-entry old {})))
+        ordered (scene-tape/ordered-insert
+                 scene-tape/default-family-registry
+                 ordered0
+                 (slot-entry slot' {}))]
     (-> store
         (assoc-in [:slots vi] slot')
-        (assoc :index index))))
+        (assoc :index index :ordered ordered))))
 
 (defn remove-slot
   "Drop vi's slot and prune it from the fan-out :index (emptied address entries
@@ -165,7 +178,8 @@
   (if-let [old (get-in store [:slots vi])]
     (-> store
         (update :slots dissoc vi)
-        (update :index index-disj vi (:addresses old)))
+        (update :index index-disj vi (:addresses old))
+        (update :ordered scene-tape/ordered-remove (slot-entry old {})))
     store))
 
 (defn- update-node-at
@@ -240,8 +254,9 @@
 (defn scene-tape
   "Compile the store's ONE immutable ordered tape.  The one-argument form is
    the paint projection over paths stamped at registration.  The two-argument
-   form refreshes those same paths from the current W2-A effective map and is
-   used by pick; neither form sorts by family, map iteration, or registration."
+   form refreshes those same paths from the current W2-A effective map for
+   explicit batch-oracle callers; live pick walks the stamped maintained view.
+   Neither form sorts by family, map iteration, or registration."
   ([store]
    (scene-tape store {}))
   ([store effective-transforms]
@@ -253,6 +268,31 @@
                            (get-in entry [:order :stack-path])])
                         entries)]
      (scene-tape/compile-tape [:scene-store revision] entries))))
+
+(defn rebuild-ordered
+  "Rebuild the maintained sorted view from slots after rehydration. This is the
+   one sanctioned reconstruction door for representations (such as EDN) that
+   preserve map values but not a sorted map's comparator."
+  [store]
+  ;; SEAM-STEP1 T3: never trust an EDN-round-tripped :ordered map's iteration
+  ;; order; restore the comparator through this explicit door.
+  (assoc store :ordered
+         (reduce (partial scene-tape/ordered-insert
+                          scene-tape/default-family-registry)
+                 (sorted-map-by scene-tape/entry-key-compare)
+                 (map #(slot-entry % {}) (vals (:slots store))))))
+
+(defn maintained-entries
+  "Walk the write-maintained store order without invoking the batch compiler."
+  [store]
+  (into [] (map val) (:ordered store)))
+
+(defn- normalize-pick-points [point]
+  ;; SEAM-STEP1 T9: the bare-vector form is the backward-compatible contract;
+  ;; the map form makes world and screen coordinates explicit for cursor paths.
+  (if (map? point)
+    {:world (:world point) :screen (:screen point)}
+    {:world point :screen point}))
 
 (defn ordered-slots
   "The paint projection's slots in exact forward tape order."
@@ -268,22 +308,24 @@
    point is inverse-transformed into container-local space before rect-tree
    classification; there is no layer/family/map-iteration re-sort."
   [store effective-transforms point]
-  (some->
-   (scene-tape/pick-reverse
-    (scene-tape store effective-transforms)
-    (fn [entry]
-      (let [s (:runtime/slot entry)
-            eff (get effective-transforms (:container s))
-            [lx ly] (containers/inverse-point eff point)]
-        (when-let [path (rt/hit-test (:tree s) lx ly)]
-          (when-let [node (deepest-addressed path)]
-            {:vi          (:vi s)
-             :path        path
-             :address     (get-in node [:data :address])
-             :src-path    (get-in node [:data :assembly/src-path])
-             :actions     (get-in node [:data :actions])
-             :point-local [lx ly]})))))
-   :hit))
+  (let [{:keys [world screen]} (normalize-pick-points point)]
+    (some->
+     (scene-tape/pick-reverse
+      {:entries (maintained-entries store)}
+      (fn [entry]
+        (let [s (:runtime/slot entry)
+              eff (get effective-transforms (:container s))
+              point (if (= 1 (:flags eff)) screen world)
+              [lx ly] (containers/inverse-point eff point)]
+          (when-let [path (rt/hit-test (:tree s) lx ly)]
+            (when-let [node (deepest-addressed path)]
+              {:vi          (:vi s)
+               :path        path
+               :address     (get-in node [:data :address])
+               :src-path    (get-in node [:data :assembly/src-path])
+               :actions     (get-in node [:data :actions])
+               :point-local [lx ly]})))))
+     :hit)))
 
 ;; ============================================================================
 ;; Producer helper (P3 face path) — stamp block addresses onto a built tree

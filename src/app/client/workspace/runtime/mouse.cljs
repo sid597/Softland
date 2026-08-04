@@ -452,12 +452,13 @@
    when it is a block unit-id in the served context; the root/conversation
    address maps to nil → blur, preserving the legacy click-elsewhere-blurs
    behavior (focus! on a non-block id would mint :target/not-found refusals)."
-  [{:keys [!face-context]} x y-scene]
+  [{:keys [!face-context]} x y y-scene]
   (let [wp  [x y-scene]
         ;; `when`, not `and`: record-pick!'s contract is map-or-nil, and
         ;; `and` leaks a literal `false` when no slots exist — (assoc false …)
         ;; killed the reactor on the first face click (G11 wearing, 07-13).
-        hit (when (scene-rt/any-slots?) (scene-rt/pick-world wp))]
+        hit (when (scene-rt/any-slots?)
+              (scene-rt/pick-world {:world wp :screen [x y]}))]
     ;; scene-substrate P4 — record where the user pointed so a following cmd/agent
     ;; submit carries the deictic bundle (nil hit still records the world-point).
     (scene-rt/record-pick! wp hit)
@@ -559,7 +560,7 @@
               ;; BW-T4); any other click blurs. Still never falls through to
               ;; the editor handlers (the G16 guard stands).
               (ws/local-world-face-assembly? local-world)
-              (handle-face-assembly-click! atoms x (+ y scroll-y))
+              (handle-face-assembly-click! atoms x y (+ y scroll-y))
 
               (ws/local-world-file-workspace? local-world)
               (let [sb-w (if sb-vis? sidebar-w 0)

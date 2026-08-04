@@ -135,15 +135,10 @@
                           (fn [text-data editor-rect-data sidebar-data
                                cmd-rects settings-rects settings-text
                                viewport scroll-y cmd-panel settings active-font agent-output
-                               local-world store-frame effective ground-camera]
+                               local-world store-frame effective]
                             {:text-data text-data
                              :store-frame store-frame ;; scene-substrate P3a
                              :effective   effective   ;; scene-substrate P3a
-                             ;; first-light P2b: the ground's world camera
-                             ;; (pan+zoom, shader terms) — drives draw-frame!
-                             ;; in ground mode; a camera move redraws (world
-                             ;; identity changes) with a full clear.
-                             :ground-camera ground-camera
                              ;; P3b finding #1: the store composites ONLY in face
                              ;; mode — a defensive gate mirroring the click
                              ;; dispatch (mouse.cljs), so a slot that outlives its
@@ -183,8 +178,7 @@
                           (m/watch !agent-output)
                           (m/watch !effective-local-world)
                           <store-frame   ;; scene-substrate P3a
-                          <effective     ;; scene-substrate P3a
-                          (m/watch ground/!camera))]  ;; first-light P2b
+                          <effective)]   ;; scene-substrate P3a
 
     ;; Two joined consumers: the main-face slot edge + the RAF render pulse.
     (m/join vector
@@ -219,7 +213,13 @@
       ;; Render pulse: sample world on each RAF tick
       (m/reduce
       (fn [prev-state [world _frame-time]]
-        (if (identical? world (:prev-world prev-state))
+        ;; first-light P2b, quarantined by SEAM-STEP1: camera is a sink-local
+        ;; mosaic input. It is dereferenced per RAF and never enters derivation.
+        (let [ground-camera @ground/!camera
+              world-changed? (not (identical? world (:prev-world prev-state)))
+              camera-moved? (not= ground-camera (:prev-ground-camera prev-state))
+              dirty-rect-pending? (some? (:pending-dirty-rect prev-state))]
+        (if-not (or world-changed? camera-moved? dirty-rect-pending?)
           prev-state
 
           (let [frame-idx (inc (or (:frame-idx prev-state) 0))
@@ -235,9 +235,8 @@
                 store-frame          (:store-frame world)
                 effective            (:effective world)
                 face-mode?           (:face-mode? world)
-                ;; first-light P2b: the ground's world camera
                 ground?              (ground/ground-active?)
-                gcam                 (or (:ground-camera world)
+                gcam                 (or ground-camera
                                          {:x 0.0 :y 0.0 :zoom 1.0})
                 store-frame-changed? (not (identical? store-frame (:prev-store-frame prev-state)))
                 ;; P3b finding #1: gate the store's compositing on face mode. When
@@ -553,8 +552,6 @@
                   ;; first-light P2b: a camera move (pan/zoom) shifts EVERY
                   ;; world-camera pixel — partial scissor would smear; force
                   ;; a full clear.
-                  camera-moved? (not= (:ground-camera world)
-                                      (:prev-ground-camera prev-state))
                   dirty-rect
                   (cond
                     ;; First frame, resize, or settings/font changed → full clear, no scissor
@@ -708,7 +705,8 @@
              :settings-rect-sys new-settings-sys
              :render-target render-target
              :prev-world world
-             :prev-ground-camera (:ground-camera world)  ;; first-light P2b
+             :prev-ground-camera ground-camera
+             :pending-dirty-rect nil
              :prev-content-ops content-ops
              :prev-chrome-ops chrome-ops
              :prev-sidebar-data sidebar-data
@@ -735,7 +733,7 @@
              :prev-face-context face-context
              ;; scene-substrate P3b Rung 2: per-slot text geos {vi {:geo :text}}
              :slot-text-geos slot-text-geos
-             :frame-idx frame-idx})))
+             :frame-idx frame-idx}))))
 
       (let [tracker @!gpu-budget
             chrome-text-geo (editor/clone-text-system device (:text geometry) 2000)

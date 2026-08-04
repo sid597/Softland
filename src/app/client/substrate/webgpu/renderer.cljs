@@ -1449,6 +1449,26 @@
       (get-in font-assets [:slug :meta :metrics :lineHeight])
       1.2))
 
+(defonce ^:private line-index-by-layout (js/WeakMap.))
+
+(defn- line-index-for-layout [layout-result]
+  (or (.get line-index-by-layout layout-result)
+      (let [revision (get-in layout-result [:source :revision])
+            _ (when (some? revision)
+                (when-not (number? revision)
+                  (throw (ex-info "Text layout source revision must be a hash"
+                                  {:revision revision
+                                   :layout/id (:layout/id layout-result)})))
+                (js/console.debug "[TEXT-LINE-INDEX]"
+                                  (clj->js {:layout (:layout/id layout-result)
+                                            :source-revision revision})))
+            index (into {} (map (juxt :line/id identity))
+                        (:lines layout-result))]
+        ;; Identity, not revision, owns memo lifecycle: inline layouts may have
+        ;; no stamp, and WeakMap lets the layout result's GC release the index.
+        (.set line-index-by-layout layout-result index)
+        index)))
+
 (defn- position-text-op
   "Resolve one text op to positioned Contract-T glyphs before a paint backend
    is selected. Existing layout results survive clipping and tree translations;
@@ -1471,8 +1491,8 @@
                                         fsize char-width snap-step)
                         :line-height (* fsize line-h)
                         :origin [start-x start-y]}))
-        line (or (first (filter #(= (:layout-line-id txt) (:line/id %))
-                                (:lines layout-result)))
+        line (or (get (line-index-for-layout layout-result)
+                      (:layout-line-id txt))
                  (first (:lines layout-result)))
         [range-start range-end]
         (mapv :offset (or (:paint-source-range txt) (:source-range line)))
@@ -2182,18 +2202,70 @@
                  [family-id (:contract registration)]))
           frame-family-registry)))
 
+;; SEAM-STEP1 T8: frame vocabulary and its maintained arrangement stay owned
+;; at the renderer edge; the scene store never learns these transient entries.
+(defonce ^:private !frame-arrangement
+  (atom (sorted-map-by scene-tape/entry-key-compare)))
+
+(defn- produce-frame-entries [frame]
+  (into []
+        (mapcat (fn [[_family-id registration]]
+                  ((:produce registration) frame)))
+        frame-family-registry))
+
+(defn- update-frame-arrangement [arrangement frame]
+  (let [entries (produce-frame-entries frame)
+        ;; SEAM-STEP1 T12: order invalidation comes from the produced semantic
+        ;; id/token pairs. No execution-clock or revision stamp is an ancestor.
+        produced-pairs (into #{} (map (juxt :entry/id :order)) entries)
+        arrangement
+        (reduce (fn [ordered entry]
+                  (if (contains? produced-pairs [(:entry/id entry) (:order entry)])
+                    ordered
+                    (scene-tape/ordered-remove ordered entry)))
+                arrangement
+                (vals arrangement))]
+    (reduce
+     (fn [ordered entry]
+       (let [key (scene-tape/entry-key entry)]
+         (if (contains? ordered key)
+           ;; Same semantic order: only rebind the per-frame GPU payload.
+           (assoc ordered key entry)
+           (scene-tape/ordered-insert frame-contract-registry ordered entry))))
+     arrangement
+     entries)))
+
 (defn- compile-frame-tape [frame]
-  (let [entries (into []
-                      (mapcat (fn [[_family-id registration]]
-                                ((:produce registration) frame)))
-                      frame-family-registry)]
+  (let [entries (produce-frame-entries frame)]
     (scene-tape/compile-tape frame-contract-registry
                              [:frame (:frame-idx frame)]
                              entries)))
 
-(defn- execute-scene-tape! [pass tape]
+(defn- frame-tape-twin-check! [frame arrangement]
+  (when (true? (aget js/globalThis "__softland_frame_tape_twin_check"))
+    ;; SEAM-STEP1 T6: the batch compiler stays executable as the independent
+    ;; flag-on oracle after the maintained arrangement becomes the live path.
+    (let [batch (compile-frame-tape frame)
+          maintained (into [] (map val) arrangement)
+          same? (= maintained (:entries batch))
+          prior (or (aget js/globalThis "__softland_frame_tape_twin_receipt")
+                    #js {:frames 0 :divergences 0})
+          receipt #js {:frames (inc (or (aget prior "frames") 0))
+                       :divergences (+ (or (aget prior "divergences") 0)
+                                       (if same? 0 1))
+                       :lastFrame (:frame-idx frame)}]
+      (aset js/globalThis "__softland_frame_tape_twin_receipt" receipt)
+      (when-not same?
+        (js/console.error "[FRAME-TAPE-TWIN/DIVERGENCE]"
+                          (clj->js {:frame (:frame-idx frame)
+                                    :maintained (mapv :entry/id maintained)
+                                    :batch (mapv :entry/id (:entries batch))}))
+        (throw (ex-info "Maintained frame arrangement diverged from batch oracle"
+                        {:frame (:frame-idx frame)}))))))
+
+(defn- execute-scene-tape! [pass arrangement]
   (scene-tape/paint-forward
-   tape
+   {:entries (into [] (map val) arrangement)}
    (fn [entry]
      (let [family-id (:family/id entry)
            registration (get frame-family-registry family-id)
@@ -2270,34 +2342,35 @@
                                "}"))))
 
       ;; W2-B: family producers register data; the central frame owns only one
-      ;; compilation and one forward loop.  No family or surface can inject a
+      ;; maintained forward loop. No family or surface can inject a
       ;; hand-positioned draw branch here.
-      (execute-scene-tape!
-       pass
-       (compile-frame-tape
-        {:frame-idx frame-idx
-         :partial? partial?
-         :dirty-rect dirty-rect
-         :clear-quad clear-quad
-         :text-sys text-sys
-         :editor-pool-info editor-pool-info
-         :cmd-rect-sys cmd-rect-sys
-         :cmd-panel-visible cmd-panel-visible
-         :chrome-text-sys chrome-text-sys
-         :chrome-base-line-count chrome-base-line-count
-         :settings-line-count settings-line-count
-         :settings-visible settings-visible
-         :settings-rect-sys settings-rect-sys
-         :diagnostics-visible diagnostics-visible
-         :diagnostics-line-index diagnostics-line-index
-         :agent-visible agent-visible
-         :editor-shadow-pool-info editor-shadow-pool-info
-         :sidebar-shadow-pool-info sidebar-shadow-pool-info
-         :sidebar-pool-info sidebar-pool-info
-         :store-frame store-frame
-         :editor-rect-count editor-rect-count
-         :editor-shadow-count editor-shadow-count
-         :extra-text-geos extra-text-geos}))
+      (let [frame {:frame-idx frame-idx
+                   :partial? partial?
+                   :dirty-rect dirty-rect
+                   :clear-quad clear-quad
+                   :text-sys text-sys
+                   :editor-pool-info editor-pool-info
+                   :cmd-rect-sys cmd-rect-sys
+                   :cmd-panel-visible cmd-panel-visible
+                   :chrome-text-sys chrome-text-sys
+                   :chrome-base-line-count chrome-base-line-count
+                   :settings-line-count settings-line-count
+                   :settings-visible settings-visible
+                   :settings-rect-sys settings-rect-sys
+                   :diagnostics-visible diagnostics-visible
+                   :diagnostics-line-index diagnostics-line-index
+                   :agent-visible agent-visible
+                   :editor-shadow-pool-info editor-shadow-pool-info
+                   :sidebar-shadow-pool-info sidebar-shadow-pool-info
+                   :sidebar-pool-info sidebar-pool-info
+                   :store-frame store-frame
+                   :editor-rect-count editor-rect-count
+                   :editor-shadow-count editor-shadow-count
+                   :extra-text-geos extra-text-geos}
+            arrangement (swap! !frame-arrangement
+                               update-frame-arrangement frame)]
+        (frame-tape-twin-check! frame arrangement)
+        (execute-scene-tape! pass arrangement))
 
     (.end pass)
 

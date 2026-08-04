@@ -390,13 +390,13 @@
 (def ^:private pass-rank
   {:frame-policy 0 :direct 1 :intermediate 2 :region 3 :present 4})
 
-(defn- compare-scalar [a b]
+(defn compare-scalar [a b]
   (cond
     (= a b) 0
     (and (number? a) (number? b)) (compare a b)
     :else (compare (pr-str a) (pr-str b))))
 
-(defn- compare-seq [xs ys item-compare]
+(defn compare-seq [xs ys item-compare]
   (loop [xs (seq xs) ys (seq ys)]
     (cond
       (and (nil? xs) (nil? ys)) 0
@@ -424,7 +424,7 @@
 (defn- compare-stack-path [left right]
   (compare-seq left right compare-stack-node))
 
-(defn- compare-order [left right]
+(defn compare-order [left right]
   (let [lo (:order left)
         ro (:order right)
         comparisons [(compare-scalar (get stratum-rank (:stratum lo))
@@ -436,7 +436,7 @@
                      (compare-scalar (:stable-tie lo) (:stable-tie ro))]]
     (or (some #(when-not (zero? %) %) comparisons) 0)))
 
-(defn- validate-entry! [registry entry]
+(defn validate-entry! [registry entry]
   (require-keys! "scene entry" entry
                  [:entry/id :material/id :material/revision :instance/id
                   :family/id :order :paint :pick :visibility])
@@ -462,6 +462,38 @@
       (throw (ex-info "Scene entry requires a stable tie token"
                       {:entry/id (:entry/id entry)}))))
   entry)
+
+(defn entry-key-compare
+  "Comparator for maintained ordered-view keys `[order-token entry-id]`.
+   Contract-O tokens use this namespace's semantic comparison; entry identity
+   is the final deterministic tie."
+  [[left-order left-id] [right-order right-id]]
+  (let [order-comparison (compare-order {:order left-order}
+                                        {:order right-order})
+        ;; SEAM-STEP1 T1: default vector compare is length-first and therefore
+        ;; is not Contract-O ordering. Scalar ids are lifted to one-item paths
+        ;; so frame keywords and store vector ids share this comparator.
+        id-path (fn [entry-id]
+                  (if (sequential? entry-id) entry-id [entry-id]))]
+    (if (zero? order-comparison)
+      (compare-seq (id-path left-id) (id-path right-id) compare-scalar)
+      order-comparison)))
+
+(defn entry-key [entry]
+  [(:order entry) (:entry/id entry)])
+
+(defn ordered-insert
+  "Validate and insert one entry into a persistent maintained ordered view."
+  [registry ordered entry]
+  ;; SEAM-STEP1 T6: insert-edge validation is additive; compile-tape below
+  ;; retains its independent validation and remains the batch oracle.
+  (validate-entry! registry entry)
+  (assoc ordered (entry-key entry) entry))
+
+(defn ordered-remove
+  "Remove one entry's exact order/id key from a maintained ordered view."
+  [ordered entry]
+  (dissoc ordered (entry-key entry)))
 
 (defn- order-receipt [entries]
   (mapv (fn [entry] [(:entry/id entry) (:family/id entry) (:order entry)]) entries))

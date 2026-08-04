@@ -287,8 +287,10 @@
         tree-lo (rt/rt-node :rlo :box {:x 0 :y 0 :w 100 :h 100} :data {:address "addr/lo"})
         tree-hi (rt/rt-node :rhi :box {:x 0 :y 0 :w 100 :h 100} :data {:address "addr/hi"})
         store   (-> (ss/empty-store)
-                    (ss/upsert-slot vi-lo {:tree tree-lo :container 10})
-                    (ss/upsert-slot vi-hi {:tree tree-hi :container 20}))]
+                    (ss/upsert-slot vi-lo {:tree tree-lo :container 10
+                                           :stack-path (:stack-path (get effs 10))})
+                    (ss/upsert-slot vi-hi {:tree tree-hi :container 20
+                                           :stack-path (:stack-path (get effs 20))}))]
     (testing "overlapping containers: the higher :layer wins"
       (let [p (ss/pick store effs [50 50])]
         (is (= "addr/hi" (:address p)))
