@@ -654,6 +654,11 @@ opening prompt (below the contract); then Fable FULL gate review.
 **Coordination flag (2026-08-04): shaping-correction (package block below)
 is SEAM-STEP1-closure's contracted predecessor — SEAM lands its code as
 contracted, then shaping-correction runs, then SEAM's felt gates + close.**
+**SEAM-STEP1 CODE LANDED 2026-08-05 as `5f55cf5`** (Sid's commit ruling;
+§3 staging executed — 13 §12 files whole + the `ground.cljs` pick-at
+scalpel; studio/playground hunks left uncommitted; post-commit worktree
+rerun waived by Sid, ns-custody grep clean; ledger `SEAM-STEP1-NOW.md`).
+SEAM's felt gates + close follow shaping-correction per the flag above.
 decisions.md's section now OPENS
 with the arc in Sid's words (Electric-native map: transport kept ·
 internals re-keyed · host probed · Missionary soil · Softland the
@@ -667,9 +672,8 @@ Code still uncommitted in two layers; archive/survivorship
 rulings still deferred, unchanged by this settlement (the studio
 layer carries the durable authoring loop the law demands).
 
-**shaping-correction — CONTRACT VALIDATED — AWAITING SEAM-STEP1 LANDING
-(R4 PASS 2026-08-04; predecessor to SEAM-STEP1 closure; SEAM stays
-frozen/unwidened).** Sid's
+**shaping-correction — IMPLEMENTATION OPEN (SEAM-STEP1 landed `5f55cf5`
+2026-08-05; R4 PASS 2026-08-04; SEAM stays frozen/unwidened).** Sid's
 profiling ruling executed: the 2026-08-03 capture banked durable
 (`build/shaping-correction/evidence/` + `FOUNDING-EVIDENCE.md` — settle
 35.678s · final frame 28.747s with text-gpu 28.725s · shaped-layout
@@ -706,9 +710,10 @@ multi-stop terminal plus executable 7/7 classifier) → R4 PASSED
 (`VALIDATION_R4.md`, commit `bf0b398`, sha256 `24a0643a…971730`): all ten
 R3 §10 items consumed; inherited R2/R1 chain closed; prior consumptions
 unweakened; three non-blocking advisories in §7 travel to implementation.
-Implementation remains CLOSED until SEAM-STEP1 code lands. NEXT after that
-committed landing = re-run CONTRACT §11's manifest sweep, then cut the Codex
-one-context whole-package opening prompt into `build/shaping-correction/NOW.md`.
+SEAM-STEP1 code landed `5f55cf5` (2026-08-05) — implementation is OPEN.
+NEXT = re-run CONTRACT §11's manifest sweep against the committed HEAD, then
+cut the Codex one-context whole-package opening prompt into
+`build/shaping-correction/NOW.md`.
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.

@@ -54,3 +54,49 @@
   preview). Scoped R2 verified the four FAIL-class resolutions.
   Next: Sid pastes the Codex opening prompt (in the board's engine block
   + below the contract); Codex runs the phase.
+
+## 2026-08-03 · Codex · P1 implementation session
+
+- Acts 1→2→3 completed in order; G4 was green on its first run before the sole production `m/signal` sharing point landed.
+- G1/G2 first-run FAIL finding (verbatim):
+  `FAIL in (g1-maintained-store-equivalence-across-public-writes) (maintained_view_test.clj:30)`
+  `maintained and oracle pick agree at [0 0]`
+  `expected: (= (select-keys (ss/pick store effective point) [:vi]) (oracle-pick store effective point))`
+  `actual: (not (= {} nil))`
+- The same nil-normalization finding repeated twice at `[250 50]`; the test oracle alone changed to `some->`; rerun: `Ran 40 tests containing 256 assertions. 0 failures, 0 errors.`
+- G3/G5s/G6s fences green; G7 green (`41 tests`, `260 assertions`); final focused rerun green (`48 tests`, `234 assertions`); dev compile `0 warnings`.
+- G8 first invocation signal (verbatim summary fields): `"pass": false`, `"classification": "candidate-pick-parity-failure"`, `"candidateParity": "14/21"`, `"productBoundsDivergenceSentinels": "7/7"`; contract close query then returned `true`; Chrome present, no owner-flip.
+- G9 full: `:namespaces 56`, `:test 527`, `:assertions 7443`, `:pass 7443`, `:fail 0`, `:error 0`.
+- No §14 stop; no commit/push. Sid/Fable handoff remains G5L, G6L, mandatory G10 flag-on minute + wearing, then FULL independent gate review.
+
+## 2026-08-04 · Codex · G5L focused repair continuation
+
+- Runtime probe: raw caret visibility ticked and focus was correct, but the ground/face `:ground-caret` stayed alpha 1 with zero GPU-pool changes across 11 transitions.
+- Scope check: that caret is assembly-slot output outside SEAM Act 2; the only SEAM `ground.cljs` hunk is `pick-at`. No source/test repair was authorized or made.
+- Exact G5L on SEAM's standalone editor path: 29.24s, 29 present/absent transitions (15 visible/14 hidden), focus `:editor`, stable recomputes `0` — PASS.
+- Supplied live receipts: G10 twin `{"frames":569,"divergences":0,"lastFrame":1877}` PASS; pan/wheel/inspector normal.
+- Supplementary adapter attestation: AMD / RDNA-3 / `GPUAdapterInfo.isFallbackAdapter=false`.
+- Shaping samples remain separate and untouched. Square-box glyphs remain queued; cheapest attribution A/B is identical code points + font/backend/zoom/camera/Chrome/adapter against read-only opening HEAD `841a250e`.
+- Receipt and Fable's three-point bounded-review handoff are appended to `SEAM-STEP1-P1.md`; no commit or push.
+
+## 2026-08-05 · Codex · FULL-gate residual receipt closure
+
+- Fable's one bounded FULL review is authoritative: code surface PASS; only G6L's literal adapter-first A/B and G10's wall-clock twin line were executed here.
+- G6L first field: `isFallbackAdapter=false`, Radeon RX 7900 XTX, AMD/RDNA-3; same headed capture and three trusted-pointer samples on the real 174-block ground.
+- G6L before at detached read-only `841a250e`: `0,0,1→180,90,1`, 2 GPU-canvas draws, `6796.5 ms`, first draw `5111.4 ms`, four `1672–1727 ms` long tasks, no page error.
+- G6L after at the current SEAM tree, matched `0,0,1→180,90,1`: 2 GPU-canvas draws, `433.2 ms`, first draw `116.2 ms`, zero long tasks, no page error — PASS.
+- G10 flag-on bounds: `performance.now()` `51321.3→116381.0`, duration `65059.7 ms`; receipt `{"frames":254,"divergences":0,"lastFrame":257}`, logged divergences `0`, page errors `0` — PASS.
+- Probe-shifted camera was restored through the app settle path; flag-off, post-settle, and a separate fresh page all read `{x:0,y:0,zoom:1}` over 174 blocks.
+- Temporary baseline server/worktree and opaque config/token symlinks were removed; the shared tree was never checked out or stashed.
+- No source/test change, shaping-correction, glyph fix, index operation, commit, or push. Finding 3 remains queued for shaping-correction fingerprint normalization before that package opens.
+- The one bounded review is consumed; Fable may mechanically confirm these two receipt rows only. Next authority: Sid's commit ruling, then §3 close staging and the post-commit HEAD-dynamic reruns.
+
+## 2026-08-05 · Fable · close session — SEAM-STEP1 code LANDED
+
+- Sid's commit ruling, verbatim: "just commit … just do it". §3 staging executed: 13 §12 files staged whole + `ground.cljs` scalpel (the pick-at hunk alone, +4/−1); all studio P1 / playground cut 1 hunks left uncommitted as found.
+- Code commit `5f55cf5` on `docs/current-mental-model-local`: 14 files, +713/−141, new `maintained_view_test.clj` included.
+- Post-commit HEAD-dynamic rerun (detached-worktree suite + fences) WAIVED by Sid ("skip"). Residue, named: the committed subset has never been suite-run in isolation — the first post-landing suite run covers it.
+- Mitigation run: ns-custody grep at `5f55cf5` clean — no committed src/test path references studio / workshop-playground / image-material namespaces.
+- shaping-correction OPENS: next act = CONTRACT §11 manifest sweep → the Codex one-context opening prompt into `build/shaping-correction/NOW.md`.
+- SEAM's felt gates + package close remain queued behind shaping-correction per the 2026-08-04 coordination flag.
+- Studio/playground archive-vs-survivorship put to Sid this session; tree unchanged pending his word.
