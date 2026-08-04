@@ -5,10 +5,14 @@ adjudication) + `FOUNDING-EVIDENCE.md` (the banked capture) + fresh source
 reconnaissance, under the work-package skill's few-and-large rule: ONE
 implementation phase, no PLAN.md, plan-grade specificity carried here.
 
-**RECUT 2026-08-04 (R2 candidate):** this text consumes `VALIDATION_R1.md`
-(immutable FAIL) §10 items 1–10 exactly; the mapping is
-`RECUT_LEDGER_R1.md`. One wholly new default-fail validation round (R2) runs
-over THIS text before the implementer opens (§14).
+**RECUT 2026-08-04 (R3 candidate):** this text consumes `VALIDATION_R2.md`
+(immutable FAIL) §10 items 1–9 — and, through them, completes
+`VALIDATION_R1.md` §10 items 1–8 in EXECUTABLE SUBSTANCE (R2's consumption
+standard: letter-only inclusion is not consumption). The mapping is
+`RECUT_LEDGER_R2.md` (R1's map: `RECUT_LEDGER_R1.md`, historical). One
+wholly new default-fail validation round (R3) runs over THIS text before
+the implementer opens (§14). R1 and R2 are immutable; no implementation
+opens from this candidate.
 
 **Binding docs + precedence:** decisions.md (incl. "The render seam",
 settled+amended 2026-08-03), Contract T (`build/render-engine/W1.md`), and
@@ -19,10 +23,13 @@ records, not authority.
 
 **Manifest law:** locators below are navigation hints machine-verified with
 `grep -n`/`wc -l` on 2026-08-04 against the WORKING TREE (which carries
-uncommitted foreign work — §12), re-verified by the R1 round's full re-grep
-and this recut's spot-checks. SUBSTANCE (named symbols, forms, semantics)
-binds. Hint drift with substance intact → re-locate, log in the phase
-artifact, never stop. Substance missing → stop clause S3.
+uncommitted foreign work — §12), re-verified by the R1 and R2 rounds'
+re-greps and this recut's machine extractions (W1 §9.1's fingerprint,
+`run_verifier.mjs`'s close fields, `server_jetty.clj`'s port default —
+all read from disk 2026-08-04, never hand-copied). SUBSTANCE (named
+symbols, forms, semantics) binds. Hint drift with substance intact →
+re-locate, log in the phase artifact, never stop. Substance missing →
+stop clause S3.
 
 ---
 
@@ -191,25 +198,47 @@ preserved, trailing empties included).
 
 ### 5.3 Cut selection law
 
-Per source line, from ONE shaped pass (T3):
+Per source line, from ONE shaped pass (T3). The law is SEGMENT-RELATIVE:
+the **current segment** is the not-yet-cut suffix of the source line —
+initially the whole line; after each cut, the suffix beginning at that
+cut's end (the consumed run's end for a break cut, the cut cluster end
+for a hard cut). Candidate search, prefix definition, and the fit test
+read the CURRENT SEGMENT only, never the whole source line; the same
+segment content yields the same cut decision regardless of how many cuts
+preceded it.
 
-1. Candidate cuts are declared cluster ends. A **break candidate** is the
-   end of a maximal break-whitespace cluster run that has non-whitespace
-   content AFTER it on the same source line. (Trailing whitespace at
+1. **Segment-leading whitespace is painted, never a candidate.** A
+   maximal break-whitespace run that starts at the current segment's
+   first offset is painted content on that segment's first visual line.
+   This ONE rule covers source-line indentation (the first segment) AND
+   any later segment that begins with whitespace (e.g. the remainder
+   after a hard cut inside a long whitespace run). It is never
+   break-consumed; if it alone overflows the budget, rule 3's hard cut
+   applies inside it.
+2. **Break candidates.** Candidate cuts are declared cluster ends. A
+   **break candidate** is the end of a maximal break-whitespace cluster
+   run that (i) starts AFTER the current segment's first offset — at
+   least one painted cluster precedes it in THIS segment (so a
+   segment-leading run is excluded by construction, and an empty painted
+   prefix can never be chosen) — and (ii) has non-whitespace content
+   after it in the current segment. (Trailing whitespace at
    end-of-source-line is therefore never break-consumed — it is painted
    content, hard-wrapped by rule 3 if it overflows.)
-2. **Whitespace preference:** choose the LAST break candidate whose PAINTED
-   PREFIX (all clusters before the whitespace run) fits the inline-size
-   budget. The fit test applies to the painted prefix only — the consumed
-   whitespace is unpainted, so its advance never participates. The ENTIRE
-   maximal break-whitespace run is consumed (`:consumed-range`), painted on
-   neither line. The next visual line starts at the run's end.
+   **Whitespace preference:** choose the LAST break candidate whose
+   PAINTED PREFIX (all current-segment clusters before the whitespace
+   run) fits the inline-size budget. The fit test applies to the painted
+   prefix only — the consumed whitespace is unpainted, so its advance
+   never participates. The ENTIRE maximal break-whitespace run is
+   consumed (`:consumed-range`), painted on neither line. The next
+   current segment starts at the run's end.
 3. **Hard cut:** if no break candidate's painted prefix fits, cut at the
-   last fitting cluster end (mid-word). If not even one cluster fits, take
-   exactly one cluster (progress guarantee). Hard cuts consume nothing.
-4. Leading whitespace of a SOURCE line is painted content on its first
-   visual line (indentation preserved). Continuation lines never begin with
-   break-consumed whitespace by construction of rule 2.
+   last fitting cluster end (mid-word). If not even one cluster fits,
+   take exactly one cluster (progress guarantee). Hard cuts consume
+   nothing; the next current segment starts at the cut cluster end.
+4. Continuation lines never begin with break-consumed whitespace, by
+   construction of rule 2 (a consumed run is consumed WHOLE); when a
+   continuation segment does begin with whitespace (hard-cut remainder),
+   rule 1 paints it.
 5. Final segments reshape once each for line-correct bidi/contextual
    shaping (same law `shaped-segments` already states); per-source-line
    shaping calls ≤ 1 + segment count (G1 asserts).
@@ -239,9 +268,25 @@ under this ruling; that is §5's accepted change, S1 guards it.)
 
 Headers remain ordered, UNWRAPPED synthetic prefix lines (never wrapped,
 budget notwithstanding), each shaped ONCE with the live provider and the
-body's shape options. Their lines carry a tagged synthetic header index
-domain (e.g. `[:header i]`) — NEVER body source offsets (Contract T forbids
-untagged/aliased source offsets). Ground's existing consumption contract
+body's shape options.
+
+**Header index space (EXACT — this schema, not an example):** header
+indices live in a PER-HEADER tagged domain. A header offset is
+`[:header h j]` — `h` = the header's 0-based ordinal in the block's
+visible header order, `j` = an offset into THAT header's text in the same
+index units as body source offsets (UTF-16 code units), `0 ≤ j ≤ len`.
+A header range is `[:header h [start end)]`, `start`/`end` in the same
+per-header domain; a range never spans two headers and never mixes with
+body offsets. Consequences, each exact:
+- a header line's `:source-range` = `[:header h [0 len)]`, `:text` = the
+  full header text, `:consumed-range` ALWAYS absent (headers never wrap,
+  nothing is ever consumed);
+- caret stops on a header are `[:header h j]` for every `j` in `[0, len]`;
+- hit-test, selection, and copy over a header resolve in this domain and
+  NEVER alias body source offsets (Contract T forbids untagged/aliased
+  offsets); nothing translates between the header and body domains.
+G1 asserts this schema literally (the two-headers-plus-wrapped-body case
+compares the full tagged values). Ground's existing consumption contract
 (first `nh` result lines are the headers — face_primitives.cljc:606–660) is
 preserved.
 
@@ -266,6 +311,20 @@ reference-advance value is part of the §6 metric regime; G1 asserts it is
 provider-shaped (a synthetic provider with a distinctive space advance
 proves no hard-coded constant survives) and shaped once per key.
 
+**Reference-advance fault totality (§5.6's gate class, applied to the
+U+0020 reference shape — TOTAL over every acquisition outcome):**
+- the shaped result yields a positive, numeric advance → that value is
+  `reference-advance`;
+- EVERY other outcome — empty cluster list, missing advance field,
+  non-numeric advance, zero advance, negative advance — is ONE provider
+  contract fault with ONE lawful consequence: `provider-fault` increments
+  by exactly 1 (once per layout key, like the shape itself), and the
+  layout proceeds AS IF `wrap-col` were missing — no inline-size, no
+  wrapping, unbounded lines. No throw, no fallback constant, no
+  code-unit heuristic. G1 asserts each fault class as its own row
+  (synthetic provider variants), each row checking the single
+  `provider-fault` increment AND the unbounded-line consequence.
+
 **Stop S1:** if exact legacy column breaks turn out to be product identity
 (anyone asks the new wrap to reproduce the old cut points), STOP for Sid —
 that demand conflicts with Contract T's one-geometry-truth law and is not an
@@ -283,23 +342,39 @@ header copy, anatomy/invocation strings, and every auxiliary op (refusal,
 notice, boundary, conflict lint, gold mark, silver mark, fold-header hit) —
 receives a key by this construction, with no uncovered case:
 
+- **The visual projection token (VPT) — EXACT representation, defined
+  once, used verbatim in the key fn AND in G1's expected key values:**
+  `[body-hash header-texts op-role]` where
+  - `body-hash` = value hash of the block's final VISIBLE body string —
+    the string after EVERY projection (fold display, paste projection,
+    `:foldable/defaults`/`:foldable/header-copy` as projected) has been
+    applied; for a single-string op (auxiliary, anatomy, refusal, notice,
+    …) the op's string itself;
+  - `header-texts` = the vector of visible header strings in display
+    order (`[]` for single-string ops) — a header text change flips the
+    key even when the body is unchanged;
+  - `op-role` = the op-role keyword.
+  Fold, paste, and default/header-copy state enter the key ONLY through
+  their effect on these three components; a projection/provenance/
+  attention change that leaves all three unchanged produces an EQUAL key
+  (paint-only — G4 rows j/k prove it live).
 - **Source token, by case:**
-  - When an actual content-revision stamp exists for the text, the token is
-    (stamp × the final VISUAL-TEXT projection token) — the pair, so
-    optimistic/paste/fold projections can never alias the stamped truth.
+  - When an actual content-revision stamp exists for the text, the token
+    is the pair `[stamp VPT]` — so optimistic/paste/fold projections can
+    never alias the stamped truth.
   - Otherwise (optimistic focused text via `block-view`
     ground_edit.cljc:445; paste projection via `paste-projection`
     ground_edit.cljc:121; machine fold display + header copy via `run-view`
     ground.cljs:1190; auxiliary and anatomy strings; any unstamped ground
-    text): the token is (declared visual-text VALUE HASH × stable source
-    address × op role). Declared in the key fn, never silent.
+    text): the token is the pair `[VPT stable-source-address]`. Declared
+    in the key fn, never silent.
 - **Visual-projection inputs, exactly:** the fold state as applied to this
   subject, `:foldable/defaults` and `:foldable/header-copy` as PROJECTED
   into visible text (shared/foldable_material.cljc:31–40), and the paste
   projection inputs. EXCLUDED even though they ride the same wear maps:
   bindings (foldable_material.cljc:44–69), contribution stamps, whole-wear
   identity. A binding-only material revision produces an EQUAL key (G1
-  key-law assertion; G4 row g).
+  key-law assertion; G4 row j live).
 - **Provider identity** — `provider-identity`'s fields (face-id,
   face-revision, shaper-id, shaper-version, features, variations, axes,
   fallback-chain, upem; text_layout.cljc:261–263).
@@ -330,10 +405,31 @@ signature makes `sig` unpassable.
 
 **Cache lifecycle (T9):** the carried-result cache is process-local, keyed
 by the §6 key, bounded by the live block set — evicted on block death/slot
-destroy (block-death sites ground.cljs:1923–1928, 3159–3167; vanished-slot
-destroy runtime/render.cljs:61–64). Diagnostics carry size, hit/miss
-counts, and `:id-digest` — a hash of the sorted live layout-ID set, the
-cheap identical-IDs receipt G4 case e reads. No unbounded memo.
+destroy. TWO eviction owners, each with its own receipt: (1) truth death —
+the block-death sites (ground.cljs:1923–1928, 3159–3167) evict ALL keys
+the dead block owns; (2) vanished-slot destruction — the destroy site
+(runtime/render.cljs:61–64) evicts the vanished slot's owned keys. A block
+may own MORE than one live entry (body, headers, auxiliary/anatomy ops):
+eviction expectations are `size − owned-key-count`, never `size − 1`, with
+the owned count read pre-action via the §8 owned-keys hook. Diagnostics
+carry size, hit/miss counts, and `:id-digest` — a hash of the sorted live
+layout-ID set, the cheap identical-IDs receipt G4 case e reads. No
+unbounded memo.
+
+**Cache-correctness oracle (the render-seam fenced-view law, made
+executable — a stale reuse must be CAUGHT, not inferred from counters):**
+a reused cached result must be VALUE-EQUAL to a fresh `text-layout/layout`
+batch computation over the same inputs. The oracle is a dev-mode
+comparison (enabled only in oracle windows — bounded observability, T10):
+while enabled, every cache HIT recomputes through the batch entry and
+deep-compares the full retained result (line records with `:text`/
+`:source-range`/`:consumed-range`, geometry, caret/hit spans, layout IDs).
+`layout-cache` gains `:oracle-checks` / `:oracle-mismatches` fields (§8).
+Gate owners: **G6** (JVM half — positive: hit-reuse deep-equals fresh
+recompute; negative: a SEEDED stale entry yields exactly one
+`:oracle-mismatches` increment and the assertion fails) and **G4 row l**
+(live). This replaces §14's former unnamed "in-phase falsifier" duty for
+cache staleness — the oracle is gate-owned, not cultural.
 
 ## 7. The correction, ordered — and what the gates decide
 
@@ -385,42 +481,103 @@ the G8 line gains fields; the ground report gains ≤6 lines):
   `:provider-change` `:hover-paint` `:selection` `:camera` `:order`
   `:other` — `:hover-paint`/`:selection`/`:camera`/`:order` MUST stay 0;
   G3/G4/G5 assert).
-- `paint-repacks` — paint-only repacks (layout reused), keyed by the same
-  cause vocabulary (G3 asserts an exact `:hover-paint` count).
+- `paint-repacks` — instance-data packs, keyed by the same cause
+  vocabulary. **Pack-cause law:** a pack that follows a layout execution
+  carries the EXEC's cause and is counted under it; a paint-only pack
+  (layout reused) carries its paint cause. So a text edit's pack rides
+  `:slot-text-change`, a hover repack rides `:hover-paint` (G3 asserts an
+  exact count), and a provider change's packs ride the exec road — G4 row
+  (i) asserts paint-repacks 0 there.
 - `geo` — fresh / in-place / recloned / destroyed / capacity-grown counts.
 - `proportionality` — last-layout work receipts in G1's exact vocabulary
   (glyph-visits, cluster-index-writes/reads, run-index-writes/reads,
   wrap-candidate-visits, shape-calls) so linearity is observable in the
   field.
-- `provider-fault` — §5.6's totality receipt.
-- `dirty` — dirty-region coverage (extends the existing dirty-rect receipt).
+- `provider-fault` — §5.6/§5.7's totality receipt.
+- `slot-text-writes` — slot text-geometry write/reshape count (the G8
+  line's reshape counter, now a DECLARED permanent counter; G4/G5 read it
+  as window deltas). One increment per slot whose text geometry is
+  written in a frame.
+- `dirty` — dirty/present-region marks by cause, EXACTLY seven fields:
+  `{:slot-text :entry :exit :hover :order :camera :other}` (I7's
+  ownership made countable; `:other` absorbs marks with no named cause —
+  recorded everywhere, asserted only where a gate row names it). Expected
+  values are assigned to existing gates — G4 rows (text edit / hover /
+  exit), G5 rows (camera / order), G8 (cold entry−exit conservation) —
+  never to a new gate number.
 - `store-frame-execs` — I9's counter.
-- `layout-cache` — size + hit/miss + `:id-digest` (T9's bound and G4's
-  identical-IDs receipt made visible).
+- `layout-cache` — size + hits/misses + `:id-digest` (T9's bound and G4's
+  identical-IDs receipt made visible) + `:oracle-checks` /
+  `:oracle-mismatches` (§6's oracle) + the per-block owned-keys read.
+  **Conservation law (binds every G4/G5 counter window):** miss delta =
+  layout-execs total delta — every miss executes exactly once, every hit
+  executes zero. Hits are unconstrained unless a row names them.
 
 Dev-exposed hooks (diagnostics namespace, allowlist files only, no product
-surface): counter RESET (the G3/G4/G5 window opener), id-digest read, and
-the scripted probe actions G4/G5 name (truth-road text edit, fold-verb
-toggle, backend flip via the settings road, font change, block delete).
+surface) — the COMPLETE enumeration; every scripted G4/G5 action below is
+either one of these hooks or a literal UI drive, never a private harness
+mutation: counter RESET (the G3/G4/G5 window opener) · id-digest read ·
+cache size + per-block owned-keys read · oracle enable/disable · seeded
+stale-cache entry (oracle negative ONLY, dev-only) · truth-road text edit ·
+capacity-append edit · caret move · text-selection move ·
+machine-selection move · machine fold-verb toggle · paste flip · backend
+flip (settings road) · font/provider change · binding-only material
+revision · contribution-stamp/attention wear change (paint-only
+provenance) · block delete (truth road) · sibling order swap (truth road,
+no text change). Camera pan/zoom are literal pointer scripts (UI drives),
+not hooks.
 
 ## 9. Deliverables besides code
 
 - **The committed profile harness** — `test/render_engine/
   profile_shaping_correction.mjs` (new file, beside the existing verifiers,
-  never editing them), modes `cold` | `hover` | `probe`, driving the dev
-  app under §10's environment law. Receipt's FIRST field: serialized
+  never editing them), driving the dev app under §10's environment law.
+  **Literal invocations (LAW — the harness ships exactly these three
+  forms; every gate that names a mode runs its form verbatim):**
+  - `node test/render_engine/profile_shaping_correction.mjs --mode=cold --url=http://localhost:8080`
+  - `node test/render_engine/profile_shaping_correction.mjs --mode=hover --url=http://localhost:8080`
+  - `node test/render_engine/profile_shaping_correction.mjs --mode=probe --url=http://localhost:8080`
+  `--mode=` is the ONLY mode selector (unknown/missing mode → exit 1);
+  `--url=` defaults to `http://localhost:8080` (the Jetty dev default,
+  server_jetty.clj:2500 — no binding doc or the founding evidence pins any
+  other address) and the EFFECTIVE url is recorded in the receipt.
+  Readiness is harness-owned: the harness itself awaits §10's settle
+  definition (cold) or hover-current confirmation (hover/probe) — no
+  external sleep, no wrapper script. Receipt's FIRST field: serialized
   adapter attestation (`isFallbackAdapter`, description); then environment
-  fields, then measurements; SHA-256 manifest over emitted artifacts. Exit
-  law: `0` = every assertion for the mode green; `2` = counters/receipts
-  green but a wall bar red (the terminal-classification road); `1` =
-  harness/environment fault — the gate DID NOT RUN, receipt informational.
-- **The seven-transition hover storyboard** (THE one storyboard; §7 step 4,
-  G3, and G9 all reference THIS definition): pin the ordinary block and the
-  24,891-char paste block `…ep:3c6512e2:000000`; hover the largest once as
-  UNMEASURED warm-up; RESET counters; then SIX measured alternating
-  transitions (largest→ordinary, ordinary→largest, ×3); then the SEVENTH
-  measured transition ordinary→empty (the control). Each transition waits
-  for exactly ONE post-input RAF/G8 pair; a missing or extra pair = FAIL.
+  fields, then measurements; SHA-256 manifest over emitted artifacts.
+  **Exit law (TOTAL and disjoint; §10's terminal classifications consume
+  it):** classification is decided in this order, first match wins —
+  - `1` = harness/environment fault (environment-law mismatch, fallback
+    adapter, settle timeout of the harness's own machinery, unknown
+    mode): the gate DID NOT RUN; receipt informational. Decided FIRST — a
+    run that cannot attest its environment is `1` regardless of any
+    assertion state.
+  - `3` = ≥1 product counter/receipt assertion red (any mode; wall-bar
+    state is recorded but cannot rescue the run).
+  - `2` = every counter/receipt assertion green AND ≥1 wall bar red —
+    `cold`/`hover` only; `probe` has no wall bars and NEVER exits 2.
+  - `0` = every assertion for the mode green (including its wall bars
+    where the mode has them).
+  Exactly one exit matches any run; the seeded oracle negative (G4 row l)
+  doubles as the proof that exit `3` is reachable.
+- **The seven-transition hover storyboard** (THE one storyboard — this
+  ordered list is the ONLY definition; §7 step 4, G3, and G9 reference it
+  and restate nothing): pin the ordinary block and the 24,891-char paste
+  block `…ep:3c6512e2:000000`. Acts, in order:
+  1. UNMEASURED warm-up: hover the largest (paste) block once; await its
+     ONE RAF/G8 pair.
+  2. UNMEASURED positioning move: hover the ordinary block; await its ONE
+     RAF/G8 pair. (These two pre-reset pairs are the storyboard's only
+     unmeasured events; they appear in NO measured delta.)
+  3. RESET counters (§8 hook) — only after the harness confirms the
+     ordinary block is the CURRENT hover.
+  4. SIX measured transitions: `(ordinary→largest, largest→ordinary)` ×3.
+  5. The SEVENTH measured transition: ordinary→empty (the control) —
+     lawful because act 4's alternation ENDS on ordinary.
+  Each measured transition waits for exactly ONE post-input RAF/G8 pair;
+  a missing or extra pair = FAIL. Measured paint-repacks `:hover-paint`
+  total = **13** (six ordinary↔largest × 2 slots + the control's 1).
   (The banked four-transition capture remains the comparison baseline:
   each measured ordinary↔largest transition compares against its
   6.0–6.1s ancestors individually.)
@@ -428,7 +585,8 @@ toggle, backend flip via the settings road, font change, block delete).
   (new file `test/app/client/workspace/shaping_correction_test.clj`) with an
   injectable synthetic provider (text_layout is `.cljc`; a provider is a map
   with `:shape-line` — no browser needed). Home of G1's linearity +
-  semantic cases, G6's span assertions, and §6's key-law assertions.
+  semantic + reader-law cases, G6's span AND oracle assertions, and §6's
+  key-law assertions.
 - **The new fence** — `test/render_engine/
   verify_shaping_correction_fence.mjs` (G6's static half).
 - Post-fix profile receipts appended to the package (`RECEIPTS.md` or the
@@ -452,8 +610,10 @@ closure's felt gates run after this lands)
   (scene-substrate G4 lesson).
 - **Browser:** headless Chromium, major version ≥ 150, version recorded.
 - **Viewport:** 800×601, DPR 1.046875 (the founding capture's geometry).
-- **App:** the shadow-cljs `:dev` build served by the running dev server;
-  build id and URL recorded.
+- **App:** the shadow-cljs `:dev` build served by the running dev server
+  (the Jetty server, default `http://localhost:8080` — §9's invocation
+  law pins it; server_jetty.clj:2500); build id and effective URL
+  recorded.
 - **Profile:** fresh disposable user-data-dir per COLD run (no warm cache);
   `hover`/`probe` modes may reuse the settled page and say so in the
   receipt.
@@ -504,69 +664,178 @@ ceiling would smuggle in streaming/residency, which is step-5 material.
   final-segment count; plus 1 per header (§5.5) and exactly 1
   reference-advance shape per layout key (§5.7).
   **Semantic cases (each asserts exact line text, `:source-range`,
-  `:consumed-range`, caret stops, selection regions, layout-ID stability
-  across identical inputs, and shape-call count):** leading space; one
-  break space; multiple break spaces (`"abc   def"` = §5.3's worked
-  example); tab as break-whitespace; NBSP never a break; no fitting
-  cluster (single-cluster progress); mid-word hard cut; empty text;
-  interior and trailing empty source lines preserved; trailing whitespace
-  painted (never break-consumed); a header longer than the budget stays
-  unwrapped; two headers + wrapped body (header index domain asserted);
+  `:consumed-range`, caret stops, HIT-TEST results, selection regions,
+  COPY output, layout-ID stability across identical inputs, and
+  shape-call count):** leading space (painted — §5.3 rule 1's first
+  segment, uniquely derivable); one break space; multiple break spaces
+  (`"abc   def"` = §5.3's worked example); segment-leading whitespace on
+  a CONTINUATION segment (hard cut inside a whitespace run longer than
+  the budget → the remainder is painted, rule 1, never consumed); tab as
+  break-whitespace; NBSP never a break; no fitting cluster
+  (single-cluster progress); mid-word hard cut; empty text; interior and
+  trailing empty source lines preserved; trailing whitespace painted
+  (never break-consumed); a header longer than the budget stays
+  unwrapped; two headers + wrapped body (the §5.5 schema asserted on FULL
+  tagged values — `[:header h [0 len)]` ranges, `[:header h j]` carets);
   proportional space advance (synthetic provider's distinctive U+0020
-  advance drives inline-size — no hard-coded constant); a cluster spanning
-  multiple UTF-16 code units never split (provider-fault path returns the
-  §5.6 poisoned-total result, `provider-fault` incremented).
-  **Key-law assertions (§6):** binding-only material revision → EQUAL key;
-  header-copy projection change → unequal; fold display change → unequal;
+  advance drives inline-size — no hard-coded constant); a cluster
+  spanning multiple UTF-16 code units never split (provider-fault path
+  returns the §5.6 poisoned-total result, `provider-fault` incremented);
+  §5.7's reference-advance fault table — one row per fault class (empty
+  cluster list · missing advance · non-numeric · zero · negative), each
+  asserting exactly one `provider-fault` increment AND the unbounded-line
+  consequence.
+  **Reader-law rows (§5.4 made executable, not prose):**
+  - hit-test past the painted end of a wrapped line → the caret stop at
+    consumed-start; once with a single-space consumed run and once with a
+    multi-space run (never an interior consumed offset, never the next
+    line);
+  - caret stops at every offset of a consumed run: interior offsets
+    display at the preceding line's painted end; `consumed-end` displays
+    at the next line's start;
+  - selection wholly INSIDE a consumed range → zero highlight width, at
+    the preceding line's painted end;
+  - selection ending exactly AT `consumed-end` → highlights to the
+    preceding line's painted end, resumes nothing;
+  - copy of a range wholly inside a consumed range → exactly the
+    consumed characters; copy of a selection spanning the wrap → includes
+    the FULL consumed run (source-range-based, §5.4).
+  **Key-law assertions (§6):** the stamped token's EXACT representation —
+  the computed key for a pinned fixture equals the literal
+  `[stamp [body-hash header-texts op-role]]` built inline in the test
+  (same VPT construction, no re-derivation road); binding-only material
+  revision → EQUAL key; contribution-stamp/attention wear change → EQUAL
+  key; header-copy projection change → unequal (header-texts component);
+  fold display change → unequal (body-hash component); projection
+  metadata change with identical visible body + headers + role → EQUAL;
   the key fn's signature admits only §6 inputs (the rebuild `sig` is
   unpassable).
   **Seeded negatives (the gate must be able to fail):** a variant with the
   old per-cluster whole-glyph filter exceeds the work-unit bound; a variant
   with a full-vector per-op scan fails G6's span assertion.
-- **G2 (live, counter).** Harness `cold` mode, environment law. At settle:
-  ground-surface fallback count = 0; every remaining fallback belongs to an
-  I3-named surface and its per-surface counter is present in the report.
-- **G3 (live, counter + wall).** Harness `hover` mode running THE
-  seven-transition storyboard (§9): layout-execs delta 0 across ALL causes;
-  paint-repacks `:hover-paint` delta = **13** (6 measured ordinary↔largest
-  transitions × 2 slots + the control's 1); each of the seven measured
-  transitions ≤ 52ms input→RAF; exactly one RAF/G8 pair per transition.
-- **G4 (live, receipt).** Harness `probe` mode, scripted cases via the §8
-  hooks, counters reset before each case, expected deltas EXACT:
+- **G2 (live, counter).** Command: §9's literal `cold` invocation. At
+  settle: ground-surface fallback count = 0; every remaining fallback
+  belongs to an I3-named surface and its per-surface counter is present in
+  the report. Run-level mapping: exit 0 or 2 → G2 green (2 means only a
+  wall bar is red — G8's affair); exit 3 with a G2 assertion in the red
+  set → G2 red; exit 1 → unclassified.
+- **G3 (live, counter + wall).** Command: §9's literal `hover` invocation,
+  running THE seven-transition storyboard (§9's ordered list — nothing
+  restated here): measured layout-execs delta 0 across ALL causes;
+  paint-repacks `:hover-paint` delta = **13**; each of the SEVEN measured
+  transitions ≤ 52ms input→RAF; exactly one RAF/G8 pair per measured
+  transition; the receipt shows the two PRE-RESET pairs (warm-up +
+  positioning) outside every measured delta. Run-level mapping as G2's
+  (a >52ms transition alone → exit 2: G3's counter half green, G9 red).
+- **G4 (live, receipt).** Command: §9's literal `probe` invocation —
+  expected exit 0 — plus ONE separate negative invocation (row l) with
+  expected exit **3**. Scripted rows via the §8 hooks (each row's action
+  is a listed hook or a literal UI drive — no private harness mutation),
+  counters reset before each row. **Row laws (bind every row):**
+  1. UNNAMED = 0: every §8 counter field a row does not name has expected
+     delta EXACTLY 0 — omission is an assertion, not a gap. Sole
+     standing exemption: dirty `:other` is recorded, asserted only where
+     named.
+  2. CONSERVATION: layout-cache miss delta = layout-execs total delta;
+     hits are unconstrained unless named.
+  3. DETERMINISM: every row runs TWICE (reset between); both runs must
+     produce identical deltas. A field marked RUN-RECORDED binds to its
+     first-run value (no post-hoc fitting).
+  Rows, expected deltas EXACT:
   - **(a) same-glyph-count text edit** (replace one non-whitespace ASCII
     char with another, same cluster/glyph count, pinned ordinary block,
-    truth-road hook): layout-execs `:slot-text-change` +1 · paint-repack
-    +1 · geo in-place +1 · clone/destroy/capacity-grown 0.
-  - **(b) hover flip** old→new: layout 0 · paint-repacks `:hover-paint`
-    +2 · geo lifecycle 0.
-  - **(c) caret move; text-selection move; machine-selection move** (three
-    probes): layout 0 each; `:selection` stays 0.
-  - **(d) machine fold toggle; paste flip** (two probes): layout-execs
-    `:fold-projection` +1 (exactly the affected block) · paint-repack +1;
-    no other block's counters move.
+    truth-road hook): layout-execs `:slot-text-change` +1 ·
+    paint-repacks +1 · geo in-place +1 · slot-text-writes +1 · dirty
+    `:slot-text` +1 · cache miss +1, size +1 (the superseded key lingers
+    until its block's eviction — T9's bound, recorded).
+  - **(b) hover flip** old→new: paint-repacks `:hover-paint` +2 · dirty
+    `:hover` +2 · all else 0.
+  - **(c) caret move; text-selection move; machine-selection move**
+    (three probes): layout-execs 0 (`:selection` named 0) · geo 0 ·
+    slot-text-writes 0 · misses 0 · paint-repacks RUN-RECORDED ≤ 2 per
+    probe (0 if selection paint rides an overlay road; the affected-slot
+    count if it rides a repack road — whichever, identical across both
+    runs) · dirty six causes 0.
+  - **(d) machine fold toggle; paste flip** (two probes, each):
+    layout-execs `:fold-projection` +1 (exactly the affected block) ·
+    paint-repacks +1 · slot-text-writes +1 · geo: {in-place + recloned +
+    capacity-grown} sum = 1 for the affected slot (glyph-count delta
+    picks which), fresh = destroyed = 0 · dirty `:slot-text` +1 · cache
+    miss +1, size +1 · no other block's counters move.
   - **(e) backend MSDF↔Slug flip** (settings road, provider handle
     unchanged — PRECONDITION receipt: `provider-identity` fields compare
     equal before/after): layout-execs 0 · `layout-cache` `:id-digest`
     EQUAL before/after · paint-repacks = live text-slot count (the new
     coverage road's repack) · geo recloned = live slot count · destroyed =
-    prior slot count · in-place 0.
+    prior slot count · in-place 0 · dirty `:other` recorded.
   - **(f) capacity-growing edit** (append a 4,096-char suffix to the
     pinned ordinary block): layout-execs `:slot-text-change` +1 ·
-    paint-repack +1 · geo capacity-grown +1 for THAT slot · every other
-    slot's lifecycle counters 0. (Buffer growth is its own lifecycle
-    receipt, never an in-place proof.)
-  - **(g) cache lifecycle:** hit/miss deltas consistent with (a)–(f); a
-    scripted block delete evicts — `layout-cache` size −1. (The
-    binding-only reuse row is G1's JVM key-law assertion.)
-- **G5 (live, counter).** Harness `probe` mode, exact actions: camera pan =
-  scripted pointer drag on empty ground, ±200px both axes; zoom = 4 wheel
-  steps in + 4 out at a fixed point; order probe = fold-toggle a block
-  ABOVE the observed blocks (the origin-shift cascade). Assertions:
-  layout-execs `:camera` = `:order` = 0 throughout; pan/zoom:
-  slot-text-write delta 0 (the G8 reshape counter) AND all geo lifecycle
-  counts 0; order probe: total layout delta = 1 (the folded block,
-  `:fold-projection`), slot-text-writes delta = 1, every origin-shifted
-  block 0.
+    paint-repacks +1 · geo capacity-grown +1 for THAT slot, fresh /
+    in-place / recloned / destroyed 0 · slot-text-writes +1 · dirty
+    `:slot-text` +1 · cache miss +1, size +1 · every other slot's
+    lifecycle counters 0. (Buffer growth is its own lifecycle receipt,
+    never an in-place proof.)
+  - **(g) truth-death eviction** (owned-key exact): fixture = a block
+    owning body + ≥1 header + ≥1 auxiliary op; pre-read O = its
+    owned-key count and S = its slot count (§8 hooks, in-receipt);
+    scripted truth-road block delete: cache size −**O** (never −1) · geo
+    destroyed = S · dirty `:exit` +S · layout-execs 0 · misses 0.
+  - **(h) vanished-slot eviction** (the SECOND eviction owner, exercised
+    separately): drive a product road that removes ≥1 live slot while
+    its block's truth SURVIVES (candidate: machine fold-toggle
+    collapsing the machine's output slots; the harness asserts the live
+    slot set genuinely shrank by V ≥ 1). Expected = the driving action's
+    own row deltas (fold: row d's) PLUS geo destroyed +V · cache size
+    additionally −(pre-read owned keys of the vanished slots) · dirty
+    `:exit` +V. ALTERNATIVE (allowed by R1 item 3): if NO product road
+    reaches the destroy site (runtime/render.cljs:61–64) without truth
+    death, the implementer instead PROVES convergence — phase-artifact
+    receipt: the source trace plus row (g)'s run showing the destroy
+    site firing inside truth death. Either way receipt-bearing, never a
+    silent skip.
+  - **(i) same-backend provider change** (font/provider-change hook —
+    the mirror of (e): PRECONDITION receipt shows `provider-identity`
+    fields UNEQUAL before/after, backend unchanged): pre-read A = live
+    owned-key count (cache size, in-receipt): layout-execs
+    `:provider-change` = **A** (all-and-only affected live keys) ·
+    misses = A · `:id-digest` UNEQUAL before/after · slot-text-writes =
+    live slot count · geo {in-place + recloned + capacity-grown} sum =
+    live slot count, fresh = destroyed = 0 · paint-repacks 0 (packs
+    ride the exec road here, not the reuse road — §8's pack-cause law) ·
+    dirty `:slot-text` = live slot count · cache size +A (superseded
+    keys linger until block death — recorded, T9-bounded).
+  - **(j) live binding-only reuse** (binding-only revision hook, pinned
+    ordinary block — the live twin of G1's JVM key equality): ALL §8
+    deltas 0; `:id-digest` EQUAL.
+  - **(k) provenance/attention paint-only** (contribution-stamp /
+    attention wear-change hook): layout-execs 0 · misses 0 ·
+    `:id-digest` EQUAL · geo 0 · slot-text-writes 0 · paint-repacks
+    RUN-RECORDED ≤ affected-slot count (identical across both runs) ·
+    dirty six causes 0.
+  - **(l) cache oracle, live** (§6's oracle): oracle-enable hook; replay
+    row (b) once: `:oracle-checks` > 0 · `:oracle-mismatches` 0. Then
+    the SEPARATE negative invocation: seed a stale entry for the pinned
+    ordinary block's current key (dev hook), hover onto it — expected
+    `:oracle-mismatches` = 1 and the run assertion-red with process exit
+    **3** (this negative is also §9's proof that exit 3 is reachable).
+    Oracle disabled after; oracle fields are 0 in every other row.
+- **G5 (live, counter).** Command: §9's literal `probe` invocation,
+  expected exit 0; G4's three row laws bind. Exact probes:
+  - **camera** — pan = scripted pointer drag on empty ground, ±200px both
+    axes; zoom = 4 wheel steps in + 4 out at a fixed point: layout-execs
+    0 (`:camera` named 0) · slot-text-writes 0 · geo 0 · paint-repacks 0 ·
+    misses 0 · dirty `:camera` ≥ 1 (frame-driven mark count — declared
+    nondeterministic, RUN-RECORDED), all other dirty causes 0.
+  - **genuine order-only** — sibling order swap via the truth road, NO
+    text change (the §8 hook): layout-execs 0 (`:order` named 0) ·
+    slot-text-writes 0 · geo 0 · paint-repacks 0 (carried results
+    reposition via the anchor-delta road — T8) · misses 0 · dirty
+    `:order` ≥ 1 RUN-RECORDED, all other causes 0. THIS row proves I8's
+    order-only zero cost — the fold probe below does not.
+  - **origin-shift cascade** (honestly named — a fold, NOT order-only) —
+    fold-toggle a block ABOVE the observed blocks: total layout delta =
+    1 (exactly the folded block, `:fold-projection`) · slot-text-writes
+    = 1 · every origin-shifted block's counters 0.
 - **G6 (JVM + fence, executable).** The span-selection helpers live in
   shared `text_layout.cljc`; the renderer's paint/clip paths call them
   (I5). JVM half (same G1 command/namespace): per-op visited glyph records
@@ -574,75 +843,137 @@ ceiling would smuggle in streaming/residency, which is step-5 material.
   units — the glyphs whose cluster `:source-range` start offsets lie
   within the op's paint range; line resolution goes through the
   line-id→line index — visited lines ≤ 2 (the requested id + one nearest
-  fallback); the seeded full-scan negative FAILS these assertions. Static
-  half: `node test/render_engine/verify_shaping_correction_fence.mjs` —
+  fallback); the seeded full-scan negative FAILS these assertions.
+  **Oracle half (§6's cache-correctness oracle, JVM):** in the same
+  namespace/command — positive: a cache HIT's reused result deep-equals a
+  fresh `text-layout/layout` batch recompute over the same inputs (full
+  retained value: line records, geometry, caret/hit spans, layout IDs);
+  negative: a SEEDED stale entry yields exactly one `:oracle-mismatches`
+  increment and the assertion fails. Static half:
+  `node test/render_engine/verify_shaping_correction_fence.mjs` —
   expected exit 0 — asserts the renderer paint/clip roads route through
   the indexed helpers and carry no full-vector scan forms (the I5 named
   offenders stay dead).
-- **G7 (live, receipt).** `store-frame-execs` present in the ground report,
-  bounded, and NOT used to authorize anything (a doc assertion in the phase
-  artifact).
-- **G8 (live, wall + receipts).** Harness `cold` mode under the environment
-  law, settle per its definition: cold visual settle ≤ **12.0s**; receipt
-  opens with the adapter attestation; full RAF/G8/report lines banked.
-- **G9 (live, wall + receipts).** Harness `hover` mode, THE
-  seven-transition storyboard: all SEVEN measured transitions ≤ **52ms**
-  input→RAF (six ordinary↔largest + the ordinary→empty control).
+- **G7 (live, receipt — rides G4's run).** Command: G4's `probe`
+  invocation (no separate command); window: each G4 counter window.
+  Receipt fields: `store-frame-execs` AND `raf-frames` (frames the
+  harness observed in the same window). Bound (structural, exact): per
+  window, `store-frame-execs ≤ raf-frames` — at most one store-frame
+  execution per observed frame. Expected result: bound holds in EVERY
+  window; run-level exit is G4's own (a bound violation joins the red set
+  → exit 3). The counter authorizes nothing (I9) — that doc assertion
+  lives in the phase artifact.
+- **G8 (live, wall + receipts).** Command: §9's literal `cold`
+  invocation, environment law, settle per its definition: cold visual
+  settle ≤ **12.0s**; receipt opens with the adapter attestation; full
+  RAF/G8/report lines banked; dirty conservation at settle: `:entry` −
+  `:exit` = live slot count (177 on the matching corpus) and `:hover` =
+  0 (no pointer in a cold run). Expected exit 0; 2 = only the wall bar
+  red (the terminal-classification road).
+- **G9 (live, wall + receipts).** Command: §9's literal `hover`
+  invocation, THE seven-transition storyboard (§9's list): all SEVEN
+  measured transitions ≤ **52ms** input→RAF (six ordinary↔largest + the
+  ordinary→empty control). Expected exit 0; 2 = counters green, a
+  transition over the bar.
 - **G10 (suites, byte-fidelity — every command pinned with its expected
   result):**
   1. G1/G6 namespace (command above) → exit 0.
-  2. Focused suites, one run, expected exit 0:
-     `app.client.workspace.text-layout-test`,
-     `app.client.workspace.block-edit-test`,
-     `app.client.workspace.ground-edit-test`,
-     `app.client.workspace.scene-store-test`,
-     `app.client.substrate.scene-tape-test`,
-     `app.client.substrate.maintained-view-test`, `app.anatomy-test`,
-     `app.face-primitives-test`, `app.face-projection-test` (same
-     `clj -M:test -e` runner form, exit = fail+error sum).
+  2. Focused suites, ONE run, the LITERAL command (exit = fail+error
+     sum; expected exit 0):
+     `clj -M:test -e "(require 'app.client.workspace.text-layout-test 'app.client.workspace.block-edit-test 'app.client.workspace.ground-edit-test 'app.client.workspace.scene-store-test 'app.client.substrate.scene-tape-test 'app.client.substrate.maintained-view-test 'app.anatomy-test 'app.face-primitives-test 'app.face-projection-test) (let [r (apply clojure.test/run-tests '[app.client.workspace.text-layout-test app.client.workspace.block-edit-test app.client.workspace.ground-edit-test app.client.workspace.scene-store-test app.client.substrate.scene-tape-test app.client.substrate.maintained-view-test app.anatomy-test app.face-primitives-test app.face-projection-test])] (System/exit (+ (:fail r) (:error r))))"`
   3. `node test/render_engine/verify_text_layout_fence.mjs` → exit 0 and
      `node test/render_engine/verify_scene_tape_fence.mjs` → exit 0 (run,
      never edited).
   4. `node test/render_engine/verify_shaping_correction_fence.mjs` →
      exit 0.
-  5. `npm run verify:render-engine` → **expected process exit 1** with the
-     structured close matching Contract T's registered state (W1.md §9.1):
-     classification `candidate-pick-parity-failure`; determinism 21/21;
-     golden comparison 21/21 byte-identical; current-product
-     bounds-divergence sentinels 7/7; candidate parity 14/21; SDF 7/7
-     green; Slug 7/7 green with exactly two declared byte-128 ties per
-     regime; MSDF RED 7/7 with 47 decisive mismatches per regime (329
-     total) plus two correctly separated ties per regime. ANY other exit
-     code, classification, or count = G10 FAIL.
+  5. `npm run verify:render-engine` → **expected process exit 1**,
+     matching Contract T's registered state (W1.md §9.1) on BOTH of the
+     verifier's output surfaces (they differ — run_verifier.mjs:491–510
+     vs the receipt file; conflating them was R2's finding):
+     - **Console structured close (fields AS EMITTED):** `pass` false ·
+       `classification` `"candidate-pick-parity-failure"` ·
+       `deterministic` `"21/21"` · `candidateParity` `"14/21"` ·
+       `productBoundsDivergenceSentinels` `"7/7"` · `images` 21 ·
+       `q8AffineTransport` true · `q5AffineRasterBoundary` true ·
+       `updateRequested` false · `updateAuthorized` false ·
+       `environmentFingerprint`
+       `"e79490f8882cd785f32b5bb82cadd425dc90f2d7616cc9f0debf8a0f1c476282"`
+       — the fingerprint is asserted DIRECTLY because the verifier's
+       classification cascade tests parity BEFORE environment match
+       (run_verifier.mjs:435–448): the classification alone can never
+       prove the environment; this field does.
+     - **Receipt file:** `goldenComparison` = 21/21 rows byte-identical;
+       per-regime candidate parity: SDF 7/7 pass; Slug 7/7 pass with
+       exactly two declared byte-128 ties per regime; MSDF 7/7 RED with
+       47 decisive mismatches per regime (329 total) plus two correctly
+       separated ties per regime. The receipt file path is banked in the
+       phase artifact.
+     ANY other exit code, close-field value, classification, or count =
+     G10 red — except a GOLDEN divergence, which routes through the
+     custody law below BEFORE any red/green is recorded.
   6. CLJS compile: `clj -M:dev -m shadow.cljs.devtools.cli compile dev` →
      exit 0 with NO new distinct warnings against the BASELINE captured by
      running the identical command at phase open BEFORE any edit (baseline
-     output banked in the phase artifact).
-  **Golden policy (one, contradiction-free):** per R1's verification the
-  W0 engine goldens do not exercise ground block-greedy, so **21/21
-  byte-identical is ABSOLUTE — any golden diff is a G10 FAIL.** A belief
-  that a diff stems from §5's contracted change does not soften the FAIL:
-  it fires stop **S6** (golden custody adjudication) and G10 is BLOCKED
-  FOR ADJUDICATION until Fable/Sid rule whether a separately reviewed
-  golden update is legal. A run is never both "21/21 byte-identical" and
-  "passed by exception."
+     output banked VERBATIM in the phase artifact). **Warning identity
+     (the normalization, exact):** a warning's signature is the triple
+     [repo-relative resource path · warning type/key · message text with
+     ANSI escapes stripped, all decimal integer literals removed, and
+     whitespace collapsed]. "New distinct" = a signature present in the
+     candidate run's multiset and absent from the baseline multiset;
+     line/column drift alone never makes a warning new; a DISAPPEARED
+     warning is recorded, never red.
+  **Golden custody (ONE state chain — never two names for one diff):**
+  per R1's verification the W0 engine goldens do not exercise ground
+  block-greedy, so 21/21 byte-identical is the expected state, and ANY
+  golden diff has exactly ONE immediate result: **G10 BLOCKED — stop S6**
+  (golden custody adjudication), recorded as neither FAIL nor PASS while
+  blocked; the package terminal is PACKAGE BLOCKED — S6 (§10 table row
+  1). A belief that the diff stems from §5's contracted change changes
+  nothing pre-ruling. After the Fable/Sid ruling, exactly one of:
+  (α) the diff is illegal → G10 FAIL, no golden edit, fix in phase;
+  (β) a separately reviewed golden update is explicitly authorized → the
+  update lands under that review and a WHOLLY FRESH G10 run follows (the
+  blocked run is never retroactively renamed). A run is never both
+  "byte-identical" and "passed by exception"; a diff is never
+  simultaneously FAIL and BLOCKED.
 
-### Terminal classifications (every lawful end state has exactly one name)
+### Terminal classifications (TOTAL and DISJOINT — rows are tested in
+order, first match wins, so exactly one name fits any end state.
+Precedence: **BLOCKED > PACKAGE FAIL > UNCLASSIFIED (environment) >
+EXPERIENCE-BAR RED > PACKAGE PASS.** Run-level statuses — a specific
+harness run's exit 1 "unclassified", exit 3 "assertion red" — feed these
+package rows; a RUN status never IS the package terminal by itself.)
 
-- **PACKAGE PASS** — G1–G10 all green including both bars → the
-  independent FULL-tier gate review (§14).
-- **PACKAGE FAIL** — any of G1–G7 or G10 red → fix in phase.
-- **LINEAR-CORRECTION GREEN / EXPERIENCE-BAR RED — STEP-5 RULING
-  REQUIRED** — G1–G7+G10 green, a G8/G9 bar red WITH a valid
-  environment-matched receipt (harness exit 2): bank all receipts, make NO
-  further code change under this contract, close the implementation phase
-  as technically green for G1–G7+G10, and open the Fable/Sid §7 step-5
-  ruling. The overall experience gate remains red; SEAM felt-gate closure
-  does not proceed. This is not S1–S6 and does not recut this contract
-  unless the evidence reveals a contract defect.
-- **UNCLASSIFIED (environment)** — fallback adapter, environment mismatch,
-  or harness fault (exit 1): the gate DID NOT RUN; receipt informational;
-  re-run under the environment law. Never red, never green.
+1. **PACKAGE BLOCKED — S<n>** (the family S1…S6) — a stop clause fired
+   and its ruling has not landed. Blocked is neither red, green, bar-red,
+   nor unclassified; while blocked, NO fail/pass ruling is recorded for
+   the gate the stop touches (S6: a golden diff blocks G10 BEFORE any
+   fail/pass — the custody chain in G10). Resolution: the ruling
+   reclassifies the state under the rows below, or recuts the contract.
+2. **PACKAGE FAIL** — no stop pending, AND ≥1 of G1–G7 or G10 red —
+   including any live run at harness exit 3 (product assertion red;
+   G4 row l's deliberate negative invocation is exempt: its exit 3 IS
+   its expected result). Fix in phase. An unclassified run elsewhere
+   does not rescue: FAIL binds on the red gate regardless of other
+   gates' state.
+3. **UNCLASSIFIED (environment)** — no stop pending, no gate red, AND ≥1
+   required live gate's only available run is exit 1 / fallback-adapter /
+   environment-mismatched: that RUN is unclassified (never red, never
+   green; receipt informational) and the PACKAGE cannot close — re-run
+   under the environment law. (When a red gate coexists with an
+   unclassified run, row 2 already matched: the package is FAIL and the
+   affected run stays recorded as unclassified.)
+4. **LINEAR-CORRECTION GREEN / EXPERIENCE-BAR RED — STEP-5 RULING
+   REQUIRED** — no stop pending, G1–G7+G10 green, every required live
+   run classified (no exit-1 holes), and a G8/G9 bar red WITH a valid
+   environment-matched receipt (harness exit 2): bank all receipts, make
+   NO further code change under this contract, close the implementation
+   phase as technically green for G1–G7+G10, and open the Fable/Sid §7
+   step-5 ruling. The overall experience gate remains red; SEAM felt-gate
+   closure does not proceed. This is not S1–S6 and does not recut this
+   contract unless the evidence reveals a contract defect.
+5. **PACKAGE PASS** — G1–G10 all green including both bars → the
+   independent FULL-tier gate review (§14).
 
 ## 11. Input manifest (machine-verified 2026-08-04 — contract cut + the R1
 round's full re-grep + recut spot-checks; hints, substance binds)
@@ -693,7 +1024,10 @@ round's full re-grep + recut spot-checks; hints, substance binds)
   `src/app/shared/foldable_material.cljc` — `:foldable/defaults` +
   `:foldable/header-copy` :31–40, bindings :44–69;
   `package.json` — verify scripts :5–9; `shadow-cljs.edn` — `:dev` build
-  :4–11.
+  :4–11; `src/app/server_jetty.clj` — dev default port 8080 :2500 (§9's
+  URL pin); `test/render_engine/run_verifier.mjs` — console structured
+  close :491–510, classification cascade :435–448, receipt-file fields
+  :464–484 (G10 item 5's two surfaces).
 - `FOUNDING-EVIDENCE.md` + `evidence/` (hash manifest there).
 - Contract T: `build/render-engine/W1.md` (§9.1 = G10's pinned verifier
   state); the seam constitution: decisions.md "The render seam".
@@ -723,6 +1057,10 @@ never commit targets; code and docs commit separately on
 
 ## 13. Stop clauses (the implementing session never improvises policy)
 
+Every fired stop names the package terminal **PACKAGE BLOCKED — S<n>**
+(§10 table row 1) until its ruling lands; a stop never coexists with a
+FAIL/PASS ruling on the gate it blocks.
+
 - **S1** — exact legacy column breaks demanded as product identity (§5).
 - **S2** — the correction cannot land inside §12's allowlist (needs a
   MUST-NOT file or a store schema change) → coordination ruling (SEAM
@@ -735,19 +1073,21 @@ never commit targets; code and docs commit separately on
 - **S5** — I4's proportionality unreachable as specified under platform
   semantics (e.g. the shaping provider cannot give cluster-monotonic or
   sortable glyph order) → escalate with the probe that proves it.
-- **S6** — golden custody adjudication: any W0 golden diff (G10's absolute
-  21/21 law) → G10 BLOCKED FOR ADJUDICATION; Fable/Sid rule whether the
-  diff is the contracted §5 change and whether a separately reviewed golden
-  update is legal. Never an implementer edit, never a silent pass.
+- **S6** — golden custody adjudication: any W0 golden diff → G10 BLOCKED
+  (recorded as neither FAIL nor PASS — G10's custody chain; package
+  terminal PACKAGE BLOCKED — S6); Fable/Sid rule whether the diff is the
+  contracted §5 change and whether a separately reviewed golden update is
+  legal. Never an implementer edit, never a silent pass, never a dual
+  FAIL+BLOCKED name.
 - Bars failing at G8/G9 are NOT stops — that is the LINEAR-CORRECTION
   GREEN / EXPERIENCE-BAR RED terminal classification (§10; step 5 fires).
 
 ## 14. Handoff
 
-1. NEXT: ONE wholly new fresh default-fail validation round (R2) over this
+1. NEXT: ONE wholly new fresh default-fail validation round (R3) over this
    recut (subagent or fresh session; findings folded per the minor-fail
-   law, FAIL → recut again). `VALIDATION_R1.md` is immutable and is never
-   overwritten; R2 lands as `VALIDATION_R2.md`.
+   law, FAIL → recut again). `VALIDATION_R1.md` and `VALIDATION_R2.md`
+   are immutable and never overwritten; R3 lands as `VALIDATION_R3.md`.
 2. Then the Codex opening prompt (baton `NOW.md` carries it after
    validation), one fresh context, whole package, gates G1–G7+G10 run to
    green in phase; G8/G9 run in phase via the harness.

@@ -55,3 +55,29 @@
   Judgment calls for R2: k=4/c=5/+8 constants; 13-repack hover count;
   fold-cascade as the order-only probe; harness exit law 0/1/2. NEXT: R2
   fresh default-fail round (prompt in the session close-out).
+- 2026-08-04 · Fable-lane (fresh context, validation R2) · VERDICT: FAIL —
+  `VALIDATION_R2.md` (immutable; sha256 05e584bf…10eb3). Six defect
+  classes: §5 multi-implementation (leading whitespace both candidate and
+  paint; header schema exemplary; reference-advance faults untotal;
+  readers not in G1) · §6 token/oracle inexact · storyboard physically
+  impossible (6 alternations end on largest; declared 7th needs an
+  uncounted move → 13 vs ≥15 repacks) · harness/counters not executable
+  (no literal CLIs, no assertion-red exit, undeclared counter names, G7
+  unbound) · G10 fingerprint omitted + FAIL/BLOCKED dual naming ·
+  terminals not total (no S1–S6 class). R1 items 1–8 ruled NOT consumed
+  in executable substance; 9–10 consumed. Preserved: backend-flip case,
+  T13 route, W1 counts, bar law, one-phase shape, evidence hashes.
+- 2026-08-04 · Fable (recut session) · CONTRACT.md recut = R3 candidate,
+  consuming R2 §10 items 1–9 (map: `RECUT_LEDGER_R2.md`; R1 items 1–8
+  closed in executable substance through it). Headlines: §5.3
+  segment-relative cut law; §5.5 exact `[:header h j]` schema; §5.7 fault
+  table; §6 VPT `[body-hash header-texts op-role]` + gate-owned cache
+  oracle (G6 JVM + G4 row l, negative = own invocation exit 3);
+  storyboard re-sequenced (positioning move pre-reset, repacks 13 kept);
+  literal harness CLIs (`--url=http://localhost:8080`, Jetty default) +
+  total 0/1/2/3 exit law; G4 rows h–l + UNNAMED=0 / miss=execs /
+  run-twice laws; genuine order-only G5 row; G10 two-surface pin incl.
+  full W1 fingerprint + single golden-custody chain; terminal table rows
+  1–5 with PACKAGE BLOCKED — S<n>. Judgment calls for R3: port-8080 URL
+  pin; dirty seven-field shape; pack-cause law; run-recorded fields;
+  (h)'s convergence-proof alternative. NEXT: R3 fresh default-fail round.

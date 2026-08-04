@@ -667,8 +667,9 @@ Code still uncommitted in two layers; archive/survivorship
 rulings still deferred, unchanged by this settlement (the studio
 layer carries the durable authoring loop the law demands).
 
-**shaping-correction — CONTRACT CUT + EVIDENCE BANKED 2026-08-04
-(predecessor to SEAM-STEP1 closure; SEAM stays frozen/unwidened).** Sid's
+**shaping-correction — CONTRACT IN VALIDATION LADDER (R3 candidate cut
+2026-08-04; predecessor to SEAM-STEP1 closure; SEAM stays
+frozen/unwidened).** Sid's
 profiling ruling executed: the 2026-08-03 capture banked durable
 (`build/shaping-correction/evidence/` + `FOUNDING-EVIDENCE.md` — settle
 35.678s · final frame 28.747s with text-gpu 28.725s · shaped-layout
@@ -682,10 +683,18 @@ authority (S1 Sid-stop if legacy column breaks are claimed as product
 identity) · §6 layout key vs paint-resource identity (zoom + origin OUT
 of the key) · gates G1–G10 with the 52ms hover bar + a 12.0s cold bar
 (author-chosen, Sid redlines) · §7 step-5 evidence gate — no
-paint-delta/residency/streaming pre-authorized · traps T1–T13. ONE
+paint-delta/residency/streaming pre-authorized · traps T1–T14. ONE
 phase, few-and-large; opens only AFTER SEAM-STEP1's code lands (shared
-files). NEXT = fresh default-fail validation round over the contract;
-baton `build/shaping-correction/NOW.md`.
+files). Validation ladder: R1 (fresh, default-fail) FAILED →
+recut/R2 candidate consuming R1 §10; R2 FAILED (`VALIDATION_R2.md` —
+six defect classes incl. a physically impossible hover storyboard; R1
+items 1–8 ruled unconsumed in executable substance) → recut/R3
+candidate (map `RECUT_LEDGER_R2.md`: §5.3 segment-relative cut law,
+exact header schema, §6 VPT + gate-owned cache oracle, re-sequenced
+storyboard, literal harness CLIs + total 0/1/2/3 exit law, G4 rows
+h–l, G10 two-surface pin + W1 fingerprint, PACKAGE BLOCKED — S<n>
+terminals). NEXT = fresh default-fail validation R3 over the
+contract; baton `build/shaping-correction/NOW.md`.
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.
