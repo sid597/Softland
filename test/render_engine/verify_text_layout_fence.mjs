@@ -21,7 +21,7 @@ const owners = [
   ["src/app/electric_flow.cljc", "layout-tokens", ["tl/layout", "tl/caret-result", ":layout-result"]],
   ["src/app/client/substrate/webgpu/renderer.cljs", "calculate-bracket-rects", ["tl/layout", "tl/selection-result"]],
   ["src/app/client/substrate/webgpu/renderer.cljs", "hit-test", ["tl/layout", "tl/hit-test-result"]],
-  ["src/app/client/substrate/webgpu/renderer.cljs", "position-text-op", ["tl/layout", ":layout-result", ":glyphs"]],
+  ["src/app/client/substrate/webgpu/renderer.cljs", "position-text-op", ["tl/layout", ":layout-result", ":glyphs", "line-index-for-layout"]],
   ["src/app/client/substrate/webgpu/renderer.cljs", "paint-msdf-line", ["painted-glyph"]],
   ["src/app/client/substrate/webgpu/renderer.cljs", "paint-slug-line", ["painted-glyph"]],
 ];
@@ -81,8 +81,39 @@ function auditOwner(body, required) {
   return failures;
 }
 
+function auditDormantEditorBranch(source) {
+  const start = source.indexOf("        <editor-content-stable");
+  const end = source.indexOf("        ;; 16 fn args", start);
+  if (start < 0 || end < 0) return ["missing stable editor-content branch"];
+
+  const body = source.slice(start, end);
+  const guard = body.indexOf("(not (contains? #{:editor :file-workspace} mode))");
+  const sharedEmpty = body.indexOf("empty-face-content", guard);
+  const expensiveLayout = body.indexOf("(compute-editor-rects doc");
+  const branchFailures = [];
+  if (guard < 0) branchFailures.push("missing inactive-mode guard");
+  if (sharedEmpty < guard) branchFailures.push("inactive-mode guard does not return shared empty content");
+  if (expensiveLayout >= 0 && guard > expensiveLayout) {
+    branchFailures.push("inactive-mode guard runs after proportional editor layout");
+  }
+  return branchFailures;
+}
+
+function auditStableEditorInputs(source) {
+  const start = source.indexOf("        <editor-content-stable");
+  const end = source.indexOf("        <editor-content\n", start);
+  if (start < 0 || end < 0) return ["missing stable-to-overlay editor chain"];
+  const body = source.slice(start, end);
+  const stableFailures = [];
+  if (body.includes("!caret-visible")) stableFailures.push("stable stage watches caret ticker");
+  if (body.includes("!shimmer-phase")) stableFailures.push("stable stage watches shimmer ticker");
+  return stableFailures;
+}
+
 const files = new Map();
 const failures = [];
+// SEAM-STEP1 T7: the adopted pins move with the stable/overlay split while
+// every existing ownership assertion and seeded negative remains alive.
 for (const [relative, name, required] of owners) {
   const source = files.get(relative) ?? fs.readFileSync(path.join(repoRoot, relative), "utf8");
   files.set(relative, source);
@@ -97,6 +128,14 @@ for (const [relative, name, required] of owners) {
   }
 }
 
+const editorCompute = files.get("src/app/client/workspace/editor_compute.cljs");
+for (const failure of auditDormantEditorBranch(editorCompute)) {
+  failures.push(`src/app/client/workspace/editor_compute.cljs#<editor-content-stable: ${failure}`);
+}
+for (const failure of auditStableEditorInputs(editorCompute)) {
+  failures.push(`src/app/client/workspace/editor_compute.cljs#stable-inputs: ${failure}`);
+}
+
 const seededPrivateConsumer = `(defn seeded-private-consumer [text char-advance]
   (* (count text) char-advance))`;
 const seedFailures = auditOwner(seededPrivateConsumer, ["tl/layout"]);
@@ -104,11 +143,32 @@ if (!seedFailures.includes("count-times-metric")) {
   failures.push("self-test: seeded count-times-metric consumer was not rejected");
 }
 
+const seededDormantBranch = `        <editor-content-stable
+        (m/latest
+          (fn [mode]
+            (let [layout-result (compute-editor-rects doc)]
+              (if (not (contains? #{:editor :file-workspace} mode))
+                empty-face-content
+                layout-result))))
+        ;; 16 fn args`;
+if (auditDormantEditorBranch(seededDormantBranch).length === 0) {
+  failures.push("self-test: seeded late inactive-mode guard was not rejected");
+}
+
+const seededTickerAncestor = `        <editor-content-stable
+        (m/latest identity (m/watch !caret-visible))
+        <editor-content\n`;
+if (auditStableEditorInputs(seededTickerAncestor).length === 0) {
+  failures.push("self-test: seeded stable-stage ticker ancestor was not rejected");
+}
+
 const receipt = {
   contract: "T1/no-independent-metrics-or-backend-placement",
   owners: owners.length,
   files: files.size,
   seededPrivateConsumerRejected: seedFailures.length > 0,
+  seededLateModeGuardRejected: auditDormantEditorBranch(seededDormantBranch).length > 0,
+  seededStableTickerRejected: auditStableEditorInputs(seededTickerAncestor).length > 0,
   paintConsumers,
   productionFailures: failures,
   pass: failures.length === 0,

@@ -302,14 +302,12 @@
   (ctn/effective @!containers-registry))
 
 (defn pick-world
-  "Pick through the store at a WORLD point. The caller converts client→world
-   FIRST: world = client − camera-pan; in face mode pan = (0,−scroll-y),
-   zoom 1.0, sb-w 0, so world = [x (y + scroll-y)] — exactly the (x, y-scene)
-   the click handler already holds. Pick inverse-transforms per container into
-   container-local BEFORE hit-test (trap T8) and returns {:vi :address …} for
-   the deepest addressed node, or nil on a miss."
-  [world-point]
-  (ss/pick @!scene-store (effective-transforms) world-point))
+  "Pick through the store from either a backward-compatible bare world point or
+   {:world [wx wy] :screen [sx sy]}. Pick inverse-transforms the coordinate
+   selected by each container's effective camera flag and returns
+   {:vi :address …} for the deepest addressed node, or nil on a miss."
+  [point]
+  (ss/pick @!scene-store (effective-transforms) point))
 
 ;; ---------------------------------------------------------------------------
 ;; Deictic seam — last pick + context bundle (scene-substrate P4, CONTRACT §5)
@@ -382,16 +380,18 @@
 ;; ---------------------------------------------------------------------------
 
 (defn <store-frame
-  "ONE m/latest over !scene-store → the compiled Contract-O tape and its GPU
+  "ONE m/latest over !scene-store → the maintained Contract-O view and its GPU
    contribution.  Rects, shadows, and per-slot text all project from the same
-   forward slot order; pick compiles the same entries and walks exact reverse.
+   forward slot order; pick walks those same entries in exact reverse.
    W2-A paths were stamped when the container registered, so an affine-only
    gesture still changes only the transport upload—not these instance arrays."
   []
   (m/latest
     (fn [store]
-      (let [tape (ss/scene-tape store)
-            ordered (mapv :runtime/slot (:entries tape))
+      (let [entries (ss/maintained-entries store)
+            ;; SEAM-STEP1 T10: the walk unwraps the exact slot values stored at
+            ;; writes, preserving ops-array identity for downstream skips.
+            ordered (mapv :runtime/slot entries)
             ordered-vis (mapv :vi ordered)]
         {:rects      (into [] (mapcat (comp :rects :ops)) ordered)
          :shadows    (into [] (mapcat (comp :shadows :ops)) ordered)
@@ -411,8 +411,7 @@
                             (map (fn [entry]
                                    [(get-in entry [:runtime/slot :vi])
                                     (:order entry)]))
-                            (:entries tape))
-         :scene-tape tape}))
+                            entries)}))
     (m/watch !scene-store)))
 
 (defn <effective

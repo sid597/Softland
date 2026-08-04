@@ -2670,7 +2670,10 @@
 
 (defn- pick-at [sx sy]
   (let [[wx wy] (screen->world sx sy)]
-    (when (scene-rt/any-slots?) (scene-rt/pick-world [wx wy]))))
+    ;; SEAM-STEP1 T9/T11: this is the contract's one foreign-file scalpel;
+    ;; cursor pick carries both spaces without touching sibling ground work.
+    (when (scene-rt/any-slots?)
+      (scene-rt/pick-world {:world [wx wy] :screen [sx sy]}))))
 
 (defn- world->caret
   "World point → caret index inside a block's text (monospace math — the

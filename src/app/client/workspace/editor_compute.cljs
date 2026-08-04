@@ -343,6 +343,29 @@
    store slot carries the actual face ops."
   {:rects [] :shadows []})
 
+(defn- content-variants [dim bright]
+  {:dim dim :bright bright})
+
+(defn- select-shimmer-paint [variants shimmer-phase]
+  (get variants (if shimmer-phase :bright :dim)))
+
+(defn- toggle-editor-overlays [variants caret-visible shimmer-phase]
+  (let [content (select-shimmer-paint variants shimmer-phase)]
+    (if caret-visible
+      content
+      (update content :rects
+              (fn [rects]
+                (into [] (remove #(= :caret (:id %))) rects))))))
+
+(defn- note-stable-editor-recompute! []
+  ;; G5L probe: set globalThis.__softland_seam_probe_stable=true and reset
+  ;; __softland_seam_stable_recomputes to 0 after the editor settles. Blink
+  ;; ticks must leave the readable counter at zero for the wearing receipt.
+  (when (true? (aget js/globalThis "__softland_seam_probe_stable"))
+    (aset js/globalThis "__softland_seam_stable_recomputes"
+          (inc (or (aget js/globalThis "__softland_seam_stable_recomputes")
+                   0)))))
+
 ;; ── first-light P1: the main-face build, DEFERRED off the transport path ──
 ;; The <trail-face caching shape: build ONCE per input change, compare the
 ;; input VALUE never a hash (trap T13); !face-scene + these caches are
@@ -430,7 +453,11 @@
    layout-x layout-y gutter-w]
   (let [;; ── Shared layout context (changes on: resize, settings, font, sidebar toggle) ──
         <layout
-        (m/latest
+        ;; SEAM-STEP1 T5: G4 proved b.46 shares one process, replays latest,
+        ;; stops at zero subscribers, and restarts on resubscribe. This pure
+        ;; derivation is the real sharing point; side-effecting siblings stay raw.
+        (m/signal
+         (m/latest
           (fn [viewport settings active-font sidebar-visible? local-world]
             (let [dpr (:dpr viewport)
                   snap? (:snap-to-pixel? settings)
@@ -456,7 +483,7 @@
                :face-mode? face-mode?
                :sb-vis? sb-vis? :sb-w (if sb-vis? sidebar-w 0)}))
           (m/watch !viewport) (m/watch !settings) (m/watch !active-font) (m/watch !sidebar-visible)
-          (m/watch !effective-local-world))
+          (m/watch !effective-local-world)))
         ;; 5 fn args, 5 flows
 
         ;; ── Mode determination ──
@@ -642,36 +669,51 @@
 
         ;; ── Run rects (agent execution view) ──
         ;; NOT watching: !hovered-row-idx, !collapsed-groups, !drag-state, !detail-scroll-y
-        <run-content
+        <run-content-stable
         (m/latest
-          (fn [layout local-world flow-state scroll-y agent-output shimmer-phase
+          (fn [layout local-world flow-state scroll-y agent-output
                trail-collapsed run-scroll-y]
             (if-not (ws/local-world-run? local-world)
-              {:rects [] :shadows []}
+              (content-variants empty-face-content empty-face-content)
               (let [{:keys [viewport font-size char-advance sb-w]} layout
                     content-w (- (:width viewport) sb-w)]
-                (compute-run-rects* flow-state content-w (:height viewport)
-                                    scroll-y agent-output font-size char-advance
-                                    shimmer-phase trail-collapsed run-scroll-y))))
+                ;; SEAM-STEP1 T4: geometry is derived once per stable input
+                ;; generation; the downstream overlay only selects paint alpha.
+                (content-variants
+                 (compute-run-rects* flow-state content-w (:height viewport)
+                                     scroll-y agent-output font-size char-advance
+                                     false trail-collapsed run-scroll-y)
+                 (compute-run-rects* flow-state content-w (:height viewport)
+                                     scroll-y agent-output font-size char-advance
+                                     true trail-collapsed run-scroll-y)))))
           <layout
           (m/watch !effective-local-world) (m/watch !flow-state) (m/watch !scroll-y)
-          (m/watch !agent-output) (m/watch !shimmer-phase)
+          (m/watch !agent-output)
           (m/watch !trail-collapsed) (m/watch !run-scroll-y))
-        ;; 8 fn args, 8 flows
+        ;; 7 fn args, 7 flows
+
+        <run-content
+        (m/latest
+         (fn [stable shimmer-phase]
+           (select-shimmer-paint stable shimmer-phase))
+         <run-content-stable (m/watch !shimmer-phase))
+        ;; 2 fn args, 2 flows
 
         ;; ── Editor/file/extract rects ──
         ;; NOT watching: !hovered-row-idx, !collapsed-groups, !drag-state,
         ;;               !detail-scroll-y, !run-scroll-y
-        <editor-content
+        <editor-content-stable
         (m/latest
           (fn [layout local-world current-file extract-preview
-               doc fold-state bracket-match eval-result caret-visible focus
+               doc fold-state bracket-match eval-result focus
                scroll-y scroll-x
-               agent-output shimmer-phase trail-collapsed
+               agent-output trail-collapsed
                active-pane chat-scroll-y chat-input]
+            (note-stable-editor-recompute!)
             (let [{:keys [viewport settings dpr snap? font-size char-advance
                           text-provider sb-w]} layout
-                  content-w (- (:width viewport) sb-w)]
+                  content-w (- (:width viewport) sb-w)
+                  mode (ws/local-world-mode local-world)]
               (cond
                 ;; Extract preview
                 (:rt-node extract-preview)
@@ -687,9 +729,17 @@
                                                                     :text [{:text "Compiled Preview" :type :keyword
                                                                             :from 0 :to 16 :x 0 :y 16
                                                                             :size 14 :r 0.55 :g 0.55 :b 0.60 :a 1.0}])
-                                                           (assoc-in rt [:bounds :w] (- half-w 32))])))]
-                  {:rects (if preview-tree (tree->rects preview-tree) [])
-                   :shadows (if preview-tree (tree->shadows preview-tree) [])})
+                                                           (assoc-in rt [:bounds :w] (- half-w 32))])))
+                      content {:rects (if preview-tree (tree->rects preview-tree) [])
+                               :shadows (if preview-tree (tree->shadows preview-tree) [])}]
+                  (content-variants content content))
+
+                ;; This eager branch remains subscribed in every workspace mode.
+                ;; Do not run the hidden editor's proportional layout on caret/
+                ;; shimmer ticks while a flow, trail, or face owns the surface;
+                ;; the selected mode-specific branch below supplies those rects.
+                (not (contains? #{:editor :file-workspace} mode))
+                (content-variants empty-face-content empty-face-content)
 
                 ;; File open (3-pane)
                 (ws/local-world-file-workspace? local-world)
@@ -700,43 +750,61 @@
                       ly (maybe-snap layout-y dpr snap?)
                       ulx (maybe-snap layout-x dpr snap?)
                       editor-rects (compute-editor-rects doc fold-state bracket-match eval-result
-                                                         caret-visible focus lx ly line-h gutter-w
+                                                         true focus lx ly line-h gutter-w
                                                          char-advance code-w
                                                          :gutter-lx ulx
                                                          :font-size font-size
                                                          :text-provider text-provider)
-                      shimmer-alpha (if shimmer-phase 0.9 0.4)
-                      right-tree (resolve-layout
-                                   (build-file-layout content-w content-h current-file agent-output font-size
-                                                      shimmer-alpha trail-collapsed
-                                                      :local-world local-world
-                                                      :active-pane active-pane :char-advance char-advance
-                                                      :chat-scroll-y (or chat-scroll-y 0)
-                                                      :chat-input chat-input :focus focus))
-                      right-rects (mapv #(update % :y + scroll-y) (tree->rects right-tree))
-                      right-shadows (mapv #(update % :y + scroll-y) (tree->shadows right-tree))]
-                  {:rects (into (vec right-rects) editor-rects)
-                   :shadows (vec right-shadows)})
+                      build-paint
+                      (fn [shimmer-alpha]
+                        (let [right-tree
+                              (resolve-layout
+                               (build-file-layout content-w content-h current-file agent-output font-size
+                                                  shimmer-alpha trail-collapsed
+                                                  :local-world local-world
+                                                  :active-pane active-pane :char-advance char-advance
+                                                  :chat-scroll-y (or chat-scroll-y 0)
+                                                  :chat-input chat-input :focus focus))
+                              right-rects (mapv #(update % :y + scroll-y)
+                                                (tree->rects right-tree))
+                              right-shadows (mapv #(update % :y + scroll-y)
+                                                  (tree->shadows right-tree))]
+                          {:rects (into (vec right-rects) editor-rects)
+                           :shadows (vec right-shadows)}))]
+                  (content-variants (build-paint 0.4) (build-paint 0.9)))
 
                 ;; Plain editor
                 :else
                 (let [line-h (maybe-snap (* font-size (:line-height settings)) dpr snap?)
                       lx (maybe-snap (- layout-x (or scroll-x 0)) dpr snap?)
                       ulx (maybe-snap layout-x dpr snap?)
-                      ly (maybe-snap layout-y dpr snap?)]
-                  {:rects (compute-editor-rects doc fold-state bracket-match eval-result caret-visible focus
-                                                lx ly line-h gutter-w char-advance content-w
-                                                :gutter-lx ulx
-                                                :font-size font-size
-                                                :text-provider text-provider)
-                   :shadows []}))))
+                      ly (maybe-snap layout-y dpr snap?)
+                      content
+                      {:rects (compute-editor-rects doc fold-state bracket-match eval-result true focus
+                                                   lx ly line-h gutter-w char-advance content-w
+                                                   :gutter-lx ulx
+                                                   :font-size font-size
+                                                   :text-provider text-provider)
+                       :shadows []}]
+                  (content-variants content content)))))
           <layout (m/watch !effective-local-world) (m/watch !current-file) (m/watch !extract-preview)
           (m/watch !editor-doc) <fold-data <bracket-data (m/watch !eval-result)
-          (m/watch !caret-visible) (m/watch !focus)
+          (m/watch !focus)
           (m/watch !scroll-y) (m/watch !scroll-x)
-          (m/watch !agent-output) (m/watch !shimmer-phase) (m/watch !trail-collapsed)
-          (m/watch !active-pane) (m/watch !chat-scroll-y) (m/watch !chat-input))]
-        ;; 18 fn args, 18 flows
+          (m/watch !agent-output) (m/watch !trail-collapsed)
+          (m/watch !active-pane) (m/watch !chat-scroll-y) (m/watch !chat-input))
+        ;; 16 fn args, 16 flows
+
+        <editor-content
+        ;; SEAM-STEP1 T4: a chain, not a raw-m/latest diamond. Ticker inputs
+        ;; consume the stable stage's one output and only toggle paint/presence.
+        (m/latest
+         (fn [stable caret-visible shimmer-phase]
+           (toggle-editor-overlays stable caret-visible shimmer-phase))
+         <editor-content-stable
+         (m/watch !caret-visible)
+         (m/watch !shimmer-phase))]
+        ;; 3 fn args, 3 flows
 
     ;; ── Return the flows separately ──
     ;; Editor rects (content only, offset by sidebar width) go to the editor pool.
