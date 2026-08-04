@@ -1,0 +1,2232 @@
+diff --git a/src/app/client/workspace/ground.cljs b/src/app/client/workspace/ground.cljs
+index 6efcba9..a422c0b 100644
+--- a/src/app/client/workspace/ground.cljs
++++ b/src/app/client/workspace/ground.cljs
+@@ -42,6 +42,8 @@
+             [app.client.workspace.rect-tree :as rt :refer [rt-node]]
+             [app.client.workspace.scene-runtime :as scene-rt]
+             [app.client.workspace.scene-store :as ss]
++            [app.client.workspace.studio :as studio-ui]
++            [app.client.workspace.workshop-playground :as workshop-playground]
+             [app.shared.anatomy-material :as anatomy-material]
+             [app.shared.attention-material :as attention-material]
+             [app.shared.binding-material :as binding-material]
+@@ -158,7 +160,7 @@
+ 
+ (declare rebuild-block! reconcile! refresh-provisional! context-block-entry
+          re-derive-material! block-anatomy-view-model anatomy-render-tree
+-         render-workshop!)
++         render-workshop! render-studio!)
+ 
+ ;; ===========================================================================
+ ;; Camera math (screen = world·zoom + pan)
+@@ -325,33 +327,35 @@
+   [subject]
+   (let [shared (current-material-wears)
+         cached @!wears-cache
+-        instances (:facet-materials/instances (:served cached))]
+-    (if-let [hit (get-in cached [:by-subject subject])]
+-      hit
+-      (let [mine (persistent!
+-                  (reduce-kv
+-                   (fn [m facet by-subject]
+-                     (if-let [i (get by-subject subject)]
+-                       (assoc! m facet i)
+-                       m))
+-                   (transient {})
+-                   instances))]
+-        (if (zero? (count mine))
+-          shared
+-          (let [by-id (:facet-materials/by-id (:served cached))
+-                w (reduce-kv
+-                   (fn [acc facet inst]
+-                     (if-let [spec (facet-masters/spec-for-facet facet)]
+-                       (assoc acc facet
+-                              (facet-material/wear-for-subject
+-                               spec
+-                               (get by-id (:facet-master/id spec))
+-                               inst))
+-                       acc))
+-                   shared
+-                   mine)]
+-            (swap! !wears-cache assoc-in [:by-subject subject] w)
+-            w))))))
++        instances (:facet-materials/instances (:served cached))
++        resolved
++        (if-let [hit (get-in cached [:by-subject subject])]
++          hit
++          (let [mine (persistent!
++                      (reduce-kv
++                       (fn [m facet by-subject]
++                         (if-let [i (get by-subject subject)]
++                           (assoc! m facet i)
++                           m))
++                       (transient {})
++                       instances))]
++            (if (zero? (count mine))
++              shared
++              (let [by-id (:facet-materials/by-id (:served cached))
++                    w (reduce-kv
++                       (fn [acc facet inst]
++                         (if-let [spec (facet-masters/spec-for-facet facet)]
++                           (assoc acc facet
++                                  (facet-material/wear-for-subject
++                                   spec
++                                   (get by-id (:facet-master/id spec))
++                                   inst))
++                           acc))
++                       shared
++                       mine)]
++                (swap! !wears-cache assoc-in [:by-subject subject] w)
++                w))))]
++    (studio-ui/wears-for subject resolved)))
+ 
+ ;; ===========================================================================
+ ;; Halo P1 — subject condensation as a GPU scene citizen
+@@ -1838,7 +1842,11 @@
+         (swap! !world assoc :camera-restored? true)
+         (when-let [cam (:conversation/camera ctx)]
+           (reset! !camera {:x (double (:x cam)) :y (double (:y cam))
+-                           :zoom (double (or (:zoom cam) 1.0))})))
++                           :zoom (double (or (:zoom cam) 1.0))}))
++        ;; the studio entry handle is placed in world coords FROM the camera —
++        ;; re-place it once the restored camera is known, or a boot into a
++        ;; far-from-origin viewport arrives with the handle out of sight
++        (render-studio!))
+       ;; place + upsert every served block
+       (loop [bs blocks, placed {}, prev nil, new-replies []]
+         (if-let [b (first bs)]
+@@ -2147,32 +2155,35 @@
+                                        :at (.toISOString (js/Date.))})))))))
+      250)))
+ 
+-(defn- submit-envelope! [env]
+-  (when-let [submit! (bew/edit-submit!)]
+-    (let [t0 (js/performance.now)]
+-      (submit! env
+-               (fn [decision]
+-                 (swap! !ground-edit ge/on-decision (:request-id env) decision)
+-                 (when-let [fid (or (:focus @!ground-edit)
+-                                    (get-in env [:target :target/id]))]
+-                   (rebuild-block! fid))
+-                 (let [dt (- (js/performance.now) t0)]
+-                   (swap! !echo-samples
+-                          (fn [xs] (let [xs (if (>= (count xs) 512) (subvec xs 1) xs)]
+-                                     (conj xs dt))))
+-                   (when (> dt 52)
+-                     (let [ps  (set (map :phase (vals @!ground-runs)))
+-                           run (cond (ps :streaming)  "streaming"
+-                                     (ps :distilling) "distilling"
+-                                     :else            "idle")]
+-                       (swap! !echo-outliers
+-                              (fn [xs] (let [xs (if (>= (count xs) 32) (subvec xs 1) xs)]
+-                                         (conj xs {:ms (js/Math.round dt)
+-                                                   :at (.toISOString (js/Date.))
+-                                                   :run run}))))
+-                       (js/console.warn "[GROUND] slow echo" (.toFixed dt 1)
+-                                        "ms (bar 52, resident" run
+-                                        ") — paste __ground.report() output")))))))))
++(defn- submit-envelope!
++  ([env] (submit-envelope! env nil))
++  ([env on-decision]
++   (when-let [submit! (bew/edit-submit!)]
++     (let [t0 (js/performance.now)]
++       (submit! env
++                (fn [decision]
++                  (swap! !ground-edit ge/on-decision (:request-id env) decision)
++                  (when-let [fid (or (:focus @!ground-edit)
++                                     (get-in env [:target :target/id]))]
++                    (rebuild-block! fid))
++                  (let [dt (- (js/performance.now) t0)]
++                    (swap! !echo-samples
++                           (fn [xs] (let [xs (if (>= (count xs) 512) (subvec xs 1) xs)]
++                                      (conj xs dt))))
++                    (when (> dt 52)
++                      (let [ps  (set (map :phase (vals @!ground-runs)))
++                            run (cond (ps :streaming)  "streaming"
++                                      (ps :distilling) "distilling"
++                                      :else            "idle")]
++                        (swap! !echo-outliers
++                               (fn [xs] (let [xs (if (>= (count xs) 32) (subvec xs 1) xs)]
++                                          (conj xs {:ms (js/Math.round dt)
++                                                    :at (.toISOString (js/Date.))
++                                                    :run run}))))
++                        (js/console.warn "[GROUND] slow echo" (.toFixed dt 1)
++                                         "ms (bar 52, resident" run
++                                         ") — paste __ground.report() output"))))
++                  (when on-decision (on-decision decision))))))))
+ 
+ (defn- object-key* []
+   (:conversation/address (:context @!world)))
+@@ -2200,7 +2211,7 @@
+      (screen->world (or @!mouse-x 200) (or @!mouse-y 200))
+      captured-at-ms)))
+ 
+-(defn- post-birth! [{:keys [block-id text pos]}]
++(defn- post-birth! [{:keys [block-id text pos on-acked]}]
+   (let [time-ms (js/Date.now)
+         scene-context (context-at-world-point [(:x pos) (:y pos)] time-ms)]
+     (-> (js/fetch "/api/episode/block-birth"
+@@ -2232,22 +2243,610 @@
+                             :placement-derived? false}
+                            pos))
+              (swap! !settle assoc-in [:acked unit-id] pos)
+-             (let [{:keys [state envelopes]}
+-                   (ge/birth-acked @!ground-edit unit-id
+-                                   {:id unit-id
+-                                    ;; envelope identity from the birth ack
+-                                    ;; (BW-T7: the client computes nothing)
+-                                    :document-container-id
+-                                    (:document-container-id data)}
+-                                   (or (object-key*) (:address data)))]
+-               (reset! !ground-edit state)
+-               (refresh-anchor!)
+-               (rebuild-block! unit-id)
+-               (doseq [env envelopes] (submit-envelope! env)))))))
++             (if on-acked
++               (do
++                 ;; A drawn blank is a deliberate durable birth, not the
++                 ;; keyboard machine's in-flight birth. The ack still supplies
++                 ;; the one legal edit-envelope identity for subsequent type.
++                 (swap! !world assoc-in [:block-index unit-id]
++                        {:id unit-id
++                         :text text
++                         :document-container-id (:document-container-id data)})
++                 (on-acked unit-id data))
++               (let [{:keys [state envelopes]}
++                     (ge/birth-acked @!ground-edit unit-id
++                                     {:id unit-id
++                                      ;; envelope identity from the birth ack
++                                      ;; (BW-T7: the client computes nothing)
++                                      :document-container-id
++                                      (:document-container-id data)}
++                                     (or (object-key*) (:address data)))]
++                 (reset! !ground-edit state)
++                 (refresh-anchor!)
++                 (rebuild-block! unit-id)
++                 (doseq [env envelopes] (submit-envelope! env))))))))
+       (.catch (fn [_e]
+                 (swap! !ground-edit ge/birth-failed :birth-unreachable)
+                 (refresh-anchor!))))))
+ 
++;; ===========================================================================
++;; Studio P1 — the ordinary canvas with the pencil out
++;; ===========================================================================
++
++(defn- upsert-studio-slot!
++  [vi tree {:keys [x y scale layer meta] :or {scale 1.0}}]
++  (if-let [slot (ss/slot (scene-rt/store-snapshot) vi)]
++    (do
++      (swap! scene-rt/!scene-store ss/upsert-slot vi
++             {:tree tree :container (:container slot)
++              :meta (:meta slot) :stratum (:stratum slot)
++              :pre-resolved? true})
++      (scene-rt/set-transform! (:container slot) {:x x :y y :scale scale}))
++    (scene-rt/register-face-instance!
++     vi tree {:x x :y y :scale scale :layer layer
++              :meta meta :pre-resolved? true})))
++
++(defn- render-studio-stroke! [rect]
++  (if rect
++    (upsert-studio-slot!
++     studio-ui/stroke-view-instance
++     (studio-ui/stroke-tree rect)
++     {:x (:x rect) :y (:y rect) :layer 8
++      :meta {:studio-stroke? true}})
++    (scene-rt/close-instance! studio-ui/stroke-view-instance)))
++
++(defn- render-studio!
++  []
++  ;; the entry handle is canvas furniture, not material: world-placed at the
++  ;; viewport's top-left with zoom cancelled (constant screen size), because
++  ;; pick inverse-transforms container+world only — a :camera :screen
++  ;; container would render fixed yet mis-pick under pan/zoom
++  (let [zoom (:zoom @!camera 1.0)
++        [hx hy] (screen->world 24 24)]
++    (upsert-studio-slot!
++     studio-ui/birth-view-instance (studio-ui/birth-handle-tree)
++     {:x hx :y hy :scale (/ 1.0 zoom) :layer 6
++      :meta {:studio-birth-handle? true}}))
++  (if-let [subject (studio-ui/selected)]
++    (if-let [block (get-in @!world [:blocks subject])]
++      (let [x (+ (:x block) (or (:w block) 240.0) 12.0)
++            y (:y block)
++            rx (+ (:x block) (or (:w block) 240.0) -9.0)
++            ry (+ (:y block) (or (:h block) 40.0) -9.0)]
++        (upsert-studio-slot!
++         studio-ui/controls-view-instance (studio-ui/controls-tree)
++         {:x x :y y :layer 8 :meta {:studio-controls? true :subject subject}})
++        (upsert-studio-slot!
++         studio-ui/resize-view-instance
++         (studio-ui/resize-handle-tree subject)
++         {:x rx :y ry :layer 8 :meta {:studio-resize? true :subject subject}}))
++      (do
++        (scene-rt/close-instance! studio-ui/controls-view-instance)
++        (scene-rt/close-instance! studio-ui/resize-view-instance)))
++    (do
++      (scene-rt/close-instance! studio-ui/controls-view-instance)
++      (scene-rt/close-instance! studio-ui/resize-view-instance))))
++
++(defn- read-edn-response [resp]
++  (.then (.text resp)
++         (fn [text]
++           (let [data (try (reader/read-string text)
++                           (catch :default _
++                             {:status :error :error :studio/unreadable-response}))]
++             (assoc data :http/ok? (.-ok resp))))))
++
++(defn- post-edn! [path body]
++  (-> (js/fetch path
++                (clj->js {:method "POST"
++                          :headers {"Content-Type" "application/edn"}
++                          :body (pr-str body)}))
++      (.then read-edn-response)))
++
++(defn- post-studio! [body]
++  (post-edn!
++   "/api/matter-room/deviate"
++   (merge {:request-id (str (random-uuid))
++           :time-ms (js/Date.now)
++           :actor {:actor/id "studio" :actor/type :human}}
++          body)))
++
++(defn- studio-refused! [label result]
++  ;; a human-readable :reason renders ON the canvas — the details door is for
++  ;; substrate EDN, never the only place the "why" lives (law 9's spirit; the
++  ;; halo/workshop failure was exactly a wall that would not say why)
++  (let [reason (:reason result)]
++    (studio-ui/set-status!
++     (if (string? reason)
++       (str label " could not finish — " reason)
++       (str label " could not finish"))
++     (dissoc result :card)))
++  (render-studio!)
++  result)
++
++(defn- studio-draft-refused!
++  "R3 — settle-draft-candidate!/persist-draft!/land-empty-draft! all install
++   the candidate into `:preview-by-subject` BEFORE their durable write lands.
++   On refusal the client must not keep rendering material that does not
++   durably exist: revert the subject's preview to its last acked source (or
++   clear it — a still-born draft) and rebuild the block BEFORE the generic
++   refusal status renders, so the canvas reflects truth first."
++  [label subject result]
++  (studio-ui/revert-preview-on-refusal! subject)
++  (rebuild-block! subject)
++  (studio-refused! label result))
++
++(defn- focus-draft!
++  ([subject text] (focus-draft! subject text 0))
++  ([subject text caret]
++   (let [old (:focus @!ground-edit)]
++     (swap! !ground-edit ge/focus-block subject (or text "") caret)
++     (when (and old (not= old subject)) (rebuild-block! old))
++     (rebuild-block! subject)
++     (refresh-anchor!))))
++
++(defn- settle-draft-candidate!
++  [op subject candidate]
++  ;; TRAP-6 — preview and persistence consume the SAME seven-op result. There
++  ;; is no Studio writer beside the grammar compiler.
++  (studio-ui/set-candidate! subject candidate)
++  (rebuild-block! subject)
++  (render-studio!)
++  (-> (post-studio! {:studio/op op :subject-uid subject
++                     :source (:source candidate)})
++      (.then
++       (fn [result]
++         (if (:accepted? result)
++           (do (studio-ui/ack-draft-source! subject (:source candidate))
++               (studio-ui/set-status! "Draft saved")
++               (render-studio!)
++               result)
++           (studio-draft-refused! "Saving the draft" subject result))))
++      (.catch
++       (fn [error]
++         (studio-draft-refused! "Saving the draft" subject
++                                {:error (.-message error)})))))
++
++(defn- persist-draft!
++  [subject candidate]
++  (-> (post-studio! {:studio/op :birth :subject-uid subject
++                     :source (:source candidate)})
++      (.then
++       (fn [result]
++         (if (:accepted? result)
++           (do (studio-ui/ack-draft-source! subject (:source candidate))
++               (studio-ui/set-status! "Draft is real and ready")
++               (render-studio!)
++               result)
++           (studio-draft-refused! "Making the draft real" subject result))))
++      (.catch
++       (fn [error]
++         (studio-draft-refused! "Making the draft real" subject
++                                {:error (.-message error)})))))
++
++(defn- land-draft!
++  [subject text candidate]
++  (studio-ui/record-draft! subject (:source candidate) (:form candidate))
++  (focus-draft! subject text)
++  (render-studio!)
++  (persist-draft! subject candidate))
++
++(def ^:private studio-empty-birth-seed
++  ;; The protected episode cut intentionally mints no unit for blank text.
++  ;; Route (a) still requires an ordinary durable block identity, so Studio
++  ;; births one invisible codepoint and immediately removes it through the
++  ;; existing block-edit envelope. The surviving block truth is byte-empty;
++  ;; no episode/kernel branch or second writer is introduced.
++  "​")
++
++(defn- land-empty-draft!
++  [subject candidate]
++  (studio-ui/record-draft! subject (:source candidate) (:form candidate))
++  (focus-draft! subject studio-empty-birth-seed
++                (count studio-empty-birth-seed))
++  (let [{:keys [state envelope]}
++        (ge/input @!ground-edit {:type :backspace}
++                  (block-info subject) (object-key*))]
++    (reset! !ground-edit state)
++    (rebuild-block! subject)
++    (render-studio!)
++    (if envelope
++      (submit-envelope!
++       envelope
++       (fn [decision]
++         (if (= :accepted (:status decision))
++           (persist-draft! subject candidate)
++           (studio-draft-refused! "Making the blank draft real" subject
++                                  decision))))
++      (studio-draft-refused! "Making the blank draft real" subject
++                             {:error :studio/blank-normalization-unavailable}))))
++
++(defn- birth-studio-draft! [rect]
++  (let [candidate
++        (studio-ui/new-draft-candidate
++         (anatomy-material/form-for-wear
++          (:anatomy (current-material-wears)))
++         rect)]
++    (if-not (= :candidate (:status candidate))
++      (studio-refused! "Drawing the draft" candidate)
++      (post-birth!
++       {:block-id (str (random-uuid))
++        :text studio-empty-birth-seed
++        :pos {:x (:x rect) :y (:y rect)}
++        :on-acked
++        (fn [subject _data]
++          (land-empty-draft! subject candidate))}))))
++
++(defn- schedule-stroke-receipt! [started-at-ms]
++  (js/requestAnimationFrame
++   (fn [_frame-start-ms]
++     ;; A RAF callback's supplied timestamp is the frame start and may be
++     ;; slightly older than a performance.now sampled later in that frame.
++     ;; Sample the same monotonic clock here so the echo receipt cannot report
++     ;; an impossible negative duration.
++     (studio-ui/note-painted! started-at-ms (js/performance.now)))))
++
++(defn- begin-studio-gesture!
++  [intent subject origin world]
++  (let [started-at-ms (js/performance.now)]
++    (studio-ui/begin-gesture! intent subject origin started-at-ms)
++    (let [rect (studio-ui/move-gesture! world)]
++      (render-studio-stroke! rect)
++      (schedule-stroke-receipt! started-at-ms))))
++
++(defn- move-studio-gesture! [world]
++  (let [started-at-ms (js/performance.now)
++        rect (studio-ui/move-gesture! world)]
++    (render-studio-stroke! rect)
++    (schedule-stroke-receipt! started-at-ms)))
++
++(defn- end-studio-gesture! [world]
++  (let [{:keys [intent subject rect]} (studio-ui/finish-gesture! world)]
++    (render-studio-stroke! nil)
++    (case intent
++      :resize
++      (when-let [form (:form (studio-ui/draft subject))]
++        (settle-draft-candidate!
++         :settle subject (studio-ui/resize-candidate form rect)))
++
++      :birth
++      (birth-studio-draft! rect)
++      nil)))
++
++(defn- studio-birth-action!
++  [_descriptor {:keys [continuation press world]}]
++  (case continuation
++    :begin (begin-studio-gesture! :birth nil (:press/world press) world)
++    :move (move-studio-gesture! world)
++    :end (end-studio-gesture! world)
++    nil)
++  true)
++
++(defn- studio-resize-action!
++  [{:keys [studio/subject]} {:keys [continuation press world]}]
++  (let [block (get-in @!world [:blocks subject])
++        origin (when block [(:x block) (:y block)])]
++    (case continuation
++      :begin (when origin
++               (begin-studio-gesture! :resize subject origin world))
++      :move (move-studio-gesture! world)
++      :end (end-studio-gesture! world)
++      nil))
++  true)
++
++(defn- studio-instance-shape [block text]
++  (cond
++    (or (:machine? block)
++        (seq (get-in @!world
++                     [:context :conversation/experience
++                      :experience/gold-marks-by-target (:id block)]))
++        (seq (get-in @!world
++                     [:context :conversation/experience
++                      :experience/silver-marks-by-target (:id block)])))
++    :marks-or-machine
++
++    (str/blank? (or text "")) :empty
++
++    (or (str/includes? (or text "") "\n")
++        (> (count (or text "")) (long (or (:wrap-col block) 80))))
++    :wrapped-multiline
++    :else nil))
++
++(defn- validation-instances []
++  (let [rows (->> (:blocks @!world)
++                  (map (fn [[id block]]
++                         (assoc block :id id :text (or (truth-text id) "")
++                                :shape (studio-instance-shape
++                                        (assoc block :id id)
++                                        (or (truth-text id) "")))))
++                  (filter :shape)
++                  vec)
++        picked (mapv (fn [shape]
++                       (some #(when (= shape (:shape %)) %) rows))
++                     [:empty :wrapped-multiline :marks-or-machine])]
++    (when (and (every? some? picked)
++               (= 3 (count (set (map :id picked)))))
++      (mapv (fn [row]
++              {:instance/id (:id row) :instance/shape (:shape row)})
++            picked))))
++
++(defn- result-row [kind id pass? receipt]
++  {(keyword (name kind) "id") id
++   (keyword (name kind) "result") (if pass? :pass :fail)
++   (keyword (name kind) "receipt") receipt})
++
++(defn- focus-binding-row [subject]
++  (some (fn [row]
++          (when (= :focus/place-caret
++                   (get-in row [:binding/verb :verb/name]))
++            row))
++        (get-in (wears-for subject)
++                [:attention :facet-master/bindings :block/user-hit-area])))
++
++(defn- validate-studio-candidate
++  [source instances]
++  (let [compiled (facet-material/compile-source anatomy-material/spec source)
++        subjects (mapv :instance/id instances)
++        _ (doseq [subject subjects] (rebuild-block! subject))
++        rendered
++        (mapv
++         (fn [subject]
++           (let [slot (ss/slot (scene-rt/store-snapshot) (block-vi subject))]
++             {:subject subject
++              :present? (some? slot)
++              :error? (true? (get-in slot [:tree :data :assembly/error]))
++              :w (get-in slot [:tree :bounds :w])
++              :h (get-in slot [:tree :bounds :h])}))
++         subjects)
++        render-pass?
++        (and (:valid? compiled)
++             (every? #(and (:present? %)
++                           (not (:error? %))
++                           (pos? (or (:w %) 0))
++                           (pos? (or (:h %) 0)))
++                     rendered))
++        focus-subject (:instance/id
++                       (some #(when (= :empty (:instance/shape %)) %) instances))
++        binding (focus-binding-row focus-subject)
++        type-probe
++        (when-let [bi (block-info focus-subject)]
++          (let [st (-> (ge/init "studio-validator")
++                       (ge/focus-block focus-subject
++                                       (or (truth-text focus-subject) "") 0))]
++            (ge/input st {:type :char :char "x"} bi (object-key*))))
++        focus-pass? (and focus-subject (map? binding))
++        type-pass? (some? (:envelope type-probe))
++        bound-pass? (= {:verb/name :focus/place-caret :verb/version 0}
++                       (:binding/verb binding))
++        interaction-pass? (and focus-pass? type-pass? bound-pass?)
++        checks [(result-row :check :candidate/build (:valid? compiled)
++                            {:compiled? (:valid? compiled)})
++                (result-row :check :render/invariants render-pass?
++                            {:subjects subjects :rendered rendered})
++                (result-row :check :interaction/invariants interaction-pass?
++                            {:focus-row? focus-pass?
++                             :type-envelope? type-pass?
++                             :bound-gesture? bound-pass?})]
++        flows [(result-row :flow :focus focus-pass?
++                           {:subject focus-subject
++                            :mechanism :focus/place-caret})
++               (result-row :flow :type type-pass?
++                           {:subject focus-subject
++                            :mechanism :block-edit-envelope})
++               (result-row :flow :bound-gesture bound-pass?
++                           {:subject focus-subject
++                            :gesture :pointer/tap})
++               (result-row :flow :render render-pass?
++                           {:subjects subjects :mechanism :assembly})
++               (result-row :flow :interaction interaction-pass?
++                           {:subjects subjects :mechanism :binding})]
++        pass? (and (every? #(= :pass (:check/result %)) checks)
++                   (every? #(= :pass (:flow/result %)) flows))]
++    {:tested-instances instances
++     :checks checks
++     :flows flows
++     :result (if pass? :pass :fail)
++     :actor {:actor/id "studio-validator" :actor/type :agent}
++     :time-ms (js/Date.now)}))
++
++(defn- accept-studio-draft! []
++  (let [subject (studio-ui/selected)
++        draft (studio-ui/draft subject)
++        candidate (when draft
++                    (studio-ui/promotable-candidate (:form draft)))
++        instances (validation-instances)]
++    (cond
++      (not= :candidate (:status candidate))
++      (studio-refused! "Preparing the component" candidate)
++
++      (nil? instances)
++      (studio-refused!
++       "Testing the component"
++       {:reason "The canvas needs an empty, a wrapped, and a marked or machine block"})
++
++      :else
++      (let [source (:source candidate)]
++        (studio-ui/set-prior-default! nil)
++        (studio-ui/set-status! "Testing on three real blocks")
++        (render-studio!)
++        (let [promoted
++              (post-studio! {:studio/op :promote :source source
++                             :expected-instances instances})
++              prepared
++              (.then
++               promoted
++               (fn [promotion]
++                 (if-not (:accepted? promotion)
++                   (studio-refused! "Preparing the component" promotion)
++                   (let [revision-id (:revision-id promotion)]
++                     ;; Reverse names the authoritative active revision read by
++                     ;; the promotion owner after any code-floor bootstrap;
++                     ;; the client never infers a recovery identity.
++                     (studio-ui/set-prior-default!
++                      (:prior-revision-id promotion))
++                     (studio-ui/preview-subjects! instances source)
++                     (doseq [{:instance/keys [id]} instances]
++                       (rebuild-block! id))
++                     (js/Promise.
++                      (fn [resolve _reject]
++                        (js/requestAnimationFrame
++                         (fn [_]
++                           ;; R2 — a throw HERE runs on a later frame, well
++                           ;; after this executor returned; it is NOT caught
++                           ;; by the Promise constructor and would otherwise
++                           ;; leave this promise pending forever with the
++                           ;; three tested instances rendering the candidate
++                           ;; permanently. Always resolve: a validation
++                           ;; failure becomes a nil report, which the existing
++                           ;; `activated` stage below already treats as a
++                           ;; refusal (and already clears the preview).
++                           (resolve
++                            (try
++                              {:revision-id revision-id
++                               :report (validate-studio-candidate
++                                        source instances)}
++                              (catch :default error
++                                {:revision-id revision-id
++                                 :report nil
++                                 :validation-error (str error)})))))))))))
++              reported
++              (.then
++               prepared
++               (fn [prepared]
++                 (if-not (:report prepared)
++                   prepared
++                   (.then
++                    (post-studio!
++                     {:studio/op :report
++                      :revision-id (:revision-id prepared)
++                      :report (:report prepared)})
++                    (fn [reported]
++                      (assoc prepared :reported reported))))))
++              activated
++              (.then
++               reported
++               (fn [{:keys [revision-id report reported] :as prepared}]
++                 (studio-ui/clear-preview-subjects! instances)
++                 (doseq [{:instance/keys [id]} instances]
++                   (rebuild-block! id))
++                 (cond
++                   (nil? report) prepared
++                   (not= :pass (:result report))
++                   (studio-refused! "Testing the component" report)
++                   (not (:accepted? reported))
++                   (studio-refused! "Saving the test" reported)
++                   :else
++                   (post-edn!
++                    "/api/matter-room/activate"
++                    {:master-id anatomy-material/master-id
++                     :revision-id revision-id
++                     :request-id (str (random-uuid))
++                     :time-ms (js/Date.now)
++                     :actor {:actor/id "studio" :actor/type :human}}))))
++              finished
++              (.then
++               activated
++               (fn [activated]
++                 (if-not (:accepted? activated)
++                   (studio-refused! "Accepting the component" activated)
++                   (.then
++                    (post-studio! {:studio/op :release
++                                   :subject-uid subject})
++                    (fn [released]
++                      (if-not (:accepted? released)
++                        (studio-refused! "Finishing the component" released)
++                        (do
++                          (studio-ui/accept-subject!
++                           subject (:source candidate) (:form candidate))
++                          (rebuild-block! subject)
++                          (render-studio!)
++                          activated)))))))]
++          (.catch
++           finished
++           (fn [error]
++             ;; R2 — a rejection ANYWHERE in this chain (network failure,
++             ;; unexpected shape) must not strand the preview either: the
++             ;; `activated` stage's cleanup never ran if the chain broke
++             ;; before it, so clear it here too.
++             (studio-ui/clear-preview-subjects! instances)
++             (doseq [{:instance/keys [id]} instances]
++               (rebuild-block! id))
++             (studio-refused! "Accepting the component"
++                              {:error (.-message error)}))))))))
++
++(defn- duplicate-studio-draft! []
++  (when-let [subject (studio-ui/selected)]
++    (when-let [draft (studio-ui/draft subject)]
++      (let [block (get-in @!world [:blocks subject])
++            text (or (truth-text subject) "")]
++        (post-birth!
++         {:block-id (str (random-uuid))
++          :text text
++          :pos {:x (+ (:x block) 36.0) :y (+ (:y block) 48.0)}
++          :on-acked
++          (fn [new-subject _]
++            (land-draft!
++             new-subject text
++             {:status :candidate :source (:source draft) :form (:form draft)
++              :op-receipts []}))})))))
++
++(defn- retune-studio-draft! []
++  (when-let [subject (studio-ui/selected)]
++    (when-let [form (:form (studio-ui/draft subject))]
++      (let [palette [[0.30 0.70 0.95 1.0]
++                     [0.94 0.55 0.28 1.0]
++                     [0.54 0.82 0.48 1.0]]
++            current (some (fn [part]
++                            (when (= :studio-frame (:part/id part))
++                              (get-in part [:part/props :border-color])))
++                          (:anatomy/parts form))
++            current-i (first (keep-indexed
++                              (fn [i color]
++                                (when (= color current) i))
++                              palette))
++            color (nth palette
++                       (if (some? current-i)
++                         (mod (inc current-i) (count palette))
++                         0))]
++        (settle-draft-candidate!
++         :settle subject (studio-ui/retune-candidate form color))))))
++
++(defn- put-back-studio-component! []
++  (if-let [prior (:prior-default (studio-ui/state))]
++    (-> (post-edn!
++         "/api/matter-room/rollback"
++         {:master-id anatomy-material/master-id
++          :revision-id prior
++          :request-id (str (random-uuid))
++          :time-ms (js/Date.now)
++          :actor {:actor/id "studio" :actor/type :human}})
++        (.then
++         (fn [result]
++           (if (:accepted? result)
++             (do (studio-ui/set-status! "Put back")
++                 (render-studio!)
++                 result)
++             (studio-refused! "Putting it back" result))))
++        (.catch
++         (fn [error]
++           (studio-refused! "Putting it back"
++                            {:error (.-message error)}))))
++    (studio-refused! "Putting it back" {:reason "Nothing has been accepted yet"})))
++
++(defn- studio-control-action!
++  [{:keys [studio/intent]} _ctx]
++  (case intent
++    :duplicate (duplicate-studio-draft!)
++    :retune (retune-studio-draft!)
++    :accept (accept-studio-draft!)
++    :put-back (put-back-studio-component!)
++    :details (js/console.info "[STUDIO] details" (clj->js (:details (studio-ui/state))))
++    nil)
++  true)
++
++(scene-rt/register-action! :studio/birth-draft studio-birth-action!)
++(scene-rt/register-action! :studio/resize-draft studio-resize-action!)
++(scene-rt/register-action! :studio/control studio-control-action!)
++
+ ;; ===========================================================================
+ ;; The send lane — Ctrl+Enter, revision-pinned, durable-BEFORE-agent
+ ;; ===========================================================================
+@@ -3405,6 +4004,25 @@
+                 wx wy (metrics))))
+       press)))
+ 
++(defn- scene-threshold-action
++  "A scene descriptor may claim the same normalized threshold sample without
++   becoming a material verb. This is the existing data action seam lifted to
++   the pointer continuation; bare ground has no descriptor and therefore
++   continues through the unchanged binding resolver."
++  [press]
++  (let [descriptor (:actions (:press/hit press))]
++    (when (and (map? descriptor)
++               (= :pointer/press (:binding/gesture descriptor))
++               (= :threshold (:binding/phase descriptor))
++               (= (:press/modifiers press) (:binding/modifiers descriptor)))
++      descriptor)))
++
++(defn- invoke-pointer-continuation!
++  [pointer continuation ctx]
++  (if-let [descriptor (:action pointer)]
++    (scene-rt/dispatch-action descriptor (assoc ctx :continuation continuation))
++    (invoke-verb! (:decision pointer) continuation ctx)))
++
+ (defn pointer-down!
+   ([sx sy] (pointer-down! sx sy false))
+   ([sx sy shift?]
+@@ -3444,17 +4062,23 @@
+       :pending
+       (when (ge/drag? (:press/screen (:press p)) [sx sy] drag-threshold-px)
+         (let [press    (:press p)
+-              decision (decide {:kind :pointer/press :phase :threshold
+-                                :modifiers (:press/modifiers press)
+-                                :hit (:press/hit press)})
++              action (scene-threshold-action press)
++              decision (when-not action
++                         (decide {:kind :pointer/press :phase :threshold
++                                  :modifiers (:press/modifiers press)
++                                  :hit (:press/hit press)}))
+               verb     (get-in decision [:decision/verb :verb/name])
+               ctx      {:press press :screen [sx sy]
+                         :world (vec (screen->world sx sy))}]
+-          (note-conflicts! decision)
+-          (js/console.log "[GROUND-SEL] threshold →" (str verb)
++          (when decision (note-conflicts! decision))
++          (js/console.log "[GROUND-SEL] threshold →" (str (or (:action action) verb))
+                           (str "subject=" (pr-str (:decision/subject decision)))
+                           (str "tier=" (pr-str (:decision/tier decision))))
+-          (if (verb-registry/continuous? verb)
++          (if action
++            (do (scene-rt/dispatch-action action (assoc ctx :continuation :begin))
++                (reset! !pointer {:phase :active :press press
++                                  :verb (:action action) :action action}))
++            (if (verb-registry/continuous? verb)
+             (do (invoke-verb! decision :begin ctx)
+                 (reset! !pointer {:phase :active :press press
+                                   :verb verb :decision decision}))
+@@ -3463,13 +4087,13 @@
+             ;; always meant "this is no longer a tap"
+             (do (invoke-verb! decision :invoke ctx)
+                 (reset! !pointer {:phase :active :press press
+-                                  :verb nil :decision nil})))))
++                                  :verb nil :decision nil}))))))
+ 
+       ;; --- the running gesture's continuation ------------------------------
+       :active
+-      (invoke-verb! (:decision p) :move
+-                    {:press (:press p) :screen [sx sy]
+-                     :world (vec (screen->world sx sy))})
++      (invoke-pointer-continuation!
++       p :move {:press (:press p) :screen [sx sy]
++                :world (vec (screen->world sx sy))})
+       nil)))
+ 
+ (defn- flush-deferred-material-rederive!
+@@ -3504,9 +4128,9 @@
+ 
+       ;; --- the running gesture ends ---------------------------------------
+       :active
+-      (invoke-verb! (:decision p) :end
+-                    {:press (:press p) :screen [sx sy]
+-                     :world (vec (screen->world sx sy))})
++      (invoke-pointer-continuation!
++       p :end {:press (:press p) :screen [sx sy]
++               :world (vec (screen->world sx sy))})
+       nil)
+     ;; W8/T6 — the gesture completes against the revision it began with.
+     ;; Activation becomes visible only after its terminal :end.
+@@ -4030,6 +4654,8 @@
+     (refresh-material-error!))
+   (recompute-binding-conflicts!)
+   (run-material-drill!)
++  (studio-ui/reset-state!)
++  (render-studio!)
+   ;; dev observability (the __softland_atoms precedent): read-only state +
+   ;; the narrow-echo samples — drives G4b console receipts, renders nothing
+   (set! (.-__ground js/window)
+@@ -4126,8 +4752,39 @@
+                         :keyword-fn #(str (symbol %))))})
+   (js/console.log
+    "[WORKSHOP] window.__workshop installed — open/compose/preview/retain/activate/reverse")
++  ;; Studio's human controls and the word-driven rider call the SAME action
++  ;; handlers. The rider adds no privileged writer; it is another hand on the
++  ;; grammar compiler and existing durable acts.
++  (set! (.-__studio js/window)
++        #js {:state (fn []
++                      (clj->js (studio-ui/state)
++                               :keyword-fn #(str (symbol %))))
++             :word (fn [words]
++                     (let [intent (case (str/lower-case (str/trim (str words)))
++                                    "duplicate" :duplicate
++                                    "change color" :retune
++                                    "test and accept" :accept
++                                    "put back" :put-back
++                                    nil)]
++                       (if intent
++                         (studio-control-action!
++                          {:action :studio/control :studio/intent intent} {})
++                         false)))
++             :select (fn [subject]
++                       (studio-ui/select! (str subject))
++                       (render-studio!))
++             :strokeReport (fn [] (clj->js (studio-ui/stroke-report)))})
++  (js/console.log
++   "[STUDIO] window.__studio installed — .word('change color') / .state() / .strokeReport()")
+   (when (= anatomy-material/master-id (room-master-id))
+     (js/setTimeout workshop-open! 0))
++  ;; Workshop playground cut 1 (disposable, in-memory): the door at the
++  ;; viewport's edge, the far room, the typing guards. Refs are passed by
++  ;; value so the playground never reaches back into this namespace.
++  (workshop-playground/install! {:metrics-fn metrics
++                                 :wears-fn current-material-wears
++                                 :!camera !camera
++                                 :escape! escape!})
+   ;; exit flush — best-effort BELT; safety is the acknowledged settle write
+   (js/window.addEventListener "beforeunload"
+                               (fn [_] (fire-settle! :keepalive? true)))
+diff --git a/src/app/server/rama/object_container/facet_master.clj b/src/app/server/rama/object_container/facet_master.clj
+index 4fa31fe..da41008 100644
+--- a/src/app/server/rama/object_container/facet_master.clj
++++ b/src/app/server/rama/object_container/facet_master.clj
+@@ -3,14 +3,16 @@
+    uses the same existing object-container import, immutable revision, and
+    explicit revisioned active-pointer conventions; no facet owns a parallel
+    truth or activation path."
+-  (:require [clojure.string :as str]
++  (:require [clojure.edn :as edn]
++            [clojure.string :as str]
+             [app.server.rama.core :as core]
+             [app.server.rama.object-container :as oc]
+             [app.server.rama.object-container.runtime :as ocr]
+             [app.server.rama.util-fns :as util-fns]
+             [app.shared.activation-event :as activation-event]
+             [app.shared.binding-material :as binding-material]
+-            [app.shared.facet-material :as facet-material]))
++            [app.shared.facet-material :as facet-material]
++            [app.shared.studio :as studio]))
+ 
+ (defn master-id
+   [spec]
+@@ -224,6 +226,530 @@
+       :replay? replay?
+       :revision-id (:facet-master/revision-id request)})))
+ 
++(declare candidate-revision-id ensure-master! read-master)
++
++;; ===========================================================================
++;; Studio P1 — marker-first promotion and durable validation reports
++;;
++;; The gate is another ObjectContainer on the SAME master partition. It is not
++;; a new source family, depot, PState, or topology. Its existence is the
++;; canonical owner's non-caller-asserted discriminator: callers cannot opt a
++;; Studio candidate out of validation by omitting a flag or ground.
++;; ===========================================================================
++
++(defn studio-gate-container-id
++  [spec candidate-revision-id]
++  (oc/block-container-id
++   (master-id spec)
++   (str "studio-gate-" (core/sha-256 (str candidate-revision-id)))))
++
++(defn studio-report-id
++  [spec candidate-revision-id expected-instances]
++  (str "studio-report:"
++       (core/sha-256
++        (studio/canonical-source
++         [(master-id spec) (str candidate-revision-id)
++          (vec expected-instances)]))))
++
++(defn- studio-gate-source-ref
++  [spec candidate-revision-id]
++  (str (source-ref spec) "/studio-gate/"
++       (core/sha-256 (str candidate-revision-id))))
++
++(defn studio-gate-import-request
++  "Build the existing `:object-container/import-material` request that mints
++   one immutable, nil-report gate marker. The marker request is appended and
++   read back BEFORE its candidate request, closing the inter-request bypass."
++  ([spec candidate-revision-id candidate-content-sha256 expected-instances]
++   (studio-gate-import-request spec candidate-revision-id
++                               candidate-content-sha256 expected-instances {}))
++  ([spec candidate-revision-id candidate-content-sha256 expected-instances opts]
++   (let [master-id (master-id spec)
++         gate-id (studio-gate-container-id spec candidate-revision-id)
++         marker (studio/marker-form
++                 {:master-id master-id
++                  :candidate-revision-id candidate-revision-id
++                  :candidate-content-sha256 candidate-content-sha256
++                  :expected-instances expected-instances
++                  :report nil})
++         source (studio/canonical-source marker)
++         source-hash (oc/source-hash source)
++         source-ref (studio-gate-source-ref spec candidate-revision-id)
++         source-ref-key (oc/source-ref-key source-ref)
++         import-key (import-key spec source-hash)
++         request-id (or (:request/id opts)
++                        (:request-id opts)
++                        (str "studio-gate-marker:"
++                             (core/sha-256
++                              (str candidate-revision-id source-hash))))
++         time-ms (long (or (:time-ms opts) (core/now-ms)))
++         actor (normalize-actor (:actor opts) import-capabilities)
++         created-by (:actor/id actor)
++         event-id (str "evt:" master-id ":" request-id)
++         document-id (document-id spec)
++         revision-id (oc/import-revision-id master-id gate-id source-hash)
++         order-key (oc/fixed-width-order-key time-ms request-id)
++         ;; A unique source id keeps the marker queryable without changing its
++         ;; physical locality: the embedded `fm:<slug>` still extracts to the
++         ;; parent master partition.
++         source-id (str (oc/source-id-for-object-key master-id)
++                        ":studio-gate-"
++                        (subs (core/sha-256 (str candidate-revision-id)) 0 16))
++         anchor-id (oc/source-anchor-id gate-id)
++         source-row (oc/->SourceArtifactRow
++                     source-id source-ref source-hash :edn source document-id
++                     (long (count (.getBytes source "UTF-8")))
++                     time-ms created-by event-id)
++         version-row (oc/->SourceVersionRow
++                      source-ref-key source-ref source-hash source-id document-id
++                      master-id order-key time-ms event-id)
++         revision-row (oc/->RevisionRow
++                       revision-id gate-id nil source source-hash order-key
++                       time-ms created-by event-id)
++         container-row (oc/->ObjectContainerRow
++                        gate-id :text-block master-id :private
++                        source-id anchor-id nil document-id revision-id nil nil
++                        time-ms created-by event-id)
++         anchor-row (oc/->SourceAnchorRow
++                     anchor-id :object-container gate-id source-id source-ref
++                     source-hash 0 (count source) nil event-id)
++         payload {:object-key master-id
++                  :source-ref source-ref
++                  :source-hash source-hash
++                  :source-raw-text source
++                  :source-format :edn
++                  :source-artifacts [source-row]
++                  :object-containers [container-row]
++                  :revisions [revision-row]
++                  :derived-units []
++                  :source-anchors [anchor-row]
++                  :composition-edges []
++                  :source-versions [version-row]}
++         fingerprint (oc/import-material-fingerprint master-id import-key payload)]
++     (assoc
++      (core/action-request
++       {:request-id request-id
++        :request-type :object-container/import-material
++        :time-ms time-ms
++        :actor actor
++        :target {:target/kind :object-container-import
++                 :target/id import-key
++                 :target/address {:object/key master-id}}
++        :action {:action/type :object-container/import-material
++                 :action/capability :object-container/import-material
++                 :action/params {:source/family :facet-master
++                                 :source/format :edn}}
++        :routing/key [:object-container/import master-id]
++        :payload payload
++        :provenance {:source/type :facet-master
++                     :source/ref source-ref}})
++      :partition/key master-id
++      :object/key master-id
++      :import/key import-key
++      :source/family :facet-master
++      :source/format :edn
++      :idempotency/key import-key
++      :material/fingerprint fingerprint
++      :studio-gate/container-id gate-id
++      :studio-gate/revision-id revision-id
++      :studio-gate/marker marker))))
++
++(defn- read-studio-gate
++  [runtime spec candidate-revision-id]
++  (let [gate-id (studio-gate-container-id spec candidate-revision-id)
++        revision (ocr/read-current-revision runtime gate-id)]
++    (if-not revision
++      {:required? false :container-id gate-id}
++      (try
++        (let [marker (edn/read-string (:content-text revision))]
++          {:required? true
++           :container-id gate-id
++           :revision revision
++           :marker marker
++           :errors (studio/marker-errors marker)})
++        (catch Throwable t
++          {:required? true
++           :container-id gate-id
++           :revision revision
++           :marker nil
++           :errors [{:type :studio-gate/parse-error
++                     :message (.getMessage t)}]})))))
++
++(defn studio-promote-candidate!
++  "Marker first, candidate second, with an authoritative read barrier after
++   each append. A returned accepted candidate is therefore already classified
++   as Studio-gated at the lowest activation hand.
++
++   R1a · TRAP-2 — the gate is read BEFORE the marker is minted: an already
++   REPORTED gate refuses outright, and a gate whose current marker would not
++   be byte-identical to this call's proposed nil-report marker refuses as a
++   conflict, rather than silently superseding it. Only an absent gate, or one
++   already carrying this exact marker (the true retry case), proceeds."
++  [runtime spec source expected-instances opts]
++  (let [source (str source)
++        compiled (facet-material/compile-source spec source)
++        form (when (:valid? compiled)
++               (try (edn/read-string source)
++                    (catch Throwable _ nil)))
++        content-sha (oc/source-hash source)
++        revision-id (candidate-revision-id spec source)
++        expected (vec expected-instances)
++        input-errors (cond-> []
++                       (not (:valid? compiled)) (into (:errors compiled))
++                       (and (:valid? compiled) (studio/draft-form? form))
++                       (conj {:type :studio/candidate-still-draft})
++                       (not (studio/instance-set? expected))
++                       (conj {:type :studio-gate/expected-instances-invalid}))]
++    (if (seq input-errors)
++      {:accepted? false
++       :reason :studio/promotion-refused
++       :errors input-errors
++       :revision-id revision-id}
++      (let [;; A clean land may still serve this shared master from its code
++            ;; floor, with no durable pointer container yet. Reuse the
++            ;; existing bootstrap owner before marker-first Studio promotion;
++            ;; otherwise the later guarded object-edit has no target.
++            _ (when (nil? (:active-pointer (read-master runtime spec)))
++                (ensure-master! runtime spec))
++            prior-revision-id
++            (get-in (read-master runtime spec)
++                    [:active-revision :revision-id])
++            ;; R1a · TRAP-2 — `studio-gate-container-id` is keyed on
++            ;; `revision-id` ALONE, never on `expected`. Read the gate BEFORE
++            ;; minting anything: without this, re-promoting the SAME
++            ;; candidate under a DIFFERENT expected-instances vector mints
++            ;; DIFFERENT marker bytes -> a DIFFERENT import-key -> a fresh
++            ;; accepted import that supersedes the existing marker (and any
++            ;; durable report already recorded on it) on the SAME container.
++            existing-gate (read-studio-gate runtime spec revision-id)
++            proposed-marker (studio/marker-form
++                             {:master-id (master-id spec)
++                              :candidate-revision-id revision-id
++                              :candidate-content-sha256 content-sha
++                              :expected-instances expected
++                              :report nil})]
++        (cond
++          (and (:required? existing-gate)
++               (some? (get-in existing-gate [:marker :studio-gate/report])))
++          {:accepted? false
++           :reason :studio/gate-already-reported
++           :revision-id revision-id
++           :prior-revision-id prior-revision-id
++           :errors [{:type :studio-gate/report-exists}]}
++
++          (and (:required? existing-gate)
++               (not= proposed-marker (:marker existing-gate)))
++          {:accepted? false
++           :reason :studio/gate-marker-conflict
++           :revision-id revision-id
++           :prior-revision-id prior-revision-id
++           :errors (vec (concat (:errors existing-gate)
++                                [{:type :studio-gate/marker-conflict}]))}
++
++          :else
++          (let [marker-request
++                (studio-gate-import-request
++                 spec revision-id content-sha expected
++                 {:request/id (or (:marker-request/id opts)
++                                  (:marker-request-id opts))
++                  :time-ms (:time-ms opts)
++                  :actor (:actor opts)})
++                marker-result (append-and-read! runtime marker-request)
++                marker-accepted? (oc/decision-accepted? (:decision marker-result))
++                gate (when marker-accepted?
++                       (read-studio-gate runtime spec revision-id))]
++            (if-not (and marker-accepted?
++                         (:required? gate)
++                         (empty? (:errors gate))
++                         (= (:studio-gate/marker marker-request) (:marker gate)))
++              {:accepted? false
++               :reason :studio/gate-marker-refused
++               :errors (vec (concat (:errors gate)
++                                    (when-not marker-accepted?
++                                      [{:type :studio-gate/marker-decision-rejected
++                                        :decision (:decision marker-result)}])))
++               :marker {:request marker-request
++                        :decision (:decision marker-result)
++                        :replay? (:replay? marker-result)}
++               :prior-revision-id prior-revision-id
++               :revision-id revision-id}
++              (let [candidate
++                    (import-candidate!
++                     runtime spec source
++                     {:request/id (or (:candidate-request/id opts)
++                                      (:candidate-request-id opts)
++                                      (:request/id opts)
++                                      (:request-id opts))
++                      :time-ms (:time-ms opts)
++                      :actor (:actor opts)})]
++                {:accepted? (:accepted? candidate)
++                 :reason (when-not (:accepted? candidate)
++                           :studio/candidate-import-refused)
++                 :errors (vec (get-in candidate [:decision :errors]))
++                 :revision-id revision-id
++                 :prior-revision-id prior-revision-id
++                 :candidate-content-sha256 content-sha
++                 :expected-instances expected
++                 :marker {:request marker-request
++                          :decision (:decision marker-result)
++                          :replay? (:replay? marker-result)}
++                 :candidate candidate}))))))))
++
++(defn- report-semantic-equal?
++  [a b]
++  (= (dissoc a :studio-report/request-id)
++     (dissoc b :studio-report/request-id)))
++
++(defn studio-report-request
++  "Construct one report edit against the current durable marker. Exact retry
++   reuses the original report's embedded audit request id while the outer
++   request id may be fresh; changed bytes retain the deterministic report
++   idempotency key and are rejected by ObjectContainer conflict semantics."
++  [runtime spec candidate-revision-id report-data opts]
++  (let [gate (read-studio-gate runtime spec candidate-revision-id)
++        marker (:marker gate)
++        existing (:studio-gate/report marker)
++        request-id (or (:request/id opts)
++                       (:request-id opts)
++                       (core/random-id "studio-report-request"))
++        report-id (studio-report-id
++                   spec candidate-revision-id
++                   (:studio-gate/expected-instances marker))
++        actor (or (:actor report-data) (:actor opts)
++                  {:actor/id "studio-validator" :actor/type :agent})
++        time-ms (long (or (:time-ms report-data)
++                          (:time-ms opts)
++                          (core/now-ms)))
++        proposed (studio/report-form
++                  {:id report-id
++                   :master-id (master-id spec)
++                   :candidate-revision-id candidate-revision-id
++                   :candidate-content-sha256
++                   (:studio-gate/candidate-content-sha256 marker)
++                   :tested-instances (:tested-instances report-data)
++                   :checks (:checks report-data)
++                   :flows (:flows report-data)
++                   :result (:result report-data)
++                   :actor actor
++                   :time-ms time-ms
++                   :request-id request-id})
++        report (if (and (map? existing)
++                        (report-semantic-equal? existing proposed))
++                 existing
++                 proposed)
++        marker' (when (map? marker)
++                  (assoc marker :studio-gate/report report))
++        content (when marker' (studio/canonical-source marker'))
++        gate-id (:container-id gate)]
++    (if (or (not (:required? gate))
++            (seq (:errors gate))
++            (seq (studio/report-errors report marker)))
++      {:request nil
++       :report report
++       :accepted? false
++       :reason :studio/report-refused
++       :errors (vec (concat (:errors gate)
++                            (studio/report-errors report marker)))}
++      (oc/object-edit-request
++       :object-container gate-id content
++       {:object/key (master-id spec)
++        :document/container-id (document-id spec)
++        :request/id request-id
++        :time-ms time-ms
++        :revision/id
++        (str "rev:" (master-id spec) ":studio-report:"
++             (core/sha-256 request-id))
++        :edit/client-id (str "studio-validator:" report-id)
++        :edit/seq 1
++        :edit/lineage-key gate-id
++        :idempotency/key (str "studio/report:" report-id)
++        :actor (normalize-actor actor activation-capabilities)
++        :provenance {:source/type :studio-validation
++                     :source/ref report-id}}))))
++
++(defn submit-studio-report!
++  [runtime spec candidate-revision-id report-data opts]
++  (let [request (studio-report-request runtime spec candidate-revision-id
++                                       report-data opts)]
++    (if (not= :object/edit (:request/type request))
++      request
++      (let [{:keys [decision replay?]} (append-and-read! runtime request)
++            accepted? (oc/decision-accepted? decision)
++            gate (read-studio-gate runtime spec candidate-revision-id)]
++        {:request request
++         :decision decision
++         :accepted? accepted?
++         ;; ObjectContainer records a fresh audit decision when a fresh
++         ;; request id reuses an identical report idempotency key. That is a
++         ;; semantic replay even though `append-and-read!` could not see this
++         ;; particular audit id before the append.
++         :replay? (or replay?
++                      (some? (:replayed-from-decision-id decision)))
++         :report (get-in gate [:marker :studio-gate/report])
++         :errors (vec (:errors gate))}))))
++
++(def ^:private studio-gate-history-page-limit
++  "R1b · TRAP-2/TRAP-7 — the canonical guard must read EVERY historical
++   revision of a gate container before trusting the current one alone; a
++   marker imported directly at the runtime (bypassing
++   `studio-promote-candidate!`'s R1a pre-append guard) still supersedes the
++   container's current pointer without this. A full page proves nothing was
++   left unread; a full page fails CLOSED rather than guessing what's beyond
++   it (mirrors `activation-trail`'s `trail-page-limit`, but this reads a gate
++   container rather than an active-pointer container)."
++  1000)
++
++(defn- studio-gate-history-terminal-errors
++  "Every historical revision of the SAME gate container, compared against the
++   CURRENT marker/report. The container id is keyed on the candidate revision
++   ALONE (`studio-gate-container-id`), so a second import — whether through
++   `studio-promote-candidate!` or straight at the runtime — lands on this
++   SAME container; reading only the current revision cannot see it. TRAP-7:
++   the first durable report for a candidate revision is terminal — it is
++   never rewritten into a PASS by minting a fresh marker on top of it, the
++   same way a revision is never relabeled across containers. The current
++   revision naturally appears in this history and compares equal to itself,
++   so it never self-conflicts. Fails CLOSED: an unparseable row, or a page so
++   full more history might be hiding beyond it, refuses rather than guesses."
++  [runtime gate-id current-marker current-report]
++  (let [rows (ocr/read-revision-history
++              runtime gate-id "" studio-gate-history-page-limit)]
++    (cond
++      (>= (count rows) studio-gate-history-page-limit)
++      [{:type :studio-gate/history-incomplete}]
++
++      :else
++      (let [parsed (mapv (fn [row]
++                            (try
++                              {:ok? true
++                               :marker (edn/read-string (:content-text row))}
++                              (catch Throwable _ {:ok? false})))
++                          rows)]
++        (if (some (complement :ok?) parsed)
++          [{:type :studio-gate/history-unreadable}]
++          (let [markers (mapv :marker parsed)
++                current-expected (:studio-gate/expected-instances current-marker)
++                current-report-id (:studio-report/id current-report)]
++            (vec
++             (concat
++              (when (some #(not= current-expected
++                                 (:studio-gate/expected-instances %))
++                          markers)
++                [{:type :studio-gate/marker-mutated}])
++              (when (some #(when-let [r (:studio-gate/report %)]
++                            (not= current-report-id (:studio-report/id r)))
++                          markers)
++                [{:type :studio-report/superseded}])
++              (when (some #(= :fail (:studio-report/result
++                                     (:studio-gate/report %)))
++                          markers)
++                [{:type :studio-report/failed-terminally}])))))))))
++
++(defn- studio-gate-evaluation
++  "Read every durable fact required before a Studio pointer may move. Any
++   read/parse/audit mismatch is a refusal; marker absence alone means this is
++   an existing non-Studio activation and preserves its behavior."
++  [runtime spec candidate]
++  (try
++    (let [revision-id (:revision-id candidate)
++          candidate-sha (:content-hash candidate)
++          gate (read-studio-gate runtime spec revision-id)]
++      (if-not (:required? gate)
++        {:required? false :errors []}
++        (let [marker (:marker gate)
++              report (:studio-gate/report marker)
++              report-id (when (map? marker)
++                          (studio-report-id
++                           spec revision-id
++                           (:studio-gate/expected-instances marker)))
++              report-request-id (:studio-report/request-id report)
++              audit (when (string? report-request-id)
++                      (ocr/read-request runtime (master-id spec)
++                                        report-request-id))
++              raw (:raw-request audit)
++              decision (when (string? report-request-id)
++                         (ocr/read-decision runtime (master-id spec)
++                                            report-request-id))
++              ;; R1b · TRAP-2/TRAP-7 — the CURRENT revision alone is not
++              ;; enough: see `studio-gate-history-terminal-errors`.
++              history-errors
++              (studio-gate-history-terminal-errors
++               runtime (:container-id gate) marker report)
++              errors
++              (cond-> (vec (concat (:errors gate) history-errors))
++                (and (map? marker)
++                     (not= (master-id spec)
++                           (:studio-gate/master-id marker)))
++                (conj {:type :studio-gate/master-mismatch})
++
++                (and (map? marker)
++                     (not= revision-id
++                           (:studio-gate/candidate-revision-id marker)))
++                (conj {:type :studio-gate/candidate-mismatch})
++
++                (and (map? marker)
++                     (not= candidate-sha
++                           (:studio-gate/candidate-content-sha256 marker)))
++                (conj {:type :studio-gate/content-mismatch})
++
++                (nil? report)
++                (conj {:type :studio-report/missing})
++
++                (map? report)
++                (into (studio/report-errors report marker))
++
++                (and (map? report)
++                     (not= :pass (:studio-report/result report)))
++                (conj {:type :studio-report/not-passing})
++
++                (and (map? report)
++                     (not= report-id (:studio-report/id report)))
++                (conj {:type :studio-report/id-mismatch})
++
++                (nil? audit)
++                (conj {:type :studio-report/audit-request-missing})
++
++                (and raw (not= :object/edit (:request/type raw)))
++                (conj {:type :studio-report/audit-request-type-invalid})
++
++                (and raw (not= (:container-id gate)
++                               (get-in raw [:target :target/id])))
++                (conj {:type :studio-report/audit-target-mismatch})
++
++                (and raw
++                     (not= (:content-hash (:revision gate))
++                           (get-in raw [:payload :content-hash])))
++                (conj {:type :studio-report/audit-content-mismatch})
++
++                (and raw
++                     (not= (str "studio/report:" report-id)
++                           (:idempotency/key raw)))
++                (conj {:type :studio-report/audit-idempotency-mismatch})
++
++                (and raw report
++                     (not= (:studio-report/actor report)
++                           (select-keys (:actor raw)
++                                        [:actor/id :actor/type])))
++                (conj {:type :studio-report/audit-actor-mismatch})
++
++                (and raw report
++                     (not= (:studio-report/time-ms report)
++                           (:request/time-ms raw)))
++                (conj {:type :studio-report/audit-time-mismatch})
++
++                (not (oc/decision-accepted? decision))
++                (conj {:type :studio-report/decision-not-accepted}))]
++          {:required? true
++           :container-id (:container-id gate)
++           :marker marker
++           :report report
++           :report-id report-id
++           :errors errors})))
++    (catch Throwable t
++      {:required? true
++       :errors [{:type :studio-gate/read-failed
++                 :message (.getMessage t)}]})))
++
+ (defn read-master
+   "Resolve latest and active independently through the same OC reads for every
+    master. The pointer current revision names the worn immutable revision.
+@@ -259,6 +785,8 @@
+          compiled (when candidate
+                     (facet-material/compile-source
+                      spec (:content-text candidate)))
++         studio-gate (when candidate
++                       (studio-gate-evaluation runtime spec candidate))
+          errors (cond-> []
+                   (nil? candidate)
+                   (conj {:type :revision/not-found
+@@ -270,14 +798,18 @@
+                          :actual-container-id (:container-id candidate)})
+ 
+                   (and candidate (false? (:valid? compiled)))
+-                  (into (:errors compiled)))]
++                  (into (:errors compiled))
++
++                  (and studio-gate (seq (:errors studio-gate)))
++                  (into (:errors studio-gate)))]
+      (if (seq errors)
+        {:request nil
+         :decision nil
+         :accepted? false
+         :replay? false
+-        :reason :facet-master/activation-rejected
+-        :errors errors
++       :reason :facet-master/activation-rejected
++       :errors errors
++        :studio-gate studio-gate
+         :revision-id revision-id}
+        (let [request-id (or (:request/id opts)
+                             (:request-id opts)
+@@ -294,6 +826,11 @@
+              ;; default scope follows the master: an instance master can only
+              ;; ever move its own subject, a shared master reaches every
+              ;; unpinned wearer BY REFERENCE (T1 — never a fan-out write).
++             activation-grounds
++             (if (:required? studio-gate)
++               [(activation-event/ground
++                 :grounded-in :experience (:report-id studio-gate))]
++               (:activation/grounds opts))
+              event
+              (activation-event/event
+               {:revision-id revision-id
+@@ -304,7 +841,7 @@
+                             (activation-event/all-unpinned-scope)))
+                :actor (:actor opts)
+                :time-ms time-ms
+-               :grounds (:activation/grounds opts)})
++               :grounds activation-grounds})
+              request
+              (oc/object-edit-request
+               :object-container
+@@ -339,6 +876,7 @@
+           :accepted? accepted?
+           :replay? replay?
+           :event event
++          :studio-gate studio-gate
+           :revision-id revision-id})))))
+ 
+ (defn ensure-master!
+diff --git a/src/app/server_jetty.clj b/src/app/server_jetty.clj
+index 128df6d..27f58bf 100644
+--- a/src/app/server_jetty.clj
++++ b/src/app/server_jetty.clj
+@@ -23,8 +23,10 @@
+     [app.server.rama.cluster :as cluster]
+     [app.shared.facet-material :as facet-material]
+     [app.shared.facet-masters :as facet-masters]
++    [app.shared.anatomy-material :as anatomy-material]
+     [app.shared.invocation-material :as invocation-material]
+     [app.shared.matter-room :as matter-room]
++    [app.shared.studio :as studio]
+     [app.server.review-pack :as review-pack]
+     [components.adapter :as adapter]
+     [components.compiler :as compiler]
+@@ -1375,42 +1377,135 @@ information."
+              :replay? (true? (:replay? result))
+              :revision-id (:revision-id result)
+              :decision-status (get-in result [:decision :status])
++             :decision-reason (get-in result [:decision :reason])
++             :decision-errors (vec (get-in result [:decision :errors]))
+              :event (:event result)
+              :errors errors}
+       (not accepted?)
+       (assoc :error error
+              :card (matter-error-card verb error errors)))))
+ 
+-(defn matter-room-deviate!
+-  "Invoke `:matter/deviate` through one of its two existing P6 owners:
+-   instance deviation (`material-truth/deviate!`) or master candidate import
+-   (`facet-master/import-candidate!`)."
++(defn- completed-studio-act
++  [op result]
++  (let [accepted? (true? (:accepted? result))
++        errors (vec (:errors result))]
++    (cond-> {:status (if accepted? :accepted :rejected)
++             :verb :matter/deviate
++             :branch :studio
++             :studio/op op
++             :accepted? accepted?
++             :replay? (true? (:replay? result))
++             :revision-id (:revision-id result)
++             :prior-revision-id (:prior-revision-id result)
++             :candidate-content-sha256
++             (:candidate-content-sha256 result)
++             :expected-instances (:expected-instances result)
++             :errors errors}
++      (not accepted?)
++      (assoc :error (or (:reason result) :studio/act-rejected)
++             :card (matter-error-card :matter/deviate
++                                      (or (:reason result)
++                                          :studio/act-rejected)
++                                      errors)))))
++
++(defn- studio-deviate!
++  "Studio rides the existing matter-room deviate endpoint and existing
++   material owners. This is dispatch/composition only: it creates no request,
++   storage family, or route of its own."
+   [{:keys [oc-rt]} request]
+-  (let [act (matter-room/deviate-request (prepare-matter-act request))
+-        verb :matter/deviate
+-        spec (facet-masters/spec (:act/master-id act))]
++  (let [request (prepare-matter-act request)
++        op (:studio/op request)
++        spec anatomy-material/spec
++        subject (:subject-uid request)
++        source (:source request)
++        opts {:request/id (:request-id request)
++              :activation-request-id
++              (str (:request-id request) ":activate")
++              :time-ms (:time-ms request)
++              :actor (:actor request)
++              :conversation-id (:conversation-id request)}]
+     (cond
+       (nil? oc-rt)
+-      (invalid-matter-act verb :land-unavailable)
+-
+-      (not (:act/valid? act))
+-      (invalid-matter-act verb (:act/error act) (:act/errors act))
+-
+-      (nil? spec)
+-      (invalid-matter-act verb :facet-master/unknown-master)
+-
+-      (= :instance (:act/branch act))
+-      (completed-matter-act
+-       verb :instance
+-       (material-truth/deviate!
+-        oc-rt spec (:act/subject-uid act) (:act/overrides act)
+-        (:act/options act)))
++      (invalid-matter-act :matter/deviate :land-unavailable)
++
++      (not (contains? #{:birth :settle :promote :report :release} op))
++      (invalid-matter-act :matter/deviate :studio/unknown-act)
++
++      (contains? #{:birth :settle} op)
++      (let [compiled (facet-material/compile-source spec source)
++            form (when (:valid? compiled)
++                   (try (edn/read-string source)
++                        (catch Throwable _ nil)))]
++        (if-not (and (string? subject)
++                     (seq subject)
++                     (:valid? compiled)
++                     (studio/draft-form? form))
++          (invalid-matter-act
++           :matter/deviate :studio/draft-invalid
++           (cond-> (vec (:errors compiled))
++             (not (and (string? subject) (seq subject)))
++             (conj {:type :studio/subject-required})
++             (and (:valid? compiled) (not (studio/draft-form? form)))
++             (conj {:type :studio/draft-status-required})))
++          (completed-studio-act
++           op
++           (material-truth/deviate!
++            oc-rt spec subject (:material compiled) opts))))
++
++      (= :promote op)
++      (completed-studio-act
++       op
++       (facet-master/studio-promote-candidate!
++        oc-rt spec source (:expected-instances request)
++        {:marker-request/id (str (:request-id request) ":marker")
++         :candidate-request/id (str (:request-id request) ":candidate")
++         :time-ms (:time-ms request)
++         :actor (:actor request)}))
++
++      (= :report op)
++      (completed-studio-act
++       op
++       (facet-master/submit-studio-report!
++        oc-rt spec (:revision-id request) (:report request) opts))
+ 
+       :else
+-      (completed-matter-act
+-       verb :master-candidate
+-       (facet-master/import-candidate!
+-        oc-rt spec (:act/source act) (:act/options act))))))
++      (completed-studio-act
++       op
++       (material-truth/release-deviation!
++        oc-rt spec subject opts)))))
++
++(defn matter-room-deviate!
++  "Invoke `:matter/deviate` through one of its two existing P6 owners:
++   instance deviation (`material-truth/deviate!`) or master candidate import
++  (`facet-master/import-candidate!`)."
++  [{:keys [oc-rt] :as face-ctx} request]
++  (if (:studio/op request)
++    (studio-deviate! face-ctx request)
++    (let [act (matter-room/deviate-request (prepare-matter-act request))
++        verb :matter/deviate
++        spec (facet-masters/spec (:act/master-id act))]
++      (cond
++        (nil? oc-rt)
++        (invalid-matter-act verb :land-unavailable)
++
++        (not (:act/valid? act))
++        (invalid-matter-act verb (:act/error act) (:act/errors act))
++
++        (nil? spec)
++        (invalid-matter-act verb :facet-master/unknown-master)
++
++        (= :instance (:act/branch act))
++        (completed-matter-act
++         verb :instance
++         (material-truth/deviate!
++          oc-rt spec (:act/subject-uid act) (:act/overrides act)
++          (:act/options act)))
++
++        :else
++        (completed-matter-act
++         verb :master-candidate
++         (facet-master/import-candidate!
++          oc-rt spec (:act/source act) (:act/options act)))))))
+ 
+ (defn matter-room-activate!
+   "Activate one retained candidate through the existing P6 pointer act.
+diff --git a/test/app/anatomy_test.clj b/test/app/anatomy_test.clj
+index faa4bfb..46c8054 100644
+--- a/test/app/anatomy_test.clj
++++ b/test/app/anatomy_test.clj
+@@ -10,9 +10,12 @@
+             [clojure.walk :as walk]
+             [app.client.workspace.face-assembly :as face-assembly]
+             [app.client.workspace.face-primitives :as face-primitives]
++            [app.client.workspace.studio :as studio-ui]
+             [app.shared.anatomy-material :as anatomy]
++            [app.shared.facet-material :as facet-material]
+             [app.shared.invocation-material :as invocation]
+-            [app.shared.material-portal :as portal]))
++            [app.shared.material-portal :as portal]
++            [app.shared.studio :as studio]))
+ 
+ (def ^:private fixture-dir
+   (io/file "test/app/fixtures/anatomy"))
+@@ -364,3 +367,150 @@
+                               "preview ended: served base changed")))
+     (is (true? (str/includes? source
+                               "(reset! !pending-material-rederive? false)")))))
++
++(deftest studio-drawing-hand-compiles-only-to-the-seven-op-grammar
++  (let [draft (studio/draft-candidate anatomy/default-form)
++        changed (studio/retune-frame-candidate
++                 (:form draft) {:border-color [0.85 0.42 0.30 1.0]})
++        promotable (studio/promotable-candidate (:form changed))]
++    (testing "birth is two ordinary :add operations and visibly remains real"
++      (is (= :candidate (:status draft)))
++      (is (= [:add :add] (mapv #(get-in % [:edit :edit/op])
++                                (:op-receipts draft))))
++      (is (studio/draft-form? (:form draft)))
++      (is (:valid? (anatomy/compile-form (:form draft)))))
++    (testing "pixel retune and acceptance are one existing op apiece"
++      (is (= [:retune-props]
++             (mapv #(get-in % [:edit :edit/op]) (:op-receipts changed))))
++      (is (= [:remove]
++             (mapv #(get-in % [:edit :edit/op]) (:op-receipts promotable))))
++      (is (not (studio/draft-form? (:form promotable))))
++      (is (:valid? (anatomy/compile-form (:form promotable)))))))
++
++(deftest studio-gate-schema-is-closed-and-candidate-set-bound
++  (let [instances [{:instance/id "du:empty" :instance/shape :empty}
++                   {:instance/id "du:wrapped"
++                    :instance/shape :wrapped-multiline}
++                   {:instance/id "du:marks"
++                    :instance/shape :marks-or-machine}]
++        marker (studio/marker-form
++                {:master-id anatomy/master-id
++                 :candidate-revision-id "rev:candidate"
++                 :candidate-content-sha256 "sha"
++                 :expected-instances instances
++                 :report nil})
++        rows (fn [kind ids]
++               (mapv (fn [id]
++                       {(keyword (name kind) "id") id
++                        (keyword (name kind) "result") :pass
++                        (keyword (name kind) "receipt") {:observed true}})
++                     (sort-by str ids)))
++        report (studio/report-form
++                {:id "report"
++                 :master-id anatomy/master-id
++                 :candidate-revision-id "rev:candidate"
++                 :candidate-content-sha256 "sha"
++                 :tested-instances instances
++                 :checks (rows :check studio/check-ids)
++                 :flows (rows :flow studio/flow-ids)
++                 :result :pass
++                 :actor {:actor/id "agent" :actor/type :agent}
++                 :time-ms 1
++                 :request-id "request"})]
++    (is (studio/valid-marker? marker))
++    (is (studio/valid-report? report marker))
++    (is (some #(= :studio-report/keys-invalid (:type %))
++              (studio/report-errors (assoc report :unexpected true) marker)))
++    (is (some #(= :studio-report/instance-set-mismatch (:type %))
++              (studio/report-errors
++               (assoc-in report [:studio-report/tested-instances 0
++                                 :instance/id]
++                         "du:different")
++               marker)))
++    (is (some #(= :studio-report/pass-rows-not-all-pass (:type %))
++              (studio/report-errors
++               (assoc-in report [:studio-report/flows 0 :flow/result] :fail)
++               marker)))))
++
++(deftest studio-surface-is-data-driven-and-preview-is-subject-scoped
++  (studio-ui/reset-state!)
++  (try
++    (let [handle (studio-ui/birth-handle-tree)
++          descriptor (get-in handle [:data :actions])
++          rect (studio-ui/gesture-rect [[100 80] [30 20]])
++          candidate (studio-ui/new-draft-candidate anatomy/default-form rect)
++          base {:anatomy (facet-material/code-floor anatomy/spec)
++                :attention {:shared true}}]
++      (testing "S3 — the visible handle carries the exact threshold descriptor"
++        (is (= {:action :studio/birth-draft
++                :hit/action :studio/birth-draft
++                :binding/gesture :pointer/press
++                :binding/phase :threshold
++                :binding/modifiers #{}}
++               descriptor))
++        (is (= :box (:type handle))))
++      (testing "drawing geometry normalizes direction and compiles to anatomy"
++        (is (= {:x 30 :y 20 :w 70 :h 60} rect))
++        (is (= :candidate (:status candidate)))
++        (is (:valid? (anatomy/compile-form (:form candidate)))))
++      (testing "the preview changes exactly one subject and preserves others by identity"
++        (studio-ui/record-draft! "du:selected" (:source candidate)
++                                 (:form candidate))
++        (let [selected (studio-ui/wears-for "du:selected" base)
++              other (studio-ui/wears-for "du:other" base)]
++          (is (not (identical? base selected)))
++          (is (true? (get-in selected [:anatomy :facet-master/preview?])))
++          (is (identical? base other)))))
++    (finally (studio-ui/reset-state!))))
++
++(deftest studio-refused-write-reverts-preview-to-acked-source-or-clears-it
++  "R3 — settle-draft-candidate!/persist-draft!/land-empty-draft! install a
++   candidate into the preview BEFORE their durable write lands. On refusal the
++   preview must never keep showing material that does not durably exist:
++   revert to the last DURABLY acked source, or clear entirely when nothing
++   has ever been acked."
++  (studio-ui/reset-state!)
++  (try
++    (let [subject "du:r3-refusal"
++          rect (studio-ui/gesture-rect [[100 80] [30 20]])
++          draft (studio-ui/new-draft-candidate anatomy/default-form rect)
++          retuned-a (studio-ui/retune-candidate
++                     (:form draft) [0.30 0.70 0.95 1.0])
++          retuned-b (studio-ui/retune-candidate
++                     (:form draft) [0.94 0.55 0.28 1.0])
++          base {:anatomy (facet-material/code-floor anatomy/spec)}]
++      (is (= :candidate (:status retuned-a)))
++      (is (= :candidate (:status retuned-b)))
++      (is (not= (:source retuned-a) (:source retuned-b)))
++
++      (testing "a still-born draft (never acked) clears entirely on refusal"
++        (studio-ui/record-draft! subject (:source draft) (:form draft))
++        (is (= (:source draft)
++               (get-in (studio-ui/state) [:preview-by-subject subject])))
++        (studio-ui/revert-preview-on-refusal! subject)
++        (is (nil? (get-in (studio-ui/state) [:preview-by-subject subject])))
++        (is (identical? base (studio-ui/wears-for subject base))
++            "no preview left means the subject wears its normal material"))
++
++      (testing "an acked source survives a LATER optimistic edit and is the
++                fallback on that edit's refusal"
++        (studio-ui/set-candidate! subject retuned-a)
++        (studio-ui/ack-draft-source! subject (:source retuned-a))
++        (is (= (:source retuned-a)
++               (get-in (studio-ui/state) [:drafts subject :acked-source])))
++
++        (studio-ui/set-candidate! subject retuned-b)
++        (is (= (:source retuned-b)
++               (get-in (studio-ui/state) [:preview-by-subject subject]))
++            "the optimistic write renders immediately")
++        (is (= (:source retuned-a)
++               (get-in (studio-ui/state) [:drafts subject :acked-source]))
++            "the prior accepted source survives the optimistic overwrite")
++
++        (studio-ui/revert-preview-on-refusal! subject)
++        (is (= (:source retuned-a)
++               (get-in (studio-ui/state) [:preview-by-subject subject]))
++            "refusal reverts to the last DURABLY acked source, never the refused one")
++        (is (not (identical? base (studio-ui/wears-for subject base)))
++            "the reverted preview is real acked material, not a clear")))
++    (finally (studio-ui/reset-state!))))
+diff --git a/test/app/material_truth_test.clj b/test/app/material_truth_test.clj
+index 6e7f75a..20dbee2 100644
+--- a/test/app/material_truth_test.clj
++++ b/test/app/material_truth_test.clj
+@@ -6,7 +6,8 @@
+    bar, G12's live drill re-run, G3's camera-pinned byte proof) are proven on
+    the cluster and recorded in the gate report; what is executable in the JVM
+    is executed here."
+-  (:require [clojure.java.io :as io]
++  (:require [clojure.edn :as edn]
++            [clojure.java.io :as io]
+             [clojure.string :as str]
+             [clojure.test :refer [deftest is testing]]
+             [app.server.episode :as episode]
+@@ -17,6 +18,7 @@
+             [app.server.rama.object-container.runtime :as ocr]
+             [app.server.rama.util-fns :as util-fns]
+             [app.shared.activation-event :as activation-event]
++            [app.shared.anatomy-material :as anatomy]
+             [app.shared.attention-material :as attention]
+             [app.shared.binding-material :as binding-material]
+             [app.shared.facet-material :as facet-material]
+@@ -24,6 +26,7 @@
+             [app.shared.foldable-material :as foldable]
+             [app.shared.positioned-material :as positioned]
+             [app.shared.space-material :as space]
++            [app.shared.studio :as studio]
+             [app.shared.verb-registry :as verb-registry]))
+ 
+ (def sid {:actor/id "sid" :actor/type :human})
+@@ -58,6 +61,314 @@
+         inst (get-in served [:facet-materials/instances :attention subject])]
+     (facet-material/wear-for-subject attention/spec shared inst)))
+ 
++(def studio-instances
++  [{:instance/id "du:studio:empty" :instance/shape :empty}
++   {:instance/id "du:studio:wrapped" :instance/shape :wrapped-multiline}
++   {:instance/id "du:studio:marked" :instance/shape :marks-or-machine}])
++
++(defn- studio-report-data
++  ([result] (studio-report-data result studio-instances))
++  ([result instances]
++   {:tested-instances instances
++    :checks
++    (mapv (fn [id]
++            {:check/id id
++             :check/result result
++             :check/receipt {:observed true :id id}})
++          (sort-by str studio/check-ids))
++    :flows
++    (mapv (fn [id]
++            {:flow/id id
++             :flow/result result
++             :flow/receipt {:observed true :id id}})
++          (sort-by str studio/flow-ids))
++    :result result
++    :actor {:actor/id "studio-validator" :actor/type :agent}
++    :time-ms 1000}))
++
++(deftest studio-promotion-bootstraps-a-code-floor-only-master
++  (let [rt (ocr/start-object-container-runtime!)]
++    (try
++      (testing "a clean runtime gets the existing v0 pointer before marker-first promotion"
++        (is (nil? (:active-pointer
++                   (adapter/read-master rt anatomy/spec))))
++        (let [draft (:form (studio/draft-candidate anatomy/default-form))
++              promoted (:form (studio/promotable-candidate draft))
++              source (:source
++                      (studio/retune-frame-candidate
++                       promoted {:border-color [0.31 0.67 0.91 1.0]}))
++              result (adapter/studio-promote-candidate!
++                      rt anatomy/spec source studio-instances
++                      {:marker-request/id "studio-clean-marker"
++                       :candidate-request/id "studio-clean-candidate"
++                       :time-ms 700 :actor sid})
++              state (adapter/read-master rt anatomy/spec)]
++          (is (:accepted? result))
++          (is (some? (:active-pointer state)))
++          (is (= anatomy/default-source
++                 (get-in state [:active-revision :content-text])))
++          (is (= (get-in state [:active-revision :revision-id])
++                 (:prior-revision-id result)))
++          (is (not= (:revision-id result)
++                    (get-in state [:active-revision :revision-id]))
++              "promotion remains a candidate; bootstrap does not accept it")
++          (is (= :accepted (get-in result [:marker :decision :status])))
++          (is (= :accepted (get-in result [:candidate :decision :status])))))
++      (finally (ocr/close-object-container-runtime! rt)))))
++
++(deftest studio-test-gated-promotion-is-canonical-and-retry-safe
++  (let [rt (ocr/start-object-container-runtime!)]
++    (try
++      (adapter/ensure-master! rt anatomy/spec)
++      (let [base-revision (get-in (adapter/read-master rt anatomy/spec)
++                                  [:active-revision :revision-id])
++            base-source (get-in (adapter/read-master rt anatomy/spec)
++                                [:active-revision :content-text])
++            draft (:form (studio/draft-candidate anatomy/default-form))
++            promoted (:form (studio/promotable-candidate draft))
++            source-a (studio/canonical-source promoted)
++            source-b (:source
++                      (studio/retune-frame-candidate
++                       promoted {:border-color [0.85 0.42 0.30 1.0]}))
++            draft-compiled (facet-material/compile-source anatomy/spec
++                                                           (studio/canonical-source draft))
++            draft-subject "du:studio:draft"
++            draft-deviation
++            (material-truth/deviate!
++             rt anatomy/spec draft-subject (:material draft-compiled)
++             {:request-id "studio-draft-structure"
++              :activation-request-id "studio-draft-structure-activate"
++              :time-ms 800 :actor sid})
++            promotion-a
++            (adapter/studio-promote-candidate!
++             rt anatomy/spec source-a studio-instances
++             {:marker-request/id "studio-marker-a"
++              :candidate-request/id "studio-candidate-a"
++              :time-ms 900 :actor sid})
++            revision-a (:revision-id promotion-a)]
++        (testing "T1/T2 — first stroke is durable instance structure with visible status"
++          (let [state (adapter/instance-state rt anatomy/spec draft-subject)
++                active-source (get-in state [:state :active-revision
++                                             :content-text])
++                active-form (edn/read-string active-source)]
++            (is (:accepted? draft-deviation))
++            (is (:exists? state))
++            (is (:pointer? state))
++            (is (studio/draft-form? active-form))
++            (is (some #(= studio/frame-part-id (:part/id %))
++                      (:anatomy/parts active-form)))
++            (is (= :focus/place-caret
++                   (get-in attention/strict-bindings-form
++                           [:facet-master/bindings :block/user-hit-area 2
++                            :binding/verb :verb/name])))))
++
++        (testing "T2 — a still-visible draft cannot be promoted as the default"
++          (let [attempt
++                (adapter/studio-promote-candidate!
++                 rt anatomy/spec (studio/canonical-source draft)
++                 studio-instances
++                 {:marker-request/id "studio-draft-marker-refused"
++                  :candidate-request/id "studio-draft-candidate-refused"})]
++            (is (false? (:accepted? attempt)))
++            (is (some #(= :studio/candidate-still-draft (:type %))
++                      (:errors attempt)))
++            (is (nil? (ocr/read-current-revision
++                       rt (adapter/studio-gate-container-id
++                           anatomy/spec (:revision-id attempt)))))))
++
++        (testing "T1/TRAP-3 — marker-first promotion lands through real OC truth"
++          (is (:accepted? promotion-a))
++          (is (= base-revision (:prior-revision-id promotion-a)))
++          (is (= :accepted (get-in promotion-a [:marker :decision :status])))
++          (is (= :accepted
++                 (get-in promotion-a [:candidate :decision :status])))
++          (is (some? (ocr/read-current-revision
++                      rt (adapter/studio-gate-container-id anatomy/spec
++                                                           revision-a))))
++          (is (some? (ocr/read-revision rt revision-a))))
++
++        (testing "R1a — exact-replay promotion (same candidate, same instances,
++                  before any report) is accepted and idempotent, and the gate
++                  marker itself is untouched"
++          (let [gate-id (adapter/studio-gate-container-id anatomy/spec
++                                                           revision-a)
++                before (ocr/read-current-revision rt gate-id)
++                replay (adapter/studio-promote-candidate!
++                        rt anatomy/spec source-a studio-instances
++                        {:marker-request/id "studio-marker-a-replay"
++                         :candidate-request/id "studio-candidate-a-replay"
++                         :time-ms 900 :actor sid})
++                after (ocr/read-current-revision rt gate-id)]
++            (is (:accepted? replay))
++            (is (= revision-a (:revision-id replay)))
++            (is (= (:revision-id before) (:revision-id after))
++                "an identical re-promotion mints no new gate marker")))
++
++        (testing "T3/TRAP-2 — direct canonical activation cannot omit or fake PASS"
++          (doseq [[label opts]
++                  [["absent report" {:request/id "studio-bypass-none"}]
++                   ["caller-supplied ground"
++                    {:request/id "studio-bypass-ground"
++                     :activation/grounds
++                     [(activation-event/ground
++                       :grounded-in :experience "studio-report:forged")]}]]]
++            (let [attempt (adapter/activate! rt anatomy/spec revision-a opts)]
++              (is (false? (:accepted? attempt)) label)
++              (is (some #(= :studio-report/missing (:type %))
++                        (:errors attempt)) label)))
++          (is (= base-revision
++                 (get-in (adapter/read-master rt anatomy/spec)
++                         [:active-revision :revision-id]))))
++
++        (testing "a different tested set is not report truth"
++          (let [wrong (assoc-in studio-instances [0 :instance/id]
++                                "du:studio:different")
++                rejected
++                (adapter/submit-studio-report!
++                 rt anatomy/spec revision-a
++                 (studio-report-data :pass wrong)
++                 {:request/id "studio-report-wrong-set"})]
++            (is (false? (:accepted? rejected)))
++            (is (some #(= :studio-report/instance-set-mismatch (:type %))
++                      (:errors rejected)))))
++
++        (testing "a durable FAIL report remains a refusal"
++          (let [failed (adapter/submit-studio-report!
++                        rt anatomy/spec revision-a
++                        (studio-report-data :fail)
++                        {:request/id "studio-report-fail"})
++                attempt (adapter/activate!
++                         rt anatomy/spec revision-a
++                         {:request/id "studio-bypass-fail"})]
++            (is (:accepted? failed))
++            (is (false? (:accepted? attempt)))
++            (is (= :fail (get-in attempt
++                                 [:studio-gate :report
++                                  :studio-report/result])))))
++
++        (testing "R1a — the confirmed defect: re-promoting the SAME candidate
++                  under a DIFFERENT expected-instances is refused, never
++                  superseding the already-reported marker"
++          (let [gate-id (adapter/studio-gate-container-id anatomy/spec
++                                                           revision-a)
++                before (ocr/read-current-revision rt gate-id)
++                fabricated (assoc-in studio-instances [0 :instance/id]
++                                     "du:studio:fabricated")
++                attempt (adapter/studio-promote-candidate!
++                         rt anatomy/spec source-a fabricated
++                         {:marker-request/id "studio-remark-marker"
++                          :candidate-request/id "studio-remark-candidate"})
++                after (ocr/read-current-revision rt gate-id)]
++            (is (false? (:accepted? attempt)))
++            (is (= :studio/gate-already-reported (:reason attempt)))
++            (is (some #(= :studio-gate/report-exists (:type %))
++                      (:errors attempt)))
++            (is (= (:revision-id before) (:revision-id after))
++                "the already-reported gate marker is byte-identical after the refused attempt")))
++
++        (testing "R1b — a marker minted DIRECTLY at the runtime (bypassing
++                  studio-promote-candidate!'s R1a guard entirely) is still
++                  caught by the canonical owner's history check"
++          (let [bypass-instances (assoc-in studio-instances [0 :instance/id]
++                                           "du:studio:bypass")
++                bypass-content-sha (oc/source-hash source-a)
++                marker-v2-request
++                (adapter/studio-gate-import-request
++                 anatomy/spec revision-a bypass-content-sha bypass-instances
++                 {:request/id "studio-bypass-marker-v2"})]
++            (ocr/append-object-container-request! rt marker-v2-request :ack)
++            (let [import-decision (ocr/read-decision rt marker-v2-request)
++                  bypass-report
++                  (adapter/submit-studio-report!
++                   rt anatomy/spec revision-a
++                   (studio-report-data :pass bypass-instances)
++                   {:request/id "studio-bypass-report-pass"})
++                  attempt (adapter/activate!
++                           rt anatomy/spec revision-a
++                           {:request/id "studio-bypass-activate-v2"})]
++              (is (oc/decision-accepted? import-decision)
++                  "the direct import itself lands — proving the bypass is real")
++              (is (:accepted? bypass-report)
++                  "the bypass marker accepts a fresh PASS report on its OWN terms")
++              (is (false? (:accepted? attempt))
++                  "the canonical owner refuses despite a locally-consistent current marker+report")
++              (is (some #(contains? #{:studio-gate/marker-mutated
++                                      :studio-report/superseded
++                                      :studio-report/failed-terminally}
++                                    (:type %))
++                        (:errors attempt))))))
++
++        ;; A report id is candidate+instance-set identity. A failed report may
++        ;; not be rewritten into PASS, so the passing path uses a fresh
++        ;; candidate revision exactly as the production validator must.
++        (let [promotion-b
++              (adapter/studio-promote-candidate!
++               rt anatomy/spec source-b studio-instances
++               {:marker-request/id "studio-marker-b"
++                :candidate-request/id "studio-candidate-b"
++                :time-ms 1100 :actor sid})
++              revision-b (:revision-id promotion-b)
++              pass-data (assoc (studio-report-data :pass) :time-ms 1200)
++              passed
++              (adapter/submit-studio-report!
++               rt anatomy/spec revision-b pass-data
++               {:request/id "studio-report-pass"})
++              exact-replay
++              (adapter/submit-studio-report!
++               rt anatomy/spec revision-b pass-data
++               {:request/id "studio-report-pass-retry"})
++              conflict-data
++              (assoc-in pass-data [:checks 0 :check/receipt :observed] false)
++              conflict
++              (adapter/submit-studio-report!
++               rt anatomy/spec revision-b conflict-data
++               {:request/id "studio-report-pass-conflict"})]
++          (testing "exact replay returns the original decision; changed reuse conflicts"
++            (is (:accepted? promotion-b))
++            (is (:accepted? passed))
++            (is (:accepted? exact-replay))
++            (is (true? (:replay? exact-replay)))
++            (is (false? (:accepted? conflict)))
++            (is (= :idempotency/material-fingerprint-conflict
++                   (get-in conflict [:decision :reason])))
++            (is (= true
++                   (get-in exact-replay
++                           [:report :studio-report/checks 0
++                            :check/receipt :observed]))))
++
++          (testing "matching PASS is grounded by the owner and flips once"
++            (let [accepted (adapter/activate!
++                            rt anatomy/spec revision-b
++                            {:request/id "studio-activate-pass"
++                             :time-ms 1300 :actor sid})]
++              (is (:accepted? accepted))
++              (is (= revision-b
++                     (get-in (adapter/read-master rt anatomy/spec)
++                             [:active-revision :revision-id])))
++              (is (= [(activation-event/ground
++                       :grounded-in :experience
++                       (adapter/studio-report-id
++                        anatomy/spec revision-b studio-instances))]
++                     (get-in accepted [:event :activation/grounds])))))
++
++          (testing "T4 — an ordinary unmarked rollback remains behavior-identical"
++            (let [rollback (adapter/activate!
++                            rt anatomy/spec base-revision
++                            {:request/id "studio-non-studio-rollback"
++                             :time-ms 1400
++                             :actor sid
++                             :activation/kind :rollback})]
++              (is (:accepted? rollback))
++              (is (false? (get-in rollback [:studio-gate :required?])))
++              (is (= base-revision
++                     (get-in (adapter/read-master rt anatomy/spec)
++                             [:active-revision :revision-id])))
++              (is (= base-source
++                     (get-in (adapter/read-master rt anatomy/spec)
++                             [:active-revision :content-text]))
++                  "reverse restores the retained bytes exactly")))))
++      (finally (ocr/close-object-container-runtime! rt)))))
++
+ ;; ===========================================================================
+ ;; G1 — instance deviation end to end
+ ;; ===========================================================================

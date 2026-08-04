@@ -139,6 +139,26 @@ refine after. The grammar already speaks this; no surface exposes it.
 > body, anchored transforms, plain words). Sid plays cold at the end;
 > his verbatim reaction is the round's record, banked here.
 
+## Playground round 2 — cold gate (2026-08-01)
+
+The mechanism worked: Sid could draw rectangles within rectangles; their
+containment was visible, and the containing block moved as one body. The
+product proposition did not. Structure had no visible consequence beyond
+containment, so the room did not answer where the act was going or why the
+new hierarchy mattered.
+
+**Sid's verbatim reaction:**
+
+> ok i did run it but not sure this is what i want like yeah now i can draw rectangles within rectangles and they are all bounded to the block and move as one not sure what else apart from it .... like is this all goineg somewhere???
+
+**Gate: FELT FAIL — technically operative, semantically ungrounded.** Do not
+respond with more primitive manipulation or rectangles. Before another build,
+name one meaningful end-to-end creation loop whose structural sketch becomes
+an inhabitable artifact: what the thing is, what changes because of its
+structure, where that consequence is previewed in real context, and how Sid
+keeps or reverses it. The next cut is a product-direction ruling, not an
+automatic cut 3.
+
 ## Process rulings (Sid, 2026-08-01)
 
 - **The playground stream**: "build broad version and this is what it
@@ -159,8 +179,10 @@ refine after. The grammar already speaks this; no surface exposes it.
 
 ## Tree state
 
-Code UNCOMMITTED in two layers — studio P1 (ground.cljs,
-facet_master.clj, server_jetty.clj, tests, studio.cljc ×2) + playground
-cut 1 (workshop_playground ×2 + two ground.cljs lines). Archiving vs
-survivorship are separate rulings (Sid), both deferred to a fresh
-session. Docs land on `docs/current-mental-model-local` as usual.
+RULED 2026-08-05 (Sid: "commit and discard"): both layers DISCARDED from
+the working tree after banking — the full tracked diff (2,232-line patch)
++ all five untracked files archived at `build/studio/archive/`. If
+Package 2 summons the durable-artery capability, it re-lands from the
+archive under its own contract, never wholesale. Studio custody at the
+CAPABILITY level remains the one decision reserved to Sid on the board —
+the archive keeps it open at zero tree cost. Tree clean.

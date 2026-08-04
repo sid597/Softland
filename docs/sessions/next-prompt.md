@@ -667,10 +667,12 @@ target) — briefings carry BOTH vocabularies. LOG captured
 standing review session's opening); Vision line advanced.
 Reserved to Sid — ONE decision remains: studio custody at the
 CAPABILITY level (the durable artery gates Package-2 felt
-activations; the failed face archives separately).
-Code still uncommitted in two layers; archive/survivorship
-rulings still deferred, unchanged by this settlement (the studio
-layer carries the durable authoring loop the law demands).
+activations; the archive keeps it open at zero tree cost).
+**ARCHIVE RULING EXECUTED 2026-08-05 (Sid: "commit and discard"):**
+both uncommitted layers banked at `build/studio/archive/` (tracked
+patch + five untracked file copies) then DISCARDED from the tree;
+Package 2 re-lands the durable artery from the archive under its
+own contract if summoned. Tree clean.
 
 **shaping-correction — IMPLEMENTATION OPEN (SEAM-STEP1 landed `5f55cf5`
 2026-08-05; R4 PASS 2026-08-04; SEAM stays frozen/unwidened).** Sid's
@@ -711,9 +713,12 @@ multi-stop terminal plus executable 7/7 classifier) → R4 PASSED
 R3 §10 items consumed; inherited R2/R1 chain closed; prior consumptions
 unweakened; three non-blocking advisories in §7 travel to implementation.
 SEAM-STEP1 code landed `5f55cf5` (2026-08-05) — implementation is OPEN.
-NEXT = re-run CONTRACT §11's manifest sweep against the committed HEAD, then
-cut the Codex one-context whole-package opening prompt into
-`build/shaping-correction/NOW.md`.
+Spot manifest sweep run same day (8 anchor symbols exact incl.
+`shaped-layout` :328; CONTRACT sha256 = the R4 pin; ground.cljs
+4,798→4,141 ln drift from the studio discard, logged); the full
+per-symbol sweep = implementer Act 0 per §11's own at-phase-open law.
+**OPENING PROMPT CUT into `build/shaping-correction/NOW.md` — NEXT =
+Sid pastes it to Codex.** Nothing else stands before code.
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.

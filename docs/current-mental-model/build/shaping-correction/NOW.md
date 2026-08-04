@@ -108,3 +108,73 @@
   remains CLOSED until SEAM-STEP1 code lands. NEXT after that committed
   landing: re-run CONTRACT §11's manifest sweep, then append the Codex
   one-context whole-package opening prompt here with all three advisories.
+- 2026-08-05 · Fable (SEAM close + opening session) · **PHASE OPEN.**
+  SEAM-STEP1 code LANDED `5f55cf5`; studio/playground layers DISCARDED at
+  Sid's ruling (banked `build/studio/archive/`) — §11's dirty-tree caveat
+  is moot; tree clean. Spot sweep at open: `shaped-layout` :328 exact ·
+  `position-text-op` :1472 exact · `reconcile-slot-text-geos!` :25 /
+  `<store-frame` :130 exact · `ground-block-layout` :587 exact ·
+  text_layout.cljc 797 ln exact; ground.cljs 4,798→4,141 ln (hints past
+  ~:2240 shift ≈ −657, substance verified present). CONTRACT.md sha256
+  re-verified = R4 pin (`3699f3fb…e128e19b`). Full per-symbol sweep =
+  implementer Act 0 per §11's at-phase-open law (re-locate + log; substance
+  missing → S3). SEAM-STEP1-P1.md finding 3 (fingerprint ordering) handled
+  as a boot-verify + S4 escalation in the prompt — no contract authorizes a
+  pre-open verifier edit. Opening prompt appended below; Sid pastes to Codex.
+
+## CODEX OPENING PROMPT (paste verbatim — one fresh context, whole package)
+
+```
+You are the implementer for the shaping-correction package.
+Repo /mnt/data/projects/Softland · branch docs/current-mental-model-local ·
+record `git rev-parse HEAD` as opening HEAD in the phase artifact. Tree is
+clean (SEAM-STEP1 landed as 5f55cf5; studio layers discarded).
+
+ONE phase, whole package, no PLAN.md. Binding docs, precedence order:
+docs/current-mental-model/decisions.md ("The render seam") · Contract T =
+docs/current-mental-model/build/render-engine/W1.md · the package contract
+docs/current-mental-model/build/shaping-correction/CONTRACT.md (sha256
+3699f3fb7db413d4b8b07936e4192950f486171aae02a90b4a408028e128e19b,
+R4-validated) · baton NOW.md (flag contradictions there, never pause).
+Evidence: FOUNDING-EVIDENCE.md + evidence/ (hash manifest inside).
+
+Act 0 — §11 manifest sweep BEFORE any code: grep -n every §11 symbol.
+Hint drift with substance intact → re-locate + log in the phase artifact
+(known: ground.cljs 4,798→4,141 ln — hints past ~:2240 shift ≈ −657;
+renderer.cljs / runtime/render.cljs carry small SEAM drift; text_layout
+.cljc and face_primitives.cljc are hint-exact). Substance missing → STOP
+S3. Also boot-verify G10's baseline: `npm run verify:render-engine` must
+exit 1 matching W1 §9.1 on both surfaces (environmentFingerprint
+e79490f8882cd785f32b5bb82cadd425dc90f2d7616cc9f0debf8a0f1c476282,
+deterministic 21/21, candidateParity 14/21). If the fingerprint
+mismatches from adapter-feature ORDERING alone (SEAM-STEP1-P1.md finding
+3), STOP and escalate S4 — never edit the verifier yourself. Capture the
+CLJS-compile warning baseline at open (G10's no-new-warnings signature).
+
+Build: invariants I1–I10 · §5 wrap law · §6 layout key + cache · §7 step
+partition (step 5 — paint-delta/residency/streaming — NEVER
+pre-authorized) · §8 hooks/counters. Gates G1–G10 under §10's environment
+law with §9's four literal CLIs and the total 0/1/2/3 exit law; terminals
+per §10's table (BLOCKED > FAIL > UNCLASSIFIED > BAR-RED > PASS); stops
+§13 S1–S6 — never improvise policy. In-phase falsifier per §14.3: one
+finder aimed at linearized index construction + §5 cuts + §6 key/cache.
+
+Three R4 §7 advisories travel as receipts (full text VALIDATION_R4.md §7):
+(1) the live proportionality bound is asserted where G/C/R are known —
+G1's fixtures; live rows bank the §8 receipt only. (2) reference-advance
+shapes count OUTSIDE `shape-calls` — only that reading can go green.
+(3) BEFORE any measured window, bank the owned-address-count=1 receipt
+for both pinned corpus blocks (census + per-block hook); if it reads >1,
+the row needs a pre-read recut — flag it, don't force the row.
+
+Hard rules: NO git commits (commit ruling is Sid's, at gate review) ·
+NEVER read src/app/server/env.clj · never push/merge · edit surface =
+CONTRACT §12 exactly (no SEAM-STEP1 files, no scene_store / scene_runtime
+/ scene_tape / editor_compute / mouse, no Electric files, no existing
+fence scripts; carried results ride op maps — no store schema change).
+
+Done = §10 gates green (or the exact §10 terminal named) + phase artifact
+P1.md in build/shaping-correction/ (per-act record, gate receipts,
+judgment calls, diff-derived file list sum-checked vs §12) + NOW entry
+≤15 lines (FAIL findings verbatim). Then Fable FULL-tier gate review.
+```
