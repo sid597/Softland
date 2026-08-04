@@ -667,8 +667,8 @@ Code still uncommitted in two layers; archive/survivorship
 rulings still deferred, unchanged by this settlement (the studio
 layer carries the durable authoring loop the law demands).
 
-**shaping-correction — CONTRACT IN VALIDATION LADDER (R4 candidate cut
-2026-08-04; predecessor to SEAM-STEP1 closure; SEAM stays
+**shaping-correction — CONTRACT VALIDATED — AWAITING SEAM-STEP1 LANDING
+(R4 PASS 2026-08-04; predecessor to SEAM-STEP1 closure; SEAM stays
 frozen/unwidened).** Sid's
 profiling ruling executed: the 2026-08-03 capture banked durable
 (`build/shaping-correction/evidence/` + `FOUNDING-EVIDENCE.md` — settle
@@ -702,9 +702,13 @@ plus dual timeout classes, incomplete/overlapping terminals; R2 items 1,
 with closed role/address/provider/metric tokens; one-current-entry bounded
 cache; separate oracle accounting; two isolated trials; four literal CLIs
 with a dedicated negative; every post-attestation timeout exit 3; sorted
-multi-stop terminal plus executable 7/7 classifier). No implementation or
-evidence probe ran. NEXT = wholly fresh default-fail validation R4 over the
-contract; baton `build/shaping-correction/NOW.md`.
+multi-stop terminal plus executable 7/7 classifier) → R4 PASSED
+(`VALIDATION_R4.md`, commit `bf0b398`, sha256 `24a0643a…971730`): all ten
+R3 §10 items consumed; inherited R2/R1 chain closed; prior consumptions
+unweakened; three non-blocking advisories in §7 travel to implementation.
+Implementation remains CLOSED until SEAM-STEP1 code lands. NEXT after that
+committed landing = re-run CONTRACT §11's manifest sweep, then cut the Codex
+one-context whole-package opening prompt into `build/shaping-correction/NOW.md`.
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.

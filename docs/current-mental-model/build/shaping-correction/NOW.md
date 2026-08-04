@@ -97,3 +97,14 @@
   literal CLIs incl. dedicated negative · post-attestation timeout = exit 3 ·
   sorted multi-stop terminal + executable 7/7 classifier. No implementation
   or evidence probe ran. NEXT: wholly fresh default-fail validation R4.
+- 2026-08-04 · Fable-lane (fresh context, validation R4) · VERDICT: PASS —
+  `VALIDATION_R4.md` (commit `bf0b398`; sha256 `24a0643a…971730`). All ten
+  R3 §10 items consumed in executable substance; through them R2 items
+  1/2/3/5/7 + R1 items 1–4/6/8 closed. Previously consumed R2 items
+  4/6/8/9 + R1 items 5/7 verified unweakened; `RECUT_LEDGER_R3.md` accurate.
+  Three non-blocking implementer advisories are recorded in validation §7:
+  live proportionality-bound reading; `shape-calls` excludes the reference
+  shape; rows (b)/(l) require the pre-read owned-count receipt. Implementation
+  remains CLOSED until SEAM-STEP1 code lands. NEXT after that committed
+  landing: re-run CONTRACT §11's manifest sweep, then append the Codex
+  one-context whole-package opening prompt here with all three advisories.
