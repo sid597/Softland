@@ -81,3 +81,19 @@
   1–5 with PACKAGE BLOCKED — S<n>. Judgment calls for R3: port-8080 URL
   pin; dirty seven-field shape; pack-cause law; run-recorded fields;
   (h)'s convergence-proof alternative. NEXT: R3 fresh default-fail round.
+- 2026-08-04 · Codex (fresh context, validation R3) · VERDICT: FAIL —
+  `VALIDATION_R3.md` (immutable; sha256 f6448d45…a800). Five defect
+  classes: invalid half-open range syntax · underdefined/unbounded cache
+  key + conflicting oracle accounting · G4 pack/run-twice contradictions ·
+  one probe CLI with incompatible expected exits plus dual timeout classes ·
+  incomplete/overlapping terminal naming. R2 §10 items 4, 6, 8, 9 and R1
+  items 5, 7 remain consumed; all claimed closure of R2 items 1, 2, 3, 5,
+  7 and R1 items 1–4, 6, 8 ruled unconsumed in executable substance.
+- 2026-08-04 · Codex (recut session) · CONTRACT.md recut = R4 candidate,
+  consuming R3 §10 items 1–10 exactly (map: `RECUT_LEDGER_R3.md`).
+  Headlines: valid full header values · full-text closed key with exact
+  role/address/provider/metric tokens · one-current-entry-per-address bounded
+  cache · separate oracle accounting · two isolated positive trials · four
+  literal CLIs incl. dedicated negative · post-attestation timeout = exit 3 ·
+  sorted multi-stop terminal + executable 7/7 classifier. No implementation
+  or evidence probe ran. NEXT: wholly fresh default-fail validation R4.

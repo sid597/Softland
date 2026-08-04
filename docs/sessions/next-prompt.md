@@ -667,7 +667,7 @@ Code still uncommitted in two layers; archive/survivorship
 rulings still deferred, unchanged by this settlement (the studio
 layer carries the durable authoring loop the law demands).
 
-**shaping-correction — CONTRACT IN VALIDATION LADDER (R3 candidate cut
+**shaping-correction — CONTRACT IN VALIDATION LADDER (R4 candidate cut
 2026-08-04; predecessor to SEAM-STEP1 closure; SEAM stays
 frozen/unwidened).** Sid's
 profiling ruling executed: the 2026-08-03 capture banked durable
@@ -693,7 +693,17 @@ candidate (map `RECUT_LEDGER_R2.md`: §5.3 segment-relative cut law,
 exact header schema, §6 VPT + gate-owned cache oracle, re-sequenced
 storyboard, literal harness CLIs + total 0/1/2/3 exit law, G4 rows
 h–l, G10 two-surface pin + W1 fingerprint, PACKAGE BLOCKED — S<n>
-terminals). NEXT = fresh default-fail validation R3 over the
+terminals) → R3 FAILED (`VALIDATION_R3.md` — invalid header literal,
+underclosed/unbounded key+cache and conflicting oracle accounting, G4
+pack/run-twice contradictions, one probe CLI with incompatible outcomes
+plus dual timeout classes, incomplete/overlapping terminals; R2 items 1,
+2, 3, 5, 7 and R1 items 1–4, 6, 8 ruled unconsumed) → recut/R4 candidate
+(map `RECUT_LEDGER_R3.md`: valid full header values; full visible-text key
+with closed role/address/provider/metric tokens; one-current-entry bounded
+cache; separate oracle accounting; two isolated trials; four literal CLIs
+with a dedicated negative; every post-attestation timeout exit 3; sorted
+multi-stop terminal plus executable 7/7 classifier). No implementation or
+evidence probe ran. NEXT = wholly fresh default-fail validation R4 over the
 contract; baton `build/shaping-correction/NOW.md`.
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
