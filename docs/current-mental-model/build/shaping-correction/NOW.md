@@ -40,3 +40,18 @@
   (§6), harness home `test/render_engine/`. NEXT: fresh default-fail
   validation round over CONTRACT.md; then the Codex opening prompt lands
   here.
+- 2026-08-04 · Codex (fresh context, validation R1) · VERDICT: FAIL —
+  `VALIDATION_R1.md` (immutable; six FAIL-class findings + §10 recut
+  ledger). Evidence + §11 manifest validated clean; T13/§12 ruled
+  sufficient (no S2).
+- 2026-08-04 · Fable (recut session) · CONTRACT.md recut consuming R1 §10
+  items 1–10 exactly — map in `RECUT_LEDGER_R1.md`. Headlines: §5 semantic
+  law (representation/consumed ranges/headers/provider fault/reference
+  advance; break-whitespace {U+0020,U+0009}, trap T14); §6 total key; G4
+  lifecycle fix (backend = repack+reclone, layout IDs identical); ONE
+  seven-transition storyboard; §10 environment law + bound constants +
+  pinned commands; G10 pinned to W1 §9.1 exit-1 state, golden 21/21
+  absolute + stop S6; terminal classifications incl. EXPERIENCE-BAR RED.
+  Judgment calls for R2: k=4/c=5/+8 constants; 13-repack hover count;
+  fold-cascade as the order-only probe; harness exit law 0/1/2. NEXT: R2
+  fresh default-fail round (prompt in the session close-out).
