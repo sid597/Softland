@@ -1,0 +1,4 @@
+interface:
+  display_name: "Investigation Fence"
+  short_description: "Receipts before causal verdicts"
+  default_prompt: "Use $investigation-fence to investigate this failure empirically and choose the decisive receipt before any causal verdict."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Softland Work Package"
+  short_description: "Run fenced Softland work packages"
+  default_prompt: "Use $work-package to open, implement, validate, gate, or close this Softland work package under the current package law."
