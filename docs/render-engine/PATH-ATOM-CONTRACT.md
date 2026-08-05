@@ -104,7 +104,9 @@ delegation beside `tree->images` · `scene_store.cljc` `:paths` lane beside
 `:images` · `runtime/render.cljs` passes `:image-system`/`:path-system` at the one
 `draw-frame!` call site (`:717`) · `electric_flow.cljc` one construction line ·
 `test/app/test_runner.clj` registers the two new test namespaces (fail-closed
-inventory).
+inventory) · verifier lane: `webgpu/verifier.cljs` +
+`test/render_engine/run_verifier.mjs` gain the path golden + pick-parity cases
+(the image atom's shape; append-only — existing cases and flags untouched).
 
 ## Decisive scenarios (frozen as tripwires + goldens at close)
 
