@@ -223,3 +223,11 @@ judgment calls, diff-derived file list sum-checked vs §12) + NOW entry
   (standalone launcher lacks Electric hook + `src-dev/dev` classpath). No
   substitute/profile/broad test. NEXT: Sid's two lived answers; separate
   code/docs commits are authorized this session.
+
+- 2026-08-05 · Sid lived acceptance · **PASS / PASS; LAND.** Sid answered
+  "yes to both": later-line text is visible in the 48-line `#Feedback` note,
+  not only line 1, and the hover/attention outline moves to the block under the
+  pointer. The lived gate is closed. The exact `npx` launcher gap, incomplete
+  optional matrix/backend-flip timeout, and unclassified physical-GPU timing
+  remain explicit non-blocking residue; no broader verdict is claimed. Docs-only
+  custody update; no code or test command.
