@@ -10,7 +10,7 @@ This is the Codex discovery bridge, not a second copy of the law.
 Before taking task actions, read the canonical
 `../../../.claude/skills/investigation-fence/SKILL.md` completely and apply it
 as written. Also obey the current settled ground in
-`../../../docs/current-mental-model/decisions.md` and the always-on bootstrap
+`../../../docs/decisions.md` and the always-on bootstrap
 in `../../../AGENTS.md`.
 
 Do not reconstruct the fence from memory or turn lane tendencies into model

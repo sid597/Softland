@@ -10,7 +10,7 @@ This is the Codex discovery bridge, not a fork of the package process.
 Before taking package actions, read the canonical
 `../../../.claude/skills/work-package/SKILL.md` completely and apply it as
 written. Read any files that canonical skill requires for the specific package.
-Current settled ground in `../../../docs/current-mental-model/decisions.md`
+Current settled ground in `../../../docs/decisions.md`
 outranks stale package or baton prose.
 
 Do not copy selected package rules into this bridge or infer permanent model

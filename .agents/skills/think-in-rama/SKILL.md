@@ -21,18 +21,18 @@ docs/architecture/think-in-rama.md
 For the specific Softland policy/throughput debate, read:
 
 ```text
-docs/current-mental-model/architecture/action-request-kernel-routing.md
-docs/current-mental-model/architecture/logical-lifecycle-and-derived-depots.md
-docs/current-mental-model/architecture/rama-policy-throughput-post.md
-docs/current-mental-model/architecture/rama-blog-patterns.md
-docs/current-mental-model/architecture/prompt-to-implementation-lossiness.md
+OLD DOCS/architecture/action-request-kernel-routing.md
+OLD DOCS/architecture/logical-lifecycle-and-derived-depots.md
+OLD DOCS/architecture/rama-policy-throughput-post.md
+OLD DOCS/architecture/rama-blog-patterns.md
+OLD DOCS/architecture/prompt-to-implementation-lossiness.md
 ```
 
 For policy granularity questions, especially "do we need a row per tiny unit?",
 read:
 
 ```text
-docs/current-mental-model/architecture/policy-granularity-mastodon-parallel.md
+OLD DOCS/architecture/policy-granularity-mastodon-parallel.md
 ```
 
 ## Core Stance

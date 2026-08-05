@@ -88,7 +88,7 @@ phase ladders (EXCEPT the rama and rama-retro skills) for package acceptance;
 those skills serve their own domains' internals AND FOR RAMA SHOULD BE FOLLOWED.
 
 ## Files
-`build/<package>/` holds exactly two living documents per atom: CONTRACT.md
+`docs/<package>/` holds exactly two living documents per atom: CONTRACT.md
 and NOW.md (STANDING frozen at open · NOW entries ≤15 lines). The board gets
 one pointer line per thread. Rulings live in decisions.md. That is all.
 
