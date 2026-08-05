@@ -22,8 +22,9 @@ as one new tape family `:render.family/path`, on D2=A's material contract:
   the JVM tripwire lane that `image_material.cljc` proved).
 - **Paint**: solid color + opacity. Coverage is declared ALIASED v1 (raw triangle
   edges) — an honest Contract-G declaration, not a gap to hide.
-- Tessellation is an event-driven derivation cached per **(material identity ·
-  algorithm-version · zoom regime)** — image-material's cache-key shape. Continuous
+- Tessellation is an event-driven derivation cached per **(material
+  content/source-revision key · algorithm-version · zoom regime)** —
+  image-material's `material-cache-key` shape, never a stable node id. Continuous
   pan/zoom rides in-shader container transforms (vertices are container-local f32;
   motion is a transform value, never a re-tessellation); only regime-band changes
   re-tessellate. Uploads happen on mesh-set change, never unconditionally per frame.
@@ -31,14 +32,20 @@ as one new tape family `:render.family/path`, on D2=A's material contract:
   versioned. CPU classification is THE geometry truth (point-in-polygon-with-holes;
   ink = distance-to-centerline ≤ half-width + declared slop); GPU coverage is its
   projection, parity-probed outside a declared boundary band (Q6 law; byte-128 tie
-  precedent). Declaration data (interior · coverage relation · tie semantics · slop ·
+  precedent). Product pick is RULED here, not left to court: `rect_tree`'s
+  hit-test gains a per-family predicate seam (bounds stay the broad phase);
+  path nodes dispatch to this classifier — `ground.cljs` stays untouched.
+  Declaration data (interior · coverage relation · tie semantics · slop ·
   precision/backend regimes) lives in `path-material`, mirroring W1 Contract G.
 - **The live join** (Sid's cut ruling): URL flag `?live-atoms=1` boots the product
   workspace with image-system + path-system constructed and a small fixture corpus —
   a procedural image (bytes generated client-side, registered through
   `register-image-source!`, never a bypass), two ink strokes, one concave shape with
   a hole — injected through the REAL artery: rt-nodes → tree → store → tape →
-  pipelines. Flag absent → nil systems, no fixture load, byte-identical product.
+  pipelines. Injection waits for EVERY registration promise (the verifier's
+  await-ingress precedent; the prepare skip-guard otherwise sticks the
+  placeholder permanently). Flag absent → nil systems, no fixture load,
+  byte-identical product.
   The join decides NOTHING about custody: no authoring, no durable writes; the
   atom's felt GATE (real use, one live variable) still waits behind the
   durable-artery/studio-custody ruling reserved to Sid. This discharges the
@@ -69,13 +76,17 @@ as one new tape family `:render.family/path`, on D2=A's material contract:
   is unconditional; a regime tag records a limit, never waives legal material.
 - ENGINE.md §0 gate sentence — the family REGISTERS through the W2-B seam
   (`scene-tape/family-ids` + `default-family-registry` + `frame-family-registry`;
-  the load-time equality fence forces the pair); never a hand-positioned central
-  branch; the seeded-branch fence self-test stays green.
+  the load-time fence forces executor coverage ONLY — it admits a nil declarative
+  contract, so the implementer adds a non-nil `:contract` assertion beside it);
+  never a hand-positioned central branch; the seeded-branch fence self-test
+  stays green.
 - decisions.md "The render seam" — proportionality; no execution clock is an
   ancestor of derivation; effects at mutation sites and the frame edge only.
 - decisions.md settled architecture — store coords f64 world, GPU buffers
-  container-relative f32; f32-visible quantization at extreme extents gets a
-  declared regime boundary (Q2's law-shape).
+  container-relative f32; shape-local normalization at admission (re-anchored
+  origin/scale) is the lawful road across the WHOLE legal domain; the residual
+  quantization table declares measured screen-px error per regime — a tag
+  records a limit, never waives legal material (W1's no-gap partition; Q2).
 - Contract C color — straight material → tagged linear-premultiplied seam
   (default-OFF) → present; path shaders join `configure-*-color-shader` like image.
 - Dark-when-off — the join namespace loads PURE and routes nowhere without the flag
@@ -112,7 +123,8 @@ inventory) · verifier lane: `webgpu/verifier.cljs` +
 
 1. **Fail-closed + deterministic**: malformed material refuses by name; identical
    (material, version, regime) → byte-identical mesh; version bump changes the
-   cache key, never silently the bytes. [JVM]
+   cache key, never silently the bytes; a point edit re-derives ONLY its own mesh
+   (untouched siblings byte-identical — W1's admission falsifier). [JVM]
 2. **Ink law**: a pressure-varying centerline yields monotone width with declared
    caps/joins; the outline is a pure function of (centerline, version, regime). [JVM]
 3. **Interior truth**: concave contour + hole — CPU classification agrees with
@@ -121,11 +133,14 @@ inventory) · verifier lane: `webgpu/verifier.cljs` +
 4. **Tape citizenship**: path entries paint forward / pick reverse interleaved with
    rect/text/image; 2–3 representative goldens appended (ink · holed concave fill ·
    translucent self-crossing ink) spanning ≥3 zoom stations, one outside the
-   floor-default band; determinism 2×; ALL existing goldens byte-identical; the MSDF
-   counterexample stays RED. [verifier]
+   floor-default band; determinism 2×; the W1 path-color CPU-reference receipt
+   (translucent source-over on non-black — the image `run-color-receipts!` shape);
+   ALL existing goldens byte-identical; the MSDF counterexample stays RED. [verifier]
 5. **The live join**: `?live-atoms=1` → image + ink + holed shape move together
-   under pan/zoom on the real canvas; flag absent → nil systems, no injection —
-   the existing golden bank is the byte-identity receipt. [felt receipt, Sid's eyes]
+   under pan/zoom on the real canvas; flag absent → nil systems, no injection;
+   receipt = a tripwire that flag-off construction returns pipelines unaugmented
+   + `live_atoms` loads pure (dark-lane law) — the golden bank witnesses pipeline
+   identity only, never product boot. [felt receipt, Sid's eyes]
 
 ## MUST-NOTs
 
@@ -139,8 +154,10 @@ hooks only · commits only at Sid's word — code and docs separate, both on
 ## Close
 
 Scenarios 1–3 freeze as ~5 tripwires across the two JVM namespaces; scenario 4's
-goldens + parity rows join the permanent bank; focused suite = the two namespaces +
-`npm run verify:render-engine`. Foreign failures are board debt, never stops. One
+goldens + parity rows join the permanent bank; focused suite = the two namespaces
+GREEN + `npm run verify:render-engine` whose ONLY red is the preserved MSDF
+counterexample (W1's canonical exit — never "fixed" by this atom). Foreign
+failures are board debt, never stops. One
 NOW entry (≤15 lines, self-audit included) in `PATH-ATOM-NOW.md` + the board line
 flip. Acceptance = Sid's word.
 
@@ -165,8 +182,9 @@ The image atom is your structural precedent AT THE SOURCE LEVEL ONLY —
 image_material.cljc, the image half of renderer.cljs, verifier.cljs. Do NOT read
 IMAGE-ATOM-CONTRACT.md or any IMAGE-ATOM-* doc: they predate the one-pass law.
 
-Close per SKILL.md: tripwires + goldens frozen from the contract's scenarios,
-focused suite green (two JVM namespaces + npm run verify:render-engine), NOW
+Close per SKILL.md: tripwires + goldens frozen from the contract's scenarios;
+focused suite: the two JVM namespaces GREEN, and verify:render-engine red ONLY
+on the preserved MSDF counterexample (its canonical state — do not fix it). NOW
 entry ≤15 lines, board flip. Commits only at Sid's word. Acceptance is Sid's
 word — you never wait on a review round.
 ```
