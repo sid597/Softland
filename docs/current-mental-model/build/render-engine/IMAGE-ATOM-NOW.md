@@ -97,7 +97,23 @@
   rest. NEXT: fresh Fable ruling session boots the packet, rules Q1–Q7,
   recuts in place, sweeps, re-pins sha, cuts the Codex opening prompt.
 
-## Starter — the fresh Fable ruling session (Sid pastes this)
+- 2026-08-05 · Fable (ruling session) · **Q1–Q7 RULED · THIRD RECUT
+  EXECUTED · CONTRACT BINDING · IMPLEMENTATION OPEN.** Freeze check passed
+  (HEAD `f08c191`, frozen sha `0e84a86…` exact); four Opus gathering lanes
+  verified every load-bearing citation. Dispositions: Q1 ACCEPT(b)
+  zero-transfer row deleted, seam-off consistency receipt · Q2 AMEND one
+  entry per (vi,:images) + ordered sub-draw indirection + registered
+  family executor, image part-rank 3, T13 · Q3 ACCEPT+boundary
+  equality-by-construction (T14), half-open law, slop 0.0, address-owner
+  route · Q4 AMEND synthetic-frame verifier receipt, product-loop join
+  staged · Q5 ACCEPT value-identity snapshot · Q6 ACCEPT identity-gated
+  draw-frame! write · Q7 ACCEPT `__softland_image_ingress_receipt`. R2
+  repair (c) complete; R3 N7–N13 consumed; A1/A3–A7 recut, A2/A8 closed.
+  Contract 800→1,116 ln, sha256 `ebd894a58af945b761907decad74f8e7f3d39ea0a744ccadc6ce168900783800`;
+  map `IMAGE-ATOM-RECUT-LEDGER-R3.md`. NO R4 — cycle SPENT; FULL gate
+  carries the rest. NEXT: Sid pastes the CODEX OPENING PROMPT below.
+
+## Starter — the fresh Fable ruling session (CONSUMED 2026-08-05 — the ruling session ran; kept as history)
 
 > You are the ruling session for Package 2's image-atom contract. Boot, in
 > order: `docs/current-mental-model/build/render-engine/IMAGE-ATOM-RULING-PACKET.md`
@@ -121,3 +137,100 @@
 > implementation opens and the FULL gate carries the rest. Docs-only
 > commit(s) on `docs/current-mental-model-local` at close; never push;
 > never read `src/app/server/env.clj`.
+
+## CODEX OPENING PROMPT (paste verbatim — one fresh context, whole package)
+
+```
+You are the implementer for the image-atom package (Package 2, wave 1).
+Repo /mnt/data/projects/Softland · branch docs/current-mental-model-local ·
+record `git rev-parse HEAD` as opening HEAD in the phase artifact. Tree
+must be clean. FREEZE ANCHOR: sha256sum of
+docs/current-mental-model/build/render-engine/IMAGE-ATOM-CONTRACT.md must
+equal ebd894a58af945b761907decad74f8e7f3d39ea0a744ccadc6ce168900783800
+— mismatch → stop, report, no code.
+
+ONE phase, whole package, no PLAN.md. Binding docs, precedence order:
+docs/current-mental-model/decisions.md ("The render seam" section) ·
+build/render-engine/W1.md Contracts O/G/M/C + ENGINE.md §0 + §12 Q2/Q8 ·
+the package contract build/render-engine/IMAGE-ATOM-CONTRACT.md (the
+Q1–Q7-ruled third recut, BINDING) · baton IMAGE-ATOM-NOW.md (a baton,
+never a source of truth: contradictions → follow the binding doc, flag in
+NOW, never pause). Receipts context: W2-A-T0.md · W2-B-T1.md. The studio
+archive is READ-ONLY reference under CONTRACT §3 (its
+`image-scene-entries` per-instance design is the REFUSED shape).
+
+Act 0 — BEFORE any code, in order:
+(1) §11 manifest sweep: grep -n EVERY symbol; hint drift with substance
+    intact → re-locate + log in the phase artifact; substance missing →
+    STOP S3.
+(2) §8 boot-verify: `npm run verify:render-engine` must exit 1 with
+    classification candidate-pick-parity-failure · deterministic 21/21 ·
+    goldens 21/21 · candidate parity 14/21 · sentinels 7/7 · environment
+    fingerprint
+    5ced2482f3d0b8e9a14465bba06808a04d3a5a9b7d386fcf71f40a30f557343e.
+    Record sourceMatch (currently false — named input debt; must be true
+    by final G2 via the lawful metadata refresh; it NEVER authorizes
+    old-byte replacement). Byte/fingerprint mismatch → STOP S4; never
+    edit the verifier.
+(3) cljs compile warning baseline (G10's no-new-warnings signature).
+(4) the §8 ICC decode probe (createImageBitmap honors the embedded
+    profile, pinned pixels) — fail → STOP S5 with the probe receipt.
+(5) the G1 five-family registration-value EDN snapshot.
+(6) part-rank pin grep over the test tree (expected clean — no existing
+    lane's rank moves).
+
+Build per CONTRACT §3–§8. The spine: registration only, ZERO central
+branches (T1) — scene-tape registry entry + frame-family-registry row
+carrying the image family's OWN :execute! (the sub-draw walker); ONE
+batch entry per (vi, :images) whose :paint is the ordered sub-draw
+vector (§6); image part-rank 3, unique across lanes (T13); pick is
+equality-by-construction — no per-node transform ever (T14), half-open
+boundary, hit-slop 0.0, [:data :address] required on image rt-nodes
+(§5); ONE color declaration — candidate chain receipted fixture-side
+(*-srgb capture target), seam-off consistency leg, NO zero-transfer row
+(§5); clip clamps carry into crop/UV insets (T15); the image instance
+pool is owned by init-image-system and written identity-gated inside
+draw-frame!'s encode window (§6); buffer_pool.cljs and containers.cljc
+are READ-ONLY context. Cite trap numbers T1–T15 in code comments.
+
+Gates G1–G12 under §10's executable forms ([JVM-FULL] · [RENDER-BUILD] ·
+[RENDER-RED] · [RENDER-ASSERT] · [SCENE-FENCE] · [TEXT-FENCES] ·
+[PHASE-RECEIPT]). Exit law binds per invocation mode: the ordinary run
+stays exit 1 RED exactly on the preserved MSDF counterexample
+(47/regime); --assert-image-contract exits 0 only with §8's full
+assertion set green. The RED contract never gets "fixed": existing
+golden byte diff, MSDF count change, classification/exit flip under
+ordinary invocation → STOP S4. Stops S1–S6 per §13 — never improvise
+policy on binding docs. In-phase falsifier per §14: ONE fresh finder
+aimed at the sub-draw/executor order, the color chain (ingress/encode
+placement), and the lifecycle/budget refusal paths.
+
+Edit surface = CONTRACT §12 EXACTLY: MAY EDIT the eleven listed files;
+MAY CREATE image_material.cljc · verify_image_atom_receipt.mjs · the
+named test namespaces · image goldens/fixtures + the deterministic JVM
+generator · package docs. MUST NOT TOUCH: ground.cljs ·
+face_primitives.cljc · text_layout.cljc · editor_compute.cljs ·
+runtime/mouse.cljs · runtime/render.cljs · electric_flow.cljc ·
+buffer_pool.cljs · containers.cljc · any server file · the 21 existing
+golden PNGs · the text/shaping fences · profile_shaping_correction.mjs ·
+any SEAM-STEP1*/shaping-correction doc. package.json is READ-ONLY.
+
+Carried residue (IMAGE-ATOM-RECUT-LEDGER-R3.md, residue section): the
+ramped-edge obligation is INFERENCE until your shader proves it — G4's
+floors fail loudly if the edge is hard; the sub-draw walker is the
+falsifier's first target; record the image-above-text kind-layer default
+in the phase artifact so the felt wave inherits it consciously. This is
+a DARK wave: no felt gate, no authoring surface, and the product
+frame-loop join is a STAGED obligation — never claim or drive it.
+
+Done = G1–G12 green (or the exact stop named) + phase artifact
+IMAGE-ATOM-P1.md in build/render-engine/ (attestation-first receipts ·
+before/after verifier counts · fixture digests · diff-derived
+changed-file list sum-checked vs §12 · every §11 locator re-verified or
+drift-logged) + NOW entry ≤15 lines (FAIL findings verbatim). Then the
+independent Fable FULL-tier gate; Sid's commit ruling at gate.
+
+Hard rules: NO git commits, NO push, NO merge (the commit ruling is
+Sid's, at gate review) · NEVER read src/app/server/env.clj · code and
+docs never mix in one commit.
+```
