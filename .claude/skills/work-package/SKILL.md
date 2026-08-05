@@ -2,7 +2,7 @@
 name: work-package
 description: >-
   The one-pass law + the corners for Softland work packages: contract = the
-  hard thinking (one session, one document, one-two screens); everything
+  hard thinking (one session, one document, size open); everything
   after is execution straight through; acceptance is Sid's word; two
   Sid-touches per atom. Use when cutting a contract, implementing an
   atom/package, or closing one. Validation ladders, gate sessions, and stop
@@ -23,9 +23,11 @@ deleting one** (corner: no rule without a corpse, no corpse without expiry).
 **Two Sid-touches per atom — the cut and the accept. A third means the
 process is broken, not diligent.**
 
-### The contract — one pass, one session, one document, one-two screens
-Overflow means think harder, never write more (enumeration is what
-incomplete thinking looks like). It carries exactly:
+### The contract — one pass, one session, one document
+Size is OPEN — as big as the thinking requires; no screen cap (Sid,
+2026-08-06, reversing the same-day cap: the image atom's 72KB corpse was
+the 13 process documents and ladders AROUND the contract, not its length).
+It carries exactly:
 - scope in plain words — what the atom is and is not;
 - the named REFUSALS, one line each — what it deliberately does not do;
   each an extension point routed to LATER, never a void (an atom whose

@@ -33,7 +33,9 @@ Sid says is allowed to drop.
   2026-08-06, after the image atom wrapped a 372-line namespace in 13
   process documents and a 72KB contract, and its stop code halted an
   accepted implementation over five foreign test failures). A contract is
-  ONE session's single pass — one document, one-two screens: scope in
+  ONE session's single pass — one document, sized by the thinking (no
+  screen cap — Sid, 2026-08-06: "keep it open, the contract can be big";
+  the 72KB corpse was the ceremony around it, never the length): scope in
   plain words · the few laws · exact entry points (new code in its own
   namespace; big files get thin hooks) · the 3–5 decisive scenarios that
   become the atom-end tripwires · real MUST-NOTs only. The cutter reads the
@@ -68,7 +70,7 @@ Sid says is allowed to drop.
   IRREVERSIBILITY: durable/Rama work keeps its ladders; reversible
   projection work buys it once per package, or on Sid's word.
 - **The corners** (Sid, 2026-08-06) — pre-commitments that cap SPEND
-  (screens, touches, lines, rounds, dark atoms), never CONTENT; a
+  (touches, rounds, dark atoms), never CONTENT; a
   pre-commitment that freezes scope or features before the thinking is
   the bad kind — refuse it.
   1. **No rule without a corpse, no corpse without an expiry.** Every
@@ -80,25 +82,24 @@ Sid says is allowed to drop.
      means the process is broken, not diligent. Implementers take the
      strongest default and record it; Sid's touch is spent only on
      genuinely irreversible forks.
-  3. **Enumeration is incomplete thinking.** A contract overflowing two
-     screens means think harder, never write more.
-  4. **Think wide, build narrow, record the refusals.** Everything cut
+  3. **Think wide, build narrow, record the refusals.** Everything cut
      from an atom lands as a named one-line refusal — an extension point
      routed to LATER, never a void. An atom whose refusals can't be named
      hasn't seen its edges.
-  5. **Parallelism buys coverage, never confidence.** Two lanes on two
+  4. **Parallelism buys coverage, never confidence.** Two lanes on two
      atoms is throughput; two lanes on one question is forbidden —
      confidence escalates modality (reading → runtime value → profile),
      never head-count.
-  6. **The package courtroom is seam-shaped.** Real material through the
+  5. **The package courtroom is seam-shaped.** Real material through the
      real artery, cross-atom, on screen — the kill record (framework
      G15/G24/G25) lives between independently-green subsystems; suite
      re-runs caught nothing across eight packages.
-  7. **The felt receipt is the primary receipt; never a third consecutive
+  6. **The felt receipt is the primary receipt; never a third consecutive
      dark atom.** By then felt activation opens and something moves on
      Sid's canvas, or the lane waits for his ruling.
-  8. **Corners cap spend, never thought.** The test every future process
-     proposal must pass.
+  7. **Corners cap spend, never thought.** The test every future process
+     proposal must pass. (The contract size cap died here 2026-08-06 —
+     Sid: contract size is OPEN, sized by the thinking.)
 - **Investigations are fenced like code** (Sid's ruling on the workflow
   rethink, 2026-08-04, after the 28s-frame incident: three static analyses
   produced three different "dominant" mechanisms; one 30-minute profile
