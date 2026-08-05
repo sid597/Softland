@@ -1,8 +1,8 @@
 # Strategy: Plugin Workflow for the `discourse-graph` Codebase
 
 > **Strategy Origin:** Suggested by Claude (Feb 18, 2026) — from handwritten notes session
-> **Solves Problem:** [Manual Orchestration & Context Thrashing](./problem-manual-orchestration-gemini.md)
-> **Related Strategy:** [Prompt-Driven UI (Gemini)](./prompt-driven-ui-gemini.md)
+> **Solves Problem:** [Manual Orchestration & Context Thrashing](problem-manual-orchestration-gemini.md)
+> **Related Strategy:** [Prompt-Driven UI (Gemini)](prompt-driven-ui-gemini.md)
 > **Consensus:** [Commission Consensus (Codex + Claude)](../plans/commission-consensus.md) — source of truth for implementation decisions
 
 ## The Paradigm

@@ -1,7 +1,7 @@
 # Vision: The Prompt-Driven UI (PDUI)
 
 > **Strategy Origin:** Suggested by Gemini (Feb 18, 2026)
-> **Solves Problem:** [Manual Orchestration & Context Thrashing](./problem-manual-orchestration-gemini.md)
+> **Solves Problem:** [Manual Orchestration & Context Thrashing](problem-manual-orchestration-gemini.md)
 
 > "The UI is just a macro system for the CLI."
 

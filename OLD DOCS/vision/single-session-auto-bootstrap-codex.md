@@ -1,8 +1,8 @@
 # Strategy: Single-Session Auto-Bootstrap Workflow (Codex)
 
 > **Strategy Origin:** Codex (Feb 18, 2026) — based on this chat session
-> **Solves Problem:** [Manual Orchestration & Context Thrashing](./problem-manual-orchestration-gemini.md)
-> **Related Strategies:** [Prompt-Driven UI (Gemini)](./prompt-driven-ui-gemini.md), [Auto-Prompt Workflow (Claude)](./auto-prompt-workflow-claude.md)
+> **Solves Problem:** [Manual Orchestration & Context Thrashing](problem-manual-orchestration-gemini.md)
+> **Related Strategies:** [Prompt-Driven UI (Gemini)](prompt-driven-ui-gemini.md), [Auto-Prompt Workflow (Claude)](auto-prompt-workflow-claude.md)
 
 ## What This Chat Clarified (Non-Negotiables)
 
