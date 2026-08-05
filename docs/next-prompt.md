@@ -732,8 +732,24 @@ directly and ruled out another verification/review loop. P1's exact S2 is
 preserved as the historical implementer receipt: image-specific receipts
 were green; the full JVM lane had five failures in untouched foreign
 namespaces. DARK scope remains honest — authoring, felt activation, and the
-product frame-loop join are staged. **NEXT: Fable authors the one-pass
-path/tessellation atom contract; no image gate session.**
+product frame-loop join are staged. **NEXT ran 2026-08-06: the path-atom
+contract is cut; the flagged live join (path-atom block below) lights image
+alongside path.**
+
+**path-atom — Package 2 wave 2, CONTRACT CUT 2026-08-06 (first post-law
+one-pass contract).** The tessellated/path atom on D2=A — ink
+(centerline+pressure, outline a versioned derivation) + shapes (open
+polylines · closed contours · explicit holes) as material,
+`:render.family/path` registered through the W2-B tape — PLUS Sid's cut
+ruling: **studio custody stays OPEN; a minimal on-canvas join behind
+`?live-atoms=1` renders path AND image live through the real artery**
+(fixtures only, no authoring, no durable writes — the
+no-third-dark-atom corner discharged at zero custody cost). The felt
+GATE (real use) still waits on the durable-artery/custody ruling
+reserved to Sid. Contract (ends with the Codex opening prompt):
+`docs/render-engine/PATH-ATOM-CONTRACT.md`; baton `PATH-ATOM-NOW.md`.
+**NEXT: Sid pastes the Codex opening prompt; Codex builds the whole
+atom one-pass; acceptance = Sid's word.**
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.
