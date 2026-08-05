@@ -1449,31 +1449,23 @@
       (get-in font-assets [:slug :meta :metrics :lineHeight])
       1.2))
 
-(defonce ^:private line-index-by-layout (js/WeakMap.))
+(defonce ^:private !text-layout-fallbacks (atom {}))
+
+(defn text-layout-fallback-report []
+  (merge {:ground 0 :combined-text-ops 0 :settings-panel-text 0}
+         @!text-layout-fallbacks))
+(defn reset-text-layout-fallbacks! [] (reset! !text-layout-fallbacks {}))
 
 (defn- line-index-for-layout [layout-result]
-  (or (.get line-index-by-layout layout-result)
-      (let [revision (get-in layout-result [:source :revision])
-            _ (when (some? revision)
-                (when-not (number? revision)
-                  (throw (ex-info "Text layout source revision must be a hash"
-                                  {:revision revision
-                                   :layout/id (:layout/id layout-result)})))
-                (js/console.debug "[TEXT-LINE-INDEX]"
-                                  (clj->js {:layout (:layout/id layout-result)
-                                            :source-revision revision})))
-            index (into {} (map (juxt :line/id identity))
-                        (:lines layout-result))]
-        ;; Identity, not revision, owns memo lifecycle: inline layouts may have
-        ;; no stamp, and WeakMap lets the layout result's GC release the index.
-        (.set line-index-by-layout layout-result index)
-        index)))
+  ;; Contract-T retains this index at construction. Consumers must never rebuild
+  ;; it by scanning the line vector per op.
+  (or (:line-index layout-result) {}))
 
 (defn- position-text-op
   "Resolve one text op to positioned Contract-T glyphs before a paint backend
    is selected. Existing layout results survive clipping and tree translations;
    otherwise the active provider creates exactly one result here."
-  [txt global-fsize font-assets char-width snap-step]
+  [txt global-fsize font-assets char-width snap-step surface]
   (let [{:keys [text x y]} txt
         fsize (or (:size txt) global-fsize)
         snap (make-snapper snap-step)
@@ -1481,6 +1473,9 @@
         start-y (if snap (snap y) y)
         line-h (font-line-height font-assets)
         existing (:layout-result txt)
+        fallback-surface (or (:layout/surface txt) surface :combined-text-ops)
+        _ (when-not existing
+            (swap! !text-layout-fallbacks update fallback-surface (fnil inc 0)))
         layout-result
         (or existing
             (tl/layout {:text text
@@ -1491,34 +1486,36 @@
                                         fsize char-width snap-step)
                         :line-height (* fsize line-h)
                         :origin [start-x start-y]}))
-        line (or (get (line-index-for-layout layout-result)
+        line (or (tl/line-by-id layout-result (:layout-line-id txt) start-y)
+                 (get (line-index-for-layout layout-result)
                       (:layout-line-id txt))
                  (first (:lines layout-result)))
         [range-start range-end]
-        (mapv :offset (or (:paint-source-range txt) (:source-range line)))
+        (tl/line-source-bounds
+         (or (:paint-source-range txt) (:paint-source-range line)
+             (:source-range line)))
         [anchor-x anchor-y] (or (:layout-anchor txt) (:baseline line))
         dx (if existing (- (:x txt anchor-x) anchor-x) 0)
         dy (if existing (- (:y txt anchor-y) anchor-y) 0)
-        glyphs
-        (->> (:glyphs line)
-             (filter (fn [glyph]
-                       (let [[start end] (mapv :offset
-                                              (get-in glyph [:cluster :source-range]))]
-                         ;; A cluster that crosses a style boundary is painted
-                         ;; exactly once by the range that owns its first
-                         ;; source unit. Clipping expands to whole clusters.
-                         (and (<= range-start start) (< start range-end)))))
-             (mapv (fn [glyph]
-                     (update glyph :position
-                             (fn [[gx gy]] [(+ gx dx) (+ gy dy)])))))]
+        selection (tl/glyphs-in-source-range
+                   line
+                   (if (= :header (first (:source-range line)))
+                     [:header (second (:source-range line))
+                      [range-start range-end]]
+                     [(tl/tagged-index range-start) (tl/tagged-index range-end)]))
+        glyphs (mapv (fn [glyph]
+                       (update glyph :position
+                               (fn [[gx gy]] [(+ gx dx) (+ gy dy)])))
+                     (:glyphs selection))]
     {:layout/id (:layout/id layout-result)
      :style txt
      :font-size fsize
+     :span-receipt (select-keys selection [:glyph-span :visited-glyphs])
      :glyphs glyphs}))
 
 (defn- position-text
-  [texts global-fsize font-assets char-width snap-step]
-  (mapv #(position-text-op % global-fsize font-assets char-width snap-step)
+  [texts global-fsize font-assets char-width snap-step surface]
+  (mapv #(position-text-op % global-fsize font-assets char-width snap-step surface)
         texts))
 
 (defn- paint-msdf-line
@@ -1603,7 +1600,8 @@
 (defn shape-text [texts global-fsize font-assets & {:as opts}]
   (let [char-width (or (:char-width opts) 0.56)
         snap-step (:snap-step opts)
-        positioned (position-text texts global-fsize font-assets char-width snap-step)]
+        positioned (position-text texts global-fsize font-assets char-width snap-step
+                                  (:surface opts))]
     (if (= :slug (:backend font-assets))
       (paint-slug-line positioned font-assets)
       (paint-msdf-line positioned font-assets))))
@@ -1718,7 +1716,7 @@
 
 (defn update-text-data
   [^js/GPUDevice device renderer-state texts font-assets font-size
-   & {:keys [px-range line-height-factor line-height sharpness char-width snap-step]
+   & {:keys [px-range line-height-factor line-height sharpness char-width snap-step surface]
       :or {px-range 8.0 line-height-factor 1.0 sharpness 0.0 char-width 0.56}}]
   (when (not= (:backend renderer-state) (:backend font-assets))
     (throw (ex-info "Text backend mismatch during text upload."
@@ -1728,7 +1726,8 @@
         shaped-lines (mapv (fn [tokens-in-line]
                              (let [instances (shape-text tokens-in-line font-size font-assets
                                                          :char-width char-width
-                                                         :snap-step snap-step)]
+                                                         :snap-step snap-step
+                                                         :surface surface)]
                                {:instances instances
                                 :count (count instances)}))
                            texts)

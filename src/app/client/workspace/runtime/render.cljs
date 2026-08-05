@@ -22,6 +22,32 @@
     (js/console.log label payload)
     (js/console.log (str label " JSON " (js/JSON.stringify payload)))))
 
+(defn- text-op-seq [texts]
+  (mapcat #(if (vector? %) % [%]) (or texts [])))
+
+(defn- slot-layout-token [texts]
+  (mapv (fn [op]
+          [(get-in op [:layout-result :layout/id])
+           (:layout-line-id op)
+           (:paint-source-range op)])
+        (text-op-seq texts)))
+
+(defn- slot-paint-token [texts]
+  ;; Fingerprint only values consumed by the text instance packers. Material
+  ;; provenance, bindings, and attention stamps may rebuild the semantic tree
+  ;; without changing pixels; keying on the entire op map turned those
+  ;; non-paint revisions into fake GPU work (G4 j/k).
+  (mapv #(select-keys % [:text :from :to :x :y :size
+                         :r :g :b :a :container-idx])
+        (text-op-seq texts)))
+
+(defn- slot-paint-cause [texts fallback]
+  (or (some :paint/cause (text-op-seq texts)) fallback))
+
+(defn- slot-layout-cause [texts fallback]
+  (or (some #(get-in % [:layout-result :layout/cause]) (text-op-seq texts))
+      fallback))
+
 (defn- reconcile-slot-text-geos!
   "scene-substrate P3b Rung 2 (G8): keep ONE isolated text geo per store slot,
    separate from the monolithic content geo. For each vi in `text-by-vi`:
@@ -34,33 +60,74 @@
    Destroys geos for vanished vis (and the stale ones a reclone replaces).
    Returns [geos-map write-count]; write-count is the G8 receipt (how many slot
    geos reshaped this frame — a CONTENT-geo edit must never bump it)."
-  [device content-geo font-assets prev-geos text-by-vi reclone?
+  [device content-geo font-assets prev-geos text-by-vi reclone? reclone-cause
    font-size px-range line-h char-width snap-step sharpness]
   (let [shape! (fn [geo texts]
                  (editor/update-text-data device geo (vec texts) font-assets font-size
                                           :px-range px-range :line-height line-h
                                           :char-width char-width :snap-step snap-step
-                                          :sharpness sharpness))
+                                          :sharpness sharpness :surface :ground))
         {:keys [geos writes]}
         (reduce-kv
           (fn [acc vi texts]
-            (let [prev (get prev-geos vi)]
-              (if (and prev (not reclone?) (identical? texts (:text prev)))
+            (let [prev (get prev-geos vi)
+                  layout-token (slot-layout-token texts)
+                  paint-token (slot-paint-token texts)
+                  same-layout? (and prev (= layout-token (:layout-token prev)))
+                  same-paint? (and prev (= paint-token (:paint-token prev)))]
+              (if (and prev (not reclone?) same-layout? same-paint?)
                 (update acc :geos assoc vi prev)
                 (let [base (if (and prev (not reclone?))
                              (:geo prev)                    ; evolve this slot's geo in place
                              (do (when (and prev reclone?)  ; stale clone (old font) → free
-                                   (editor/destroy-text-system! (:geo prev)))
+                                 (editor/destroy-text-system! (:geo prev)))
                                  (editor/clone-text-system device content-geo 256)))
-                      geo  (shape! base texts)]
+                      old-buffer (:instance-buffer base)
+                      geo  (shape! base texts)
+                      capacity-grown? (and prev (not reclone?)
+                                            (not (identical? old-buffer
+                                                             (:instance-buffer geo))))
+                      lifecycle (cond
+                                  (nil? prev) :fresh
+                                  reclone? :recloned
+                                  capacity-grown? :capacity-grown
+                                  :else :in-place)
+                      cause (cond
+                              reclone? reclone-cause
+                              (not same-layout?)
+                              (slot-layout-cause texts :slot-text-change)
+                              :else (slot-paint-cause texts :other))]
+                  (ground/record-shaping-counter! [:paint-repacks cause])
+                  (ground/record-shaping-counter! [:slot-text-writes])
+                  (ground/record-shaping-counter! [:geo lifecycle])
+                  (when (and prev reclone?)
+                    (ground/record-shaping-counter! [:geo :destroyed]))
+                  (when-let [dirty-cause
+                             (cond
+                               (nil? prev) :entry
+                               (not same-layout?) :slot-text
+                               reclone? :other
+                               ;; Selection/provenance changes may rebuild the
+                               ;; semantic tree without changing text paint.
+                               ;; Hover is an attention rectangle outside the
+                               ;; block glyph paint token; any hover-attributed
+                               ;; text pack is therefore a counter-visible
+                               ;; violation, never a dirty-text lifecycle.
+                               :else nil)]
+                    (ground/record-shaping-counter! [:dirty dirty-cause]))
                   (-> acc
-                      (update :geos assoc vi {:geo geo :text texts})
+                      (update :geos assoc vi {:geo geo :text texts
+                                              :layout-token layout-token
+                                              :paint-token paint-token})
                       (update :writes inc))))))
           {:geos {} :writes 0}
           (or text-by-vi {}))]
     (doseq [[vi prev] prev-geos]
       (when-not (contains? geos vi)
-        (editor/destroy-text-system! (:geo prev))))
+        (editor/destroy-text-system! (:geo prev))
+        (ground/record-shaping-counter! [:geo :destroyed])
+        (ground/record-shaping-counter! [:dirty :exit])
+        (ground/evict-layouts-for-slot! vi)))
     [geos writes]))
 
 (defn render-consumer
@@ -223,6 +290,7 @@
           prev-state
 
           (let [frame-idx (inc (or (:frame-idx prev-state) 0))
+                _ (ground/record-shaping-counter! [:raf-frames])
                 raf-t0 (js/performance.now)
                 {:keys [text-data editor-rect-data sidebar-data cmd-rects settings-rects settings-text
                         viewport scroll-y cmd-visible agent-visible settings-visible
@@ -239,6 +307,16 @@
                 gcam                 (or ground-camera
                                          {:x 0.0 :y 0.0 :zoom 1.0})
                 store-frame-changed? (not (identical? store-frame (:prev-store-frame prev-state)))
+                _ (when store-frame-changed?
+                    (ground/record-shaping-counter! [:store-frame-execs]))
+                _ (when camera-moved?
+                    (ground/record-shaping-counter! [:dirty :camera]))
+                _ (when (and store-frame-changed?
+                             (= (set (or (:ordered-vis store-frame) []))
+                                (set (or (get-in prev-state [:prev-store-frame :ordered-vis]) [])))
+                             (not= (:ordered-vis store-frame)
+                                   (get-in prev-state [:prev-store-frame :ordered-vis])))
+                    (ground/record-shaping-counter! [:dirty :order]))
                 ;; P3b finding #1: gate the store's compositing on face mode. When
                 ;; not in a face view the store contributes NOTHING (nil), so an
                 ;; orphaned slot can never paint over the editor. store-frame-
@@ -391,7 +469,8 @@
                                                            :line-height line-h
                                                            :char-width char-width
                                                            :snap-step snap-step
-                                                           :sharpness sharpness))
+                                                           :sharpness sharpness
+                                                           :surface :combined-text-ops))
 
                 ;; ── P3b Rung 2: per-slot isolated text geos (G8) ──
                 ;; Reconcile one text geo per store slot off the content system.
@@ -401,6 +480,8 @@
                 (reconcile-slot-text-geos! device new-content-geo font-assets
                                            prev-slot-geos store-text-by-vi
                                            (boolean font-changed?)
+                                           (if backend-changed? :other
+                                               :provider-change)
                                            font-size px-range line-h char-width snap-step sharpness)
                 _ (when (pos? slot-text-writes)
                     (js/console.log "[SCENE-FACES/G8] slot text geos reshaped:" slot-text-writes
@@ -458,7 +539,8 @@
                                                           :line-height line-h
                                                           :char-width char-width
                                                           :snap-step snap-step
-                                                          :sharpness sharpness))
+                                                          :sharpness sharpness
+                                                          :surface :combined-text-ops))
 
                 raf-t2 (js/performance.now)
                 editor-line-count (:editor-line-count text-data)
@@ -761,6 +843,10 @@
        :settings-rect-sys @!settings-rect-sys
        :render-target render-target
        :prev-world nil
+       ;; Seed the sink-local camera identity at renderer construction.  A nil
+       ;; sentinel made the first cold frame look like a camera gesture even
+       ;; when the camera stayed at its boot value.
+       :prev-ground-camera @ground/!camera
        :prev-content-ops nil
        :prev-chrome-ops nil
        :prev-sidebar-data nil

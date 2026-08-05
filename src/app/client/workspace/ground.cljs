@@ -30,9 +30,11 @@
      best-effort belt — SAFETY IS THE ACKNOWLEDGED SETTLE WRITE
      (/api/episode/geometry; settled cells, P2B.md receipt a). Return
      restores camera + positions, never focus/caret/hover/selection."
-  (:require [clojure.string :as str]
+  (:require [clojure.set :as set]
+            [clojure.string :as str]
             [cljs.reader :as reader]
             [missionary.core :as m]
+            [app.client.substrate.webgpu.renderer :as webgpu]
             [app.client.workspace.agent :as agent]
             [app.client.workspace.block-edit-wiring :as bew]
             [app.client.workspace.face-assembly :as face-assembly]
@@ -42,6 +44,7 @@
             [app.client.workspace.rect-tree :as rt :refer [rt-node]]
             [app.client.workspace.scene-runtime :as scene-rt]
             [app.client.workspace.scene-store :as ss]
+            [app.client.workspace.text-layout :as tl]
             [app.shared.anatomy-material :as anatomy-material]
             [app.shared.attention-material :as attention-material]
             [app.shared.binding-material :as binding-material]
@@ -153,6 +156,322 @@
 (defonce ^:private !rebuild-stats (atom {:builds 0 :skips 0}))
 (defonce ^:private !reconcile-samples (atom []))
 
+(def ^:private counter-causes
+  [:cold-populate :slot-text-change :fold-projection :provider-change
+   :hover-paint :selection :camera :order :other])
+
+(defn- zero-causes [] (zipmap counter-causes (repeat 0)))
+
+(defn- empty-shaping-counters []
+  {:layout-execs (zero-causes)
+   :oracle-layout-execs 0
+   :paint-repacks (zero-causes)
+   :geo {:fresh 0 :in-place 0 :recloned 0 :destroyed 0 :capacity-grown 0}
+   :slot-text-writes 0
+   :dirty {:slot-text 0 :entry 0 :exit 0 :hover 0 :order 0 :camera 0 :other 0}
+   :store-frame-execs 0
+   :raf-frames 0
+   :proportionality nil
+   :provider-fault 0})
+
+(defonce ^:private !layout-cache (atom (tl/empty-layout-cache)))
+(defonce ^:private !slot-layout-addresses (atom {}))
+(defonce ^:private !layout-oracle? (atom false))
+(defonce ^:private !shaping-counters (atom (empty-shaping-counters)))
+
+(def ^:dynamic *layout-cause* :slot-text-change)
+(def ^:dynamic *paint-cause* :slot-text-change)
+
+(declare metrics block-subject-id truth-text)
+
+(defn record-shaping-counter!
+  "Runtime/render's bounded instrumentation edge. This is intentionally a
+   counter-only API: it cannot mutate layout cache or scene truth."
+  ([path] (record-shaping-counter! path 1))
+  ([path n]
+   (swap! !shaping-counters update-in path (fnil + 0) n)))
+
+(defn reset-shaping-counters! []
+  (reset! !shaping-counters (empty-shaping-counters))
+  (swap! !layout-cache tl/layout-cache-reset-counters)
+  (webgpu/reset-text-layout-fallbacks!))
+
+(defn shaping-counters []
+  (assoc @!shaping-counters :fallback (webgpu/text-layout-fallback-report)))
+
+(defn layout-cache-diagnostics []
+  (assoc (tl/layout-cache-report @!layout-cache)
+         :owned-addresses-by-slot
+         (into {} (map (fn [[vi addresses]] [vi (count addresses)]))
+               @!slot-layout-addresses)))
+
+(defn- profile-census
+  "Read-only, bounded shaping-profile identity.  The harness consumes this
+   instead of reconstructing private ClojureScript maps from JavaScript."
+  []
+  (let [blocks (:blocks @!world)
+        block-index (:block-index @!world)
+        store (scene-rt/store-snapshot)
+        text-slots
+        (count (filter (comp seq :text :ops val) (:slots store)))]
+    {:blocks (count blocks)
+     :machine-blocks (count (filter :machine? (vals blocks)))
+     :served-chars (reduce + 0 (map #(count (or (:text %) ""))
+                                    (vals block-index)))
+     :live-slots (count (:slots store))
+     :live-text-slots text-slots
+     :live-addresses (reduce + 0 (map count (vals @!slot-layout-addresses)))
+     :hover @!hover
+     :camera @!camera}))
+
+(defn- profile-identity
+  "Read-only corpus/slot ownership identity for the shaping harness.  Corpus
+   blocks and auxiliary scene slots are deliberately reported separately: a
+   total slot count cannot distinguish a missing block materialization from a
+   transient non-block experiment slot."
+  []
+  (let [block-ids (vec (sort (keys (:blocks @!world))))
+        store (scene-rt/store-snapshot)
+        slots (:slots store)
+        block-slot-ids (set (map block-subject-id block-ids))
+        missing-block-ids
+        (vec (remove #(contains? slots (block-subject-id %)) block-ids))
+        non-block-slot-ids
+        (->> (keys slots)
+             (remove block-slot-ids)
+             (map pr-str)
+             sort
+             vec)]
+    {:block-ids block-ids
+     :block-slot-count (- (count block-ids) (count missing-block-ids))
+     :missing-block-slot-ids missing-block-ids
+     :non-block-slot-ids non-block-slot-ids}))
+
+(defn- profile-block
+  "Read-only profile data for one block.  Coordinates remain world-space;
+   `screen-point` is a point inside the block under the current camera when
+   that block intersects the viewport, otherwise nil."
+  [unit-id]
+  (when-let [{:keys [x y w h machine? local?] :as block}
+             (get-in @!world [:blocks unit-id])]
+    (let [cam @!camera
+          zoom (:zoom cam 1.0)
+          cx (:x cam 0.0)
+          cy (:y cam 0.0)
+          viewport (get-in @!refs [:atoms :!viewport])
+          {:keys [width height]} (when viewport @viewport)
+          left (+ (* (:x block) zoom) cx)
+          top (+ (* (:y block) zoom) cy)
+          right (+ (* (+ (:x block) (:w block)) zoom) cx)
+          bottom (+ (* (+ (:y block) (:h block)) zoom) cy)
+          inset 2.0
+          sx (max inset (min (- (or width 800) inset)
+                             (/ (+ left right) 2.0)))
+          sy (max inset (min (- (or height 601) inset)
+                             (/ (+ top bottom) 2.0)))
+          visible? (and (< left (or width 800)) (> right 0)
+                        (< top (or height 601)) (> bottom 0))]
+      {:id unit-id
+       :text-length (count (or (truth-text unit-id) ""))
+       :machine? machine?
+       :local? local?
+       :placement-derived? (boolean (:placement-derived? block))
+       :world-rect {:x x :y y :w w :h h}
+       :screen-point (when visible? {:x sx :y sy})
+       :slot-count (if (ss/slot (scene-rt/store-snapshot)
+                                (block-subject-id unit-id)) 1 0)
+       :owned-addresses
+       (count (get @!slot-layout-addresses (block-subject-id unit-id) #{}))})))
+
+(defn- profile-attention
+  "Taken-path hover receipt for one block slot.  Hover is an attention-box
+   rectangle in the interpreted anatomy; it is deliberately not text paint."
+  [unit-id]
+  (when-let [tree (some-> (ss/slot (scene-rt/store-snapshot)
+                                   (block-subject-id unit-id))
+                          :tree)]
+    (letfn [(attention-node [node]
+              (or (when (= :ground-box (:id node)) node)
+                  (some attention-node (:children node))))]
+      (if-let [node (attention-node tree)]
+        {:present? true :bounds (:bounds node) :style (:style node)}
+        {:present? false :bounds nil :style nil}))))
+
+(defn- seed-stale-layout! [unit-id]
+  (let [vi (if unit-id (block-subject-id unit-id)
+               (first (filter vector? (keys @!slot-layout-addresses))))
+        address (when vi (tl/ground-text-address vi :block-root 0))
+        key (get-in @!layout-cache [:address->key address])]
+    (when key
+      ;; Corrupt a retained, renderer-inert value. The oracle compares the
+      ;; complete result and must reject it, while the negative probe remains
+      ;; oracle-only: layout identity, geometry, paint tokens, and GPU writes
+      ;; cannot change merely because the falsifier was armed.
+      (swap! !layout-cache assoc-in [:key->result key :receipts :output-hash]
+             (str "seeded-stale/" (random-uuid)))
+      true)))
+
+(defn- block-subject-id [unit-id]
+  [:vi :ground-block unit-id])
+
+(defn- acquisition-cause [current-key next-key]
+  (cond
+    (nil? current-key) :cold-populate
+    (not= (second current-key) (second next-key)) :provider-change
+    :else *layout-cause*))
+
+(defn- acquire-ground-layout!
+  "The sole process-local ground layout constructor/cache edge. Its argument is
+   exactly `text-layout/layout-key`'s semantic input; placement and paint state
+   cannot enter through this signature."
+  [{:keys [subject-id op-role occurrence stamp body-text header-texts provider
+           font-size line-height baseline-offset wrap-policy wrap-col source-id
+           language direction tab-stops]
+    :as request}]
+  (let [key (tl/layout-key request)
+        address (get-in key [0 0])
+        current-key (get-in @!layout-cache [:address->key address])
+        cached-result (when (= current-key key)
+                        (get-in @!layout-cache [:key->result key]))
+        ;; Cause governs accounting/paint on a production miss; it is not a
+        ;; semantic layout input. An oracle recompute on a hit must retain the
+        ;; cached result's cause or deep equality would reject an otherwise
+        ;; identical layout merely because the current dynamic caller differs
+        ;; from the call that originally populated the cache.
+        cause (or (:layout/cause cached-result)
+                  (acquisition-cause current-key key))
+        build-result
+        (fn []
+          (assoc
+           (tl/layout
+            (cond-> {:text (str (or body-text ""))
+                     :headers (mapv str (or header-texts []))
+                     :provider provider
+                     :font-size font-size
+                     :line-height line-height
+                     :baseline-offset baseline-offset
+                     :origin [0 0]
+                     :wrap-policy wrap-policy
+                     :wrap-col wrap-col
+                     :language language
+                     :direction direction
+                     :tab-stops tab-stops
+                     :source-id source-id
+                     :source-revision nil
+                     :zoom 1
+                     :clip nil
+                     :line-map nil}
+              (and (nil? provider) (= :block-greedy wrap-policy)
+                   (number? wrap-col) (pos? wrap-col))
+              (assoc :max-chars wrap-col)))
+           :layout/address address
+           :layout/key key
+           :layout/cause cause))
+        transition (tl/layout-cache-acquire
+                    @!layout-cache address key build-result
+                    :oracle? @!layout-oracle?)
+        result (:result transition)]
+    (reset! !layout-cache (:cache transition))
+    (if (:hit? transition)
+      (when @!layout-oracle?
+        (record-shaping-counter! [:oracle-layout-execs]))
+      (do
+        (record-shaping-counter! [:layout-execs cause])
+        (swap! !shaping-counters assoc
+               :proportionality (get-in result [:receipts :proportionality]))
+        (record-shaping-counter! [:provider-fault]
+                                 (get-in result [:receipts :provider-fault] 0))))
+    result))
+
+(defn- cached-layout-for-address [address]
+  (when-let [key (get-in @!layout-cache [:address->key address])]
+    (get-in @!layout-cache [:key->result key])))
+
+(defn- node-text-role [owner-id node]
+  (let [node-id (:id node)
+        simple-id (if (vector? node-id) (last node-id) node-id)]
+    (cond
+      (= owner-id :ground-halo) :halo
+      (= owner-id :ground-workshop) :workshop
+      (= owner-id :ground-material-error) :material-error
+      (= owner-id :ground-binding-lint) :binding-lint
+      (= simple-id :ground-activity) :provisional-activity
+      (= simple-id :ground-stream) :provisional-stream
+      (= simple-id :ground-turn-error) :provisional-error
+      (get-in node [:data :ground/op-role]) (get-in node [:data :ground/op-role])
+      (= simple-id :ground-block) :block-root
+      (= simple-id :ground-refusal) :refusal
+      (= simple-id :ground-episode-boundary) :boundary
+      (and (keyword? simple-id)
+           (str/starts-with? (name simple-id) "ground-material-conflict-"))
+      :conflict-lint
+      (= simple-id :ground-wish-mark) :gold-mark
+      (= simple-id :ground-silver-mark) :silver-mark
+      :else :anatomy)))
+
+(defn- carry-ground-text-layouts!
+  "Attach one cached material-local result to every final ground text op and
+   atomically prune addresses that disappeared from a surviving slot."
+  [owner-id tree]
+  (let [occurrences (volatile! {})
+        owned (volatile! #{})
+        {:keys [font-size line-h layout-provider]} (metrics)
+        decorate-op
+        (fn [role op]
+          (if-let [existing (:layout-result op)]
+            (let [address (:layout/address existing)]
+              (when address (vswap! owned conj address))
+              (assoc op :layout/surface :ground
+                     :paint/cause *paint-cause*))
+            (let [occurrence (get @occurrences role 0)
+                  _ (vswap! occurrences update role (fnil inc 0))
+                  result (acquire-ground-layout!
+                          {:subject-id owner-id :op-role role
+                           :occurrence occurrence :stamp nil
+                           :body-text (:text op "") :header-texts []
+                           :provider layout-provider
+                           :font-size (or (:size op) font-size)
+                           :line-height line-h :baseline-offset 0
+                           :wrap-policy :none :wrap-col nil
+                           :source-id owner-id})
+                  line (first (:lines result))
+                  address (:layout/address result)]
+              (vswap! owned conj address)
+              (assoc op
+                     :layout-result result
+                     :layout-line-id (:line/id line)
+                     :layout-anchor (:baseline line)
+                     :paint-source-range (:paint-source-range line
+                                                              (:source-range line))
+                     :layout/surface :ground
+                     :paint/cause *paint-cause*))))
+        walk
+        (fn walk [node]
+          (let [role (node-text-role owner-id node)
+                text' (mapv (fn [entry]
+                              (if (vector? entry)
+                                (mapv #(decorate-op role %) entry)
+                                (decorate-op role entry)))
+                            (or (:text node) []))]
+            (cond-> (assoc node :children (mapv walk (:children node)))
+              (seq (:text node)) (assoc :text text'))))
+        tree' (walk tree)
+        previous (get @!slot-layout-addresses owner-id #{})
+        removed (set/difference previous @owned)]
+    (when (seq removed)
+      (swap! !layout-cache tl/layout-cache-remove-addresses removed))
+    (swap! !slot-layout-addresses assoc owner-id @owned)
+    tree'))
+
+(defn evict-layouts-for-slot!
+  "Vanished-slot/truth-death cache road; idempotent when both observe death."
+  [vi]
+  (let [addresses (get @!slot-layout-addresses vi #{})]
+    (when (seq addresses)
+      (swap! !layout-cache tl/layout-cache-remove-addresses addresses))
+    (swap! !slot-layout-addresses dissoc vi)
+    (count addresses)))
+
 (def ^:private drag-threshold-px 4.0)
 (def ^:private settle-debounce-ms 400)
 
@@ -175,10 +494,13 @@
 (defn- metrics []
   (let [{:keys [!settings !active-font !viewport]} (:atoms @!refs)
         fs (:font-size @!settings 19)
-        cw (:char-width @!active-font 0.56)]
+        active-font @!active-font
+        cw (:char-width active-font 0.56)]
     {:font-size fs
      :char-advance (* fs cw)
      :line-h (js/Math.round (* fs 1.4))
+     :layout-provider (:layout-provider active-font)
+     :layout-acquire acquire-ground-layout!
      :viewport @!viewport}))
 
 (def ^:private fg [0.92 0.92 0.94 1.0])
@@ -489,7 +811,8 @@
                     :radius 5}
             :text ops
             :data {:address subject-id}
-            :children handles))]
+            :children handles))
+          tree (carry-ground-text-layouts! halo-vi tree)]
       (if-let [slot (ss/slot (scene-rt/store-snapshot) halo-vi)]
         (do
           (swap! scene-rt/!scene-store ss/upsert-slot halo-vi
@@ -876,7 +1199,8 @@
 
 (defn- upsert-workshop-slot!
   [vi tree x y layer meta]
-  (if-let [slot (ss/slot (scene-rt/store-snapshot) vi)]
+  (let [tree (carry-ground-text-layouts! vi tree)]
+   (if-let [slot (ss/slot (scene-rt/store-snapshot) vi)]
     (do
       (swap! scene-rt/!scene-store ss/upsert-slot vi
              {:tree tree :container (:container slot)
@@ -885,7 +1209,7 @@
       (scene-rt/set-transform! (:container slot) {:x x :y y}))
     (scene-rt/register-face-instance!
      vi tree {:x x :y y :scale 1.0 :layer layer
-              :meta meta :pre-resolved? true})))
+              :meta meta :pre-resolved? true}))))
 
 (defn- render-workshop!
   []
@@ -933,6 +1257,7 @@
                     :children handles))
           specimen-view
           (block-anatomy-view-model
+           "workshop:specimen"
            {:text "Workshop specimen · the real interpreter"
             :caret nil :focused? false :selection nil :refusal nil}
            false false nil metrics nil [] fold-sections nil false false false
@@ -1096,7 +1421,8 @@
                                    :radius 4}
                            :text ops
                            :data
-                           {:material/failures failures}))]
+                           {:material/failures failures}))
+            tree (carry-ground-text-layouts! material-error-vi tree)]
         (if-let [slot (ss/slot (scene-rt/store-snapshot) material-error-vi)]
           (do
             (swap! scene-rt/!scene-store ss/upsert-slot material-error-vi
@@ -1222,13 +1548,17 @@
   [uid]
   (when-let [b (get-in @!world [:blocks uid])]
     (when (:machine? b)
-      ;; P6: a block wears ITS OWN foldable revision when it has one
-      (let [foldable-wear (:foldable (wears-for uid))
-            {:keys [display headers] :as rv} (run-view uid foldable-wear)
-            text  (if rv display (or (truth-text uid) ""))
-            lines (cond-> (str/split (or text "") #"\n" -1)
-                    (:wrap-col b) (face-primitives/wrap-lines (:wrap-col b)))]
-        (if rv (into (vec headers) lines) (vec lines))))))
+      (if-let [layout-result
+               (cached-layout-for-address
+                (tl/ground-text-address (block-subject-id uid) :block-root 0))]
+        (mapv :text (:lines layout-result))
+        ;; Before the first render there is no carried result to read. This
+        ;; compatibility fallback cannot reach paint and disappears at settle.
+        (let [foldable-wear (:foldable (wears-for uid))
+              {:keys [display headers] :as rv} (run-view uid foldable-wear)
+              text  (if rv display (or (truth-text uid) ""))
+              lines (str/split (or text "") #"\n" -1)]
+          (if rv (into (vec headers) lines) (vec lines)))))))
 
 (defn- machine-sel-text
   "The machine selection's visual substring (wrap breaks copy as newlines)."
@@ -1246,13 +1576,49 @@
     (reset! !machine-sel nil)
     (rebuild-block! uid)))
 
+(defn- selection-spans-for-layout
+  [layout-result [selection-start selection-end]]
+  (into []
+        (keep
+         (fn [line]
+           (when-not (= :header (first (:source-range line)))
+             (let [[line-start line-end] (tl/line-source-bounds
+                                          (:source-range line))
+                   start (max selection-start line-start)
+                   end (min selection-end line-end)]
+               (when (< start end)
+                 {:id (:line/index line)
+                  :line (:line/index line)
+                  :col-start (- start line-start)
+                  :col-len (- end start)}))))
+        (:lines layout-result))))
+
+(defn- visual-selection-spans
+  [layout-result anchor head]
+  (let [[[start-line start-col] [end-line end-col]]
+        (sort [[(:line anchor 0) (:col anchor 0)]
+               [(:line head 0) (:col head 0)]])]
+    (into []
+          (keep
+           (fn [line-index]
+             (when-let [line (get (:lines layout-result) line-index)]
+               (let [line-length (tl/code-unit-count (:text line))
+                     from (if (= line-index start-line) start-col 0)
+                     to (if (= line-index end-line) end-col line-length)
+                     from (max 0 (min from line-length))
+                     to (max 0 (min to line-length))]
+                 (when (< from to)
+                   {:id line-index :line line-index
+                    :col-start from :col-len (- to from)}))))
+          (range start-line (inc end-line))))))
+
 (defn- block-anatomy-view-model
   "Derive the closed material view vocabulary from the legacy render census.
    T2: this is instance data only; structural order and primitive choice remain
    in the worn anatomy rows."
-  [{:keys [text caret focused? refusal selection]}
+  [unit-id {:keys [text caret focused? refusal selection]}
    machine? hover? notice
-   {:keys [font-size char-advance line-h]}
+   {:keys [font-size char-advance line-h layout-provider]}
    wrap-col headers header-sections msel boundary? gsel? placement-derived?
    wears gold-marks silver-marks]
   (let [headers (vec (or headers []))
@@ -1263,9 +1629,6 @@
         invocation-visible?
         (every? anatomy-part-ids
                 (map :part/id anatomy-material/invocation-visible-parts))
-        base-lines (face-primitives/block-render-lines
-                    text machine? wrap-col headers)
-        base-line-count (count base-lines)
         invocation-lines
         (when invocation-visible?
           ["Ctrl+Enter · model / effort / precontext"
@@ -1278,43 +1641,36 @@
         render-text (if invocation-visible?
                       (str (or text "") (apply str (repeat 4 "\n")))
                       (or text ""))
-        lines (face-primitives/block-render-lines
-               render-text machine? wrap-col headers)
+        subject-id (if (= unit-id "workshop:specimen")
+                     workshop-specimen-vi
+                     (block-subject-id unit-id))
+        layout-result
+        (acquire-ground-layout!
+         {:subject-id subject-id :op-role :block-root :occurrence 0 :stamp nil
+          :body-text render-text :header-texts headers
+          :provider layout-provider
+          :font-size font-size :line-height line-h
+          :baseline-offset font-size :wrap-policy :block-greedy
+          :wrap-col (when machine? wrap-col) :source-id unit-id})
+        lines (mapv :text (:lines layout-result))
         n (count lines)
+        base-line-count (if invocation-visible? (max 0 (- n 4)) n)
         max-len (reduce max 1
                         (map count (into (vec lines) invocation-lines)))
         pad (get-in wears [:attention :attention/hit-padding])
-        w (+ (* max-len char-advance) (* 2 pad))
-        h (+ (* n line-h) (* 2 pad))
+        w (+ (first (get-in layout-result [:metrics :advance])) (* 2 pad))
+        h (+ (second (get-in layout-result [:metrics :advance])) (* 2 pad))
         caret-lc (when (and focused? caret)
-                   (ge/caret->line-col text caret))
-        msel-range
-        (when msel
-          (let [a (face-primitives/lines-offset lines (:anchor msel))
-                h (face-primitives/lines-offset lines (:head msel))]
-            (when (not= a h)
-              [(min a h) (max a h)])))
-        selection-range (or (and focused? selection) msel-range)
-        sel-spans
-        (when-let [[sel-s sel-e] selection-range]
-          (loop [i 0, start 0, out []]
-            (if (>= i n)
-              out
-              (let [line (nth lines i)
-                    line-end (+ start (count line))
-                    selected-start (max sel-s start)
-                    selected-end (min sel-e line-end)]
-                (recur
-                 (inc i)
-                 (inc line-end)
-                 (if (< selected-start selected-end)
-                   (conj
-                    out
-                    {:id i
-                     :line i
-                     :col-start (- selected-start start)
-                     :col-len (- selected-end selected-start)})
-                   out))))))
+                   (tl/source-offset->line-col layout-result caret))
+        sel-spans (cond
+                    (and focused? selection)
+                    (selection-spans-for-layout layout-result selection)
+
+                    msel
+                    (visual-selection-spans layout-result
+                                            (:anchor msel) (:head msel))
+
+                    :else [])
         fold-headers
         (mapv
          (fn [i {:keys [section fold-key]}]
@@ -1327,6 +1683,10 @@
         gold (first gold-marks)
         silver (first silver-marks)]
     {:text render-text
+     ;; The material-local result is derived once above and carried through the
+     ;; interpreted anatomy. Root, selection, and caret readers consume this
+     ;; exact value instead of reacquiring the same address independently.
+     :layout-result layout-result
      :wrap-col wrap-col
      :headers headers
      :header-count (count headers)
@@ -1386,18 +1746,25 @@
         viewport (:viewport metrics)
         data (anatomy-material/apply-data
               parts wears view-model unit-id)]
-    (face-assembly/apply-assembly
-     compiled
-     data
-     {:view-instance (block-vi unit-id)
-      :address unit-id
-      :geom
-      {:viewport-w (:w viewport)
-       :viewport-h (:h viewport)
-       :content-w (:block-w view-model)
-       :font-size (:font-size metrics)
-       :char-advance (:char-advance metrics)
-       :line-height (:line-h metrics)}})))
+    (let [vi (if (= unit-id "workshop:specimen")
+               workshop-specimen-vi
+               (block-vi unit-id))
+          tree
+          (face-assembly/apply-assembly
+           compiled
+           data
+           {:view-instance vi
+            :address unit-id
+            :geom
+            {:viewport-w (:w viewport)
+             :viewport-h (:h viewport)
+             :content-w (:block-w view-model)
+             :font-size (:font-size metrics)
+             :char-advance (:char-advance metrics)
+             :line-height (:line-h metrics)
+             :layout-provider (:layout-provider metrics)
+             :layout-acquire (:layout-acquire metrics)}})]
+      (carry-ground-text-layouts! vi tree))))
 
 (defn- current-block-render-inputs
   "The complete legacy render argument census, derived once for both normal
@@ -1465,7 +1832,7 @@
           metrics (metrics)
           anatomy-view
           (block-anatomy-view-model
-           view (:machine? block) hover? notice metrics (:wrap-col block)
+           unit-id view (:machine? block) hover? notice metrics (:wrap-col block)
            headers header-sections msel boundary? gsel?
            (:placement-derived? block) wears
            gold-marks silver-marks)
@@ -1474,7 +1841,8 @@
            headers header-sections msel
            boundary? gsel? (:placement-derived? block) wears gold-marks
            silver-marks (:font-size metrics) (:char-advance metrics)
-           (:line-h metrics)]]
+           (:line-h metrics)
+           (dissoc (:layout-provider metrics) :shape-line)]]
       {:block block
        :view view
        :machine? (:machine? block)
@@ -1502,20 +1870,23 @@
    signature — reconcile calls this for every block on every context
    emission (i.e. per keystroke), and layout+upsert over unchanged blocks
   was the typing lag."
-  [unit-id]
-  (when-let [{:keys [block wears metrics anatomy-view sig]}
-             (current-block-render-inputs unit-id)]
-    (if (and (= sig (:render-sig block))
-               (some? (ss/slot (scene-rt/store-snapshot) (block-vi unit-id))))
-      (swap! !rebuild-stats update :skips inc)
-      (let [tree (anatomy-render-tree unit-id anatomy-view metrics wears)]
-        (swap! !rebuild-stats update :builds inc)
-        (upsert-block-slot! unit-id tree (:x block) (:y block))
-        (swap! !world update-in [:blocks unit-id]
-               assoc
-               :w (get-in tree [:bounds :w])
-               :h (get-in tree [:bounds :h])
-               :render-sig sig)))))
+  ([unit-id] (rebuild-block! unit-id :slot-text-change))
+  ([unit-id cause]
+   (binding [*layout-cause* cause
+             *paint-cause* cause]
+     (when-let [{:keys [block wears metrics anatomy-view sig]}
+                (current-block-render-inputs unit-id)]
+       (if (and (= sig (:render-sig block))
+                (some? (ss/slot (scene-rt/store-snapshot) (block-vi unit-id))))
+         (swap! !rebuild-stats update :skips inc)
+         (let [tree (anatomy-render-tree unit-id anatomy-view metrics wears)]
+           (swap! !rebuild-stats update :builds inc)
+           (upsert-block-slot! unit-id tree (:x block) (:y block))
+           (swap! !world update-in [:blocks unit-id]
+                  assoc
+                  :w (get-in tree [:bounds :w])
+                  :h (get-in tree [:bounds :h])
+                  :render-sig sig)))))))
 
 (defn- clear-group-sel! []
   (let [uids @!group-sel]
@@ -1630,7 +2001,8 @@
                            :provisional-body
                            :wrap-policy
                            :appearance/content-flow)))
-                       :children kids))]
+                       :children kids))
+        tree (carry-ground-text-layouts! vi tree)]
     (if-let [slot (ss/slot (scene-rt/store-snapshot) vi)]
       (do (swap! scene-rt/!scene-store ss/upsert-slot vi
                  {:tree tree :container (:container slot)
@@ -2968,7 +3340,8 @@
                                    :border-color [0.92 0.75 0.35 1.0]
                                    :radius 4}
                            :text ops
-                           :data {:binding/conflicts conflicts}))]
+                           :data {:binding/conflicts conflicts}))
+            tree (carry-ground-text-layouts! binding-lint-vi tree)]
         (if-let [slot (ss/slot (scene-rt/store-snapshot) binding-lint-vi)]
           (do
             (swap! scene-rt/!scene-store ss/upsert-slot binding-lint-vi
@@ -3100,18 +3473,26 @@
 
 ;; :fold/toggle-section ← pointer-up! :pending fold branch (Task 7). The
 ;; section arrives from the CLAIM: the header node hit is the section.
+(defn- set-fold-state!
+  "Change one fold through the product state, rebuild its driving slot, then
+   re-run placement so derived siblings move through container transforms.
+   Settled blocks remain sovereign and unchanged."
+  [subject fold-key value]
+  (let [defaults (:foldable/defaults (:foldable (wears-for subject)))]
+    (swap! !folds assoc subject
+           (assoc (get @!folds subject defaults) fold-key (boolean value)))
+    (rebuild-block! subject :fold-projection)
+    (when-let [ctx (:context @!world)]
+      (reconcile! ctx))
+    true))
+
 (register-verb! :fold/toggle-section
   {:invoke
    (fn [{:keys [subject args]}]
-     (swap! !folds update subject
-            (fn [f]
-              (update
-               (or f
-                   (:foldable/defaults
-                    (:foldable (wears-for subject))))
-               (:fold-key args)
-               not)))
-     (rebuild-block! subject))})
+     (let [fold-key (:fold-key args)
+           defaults (:foldable/defaults (:foldable (wears-for subject)))
+           current (get @!folds subject defaults)]
+       (set-fold-state! subject fold-key (not (get current fold-key)))))})
 
 ;; :anchor/place ← pointer-up! :pending, :ground target (Law 1)
 (register-verb! :anchor/place
@@ -3437,8 +3818,8 @@
         (when (not= uid @!hover)
           (let [old @!hover]
             (reset! !hover uid)
-            (when old (rebuild-block! old))
-            (when uid (rebuild-block! uid))))))
+            (when old (rebuild-block! old :hover-paint))
+            (when uid (rebuild-block! uid :hover-paint))))))
     (case (:phase p)
       ;; --- threshold: the press becomes a continuous gesture ---------------
       :pending
@@ -3931,6 +4312,8 @@
          " last=" (fmt1 (peek rc)) " p95=" (fmt1 (pct rc 0.95))
          " max=" (fmt1 (when (seq rc) (reduce max rc))) "\n"
          "rebuilds since boot: built=" builds " skipped=" skips "\n"
+         "shaping counters=" (pr-str (shaping-counters)) "\n"
+         "layout cache=" (pr-str (layout-cache-diagnostics)) "\n"
          "canvas: blocks=" (count bs)
          " machine=" (count (filter :machine? (vals bs)))
          " served-chars=" (reduce + 0 (map #(count (or (:text %) "")) (vals idx))) "\n"
@@ -3946,6 +4329,352 @@
                                                     (name (:phase r :idle))]))
                                @!ground-runs))
          " zoom=" (fmt1 (:zoom @!camera)))))
+
+;; ---------------------------------------------------------------------------
+;; shaping-correction profile drives — dev-only product/truth roads
+;; ---------------------------------------------------------------------------
+
+(defonce ^:private !shaping-profile-state (atom {}))
+
+(defn- profile-update-context-block
+  [ctx unit-id f]
+  (update ctx :turns
+          (fn [turns]
+            (mapv (fn [turn]
+                    (update turn :blocks
+                            (fn [blocks]
+                              (mapv #(if (= unit-id (:id %)) (f %) %) blocks))))
+                  turns))))
+
+(defn- profile-reconcile-context! [ctx]
+  (reconcile! ctx)
+  true)
+
+(defn- profile-truth-edit! [unit-id text]
+  (when-let [ctx (:context @!world)]
+    (profile-reconcile-context!
+     (profile-update-context-block
+      ctx unit-id
+      (fn [block]
+        (cond-> (assoc block :text (str text))
+          (contains? block :reply-text) (assoc :reply-text (str text))))))))
+
+(defn- profile-capacity-append!
+  "§8's capacity-append road (G4 row f). Extends the block's CURRENT truth text
+   by `n` non-whitespace ASCII chars through the SAME truth road as the text
+   edit — no separate write path, so the capacity-growth receipt comes from the
+   renderer's own buffer lifecycle. Restore rides `truthEdit` with the text
+   `truthText` returned before the window. Returns the appended text's length."
+  [unit-id n]
+  (when-let [text (truth-text unit-id)]
+    (let [n (max 0 (long (or n 4096)))
+          grown (str text (.repeat "x" n))]
+      (when (profile-truth-edit! unit-id grown)
+        (count grown)))))
+
+(defn- profile-caret! [unit-id caret]
+  (when-let [text (truth-text unit-id)]
+    (let [old (:focus @!ground-edit)]
+      (swap! !ground-edit ge/focus-block unit-id text caret)
+      (when (and old (not= old unit-id)) (rebuild-block! old :selection))
+      (rebuild-block! unit-id :selection)
+      true)))
+
+(defn- profile-text-selection! [unit-id anchor head]
+  (when (profile-caret! unit-id anchor)
+    (swap! !ground-edit ge/begin-select anchor)
+    (swap! !ground-edit ge/extend-select head)
+    (rebuild-block! unit-id :selection)
+    true))
+
+(defn- profile-machine-selection! [unit-id anchor-line anchor-col head-line head-col]
+  (when (get-in @!world [:blocks unit-id :machine?])
+    (reset! !machine-sel
+            {:uid unit-id
+             :anchor {:line anchor-line :col anchor-col}
+             :head {:line head-line :col head-col}})
+    (rebuild-block! unit-id :selection)
+    true))
+
+(defn- profile-fold! [unit-id fold-key value]
+  (set-fold-state! unit-id fold-key value))
+
+(defn- profile-backend! [backend]
+  (when-let [!font-assets (get-in @!refs [:atoms :!font-assets])]
+    (swap! !shaping-profile-state
+           #(if (:backend-base %) % (assoc % :backend-base @!font-assets)))
+    (if (= backend :restore)
+      (when-let [base (:backend-base @!shaping-profile-state)]
+        (reset! !font-assets base)
+        (swap! !shaping-profile-state dissoc :backend-base))
+      (swap! !font-assets assoc :backend backend))
+    true))
+
+(defn- profile-provider-variant! [enabled?]
+  (when-let [!active-font (get-in @!refs [:atoms :!active-font])]
+    (if enabled?
+      (let [base @!active-font
+            provider (:layout-provider base)]
+        (swap! !shaping-profile-state
+               #(if (:provider-base %) % (assoc % :provider-base base)))
+        (reset! !active-font
+                (assoc base :layout-provider
+                       (assoc provider
+                              :face-revision
+                              (str (:face-revision provider) "/profile-p1"))))
+        (doseq [unit-id (keys (:blocks @!world))]
+          (rebuild-block! unit-id :provider-change)))
+      (when-let [base (:provider-base @!shaping-profile-state)]
+        (reset! !active-font base)
+        (swap! !shaping-profile-state dissoc :provider-base)
+        (doseq [unit-id (keys (:blocks @!world))]
+          (rebuild-block! unit-id :provider-change))))
+    true))
+
+(defn- profile-material-form [active kind]
+  (let [material (:facet-master/material active)
+        material
+        (case kind
+          :binding
+          ;; Change only revision data on one already-unambiguous row.
+          ;; Reordering the vector was not binding-only in practice: it changed
+          ;; dispatch precedence and therefore the rendered anatomy/address
+          ;; set.  The user press/:begin row has no competitor at that site, so
+          ;; raising only its priority cannot change the winner while still
+          ;; producing a genuinely distinct bindings map for the reuse probe.
+          (update-in material
+                     [:facet-master/bindings :block/user-hit-area]
+                     (fn [rows]
+                       (mapv (fn [row]
+                               (if (and (= :pointer/press
+                                           (:binding/gesture row))
+                                        (= :begin (:binding/phase row)))
+                                 (update row :binding/priority (fnil inc 0))
+                                 row))
+                             rows)))
+
+          :attention
+          (update material :attention/border-width
+                  (fn [width] (+ (double (or width 1.0)) 0.125)))
+
+          ;; Contribution-stamp variant changes only the revision minted by
+          ;; the preview membrane; the material form remains byte-identical.
+          :contribution material
+          material)]
+    (merge material
+           {:facet-master/id attention-material/master-id
+            :facet-master/facet :attention
+            :facet-master/grammar (:facet-master/grammar active)})))
+
+(defn- profile-material-variant! [unit-id kind enabled?]
+  (if enabled?
+    (let [!served (get-in @!refs [:atoms :!facet-materials])
+          base (when !served @!served)
+          active (get-in base [:facet-materials/by-id attention-material/master-id])
+          form (profile-material-form active kind)
+          compiled (facet-material/compile-form attention-material/spec form)]
+      (when (:valid? compiled)
+        (let [revision-id (str "profile:" (name kind) ":" (hash form))
+              overlay
+              (assoc-in base [:facet-materials/by-id attention-material/master-id]
+                        (merge active
+                               {:facet-master/grammar (:grammar compiled)
+                                :facet-master/material (:material compiled)
+                                :facet-master/active-revision-id revision-id
+                                :facet-master/preview? true}))]
+          (reset! !preview {:master-id attention-material/master-id
+                            :revision-id revision-id
+                            :base base :overlay overlay
+                            :profile/unit-id unit-id})
+          (reset! !wears-cache nil)
+          (rebuild-block! unit-id :other)
+          true)))
+    (when-let [profile @!preview]
+      (let [target (or (:profile/unit-id profile) unit-id)]
+        (reset! !preview nil)
+        (reset! !wears-cache nil)
+        (rebuild-block! target :other)
+        true))))
+
+(def ^:private shaping-profile-fixture-id "shaping-profile:truth-death")
+(def ^:private shaping-profile-origin-driver-id
+  "shaping-profile:origin-driver")
+(def ^:private shaping-profile-origin-observed-id
+  "shaping-profile:origin-observed")
+
+(defn- profile-fixture! [enabled?]
+  (if enabled?
+    (when-let [ctx (:context @!world)]
+      (swap! !shaping-profile-state assoc :fixture-base-context ctx)
+      (let [block {:id shaping-profile-fixture-id
+                   :text "fixture noise\nfixture body"
+                   :noise-text "fixture noise"
+                   :reply-text "fixture body"
+                   ;; A real boundary auxiliary plus the transient notice below
+                   ;; gives the fixture body + header + >=1 auxiliary address
+                   ;; classes without inventing a harness-only text op.
+                   :episode-boundary? true
+                   ;; Deterministic because row (g) recreates this exact X
+                   ;; state after its measured truth death.
+                   :time-ms 0}
+            turns (:turns ctx)
+            target-index
+            (or (first (keep-indexed
+                        (fn [i turn]
+                          (when (not= "sid" (str (:speaker turn))) i))
+                        turns))
+                0)
+            next-ctx (update-in ctx [:turns target-index :blocks]
+                                (fnil conj []) block)]
+        (profile-reconcile-context! next-ctx)
+        (reset! !notice {:unit-id shaping-profile-fixture-id
+                         :text "fixture auxiliary"})
+        (rebuild-block! shaping-profile-fixture-id :slot-text-change)
+        shaping-profile-fixture-id))
+    (when-let [base (:fixture-base-context @!shaping-profile-state)]
+      (reset! !notice nil)
+      (profile-reconcile-context! base)
+      (swap! !shaping-profile-state dissoc :fixture-base-context)
+      true)))
+
+(defn- profile-origin-fixture!
+  "Install a disposable two-block truth projection for G5's origin-shift row.
+   The settled real corpus has no placement-derived blocks, so it cannot drive
+   that law.  Both fixture blocks enter through reconcile; the second remains
+   derived from the first and therefore moves when the driver's noise fold
+   changes its height.  Closing the disposable page drops the fixture."
+  []
+  (when-let [ctx (:context @!world)]
+    (let [turns (:turns ctx)
+          target-index
+          (or (first (keep-indexed
+                      (fn [i turn]
+                        (when (not= "sid" (str (:speaker turn))) i))
+                      turns))
+              0)
+          turn (get turns target-index)
+          thread-id (:thread-id turn)
+          driver {:id shaping-profile-origin-driver-id
+                  :text "origin fixture noise\norigin fixture body"
+                  :noise-text "origin fixture noise"
+                  :reply-text "origin fixture body"
+                  :thread-id thread-id
+                  :time-ms 0}
+          observed {:id shaping-profile-origin-observed-id
+                    :text "origin fixture observed"
+                    :reply-text "origin fixture observed"
+                    :thread-id thread-id
+                    :time-ms 1}
+          next-ctx (update-in ctx [:turns target-index :blocks]
+                              (fn [blocks]
+                                (into (vec blocks) [driver observed])))]
+      (profile-reconcile-context! next-ctx)
+      {:driver shaping-profile-origin-driver-id
+       :observed shaping-profile-origin-observed-id})))
+
+(defn- profile-delete-block! [unit-id]
+  (when-let [ctx (:context @!world)]
+    (profile-reconcile-context!
+     (update ctx :turns
+             (fn [turns]
+               (mapv #(update % :blocks
+                              (fn [blocks]
+                                (vec (remove (fn [block]
+                                               (= unit-id (:id block)))
+                                             blocks))))
+                     turns))))))
+
+(defn- profile-order-pair []
+  (some (fn [turn]
+          (let [ids (mapv :id (:blocks turn))]
+            (when (>= (count ids) 2) (subvec ids 0 2))))
+        (get-in @!world [:context :turns])))
+
+(defn- profile-swap-order! [a b]
+  (when-let [ctx (:context @!world)]
+    (profile-reconcile-context!
+     (update ctx :turns
+             (fn [turns]
+               (mapv
+                (fn [turn]
+                  (update turn :blocks
+                          (fn [blocks]
+                            (let [blocks (vec blocks)
+                                  ai (first (keep-indexed #(when (= a (:id %2)) %1)
+                                                          blocks))
+                                  bi (first (keep-indexed #(when (= b (:id %2)) %1)
+                                                          blocks))]
+                              (if (and (some? ai) (some? bi))
+                                (assoc blocks ai (nth blocks bi) bi (nth blocks ai))
+                                blocks)))))
+                turns))))))
+
+(defn- profile-targets []
+  (let [blocks (:blocks @!world)
+        atoms (:atoms @!refs)
+        ordered-ids (mapv :id (context-blocks (get @!world :context)))
+        positioned-wear (:positioned (current-material-wears))
+        derived-by-anchor
+        (reduce
+         (fn [acc [i unit-id]]
+           (let [block (get blocks unit-id)
+                 prev-id (get ordered-ids (dec i))
+                 prev (get blocks prev-id)
+                 src-uid (:source-uid block)
+                 order
+                 (get-in positioned-wear
+                         [:positioned/anchor-order
+                          (if (:machine? block) :machine :ordinary)])
+                 anchor-id
+                 (some
+                  (fn [rule]
+                    (case rule
+                      :same-source-tail
+                      (when (and (:machine? prev)
+                                 (= (:src-uid prev) src-uid))
+                        prev-id)
+                      :source src-uid
+                      :previous prev-id
+                      nil))
+                  order)]
+             (if (and (:placement-derived? block) anchor-id)
+               (update acc anchor-id (fnil conj []) unit-id)
+               acc)))
+         {}
+         (map-indexed vector ordered-ids))
+        run-machine
+        (first (keep (fn [[unit-id block]]
+                       (when (and (:machine? block)
+                                  (contains? (context-block-entry unit-id)
+                                             :reply-text))
+                         unit-id))
+                     blocks))
+        origin-shift-candidates
+        (->> ordered-ids
+             (keep
+              (fn [unit-id]
+                (let [driver (get blocks unit-id)
+                      noise (:noise-text (context-block-entry unit-id))
+                      observed-ids (get derived-by-anchor unit-id)]
+                  (when (and (:machine? driver)
+                             (seq noise)
+                             (seq observed-ids))
+                    {:driver unit-id
+                     :driver-h (:h driver)
+                     :noise-length (count noise)
+                     :observed observed-ids
+                     :observed-y (mapv #(get-in blocks [% :y])
+                                       observed-ids)}))))
+             (sort-by :noise-length >)
+             vec)]
+    {:machine run-machine
+     :order-pair (profile-order-pair)
+     :origin-shift-candidates origin-shift-candidates
+     :fixture-id shaping-profile-fixture-id
+     :backend (some-> atoms :!font-assets deref :backend)
+     :provider-token
+     (some-> atoms :!active-font deref :layout-provider
+             (dissoc :shape-line))}))
 
 ;; ===========================================================================
 ;; Install (the boot seam)
@@ -4034,6 +4763,61 @@
   ;; the narrow-echo samples — drives G4b console receipts, renders nothing
   (set! (.-__ground js/window)
         #js {:report    (fn [] (diag-report))
+             :counters  (fn [] (clj->js (shaping-counters)))
+             :resetCounters reset-shaping-counters!
+             :layoutCache (fn [] (clj->js (layout-cache-diagnostics)))
+             :layoutIdDigest (fn [] (:id-digest (layout-cache-diagnostics)))
+             :profileCensus (fn [] (clj->js (profile-census)))
+             :profileIdentity (fn [] (clj->js (profile-identity)))
+             :profileBlock (fn [unit-id]
+                             (clj->js (profile-block unit-id)))
+             :profileAttention (fn [unit-id]
+                                 (clj->js (profile-attention unit-id)))
+             :profileBlocks
+             (fn []
+               (clj->js
+                (into {}
+                      (map (fn [unit-id]
+                             [unit-id (profile-block unit-id)]))
+                      (keys (:blocks @!world)))))
+             :currentHover (fn [] @!hover)
+             :ownedAddresses
+             (fn [unit-id]
+               (count (get @!slot-layout-addresses
+                           (block-subject-id unit-id) #{})))
+             :enableLayoutOracle (fn [] (reset! !layout-oracle? true))
+             :disableLayoutOracle (fn [] (reset! !layout-oracle? false))
+             :seedStaleLayout seed-stale-layout!
+             :profileTargets (fn [] (clj->js (profile-targets)))
+             :truthText (fn [unit-id] (truth-text unit-id))
+             :truthEdit (fn [unit-id text]
+                          (profile-truth-edit! unit-id text))
+             :capacityAppend (fn [unit-id n]
+                               (profile-capacity-append! unit-id n))
+             :caretMove (fn [unit-id caret]
+                          (profile-caret! unit-id caret))
+             :textSelectionMove
+             (fn [unit-id anchor head]
+               (profile-text-selection! unit-id anchor head))
+             :machineSelectionMove
+             (fn [unit-id anchor-line anchor-col head-line head-col]
+               (profile-machine-selection! unit-id anchor-line anchor-col
+                                           head-line head-col))
+             :foldSet (fn [unit-id fold-key value]
+                        (profile-fold! unit-id (keyword fold-key) value))
+             :pasteSet (fn [unit-id value]
+                         (profile-fold! unit-id :paste? value))
+             :backendSet (fn [backend]
+                           (profile-backend!
+                            (if (= backend "restore") :restore (keyword backend))))
+             :providerVariant profile-provider-variant!
+             :materialVariant
+             (fn [unit-id kind enabled]
+               (profile-material-variant! unit-id (keyword kind) enabled))
+             :fixtureSet profile-fixture!
+             :originFixtureSet profile-origin-fixture!
+             :deleteBlock profile-delete-block!
+             :swapOrder profile-swap-order!
              ;; read the ACTUAL clipboard and count how many times its own
              ;; opening line repeats — judges copy by the clipboard itself,
              ;; not by any paste target's behavior
