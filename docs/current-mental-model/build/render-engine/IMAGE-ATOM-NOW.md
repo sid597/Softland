@@ -112,6 +112,28 @@
   Contract 800→1,116 ln, sha256 `ebd894a58af945b761907decad74f8e7f3d39ea0a744ccadc6ce168900783800`;
   map `IMAGE-ATOM-RECUT-LEDGER-R3.md`. NO R4 — cycle SPENT; FULL gate
   carries the rest. NEXT: Sid pastes the CODEX OPENING PROMPT below.
+- 2026-08-05 · Codex · **IMPLEMENTED; FULL GATE STOP S2.** Opening HEAD
+  `eb0ef7b`; freeze exact; clean opening. Falsifier FAIL findings verbatim:
+  1. **HIGH — Seam-off performs an ICC conversion but reports zero transfers.**
+  2. **HIGH — The claimed device-loss rebuild does not rebuild from a lost
+  device.**
+  3. **MEDIUM/HIGH — Painting a refused over-budget source erases the refusal,
+  and neither placeholder path is pixel-driven.**
+  All three are corrected and browser-receipted; sub-draw order passed.
+  RED is preserved; assert-image is green; image goldens 21/21, parity 14/14;
+  scene/text/shaping fences green; sourceMatch true; old PNG bytes untouched.
+  `[JVM-FULL]` remains 5 failures/0 errors in untouched unrelated namespaces;
+  repeatable blocker names MUST-NOT `ground.cljs`, so §13 S2 binds.
+  Artifact: `IMAGE-ATOM-P1.md`. No commit/push/merge; no Fable gate yet.
+- 2026-08-06 · Sid ruling · **ACCEPTED AND LANDED.** Sid accepted the image
+  implementation directly and ruled out another verification/review loop.
+  Code/test/fixture commit: `9ae1fd5` (`render-engine: land image atom`).
+  No additional test or verifier invocation ran at landing; nothing pushed or
+  merged. P1's exact S2 remains the historical implementer receipt, not an
+  image-defect claim or a blocker after Sid's acceptance. The dark-wave truth
+  is unchanged: authoring, felt activation, and the product frame-loop join
+  remain staged. NEXT: the one-pass path/tessellation atom contract; no image
+  gate session.
 
 ## Starter — the fresh Fable ruling session (CONSUMED 2026-08-05 — the ruling session ran; kept as history)
 

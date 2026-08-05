@@ -725,28 +725,15 @@ exact-npx launcher gap · optional matrix incomplete at backend flip ·
 physical-GPU timing unclassified). **Consequence: SEAM-STEP1's felt gates
 + close are UNBLOCKED** (were queued behind this per the 2026-08-04 flag).
 
-**image-atom — Package 2 wave 1, CONTRACT RULED / IMPLEMENTATION OPEN
-(2026-08-05).** Package 2 opened at Sid's word. The first new atom through
-the W2-B seam (decode · upload · color · mipmaps · atlas), DARK by hard
-join (felt gate staged behind the artery/studio-custody ruling reserved
-to Sid; the product frame-loop join receipt is a second staged obligation
-beside it). Ladder COMPLETE + SPENT: R1 FAIL → recut · R2 FAIL → recut ·
-R3 FAIL (W1-conformance) ∥ Codex NEEDS-FABLE → merged Q1–Q7 packet → the
-fresh Fable RULING SESSION ruled all seven (Q1 one-color-declaration,
-zero-transfer row deleted · Q2 sub-draw indirection + registered family
-executor, image part-rank 3 · Q3 pick equality-by-construction, half-open
-boundary, address-owner · Q4 synthetic-frame verifier receipt · Q5
-value-identity helper authorization · Q6 identity-gated buffer home · Q7
-named ingress-receipt sink) and executed the THIRD RECUT in place —
-contract BINDING at sha256 `ebd894a5…783800` (1,116 ln); map
-`IMAGE-ATOM-RECUT-LEDGER-R3.md`; ruling-execution sweep clean; NO R4 —
-no further validation rounds; the FULL-tier gate carries the rest.
-**NEXT = Sid pastes the CODEX OPENING PROMPT at `IMAGE-ATOM-NOW.md`'s
-tail into one fresh implementer context (one phase, whole package, no
-PLAN.md; Act 0 = §11 sweep + §8 boot-verify + ICC probe). Then Fable
-FULL gate; Sid's commit ruling at gate.** D7 discharged as CONTRACT §3;
-the studio-archive draft is reference-only (its per-instance
-`image-scene-entries` design is the named refused shape).
+**image-atom — Package 2 wave 1, LANDED / SID-ACCEPTED 2026-08-06.**
+Code/test/fixtures landed as `9ae1fd5`; implementation receipt:
+`build/render-engine/IMAGE-ATOM-P1.md`. Sid accepted the implementation
+directly and ruled out another verification/review loop. P1's exact S2 is
+preserved as the historical implementer receipt: image-specific receipts
+were green; the full JVM lane had five failures in untouched foreign
+namespaces. DARK scope remains honest — authoring, felt activation, and the
+product frame-loop join are staged. **NEXT: Fable authors the one-pass
+path/tessellation atom contract; no image gate session.**
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.
