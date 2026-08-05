@@ -2,7 +2,8 @@
   "Scene graph for nested UI.
    Everything is a rect. The tree replaces scattered compute-*-rects fns with
    one generic walk that produces flat GPU-compatible vectors."
-  (:require [app.client.workspace.text-layout :as tl]))
+  (:require [app.client.substrate.image-material :as image-material]
+            [app.client.workspace.text-layout :as tl]))
 
 (defn wrap-line
   "Compatibility name for Contract-T's legacy word wrapper."
@@ -253,6 +254,75 @@
          (cond-> []
            bg   (conj bg)
            true (into child-rects)))))))
+
+;; --- Tree walk: image ops ---------------------------------------------------
+
+(defn tree->images
+  "Walk image-bearing rt-nodes depth-first and emit ordered image ops.
+
+   Presence is `[:data :image/digest]`.  Every such node must carry its own
+   semantic `[:data :address]`; falling back to an addressed ancestor would
+   violate the image pick owner route.  Clip clamps shrink placement and inset
+   crop coordinates by the same fractions, so a partial clip crops rather
+   than stretches (IMAGE-ATOM T15)."
+  ([node] (tree->images node 0 0 nil))
+  ([node parent-x parent-y clip-bounds]
+   (let [{:keys [bounds children clip? data]} node
+         abs-x (+ parent-x (:x bounds 0))
+         abs-y (+ parent-y (:y bounds 0))
+         width (:w bounds 0)
+         height (:h bounds 0)
+         digest (:image/digest data)
+         visible? (if clip-bounds
+                    (let [clip-x (:x clip-bounds)
+                          clip-y (:y clip-bounds)
+                          clip-width (:w clip-bounds)
+                          clip-height (:h clip-bounds)]
+                      (and (< abs-x (+ clip-x clip-width))
+                           (< abs-y (+ clip-y clip-height))
+                           (> (+ abs-x width) clip-x)
+                           (> (+ abs-y height) clip-y)))
+                    true)]
+     (when (and digest (nil? (:address data)))
+       (throw (ex-info "Image rt-node requires its own semantic address"
+                       {:node/id (:id node) :image/digest digest})))
+     (when visible?
+       (let [intrinsic (or (:image/intrinsic-size data)
+                           [(:image/width data) (:image/height data)])
+             crop (when digest
+                    (image-material/normalize-crop intrinsic
+                                                   (:image/crop data)))
+             clipped (when digest
+                       (image-material/clip-placement
+                        {:x abs-x :y abs-y :w width :h height}
+                        crop clip-bounds))
+             own-op
+             (when clipped
+               (let [{placed :placement clipped-crop :crop} clipped]
+                 ;; IMAGE-ATOM T8/T14: the op carries only the existing compact
+                 ;; container index when stamped; never a per-node matrix.
+                 (merge placed
+                        {:id (:id node)
+                         :address (:address data)
+                         :image/digest digest
+                         :image/color-tag (:image/color-tag data)
+                         :image/alpha-association
+                         (or (:image/alpha-association data) :straight)
+                         :image/intrinsic-size intrinsic
+                         :image/crop clipped-crop
+                         :image/uv (image-material/crop->uv intrinsic clipped-crop)
+                         :image/opacity (or (:image/opacity data) 1.0)
+                         :image/tint (or (:image/tint data)
+                                         [1.0 1.0 1.0 1.0])})))
+             child-clip (if clip?
+                          (intersect-clip abs-x abs-y width height clip-bounds)
+                          clip-bounds)
+             child-ops (into []
+                             (mapcat #(tree->images % abs-x abs-y child-clip))
+                             children)]
+         (cond-> []
+           own-op (conj own-op)
+           true (into child-ops)))))))
 
 ;; --- Tree walk: text ops ----------------------------------------------------
 

@@ -27,6 +27,8 @@ const origin = "https://softland-render-verifier.invalid";
 const chromeExecutable =
   process.env.RENDER_VERIFIER_CHROME || "/usr/bin/google-chrome";
 const updateGoldens = process.argv.includes("--update-goldens");
+const appendImageGoldens = process.argv.includes("--append-image-goldens");
+const assertImageContract = process.argv.includes("--assert-image-contract");
 const launchArgs = [
   "--no-sandbox",
   "--enable-unsafe-webgpu",
@@ -139,6 +141,26 @@ const serveSyntheticOrigin = async (page) => {
         });
         return;
       }
+      if (url.pathname.startsWith("/images/")) {
+        const filename = decodeURIComponent(
+          url.pathname.slice("/images/".length),
+        );
+        const imageRoot = path.resolve(
+          repoRoot,
+          "test/app/fixtures/render_engine/images",
+        );
+        const absolute = path.resolve(imageRoot, filename);
+        if (!absolute.startsWith(`${imageRoot}${path.sep}`)) {
+          request.abort();
+          return;
+        }
+        request.respond({
+          status: 200,
+          contentType: "image/png",
+          body: fs.readFileSync(absolute),
+        });
+        return;
+      }
       request.respond({ status: 404, body: "not found" });
     } catch (error) {
       request.abort();
@@ -174,6 +196,13 @@ const stripDataUrls = (result) => ({
     ...renderCase,
     images: renderCase.images.map(({ pngDataUrl, ...image }) => image),
   })),
+  imageAtom: {
+    ...result.imageAtom,
+    cases: result.imageAtom.cases.map((renderCase) => ({
+      ...renderCase,
+      images: renderCase.images.map(({ pngDataUrl, ...image }) => image),
+    })),
+  },
 });
 
 const imageRows = (result) =>
@@ -193,9 +222,39 @@ const imageRows = (result) =>
     })),
   );
 
+const imageAtomRows = (result) =>
+  result.imageAtom.cases.flatMap((renderCase) =>
+    renderCase.images.map((image) => ({
+      caseId: renderCase.caseId,
+      zoom: renderCase.zoom,
+      regime: renderCase.regime,
+      normalization: renderCase.normalization,
+      shapeExtentWorld: renderCase.shapeExtentWorld,
+      mode: image.mode,
+      file: image.file,
+      rawSha256: image.rawSha256,
+      pngSha256: sha256(
+        Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64"),
+      ),
+    })),
+  );
+
+const imageAtomInputs = () => ({
+  sceneTape: sha256File("src/app/client/substrate/scene_tape.cljc"),
+  sceneStore: sha256File("src/app/client/workspace/scene_store.cljc"),
+  rectTree: sha256File("src/app/client/workspace/rect_tree.cljc"),
+  verifier: sha256File("src/app/client/substrate/webgpu/verifier.cljs"),
+});
+
 const writeActualImages = (result) => {
   fs.mkdirSync(actualDir, { recursive: true });
   for (const renderCase of result.cases) {
+    for (const image of renderCase.images) {
+      const png = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
+      fs.writeFileSync(path.join(actualDir, image.file), png);
+    }
+  }
+  for (const renderCase of result.imageAtom.cases) {
     for (const image of renderCase.images) {
       const png = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
       fs.writeFileSync(path.join(actualDir, image.file), png);
@@ -224,6 +283,17 @@ const determinismRows = (result) =>
     })),
   );
 
+const imageAtomDeterminismRows = (result) =>
+  result.imageAtom.cases.flatMap((renderCase) =>
+    renderCase.images.map((image) => ({
+      caseId: renderCase.caseId,
+      zoom: renderCase.zoom,
+      regime: renderCase.regime,
+      mode: image.mode,
+      ...image.determinism,
+    })),
+  );
+
 const expectedDivergenceRows = (result) =>
   result.cases.map((renderCase) => ({
     caseId: renderCase.caseId,
@@ -233,6 +303,11 @@ const expectedDivergenceRows = (result) =>
   }));
 
 const main = async () => {
+  if (updateGoldens) {
+    throw new Error(
+      "--update-goldens is forbidden during IMAGE-ATOM Package 2; use the scoped --append-image-goldens road",
+    );
+  }
   if (!fs.existsSync(buildFile)) {
     throw new Error(
       `Missing verifier build ${path.relative(repoRoot, buildFile)}; use npm run verify:render-engine`,
@@ -289,6 +364,22 @@ const main = async () => {
   }
 
   const inputs = productionInputs();
+  const {
+    isFallbackAdapter,
+    fallbackAttestationSource,
+    renderer: adapterRenderer,
+    ...fingerprintAdapter
+  } = result.adapter;
+  const attestation = {
+    adapterIdentity: {
+      vendor: result.adapter.vendor,
+      architecture: result.adapter.architecture,
+      device: result.adapter.device,
+    },
+    isFallbackAdapter,
+    fallbackAttestationSource,
+    renderer: adapterRenderer,
+  };
   const environment = {
     os: {
       platform: os.platform(),
@@ -308,8 +399,8 @@ const main = async () => {
       secureContext: result.secureContext,
       userAgent: result.userAgent,
       adapter: {
-        ...result.adapter,
-        features: canonicalStringSet(result.adapter?.features),
+        ...fingerprintAdapter,
+        features: canonicalStringSet(fingerprintAdapter?.features),
       },
       deviceLimits: result.deviceLimits,
       canvas: result.canvas,
@@ -327,11 +418,24 @@ const main = async () => {
     shaderDigests: result.shaderDigests,
     productionInputs: inputs,
     images: imageRows(result),
+    imageAtomInputs: imageAtomInputs(),
+    imageAtomCases: imageAtomRows(result),
   };
   const deterministic = determinismRows(result);
+  const imageDeterministic = imageAtomDeterminismRows(result);
+  const imageParity = result.imageAtom.parity;
   const parity = parityRows(result);
   const divergences = expectedDivergenceRows(result);
   const determinismPass = deterministic.every((row) => row.byteIdentical);
+  const imageDeterminismPass =
+    imageDeterministic.length === 21 &&
+    imageDeterministic.every((row) => row.byteIdentical);
+  const imageParityPass =
+    imageParity.length === 14 &&
+    imageParity.every(
+      (row) =>
+        row.pass && row.boundaryPixelCount > 0 && row.decisiveCount > 0,
+    );
   const parityPass = parity.every((row) => row.pass);
   const divergencePass = divergences.every((row) => row.expectedDivergence);
   const q8TransportPass = Boolean(
@@ -379,28 +483,174 @@ const main = async () => {
 
   writeActualImages(result);
 
-  if (updateGoldens && updateAuthorized) {
-    fs.mkdirSync(goldenDir, { recursive: true });
-    for (const renderCase of result.cases) {
+  const bankPresent =
+    fs.existsSync(manifestFile) && fs.existsSync(environmentFile);
+  let expectedManifest = bankPresent ? jsonRead(manifestFile) : null;
+  const expectedEnvironment = bankPresent ? jsonRead(environmentFile) : null;
+  const environmentMatch =
+    bankPresent &&
+    expectedEnvironment.fingerprintSha256 === environment.fingerprintSha256;
+
+  const compareGoldenRows = (currentRows, expectedRows) => {
+    const expectedByFile = new Map(
+      (expectedRows || []).map((image) => [image.file, image]),
+    );
+    return currentRows.map((image) => {
+      const expected = expectedByFile.get(image.file);
+      const goldenFile = path.join(goldenDir, image.file);
+      const goldenPngSha256 = fs.existsSync(goldenFile)
+        ? sha256(fs.readFileSync(goldenFile))
+        : null;
+      return {
+        ...image,
+        expectedRawSha256: expected?.rawSha256 || null,
+        expectedPngSha256: expected?.pngSha256 || null,
+        goldenPngSha256,
+        rawMatch: Boolean(expected && expected.rawSha256 === image.rawSha256),
+        pngManifestMatch: Boolean(
+          expected && expected.pngSha256 === image.pngSha256,
+        ),
+        goldenFileMatch: Boolean(
+          expected && expected.pngSha256 === goldenPngSha256,
+        ),
+      };
+    });
+  };
+
+  const comparisonPass = (rows, expectedRows, exactCount) =>
+    rows.length === exactCount &&
+    (expectedRows || []).length === exactCount &&
+    rows.every(
+      (row) => row.rawMatch && row.pngManifestMatch && row.goldenFileMatch,
+    );
+
+  let imageComparison = compareGoldenRows(
+    currentManifest.images,
+    expectedManifest?.images,
+  );
+  let imagePass =
+    bankPresent &&
+    comparisonPass(imageComparison, expectedManifest?.images, 21);
+
+  const legacyFilenameSetExact =
+    new Set(currentManifest.images.map((row) => row.file)).size === 21 &&
+    new Set(expectedManifest?.images?.map((row) => row.file) || []).size === 21 &&
+    currentManifest.images.every((row) =>
+      expectedManifest?.images?.some((expected) => expected.file === row.file),
+    );
+  const productionInputDebtKeys = Object.keys(
+    currentManifest.productionInputs,
+  )
+    .filter(
+      (key) =>
+        fingerprintSha(expectedManifest?.productionInputs?.[key]) !==
+        fingerprintSha(currentManifest.productionInputs[key]),
+    )
+    .sort();
+  const shaderDigestKeysExact =
+    JSON.stringify(Object.keys(expectedManifest?.shaderDigests || {}).sort()) ===
+    JSON.stringify(Object.keys(currentManifest.shaderDigests).sort());
+  const knownSourceDebtOnly =
+    bankPresent &&
+    shaderDigestKeysExact &&
+    JSON.stringify(productionInputDebtKeys) ===
+      JSON.stringify(["fontManifest", "rendererSource"]);
+  const rendererPackageDebtOnly =
+    bankPresent &&
+    shaderDigestKeysExact &&
+    JSON.stringify(productionInputDebtKeys) ===
+      JSON.stringify(["rendererSource"]);
+  const sourceMetadataCurrent =
+    bankPresent &&
+    fingerprintSha(expectedManifest.shaderDigests) ===
+      fingerprintSha(currentManifest.shaderDigests) &&
+    fingerprintSha(expectedManifest.productionInputs) ===
+      fingerprintSha(currentManifest.productionInputs);
+
+  const appendPreflight = {
+    legacyFilenameSetExact,
+    existingGoldenRows: imageComparison.length,
+    existingGoldensPass: imagePass,
+    legacyDeterminismPass:
+      deterministic.length === 21 && determinismPass,
+    environmentMatch,
+    oldPngDigestsUnchanged: imageComparison.every(
+      (row) => row.goldenFileMatch,
+    ),
+    knownSourceDebtOnly,
+    rendererPackageDebtOnly,
+    sourceMetadataCurrent,
+    shaderDigestKeysExact,
+    manifestShaderDigests: expectedManifest?.shaderDigests,
+    currentShaderDigests: currentManifest.shaderDigests,
+    sourceMetadataDebtKeys: productionInputDebtKeys,
+    fontManifestDebt: {
+      manifest: expectedManifest?.productionInputs?.fontManifest?.sha256,
+      current: currentManifest.productionInputs.fontManifest.sha256,
+    },
+    rendererSourceDebt: {
+      manifest: expectedManifest?.productionInputs?.rendererSource?.sha256,
+      current: currentManifest.productionInputs.rendererSource.sha256,
+    },
+    imageRows: currentManifest.imageAtomCases.length,
+    imageDeterminismPass,
+    imageParityPass,
+    imageContractPass: result.imageAtom.pass,
+  };
+  // IMAGE-ATOM T7: the package has a scoped append road, never a bulk golden
+  // blessing road; legacy filenames, bytes, determinism, and environment must
+  // all preflight before only the separately named image rows are admitted.
+  const appendAuthorized =
+    legacyFilenameSetExact &&
+    imagePass &&
+    deterministic.length === 21 &&
+    determinismPass &&
+    environmentMatch &&
+    imageComparison.every((row) => row.goldenFileMatch) &&
+    (knownSourceDebtOnly || rendererPackageDebtOnly || sourceMetadataCurrent) &&
+    currentManifest.imageAtomCases.length === 21 &&
+    imageDeterminismPass &&
+    imageParityPass &&
+    result.imageAtom.pass;
+
+  if (appendImageGoldens) {
+    if (!appendAuthorized) {
+      throw new Error(
+        `IMAGE-ATOM append preflight failed: ${JSON.stringify(appendPreflight)}`,
+      );
+    }
+    const legacyFiles = new Set(expectedManifest.images.map((row) => row.file));
+    const imageFiles = currentManifest.imageAtomCases.map((row) => row.file);
+    if (
+      new Set(imageFiles).size !== 21 ||
+      imageFiles.some((file) => legacyFiles.has(file))
+    ) {
+      throw new Error("IMAGE-ATOM append filenames collide or are not unique");
+    }
+    for (const renderCase of result.imageAtom.cases) {
       for (const image of renderCase.images) {
         const png = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
         fs.writeFileSync(path.join(goldenDir, image.file), png);
       }
     }
+    expectedManifest = {
+      ...expectedManifest,
+      shaderDigests: currentManifest.shaderDigests,
+      productionInputs: currentManifest.productionInputs,
+      imageAtomInputs: currentManifest.imageAtomInputs,
+      imageAtomCases: currentManifest.imageAtomCases,
+    };
     fs.writeFileSync(
       manifestFile,
-      `${JSON.stringify(currentManifest, null, 2)}\n`,
+      `${JSON.stringify(expectedManifest, null, 2)}\n`,
     );
-    fs.writeFileSync(
-      environmentFile,
-      `${JSON.stringify(environment, null, 2)}\n`,
+    imageComparison = compareGoldenRows(
+      currentManifest.images,
+      expectedManifest.images,
     );
+    imagePass = comparisonPass(imageComparison, expectedManifest.images, 21);
   }
 
-  const bankPresent =
-    fs.existsSync(manifestFile) && fs.existsSync(environmentFile);
-  const expectedManifest = bankPresent ? jsonRead(manifestFile) : null;
-  const expectedEnvironment = bankPresent ? jsonRead(environmentFile) : null;
   const sourceMatch =
     bankPresent &&
     fingerprintSha({
@@ -411,63 +661,165 @@ const main = async () => {
         shaderDigests: currentManifest.shaderDigests,
         productionInputs: currentManifest.productionInputs,
       });
-  const environmentMatch =
+  const imageAtomInputsMatch =
     bankPresent &&
-    expectedEnvironment.fingerprintSha256 === environment.fingerprintSha256;
-  const expectedByFile = new Map(
-    (expectedManifest?.images || []).map((image) => [image.file, image]),
+    fingerprintSha(expectedManifest.imageAtomInputs) ===
+      fingerprintSha(currentManifest.imageAtomInputs);
+  const imageAtomComparison = compareGoldenRows(
+    currentManifest.imageAtomCases,
+    expectedManifest?.imageAtomCases,
   );
-  const imageComparison = currentManifest.images.map((image) => {
-    const expected = expectedByFile.get(image.file);
-    const goldenFile = path.join(goldenDir, image.file);
-    const goldenPngSha256 = fs.existsSync(goldenFile)
-      ? sha256(fs.readFileSync(goldenFile))
-      : null;
-    return {
-      ...image,
-      expectedRawSha256: expected?.rawSha256 || null,
-      expectedPngSha256: expected?.pngSha256 || null,
-      goldenPngSha256,
-      rawMatch: Boolean(expected && expected.rawSha256 === image.rawSha256),
-      pngManifestMatch: Boolean(
-        expected && expected.pngSha256 === image.pngSha256,
-      ),
-      goldenFileMatch: Boolean(
-        expected && expected.pngSha256 === goldenPngSha256,
-      ),
-    };
-  });
-  const imagePass =
+  const imageAtomPass =
     bankPresent &&
-    imageComparison.length === (expectedManifest?.images.length || 0) &&
-    imageComparison.every(
-      (row) => row.rawMatch && row.pngManifestMatch && row.goldenFileMatch,
+    comparisonPass(
+      imageAtomComparison,
+      expectedManifest?.imageAtomCases,
+      21,
     );
+  const appendPostflightPass =
+    !appendImageGoldens ||
+    (sourceMatch &&
+      environmentMatch &&
+      imagePass &&
+      imageAtomPass &&
+      imageAtomInputsMatch);
+  if (!appendPostflightPass) {
+    throw new Error("IMAGE-ATOM append postflight failed");
+  }
 
   let classification = "pass";
-  if (!determinismPass) classification = "determinism-failure";
+  if (!bankPresent) classification = "missing-golden-bank";
+  else if (!imagePass) classification = "existing-golden-byte-drift";
+  else if (!environmentMatch) classification = "environment-mismatch";
+  else if (!sourceMatch) classification = "production-source-mismatch";
+  else if (!determinismPass) classification = "determinism-failure";
   else if (!q8TransportPass) classification = "q8-affine-transport-failure";
   else if (!q5AffineBoundaryPass)
     classification = "q5-affine-raster-boundary-failure";
   else if (!parityPass) classification = "candidate-pick-parity-failure";
   else if (!divergencePass)
     classification = "current-product-pick-sentinel-failure";
-  else if (!bankPresent) classification = "missing-golden-bank";
-  else if (!sourceMatch) classification = "production-source-mismatch";
-  else if (!environmentMatch) classification = "environment-mismatch";
-  else if (!imagePass) classification = "same-environment-pixel-drift";
+  else if (
+    !imageAtomPass ||
+    !imageDeterminismPass ||
+    !imageParityPass ||
+    !imageAtomInputsMatch ||
+    !result.imageAtom.pass
+  )
+    classification = "image-atom-contract-failure";
 
   const pass = classification === "pass";
+  const msdfParity = parity.filter((row) => row.mode === "msdf-dejavu-o-path");
+  const assertionFailures = [];
+  const assertField = (condition, field) => {
+    if (!condition) assertionFailures.push(field);
+  };
+  assertField(
+    classification === "candidate-pick-parity-failure",
+    "classification",
+  );
+  assertField(deterministic.length === 21 && determinismPass, "legacy-determinism");
+  assertField(imagePass && imageComparison.length === 21, "legacy-goldens");
+  assertField(
+    parity.length === 21 && parity.filter((row) => row.pass).length === 14,
+    "legacy-parity",
+  );
+  assertField(
+    msdfParity.length === 7 &&
+      msdfParity.every(
+        (row) => row.mismatchCount === 47 && row.boundaryTieCount === 2,
+      ),
+    "msdf-counterexample-counts",
+  );
+  assertField(
+    divergences.length === 7 && divergencePass,
+    "divergence-sentinels",
+  );
+  assertField(q8TransportPass, "q8-affine-transport");
+  assertField(q5AffineBoundaryPass, "q5-affine-boundary");
+  assertField(sourceMatch, "source-match");
+  assertField(environmentMatch, "environment-match");
+  assertField(
+    imageAtomPass && imageAtomComparison.length === 21,
+    "image-goldens",
+  );
+  assertField(imageDeterminismPass, "image-determinism");
+  assertField(imageParityPass, "image-parity-floors");
+  assertField(imageAtomInputsMatch, "image-atom-inputs");
+  assertField(result.imageAtom.color?.pass, "image-color");
+  assertField(result.imageAtom.arrangement?.pass, "image-arrangement");
+  assertField(result.imageAtom.lifecycle?.pass, "image-lifecycle");
+  assertField(
+    result.imageAtom.lifecycle?.unavailable?.status === "unavailable" &&
+      result.imageAtom.lifecycle?.overBudget?.status === "refused" &&
+      result.imageAtom.lifecycle?.overBudget?.reason === "over-budget" &&
+      result.imageAtom.lifecycle?.deviceLoss?.status === "device-lost",
+    "image-lifecycle-status-rows",
+  );
+  assertField(
+    result.imageAtom.productLoopClaim === false &&
+      result.imageAtom.productLoopJoin === "staged",
+    "product-loop-non-claim",
+  );
+  assertField(
+    Boolean(
+      attestation.adapterIdentity.vendor &&
+        typeof attestation.isFallbackAdapter === "boolean" &&
+        attestation.renderer,
+    ),
+    "attestation",
+  );
+
+  const stdoutSummary = {
+    pass,
+    classification,
+    receipt: path.relative(repoRoot, receiptFile),
+    images: currentManifest.images.length,
+    deterministic: `${deterministic.filter((row) => row.byteIdentical).length}/${deterministic.length}`,
+    existingGoldens: `${imageComparison.filter((row) => row.rawMatch && row.pngManifestMatch && row.goldenFileMatch).length}/${imageComparison.length}`,
+    sourceMatch,
+    environmentMatch,
+    imageGoldens: `${imageAtomComparison.filter((row) => row.rawMatch && row.pngManifestMatch && row.goldenFileMatch).length}/${imageAtomComparison.length}`,
+    imageDeterminism: `${imageDeterministic.filter((row) => row.byteIdentical).length}/${imageDeterministic.length}`,
+    imageParity: `${imageParity.filter((row) => row.pass && row.boundaryPixelCount > 0 && row.decisiveCount > 0).length}/${imageParity.length}`,
+    q8AffineTransport: q8TransportPass,
+    q5AffineRasterBoundary: q5AffineBoundaryPass,
+    candidateParity: `${parity.filter((row) => row.pass).length}/${parity.length}`,
+    productBoundsDivergenceSentinels: `${divergences.filter((row) => row.expectedDivergence).length}/${divergences.length}`,
+    appendImageGoldens,
+    appendAuthorized,
+    assertImageContract,
+    assertionPass: assertionFailures.length === 0,
+    assertionFailures,
+    environmentFingerprint: environment.fingerprintSha256,
+  };
+  for (const [key, value] of Object.entries({
+    existingGoldens: "21/21",
+    sourceMatch: true,
+    environmentMatch: true,
+    imageGoldens: "21/21",
+    imageDeterminism: "21/21",
+    imageParity: "14/14",
+  })) {
+    assertField(
+      Object.hasOwn(stdoutSummary, key) && stdoutSummary[key] === value,
+      `stdout-${key}`,
+    );
+  }
+  stdoutSummary.assertionPass = assertionFailures.length === 0;
+  stdoutSummary.assertionFailures = assertionFailures;
+
   const receipt = {
+    attestation,
     schemaVersion: 1,
     verifier: result.verifier,
     replayCommand: "npm run verify:render-engine",
     updateCommand:
-      "clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs --update-goldens",
+      "clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs --append-image-goldens --assert-image-contract",
     pass,
     classification,
     bankPresent,
-    updateRequested: updateGoldens,
+    updateRequested: appendImageGoldens,
     updateAuthorized,
     updateAuthority:
       "golden-bank update requires deterministic pixels and the current-product divergence sentinel; candidate parity remains independently gating and cannot be blessed by an image update",
@@ -494,34 +846,46 @@ const main = async () => {
       pass: imagePass,
       rows: imageComparison,
     },
+    imageAtom: {
+      pass: result.imageAtom.pass,
+      inputFingerprintsMatch: imageAtomInputsMatch,
+      determinism: { pass: imageDeterminismPass, rows: imageDeterministic },
+      pickParity: { pass: imageParityPass, rows: imageParity },
+      goldenComparison: { pass: imageAtomPass, rows: imageAtomComparison },
+      color: result.imageAtom.color,
+      arrangement: result.imageAtom.arrangement,
+      lifecycle: result.imageAtom.lifecycle,
+      productLoopClaim: result.imageAtom.productLoopClaim,
+      productLoopJoin: result.imageAtom.productLoopJoin,
+      imageAboveTextKindLayer: result.imageAtom.imageAboveTextKindLayer,
+      darkWave: result.imageAtom.darkWave,
+      feltGate: result.imageAtom.feltGate,
+    },
+    append: {
+      requested: appendImageGoldens,
+      preflight: appendPreflight,
+      authorized: appendAuthorized,
+      postflightPass: appendPostflightPass,
+    },
+    assertion: {
+      requested: assertImageContract,
+      pass: assertionFailures.length === 0,
+      failures: assertionFailures,
+    },
+    stdoutSummary,
     browserConsole,
     browserResult: stripDataUrls(result),
   };
   fs.mkdirSync(path.dirname(receiptFile), { recursive: true });
   fs.writeFileSync(receiptFile, `${JSON.stringify(receipt, null, 2)}\n`);
 
-  console.log(
-    JSON.stringify(
-      {
-        pass,
-        classification,
-        receipt: path.relative(repoRoot, receiptFile),
-        images: currentManifest.images.length,
-        deterministic: `${deterministic.filter((row) => row.byteIdentical).length}/${deterministic.length}`,
-        q8AffineTransport: q8TransportPass,
-        q5AffineRasterBoundary: q5AffineBoundaryPass,
-        candidateParity: `${parity.filter((row) => row.pass).length}/${parity.length}`,
-        productBoundsDivergenceSentinels: `${divergences.filter((row) => row.expectedDivergence).length}/${divergences.length}`,
-        updateRequested: updateGoldens,
-        updateAuthorized,
-        environmentFingerprint: environment.fingerprintSha256,
-      },
-      null,
-      2,
-    ),
-  );
+  console.log(JSON.stringify(stdoutSummary, null, 2));
 
-  if (!pass) process.exitCode = 1;
+  if (assertImageContract) {
+    if (assertionFailures.length > 0) process.exitCode = 1;
+  } else if (!pass) {
+    process.exitCode = 1;
+  }
 };
 
 main().catch((error) => {

@@ -43,14 +43,21 @@ const renderer = read("src/app/client/substrate/webgpu/renderer.cljs");
 const store = read("src/app/client/workspace/scene_store.cljc");
 const contracts = read("src/app/client/substrate/scene_tape.cljc");
 const runtime = read("src/app/client/workspace/runtime/render.cljs");
+const rectTree = read("src/app/client/workspace/rect_tree.cljc");
 
 const drawFrame = findForm(renderer, "draw-frame!");
 const executor = findForm(renderer, "execute-scene-tape!");
 const twinCheck = findForm(renderer, "frame-tape-twin-check!");
 const arrangementUpdate = findForm(renderer, "update-frame-arrangement");
+const imageProducer = findForm(renderer, "image-entries");
+const imageExecutor = findForm(renderer, "execute-image-batch!");
 const pick = findForm(store, "pick");
-const registryStart = renderer.indexOf("(def ^:private frame-family-registry");
-const registryEnd = renderer.indexOf("(defn- compile-frame-tape", registryStart);
+const rtNode = findForm(rectTree, "rt-node");
+const registryStart = renderer.indexOf("(def frame-family-registry");
+const registryEnd = renderer.indexOf("(def ^:private frame-contract-registry", registryStart);
+if (registryStart < 0 || registryEnd < 0) {
+  throw new Error("missing frame-family-registry slice");
+}
 const registry = renderer.slice(registryStart, registryEnd);
 
 const families = [
@@ -59,6 +66,7 @@ const families = [
   ":render.family/msdf",
   ":render.family/slug",
   ":render.family/clip",
+  ":render.family/image",
 ];
 
 const failures = [];
@@ -83,6 +91,17 @@ requireToken("executor", executor, "frame-family-registry");
 requireToken("executor", executor, "(:execute! registration)");
 forbid("executor", executor, /\(case\s+/, "family case dispatch instead of registration");
 
+// IMAGE-ATOM T10: the producer is a synchronous arrangement read. Decode,
+// upload, promises, and resource construction stay in the ingress path.
+requireToken("image producer", imageProducer, "contiguous-binding-runs");
+requireToken("image producer", imageProducer, "(:stack-path source-order) 3");
+forbid("image producer", imageProducer,
+  /createImageBitmap|register-image-source!|copyExternalImageToTexture|writeTexture|\bPromise\b|\.then\s*\(|\bawait\b|\bfetch\b/,
+  "decode/upload/async work entered the frame producer");
+requireToken("image executor", imageExecutor, "sub-draws");
+requireToken("image executor", imageExecutor, "first-instance");
+requireToken("image registry", registry, ":execute! execute-image-batch!");
+
 requireToken("twin-check", twinCheck, "compile-frame-tape");
 forbid("arrangement-update", arrangementUpdate, /frame-idx/,
   "execution frame counter entered maintained order derivation");
@@ -92,6 +111,13 @@ requireToken("pick", pick, "containers/inverse-point");
 requireToken("pick", pick, "maintained-entries");
 forbid("pick", pick, /sort-by/, "independent pick sort");
 forbid("pick", pick, /#\(-\s*\(:layer/, "legacy layer-descending truth");
+forbid("pick", pick, /\(case\s+/, "geometry-keyed pick branch");
+forbid("pick", pick, /\(case[^)]*:geometry/s, "central :geometry pick dispatch");
+
+// IMAGE-ATOM T14: equality-by-construction depends on rt-node retaining the
+// pinned ten-key shape with no per-node transform representation.
+forbid("rt-node", rtNode, /:transform(?:\s|\]|\})/,
+  "per-node transform key breaks image pick equality");
 
 for (const family of families) {
   requireToken("family contracts", contracts, family);
@@ -106,14 +132,18 @@ forbid("camera derivation", runtime, /\(m\/watch\s+ground\/!camera\)/,
   "ground camera watch remains inside scene derivation");
 requireToken("renderer default", renderer, ":or {scene-color-enabled? false}");
 
-const seededCentralBranch = `(defn draw-frame! [pass family]
-  (case family :rect (.draw pass 6)))`;
+// IMAGE-ATOM T12: seed violations into the ACTUAL extracted production slice,
+// so this self-test exercises both form extraction and the real forbids.
+const centralSlice = `${drawFrame}\n${executor}`;
+const seededCentralBranch = `${centralSlice}\n(case family :render.family/image (.draw pass 6))`;
 const seededRejected = /\.draw\s+pass/.test(seededCentralBranch) &&
-  /\(case\s+/.test(seededCentralBranch);
+  /\(case\s+/.test(seededCentralBranch) &&
+  !/\.draw\s+pass/.test(centralSlice) &&
+  !/\(case\s+/.test(executor);
 if (!seededRejected) failures.push("self-test: seeded family draw branch was not rejected");
 
 const receipt = {
-  contract: "W2-B/O-G-M-C",
+  contract: "W2-B/O-G-M-C+IMAGE-ATOM",
   families: families.length,
   drawFrameBranches: 0,
   reversePick: pick.includes("scene-tape/pick-reverse"),
@@ -124,6 +154,11 @@ const receipt = {
     contracts.includes(":scene-color/linear-premultiplied-srgb") &&
     contracts.includes(":default-off? true"),
   seededCentralBranchRejected: seededRejected,
+  imageProducerPure:
+    !/createImageBitmap|register-image-source!|copyExternalImageToTexture|writeTexture|\bPromise\b|\.then\s*\(|\bawait\b|\bfetch\b/.test(imageProducer),
+  imageExecutorRegistered:
+    registry.includes(":execute! execute-image-batch!"),
+  rtNodeTransformAbsent: !/:transform(?:\s|\]|\})/.test(rtNode),
   productionFailures: failures,
   pass: failures.length === 0,
 };

@@ -12,7 +12,7 @@
    view-instance's resolved tree + flattened ops + its address→paths subtree
    index (CONTRACT §5):
      {:vi <edn> :container <int> :tree <resolved rt-tree, container-LOCAL>
-      :ops {:text [...] :rects [...] :shadows [...]}
+      :ops {:text [...] :rects [...] :shadows [...] :images [...]}
       :addresses {address → #{index-path}} :meta {...} :stratum :world|:overlay}
    The :index fan-out is maintained incrementally by upsert/remove, NEVER
    recomputed by scanning slots at read time. Resolution route:
@@ -50,7 +50,8 @@
   [tree]
   {:text    (rt/tree->text-ops tree)
    :rects   (rt/tree->rects tree)
-   :shadows (rt/tree->shadows tree)})
+   :shadows (rt/tree->shadows tree)
+   :images  (rt/tree->images tree)})
 
 (defn- stamp-ops-container
   "Bake the slot's compact transform-table index onto every flattened op so the GPU places each
@@ -60,12 +61,15 @@
    change — the per-slot text geo's identical?-skip (G8) depends on it (trap T5).
    :container-slot is stable for a slot's whole life (move/affine changes the
    registry transform, not the slot). Text ops are nested [[op..]..] (lines);
-   rects and shadows are flat."
+   rects, shadows, and images are flat."
   [ops container-slot]
   (let [slot (or container-slot 0)]
     {:text    (mapv (fn [line] (mapv #(assoc % :container-idx slot) line)) (:text ops))
      :rects   (mapv #(assoc % :container-idx slot) (:rects ops))
-     :shadows (mapv #(assoc % :container-idx slot) (:shadows ops))}))
+     :shadows (mapv #(assoc % :container-idx slot) (:shadows ops))
+     ;; IMAGE-ATOM T8/T14: stamping reuses W2-A's compact slot; image ops
+     ;; acquire no per-node transform representation.
+     :images  (mapv #(assoc % :container-idx slot) (:images ops))}))
 
 (defn- build-slot
   "Resolve → flatten → stamp container-idx → index a tree into a slot value. The
@@ -286,6 +290,38 @@
   "Walk the write-maintained store order without invoking the batch compiler."
   [store]
   (into [] (map val) (:ordered store)))
+
+(defn derive-store-frame
+  "Pure GPU payload projection from the write-maintained scene order.
+
+   `scene_runtime.cljs` owns only the Missionary wrapper around this function,
+   so the payload/count/order leg is executable on the JVM.  `:order-by-vi`
+   remains lane-agnostic; only `:ops-count-by-vi` gains the image lane."
+  [store]
+  (let [entries (maintained-entries store)
+        ordered (mapv :runtime/slot entries)]
+    {:rects (into [] (mapcat (comp :rects :ops)) ordered)
+     :shadows (into [] (mapcat (comp :shadows :ops)) ordered)
+     :images (into [] (mapcat (comp :images :ops)) ordered)
+     :text-by-vi (reduce (fn [result slot]
+                           (assoc result (:vi slot) (get-in slot [:ops :text])))
+                         {}
+                         ordered)
+     :ordered-vis (mapv :vi ordered)
+     :ops-count-by-vi
+     (into {}
+           (map (fn [slot]
+                  [(:vi slot)
+                   {:rects (count (get-in slot [:ops :rects]))
+                    :shadows (count (get-in slot [:ops :shadows]))
+                    :text-lines (count (get-in slot [:ops :text]))
+                    :images (count (get-in slot [:ops :images]))}]))
+           ordered)
+     :order-by-vi
+     (into {}
+           (map (fn [entry]
+                  [(get-in entry [:runtime/slot :vi]) (:order entry)]))
+           entries)}))
 
 (defn- normalize-pick-points [point]
   ;; SEAM-STEP1 T9: the bare-vector form is the backward-compatible contract;
