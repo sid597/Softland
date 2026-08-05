@@ -36,8 +36,16 @@ incomplete thinking looks like). It carries exactly:
   `electric_flow.cljc`) get thin hooks only;
 - the 3–5 decisive scenarios — frozen as tripwire tests at close;
 - real MUST-NOTs only (env.clj, protected files). Nothing conjunctive.
-It ends with the implementer's opening prompt. No validation round runs on
-it; open questions are ruled in-session or handed down as a default + note.
+The cutter reads BINDING law docs primary (W1-class, never a summary), and
+the cut CLOSES through ONE bounded fresh-eyes falsification round —
+claim→source, evidence-cited, no verdict authority, no recut; author repairs
+in-session; still Sid-touch #1 (corpse: path-atom 2026-08-06 — three
+unwritten forks + two receipt-passing wrong-build classes post-cut; expiry:
+a round returning ≤1 decision-changing finding retires the round). While
+cutting: write the fork you saw · every receipt names what it observes ·
+every pointed-at law gets an operationalizing scenario or a written why-not.
+Open questions are ruled in-session or handed down as a default + note. It
+ends with the implementer's opening prompt.
 
 ### Execution — straight through
 The implementer builds the WHOLE atom in one lane: build → surface bugs →
@@ -47,9 +55,7 @@ the seam live or probing a NEW claim, never a suite re-run). Ambiguity takes
 the strongest default plus a note; a genuine fork (two readings that cannot
 both hold) is ONE question in the thread file — note it, route around it,
 keep building. Never a stop-code halt. Parallel lanes split ATOMS, never
-share one question: parallelism buys coverage, never confidence —
-confidence escalates modality (reading → runtime → profile), never
-head-count.
+share one question (the coverage-not-confidence corner, decisions.md).
 
 ### Close of an atom
 - Freeze the contract's scenarios as 3–5 tripwires + 2–3 representative
@@ -73,7 +79,8 @@ is purchased insurance priced by IRREVERSIBILITY — durable/Rama work keeps
 its ladders, reversible projection work buys once per package.
 
 ## Dead ceremony — never to return
-Validation ladders/rounds (R1/R2/…), default-fail verdicts, recut ledgers,
+Validation ladders/rounds (R1/R2/… — the cut's ONE bounded round never
+recuts and is not this), default-fail verdicts, recut ledgers,
 ruling packets, merged rulings, traps ledgers cited by number, input
 manifests, gate matrices, per-phase gate partitions, stop codes (S1/S2),
 conjunctive full-suite gates ([JVM-FULL]-as-gate), allowlist partitions,

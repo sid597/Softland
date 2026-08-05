@@ -748,6 +748,12 @@ no-third-dark-atom corner discharged at zero custody cost). The felt
 GATE (real use) still waits on the durable-artery/custody ruling
 reserved to Sid. Contract (ends with the Codex opening prompt):
 `docs/render-engine/PATH-ATOM-CONTRACT.md`; baton `PATH-ATOM-NOW.md`.
+Falsification round ran at Sid's order 2026-08-06 (8/8 substantive, 0
+noise; repairs in place, `877c793`); outcome routed to law same day: the
+cut now closes through one bounded round (decisions.md + work-package
+skill; expiry pre-registered). **A/B armed for the NEXT contract cut:
+identical falsification brief to Codex AND a fresh-Claude subagent —
+decides role-vs-model; model identity is zero evidence until it runs.**
 **NEXT: Sid pastes the Codex opening prompt; Codex builds the whole
 atom one-pass; acceptance = Sid's word.**
 

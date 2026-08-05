@@ -36,7 +36,14 @@ Sid says is allowed to drop.
   ONE session's single pass — one document, one-two screens: scope in
   plain words · the few laws · exact entry points (new code in its own
   namespace; big files get thin hooks) · the 3–5 decisive scenarios that
-  become the atom-end tripwires · real MUST-NOTs only. Execution runs
+  become the atom-end tripwires · real MUST-NOTs only. The cutter reads the
+  binding law docs PRIMARY (W1-class contracts, never a summary of them),
+  and the cut closes through one bounded fresh-eyes falsification round —
+  claim→source, evidence-cited, no verdict authority, no recut; the author
+  repairs in-session; still touch #1 (amended 2026-08-06, the path-atom
+  round: three unwritten forks + two receipt-passing wrong-build classes
+  found post-cut; expires back to pure one-pass when a round returns ≤1
+  decision-changing finding). Execution runs
   straight through: the implementer builds the whole atom, keeps its own
   falsification pass (it catches real bugs — image atom: 3), fixes what
   surfaces in-session, and raises ONE question at a genuine fork instead
@@ -44,8 +51,8 @@ Sid says is allowed to drop.
   representative goldens + the focused suite + a thread-file entry + the
   board flip. Acceptance = Sid's word. Dead and never returning:
   validation ladders, recut ledgers, ruling packets, gate matrices, stop
-  codes, conjunctive full-suite gates, second-model verification,
-  separate gate sessions. Foreign test failures are board debt, never
+  codes, conjunctive full-suite gates, second-model verification of
+  implementations, separate gate sessions. Foreign test failures are board debt, never
   stops. Full suite + cross-atom integration + felt pass run ONCE per
   package. Mechanics: `.claude/skills/work-package/SKILL.md`.
 - **Verification is sized by claim-risk, and per-atom it is the
