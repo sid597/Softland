@@ -15,6 +15,28 @@ default-fail validation round (R4) runs over THIS text before the
 implementer opens (§14). R1, R2, and R3 are immutable; no implementation
 opens from this candidate.
 
+**SETTLEMENT AMENDMENT 2026-08-05 — SID'S BINDING CADENCE RULING:** the
+long two-isolated-page 20-row profile matrix and its cold/timing companions are
+retired as a blocking acceptance path. They are not rerun or repaired in this
+settlement. The retained positive run is **INCOMPLETE**: it stopped at the
+backend-flip drive after observing zero slot-text writes; no claim that all 20
+rows passed is legal. SwiftShader remains the current adapter, so physical-GPU
+timing is unclassified and supplies no pass/fail verdict. Sections 7, 9, 10,
+and 14 below retain the original diagnostic design as historical provenance;
+where they prescribe another profile run or make it gate-blocking, this
+amendment supersedes them. Settlement acceptance is the focused JVM namespace,
+the dev compile, the shaping fence (only when production code changes), the
+already-banked corpus/hover receipts, and Sid's two short lived checks.
+
+**Measured hover law (current):** hover is consumed by the interpreted anatomy
+as an attention rectangle. It changes the attention box and schedules one
+store-frame/RAF execution; it does **not** change the block glyph paint token.
+The banked seven-transition diagnostic observed seven attention transitions,
+seven RAF/store-frame executions, and zero text layouts, cache misses, text
+paint repacks, GPU text writes, dirty-text marks, or text-geometry lifecycle
+changes. Any older hover expectation below that requires text repacks/writes/
+geometry is superseded by this measured law.
+
 **Binding docs + precedence:** decisions.md (incl. "The render seam",
 settled+amended 2026-08-03), Contract T (`build/render-engine/W1.md`), and
 THIS contract bind. `NOW.md` is the baton — if it contradicts any of them,
@@ -135,15 +157,17 @@ with one.
   invalidation (§6 key change) ≠ paint invalidation (repack/tint) ≠
   GPU-geometry lifecycle (clone/in-place/destroy in
   `reconcile-slot-text-geos!`, runtime/render.cljs:25–64). Each has its own
-  counter; no receipt conflates them. A backend flip exercises the second
-  AND third lifecycle while the first stays untouched: paint repacks for
-  the new coverage road, geo reclones/destroys, layout reused with
-  identical layout IDs (G4 case e).
+  counter; no receipt conflates them. The backend-flip diagnostic was intended
+  to exercise the second and third lifecycles while the first stayed untouched,
+  but its live row is incomplete and non-blocking under the settlement
+  amendment; its timeout/zero-write observation remains visible evidence, not
+  an acceptance claim.
 - **I7 — dirty/present-region ownership is correct under text change.**
-  Slot-text changes, block entry, block exit, hover paint, and order changes
-  each participate correctly in dirty/present-region ownership (the G8
-  receipt line names what reshaped and why; a CONTENT-geo edit never bumps
-  the slot write count — existing law, preserved).
+  Slot-text changes, block entry, block exit, and order changes participate
+  correctly in text dirty/present-region ownership (the G8 receipt line names
+  what reshaped and why; a CONTENT-geo edit never bumps the slot write count —
+  existing law, preserved). Hover changes the anatomy attention rectangle and
+  leaves the text dirty/paint/geometry lifecycle untouched.
 - **I8 — camera-only and order-only cost zero.** Zero layout executions AND
   zero text-geometry rewrites on camera-only (pan/zoom) and order-only
   changes (G5). Zoom is camera, not a layout input (T7).
@@ -544,15 +568,20 @@ oracle is gate-owned, not cultural.
    these). Reuse via the §6 cache. Ground fallback count → 0 (G2, G3).
 3. **Partition invalidation.** `reconcile-slot-text-geos!` keys slot reuse
    on layout identity + a paint fingerprint instead of op-vector
-   `identical?` (T5): a tint-only/hover change repacks instances from the
-   carried result (paint-only repack receipt), never re-runs layout; a
-   backend flip repacks for the new coverage road and reclones geo while
-   layout IDs stay identical (G4 case e); camera and order changes hit
+   `identical?` (T5): a true text-paint change may repack instances from the
+   carried result without re-running layout; hover is not such a change — it
+   changes the anatomy attention rectangle while the glyph paint fingerprint
+   stays identical, so text repacks/writes/geometry stay zero. A backend flip
+   remains an incomplete optional diagnostic; camera and order changes hit
    nothing (I8). Geo lifecycle receipts split
    fresh/in-place/recloned/destroyed/capacity-grown (I6, §8).
-4. **Re-profile the real corpus** — the 172-block/586,927-char cold boot AND
-   the seven-transition hover storyboard (§9), with the COMMITTED harness
-   (§9 deliverable), receipts opening with the adapter attestation.
+4. **Reuse the real-corpus receipts** — current identity is 174 blocks (36
+   machine) / 586,927 served chars / 174 block slots / 174 text slots / zero
+   non-block slots. The old 172/177 capture was 172 block slots plus five
+   transient Studio/Workshop slots; those five were archived and two durable
+   blank Studio drafts were subsequently born. The seven-transition hover
+   receipt is banked under the measured hover law above. No new cold/profile
+   run is part of settlement acceptance.
 5. **Only if the §10 experience bars still fail** (terminal classification
    LINEAR-CORRECTION GREEN / EXPERIENCE-BAR RED), the next mechanism is
    authorized FROM THE EVIDENCE by a ruling (Fable adjudicates, Sid vetoes):
@@ -578,8 +607,9 @@ the G8 line gains fields; the ground report gains ≤6 lines):
   vocabulary. **Pack-cause law:** a pack that follows a layout execution
   carries the EXEC's cause and is counted under it; a paint-only pack
   (layout reused) carries its paint cause. So a text edit's pack rides
-  `:slot-text-change`, a hover repack rides `:hover-paint` (G3 asserts an
-  exact count), and a provider change's packs ride `:provider-change` and
+  `:slot-text-change`; `:hover-paint` remains a diagnostic/tripwire cause and
+  MUST stay zero because attention does not change the glyph paint token; a
+  provider change's packs ride `:provider-change` and
   are counted once per written live text slot (G4 row i).
 - `geo` — fresh / in-place / recloned / destroyed / capacity-grown counts.
 - `proportionality` — last-layout work receipts in G1's exact vocabulary
@@ -591,11 +621,11 @@ the G8 line gains fields; the ground report gains ≤6 lines):
   line's reshape counter, now a DECLARED permanent counter; G4/G5 read it
   as window deltas). One increment per slot whose text geometry is
   written in a frame.
-- `dirty` — dirty/present-region marks by cause, EXACTLY seven fields:
+- `dirty` — text dirty/present-region marks by cause, EXACTLY seven fields:
   `{:slot-text :entry :exit :hover :order :camera :other}` (I7's
   ownership made countable; `:other` absorbs marks with no named cause —
   recorded everywhere, asserted only where a gate row names it). Expected
-  values are assigned to existing gates — G4 rows (text edit / hover /
+  values are assigned to existing gates — G4 rows (text edit /
   exit), G5 rows (camera / order), G8 (cold entry−exit conservation) —
   never to a new gate number.
 - `store-frame-execs` — I9's counter.
@@ -631,9 +661,12 @@ seed.
 
 ## 9. Deliverables besides code
 
-- **The committed profile harness** — `test/render_engine/
-  profile_shaping_correction.mjs` (new file, beside the existing verifiers,
-  never editing them), driving the dev app under §10's environment law.
+- **The optional historical profile harness** — `test/render_engine/
+  profile_shaping_correction.mjs` (new file, beside the existing verifiers).
+  Its 20-row matrix is incomplete and non-blocking under the settlement
+  amendment. The backend-flip timeout and observed zero slot-text writes stay
+  disclosed; inventory/implementation coverage is never reported as 20-row
+  execution PASS. The harness is retained for evidence and is not run here.
   **Literal invocations (LAW — the four legal mode/case tuples are exactly
   these; every gate that names one runs the displayed command verbatim):**
   - `node test/render_engine/profile_shaping_correction.mjs --mode=cold --url=http://localhost:8080`
@@ -676,23 +709,59 @@ seed.
   command doubles as the proof that exit `3` is reachable.
 - **The seven-transition hover storyboard** (THE one storyboard — this
   ordered list is the ONLY definition; §7 step 4, G3, and G9 reference it
-  and restate nothing): pin the ordinary block and the 24,891-char paste
-  block `…ep:3c6512e2:000000`. Acts, in order:
-  1. UNMEASURED warm-up: hover the largest (paste) block once; await its
-     ONE RAF/G8 pair.
-  2. UNMEASURED positioning move: hover the ordinary block; await its ONE
-     RAF/G8 pair. (These two pre-reset pairs are the storyboard's only
-     unmeasured events; they appear in NO measured delta.)
-  3. RESET counters (§8 hook) — only after the harness confirms the
-     ordinary block is the CURRENT hover.
-  4. SIX measured transitions: `(ordinary→largest, largest→ordinary)` ×3.
-  5. The SEVENTH measured transition: ordinary→empty (the control) —
-     lawful because act 4's alternation ENDS on ordinary.
-  Each measured transition waits for exactly ONE post-input RAF/G8 pair;
-  a missing or extra pair = FAIL. Measured paint-repacks `:hover-paint`
-  total = **13** (six ordinary↔largest × 2 slots + the control's 1).
+  and restate nothing).
+  **AMENDED 2026-08-05 — Sid ruling (direct, no revalidation round):
+  storyboard made executable against the hover/receipt.json co-visibility
+  geometry (pinned pair 8,142.95 world units apart; min zoom 0.1 ⇒ never
+  co-visible in a 601px viewport). Pinned pair retained; UNMEASURED
+  reposition segments (pointer-to-empty + wheel scroll through the product
+  input path) inserted between the seven measured transitions; all exact
+  counts re-derived below. Synthetic hover/picking injection remains
+  forbidden.**
+  Pin the ordinary block and the 24,891-char paste block
+  `…ep:3c6512e2:000000`. Acts, in order:
+  1. UNMEASURED reposition segment: park the pointer on empty ground, then
+     drive the camera through LITERAL product input only (wheel →
+     `:camera/zoom-at-pointer`, empty-ground pointer drag → `:camera/pan`)
+     until the largest (paste) block is on screen; PROVE a point on it
+     picks through the product's own hover road; park on empty again and
+     let the frames go quiet.
+  2. UNMEASURED warm-up: hover the largest block once (empty→largest);
+     await its ONE RAF/G8 pair.
+  3. UNMEASURED reposition segment: the same, for the ordinary block.
+  4. UNMEASURED positioning move: hover the ordinary block
+     (empty→ordinary); await its ONE RAF/G8 pair. Both pinned layouts are
+     now cached — that is what makes measured layout-execs 0 lawful.
+  5. UNMEASURED park: pointer back to empty ground; await frame quiet.
+  6. RESET counters (§8 hook) — only after the harness confirms hover is
+     nil on verified-empty ground.
+  7. SIX measured transitions, each preceded by its OWN unmeasured
+     reposition segment: `(empty→largest, empty→ordinary)` ×3.
+  8. The SEVENTH measured transition: ordinary→empty (the control) — no
+     reposition, lawful because act 7's alternation ENDS on ordinary and
+     the verified empty point is co-visible with the ordinary block.
+  **Reposition law:** every reposition act is a literal input event on the
+  product's own road. NO synthetic hover injection, NO picking bypass, NO
+  direct camera-state poke — the 52ms input→RAF bar measures the real
+  product pick path, and faking hover would fake the receipt.
+  **Windowing law:** counters and the layout cache are sampled immediately
+  before and immediately after EACH measured act; every asserted total is
+  the SUM of the seven per-act deltas. Reposition-segment activity (hover
+  flips over blocks that slide under the parked pointer, `:dirty :camera`
+  marks, pan/zoom frames) lands OUTSIDE every measured window, is REPORTED
+  in the receipt as unmeasured-segment telemetry, and is never asserted.
+  The banked diagnostic observed exactly seven attention transitions and one
+  post-input RAF/store-frame execution for each transition, with no G8
+  text-pack line. **Measured equality:** attention transitions = **7**;
+  RAF frames = **7**; store-frame executions = **7**; layout executions = 0;
+  cache misses = 0; paint repacks across all text causes = 0; dirty-text marks
+  across all causes = 0; slot-text writes = 0; text-geometry lifecycle changes
+  across all lifecycle counters = 0. Cache hits are diagnostic only. This is
+  the taken path: hover changes the attention rectangle, not the block glyph
+  paint token. The superseded repack/write/geometry expectations were static
+  deductions from a text-paint model that the live receipt disproved.
   (The banked four-transition capture remains the comparison baseline:
-  each measured ordinary↔largest transition compares against its
+  each measured hover-entry act compares against its
   6.0–6.1s ancestors individually.)
 - **The JVM test namespace** — `app.client.workspace.shaping-correction-test`
   (new file `test/app/client/workspace/shaping_correction_test.clj`) with an
@@ -721,29 +790,30 @@ closure's felt gates run after this lands)
   `isFallbackAdapter` is serialized FIRST — a fallback adapter (e.g.
   SwiftShader) makes the receipt UNCLASSIFIABLE and the gate does not run
   (scene-substrate G4 lesson).
+  SwiftShader is the current adapter. Physical-GPU timing therefore remains
+  unclassified and supplies no pass/fail verdict. Under the settlement cadence
+  ruling the optional matrix is not rerun on SwiftShader or elsewhere; its
+  incomplete backend-flip observation remains historical residue.
 - **Browser:** headless Chromium, major version ≥ 150, version recorded.
 - **Viewport:** 800×601, DPR 1.046875 (the founding capture's geometry).
 - **App:** the shadow-cljs `:dev` build served by the running dev server
   (the Jetty server, default `http://localhost:8080` — §9's invocation
   law pins it; server_jetty.clj:2500); build id and effective URL
   recorded.
-- **Profile:** every literal harness invocation launches a fresh browser
-  process with a fresh disposable user-data-dir. `cold` has no warm cache;
-  `hover` reaches a fully settled corpus before its unmeasured storyboard
-  warm-up. Within `probe/positive`, every paired trial uses the fresh
-  disposable context/page required by G4. The separate oracle-negative
-  process uses one fresh disposable context/page. No probe trial inherits a
-  prior trial's process-local layout cache.
-- **Corpus:** 172 blocks / 586,927 served chars / 177 live slots, paste
-  block `…ep:3c6512e2:000000` present; drift is recorded in the receipt,
-  never hidden — bar comparisons hold only on the matching corpus.
+- **Profile:** the old isolated-page protocol is retained only as historical
+  harness provenance. It is not a settlement command or acceptance blocker.
+- **Corpus:** 174 blocks / 36 machine blocks / 586,927 served chars / 174
+  block slots / 174 text slots / zero non-block slots, paste block
+  `…ep:3c6512e2:000000` present. The prior 172/177 identity is historical as
+  explained in §7 step 4, not current corpus drift.
 - **Counter window:** counters boot at zero on page load; cold gates read
   ABSOLUTE values at settle; `hover`/`probe` gates call the §8 reset hook
   after warm-up and read DELTAS.
 - **Settle definition:** cold visual settle = navigation start → the RAF
   completing the LAST frame in which any slot text geo reshaped (the final
   G8 line), confirmed by 2,000ms of RAF/report quiet AND live slot count =
-  177. After environment attestation, timeout 120s → product assertion red,
+  174. This definition is retained as historical profiler law, not rerun in
+  settlement. After environment attestation, timeout 120s → product assertion red,
   harness exit 3, G8 red, PACKAGE FAIL (not a stop, never unclassified).
 - **Cross-run comparison policy:** comparison against the founding numbers
   is valid ONLY when machine, Chromium major, viewport/DPR, corpus, and a
@@ -874,14 +944,12 @@ ceiling would smuggle in streaming/residency, which is step-5 material.
   the report. Run-level mapping: exit 0 or 2 → G2 green (2 means only a
   wall bar is red — G8's affair); exit 3 with a G2 assertion in the red
   set → G2 red; exit 1 → unclassified.
-- **G3 (live, counter + wall).** Command: §9's literal `hover` invocation,
-  running THE seven-transition storyboard (§9's ordered list — nothing
-  restated here): measured layout-execs delta 0 across ALL causes;
-  paint-repacks `:hover-paint` delta = **13**; each of the SEVEN measured
-  transitions ≤ 52ms input→RAF; exactly one RAF/G8 pair per measured
-  transition; the receipt shows the two PRE-RESET pairs (warm-up +
-  positioning) outside every measured delta. Run-level mapping as G2's
-  (a >52ms transition alone → exit 2: G3's counter half green, G9 red).
+- **G3 (banked live counter receipt; no rerun).** The seven-transition
+  diagnostic observed attention transitions 7, RAF frames 7, store-frame
+  executions 7, and zero layout executions, misses, text repacks, dirty-text
+  marks, slot-text writes, and text-geometry lifecycle changes. It supplies no
+  timing verdict on SwiftShader. Sid's manual attention-outline check is the
+  lived settlement receipt.
 - **G4 (live, receipt).** Positive command: §9's literal
   `probe/positive` invocation → expected exit 0. Dedicated negative
   command: §9's literal `probe/oracle-negative` invocation → expected exit
@@ -936,9 +1004,28 @@ ceiling would smuggle in streaming/residency, which is step-5 material.
     paint-repacks +1 · geo in-place +1 · slot-text-writes +1 · dirty
     `:slot-text` +1 · cache miss +1 · replacement +1 · size 0 · address
     count 0.
-  - **(b) hover flip** pinned largest→ordinary: cache hits +2 ·
-    paint-repacks `:hover-paint` +2 · dirty `:hover` +2 · all other fields
-    obey UNNAMED/G7/proportionality.
+  - **(b) hover flip** `A→B` between two ADJACENT CO-VISIBLE blocks chosen
+    from the live corpus at run time: attention box hands off from A to B;
+    layout executions 0 · misses 0 · paint repacks 0 · dirty-text marks 0 ·
+    slot-text writes 0 · all text-geometry lifecycle counters 0. Cache hits
+    are diagnostic. The glyph paint token is invariant; the rectangle lives in
+    the interpreted anatomy, not the block text ops.
+    **AMENDED 2026-08-05 — Sid ruling (direct, no revalidation round):** the
+    row read "pinned largest→ordinary". A DIRECT flip between the pinned pair
+    requires them co-visible in one viewport, and the same geometry that
+    forced §9's amendment forbids it at every legal zoom (8,142.95 world units
+    apart · product zoom floor 0.1 · 601px viewport ⇒ ≥814px apart). The
+    SUBSTANCE is the attention handoff with invariant text paint, so the pair
+    is discovered instead of pinned. The harness reaches the corpus through §9's literal
+    reposition road, then takes the FIRST pair that is (i) consecutive in the
+    ground's own vertical world order (no third block's origin between them),
+    (ii) simultaneously projecting a screen point under the reached camera,
+    (iii) each owning exactly ONE live slot and ONE layout address — which is
+    what makes the flip worth exactly +2 — and (iv) each PROVING its pick
+    through the product's own hover road before the pair is accepted. The
+    chosen pair, its world rects, its screen points, and every rejected
+    candidate are RECORDED in the row receipt; nothing is hardcoded. Synthetic
+    hover/picking injection and direct camera pokes remain forbidden.
   - **(c) caret move; text-selection move; machine-selection move**
     (three probes): layout-execs 0 (`:selection` named 0) · geo 0 ·
     slot-text-writes 0 · misses 0 · paint-repacks RUN-RECORDED ≤ 2 per
@@ -959,7 +1046,14 @@ ceiling would smuggle in streaming/residency, which is step-5 material.
     `layout-cache` `:id-digest`
     EQUAL before/after · paint-repacks = live text-slot count (the new
     coverage road's repack) · geo recloned = live slot count · destroyed =
-    prior slot count · in-place 0 · dirty `:other` RUN-RECORDED ≥ 1
+    prior slot count · in-place 0 · **slot-text-writes = live text-slot
+    count** (AMENDED 2026-08-05 — Sid ruling, direct, no revalidation round:
+    `runtime/render.cljs:101` increments `slot-text-writes` once per repacked
+    slot at the same site that records the pack, so a backend flip that
+    reclones and reshapes every live text slot writes exactly that many; the
+    count is NAMED here — L is pre-read from the census into the row receipt
+    and asserted equal to the window-open census — never zeroed by the
+    UNNAMED law) · dirty `:other` RUN-RECORDED ≥ 1
     (trial 2 equal) · cache replacement/size/address count 0.
   - **(f) capacity-growing edit** (append a 4,096-char suffix to the
     pinned ordinary block): layout-execs `:slot-text-change` +1 ·
@@ -978,13 +1072,36 @@ ceiling would smuggle in streaming/residency, which is step-5 material.
   - **(h) vanished-slot eviction** (§6 removal road 3, exercised separately
     from truth death; surviving-slot address disappearance is in G1's pure
     table): drive a product road that removes ≥1 live slot while
-    its block's truth SURVIVES (candidate: machine fold-toggle
-    collapsing the machine's output slots; the harness asserts the live
-    slot set genuinely shrank by V ≥ 1). Expected = the driving action's
-    own row deltas (fold: row d's) PLUS geo destroyed +V · cache size
+    truth SURVIVES (road: the halo OVERLAY slot — a contextmenu on
+    proven-empty ground opens it, the Escape key closes it; the harness
+    asserts the live slot set genuinely shrank by V ≥ 1 and that the block
+    census/served-char census did not move). Expected = the driving action's
+    own row deltas (the close drive has NONE of its own: layout-execs 0 ·
+    misses 0 · replacements 0) PLUS geo destroyed +V · cache size
     additionally −(pre-read owned addresses of the vanished slots) ·
     address count by the same negative delta · dirty
-    `:exit` +V. ALTERNATIVE (allowed by R1 item 3): if NO product road
+    `:exit` +V.
+    **AMENDED 2026-08-05 — Sid ruling (direct, no revalidation round):** the
+    row named "machine fold-toggle collapsing the machine's output slots" as
+    its candidate and expected "the driving action's own row deltas (fold: row
+    d's)". That road cannot remove a slot on this product:
+    `scene_runtime.cljs`'s `<store-frame` builds `text-by-vi` from EVERY
+    maintained store slot, so a slot leaves that map only when its vi leaves
+    the store (`scene-rt/close-instance!`), and a fold merely reprojects a
+    surviving block's text — which is exactly what row (d) already measures
+    (slot-text-writes +1, one geo lifecycle result, geo destroyed 0). V is
+    identically 0 on the fold road, so the row as written was unperformable.
+    The SUBSTANCE is unchanged: a live TEXT slot vanishes without truth death
+    and its owned addresses are evicted at the destroy site. The halo overlay
+    slot is such a slot — `render-halo!` carries its rows through
+    `carry-ground-text-layouts!` under vi `:ground-halo`, so it owns H ≥ 1
+    addresses — and BOTH ends are literal UI drives on the product's own
+    roads: contextmenu → `>contextmenu` → `handle-meta!` → the
+    `:halo/condense` floor row at `:space/ground` → `open-halo!`; Escape →
+    `{:type :escape}` → `ground/escape!` → `render-halo!` →
+    `close-instance! :ground-halo`. Nothing durable is touched. The row is
+    therefore an EXECUTED row and the ALTERNATIVE below is NOT claimed.
+    ALTERNATIVE (allowed by R1 item 3, now unused): if NO product road
     reaches the destroy site (runtime/render.cljs:61–64) without truth
     death, the implementer instead PROVES convergence — phase-artifact
     receipt: the source trace plus row (g)'s run showing the destroy
@@ -1014,11 +1131,12 @@ ceiling would smuggle in streaming/residency, which is step-5 material.
     `:id-digest` EQUAL · geo 0 · slot-text-writes 0 · paint-repacks
     RUN-RECORDED ≤ affected-slot count (identical across both runs) ·
     dirty all seven causes 0.
-  - **(l) cache oracle, live positive:** in EACH isolated positive trial,
-    enable oracle; replay row (b): cache hits +2 · `:oracle-checks` +2 ·
-    `oracle-layout-execs` +2 · `:oracle-mismatches` 0 · paint-repacks
-    `:hover-paint` +2 · dirty `:hover` +2; production layout-execs/misses/
-    replacements/size/address count/geo/slot-text-writes all 0. Disable
+  - **(l) cache oracle, live positive:** the retired matrix intended to enable
+    the oracle and replay row (b). The coherent expected law is cache hits +2 ·
+    `:oracle-checks` +2 · `oracle-layout-execs` +2 · mismatches 0, with
+    production layout executions/misses 0 and all text repacks, dirty-text
+    marks, slot-text writes, and text-geometry lifecycle counters 0. This row
+    was not completed as an acceptance receipt and is non-blocking. Disable
     after the window.
     **Dedicated negative command:** one fresh isolated page under §10's
     environment law; reach the trial protocol's fully settled/bound-checked
@@ -1095,9 +1213,11 @@ ceiling would smuggle in streaming/residency, which is step-5 material.
   red; 3 = dirty/receipt/settle-timeout assertion red and PACKAGE FAIL
   (the terminal-classification road).
 - **G9 (live, wall + receipts).** Command: §9's literal `hover`
-  invocation, THE seven-transition storyboard (§9's list): all SEVEN
-  measured transitions ≤ **52ms** input→RAF (six ordinary↔largest + the
-  ordinary→empty control). Expected exit 0; 2 = counters green, a
+  invocation, THE seven-transition storyboard (§9's list as AMENDED
+  2026-08-05): all SEVEN
+  measured transitions ≤ **52ms** input→RAF (six empty→target acts + the
+  ordinary→empty control; the unmeasured reposition segments between them
+  carry no bar). Expected exit 0; 2 = counters green, a
   transition over the bar.
 - **G10 (suites, byte-fidelity — every command pinned with its expected
   result):**
@@ -1119,9 +1239,9 @@ ceiling would smuggle in streaming/residency, which is step-5 material.
        `deterministic` `"21/21"` · `candidateParity` `"14/21"` ·
        `productBoundsDivergenceSentinels` `"7/7"` · `images` 21 ·
        `q8AffineTransport` true · `q5AffineRasterBoundary` true ·
-       `updateRequested` false · `updateAuthorized` false ·
+       `updateRequested` false · `updateAuthorized` true ·
        `environmentFingerprint`
-       `"e79490f8882cd785f32b5bb82cadd425dc90f2d7616cc9f0debf8a0f1c476282"`
+       `"5ced2482f3d0b8e9a14465bba06808a04d3a5a9b7d386fcf71f40a30f557343e"`
        — the fingerprint is asserted DIRECTLY because the verifier's
        classification cascade tests parity BEFORE environment match
        (run_verifier.mjs:435–448): the classification alone can never

@@ -52,7 +52,8 @@
   seven-transition storyboard; §10 environment law + bound constants +
   pinned commands; G10 pinned to W1 §9.1 exit-1 state, golden 21/21
   absolute + stop S6; terminal classifications incl. EXPERIENCE-BAR RED.
-  Judgment calls for R2: k=4/c=5/+8 constants; 13-repack hover count;
+  Judgment calls for R2: k=4/c=5/+8 constants; historical 13-repack hover
+  deduction (later superseded by the measured attention-only/zero-text law);
   fold-cascade as the order-only probe; harness exit law 0/1/2. NEXT: R2
   fresh default-fail round (prompt in the session close-out).
 - 2026-08-04 · Fable-lane (fresh context, validation R2) · VERDICT: FAIL —
@@ -134,8 +135,9 @@ ONE phase, whole package, no PLAN.md. Binding docs, precedence order:
 docs/current-mental-model/decisions.md ("The render seam") · Contract T =
 docs/current-mental-model/build/render-engine/W1.md · the package contract
 docs/current-mental-model/build/shaping-correction/CONTRACT.md (sha256
-3699f3fb7db413d4b8b07936e4192950f486171aae02a90b4a408028e128e19b,
-R4-validated) · baton NOW.md (flag contradictions there, never pause).
+30636ca78afb4cc119b47224727bd373a983f900afdae863517970996513e992,
+R4-validated + Sid's 2026-08-05 direct-fix amendment) · baton NOW.md
+(flag contradictions there, never pause).
 Evidence: FOUNDING-EVIDENCE.md + evidence/ (hash manifest inside).
 
 Act 0 — §11 manifest sweep BEFORE any code: grep -n every §11 symbol.
@@ -145,7 +147,7 @@ renderer.cljs / runtime/render.cljs carry small SEAM drift; text_layout
 .cljc and face_primitives.cljc are hint-exact). Substance missing → STOP
 S3. Also boot-verify G10's baseline: `npm run verify:render-engine` must
 exit 1 matching W1 §9.1 on both surfaces (environmentFingerprint
-e79490f8882cd785f32b5bb82cadd425dc90f2d7616cc9f0debf8a0f1c476282,
+5ced2482f3d0b8e9a14465bba06808a04d3a5a9b7d386fcf71f40a30f557343e,
 deterministic 21/21, candidateParity 14/21). If the fingerprint
 mismatches from adapter-feature ORDERING alone (SEAM-STEP1-P1.md finding
 3), STOP and escalate S4 — never edit the verifier yourself. Capture the
@@ -178,3 +180,46 @@ P1.md in build/shaping-correction/ (per-act record, gate receipts,
 judgment calls, diff-derived file list sum-checked vs §12) + NOW entry
 ≤15 lines (FAIL findings verbatim). Then Fable FULL-tier gate review.
 ```
+
+- 2026-08-05 · Codex (implementation P1, Act 0) · **PACKAGE BLOCKED — {S4}.**
+  Opening HEAD `f2d65a1`; R4 contract hash matched. Baton clean-tree claim had
+  one foreign untracked `smalltalk-ui-vm/PODCAST_SCRIPT.md`, preserved untouched.
+  §11 sweep found all substance; only contracted locator drift. G10 boot replay
+  exited 1 with 21/21 deterministic+goldens, 14/21 parity, but emitted
+  fingerprint `9213da9a…a03c` and `updateAuthorized=true`, not the pinned
+  `e79490f8…6282` / false. Banked vs current environments become exactly equal
+  after sorting adapter features; sole raw diff is `timestamp-query` ↔
+  `clip-distances` order — SEAM finding 3 exactly. Opening prompt therefore
+  fired S4 before compile baseline or code. No code/test/verifier edit, commit,
+  push, merge, or staging. Artifact: `P1.md`. NEXT: Fable/Sid ruling/recut;
+  fresh Act 0 only after fingerprint ordering + stale authorization pin settle.
+
+- 2026-08-05 · Sid ruling + Codex re-entry · S4 RESOLVED in-lane: direct,
+  receipt-proven defects are fixed by the implementer; Fable receives the ONE
+  final broad review of all decisions for local-patch/systemic-scope/MVP drift,
+  not a new session per direct miss. Adapter features now canonicalize as the
+  set they are at environment-identity minting; metadata-only bank migration
+  gives fingerprint `5ced2482…7343e`, `environmentMatch=true`, with 21/21
+  deterministic+goldens and 14/21 parity unchanged. No image update. Contract
+  G10 stale `updateAuthorized=false` pin corrected to the verifier/SEAM's
+  intentional `true`; W1 current baseline amended. Contract sha256 now
+  `30636ca7…13e992`. `sourceMatch=false` retained as a final Fable ledger item,
+  not silently conflated with environment identity. Implementation resumes;
+  prior blocked receipt remains immutable history in `P1.md` §1–6.
+
+- 2026-08-05 · Codex settlement/custody · SID CADENCE RULING APPLIED. The
+  two-isolated-page 20-row matrix is retired as a blocking path: retained run
+  INCOMPLETE at backend flip after zero slot-text writes; no repair/rerun and no
+  all-20 PASS claim. SwiftShader timing remains unclassified. Current corpus is
+  174 blocks / 36 machine / 586,927 chars / 174 block slots / 174 text slots /
+  0 non-block slots; old 172/177 = 172 block slots + five archived transient
+  Studio/Workshop slots, followed by two durable blank Studio births. The
+  48-line #Feedback note retained 2,506 chars; body glyph spans now use absolute
+  source space, headers stay local; focused later-line/wrap/header regression
+  passed. Hover is anatomy attention, not text paint: 7 attention transitions +
+  7 RAF/store-frame executions, with 0 layouts/misses/repacks/GPU text writes/
+  dirty-text/geo lifecycle. Checks: focused JVM 11/177 green; shaping fence
+  green; exact `npx shadow-cljs compile dev` stopped before project compile
+  (standalone launcher lacks Electric hook + `src-dev/dev` classpath). No
+  substitute/profile/broad test. NEXT: Sid's two lived answers; separate
+  code/docs commits are authorized this session.
