@@ -14,7 +14,8 @@
    :render.family/shadow
    :render.family/msdf
    :render.family/slug
-   :render.family/clip])
+   :render.family/clip
+   :render.family/image])
 
 (def legacy-direct-color
   {:scene-color/version 1
@@ -241,18 +242,107 @@
     :regimes [(regime :webgpu-render-pass :u32-scissor :target-pixels
                       :render-target :measured-production)]}))
 
+(def ^:private image-regimes
+  ;; IMAGE-ATOM T8: the image family consumes the existing f32 affine transport;
+  ;; these rows describe that road rather than minting a second transform path.
+  [{:zoom {:min 0.01 :max 0.1}
+    :extent [:standard-fixture :world-256]
+    :normalization :screen-constant
+    :coordinate-precision :f32
+    :coverage-precision :rgba8unorm
+    :lifecycle :settle-to-scene
+    :backend :webgpu-sampled-image
+    :verdict :asserted-image-parity}
+   {:zoom {:min 0.1 :max 8.0}
+    :extent [:standard-fixture :world-256]
+    :normalization :screen-constant
+    :coordinate-precision :f32
+    :coverage-precision :rgba8unorm
+    :lifecycle :settle-to-scene
+    :backend :webgpu-sampled-image
+    :verdict :asserted-image-parity}
+   {:zoom {:min 8.0 :max 1000.0}
+    :extent [:standard-fixture :world-256]
+    :normalization :screen-constant
+    :coordinate-precision :f32
+    :coverage-precision :rgba8unorm
+    :lifecycle :settle-to-scene
+    :backend :webgpu-sampled-image
+    :verdict :asserted-image-parity}])
+
+(def ^:private image-geometry
+  {:geometry/version 1
+   :authority {:kind :image-quad
+               :source-id :scene-entry/material-id
+               :source-revision :scene-entry/material-revision
+               :algorithm-version :image-quad-crop-v1
+               :local-space :container-local-f32}
+   :classify {:result #{:inside :boundary :outside}
+              :fill-rule :not-applicable
+              :boundary-rule :explicit}
+   :coverage {:geometry-operator :aa-filter
+              :operator-version :image-quad-ramped-edge-v1
+              :boundary-relation :isocontour-0.5
+              :reference-isocontour 0.5
+              :visual-factors [:texture-alpha :effective-opacity]
+              :tie-token :half
+              :quantization :rgba8unorm}
+   :time-sample :none-static
+   ;; IMAGE-ATOM T6/T14: product pick is the existing half-open rect-tree
+   ;; interior with zero slop; per-node transforms would invalidate this row.
+   :pick {:policy :interior
+          :boundary :half-open-interior
+          :hit-slop {:metric :screen-px :radius 0.0}
+          :owner :image-node/address}
+   :bounds {:math :crop-quad
+            :paint :half-pixel-conservative-support
+            :pick :crop-quad-half-open}
+   ;; IMAGE-ATOM T4/T5: mips are linear-filtered derivations and atlas identity
+   ;; includes the source revision, algorithm, and declared regime.
+   :derivations [{:kind :mips
+                  :source-revision :image-source/digest
+                  :algorithm-version :linear-box-mips-v1
+                  :tolerance-lod :declared-per-placement-tier
+                  :normalization :image-local-pixels
+                  :precision :rgba8unorm
+                  :backend :webgpu-render-pass
+                  :regime :image-regime}
+                 {:kind :atlas
+                  :source-revision :image-source/digest
+                  :algorithm-version :shelf-atlas-v1
+                  :tolerance-lod :two-pixel-gutter-lod1
+                  :normalization :atlas-uv-inset
+                  :precision :f32
+                  :backend :webgpu-sampled-image
+                  :regime :image-regime}]
+   :regimes image-regimes})
+
 (defn- registration
-  [family-id geometry receipts]
-  {:family/id family-id
+  ([family-id geometry receipts]
+   ;; Keep the historical three-argument result byte-for-value identical for
+   ;; the five admitted W2-B families (IMAGE-ATOM G1/Q5).
+   (registration family-id geometry receipts {}))
+  ([family-id geometry receipts
+    {:keys [material-fields instance-fields validation defaults
+            edit-operations serialization export-projections resources]
+     :or {material-fields :legacy-family-adapter
+          instance-fields [:instance/id :container-slot :paint-reference]
+          validation :scene-tape/fail-closed-v1
+          defaults :versioned-explicit
+          edit-operations :existing-semantic-operations
+          serialization :edn-v1
+          export-projections :declared-by-future-exporter
+          resources :registered-executor-owned}}]
+   {:family/id family-id
    :family/version 1
    :grammar {:schema/version 1
-             :material-fields :legacy-family-adapter
-             :instance-fields [:instance/id :container-slot :paint-reference]
-             :validation :scene-tape/fail-closed-v1
-             :defaults :versioned-explicit
-             :edit-operations :existing-semantic-operations
-             :serialization :edn-v1
-             :export-projections :declared-by-future-exporter}
+             :material-fields material-fields
+             :instance-fields instance-fields
+             :validation validation
+             :defaults defaults
+             :edit-operations edit-operations
+             :serialization serialization
+             :export-projections export-projections}
    :pick {:geometry :render/geometry
           :scene-order :scene-order/v1
           :visibility :scene-entry/visibility
@@ -278,9 +368,28 @@
                                      :alpha-association :straight}
                           :scene (:scene-color/id linear-premultiplied-color)
                           :seam scene-color-seam}
-            :resources :registered-executor-owned
+            :resources resources
             :regimes (:regimes geometry)}
-   :receipts receipts})
+   :receipts receipts}))
+
+(def image-registration
+  (assoc-in
+   (registration
+    :render.family/image image-geometry
+    [:image-atom/admission :image-atom/geometry :image-atom/color
+     :image-atom/resources :image-atom/store-lane]
+    {:material-fields [:image/material-id :image/revision :image/source-digest
+                       :image/color-tag :image/intrinsic-size :image/provenance]
+     :instance-fields [:instance/id :container-slot :image/crop :opacity
+                       :paint-reference]
+     :validation :image-material/fail-closed-v1
+     :defaults :image-material/explicit-v1
+     :edit-operations [:image/crop :image/replace-source]
+     :serialization :canonical-edn-v1
+     :export-projections :none-promised
+     :resources :image-system/digest-keyed-lifecycle-v1})
+   [:grammar :entry-paint-required-keys]
+   [:sub-draws]))
 
 (def family-contracts
   [(registration :render.family/rect rect-geometry
@@ -292,7 +401,8 @@
    (registration :render.family/slug slug-geometry
                  [:w0-a/slug :w2-a/q8])
    (registration :render.family/clip clip-geometry
-                 [:w2-b/shared-visibility])])
+                 [:w2-b/shared-visibility])
+   image-registration])
 
 (def ^:private required-family-keys
   [:family/id :family/version :grammar :pick :provenance :versioning :render
@@ -440,11 +550,20 @@
   (require-keys! "scene entry" entry
                  [:entry/id :material/id :material/revision :instance/id
                   :family/id :order :paint :pick :visibility])
-  (let [{:keys [stratum pass-class stack-path part-rank stable-tie]} (:order entry)]
+  (let [family-id (:family/id entry)
+        family (get registry family-id)
+        required-paint-keys (get-in family
+                                    [:grammar :entry-paint-required-keys])
+        {:keys [stratum pass-class stack-path part-rank stable-tie]}
+        (:order entry)]
     (when-not (contains? registry (:family/id entry))
       (throw (ex-info "Scene entry names an unregistered family"
                       {:entry/id (:entry/id entry)
                        :family/id (:family/id entry)})))
+    ;; IMAGE-ATOM T1: family-specific entry shape is registration data.  The
+    ;; validator applies declared keys generically and gains no image branch.
+    (when (seq required-paint-keys)
+      (require-keys! "family paint" (:paint entry) required-paint-keys))
     (when-not (contains? stratum-rank stratum)
       (throw (ex-info "Scene entry has an unknown stratum"
                       {:entry/id (:entry/id entry) :stratum stratum})))

@@ -149,23 +149,39 @@
       (push-event! tracker {:type :create :kind :buffer :label label :bytes (clamp-bytes reserved-bytes)})
       (install-resource! tracker obj resource))))
 
+(defn texture-reserved-bytes
+  "Price every allocated mip level, not only level zero (IMAGE-ATOM T11)."
+  [width height depth-or-array-layers bytes-per-pixel mip-level-count]
+  (let [depth (max 1 (or depth-or-array-layers 1))
+        levels (max 1 (or mip-level-count 1))]
+    (reduce + 0
+            (map (fn [level]
+                   (* (max 1 (quot (max 1 (or width 1))
+                                   (bit-shift-left 1 level)))
+                      (max 1 (quot (max 1 (or height 1))
+                                   (bit-shift-left 1 level)))
+                      depth
+                      bytes-per-pixel))
+                 (range levels)))))
+
 (defn register-texture!
-  [tracker obj label & {:keys [width height depth-or-array-layers format active-bytes details]}]
+  [tracker obj label & {:keys [width height depth-or-array-layers format
+                               mip-level-count active-bytes details]}]
   (when (and tracker obj)
     (let [details (merge {:width width
                           :height height
                           :depth-or-array-layers (or depth-or-array-layers 1)
-                          :format format}
+                          :format format
+                          :mip-level-count (or mip-level-count 1)}
                          details)
           bytes-per-pixel (case format
                             ("rgba8unorm" "bgra8unorm" "rgba8unorm-srgb" "bgra8unorm-srgb") 4
                             "rgba16float" 8
                             "rg16uint" 4
                             4)
-          reserved-bytes (* (max 1 (or width 1))
-                            (max 1 (or height 1))
-                            (max 1 (or depth-or-array-layers 1))
-                            bytes-per-pixel)
+          reserved-bytes (texture-reserved-bytes
+                          width height depth-or-array-layers bytes-per-pixel
+                          mip-level-count)
           resource (resource-map :texture label reserved-bytes
                                  (or active-bytes reserved-bytes) details nil)]
       (push-event! tracker {:type :create :kind :texture :label label :bytes reserved-bytes})
@@ -192,23 +208,25 @@
         installed))))
 
 (defn replace-texture!
-  [tracker old-obj new-obj label & {:keys [width height depth-or-array-layers format active-bytes details reason]}]
+  [tracker old-obj new-obj label
+   & {:keys [width height depth-or-array-layers format mip-level-count
+             active-bytes details reason]}]
   (when (and tracker new-obj)
     (let [old-resource (lookup-resource tracker old-obj)
           details (merge {:width width
                           :height height
                           :depth-or-array-layers (or depth-or-array-layers 1)
-                          :format format}
+                          :format format
+                          :mip-level-count (or mip-level-count 1)}
                          details)
           bytes-per-pixel (case format
                             ("rgba8unorm" "bgra8unorm" "rgba8unorm-srgb" "bgra8unorm-srgb") 4
                             "rgba16float" 8
                             "rg16uint" 4
                             4)
-          reserved-bytes (* (max 1 (or width 1))
-                            (max 1 (or height 1))
-                            (max 1 (or depth-or-array-layers 1))
-                            bytes-per-pixel)
+          reserved-bytes (texture-reserved-bytes
+                          width height depth-or-array-layers bytes-per-pixel
+                          mip-level-count)
           new-resource (resource-map :texture label reserved-bytes
                                      (or active-bytes reserved-bytes)
                                      details

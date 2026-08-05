@@ -387,31 +387,9 @@
    gesture still changes only the transport upload—not these instance arrays."
   []
   (m/latest
-    (fn [store]
-      (let [entries (ss/maintained-entries store)
-            ;; SEAM-STEP1 T10: the walk unwraps the exact slot values stored at
-            ;; writes, preserving ops-array identity for downstream skips.
-            ordered (mapv :runtime/slot entries)
-            ordered-vis (mapv :vi ordered)]
-        {:rects      (into [] (mapcat (comp :rects :ops)) ordered)
-         :shadows    (into [] (mapcat (comp :shadows :ops)) ordered)
-         :text-by-vi (reduce (fn [m slot]
-                               (assoc m (:vi slot) (get-in slot [:ops :text])))
-                             {} ordered)
-         :ordered-vis ordered-vis
-         :ops-count-by-vi
-         (into {}
-               (map (fn [slot]
-                      [(:vi slot)
-                       {:rects (count (get-in slot [:ops :rects]))
-                        :shadows (count (get-in slot [:ops :shadows]))
-                        :text-lines (count (get-in slot [:ops :text]))}]))
-               ordered)
-         :order-by-vi (into {}
-                            (map (fn [entry]
-                                   [(get-in entry [:runtime/slot :vi])
-                                    (:order entry)]))
-                            entries)}))
+    ;; IMAGE-ATOM G8: the pure payload derivation is JVM-owned by scene-store;
+    ;; this is only the single reactive sharing point.
+    ss/derive-store-frame
     (m/watch !scene-store)))
 
 (defn <effective
