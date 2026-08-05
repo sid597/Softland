@@ -55,6 +55,43 @@ Sid says is allowed to drop.
   numbers, and receipt re-derivation burned hours on environment fights).
   Anything beyond the atom close above — full re-derivation, independent
   re-drive, extra reviewers — is an escalation only Sid can order.
+  Falsification is a thinking style and rides everywhere free — contract
+  scenarios, the implementer's pass, review. Redundant verification (fresh
+  contexts, second models, re-derivation) is purchased insurance priced by
+  IRREVERSIBILITY: durable/Rama work keeps its ladders; reversible
+  projection work buys it once per package, or on Sid's word.
+- **The corners** (Sid, 2026-08-06) — pre-commitments that cap SPEND
+  (screens, touches, lines, rounds, dark atoms), never CONTENT; a
+  pre-commitment that freezes scope or features before the thinking is
+  the bad kind — refuse it.
+  1. **No rule without a corpse, no corpse without an expiry.** Every
+     process rule cites the failure that birthed it, and process files
+     hold a fixed size budget — adding a rule deletes one. Tripwire: a
+     session whose process-artifact lines exceed its changed-code lines
+     says so in its NOW entry.
+  2. **Two Sid-touches per atom — the cut and the accept.** A third touch
+     means the process is broken, not diligent. Implementers take the
+     strongest default and record it; Sid's touch is spent only on
+     genuinely irreversible forks.
+  3. **Enumeration is incomplete thinking.** A contract overflowing two
+     screens means think harder, never write more.
+  4. **Think wide, build narrow, record the refusals.** Everything cut
+     from an atom lands as a named one-line refusal — an extension point
+     routed to LATER, never a void. An atom whose refusals can't be named
+     hasn't seen its edges.
+  5. **Parallelism buys coverage, never confidence.** Two lanes on two
+     atoms is throughput; two lanes on one question is forbidden —
+     confidence escalates modality (reading → runtime value → profile),
+     never head-count.
+  6. **The package courtroom is seam-shaped.** Real material through the
+     real artery, cross-atom, on screen — the kill record (framework
+     G15/G24/G25) lives between independently-green subsystems; suite
+     re-runs caught nothing across eight packages.
+  7. **The felt receipt is the primary receipt; never a third consecutive
+     dark atom.** By then felt activation opens and something moves on
+     Sid's canvas, or the lane waits for his ruling.
+  8. **Corners cap spend, never thought.** The test every future process
+     proposal must pass.
 - **Investigations are fenced like code** (Sid's ruling on the workflow
   rethink, 2026-08-04, after the 28s-frame incident: three static analyses
   produced three different "dominant" mechanisms; one 30-minute profile
