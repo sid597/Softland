@@ -35,6 +35,7 @@
     app.client.workspace.block-edit-test
     app.client.workspace.ground-edit-test
     app.client.workspace.scene-store-test
+    app.client.workspace.shaping-correction-test
     app.client.workspace.text-layout-test
     app.binding-dispatch-test
     app.face-assembly-test

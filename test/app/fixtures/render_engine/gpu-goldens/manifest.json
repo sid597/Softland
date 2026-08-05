@@ -282,7 +282,7 @@
     }
   ],
   "replayCommand": "npm run verify:render-engine",
-  "environmentFingerprintSha256": "e79490f8882cd785f32b5bb82cadd425dc90f2d7616cc9f0debf8a0f1c476282",
+  "environmentFingerprintSha256": "5ced2482f3d0b8e9a14465bba06808a04d3a5a9b7d386fcf71f40a30f557343e",
   "baselineReceipts": {
     "determinism": {
       "pass": true,

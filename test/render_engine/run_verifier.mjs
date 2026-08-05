@@ -58,6 +58,15 @@ const stableJson = (value) => {
   return value;
 };
 
+// WebGPU exposes adapter features as a set. Array.from preserves the browser's
+// iteration order, but that order is not semantic environment identity. Keep
+// ordered arrays (launch args, fallback chains, etc.) order-sensitive while
+// canonicalizing this one set-valued field before it reaches receipts/hashes.
+const canonicalStringSet = (values = []) =>
+  [...new Set(values)].sort((left, right) =>
+    left < right ? -1 : left > right ? 1 : 0,
+  );
+
 const camelizeKeys = (value) => {
   if (Array.isArray(value)) return value.map(camelizeKeys);
   if (value && Object.getPrototypeOf(value) === Object.prototype) {
@@ -298,7 +307,10 @@ const main = async () => {
     browser: {
       secureContext: result.secureContext,
       userAgent: result.userAgent,
-      adapter: result.adapter,
+      adapter: {
+        ...result.adapter,
+        features: canonicalStringSet(result.adapter?.features),
+      },
       deviceLimits: result.deviceLimits,
       canvas: result.canvas,
     },

@@ -490,7 +490,8 @@
         avail (max 1 (- w pl pr))
         value (str (:value props (:text props "")))
         layout-result (tl/layout {:text value
-                                  :provider (:text-provider geom)
+                                  :provider (or (:layout-provider geom)
+                                                (:text-provider geom))
                                   :font-size fs
                                   :char-advance ca
                                   :line-height lh
@@ -598,22 +599,48 @@
         fs (or (:font-size props) (:font-size view) 14)
         ca (or (:char-advance props) (:char-advance view) 8)
         lh (or (:line-h props) (:line-h view) 20)
+        provider (or (:layout-provider props)
+                     (:layout-provider view)
+                     (get-in ctx [:geom :layout-provider])
+                     (get-in ctx [:geom :text-provider]))
+        carried-result (or (:layout-result props) (:layout-result view))
+        request {:subject-id (:view-instance ctx)
+                 :op-role :block-root
+                 :occurrence 0
+                 :stamp (or (:revision-stamp props) (:revision-stamp view))
+                 :body-text text
+                 :header-texts headers
+                 :provider provider
+                 :font-size fs
+                 :line-height lh
+                 :baseline-offset fs
+                 :wrap-policy :block-greedy
+                 :wrap-col (when machine? wrap-col)
+                 :source-id (:address ctx)}
+        acquire (get-in ctx [:geom :layout-acquire])
         fallback-lines
         (when-not actual?
           (let [line-count (max 1 (inc (long (or required-line 0))))
                 chars (apply str (repeat (max 0 (long (or required-col 0))) " "))]
             (assoc (vec (repeat line-count "")) (dec line-count) chars)))]
-    (tl/layout (cond-> {:text text
-                        :font-size fs
-                        :char-advance ca
-                        :line-height lh
-                        :baseline-offset fs
-                        :max-chars (when machine? wrap-col)
-                        :wrap-policy :block-greedy
-                        :headers headers
-                        :source-id (:address ctx)}
-                 fallback-lines (assoc :source-lines fallback-lines
-                                       :headers [])))))
+    (cond
+      carried-result carried-result
+      (and acquire (nil? fallback-lines))
+      (acquire request)
+      :else
+      (tl/layout (cond-> {:text text
+                          :provider provider
+                          :font-size fs
+                          :char-advance ca
+                          :line-height lh
+                          :baseline-offset fs
+                          :wrap-col (when machine? wrap-col)
+                          :max-chars (when (and machine? (nil? provider)) wrap-col)
+                          :wrap-policy :block-greedy
+                          :headers headers
+                          :source-id (:address ctx)}
+                   fallback-lines (assoc :source-lines fallback-lines
+                                         :headers []))))))
 
 (defn block-root-prim
   "The root part is the character grid. T2: all instance variation arrives in
@@ -645,10 +672,26 @@
                                   [:metrics :advance]))
         w (+ (max char-advance logical-w) (* 2 pad))
         h (+ logical-h (* 2 pad))
+        carry-layout? (boolean (get-in ctx [:geom :layout-acquire]))
+        base-ops
+        (if carry-layout?
+          (tl/line-paint-ops
+           layout-result
+           {:type :text :size font-size :r 1.0 :g 1.0 :b 1.0 :a 1.0})
+          ;; The carried-layout payload is a ground renderer seam, not a new
+          ;; primitive-tree schema.  Keep non-ground/legacy anatomy byte-for-
+          ;; byte compatible while the live ground takes the indexed layout
+          ;; result all the way to paint.
+          (mapv (fn [line layout-line]
+                  (let [[x y] (:baseline layout-line)]
+                    {:text line :type :text :from 0
+                     :to (tl/code-unit-count line)
+                     :x x :y y :size font-size
+                     :r 1.0 :g 1.0 :b 1.0 :a 1.0}))
+                lines layout-lines))
         ops
-        (vec
-         (map-indexed
-          (fn [i line]
+        (mapv
+          (fn [i line op]
             (let [header? (< i nh)
                   body? (and machine? (not header?))
                   p-stamp (when header? (:header-provenance stamps))
@@ -657,21 +700,18 @@
                               (:noise-header stamps)
                               (:prose-header stamps)))
                   body-stamp (when body? (:body stamps))]
-              (let [[x y] (:baseline (nth layout-lines i))
-                    [r g b a] (cond
+              (let [[r g b a] (cond
                                 header? tint
                                 machine? block-dim
                                 :else block-fg)]
                 (cond->
-                    {:text line :type :text :from 0
-                     :to (tl/code-unit-count line)
-                     :x x :y y :size font-size
-                     :r r :g g :b b :a a}
+                    (assoc op :text line :r r :g g :b b :a a)
+                carry-layout? (assoc :layout/surface :ground)
                 header? (merge p-stamp)
                 body? (merge body-stamp)
                 header?
                 (assoc :material/contributions [p-stamp f-stamp])))))
-          lines))
+          (range) lines base-ops)
         address (:address ctx)
         data
         (cond->
@@ -765,15 +805,19 @@
              0 line-h font-size block-error 0)]))
 
 (defn block-notice-prim
-  [_ctx {:keys [notice refusal line-count w line-h font-size]
+  [ctx {:keys [notice refusal line-count w line-h font-size]
          :or {line-count 0 w 0 line-h 20 font-size 14}}
    _children]
-  (rt-node :ground-notice :text-run
-           {:x 0
-            :y (* (+ line-count (if refusal 1 0)) line-h)
-            :w w
-            :h line-h}
-           :text [(text-op (str notice) 0 line-h font-size block-amber 0)]))
+  (cond->
+      (rt-node :ground-notice :text-run
+               {:x 0
+                :y (* (+ line-count (if refusal 1 0)) line-h)
+                :w w
+                :h line-h}
+               :text [(text-op (str notice) 0 line-h font-size block-amber 0)])
+    (get-in ctx [:geom :layout-acquire])
+    (assoc :data {:ground/op-role
+                  (tl/ground-op-role {:part-id (last (:id ctx))})})))
 
 (defn block-boundary-prim
   [_ctx {:keys [w line-h font-size tint stamp]
