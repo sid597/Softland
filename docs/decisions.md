@@ -136,7 +136,7 @@ which crossroads did we take."
 
 - **The unit is the sense-line**: episodes and their marks. Files, sessions,
   and commits are one evidence lens, not the unit. Model:
-  `sense-line-model.md`; working map: `build/sense-line-mvp/DIRECTION.md`.
+  `sense-line-model.md`; working map: `docs/sense-line-mvp/DIRECTION.md`.
 - **Agent-legible first** (View 3): the material must be legible to machine
   minds, not only to Sid — the first paying reader is an agent. Then the
   threaded/DAG timeline (Sid's first pixel surface). Canvas when we get there.
@@ -147,13 +147,13 @@ which crossroads did we take."
   asserts on Sid's word; both actors durably recorded). The editor write path
   is committed: **direct write over a STREAM topology, echo streamed back**
   (measured: stream echo p95 7.66ms; microbatch measured ~210ms cadence and
-  rejected — don't reopen it, the numbers are in `build/write-echo/NOW.md`).
+  rejected — don't reopen it, the numbers are in `docs/write-echo/NOW.md`).
   No optimistic text echo. Block-write is CLOSED (2026-07-13; S3 ruled, G8
   worn across a real JVM replacement). UI write gestures ride the scene
   substrate (the base layer, above).
 - **first-light — RATIFIED 2026-07-17** (Sid: "i want to see the first light
   asap"): genesis of building-Softland-in-Softland per
-  `build/first-light/DIRECTION.md`, now in force as direction. Sequence:
+  `docs/first-light/DIRECTION.md`, now in force as direction. Sequence:
   the durable-ground slice first (real cluster — settled below), then
   first-light A (one local worn arrangement repair); inheritance (B) opens
   only from a genuine second friction, never a fabricated gate example;
@@ -171,8 +171,8 @@ which crossroads did we take."
   travels wish → code → receipts → versioned verb → binding → worn — one
   verb born from inside, Ctrl+Enter riding the material artery with a
   server-narrowed resident briefing. Direction:
-  `build/editable-material/DIRECTION.md`; gate records
-  `build/editable-material/GATE_P1..P8.md`. Sid's return wear is the true
+  `docs/editable-material/DIRECTION.md`; gate records
+  `docs/editable-material/GATE_P1..P8.md`. Sid's return wear is the true
   gate — the first full breath closes first-light A.
 - **space-as-entity — rungs 1+2 BUILT, all twelve gates GREEN 2026-07-26:**
   the space is the outermost rung of every claim chain (a pick miss lands
@@ -184,7 +184,7 @@ which crossroads did we take."
   by all three lanes. Cross-field form invariants now have a compiler seam
   (`:form-validators`, read at both compile and wear — candidates refuse
   with an error card, durable malformed material falls to the floor). Gate
-  record: `build/space-as-entity/GATE.md` — G7 closed on Sid's headed
+  record: `docs/space-as-entity/GATE.md` — G7 closed on Sid's headed
   receipt (echo p95 23.3 / max 40.3 vs the 52 bar through a sustained
   wheel burst; T6 fallback never needed). **CLOSED + retro'd 2026-07-26**
   (code `43a57a0` + `f7945fd`; HEAD-dynamic suites green at committed
@@ -194,7 +194,7 @@ which crossroads did we take."
   legality at all three G10 lanes, fence inherited at the write lane
   (still one var, three reads); deviation felt live at exactly 3.0 while
   shared served 8.0; pin held 8.0 over an activated shared 2.0. Gate
-  record: `build/space-as-entity/RUNG3_GATE.md` (one confirmed judgment
+  record: `docs/space-as-entity/RUNG3_GATE.md` (one confirmed judgment
   call — the pre-existing OC bootstrap-vs-normal import-fingerprint
   asymmetry, residue with cheap falsifier; one allowlist drift finding —
   `src-dev/dev.cljc` LAND_PINNED harness guard, default path identical,
@@ -214,7 +214,7 @@ which crossroads did we take."
   handler head, `:skipped` decline; idempotency bytes untouched —
   circulation stayed read-only). Zero durable touch; loads pure; dark
   capacity proven honest (a test-only row on a never-emitted trigger
-  stays inert). Gate record: `build/multi-cascade/GATE.md` — G6
+  stays inert). Gate record: `docs/multi-cascade/GATE.md` — G6
   re-driven live twice ([CASCADE] on the request thread after durable
   acceptance, resident start +1ms, autotag +16.6s async; accidental
   old-path/new-path A/B on the shared durable cluster corroborated
@@ -232,7 +232,7 @@ which crossroads did we take."
   test-gated validation (never broadcast); behavior wired from existing
   verbs in-arc; the x-ray (anatomy room) never required by any lived
   script; agents ride the same hand from day one. Brief + the eleven
-  rulings + spike questions: `build/studio/BRIEF.md`; Sid verbatim in
+  rulings + spike questions: `docs/studio/BRIEF.md`; Sid verbatim in
   `vision/LOG.md` 2026-07-31.
 
 ## Settled architecture — use it, don't re-derive it
@@ -253,12 +253,12 @@ which crossroads did we take."
   inherit never-pushed privacy; encrypt if they ever leave the two
   machines). Boot-time ingest is OFF the startup path (`bin/land ingest`
   explicit). **No hand-rolled journals** — an EDN WAL beside Rama is the
-  recorded dead branch (`build/first-light/DEPLOY.md`
+  recorded dead branch (`docs/first-light/DEPLOY.md`
   correction-of-record; relapsed once in-session 07-16 and caught). The
   `data/*.ednl` logs were bridges: replayed once into the cluster
   2026-07-17, retired (kept as history). License verified 2026-07-17: Rama
   free for production ≤2 nodes. Records:
-  `build/durable-ground/{GATE,RETRO}.md`; the machine-reboot receipt is
+  `docs/durable-ground/{GATE,RETRO}.md`; the machine-reboot receipt is
   Sid's outstanding slot. Server-trigger rule: the land moves to an always-on
   box only when the first organ must run while Sid sleeps (consolidator /
   overnight agents / phone); the idle Ryzen 5 2600 PC is earmarked for that
@@ -296,14 +296,14 @@ which crossroads did we take."
   sits/scales) commit as assembly events; in-flight gestures stay
   client-side at 60Hz. No new Rama organ — the server floor (kernels, write
   organ, echo, llm seat) already exists. Derivation + the five-unlock test:
-  `build/scene-substrate/DERIVATION.md`; contract in the same directory.
+  `docs/scene-substrate/DERIVATION.md`; contract in the same directory.
   (Supersedes the separate staging of container-transforms / point-and-say /
   scene-diff as independent later packages — they are legs and first
   consumers of this one organ. Islands stays staged behind Sid's Box3D
-  answer. Instrument: `build/render-north/DELTA-B1.md`.) **Built, worn, and
+  answer. Instrument: `docs/render-north/DELTA-B1.md`.) **Built, worn, and
   gate-passed 2026-07-13** (P1–P4; two wave falsifications + full-diff gate
   finder, all PASS; 240Hz receipts at 60× gate scale; records in
-  `build/scene-substrate/GATE.md` + `RETRO.md`). Staged next slice: P3c —
+  `docs/scene-substrate/GATE.md` + `RETRO.md`). Staged next slice: P3c —
   main-face flip + the overlay-merged echo lane to copies + per-slot echo
   diff.
 - **One canvas, many conversations (Sid 2026-07-21):** on the open ground, a
@@ -563,7 +563,7 @@ vocabularies; renaming the arc makes it invisible to Sid.
   (~O(C×G), plus a smaller per-run rescan) and to ground establishing
   legacy layout/wrap geometry while emitting ops WITHOUT the result, the
   renderer re-deriving shaped layout per op. The correction is contracted
-  in `build/shaping-correction/CONTRACT.md` (founding evidence banked
+  in `docs/shaping-correction/CONTRACT.md` (founding evidence banked
   beside it): one material-local layout authority carried by a declared
   layout key, construction proportional to G+C+R, a layout / paint /
   GPU-geometry invalidation partition with distinct receipts, shaped
