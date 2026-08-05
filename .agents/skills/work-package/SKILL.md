@@ -1,6 +1,6 @@
 ---
 name: work-package
-description: "Use when opening, authoring, amending, implementing, validating, gating, or closing a Softland work package, including stop-clause handling and model/lane routing. Loads the current package shell, including the 2026-08-04 rule that measured-ruling correction packages are drafted by the receipt-holding lane and receive one bounded review from the other lane, while direction-born packages retain their existing authorship rule."
+description: "Use when cutting a contract, implementing, or closing a Softland work package. Loads the canonical one-pass law (Sid, 2026-08-06): contract = the hard thinking — one session, one document, one-two screens; execution straight through; acceptance = Sid's word; validation ladders, gate sessions, and stop codes are dead."
 ---
 
 # Softland Work Package
@@ -15,5 +15,5 @@ outranks stale package or baton prose.
 
 Do not copy selected package rules into this bridge or infer permanent model
 ownership from model identity. If the canonical file is unavailable, stop
-before opening, recutting, validating, gating, or closing a package and report
-the missing authority.
+before opening, building, or closing a package and report the missing
+authority.

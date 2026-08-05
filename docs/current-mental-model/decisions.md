@@ -29,21 +29,32 @@ Sid says is allowed to drop.
   strongest version: what do we lose and what do we get · how controllable is
   it · how does it follow from Softland's own eyes · is it buildable,
   modifiable, liveable from INSIDE the land?
-- **Quality machinery that stays** (it keeps catching real bugs, cheaply):
-  one batched falsification + one gate per coding wave; fresh-context
-  subagents as the validation layers (fresh context ≠ fresh session); a
-  receipt over the full REAL corpus for anything that processes the whole
-  corpus; every session ends with a thread-file entry + board-line flip.
-  Mechanics: `.claude/skills/work-package/SKILL.md`.
-- **Gates are sized by claim-risk, not by ritual** (Sid, 2026-07-26, after
-  the P7-gate ledger: every real catch across eight packages came from
-  driving the seam live or probing a NEW claim; suite re-runs never once
-  diverged from a build session's numbers, and receipt re-derivation burned
-  hours on environment fights). Default gate = SLIM: drive the new seam
-  through the real artery, falsify the genuinely new claims, make the
-  rulings. Full re-derivation (suite re-run, cold compile, live receipt
-  reproduction) is reserved for new-organ/kernel packages or a build report
-  that smells wrong — it is an escalation, not a default.
+- **Contract = the hard thinking; everything after is execution** (Sid,
+  2026-08-06, after the image atom wrapped a 372-line namespace in 13
+  process documents and a 72KB contract, and its stop code halted an
+  accepted implementation over five foreign test failures). A contract is
+  ONE session's single pass — one document, one-two screens: scope in
+  plain words · the few laws · exact entry points (new code in its own
+  namespace; big files get thin hooks) · the 3–5 decisive scenarios that
+  become the atom-end tripwires · real MUST-NOTs only. Execution runs
+  straight through: the implementer builds the whole atom, keeps its own
+  falsification pass (it catches real bugs — image atom: 3), fixes what
+  surfaces in-session, and raises ONE question at a genuine fork instead
+  of stopping. Atom close = the scenarios frozen as 3–5 tripwires + 2–3
+  representative goldens + the focused suite + a thread-file entry + the
+  board flip. Acceptance = Sid's word. Dead and never returning:
+  validation ladders, recut ledgers, ruling packets, gate matrices, stop
+  codes, conjunctive full-suite gates, second-model verification,
+  separate gate sessions. Foreign test failures are board debt, never
+  stops. Full suite + cross-atom integration + felt pass run ONCE per
+  package. Mechanics: `.claude/skills/work-package/SKILL.md`.
+- **Verification is sized by claim-risk, and per-atom it is the
+  implementer's own** (Sid, 2026-07-26, the P7-gate ledger: every real
+  catch across eight packages came from driving the seam live or probing
+  a NEW claim; suite re-runs never once diverged from a build session's
+  numbers, and receipt re-derivation burned hours on environment fights).
+  Anything beyond the atom close above — full re-derivation, independent
+  re-drive, extra reviewers — is an escalation only Sid can order.
 - **Investigations are fenced like code** (Sid's ruling on the workflow
   rethink, 2026-08-04, after the 28s-frame incident: three static analyses
   produced three different "dominant" mechanisms; one 30-minute profile
@@ -67,7 +78,7 @@ Sid says is allowed to drop.
   criterion is judgment-relevance, never cheapness. The first-open
   reaction is a nonrenewable instrument — size phases so each deserves
   one.
-- **Role split:** Fable writes contracts, runs gates, adjudicates forks — and
+- **Role split:** Fable writes contracts (one pass) and adjudicates forks — and
   implements directly whenever that's the fastest path; cheaper models run
   phases under contracts. Phases are FEW and LARGE (Sid, 2026-07-29): one
   phase is the default when the risky surface is narrow — the contract
@@ -337,7 +348,7 @@ route). How each piece of it reaches the land:
 - **The dark lane.** At most 1–2 organs in flight. Dark-organ laws:
   compiles clean in the live build · loads PURE (namespace load runs
   top-level forms — a boot side effect is not dark) · routes nowhere
-  until its seam activates · suite-covered from birth · listed on the
+  until its seam activates · tripwire-covered from birth · listed on the
   board with its activation trigger. The board list IS the gauge and the
   width limiter (>2 entries is itself the alarm) — honestly a discipline
   with a known board-drift rate, so each activation note checks the line
