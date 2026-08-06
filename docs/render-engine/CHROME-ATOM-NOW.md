@@ -24,6 +24,22 @@ baton never outranks the contract or decisions.md — flag drift, keep moving.
 (NOW entries below, ≤15 lines each, newest first; close entry includes the
 process-vs-code line self-audit.)
 
+2026-08-06 — SID ACCEPTED; CODE `86918e9`. The flagged lane owns occurrence
+selection, marquee/prune, legacy projection, snapped block/fixture translate,
+uniform fixture scale, guides/ticks, and chrome overlay paint/pick citizenship.
+Felt receipt: scaling correct, reload empty, and the Figma-like interaction
+accepted. Feedback ruling: the block offset is the two written visuals — legacy
+padded Task-18 box plus exact chrome AABB. Green is the non-manipulable connector
+endpoint: outline-only; its square AABB corner peeks outside the rounded fill.
+Connector selection stays intentionally invisible v1; the live receipt now
+exposes last shift-tap identity + selection census, frozen by the edge tripwire.
+Long drag lines are edge/center alignment guides; short marks are equal-gap
+ticks; both are transient and share the applied snapped delta. Falsification
+also repaired revision amplification, handle picking, gap ticks, and zoom edges.
+JVM 13/110 + integration 56/691 GREEN; CLJS 0 Shadow warnings.
+Verifier: 3/3 chrome + all prior goldens GREEN; canonical MSDF RED only.
+Self-audit: code outweighs process; no genuine fork; atom closed by Sid's word.
+
 2026-08-06 — ROUND CLOSED; the contract is the build law. Arm 1 (10
 findings, Sid's count) was ingested in the cutter's session — its repairs
 are in the contract. Arm 2 (6 findings; its quotes pin it to the

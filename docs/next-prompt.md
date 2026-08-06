@@ -778,8 +778,8 @@ Code/test/goldens landed with the accepted PATH prerequisite in `10dd8e5`.
 **NEXT ran 2026-08-06: the chrome-atom contract is cut and its
 falsification round closed (block below).**
 
-**chrome-atom — Package 2 wave 4, CONTRACT CUT + ROUND CLOSED 2026-08-06,
-IMPLEMENTATION NEXT.** Selection/manipulation · snapping · guides · drawing
+**chrome-atom — Package 2 wave 4, SID-ACCEPTED 2026-08-06; CODE `86918e9`.**
+Selection/manipulation · snapping · guides · drawing
 chrome: `:render.family/chrome` through the W2-B tape (first store-slot
 consumer of the overlay stratum, ranked under the product-chrome frame
 ladder) + scene selection (`{:vi :address}` session truth, legacy road
@@ -795,8 +795,12 @@ receipts same day — five already covered by arm-1 repairs, one residual
 contradiction repaired + four tightenings; ledger in the baton). Arm-2
 overlap 5/6 vs connector's 3-of-9 shared: pooling value fell as the
 four-lens author pass improved. Arm attribution awaits Sid's line; the
-round expiry did NOT fire. NEXT: Sid pastes the Codex opening prompt
-(contract tail) into a fresh implementer session.
+round expiry did NOT fire. Implementation receipts are frozen in
+`CHROME-ATOM-NOW.md`: four pure lanes GREEN; all prior + 3 chrome goldens
+GREEN; `verify:render-engine` RED only on the preserved MSDF counterexample.
+Sid's felt pass accepted scaling, reload-empty session truth, and the Figma-like
+interaction; feedback semantics + the invisible-connector census receipt are
+recorded in the baton. NEXT: Package 2's cross-atom seam courtroom and close.
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.
