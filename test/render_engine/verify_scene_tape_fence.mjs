@@ -69,6 +69,7 @@ const families = [
   ":render.family/image",
   ":render.family/path",
   ":render.family/connector",
+  ":render.family/chrome",
 ];
 
 const failures = [];

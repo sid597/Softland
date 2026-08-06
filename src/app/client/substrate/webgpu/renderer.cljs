@@ -3,6 +3,7 @@
             [app.client.substrate.image-material :as image-material]
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.substrate.webgpu.buffer-pool :as buffer-pool]
+            [app.client.substrate.webgpu.chrome-gpu :as chrome-gpu]
             [app.client.substrate.webgpu.connector-gpu :as connector-gpu]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.substrate.webgpu.path-gpu :as path-gpu]
@@ -2990,7 +2991,12 @@
                      :render.family/connector)
       :produce #(connector-gpu/connector-entries
                  (assoc % :connector-label-entry connector-label-entry))
-      :execute! connector-gpu/execute-connector-batch!}}))
+      :execute! connector-gpu/execute-connector-batch!}
+
+     :render.family/chrome
+     {:contract (get scene-tape/default-family-registry :render.family/chrome)
+      :produce chrome-gpu/chrome-entries
+      :execute! chrome-gpu/execute-chrome-batch!}}))
 
 (def ^:private frame-contract-registry
   (let [executor-families (set (keys frame-family-registry))
@@ -3092,7 +3098,8 @@
                              dirty-rect render-target clear-quad frame-idx zoom
                              extra-text-geos store-frame editor-rect-count
                              editor-shadow-count image-system path-system
-                             connector-system effective-transforms font-assets]
+                             connector-system chrome-system effective-transforms
+                             font-assets]
                       :or {cmd-panel-visible false chrome-text-sys nil chrome-base-line-count 0
                            settings-line-count 0 settings-visible false
                            settings-rect-sys nil agent-visible false
@@ -3101,6 +3108,7 @@
                            zoom 1.0 extra-text-geos nil store-frame nil
                            editor-rect-count 0 editor-shadow-count 0
                            image-system nil path-system nil connector-system nil
+                           chrome-system nil
                            effective-transforms nil font-assets nil}}]
   ;; scene-substrate P2: the world camera zoom wakes — callers may drive it;
   ;; default 1.0 keeps every existing call byte-identical.
@@ -3166,6 +3174,8 @@
          connector-system (:connectors store-frame)
          (:targets-by-address store-frame) effective-transforms zoom
          font-assets text-sys))
+      (when chrome-system
+        (chrome-gpu/prepare-chrome-frame! chrome-system (:chromes store-frame)))
       (let [frame {:frame-idx frame-idx
                    :partial? partial?
                    :dirty-rect dirty-rect
@@ -3188,6 +3198,7 @@
                    :image-system image-system
                    :path-system path-system
                    :connector-system connector-system
+                   :chrome-system chrome-system
                    :store-frame store-frame
                    :editor-rect-count editor-rect-count
                    :editor-shadow-count editor-shadow-count

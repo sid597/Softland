@@ -32,17 +32,22 @@ const appendPathGoldens = process.argv.includes("--append-path-goldens");
 const appendConnectorGoldens = process.argv.includes(
   "--append-connector-goldens",
 );
+const appendChromeGoldens = process.argv.includes("--append-chrome-goldens");
 const appendPathInputAmendment = process.argv.includes(
   "--append-path-input-amendment",
 );
 const appendConnectorInputAmendment = process.argv.includes(
   "--append-connector-input-amendment",
 );
+const appendChromeInputAmendment = process.argv.includes(
+  "--append-chrome-input-amendment",
+);
 const assertImageContract = process.argv.includes("--assert-image-contract");
 const assertPathContract = process.argv.includes("--assert-path-contract");
 const assertConnectorContract = process.argv.includes(
   "--assert-connector-contract",
 );
+const assertChromeContract = process.argv.includes("--assert-chrome-contract");
 const launchArgs = [
   "--no-sandbox",
   "--enable-unsafe-webgpu",
@@ -231,6 +236,13 @@ const stripDataUrls = (result) => ({
       images: renderCase.images.map(({ pngDataUrl, ...image }) => image),
     })),
   },
+  chromeAtom: {
+    ...result.chromeAtom,
+    cases: result.chromeAtom.cases.map((renderCase) => ({
+      ...renderCase,
+      images: renderCase.images.map(({ pngDataUrl, ...image }) => image),
+    })),
+  },
 });
 
 const imageRows = (result) =>
@@ -345,6 +357,87 @@ const connectorAtomInputs = () => ({
   verifier: sha256File("src/app/client/substrate/webgpu/verifier.cljs"),
 });
 
+const chromeAtomRows = (result) =>
+  result.chromeAtom.cases.flatMap((renderCase) =>
+    renderCase.images.map((image) => ({
+      caseId: renderCase.caseId,
+      zoom: renderCase.zoom,
+      regime: renderCase.regime,
+      normalization: renderCase.normalization,
+      shapeExtentWorld: renderCase.shapeExtentWorld,
+      formCount: renderCase.formCount,
+      mode: image.mode,
+      file: image.file,
+      rawSha256: image.rawSha256,
+      pngSha256: sha256(
+        Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64"),
+      ),
+    })),
+  );
+
+const chromeSourceFiles = {
+  selection: "src/app/client/workspace/selection.cljc",
+  chromeMaterial: "src/app/client/substrate/chrome_material.cljc",
+  snap: "src/app/client/substrate/snap.cljc",
+  chromeDerive: "src/app/client/substrate/chrome_derive.cljc",
+  chromeGpu: "src/app/client/substrate/webgpu/chrome_gpu.cljs",
+  chromeRuntime: "src/app/client/workspace/chrome_runtime.cljs",
+};
+
+const chromeAtomInputs = () => ({
+  ...Object.fromEntries(
+    Object.entries(chromeSourceFiles).map(([key, relativePath]) => [
+      key,
+      sha256File(relativePath),
+    ]),
+  ),
+  sceneTape: sha256File("src/app/client/substrate/scene_tape.cljc"),
+  sceneStore: sha256File("src/app/client/workspace/scene_store.cljc"),
+  rectTree: sha256File("src/app/client/workspace/rect_tree.cljc"),
+  sceneRuntime: sha256File("src/app/client/workspace/scene_runtime.cljs"),
+  ground: sha256File("src/app/client/workspace/ground.cljs"),
+  liveAtoms: sha256File("src/app/client/workspace/live_atoms.cljs"),
+  electricFlow: sha256File("src/app/electric_flow.cljc"),
+  runtimeRender: sha256File("src/app/client/workspace/runtime/render.cljs"),
+  renderer: sha256File("src/app/client/substrate/webgpu/renderer.cljs"),
+  verifier: sha256File("src/app/client/substrate/webgpu/verifier.cljs"),
+  runner: sha256File("test/render_engine/run_verifier.mjs"),
+});
+
+const sourceTokenRows = (pattern) =>
+  Object.entries(chromeSourceFiles).flatMap(([namespace, relativePath]) => {
+    const source = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+    return [...source.matchAll(pattern)].map((match) => ({
+      namespace,
+      path: relativePath,
+      token: match[0],
+    }));
+  });
+
+const chromeStaticAbsence = () => {
+  const textTokens = sourceTokenRows(
+    /\b(?:text-layout|font|msdf|slug(?:-layout)?)\b/gi,
+  );
+  const persistenceTokens = sourceTokenRows(
+    /\b(?:fetch|localStorage|indexedDB|foreign-append!)\b/gi,
+  );
+  const executionClockTokens = sourceTokenRows(
+    /\b(?:requestAnimationFrame|setInterval|js\/Date)\b/g,
+  );
+  return {
+    namespaceCount: Object.keys(chromeSourceFiles).length,
+    namespaces: Object.keys(chromeSourceFiles),
+    textTokens,
+    persistenceTokens,
+    executionClockTokens,
+    pass:
+      Object.keys(chromeSourceFiles).length === 6 &&
+      textTokens.length === 0 &&
+      persistenceTokens.length === 0 &&
+      executionClockTokens.length === 0,
+  };
+};
+
 const writeActualImages = (result) => {
   fs.mkdirSync(actualDir, { recursive: true });
   for (const renderCase of result.cases) {
@@ -366,6 +459,12 @@ const writeActualImages = (result) => {
     }
   }
   for (const renderCase of result.connectorAtom.cases) {
+    for (const image of renderCase.images) {
+      const png = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
+      fs.writeFileSync(path.join(actualDir, image.file), png);
+    }
+  }
+  for (const renderCase of result.chromeAtom.cases) {
     for (const image of renderCase.images) {
       const png = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
       fs.writeFileSync(path.join(actualDir, image.file), png);
@@ -427,6 +526,17 @@ const connectorAtomDeterminismRows = (result) =>
     })),
   );
 
+const chromeAtomDeterminismRows = (result) =>
+  result.chromeAtom.cases.flatMap((renderCase) =>
+    renderCase.images.map((image) => ({
+      caseId: renderCase.caseId,
+      zoom: renderCase.zoom,
+      regime: renderCase.regime,
+      mode: image.mode,
+      ...image.determinism,
+    })),
+  );
+
 const expectedDivergenceRows = (result) =>
   result.cases.map((renderCase) => ({
     caseId: renderCase.caseId,
@@ -446,8 +556,10 @@ const main = async () => {
       appendImageGoldens,
       appendPathGoldens,
       appendConnectorGoldens,
+      appendChromeGoldens,
       appendPathInputAmendment,
       appendConnectorInputAmendment,
+      appendChromeInputAmendment,
     ].filter(Boolean).length > 1
   ) {
     throw new Error("Only one scoped atom append may run at a time");
@@ -568,11 +680,15 @@ const main = async () => {
     pathAtomCases: pathAtomRows(result),
     connectorAtomInputs: connectorAtomInputs(),
     connectorAtomCases: connectorAtomRows(result),
+    chromeAtomInputs: chromeAtomInputs(),
+    chromeAtomCases: chromeAtomRows(result),
   };
   const deterministic = determinismRows(result);
   const imageDeterministic = imageAtomDeterminismRows(result);
   const pathDeterministic = pathAtomDeterminismRows(result);
   const connectorDeterministic = connectorAtomDeterminismRows(result);
+  const chromeDeterministic = chromeAtomDeterminismRows(result);
+  const chromeAbsence = chromeStaticAbsence();
   const imageParity = result.imageAtom.parity;
   const pathParity = result.pathAtom.parity;
   const connectorParity = result.connectorAtom.parity;
@@ -603,6 +719,9 @@ const main = async () => {
   const connectorDeterminismPass =
     connectorDeterministic.length === 3 &&
     connectorDeterministic.every((row) => row.byteIdentical);
+  const chromeDeterminismPass =
+    chromeDeterministic.length === 3 &&
+    chromeDeterministic.every((row) => row.byteIdentical);
   const connectorParityPass =
     connectorParity.length === 7 &&
     connectorParity.every(
@@ -1046,6 +1165,153 @@ const main = async () => {
     imagePass = comparisonPass(imageComparison, expectedManifest.images, 21);
   }
 
+  const chromeHybridPass = Boolean(
+    result.chromeAtom.hybridMetric?.metricPixelsEqual &&
+      result.chromeAtom.hybridMetric?.anchorTracksContent &&
+      result.chromeAtom.hybridMetric?.worldContentScales8x,
+  );
+  const chromeAppendPreflight = {
+    bankPresent,
+    legacyGoldensPass: imagePass,
+    imageGoldensPass: imageAtomPassBeforeConnectorAppend,
+    pathGoldensPass: pathAtomPassBeforeConnectorAppend,
+    connectorGoldensPass: comparisonPass(
+      compareGoldenRows(
+        currentManifest.connectorAtomCases,
+        expectedManifest?.connectorAtomCases,
+      ),
+      expectedManifest?.connectorAtomCases,
+      3,
+    ),
+    environmentMatch,
+    legacyDeterminismPass: deterministic.length === 21 && determinismPass,
+    imageDeterminismPass,
+    pathDeterminismPass,
+    connectorDeterminismPass,
+    existingChromeRows: expectedManifest?.chromeAtomCases?.length || 0,
+    chromeRows: currentManifest.chromeAtomCases.length,
+    chromeDeterminismPass,
+    chromeHybridPass,
+    chromeColorPass: result.chromeAtom.color?.pass,
+    chromeArrangementPass: result.chromeAtom.arrangement?.pass,
+    chromeUploadGatePass: result.chromeAtom.uploadGate?.pass,
+    chromeResourcesPass: result.chromeAtom.resources?.pass,
+    chromeStaticAbsencePass: chromeAbsence.pass,
+    chromeContractPass: result.chromeAtom.pass,
+  };
+  const chromeAppendAuthorized =
+    bankPresent &&
+    imagePass &&
+    imageAtomPassBeforeConnectorAppend &&
+    pathAtomPassBeforeConnectorAppend &&
+    chromeAppendPreflight.connectorGoldensPass &&
+    environmentMatch &&
+    deterministic.length === 21 &&
+    determinismPass &&
+    imageDeterminismPass &&
+    pathDeterminismPass &&
+    connectorDeterminismPass &&
+    !expectedManifest.chromeAtomCases &&
+    currentManifest.chromeAtomCases.length === 3 &&
+    chromeDeterminismPass &&
+    chromeHybridPass &&
+    result.chromeAtom.color?.pass &&
+    result.chromeAtom.arrangement?.pass &&
+    result.chromeAtom.uploadGate?.pass &&
+    result.chromeAtom.resources?.pass &&
+    chromeAbsence.pass &&
+    result.chromeAtom.pass;
+
+  if (appendChromeGoldens) {
+    if (!chromeAppendAuthorized) {
+      throw new Error(
+        `CHROME-ATOM append preflight failed: ${JSON.stringify(chromeAppendPreflight)}`,
+      );
+    }
+    const occupiedFiles = new Set([
+      ...expectedManifest.images.map((row) => row.file),
+      ...expectedManifest.imageAtomCases.map((row) => row.file),
+      ...expectedManifest.pathAtomCases.map((row) => row.file),
+      ...expectedManifest.connectorAtomCases.map((row) => row.file),
+    ]);
+    const occupiedDigestsBefore = Object.fromEntries(
+      [...occupiedFiles].map((file) => [
+        file,
+        sha256(fs.readFileSync(path.join(goldenDir, file))),
+      ]),
+    );
+    const chromeFiles = currentManifest.chromeAtomCases.map((row) => row.file);
+    if (
+      new Set(chromeFiles).size !== 3 ||
+      chromeFiles.some((file) => occupiedFiles.has(file))
+    ) {
+      throw new Error("CHROME-ATOM append filenames collide or are not unique");
+    }
+    for (const renderCase of result.chromeAtom.cases) {
+      for (const image of renderCase.images) {
+        const png = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
+        fs.writeFileSync(path.join(goldenDir, image.file), png);
+      }
+    }
+    const priorGoldenBytesUnchanged = Object.entries(
+      occupiedDigestsBefore,
+    ).every(
+      ([file, digest]) =>
+        sha256(fs.readFileSync(path.join(goldenDir, file))) === digest,
+    );
+    if (!priorGoldenBytesUnchanged) {
+      throw new Error("CHROME-ATOM append changed an existing golden byte");
+    }
+    const imageInputAmendment = {
+      amendment: (expectedManifest.imageAtomInputAmendments?.length || 0) + 1,
+      reason:
+        "CHROME-ATOM source integration changed shared scene and verifier inputs with all prior image goldens byte-identical",
+      inputs: currentManifest.imageAtomInputs,
+    };
+    const pathInputAmendment = {
+      amendment: (expectedManifest.pathAtomInputAmendments?.length || 0) + 1,
+      reason:
+        "CHROME-ATOM source integration changed shared scene, live-atom, renderer, and verifier inputs with all prior path goldens byte-identical",
+      inputs: currentManifest.pathAtomInputs,
+    };
+    const connectorInputAmendment = {
+      amendment:
+        (expectedManifest.connectorAtomInputAmendments?.length || 0) + 1,
+      reason:
+        "CHROME-ATOM source integration changed shared scene, live-atom, renderer, and verifier inputs with all prior connector goldens byte-identical",
+      inputs: currentManifest.connectorAtomInputs,
+    };
+    expectedManifest = {
+      ...expectedManifest,
+      shaderDigests: currentManifest.shaderDigests,
+      productionInputs: currentManifest.productionInputs,
+      imageAtomInputAmendments: [
+        ...(expectedManifest.imageAtomInputAmendments || []),
+        imageInputAmendment,
+      ],
+      pathAtomInputAmendments: [
+        ...(expectedManifest.pathAtomInputAmendments || []),
+        pathInputAmendment,
+      ],
+      connectorAtomInputAmendments: [
+        ...(expectedManifest.connectorAtomInputAmendments || []),
+        connectorInputAmendment,
+      ],
+      chromeAtomInputs: currentManifest.chromeAtomInputs,
+      chromeAtomCases: currentManifest.chromeAtomCases,
+    };
+    fs.writeFileSync(
+      manifestFile,
+      `${JSON.stringify(expectedManifest, null, 2)}\n`,
+    );
+    imageComparison = compareGoldenRows(
+      currentManifest.images,
+      expectedManifest.images,
+    );
+    imagePass = comparisonPass(imageComparison, expectedManifest.images, 21);
+    chromeAppendPreflight.priorGoldenBytesUnchanged = true;
+  }
+
   const sourceMatch =
     bankPresent &&
     fingerprintSha({
@@ -1111,6 +1377,25 @@ const main = async () => {
       expectedManifest?.connectorAtomCases,
       3,
     );
+  let expectedChromeAtomInputs =
+    expectedManifest.chromeAtomInputAmendments?.at(-1)?.inputs ||
+    expectedManifest.chromeAtomInputs;
+  let chromeAtomInputsMatch =
+    bankPresent &&
+    Boolean(expectedChromeAtomInputs) &&
+    fingerprintSha(expectedChromeAtomInputs) ===
+      fingerprintSha(currentManifest.chromeAtomInputs);
+  const chromeAtomComparison = compareGoldenRows(
+    currentManifest.chromeAtomCases,
+    expectedManifest?.chromeAtomCases,
+  );
+  const chromeAtomPass =
+    bankPresent &&
+    comparisonPass(
+      chromeAtomComparison,
+      expectedManifest?.chromeAtomCases,
+      3,
+    );
   const inputAmendmentPreflight = {
     bankPresent,
     sourceMatch,
@@ -1119,20 +1404,24 @@ const main = async () => {
     imageGoldensPass: imageAtomPass,
     pathGoldensPass: pathAtomPass,
     connectorGoldensPass: connectorAtomPass,
+    chromeGoldensPass: chromeAtomPass,
     legacyDeterminismPass: deterministic.length === 21 && determinismPass,
     imageDeterminismPass,
     pathDeterminismPass,
     connectorDeterminismPass,
+    chromeDeterminismPass,
     imageParityPass,
     pathParityPass,
     connectorParityPass,
     imageContractPass: result.imageAtom.pass,
     pathContractPass: result.pathAtom.pass,
     connectorContractPass: result.connectorAtom.pass,
+    chromeContractPass: result.chromeAtom.pass,
     pathUploadGatePass: result.pathAtom.uploadGate?.pass,
     priorImageInputsMatch: imageAtomInputsMatch,
     priorPathInputsMatch: pathAtomInputsMatch,
     priorConnectorInputsMatch: connectorAtomInputsMatch,
+    priorChromeInputsMatch: chromeAtomInputsMatch,
   };
   const inputAmendmentAuthorized =
     bankPresent &&
@@ -1142,17 +1431,25 @@ const main = async () => {
     imageAtomPass &&
     pathAtomPass &&
     connectorAtomPass &&
+    chromeAtomPass &&
     deterministic.length === 21 &&
     determinismPass &&
     imageDeterminismPass &&
     pathDeterminismPass &&
     connectorDeterminismPass &&
+    chromeDeterminismPass &&
     imageParityPass &&
     pathParityPass &&
     connectorParityPass &&
     result.imageAtom.pass &&
     result.pathAtom.pass &&
     result.connectorAtom.pass &&
+    result.chromeAtom.pass &&
+    chromeHybridPass &&
+    result.chromeAtom.color?.pass &&
+    result.chromeAtom.arrangement?.pass &&
+    result.chromeAtom.uploadGate?.pass &&
+    chromeAbsence.pass &&
     result.pathAtom.uploadGate?.pass;
 
   if (appendPathInputAmendment) {
@@ -1274,6 +1571,90 @@ const main = async () => {
     pathAtomInputsMatch = true;
     connectorAtomInputsMatch = true;
   }
+
+  const chromeInputAmendmentPreflight = {
+    ...inputAmendmentPreflight,
+    chromeHybridPass,
+    chromeColorPass: result.chromeAtom.color?.pass,
+    chromeArrangementPass: result.chromeAtom.arrangement?.pass,
+    chromeUploadGatePass: result.chromeAtom.uploadGate?.pass,
+    chromeResourcesPass: result.chromeAtom.resources?.pass,
+    chromeStaticAbsencePass: chromeAbsence.pass,
+  };
+  const chromeInputAmendmentAuthorized =
+    inputAmendmentAuthorized &&
+    chromeHybridPass &&
+    result.chromeAtom.color?.pass &&
+    result.chromeAtom.arrangement?.pass &&
+    result.chromeAtom.uploadGate?.pass &&
+    result.chromeAtom.resources?.pass &&
+    chromeAbsence.pass;
+
+  if (appendChromeInputAmendment) {
+    if (!chromeInputAmendmentAuthorized) {
+      throw new Error(
+        `CHROME-ATOM input amendment preflight failed: ${JSON.stringify(chromeInputAmendmentPreflight)}`,
+      );
+    }
+    const amendmentFor = (key, reason, inputs) => ({
+      amendment: (expectedManifest[key]?.length || 0) + 1,
+      reason,
+      inputs,
+    });
+    expectedManifest = {
+      ...expectedManifest,
+      imageAtomInputAmendments: imageAtomInputsMatch
+        ? expectedManifest.imageAtomInputAmendments
+        : [
+            ...(expectedManifest.imageAtomInputAmendments || []),
+            amendmentFor(
+              "imageAtomInputAmendments",
+              "CHROME-ATOM post-append repair refreshed shared image inputs with all image goldens byte-identical",
+              currentManifest.imageAtomInputs,
+            ),
+          ],
+      pathAtomInputAmendments: pathAtomInputsMatch
+        ? expectedManifest.pathAtomInputAmendments
+        : [
+            ...(expectedManifest.pathAtomInputAmendments || []),
+            amendmentFor(
+              "pathAtomInputAmendments",
+              "CHROME-ATOM post-append repair refreshed shared path inputs with all path goldens byte-identical",
+              currentManifest.pathAtomInputs,
+            ),
+          ],
+      connectorAtomInputAmendments: connectorAtomInputsMatch
+        ? expectedManifest.connectorAtomInputAmendments
+        : [
+            ...(expectedManifest.connectorAtomInputAmendments || []),
+            amendmentFor(
+              "connectorAtomInputAmendments",
+              "CHROME-ATOM post-append repair refreshed shared connector inputs with all connector goldens byte-identical",
+              currentManifest.connectorAtomInputs,
+            ),
+          ],
+      chromeAtomInputAmendments: [
+        ...(expectedManifest.chromeAtomInputAmendments || []),
+        amendmentFor(
+          "chromeAtomInputAmendments",
+          "CHROME-ATOM post-append falsification repaired implementation inputs with all chrome goldens byte-identical",
+          currentManifest.chromeAtomInputs,
+        ),
+      ],
+    };
+    fs.writeFileSync(
+      manifestFile,
+      `${JSON.stringify(expectedManifest, null, 2)}\n`,
+    );
+    expectedImageAtomInputs = currentManifest.imageAtomInputs;
+    expectedPathAtomInputs = currentManifest.pathAtomInputs;
+    expectedConnectorAtomInputs = currentManifest.connectorAtomInputs;
+    expectedChromeAtomInputs = currentManifest.chromeAtomInputs;
+    imageAtomInputsMatch = true;
+    pathAtomInputsMatch = true;
+    connectorAtomInputsMatch = true;
+    chromeAtomInputsMatch = true;
+  }
   const appendPostflightPass =
     (!appendImageGoldens ||
       (sourceMatch &&
@@ -1308,7 +1689,25 @@ const main = async () => {
       (connectorInputAmendmentAuthorized &&
         imageAtomInputsMatch &&
         pathAtomInputsMatch &&
-        connectorAtomInputsMatch));
+        connectorAtomInputsMatch)) &&
+    (!appendChromeGoldens ||
+      (sourceMatch &&
+        environmentMatch &&
+        imagePass &&
+        imageAtomPass &&
+        imageAtomInputsMatch &&
+        pathAtomPass &&
+        pathAtomInputsMatch &&
+        connectorAtomPass &&
+        connectorAtomInputsMatch &&
+        chromeAtomPass &&
+        chromeAtomInputsMatch)) &&
+    (!appendChromeInputAmendment ||
+      (chromeInputAmendmentAuthorized &&
+        imageAtomInputsMatch &&
+        pathAtomInputsMatch &&
+        connectorAtomInputsMatch &&
+        chromeAtomInputsMatch));
   if (!appendPostflightPass) {
     throw new Error("Scoped atom append postflight failed");
   }
@@ -1355,6 +1754,19 @@ const main = async () => {
     !result.connectorAtom.pass
   )
     classification = "connector-atom-contract-failure";
+  else if (
+    !chromeAtomPass ||
+    !chromeDeterminismPass ||
+    !chromeAtomInputsMatch ||
+    !chromeHybridPass ||
+    !result.chromeAtom.color?.pass ||
+    !result.chromeAtom.arrangement?.pass ||
+    !result.chromeAtom.uploadGate?.pass ||
+    !result.chromeAtom.resources?.pass ||
+    !chromeAbsence.pass ||
+    !result.chromeAtom.pass
+  )
+    classification = "chrome-atom-contract-failure";
   else if (!parityPass) classification = "candidate-pick-parity-failure";
   else if (!divergencePass)
     classification = "current-product-pick-sentinel-failure";
@@ -1454,6 +1866,22 @@ const main = async () => {
     "connector-contract",
   );
   assertField(
+    chromeAtomPass && chromeAtomComparison.length === 3,
+    "chrome-goldens",
+  );
+  assertField(chromeDeterminismPass, "chrome-determinism");
+  assertField(chromeAtomInputsMatch, "chrome-atom-inputs");
+  assertField(chromeHybridPass, "chrome-hybrid-metric");
+  assertField(result.chromeAtom.color?.pass, "chrome-color");
+  assertField(result.chromeAtom.arrangement?.pass, "chrome-arrangement");
+  assertField(result.chromeAtom.uploadGate?.pass, "chrome-upload-gate");
+  assertField(result.chromeAtom.resources?.pass, "chrome-resources");
+  assertField(chromeAbsence.pass, "chrome-static-absence");
+  assertField(
+    result.chromeAtom.coverage === "aliased-v1" && result.chromeAtom.pass,
+    "chrome-contract",
+  );
+  assertField(
     Boolean(
       attestation.adapterIdentity.vendor &&
         typeof attestation.isFallbackAdapter === "boolean" &&
@@ -1489,6 +1917,14 @@ const main = async () => {
     connectorLabelRoad: Boolean(result.connectorAtom.labelRoad?.pass),
     connectorDarkLane: Boolean(result.connectorAtom.darkLane?.pass),
     connectorUploadGate: Boolean(result.connectorAtom.uploadGate?.pass),
+    chromeGoldens: `${chromeAtomComparison.filter((row) => row.rawMatch && row.pngManifestMatch && row.goldenFileMatch).length}/${chromeAtomComparison.length}`,
+    chromeDeterminism: `${chromeDeterministic.filter((row) => row.byteIdentical).length}/${chromeDeterministic.length}`,
+    chromeHybridMetric: chromeHybridPass,
+    chromeColor: Boolean(result.chromeAtom.color?.pass),
+    chromeArrangement: Boolean(result.chromeAtom.arrangement?.pass),
+    chromeUploadGate: Boolean(result.chromeAtom.uploadGate?.pass),
+    chromeResources: Boolean(result.chromeAtom.resources?.pass),
+    chromeStaticAbsence: chromeAbsence.pass,
     q8AffineTransport: q8TransportPass,
     q5AffineRasterBoundary: q5AffineBoundaryPass,
     candidateParity: `${parity.filter((row) => row.pass).length}/${parity.length}`,
@@ -1499,13 +1935,18 @@ const main = async () => {
     pathAppendAuthorized,
     appendConnectorGoldens,
     connectorAppendAuthorized,
+    appendChromeGoldens,
+    chromeAppendAuthorized,
     appendPathInputAmendment,
     inputAmendmentAuthorized,
     appendConnectorInputAmendment,
     connectorInputAmendmentAuthorized,
+    appendChromeInputAmendment,
+    chromeInputAmendmentAuthorized,
     assertImageContract,
     assertPathContract,
     assertConnectorContract,
+    assertChromeContract,
     assertionPass: assertionFailures.length === 0,
     assertionFailures,
     environmentFingerprint: environment.fingerprintSha256,
@@ -1532,6 +1973,14 @@ const main = async () => {
     connectorLabelRoad: true,
     connectorDarkLane: true,
     connectorUploadGate: true,
+    chromeGoldens: "3/3",
+    chromeDeterminism: "3/3",
+    chromeHybridMetric: true,
+    chromeColor: true,
+    chromeArrangement: true,
+    chromeUploadGate: true,
+    chromeResources: true,
+    chromeStaticAbsence: true,
   })) {
     assertField(
       Object.hasOwn(stdoutSummary, key) && stdoutSummary[key] === value,
@@ -1547,7 +1996,7 @@ const main = async () => {
     verifier: result.verifier,
     replayCommand: "npm run verify:render-engine",
     updateCommand:
-      "clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs --append-connector-goldens --assert-connector-contract",
+      "clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs --append-chrome-goldens --assert-chrome-contract",
     pass,
     classification,
     bankPresent,
@@ -1555,18 +2004,24 @@ const main = async () => {
       appendImageGoldens ||
       appendPathGoldens ||
       appendConnectorGoldens ||
+      appendChromeGoldens ||
       appendPathInputAmendment ||
-      appendConnectorInputAmendment,
+      appendConnectorInputAmendment ||
+      appendChromeInputAmendment,
     updateAuthorized: appendImageGoldens
       ? appendAuthorized
       : appendPathGoldens
         ? pathAppendAuthorized
         : appendConnectorGoldens
           ? connectorAppendAuthorized
+        : appendChromeGoldens
+          ? chromeAppendAuthorized
         : appendPathInputAmendment
           ? inputAmendmentAuthorized
           : appendConnectorInputAmendment
             ? connectorInputAmendmentAuthorized
+          : appendChromeInputAmendment
+            ? chromeInputAmendmentAuthorized
         : updateAuthorized,
     updateAuthority:
       "scoped atom appends require unchanged prior golden bytes, deterministic new pixels, contract receipts, and the preserved independent MSDF RED",
@@ -1645,23 +2100,49 @@ const main = async () => {
       coverage: result.connectorAtom.coverage,
       productPick: result.connectorAtom.productPick,
     },
+    chromeAtom: {
+      pass: result.chromeAtom.pass,
+      inputFingerprintsMatch: chromeAtomInputsMatch,
+      determinism: {
+        pass: chromeDeterminismPass,
+        rows: chromeDeterministic,
+      },
+      goldenComparison: {
+        pass: chromeAtomPass,
+        rows: chromeAtomComparison,
+      },
+      hybridMetric: result.chromeAtom.hybridMetric,
+      color: result.chromeAtom.color,
+      arrangement: result.chromeAtom.arrangement,
+      uploadGate: result.chromeAtom.uploadGate,
+      resources: result.chromeAtom.resources,
+      staticAbsence: chromeAbsence,
+      system: result.chromeAtom.system,
+      coverage: result.chromeAtom.coverage,
+    },
     append: {
       requested:
         appendImageGoldens ||
         appendPathGoldens ||
         appendConnectorGoldens ||
+        appendChromeGoldens ||
         appendPathInputAmendment ||
-        appendConnectorInputAmendment,
+        appendConnectorInputAmendment ||
+        appendChromeInputAmendment,
       kind: appendImageGoldens
         ? "image"
         : appendPathGoldens
           ? "path"
           : appendConnectorGoldens
             ? "connector"
+          : appendChromeGoldens
+            ? "chrome"
           : appendPathInputAmendment
             ? "path-input-amendment"
             : appendConnectorInputAmendment
               ? "connector-input-amendment"
+            : appendChromeInputAmendment
+              ? "chrome-input-amendment"
             : null,
       preflight: appendImageGoldens
         ? appendPreflight
@@ -1669,7 +2150,11 @@ const main = async () => {
           ? pathAppendPreflight
           : appendConnectorGoldens
             ? connectorAppendPreflight
-            : appendConnectorInputAmendment
+          : appendChromeGoldens
+            ? chromeAppendPreflight
+          : appendChromeInputAmendment
+            ? chromeInputAmendmentPreflight
+          : appendConnectorInputAmendment
               ? connectorInputAmendmentPreflight
               : inputAmendmentPreflight,
       authorized: appendImageGoldens
@@ -1678,16 +2163,23 @@ const main = async () => {
           ? pathAppendAuthorized
           : appendConnectorGoldens
             ? connectorAppendAuthorized
+          : appendChromeGoldens
+            ? chromeAppendAuthorized
           : appendPathInputAmendment
             ? inputAmendmentAuthorized
             : appendConnectorInputAmendment
               ? connectorInputAmendmentAuthorized
+            : appendChromeInputAmendment
+              ? chromeInputAmendmentAuthorized
           : false,
       postflightPass: appendPostflightPass,
     },
     assertion: {
       requested:
-        assertImageContract || assertPathContract || assertConnectorContract,
+        assertImageContract ||
+        assertPathContract ||
+        assertConnectorContract ||
+        assertChromeContract,
       pass: assertionFailures.length === 0,
       failures: assertionFailures,
     },
@@ -1700,7 +2192,12 @@ const main = async () => {
 
   console.log(JSON.stringify(stdoutSummary, null, 2));
 
-  if (assertImageContract || assertPathContract || assertConnectorContract) {
+  if (
+    assertImageContract ||
+    assertPathContract ||
+    assertConnectorContract ||
+    assertChromeContract
+  ) {
     if (assertionFailures.length > 0) process.exitCode = 1;
   } else if (!pass) {
     process.exitCode = 1;

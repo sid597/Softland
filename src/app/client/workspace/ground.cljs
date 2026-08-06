@@ -151,6 +151,7 @@
 ;; a rect; blocks inside join the group. Pure attention state (Law 10): a
 ;; click, Escape, or a fresh marquee dissolves it; never saved, never restored.
 (defonce ^:private !group-sel (atom #{}))
+(defonce ^:private !chrome-selection-hooks (atom nil))
 
 ;; Task 5 observability (report()): sig-skip efficacy + reconcile timings
 (defonce ^:private !rebuild-stats (atom {:builds 0 :skips 0}))
@@ -1888,7 +1889,32 @@
                   :h (get-in tree [:bounds :h])
                   :render-sig sig)))))))
 
+(defn install-chrome-selection-hooks!
+  "Install the flag-lane selection callbacks and return the only lawful writer
+   for Task-18's private legacy projection. Nil restores the unflagged seam."
+  [hooks]
+  (when-not (or (nil? hooks)
+                (and (map? hooks)
+                     (every? ifn? (vals hooks))))
+    (throw (ex-info "Chrome selection hooks must be nil or callable values"
+                    {:hooks hooks})))
+  (reset! !chrome-selection-hooks hooks)
+  {:write-legacy!
+   (fn [uids]
+     (let [before @!group-sel
+           after (set uids)]
+       (when (not= before after)
+         (reset! !group-sel after)
+         (doseq [uid (into before after)] (rebuild-block! uid)))
+       after))
+   :legacy-value (fn [] @!group-sel)
+   :block-unit-ids (fn [] (set (keys (:blocks @!world))))})
+
 (defn- clear-group-sel! []
+  ;; CHROME-ATOM: the model clear must run even when its legacy block projection
+  ;; is empty (fixture-only selection). Keep this before Task-18's seq guard.
+  (when-let [clear! (:clear @!chrome-selection-hooks)]
+    (clear!))
   (let [uids @!group-sel]
     (when (seq uids)
       (reset! !group-sel #{})
@@ -2933,7 +2959,7 @@
                    (if (.-ok resp)
                      (do (js/console.log "[GROUND-DEL] tombstones acked —"
                                          "closing slots")
-                         (reset! !group-sel #{})
+                         (clear-group-sel!)
                          (doseq [uid uids]
                            (when (get-in @!world [:blocks uid])
                              (scene-rt/close-instance! (block-vi uid))
@@ -3421,11 +3447,13 @@
   ;; here, so material and code meet at exactly one closed vocabulary.
   (atom {}))
 
-(defn- register-verb!
+(defn register-verb!
   [verb-name impls]
   (when-not (verb-registry/entry verb-name)
     (throw (ex-info "verb not in the registry" {:verb verb-name})))
-  (swap! !verb-impls assoc verb-name impls))
+  (let [previous (get @!verb-impls verb-name)]
+    (swap! !verb-impls assoc verb-name impls)
+    previous))
 
 ;; :focus/place-caret ← pointer-up! :pending, non-machine block
 (register-verb! :focus/place-caret
@@ -3868,20 +3896,28 @@
     (case (:phase p)
       ;; --- the press never crossed the threshold: it is a TAP --------------
       :pending
-      (let [press (:press p)]
-        ;; a clean click anywhere dissolves the machine + group selections.
-        ;; Universal to the tap gesture, claim or no claim — not a branch.
-        (clear-machine-sel!)
-        (clear-group-sel!)
-        ;; Scene descriptors are a generic consumer edge, not a new pointer
-        ;; meaning branch. An absent/unregistered descriptor is a total no-op.
-        (scene-rt/dispatch-action
-         (:actions (:press/hit press))
-         {:hit (:press/hit press)})
-        (dispatch! {:kind :pointer/tap :phase :complete
-                    :modifiers (:press/modifiers press)
-                    :hit (:press/hit press) :press press
-                    :screen [sx sy] :world (:press/world press)}))
+      (let [press (:press p)
+            shift-tap! (when (contains? (:press/modifiers press) :shift)
+                         (:shift-tap @!chrome-selection-hooks))]
+        (if shift-tap!
+          ;; Flag-on shift-tap is the selection door wholesale. Addressed picks
+          ;; toggle; empty ground is swallowed. No clear, descriptor, or floor
+          ;; tap action is allowed to leak through this gesture.
+          (shift-tap! {:press press :hit (:press/hit press)})
+          (do
+            ;; a clean click anywhere dissolves the machine + group selections.
+            ;; Universal to the tap gesture, claim or no claim — not a branch.
+            (clear-machine-sel!)
+            (clear-group-sel!)
+            ;; Scene descriptors are a generic consumer edge, not a new pointer
+            ;; meaning branch. An absent/unregistered descriptor is a total no-op.
+            (scene-rt/dispatch-action
+             (:actions (:press/hit press))
+             {:hit (:press/hit press)})
+            (dispatch! {:kind :pointer/tap :phase :complete
+                        :modifiers (:press/modifiers press)
+                        :hit (:press/hit press) :press press
+                        :screen [sx sy] :world (:press/world press)}))))
 
       ;; --- the running gesture ends ---------------------------------------
       :active

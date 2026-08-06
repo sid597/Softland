@@ -139,7 +139,7 @@
    address-stamped, container-LOCAL rt-tree (root at 0,0 — the container
    transform places it; :world camera so it pans/zooms with the scene). Returns
    {:vi :container}."
-  [vi tree {:keys [x y scale layer sibling-rank meta pre-resolved?]
+  [vi tree {:keys [x y scale layer sibling-rank meta stratum pre-resolved?]
             :or   {x 0.0 y 0.0 scale 1.0 layer 1}}]
   (let [cid (alloc-cid!)]
     (swap! !containers-registry ctn/add-container cid
@@ -155,6 +155,7 @@
              {:tree tree :container cid :container-slot container-slot
               :stack-path stack-path
               :meta (or meta {})
+              :stratum (or stratum :world)
               :pre-resolved? pre-resolved?})
       {:vi vi :container cid :container-slot container-slot
        :stack-path stack-path})))

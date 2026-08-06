@@ -54,7 +54,8 @@
    :shadows (rt/tree->shadows tree)
    :images  (rt/tree->images tree)
    :paths   (rt/tree->paths tree)
-   :connectors (rt/tree->connectors tree)})
+   :connectors (rt/tree->connectors tree)
+   :chromes (rt/tree->chromes tree)})
 
 (defn- stamp-ops-container
   "Bake the slot's compact transform-table index onto every flattened op so the GPU places each
@@ -80,7 +81,11 @@
      :connectors (mapv #(assoc % :container-idx slot
                                :container container
                                :owner-vi vi)
-                       (:connectors ops))}))
+                       (:connectors ops))
+     :chromes (mapv #(assoc % :container-idx slot
+                            :container container
+                            :owner-vi vi)
+                    (:chromes ops))}))
 
 (defn- build-slot
   "Resolve → flatten → stamp container-idx → index a tree into a slot value. The
@@ -320,6 +325,7 @@
      :images (into [] (mapcat (comp :images :ops)) ordered)
      :paths (into [] (mapcat (comp :paths :ops)) ordered)
      :connectors (into [] (mapcat (comp :connectors :ops)) ordered)
+     :chromes (into [] (mapcat (comp :chromes :ops)) ordered)
      :targets-by-address (targets-by-address ordered)
      :text-by-vi (reduce (fn [result slot]
                            (assoc result (:vi slot) (get-in slot [:ops :text])))
@@ -335,7 +341,8 @@
                     :text-lines (count (get-in slot [:ops :text]))
                     :images (count (get-in slot [:ops :images]))
                     :paths (count (get-in slot [:ops :paths]))
-                    :connectors (count (get-in slot [:ops :connectors]))}]))
+                    :connectors (count (get-in slot [:ops :connectors]))
+                    :chromes (count (get-in slot [:ops :chromes]))}]))
            ordered)
      :order-by-vi
      (into {}
@@ -469,6 +476,14 @@
 
 (def ^:private identity-camera {:x 0.0 :y 0.0 :zoom 1.0})
 
+(defn- node-family [node]
+  (or (get-in node [:data :render/family])
+      (when (get-in node [:data :connector/material])
+        :render.family/connector)
+      (when (get-in node [:data :path/material]) :render.family/path)
+      (when (get-in node [:data :image/digest]) :render.family/image)
+      :render.family/rect))
+
 (defn addressed-rects
   "Walk a RESOLVED tree; for every node carrying [:data :address], return
    {:address a :x ax :y ay :w w :h h} in ABSOLUTE container-LOCAL coords (bounds
@@ -484,13 +499,14 @@
                   h   (:h b 0)
                   addr (get-in node [:data :address])
                   acc (if (some? addr)
-                        (conj acc {:address addr :x ax :y ay :w w :h h})
+                        (conj acc {:address addr :x ax :y ay :w w :h h
+                                   :family (node-family node)})
                         acc)]
               (reduce (fn [a c] (walk c ax ay a)) acc (:children node))))]
     (walk tree 0 0 [])))
 
 (defn targets-by-address
-  "Batch oracle for connector attachment: address -> every visible occurrence
+  "Batch oracle for connector attachment: address -> every occurrence
    with its slot identity, absolute container-local bounds, semantic container,
    and compact GPU slot. The future incremental sibling must fence against this
    exact walk."
@@ -508,10 +524,11 @@
             {}
             (addressed-rects (:tree slot)))]
        (reduce-kv
-        (fn [index address {:keys [x y w h]}]
+        (fn [index address {:keys [x y w h family]}]
           (update index address (fnil conj [])
                   {:vi (:vi slot)
                    :bounds {:x x :y y :w w :h h}
+                   :family family
                    :container (:container slot)
                    :container-idx (:container-slot slot)}))
         index

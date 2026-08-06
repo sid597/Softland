@@ -6,7 +6,8 @@
    same compiled tape: paint walks forward, pick walks exact reverse.  This
    namespace is data-only and has no GPU objects, atoms, renderer imports, or
    family-specific ordering branches."
-  (:require [app.client.substrate.connector-material :as connector-material]
+  (:require [app.client.substrate.chrome-material :as chrome-material]
+            [app.client.substrate.connector-material :as connector-material]
             [app.client.substrate.path-material :as path-material]))
 
 (def family-ids
@@ -19,7 +20,8 @@
    :render.family/clip
    :render.family/image
    :render.family/path
-   :render.family/connector])
+   :render.family/connector
+   :render.family/chrome])
 
 (def legacy-direct-color
   {:scene-color/version 1
@@ -442,6 +444,37 @@
    [:grammar :entry-paint-required-keys]
    [:vertex-count]))
 
+(def chrome-registration
+  (->
+   (registration
+    :render.family/chrome chrome-material/geometry-declaration
+    [:chrome-atom/admission :chrome-atom/geometry :chrome-atom/color
+     :chrome-atom/resources :chrome-atom/store-lane
+     :chrome-atom/session-only-absence]
+    {:material-fields [:chrome/form :chrome/anchor-bounds
+                       :chrome/derived-from :chrome/selection-rev
+                       :chrome/pick :chrome/corner :chrome/gesture-id]
+     :instance-fields [:instance/id :container-slot :stratum
+                       :chrome/form-identity]
+     :validation :chrome-material/fail-closed-v1
+     :defaults :chrome-material/explicit-v1
+     :edit-operations [:selection/toggle :selection/marquee-commit
+                       :selection/clear :arrangement/translate
+                       :arrangement/uniform-scale]
+     :serialization :none-session-truth
+     :export-projections :none-by-design
+     :resources :chrome-system/value-keyed-buffer-lifecycle-v1})
+   (assoc :provenance {:kind :derived-session-chrome
+                       :source :target-identity+bounds+selection-revision
+                       :durable-rows :none-by-design}
+          :versioning {:schema-version 1
+                       :algorithm-versions chrome-material/algorithm-version
+                       :migration :none-ephemeral
+                       :unknown-field-policy :reject
+                       :cache-invalidation :source+algorithm+selection-revision
+                       :compatibility {:reader-min 1 :reader-max 1}})
+   (assoc-in [:grammar :entry-paint-required-keys] [:vertex-count])))
+
 (def family-contracts
   [(registration :render.family/rect rect-geometry
                  [:w2-a/q5 :w0-a/sdf :w2-b/ordered-executor])
@@ -455,7 +488,8 @@
                  [:w2-b/shared-visibility])
    image-registration
    path-registration
-   connector-registration])
+   connector-registration
+   chrome-registration])
 
 (def ^:private required-family-keys
   [:family/id :family/version :grammar :pick :provenance :versioning :render

@@ -2,7 +2,9 @@
   "Scene graph for nested UI.
    Everything is a rect. The tree replaces scattered compute-*-rects fns with
    one generic walk that produces flat GPU-compatible vectors."
-  (:require [app.client.substrate.image-material :as image-material]
+  (:require [app.client.substrate.chrome-derive :as chrome-derive]
+            [app.client.substrate.chrome-material :as chrome-material]
+            [app.client.substrate.image-material :as image-material]
             [app.client.substrate.connector-material :as connector-material]
             [app.client.substrate.connector-route :as connector-route]
             [app.client.substrate.path-material :as path-material]
@@ -431,6 +433,28 @@
            own-op (conj own-op)
            true (into child-ops)))))))
 
+;; --- Tree walk: chrome ops --------------------------------------------------
+
+(defn tree->chromes
+  "Walk explicit chrome-family nodes. Anchors already live in the chrome
+   material's declared container-local/world space; tree bounds serve only the
+   shared broad phase and never become a second geometry authority."
+  ([node] (tree->chromes node 0 0))
+  ([node parent-x parent-y]
+   (let [{:keys [bounds children data]} node
+         abs-x (+ parent-x (:x bounds 0))
+         abs-y (+ parent-y (:y bounds 0))
+         material (:chrome/material data)
+         own-op (when material
+                  (do (chrome-material/validate-material! material)
+                      {:id (:id node)
+                       :address (:address data)
+                       :chrome/material material}))
+         child-ops (into [] (mapcat #(tree->chromes % abs-x abs-y)) children)]
+     (cond-> []
+       own-op (conj own-op)
+       true (into child-ops)))))
+
 ;; --- Tree walk: text ops ----------------------------------------------------
 
 (defn tree->text-ops
@@ -543,7 +567,11 @@
    :render.family/connector
    (fn [node local-point]
      (connector-route/live-hit?
-      (get-in node [:data :connector/edge-instance-id]) local-point))})
+      (get-in node [:data :connector/edge-instance-id]) local-point))
+
+   :render.family/chrome
+   (fn [node local-point]
+     (chrome-derive/handle-hit? node local-point))})
 
 (defn- node-family-id [node]
   (or (get-in node [:data :render/family])

@@ -7,14 +7,20 @@
   (:require [app.client.substrate.image-material :as image-material]
             [app.client.substrate.connector-material :as connector-material]
             [app.client.substrate.connector-route :as connector-route]
+            [app.client.substrate.webgpu.chrome-gpu :as chrome-gpu]
             [app.client.substrate.webgpu.connector-gpu :as connector-gpu]
             [app.client.substrate.webgpu.path-gpu :as path-gpu]
             [app.client.substrate.webgpu.renderer :as renderer]
+            [app.client.workspace.chrome-runtime :as chrome-runtime]
             [app.client.workspace.rect-tree :as rt]
             [app.client.workspace.scene-runtime :as scene-runtime]))
 
 (def fixture-vi :live-atoms/fixture)
 (def fixture-secondary-vi :live-atoms/fixture-secondary)
+(def fixture-image-vi :live-atoms/fixture-image)
+(def fixture-ink-pressure-vi :live-atoms/fixture-ink-pressure)
+(def fixture-ink-self-cross-vi :live-atoms/fixture-ink-self-cross)
+(def fixture-holed-vi :live-atoms/fixture-holed)
 
 (defn flag-enabled-search? [search]
   (= "1" (.get (js/URLSearchParams. (or search "")) "live-atoms")))
@@ -126,13 +132,13 @@
 
 (defn- connector-fixtures []
   [(connector-node
-    :live-atoms/straight-label fixture-vi fixture-vi
+    :live-atoms/straight-label fixture-image-vi fixture-ink-pressure-vi
     (connector-material
      :live-atoms/straight-label :live-atoms/image :live-atoms/ink-pressure
      "sid" :human
      :label {:text "references" :at 0.5 :offset [0.0 -12.0]}))
    (connector-node
-    :live-atoms/elbow-waypoints fixture-vi fixture-vi
+    :live-atoms/elbow-waypoints fixture-image-vi fixture-holed-vi
     (connector-material
      :live-atoms/elbow-waypoints :live-atoms/image :live-atoms/holed-concave
      "sid" :human
@@ -141,22 +147,22 @@
              :size-k connector-material/default-head-size-k}
      :width 3.0))
    (connector-node
-    :live-atoms/overlap-human fixture-vi fixture-vi
+    :live-atoms/overlap-human fixture-ink-self-cross-vi fixture-holed-vi
     (connector-material
      :live-atoms/overlap-human :live-atoms/ink-self-cross
      :live-atoms/holed-concave "sid" :human))
    (connector-node
-    :live-atoms/overlap-llm fixture-vi fixture-vi
+    :live-atoms/overlap-llm fixture-ink-self-cross-vi fixture-holed-vi
     (connector-material
      :live-atoms/overlap-llm :live-atoms/ink-self-cross
      :live-atoms/holed-concave "llm:connector-fixture" :llm))
    (connector-node
-    :live-atoms/cross-container fixture-vi fixture-secondary-vi
+    :live-atoms/cross-container fixture-holed-vi fixture-secondary-vi
     (connector-material
      :live-atoms/cross-container :live-atoms/holed-concave
      :live-atoms/secondary-target "sid" :human))
    (connector-node
-    :live-atoms/unresolved fixture-vi :connector/unresolved-to
+    :live-atoms/unresolved fixture-image-vi :connector/unresolved-to
     (connector-material
      :live-atoms/unresolved :live-atoms/image :live-atoms/does-not-exist
      "sid" :human))])
@@ -205,6 +211,29 @@
             :path/material (shape-material)})]
     (connector-fixtures))))
 
+(defn- standalone-node [node]
+  (assoc node :bounds (assoc (:bounds node) :x 0.0 :y 0.0)))
+
+(defn- fixture-parts [digest]
+  (let [children (:children (fixture-tree digest))
+        by-id (into {} (map (juxt :id identity)) children)]
+    [{:vi fixture-image-vi :node (standalone-node (get by-id :live-atoms/image))
+      :x 96.0 :y 100.0 :layer 8}
+     {:vi fixture-ink-pressure-vi
+      :node (standalone-node (get by-id :live-atoms/ink-pressure))
+      :x 250.0 :y 98.0 :layer 8}
+     {:vi fixture-ink-self-cross-vi
+      :node (standalone-node (get by-id :live-atoms/ink-self-cross))
+      :x 250.0 :y 238.0 :layer 8}
+     {:vi fixture-holed-vi
+      :node (standalone-node (get by-id :live-atoms/holed-concave))
+      :x 460.0 :y 124.0 :layer 8}]))
+
+(defn- connector-fixture-tree []
+  (rt/rt-node :live-atoms/connectors-root :group
+              {:x 0.0 :y 0.0 :w 1000.0 :h 500.0}
+              :children (connector-fixtures)))
+
 (defn- image-source [digest]
   {:image/digest digest
    :image/color-tag :srgb
@@ -239,10 +268,15 @@
            :text-api {:clone renderer/clone-text-system
                       :update renderer/update-text-data
                       :destroy renderer/destroy-text-system!})
+          chrome-system
+          (chrome-gpu/init-chrome-system
+           device format camera-buffer containers-buffer
+           :tracker tracker :scene-color scene-color)
           augmented (assoc pipelines
                            :image-system image-system
                            :path-system path-system
-                           :connector-system connector-system)]
+                           :connector-system connector-system
+                           :chrome-system chrome-system)]
       (connector-route/set-live-effective-provider!
        scene-runtime/effective-transforms)
       (-> (procedural-png-bytes!)
@@ -260,6 +294,9 @@
                                     "Live-atoms procedural image registration failed")))
                           (scene-runtime/close-instance! fixture-vi)
                           (scene-runtime/close-instance! fixture-secondary-vi)
+                          (doseq [vi [fixture-image-vi fixture-ink-pressure-vi
+                                     fixture-ink-self-cross-vi fixture-holed-vi]]
+                            (scene-runtime/close-instance! vi))
                           (let [secondary-registration
                                 (scene-runtime/register-face-instance!
                                  fixture-secondary-vi (fixture-secondary-tree)
@@ -269,26 +306,42 @@
                                          :material/id
                                          :live-atoms/connector-secondary
                                          :material/revision 1}})
+                                fixture-registrations
+                                (mapv
+                                 (fn [{:keys [vi node x y layer]}]
+                                   (scene-runtime/register-face-instance!
+                                    vi node
+                                    {:x x :y y :scale 1.0 :layer layer
+                                     :sibling-rank layer
+                                     :meta {:live-atoms? true
+                                            :manipulable-fixture? true
+                                            :material/id vi
+                                            :material/revision 1}}))
+                                 (fixture-parts digest))
                                 registration
                                 (scene-runtime/register-face-instance!
-                                 fixture-vi (fixture-tree digest)
-                                 {:x 40.0 :y 32.0 :scale 1.0 :layer 8
-                                  :sibling-rank 8
+                                 fixture-vi (connector-fixture-tree)
+                                 {:x 40.0 :y 32.0 :scale 1.0 :layer 10
+                                  :sibling-rank 10
                                   :meta {:live-atoms? true
-                                         :material/id :live-atoms/corpus
+                                         :connector-fixture? true
+                                         :material/id :live-atoms/connectors
                                          :material/revision 1}})
                                 receipt {:enabled true
                                          :image-system true
                                          :path-system true
                                          :connector-system true
+                                         :chrome-system true
                                          :fixture fixture-vi
                                          :secondary-fixture fixture-secondary-vi
                                          :image-digest digest
                                          :registration registration
+                                         :fixture-registrations fixture-registrations
                                          :secondary-registration
                                          secondary-registration
                                          :awaited-registrations
                                          (.-length registrations)}]
+                            (chrome-runtime/boot! chrome-system)
                             (aset js/globalThis
                                   "__softlandLiveAtomsReceipt"
                                   (clj->js receipt))

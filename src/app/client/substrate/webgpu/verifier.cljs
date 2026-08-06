@@ -10,6 +10,7 @@
    picking remains axis-aligned rect-tree bounds; the receipt carries an
   explicit rounded-corner divergence sentinel so those truths cannot collapse."
   (:require [clojure.string :as str]
+            [app.client.substrate.chrome-material :as chrome-material]
             [app.client.substrate.connector-material :as connector-material]
             [app.client.substrate.connector-route :as connector-route]
             [app.client.substrate.image-material :as image-material]
@@ -17,6 +18,7 @@
             [app.client.substrate.path-tessellation :as path-tessellation]
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
+            [app.client.substrate.webgpu.chrome-gpu :as chrome-gpu]
             [app.client.substrate.webgpu.connector-gpu :as connector-gpu]
             [app.client.substrate.webgpu.path-gpu :as path-gpu]
             [app.client.substrate.webgpu.renderer :as renderer]
@@ -1415,6 +1417,400 @@
              (renderer/destroy-image-system! seam-system)
              result))))))
 
+;; CHROME ATOM ---------------------------------------------------------------
+
+(def ^:private chrome-owner-vi [:chrome-atom :fixture])
+
+(defn- chrome-bounds [coordinate-zoom [x y w h]]
+  {:x (/ x coordinate-zoom) :y (/ y coordinate-zoom)
+   :w (/ w coordinate-zoom) :h (/ h coordinate-zoom)})
+
+(defn- chrome-screen-point [coordinate-zoom [x y]]
+  [(/ x coordinate-zoom) (/ y coordinate-zoom)])
+
+(defn- chrome-material
+  [form coordinate-zoom bounds & {:keys [corner from to alignment]}]
+  (chrome-material/validate-material!
+   (cond-> {:chrome/form form
+            :chrome/anchor-bounds (chrome-bounds coordinate-zoom bounds)
+            :chrome/derived-from {:vi chrome-owner-vi :address [:golden form]}
+            :chrome/selection-rev 1
+            :chrome/pick (if (= :handle form) :interior :none)
+            :chrome/container 0}
+     corner (assoc :chrome/corner corner)
+     from (assoc :chrome/from (chrome-screen-point coordinate-zoom from))
+     to (assoc :chrome/to (chrome-screen-point coordinate-zoom to))
+     alignment (assoc :chrome/alignment alignment))))
+
+(def ^:private chrome-selection-world-bounds [4.0 4.0 14.0 12.0])
+
+(defn- chrome-selection-ops [_zoom]
+  (let [bounds chrome-selection-world-bounds
+        [x y w h] bounds
+        corners [[:nw [x y]] [:ne [(+ x w) y]]
+                 [:sw [x (+ y h)]] [:se [(+ x w) (+ y h)]]]
+        ;; Selection cases share one world-space scene. Camera zoom alone
+        ;; scales its anchors; only the px metric offsets stay invariant.
+        outline (chrome-material :selection-outline 1.0 bounds)]
+    (into [{:id :chrome/outline :address :chrome/outline
+            :container 0 :container-idx 0 :owner-vi chrome-owner-vi
+            :chrome/material outline}]
+          (map (fn [[corner [cx cy]]]
+                 {:id [:chrome/handle corner] :address [:chrome/handle corner]
+                  :container 0 :container-idx 0 :owner-vi chrome-owner-vi
+                  :chrome/material
+                  (chrome-material :handle 1.0 [cx cy 0.0 0.0]
+                                   :corner corner)}))
+          corners)))
+
+(defn- chrome-gesture-ops [zoom]
+  [{:id :chrome/marquee :address :chrome/marquee
+    :container 0 :container-idx 0 :owner-vi chrome-owner-vi
+    :chrome/material (chrome-material :marquee zoom [18.0 22.0 70.0 50.0])}
+   {:id :chrome/guide :address :chrome/guide
+    :container 0 :container-idx 0 :owner-vi chrome-owner-vi
+    :chrome/material
+    (chrome-material :guide-line zoom [96.0 12.0 0.0 104.0]
+                     :from [96.0 12.0] :to [96.0 116.0]
+                     :alignment [:x :edge 96.0])}
+   {:id :chrome/tick :address :chrome/tick
+    :container 0 :container-idx 0 :owner-vi chrome-owner-vi
+    :chrome/material
+    (chrome-material :gap-tick zoom [58.0 94.0 0.0 0.0]
+                     :from [58.0 90.0] :to [58.0 98.0]
+                     :alignment [:x :equal-gap 58.0])}])
+
+(defn- chrome-store-frame [ops]
+  {:chromes ops
+   :ordered-vis [chrome-owner-vi]
+   :ops-count-by-vi {chrome-owner-vi {:chromes (count ops)}}
+   :order-by-vi {chrome-owner-vi
+                 {:stratum :overlay
+                  :stack-path [[:chrome-atom -1 -1]]}}})
+
+(defn- render-chrome-bytes!
+  [^js device chrome-system ops zoom & {:keys [pan clear-value]
+                                        :or {pan [0.0 0.0]
+                                             clear-value
+                                             {:r 0.025 :g 0.06 :b 0.11 :a 1.0}}}]
+  (let [row-bytes (* canvas-size 4)
+        candidate? (get-in chrome-system [:scene-color :enabled?])
+        view-format (if candidate? "rgba8unorm-srgb" "rgba8unorm")
+        target (.createTexture
+                device
+                (clj->js {:size {:width canvas-size :height canvas-size
+                                 :depthOrArrayLayers 1}
+                          :format "rgba8unorm" :viewFormats ["rgba8unorm-srgb"]
+                          :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
+                                         js/GPUTextureUsage.COPY_SRC)}))
+        read-buffer (.createBuffer
+                     device
+                     (clj->js {:size (* row-bytes canvas-size)
+                               :usage (bit-or js/GPUBufferUsage.COPY_DST
+                                              js/GPUBufferUsage.MAP_READ)}))
+        camera (js/Float32Array. 6)
+        _ (renderer/update-camera device (:camera-buffer chrome-system)
+                                  camera (first pan) (second pan) zoom
+                                  canvas-size canvas-size)
+        _ (chrome-gpu/prepare-chrome-frame! chrome-system ops)
+        entry (first (chrome-gpu/chrome-entries
+                      {:chrome-system chrome-system
+                       :store-frame (chrome-store-frame ops)}))
+        _ (when-not entry
+            (throw (js/Error. "Chrome capture emitted no tape entry")))
+        encoder (.createCommandEncoder device)
+        pass (.beginRenderPass
+              encoder
+              (clj->js {:colorAttachments
+                        [{:view (.createView target (clj->js {:format view-format}))
+                          :clearValue clear-value
+                          :loadOp "clear" :storeOp "store"}]}))]
+    (chrome-gpu/execute-chrome-batch! pass entry)
+    (.end pass)
+    (.copyTextureToBuffer
+     encoder (clj->js {:texture target})
+     (clj->js {:buffer read-buffer :bytesPerRow row-bytes
+               :rowsPerImage canvas-size})
+     (clj->js {:width canvas-size :height canvas-size
+               :depthOrArrayLayers 1}))
+    (.submit (.-queue device) #js [(.finish encoder)])
+    (-> (.mapAsync read-buffer js/GPUMapMode.READ)
+        (.then
+         (fn [_]
+           (let [copy (js/Uint8Array.
+                       (js/Uint8Array. (.getMappedRange read-buffer)))]
+             (.unmap read-buffer)
+             (.destroy read-buffer)
+             (.destroy target)
+             copy))))))
+
+(defn- render-chrome-pair! [device chrome-system ops zoom pan]
+  (-> (render-chrome-bytes! device chrome-system ops zoom :pan pan)
+      (.then
+       (fn [first-bytes]
+         (-> (render-chrome-bytes! device chrome-system ops zoom :pan pan)
+             (.then
+              (fn [second-bytes]
+                (-> (js/Promise.all
+                     #js [(sha256-bytes first-bytes)
+                          (sha256-bytes second-bytes)])
+                    (.then
+                     (fn [hashes]
+                       {:bytes first-bytes
+                        :first-sha256 (aget hashes 0)
+                        :second-sha256 (aget hashes 1)
+                        :byte-identical? (= (aget hashes 0)
+                                             (aget hashes 1))}))))))))))
+
+(defn- chrome-golden-spec [mode]
+  (case mode
+    :selection-z1
+    {:case-id "selection-outline-handles-default-unit-z1"
+     :mode "selection-outline-handles" :zoom 1.0
+     :pan [53.0 54.0]
+     :ops (chrome-selection-ops 1.0)}
+    :selection-z8
+    {:case-id "selection-outline-handles-default-max-z8"
+     :mode "selection-outline-handles" :zoom 8.0
+     :pan [-24.0 -16.0]
+     :ops (chrome-selection-ops 8.0)}
+    :gesture-z0p1
+    {:case-id "marquee-guide-gap-default-min-z0p1"
+     :mode "marquee-guide-gap" :zoom 0.1
+     :pan [0.0 0.0]
+     :ops (chrome-gesture-ops 0.1)}))
+
+(defn- max-white-run-px [^js bytes]
+  (apply max 0
+         (for [y (range canvas-size)]
+           (loop [x 0 run 0 best 0]
+             (if (= x canvas-size)
+               best
+               (let [[r g b _] (pixel-rgba bytes x y)
+                     white? (and (> r 220) (> g 220) (> b 220))
+                     next-run (if white? (inc run) 0)]
+                 (recur (inc x) next-run (max best next-run))))))))
+
+(defn- chrome-anchor-metric [ops zoom pan bytes]
+  (let [anchor (get-in (first ops) [:chrome/material :chrome/anchor-bounds])
+        [x y w h] chrome-selection-world-bounds
+        expected {:x (+ (first pan) (* zoom x))
+                  :y (+ (second pan) (* zoom y))
+                  :w (* zoom w) :h (* zoom h)}
+        measured (chrome-material/chrome-screen-rect
+                  anchor {:affine [1.0 0.0 0.0 1.0 0.0 0.0] :flags 0}
+                  {:x (first pan) :y (second pan) :zoom zoom}
+                  {})
+        delta (apply max (map #(js/Math.abs (- %1 %2))
+                              (map measured [:x :y :w :h])
+                              (map expected [:x :y :w :h])))]
+    {:handle-white-run-px (max-white-run-px bytes)
+     :target-screen-bounds expected
+     :outline-anchor-screen-bounds measured
+     :anchor-max-error-px delta}))
+
+(defn- run-chrome-golden! [device chrome-system mode]
+  (let [{:keys [case-id zoom pan ops] :as spec} (chrome-golden-spec mode)]
+    (-> (render-chrome-pair! device chrome-system ops zoom pan)
+        (.then
+         (fn [pair]
+           {:case-id case-id :zoom zoom
+            :regime (cond (< zoom 0.1) "legal-min"
+                          (<= zoom 8.0) "floor-default"
+                          :else "legal-max")
+            :normalization "container-local-anchor+screen-px-offset"
+            :shape-extent-world (if (= "selection-outline-handles" (:mode spec))
+                                  14.0 (/ 80.0 zoom))
+            :form-count (count ops)
+            :metric (when (= "selection-outline-handles" (:mode spec))
+                      (chrome-anchor-metric ops zoom pan (:bytes pair)))
+            :images [{:mode (:mode spec)
+                      :file (str "gpu-chrome-" (:mode spec) "-" case-id ".png")
+                      :raw-sha256 (:first-sha256 pair)
+                      :png-data-url (opaque-png-data-url (:bytes pair))
+                      :determinism
+                      {:first-raw-sha256 (:first-sha256 pair)
+                       :second-raw-sha256 (:second-sha256 pair)
+                       :byte-identical? (:byte-identical? pair)}}]})))))
+
+(defn- run-chrome-upload-gate! [chrome-system]
+  (let [ops (chrome-selection-ops 1.0)
+        first-write (chrome-gpu/prepare-chrome-frame! chrome-system ops)
+        equal-vector (chrome-gpu/prepare-chrome-frame! chrome-system
+                                                       (mapv identity ops))]
+    {:first-write first-write :equal-new-vector equal-vector
+     :pass? (and (:mesh-set-changed? first-write)
+                 (= 1 (:writes first-write))
+                 (not (:mesh-set-changed? equal-vector))
+                 (zero? (:writes equal-vector)))}))
+
+(defn- run-chrome-color! [device chrome-system]
+  (let [clear {:r 0.025 :g 0.06 :b 0.11 :a 1.0}
+        outline-op {:id :chrome/color-outline :address :chrome/color-outline
+                    :container 0 :container-idx 0 :owner-vi chrome-owner-vi
+                    :chrome/material
+                    (chrome-material :selection-outline 1.0
+                                     [32.0 32.0 64.0 64.0])}
+        marquee-op {:id :chrome/color-marquee :address :chrome/color-marquee
+                    :container 0 :container-idx 0 :owner-vi chrome-owner-vi
+                    :chrome/material
+                    (chrome-material :marquee 1.0
+                                     [32.0 32.0 64.0 64.0])}
+        expected-opaque (mapv #(js/Math.round (* 255.0 %))
+                              (take 3 (:selection-outline
+                                       chrome-material/colors)))
+        source-bytes (mapv #(js/Math.round (* 255.0 %))
+                           (take 3 (:marquee-fill chrome-material/colors)))
+        alpha (last (:marquee-fill chrome-material/colors))
+        expected-translucent
+        (mapv (fn [source background]
+                (linear->srgb-byte
+                 (+ (* (srgb->linear source) alpha)
+                    (* background (- 1.0 alpha)))))
+              source-bytes [0.025 0.06 0.11])]
+    (-> (render-chrome-bytes! device chrome-system [outline-op] 1.0
+                              :clear-value clear)
+        (.then
+         (fn [outline-bytes]
+           (let [opaque (subvec (vec (pixel-rgba outline-bytes 64 31)) 0 3)]
+             (-> (render-chrome-bytes! device chrome-system [marquee-op] 1.0
+                                       :clear-value clear)
+                 (.then
+                  (fn [marquee-bytes]
+                    (let [translucent
+                          (subvec (vec (pixel-rgba marquee-bytes 64 64)) 0 3)
+                          opaque-delta
+                          (apply max (map #(js/Math.abs (- %1 %2))
+                                          expected-opaque opaque))
+                          translucent-delta
+                          (apply max (map #(js/Math.abs (- %1 %2))
+                                          expected-translucent translucent))]
+                      {:opaque-outline
+                       {:sample [64 31] :expected expected-opaque :actual opaque
+                        :max-byte-delta opaque-delta
+                        :pass? (<= opaque-delta 3)}
+                       :translucent-marquee
+                       {:sample [64 64] :expected expected-translucent
+                        :actual translucent :max-byte-delta translucent-delta
+                        :pass? (<= translucent-delta 3)}
+                       :non-black-background true
+                       :scene-color :linear-premultiplied-srgb
+                       :pass? (and (<= opaque-delta 3)
+                                   (<= translucent-delta 3))}))))))))))
+
+(defn- verifier-entry [id family order paint pick]
+  {:entry/id id :material/id id :material/revision 0 :instance/id id
+   :family/id family :order order :paint paint :pick pick
+   :visibility {:visible? true :clip :none}})
+
+(defn- run-chrome-arrangement! []
+  (let [world-order {:stratum :world :pass-class :direct
+                     :stack-path [[:frame/root 100 100]]
+                     :part-rank 0 :stable-tie :world}
+        chrome-order {:stratum :overlay :pass-class :direct
+                      :stack-path [[:frame/root -1 -1]]
+                      :part-rank 0 :stable-tie :chrome}
+        product-order {:stratum :overlay :pass-class :direct
+                       :stack-path [[:frame/root 0 0]]
+                       :part-rank 0 :stable-tie :product}
+        entries [(verifier-entry :world :render.family/rect world-order
+                                 {:instance-count 1} {:geometry :rect})
+                 (verifier-entry :chrome :render.family/chrome chrome-order
+                                 {:vertex-count 6} {:geometry :chrome-handle})
+                 (verifier-entry :product :render.family/rect product-order
+                                 {:instance-count 1} :none)]
+        maintained (reduce
+                    (partial scene-tape/ordered-insert
+                             scene-tape/default-family-registry)
+                    (sorted-map-by scene-tape/entry-key-compare)
+                    entries)
+        maintained-forward (mapv :entry/id (vals maintained))
+        tape (scene-tape/compile-tape :chrome-order entries)
+        forward (mapv :entry/id (:entries tape))
+        picked (scene-tape/pick-reverse
+                tape #(contains? #{:world :chrome} (:entry/id %)))]
+    {:maintained-forward maintained-forward
+     :executor-forward forward
+     :reverse-first (get-in picked [:entry :entry/id])
+     :pass? (and (= [:world :chrome :product] maintained-forward)
+                 (= maintained-forward forward)
+                 (= :chrome (get-in picked [:entry :entry/id])))}))
+
+(defn- run-chrome-atom! [device adapter]
+  (let [tracker (gpu-budget/create-tracker
+                 (gpu-budget/snapshot-adapter-limits adapter))
+        camera (renderer/create-camera-buffer device tracker)
+        containers-buffer (renderer/create-containers-buffer device tracker)
+        system (chrome-gpu/init-chrome-system
+                device "rgba8unorm-srgb" camera containers-buffer
+                :tracker tracker :scene-color (scene-tape/scene-color true))]
+    (-> (promise-mapv (partial run-chrome-golden! device system)
+                      [:selection-z1 :selection-z8 :gesture-z0p1])
+        (.then
+         (fn [cases]
+           (-> (run-chrome-color! device system)
+               (.then
+                (fn [color]
+                  (let [z1 (get-in cases [0 :metric])
+                        z8 (get-in cases [1 :metric])
+                        metric-equal?
+                        (and (pos? (:handle-white-run-px z1))
+                             (= (:handle-white-run-px z1)
+                                (:handle-white-run-px z8)))
+                        width-ratio (/ (get-in z8 [:target-screen-bounds :w])
+                                       (get-in z1 [:target-screen-bounds :w]))
+                        anchor-tracks?
+                        (and (<= (:anchor-max-error-px z1) 1.0e-6)
+                             (<= (:anchor-max-error-px z8) 1.0e-6))
+                        hybrid {:metric-pixels-equal? metric-equal?
+                                :handle-white-run-px
+                                [(:handle-white-run-px z1)
+                                 (:handle-white-run-px z8)]
+                                :world-content-screen-scale width-ratio
+                                :world-content-scales-8x? (= 8.0 width-ratio)
+                                :anchor-tracks-content? anchor-tracks?
+                                :anchor-max-error-px
+                                [(:anchor-max-error-px z1)
+                                 (:anchor-max-error-px z8)]
+                                :stations [1.0 8.0]}
+                        determinism
+                        (mapcat #(map :determinism (:images %)) cases)
+                        arrangement (run-chrome-arrangement!)
+                        upload-gate (run-chrome-upload-gate! system)
+                        before (gpu-budget/snapshot tracker)
+                        registered
+                        (first (filter #(= "chrome/vertices" (:label %))
+                                       (:by-label before)))
+                        system-receipt (chrome-gpu/chrome-receipt system)
+                        _ (chrome-gpu/destroy-chrome-system! system)
+                        after (gpu-budget/snapshot tracker)
+                        released?
+                        (not-any? #(= "chrome/vertices" (:label %))
+                                  (:by-label after))
+                        resources
+                        {:registered registered
+                         :reserved-before (:reserved-bytes registered)
+                         :active-before (:active-bytes registered)
+                         :released-on-destroy? released?
+                         :budget-refusal-policy :gpu-budget/path-policy
+                         :device-loss-policy :existing-system-recreate-road
+                         :asset-unavailable :not-applicable-no-assets
+                         :pass? (and (some? registered) released?)}
+                        static {:new-namespaces 6
+                                :authority :node-runner-source-token-scan}
+                        pass? (and (= 3 (count cases))
+                                   (every? :byte-identical? determinism)
+                                   (:metric-pixels-equal? hybrid)
+                                   (:world-content-scales-8x? hybrid)
+                                   (:anchor-tracks-content? hybrid)
+                                   (:pass? arrangement) (:pass? upload-gate)
+                                   (:pass? color) (:pass? resources))]
+                    {:cases cases :hybrid-metric hybrid
+                     :arrangement arrangement :upload-gate upload-gate
+                     :color color :static-absence static
+                     :resources resources :system system-receipt
+                     :coverage :aliased-v1 :pass? pass?})))))))))
+
 ;; --- PATH ATOM --------------------------------------------------------------
 
 (defn- path-paint [color opacity]
@@ -2560,7 +2956,8 @@
                                             (run-connector-atom!
                                              device adapter t1-assets
                                              camera-buffer
-                                             containers-buffer)])
+                                             containers-buffer)
+                                            (run-chrome-atom! device adapter)])
                                       (.then
                                        (fn [values]
                                          {:schema-version 2
@@ -2587,6 +2984,7 @@
                                           :image-atom (aget values 3)
                                           :path-atom (aget values 4)
                                           :connector-atom (aget values 5)
+                                          :chrome-atom (aget values 6)
                                           :cases (aget values 0)})))))))))))))))))))
 
 (defn ^:export start! []

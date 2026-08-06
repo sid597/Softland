@@ -14,6 +14,7 @@
                       [app.server.rama.util-fns :as util-fns]])
             #?@(:cljs [[app.client.substrate.webgpu.renderer :as editor]
                        [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
+                       [app.client.workspace.chrome-runtime :as chrome-runtime]
                        [app.client.workspace.live-atoms :as live-atoms]
                        [app.client.workspace.live-edges :as live-edges]
                        [app.client.workspace.scene-runtime :as scene-runtime]
@@ -754,7 +755,8 @@
                     font-assets (get resources :font-assets)
                     pipelines (e/Task (await-promise (live-atoms/augment-pipelines! resources (editor/create-editor-state resources))))
                     _ (when-let [response (e/watch !live-edges-data)]
-                        (live-edges/mount-live-edges! response))]
+                        (live-edges/mount-live-edges! response))
+                    _ (chrome-runtime/frame-edge!)]
                 (js/console.log "[BOOT] Client resources ready"
                                 {:font-id (:id font-config)
                                  :font-backend (:backend font-assets)

@@ -749,6 +749,8 @@
                                     :path-system (:path-system (:pipelines geometry))
                                     :connector-system (:connector-system
                                                        (:pipelines geometry))
+                                    :chrome-system (:chrome-system
+                                                    (:pipelines geometry))
                                     :effective-transforms effective
                                     :font-assets font-assets
                                     :editor-rect-count (count editor-rects)
